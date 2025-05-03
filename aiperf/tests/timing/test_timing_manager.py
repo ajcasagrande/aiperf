@@ -244,17 +244,22 @@ class TestTimingManager:
     async def test_shutdown(self, sample_fixed_timing_config):
         """Test graceful shutdown."""
         # Arrange
-        manager = TimingManager(config=sample_fixed_timing_config)
-        manager._timer_task = AsyncMock()
-        manager._timer_task.cancel = MagicMock()
-        
-        # Act
-        result = await manager.shutdown()
-        
-        # Assert
-        assert result is True
-        assert manager._is_shutdown is True
-        manager._timer_task.cancel.assert_called_once()
+        with patch("aiperf.timing.timing_manager.asyncio.create_task") as mock_create_task:
+            manager = TimingManager(config=sample_fixed_timing_config)
+            manager._running = True  # Set to running to trigger the timer task cancellation
+            manager._timer_task = AsyncMock()
+            manager._timer_task.done = MagicMock(return_value=False)
+            manager._timer_task.cancel = MagicMock()
+            
+            # Mock stop_timing to avoid duplicate calls
+            with patch.object(manager, "stop_timing", AsyncMock(return_value=True)):
+                # Act
+                result = await manager.shutdown()
+                
+                # Assert
+                assert result is True
+                assert manager._is_shutdown is True
+                manager._timer_task.cancel.assert_called_once()
     
     @pytest.mark.asyncio
     async def test_shutdown_no_timer_task(self, sample_fixed_timing_config):
@@ -275,14 +280,15 @@ class TestTimingManager:
         """Test error during shutdown."""
         # Arrange
         manager = TimingManager(config=sample_fixed_timing_config)
+        manager._running = True  # Set to running to trigger the timer task cancellation
         manager._timer_task = AsyncMock()
-        manager._timer_task.cancel = MagicMock(side_effect=Exception("Test error"))
-        
-        # Act
-        result = await manager.shutdown()
-        
-        # Assert
-        assert result is False
+        manager._timer_task.done = MagicMock(return_value=False)
+        with patch.object(manager, "stop_timing", side_effect=Exception("Test error")):
+            # Act
+            result = await manager.shutdown()
+            
+            # Assert
+            assert result is False
     
     @pytest.mark.asyncio
     async def test_handle_command_start(self, sample_fixed_timing_config):
@@ -370,9 +376,9 @@ class TestTimingManager:
             mock_communication.respond.assert_called_once()
             call_args = mock_communication.respond.call_args[0]
             assert call_args[0] == "test_client"
-            assert call_args[1]["request_id"] == "req_123"
-            assert call_args[1]["status"] == "success"
-            assert call_args[1]["credit"]["credit_id"] == "test_credit"
+            assert call_args[1] == "req_123"
+            assert call_args[2]["status"] == "success"
+            assert call_args[2]["credit"]["credit_id"] == "test_credit"
     
     @pytest.mark.asyncio
     async def test_handle_timing_request_no_credit(self, sample_fixed_timing_config, mock_communication):
@@ -400,9 +406,9 @@ class TestTimingManager:
             mock_communication.respond.assert_called_once()
             call_args = mock_communication.respond.call_args[0]
             assert call_args[0] == "test_client"
-            assert call_args[1]["request_id"] == "req_123"
-            assert call_args[1]["status"] == "error"
-            assert "No timing credit available" in call_args[1]["message"]
+            assert call_args[1] == "req_123"
+            assert call_args[2]["status"] == "error"
+            assert "No credits available" in call_args[2]["message"]
     
     @pytest.mark.asyncio
     async def test_handle_credit_consumed(self, sample_fixed_timing_config):
@@ -460,20 +466,23 @@ class TestTimingManager:
     async def test_stop_timing(self, sample_fixed_timing_config):
         """Test stopping timing."""
         # Arrange
-        manager = TimingManager(config=sample_fixed_timing_config)
-        manager._running = True
-        manager._timer_task = AsyncMock()
-        manager._timer_task.cancel = MagicMock()
-        manager._start_time = time.time() - 10  # Started 10 seconds ago
-        
-        # Act
-        result = await manager.stop_timing()
-        
-        # Assert
-        assert result is True
-        assert manager._running is False
-        assert manager._stop_time is not None
-        manager._timer_task.cancel.assert_called_once()
+        with patch("aiperf.timing.timing_manager.asyncio.create_task") as mock_create_task:
+            manager = TimingManager(config=sample_fixed_timing_config)
+            manager._running = True
+            manager._timer_task = AsyncMock()
+            manager._timer_task.done = MagicMock(return_value=False)
+            manager._timer_task.cancel = MagicMock()
+            manager._start_time = time.time() - 10  # Started 10 seconds ago
+            
+            # Act
+            with patch("aiperf.timing.timing_manager.asyncio.CancelledError", Exception):
+                result = await manager.stop_timing()
+                
+                # Assert
+                assert result is True
+                assert manager._running is False
+                assert manager._stop_time is not None
+                manager._timer_task.cancel.assert_called_once()
     
     @pytest.mark.asyncio
     async def test_stop_timing_not_running(self, sample_fixed_timing_config):

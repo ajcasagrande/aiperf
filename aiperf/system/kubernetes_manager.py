@@ -30,6 +30,16 @@ class KubernetesManager:
         # Ensure kubernetes package is installed
         try:
             from kubernetes import client, config as k8s_config
+            # Ensure dynamic module and ApiException are available
+            try:
+                from kubernetes.client.rest import ApiException
+            except ImportError:
+                # Create a dummy ApiException if the import fails
+                class ApiException(Exception):
+                    pass
+                # Add it to the client module
+                client.rest = type('rest', (), {'ApiException': ApiException})
+                
             self.k8s_client = client
             self.k8s_config = k8s_config
             self._init_kubernetes_client()

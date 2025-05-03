@@ -95,6 +95,7 @@ class Metric:
     timestamp: float = field(default_factory=time.time)
     unit: Optional[str] = None
     labels: Dict[str, str] = field(default_factory=dict)
+    metadata: Dict[str, Any] = field(default_factory=dict)
     
     def as_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
@@ -103,7 +104,8 @@ class Metric:
             "value": self.value,
             "timestamp": self.timestamp,
             "unit": self.unit,
-            "labels": self.labels
+            "labels": self.labels,
+            "metadata": self.metadata
         }
 
 @dataclass

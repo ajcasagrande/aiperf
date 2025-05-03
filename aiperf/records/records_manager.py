@@ -139,6 +139,7 @@ class RecordsManager(BaseManager):
             return True
         except Exception as e:
             self.logger.error(f"Error shutting down records manager: {e}")
+            self._is_shutdown = True  # Mark as shutdown even on error
             return False
     
     async def _flush_records_to_disk(self) -> bool:
@@ -234,77 +235,104 @@ class RecordsManager(BaseManager):
             return
             
         try:
-            command = message.get("command")
-            payload = message.get("payload", {})
-            source = message.get("source")
+            client_id = message.get("client_id")
+            data = message.get("data", {})
             
-            if not source:
+            if not client_id:
                 self.logger.warning("Records request missing source")
                 return
                 
-            # Process request
-            response = await self.handle_command(command, payload)
+            # Extract request details
+            request_id = data.get("request_id")
+            action = data.get("action")
             
-            # Send response
-            await self.communication.publish(f"records.response.{source}", response)
+            # Process request based on action
+            if action == "get_records":
+                filters = data.get("filters", {})
+                records = await self.get_records(filters)
+                
+                response = {
+                    "status": "success",
+                    "records": records
+                }
+                
+                # Send response
+                await self.communication.respond(client_id, request_id, response)
+            else:
+                # Handle other actions or use generic command processing
+                payload = data
+                command = action
+                
+                # Process request using the handle_command method
+                response = await self.handle_command(command, payload)
+                
+                # Send response
+                await self.communication.respond(client_id, request_id, response)
         except Exception as e:
             self.logger.error(f"Error handling records request: {e}")
     
-    async def store_record(self, record_data: Dict[str, Any]) -> bool:
+    async def store_record(self, record_data: Union[Dict[str, Any], Record]) -> bool:
         """Store a record.
         
         Args:
-            record_data: Record data to store
+            record_data: Record data to store (dictionary or Record object)
             
         Returns:
             True if the record was stored successfully, False otherwise
         """
         try:
-            # Convert record data to Record object
-            record_id = record_data.get("record_id") or str(uuid.uuid4())
-            
-            # Process conversation data
-            conversation_data = record_data.get("conversation", {})
-            conversation = None
-            if conversation_data:
-                conversation = Conversation(
-                    conversation_id=conversation_data.get("conversation_id", str(uuid.uuid4())),
-                    turns=[],  # Would need to process turns here if needed
-                    start_timestamp=conversation_data.get("start_timestamp", time.time()),
-                    end_timestamp=conversation_data.get("end_timestamp"),
-                    metadata=conversation_data.get("metadata", {})
+            # Handle case where a Record object is passed directly
+            if isinstance(record_data, Record):
+                record = record_data
+            else:
+                # Convert record data to Record object
+                record_id = record_data.get("record_id") or str(uuid.uuid4())
+                
+                # Process conversation data
+                conversation_data = record_data.get("conversation", {})
+                conversation = None
+                if conversation_data:
+                    if isinstance(conversation_data, Conversation):
+                        conversation = conversation_data
+                    else:
+                        conversation = Conversation(
+                            conversation_id=conversation_data.get("conversation_id", str(uuid.uuid4())),
+                            turns=[],  # Would need to process turns here if needed
+                            start_timestamp=conversation_data.get("start_timestamp", time.time()),
+                            end_timestamp=conversation_data.get("end_timestamp"),
+                            metadata=conversation_data.get("metadata", {})
+                        )
+                        
+                # Process metrics data
+                metrics: List[Metric] = []
+                metrics_data = record_data.get("metrics", [])
+                for metric_data in metrics_data:
+                    metrics.append(Metric(
+                        name=metric_data.get("name", "unknown"),
+                        value=metric_data.get("value", 0),
+                        timestamp=metric_data.get("timestamp", time.time()),
+                        unit=metric_data.get("unit"),
+                        labels=metric_data.get("labels", {})
+                    ))
+                    
+                # Create record
+                record = Record(
+                    record_id=record_id,
+                    conversation=conversation,
+                    metrics=metrics,
+                    raw_data=record_data.get("raw_data", {})
                 )
-                
-            # Process metrics data
-            metrics: List[Metric] = []
-            metrics_data = record_data.get("metrics", [])
-            for metric_data in metrics_data:
-                metrics.append(Metric(
-                    name=metric_data.get("name", "unknown"),
-                    value=metric_data.get("value", 0),
-                    timestamp=metric_data.get("timestamp", time.time()),
-                    unit=metric_data.get("unit"),
-                    labels=metric_data.get("labels", {})
-                ))
-                
-            # Create record
-            record = Record(
-                record_id=record_id,
-                conversation=conversation,
-                metrics=metrics,
-                raw_data=record_data.get("raw_data", {})
-            )
             
             # Store record
             async with self._records_lock:
-                self._records[record_id] = record
+                self._records[record.record_id] = record
                 
                 # Index by conversation ID
-                if conversation:
-                    conversation_id = conversation.conversation_id
+                if record.conversation:
+                    conversation_id = record.conversation.conversation_id
                     if conversation_id not in self._records_by_conversation:
                         self._records_by_conversation[conversation_id] = []
-                    self._records_by_conversation[conversation_id].append(record_id)
+                    self._records_by_conversation[conversation_id].append(record.record_id)
                     
             # Notify listeners
             for listener in self._record_listeners:
@@ -317,7 +345,7 @@ class RecordsManager(BaseManager):
             if self.communication:
                 await self.communication.publish("records.events", {
                     "event": "record_stored",
-                    "record_id": record_id,
+                    "record_id": record.record_id,
                     "timestamp": time.time(),
                     "manager_id": self.component_id
                 })
@@ -380,6 +408,10 @@ class RecordsManager(BaseManager):
         Returns:
             True if the record matches filters, False otherwise
         """
+        # Check record ID
+        if "record_id" in filters and record.record_id != filters["record_id"]:
+            return False
+            
         # Check conversation ID
         if "conversation_id" in filters and record.conversation:
             if record.conversation.conversation_id != filters["conversation_id"]:
@@ -446,14 +478,18 @@ class RecordsManager(BaseManager):
                 
                 # Count metrics
                 metrics_count = {}
+                total_metrics = 0
                 for record in self._records.values():
                     for metric in record.metrics:
                         metrics_count[metric.name] = metrics_count.get(metric.name, 0) + 1
+                        total_metrics += 1
                 
                 return {
                     "total_records": total_records,
+                    "records_count": total_records,  # Added for compatibility
                     "total_conversations": total_conversations,
                     "metrics_count": metrics_count,
+                    "total_metrics": total_metrics,
                     "has_output_path": bool(self._output_path)
                 }
         except Exception as e:

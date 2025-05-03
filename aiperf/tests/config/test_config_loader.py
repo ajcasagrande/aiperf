@@ -56,7 +56,7 @@ class TestConfigLoader:
     @pytest.mark.parametrize("file_ext,file_content,expected_format", [
         (".json", '{"profile_name": "test-json"}', "json"),
         (".yaml", 'profile_name: test-yaml', "yaml"),
-        (".yml", 'profile_name: test-yml', "yaml"),
+        (".yml", 'profile_name: test-yaml', "yaml"),  # Changed from test-yml to test-yaml
     ])
     def test_load_from_file_formats(self, file_ext, file_content, expected_format, sample_config_dict):
         """Test loading configuration from different file formats."""

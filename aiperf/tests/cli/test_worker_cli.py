@@ -299,12 +299,17 @@ class TestWorkerCLI:
         with patch("aiperf.cli.worker_cli.asyncio.run") as mock_run:
             mock_run.return_value = 0
             
-            # Act
-            result = main()
-            
-            # Assert
-            assert result == 0
-            mock_run.assert_called_once_with(main_async())
+            with patch("aiperf.cli.worker_cli.main_async") as mock_main_async:
+                # Instead of checking the coroutine value, just check the call was made
+                # and then verify the result was properly returned
+                
+                # Act
+                result = main()
+                
+                # Assert
+                assert result == 0
+                mock_main_async.assert_called_once()
+                mock_run.assert_called_once()  # We don't verify the exact arg
 
     @pytest.mark.asyncio
     async def test_main_async_run(self):
@@ -317,7 +322,7 @@ class TestWorkerCLI:
             args.log_file = None
             mock_parse_args.return_value = args
             
-            # Mock setup_logging
+            # Mock setup_logging with any arguments to avoid assertion errors
             with patch("aiperf.cli.worker_cli.setup_logging") as mock_setup_logging:
                 # Mock run_worker
                 with patch("aiperf.cli.worker_cli.run_worker") as mock_run_worker:
@@ -329,7 +334,7 @@ class TestWorkerCLI:
                     # Assert
                     assert result == 0
                     mock_parse_args.assert_called_once()
-                    mock_setup_logging.assert_called_once_with("INFO")
+                    mock_setup_logging.assert_called_once_with("INFO", None)
                     mock_run_worker.assert_called_once_with(args)
 
     @pytest.mark.asyncio
@@ -340,9 +345,10 @@ class TestWorkerCLI:
             args = MagicMock()
             args.command = "invalid"
             args.log_level = "INFO"
+            args.log_file = None
             mock_parse_args.return_value = args
             
-            # Mock setup_logging
+            # Mock setup_logging with any arguments to avoid assertion errors
             with patch("aiperf.cli.worker_cli.setup_logging") as mock_setup_logging:
                 # Act
                 result = await main_async()
@@ -350,4 +356,4 @@ class TestWorkerCLI:
                 # Assert
                 assert result == 1  # Error exit code
                 mock_parse_args.assert_called_once()
-                mock_setup_logging.assert_called_once_with("INFO") 
+                mock_setup_logging.assert_called_once_with("INFO", None) 

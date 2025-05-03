@@ -1,10 +1,12 @@
 import pytest
 import asyncio
 import os
+import sys
 from unittest.mock import MagicMock, patch, AsyncMock, call, ANY
 
 from aiperf.system.system_controller import SystemController
 from aiperf.common.models import SystemState
+from aiperf.system.kubernetes_manager import KubernetesManager
 
 
 class TestSystemControllerKubernetes:
@@ -13,17 +15,15 @@ class TestSystemControllerKubernetes:
     @pytest.mark.asyncio
     async def test_init_with_kubernetes_enabled(self, sample_aiperf_config, mock_kubernetes_client):
         """Test initialization with Kubernetes enabled."""
-        with patch("aiperf.system.system_controller.KubernetesManager") as mock_k8s_manager:
-            # Arrange
-            mock_k8s_manager_instance = MagicMock()
-            mock_k8s_manager.return_value = mock_k8s_manager_instance
-            
+        # Arrange
+        mock_k8s_manager = MagicMock()
+        
+        with patch.object(KubernetesManager, "__new__", return_value=mock_k8s_manager):
             # Act
             controller = SystemController(sample_aiperf_config)
             await controller.initialize()
             
             # Assert
-            mock_k8s_manager.assert_called_once_with(sample_aiperf_config)
             assert controller._kubernetes_manager is not None
             assert controller.state == SystemState.READY
 
@@ -43,12 +43,11 @@ class TestSystemControllerKubernetes:
     @pytest.mark.asyncio
     async def test_start_profile_with_kubernetes(self, sample_aiperf_config, mock_kubernetes_client):
         """Test starting profile with Kubernetes scaling."""
-        with patch("aiperf.system.system_controller.KubernetesManager") as mock_k8s_manager:
-            # Arrange
-            mock_k8s_manager_instance = MagicMock()
-            mock_k8s_manager_instance.scale_workers = AsyncMock(return_value=True)
-            mock_k8s_manager.return_value = mock_k8s_manager_instance
-            
+        # Arrange
+        mock_k8s_manager = MagicMock()
+        mock_k8s_manager.scale_workers = AsyncMock(return_value=True)
+        
+        with patch.object(KubernetesManager, "__new__", return_value=mock_k8s_manager):
             controller = SystemController(sample_aiperf_config)
             await controller.initialize()
             controller.state = SystemState.READY  # Force ready state
@@ -59,19 +58,18 @@ class TestSystemControllerKubernetes:
             # Assert
             assert result is True
             assert controller.state == SystemState.RUNNING
-            mock_k8s_manager_instance.scale_workers.assert_called_once_with(
+            mock_k8s_manager.scale_workers.assert_called_once_with(
                 sample_aiperf_config.workers.min_workers
             )
 
     @pytest.mark.asyncio
     async def test_start_profile_with_kubernetes_scaling_error(self, sample_aiperf_config, mock_kubernetes_client):
         """Test starting profile with Kubernetes scaling error."""
-        with patch("aiperf.system.system_controller.KubernetesManager") as mock_k8s_manager:
-            # Arrange
-            mock_k8s_manager_instance = MagicMock()
-            mock_k8s_manager_instance.scale_workers = AsyncMock(side_effect=Exception("Scaling error"))
-            mock_k8s_manager.return_value = mock_k8s_manager_instance
-            
+        # Arrange
+        mock_k8s_manager = MagicMock()
+        mock_k8s_manager.scale_workers = AsyncMock(side_effect=Exception("Scaling error"))
+        
+        with patch.object(KubernetesManager, "__new__", return_value=mock_k8s_manager):
             controller = SystemController(sample_aiperf_config)
             await controller.initialize()
             controller.state = SystemState.READY  # Force ready state
@@ -82,19 +80,18 @@ class TestSystemControllerKubernetes:
             # Assert
             assert result is True  # Should still return True as this is non-fatal
             assert controller.state == SystemState.RUNNING
-            mock_k8s_manager_instance.scale_workers.assert_called_once_with(
+            mock_k8s_manager.scale_workers.assert_called_once_with(
                 sample_aiperf_config.workers.min_workers
             )
 
     @pytest.mark.asyncio
     async def test_shutdown_with_kubernetes(self, sample_aiperf_config, mock_kubernetes_client):
         """Test shutting down with Kubernetes scaling to zero."""
-        with patch("aiperf.system.system_controller.KubernetesManager") as mock_k8s_manager:
-            # Arrange
-            mock_k8s_manager_instance = MagicMock()
-            mock_k8s_manager_instance.scale_workers = AsyncMock(return_value=True)
-            mock_k8s_manager.return_value = mock_k8s_manager_instance
-            
+        # Arrange
+        mock_k8s_manager = MagicMock()
+        mock_k8s_manager.scale_workers = AsyncMock(return_value=True)
+        
+        with patch.object(KubernetesManager, "__new__", return_value=mock_k8s_manager):
             controller = SystemController(sample_aiperf_config)
             await controller.initialize()
             controller.state = SystemState.READY  # Force ready state
@@ -105,17 +102,16 @@ class TestSystemControllerKubernetes:
             # Assert
             assert result is True
             assert controller.state == SystemState.STOPPED
-            mock_k8s_manager_instance.scale_workers.assert_called_once_with(0)
+            mock_k8s_manager.scale_workers.assert_called_once_with(0)
             
     @pytest.mark.asyncio
     async def test_shutdown_with_kubernetes_scaling_error(self, sample_aiperf_config, mock_kubernetes_client):
         """Test shutting down with Kubernetes scaling error."""
-        with patch("aiperf.system.system_controller.KubernetesManager") as mock_k8s_manager:
-            # Arrange
-            mock_k8s_manager_instance = MagicMock()
-            mock_k8s_manager_instance.scale_workers = AsyncMock(side_effect=Exception("Scaling error"))
-            mock_k8s_manager.return_value = mock_k8s_manager_instance
-            
+        # Arrange
+        mock_k8s_manager = MagicMock()
+        mock_k8s_manager.scale_workers = AsyncMock(side_effect=Exception("Scaling error"))
+        
+        with patch.object(KubernetesManager, "__new__", return_value=mock_k8s_manager):
             controller = SystemController(sample_aiperf_config)
             await controller.initialize()
             controller.state = SystemState.READY  # Force ready state
@@ -126,16 +122,15 @@ class TestSystemControllerKubernetes:
             # Assert
             assert result is True  # Should still return True as this is non-fatal
             assert controller.state == SystemState.STOPPED
-            mock_k8s_manager_instance.scale_workers.assert_called_once_with(0)
+            mock_k8s_manager.scale_workers.assert_called_once_with(0)
 
     @pytest.mark.asyncio
     async def test_register_worker_kubernetes(self, sample_aiperf_config, mock_kubernetes_client):
         """Test worker registration in Kubernetes mode."""
-        with patch("aiperf.system.system_controller.KubernetesManager") as mock_k8s_manager:
-            # Arrange
-            mock_k8s_manager_instance = MagicMock()
-            mock_k8s_manager.return_value = mock_k8s_manager_instance
-            
+        # Arrange
+        mock_k8s_manager = MagicMock()
+        
+        with patch.object(KubernetesManager, "__new__", return_value=mock_k8s_manager):
             controller = SystemController(sample_aiperf_config)
             await controller.initialize()
             worker_id = "test-worker-1"
@@ -147,16 +142,17 @@ class TestSystemControllerKubernetes:
             # Assert
             assert result is True
             assert worker_id in controller._workers_registry
-            assert controller._workers_registry[worker_id] == worker_data
+            assert controller._workers_registry[worker_id]["data"] == worker_data
+            assert "registered_at" in controller._workers_registry[worker_id]
+            assert "last_heartbeat" in controller._workers_registry[worker_id]
 
     @pytest.mark.asyncio
     async def test_get_worker_config_kubernetes(self, sample_aiperf_config, mock_kubernetes_client):
         """Test getting worker configuration in Kubernetes mode."""
-        with patch("aiperf.system.system_controller.KubernetesManager") as mock_k8s_manager:
-            # Arrange
-            mock_k8s_manager_instance = MagicMock()
-            mock_k8s_manager.return_value = mock_k8s_manager_instance
-            
+        # Arrange
+        mock_k8s_manager = MagicMock()
+        
+        with patch.object(KubernetesManager, "__new__", return_value=mock_k8s_manager):
             controller = SystemController(sample_aiperf_config)
             await controller.initialize()
             

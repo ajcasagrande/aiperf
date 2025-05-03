@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 from ..common.base_manager import BaseComponent
 from ..common.models import SystemState
 from ..config.config_models import AIperfConfig
+from .kubernetes_manager import KubernetesManager
 
 class SystemController(BaseComponent):
     """System controller for AIPerf.
@@ -45,7 +46,6 @@ class SystemController(BaseComponent):
         # Initialize Kubernetes manager if enabled
         if self.aiperf_config.kubernetes.enabled:
             try:
-                from .kubernetes_manager import KubernetesManager
                 self._kubernetes_manager = KubernetesManager(self.aiperf_config)
                 self.logger.info("Kubernetes support enabled")
             except ImportError:

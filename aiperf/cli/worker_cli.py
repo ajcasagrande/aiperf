@@ -13,7 +13,7 @@ if __name__ == "__main__":
     sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from aiperf.workers.worker import Worker
-from aiperf.common.communication import ZMQCommunication
+from aiperf.common.zmq_communication import ZMQCommunication
 from aiperf.util.logging_util import setup_logging
 
 def parse_args() -> argparse.Namespace:

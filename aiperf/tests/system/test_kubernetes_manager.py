@@ -40,14 +40,17 @@ class TestKubernetesManager:
         # Arrange
         manager = KubernetesManager(sample_aiperf_config)
         
-        # Mock the private methods
-        manager._generate_manifests = asyncio.coroutine(lambda: None)
-        manager._ensure_namespace = asyncio.coroutine(lambda: None)
-        manager._apply_config_map = asyncio.coroutine(lambda: None)
-        manager._ensure_pvc = asyncio.coroutine(lambda: None)
-        manager._apply_controller_deployment = asyncio.coroutine(lambda: None)
-        manager._apply_worker_deployment = asyncio.coroutine(lambda: None)
-        manager._apply_services = asyncio.coroutine(lambda: None)
+        # Mock the private methods with async functions
+        async def mock_generate_manifests():
+            pass
+            
+        manager._generate_manifests = mock_generate_manifests
+        manager._ensure_namespace = mock_generate_manifests
+        manager._apply_config_map = mock_generate_manifests
+        manager._ensure_pvc = mock_generate_manifests
+        manager._apply_controller_deployment = mock_generate_manifests
+        manager._apply_worker_deployment = mock_generate_manifests
+        manager._apply_services = mock_generate_manifests
         
         # Act
         result = await manager.apply_resources()
@@ -61,8 +64,11 @@ class TestKubernetesManager:
         # Arrange
         manager = KubernetesManager(sample_aiperf_config)
         
-        # Mock the private methods
-        manager._generate_manifests = asyncio.coroutine(lambda: None)
+        # Mock the private methods with async functions
+        async def mock_generate_manifests():
+            pass
+            
+        manager._generate_manifests = mock_generate_manifests
         manager._print_manifests = MagicMock()
         
         # Act
@@ -78,8 +84,11 @@ class TestKubernetesManager:
         # Arrange
         manager = KubernetesManager(sample_aiperf_config)
         
-        # Mock the private methods to raise an exception
-        manager._generate_manifests = asyncio.coroutine(lambda: (_ for _ in ()).throw(Exception("Test error")))
+        # Mock the private methods with async functions
+        async def mock_generate_manifests():
+            raise Exception("Test error")
+            
+        manager._generate_manifests = mock_generate_manifests
         
         # Act
         result = await manager.apply_resources()

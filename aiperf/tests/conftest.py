@@ -224,43 +224,67 @@ def sample_config_file(sample_kubernetes_yaml, tmp_path):
 @pytest.fixture
 def mock_kubernetes_client():
     """Mock Kubernetes client for testing."""
-    with patch("kubernetes.client") as mock_client:
-        # Set up core API mocks
-        core_api = MagicMock()
-        mock_client.CoreV1Api.return_value = core_api
-        
-        # Set up apps API mocks
-        apps_api = MagicMock()
-        mock_client.AppsV1Api.return_value = apps_api
-        
-        # Set up batch API mocks
-        batch_api = MagicMock()
-        mock_client.BatchV1Api.return_value = batch_api
-        
-        # Mock successful namespace read
-        core_api.read_namespace.return_value = MagicMock()
-        
-        # Mock successful deployment creation
-        apps_api.create_namespaced_deployment.return_value = MagicMock()
-        
-        # Mock successful service creation
-        core_api.create_namespaced_service.return_value = MagicMock()
-        
-        # Mock successful config map creation
-        core_api.create_namespaced_config_map.return_value = MagicMock()
-        
+    mock_client = MagicMock()
+    
+    # Set up core API mocks
+    core_api = MagicMock()
+    mock_client.CoreV1Api.return_value = core_api
+    
+    # Set up apps API mocks
+    apps_api = MagicMock()
+    mock_client.AppsV1Api.return_value = apps_api
+    
+    # Set up batch API mocks
+    batch_api = MagicMock()
+    mock_client.BatchV1Api.return_value = batch_api
+    
+    # Mock successful namespace read
+    core_api.read_namespace.return_value = MagicMock()
+    
+    # Mock successful deployment creation
+    apps_api.create_namespaced_deployment.return_value = MagicMock()
+    
+    # Mock successful service creation
+    core_api.create_namespaced_service.return_value = MagicMock()
+    
+    # Mock successful config map creation
+    core_api.create_namespaced_config_map.return_value = MagicMock()
+    
+    # Create a mock for rest module with ApiException
+    mock_rest = MagicMock()
+    mock_api_exception = type('ApiException', (Exception,), {})
+    mock_rest.ApiException = mock_api_exception
+    mock_client.rest = mock_rest
+    
+    # Patch kubernetes.client and kubernetes.client.rest
+    with patch.dict('sys.modules', {
+        'kubernetes.client': mock_client,
+        'kubernetes.client.rest': mock_rest,
+    }):
         yield mock_client
 
 @pytest.fixture
 def mock_kubernetes_config():
     """Mock Kubernetes config for testing."""
-    with patch("kubernetes.config") as mock_config:
-        # Set up config mocks
-        mock_config.load_kube_config = MagicMock()
-        mock_config.load_incluster_config = MagicMock(
-            side_effect=Exception("Not in cluster")
-        )
-        
+    mock_config = MagicMock()
+    
+    # Set up config mocks
+    mock_config.load_kube_config = MagicMock()
+    mock_config.load_incluster_config = MagicMock(
+        side_effect=Exception("Not in cluster")
+    )
+    
+    # Create a mock for dynamic module
+    mock_dynamic = MagicMock()
+    mock_client_mod = MagicMock()
+    mock_dynamic.client = mock_client_mod
+    
+    # Patch kubernetes.config and kubernetes.dynamic
+    with patch.dict('sys.modules', {
+        'kubernetes.config': mock_config,
+        'kubernetes.dynamic': mock_dynamic,
+        'kubernetes.dynamic.client': mock_client_mod,
+    }):
         yield mock_config
 
 @pytest.fixture
@@ -322,7 +346,18 @@ def sample_timing_credit() -> TimingCredit:
 
 @pytest.fixture(scope="session")
 def event_loop():
-    """Create an event loop for each test session."""
+    """Create an event loop for each test session.
+    
+    Note: This is kept for backward compatibility. 
+    Future tests should use the pytest-asyncio marker with loop_scope instead.
+    """
+    import warnings
+    warnings.warn(
+        "The custom event_loop fixture is deprecated. "
+        "Use @pytest.mark.asyncio(loop_scope='session') instead.",
+        DeprecationWarning,
+        stacklevel=2
+    )
     loop = asyncio.get_event_loop_policy().new_event_loop()
     yield loop
     loop.close() 

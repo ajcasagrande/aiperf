@@ -310,6 +310,9 @@ class TestOpenAIClient:
         mock_response.status = 200
         mock_response.json.return_value = {"status": "ok"}
         
+        # We need to set up the GET method for health check
+        mock_session.return_value.get.return_value.__aenter__.return_value = mock_response
+        
         # Act
         result = await client.health_check()
         
@@ -327,6 +330,9 @@ class TestOpenAIClient:
         # Set up mock response for health check
         mock_response.status = 500
         
+        # We need to set up the GET method for health check
+        mock_session.return_value.get.return_value.__aenter__.return_value = mock_response
+        
         # Act
         result = await client.health_check()
         
@@ -341,8 +347,8 @@ class TestOpenAIClient:
         client = OpenAIClient(sample_endpoint_config)
         await client.initialize()
         
-        # Make post raise an exception
-        mock_session.return_value.post.side_effect = Exception("Test error")
+        # Make get raise an exception
+        mock_session.return_value.get.side_effect = Exception("Test error")
         
         # Act
         result = await client.health_check()
