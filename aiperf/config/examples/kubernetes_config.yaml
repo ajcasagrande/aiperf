@@ -1,0 +1,72 @@
+profile_name: kubernetes_example
+endpoints:
+  - name: example_endpoint
+    url: https://api.example.com/v1/chat/completions
+    api_type: openai
+    headers:
+      Content-Type: application/json
+    timeout: 30.0
+    weight: 1.0
+
+dataset:
+  source_type: synthetic
+  name: synthetic_dataset
+  modality: text
+  synthetic_params:
+    seed: 42
+    pre_generate: 100
+
+timing:
+  schedule_type: poisson
+  parameters:
+    request_rate: 5.0  # Requests per second
+    duration: 300.0    # Test duration in seconds
+  start_delay: 5.0
+
+workers:
+  min_workers: 10
+  max_workers: 50
+  worker_startup_timeout: 30.0
+  worker_idle_timeout: 300.0
+  worker_keepalive_interval: 10.0
+
+metrics:
+  enabled_metrics:
+    - latency
+    - tps
+    - conversation_duration
+    - tokens_per_second
+  output_format: json
+  output_path: /aiperf-data/results.json
+  live_metrics: true
+  server_metrics: true
+  gpu_telemetry: true
+
+communication:
+  type: zmq  # Must be zmq for Kubernetes
+  pub_address: tcp://*:5557
+  sub_address: tcp://*:5558
+  req_address: tcp://*:5559
+  rep_address: tcp://*:5560
+
+kubernetes:
+  enabled: true
+  namespace: aiperf
+  image: aiperf:latest
+  pull_policy: IfNotPresent
+  resource_requests:
+    cpu: 200m
+    memory: 256Mi
+  resource_limits:
+    cpu: 1
+    memory: 1Gi
+  persistent_volume_claim: aiperf-data
+  labels:
+    app: aiperf
+    env: testing
+
+endpoint_selection: ROUND_ROBIN
+log_level: INFO
+debug_mode: false
+deterministic: true
+seed: 42 

@@ -1,0 +1,91 @@
+profile_name: "openai_benchmark"
+log_level: "INFO"
+debug_mode: false
+deterministic: true
+seed: 42
+endpoint_selection: "ROUND_ROBIN"
+
+# Endpoint configurations
+endpoints:
+  - name: "openai_example"
+    url: "https://api.openai.com/v1"
+    api_type: "openai"
+    headers:
+      Content-Type: "application/json"
+    auth:
+      api_key: "YOUR_API_KEY"  # Replace with your actual API key
+    timeout: 60.0
+    metadata:
+      description: "OpenAI API endpoint"
+
+# Dataset configuration
+dataset:
+  source_type: "synthetic"
+  name: "text_completion"
+  parameters:
+    num_prompts: 100
+    prompt_template: "Write a short paragraph about {topic}."
+    topics:
+      - "artificial intelligence"
+      - "machine learning"
+      - "natural language processing"
+      - "computer vision"
+      - "robotics"
+  modality: "text"
+  synthetic_params:
+    min_length: 50
+    max_length: 200
+    temperature: 0.7
+  metadata:
+    description: "Synthetic text completion dataset"
+
+# Timing configuration
+timing:
+  schedule_type: "poisson"
+  parameters:
+    rate: 10  # Requests per second
+  duration: 300  # 5 minutes
+  start_delay: 2.0
+  metadata:
+    description: "Poisson distribution with rate of 10 requests per second"
+
+# Worker configuration
+workers:
+  min_workers: 5
+  max_workers: 20
+  worker_startup_timeout: 30.0
+  worker_idle_timeout: 300.0
+  worker_keepalive_interval: 10.0
+  metadata:
+    description: "Worker configuration with 5-20 workers"
+
+# Metrics configuration
+metrics:
+  enabled_metrics:
+    - "time_to_first_token"
+    - "time_to_second_token"
+    - "inter_token_latency"
+    - "request_latency"
+    - "output_sequence_length"
+    - "input_sequence_length"
+    - "output_token_throughput"
+    - "request_throughput"
+    - "output_token_per_second_per_user"
+  output_format: "json"
+  output_path: "./reports/openai_benchmark_report.json"
+  live_metrics: true
+  server_metrics: false  # No server metrics for OpenAI API
+  gpu_telemetry: false   # No GPU telemetry for OpenAI API
+  metadata:
+    description: "Metrics configuration for OpenAI benchmark"
+
+# Additional metadata
+metadata:
+  description: "Benchmark of OpenAI API for text completion"
+  author: "AIPerf Team"
+  version: "1.0"
+  tags:
+    - "openai"
+    - "text"
+    - "completion"
+    - "benchmark" 
