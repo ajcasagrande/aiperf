@@ -1,0 +1,85 @@
+profile_name: "test_benchmark"
+log_level: "DEBUG" # Set to DEBUG for more detailed logs
+debug_mode: true # Enable debug mode globally
+deterministic: true
+seed: 42
+endpoint_selection: "ROUND_ROBIN"
+
+# Communication configuration - keep in memory for testing
+communication:
+  type: "memory"
+
+# Endpoint configurations - use a placeholder API key
+endpoints:
+  - name: "test_endpoint"
+    url: "https://api.openai.com/v1"
+    api_type: "openai"
+    headers:
+      Content-Type: "application/json"
+    auth:
+      api_key: "YOUR_API_KEY" # Set your API key here
+    timeout: 60.0
+    metadata:
+      description: "Test endpoint"
+      debug_mode: true # Enable debug mode for this endpoint
+
+# Dataset configuration - use a minimal set of prompts
+dataset:
+  source_type: "synthetic"
+  name: "test_completion"
+  parameters:
+    num_prompts: 5 # Reduced for testing
+    prompt_template: "Write one sentence about {topic}."
+    topics:
+      - "artificial intelligence"
+      - "machine learning"
+    tokenizer_model: "gpt2"
+    tiktoken_encoding: "cl100k_base"
+  modality: "text"
+  synthetic_params:
+    min_length: 10
+    max_length: 50
+    temperature: 0.7
+  metadata:
+    description: "Test dataset"
+
+# Timing configuration - shorter duration for testing
+timing:
+  schedule_type: "poisson"
+  parameters:
+    request_rate: 1 # 1 request per second for testing
+  duration: 20 # 20 seconds for testing
+  start_delay: 2.0
+  metadata:
+    description: "Test timing configuration"
+
+# Worker configuration - just one worker for testing
+workers:
+  min_workers: 1
+  max_workers: 2
+  worker_startup_timeout: 30.0
+  worker_idle_timeout: 60.0
+  worker_keepalive_interval: 5.0
+  metadata:
+    description: "Test worker configuration"
+
+# Metrics configuration
+metrics:
+  enabled_metrics:
+    - "request_latency"
+    - "output_sequence_length"
+  output_format: "json"
+  output_path: "./reports/test_report.json"
+  live_metrics: true
+  server_metrics: false
+  gpu_telemetry: false
+  metadata:
+    description: "Test metrics configuration"
+
+# Additional metadata
+metadata:
+  description: "Test benchmark configuration"
+  author: "AIPerf Tester"
+  version: "1.0"
+  tags:
+    - "test"

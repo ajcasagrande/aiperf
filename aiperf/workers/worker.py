@@ -26,15 +26,14 @@ class Worker(BaseComponent):
             endpoint_config: Endpoint configuration
             component_id: Optional component ID
         """
-        super().__init__(
-            component_id=component_id or f"worker_{uuid.uuid4().hex[:8]}",
-            config=endpoint_config.__dict__,
-        )
+        self.component_id = component_id or f"worker_{uuid.uuid4().hex[:8]}"
         self.endpoint_config = endpoint_config
-        self._active_conversations: Dict[str, Conversation] = {}
+        self.logger = logging.getLogger(f"worker.{self.component_id}")
         self._is_initialized = False
-        self._lock = asyncio.Lock()
+        self._is_shutdown = False
         self._idle = True
+        self._lock = asyncio.Lock()
+        self._active_conversations: Dict[str, Conversation] = {}
 
     async def initialize(self) -> bool:
         """Initialize the worker.
@@ -42,16 +41,18 @@ class Worker(BaseComponent):
         Returns:
             True if initialization was successful, False otherwise
         """
-        self.logger.info(
-            f"Initializing worker for endpoint: {self.endpoint_config.name}"
-        )
-
         try:
-            # Initialize client for endpoint based on configuration
-            await self._initialize_client()
+            self.logger.info(f"Initializing worker {self.component_id}")
+
+            # Initialize client for API requests
+            if hasattr(self, "_initialize_client"):
+                success = await self._initialize_client()
+                if not success:
+                    self.logger.error("Failed to initialize API client")
+                    return False
 
             self._is_initialized = True
-            self._is_ready = True
+            self.logger.info(f"Worker {self.component_id} initialized successfully")
             return True
         except Exception as e:
             self.logger.error(f"Error initializing worker: {e}")
@@ -84,8 +85,8 @@ class Worker(BaseComponent):
         Returns:
             True if shutdown was successful, False otherwise
         """
-        self.logger.info("Shutting down worker")
         self._is_shutdown = True
+        self._is_initialized = False
         return True
 
     @property
@@ -144,3 +145,26 @@ class Worker(BaseComponent):
             Processed response data or None if processing failed
         """
         pass
+
+    async def keep_alive(self) -> bool:
+        """Check if the worker is alive and healthy.
+
+        Returns:
+            True if worker is healthy, False otherwise
+        """
+        return self._is_initialized and not self._is_shutdown
+
+    def get_stats(self) -> Dict[str, Any]:
+        """Get worker statistics.
+
+        Returns:
+            Dictionary with worker statistics
+        """
+        return {
+            "worker_id": self.component_id,
+            "endpoint": self.endpoint_config.name,
+            "is_idle": self._idle,
+            "is_initialized": self._is_initialized,
+            "is_shutdown": self._is_shutdown,
+            "active_conversations": len(self._active_conversations),
+        }

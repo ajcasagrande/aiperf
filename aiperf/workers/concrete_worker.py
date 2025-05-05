@@ -35,6 +35,34 @@ class ConcreteWorker(Worker):
         self._success_count = 0
         self._error_count = 0
 
+    async def initialize(self) -> bool:
+        """Initialize the worker.
+
+        Returns:
+            True if initialization was successful, False otherwise
+        """
+        try:
+            self.logger.info(
+                f"Initializing concrete worker {self.component_id} for endpoint: {self.endpoint_config.name}"
+            )
+
+            # Initialize client for the endpoint
+            success = await self._initialize_client()
+            if not success:
+                self.logger.error(
+                    f"Failed to initialize client for endpoint: {self.endpoint_config.name}"
+                )
+                return False
+
+            self._is_initialized = True
+            self.logger.info(
+                f"Worker {self.component_id} initialized successfully with endpoint {self.endpoint_config.name}"
+            )
+            return True
+        except Exception as e:
+            self.logger.error(f"Error initializing worker: {e}")
+            return False
+
     async def _initialize_client(self) -> bool:
         """Initialize client for the endpoint.
 
@@ -46,13 +74,48 @@ class ConcreteWorker(Worker):
                 # Client already initialized
                 return True
 
-            # Create client through factory
+            # Ensure debug_mode is properly set in the endpoint config
+            debug_mode = False
+            if (
+                hasattr(self.endpoint_config, "metadata")
+                and isinstance(self.endpoint_config.metadata, dict)
+                and "debug_mode" in self.endpoint_config.metadata
+            ):
+                debug_mode = self.endpoint_config.metadata.get("debug_mode", False)
+                self.logger.info(f"Using debug_mode={debug_mode} from endpoint config")
+            else:
+                self.logger.info(
+                    "No debug_mode found in endpoint config, defaulting to False"
+                )
+
+                # Ensure metadata exists and is a dict
+                if not hasattr(self.endpoint_config, "metadata") or not isinstance(
+                    self.endpoint_config.metadata, dict
+                ):
+                    self.endpoint_config.metadata = {}
+
+                # Explicitly set debug_mode in metadata
+                self.endpoint_config.metadata["debug_mode"] = debug_mode
+
+            # Log the authentication details (omitting sensitive information)
+            auth_key = "PLACEHOLDER"
+            if hasattr(self.endpoint_config.auth, "api_key"):
+                auth_key = (
+                    "VALID_KEY" if self.endpoint_config.auth.api_key else "EMPTY_KEY"
+                )
+                if self.endpoint_config.auth.api_key == "YOUR_API_KEY":
+                    auth_key = "PLACEHOLDER_KEY"
+
+            self.logger.debug(f"Auth key status: {auth_key}, debug_mode: {debug_mode}")
+
+            # Create client through factory using the complete endpoint configuration
             self._client = ClientFactory.create_client(
                 api_type=self.endpoint_config.api_type,
                 url=self.endpoint_config.url,
                 headers=self.endpoint_config.headers,
                 auth=self.endpoint_config.auth,
                 timeout=self.endpoint_config.timeout,
+                metadata=self.endpoint_config.metadata,  # Pass through the metadata
             )
 
             if not self._client:
@@ -62,6 +125,7 @@ class ConcreteWorker(Worker):
                 return False
 
             # Initialize the client
+            self.logger.debug("Initializing client...")
             success = await self._client.initialize()
             if not success:
                 self.logger.error("Failed to initialize client")
@@ -72,7 +136,7 @@ class ConcreteWorker(Worker):
             )
             return True
         except Exception as e:
-            self.logger.error(f"Error initializing client: {e}")
+            self.logger.error(f"Error initializing client: {e}", exc_info=True)
             return False
 
     async def process_credit(
@@ -87,38 +151,41 @@ class ConcreteWorker(Worker):
         Returns:
             Response data or None if processing failed
         """
-        if not self._client or not self._is_initialized:
-            self.logger.error("Cannot process credit: worker not initialized")
+        if not self._is_initialized or self._is_shutdown:
+            self.logger.error(
+                "Cannot process credit: worker not initialized or already shut down"
+            )
+            return None
+
+        if not self._client:
+            self.logger.error("Cannot process credit: client not initialized")
             return None
 
         try:
+            # Increment credit count
             async with self._lock:
+                self._credit_count += 1
                 self._idle = False
                 self._current_credit = credit
-                self._credit_count += 1
 
-            self.logger.debug(f"Processing credit: {credit.credit_id}")
-
-            # Get or create conversation
-            conversation_id = conversation_data.get("conversation_id") or str(
-                uuid.uuid4()
+            # Get conversation ID or generate one
+            conversation_id = conversation_data.get(
+                "conversation_id", str(uuid.uuid4())
             )
-            if conversation_id not in self._active_conversations:
-                self._active_conversations[conversation_id] = Conversation(
-                    conversation_id=conversation_id,
-                    metadata=conversation_data.get("metadata", {}),
-                )
 
-            # Create request data based on conversation data
+            # Prepare request data
             request_data = self._prepare_request_data(conversation_data)
 
-            # Send request
+            # Record start time
             start_time = time.time()
-            self._last_request_time = start_time
 
+            # Send request to endpoint
+            self.logger.info(
+                f"Sending request for credit {credit.credit_id}, conversation {conversation_id}"
+            )
             response_data = await self.send_request(request_data)
 
-            # Calculate timing details
+            # Record end time
             end_time = time.time()
             processing_time = end_time - start_time
 
@@ -131,6 +198,13 @@ class ConcreteWorker(Worker):
                     self._idle = True
                     self._current_credit = None
                 return None
+
+            # Log response status
+            success = response_data.get("success", False)
+            status_code = response_data.get("status_code", None)
+            self.logger.info(
+                f"Received response for credit {credit.credit_id}: success={success}, status_code={status_code}, processing_time={processing_time:.2f}s"
+            )
 
             # Handle response
             processed_data = await self.handle_response(

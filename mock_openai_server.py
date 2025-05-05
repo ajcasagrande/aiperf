@@ -400,6 +400,26 @@ async def clear_request_log():
     return {"message": "Request log cleared", "status": "success"}
 
 
+@app.post("/chat/completions")
+async def create_chat_completion_no_prefix(
+    request: ChatCompletionRequest, token: str = Depends(verify_token)
+):
+    """Route handler for /chat/completions (without /v1/ prefix)"""
+    logger.info(
+        "Request received at /chat/completions, redirecting to /v1/chat/completions"
+    )
+    return await create_chat_completion(request, token)
+
+
+@app.post("/completions")
+async def create_completion_no_prefix(
+    request: CompletionRequest, token: str = Depends(verify_token)
+):
+    """Route handler for /completions (without /v1/ prefix)"""
+    logger.info("Request received at /completions, redirecting to /v1/completions")
+    return await create_completion(request, token)
+
+
 if __name__ == "__main__":
     logger.info("Starting Mock OpenAI API Server...")
     uvicorn.run(app, host="0.0.0.0", port=8000)

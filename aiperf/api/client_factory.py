@@ -42,6 +42,7 @@ class ClientFactory:
         headers: Dict[str, str],
         auth: Union[Dict[str, Any], AuthConfig],
         timeout: float,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> Optional[BaseClient]:
         """Create a client for the specified API type and parameters.
 
@@ -51,6 +52,7 @@ class ClientFactory:
             headers: HTTP headers
             auth: Authentication parameters (either a dict or AuthConfig)
             timeout: Request timeout in seconds
+            metadata: Optional metadata to pass to the client
 
         Returns:
             Client instance or None if creation failed
@@ -78,6 +80,7 @@ class ClientFactory:
                 headers=headers,
                 auth=auth_config,
                 timeout=timeout,
+                metadata=metadata or {},
             )
             return client_class(config)
         except Exception as e:

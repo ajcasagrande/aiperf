@@ -64,8 +64,13 @@ class WorkerManager(BaseManager):
         self._total_requests = 0
         self._total_responses = 0
         self._total_errors = 0
+        self._total_successes = 0
+        self._total_failures = 0
         self._start_time: Optional[float] = None
         self._stop_time: Optional[float] = None
+
+        # Dataset manager reference - initialize as None
+        self.dataset_manager = None
 
         # These will be loaded from system controller during initialization
         self.endpoints = []
@@ -199,13 +204,22 @@ class WorkerManager(BaseManager):
             # Select endpoint for this worker
             endpoint = await self._select_endpoint()
 
+            if not endpoint:
+                self.logger.error("Failed to select endpoint for worker")
+                return None
+
             # Create worker ID
             worker_id = f"worker_{uuid.uuid4().hex[:8]}"
+
+            self.logger.debug(
+                f"Creating worker {worker_id} for endpoint {endpoint.name}"
+            )
 
             # Create worker instance
             worker = ConcreteWorker(endpoint_config=endpoint, component_id=worker_id)
 
             # Initialize worker
+            self.logger.debug(f"Initializing worker {worker_id}")
             success = await worker.initialize()
             if not success:
                 self.logger.error(f"Failed to initialize worker: {worker_id}")
@@ -567,176 +581,165 @@ class WorkerManager(BaseManager):
         """Process a credit with a worker.
 
         Args:
-            worker: Worker to use
+            worker: Worker to process the credit with
             credit: Timing credit to process
         """
         try:
-            # Mark worker as active
-            async with self._worker_lock:
-                self._idle_workers.discard(worker.component_id)
-                self._active_workers.add(worker.component_id)
-
-            # Update stats
-            self._total_requests += 1
-
-            # Get conversation data
+            # Get conversation data for the credit
             conversation_data = {}
-            if self.communication:
+
+            # Check if dataset_manager exists and has the get_conversation method
+            if not hasattr(self, "dataset_manager") or self.dataset_manager is None:
+                self.logger.warning(
+                    "Dataset manager not available - using default conversation data"
+                )
+                # Create empty conversation with default data
+                conversation = {
+                    "conversation_id": f"gen_{str(uuid.uuid4())}",
+                    "metadata": {"generated": True},
+                }
+
+                # Prepare default conversation data
+                conversation_data = await self._prepare_conversation_data(conversation)
+
+                # Mark credit as being processed
+                credit.worker_id = worker.component_id
+
+                # Log the processing attempt
+                self.logger.info(
+                    f"Processing credit {credit.credit_id} with worker {worker.component_id}, using default conversation data"
+                )
+
+                # Process the credit with the worker
                 try:
-                    response = await self.communication.request(
-                        "dataset_manager", {"command": "get_conversation"}
+                    # Set timeout to prevent stuck workers
+                    processing_task = asyncio.create_task(
+                        worker.process_credit(credit, conversation_data)
                     )
 
-                    # Debug log the response
-                    self.logger.debug(f"Got dataset response: {response}")
+                    # Wait for result with timeout
+                    result = await asyncio.wait_for(
+                        processing_task,
+                        timeout=self.worker_config.worker_timeout or 30.0,
+                    )
 
-                    # The conversation might be in conversation field as a dict
-                    conversation = response.get("conversation", {})
-                    if conversation:
-                        # Convert conversation.__dict__ format to something worker can use
-                        # Get turns from conversation
-                        turns = conversation.get("turns", [])
+                    if result:
+                        self.logger.info(
+                            f"Worker {worker.component_id} successfully processed credit {credit.credit_id}"
+                        )
+                        self._total_successes += 1
+                    else:
+                        self.logger.warning(
+                            f"Worker {worker.component_id} returned None for credit {credit.credit_id}"
+                        )
+                        self._total_failures += 1
 
-                        # Extract prompt and build messages
-                        prompt = ""
-                        messages = []
+                except asyncio.TimeoutError:
+                    self.logger.error(
+                        f"Timeout processing credit {credit.credit_id} with worker {worker.component_id}"
+                    )
+                    self._total_failures += 1
+                except Exception as e:
+                    self.logger.error(
+                        f"Error processing credit with worker {worker.component_id}: {e}"
+                    )
+                    self._total_failures += 1
 
-                        if turns:
-                            # Process turns into messages
-                            for turn in turns:
-                                # Check if this is a dict (likely from __dict__ serialization)
-                                if isinstance(turn, dict):
-                                    # Add user message from request_data or request
-                                    if "request_data" in turn and turn["request_data"]:
-                                        request_data = turn["request_data"]
-                                        if (
-                                            isinstance(request_data, dict)
-                                            and "prompt" in request_data
-                                        ):
-                                            prompt_data = request_data["prompt"]
-                                            content = (
-                                                prompt_data.get("content", "")
-                                                if isinstance(prompt_data, dict)
-                                                else str(prompt_data)
-                                            )
-                                            messages.append(
-                                                {"role": "user", "content": content}
-                                            )
-                                            # Store the last user message as the prompt
-                                            prompt = content
-                                    elif "request" in turn:
-                                        content = turn["request"]
-                                        messages.append(
-                                            {"role": "user", "content": content}
-                                        )
-                                        # Store the last user message as the prompt
-                                        prompt = content
+                return
 
-                                    # Add assistant message from response_data or response
-                                    if (
-                                        "response_data" in turn
-                                        and turn["response_data"]
-                                    ):
-                                        response_data = turn["response_data"]
-                                        if (
-                                            isinstance(response_data, dict)
-                                            and "content" in response_data
-                                        ):
-                                            messages.append(
-                                                {
-                                                    "role": "assistant",
-                                                    "content": response_data["content"],
-                                                }
-                                            )
-                                        else:
-                                            messages.append(
-                                                {
-                                                    "role": "assistant",
-                                                    "content": str(response_data),
-                                                }
-                                            )
-                                    elif "response" in turn:
-                                        messages.append(
-                                            {
-                                                "role": "assistant",
-                                                "content": turn["response"],
-                                            }
-                                        )
+            # If we have a dataset manager, continue with standard processing
+            elif (
+                self.dataset_manager
+                and hasattr(self.dataset_manager, "get_conversation")
+                and credit.metadata
+                and "index" in credit.metadata
+            ):
+                # Get conversation from dataset manager
+                try:
+                    conversation_index = credit.metadata.get("index")
+                    self.logger.debug(
+                        f"Getting conversation at index {conversation_index}"
+                    )
 
-                        # If no messages were created and we have a metadata field, check for default prompts
-                        if not messages and "metadata" in conversation:
-                            metadata = conversation["metadata"]
-                            if "default_prompt" in metadata:
-                                prompt = metadata["default_prompt"]
-                                messages.append({"role": "user", "content": prompt})
+                    conversation = await self.dataset_manager.get_conversation(
+                        conversation_index
+                    )
 
-                        # If still no messages, create a default system message
-                        if not messages:
-                            default_prompt = "Tell me something interesting about artificial intelligence."
-                            prompt = default_prompt
-                            messages.append({"role": "user", "content": default_prompt})
-                            messages.insert(
-                                0,
-                                {
-                                    "role": "system",
-                                    "content": "You are a helpful assistant.",
-                                },
-                            )
-
-                        conversation_data = {
-                            "conversation_id": conversation.get("conversation_id"),
-                            "metadata": conversation.get("metadata", {}),
-                            "prompt": prompt,
-                            "messages": messages,
-                            "model": "gpt-3.5-turbo",  # Default model
-                            "temperature": 0.7,
-                            "max_tokens": 1024,
+                    if not conversation:
+                        self.logger.warning(
+                            f"No conversation found for index {conversation_index}"
+                        )
+                        # Create empty conversation if none found
+                        conversation = {
+                            "conversation_id": f"gen_{str(uuid.uuid4())}",
+                            "metadata": {"generated": True},
                         }
 
-                        self.logger.debug(
-                            f"Prepared conversation data with {len(messages)} messages"
-                        )
-                except Exception as e:
-                    self.logger.error(f"Error getting conversation data: {e}")
-
-            # Process credit
-            try:
-                result = await worker.process_credit(credit, conversation_data)
-                # Update the credit as consumed instead of calling credit.consume()
-                credit.is_consumed = True
-                credit.consumed_time = time.time()
-
-                # Report credit consumption
-                if self.communication:
-                    await self.communication.publish(
-                        "timing.credit.consumed",
-                        {
-                            "credit_id": credit.credit_id,
-                            "consumer_id": worker.component_id,
-                            "result": result is not None,
-                        },
+                    self.logger.debug(
+                        f"Got conversation: {conversation.get('conversation_id', 'unknown')}"
                     )
 
-                # Store result
-                if result:
-                    self._total_responses += 1
+                    # Mark credit as being processed
+                    credit.worker_id = worker.component_id
 
-                    # Send result to records manager
-                    if self.communication:
-                        await self.communication.request(
-                            "records_manager",
-                            {"command": "store_record", "record": result},
+                    # Prepare conversation data
+                    conversation_data = await self._prepare_conversation_data(
+                        conversation
+                    )
+
+                    # Log the processing attempt
+                    self.logger.info(
+                        f"Processing credit {credit.credit_id} with worker {worker.component_id}, conversation: {conversation_data.get('conversation_id', 'unknown')}"
+                    )
+
+                    # Process the credit with the worker
+                    try:
+                        # Set timeout to prevent stuck workers
+                        processing_task = asyncio.create_task(
+                            worker.process_credit(credit, conversation_data)
                         )
-                else:
-                    self._total_errors += 1
-            except Exception as e:
-                self.logger.error(f"Error processing credit with worker: {e}")
-                self._total_errors += 1
-        finally:
-            # Mark worker as idle
-            async with self._worker_lock:
-                self._active_workers.discard(worker.component_id)
-                self._idle_workers.add(worker.component_id)
+
+                        # Wait for result with timeout
+                        result = await asyncio.wait_for(
+                            processing_task,
+                            timeout=self.worker_config.worker_timeout or 30.0,
+                        )
+
+                        if result:
+                            self.logger.info(
+                                f"Worker {worker.component_id} successfully processed credit {credit.credit_id}"
+                            )
+                            self._total_successes += 1
+                        else:
+                            self.logger.warning(
+                                f"Worker {worker.component_id} returned None for credit {credit.credit_id}"
+                            )
+                            self._total_failures += 1
+
+                    except asyncio.TimeoutError:
+                        self.logger.error(
+                            f"Timeout processing credit {credit.credit_id} with worker {worker.component_id}"
+                        )
+                        self._total_failures += 1
+                    except Exception as e:
+                        self.logger.error(
+                            f"Error processing credit with worker {worker.component_id}: {e}"
+                        )
+                        self._total_failures += 1
+
+                except Exception as e:
+                    self.logger.error(f"Error getting conversation data: {e}")
+                    self._total_failures += 1
+            else:
+                self.logger.warning(
+                    "Cannot get conversation data: dataset manager not available or credit missing index"
+                )
+                self._total_failures += 1
+
+        except Exception as e:
+            self.logger.error(f"Error processing credit: {e}")
+            if hasattr(self, "_total_failures"):
+                self._total_failures += 1
 
     async def _process_workers(self) -> None:
         """Background task for processing workers."""
@@ -773,6 +776,8 @@ class WorkerManager(BaseManager):
                 "total_requests": self._total_requests,
                 "total_responses": self._total_responses,
                 "total_errors": self._total_errors,
+                "total_successes": self._total_successes,
+                "total_failures": self._total_failures,
                 "is_running": self._running,
                 "elapsed_time": 0,
             }
@@ -932,6 +937,15 @@ class WorkerManager(BaseManager):
         except Exception as e:
             self.logger.error(f"Error in worker keepalive task: {e}")
 
+    def set_dataset_manager(self, dataset_manager) -> None:
+        """Set the dataset manager.
+
+        Args:
+            dataset_manager: Dataset manager instance
+        """
+        self.logger.info(f"Setting dataset manager: {dataset_manager}")
+        self.dataset_manager = dataset_manager
+
     async def get_idle_worker(self) -> Optional[ConcreteWorker]:
         """Get an idle worker.
 
@@ -966,17 +980,25 @@ class WorkerManager(BaseManager):
 
         try:
             # Create specified number of workers
+            successful_workers = 0
             for i in range(count):
+                self.logger.debug(f"Creating worker {i + 1} of {count}")
                 worker = await self._create_worker()
                 if worker:
                     self._workers[worker.component_id] = worker
                     self._idle_workers.add(worker.component_id)
+                    successful_workers += 1
+                    self.logger.debug(
+                        f"Worker {i + 1} created successfully: {worker.component_id}"
+                    )
                 else:
-                    self.logger.error(f"Failed to create worker {i}")
+                    self.logger.error(f"Failed to create worker {i + 1}")
                     # Continue anyway to create as many workers as possible
 
             worker_count = len(self._workers)
-            self.logger.info(f"Initialized {worker_count} local workers")
+            self.logger.info(
+                f"Initialized {worker_count} local workers successfully out of {count} requested"
+            )
 
             # Consider initialization successful if we were able to create at least one worker
             return worker_count > 0
@@ -1066,3 +1088,109 @@ class WorkerManager(BaseManager):
             )
 
         return messages
+
+    async def _prepare_conversation_data(
+        self, conversation: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Prepare conversation data for worker processing.
+
+        Args:
+            conversation: Conversation data
+
+        Returns:
+            Processed conversation data ready for worker
+        """
+        # Extract prompt and build messages
+        prompt = ""
+        messages = []
+
+        # Check if we have turns in the conversation
+        turns = conversation.get("turns", [])
+
+        if turns:
+            # Process turns into messages
+            for turn in turns:
+                # Check if this is a dict (likely from __dict__ serialization)
+                if isinstance(turn, dict):
+                    # Add user message from request_data or request
+                    if "request_data" in turn and turn["request_data"]:
+                        request_data = turn["request_data"]
+                        if isinstance(request_data, dict) and "prompt" in request_data:
+                            prompt_data = request_data["prompt"]
+                            content = (
+                                prompt_data.get("content", "")
+                                if isinstance(prompt_data, dict)
+                                else str(prompt_data)
+                            )
+                            messages.append({"role": "user", "content": content})
+                            # Store the last user message as the prompt
+                            prompt = content
+                    elif "request" in turn:
+                        content = turn["request"]
+                        messages.append({"role": "user", "content": content})
+                        # Store the last user message as the prompt
+                        prompt = content
+
+                    # Add assistant message from response_data or response
+                    if "response_data" in turn and turn["response_data"]:
+                        response_data = turn["response_data"]
+                        if (
+                            isinstance(response_data, dict)
+                            and "content" in response_data
+                        ):
+                            messages.append(
+                                {
+                                    "role": "assistant",
+                                    "content": response_data["content"],
+                                }
+                            )
+                        else:
+                            messages.append(
+                                {
+                                    "role": "assistant",
+                                    "content": str(response_data),
+                                }
+                            )
+                    elif "response" in turn:
+                        messages.append(
+                            {
+                                "role": "assistant",
+                                "content": turn["response"],
+                            }
+                        )
+
+        # If no messages were created and we have a metadata field, check for default prompts
+        if not messages and "metadata" in conversation:
+            metadata = conversation.get("metadata", {})
+            if "default_prompt" in metadata:
+                prompt = metadata["default_prompt"]
+                messages.append({"role": "user", "content": prompt})
+
+        # If still no messages, create a default system message and prompt
+        if not messages:
+            default_prompt = (
+                "Tell me something interesting about artificial intelligence."
+            )
+            prompt = default_prompt
+            messages.append({"role": "user", "content": default_prompt})
+            messages.insert(
+                0,
+                {
+                    "role": "system",
+                    "content": "You are a helpful assistant.",
+                },
+            )
+
+        # Build the final conversation data
+        conversation_data = {
+            "conversation_id": conversation.get("conversation_id"),
+            "metadata": conversation.get("metadata", {}),
+            "prompt": prompt,
+            "messages": messages,
+            "model": "gpt-3.5-turbo",  # Default model
+            "temperature": 0.7,
+            "max_tokens": 1024,
+        }
+
+        self.logger.debug(f"Prepared conversation data with {len(messages)} messages")
+        return conversation_data

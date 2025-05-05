@@ -11,6 +11,8 @@ dataset:
   parameters:
     num_prompts: 100
     prompt_template: Write a short paragraph about {topic}.
+    tiktoken_encoding: cl100k_base
+    tokenizer_model: gpt2
     topics:
     - artificial intelligence
     - machine learning
