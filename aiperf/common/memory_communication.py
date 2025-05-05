@@ -1,8 +1,9 @@
 import asyncio
+import json
 import logging
 import time
 import uuid
-from typing import Any, Dict, List, Optional, Callable, Set
+from typing import Any, Dict, List, Optional, Callable, Set, Union
 
 from .communication import Communication
 
@@ -10,105 +11,40 @@ logger = logging.getLogger(__name__)
 
 
 class MemoryCommunication(Communication):
-    """In-memory implementation of the Communication interface.
+    """In-memory communication implementation.
 
-    Uses Python's asyncio for in-memory communication between components.
-    Useful for testing and small-scale deployments.
+    This communication class uses in-memory data structures to route messages
+    between components, useful for testing and single-process deployments.
     """
 
-    # Shared state for all instances
-    _topics: Dict[str, Set[str]] = {}  # Topic -> client IDs
-    _subscribers: Dict[
-        str, Dict[str, List[Callable]]
-    ] = {}  # Topic -> {client_id -> callbacks}
-    _messages: Dict[str, asyncio.Queue] = {}  # client_id -> message queue
-    _requests: Dict[str, asyncio.Queue] = {}  # target -> request queue
-    _responses: Dict[
-        str, Dict[str, asyncio.Future]
-    ] = {}  # client_id -> {request_id -> future}
+    # Class-level storage for shared subscriptions across instances
+    _subscriptions: Dict[str, Dict[str, Callable]] = {}
+    _subscribers_by_topic: Dict[str, Set[str]] = {}
+    _topic_history: Dict[str, List[Dict[str, Any]]] = {}
+    _client_registry: Dict[str, "MemoryCommunication"] = {}
+    _lock = asyncio.Lock()
 
     def __init__(self, client_id: Optional[str] = None):
         """Initialize in-memory communication.
 
         Args:
-            client_id: Optional client ID, will be generated if not provided
+            client_id: Optional client ID
         """
-        self.client_id = client_id or f"client_{uuid.uuid4().hex[:8]}"
-        self._is_initialized = False
-        self._is_shutdown = False
+        self.client_id = client_id or str(uuid.uuid4())
+        self.logger = logging.getLogger(f"communication.memory.{self.client_id[:8]}")
+        self.logger.info(
+            f"Initializing MemoryCommunication with client_id {self.client_id}"
+        )
 
-    async def initialize(self) -> bool:
-        """Initialize communication channels.
+        # Register this instance in the class-level registry
+        self._register_client()
 
-        Returns:
-            True if initialization was successful, False otherwise
-        """
-        if self._is_initialized:
-            return True
+    def _register_client(self):
+        """Register this client in the class-level registry."""
+        MemoryCommunication._client_registry[self.client_id] = self
+        self.logger.debug(f"Registered client {self.client_id}")
 
-        try:
-            # Create message queue for this client
-            MemoryCommunication._messages[self.client_id] = asyncio.Queue()
-
-            # Create request queue for this client
-            MemoryCommunication._requests[self.client_id] = asyncio.Queue()
-
-            # Create response futures map for this client
-            MemoryCommunication._responses[self.client_id] = {}
-
-            # Start background tasks for processing messages and requests
-            asyncio.create_task(self._process_messages())
-            asyncio.create_task(self._process_requests())
-
-            self._is_initialized = True
-            logger.info(
-                f"In-memory communication initialized for client {self.client_id}"
-            )
-            return True
-        except Exception as e:
-            logger.error(f"Error initializing in-memory communication: {e}")
-            await self.shutdown()
-            return False
-
-    async def shutdown(self) -> bool:
-        """Gracefully shutdown communication channels.
-
-        Returns:
-            True if shutdown was successful, False otherwise
-        """
-        if self._is_shutdown:
-            return True
-
-        try:
-            logger.info(
-                f"Shutting down in-memory communication for client {self.client_id}"
-            )
-
-            # Remove message queue for this client
-            MemoryCommunication._messages.pop(self.client_id, None)
-
-            # Remove request queue for this client
-            MemoryCommunication._requests.pop(self.client_id, None)
-
-            # Remove response futures for this client
-            MemoryCommunication._responses.pop(self.client_id, None)
-
-            # Remove subscriptions for this client
-            for topic, clients in MemoryCommunication._topics.items():
-                if self.client_id in clients:
-                    clients.remove(self.client_id)
-
-            for topic, clients in MemoryCommunication._subscribers.items():
-                clients.pop(self.client_id, None)
-
-            self._is_shutdown = True
-            self._is_initialized = False
-            return True
-        except Exception as e:
-            logger.error(f"Error shutting down in-memory communication: {e}")
-            return False
-
-    async def publish(self, topic: str, message: Dict[str, Any]) -> bool:
+    async def publish(self, topic: str, message: Any) -> bool:
         """Publish a message to a topic.
 
         Args:
@@ -116,320 +52,294 @@ class MemoryCommunication(Communication):
             message: Message to publish
 
         Returns:
-            True if message was published successfully, False otherwise
+            True if publish was successful, False otherwise
         """
-        if not self._is_initialized or self._is_shutdown:
-            logger.error(
-                "Cannot publish message: communication not initialized or already shut down"
-            )
-            return False
+        # Handle message serialization if necessary
+        if not isinstance(message, dict):
+            try:
+                if isinstance(message, str):
+                    message_dict = json.loads(message)
+                else:
+                    message_dict = {"data": message}
+            except (json.JSONDecodeError, TypeError):
+                message_dict = {"data": str(message)}
+        else:
+            message_dict = message
+
+        # Add source to message if not present
+        if "source" not in message_dict and "client_id" not in message_dict:
+            message_dict["source"] = self.client_id
+
+        # Add timestamp if not present
+        if "timestamp" not in message_dict:
+            import time
+
+            message_dict["timestamp"] = time.time()
+
+        self.logger.debug(f"Publishing to {topic}: {message_dict}")
 
         try:
-            # Special debug logging for timing credits
-            if topic == "timing.credit.issued":
-                logger.info(f"Publishing to topic {topic} from {self.client_id}")
-                logger.info(f"All topics: {MemoryCommunication._topics.keys()}")
-                if topic in MemoryCommunication._topics:
-                    logger.info(
-                        f"Subscribers for topic {topic}: {MemoryCommunication._topics[topic]}"
+            # Ensure topic exists in subscribers dict
+            async with MemoryCommunication._lock:
+                if topic not in MemoryCommunication._subscribers_by_topic:
+                    MemoryCommunication._subscribers_by_topic[topic] = set()
+
+                # Store message in topic history
+                if topic not in MemoryCommunication._topic_history:
+                    MemoryCommunication._topic_history[topic] = []
+                MemoryCommunication._topic_history[topic].append(message_dict)
+
+                # Limit history size
+                if len(MemoryCommunication._topic_history[topic]) > 100:
+                    MemoryCommunication._topic_history[topic] = (
+                        MemoryCommunication._topic_history[topic][-100:]
                     )
-                logger.info(
-                    f"All subscribers: {[k for k in MemoryCommunication._subscribers.keys()]}"
+
+                # Find subscribers for this topic
+                subscribers = MemoryCommunication._subscribers_by_topic.get(
+                    topic, set()
                 )
 
-            # Check if topic exists
-            if topic not in MemoryCommunication._topics:
-                # No subscribers for this topic
-                if topic == "timing.credit.issued":
-                    logger.warning(f"No subscribers for topic: {topic}")
-                return True
-
-            # Add metadata to message
-            enriched_message = {
-                "topic": topic,
-                "client_id": self.client_id,
-                "timestamp": time.time(),
-                "data": message,
-            }
-
-            # Queue message for all subscribed clients
-            subscriber_count = 0
-            for client_id in MemoryCommunication._topics[topic]:
-                # Don't filter out self - components should be able to receive their own messages
-                if client_id in MemoryCommunication._messages:
-                    await MemoryCommunication._messages[client_id].put(enriched_message)
-                    subscriber_count += 1
-                    if topic == "timing.credit.issued":
-                        logger.info(
-                            f"Queued message for client: {client_id} on topic: {topic}"
+            # Call each subscriber's callback for this topic
+            for client_id in subscribers:
+                if client_id in MemoryCommunication._client_registry:
+                    client = MemoryCommunication._client_registry[client_id]
+                    if topic in MemoryCommunication._subscriptions.get(client_id, {}):
+                        callback = MemoryCommunication._subscriptions[client_id][topic]
+                        # Schedule the callback to run in the event loop
+                        asyncio.create_task(
+                            self._safe_callback(
+                                callback, message_dict, topic, client_id
+                            )
                         )
-
-            # Special debug logging for timing credits
-            if topic == "timing.credit.issued":
-                logger.info(
-                    f"Published message to {subscriber_count} subscribers for topic: {topic}"
-                )
 
             return True
         except Exception as e:
-            logger.error(f"Error publishing message to topic {topic}: {e}")
+            self.logger.error(f"Error publishing to {topic}: {e}")
             return False
 
-    async def subscribe(
-        self, topic: str, callback: Callable[[Dict[str, Any]], None]
-    ) -> bool:
+    async def subscribe(self, topic: str, callback: Callable) -> bool:
         """Subscribe to a topic.
 
         Args:
             topic: Topic to subscribe to
-            callback: Function to call when a message is received
+            callback: Callback function to call when a message is received
 
         Returns:
             True if subscription was successful, False otherwise
         """
-        if not self._is_initialized or self._is_shutdown:
-            logger.error(
-                "Cannot subscribe to topic: communication not initialized or already shut down"
-            )
-            return False
-
         try:
-            # Create topic if it doesn't exist
-            if topic not in MemoryCommunication._topics:
-                MemoryCommunication._topics[topic] = set()
+            self.logger.debug(f"Subscribing to {topic}")
 
-            # Add client to topic
-            MemoryCommunication._topics[topic].add(self.client_id)
+            async with MemoryCommunication._lock:
+                # Create client subscriptions entry if it doesn't exist
+                if self.client_id not in MemoryCommunication._subscriptions:
+                    MemoryCommunication._subscriptions[self.client_id] = {}
 
-            # Create subscribers for topic if it doesn't exist
-            if topic not in MemoryCommunication._subscribers:
-                MemoryCommunication._subscribers[topic] = {}
+                # Store the callback for this topic
+                MemoryCommunication._subscriptions[self.client_id][topic] = callback
 
-            # Create subscribers for client if it doesn't exist
-            if self.client_id not in MemoryCommunication._subscribers[topic]:
-                MemoryCommunication._subscribers[topic][self.client_id] = []
+                # Add to topic's subscribers
+                if topic not in MemoryCommunication._subscribers_by_topic:
+                    MemoryCommunication._subscribers_by_topic[topic] = set()
+                MemoryCommunication._subscribers_by_topic[topic].add(self.client_id)
 
-            # Add callback to subscribers
-            MemoryCommunication._subscribers[topic][self.client_id].append(callback)
+                # Send any historical messages for wildcard topics
+                if topic.endswith(".*"):
+                    base_topic = topic[:-2]  # Remove the ".*"
+                    matching_topics = [
+                        t
+                        for t in MemoryCommunication._topic_history
+                        if t.startswith(base_topic)
+                    ]
 
-            logger.info(f"Subscribed to topic: {topic}")
+                    # Send historical messages for matching topics
+                    for matching_topic in matching_topics:
+                        for message in MemoryCommunication._topic_history.get(
+                            matching_topic, []
+                        ):
+                            asyncio.create_task(
+                                self._safe_callback(
+                                    callback, message, matching_topic, self.client_id
+                                )
+                            )
+                # Send any historical messages for exact topic
+                elif topic in MemoryCommunication._topic_history:
+                    for message in MemoryCommunication._topic_history[topic]:
+                        asyncio.create_task(
+                            self._safe_callback(
+                                callback, message, topic, self.client_id
+                            )
+                        )
+
             return True
         except Exception as e:
-            logger.error(f"Error subscribing to topic {topic}: {e}")
+            self.logger.error(f"Error subscribing to {topic}: {e}")
             return False
 
-    async def request(
-        self, target: str, request: Dict[str, Any], timeout: float = 5.0
-    ) -> Dict[str, Any]:
-        """Send a request and wait for a response.
+    async def unsubscribe(self, topic: str) -> bool:
+        """Unsubscribe from a topic.
 
         Args:
-            target: Target component to send request to
-            request: Request message
-            timeout: Timeout in seconds
+            topic: Topic to unsubscribe from
 
         Returns:
-            Response message
+            True if unsubscription was successful, False otherwise
         """
-        if not self._is_initialized or self._is_shutdown:
-            logger.error(
-                "Cannot send request: communication not initialized or already shut down"
-            )
-            return {
-                "status": "error",
-                "message": "Communication not initialized or already shut down",
-            }
-
         try:
-            # Check if target exists
-            if target not in MemoryCommunication._requests:
-                logger.error(f"Target component not found: {target}")
-                return {
-                    "status": "error",
-                    "message": f"Target component not found: {target}",
-                }
+            self.logger.debug(f"Unsubscribing from {topic}")
 
-            # Generate request ID
-            request_id = str(uuid.uuid4())
+            async with MemoryCommunication._lock:
+                # Remove from client's subscriptions
+                if self.client_id in MemoryCommunication._subscriptions:
+                    MemoryCommunication._subscriptions[self.client_id].pop(topic, None)
 
-            # Add metadata to request
-            enriched_request = {
-                "request_id": request_id,
-                "client_id": self.client_id,
-                "target": target,
-                "timestamp": time.time(),
-                "data": request,
-            }
+                # Remove from topic's subscribers
+                if topic in MemoryCommunication._subscribers_by_topic:
+                    MemoryCommunication._subscribers_by_topic[topic].discard(
+                        self.client_id
+                    )
 
-            # Create future for response
-            future = asyncio.Future()
-            MemoryCommunication._responses[self.client_id][request_id] = future
-
-            # Queue request for target
-            await MemoryCommunication._requests[target].put(enriched_request)
-
-            # Wait for response with timeout
-            try:
-                response = await asyncio.wait_for(future, timeout)
-                return response.get("data", {})
-            except asyncio.TimeoutError:
-                logger.error(f"Timeout waiting for response to request {request_id}")
-                MemoryCommunication._responses[self.client_id].pop(request_id, None)
-                return {"status": "error", "message": "Request timed out"}
-            finally:
-                # Clean up future
-                MemoryCommunication._responses[self.client_id].pop(request_id, None)
+            return True
         except Exception as e:
-            logger.error(f"Error sending request to {target}: {e}")
-            return {"status": "error", "message": str(e)}
+            self.logger.error(f"Error unsubscribing from {topic}: {e}")
+            return False
 
-    async def respond(self, target: str, response: Dict[str, Any]) -> bool:
-        """Send a response to a request.
+    async def respond(self, client_id: str, message: Any) -> bool:
+        """Send a response directly to a client.
 
         Args:
-            target: Target component to send response to
-            response: Response message
+            client_id: Client ID to respond to
+            message: Message to send
 
         Returns:
             True if response was sent successfully, False otherwise
         """
-        if not self._is_initialized or self._is_shutdown:
-            logger.error(
-                "Cannot send response: communication not initialized or already shut down"
-            )
+        try:
+            # Use a special direct message topic for the target client
+            direct_topic = f"_direct.{client_id}"
+            return await self.publish(direct_topic, message)
+        except Exception as e:
+            self.logger.error(f"Error responding to {client_id}: {e}")
             return False
 
+    async def close(self) -> bool:
+        """Close the communication channel.
+
+        Returns:
+            True if closing was successful, False otherwise
+        """
         try:
-            # Check if target exists
-            if target not in MemoryCommunication._responses:
-                logger.error(f"Target component not found: {target}")
-                return False
+            self.logger.debug(f"Closing communication for {self.client_id}")
 
-            # Find request ID in response
-            request_id = response.get("request_id")
-            if not request_id:
-                logger.error("Response missing request_id")
-                return False
+            async with MemoryCommunication._lock:
+                # Remove all subscriptions for this client
+                MemoryCommunication._subscriptions.pop(self.client_id, None)
 
-            # Check if future exists for request
-            if request_id not in MemoryCommunication._responses[target]:
-                logger.error(
-                    f"No pending request with ID {request_id} for target {target}"
-                )
-                return False
+                # Remove from all topic subscribers
+                for (
+                    topic,
+                    subscribers,
+                ) in MemoryCommunication._subscribers_by_topic.items():
+                    subscribers.discard(self.client_id)
 
-            # Add metadata to response
-            enriched_response = {
-                "request_id": request_id,
-                "client_id": self.client_id,
-                "target": target,
-                "timestamp": time.time(),
-                "data": response,
-            }
-
-            # Resolve future with response
-            future = MemoryCommunication._responses[target][request_id]
-            if not future.done():
-                future.set_result(enriched_response)
+                # Remove from client registry
+                MemoryCommunication._client_registry.pop(self.client_id, None)
 
             return True
         except Exception as e:
-            logger.error(f"Error sending response to {target}: {e}")
+            self.logger.error(f"Error closing communication: {e}")
             return False
 
-    async def _process_messages(self) -> None:
-        """Process incoming messages for this client."""
-        if self.client_id not in MemoryCommunication._messages:
-            logger.error(f"Message queue not found for client: {self.client_id}")
-            return
+    async def _safe_callback(
+        self, callback: Callable, message: Dict[str, Any], topic: str, client_id: str
+    ) -> None:
+        """Safely call a callback function.
 
-        message_queue = MemoryCommunication._messages[self.client_id]
+        Args:
+            callback: Callback function
+            message: Message to pass to callback
+            topic: Topic the message was published to
+            client_id: Client ID that subscribed
+        """
+        try:
+            await callback(message)
+        except Exception as e:
+            self.logger.error(f"Error in callback for {client_id} on {topic}: {e}")
 
-        while True:
-            try:
-                # Wait for a message
-                message = await message_queue.get()
+    async def get_component_by_type(self, component_type: str) -> Optional[str]:
+        """Get a component by its type.
 
-                # Check if message is valid
-                if not isinstance(message, dict):
-                    continue
+        Args:
+            component_type: Type of component to find
 
-                # Extract topic and data
-                topic = message.get("topic")
-                client_id = message.get("client_id")
-                data = message.get("data")
+        Returns:
+            Component ID if found, None otherwise
+        """
+        try:
+            # Check if there's a topic for component identities
+            component_ids = []
 
-                # Debug logging for timing credits
-                if topic == "timing.credit.issued":
-                    logger.info(
-                        f"Processing message for topic {topic} from {client_id} to {self.client_id}"
-                    )
+            # Look in topic history for component identities
+            async with MemoryCommunication._lock:
+                for topic, messages in MemoryCommunication._topic_history.items():
+                    if topic == "system.identity" or topic.startswith(
+                        "system.identity."
+                    ):
+                        for message in messages:
+                            data = message.get("data", message)
+                            if (
+                                isinstance(data, dict)
+                                and data.get("component_type") == component_type
+                            ):
+                                component_ids.append(data.get("component_id"))
 
-                # Check if there are subscribers for this topic
-                if topic not in MemoryCommunication._subscribers:
-                    continue
+            # Return the first component ID if found
+            return component_ids[0] if component_ids else None
+        except Exception as e:
+            self.logger.error(f"Error getting component by type {component_type}: {e}")
+            return None
 
-                # Check if this client is subscribed to the topic
-                if self.client_id not in MemoryCommunication._subscribers[topic]:
-                    continue
+    async def list_topics(self) -> List[str]:
+        """List all available topics.
 
-                # Call callbacks
-                callbacks = MemoryCommunication._subscribers[topic][self.client_id]
-                for callback in callbacks:
-                    try:
-                        # Special logging for timing.credit.issued
-                        if topic == "timing.credit.issued":
-                            logger.info(
-                                f"Calling callback for {topic} in client {self.client_id}"
-                            )
+        Returns:
+            List of topics
+        """
+        try:
+            async with MemoryCommunication._lock:
+                return list(MemoryCommunication._subscribers_by_topic.keys())
+        except Exception as e:
+            self.logger.error(f"Error listing topics: {e}")
+            return []
 
-                        # Call callback
-                        result = callback(data)
-                        if asyncio.iscoroutine(result):
-                            asyncio.create_task(result)
-                    except Exception as e:
-                        logger.error(f"Error calling callback for topic {topic}: {e}")
+    async def list_clients(self) -> List[str]:
+        """List all registered clients.
 
-                # Mark message as processed
-                message_queue.task_done()
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                logger.error(f"Error processing message: {e}")
+        Returns:
+            List of client IDs
+        """
+        try:
+            async with MemoryCommunication._lock:
+                return list(MemoryCommunication._client_registry.keys())
+        except Exception as e:
+            self.logger.error(f"Error listing clients: {e}")
+            return []
 
-    async def _process_requests(self) -> None:
-        """Background task for processing requests."""
-        while self._is_initialized and not self._is_shutdown:
-            try:
-                if self.client_id not in MemoryCommunication._requests:
-                    # Client has been shut down
-                    break
+    async def get_client_subscriptions(self, client_id: str) -> List[str]:
+        """Get all topics a client has subscribed to.
 
-                # Get request from queue
-                request = await MemoryCommunication._requests[self.client_id].get()
+        Args:
+            client_id: Client ID
 
-                # Emit event for request handler
-                # In a real implementation, this would trigger a call to handle_request
-                request_id = request.get("request_id")
-                source_client = request.get("client_id")
-                data = request.get("data", {})
-
-                # For testing purposes, echo the request as a response
-                # In a real implementation, this would be handled by the component
-                if source_client in MemoryCommunication._responses:
-                    if request_id in MemoryCommunication._responses[source_client]:
-                        future = MemoryCommunication._responses[source_client][
-                            request_id
-                        ]
-                        if not future.done():
-                            response = {
-                                "request_id": request_id,
-                                "client_id": self.client_id,
-                                "target": source_client,
-                                "timestamp": time.time(),
-                                "data": {"echo": data},
-                            }
-                            future.set_result(response)
-            except Exception as e:
-                logger.error(f"Error processing request: {e}")
-                await asyncio.sleep(0.1)
+        Returns:
+            List of topics
+        """
+        try:
+            async with MemoryCommunication._lock:
+                if client_id in MemoryCommunication._subscriptions:
+                    return list(MemoryCommunication._subscriptions[client_id].keys())
+                return []
+        except Exception as e:
+            self.logger.error(f"Error getting subscriptions for {client_id}: {e}")
+            return []

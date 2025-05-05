@@ -1,0 +1,84 @@
+ai_client:
+  config:
+    api_key: sk-mock-key
+    base_url: http://localhost:8000
+  type: openai
+dataset:
+  metadata:
+    description: Synthetic text completion dataset
+  modality: text
+  name: text_completion
+  parameters:
+    num_prompts: 100
+    prompt_template: Write a short paragraph about {topic}.
+    topics:
+    - artificial intelligence
+    - machine learning
+    - natural language processing
+    - computer vision
+    - robotics
+  source_type: synthetic
+  synthetic_params:
+    max_length: 200
+    min_length: 50
+    temperature: 0.7
+debug_mode: false
+deterministic: true
+endpoint_selection: ROUND_ROBIN
+endpoints:
+- api_type: openai
+  auth:
+    api_key: YOUR_API_KEY
+  headers:
+    Content-Type: application/json
+  metadata:
+    description: OpenAI API endpoint
+  name: openai_example
+  timeout: 60.0
+  url: https://api.openai.com/v1
+log_level: INFO
+metadata:
+  author: AIPerf Team
+  description: Benchmark of OpenAI API for text completion
+  tags:
+  - openai
+  - text
+  - completion
+  - benchmark
+  version: '1.0'
+metrics:
+  enabled_metrics:
+  - time_to_first_token
+  - time_to_second_token
+  - inter_token_latency
+  - request_latency
+  - output_sequence_length
+  - input_sequence_length
+  - output_token_throughput
+  - request_throughput
+  - output_token_per_second_per_user
+  gpu_telemetry: false
+  live_metrics: true
+  metadata:
+    description: Metrics configuration for OpenAI benchmark
+  output_format: json
+  output_path: ./reports/openai_benchmark_report.json
+  server_metrics: false
+profile_name: openai_benchmark
+seed: 42
+timing:
+  duration: 300
+  metadata:
+    description: Poisson distribution with rate of 10 requests per second
+  parameters:
+    request_rate: 10
+  schedule_type: poisson
+  start_delay: 2.0
+workers:
+  max_workers: 20
+  metadata:
+    description: Worker configuration with 5-20 workers
+  min_workers: 5
+  worker_idle_timeout: 300.0
+  worker_keepalive_interval: 10.0
+  worker_startup_timeout: 30.0

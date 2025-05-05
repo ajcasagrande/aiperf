@@ -1,0 +1,292 @@
+{
+    "records": [
+        {
+            "record_id": "record_001",
+            "conversation": {
+                "conversation_id": "conv_001",
+                "turns": [
+                    {
+                        "request": "What is machine learning?",
+                        "response": "Machine learning is a subset of artificial intelligence that enables systems to learn and improve from experience without being explicitly programmed. It focuses on developing algorithms that can access data, learn from it autonomously, and make predictions or decisions.",
+                        "success": true,
+                        "tokens": {
+                            "prompt_tokens": 5,
+                            "completion_tokens": 42,
+                            "total_tokens": 47
+                        },
+                        "latency": 0.75,
+                        "timestamp": 1717600000.0
+                    }
+                ],
+                "created_at": 1717600000.0,
+                "updated_at": 1717600010.0,
+                "metadata": {
+                    "model": "gpt-3.5-turbo",
+                    "session_id": "session_a1b2c3"
+                }
+            },
+            "metrics": [
+                {
+                    "name": "time_to_first_token",
+                    "value": 0.32,
+                    "timestamp": 1717600000.3,
+                    "unit": "seconds",
+                    "labels": {
+                        "model": "gpt-3.5-turbo"
+                    }
+                },
+                {
+                    "name": "request_latency",
+                    "value": 0.75,
+                    "timestamp": 1717600000.75,
+                    "unit": "seconds",
+                    "labels": {
+                        "model": "gpt-3.5-turbo"
+                    }
+                },
+                {
+                    "name": "output_token_throughput",
+                    "value": 56.0,
+                    "timestamp": 1717600000.75,
+                    "unit": "tokens_per_second",
+                    "labels": {
+                        "model": "gpt-3.5-turbo"
+                    }
+                }
+            ],
+            "raw_data": {
+                "request_time": 1717600000.0,
+                "response_time": 1717600000.75,
+                "model": "gpt-3.5-turbo",
+                "endpoint": "openai_v1",
+                "temperature": 0.7,
+                "streaming": false
+            }
+        },
+        {
+            "record_id": "record_002",
+            "conversation": {
+                "conversation_id": "conv_002",
+                "turns": [
+                    {
+                        "request": "Explain how neural networks work.",
+                        "response": "Neural networks are computing systems inspired by the biological neural networks in human brains. They consist of interconnected nodes (neurons) organized in layers. Each connection can transmit a signal from one neuron to another. The receiving neuron processes the signal and signals downstream neurons connected to it. Neurons are typically arranged in layers, with input data passing through the network to produce output. Neural networks learn by adjusting the strength of connections between neurons based on examples, allowing them to recognize patterns and make predictions on new data.",
+                        "success": true,
+                        "tokens": {
+                            "prompt_tokens": 7,
+                            "completion_tokens": 84,
+                            "total_tokens": 91
+                        },
+                        "latency": 1.2,
+                        "timestamp": 1717600100.0
+                    }
+                ],
+                "created_at": 1717600100.0,
+                "updated_at": 1717600101.2,
+                "metadata": {
+                    "model": "gpt-4",
+                    "session_id": "session_d4e5f6"
+                }
+            },
+            "metrics": [
+                {
+                    "name": "time_to_first_token",
+                    "value": 0.45,
+                    "timestamp": 1717600100.45,
+                    "unit": "seconds",
+                    "labels": {
+                        "model": "gpt-4"
+                    }
+                },
+                {
+                    "name": "request_latency",
+                    "value": 1.2,
+                    "timestamp": 1717600101.2,
+                    "unit": "seconds",
+                    "labels": {
+                        "model": "gpt-4"
+                    }
+                },
+                {
+                    "name": "output_token_throughput",
+                    "value": 70.0,
+                    "timestamp": 1717600101.2,
+                    "unit": "tokens_per_second",
+                    "labels": {
+                        "model": "gpt-4"
+                    }
+                }
+            ],
+            "raw_data": {
+                "request_time": 1717600100.0,
+                "response_time": 1717600101.2,
+                "model": "gpt-4",
+                "endpoint": "openai_v1",
+                "temperature": 0.5,
+                "streaming": false
+            }
+        },
+        {
+            "record_id": "record_003",
+            "conversation": {
+                "conversation_id": "conv_001",
+                "turns": [
+                    {
+                        "request": "What is machine learning?",
+                        "response": "Machine learning is a subset of artificial intelligence that enables systems to learn and improve from experience without being explicitly programmed. It focuses on developing algorithms that can access data, learn from it autonomously, and make predictions or decisions.",
+                        "success": true,
+                        "tokens": {
+                            "prompt_tokens": 5,
+                            "completion_tokens": 42,
+                            "total_tokens": 47
+                        },
+                        "latency": 0.75,
+                        "timestamp": 1717600000.0
+                    },
+                    {
+                        "request": "What are the different types of machine learning?",
+                        "response": "There are three main types of machine learning: 1) Supervised Learning, where the algorithm learns from labeled training data to make predictions; 2) Unsupervised Learning, where the algorithm finds patterns in unlabeled data; and 3) Reinforcement Learning, where the algorithm learns by interacting with an environment and receiving rewards or penalties. Other types include Semi-supervised Learning (combines labeled and unlabeled data) and Deep Learning (uses neural networks with multiple layers).",
+                        "success": true,
+                        "tokens": {
+                            "prompt_tokens": 10,
+                            "completion_tokens": 77,
+                            "total_tokens": 87
+                        },
+                        "latency": 1.1,
+                        "timestamp": 1717600200.0
+                    }
+                ],
+                "created_at": 1717600000.0,
+                "updated_at": 1717600201.1,
+                "metadata": {
+                    "model": "gpt-3.5-turbo",
+                    "session_id": "session_a1b2c3"
+                }
+            },
+            "metrics": [
+                {
+                    "name": "time_to_first_token",
+                    "value": 0.38,
+                    "timestamp": 1717600200.38,
+                    "unit": "seconds",
+                    "labels": {
+                        "model": "gpt-3.5-turbo"
+                    }
+                },
+                {
+                    "name": "request_latency",
+                    "value": 1.1,
+                    "timestamp": 1717600201.1,
+                    "unit": "seconds",
+                    "labels": {
+                        "model": "gpt-3.5-turbo"
+                    }
+                },
+                {
+                    "name": "output_token_throughput",
+                    "value": 70.0,
+                    "timestamp": 1717600201.1,
+                    "unit": "tokens_per_second",
+                    "labels": {
+                        "model": "gpt-3.5-turbo"
+                    }
+                },
+                {
+                    "name": "conversation_turns",
+                    "value": 2,
+                    "timestamp": 1717600201.1,
+                    "unit": "turns",
+                    "labels": {
+                        "model": "gpt-3.5-turbo"
+                    }
+                }
+            ],
+            "raw_data": {
+                "request_time": 1717600200.0,
+                "response_time": 1717600201.1,
+                "model": "gpt-3.5-turbo",
+                "endpoint": "openai_v1",
+                "temperature": 0.7,
+                "streaming": false
+            }
+        },
+        {
+            "record_id": "record_004",
+            "conversation": {
+                "conversation_id": "conv_003",
+                "turns": [
+                    {
+                        "request": "What are the applications of computer vision?",
+                        "response": "Computer vision has numerous applications across various industries: 1) Autonomous vehicles use it to detect objects, lanes, and traffic signals; 2) Healthcare uses it for medical image analysis and disease detection; 3) Retail employs it for cashierless checkout and inventory management; 4) Security systems use facial recognition and anomaly detection; 5) Manufacturing uses it for quality control and defect detection; 6) Agriculture employs it for crop health monitoring and yield estimation; 7) Augmented reality applications overlay digital content on the real world; and 8) Social media platforms use it for content moderation and image recognition features.",
+                        "success": true,
+                        "tokens": {
+                            "prompt_tokens": 8,
+                            "completion_tokens": 101,
+                            "total_tokens": 109
+                        },
+                        "latency": 1.35,
+                        "timestamp": 1717600300.0
+                    }
+                ],
+                "created_at": 1717600300.0,
+                "updated_at": 1717600301.35,
+                "metadata": {
+                    "model": "gpt-4",
+                    "session_id": "session_g7h8i9"
+                }
+            },
+            "metrics": [
+                {
+                    "name": "time_to_first_token",
+                    "value": 0.51,
+                    "timestamp": 1717600300.51,
+                    "unit": "seconds",
+                    "labels": {
+                        "model": "gpt-4"
+                    }
+                },
+                {
+                    "name": "time_to_second_token",
+                    "value": 0.56,
+                    "timestamp": 1717600300.56,
+                    "unit": "seconds",
+                    "labels": {
+                        "model": "gpt-4"
+                    }
+                },
+                {
+                    "name": "request_latency",
+                    "value": 1.35,
+                    "timestamp": 1717600301.35,
+                    "unit": "seconds",
+                    "labels": {
+                        "model": "gpt-4"
+                    }
+                },
+                {
+                    "name": "output_token_throughput",
+                    "value": 74.8,
+                    "timestamp": 1717600301.35,
+                    "unit": "tokens_per_second",
+                    "labels": {
+                        "model": "gpt-4"
+                    }
+                }
+            ],
+            "raw_data": {
+                "request_time": 1717600300.0,
+                "response_time": 1717600301.35,
+                "model": "gpt-4",
+                "endpoint": "openai_v1",
+                "temperature": 0.6,
+                "streaming": true
+            }
+        }
+    ],
+    "metadata": {
+        "created_at": 1717600400.0,
+        "format_version": "1.0",
+        "system": "aiperf",
+        "description": "Sample records for AIPerf benchmarking"
+    }
+}
