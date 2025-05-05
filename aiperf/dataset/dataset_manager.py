@@ -13,6 +13,21 @@ from ..common.models import Conversation, ConversationTurn
 from ..config.config_models import DatasetConfig
 from ..common.communication import Communication
 
+# Import tiktoken and transformers if available
+try:
+    import tiktoken
+
+    HAS_TIKTOKEN = True
+except ImportError:
+    HAS_TIKTOKEN = False
+
+try:
+    from transformers import AutoTokenizer
+
+    HAS_TRANSFORMERS = True
+except ImportError:
+    HAS_TRANSFORMERS = False
+
 
 class DatasetManager(BaseManager):
     """Dataset manager for AIPerf.
@@ -47,6 +62,8 @@ class DatasetManager(BaseManager):
         self._conversations: Dict[str, Conversation] = {}
         self._dataset_lock = asyncio.Lock()
         self._is_initialized = False
+        self._hf_tokenizer = None
+        self._tiktoken_tokenizer = None
 
         # Templates for synthetic prompts
         self._templates = [
@@ -669,8 +686,52 @@ class DatasetManager(BaseManager):
             List of token IDs
         """
         try:
-            # This is a very simple tokenization for demonstration purposes
-            # In a real implementation, you would use a proper tokenizer (e.g., tiktoken)
+            # Try to initialize tokenizers if not already done
+            if not self._hf_tokenizer and HAS_TRANSFORMERS:
+                model_name = self.dataset_config.parameters.get(
+                    "tokenizer_model", "gpt2"
+                )
+                cache_dir = self.dataset_config.cache_dir
+
+                try:
+                    if cache_dir:
+                        # Create cache directory if it doesn't exist
+                        os.makedirs(cache_dir, exist_ok=True)
+                        self.logger.info(f"Using cache directory: {cache_dir}")
+                        self._hf_tokenizer = AutoTokenizer.from_pretrained(
+                            model_name, cache_dir=cache_dir
+                        )
+                    else:
+                        self._hf_tokenizer = AutoTokenizer.from_pretrained(model_name)
+                    self.logger.info(
+                        f"Initialized HuggingFace tokenizer using {model_name}"
+                    )
+                except Exception as e:
+                    self.logger.warning(
+                        f"Failed to initialize HuggingFace tokenizer: {e}"
+                    )
+
+            if not self._tiktoken_tokenizer and HAS_TIKTOKEN:
+                encoding_name = self.dataset_config.parameters.get(
+                    "tiktoken_encoding", "cl100k_base"
+                )
+                try:
+                    self._tiktoken_tokenizer = tiktoken.get_encoding(encoding_name)
+                    self.logger.info(
+                        f"Initialized tiktoken using {encoding_name} encoding"
+                    )
+                except Exception as e:
+                    self.logger.warning(f"Failed to initialize tiktoken: {e}")
+
+            # Use HuggingFace tokenizer if available
+            if self._hf_tokenizer:
+                return self._hf_tokenizer.encode(prompt)
+
+            # Use tiktoken if available
+            if self._tiktoken_tokenizer:
+                return self._tiktoken_tokenizer.encode(prompt)
+
+            # Simple tokenization fallback
             tokens = []
             for i, char in enumerate(prompt):
                 # Use character code as a simple token ID

@@ -1,4 +1,4 @@
-profile_name: "openai_benchmark"
+profile_name: "huggingface_tokenizer_benchmark"
 log_level: "INFO"
 debug_mode: false
 deterministic: true
@@ -21,7 +21,7 @@ endpoints:
 # Dataset configuration
 dataset:
   source_type: "synthetic"
-  name: "text_completion"
+  name: "text_completion_with_hf_tokenizer"
   parameters:
     num_prompts: 100
     prompt_template: "Write a short paragraph about {topic}."
@@ -32,15 +32,22 @@ dataset:
       - "computer vision"
       - "robotics"
     # Tokenizer configurations
-    tokenizer_model: "gpt2" # HuggingFace model to use for tokenization
+    tokenizer_model: "meta-llama/Llama-2-7b-hf" # HuggingFace model to use for tokenization
+    # Other tokenizer model options:
+    # - "gpt2" - Fast and commonly used tokenizer
+    # - "facebook/opt-350m" - OPT model tokenizer
+    # - "EleutherAI/gpt-j-6b" - GPT-J tokenizer
+    # - "bigscience/bloom" - BLOOM tokenizer
+    # - "google/flan-t5-base" - T5 tokenizer
     tiktoken_encoding: "cl100k_base" # Tiktoken encoding to use as fallback
   modality: "text"
   synthetic_params:
     min_length: 50
     max_length: 200
     temperature: 0.7
+  cache_dir: "./cache/tokenizers" # Cache directory for downloaded tokenizers
   metadata:
-    description: "Synthetic text completion dataset"
+    description: "Synthetic text completion dataset with HuggingFace tokenizer"
 
 # Timing configuration
 timing:
@@ -75,20 +82,21 @@ metrics:
     - "request_throughput"
     - "output_token_per_second_per_user"
   output_format: "json"
-  output_path: "./reports/openai_benchmark_report.json"
+  output_path: "./reports/huggingface_tokenizer_benchmark.json"
   live_metrics: true
   server_metrics: false # No server metrics for OpenAI API
   gpu_telemetry: false # No GPU telemetry for OpenAI API
   metadata:
-    description: "Metrics configuration for OpenAI benchmark"
+    description: "Metrics configuration for HuggingFace tokenizer benchmark"
 
 # Additional metadata
 metadata:
-  description: "Benchmark of OpenAI API for text completion"
+  description: "Benchmark using HuggingFace tokenizers"
   author: "AIPerf Team"
   version: "1.0"
   tags:
-    - "openai"
+    - "huggingface"
+    - "tokenizers"
     - "text"
     - "completion"
     - "benchmark"

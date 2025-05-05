@@ -13,6 +13,14 @@ from ..common.models import Conversation, ConversationTurn
 from ..config.config_models import DatasetConfig
 from ..common.communication import Communication
 
+# Import transformers for HuggingFace tokenizer support
+try:
+    from transformers import AutoTokenizer
+
+    HAS_TRANSFORMERS = True
+except ImportError:
+    HAS_TRANSFORMERS = False
+
 
 class EnhancedDatasetManager(BaseManager):
     """Enhanced dataset manager for AIPerf.
@@ -52,6 +60,7 @@ class EnhancedDatasetManager(BaseManager):
         self._is_initialized = False
         self._is_ready = False
         self._tokenizer = None
+        self._hf_tokenizer = None
         self._load_fixtures()
 
     def _load_fixtures(self):
@@ -115,13 +124,46 @@ class EnhancedDatasetManager(BaseManager):
         )
 
         try:
-            # Initialize tokenizer for proper token counting
+            # Initialize tokenizers for proper token counting
+            # Try HuggingFace tokenizer first
+            model_name = self.dataset_config.parameters.get("tokenizer_model", "gpt2")
+            cache_dir = self.dataset_config.cache_dir
+
+            if HAS_TRANSFORMERS:
+                try:
+                    self.logger.info(
+                        f"Trying to load HuggingFace tokenizer: {model_name}"
+                    )
+                    if cache_dir:
+                        # Create cache directory if it doesn't exist
+                        os.makedirs(cache_dir, exist_ok=True)
+                        self.logger.info(f"Using cache directory: {cache_dir}")
+                        self._hf_tokenizer = AutoTokenizer.from_pretrained(
+                            model_name, cache_dir=cache_dir
+                        )
+                    else:
+                        self._hf_tokenizer = AutoTokenizer.from_pretrained(model_name)
+                    self.logger.info(f"Using HuggingFace tokenizer: {model_name}")
+                except Exception as e:
+                    self.logger.warning(
+                        f"HuggingFace tokenizer initialization failed: {e}"
+                    )
+                    self._hf_tokenizer = None
+
+            # Try Tiktoken as fallback
             try:
-                self._tokenizer = tiktoken.get_encoding("cl100k_base")  # GPT-4 encoding
-                self.logger.info("Using tiktoken for tokenization")
+                encoding_name = self.dataset_config.parameters.get(
+                    "tiktoken_encoding", "cl100k_base"
+                )
+                self._tokenizer = tiktoken.get_encoding(
+                    encoding_name
+                )  # Default to GPT-4 encoding
+                self.logger.info(
+                    f"Using tiktoken for tokenization with encoding {encoding_name}"
+                )
             except Exception as e:
                 self.logger.warning(
-                    f"tiktoken initialization failed: {e}, using simple tokenization"
+                    f"tiktoken initialization failed: {e}, fallback tokenization will be used if needed"
                 )
                 self._tokenizer = None
 
@@ -923,7 +965,11 @@ class EnhancedDatasetManager(BaseManager):
             List of token IDs
         """
         try:
-            # Use tiktoken if available
+            # Use HuggingFace tokenizer if available
+            if self._hf_tokenizer:
+                return self._hf_tokenizer.encode(prompt)
+
+            # Use tiktoken if available as fallback
             if self._tokenizer:
                 return self._tokenizer.encode(prompt)
 

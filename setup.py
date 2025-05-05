@@ -21,5 +21,6 @@ setup(
         "prometheus-client>=0.14.0",
         "click>=8.0.0",
         "tqdm>=4.64.0",
+        "transformers>=4.30.0",
     ],
-) 
+)
