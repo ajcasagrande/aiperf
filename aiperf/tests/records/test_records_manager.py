@@ -178,15 +178,24 @@ class TestRecordsManager:
         """Test error during shutdown."""
         # Arrange
         manager = RecordsManager(metrics_config=sample_metrics_config)
-        manager._records = {"test": MagicMock()}  # Add a mock record to trigger flush
         
-        with patch.object(manager, "_flush_records_to_disk", side_effect=Exception("Test error")):
-            # Act
-            result = await manager.shutdown()
-            
-            # Assert
-            assert result is False
-            assert manager._is_shutdown is True  # Should still be marked as shutdown
+        # Create a simple dictionary to use instead of MagicMock
+        test_record = {"id": "test", "data": "sample"}
+        manager._records = {"test": test_record}
+        
+        # Define a function that raises an exception when called
+        async def flush_error(*args, **kwargs):
+            raise Exception("Test error")
+        
+        # Use the function directly
+        manager._flush_records_to_disk = flush_error
+        
+        # Act
+        result = await manager.shutdown()
+        
+        # Assert
+        assert result is False
+        assert manager._is_shutdown is True  # Should still be marked as shutdown
     
     @pytest.mark.asyncio
     async def test_flush_records_to_disk(self, sample_metrics_config, sample_record):

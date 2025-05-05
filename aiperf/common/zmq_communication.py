@@ -63,19 +63,19 @@ class ZMQCommunication(Communication):
         try:
             # Set up publish socket
             self.pub_socket = self.context.socket(zmq.PUB)
-            self.pub_socket.connect(self.pub_address)
+            await self.pub_socket.connect(self.pub_address)
             
             # Set up subscribe socket
             self.sub_socket = self.context.socket(zmq.SUB)
-            self.sub_socket.connect(self.sub_address)
+            await self.sub_socket.connect(self.sub_address)
             
             # Set up request socket
             self.req_socket = self.context.socket(zmq.REQ)
-            self.req_socket.connect(self.req_address)
+            await self.req_socket.connect(self.req_address)
             
             # Set up reply socket
             self.rep_socket = self.context.socket(zmq.REP)
-            self.rep_socket.bind(self.rep_address)
+            await self.rep_socket.bind(self.rep_address)
             
             # Start background tasks for receiving messages
             asyncio.create_task(self._sub_receiver())
@@ -103,19 +103,19 @@ class ZMQCommunication(Communication):
             
             # Close sockets
             if self.pub_socket:
-                self.pub_socket.close()
+                await self.pub_socket.close()
                 self.pub_socket = None
                 
             if self.sub_socket:
-                self.sub_socket.close()
+                await self.sub_socket.close()
                 self.sub_socket = None
                 
             if self.req_socket:
-                self.req_socket.close()
+                await self.req_socket.close()
                 self.req_socket = None
                 
             if self.rep_socket:
-                self.rep_socket.close()
+                await self.rep_socket.close()
                 self.rep_socket = None
             
             # Clear subscribers

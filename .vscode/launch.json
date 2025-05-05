@@ -1,0 +1,177 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "AIPerf: Run OpenAI Example",
+            "type": "python",
+            "request": "launch",
+            "module": "aiperf.cli.aiperf_cli",
+            "args": [
+                "run",
+                "aiperf/config/examples/openai_example.yaml",
+                "--log-level",
+                "DEBUG"
+            ],
+            "justMyCode": true,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "AIPerf: Run OpenAI Example (Debug)",
+            "type": "python",
+            "request": "launch",
+            "module": "aiperf.cli.aiperf_cli",
+            "args": [
+                "run",
+                "aiperf/config/examples/openai_example.yaml",
+                "--log-level",
+                "DEBUG"
+            ],
+            "justMyCode": true,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "AIPerf: Run Kubernetes Example",
+            "type": "python",
+            "request": "launch",
+            "module": "aiperf.cli.aiperf_cli",
+            "args": [
+                "run",
+                "aiperf/config/examples/kubernetes_config.yaml"
+            ],
+            "justMyCode": true,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "AIPerf: Custom Runner",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/scripts/run_aiperf.py",
+            "args": [
+                "--config",
+                "${input:configTemplate}",
+                "--output",
+                "${input:outputConfig}",
+                "--api-key",
+                "${input:apiKey}",
+                "--rate",
+                "${input:rate}",
+                "--duration",
+                "${input:duration}",
+                "--log-level",
+                "${input:logLevel}"
+            ],
+            "justMyCode": false,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "AIPerf: Debug Core Components",
+            "type": "python",
+            "request": "launch",
+            "module": "aiperf.cli.aiperf_cli",
+            "args": [
+                "run",
+                "${input:configFile}",
+                "--log-level",
+                "DEBUG"
+            ],
+            "justMyCode": false,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "AIPerf: Advanced Debugging",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/scripts/debug_aiperf.py",
+            "args": [
+                "--config",
+                "${input:configFile}",
+                "--log-level",
+                "DEBUG"
+            ],
+            "justMyCode": false,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "console": "integratedTerminal",
+            "purpose": [
+                "debug-in-terminal"
+            ]
+        },
+        {
+            "name": "AIPerf: Validate Config",
+            "type": "python",
+            "request": "launch",
+            "module": "aiperf.cli.aiperf_cli",
+            "args": [
+                "validate",
+                "${input:configFile}"
+            ],
+            "justMyCode": true,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        }
+    ],
+    "inputs": [
+        {
+            "id": "configFile",
+            "type": "promptString",
+            "description": "Path to configuration file",
+            "default": "aiperf/config/examples/openai_example.yaml"
+        },
+        {
+            "id": "configTemplate",
+            "type": "promptString",
+            "description": "Path to template configuration file",
+            "default": "aiperf/config/examples/openai_example.yaml"
+        },
+        {
+            "id": "outputConfig",
+            "type": "promptString",
+            "description": "Path to output configuration file",
+            "default": "custom_configs/my_config.yaml"
+        },
+        {
+            "id": "apiKey",
+            "type": "promptString",
+            "description": "API key (if applicable)",
+            "default": ""
+        },
+        {
+            "id": "rate",
+            "type": "promptString",
+            "description": "Request rate (requests per second)",
+            "default": "5"
+        },
+        {
+            "id": "duration",
+            "type": "promptString",
+            "description": "Test duration in seconds",
+            "default": "60"
+        },
+        {
+            "id": "logLevel",
+            "type": "pickString",
+            "description": "Log level",
+            "options": [
+                "DEBUG",
+                "INFO",
+                "WARNING",
+                "ERROR"
+            ],
+            "default": "DEBUG"
+        }
+    ]
+}

@@ -1,0 +1,173 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "AIPerf: Run OpenAI Example",
+            "type": "shell",
+            "command": "${command:python.interpreterPath}",
+            "args": [
+                "-m",
+                "aiperf.cli.aiperf_cli",
+                "run",
+                "aiperf/config/examples/openai_example.yaml"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "AIPerf: Run Kubernetes Example",
+            "type": "shell",
+            "command": "${command:python.interpreterPath}",
+            "args": [
+                "-m",
+                "aiperf.cli.aiperf_cli",
+                "run",
+                "aiperf/config/examples/kubernetes_config.yaml"
+            ],
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "AIPerf: Custom Runner",
+            "type": "shell",
+            "command": "${command:python.interpreterPath}",
+            "args": [
+                "${workspaceFolder}/scripts/run_aiperf.py",
+                "--config",
+                "${input:configTemplate}",
+                "--output",
+                "${input:outputConfig}",
+                "--api-key",
+                "${input:apiKey}",
+                "--rate",
+                "${input:rate}",
+                "--duration",
+                "${input:duration}",
+                "--log-level",
+                "${input:logLevel}"
+            ],
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "AIPerf: Setup Config Only",
+            "type": "shell",
+            "command": "${command:python.interpreterPath}",
+            "args": [
+                "${workspaceFolder}/scripts/run_aiperf.py",
+                "--config",
+                "${input:configTemplate}",
+                "--output",
+                "${input:outputConfig}",
+                "--api-key",
+                "${input:apiKey}",
+                "--setup-only"
+            ],
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "AIPerf: Validate Config",
+            "type": "shell",
+            "command": "${command:python.interpreterPath}",
+            "args": [
+                "-m",
+                "aiperf.cli.aiperf_cli",
+                "validate",
+                "${input:configFile}"
+            ],
+            "group": "test",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "AIPerf: Run Tests",
+            "type": "shell",
+            "command": "${command:python.interpreterPath}",
+            "args": [
+                "-m",
+                "pytest",
+                "aiperf/tests",
+                "-v"
+            ],
+            "group": "test",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": []
+        }
+    ],
+    "inputs": [
+        {
+            "id": "configFile",
+            "type": "promptString",
+            "description": "Path to configuration file",
+            "default": "aiperf/config/examples/openai_example.yaml"
+        },
+        {
+            "id": "configTemplate",
+            "type": "promptString",
+            "description": "Path to template configuration file",
+            "default": "aiperf/config/examples/openai_example.yaml"
+        },
+        {
+            "id": "outputConfig",
+            "type": "promptString",
+            "description": "Path to output configuration file",
+            "default": "custom_configs/my_config.yaml"
+        },
+        {
+            "id": "apiKey",
+            "type": "promptString",
+            "description": "API key (if applicable)",
+            "default": ""
+        },
+        {
+            "id": "rate",
+            "type": "promptString",
+            "description": "Request rate (requests per second)",
+            "default": "5"
+        },
+        {
+            "id": "duration",
+            "type": "promptString",
+            "description": "Test duration in seconds",
+            "default": "60"
+        },
+        {
+            "id": "logLevel",
+            "type": "pickString",
+            "description": "Log level",
+            "options": [
+                "DEBUG",
+                "INFO",
+                "WARNING",
+                "ERROR"
+            ],
+            "default": "INFO"
+        }
+    ]
+}

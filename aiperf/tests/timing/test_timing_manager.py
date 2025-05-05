@@ -519,8 +519,7 @@ class TestTimingManager:
         await manager._issue_credit(credit)
         
         # Assert
-        credit_consumer.assert_called_once()
-        assert credit_consumer.call_args[0][0] == credit
+        credit_consumer.assert_called_once_with(credit)
         
         # Check that the credit was published
         mock_communication.publish.assert_called_once()

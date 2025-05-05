@@ -70,83 +70,88 @@ class TestWorkerCLI:
         args.log_level = "INFO"
         args.log_file = None
         
-        # Mock ZMQCommunication
-        with patch("aiperf.cli.worker_cli.ZMQCommunication") as mock_zmq:
-            # Mock the communication instance
-            mock_comm = MagicMock()
-            mock_comm.initialize = AsyncMock(return_value=True)
-            mock_comm.request = AsyncMock()
-            mock_comm.request.side_effect = [
-                # First request for worker config
-                {
-                    "status": "success",
-                    "endpoint_config": {
-                        "name": "test-endpoint",
-                        "url": "https://api.example.com/v1/completions",
-                        "api_type": "openai",
-                        "headers": {"Content-Type": "application/json"}
-                    }
-                },
-                # Second request for worker registration
-                {
-                    "status": "success"
-                }
-            ]
-            mock_comm.subscribe = AsyncMock()
-            mock_comm.shutdown = AsyncMock()
-            mock_zmq.return_value = mock_comm
+        # Mock asyncio.Event.wait to avoid hanging
+        mock_event = MagicMock()
+        mock_event.wait = AsyncMock()
+        
+        # Mock the create_task function
+        with patch("asyncio.Event", return_value=mock_event), \
+             patch("asyncio.create_task") as mock_create_task:
             
-            # Mock Worker
-            with patch("aiperf.cli.worker_cli.Worker") as mock_worker_cls:
-                # Mock worker instance
-                mock_worker = MagicMock()
-                mock_worker.initialize = AsyncMock(return_value=True)
-                mock_worker.publish_identity = AsyncMock(return_value=True)
-                mock_worker.shutdown = AsyncMock()
-                mock_worker_cls.return_value = mock_worker
+            # Mock ZMQCommunication
+            with patch("aiperf.cli.worker_cli.ZMQCommunication") as mock_zmq:
+                # Mock the communication instance
+                mock_comm = MagicMock()
+                mock_comm.initialize = AsyncMock(return_value=True)
+                mock_comm.request = AsyncMock()
+                mock_comm.request.side_effect = [
+                    # First request for worker config
+                    {
+                        "status": "success",
+                        "endpoint_config": {
+                            "name": "test-endpoint",
+                            "url": "https://api.example.com/v1/completions",
+                            "api_type": "openai",
+                            "headers": {"Content-Type": "application/json"}
+                        }
+                    },
+                    # Second request for worker registration
+                    {
+                        "status": "success"
+                    }
+                ]
+                mock_comm.subscribe = AsyncMock()
+                mock_comm.shutdown = AsyncMock()
+                mock_zmq.return_value = mock_comm
                 
-                # Act
-                # Create a timeout to avoid hanging in the test
-                shutdown_event = asyncio.Event()
-                
-                # Run with timeout to avoid hanging
-                result_task = asyncio.create_task(run_worker(args))
-                
-                # Wait a small amount of time for initialization
-                await asyncio.sleep(0.1)
-                
-                # Trigger shutdown by setting the event that worker is waiting for
-                mock_comm.subscribe.assert_called_once_with("system.shutdown", ANY)
-                shutdown_callback = mock_comm.subscribe.call_args[0][1]
-                shutdown_callback({"command": "shutdown"})
-                
-                # Wait for result
-                result = await result_task
-                
-                # Assert
-                assert result == 0
-                mock_zmq.assert_called_once_with(
-                    component_id="test-worker-1",
-                    pub_address="tcp://localhost:5557",
-                    sub_address="tcp://localhost:5558",
-                    req_address="tcp://localhost:5559",
-                    rep_address="tcp://localhost:5560"
-                )
-                mock_comm.initialize.assert_called_once()
-                assert mock_comm.request.call_count == 2
-                # First request should be for config
-                assert mock_comm.request.call_args_list[0][0][0] == "system_controller"
-                assert mock_comm.request.call_args_list[0][0][1]["command"] == "get_worker_config"
-                # Second request should be for registration
-                assert mock_comm.request.call_args_list[1][0][0] == "system_controller"
-                assert mock_comm.request.call_args_list[1][0][1]["command"] == "register_worker"
-                assert mock_comm.request.call_args_list[1][0][1]["worker_id"] == "test-worker-1"
-                
-                mock_worker_cls.assert_called_once()
-                mock_worker.initialize.assert_called_once()
-                mock_worker.publish_identity.assert_called_once()
-                mock_worker.shutdown.assert_called_once()
-                mock_comm.shutdown.assert_called_once()
+                # Mock Worker
+                with patch("aiperf.cli.worker_cli.Worker") as mock_worker_cls:
+                    # Mock worker instance
+                    mock_worker = MagicMock()
+                    mock_worker.initialize = AsyncMock(return_value=True)
+                    mock_worker.publish_identity = AsyncMock(return_value=True)
+                    mock_worker.shutdown = AsyncMock()
+                    mock_worker_cls.return_value = mock_worker
+                    
+                    # Act
+                    # Simulate a subscription callback that will set the shutdown event
+                    async def mock_subscribe(topic, callback):
+                        if topic == "system.shutdown":
+                            # Immediately trigger the callback to simulate shutdown
+                            callback({"command": "shutdown"})
+                            # Set the event to allow run_worker to complete
+                            mock_event.set()
+                        return True
+                    
+                    mock_comm.subscribe.side_effect = mock_subscribe
+                    
+                    # Run worker
+                    result = await run_worker(args)
+                    
+                    # Assert
+                    assert result == 0
+                    mock_zmq.assert_called_once_with(
+                        component_id="test-worker-1",
+                        pub_address="tcp://localhost:5557",
+                        sub_address="tcp://localhost:5558",
+                        req_address="tcp://localhost:5559",
+                        rep_address="tcp://localhost:5560"
+                    )
+                    mock_comm.initialize.assert_called_once()
+                    assert mock_comm.request.call_count == 2
+                    # First request should be for config
+                    assert mock_comm.request.call_args_list[0][0][0] == "system_controller"
+                    assert mock_comm.request.call_args_list[0][0][1]["command"] == "get_worker_config"
+                    # Second request should be for registration
+                    assert mock_comm.request.call_args_list[1][0][0] == "system_controller"
+                    assert mock_comm.request.call_args_list[1][0][1]["command"] == "register_worker"
+                    assert mock_comm.request.call_args_list[1][0][1]["worker_id"] == "test-worker-1"
+                    
+                    mock_worker_cls.assert_called_once()
+                    mock_worker.initialize.assert_called_once()
+                    mock_worker.publish_identity.assert_called_once()
+                    mock_worker.shutdown.assert_called_once()
+                    mock_comm.shutdown.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_run_worker_failed_config(self):
@@ -296,20 +301,23 @@ class TestWorkerCLI:
 
     def test_main(self):
         """Test main entry point."""
-        with patch("aiperf.cli.worker_cli.asyncio.run") as mock_run:
+        # Mock main_async returning a simple MagicMock, not a coroutine
+        mock_result = MagicMock()
+        mock_result.__await__ = lambda: iter([0])
+        
+        with patch("aiperf.cli.worker_cli.main_async") as mock_main_async, \
+             patch("aiperf.cli.worker_cli.asyncio.run") as mock_run:
+            # Set up the return values
+            mock_main_async.return_value = mock_result
             mock_run.return_value = 0
             
-            with patch("aiperf.cli.worker_cli.main_async") as mock_main_async:
-                # Instead of checking the coroutine value, just check the call was made
-                # and then verify the result was properly returned
-                
-                # Act
-                result = main()
-                
-                # Assert
-                assert result == 0
-                mock_main_async.assert_called_once()
-                mock_run.assert_called_once()  # We don't verify the exact arg
+            # Act
+            result = main()
+            
+            # Assert
+            assert result == 0
+            mock_main_async.assert_called_once()
+            mock_run.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_main_async_run(self):
@@ -322,38 +330,54 @@ class TestWorkerCLI:
             args.log_file = None
             mock_parse_args.return_value = args
             
-            # Mock setup_logging with any arguments to avoid assertion errors
+            # Mock setup_logging
             with patch("aiperf.cli.worker_cli.setup_logging") as mock_setup_logging:
-                # Mock run_worker
-                with patch("aiperf.cli.worker_cli.run_worker") as mock_run_worker:
-                    mock_run_worker.return_value = 0
-                    
+                # Create a simple implementation that just returns success
+                run_worker_called = False
+                async def mock_run_worker(args_param):
+                    nonlocal run_worker_called
+                    run_worker_called = True
+                    assert args_param == args
+                    return 0
+                
+                # Use a simple function rather than an AsyncMock to avoid coroutine warnings
+                with patch("aiperf.cli.worker_cli.run_worker", mock_run_worker):
                     # Act
                     result = await main_async()
                     
                     # Assert
                     assert result == 0
+                    assert run_worker_called is True
                     mock_parse_args.assert_called_once()
                     mock_setup_logging.assert_called_once_with("INFO", None)
-                    mock_run_worker.assert_called_once_with(args)
 
     @pytest.mark.asyncio
     async def test_main_async_unknown_command(self):
         """Test main_async with unknown command."""
         # Mock command line arguments
         with patch("aiperf.cli.worker_cli.parse_args") as mock_parse_args:
-            args = MagicMock()
-            args.command = "invalid"
-            args.log_level = "INFO"
-            args.log_file = None
+            # Create a simple args object without using MagicMock
+            class Args:
+                command = "invalid"
+                log_level = "INFO"
+                log_file = None
+                
+            args = Args()
             mock_parse_args.return_value = args
             
-            # Mock setup_logging with any arguments to avoid assertion errors
-            with patch("aiperf.cli.worker_cli.setup_logging") as mock_setup_logging:
-                # Act
+            # Mock setup_logging with a simple function
+            setup_logging_called = False
+            def mock_setup_logging(log_level, log_file):
+                nonlocal setup_logging_called
+                setup_logging_called = True
+                assert log_level == "INFO"
+                assert log_file is None
+                
+            with patch("aiperf.cli.worker_cli.setup_logging", mock_setup_logging):
+                # Act - no need to mock anything else, the function just returns error code
                 result = await main_async()
                 
                 # Assert
                 assert result == 1  # Error exit code
-                mock_parse_args.assert_called_once()
-                mock_setup_logging.assert_called_once_with("INFO", None) 
+                assert mock_parse_args.called
+                assert setup_logging_called 

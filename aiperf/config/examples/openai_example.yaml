@@ -13,7 +13,7 @@ endpoints:
     headers:
       Content-Type: "application/json"
     auth:
-      api_key: "YOUR_API_KEY"  # Replace with your actual API key
+      api_key: "YOUR_API_KEY" # Replace with your actual API key
     timeout: 60.0
     metadata:
       description: "OpenAI API endpoint"
@@ -43,8 +43,8 @@ dataset:
 timing:
   schedule_type: "poisson"
   parameters:
-    rate: 10  # Requests per second
-  duration: 300  # 5 minutes
+    request_rate: 10 # Requests per second
+  duration: 300 # 5 minutes
   start_delay: 2.0
   metadata:
     description: "Poisson distribution with rate of 10 requests per second"
@@ -74,8 +74,8 @@ metrics:
   output_format: "json"
   output_path: "./reports/openai_benchmark_report.json"
   live_metrics: true
-  server_metrics: false  # No server metrics for OpenAI API
-  gpu_telemetry: false   # No GPU telemetry for OpenAI API
+  server_metrics: false # No server metrics for OpenAI API
+  gpu_telemetry: false # No GPU telemetry for OpenAI API
   metadata:
     description: "Metrics configuration for OpenAI benchmark"
 
@@ -88,4 +88,4 @@ metadata:
     - "openai"
     - "text"
     - "completion"
-    - "benchmark" 
+    - "benchmark"
