@@ -14,7 +14,7 @@ class ServiceConfig(BaseModel):
     # TODO: this needs to be cleaned up and finalized
 
     comm_backend: CommBackend = Field(
-        default=CommBackend.ZMQ,
+        default=CommBackend.MEMORY,
         description="Communication backend to use",
     )
     service_run_type: ServiceRunType = Field(

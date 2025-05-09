@@ -3,14 +3,17 @@ import contextlib
 import logging
 import uuid
 from abc import ABC, abstractmethod
+from typing import Any, Dict, Optional
 
+from aiperf.common.comms.communication import Communication
+from aiperf.common.comms.communication_factory import CommunicationFactory
 from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.enums import ServiceState, Topic
+from aiperf.common.enums import ServiceRunType, ServiceState, ServiceType, Topic
 from aiperf.common.models.messages import (
     BaseMessage,
     HeartbeatMessage,
-    StatusMessage,
     RegistrationMessage,
+    StatusMessage,
 )
 
 
@@ -24,22 +27,25 @@ class ServiceBase(ABC):
 
     def __init__(
         self,
-        service_type: str,
+        service_type: ServiceType,
         config: ServiceConfig,
         autostart: bool = False,
     ):
         self.service_id: str = uuid.uuid4().hex
-        self.service_type: str = service_type
+        self.service_type: ServiceType = service_type
         self.config = config
         self.logger = logging.getLogger(self.__class__.__name__)
         self.logger.debug(
-            f"Initializing service {self.service_id} {self.service_type} {self.__class__.__name__}"
+            f"Initializing service {self.service_id} {self.service_type.value} {self.__class__.__name__}"
         )
         self.state: ServiceState = ServiceState.UNKNOWN
         self.heartbeat_task = None
         self.heartbeat_interval = 10  # Default interval in seconds
         self.stop_event = asyncio.Event()
         self.autostart = autostart
+        self.communication: Optional[Communication] = None
+        # Flag to allow system controller to handle its own communication initialization
+        self._skip_parent_comm_init = False
 
     async def _subscribe_to_topic(self, topic: Topic) -> None:
         """Subscribe to a topic for receiving messages.
@@ -48,15 +54,35 @@ class ServiceBase(ABC):
             topic: The topic to subscribe to
 
         """
-        # TODO: Implement the subscription logic internally here
-        self.logger.debug("Subscribing to topic %s", topic)
-        self.logger.warning("Not implemented")
+        if not self.communication:
+            self.logger.warning("Cannot subscribe: Communication is not initialized")
+            return
+
+        topic_str = topic.value
+        self.logger.debug(f"Subscribing to topic {topic_str}")
+
+        async def message_callback(data: Dict[str, Any]) -> None:
+            message = BaseMessage.model_validate(data)
+            await self._process_message(topic, message)
+
+        success = await self.communication.subscribe(topic_str, message_callback)
+        if not success:
+            self.logger.error(f"Failed to subscribe to topic {topic_str}")
+        else:
+            self.logger.debug(f"Successfully subscribed to topic {topic_str}")
 
     async def _publish_message(self, topic: Topic, message: BaseMessage) -> None:
         """Publish a message to a topic."""
-        # TODO: implement the internal publish against the comms library
-        self.logger.debug("Publishing message to topic %s: %s", topic, message)
-        self.logger.warning("Not implemented")
+        if not self.communication:
+            self.logger.warning("Cannot publish: Communication is not initialized")
+            return
+
+        topic_str = topic.value
+        self.logger.debug(f"Publishing message to topic {topic_str}: {message}")
+
+        success = await self.communication.publish(topic_str, message)
+        if not success:
+            self.logger.error(f"Failed to publish message to topic {topic_str}")
 
     async def _send_heartbeat(self) -> None:
         """Send a heartbeat message to the system controller."""
@@ -110,7 +136,36 @@ class ServiceBase(ABC):
         try:
             # Initialize the service
             self.state = ServiceState.INITIALIZING
+
+            # Initialize communication unless explicitly skipped
+            if not self.communication and not self._skip_parent_comm_init:
+                comm_type = self.config.comm_backend.value
+                if self.config.service_run_type == ServiceRunType.ASYNC:
+                    comm_type = "memory"
+                elif self.config.service_run_type == ServiceRunType.MULTIPROCESSING:
+                    comm_type = "zmq"
+                self.communication = CommunicationFactory.create_communication(
+                    comm_type=comm_type
+                )
+
+                # Initialize the communication instance
+                if self.communication:
+                    success = await self.communication.initialize()
+                    if not success:
+                        self.logger.error(
+                            f"Failed to initialize {comm_type} communication"
+                        )
+                        self.state = ServiceState.ERROR
+                        return
+
             await self._initialize()
+
+            # Set up communication subscriptions if communication is available
+            # Subscribe to common topics
+            await self._subscribe_to_topic(Topic.COMMAND)
+
+            # Additional service-specific subscriptions can be added in derived classes
+
             await self._register()
             # Start heartbeat task
             await self._start_heartbeat_task()
@@ -149,6 +204,11 @@ class ServiceBase(ABC):
 
     async def stop(self) -> None:
         """Stop the service and clean up its components."""
+        if self.state != ServiceState.RUNNING:
+            self.logger.warning(
+                "Service %s is not running, cannot stop", self.service_type
+            )
+            return
         await self._set_service_status(ServiceState.STOPPING)
         # Signal the run method to exit if it hasn't already
         self.stop_event.set()

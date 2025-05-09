@@ -65,3 +65,16 @@ class ServiceRunType(Enum):
     ASYNC = "async"
     MULTIPROCESSING = "process"
     KUBERNETES = "k8s"
+
+
+class ServiceType(Enum):
+    """Service type enum."""
+
+    SYSTEM_CONTROLLER = "system_controller"
+    DATASET_MANAGER = "dataset_manager"
+    TIMING_MANAGER = "timing_manager"
+    WORKER_MANAGER = "worker_manager"
+    RECORDS_MANAGER = "records_manager"
+    POST_PROCESSOR_MANAGER = "post_processor_manager"
+    WORKER = "worker"
+    TEST = "test_service"  # Used in tests

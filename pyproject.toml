@@ -54,6 +54,7 @@ aiperf = "aiperf.cli:main"
 [project.optional-dependencies]
 dev = [
   "pytest>=7.0.0",
+  "pytest-asyncio",
   "ruff>=0.0.0",
 ]
 
@@ -68,5 +69,7 @@ exclude = ["__pycache__", "build", "dist", ".venv", "venv"]
 [tool.pytest.ini_options]
 # Basic pytest configuration
 testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 
 

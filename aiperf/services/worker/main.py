@@ -1,38 +1,79 @@
 import sys
-from typing import Any, Dict
 
-from aiperf.common.config.service_config import WorkerConfig
+from aiperf.common.config.service_config import ServiceConfig
+from aiperf.common.enums import ServiceType, Topic
+from aiperf.common.models.messages import BaseMessage
+from aiperf.common.service import ServiceBase
 
 
-class Worker:
+class Worker(ServiceBase):
     """Worker responsible for sending requests to the server."""
 
-    def __init__(self, config: WorkerConfig):
-        self.config = config
+    def __init__(self, config: ServiceConfig) -> None:
+        super().__init__(service_type=ServiceType.WORKER, config=config)
+        self.logger.debug("Initializing worker")
 
-    async def start(self) -> None:
+    async def _initialize(self) -> None:
+        """Initialize worker-specific components."""
+        self.logger.debug("Initializing worker")
+
+    async def _on_start(self) -> None:
         """Start the worker."""
-        # TODO: Implement worker start
+        self.logger.debug("Starting worker")
 
-    async def stop(self) -> None:
+    async def _on_stop(self) -> None:
         """Stop the worker."""
-        # TODO: Implement worker stop
+        self.logger.debug("Stopping worker")
 
-    async def process_credit(self, credit_data: Dict[str, Any]) -> None:
-        """Process a credit by initiating a conversation."""
-        # TODO: Implement worker process credit
+    async def _cleanup(self) -> None:
+        """Clean up worker-specific components."""
+        self.logger.debug("Cleaning up worker")
 
-    async def handle_conversation(self, conversation_data: Dict[str, Any]) -> None:
-        """Handle a conversation with the server."""
-        # TODO: Implement worker handle conversation
+    async def _process_message(self, topic: Topic, message: BaseMessage) -> None:
+        """Process a message from another service.
 
-    async def send_request(self, request_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Send a request to the server."""
-        # TODO: Implement worker send request
+        Args:
+            topic: The topic the message was received on
+            message: The message to process
+        """
+        self.logger.debug(f"Processing message: {topic}, {message}")
+        # TODO: Implement message processing
 
-    async def publish_result(self, result_data: Dict[str, Any]) -> None:
-        """Publish a result to the worker manager."""
-        # TODO: Implement worker publish result
+    async def send_request(self, request: dict) -> dict:
+        """Send a request to the target service.
+
+        Args:
+            request: The request to send
+
+        Returns:
+            The response from the service
+        """
+        # TODO: Implement sending requests
+        return {"status": "ok"}
+
+    async def process_credit(self, credit: dict) -> None:
+        """Process a credit from the system controller.
+
+        Args:
+            credit: The credit to process
+        """
+        # TODO: Implement processing credits
+
+    async def handle_conversation(self, conversation: dict) -> None:
+        """Handle a conversation with the system.
+
+        Args:
+            conversation: The conversation to handle
+        """
+        # TODO: Implement conversation handling
+
+    async def publish_result(self, result: dict) -> None:
+        """Publish a result to the records manager.
+
+        Args:
+            result: The result to publish
+        """
+        # TODO: Implement publishing results
 
 
 if __name__ == "__main__":

@@ -4,9 +4,17 @@ from multiprocessing import Process
 from typing import Any, Dict
 
 from aiperf.common.bootstrap import bootstrap_and_run_service
+from aiperf.common.comms.communication import Communication
+from aiperf.common.comms.communication_factory import CommunicationFactory
 from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.enums import ServiceRunType, Topic
-from aiperf.common.models.messages import BaseMessage, RegistrationMessage
+from aiperf.common.enums import ServiceRunType, ServiceType, Topic
+from aiperf.common.exceptions.service import ServiceInitializationException
+from aiperf.common.models.messages import (
+    BaseMessage,
+    HeartbeatMessage,
+    RegistrationMessage,
+    StatusMessage,
+)
 from aiperf.common.service import ServiceBase
 from aiperf.services.dataset_manager.main import DatasetManager
 from aiperf.services.post_processor_manager.main import PostProcessorManager
@@ -18,17 +26,63 @@ from aiperf.services.worker_manager.main import WorkerManager
 class SystemController(ServiceBase):
     def __init__(self, config: ServiceConfig) -> None:
         super().__init__(
-            service_type="system_controller", config=config, autostart=True
+            service_type=ServiceType.SYSTEM_CONTROLLER, config=config, autostart=True
         )
         self.services: dict[str, Any] = {}
+        # Don't create communication in the parent class
+        self._skip_parent_comm_init = True
+        self.communication: Communication = None
 
     async def _initialize(self) -> None:
         """Initialize system controller-specific components."""
         self.logger.debug("Initializing System Controller")
 
+        # Initialize communication component based on config
+        comm_type = self.config.comm_backend.value
+        if self.config.service_run_type == ServiceRunType.ASYNC:
+            comm_type = "memory"
+        elif self.config.service_run_type == ServiceRunType.MULTIPROCESSING:
+            comm_type = "zmq"
+        self.logger.info(f"Initializing communication with backend: {comm_type}")
+
+        # For the system controller, we want to bind to sockets (not connect)
+        if comm_type == "zmq":
+            self.communication = CommunicationFactory.create_communication(
+                comm_type=comm_type, is_controller=True
+            )
+        else:
+            self.communication = CommunicationFactory.create_communication(
+                comm_type=comm_type
+            )
+
+        if self.communication is None:
+            self.logger.error(
+                f"Failed to create communication with backend: {comm_type}"
+            )
+            raise ServiceInitializationException(
+                f"Failed to initialize communication backend: {comm_type}"
+            )
+
+        # Initialize the communication
+        success = await self.communication.initialize()
+        if not success:
+            self.logger.error("Failed to initialize communication")
+            raise ServiceInitializationException("Failed to initialize communication")
+
+        # Subscribe to relevant messages
+        await self._subscribe_to_topic(Topic.REGISTRATION)
+        await self._subscribe_to_topic(Topic.HEARTBEAT)
+        await self._subscribe_to_topic(Topic.STATUS)
+
+        self.logger.info(
+            f"Successfully initialized communication with backend: {comm_type}"
+        )
+
     async def _on_start(self) -> None:
         """Start the system controller and launch required services."""
         self.logger.debug("Starting System Controller")
+
+        # Start all required services
         await self._start_all_services()
 
     async def _start_all_services(self) -> None:
@@ -66,22 +120,58 @@ class SystemController(ServiceBase):
         self.logger.debug("Stopping System Controller")
         await self._stop_all_services()
 
+        # Shutdown communication component
+        if self.communication:
+            success = await self.communication.shutdown()
+            if not success:
+                self.logger.warning("Failed to properly shutdown communication")
+
     async def _cleanup(self) -> None:
         """Clean up system controller-specific components."""
         self.logger.debug("Cleaning up System Controller")
+        # TODO: Additional cleanup if needed
 
     async def _process_message(self, topic: Topic, message: BaseMessage) -> None:
+        """Process a message from another service.
+
+        Args:
+            topic: The topic the message was received on
+            message: The message to process
+        """
         self.logger.debug(
             f"Processing message in System Controller: {topic}, {message}"
         )
         if topic == Topic.REGISTRATION:
             await self._process_registration_message(message)
+        elif topic == Topic.HEARTBEAT:
+            await self._process_heartbeat_message(message)
+        elif topic == Topic.STATUS:
+            await self._process_status_message(message)
         # TODO: Process other message types
 
     async def _process_registration_message(self, message: RegistrationMessage) -> None:
         self.logger.debug(f"Processing registration message: {message}")
-        # TODO: Process registration message
-        raise NotImplementedError
+        # TODO: finish implementing registration message processing
+        self.logger.debug("Registration message processing not implemented")
+
+    async def _process_heartbeat_message(self, message: HeartbeatMessage) -> None:
+        """Process a heartbeat message from a service."""
+        service_id = message.service_id
+        service_type = message.service_type
+
+        self.logger.debug(f"Received heartbeat from {service_type} (ID: {service_id})")
+        self.logger.debug("Heartbeat message processing not implemented")
+        # TODO: finish implementing heartbeat message processing
+
+    async def _process_status_message(self, message: StatusMessage) -> None:
+        """Process a status message from a service.
+
+        Args:
+            message: The status message to process
+        """
+        self.logger.debug("Received status update %s", message)
+        self.logger.debug("Status message processing not implemented")
+        # TODO: finish implementing status message processing
 
     async def _start_all_services_asyncio(self) -> None:
         """Start all required services as asyncio tasks in the same event loop."""
@@ -89,33 +179,44 @@ class SystemController(ServiceBase):
 
         # TODO: better way to define these
         service_configs = [
-            ("dataset_manager", DatasetManager),
-            ("timing_manager", TimingManager),
-            ("worker_manager", WorkerManager),
-            ("records_manager", RecordsManager),
-            ("post_processor_manager", PostProcessorManager),
+            (ServiceType.DATASET_MANAGER, DatasetManager),
+            (ServiceType.TIMING_MANAGER, TimingManager),
+            (ServiceType.WORKER_MANAGER, WorkerManager),
+            (ServiceType.RECORDS_MANAGER, RecordsManager),
+            (ServiceType.POST_PROCESSOR_MANAGER, PostProcessorManager),
         ]
 
         # Create and start all service tasks
         self.service_tasks: Dict[str, asyncio.Task] = {}
         for service_name, service_class in service_configs:
+            # Create the service instance with the same config
             service_instance = service_class(self.config)
-            task = asyncio.create_task(service_instance.run())
-            task.set_name(f"{service_name}_task")
 
-            self.service_tasks[service_name] = task
+            # Share the communication instance for efficiency
+            service_instance.communication = self.communication
+
+            # Start the service
+            task = asyncio.create_task(service_instance.run())
+            task.set_name(f"{service_name.value}_task")
+
+            self.service_tasks[service_name.value] = task
             # TODO: Implement a more robust way to track services, shared between the run types using ServiceRunInfo
-            self.services[service_name] = {
+            self.services[service_name.value] = {
                 "task": task,
                 "instance": service_instance,
                 "service_class": service_class,
             }
 
-            self.logger.info(f"Service {service_name} started as asyncio task")
+            self.logger.info(f"Service {service_name.value} started as asyncio task")
 
     async def _stop_all_services_asyncio(self) -> None:
         """Cancel all service tasks."""
         self.logger.debug("Cancelling all service tasks")
+
+        # Check if service_tasks attribute exists
+        if not hasattr(self, "service_tasks") or not self.service_tasks:
+            self.logger.warning("No service tasks to cancel")
+            return
 
         for service_name, task in self.service_tasks.items():
             self.logger.info(f"Cancelling {service_name} task")
@@ -136,27 +237,30 @@ class SystemController(ServiceBase):
         self.logger.debug("Starting all required services as multiprocessing processes")
         # TODO: better way to define these
         service_configs = [
-            ("dataset_manager", DatasetManager),
-            ("timing_manager", TimingManager),
-            ("worker_manager", WorkerManager),
-            ("records_manager", RecordsManager),
-            ("post_processor_manager", PostProcessorManager),
+            (ServiceType.DATASET_MANAGER, DatasetManager),
+            (ServiceType.TIMING_MANAGER, TimingManager),
+            (ServiceType.WORKER_MANAGER, WorkerManager),
+            (ServiceType.RECORDS_MANAGER, RecordsManager),
+            (ServiceType.POST_PROCESSOR_MANAGER, PostProcessorManager),
         ]
 
+        # In multiprocessing mode, each process needs its own communication instance
         # Create and start all service processes
         self.service_processes: Dict[str, Process] = {}
         for service_name, service_class in service_configs:
+            # When using multiprocessing, we can't share the communication instance
+            # Each process will create its own instance based on the config
             process = Process(
                 target=bootstrap_and_run_service,
-                name=f"{service_name}_process",
+                name=f"{service_name.value}_process",
                 args=(service_class, self.config),
                 daemon=True,
             )
             process.start()
             # TODO: Implement a more robust way to track services, shared between the run types using ServiceRunInfo
-            self.service_processes[service_name] = process
+            self.service_processes[service_name.value] = process
             self.logger.info(
-                f"Service {service_name} started as multiprocessing process"
+                f"Service {service_name.value} started as multiprocessing process"
             )
 
     async def _stop_all_services_multiprocessing(self) -> None:
