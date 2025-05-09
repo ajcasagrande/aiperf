@@ -5,6 +5,8 @@ from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, Field
 
+from aiperf.common.models.base_models import BasePayload
+
 
 class PushData(BaseModel):
     """Base model for push data."""
@@ -19,7 +21,11 @@ class PushData(BaseModel):
     )
     data: Dict[str, Any] = Field(
         default_factory=dict,
-        description="Data payload",
+        description="Data payload as a dictionary (for backward compatibility)",
+    )
+    payload: Optional[BasePayload] = Field(
+        default=None,
+        description="Structured data payload (Pydantic model)",
     )
 
 
@@ -36,5 +42,9 @@ class PullData(BaseModel):
     )
     data: Dict[str, Any] = Field(
         default_factory=dict,
-        description="Data payload",
+        description="Data payload as a dictionary (for backward compatibility)",
+    )
+    payload: Optional[BasePayload] = Field(
+        default=None,
+        description="Structured data payload (Pydantic model)",
     )

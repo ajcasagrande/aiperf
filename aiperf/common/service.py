@@ -3,7 +3,7 @@ import contextlib
 import logging
 import uuid
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Type, TypeVar, cast
 
 from aiperf.common.comms.communication import Communication
 from aiperf.common.comms.communication_factory import CommunicationFactory
@@ -11,10 +11,14 @@ from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ServiceRunType, ServiceState, ServiceType, Topic
 from aiperf.common.models.messages import (
     BaseMessage,
+    CommandMessage,
     HeartbeatMessage,
     RegistrationMessage,
     StatusMessage,
 )
+
+# Type variable for message types
+M = TypeVar("M", bound=BaseMessage)
 
 
 class ServiceBase(ABC):
@@ -47,11 +51,14 @@ class ServiceBase(ABC):
         # Flag to allow system controller to handle its own communication initialization
         self._skip_parent_comm_init = False
 
-    async def _subscribe_to_topic(self, topic: Topic) -> None:
+    async def _subscribe_to_topic(
+        self, topic: Topic, message_type: Optional[Type[M]] = None
+    ) -> None:
         """Subscribe to a topic for receiving messages.
 
         Args:
             topic: The topic to subscribe to
+            message_type: Optional message type for type checking
 
         """
         if not self.communication:
@@ -61,9 +68,18 @@ class ServiceBase(ABC):
         topic_str = topic.value
         self.logger.debug(f"Subscribing to topic {topic_str}")
 
-        async def message_callback(data: Dict[str, Any]) -> None:
-            message = BaseMessage.model_validate(data)
-            await self._process_message(topic, message)
+        async def message_callback(message: BaseMessage) -> None:
+            # Perform type checking if a specific message type was provided
+            if message_type and not isinstance(message, message_type):
+                self.logger.warning(
+                    f"Received message of unexpected type {type(message)} on topic {topic}, "
+                    f"expected {message_type}"
+                )
+                return
+
+            # Cast to the expected type for better type hinting
+            typed_message = cast(M, message) if message_type else message
+            await self._process_message(topic, typed_message)
 
         success = await self.communication.subscribe(topic_str, message_callback)
         if not success:
@@ -71,11 +87,19 @@ class ServiceBase(ABC):
         else:
             self.logger.debug(f"Successfully subscribed to topic {topic_str}")
 
-    async def _publish_message(self, topic: Topic, message: BaseMessage) -> None:
-        """Publish a message to a topic."""
+    async def _publish_message(self, topic: Topic, message: BaseMessage) -> bool:
+        """Publish a message to a topic.
+
+        Args:
+            topic: Topic to publish to
+            message: Message to publish
+
+        Returns:
+            True if published successfully
+        """
         if not self.communication:
             self.logger.warning("Cannot publish: Communication is not initialized")
-            return
+            return False
 
         topic_str = topic.value
         self.logger.debug(f"Publishing message to topic {topic_str}: {message}")
@@ -83,6 +107,7 @@ class ServiceBase(ABC):
         success = await self.communication.publish(topic_str, message)
         if not success:
             self.logger.error(f"Failed to publish message to topic {topic_str}")
+        return success
 
     async def _send_heartbeat(self) -> None:
         """Send a heartbeat message to the system controller."""
@@ -162,7 +187,7 @@ class ServiceBase(ABC):
 
             # Set up communication subscriptions if communication is available
             # Subscribe to common topics
-            await self._subscribe_to_topic(Topic.COMMAND)
+            await self._subscribe_to_topic(Topic.COMMAND, CommandMessage)
 
             # Additional service-specific subscriptions can be added in derived classes
 
@@ -255,14 +280,15 @@ class ServiceBase(ABC):
     async def _cleanup(self) -> None:
         """Clean up service-specific components.
 
-        This method should be implemented by derived classes to clean up any resources
-        specific to that service.
+        This method should be implemented by derived classes to free any resources
+        allocated by the service.
         """
 
     @abstractmethod
     async def _process_message(self, topic: Topic, message: BaseMessage) -> None:
         """Process a message from another service.
 
-        This method should be implemented by derived classes to handle messages
-        received from other services in the system.
+        Args:
+            topic: The topic the message was received on
+            message: The message to process
         """

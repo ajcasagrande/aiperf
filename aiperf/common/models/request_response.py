@@ -5,6 +5,27 @@ from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, Field
 
+from aiperf.common.models.base_models import RequestResponseBasePayload
+
+
+class BaseRequestPayload(RequestResponseBasePayload):
+    """Base model for all request payload data."""
+
+    # Request-specific fields can be added here
+
+
+class BaseResponsePayload(RequestResponseBasePayload):
+    """Base model for all response payload data."""
+
+    status: str = Field(
+        default="ok",
+        description="Status of the response (ok, error, etc.)",
+    )
+    message: Optional[str] = Field(
+        default=None,
+        description="Optional message providing more details about the response",
+    )
+
 
 class RequestData(BaseModel):
     """Base model for request data."""
@@ -23,11 +44,15 @@ class RequestData(BaseModel):
     )
     data: Dict[str, Any] = Field(
         default_factory=dict,
-        description="Request payload",
+        description="Request payload as a dictionary (for backward compatibility)",
     )
     target: Optional[str] = Field(
         default=None,
         description="Target component to send request to",
+    )
+    payload: Optional[BaseRequestPayload] = Field(
+        default=None,
+        description="Structured request payload (Pydantic model)",
     )
 
 
@@ -48,7 +73,7 @@ class ResponseData(BaseModel):
     )
     data: Dict[str, Any] = Field(
         default_factory=dict,
-        description="Response payload",
+        description="Response payload as a dictionary (for backward compatibility)",
     )
     target: Optional[str] = Field(
         default=None,
@@ -61,6 +86,10 @@ class ResponseData(BaseModel):
     message: Optional[str] = Field(
         default=None,
         description="Error message if status is error",
+    )
+    payload: Optional[BaseResponsePayload] = Field(
+        default=None,
+        description="Structured response payload (Pydantic model)",
     )
 
 
@@ -94,4 +123,8 @@ class RequestStateInfo(BaseModel):
     client_ids: list[str] = Field(
         default_factory=list,
         description="List of client IDs",
+    )
+    error: Optional[str] = Field(
+        default=None,
+        description="Error message if there was an error getting state info",
     )

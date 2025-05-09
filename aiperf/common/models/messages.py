@@ -1,11 +1,12 @@
 """Pydantic models for message structures used in inter-service communication."""
 
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, Field
 
 from aiperf.common.enums import MessageType, ServiceState
+from aiperf.common.models.base_models import BasePayload, DataPayload
 
 
 class BaseMessage(BaseModel):
@@ -64,6 +65,24 @@ class CommandMessage(BaseMessage):
     )
 
 
+class ResponsePayload(BasePayload):
+    """Structured payload for response messages."""
+
+    payload_type: str = "response"
+    status: str = Field(
+        default="ok",
+        description="Status of the response (ok, error, etc.)",
+    )
+    message: Optional[str] = Field(
+        default=None,
+        description="Optional message providing more details about the response",
+    )
+    data: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Any additional data accompanying the response",
+    )
+
+
 class ResponseMessage(BaseMessage):
     """Response message sent in reply to a command."""
 
@@ -72,9 +91,9 @@ class ResponseMessage(BaseMessage):
         ...,
         description="ID of the command this is responding to",
     )
-    data: Dict[str, Any] = Field(
-        default_factory=dict,
-        description="Response data",
+    payload: ResponsePayload = Field(
+        default_factory=ResponsePayload,
+        description="Response payload data",
     )
 
 
@@ -82,9 +101,9 @@ class DataMessage(BaseMessage):
     """Data message for sharing information between services."""
 
     message_type: MessageType = MessageType.DATA
-    data: Dict[str, Any] = Field(
-        default_factory=dict,
-        description="Data payload",
+    payload: DataPayload = Field(
+        ...,
+        description="Structured data payload",
     )
 
 
@@ -111,21 +130,92 @@ class RegistrationResponseMessage(BaseModel):
     )
 
 
+class CreditData(BasePayload):
+    """Structured model for credit information."""
+
+    payload_type: str = "credit"
+    credit_id: str = Field(
+        ...,
+        description="Unique identifier for this credit",
+    )
+    request_count: int = Field(
+        default=1,
+        description="Number of requests authorized by this credit",
+    )
+    expiry_time: Optional[float] = Field(
+        default=None,
+        description="Time when this credit expires (in seconds since epoch)",
+    )
+    parameters: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Additional parameters for this credit",
+    )
+
+
 class CreditMessage(BaseMessage):
     """Credit message sent by the timing manager to authorize a request."""
 
-    message_type: MessageType = MessageType.CREDIT.value
-    credit: Dict[str, Any] = Field(
+    message_type: MessageType = MessageType.CREDIT
+    credit: CreditData = Field(
         ...,
         description="Credit data",
+    )
+
+
+class ConversationTurn(BaseModel):
+    """Model representing a single turn in a conversation."""
+
+    role: str = Field(
+        ...,
+        description="Role of the speaker (user, assistant, system, etc.)",
+    )
+    content: str = Field(
+        ...,
+        description="Content of the message",
+    )
+    timestamp: float = Field(
+        default_factory=time.time,
+        description="Time when the message was created",
+    )
+
+
+class ConversationData(DataPayload):
+    """Model for conversation data."""
+
+    payload_type: str = "conversation"
+    conversation_id: str = Field(
+        ...,
+        description="Unique identifier for this conversation",
+    )
+    turns: List[ConversationTurn] = Field(
+        default_factory=list,
+        description="List of conversation turns",
+    )
+
+
+class ResultData(DataPayload):
+    """Structured model for result information."""
+
+    payload_type: str = "result"
+    result_id: str = Field(
+        ...,
+        description="Unique identifier for this result",
+    )
+    metrics: Dict[str, Union[float, int, str]] = Field(
+        default_factory=dict,
+        description="Performance metrics for this result",
+    )
+    tags: List[str] = Field(
+        default_factory=list,
+        description="Tags associated with this result",
     )
 
 
 class ResultMessage(BaseMessage):
     """Result message sent by workers to report results."""
 
-    message_type: MessageType = MessageType.DATA.value  # Using DATA type for results
-    result: Dict[str, Any] = Field(
+    message_type: MessageType = MessageType.DATA  # Using DATA type for results
+    result: ResultData = Field(
         ...,
         description="Result data",
     )
