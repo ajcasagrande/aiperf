@@ -1,5 +1,13 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, Union, Callable
+from typing import Callable, Optional, Union
+
+from aiperf.common.models.messages import BaseMessage
+from aiperf.common.models.push_pull import PullData, PushData
+from aiperf.common.models.request_response import (
+    RequestData,
+    RequestStateInfo,
+    ResponseData,
+)
 
 
 class Communication(ABC):
@@ -24,12 +32,12 @@ class Communication(ABC):
         pass
 
     @abstractmethod
-    async def publish(self, topic: str, message: Dict[str, Any]) -> bool:
+    async def publish(self, topic: str, message: BaseMessage) -> bool:
         """Publish a message to a topic.
 
         Args:
             topic: Topic to publish to
-            message: Message to publish
+            message: Message to publish (must be a Pydantic model)
 
         Returns:
             True if message was published successfully, False otherwise
@@ -38,13 +46,13 @@ class Communication(ABC):
 
     @abstractmethod
     async def subscribe(
-        self, topic: str, callback: Callable[[Dict[str, Any]], None]
+        self, topic: str, callback: Callable[[BaseMessage], None]
     ) -> bool:
         """Subscribe to a topic.
 
         Args:
             topic: Topic to subscribe to
-            callback: Function to call when a message is received
+            callback: Function to call when a message is received (receives BaseMessage object)
 
         Returns:
             True if subscription was successful, False otherwise
@@ -53,27 +61,30 @@ class Communication(ABC):
 
     @abstractmethod
     async def request(
-        self, target: str, request: Dict[str, Any], timeout: float = 5.0
-    ) -> Dict[str, Any]:
+        self,
+        target: str,
+        request_data: RequestData,
+        timeout: float = 5.0,
+    ) -> ResponseData:
         """Send a request and wait for a response.
 
         Args:
             target: Target component to send request to
-            request: Request message
+            request_data: Request data (must be a RequestData instance)
             timeout: Timeout in seconds
 
         Returns:
-            Response message
+            ResponseData object
         """
         pass
 
     @abstractmethod
-    async def respond(self, target: str, response: Dict[str, Any]) -> bool:
+    async def respond(self, target: str, response: ResponseData) -> bool:
         """Send a response to a request.
 
         Args:
             target: Target component to send response to
-            response: Response message
+            response: Response message (must be a ResponseData instance)
 
         Returns:
             True if response was sent successfully, False otherwise
@@ -81,12 +92,12 @@ class Communication(ABC):
         pass
 
     @abstractmethod
-    async def push(self, target: str, data: Dict[str, Any]) -> bool:
-        """Push data to a target using ZeroMQ PUSH pattern.
+    async def push(self, target: str, data: PushData) -> bool:
+        """Push data to a target.
 
         Args:
             target: Target endpoint to push data to
-            data: Data to be pushed
+            data: Data to be pushed (must be a PushData instance)
 
         Returns:
             True if data was pushed successfully, False otherwise
@@ -95,9 +106,11 @@ class Communication(ABC):
 
     @abstractmethod
     async def pull(
-        self, source: str, callback: Optional[Callable[[Dict[str, Any]], None]] = None
-    ) -> Union[Dict[str, Any], bool]:
-        """Pull data from a source using ZeroMQ PULL pattern.
+        self,
+        source: str,
+        callback: Optional[Callable[[PullData], None]] = None,
+    ) -> Union[PullData, bool]:
+        """Pull data from a source.
 
         Args:
             source: Source endpoint to pull data from
@@ -107,6 +120,15 @@ class Communication(ABC):
 
         Returns:
             If callback is provided: True if pull registration was successful, False otherwise
-            If callback is not provided: The received data dictionary
+            If callback is not provided: The received PullData object
+        """
+        pass
+
+    @abstractmethod
+    async def dump_request_state(self) -> RequestStateInfo:
+        """Dump the current state of requests and responses for debugging.
+
+        Returns:
+            RequestStateInfo model with debugging information
         """
         pass

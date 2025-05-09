@@ -2,9 +2,16 @@ import asyncio
 import logging
 import time
 import uuid
-from typing import Any, Dict, List, Optional, Callable, Set, Union
+from typing import Any, Callable, Dict, List, Optional, Set, Union
 
 from aiperf.common.comms.communication import Communication
+from aiperf.common.models.messages import BaseMessage
+from aiperf.common.models.push_pull import PullData, PushData
+from aiperf.common.models.request_response import (
+    RequestData,
+    RequestStateInfo,
+    ResponseData,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +26,7 @@ class MemoryCommunication(Communication):
     # Class-level storage for shared subscriptions across instances
     _subscriptions: Dict[str, Dict[str, Callable]] = {}
     _subscribers_by_topic: Dict[str, Set[str]] = {}
-    _topic_history: Dict[str, List[Dict[str, Any]]] = {}
+    _topic_history: Dict[str, List[BaseMessage]] = {}
     _client_registry: Dict[str, "MemoryCommunication"] = {}
     _lock = asyncio.Lock()
     _request_responses: Dict[str, asyncio.Future] = {}  # For request/response pattern
@@ -89,18 +96,16 @@ class MemoryCommunication(Communication):
             self.logger.error(f"Error shutting down communication: {e}")
             return False
 
-    async def publish(self, topic: str, message: Any) -> bool:
+    async def publish(self, topic: str, message: BaseMessage) -> bool:
         """Publish a message to a topic.
 
         Args:
             topic: Topic to publish to
-            message: Message to publish
+            message: Message to publish (must be a Pydantic model)
 
         Returns:
             True if publish was successful, False otherwise
         """
-        # Handle message serialization if necessary
-        message_dict = message
         try:
             # Ensure topic exists in subscribers dict
             async with MemoryCommunication._lock:
@@ -110,7 +115,7 @@ class MemoryCommunication(Communication):
                 # Store message in topic history
                 if topic not in MemoryCommunication._topic_history:
                     MemoryCommunication._topic_history[topic] = []
-                MemoryCommunication._topic_history[topic].append(message_dict)
+                MemoryCommunication._topic_history[topic].append(message)
 
                 # Limit history size
                 if len(MemoryCommunication._topic_history[topic]) > 100:
@@ -131,9 +136,7 @@ class MemoryCommunication(Communication):
                         callback = MemoryCommunication._subscriptions[client_id][topic]
                         # Schedule the callback to run in the event loop
                         asyncio.create_task(
-                            self._safe_callback(
-                                callback, message_dict, topic, client_id
-                            )
+                            self._safe_callback(callback, message, topic, client_id)
                         )
 
             return True
@@ -141,7 +144,9 @@ class MemoryCommunication(Communication):
             self.logger.error(f"Error publishing to {topic}: {e}")
             return False
 
-    async def subscribe(self, topic: str, callback: Callable) -> bool:
+    async def subscribe(
+        self, topic: str, callback: Callable[[BaseMessage], None]
+    ) -> bool:
         """Subscribe to a topic.
 
         Args:
@@ -229,21 +234,35 @@ class MemoryCommunication(Communication):
             return False
 
     async def request(
-        self, target: str, request: Dict[str, Any], timeout: float = 5.0
-    ) -> Dict[str, Any]:
+        self,
+        target: str,
+        request_data: RequestData,
+        timeout: float = 5.0,
+    ) -> ResponseData:
         """Send a request and wait for a response.
 
         Args:
             target: Target component to send request to
-            request: Request message
+            request_data: Request data (must be a RequestData instance)
             timeout: Timeout in seconds
 
         Returns:
-            Response message
+            ResponseData object
         """
         try:
-            # Generate request ID
-            request_id = str(uuid.uuid4())
+            # Set target if not already set
+            if not request_data.target:
+                request_data.target = target
+
+            # Ensure client_id is set
+            if not request_data.client_id:
+                request_data.client_id = self.client_id
+
+            # Generate request ID if not provided
+            if not request_data.request_id:
+                request_data.request_id = str(uuid.uuid4())
+
+            request_id = request_data.request_id
 
             self.logger.info(f"Creating request {request_id} to {target}")
 
@@ -252,22 +271,16 @@ class MemoryCommunication(Communication):
             async with MemoryCommunication._lock:
                 MemoryCommunication._request_responses[request_id] = future
 
-            # Prepare request message
-            enriched_request = {
-                "request_id": request_id,
-                "client_id": self.client_id,
-                "timestamp": time.time(),
-                "data": request,
-            }
-
             # Send request to the target
-            success = await self.publish(f"request.{target}", enriched_request)
+            success = await self.publish(f"request.{target}", request_data)
             if not success:
                 self.logger.error(f"Failed to send request to {target}")
-                return {
-                    "status": "error",
-                    "message": f"Failed to send request to {target}",
-                }
+                return ResponseData(
+                    request_id=request_id,
+                    client_id=self.client_id,
+                    status="error",
+                    message=f"Failed to send request to {target}",
+                )
 
             # Wait for response with timeout
             try:
@@ -275,15 +288,18 @@ class MemoryCommunication(Communication):
                 response = await asyncio.wait_for(future, timeout=timeout)
                 self.logger.info(f"Received response for request {request_id}")
 
-                # Extract data from response
-                if isinstance(response, dict) and "data" in response:
-                    return response.get("data", {})
+                # Response is a ResponseData object, return it directly
                 return response
             except asyncio.TimeoutError:
                 self.logger.error(
                     f"Timeout waiting for response to request {request_id}"
                 )
-                return {"status": "error", "message": "Request timed out"}
+                return ResponseData(
+                    request_id=request_id,
+                    client_id=self.client_id,
+                    status="error",
+                    message="Request timed out",
+                )
             finally:
                 # Clean up
                 async with MemoryCommunication._lock:
@@ -291,42 +307,33 @@ class MemoryCommunication(Communication):
 
         except Exception as e:
             self.logger.error(f"Error sending request to {target}: {e}")
-            return {"status": "error", "message": str(e)}
+            return ResponseData(
+                request_id=request_data.request_id
+                if hasattr(request_data, "request_id")
+                else str(uuid.uuid4()),
+                client_id=self.client_id,
+                status="error",
+                message=str(e),
+            )
 
-    async def respond(self, client_id: str, message: Any) -> bool:
+    async def respond(self, client_id: str, response: ResponseData) -> bool:
         """Send a response to a request.
 
         Args:
             client_id: Client ID to respond to
-            message: Response message
+            response: Response message (must be a ResponseData instance)
 
         Returns:
             True if the response was sent successfully, False otherwise
         """
         try:
             self.logger.debug(f"Responding to client {client_id}")
-
-            # Ensure message is a dict with request_id
-            if not isinstance(message, dict):
-                message = {"data": message, "request_id": "unknown"}
-            elif (
-                "request_id" not in message
-                and "data" in message
-                and isinstance(message["data"], dict)
-            ):
-                # Try to extract request_id from data
-                if "request_id" in message["data"]:
-                    message["request_id"] = message["data"]["request_id"]
-
-            if "request_id" in message:
-                self.logger.debug(
-                    f"Publishing response with request_id {message['request_id']}"
-                )
-            else:
-                self.logger.warning(f"Response missing request_id: {message}")
+            self.logger.debug(
+                f"Publishing response with request_id {response.request_id}"
+            )
 
             # Publish response to client's response topic
-            return await self.publish(f"response.{client_id}", message)
+            return await self.publish(f"response.{client_id}", response)
         except Exception as e:
             self.logger.error(f"Error responding to client {client_id}: {e}")
             return False
@@ -360,7 +367,11 @@ class MemoryCommunication(Communication):
             return False
 
     async def _safe_callback(
-        self, callback: Callable, message: Dict[str, Any], topic: str, client_id: str
+        self,
+        callback: Callable[[BaseMessage], None],
+        message: BaseMessage,
+        topic: str,
+        client_id: str,
     ) -> None:
         """Safely call a callback function.
 
@@ -375,25 +386,14 @@ class MemoryCommunication(Communication):
         except Exception as e:
             self.logger.error(f"Error in callback for {client_id} on {topic}: {e}")
 
-    async def _handle_response(self, message: Dict[str, Any]) -> None:
+    async def _handle_response(self, message: ResponseData) -> None:
         """Handle a response message.
 
         Args:
-            message: Response message
+            message: Response message (must be a ResponseData instance)
         """
         try:
-            # Get request ID from response
-            request_id = message.get("request_id")
-            if not request_id:
-                # Look in data field if it exists
-                if isinstance(message.get("data"), dict):
-                    request_id = message.get("data", {}).get("request_id")
-
-                if not request_id:
-                    self.logger.warning(
-                        f"Received response without request_id: {message}"
-                    )
-                    return
+            request_id = message.request_id
 
             self.logger.info(f"Received response for request {request_id}")
 
@@ -436,12 +436,13 @@ class MemoryCommunication(Communication):
                         "system.identity."
                     ):
                         for message in messages:
-                            data = message.get("data", message)
-                            if (
-                                isinstance(data, dict)
-                                and data.get("component_type") == component_type
+                            # Access Pydantic model attributes appropriately
+                            if hasattr(message, "data") and isinstance(
+                                message.data, dict
                             ):
-                                component_ids.append(data.get("component_id"))
+                                data = message.data
+                                if data.get("component_type") == component_type:
+                                    component_ids.append(data.get("component_id"))
 
             # Return the first component ID if found
             return component_ids[0] if component_ids else None
@@ -493,11 +494,11 @@ class MemoryCommunication(Communication):
             self.logger.error(f"Error getting subscriptions for {client_id}: {e}")
             return []
 
-    async def dump_request_state(self) -> Dict[str, Any]:
+    async def dump_request_state(self) -> RequestStateInfo:
         """Dump the current state of requests and responses for debugging.
 
         Returns:
-            Dictionary with debugging information
+            RequestStateInfo model with debugging information
         """
         try:
             async with MemoryCommunication._lock:
@@ -520,28 +521,26 @@ class MemoryCommunication(Communication):
                     )
                     response_subscribers[topic] = list(subscribers)
 
-                return {
-                    "pending_requests": pending_requests,
-                    "pending_request_count": len(pending_requests),
-                    "client_count": client_count,
-                    "subscription_count": subscription_count,
-                    "response_topics": response_topics,
-                    "response_subscribers": response_subscribers,
-                    "client_ids": list(MemoryCommunication._client_registry.keys()),
-                }
+                # Create and return RequestStateInfo model directly
+                return RequestStateInfo(
+                    pending_requests=pending_requests,
+                    pending_request_count=len(pending_requests),
+                    client_count=client_count,
+                    subscription_count=subscription_count,
+                    response_topics=response_topics,
+                    response_subscribers=response_subscribers,
+                    client_ids=list(MemoryCommunication._client_registry.keys()),
+                )
         except Exception as e:
             self.logger.error(f"Error dumping request state: {e}")
-            return {"error": str(e)}
+            return RequestStateInfo(client_count=0, error=str(e))
 
-    async def push(self, target: str, data: Dict[str, Any]) -> bool:
-        """Push data to a target using ZeroMQ PUSH pattern.
-
-        This implements the ZeroMQ PUSH socket pattern where messages are
-        distributed among receivers in a load-balanced way.
+    async def push(self, target: str, data: PushData) -> bool:
+        """Push data to a target.
 
         Args:
             target: Target endpoint to push data to
-            data: Data to be pushed
+            data: Data to be pushed (must be a PushData instance)
 
         Returns:
             True if data was pushed successfully, False otherwise
@@ -549,16 +548,17 @@ class MemoryCommunication(Communication):
         try:
             self.logger.debug(f"Pushing data to {target}")
 
-            # Prepare message
-            message = {"source": self.client_id, "timestamp": time.time(), "data": data}
+            # Ensure source is set if not already
+            if not data.source:
+                data.source = self.client_id
 
             async with MemoryCommunication._lock:
                 # Create queue if it doesn't exist
                 if target not in MemoryCommunication._pull_queues:
                     MemoryCommunication._pull_queues[target] = asyncio.Queue()
 
-                # Add message to queue
-                await MemoryCommunication._pull_queues[target].put(message)
+                # Add message to queue (store the model directly)
+                await MemoryCommunication._pull_queues[target].put(data)
 
                 # If there are registered callbacks, they'll be called by the background tasks
 
@@ -568,12 +568,11 @@ class MemoryCommunication(Communication):
             return False
 
     async def pull(
-        self, source: str, callback: Optional[Callable[[Dict[str, Any]], None]] = None
-    ) -> Union[Dict[str, Any], bool]:
-        """Pull data from a source using ZeroMQ PULL pattern.
-
-        This implements the ZeroMQ PULL socket pattern where messages from
-        PUSH sockets are fairly distributed among all PULL sockets.
+        self,
+        source: str,
+        callback: Optional[Callable[[PullData], None]] = None,
+    ) -> Union[PullData, bool]:
+        """Pull data from a source.
 
         Args:
             source: Source endpoint to pull data from
@@ -583,7 +582,7 @@ class MemoryCommunication(Communication):
 
         Returns:
             If callback is provided: True if pull registration was successful, False otherwise
-            If callback is not provided: The received data dictionary
+            If callback is not provided: The received PullData object
         """
         try:
             self.logger.debug(f"Pulling data from {source}")
@@ -626,70 +625,71 @@ class MemoryCommunication(Communication):
 
                 # If no callback, wait for next message
                 else:
-                    message = await queue.get()
-                    return message.get("data", {})
-
+                    # Get PullData model directly from the queue
+                    pull_data = await queue.get()
+                    return pull_data
         except Exception as e:
             self.logger.error(f"Error pulling data from {source}: {e}")
-            if callback:
-                return False
-            else:
-                return {"status": "error", "message": str(e)}
+            return False if callback else PullData(source="", data={})
 
     async def _pull_worker(self, source: str, client_id: str) -> None:
-        """Background worker that pulls messages and calls the registered callback.
+        """Background worker to pull messages from a queue and call callbacks.
 
         Args:
             source: Source endpoint to pull from
-            client_id: Client ID that registered the callback
+            client_id: Client ID to call callbacks for
         """
+        self.logger.debug(f"Starting pull worker for {source}, client {client_id}")
         try:
-            self.logger.debug(f"Starting pull worker for {client_id} on {source}")
-
             while True:
-                # Check if client is still registered
+                # Check if client is still registered and has callbacks
                 if client_id not in MemoryCommunication._client_registry:
                     self.logger.debug(
                         f"Client {client_id} no longer registered, stopping pull worker"
                     )
                     break
 
-                # Check if callback is still registered
                 if (
                     source not in MemoryCommunication._pull_callbacks
                     or client_id not in MemoryCommunication._pull_callbacks[source]
                 ):
                     self.logger.debug(
-                        f"No callback registered for {client_id} on {source}, stopping pull worker"
+                        f"No callbacks for {source}, client {client_id}, stopping pull worker"
                     )
                     break
 
-                # Get queue and callback
-                queue = MemoryCommunication._pull_queues[source]
-                callback = MemoryCommunication._pull_callbacks[source][client_id]
+                # Get queue
+                queue = MemoryCommunication._pull_queues.get(source)
+                if not queue:
+                    self.logger.warning(f"Queue for {source} no longer exists")
+                    await asyncio.sleep(0.1)
+                    continue
 
-                # Wait for message
+                # Get message from queue
                 try:
-                    message = await queue.get()
-                    # Call callback with message data
-                    await self._safe_callback(
-                        callback, message, f"pull.{source}", client_id
-                    )
-                    queue.task_done()
+                    # Get PullData model directly from the queue
+                    pull_data = await queue.get()
+
+                    # Get callback
+                    callback = MemoryCommunication._pull_callbacks[source][client_id]
+
+                    # Call callback with the PullData object directly
+                    if callback:
+                        await self._safe_callback(
+                            callback, pull_data, f"pull.{source}", client_id
+                        )
                 except asyncio.CancelledError:
                     break
                 except Exception as e:
-                    self.logger.error(
-                        f"Error in pull worker for {client_id} on {source}: {e}"
-                    )
-                    await asyncio.sleep(
-                        0.1
-                    )  # Prevent tight loop in case of recurring errors
-
+                    self.logger.error(f"Error in pull worker: {e}")
+                    await asyncio.sleep(0.1)
         except Exception as e:
-            self.logger.error(f"Error in pull worker for {client_id} on {source}: {e}")
+            self.logger.error(f"Error in pull worker: {e}")
         finally:
-            # Clean up
-            async with MemoryCommunication._lock:
-                if source in MemoryCommunication._active_pull_tasks:
-                    MemoryCommunication._active_pull_tasks[source].pop(client_id, None)
+            # Clean up task reference
+            if (
+                source in MemoryCommunication._active_pull_tasks
+                and client_id in MemoryCommunication._active_pull_tasks[source]
+            ):
+                MemoryCommunication._active_pull_tasks[source].pop(client_id, None)
+            self.logger.debug(f"Pull worker for {source}, client {client_id} stopped")

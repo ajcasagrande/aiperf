@@ -3,13 +3,20 @@ import json
 import logging
 import time
 import uuid
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Callable, Dict, List, Optional, Set, Union
 
+import zmq
 import zmq.asyncio
 
 from aiperf.common.comms.communication import Communication
 from aiperf.common.models.comms import ZMQCommunicationConfig
 from aiperf.common.models.messages import BaseMessage
+from aiperf.common.models.push_pull import PullData, PushData
+from aiperf.common.models.request_response import (
+    RequestData,
+    RequestStateInfo,
+    ResponseData,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -195,7 +202,7 @@ class ZMQCommunication(Communication):
 
         Args:
             topic: Topic to publish to
-            message: Message to publish
+            message: Message to publish (must be a Pydantic model)
 
         Returns:
             True if message was published successfully, False otherwise
@@ -207,7 +214,7 @@ class ZMQCommunication(Communication):
             return False
 
         try:
-            # Serialize message
+            # Serialize message using Pydantic's built-in method
             message_json = message.model_dump_json()
 
             # Publish message
@@ -220,13 +227,13 @@ class ZMQCommunication(Communication):
             return False
 
     async def subscribe(
-        self, topic: str, callback: Callable[[Dict[str, Any]], None]
+        self, topic: str, callback: Callable[[BaseMessage], None]
     ) -> bool:
         """Subscribe to a topic.
 
         Args:
             topic: Topic to subscribe to
-            callback: Function to call when a message is received
+            callback: Function to call when a message is received (receives BaseMessage object)
 
         Returns:
             True if subscription was successful, False otherwise
@@ -253,46 +260,51 @@ class ZMQCommunication(Communication):
             return False
 
     async def request(
-        self, target: str, request: Dict[str, Any], timeout: float = 5.0
-    ) -> Dict[str, Any]:
+        self,
+        target: str,
+        request_data: RequestData,
+        timeout: float = 5.0,
+    ) -> ResponseData:
         """Send a request and wait for a response.
 
         Args:
             target: Target component to send request to
-            request: Request message
+            request_data: Request data (must be a RequestData instance)
             timeout: Timeout in seconds
 
         Returns:
-            Response message
+            ResponseData object
         """
         if not self._is_initialized or self._is_shutdown:
             logger.error(
                 "Cannot send request: communication not initialized or already shut down"
             )
-            return {
-                "status": "error",
-                "message": "Communication not initialized or already shut down",
-            }
+            return ResponseData(
+                request_id="error",
+                client_id=self.config.client_id,
+                status="error",
+                message="Communication not initialized or already shut down",
+            )
 
         try:
-            # Generate request ID
-            request_id = str(uuid.uuid4())
+            # Set target if not already set
+            if not request_data.target:
+                request_data.target = target
 
-            # Add metadata to request
-            enriched_request = {
-                "request_id": request_id,
-                "client_id": self.config.client_id,
-                "target": target,
-                "timestamp": time.time(),
-                "data": request,
-            }
+            # Ensure client_id is set
+            if not request_data.client_id:
+                request_data.client_id = self.config.client_id
+
+            # Generate request ID if not provided
+            if not request_data.request_id:
+                request_data.request_id = str(uuid.uuid4())
 
             # Serialize request
-            request_json = json.dumps(enriched_request)
+            request_json = request_data.model_dump_json()
 
             # Create future for response
             future = asyncio.Future()
-            self._response_futures[request_id] = future
+            self._response_futures[request_data.request_id] = future
 
             # Send request
             await self.req_socket.send_string(request_json)
@@ -300,25 +312,45 @@ class ZMQCommunication(Communication):
             # Wait for response with timeout
             try:
                 response_json = await asyncio.wait_for(future, timeout)
-                response = json.loads(response_json)
-                return response.get("data", {})
+
+                # Parse JSON first, then create the ResponseData object
+                response_dict = json.loads(response_json)
+                response = ResponseData(**response_dict)
+                return response
+
             except asyncio.TimeoutError:
-                logger.error(f"Timeout waiting for response to request {request_id}")
-                self._response_futures.pop(request_id, None)
-                return {"status": "error", "message": "Request timed out"}
+                logger.error(
+                    f"Timeout waiting for response to request {request_data.request_id}"
+                )
+                self._response_futures.pop(request_data.request_id, None)
+
+                return ResponseData(
+                    request_id=request_data.request_id,
+                    client_id=self.config.client_id,
+                    status="error",
+                    message="Request timed out",
+                )
             finally:
                 # Clean up future
-                self._response_futures.pop(request_id, None)
+                self._response_futures.pop(request_data.request_id, None)
         except Exception as e:
             logger.error(f"Error sending request to {target}: {e}")
-            return {"status": "error", "message": str(e)}
 
-    async def respond(self, target: str, response: Dict[str, Any]) -> bool:
+            return ResponseData(
+                request_id=request_data.request_id
+                if hasattr(request_data, "request_id")
+                else str(uuid.uuid4()),
+                client_id=self.config.client_id,
+                status="error",
+                message=str(e),
+            )
+
+    async def respond(self, target: str, response: ResponseData) -> bool:
         """Send a response to a request.
 
         Args:
             target: Target component to send response to
-            response: Response message
+            response: Response message (must be a ResponseData instance)
 
         Returns:
             True if response was sent successfully, False otherwise
@@ -330,16 +362,8 @@ class ZMQCommunication(Communication):
             return False
 
         try:
-            # Add metadata to response
-            enriched_response = {
-                "client_id": self.config.client_id,
-                "target": target,
-                "timestamp": time.time(),
-                "data": response,
-            }
-
-            # Serialize response
-            response_json = json.dumps(enriched_response)
+            # Serialize response using Pydantic's built-in method
+            response_json = response.model_dump_json()
 
             # Send response
             await self.rep_socket.send_string(response_json)
@@ -361,10 +385,50 @@ class ZMQCommunication(Communication):
                 topic_bytes, message_bytes = await self.sub_socket.recv_multipart()
                 topic = topic_bytes.decode()
                 message_json = message_bytes.decode()
-                logger.debug(f"Received message from {topic}: {message_json}")
-                message = BaseMessage.model_validate_json(message_json)
 
-                # Call callbacks
+                # Parse JSON to get the message data and reconstruct into BaseMessage object
+                message_dict = json.loads(message_json)
+
+                # Determine message type and create appropriate object
+                # This requires knowing the message type from the topic or message content
+                # For simplicity, just using BaseMessage here but in a real implementation
+                # you would need to determine the proper subclass
+                from aiperf.common.models.messages import (
+                    CommandMessage,
+                    DataMessage,
+                    HeartbeatMessage,
+                    RegistrationMessage,
+                    ResponseMessage,
+                    StatusMessage,
+                )
+
+                # Note: This is a simplified approach - in a real implementation,
+                # you would need more sophisticated logic to determine the message type
+                if "message_type" in message_dict:
+                    msg_type = message_dict.get("message_type")
+                    if msg_type == "STATUS":
+                        message = StatusMessage(**message_dict)
+                    elif msg_type == "HEARTBEAT":
+                        message = HeartbeatMessage(**message_dict)
+                    elif msg_type == "COMMAND":
+                        message = CommandMessage(**message_dict)
+                    elif msg_type == "RESPONSE":
+                        message = ResponseMessage(**message_dict)
+                    elif msg_type == "DATA":
+                        message = DataMessage(**message_dict)
+                    elif msg_type == "REGISTRATION":
+                        message = RegistrationMessage(**message_dict)
+                    else:
+                        message = BaseMessage(**message_dict)
+                elif topic.startswith("request."):
+                    message = RequestData(**message_dict)
+                elif topic.startswith("response."):
+                    message = ResponseData(**message_dict)
+                else:
+                    # Default to base message if type can't be determined
+                    message = BaseMessage(**message_dict)
+
+                # Call callbacks with the parsed message object
                 if topic in self._subscribers:
                     for callback in self._subscribers[topic]:
                         try:
@@ -390,14 +454,14 @@ class ZMQCommunication(Communication):
             try:
                 # Receive request
                 request_json = await self.rep_socket.recv_string()
-                request = json.loads(request_json)
 
-                # Extract request data
-                request_id = request.get("request_id")
-                data = request.get("data", {})
+                # Parse JSON to create RequestData object
+                request_dict = json.loads(request_json)
+                request = RequestData(**request_dict)
+                request_id = request.request_id
 
-                # Store response data
-                self._response_data[request_id] = data
+                # Store request data
+                self._response_data[request_id] = request
 
                 # Resolve future if it exists
                 if request_id in self._response_futures:
@@ -422,17 +486,17 @@ class ZMQCommunication(Communication):
                 # Receive data
                 message_bytes = await self.pull_socket.recv()
                 message_json = message_bytes.decode()
-                message = json.loads(message_json)
 
-                # Extract data
-                source = message.get("source")
-                data = message.get("data", {})
+                # Parse JSON into a PullData object
+                message_dict = json.loads(message_json)
+                pull_data = PullData(**message_dict)
+                source = pull_data.source
 
-                # Call callbacks
+                # Call callbacks with PullData object
                 if source in self._pull_callbacks:
                     for callback in self._pull_callbacks[source]:
                         try:
-                            await callback(data)
+                            await callback(pull_data)
                         except Exception as e:
                             logger.error(
                                 f"Error in pull callback for source {source}: {e}"
@@ -440,15 +504,15 @@ class ZMQCommunication(Communication):
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(f"Error receiving pull data: {e}")
+                logger.error(f"Error receiving data from pull socket: {e}")
                 await asyncio.sleep(0.1)
 
-    async def push(self, target: str, data: Dict[str, Any]) -> bool:
-        """Push data to a target using ZeroMQ PUSH pattern.
+    async def push(self, target: str, data: PushData) -> bool:
+        """Push data to a target.
 
         Args:
             target: Target endpoint to push data to
-            data: Data to be pushed
+            data: Data to be pushed (must be a PushData instance)
 
         Returns:
             True if data was pushed successfully, False otherwise
@@ -460,28 +524,27 @@ class ZMQCommunication(Communication):
             return False
 
         try:
-            # Add metadata to message
-            message = {
-                "source": self.config.client_id,
-                "target": target,
-                "timestamp": time.time(),
-                "data": data,
-            }
+            # Ensure source is set if not already
+            if not data.source:
+                data.source = self.config.client_id
 
-            # Serialize message
-            message_json = json.dumps(message)
+            # Serialize data directly using Pydantic's built-in method
+            data_json = data.model_dump_json()
 
-            # Send message
-            await self.push_socket.send_string(message_json)
+            # Send data
+            await self.push_socket.send_string(data_json)
+            logger.debug(f"Pushed data to {target}")
             return True
         except Exception as e:
             logger.error(f"Error pushing data to {target}: {e}")
             return False
 
     async def pull(
-        self, source: str, callback: Optional[Callable[[Dict[str, Any]], None]] = None
-    ) -> Union[Dict[str, Any], bool]:
-        """Pull data from a source using ZeroMQ PULL pattern.
+        self,
+        source: str,
+        callback: Optional[Callable[[PullData], None]] = None,
+    ) -> Union[PullData, bool]:
+        """Pull data from a source.
 
         Args:
             source: Source endpoint to pull data from
@@ -491,66 +554,58 @@ class ZMQCommunication(Communication):
 
         Returns:
             If callback is provided: True if pull registration was successful, False otherwise
-            If callback is not provided: The received data dictionary
+            If callback is not provided: The received PullData object
         """
         if not self._is_initialized or self._is_shutdown:
             logger.error(
                 "Cannot pull data: communication not initialized or already shut down"
             )
-            if callback:
-                return False
-            else:
-                return {
-                    "status": "error",
-                    "message": "Communication not initialized or already shut down",
-                }
+            return False if callback else PullData(source="", data={})
 
         try:
             # If callback is provided, register it
             if callback:
                 if source not in self._pull_callbacks:
                     self._pull_callbacks[source] = []
-
                 self._pull_callbacks[source].append(callback)
-                logger.info(f"Registered pull callback for source {source}")
+                logger.debug(f"Registered pull callback for {source}")
                 return True
 
-            # If no callback, wait for the next message
+            # If no callback, wait for message
             else:
-                # Create a temporary callback and future to receive one message
-                future = asyncio.Future()
+                # Receive data
+                message_bytes = await self.pull_socket.recv()
+                message_json = message_bytes.decode()
 
-                # Define temporary callback that resolves the future
-                def temp_callback(data):
-                    if not future.done():
-                        future.set_result(data)
-
-                # Register temporary callback
-                if source not in self._pull_callbacks:
-                    self._pull_callbacks[source] = []
-
-                self._pull_callbacks[source].append(temp_callback)
-
-                try:
-                    # Wait for data with timeout
-                    data = await asyncio.wait_for(future, timeout=5.0)
-                    return data
-                finally:
-                    # Clean up temporary callback
-                    if source in self._pull_callbacks:
-                        if temp_callback in self._pull_callbacks[source]:
-                            self._pull_callbacks[source].remove(temp_callback)
-
-                        # Remove the source entry if no callbacks remain
-                        if not self._pull_callbacks[source]:
-                            del self._pull_callbacks[source]
-
-        except asyncio.TimeoutError:
-            logger.error(f"Timeout waiting for data from {source}")
-            return {"status": "error", "message": "Pull timed out"}
+                # Parse JSON into a PullData object
+                message_dict = json.loads(message_json)
+                pull_data = PullData(**message_dict)
+                return pull_data
         except Exception as e:
             logger.error(f"Error pulling data from {source}: {e}")
-            if callback:
-                return False
-            else:
-                return {"status": "error", "message": str(e)}
+            return False if callback else PullData(source="", data={})
+
+    async def dump_request_state(self) -> RequestStateInfo:
+        """Dump the current state of requests and responses for debugging.
+
+        Returns:
+            RequestStateInfo model with debugging information
+        """
+        try:
+            pending_requests = list(self._response_futures.keys())
+            client_count = 1  # Just this instance in ZMQ mode
+
+            # Create and return RequestStateInfo model directly
+            return RequestStateInfo(
+                pending_requests=pending_requests,
+                pending_request_count=len(pending_requests),
+                client_count=client_count,
+                subscription_count=sum(
+                    len(callbacks) for callbacks in self._subscribers.values()
+                ),
+                response_topics=[],
+                client_ids=[self.config.client_id],
+            )
+        except Exception as e:
+            logger.error(f"Error dumping request state: {e}")
+            return RequestStateInfo(client_count=0, error=str(e))
