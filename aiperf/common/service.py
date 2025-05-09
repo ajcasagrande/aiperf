@@ -3,12 +3,18 @@ import contextlib
 import logging
 import uuid
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, Type, TypeVar, cast
+from typing import Optional, Type, TypeVar, cast
 
 from aiperf.common.comms.communication import Communication
 from aiperf.common.comms.communication_factory import CommunicationFactory
 from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.enums import ServiceRunType, ServiceState, ServiceType, Topic
+from aiperf.common.enums import (
+    CommBackend,
+    ServiceRunType,
+    ServiceState,
+    ServiceType,
+    Topic,
+)
 from aiperf.common.models.messages import (
     BaseMessage,
     CommandMessage,
@@ -65,8 +71,7 @@ class ServiceBase(ABC):
             self.logger.warning("Cannot subscribe: Communication is not initialized")
             return
 
-        topic_str = topic.value
-        self.logger.debug(f"Subscribing to topic {topic_str}")
+        self.logger.debug(f"Subscribing to topic {topic}")
 
         async def message_callback(message: BaseMessage) -> None:
             # Perform type checking if a specific message type was provided
@@ -81,11 +86,11 @@ class ServiceBase(ABC):
             typed_message = cast(M, message) if message_type else message
             await self._process_message(topic, typed_message)
 
-        success = await self.communication.subscribe(topic_str, message_callback)
+        success = await self.communication.subscribe(topic, message_callback)
         if not success:
-            self.logger.error(f"Failed to subscribe to topic {topic_str}")
+            self.logger.error(f"Failed to subscribe to topic {topic}")
         else:
-            self.logger.debug(f"Successfully subscribed to topic {topic_str}")
+            self.logger.debug(f"Successfully subscribed to topic {topic}")
 
     async def _publish_message(self, topic: Topic, message: BaseMessage) -> bool:
         """Publish a message to a topic.
@@ -101,12 +106,11 @@ class ServiceBase(ABC):
             self.logger.warning("Cannot publish: Communication is not initialized")
             return False
 
-        topic_str = topic.value
-        self.logger.debug(f"Publishing message to topic {topic_str}: {message}")
+        self.logger.debug(f"Publishing message to topic {topic}: {message}")
 
-        success = await self.communication.publish(topic_str, message)
+        success = await self.communication.publish(topic, message)
         if not success:
-            self.logger.error(f"Failed to publish message to topic {topic_str}")
+            self.logger.error(f"Failed to publish message to topic {topic}")
         return success
 
     async def _send_heartbeat(self) -> None:
@@ -147,7 +151,7 @@ class ServiceBase(ABC):
         This method should be called after the service has been initialized and is ready to
         start processing messages.
         """
-        self.logger.debug("Registering service with system controller")
+        self.logger.debug("Attempting to register service %s (%s) with system controller", self.service_type, self.service_id)
         await self._publish_message(
             Topic.REGISTRATION,
             RegistrationMessage(
@@ -164,13 +168,13 @@ class ServiceBase(ABC):
 
             # Initialize communication unless explicitly skipped
             if not self.communication and not self._skip_parent_comm_init:
-                comm_type = self.config.comm_backend.value
+                comm_type = self.config.comm_backend
                 if self.config.service_run_type == ServiceRunType.ASYNC:
-                    comm_type = "memory"
+                    comm_type = CommBackend.MEMORY
                 elif self.config.service_run_type == ServiceRunType.MULTIPROCESSING:
-                    comm_type = "zmq"
+                    comm_type = CommBackend.ZMQ
                 self.communication = CommunicationFactory.create_communication(
-                    comm_type=comm_type
+                    comm_type=comm_type.value
                 )
 
                 # Initialize the communication instance

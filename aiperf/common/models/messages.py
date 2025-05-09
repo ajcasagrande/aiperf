@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, Field
 
-from aiperf.common.enums import MessageType, ServiceState
+from aiperf.common.enums import CommandType, MessageType, PayloadType, ServiceState
 from aiperf.common.models.base_models import BasePayload, DataPayload
 
 
@@ -51,7 +51,7 @@ class CommandMessage(BaseMessage):
         ...,
         description="Unique identifier for this command",
     )
-    command: str = Field(
+    command: CommandType = Field(
         ...,
         description="Command to execute",
     )
@@ -64,11 +64,43 @@ class CommandMessage(BaseMessage):
         description="ID of the target service for this command",
     )
 
+    @classmethod
+    def create(
+        cls,
+        service_id: str,
+        service_type: str,
+        command_id: str,
+        command_type: CommandType,
+        target_service_id: Optional[str] = None,
+        require_response: bool = False,
+    ) -> "CommandMessage":
+        """Create a CommandMessage with the specified command type.
+
+        Args:
+            service_id: ID of the service sending the command
+            service_type: Type of the service sending the command
+            command_id: Unique identifier for this command
+            command_type: The CommandType enum value for the command
+            target_service_id: ID of the target service
+            require_response: Whether a response is required
+
+        Returns:
+            A new CommandMessage instance
+        """
+        return cls(
+            service_id=service_id,
+            service_type=service_type,
+            command_id=command_id,
+            command=command_type,
+            target_service_id=target_service_id,
+            require_response=require_response,
+        )
+
 
 class ResponsePayload(BasePayload):
     """Structured payload for response messages."""
 
-    payload_type: str = "response"
+    payload_type: PayloadType = PayloadType.RESPONSE
     status: str = Field(
         default="ok",
         description="Status of the response (ok, error, etc.)",
@@ -111,8 +143,8 @@ class RegistrationMessage(BaseMessage):
     """Registration message sent by services to register with the controller."""
 
     message_type: MessageType = MessageType.REGISTRATION
-    state: str = Field(
-        default=ServiceState.READY.value,
+    state: ServiceState = Field(
+        default=ServiceState.READY,
         description="Current state of the service",
     )
 
@@ -133,7 +165,7 @@ class RegistrationResponseMessage(BaseModel):
 class CreditData(BasePayload):
     """Structured model for credit information."""
 
-    payload_type: str = "credit"
+    payload_type: PayloadType = PayloadType.CREDIT
     credit_id: str = Field(
         ...,
         description="Unique identifier for this credit",
@@ -182,7 +214,7 @@ class ConversationTurn(BaseModel):
 class ConversationData(DataPayload):
     """Model for conversation data."""
 
-    payload_type: str = "conversation"
+    payload_type: PayloadType = PayloadType.CONVERSATION
     conversation_id: str = Field(
         ...,
         description="Unique identifier for this conversation",
@@ -196,7 +228,7 @@ class ConversationData(DataPayload):
 class ResultData(DataPayload):
     """Structured model for result information."""
 
-    payload_type: str = "result"
+    payload_type: PayloadType = PayloadType.RESULT
     result_id: str = Field(
         ...,
         description="Unique identifier for this result",

@@ -1,16 +1,15 @@
 import asyncio
 import json
 import logging
-import time
 import uuid
-from typing import Callable, Dict, List, Optional, Set, Union
+from typing import Callable, Optional, Union
 
 import zmq
 import zmq.asyncio
 
 from aiperf.common.comms.communication import Communication
 from aiperf.common.models.comms import ZMQCommunicationConfig
-from aiperf.common.models.messages import BaseMessage
+from aiperf.common.models.messages import BaseMessage, MessageType
 from aiperf.common.models.push_pull import PullData, PushData
 from aiperf.common.models.request_response import (
     RequestData,
@@ -406,17 +405,17 @@ class ZMQCommunication(Communication):
                 # you would need more sophisticated logic to determine the message type
                 if "message_type" in message_dict:
                     msg_type = message_dict.get("message_type")
-                    if msg_type == "STATUS":
+                    if msg_type == MessageType.STATUS.value:
                         message = StatusMessage(**message_dict)
-                    elif msg_type == "HEARTBEAT":
+                    elif msg_type == MessageType.HEARTBEAT.value:
                         message = HeartbeatMessage(**message_dict)
-                    elif msg_type == "COMMAND":
+                    elif msg_type == MessageType.COMMAND.value:
                         message = CommandMessage(**message_dict)
-                    elif msg_type == "RESPONSE":
+                    elif msg_type == MessageType.RESPONSE.value:
                         message = ResponseMessage(**message_dict)
-                    elif msg_type == "DATA":
+                    elif msg_type == MessageType.DATA.value:
                         message = DataMessage(**message_dict)
-                    elif msg_type == "REGISTRATION":
+                    elif msg_type == MessageType.REGISTRATION.value:
                         message = RegistrationMessage(**message_dict)
                     else:
                         message = BaseMessage(**message_dict)

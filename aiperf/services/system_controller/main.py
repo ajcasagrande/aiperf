@@ -1,5 +1,6 @@
 import asyncio
 import sys
+import uuid
 from multiprocessing import Process
 from typing import Any, Dict
 
@@ -7,10 +8,17 @@ from aiperf.common.bootstrap import bootstrap_and_run_service
 from aiperf.common.comms.communication import Communication
 from aiperf.common.comms.communication_factory import CommunicationFactory
 from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.enums import ServiceRunType, ServiceType, Topic
+from aiperf.common.enums import (
+    CommandType,
+    CommBackend,
+    ServiceRunType,
+    ServiceType,
+    Topic,
+)
 from aiperf.common.exceptions.service import ServiceInitializationException
 from aiperf.common.models.messages import (
     BaseMessage,
+    CommandMessage,
     HeartbeatMessage,
     RegistrationMessage,
     StatusMessage,
@@ -38,15 +46,15 @@ class SystemController(ServiceBase):
         self.logger.debug("Initializing System Controller")
 
         # Initialize communication component based on config
-        comm_type = self.config.comm_backend.value
+        comm_type = self.config.comm_backend
         if self.config.service_run_type == ServiceRunType.ASYNC:
-            comm_type = "memory"
+            comm_type = CommBackend.MEMORY
         elif self.config.service_run_type == ServiceRunType.MULTIPROCESSING:
-            comm_type = "zmq"
+            comm_type = CommBackend.ZMQ
         self.logger.info(f"Initializing communication with backend: {comm_type}")
 
         # For the system controller, we want to bind to sockets (not connect)
-        if comm_type == "zmq":
+        if comm_type == CommBackend.ZMQ:
             self.communication = CommunicationFactory.create_communication(
                 comm_type=comm_type, is_controller=True
             )
@@ -197,17 +205,17 @@ class SystemController(ServiceBase):
 
             # Start the service
             task = asyncio.create_task(service_instance.run())
-            task.set_name(f"{service_name.value}_task")
+            task.set_name(f"{service_name}_task")
 
-            self.service_tasks[service_name.value] = task
+            self.service_tasks[service_name] = task
             # TODO: Implement a more robust way to track services, shared between the run types using ServiceRunInfo
-            self.services[service_name.value] = {
+            self.services[service_name] = {
                 "task": task,
                 "instance": service_instance,
                 "service_class": service_class,
             }
 
-            self.logger.info(f"Service {service_name.value} started as asyncio task")
+            self.logger.info(f"Service {service_name} started as asyncio task")
 
     async def _stop_all_services_asyncio(self) -> None:
         """Cancel all service tasks."""
@@ -252,15 +260,15 @@ class SystemController(ServiceBase):
             # Each process will create its own instance based on the config
             process = Process(
                 target=bootstrap_and_run_service,
-                name=f"{service_name.value}_process",
+                name=f"{service_name}_process",
                 args=(service_class, self.config),
                 daemon=True,
             )
             process.start()
             # TODO: Implement a more robust way to track services, shared between the run types using ServiceRunInfo
-            self.service_processes[service_name.value] = process
+            self.service_processes[service_name] = process
             self.logger.info(
-                f"Service {service_name.value} started as multiprocessing process"
+                f"Service {service_name} started as multiprocessing process"
             )
 
     async def _stop_all_services_multiprocessing(self) -> None:
@@ -305,6 +313,34 @@ class SystemController(ServiceBase):
         self.logger.debug("Stopping all required services as Kubernetes pods")
         # TODO: Implement Kubernetes
         raise NotImplementedError
+
+    async def send_command_to_service(
+        self, target_service_id: str, command: CommandType
+    ) -> bool:
+        """Send a command to a specific service.
+
+        Args:
+            target_service_id: ID of the target service
+            command: The command to send (from CommandType enum)
+
+        Returns:
+            True if the command was sent successfully
+        """
+        if not self.communication:
+            self.logger.error("Cannot send command: Communication is not initialized")
+            return False
+
+        # Create command message using the helper method
+        command_message = CommandMessage.create(
+            service_id=self.service_id,
+            service_type=self.service_type,
+            command_id=f"cmd_{uuid.uuid4().hex[:8]}",
+            command_type=command,
+            target_service_id=target_service_id,
+        )
+
+        # Publish command message
+        return await self._publish_message(Topic.COMMAND, command_message)
 
 
 def main() -> None:

@@ -4,7 +4,7 @@ Tests for the system controller service.
 
 import pytest
 
-from aiperf.common.enums import ServiceState, ServiceType, Topic
+from aiperf.common.enums import CommandType, ServiceState, ServiceType, Topic
 from aiperf.common.models.messages import (
     HeartbeatMessage,
     RegistrationMessage,
@@ -117,7 +117,10 @@ class TestSystemController(BaseServiceTest):
         # Verify that the heartbeat was recorded
         # This will depend on the actual implementation
 
-    @pytest.mark.parametrize("command", ["start", "stop", "restart"])
+    @pytest.mark.parametrize(
+        "command",
+        [CommandType.START, CommandType.STOP, CommandType.PROFILE],
+    )
     async def test_send_command_to_service(
         self, service_under_test, mock_communication, command
     ):
@@ -217,7 +220,7 @@ class TestSystemController(BaseServiceTest):
                         hasattr(msg, "target_service_id")
                         and msg.target_service_id == service_id
                         and hasattr(msg, "command")
-                        and msg.command == "start"
+                        and msg.command == CommandType.START
                     ):
                         found_command = True
                         break
@@ -238,7 +241,7 @@ class TestSystemController(BaseServiceTest):
                         hasattr(msg, "target_service_id")
                         and msg.target_service_id == service_id
                         and hasattr(msg, "command")
-                        and msg.command == "stop"
+                        and msg.command == CommandType.STOP
                     ):
                         found_command = True
                         break

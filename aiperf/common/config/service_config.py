@@ -2,7 +2,7 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
-from aiperf.common.enums import CommBackend, ServiceRunType
+from aiperf.common.enums import CommBackend, DataTopic, ServiceRunType
 
 
 class ServiceConfig(BaseModel):
@@ -76,7 +76,7 @@ class ControllerConfig(ServiceConfig):
 class DatasetServiceConfig(ServiceConfig):
     """Configuration for the Dataset Manager service."""
 
-    data_topic: str = "dataset_data"
+    data_topic: DataTopic = DataTopic.DATASET
     # TODO: this needs to be cleaned up and finalized
 
 
@@ -85,9 +85,9 @@ class TimingServiceConfig(ServiceConfig):
 
     # TODO: this needs to be cleaned up and finalized
 
-    data_topic: str = "timing_data"
-    credit_topic: str = Field(
-        default="credit",
+    data_topic: DataTopic = DataTopic.TIMING
+    credit_topic: DataTopic = Field(
+        default=DataTopic.CREDIT,
         description="Topic for credit messages",
     )
 
@@ -97,9 +97,9 @@ class RecordsServiceConfig(ServiceConfig):
 
     # TODO: this needs to be cleaned up and finalized
 
-    data_topic: str = "records_data"
-    results_topic: str = Field(
-        default="results",
+    data_topic: DataTopic = DataTopic.RECORDS
+    results_topic: DataTopic = Field(
+        default=DataTopic.RESULTS,
         description="Topic for results data",
     )
 
@@ -109,13 +109,13 @@ class WorkerServiceConfig(ServiceConfig):
 
     # TODO: this needs to be cleaned up and finalized
 
-    data_topic: str = "worker_data"
-    credit_topic: str = Field(
-        default="credit",
+    data_topic: DataTopic = DataTopic.WORKER
+    credit_topic: DataTopic = Field(
+        default=DataTopic.CREDIT,
         description="Topic for credit messages",
     )
-    results_topic: str = Field(
-        default="results",
+    results_topic: DataTopic = Field(
+        default=DataTopic.RESULTS,
         description="Topic for results data",
     )
     min_workers: int = Field(
@@ -160,12 +160,12 @@ class PostProcessorConfig(ServiceConfig):
 
     # TODO: this needs to be cleaned up and finalized
 
-    data_topic: str = "post_processor_data"
-    records_topic: str = Field(
-        default="records_data",
+    data_topic: DataTopic = DataTopic.POST_PROCESSOR
+    records_topic: DataTopic = Field(
+        default=DataTopic.RECORDS,
         description="Topic for records data",
     )
-    metrics_topic: str = Field(
-        default="metrics",
+    metrics_topic: DataTopic = Field(
+        default=DataTopic.METRICS,
         description="Topic for metrics data",
     )

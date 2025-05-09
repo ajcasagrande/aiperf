@@ -57,11 +57,10 @@ class MessageTestUtils:
         Returns:
             True if a matching message was found, False otherwise
         """
-        topic_str = topic.value
-        if topic_str not in mock_communication.published_messages:
+        if topic not in mock_communication.published_messages:
             return False
 
-        for message in mock_communication.published_messages[topic_str]:
+        for message in mock_communication.published_messages[topic]:
             matches = True
             for field, value in expected_fields.items():
                 if not hasattr(message, field) or getattr(message, field) != value:

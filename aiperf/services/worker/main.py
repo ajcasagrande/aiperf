@@ -6,20 +6,16 @@ import uvloop
 from pydantic import Field
 
 from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.enums import MessageType, ServiceType, Topic
-from aiperf.common.models.base_models import DataPayload
+from aiperf.common.enums import PayloadType, ServiceType, Topic
 from aiperf.common.models.messages import (
     BaseMessage,
     ConversationData,
-    ConversationTurn,
-    CreditData,
     CreditMessage,
     ResultData,
     ResultMessage,
 )
 from aiperf.common.models.request_response import (
     BaseRequestPayload,
-    BaseResponsePayload,
     RequestData,
     ResponseData,
 )
@@ -29,7 +25,7 @@ from aiperf.common.service import ServiceBase
 class WorkerRequestPayload(BaseRequestPayload):
     """Specific request payload for worker requests."""
 
-    payload_type: str = "worker_request"
+    payload_type: PayloadType = PayloadType.WORKER_REQUEST
     operation: str = Field(
         ...,
         description="The operation to perform",

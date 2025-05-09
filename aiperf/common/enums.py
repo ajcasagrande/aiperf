@@ -1,8 +1,20 @@
-from enum import Enum
+from enum import Enum, auto
+from typing import Union
 
 
-class ServiceState(Enum):
-    """Enum representing the possible states of a service."""
+class StrEnum(str, Enum):
+    """Base class for string-based enums.
+
+    Using this as a base class allows enum values to be used directly as
+    strings without having to use .value.
+    """
+
+    def __str__(self) -> str:
+        return self.value
+
+
+class ServiceState(StrEnum):
+    """States a service can be in throughout its lifecycle."""
 
     UNKNOWN = "unknown"
     INITIALIZING = "initializing"
@@ -14,8 +26,9 @@ class ServiceState(Enum):
     ERROR = "error"
 
 
-class MessageType(Enum):
-    """Enum representing the types of messages that can be exchanged between services."""
+# Message-related enums
+class MessageType(StrEnum):
+    """Types of messages exchanged between services."""
 
     REGISTRATION = "registration"
     HEARTBEAT = "heartbeat"
@@ -27,8 +40,18 @@ class MessageType(Enum):
     CREDIT = "credit"
 
 
-class CommandType(Enum):
-    """Enum representing the types of commands that can be sent to services."""
+class PayloadType(StrEnum):
+    """Types of payloads that can be included in messages."""
+
+    RESPONSE = "response"
+    CREDIT = "credit"
+    CONVERSATION = "conversation"
+    RESULT = "result"
+    WORKER_REQUEST = "worker_request"
+
+
+class CommandType(StrEnum):
+    """Commands that can be sent to services."""
 
     START = "start"
     STOP = "stop"
@@ -41,8 +64,9 @@ class CommandType(Enum):
     HEALTH_CHECK = "health_check"
 
 
-class Topic(Enum):
-    """Enum representing the different topics for communication between services."""
+# Communication-related enums
+class Topic(StrEnum):
+    """Communication topics for the main message bus."""
 
     REGISTRATION = "registration"
     COMMAND = "command"
@@ -52,23 +76,37 @@ class Topic(Enum):
     HEARTBEAT = "heartbeat"
 
 
-class CommBackend(Enum):
-    """Enum representing the different communication backends."""
+class DataTopic(StrEnum):
+    """Specific data topics for different service domains."""
+
+    DATASET = "dataset_data"
+    TIMING = "timing_data"
+    RECORDS = "records_data"
+    WORKER = "worker_data"
+    POST_PROCESSOR = "post_processor_data"
+    CREDIT = "credit"
+    RESULTS = "results"
+    METRICS = "metrics"
+
+
+class CommBackend(StrEnum):
+    """Supported communication backends."""
 
     ZMQ = "zmq"
     MEMORY = "memory"
 
 
-class ServiceRunType(Enum):
-    """Enum representing the different ways to run a service."""
+# Service-related enums
+class ServiceRunType(StrEnum):
+    """Different ways to run a service."""
 
     ASYNC = "async"
     MULTIPROCESSING = "process"
     KUBERNETES = "k8s"
 
 
-class ServiceType(Enum):
-    """Service type enum."""
+class ServiceType(StrEnum):
+    """Types of services in the AIPerf system."""
 
     SYSTEM_CONTROLLER = "system_controller"
     DATASET_MANAGER = "dataset_manager"

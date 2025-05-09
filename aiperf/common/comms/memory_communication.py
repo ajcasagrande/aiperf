@@ -1,8 +1,7 @@
 import asyncio
 import logging
-import time
 import uuid
-from typing import Any, Callable, Dict, List, Optional, Set, Union
+from typing import Callable, Dict, List, Optional, Set, Union
 
 from aiperf.common.comms.communication import Communication
 from aiperf.common.models.messages import BaseMessage

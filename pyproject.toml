@@ -55,6 +55,7 @@ aiperf = "aiperf.cli:main"
 dev = [
   "pytest>=7.0.0",
   "pytest-asyncio",
+  "pytest-cov",
   "ruff>=0.0.0",
 ]
 
@@ -70,6 +71,7 @@ exclude = ["__pycache__", "build", "dist", ".venv", "venv"]
 # Basic pytest configuration
 testpaths = ["tests"]
 asyncio_mode = "auto"
+addopts = "--cov --cov-report=term:skip-covered --tb=short --no-cov-on-fail"
 asyncio_default_fixture_loop_scope = "function"
 
 
