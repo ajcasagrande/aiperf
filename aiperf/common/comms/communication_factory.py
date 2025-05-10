@@ -2,8 +2,13 @@ import logging
 from typing import Dict, Optional, Type
 
 from aiperf.common.comms.communication import Communication
-from aiperf.common.comms.memory_communication import MemoryCommunication
-from aiperf.common.comms.zmq_communication import ZMQCommunication
+from aiperf.common.comms.zmq_comms.zmq_communication import ZMQCommunication
+from aiperf.common.enums import CommBackend
+from aiperf.common.models.comms import (
+    ZMQTransportProtocol,
+    ZMQCommunicationConfig,
+    InprocTransportConfig,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -16,14 +21,14 @@ class CommunicationFactory:
     """
 
     # Registry of communication types
-    _comm_types: Dict[str, Type[Communication]] = {
-        "memory": MemoryCommunication,
-        "zmq": ZMQCommunication,
+    _comm_types: Dict[CommBackend, Type[Communication]] = {
+        CommBackend.ZMQ_TCP: ZMQCommunication,
+        CommBackend.ZMQ_INPROC: ZMQCommunication,  # Uses ZMQCommunication with inproc protocol
     }
 
     @classmethod
     def register_comm_type(
-        cls, comm_type: str, comm_class: Type[Communication]
+        cls, comm_type: CommBackend, comm_class: Type[Communication]
     ) -> None:
         """Register a new communication type.
 
@@ -35,13 +40,18 @@ class CommunicationFactory:
         logger.info(f"Registered communication type: {comm_type}")
 
     @classmethod
-    def create_communication(cls, comm_type: str, **kwargs) -> Optional[Communication]:
+    def create_communication(
+        cls, comm_type: CommBackend, **kwargs
+    ) -> Optional[Communication]:
         """Create a communication instance.
 
         Args:
             comm_type: Communication type string
             **kwargs: Additional arguments to pass to the communication constructor
-                      For ZMQ: is_controller (bool): Whether this is the controller process
+                      For ZMQ:
+                      - is_controller (bool): Whether this is the controller process
+                      - config (ZMQCommunicationConfig): Optional configuration
+                      - use_inproc (bool): Optional flag to use inproc protocol
 
         Returns:
             Communication instance or None if creation failed
@@ -52,6 +62,19 @@ class CommunicationFactory:
 
         try:
             comm_class = cls._comm_types[comm_type]
+
+            # Special handling for ZMQ with inproc protocol
+            if comm_type == CommBackend.ZMQ_INPROC:
+                # Get existing config or create new one
+                config = kwargs.get("config") or ZMQCommunicationConfig(
+                    protocol_config=InprocTransportConfig()
+                )
+                # Set protocol to inproc
+                config.protocol = ZMQTransportProtocol.INPROC
+                # Update kwargs with modified config
+                kwargs["config"] = config
+                logger.info(f"Creating ZMQ communication with inproc protocol")
+
             return comm_class(**kwargs)
         except Exception as e:
             logger.error(f"Error creating communication for type {comm_type}: {e}")

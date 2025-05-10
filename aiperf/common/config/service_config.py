@@ -14,7 +14,7 @@ class ServiceConfig(BaseModel):
     # TODO: this needs to be cleaned up and finalized
 
     comm_backend: CommBackend = Field(
-        default=CommBackend.MEMORY,
+        default=CommBackend.ZMQ_INPROC,
         description="Communication backend to use",
     )
     service_run_type: ServiceRunType = Field(
@@ -146,7 +146,7 @@ class WorkerConfig(BaseModel):
         description="ID of the worker manager that created this worker",
     )
     comm_backend: CommBackend = Field(
-        default=CommBackend.ZMQ,
+        default=CommBackend.ZMQ_TCP,
         description="Communication backend to use",
     )
     manager_data_topic: str = Field(

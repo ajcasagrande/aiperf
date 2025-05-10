@@ -148,59 +148,61 @@ Here's a simplified example of a service implementation:
 ```python
 from aiperf.common.service import ServiceBase
 from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.enums import Topic
+from aiperf.common.enums import Topic, ZmqClientType
 from aiperf.common.models.messages import BaseMessage
 
+
 class ExampleService(ServiceBase):
-    def __init__(self, config: ServiceConfig) -> None:
-        super().__init__(service_type="example_service", config=config)
-        self.my_resource = None
-        
-    async def _initialize(self) -> None:
-        """Initialize service-specific resources."""
-        self.logger.debug("Initializing Example Service")
-        # Subscribe to required topics
-        await self._subscribe_to_topic(Topic.COMMAND)
-        await self._subscribe_to_topic(Topic.DATA)
-        # Initialize resources
-        self.my_resource = SomeResource()
-        
-    async def _on_start(self) -> None:
-        """Main service logic."""
-        self.logger.debug("Running Example Service")
-        # Implement your service's main logic here
-        # This method should typically set up ongoing tasks or loops
-        
-    async def _on_stop(self) -> None:
-        """Handle graceful shutdown."""
-        self.logger.debug("Stopping Example Service")
-        # Cancel any ongoing tasks
-        # Prepare for cleanup
-        
-    async def _cleanup(self) -> None:
-        """Release resources."""
-        self.logger.debug("Cleaning up Example Service")
-        # Release any resources
-        if self.my_resource:
-            await self.my_resource.close()
-            
-    async def _process_message(self, topic: Topic, message: BaseMessage) -> None:
-        """Handle incoming messages."""
-        self.logger.debug(f"Processing message: {topic}, {message}")
-        if topic == Topic.COMMAND:
-            # Handle command messages
-            await self._handle_command(message)
-        elif topic == Topic.DATA:
-            # Handle data messages
-            await self._handle_data(message)
-            
-    async def _handle_command(self, message: BaseMessage) -> None:
-        """Handle command messages."""
-        # Implement command handling logic
-        
-    async def _handle_data(self, message: BaseMessage) -> None:
-        """Handle data messages."""
-        # Implement data handling logic
+   def __init__(self, config: ServiceConfig) -> None:
+      super().__init__(service_type="example_service", config=config)
+      self.my_resource = None
+
+   async def _initialize(self) -> None:
+      """Initialize service-specific resources."""
+      self.logger.debug("Initializing Example Service")
+      # Subscribe to required topics
+      # TODO: Fix this documentation
+      await self._subscribe_to_topic(ZmqClientType.CONTROLLER_SUB, Topic.COMMAND)
+      await self._subscribe_to_topic(ZmqClientType.INFERENCE_REQUEST_SUB, Topic.DATA)
+      # Initialize resources
+      self.my_resource = SomeResource()
+
+   async def _on_start(self) -> None:
+      """Main service logic."""
+      self.logger.debug("Running Example Service")
+      # Implement your service's main logic here
+      # This method should typically set up ongoing tasks or loops
+
+   async def _on_stop(self) -> None:
+      """Handle graceful shutdown."""
+      self.logger.debug("Stopping Example Service")
+      # Cancel any ongoing tasks
+      # Prepare for cleanup
+
+   async def _cleanup(self) -> None:
+      """Release resources."""
+      self.logger.debug("Cleaning up Example Service")
+      # Release any resources
+      if self.my_resource:
+         await self.my_resource.close()
+
+   async def _process_message(self, topic: Topic, message: BaseMessage) -> None:
+      """Handle incoming messages."""
+      self.logger.debug(f"Processing message: {topic}, {message}")
+      if topic == Topic.COMMAND:
+         # Handle command messages
+         await self._handle_command(message)
+      elif topic == Topic.DATA:
+         # Handle data messages
+         await self._handle_data(message)
+
+   async def _handle_command(self, message: BaseMessage) -> None:
+      """Handle command messages."""
+      # Implement command handling logic
+
+   async def _handle_data(self, message: BaseMessage) -> None:
+      """Handle data messages."""
+      # Implement data handling logic
 ```
 
 #### Using the Service

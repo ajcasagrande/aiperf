@@ -11,7 +11,13 @@ import pytest
 
 from aiperf.common.comms.communication import Communication
 from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.enums import ServiceRunType, ServiceState, ServiceType, Topic
+from aiperf.common.enums import (
+    ServiceRunType,
+    ServiceState,
+    ServiceType,
+    Topic,
+    CommBackend,
+)
 from aiperf.common.models.messages import BaseMessage
 from aiperf.common.service import ServiceBase
 
@@ -30,7 +36,7 @@ def service_config():
     """Create a service configuration for testing."""
     config = ServiceConfig(
         service_run_type=ServiceRunType.ASYNC,
-        comm_backend="memory",
+        comm_backend=CommBackend.ZMQ_INPROC,
     )
     return config
 

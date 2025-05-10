@@ -1,5 +1,4 @@
-from enum import Enum, auto
-from typing import Union
+from enum import Enum
 
 
 class StrEnum(str, Enum):
@@ -92,8 +91,8 @@ class DataTopic(StrEnum):
 class CommBackend(StrEnum):
     """Supported communication backends."""
 
-    ZMQ = "zmq"
-    MEMORY = "memory"
+    ZMQ_TCP = "zmq"
+    ZMQ_INPROC = "zmq_inproc"
 
 
 # Service-related enums
@@ -116,3 +115,28 @@ class ServiceType(StrEnum):
     POST_PROCESSOR_MANAGER = "post_processor_manager"
     WORKER = "worker"
     TEST = "test_service"  # Used in tests
+
+
+class ZmqClientType(StrEnum):
+    """Enum for ZMQ client types based on service needs."""
+
+    CONTROLLER_PUB = "controller_pub"
+    CONTROLLER_SUB = "controller_sub"
+
+    COMPONENT_PUB = "component_pub"
+    COMPONENT_SUB = "component_sub"
+
+    RECORDS_PUSH = "records_push"
+    RECORDS_PULL = "records_pull"
+
+    CONVERSATION_DATA_REP = "conversation_data_rep"
+    CONVERSATION_DATA_REQ = "conversation_data_req"
+
+    CREDIT_DROP_PUSH = "credit_drop_push"
+    CREDIT_DROP_PULL = "credit_drop_pull"
+
+    CREDIT_RETURN_PUSH = "credit_return_push"
+    CREDIT_RETURN_PULL = "credit_return_pull"
+
+    INFERENCE_RESPONSE_PUB = "inference_response_pub"
+    INFERENCE_REQUEST_SUB = "inference_request_sub"

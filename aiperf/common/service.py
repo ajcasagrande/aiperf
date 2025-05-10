@@ -14,6 +14,7 @@ from aiperf.common.enums import (
     ServiceState,
     ServiceType,
     Topic,
+    ZmqClientType,
 )
 from aiperf.common.models.messages import (
     BaseMessage,
@@ -58,7 +59,10 @@ class ServiceBase(ABC):
         self._skip_parent_comm_init = False
 
     async def _subscribe_to_topic(
-        self, topic: Topic, message_type: Optional[Type[M]] = None
+        self,
+        client_type: ZmqClientType,
+        topic: Topic,
+        message_type: Optional[Type[M]] = None,
     ) -> None:
         """Subscribe to a topic for receiving messages.
 
@@ -86,13 +90,17 @@ class ServiceBase(ABC):
             typed_message = cast(M, message) if message_type else message
             await self._process_message(topic, typed_message)
 
-        success = await self.communication.subscribe(topic, message_callback)
+        success = await self.communication.subscribe(
+            client_type, topic, message_callback
+        )
         if not success:
             self.logger.error(f"Failed to subscribe to topic {topic}")
         else:
             self.logger.debug(f"Successfully subscribed to topic {topic}")
 
-    async def _publish_message(self, topic: Topic, message: BaseMessage) -> bool:
+    async def _publish_message(
+        self, client_type: ZmqClientType, topic: Topic, message: BaseMessage
+    ) -> bool:
         """Publish a message to a topic.
 
         Args:
@@ -108,7 +116,7 @@ class ServiceBase(ABC):
 
         self.logger.debug(f"Publishing message to topic {topic}: {message}")
 
-        success = await self.communication.publish(topic, message)
+        success = await self.communication.publish(client_type, topic, message)
         if not success:
             self.logger.error(f"Failed to publish message to topic {topic}")
         return success
@@ -120,7 +128,9 @@ class ServiceBase(ABC):
             service_type=self.service_type,
         )
         self.logger.debug("Sending heartbeat message: %s", heartbeat_message)
-        await self._publish_message(Topic.HEARTBEAT, heartbeat_message)
+        await self._publish_message(
+            ZmqClientType.COMPONENT_PUB, Topic.HEARTBEAT, heartbeat_message
+        )
 
     async def _set_service_status(self, status: ServiceState) -> None:
         """Send a service state message to the system controller."""
@@ -130,7 +140,9 @@ class ServiceBase(ABC):
             service_type=self.service_type,
             state=self.state,
         )
-        await self._publish_message(Topic.STATUS, status_message)
+        await self._publish_message(
+            ZmqClientType.COMPONENT_PUB, Topic.STATUS, status_message
+        )
 
     async def _start_heartbeat_task(self) -> None:
         """Start a background task to send heartbeats at regular intervals."""
@@ -151,8 +163,13 @@ class ServiceBase(ABC):
         This method should be called after the service has been initialized and is ready to
         start processing messages.
         """
-        self.logger.debug("Attempting to register service %s (%s) with system controller", self.service_type, self.service_id)
+        self.logger.debug(
+            "Attempting to register service %s (%s) with system controller",
+            self.service_type,
+            self.service_id,
+        )
         await self._publish_message(
+            ZmqClientType.COMPONENT_PUB,
             Topic.REGISTRATION,
             RegistrationMessage(
                 service_id=self.service_id,
@@ -170,11 +187,11 @@ class ServiceBase(ABC):
             if not self.communication and not self._skip_parent_comm_init:
                 comm_type = self.config.comm_backend
                 if self.config.service_run_type == ServiceRunType.ASYNC:
-                    comm_type = CommBackend.MEMORY
+                    comm_type = CommBackend.ZMQ_INPROC
                 elif self.config.service_run_type == ServiceRunType.MULTIPROCESSING:
-                    comm_type = CommBackend.ZMQ
+                    comm_type = CommBackend.ZMQ_TCP
                 self.communication = CommunicationFactory.create_communication(
-                    comm_type=comm_type.value
+                    comm_type=comm_type
                 )
 
                 # Initialize the communication instance
@@ -191,7 +208,9 @@ class ServiceBase(ABC):
 
             # Set up communication subscriptions if communication is available
             # Subscribe to common topics
-            await self._subscribe_to_topic(Topic.COMMAND, CommandMessage)
+            await self._subscribe_to_topic(
+                ZmqClientType.CONTROLLER_SUB, Topic.COMMAND, CommandMessage
+            )
 
             # Additional service-specific subscriptions can be added in derived classes
 

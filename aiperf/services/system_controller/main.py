@@ -14,6 +14,7 @@ from aiperf.common.enums import (
     ServiceRunType,
     ServiceType,
     Topic,
+    ZmqClientType,
 )
 from aiperf.common.exceptions.service import ServiceInitializationException
 from aiperf.common.models.messages import (
@@ -48,13 +49,13 @@ class SystemController(ServiceBase):
         # Initialize communication component based on config
         comm_type = self.config.comm_backend
         if self.config.service_run_type == ServiceRunType.ASYNC:
-            comm_type = CommBackend.MEMORY
+            comm_type = CommBackend.ZMQ_INPROC
         elif self.config.service_run_type == ServiceRunType.MULTIPROCESSING:
-            comm_type = CommBackend.ZMQ
+            comm_type = CommBackend.ZMQ_TCP
         self.logger.info(f"Initializing communication with backend: {comm_type}")
 
         # For the system controller, we want to bind to sockets (not connect)
-        if comm_type == CommBackend.ZMQ:
+        if comm_type == CommBackend.ZMQ_TCP:
             self.communication = CommunicationFactory.create_communication(
                 comm_type=comm_type, is_controller=True
             )
@@ -78,9 +79,9 @@ class SystemController(ServiceBase):
             raise ServiceInitializationException("Failed to initialize communication")
 
         # Subscribe to relevant messages
-        await self._subscribe_to_topic(Topic.REGISTRATION)
-        await self._subscribe_to_topic(Topic.HEARTBEAT)
-        await self._subscribe_to_topic(Topic.STATUS)
+        await self._subscribe_to_topic(ZmqClientType.COMPONENT_SUB, Topic.REGISTRATION)
+        await self._subscribe_to_topic(ZmqClientType.COMPONENT_SUB, Topic.HEARTBEAT)
+        await self._subscribe_to_topic(ZmqClientType.COMPONENT_SUB, Topic.STATUS)
 
         self.logger.info(
             f"Successfully initialized communication with backend: {comm_type}"

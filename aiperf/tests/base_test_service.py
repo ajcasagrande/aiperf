@@ -151,13 +151,11 @@ class BaseServiceTest:
         await service._register()
 
         # Check that a registration message was published
-        assert Topic.REGISTRATION.value in mock_communication.published_messages
-        assert len(mock_communication.published_messages[Topic.REGISTRATION.value]) > 0
+        assert Topic.REGISTRATION in mock_communication.published_messages
+        assert len(mock_communication.published_messages[Topic.REGISTRATION]) > 0
 
         # Verify registration message
-        registration_msg = mock_communication.published_messages[
-            Topic.REGISTRATION.value
-        ][0]
+        registration_msg = mock_communication.published_messages[Topic.REGISTRATION][0]
         assert registration_msg.service_id == service.service_id
 
         # Compare service_type values to handle both enum and string
@@ -179,11 +177,11 @@ class BaseServiceTest:
         await service._set_service_status(ServiceState.READY)
 
         # Check that a status message was published
-        assert Topic.STATUS.value in mock_communication.published_messages
-        assert len(mock_communication.published_messages[Topic.STATUS.value]) > 0
+        assert Topic.STATUS in mock_communication.published_messages
+        assert len(mock_communication.published_messages[Topic.STATUS]) > 0
 
         # Verify status message
-        status_msg = mock_communication.published_messages[Topic.STATUS.value][0]
+        status_msg = mock_communication.published_messages[Topic.STATUS][0]
         assert status_msg.service_id == service.service_id
 
         # Compare service_type values to handle both enum and string

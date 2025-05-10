@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Callable, Optional, Union
 
+from aiperf.common.enums import ZmqClientType
 from aiperf.common.models.messages import BaseMessage
 from aiperf.common.models.push_pull import PullData, PushData
 from aiperf.common.models.request_response import (
@@ -32,7 +33,9 @@ class Communication(ABC):
         pass
 
     @abstractmethod
-    async def publish(self, topic: str, message: BaseMessage) -> bool:
+    async def publish(
+        self, client_type: ZmqClientType, topic: str, message: BaseMessage
+    ) -> bool:
         """Publish a message to a topic.
 
         Args:
@@ -46,7 +49,10 @@ class Communication(ABC):
 
     @abstractmethod
     async def subscribe(
-        self, topic: str, callback: Callable[[BaseMessage], None]
+        self,
+        client_type: ZmqClientType,
+        topic: str,
+        callback: Callable[[BaseMessage], None],
     ) -> bool:
         """Subscribe to a topic.
 
@@ -62,6 +68,7 @@ class Communication(ABC):
     @abstractmethod
     async def request(
         self,
+        client_type: ZmqClientType,
         target: str,
         request_data: RequestData,
         timeout: float = 5.0,
@@ -79,7 +86,9 @@ class Communication(ABC):
         pass
 
     @abstractmethod
-    async def respond(self, target: str, response: ResponseData) -> bool:
+    async def respond(
+        self, client_type: ZmqClientType, target: str, response: ResponseData
+    ) -> bool:
         """Send a response to a request.
 
         Args:
@@ -92,7 +101,9 @@ class Communication(ABC):
         pass
 
     @abstractmethod
-    async def push(self, target: str, data: PushData) -> bool:
+    async def push(
+        self, client_type: ZmqClientType, target: str, data: PushData
+    ) -> bool:
         """Push data to a target.
 
         Args:
@@ -107,6 +118,7 @@ class Communication(ABC):
     @abstractmethod
     async def pull(
         self,
+        client_type: ZmqClientType,
         source: str,
         callback: Optional[Callable[[PullData], None]] = None,
     ) -> Union[PullData, bool]:
@@ -124,11 +136,11 @@ class Communication(ABC):
         """
         pass
 
-    @abstractmethod
-    async def dump_request_state(self) -> RequestStateInfo:
-        """Dump the current state of requests and responses for debugging.
+    # @abstractmethod
+    # async def dump_request_state(self) -> RequestStateInfo:
+    #     """Dump the current state of requests and responses for debugging.
 
-        Returns:
-            RequestStateInfo model with debugging information
-        """
-        pass
+    #     Returns:
+    #         RequestStateInfo model with debugging information
+    #     """
+    #     pass
