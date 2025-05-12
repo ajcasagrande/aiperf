@@ -2,11 +2,13 @@
 Tests for the worker service.
 """
 
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from aiperf.common.comms.communication import Communication
 from aiperf.common.config.service_config import WorkerConfig
+from aiperf.common.enums import ClientType
 from aiperf.common.models.messages import (
     ConversationData,
     ConversationTurn,
@@ -26,9 +28,28 @@ class TestWorker:
         return WorkerConfig()
 
     @pytest.fixture
-    def worker(self, worker_config):
+    def mock_communication(self):
+        """Create a mock communication object for worker tests."""
+        mock_comm = AsyncMock(spec=Communication)
+        mock_comm.initialize.return_value = True
+        mock_comm.pull.return_value = True
+        mock_comm.push.return_value = True
+        mock_comm.publish.return_value = True
+        mock_comm.subscribe.return_value = True
+        mock_comm.request.return_value = {"status": "success", "data": "test_data"}
+        mock_comm.respond.return_value = True
+        return mock_comm
+
+    @pytest.fixture
+    def worker(self, worker_config, mock_communication):
         """Return a worker instance for testing."""
-        return Worker(config=worker_config)
+        with patch(
+            "aiperf.common.comms.communication_factory.CommunicationFactory.create_communication",
+            return_value=mock_communication,
+        ):
+            worker = Worker(config=worker_config)
+            worker.communication = mock_communication
+            return worker
 
     async def test_worker_initialization(self, worker):
         """Test that the worker initializes correctly."""

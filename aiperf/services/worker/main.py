@@ -201,7 +201,9 @@ class Worker(ServiceBase):
             result=result_data,
         )
 
-        await self._publish_message(Topic.DATA, result_message)
+        await self._publish_message(
+            ClientType.COMPONENT_PUB, Topic.DATA, result_message
+        )
 
 
 if __name__ == "__main__":

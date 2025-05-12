@@ -40,6 +40,8 @@ class SystemController(ServiceBase):
         # Don't create communication in the parent class
         self._skip_parent_comm_init = True
         self.communication: Communication = None
+        self.components: Dict[str, Any] = {}
+        self.service_processes: Dict[str, Process] = {}
 
     async def _initialize(self) -> None:
         """Initialize system controller-specific components."""
@@ -150,18 +152,52 @@ class SystemController(ServiceBase):
         # TODO: Process other message types
 
     async def _process_registration_message(self, message: RegistrationMessage) -> None:
-        self.logger.debug(f"Processing registration message: {message}")
-        # TODO: finish implementing registration message processing
-        self.logger.debug("Registration message processing not implemented")
+        """Process a registration message from a service.
 
-    async def _process_heartbeat_message(self, message: HeartbeatMessage) -> None:
-        """Process a heartbeat message from a service."""
+        Args:
+            message: The registration message to process
+        """
         service_id = message.service_id
         service_type = message.service_type
 
+        self.logger.debug(
+            f"Processing registration from {service_type} with ID: {service_id}"
+        )
+
+        # Store the component information
+        self.components[service_id] = type(
+            "ServiceComponent",
+            (),
+            {
+                "service_id": service_id,
+                "service_type": service_type,
+                "state": message.state,
+                "last_heartbeat": message.timestamp,
+            },
+        )
+
+        self.logger.info(f"Registered service: {service_type} with ID: {service_id}")
+
+    async def _process_heartbeat_message(self, message: HeartbeatMessage) -> None:
+        """Process a heartbeat message from a service.
+
+        Args:
+            message: The heartbeat message to process
+        """
+        service_id = message.service_id
+        service_type = message.service_type
+        timestamp = message.timestamp
+
         self.logger.debug(f"Received heartbeat from {service_type} (ID: {service_id})")
-        self.logger.debug("Heartbeat message processing not implemented")
-        # TODO: finish implementing heartbeat message processing
+
+        # Update the last heartbeat timestamp if the component exists
+        if service_id in self.components:
+            self.components[service_id].last_heartbeat = timestamp
+            self.logger.debug(f"Updated heartbeat for {service_id} to {timestamp}")
+        else:
+            self.logger.warning(
+                f"Received heartbeat from unknown service: {service_id} ({service_type})"
+            )
 
     async def _process_status_message(self, message: StatusMessage) -> None:
         """Process a status message from a service.
@@ -169,9 +205,22 @@ class SystemController(ServiceBase):
         Args:
             message: The status message to process
         """
-        self.logger.debug("Received status update %s", message)
-        self.logger.debug("Status message processing not implemented")
-        # TODO: finish implementing status message processing
+        service_id = message.service_id
+        service_type = message.service_type
+        state = message.state
+
+        self.logger.debug(
+            f"Received status update from {service_type} (ID: {service_id}): {state}"
+        )
+
+        # Update the component state if the component exists
+        if service_id in self.components:
+            self.components[service_id].state = state
+            self.logger.debug(f"Updated state for {service_id} to {state}")
+        else:
+            self.logger.warning(
+                f"Received status update from unknown service: {service_id} ({service_type})"
+            )
 
     async def _start_all_services_multiprocessing(self) -> None:
         """Start all required services as multiprocessing processes."""
@@ -187,7 +236,6 @@ class SystemController(ServiceBase):
 
         # In multiprocessing mode, each process needs its own communication instance
         # Create and start all service processes
-        self.service_processes: Dict[str, Process] = {}
         for service_name, service_class in service_configs:
             # When using multiprocessing, we can't share the communication instance
             # Each process will create its own instance based on the config

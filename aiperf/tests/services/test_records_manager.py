@@ -19,9 +19,9 @@ class TestRecordsManager(BaseServiceTest):
         """Return the service class to test."""
         return RecordsManager
 
-    async def test_records_manager_initialization(self, service_under_test):
+    async def test_records_manager_initialization(self, properly_initialized_service):
         """Test that the records manager initializes correctly."""
-        service = service_under_test
+        service = properly_initialized_service
         assert service.service_type == ServiceType.RECORDS_MANAGER
         # Add records manager specific assertions here
 

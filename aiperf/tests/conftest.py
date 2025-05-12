@@ -17,6 +17,7 @@ from aiperf.common.enums import (
     ServiceType,
     Topic,
     CommBackend,
+    ClientType,
 )
 from aiperf.common.models.messages import BaseMessage
 from aiperf.common.service import ServiceBase
@@ -48,11 +49,14 @@ def mock_communication():
     mock_comm.initialize.return_value = True
     mock_comm.subscribe.return_value = True
     mock_comm.publish.return_value = True
+    mock_comm.create_clients.return_value = True
+    mock_comm.pull.return_value = True
+    mock_comm.push.return_value = True
 
     # Store published messages for verification
     mock_comm.published_messages = {}
 
-    async def mock_publish(topic: str, message: BaseMessage):
+    async def mock_publish(client_type: ClientType, topic: str, message: BaseMessage):
         if topic not in mock_comm.published_messages:
             mock_comm.published_messages[topic] = []
         mock_comm.published_messages[topic].append(message)
@@ -63,7 +67,7 @@ def mock_communication():
     # Store subscription callbacks
     mock_comm.subscriptions = {}
 
-    async def mock_subscribe(topic: str, callback: Callable):
+    async def mock_subscribe(client_type: ClientType, topic: str, callback: Callable):
         mock_comm.subscriptions[topic] = callback
         return True
 

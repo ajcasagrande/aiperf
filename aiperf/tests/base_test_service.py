@@ -57,8 +57,14 @@ class BaseServiceTest:
         ):
             service = service_class(config=service_config)
 
-            # Initialize but don't run
-            await service._initialize()
+            # Special handling for TimingManager due to its create_clients call
+            if service_class.__name__ == "TimingManager":
+                service.communication = mock_communication
+                service.communication.initialized = True
+                await service._set_service_status(ServiceState.READY)
+            else:
+                # Initialize but don't run
+                await service._initialize()
 
             try:
                 yield service

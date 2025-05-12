@@ -19,9 +19,9 @@ class TestWorkerManager(BaseServiceTest):
         """Return the service class to test."""
         return WorkerManager
 
-    async def test_worker_manager_initialization(self, service_under_test):
+    async def test_worker_manager_initialization(self, properly_initialized_service):
         """Test that the worker manager initializes correctly."""
-        service = await async_fixture(service_under_test)
+        service = properly_initialized_service
         assert service.service_type == ServiceType.WORKER_MANAGER
         # Add worker manager specific assertions here
 

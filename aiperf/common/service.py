@@ -32,17 +32,18 @@ M = TypeVar("M", bound=BaseMessage)
 # Create a central console object for rich logging
 _console = Console()
 
+
 def get_logger(name: str) -> logging.Logger:
     """Get a logger configured with rich for colored output.
-    
+
     Args:
         name: The name for the logger
-        
+
     Returns:
         A configured logger instance
     """
     logger = logging.getLogger(name)
-    
+
     # Only configure if it hasn't been configured yet
     if not logger.handlers:
         handler = RichHandler(
@@ -52,7 +53,7 @@ def get_logger(name: str) -> logging.Logger:
             tracebacks_show_locals=True,
         )
         logger.addHandler(handler)
-    
+
     return logger
 
 
@@ -213,7 +214,7 @@ class ServiceBase(ABC):
             await asyncio.sleep(0.1)  # Allow time for the event loop to start
             # Set up signal handlers for graceful shutdown
             self._setup_signal_handlers()
-            
+
             # Initialize the service
             self.state = ServiceState.INITIALIZING
 
@@ -268,7 +269,7 @@ class ServiceBase(ABC):
     def _setup_signal_handlers(self) -> None:
         """Set up signal handlers for graceful shutdown."""
         loop = asyncio.get_running_loop()
-        
+
         def signal_handler(sig: int) -> None:
             # Create a task and store it so it doesn't get garbage collected
             task = asyncio.create_task(self._handle_signal(sig))
@@ -276,21 +277,21 @@ class ServiceBase(ABC):
             # before it completes
             self._signal_tasks.add(task)
             task.add_done_callback(self._signal_tasks.discard)
-        
+
         for sig in (signal.SIGTERM, signal.SIGINT):
             loop.add_signal_handler(sig, lambda s=sig: signal_handler(s))
-        
+
         self.logger.debug("Signal handlers set up for graceful shutdown")
-    
+
     async def _handle_signal(self, sig: int) -> None:
         """Handle received signals by triggering graceful shutdown.
-        
+
         Args:
             sig: The signal number received
         """
         sig_name = signal.Signals(sig).name
         self.logger.debug(f"Received signal {sig_name}, initiating graceful shutdown")
-        
+
         # Stop the service if it's running
         if self.state == ServiceState.RUNNING:
             await self.stop()
