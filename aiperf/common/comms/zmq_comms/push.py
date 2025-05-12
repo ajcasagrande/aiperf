@@ -3,7 +3,7 @@ from zmq import SocketType
 
 from aiperf.common.comms.zmq_comms.base import ZmqSocketBase
 from aiperf.common.comms.zmq_comms.pub import logger
-from aiperf.common.models.push_pull import PushData
+from aiperf.common.models.push_pull import PushPullData
 
 
 class ZmqPushSocket(ZmqSocketBase):
@@ -21,11 +21,10 @@ class ZmqPushSocket(ZmqSocketBase):
         """
         super().__init__(context, SocketType.PUSH, address, bind, socket_ops)
 
-    async def push(self, target: str, data: PushData) -> bool:
+    async def push(self, data: PushPullData) -> bool:
         """Push data to a target.
 
         Args:
-            target: Target endpoint to push data to
             data: Data to be pushed (must be a PushData instance)
 
         Returns:
@@ -47,8 +46,8 @@ class ZmqPushSocket(ZmqSocketBase):
 
             # Send data
             await self.socket.send_string(data_json)
-            logger.debug(f"Pushed data to {target}")
+            logger.debug(f"Pushed data")
             return True
         except Exception as e:
-            logger.error(f"Error pushing data to {target}: {e}")
+            logger.error(f"Error pushing data: {e} {type(e)}")
             return False

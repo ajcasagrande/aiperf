@@ -8,40 +8,23 @@ from pydantic import BaseModel, Field
 from aiperf.common.models.base_models import BasePayload
 
 
-class PushData(BaseModel):
+class PushPullData(BaseModel):
     """Base model for push data."""
 
     source: str = Field(
         ...,
         description="ID of the source sending the data",
     )
+    topic: str = Field(
+        ...,
+        description="Topic to which the data is being sent",
+    )
     timestamp: float = Field(
         default_factory=time.time,
         description="Time when the data was created",
     )
-    data: Dict[str, Any] = Field(
-        default_factory=dict,
-        description="Data payload as a dictionary (for backward compatibility)",
-    )
-    payload: Optional[BasePayload] = Field(
-        default=None,
-        description="Structured data payload (Pydantic model)",
-    )
-
-
-class PullData(BaseModel):
-    """Base model for pull data."""
-
-    source: str = Field(
+    data: Any = Field(
         ...,
-        description="ID of the source of the data",
-    )
-    timestamp: float = Field(
-        default_factory=time.time,
-        description="Time when the data was received",
-    )
-    data: Dict[str, Any] = Field(
-        default_factory=dict,
         description="Data payload as a dictionary (for backward compatibility)",
     )
     payload: Optional[BasePayload] = Field(

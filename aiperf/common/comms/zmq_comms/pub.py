@@ -22,7 +22,7 @@ class ZmqPublisher(ZmqSocketBase):
             bind (bool): Whether to bind or connect the socket.
             socket_ops (dict, optional): Additional socket options to set.
         """
-        super().__init__(context, SocketType.PUB, address, bind)
+        super().__init__(context, SocketType.PUB, address, bind, socket_ops)
 
     async def publish(self, topic: str, message: BaseMessage) -> bool:
         """Publish a message to a topic.

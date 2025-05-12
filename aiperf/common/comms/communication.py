@@ -1,12 +1,11 @@
 from abc import ABC, abstractmethod
-from typing import Callable, Optional, Union
+from typing import Callable, List, Optional, Union, Coroutine, Any
 
-from aiperf.common.enums import ZmqClientType
+from aiperf.common.enums import ClientType
 from aiperf.common.models.messages import BaseMessage
-from aiperf.common.models.push_pull import PullData, PushData
+from aiperf.common.models.push_pull import PushPullData, PushPullData
 from aiperf.common.models.request_response import (
     RequestData,
-    RequestStateInfo,
     ResponseData,
 )
 
@@ -33,12 +32,22 @@ class Communication(ABC):
         pass
 
     @abstractmethod
+    async def create_clients(self, *types: ClientType) -> None:
+        """Create and initialize clients for the given types.
+
+        Args:
+            types: List of ClientType values to create clients for
+        """
+        pass
+
+    @abstractmethod
     async def publish(
-        self, client_type: ZmqClientType, topic: str, message: BaseMessage
+        self, client_type: ClientType, topic: str, message: BaseMessage
     ) -> bool:
         """Publish a message to a topic.
 
         Args:
+            client_type: Client type to publish from
             topic: Topic to publish to
             message: Message to publish (must be a Pydantic model)
 
@@ -50,13 +59,14 @@ class Communication(ABC):
     @abstractmethod
     async def subscribe(
         self,
-        client_type: ZmqClientType,
+        client_type: ClientType,
         topic: str,
         callback: Callable[[BaseMessage], None],
     ) -> bool:
         """Subscribe to a topic.
 
         Args:
+            client_type: Client type to subscribe from
             topic: Topic to subscribe to
             callback: Function to call when a message is received (receives BaseMessage object)
 
@@ -68,7 +78,7 @@ class Communication(ABC):
     @abstractmethod
     async def request(
         self,
-        client_type: ZmqClientType,
+        client_type: ClientType,
         target: str,
         request_data: RequestData,
         timeout: float = 5.0,
@@ -76,6 +86,7 @@ class Communication(ABC):
         """Send a request and wait for a response.
 
         Args:
+            client_type: Client type to send request from
             target: Target component to send request to
             request_data: Request data (must be a RequestData instance)
             timeout: Timeout in seconds
@@ -87,11 +98,12 @@ class Communication(ABC):
 
     @abstractmethod
     async def respond(
-        self, client_type: ZmqClientType, target: str, response: ResponseData
+        self, client_type: ClientType, target: str, response: ResponseData
     ) -> bool:
         """Send a response to a request.
 
         Args:
+            client_type: Client type to send response from
             target: Target component to send response to
             response: Response message (must be a ResponseData instance)
 
@@ -101,13 +113,11 @@ class Communication(ABC):
         pass
 
     @abstractmethod
-    async def push(
-        self, client_type: ZmqClientType, target: str, data: PushData
-    ) -> bool:
+    async def push(self, client_type: ClientType, data: PushPullData) -> bool:
         """Push data to a target.
 
         Args:
-            target: Target endpoint to push data to
+            client_type: Client type to push data from
             data: Data to be pushed (must be a PushData instance)
 
         Returns:
@@ -118,13 +128,14 @@ class Communication(ABC):
     @abstractmethod
     async def pull(
         self,
-        client_type: ZmqClientType,
+        client_type: ClientType,
         source: str,
-        callback: Optional[Callable[[PullData], None]] = None,
-    ) -> Union[PullData, bool]:
+        callback: Optional[Callable[[PushPullData], Coroutine[Any, Any, None]]] = None,
+    ) -> Union[PushPullData, bool]:
         """Pull data from a source.
 
         Args:
+            client_type: Client type to pull data from
             source: Source endpoint to pull data from
             callback: Optional function to call when data is received.
                      If provided, this method will register the callback and return a boolean.
@@ -132,15 +143,6 @@ class Communication(ABC):
 
         Returns:
             If callback is provided: True if pull registration was successful, False otherwise
-            If callback is not provided: The received PullData object
+            If callback is not provided: The received PushPullData object
         """
         pass
-
-    # @abstractmethod
-    # async def dump_request_state(self) -> RequestStateInfo:
-    #     """Dump the current state of requests and responses for debugging.
-
-    #     Returns:
-    #         RequestStateInfo model with debugging information
-    #     """
-    #     pass

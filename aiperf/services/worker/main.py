@@ -1,3 +1,4 @@
+import asyncio
 import sys
 import uuid
 from typing import Any, Dict
@@ -6,7 +7,8 @@ import uvloop
 from pydantic import Field
 
 from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.enums import PayloadType, ServiceType, Topic
+from aiperf.common.enums import PayloadType, ServiceType, Topic, ClientType
+from aiperf.common.models.credits import CreditReturn
 from aiperf.common.models.messages import (
     BaseMessage,
     ConversationData,
@@ -14,6 +16,7 @@ from aiperf.common.models.messages import (
     ResultData,
     ResultMessage,
 )
+from aiperf.common.models.push_pull import PushPullData
 from aiperf.common.models.request_response import (
     BaseRequestPayload,
     RequestData,
@@ -46,10 +49,19 @@ class Worker(ServiceBase):
     async def _initialize(self) -> None:
         """Initialize worker-specific components."""
         self.logger.debug("Initializing worker")
+        await self.communication.create_clients(
+            ClientType.CREDIT_RETURN_PUSH, ClientType.CREDIT_DROP_PULL
+        )
 
     async def _on_start(self) -> None:
         """Start the worker."""
         self.logger.debug("Starting worker")
+        # Subscribe to the credit drop topic
+        await self.communication.pull(
+            ClientType.CREDIT_DROP_PULL,
+            Topic.CREDIT_DROP,
+            self._process_credit_drop,
+        )
 
     async def _on_stop(self) -> None:
         """Stop the worker."""
@@ -58,6 +70,26 @@ class Worker(ServiceBase):
     async def _cleanup(self) -> None:
         """Clean up worker-specific components."""
         self.logger.debug("Cleaning up worker")
+
+    async def _process_credit_drop(self, pull_data: PushPullData) -> None:
+        """Process a credit drop message.
+
+        Args:
+            pull_data: The data received from the pull request
+        """
+        self.logger.debug(f"Processing credit drop: {pull_data}")
+        await asyncio.sleep(0.25)  # Simulate some processing time
+        self.logger.debug("Returning credits")
+        (
+            await self.communication.push(
+                ClientType.CREDIT_RETURN_PUSH,
+                PushPullData(
+                    topic=Topic.CREDIT_RETURN,
+                    source=self.service_id,
+                    data=CreditReturn(amount=100),
+                ),
+            ),
+        )
 
     async def _process_message(self, topic: Topic, message: BaseMessage) -> None:
         """Process a message from another service.

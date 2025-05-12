@@ -16,10 +16,10 @@ from aiperf.common.comms.zmq_comms.pull import ZmqPullSocket
 from aiperf.common.comms.zmq_comms.push import ZmqPushSocket
 
 
-from aiperf.common.enums import ZmqClientType
+from aiperf.common.enums import ClientType
 from aiperf.common.models.comms import ZMQCommunicationConfig
 from aiperf.common.models.messages import BaseMessage
-from aiperf.common.models.push_pull import PullData, PushData
+from aiperf.common.models.push_pull import PushPullData, PushPullData
 from aiperf.common.models.request_response import RequestData, ResponseData
 
 logger = logging.getLogger(__name__)
@@ -35,19 +35,15 @@ class ZMQCommunication(Communication):
     def __init__(
         self,
         config: Optional[ZMQCommunicationConfig] = None,
-        is_controller: bool = False,
     ):
         """Initialize ZMQ communication.
 
         Args:
             config: ZMQCommunicationConfig object with configuration parameters
-            is_controller: Flag indicating if this is the system controller (which binds to sockets)
-                           or a service (which connects to sockets)
         """
         self._is_initialized = False
         self._is_shutdown = False
-        self.config = config or ZMQCommunicationConfig()
-        self.is_controller = is_controller
+        self.config = config
 
         # Generate client_id if not provided
         if not self.config.client_id:
@@ -55,10 +51,10 @@ class ZMQCommunication(Communication):
 
         self.context = zmq.asyncio.Context()
 
-        self.sockets: Dict[ZmqClientType, ZmqSocketBase] = {}
+        self.clients: Dict[ClientType, ZmqSocketBase] = {}
 
         logger.info(
-            f"ZMQ communication using protocol: {self.config.protocol} "
+            f"ZMQ communication using protocol: {type(self.config.protocol_config).__name__} "
             f"with client ID: {self.config.client_id}"
         )
 
@@ -73,7 +69,7 @@ class ZMQCommunication(Communication):
 
         return True
 
-    async def create_clients(self, *types: List[ZmqClientType]) -> bool:
+    async def create_clients(self, *types: ClientType) -> None:
         """Create ZMQ clients based on the provided types.
 
         Args:
@@ -81,29 +77,32 @@ class ZMQCommunication(Communication):
         """
 
         for client_type in types:
+            if client_type in self.clients:
+                continue
+
             match client_type:
                 #### Controller ####
-                case ZmqClientType.CONTROLLER_PUB:
+                case ClientType.CONTROLLER_PUB:
                     client = ZmqPublisher(
                         self.context,
                         self.config.controller_pub_sub_address,
                         bind=True,  # Controller is the publisher
                     )
-                case ZmqClientType.CONTROLLER_SUB:
+                case ClientType.CONTROLLER_SUB:
                     client = ZmqSubscriber(
                         self.context,
                         self.config.controller_pub_sub_address,
-                        bind=False,  # Services are the subscribers
+                        bind=False,  # Component services are the subscribers
                     )
 
                 #### Component ####
-                case ZmqClientType.COMPONENT_PUB:
+                case ClientType.COMPONENT_PUB:
                     client = ZmqPublisher(
                         self.context,
                         self.config.component_pub_sub_address,
-                        bind=False,  # Services are the publishers
+                        bind=False,  # Component services are the publishers
                     )
-                case ZmqClientType.COMPONENT_SUB:
+                case ClientType.COMPONENT_SUB:
                     client = ZmqSubscriber(
                         self.context,
                         self.config.component_pub_sub_address,
@@ -111,41 +110,41 @@ class ZMQCommunication(Communication):
                     )
 
                 #### Inference ####
-                case ZmqClientType.INFERENCE_PUB:
-                    client = ZmqPublisher(
+                case ClientType.INFERENCE_RESULTS_PUSH:
+                    client = ZmqPushSocket(
                         self.context,
-                        self.config.inference_pub_sub_address,
-                        bind=False,  # Workers are the publishers
+                        self.config.inference_push_pull_address,
+                        bind=False,  # Workers are the pushers
                     )
-                case ZmqClientType.INFERENCE_SUB:
-                    client = ZmqSubscriber(
+                case ClientType.INFERENCE_RESULTS_PULL:
+                    client = ZmqPullSocket(
                         self.context,
-                        self.config.inference_pub_sub_address,
-                        bind=True,  # Records manager is the subscriber
+                        self.config.inference_push_pull_address,
+                        bind=True,  # Records manager is the pull
                     )
 
                 #### Records ####
-                case ZmqClientType.RECORDS_PUSH:
+                case ClientType.RECORDS_PUSH:
                     client = ZmqPushSocket(
                         self.context,
                         self.config.records_address,
-                        bind=True,  # Records manager is the push
+                        bind=True,  # Records manager is the pusher
                     )
-                case ZmqClientType.RECORDS_PULL:
+                case ClientType.RECORDS_PULL:
                     client = ZmqPullSocket(
                         self.context,
                         self.config.records_address,
-                        bind=True,  # Post processor is the pull
+                        bind=True,  # Post processor is the puller
                     )
 
                 #### Conversation ####
-                case ZmqClientType.CONVERSATION_DATA_REP:
+                case ClientType.CONVERSATION_DATA_REP:
                     client = ZmqRepSocket(
                         self.context,
                         self.config.conversation_data_address,
                         bind=True,  # Data manager is the reply
                     )
-                case ZmqClientType.CONVERSATION_DATA_REQ:
+                case ClientType.CONVERSATION_DATA_REQ:
                     client = ZmqReqSocket(
                         self.context,
                         self.config.conversation_data_address,
@@ -153,39 +152,38 @@ class ZMQCommunication(Communication):
                     )
 
                 #### Credit Drop ####
-                case ZmqClientType.CREDIT_DROP_PUSH:
+                case ClientType.CREDIT_DROP_PUSH:
                     client = ZmqPushSocket(
                         self.context,
                         self.config.credit_drop_address,
                         bind=True,  # Timing manager is the push
                     )
-                case ZmqClientType.CREDIT_DROP_PULL:
+                case ClientType.CREDIT_DROP_PULL:
                     client = ZmqPullSocket(
                         self.context,
                         self.config.credit_drop_address,
-                        bind=False,  # Worker manager is the pull
+                        bind=False,  # Workers are the pullers
                     )
 
                 #### Credit Return ####
-                case ZmqClientType.CREDIT_RETURN_PUSH:
+                case ClientType.CREDIT_RETURN_PUSH:
                     client = ZmqPushSocket(
                         self.context,
                         self.config.credit_return_address,
-                        bind=False,  # Workers are the push
+                        bind=False,  # Workers are the pushers
                     )
-                case ZmqClientType.CREDIT_RETURN_PULL:
+                case ClientType.CREDIT_RETURN_PULL:
                     client = ZmqPullSocket(
                         self.context,
                         self.config.credit_return_address,
-                        bind=True,  # Timing manager is the pull
+                        bind=True,  # Timing manager is the puller
                     )
 
                 case _:
                     raise ValueError(f"Invalid client type: {client_type}")
 
             await client.initialize()
-            self.sockets[client_type] = client
-        return True
+            self.clients[client_type] = client
 
     async def shutdown(self) -> bool:
         """Gracefully shutdown communication channels.
@@ -202,7 +200,7 @@ class ZMQCommunication(Communication):
                 f"Shutting down ZMQ communication for client {self.config.client_id}"
             )
             await asyncio.gather(
-                *(socket.shutdown() for socket in self.sockets.values())
+                *(client.shutdown() for client in self.clients.values())
             )
             self.context.term()
             self._is_shutdown = True
@@ -213,49 +211,49 @@ class ZMQCommunication(Communication):
             return_val = False
         finally:
             self._is_initialized = False
-            self.sockets = {}
+            self.clients = {}
             self.context = None
             return return_val
 
     async def publish(
-        self, client_type: ZmqClientType, topic: str, message: BaseMessage
+        self, client_type: ClientType, topic: str, message: BaseMessage
     ) -> bool:
         logger.info(f"Publishing message to topic: {topic}")
-        if client_type not in self.sockets:
+        if client_type not in self.clients:
             await self.create_clients(client_type)
         try:
-            return await self.sockets[client_type].publish(topic, message)
+            return await self.clients[client_type].publish(topic, message)
         except Exception as e:
             logger.error(f"Error publishing message: {e}")
             return False
 
     async def subscribe(
         self,
-        client_type: ZmqClientType,
+        client_type: ClientType,
         topic: str,
         callback: Callable[[BaseMessage], None],
     ) -> bool:
         logger.info(f"Subscribing to topic: {topic}")
-        if client_type not in self.sockets:
+        if client_type not in self.clients:
             await self.create_clients(client_type)
         try:
-            return await self.sockets[client_type].subscribe(topic, callback)
+            return await self.clients[client_type].subscribe(topic, callback)
         except Exception as e:
             logger.error(f"Error subscribing to topic: {e}")
             return False
 
     async def request(
         self,
-        client_type: ZmqClientType,
+        client_type: ClientType,
         target: str,
         request_data: RequestData,
         timeout: float = 5,
     ) -> ResponseData:
         logger.info(f"Requesting from {target} with data: {request_data}")
-        if client_type not in self.sockets:
+        if client_type not in self.clients:
             await self.create_clients(client_type)
         try:
-            return await self.sockets[client_type].request(
+            return await self.clients[client_type].request(
                 target, request_data, timeout
             )
         except Exception as e:
@@ -263,40 +261,38 @@ class ZMQCommunication(Communication):
             return False
 
     async def respond(
-        self, client_type: ZmqClientType, target: str, response: ResponseData
+        self, client_type: ClientType, target: str, response: ResponseData
     ) -> bool:
         logger.info(f"Responding to {target} with data: {response}")
-        if client_type not in self.sockets:
+        if client_type not in self.clients:
             await self.create_clients(client_type)
         try:
-            return await self.sockets[client_type].respond(target, response)
+            return await self.clients[client_type].respond(target, response)
         except Exception as e:
             logger.error(f"Error responding to {target}: {e}")
             return False
 
-    async def push(
-        self, client_type: ZmqClientType, target: str, data: PushData
-    ) -> bool:
-        logger.info(f"Pushing data to {target} with data: {data}")
-        if client_type not in self.sockets:
+    async def push(self, client_type: ClientType, data: PushPullData) -> bool:
+        logger.info(f"Pushing data: {data}")
+        if client_type not in self.clients:
             await self.create_clients(client_type)
         try:
-            return await self.sockets[client_type].push(target, data)
+            return await self.clients[client_type].push(data)
         except Exception as e:
-            logger.error(f"Error pushing data to {target}: {e}")
+            logger.error(f"Error pushing data: {e}")
             return False
 
     async def pull(
         self,
-        client_type: ZmqClientType,
+        client_type: ClientType,
         source: str,
-        callback: Callable[[PullData], None] | None = None,
-    ) -> PullData | bool:
+        callback: Callable[[PushPullData], None] | None = None,
+    ) -> PushPullData | bool:
         logger.info(f"Pulling data from {source}")
-        if client_type not in self.sockets:
+        if client_type not in self.clients:
             await self.create_clients(client_type)
         try:
-            return await self.sockets[client_type].pull(source, callback)
+            return await self.clients[client_type].pull(source, callback)
         except Exception as e:
             logger.error(f"Error pulling data from {source}: {e}")
             return False

@@ -14,7 +14,7 @@ from aiperf.common.enums import (
     ServiceState,
     ServiceType,
     Topic,
-    ZmqClientType,
+    ClientType,
 )
 from aiperf.common.models.messages import (
     BaseMessage,
@@ -40,7 +40,7 @@ class ServiceBase(ABC):
         self,
         service_type: ServiceType,
         config: ServiceConfig,
-        autostart: bool = False,
+        autostart: bool = True,
     ):
         self.service_id: str = uuid.uuid4().hex
         self.service_type: ServiceType = service_type
@@ -60,7 +60,7 @@ class ServiceBase(ABC):
 
     async def _subscribe_to_topic(
         self,
-        client_type: ZmqClientType,
+        client_type: ClientType,
         topic: Topic,
         message_type: Optional[Type[M]] = None,
     ) -> None:
@@ -99,7 +99,7 @@ class ServiceBase(ABC):
             self.logger.debug(f"Successfully subscribed to topic {topic}")
 
     async def _publish_message(
-        self, client_type: ZmqClientType, topic: Topic, message: BaseMessage
+        self, client_type: ClientType, topic: Topic, message: BaseMessage
     ) -> bool:
         """Publish a message to a topic.
 
@@ -129,7 +129,7 @@ class ServiceBase(ABC):
         )
         self.logger.debug("Sending heartbeat message: %s", heartbeat_message)
         await self._publish_message(
-            ZmqClientType.COMPONENT_PUB, Topic.HEARTBEAT, heartbeat_message
+            ClientType.COMPONENT_PUB, Topic.HEARTBEAT, heartbeat_message
         )
 
     async def _set_service_status(self, status: ServiceState) -> None:
@@ -141,7 +141,7 @@ class ServiceBase(ABC):
             state=self.state,
         )
         await self._publish_message(
-            ZmqClientType.COMPONENT_PUB, Topic.STATUS, status_message
+            ClientType.COMPONENT_PUB, Topic.STATUS, status_message
         )
 
     async def _start_heartbeat_task(self) -> None:
@@ -169,7 +169,7 @@ class ServiceBase(ABC):
             self.service_id,
         )
         await self._publish_message(
-            ZmqClientType.COMPONENT_PUB,
+            ClientType.COMPONENT_PUB,
             Topic.REGISTRATION,
             RegistrationMessage(
                 service_id=self.service_id,
@@ -209,7 +209,7 @@ class ServiceBase(ABC):
             # Set up communication subscriptions if communication is available
             # Subscribe to common topics
             await self._subscribe_to_topic(
-                ZmqClientType.CONTROLLER_SUB, Topic.COMMAND, CommandMessage
+                ClientType.CONTROLLER_SUB, Topic.COMMAND, CommandMessage
             )
 
             # Additional service-specific subscriptions can be added in derived classes

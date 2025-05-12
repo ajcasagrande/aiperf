@@ -67,6 +67,8 @@ class CommandType(StrEnum):
 class Topic(StrEnum):
     """Communication topics for the main message bus."""
 
+    CREDIT_DROP = "credit_drop"
+    CREDIT_RETURN = "credit_return"
     REGISTRATION = "registration"
     COMMAND = "command"
     RESPONSE = "response"
@@ -91,7 +93,7 @@ class DataTopic(StrEnum):
 class CommBackend(StrEnum):
     """Supported communication backends."""
 
-    ZMQ_TCP = "zmq"
+    ZMQ_TCP = "zmq_tcp"
     ZMQ_INPROC = "zmq_inproc"
 
 
@@ -117,8 +119,8 @@ class ServiceType(StrEnum):
     TEST = "test_service"  # Used in tests
 
 
-class ZmqClientType(StrEnum):
-    """Enum for ZMQ client types based on service needs."""
+class ClientType(StrEnum):
+    """Enum for communication client types based on service needs."""
 
     CONTROLLER_PUB = "controller_pub"
     CONTROLLER_SUB = "controller_sub"
@@ -138,5 +140,5 @@ class ZmqClientType(StrEnum):
     CREDIT_RETURN_PUSH = "credit_return_push"
     CREDIT_RETURN_PULL = "credit_return_pull"
 
-    INFERENCE_RESPONSE_PUB = "inference_response_pub"
-    INFERENCE_REQUEST_SUB = "inference_request_sub"
+    INFERENCE_RESULTS_PUSH = "inference_results_push"
+    INFERENCE_RESULTS_PULL = "inference_results_pull"

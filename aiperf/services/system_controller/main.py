@@ -14,7 +14,7 @@ from aiperf.common.enums import (
     ServiceRunType,
     ServiceType,
     Topic,
-    ZmqClientType,
+    ClientType,
 )
 from aiperf.common.exceptions.service import ServiceInitializationException
 from aiperf.common.models.messages import (
@@ -54,15 +54,9 @@ class SystemController(ServiceBase):
             comm_type = CommBackend.ZMQ_TCP
         self.logger.info(f"Initializing communication with backend: {comm_type}")
 
-        # For the system controller, we want to bind to sockets (not connect)
-        if comm_type == CommBackend.ZMQ_TCP:
-            self.communication = CommunicationFactory.create_communication(
-                comm_type=comm_type, is_controller=True
-            )
-        else:
-            self.communication = CommunicationFactory.create_communication(
-                comm_type=comm_type
-            )
+        self.communication = CommunicationFactory.create_communication(
+            comm_type=comm_type
+        )
 
         if self.communication is None:
             self.logger.error(
@@ -78,10 +72,16 @@ class SystemController(ServiceBase):
             self.logger.error("Failed to initialize communication")
             raise ServiceInitializationException("Failed to initialize communication")
 
+        # Create clients
+        await self.communication.create_clients(
+            ClientType.COMPONENT_SUB,
+            ClientType.CONTROLLER_PUB,
+        )
+
         # Subscribe to relevant messages
-        await self._subscribe_to_topic(ZmqClientType.COMPONENT_SUB, Topic.REGISTRATION)
-        await self._subscribe_to_topic(ZmqClientType.COMPONENT_SUB, Topic.HEARTBEAT)
-        await self._subscribe_to_topic(ZmqClientType.COMPONENT_SUB, Topic.STATUS)
+        await self._subscribe_to_topic(ClientType.COMPONENT_SUB, Topic.REGISTRATION)
+        await self._subscribe_to_topic(ClientType.COMPONENT_SUB, Topic.HEARTBEAT)
+        await self._subscribe_to_topic(ClientType.COMPONENT_SUB, Topic.STATUS)
 
         self.logger.info(
             f"Successfully initialized communication with backend: {comm_type}"

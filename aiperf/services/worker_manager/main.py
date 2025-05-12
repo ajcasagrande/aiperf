@@ -20,6 +20,7 @@ class WorkerManager(ServiceBase):
         """Start the worker manager."""
         self.logger.debug("Starting worker manager")
         # TODO: Implement worker manager start
+        # TODO: Spawn worker processes
 
     async def _on_stop(self) -> None:
         """Stop the worker manager."""

@@ -95,8 +95,12 @@ class ZmqSubscriber(ZmqSocketBase):
                 break
             except zmq.Again as e:
                 # Handle ZMQ timeout or interruption
-                logger.debug(f"ZMQ recv timeout due to no messages. trying again @ {self.address}")
+                logger.debug(
+                    f"ZMQ recv timeout due to no messages. trying again @ {self.address}"
+                )
                 await asyncio.sleep(0.001)
             except Exception as e:
-                logger.error(f"Error receiving message from subscription: {e}, {type(e)}")
+                logger.error(
+                    f"Error receiving message from subscription: {e}, {type(e)}"
+                )
                 await asyncio.sleep(0.1)

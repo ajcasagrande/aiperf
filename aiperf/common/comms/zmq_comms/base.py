@@ -17,7 +17,7 @@ class ZmqSocketBase:
         socket_ops: dict = None,
     ) -> None:
         """
-        Initialize the ZMQ PubSub class.
+        Initialize the ZMQ Base class.
 
         Args:
             context (zmq.Context): The ZMQ context.
@@ -31,6 +31,7 @@ class ZmqSocketBase:
         self.context = context
         self.address = address
         self.bind = bind
+        self.socket_type = socket_type
         self.socket = self.context.socket(socket_type)
         self.socket_ops = socket_ops or {}
         self.client_id = f"client_{uuid.uuid4().hex[:8]}"
@@ -48,9 +49,11 @@ class ZmqSocketBase:
                 self.socket.setsockopt(k, v)
             await self._initialize()
             self._is_initialized = True
-            logger.info(f"Publisher initialized and bound to {self.address}")
+            logger.info(
+                f"ZMQ{self.socket_type} initialized and bound to {self.address}"
+            )
         except Exception as e:
-            logger.error(f"Error initializing publisher: {e}")
+            logger.error(f"Error initializing ZMQ socket: {e}")
             raise
 
     async def shutdown(self) -> None:
@@ -58,9 +61,9 @@ class ZmqSocketBase:
         try:
             self.socket.close()
             self._is_shutdown = True
-            logger.info("Publisher socket closed")
+            logger.info(f"ZMQ {self.socket_type} socket closed")
         except Exception as e:
-            logger.error(f"Error shutting down publisher: {e}")
+            logger.error(f"Error shutting down ZMQ socket: {e}")
             raise
 
     async def _initialize(self) -> None:
