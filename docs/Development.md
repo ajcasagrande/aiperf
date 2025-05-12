@@ -146,7 +146,7 @@ When implementing a new service that inherits from `ServiceBase`, you must:
 Here's a simplified example of a service implementation:
 
 ```python
-from aiperf.common.service import ServiceBase
+from aiperf.common.service.base import ServiceBase
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import Topic, ZmqClientType
 from aiperf.common.models.messages import BaseMessage

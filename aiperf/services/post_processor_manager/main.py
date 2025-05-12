@@ -3,10 +3,11 @@ import sys
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ServiceType, Topic
 from aiperf.common.models.messages import BaseMessage
-from aiperf.common.service import ServiceBase
+from aiperf.common.service.base import ServiceBase
+from aiperf.common.service.component import ComponentServiceBase
 
 
-class PostProcessorManager(ServiceBase):
+class PostProcessorManager(ComponentServiceBase):
     """Manager responsible for post-processing results data."""
 
     def __init__(self, config: ServiceConfig) -> None:

@@ -3,6 +3,10 @@ import sys
 import uuid
 from multiprocessing import Process
 from typing import Any, Dict
+from enum import Enum
+from datetime import datetime, timedelta
+
+from pydantic import BaseModel, Field
 
 from aiperf.common.bootstrap import bootstrap_and_run_service
 from aiperf.common.comms.communication import Communication
@@ -23,7 +27,7 @@ from aiperf.common.models.messages import (
     RegistrationMessage,
     StatusMessage,
 )
-from aiperf.common.service import ServiceBase
+from aiperf.common.service.controller import ControllerServiceBase
 from aiperf.services.dataset_manager.main import DatasetManager
 from aiperf.services.post_processor_manager.main import PostProcessorManager
 from aiperf.services.records_manager.main import RecordsManager
@@ -31,11 +35,22 @@ from aiperf.services.timing_manager.main import TimingManager
 from aiperf.services.worker_manager.main import WorkerManager
 
 
-class SystemController(ServiceBase):
+class ServiceRegistrationStatus(Enum):
+    WAITING = "waiting"
+    REGISTERED = "registered"
+    TIMEOUT = "timeout"
+
+
+class RequiredServiceRegistration(BaseModel):
+    service_type: ServiceType
+    status: ServiceRegistrationStatus = Field(default=ServiceRegistrationStatus.WAITING)
+    service_id: str = Field(default="")
+    registration_time: datetime = Field(default_factory=datetime.now)
+
+
+class SystemController(ControllerServiceBase):
     def __init__(self, config: ServiceConfig) -> None:
-        super().__init__(
-            service_type=ServiceType.SYSTEM_CONTROLLER, config=config, autostart=True
-        )
+        super().__init__(service_type=ServiceType.SYSTEM_CONTROLLER, config=config)
         self.services: dict[str, Any] = {}
         # Don't create communication in the parent class
         self._skip_parent_comm_init = True
@@ -89,11 +104,23 @@ class SystemController(ServiceBase):
         self.logger.debug("Starting System Controller")
 
         # Start all required services
-        await self._start_all_services()
+        await self._initialize_all_services()
 
-    async def _start_all_services(self) -> None:
-        """Start all required services."""
-        self.logger.debug("Starting all required services")
+        # Wait for all required services to be registered
+        registered = await self._wait_for_services_registration()
+        if not registered:
+            self.logger.error(
+                "Not all required services registered within the timeout period"
+            )
+            raise ServiceInitializationException(
+                "Not all required services registered within the timeout period"
+            )
+
+        self.logger.info("All required services registered successfully")
+
+    async def _initialize_all_services(self) -> None:
+        """Initialize all required services."""
+        self.logger.debug("Initializing all required services")
 
         if self.config.service_run_type == ServiceRunType.MULTIPROCESSING:
             await self._start_all_services_multiprocessing()
@@ -322,6 +349,76 @@ class SystemController(ServiceBase):
 
         # Publish command message
         return await self._publish_message(Topic.COMMAND, command_message)
+
+    async def _wait_for_services_registration(self, timeout_seconds: int = 60) -> bool:
+        """Wait for all required services to be registered.
+
+        Args:
+            timeout_seconds: Maximum time to wait in seconds
+
+        Returns:
+            True if all services registered successfully, False otherwise
+        """
+        self.logger.info("Waiting for all required services to register...")
+
+        # Create list of required services based on the services we start
+        required_services = [
+            RequiredServiceRegistration(service_type=ServiceType.DATASET_MANAGER),
+            RequiredServiceRegistration(service_type=ServiceType.TIMING_MANAGER),
+            RequiredServiceRegistration(service_type=ServiceType.WORKER_MANAGER),
+            RequiredServiceRegistration(service_type=ServiceType.RECORDS_MANAGER),
+            RequiredServiceRegistration(
+                service_type=ServiceType.POST_PROCESSOR_MANAGER
+            ),
+        ]
+
+        # Create a map for faster lookups
+        service_map = {service.service_type: service for service in required_services}
+
+        # Set the deadline
+        deadline = datetime.now() + timedelta(seconds=timeout_seconds)
+
+        # Wait until all services are registered or timeout
+        while datetime.now() < deadline:
+            # Check if all services are registered
+            all_registered = all(
+                service.status == ServiceRegistrationStatus.REGISTERED
+                for service in service_map.values()
+            )
+
+            if all_registered:
+                self.logger.info("All required services registered successfully")
+                return True
+
+            # Update registration status from components dict
+            for component_id, component in self.components.items():
+                service_type = component.service_type
+                if (
+                    service_type in service_map
+                    and service_map[service_type].status
+                    == ServiceRegistrationStatus.WAITING
+                ):
+                    service_map[
+                        service_type
+                    ].status = ServiceRegistrationStatus.REGISTERED
+                    service_map[service_type].service_id = component_id
+                    service_map[service_type].registration_time = datetime.now()
+                    self.logger.info(
+                        f"Service {service_type} registered with ID: {component_id}"
+                    )
+
+            # Wait a bit before checking again
+            await asyncio.sleep(0.5)
+
+        # Log which services didn't register in time
+        for service in service_map.values():
+            if service.status != ServiceRegistrationStatus.REGISTERED:
+                service.status = ServiceRegistrationStatus.TIMEOUT
+                self.logger.warning(
+                    f"Service {service.service_type} failed to register within timeout"
+                )
+
+        return False
 
 
 def main() -> None:

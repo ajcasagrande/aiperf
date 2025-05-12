@@ -7,10 +7,10 @@ from aiperf.common.enums import ServiceType, Topic, ClientType, ServiceState
 from aiperf.common.models.credits import CreditDrop, CreditReturn
 from aiperf.common.models.messages import BaseMessage
 from aiperf.common.models.push_pull import PushPullData
-from aiperf.common.service import ServiceBase
+from aiperf.common.service.component import ComponentServiceBase
 
 
-class TimingManager(ServiceBase):
+class TimingManager(ComponentServiceBase):
     def __init__(self, config: ServiceConfig) -> None:
         super().__init__(service_type=ServiceType.TIMING_MANAGER, config=config)
         self._credits_available = 100

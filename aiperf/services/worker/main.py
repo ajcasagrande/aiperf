@@ -7,7 +7,13 @@ import uvloop
 from pydantic import Field
 
 from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.enums import PayloadType, ServiceType, Topic, ClientType
+from aiperf.common.enums import (
+    PayloadType,
+    ServiceType,
+    Topic,
+    ClientType,
+    ServiceState,
+)
 from aiperf.common.models.credits import CreditReturn
 from aiperf.common.models.messages import (
     BaseMessage,
@@ -22,7 +28,7 @@ from aiperf.common.models.request_response import (
     RequestData,
     ResponseData,
 )
-from aiperf.common.service import ServiceBase
+from aiperf.common.service.base import ServiceBase
 
 
 class WorkerRequestPayload(BaseRequestPayload):
@@ -52,6 +58,18 @@ class Worker(ServiceBase):
         await self.communication.create_clients(
             ClientType.CREDIT_RETURN_PUSH, ClientType.CREDIT_DROP_PULL
         )
+
+    async def run(self) -> None:
+        """Run the worker."""
+        self.logger.debug("Running worker")
+        await self._initialize()
+        await self._on_start()
+
+        # Wait for the worker to finish
+        # TODO: implement actual worker run logic
+
+        await self._on_stop()
+        await self._cleanup()
 
     async def _on_start(self) -> None:
         """Start the worker."""

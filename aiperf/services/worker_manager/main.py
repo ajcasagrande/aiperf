@@ -9,7 +9,7 @@ from aiperf.common.bootstrap import bootstrap_and_run_service
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ServiceType, Topic, ServiceRunType
 from aiperf.common.models.messages import BaseMessage
-from aiperf.common.service import ServiceBase
+from aiperf.common.service.component import ComponentServiceBase
 from aiperf.services.worker.main import Worker
 
 
@@ -20,7 +20,7 @@ class WorkerProcess(BaseModel):
     process: Any = Field(None, description="Process object or task")
 
 
-class WorkerManager(ServiceBase):
+class WorkerManager(ComponentServiceBase):
     def __init__(self, config: ServiceConfig) -> None:
         super().__init__(service_type=ServiceType.WORKER_MANAGER, config=config)
         self.logger.debug("Initializing worker manager")

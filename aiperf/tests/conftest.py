@@ -20,7 +20,7 @@ from aiperf.common.enums import (
     ClientType,
 )
 from aiperf.common.models.messages import BaseMessage
-from aiperf.common.service import ServiceBase
+from aiperf.common.service.base import ServiceBase
 
 # Configure pytest-asyncio to run all async tests
 pytestmark = pytest.mark.asyncio  # Apply asyncio marker to all tests in this module

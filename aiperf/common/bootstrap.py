@@ -1,9 +1,9 @@
 from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.service import ServiceBase
+from aiperf.common.service.base import ServiceBase
 
 
 def bootstrap_and_run_service(
-    service_type: type[ServiceBase], config: ServiceConfig | None = None
+    service_class: type[ServiceBase], config: ServiceConfig | None = None
 ):
     """Bootstrap the service and run it.
 
@@ -11,7 +11,7 @@ def bootstrap_and_run_service(
     and run it.
 
     Args:
-        service_type: The class of the service to run
+        service_class: The service class of the service to run
         config: The service configuration to use, if not provided, the service configuration
                 will be loaded from the config file
 
@@ -26,5 +26,6 @@ def bootstrap_and_run_service(
 
         config = load_service_config()
 
-    service = service_type(config=config)
+    # service_type is filled in by all the service class implementations
+    service = service_class(config=config)
     uvloop.run(service.run())

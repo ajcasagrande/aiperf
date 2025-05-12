@@ -61,7 +61,7 @@ class Communication(ABC):
         self,
         client_type: ClientType,
         topic: str,
-        callback: Callable[[BaseMessage], None],
+        callback: Callable[[BaseMessage], Coroutine[Any, Any, None]] = None,
     ) -> bool:
         """Subscribe to a topic.
 
