@@ -43,6 +43,7 @@ class TimingManager(ServiceBase):
             try:
                 await asyncio.sleep(0.1)
                 if self._credits_available <= 0:
+                    self.logger.warning("No credits available, skipping credit drop")
                     continue
                 self.logger.debug("Issuing credit drop")
                 # TODO: Actually implement real credit drop logic

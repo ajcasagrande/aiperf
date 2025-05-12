@@ -6,7 +6,6 @@ from aiperf.common.comms.zmq_comms.zmq_communication import ZMQCommunication
 from aiperf.common.enums import CommBackend
 from aiperf.common.models.comms import (
     ZMQCommunicationConfig,
-    ZMQInprocTransportConfig,
     ZMQTCPTransportConfig,
 )
 
@@ -23,7 +22,6 @@ class CommunicationFactory:
     # Registry of communication types
     _comm_types: Dict[CommBackend, Type[Communication]] = {
         CommBackend.ZMQ_TCP: ZMQCommunication,
-        CommBackend.ZMQ_INPROC: ZMQCommunication,
     }
 
     @classmethod
@@ -60,21 +58,10 @@ class CommunicationFactory:
 
         try:
             comm_class = cls._comm_types[comm_type]
-
-            # Special handling for ZMQ with inproc protocol
-            if comm_type == CommBackend.ZMQ_INPROC:
-                # Get existing config or create new one
-                config = kwargs.get("config") or ZMQCommunicationConfig(
-                    protocol_config=ZMQInprocTransportConfig()
-                )
-                # Update kwargs with modified config
-                kwargs["config"] = config
-                logger.info("Creating ZMQ communication with inproc protocol")
-            else:
-                config = kwargs.get("config") or ZMQCommunicationConfig(
-                    protocol_config=ZMQTCPTransportConfig()
-                )
-                kwargs["config"] = config
+            config = kwargs.get("config") or ZMQCommunicationConfig(
+                protocol_config=ZMQTCPTransportConfig()
+            )
+            kwargs["config"] = config
 
             return comm_class(**kwargs)
         except Exception as e:

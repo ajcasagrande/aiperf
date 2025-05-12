@@ -35,8 +35,8 @@ def service_id():
 def service_config():
     """Create a service configuration for testing."""
     config = ServiceConfig(
-        service_run_type=ServiceRunType.ASYNC,
-        comm_backend=CommBackend.ZMQ_INPROC,
+        service_run_type=ServiceRunType.MULTIPROCESSING,
+        comm_backend=CommBackend.ZMQ_TCP,
     )
     return config
 

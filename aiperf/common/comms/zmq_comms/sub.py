@@ -8,7 +8,6 @@ from zmq import SocketType
 from aiperf.common.comms.zmq_comms.base import ZmqSocketBase
 from aiperf.common.models.messages import BaseMessage
 
-
 logger = logging.getLogger(__name__)
 
 

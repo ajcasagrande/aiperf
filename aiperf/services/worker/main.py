@@ -78,7 +78,7 @@ class Worker(ServiceBase):
             pull_data: The data received from the pull request
         """
         self.logger.debug(f"Processing credit drop: {pull_data}")
-        await asyncio.sleep(0.25)  # Simulate some processing time
+        await asyncio.sleep(1)  # Simulate some processing time
         self.logger.debug("Returning credits")
         (
             await self.communication.push(

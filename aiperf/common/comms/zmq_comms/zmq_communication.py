@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import uuid
-from typing import Callable, Optional, List, Dict
+from typing import Callable, Optional, Dict
 
 import zmq
 import zmq.asyncio
@@ -9,17 +9,15 @@ import zmq.asyncio
 from aiperf.common.comms.communication import Communication
 from aiperf.common.comms.zmq_comms.base import ZmqSocketBase
 from aiperf.common.comms.zmq_comms.pub import ZmqPublisher
-from aiperf.common.comms.zmq_comms.sub import ZmqSubscriber
-from aiperf.common.comms.zmq_comms.rep import ZmqRepSocket
-from aiperf.common.comms.zmq_comms.req import ZmqReqSocket
 from aiperf.common.comms.zmq_comms.pull import ZmqPullSocket
 from aiperf.common.comms.zmq_comms.push import ZmqPushSocket
-
-
+from aiperf.common.comms.zmq_comms.rep import ZmqRepSocket
+from aiperf.common.comms.zmq_comms.req import ZmqReqSocket
+from aiperf.common.comms.zmq_comms.sub import ZmqSubscriber
 from aiperf.common.enums import ClientType
 from aiperf.common.models.comms import ZMQCommunicationConfig
 from aiperf.common.models.messages import BaseMessage
-from aiperf.common.models.push_pull import PushPullData, PushPullData
+from aiperf.common.models.push_pull import PushPullData
 from aiperf.common.models.request_response import RequestData, ResponseData
 
 logger = logging.getLogger(__name__)

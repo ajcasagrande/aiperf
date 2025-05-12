@@ -1,9 +1,9 @@
 from abc import ABC, abstractmethod
-from typing import Callable, List, Optional, Union, Coroutine, Any
+from typing import Callable, Optional, Union, Coroutine, Any
 
 from aiperf.common.enums import ClientType
 from aiperf.common.models.messages import BaseMessage
-from aiperf.common.models.push_pull import PushPullData, PushPullData
+from aiperf.common.models.push_pull import PushPullData
 from aiperf.common.models.request_response import (
     RequestData,
     ResponseData,

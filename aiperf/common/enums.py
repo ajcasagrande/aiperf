@@ -94,14 +94,12 @@ class CommBackend(StrEnum):
     """Supported communication backends."""
 
     ZMQ_TCP = "zmq_tcp"
-    ZMQ_INPROC = "zmq_inproc"
 
 
 # Service-related enums
 class ServiceRunType(StrEnum):
     """Different ways to run a service."""
 
-    ASYNC = "async"
     MULTIPROCESSING = "process"
     KUBERNETES = "k8s"
 

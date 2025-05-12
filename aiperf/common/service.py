@@ -4,15 +4,15 @@ import logging
 import signal
 import uuid
 from abc import ABC, abstractmethod
-from time import sleep
 from typing import Optional, Type, TypeVar, cast
+
+from rich.console import Console
+from rich.logging import RichHandler
 
 from aiperf.common.comms.communication import Communication
 from aiperf.common.comms.communication_factory import CommunicationFactory
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import (
-    CommBackend,
-    ServiceRunType,
     ServiceState,
     ServiceType,
     Topic,
@@ -28,6 +28,32 @@ from aiperf.common.models.messages import (
 
 # Type variable for message types
 M = TypeVar("M", bound=BaseMessage)
+
+# Create a central console object for rich logging
+_console = Console()
+
+def get_logger(name: str) -> logging.Logger:
+    """Get a logger configured with rich for colored output.
+    
+    Args:
+        name: The name for the logger
+        
+    Returns:
+        A configured logger instance
+    """
+    logger = logging.getLogger(name)
+    
+    # Only configure if it hasn't been configured yet
+    if not logger.handlers:
+        handler = RichHandler(
+            rich_tracebacks=True,
+            show_path=True,
+            console=_console,
+            tracebacks_show_locals=True,
+        )
+        logger.addHandler(handler)
+    
+    return logger
 
 
 class ServiceBase(ABC):
@@ -47,7 +73,7 @@ class ServiceBase(ABC):
         self.service_id: str = uuid.uuid4().hex
         self.service_type: ServiceType = service_type
         self.config = config
-        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger = get_logger(self.__class__.__name__)
         self.logger.debug(
             f"Initializing service {self.service_id} {self.service_type.value} {self.__class__.__name__}"
         )
@@ -193,13 +219,8 @@ class ServiceBase(ABC):
 
             # Initialize communication unless explicitly skipped
             if not self.communication and not self._skip_parent_comm_init:
-                comm_type = self.config.comm_backend
-                if self.config.service_run_type == ServiceRunType.ASYNC:
-                    comm_type = CommBackend.ZMQ_INPROC
-                elif self.config.service_run_type == ServiceRunType.MULTIPROCESSING:
-                    comm_type = CommBackend.ZMQ_TCP
                 self.communication = CommunicationFactory.create_communication(
-                    comm_type=comm_type
+                    comm_type=self.config.comm_backend
                 )
 
                 # Initialize the communication instance
@@ -207,7 +228,7 @@ class ServiceBase(ABC):
                     success = await self.communication.initialize()
                     if not success:
                         self.logger.error(
-                            f"Failed to initialize {comm_type} communication"
+                            f"Failed to initialize {self.config.comm_backend} communication"
                         )
                         self.state = ServiceState.ERROR
                         return
@@ -241,7 +262,8 @@ class ServiceBase(ABC):
             await self._set_service_status(ServiceState.ERROR)
         finally:
             # Make sure to clean up properly even if there was an error
-            await self.stop()
+            if self.state == ServiceState.RUNNING:
+                await self.stop()
 
     def _setup_signal_handlers(self) -> None:
         """Set up signal handlers for graceful shutdown."""
@@ -267,7 +289,7 @@ class ServiceBase(ABC):
             sig: The signal number received
         """
         sig_name = signal.Signals(sig).name
-        self.logger.info(f"Received signal {sig_name}, initiating graceful shutdown")
+        self.logger.debug(f"Received signal {sig_name}, initiating graceful shutdown")
         
         # Stop the service if it's running
         if self.state == ServiceState.RUNNING:

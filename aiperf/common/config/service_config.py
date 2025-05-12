@@ -14,12 +14,12 @@ class ServiceConfig(BaseModel):
     # TODO: this needs to be cleaned up and finalized
 
     comm_backend: CommBackend = Field(
-        default=CommBackend.ZMQ_INPROC,
+        default=CommBackend.ZMQ_TCP,
         description="Communication backend to use",
     )
     service_run_type: ServiceRunType = Field(
-        default=ServiceRunType.ASYNC,
-        description="Type of service run (ASYNCIO, MULTIPROCESSING, KUBERNETES)",
+        default=ServiceRunType.MULTIPROCESSING,
+        description="Type of service run (MULTIPROCESSING, KUBERNETES)",
     )
     control_topic: str = Field(
         default="control",

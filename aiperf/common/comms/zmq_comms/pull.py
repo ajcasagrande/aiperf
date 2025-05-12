@@ -1,5 +1,5 @@
 import asyncio
-from typing import Dict, List, Callable, Optional, Union, Any
+from typing import Dict, Callable, Optional, Union, Any
 
 import zmq
 from zmq import SocketType

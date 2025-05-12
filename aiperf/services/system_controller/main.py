@@ -10,7 +10,6 @@ from aiperf.common.comms.communication_factory import CommunicationFactory
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import (
     CommandType,
-    CommBackend,
     ServiceRunType,
     ServiceType,
     Topic,
@@ -48,10 +47,6 @@ class SystemController(ServiceBase):
 
         # Initialize communication component based on config
         comm_type = self.config.comm_backend
-        if self.config.service_run_type == ServiceRunType.ASYNC:
-            comm_type = CommBackend.ZMQ_INPROC
-        elif self.config.service_run_type == ServiceRunType.MULTIPROCESSING:
-            comm_type = CommBackend.ZMQ_TCP
         self.logger.info(f"Initializing communication with backend: {comm_type}")
 
         self.communication = CommunicationFactory.create_communication(
@@ -98,9 +93,7 @@ class SystemController(ServiceBase):
         """Start all required services."""
         self.logger.debug("Starting all required services")
 
-        if self.config.service_run_type == ServiceRunType.ASYNC:
-            await self._start_all_services_asyncio()
-        elif self.config.service_run_type == ServiceRunType.MULTIPROCESSING:
+        if self.config.service_run_type == ServiceRunType.MULTIPROCESSING:
             await self._start_all_services_multiprocessing()
         elif self.config.service_run_type == ServiceRunType.KUBERNETES:
             await self._start_all_services_kubernetes()
@@ -113,9 +106,7 @@ class SystemController(ServiceBase):
         """Stop all required services."""
         self.logger.debug("Stopping all required services")
 
-        if self.config.service_run_type == ServiceRunType.ASYNC:
-            await self._stop_all_services_asyncio()
-        elif self.config.service_run_type == ServiceRunType.MULTIPROCESSING:
+        if self.config.service_run_type == ServiceRunType.MULTIPROCESSING:
             await self._stop_all_services_multiprocessing()
         elif self.config.service_run_type == ServiceRunType.KUBERNETES:
             await self._stop_all_services_kubernetes()
@@ -182,65 +173,6 @@ class SystemController(ServiceBase):
         self.logger.debug("Status message processing not implemented")
         # TODO: finish implementing status message processing
 
-    async def _start_all_services_asyncio(self) -> None:
-        """Start all required services as asyncio tasks in the same event loop."""
-        self.logger.debug("Starting all required services as tasks")
-
-        # TODO: better way to define these
-        service_configs = [
-            (ServiceType.DATASET_MANAGER, DatasetManager),
-            (ServiceType.TIMING_MANAGER, TimingManager),
-            (ServiceType.WORKER_MANAGER, WorkerManager),
-            (ServiceType.RECORDS_MANAGER, RecordsManager),
-            (ServiceType.POST_PROCESSOR_MANAGER, PostProcessorManager),
-        ]
-
-        # Create and start all service tasks
-        self.service_tasks: Dict[str, asyncio.Task] = {}
-        for service_name, service_class in service_configs:
-            # Create the service instance with the same config
-            service_instance = service_class(self.config)
-
-            # Share the communication instance for efficiency
-            service_instance.communication = self.communication
-
-            # Start the service
-            task = asyncio.create_task(service_instance.run())
-            task.set_name(f"{service_name}_task")
-
-            self.service_tasks[service_name] = task
-            # TODO: Implement a more robust way to track services, shared between the run types using ServiceRunInfo
-            self.services[service_name] = {
-                "task": task,
-                "instance": service_instance,
-                "service_class": service_class,
-            }
-
-            self.logger.info(f"Service {service_name} started as asyncio task")
-
-    async def _stop_all_services_asyncio(self) -> None:
-        """Cancel all service tasks."""
-        self.logger.debug("Cancelling all service tasks")
-
-        # Check if service_tasks attribute exists
-        if not hasattr(self, "service_tasks") or not self.service_tasks:
-            self.logger.warning("No service tasks to cancel")
-            return
-
-        for service_name, task in self.service_tasks.items():
-            self.logger.info(f"Cancelling {service_name} task")
-            task.cancel()
-
-        # Wait for all tasks to be cancelled
-        pending_tasks = list(self.service_tasks.values())
-        if pending_tasks:
-            try:
-                await asyncio.wait(pending_tasks, timeout=5.0)
-            except asyncio.CancelledError:
-                self.logger.info("Tasks cancelled successfully")
-            except Exception as e:
-                self.logger.error(f"Error cancelling tasks: {e}")
-
     async def _start_all_services_multiprocessing(self) -> None:
         """Start all required services as multiprocessing processes."""
         self.logger.debug("Starting all required services as multiprocessing processes")
@@ -269,12 +201,12 @@ class SystemController(ServiceBase):
             # TODO: Implement a more robust way to track services, shared between the run types using ServiceRunInfo
             self.service_processes[service_name] = process
             self.logger.info(
-                f"Service {service_name} started as multiprocessing process"
+                f"Service {service_name} started as process (pid: {process.pid})"
             )
 
     async def _stop_all_services_multiprocessing(self) -> None:
         """Stop all required services as multiprocessing processes."""
-        self.logger.debug("Stopping all required services as multiprocessing processes")
+        self.logger.debug("Stopping all service processes")
 
         # First terminate all processes
         for service_name, process in self.service_processes.items():

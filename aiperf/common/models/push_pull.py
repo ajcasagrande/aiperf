@@ -1,7 +1,7 @@
 """Pydantic models for push-pull patterns used in communication."""
 
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 

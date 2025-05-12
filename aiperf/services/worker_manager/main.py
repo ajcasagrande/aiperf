@@ -1,16 +1,16 @@
-import sys
-import os
 import asyncio
 import multiprocessing
-from typing import List, Dict, Any
+import sys
+from typing import Dict, Any
 
+from pydantic import BaseModel, Field
+
+from aiperf.common.bootstrap import bootstrap_and_run_service
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ServiceType, Topic, ServiceRunType
 from aiperf.common.models.messages import BaseMessage
 from aiperf.common.service import ServiceBase
 from aiperf.services.worker.main import Worker
-from aiperf.common.bootstrap import bootstrap_and_run_service
-from pydantic import BaseModel, Field
 
 
 class WorkerProcess(BaseModel):
@@ -24,6 +24,7 @@ class WorkerManager(ServiceBase):
         super().__init__(service_type=ServiceType.WORKER_MANAGER, config=config)
         self.logger.debug("Initializing worker manager")
         self.workers: Dict[str, WorkerProcess] = {}
+        # TODO: Need to implement some sort of max workers
         self.cpu_count = multiprocessing.cpu_count()
         self.logger.info(f"Detected {self.cpu_count} CPU threads")
 
@@ -36,16 +37,23 @@ class WorkerManager(ServiceBase):
         self.logger.debug("Starting worker manager")
         
         # Spawn workers based on CPU count
-        if self.config.service_run_type == ServiceRunType.ASYNC:
-            await self._spawn_async_workers()
-        elif self.config.service_run_type == ServiceRunType.MULTIPROCESSING:
-            self._spawn_multiprocessing_workers()
+        if self.config.service_run_type == ServiceRunType.MULTIPROCESSING:
+            await self._spawn_multiprocessing_workers()
+        elif self.config.service_run_type == ServiceRunType.KUBERNETES:
+            await self._spawn_kubernetes_workers()
         else:
             self.logger.warning(f"Unsupported run type: {self.config.service_run_type}")
 
     async def _on_stop(self) -> None:
         """Stop the worker manager."""
         self.logger.debug("Stopping worker manager")
+        # Spawn workers based on CPU count
+        if self.config.service_run_type == ServiceRunType.MULTIPROCESSING:
+            await self._stop_multiprocessing_workers()
+        elif self.config.service_run_type == ServiceRunType.KUBERNETES:
+            await self._spawn_kubernetes_workers()
+        else:
+            self.logger.warning(f"Unsupported run type: {self.config.service_run_type}")
 
     async def _cleanup(self) -> None:
         """Clean up worker manager-specific components."""
@@ -61,45 +69,22 @@ class WorkerManager(ServiceBase):
         """
         self.logger.debug(f"Processing message: {topic}, {message}")
 
-    async def _spawn_async_workers(self) -> None:
-        """Spawn worker tasks using asyncio."""
-        self.logger.info(f"Spawning {self.cpu_count} worker async tasks")
+    async def _spawn_kubernetes_workers(self) -> None:
+        """Spawn worker processes using Kubernetes."""
+        self.logger.info(f"Spawning {self.cpu_count} worker processes")
         
-        for i in range(self.cpu_count):
-            worker_id = f"worker_{i}"
-            worker_task = asyncio.create_task(self._run_worker_task(worker_id))
-            self.workers[worker_id] = WorkerProcess(worker_id=worker_id, process=worker_task)
-            self.logger.info(f"Started async worker task {worker_id}")
+        # TODO: Implement Kubernetes start
+        raise NotImplementedError("Kubernetes start not implemented")
 
-    async def _run_worker_task(self, worker_id: str) -> None:
-        """Run a worker task."""
-        self.logger.info(f"Starting worker task {worker_id}")
-        # Create a worker service with the same config
-        worker = Worker(self.config)
-        try:
-            await worker.run()
-        except Exception as e:
-            self.logger.error(f"Worker {worker_id} failed: {e}")
-        finally:
-            self.logger.info(f"Worker task {worker_id} stopped")
+    async def _stop_kubernetes_workers(self) -> None:
+        """Stop worker processes using Kubernetes."""
+        self.logger.info("Stopping all worker processes")
+        
+        # TODO: Implement Kubernetes stop
+        raise NotImplementedError("Kubernetes stop not implemented")
+    
 
-    async def _stop_async_workers(self) -> None:
-        """Stop all async worker tasks."""
-        self.logger.info("Stopping all worker tasks")
-        
-        stop_tasks = []
-        for worker_id, worker_info in self.workers.items():
-            if worker_info.process and not worker_info.process.done():
-                self.logger.info(f"Cancelling worker task {worker_id}")
-                worker_info.process.cancel()
-                stop_tasks.append(worker_info.process)
-        
-        if stop_tasks:
-            await asyncio.gather(*stop_tasks, return_exceptions=True)
-        
-        self.logger.info("All worker tasks stopped")
-
-    def _spawn_multiprocessing_workers(self) -> None:
+    async def _spawn_multiprocessing_workers(self) -> None:
         """Spawn worker processes using multiprocessing."""
         self.logger.info(f"Spawning {self.cpu_count} worker processes")
         
@@ -113,7 +98,7 @@ class WorkerManager(ServiceBase):
             )
             process.start()
             self.workers[worker_id] = WorkerProcess(worker_id=worker_id, process=process)
-            self.logger.info(f"Started worker process {worker_id} (pid: {process.pid})")
+            self.logger.debug(f"Started worker process {worker_id} (pid: {process.pid})")
     
     async def _stop_multiprocessing_workers(self) -> None:
         """Stop all multiprocessing worker processes."""
@@ -124,7 +109,7 @@ class WorkerManager(ServiceBase):
             self.logger.debug(f"Stopping worker process {worker_id} {worker_info}")
             process = worker_info.process
             if process and process.is_alive():
-                self.logger.info(f"Terminating worker process {worker_id} (pid: {process.pid})")
+                self.logger.debug(f"Terminating worker process {worker_id} (pid: {process.pid})")
                 process.terminate()
         
         # Then wait for all to finish
