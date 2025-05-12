@@ -8,7 +8,6 @@ import pytest
 
 from aiperf.common.comms.communication import Communication
 from aiperf.common.config.service_config import WorkerConfig
-from aiperf.common.enums import ClientType
 from aiperf.common.models.messages import (
     ConversationData,
     ConversationTurn,

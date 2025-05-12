@@ -4,7 +4,7 @@ import logging
 import signal
 import uuid
 from abc import ABC, abstractmethod
-from typing import Optional, Type, TypeVar, cast
+from typing import Optional, TypeVar
 
 from rich.console import Console
 from rich.logging import RichHandler
@@ -20,7 +20,6 @@ from aiperf.common.enums import (
 )
 from aiperf.common.models.messages import (
     BaseMessage,
-    CommandMessage,
     HeartbeatMessage,
     RegistrationMessage,
     StatusMessage,
@@ -65,11 +64,7 @@ class ServiceBase(ABC):
     such as the System Controller, Dataset Manager, Timing Manager, Worker Manager, etc.
     """
 
-    def __init__(
-        self,
-        service_type: ServiceType,
-        config: ServiceConfig
-    ):
+    def __init__(self, service_type: ServiceType, config: ServiceConfig):
         self.service_id: str = uuid.uuid4().hex
         self.service_type: ServiceType = service_type
         self.config = config
@@ -85,45 +80,34 @@ class ServiceBase(ABC):
         # Set to store signal handler tasks
         self._signal_tasks = set()
 
-    async def _subscribe_to_topic(
-        self,
-        client_type: ClientType,
-        topic: Topic,
-        message_type: Optional[Type[M]] = None,
-    ) -> None:
-        """Subscribe to a topic for receiving messages.
+    async def _base_init(self) -> None:
+        """Initialize the service communication and signal handlers.
 
-        Args:
-            topic: The topic to subscribe to
-            message_type: Optional message type for type checking
-
+        This method should be called by derived classes to initialize the service.
         """
+        await asyncio.sleep(0.1)  # Allow time for the event loop to start
+
+        # Set up signal handlers for graceful shutdown
+        self._setup_signal_handlers()
+
+        # Initialize the service
+        self.state = ServiceState.INITIALIZING
+
+        # Initialize communication unless explicitly skipped
         if not self.communication:
-            self.logger.warning("Cannot subscribe: Communication is not initialized")
-            return
+            self.communication = CommunicationFactory.create_communication(
+                comm_type=self.config.comm_backend
+            )
 
-        self.logger.debug(f"Subscribing to topic {topic}")
-
-        async def message_callback(message: BaseMessage) -> None:
-            # Perform type checking if a specific message type was provided
-            if message_type and not isinstance(message, message_type):
-                self.logger.warning(
-                    f"Received message of unexpected type {type(message)} on topic {topic}, "
-                    f"expected {message_type}"
-                )
-                return
-
-            # Cast to the expected type for better type hinting
-            typed_message = cast(M, message) if message_type else message
-            await self._process_message(topic, typed_message)
-
-        success = await self.communication.subscribe(
-            client_type, topic, message_callback
-        )
-        if not success:
-            self.logger.error(f"Failed to subscribe to topic {topic}")
-        else:
-            self.logger.debug(f"Successfully subscribed to topic {topic}")
+            # Initialize the communication instance
+            if self.communication:
+                success = await self.communication.initialize()
+                if not success:
+                    self.logger.error(
+                        f"Failed to initialize {self.config.comm_backend} communication"
+                    )
+                    self.state = ServiceState.ERROR
+                    return
 
     async def _publish_message(
         self, client_type: ClientType, topic: Topic, message: BaseMessage
@@ -160,24 +144,16 @@ class ServiceBase(ABC):
         )
 
     async def _set_service_status(self, status: ServiceState) -> None:
-        """Send a service state message to the system controller."""
+        """Set the status of the service."""
         self.state = status
-        status_message = StatusMessage(
-            service_id=self.service_id,
-            service_type=self.service_type,
-            state=self.state,
-        )
-        await self._publish_message(
-            ClientType.COMPONENT_PUB, Topic.STATUS, status_message
-        )
 
     async def _start_heartbeat_task(self) -> None:
         """Start a background task to send heartbeats at regular intervals."""
 
         async def heartbeat_loop() -> None:
             while True:
-                await self._send_heartbeat()
                 await asyncio.sleep(self.heartbeat_interval)
+                await self._send_heartbeat()
 
         self.heartbeat_task = asyncio.create_task(heartbeat_loop())
         self.logger.debug(
@@ -227,7 +203,7 @@ class ServiceBase(ABC):
         for sig in (signal.SIGTERM, signal.SIGINT):
             loop.add_signal_handler(sig, lambda s=sig: signal_handler(s))
 
-        self.logger.debug("Signal handlers set up for graceful shutdown")
+        # self.logger.debug("Signal handlers set up for graceful shutdown")
 
     async def _handle_signal(self, sig: int) -> None:
         """Handle received signals by triggering graceful shutdown.
@@ -256,7 +232,9 @@ class ServiceBase(ABC):
             await self._on_start()
             await self._set_service_status(ServiceState.RUNNING)
         except BaseException as e:
-            self.logger.exception("Failed to start service %s: %s", self.service_id, e)
+            self.logger.exception(
+                "Failed to start service %s: %s", self.service_type, self.service_id
+            )
             await self._set_service_status(ServiceState.ERROR)
             raise
 
@@ -278,7 +256,15 @@ class ServiceBase(ABC):
                 await self.heartbeat_task
 
         await self._on_stop()
+
+        # Shutdown communication component
+        if self.communication:
+            success = await self.communication.shutdown()
+            if not success:
+                self.logger.warning("Failed to properly shutdown communication")
+
         await self._cleanup()
+
         self.state = ServiceState.STOPPED
 
     ################################################################################
@@ -315,13 +301,4 @@ class ServiceBase(ABC):
 
         This method should be implemented by derived classes to free any resources
         allocated by the service.
-        """
-
-    @abstractmethod
-    async def _process_message(self, topic: Topic, message: BaseMessage) -> None:
-        """Process a message from another service.
-
-        Args:
-            topic: The topic the message was received on
-            message: The message to process
         """

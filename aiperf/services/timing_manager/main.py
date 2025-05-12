@@ -4,6 +4,7 @@ import time
 
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ServiceType, Topic, ClientType, ServiceState
+from aiperf.common.models.base_models import BasePayload
 from aiperf.common.models.credits import CreditDrop, CreditReturn
 from aiperf.common.models.messages import BaseMessage
 from aiperf.common.models.push_pull import PushPullData
@@ -32,6 +33,7 @@ class TimingManager(ComponentServiceBase):
         await self.communication.pull(
             ClientType.CREDIT_RETURN_PULL, Topic.CREDIT_RETURN, self._on_credit_return
         )
+        self.state = ServiceState.RUNNING
         await asyncio.sleep(5)
         asyncio.create_task(self._issue_credit_drops())
 
@@ -95,6 +97,11 @@ class TimingManager(ComponentServiceBase):
         self.logger.debug(f"Processing credit return: {pull_data}")
         credit_return = CreditReturn.model_validate(pull_data.data)
         self._credits_available += credit_return.amount
+
+    async def _configure(self, payload: BasePayload) -> None:
+        """Configure the timing manager."""
+        self.logger.debug(f"Configuring timing manager with payload: {payload}")
+        # TODO: Implement timing manager configuration
 
 
 def main() -> None:

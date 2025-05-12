@@ -6,7 +6,13 @@ import zmq
 from zmq import SocketType
 
 from aiperf.common.comms.zmq_comms.base import ZmqSocketBase
-from aiperf.common.models.messages import BaseMessage
+from aiperf.common.enums import Topic
+from aiperf.common.models.messages import (
+    BaseMessage,
+    CommandMessage,
+    HeartbeatMessage,
+    StatusMessage,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +85,15 @@ class ZmqSubscriber(ZmqSocketBase):
                 ) = await self.socket.recv_multipart()
                 topic = topic_bytes.decode()
                 message_json = message_bytes.decode()
-                message = BaseMessage.model_validate_json(message_json)
+                match topic:
+                    case Topic.HEARTBEAT:
+                        message = HeartbeatMessage.model_validate_json(message_json)
+                    case Topic.STATUS:
+                        message = StatusMessage.model_validate_json(message_json)
+                    case Topic.COMMAND:
+                        message = CommandMessage.model_validate_json(message_json)
+                    case _:
+                        message = BaseMessage.model_validate_json(message_json)
 
                 # Call callbacks with the parsed message object
                 if topic in self._subscribers:
@@ -92,7 +106,7 @@ class ZmqSubscriber(ZmqSocketBase):
                             )
             except asyncio.CancelledError:
                 break
-            except zmq.Again as e:
+            except zmq.Again:
                 # Handle ZMQ timeout or interruption
                 logger.debug(
                     f"ZMQ recv timeout due to no messages. trying again @ {self.address}"

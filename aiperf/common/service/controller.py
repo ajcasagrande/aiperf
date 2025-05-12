@@ -2,7 +2,7 @@ from abc import ABC
 
 from aiperf.common.comms.communication_factory import CommunicationFactory
 from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.enums import ServiceType, ServiceState
+from aiperf.common.enums import ClientType, ServiceType, ServiceState
 from aiperf.common.service.base import ServiceBase
 
 
@@ -20,27 +20,12 @@ class ControllerServiceBase(ServiceBase, ABC):
     # TODO: Complete the implementation of the controller service methods
     async def run(self) -> None:
         """Start the service and initialize its components."""
-        # Set up signal handlers for graceful shutdown
-        self._setup_signal_handlers()
+        await self._base_init()
 
-        # Initialize the service
-        self.state = ServiceState.INITIALIZING
-
-        # Initialize communication unless explicitly skipped
-        if not self.communication:
-            self.communication = CommunicationFactory.create_communication(
-                comm_type=self.config.comm_backend
-            )
-
-            # Initialize the communication instance
-            if self.communication:
-                success = await self.communication.initialize()
-                if not success:
-                    self.logger.error(
-                        f"Failed to initialize {self.config.comm_backend} communication"
-                    )
-                    self.state = ServiceState.ERROR
-                    return
+        await self.communication.create_clients(
+            ClientType.CONTROLLER_SUB,
+            ClientType.COMPONENT_PUB,
+        )
 
         await self._initialize()
 

@@ -9,10 +9,10 @@ from pydantic import Field
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import (
     PayloadType,
+    ServiceState,
     ServiceType,
     Topic,
     ClientType,
-    ServiceState,
 )
 from aiperf.common.models.credits import CreditReturn
 from aiperf.common.models.messages import (
@@ -62,11 +62,15 @@ class Worker(ServiceBase):
     async def run(self) -> None:
         """Run the worker."""
         self.logger.debug("Running worker")
+
+        await self._base_init()
+
         await self._initialize()
         await self._on_start()
 
         # Wait for the worker to finish
         # TODO: implement actual worker run logic
+        await self.stop_event.wait()
 
         await self._on_stop()
         await self._cleanup()

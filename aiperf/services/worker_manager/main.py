@@ -7,8 +7,8 @@ from pydantic import BaseModel, Field
 
 from aiperf.common.bootstrap import bootstrap_and_run_service
 from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.enums import ServiceType, Topic, ServiceRunType
-from aiperf.common.models.messages import BaseMessage
+from aiperf.common.enums import ServiceType, ServiceRunType
+from aiperf.common.models.base_models import BasePayload
 from aiperf.common.service.component import ComponentServiceBase
 from aiperf.services.worker.main import Worker
 
@@ -60,15 +60,6 @@ class WorkerManager(ComponentServiceBase):
         """Clean up worker manager-specific components."""
         self.logger.debug("Cleaning up worker manager")
         self.workers.clear()
-
-    async def _process_message(self, topic: Topic, message: BaseMessage) -> None:
-        """Process a message from another service.
-
-        Args:
-            topic: The topic the message was received on
-            message: The message to process
-        """
-        self.logger.debug(f"Processing message: {topic}, {message}")
 
     async def _spawn_kubernetes_workers(self) -> None:
         """Spawn worker processes using Kubernetes."""
@@ -144,6 +135,11 @@ class WorkerManager(ComponentServiceBase):
                 f"Worker process {worker_id} (pid: {process.pid}) did not terminate gracefully, killing"
             )
             process.kill()
+
+    async def _configure(self, payload: BasePayload) -> None:
+        """Configure the worker manager."""
+        self.logger.debug(f"Configuring worker manager with payload: {payload}")
+        # TODO: Implement worker manager configuration
 
 
 def main() -> None:

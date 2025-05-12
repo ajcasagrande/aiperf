@@ -63,6 +63,10 @@ class CommandMessage(BaseMessage):
         default=None,
         description="ID of the target service for this command",
     )
+    payload: Optional[BasePayload] = Field(
+        default=None,
+        description="Payload for the command",
+    )
 
     @classmethod
     def create(

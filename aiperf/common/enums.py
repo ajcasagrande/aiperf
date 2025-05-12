@@ -54,13 +54,8 @@ class CommandType(StrEnum):
 
     START = "start"
     STOP = "stop"
-    PAUSE = "pause"
-    RESUME = "resume"
     CONFIGURE = "configure"
-    PROFILE = "profile"
-    SHUTDOWN = "shutdown"
     STATUS = "status"
-    HEALTH_CHECK = "health_check"
 
 
 # Communication-related enums
@@ -140,3 +135,10 @@ class ClientType(StrEnum):
 
     INFERENCE_RESULTS_PUSH = "inference_results_push"
     INFERENCE_RESULTS_PULL = "inference_results_pull"
+
+
+class ServiceRegistrationStatus(Enum):
+    WAITING = "waiting"
+    REGISTERED = "registered"
+    TIMEOUT = "timeout"
+    ERROR = "error"

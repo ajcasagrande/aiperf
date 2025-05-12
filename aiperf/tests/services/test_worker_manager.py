@@ -6,7 +6,7 @@ import pytest
 
 from aiperf.common.enums import ServiceType, Topic
 from aiperf.services.worker_manager.main import WorkerManager
-from aiperf.tests.base_test_service import BaseServiceTest, async_fixture
+from aiperf.tests.base_test_service import BaseServiceTest
 from aiperf.tests.utils.message_mocks import MessageTestUtils
 
 

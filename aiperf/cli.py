@@ -5,7 +5,7 @@ from argparse import ArgumentParser
 from aiperf.common.bootstrap import bootstrap_and_run_service
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.service.base import get_logger
-from aiperf.services.system_controller.main import SystemController
+from aiperf.services.system_controller.system_controller import SystemController
 
 # TODO: Each service may have to initialize logging from a common
 #  configuration due to running on separate processes

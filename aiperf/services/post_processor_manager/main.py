@@ -2,8 +2,8 @@ import sys
 
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ServiceType, Topic
+from aiperf.common.models.base_models import BasePayload
 from aiperf.common.models.messages import BaseMessage
-from aiperf.common.service.base import ServiceBase
 from aiperf.common.service.component import ComponentServiceBase
 
 
@@ -43,6 +43,11 @@ class PostProcessorManager(ComponentServiceBase):
         """
         self.logger.debug(f"Processing message: {topic}, {message}")
         # TODO: Implement post processor manager message processing
+
+    async def _configure(self, payload: BasePayload) -> None:
+        """Configure the post processor manager."""
+        self.logger.debug(f"Configuring post processor manager with payload: {payload}")
+        # TODO: Implement post processor manager configuration
 
 
 def main() -> None:

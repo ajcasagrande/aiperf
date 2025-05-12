@@ -65,6 +65,7 @@ class ZMQCommunication(Communication):
         if self._is_initialized:
             return True
 
+        self._is_initialized = True
         return True
 
     async def create_clients(self, *types: ClientType) -> None:

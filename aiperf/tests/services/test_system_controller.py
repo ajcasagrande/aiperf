@@ -2,8 +2,7 @@
 Tests for the system controller service.
 """
 
-import asyncio
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
 
@@ -20,7 +19,7 @@ from aiperf.common.models.messages import (
     RegistrationMessage,
     StatusMessage,
 )
-from aiperf.services.system_controller.main import SystemController
+from aiperf.services.system_controller.system_controller import SystemController
 from aiperf.tests.base_test_service import BaseServiceTest, async_fixture
 from aiperf.tests.utils.message_mocks import MessageTestUtils
 
@@ -181,7 +180,7 @@ class TestSystemController(BaseServiceTest):
         assert service.components["test-id"].last_heartbeat == 123456789.0
 
     @pytest.mark.parametrize(
-        "command", [CommandType.START, CommandType.STOP, CommandType.PROFILE]
+        "command", [CommandType.START, CommandType.STOP, CommandType.CONFIGURE]
     )
     async def test_send_command_to_service(
         self, properly_initialized_service, mock_communication, command

@@ -2,6 +2,7 @@ import sys
 
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ServiceType, Topic
+from aiperf.common.models.base_models import BasePayload
 from aiperf.common.models.messages import BaseMessage
 from aiperf.common.service.component import ComponentServiceBase
 
@@ -40,6 +41,11 @@ class RecordsManager(ComponentServiceBase):
         """
         self.logger.debug(f"Processing message: {topic}, {message}")
         # TODO: Implement records manager message processing
+
+    async def _configure(self, payload: BasePayload) -> None:
+        """Configure the records manager."""
+        self.logger.debug(f"Configuring records manager with payload: {payload}")
+        # TODO: Implement records manager configuration
 
 
 def main() -> None:

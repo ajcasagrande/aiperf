@@ -1,10 +1,17 @@
 import asyncio
-from abc import ABC
+from abc import ABC, abstractmethod
 
 from aiperf.common.comms.communication_factory import CommunicationFactory
 from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.enums import ServiceType, ServiceState, ClientType, Topic
-from aiperf.common.models.messages import CommandMessage
+from aiperf.common.enums import (
+    CommandType,
+    ServiceType,
+    ServiceState,
+    ClientType,
+    Topic,
+)
+from aiperf.common.models.base_models import BasePayload
+from aiperf.common.models.messages import CommandMessage, StatusMessage
 from aiperf.common.service.base import ServiceBase
 
 
@@ -21,36 +28,26 @@ class ComponentServiceBase(ServiceBase, ABC):
     async def run(self) -> None:
         """Start the service and initialize its components."""
         try:
-            await asyncio.sleep(0.1)  # Allow time for the event loop to start
-            # Set up signal handlers for graceful shutdown
-            self._setup_signal_handlers()
+            await self._base_init()
 
-            # Initialize the service
-            self.state = ServiceState.INITIALIZING
-
-            # Initialize communication unless explicitly skipped
-            if not self.communication:
-                self.communication = CommunicationFactory.create_communication(
-                    comm_type=self.config.comm_backend
-                )
-
-                # Initialize the communication instance
-                if self.communication:
-                    success = await self.communication.initialize()
-                    if not success:
-                        self.logger.error(
-                            f"Failed to initialize {self.config.comm_backend} communication"
-                        )
-                        self.state = ServiceState.ERROR
-                        return
+            await self.communication.create_clients(
+                ClientType.CONTROLLER_SUB,
+                ClientType.COMPONENT_PUB,
+            )
 
             await self._initialize()
 
             # Set up communication subscriptions if communication is available
             # Subscribe to common topics
-            await self._subscribe_to_topic(
-                ClientType.CONTROLLER_SUB, Topic.COMMAND, CommandMessage
+            await self.communication.subscribe(
+                ClientType.CONTROLLER_SUB,
+                Topic.COMMAND,
+                self._process_command_message,
             )
+
+            # TODO: Find a way to wait for the communication to be fully initialized
+            # Wait for 1 second to ensure the communication is fully initialized
+            await asyncio.sleep(1)
 
             # Additional service-specific subscriptions can be added in derived classes
 
@@ -70,3 +67,34 @@ class ComponentServiceBase(ServiceBase, ABC):
             # Make sure to clean up properly even if there was an error
             if self.state == ServiceState.RUNNING:
                 await self.stop()
+
+    async def _process_command_message(self, message: CommandMessage) -> None:
+        """Process a command message."""
+        if message.target_service_id != self.service_id:
+            return  # Ignore commands for other services
+
+        if message.command == CommandType.START:
+            await self._on_start()
+        elif message.command == CommandType.STOP:
+            await self.stop()
+        elif message.command == CommandType.CONFIGURE:
+            await self._configure(message.payload)
+        else:
+            self.logger.warning(f"Received unknown command: {message.command}")
+
+    @abstractmethod
+    async def _configure(self, payload: BasePayload) -> None:
+        """Configure the service."""
+        pass
+
+    async def _set_service_status(self, status: ServiceState) -> None:
+        """Send a service state message to the system controller."""
+        self.state = status
+        status_message = StatusMessage(
+            service_id=self.service_id,
+            service_type=self.service_type,
+            state=self.state,
+        )
+        await self._publish_message(
+            ClientType.COMPONENT_PUB, Topic.STATUS, status_message
+        )
