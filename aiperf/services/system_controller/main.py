@@ -263,7 +263,7 @@ class SystemController(ServiceBase):
                 target=bootstrap_and_run_service,
                 name=f"{service_name}_process",
                 args=(service_class, self.config),
-                daemon=True,
+                daemon=False,
             )
             process.start()
             # TODO: Implement a more robust way to track services, shared between the run types using ServiceRunInfo

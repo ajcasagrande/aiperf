@@ -86,7 +86,7 @@ class Worker(ServiceBase):
                 PushPullData(
                     topic=Topic.CREDIT_RETURN,
                     source=self.service_id,
-                    data=CreditReturn(amount=100),
+                    data=CreditReturn(amount=1),
                 ),
             ),
         )

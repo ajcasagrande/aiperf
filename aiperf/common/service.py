@@ -1,8 +1,10 @@
 import asyncio
 import contextlib
 import logging
+import signal
 import uuid
 from abc import ABC, abstractmethod
+from time import sleep
 from typing import Optional, Type, TypeVar, cast
 
 from aiperf.common.comms.communication import Communication
@@ -57,6 +59,8 @@ class ServiceBase(ABC):
         self.communication: Optional[Communication] = None
         # Flag to allow system controller to handle its own communication initialization
         self._skip_parent_comm_init = False
+        # Set to store signal handler tasks
+        self._signal_tasks = set()
 
     async def _subscribe_to_topic(
         self,
@@ -180,6 +184,10 @@ class ServiceBase(ABC):
     async def run(self) -> None:
         """Start the service and initialize its components."""
         try:
+            await asyncio.sleep(0.1)  # Allow time for the event loop to start
+            # Set up signal handlers for graceful shutdown
+            self._setup_signal_handlers()
+            
             # Initialize the service
             self.state = ServiceState.INITIALIZING
 
@@ -234,6 +242,39 @@ class ServiceBase(ABC):
         finally:
             # Make sure to clean up properly even if there was an error
             await self.stop()
+
+    def _setup_signal_handlers(self) -> None:
+        """Set up signal handlers for graceful shutdown."""
+        loop = asyncio.get_running_loop()
+        
+        def signal_handler(sig: int) -> None:
+            # Create a task and store it so it doesn't get garbage collected
+            task = asyncio.create_task(self._handle_signal(sig))
+            # Store the task somewhere to prevent it from being garbage collected
+            # before it completes
+            self._signal_tasks.add(task)
+            task.add_done_callback(self._signal_tasks.discard)
+        
+        for sig in (signal.SIGTERM, signal.SIGINT):
+            loop.add_signal_handler(sig, lambda s=sig: signal_handler(s))
+        
+        self.logger.debug("Signal handlers set up for graceful shutdown")
+    
+    async def _handle_signal(self, sig: int) -> None:
+        """Handle received signals by triggering graceful shutdown.
+        
+        Args:
+            sig: The signal number received
+        """
+        sig_name = signal.Signals(sig).name
+        self.logger.info(f"Received signal {sig_name}, initiating graceful shutdown")
+        
+        # Stop the service if it's running
+        if self.state == ServiceState.RUNNING:
+            await self.stop()
+        else:
+            # Just set the stop event to break out of the run loop
+            self.stop_event.set()
 
     async def _start(self) -> None:
         """Start the service and its components.

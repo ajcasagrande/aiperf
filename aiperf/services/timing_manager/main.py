@@ -46,15 +46,14 @@ class TimingManager(ServiceBase):
                     continue
                 self.logger.debug("Issuing credit drop")
                 # TODO: Actually implement real credit drop logic
-                temp = self._credits_available
-                self._credits_available = 0
+                self._credits_available -= 1
                 await self.communication.push(
                     ClientType.CREDIT_DROP_PUSH,
                     PushPullData(
                         topic=Topic.CREDIT_DROP,
                         source=self.service_id,
                         data=CreditDrop(
-                            amount=temp,
+                            amount=1,
                             timestamp=time.time(),
                         ),
                     ),
