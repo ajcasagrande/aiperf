@@ -2,7 +2,6 @@
 This module contains shared fixtures for testing aiperf services.
 """
 
-import asyncio
 import uuid
 from typing import Any, Callable, Dict, List, Type
 from unittest.mock import AsyncMock, patch
@@ -135,25 +134,6 @@ def mock_message_factory():
         return message_type(**kwargs)
 
     return _create_message
-
-
-@pytest.fixture
-def mock_event_loop():
-    """Create an isolated event loop for testing asynchronous code."""
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    yield loop
-    loop.close()
-
-
-@pytest.fixture
-def parametrize_services():
-    """Decorator for parameterizing test functions with service classes."""
-
-    def _parametrize_services(*service_classes):
-        return pytest.mark.parametrize("service_class", service_classes)
-
-    return _parametrize_services
 
 
 @pytest.fixture

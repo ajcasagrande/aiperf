@@ -1,21 +1,28 @@
 """
 Base test class for testing aiperf services.
 """
-
-import uuid
 from typing import Any, Type, TypeVar
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from aiperf.common.enums import ServiceState, ServiceType, Topic
-from aiperf.common.models.messages import CommandMessage
+from aiperf.common.enums import ServiceState, Topic
+from aiperf.common.models.messages import CommandMessage, CommandPayload
+from aiperf.tests.utils.async_test_utils import async_noop
 
 T = TypeVar("T")
 
 
 async def async_fixture(fixture: T) -> T:
-    """Manually await an async fixture if it's an async generator, otherwise return it."""
+    """Manually await an async fixture if it's an async generator, otherwise return it.
+    This is necessary because pytest fixtures are not awaited by default.
+
+    Args:
+        fixture: The fixture to await
+
+    Returns:
+        The fixture value
+    """
     if hasattr(fixture, "__aiter__"):
         async for value in fixture:
             return value
@@ -31,6 +38,12 @@ class BaseServiceTest:
     different aiperf services. Specific service test classes should
     inherit from this class and implement service-specific tests.
     """
+
+    @pytest.fixture
+    def no_sleep(self):
+        """Fixture to replace asyncio.sleep with a no-op."""
+        with patch("asyncio.sleep", returns=async_noop):
+            yield
 
     @pytest.fixture
     def service_class(self) -> Type[Any]:
@@ -75,7 +88,7 @@ class BaseServiceTest:
                     await service.stop()
 
     @pytest.fixture
-    async def properly_initialized_service(
+    async def initialized_service(
         self, service_under_test, mock_communication
     ):
         """
@@ -112,7 +125,7 @@ class BaseServiceTest:
             ServiceState.UNKNOWN,
         ]
 
-    async def test_service_start_stop(self, service_under_test):
+    async def test_service_start_stop(self, service_under_test, no_sleep):
         """Test that the service can start and stop correctly."""
         service = await async_fixture(service_under_test)
 
@@ -125,10 +138,10 @@ class BaseServiceTest:
         assert service.state == ServiceState.STOPPED
 
     async def test_service_heartbeat(
-        self, properly_initialized_service, mock_communication
+        self, initialized_service, mock_communication
     ):
         """Test that the service sends heartbeat messages."""
-        service = properly_initialized_service
+        service = initialized_service
 
         # Directly send a heartbeat instead of waiting for the task
         await service._send_heartbeat()
@@ -138,10 +151,10 @@ class BaseServiceTest:
         assert len(mock_communication.published_messages[Topic.HEARTBEAT]) > 0
 
     async def test_service_registration(
-        self, properly_initialized_service, mock_communication
+        self, initialized_service, mock_communication
     ):
         """Test that the service registers with the system controller."""
-        service = properly_initialized_service
+        service = initialized_service
 
         # Register the service
         await service._register()
@@ -155,10 +168,10 @@ class BaseServiceTest:
         assert registration_msg.service_type == service.service_type
 
     async def test_service_status_update(
-        self, properly_initialized_service, mock_communication
+        self, initialized_service, mock_communication
     ):
         """Test that the service updates its status."""
-        service = properly_initialized_service
+        service = initialized_service
 
         # Update the service status
         await service._set_service_status(ServiceState.READY)
@@ -170,7 +183,7 @@ class BaseServiceTest:
         status_msg = mock_communication.published_messages[Topic.STATUS][0]
         assert status_msg.service_id == service.service_id
         assert status_msg.service_type == service.service_type
-        assert status_msg.state == ServiceState.READY
+        assert status_msg.payload.state == ServiceState.READY
 
     @pytest.mark.parametrize(
         "state",
@@ -184,9 +197,9 @@ class BaseServiceTest:
             ServiceState.ERROR,
         ],
     )
-    async def test_service_all_states(self, properly_initialized_service, state):
+    async def test_service_all_states(self, initialized_service, state):
         """Test that the service can transition to all possible states."""
-        service = properly_initialized_service
+        service = initialized_service
 
         # Update the service status
         await service._set_service_status(state)
@@ -205,13 +218,7 @@ class BaseServiceTest:
         Returns:
             A CommandMessage instance with all required fields
         """
-        return CommandMessage(
-            service_id="test_sender_id",
-            service_type=ServiceType.SYSTEM_CONTROLLER,
-            command_id=str(uuid.uuid4()),
-            command=command,
-            target_service_id=service.service_id,
-        )
+        return service.create_message(CommandPayload(command=command))
 
     @staticmethod
     def create_safe_mock() -> MagicMock:

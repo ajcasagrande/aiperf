@@ -138,6 +138,9 @@ class ClientType(StrEnum):
 
 
 class ServiceRegistrationStatus(Enum):
+    """Status of service registration."""
+
+    UNREGISTERED = "unregistered"
     WAITING = "waiting"
     REGISTERED = "registered"
     TIMEOUT = "timeout"

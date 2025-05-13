@@ -3,11 +3,11 @@ Tests for the worker manager service.
 """
 
 import asyncio
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import patch, MagicMock
 
 import pytest
 
-from aiperf.common.enums import ServiceType, Topic, ServiceState
+from aiperf.common.enums import ServiceType, Topic
 from aiperf.services.worker_manager.worker_manager import WorkerManager, WorkerProcess
 from aiperf.tests.base_test_service import BaseServiceTest
 from aiperf.tests.utils.message_mocks import MessageTestUtils
@@ -22,19 +22,19 @@ class TestWorkerManager(BaseServiceTest):
         """Return the service class to test."""
         return WorkerManager
 
-    async def test_worker_manager_initialization(self, properly_initialized_service):
+    async def test_worker_manager_initialization(self, initialized_service):
         """Test that the worker manager initializes correctly."""
-        service = properly_initialized_service
+        service = initialized_service
         assert service.service_type == ServiceType.WORKER_MANAGER
         assert hasattr(service, "workers")
         assert hasattr(service, "cpu_count")
         assert service.cpu_count > 0
 
     async def test_handle_command_message(
-        self, properly_initialized_service, mock_communication
+        self, initialized_service, mock_communication
     ):
         """Test that the worker manager handles command messages correctly."""
-        service = properly_initialized_service
+        service = initialized_service
 
         # Create a command message using the helper method
         command_msg = await self.create_command_message(service, command="start")
@@ -54,9 +54,9 @@ class TestWorkerManager(BaseServiceTest):
             # Verify the method was called with our message
             mock_process.assert_called_once_with(command_msg)
 
-    async def test_worker_spawn_methods_exist(self, properly_initialized_service):
+    async def test_worker_spawn_methods_exist(self, initialized_service):
         """Test that worker spawn methods exist and are callable."""
-        service = properly_initialized_service
+        service = initialized_service
 
         # Verify the required worker management methods exist
         assert hasattr(service, "_spawn_multiprocessing_workers")
@@ -64,9 +64,9 @@ class TestWorkerManager(BaseServiceTest):
         assert hasattr(service, "_stop_multiprocessing_workers")
         assert callable(service._stop_multiprocessing_workers)
 
-    async def test_spawn_multiprocessing_workers(self, properly_initialized_service):
+    async def test_spawn_multiprocessing_workers(self, initialized_service):
         """Test spawning multiprocessing workers."""
-        service = properly_initialized_service
+        service = initialized_service
 
         # Mock the multiprocessing.Process
         mock_process = self.create_safe_mock()
@@ -89,9 +89,9 @@ class TestWorkerManager(BaseServiceTest):
             # Verify process was started
             mock_process.start.assert_called()
 
-    async def test_stop_multiprocessing_workers(self, properly_initialized_service):
+    async def test_stop_multiprocessing_workers(self, initialized_service):
         """Test stopping multiprocessing workers."""
-        service = properly_initialized_service
+        service = initialized_service
 
         # Create mock workers
         mock_process = self.create_safe_mock()
@@ -122,77 +122,15 @@ class TestWorkerManager(BaseServiceTest):
             assert mock_process.terminate.call_count == 2
             assert mock_process.kill.call_count > 0
 
-    async def test_worker_manager_on_start(self, properly_initialized_service):
-        """Test the on_start method of the worker manager in a way that avoids coroutine warnings."""
-        service = properly_initialized_service
-
-        # Create a custom _on_start implementation that we can control
-        original_on_start = service._on_start
-        start_called = False
-
-        async def custom_on_start():
-            """Custom implementation of _on_start that avoids asyncio warnings."""
-            nonlocal start_called
-            start_called = True
-            await service._set_service_status(ServiceState.RUNNING)
-            return None
-
-        # Replace the method temporarily
-        service._on_start = custom_on_start
-
-        try:
-            # Call the on_start method
-            await service._on_start()
-
-            # Verify our custom implementation was called
-            assert start_called is True
-            # Verify the service is now running
-            assert service.state == ServiceState.RUNNING
-        finally:
-            # Restore the original method
-            service._on_start = original_on_start
-
-    async def test_worker_manager_on_stop(self, properly_initialized_service):
-        """Test the on_stop method of the worker manager in a way that avoids coroutine warnings."""
-        service = properly_initialized_service
-
-        # Create a custom _on_stop implementation that skips calling _stop_multiprocessing_workers
-        original_on_stop = service._on_stop
-
-        # Directly track if the method was called
-        stop_called = False
-
-        async def custom_on_stop():
-            """Simplified _on_stop implementation for testing that avoids warnings."""
-            nonlocal stop_called
-            stop_called = True
-            # Still need to set the state correctly
-            await service._set_service_status(ServiceState.STOPPED)
-
-        # Replace the method temporarily
-        service._on_stop = custom_on_stop
-
-        try:
-            # Call on_stop
-            await service._on_stop()
-
-            # Verify that our custom implementation was called
-            assert stop_called is True
-            # Verify the service is now stopped
-            assert service.state == ServiceState.STOPPED
-        finally:
-            # Restore the original method
-            service._on_stop = original_on_stop
-
     async def test_worker_manager_specific_functionality(
-        self, properly_initialized_service
+        self, initialized_service
     ):
         """Test worker manager specific functionality."""
-        service = properly_initialized_service
+        service = initialized_service
 
         # Use a normal dict without mocks to avoid async issues
         service.workers = {"worker_1": {"some_data": "test"}}
-        
+
         # Test that the cleanup method clears workers
         await service._cleanup()
         assert len(service.workers) == 0

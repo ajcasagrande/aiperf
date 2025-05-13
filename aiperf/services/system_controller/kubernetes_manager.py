@@ -1,17 +1,16 @@
 import asyncio
-from typing import Generic, List
+from typing import List
 
 from pydantic import BaseModel
 
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ServiceType
 from aiperf.services.system_controller.service_manager import (
-    RunInfoType,
     ServiceManagerBase,
 )
 
 
-class ServiceKubernetesRunInfo(BaseModel, Generic[RunInfoType]):
+class ServiceKubernetesRunInfo(BaseModel):
     """Information about a service running in a Kubernetes pod."""
 
     pod_name: str

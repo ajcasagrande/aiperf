@@ -1,7 +1,7 @@
 import asyncio
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Dict, Generic, List, Optional, TypeVar
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -9,23 +9,18 @@ from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ServiceType, ServiceRegistrationStatus, ServiceState
 from aiperf.common.service.base import get_logger
 
-# Type variable for message types
-RunInfoType = TypeVar("RunInfoType", bound=BaseModel)
 
-
-class ServiceRunInfo(BaseModel, Generic[RunInfoType]):
+class ServiceRunInfo(BaseModel):
     """Base model for tracking service run information."""
 
     service_type: ServiceType
     registration_status: ServiceRegistrationStatus = Field(
-        default=ServiceRegistrationStatus.WAITING
+        default=ServiceRegistrationStatus.UNREGISTERED
     )
     service_id: str = Field(default="")
-    registration_time: Optional[datetime] = Field(default=None)
-    last_heartbeat: Optional[datetime] = Field(default=None)
+    first_seen: Optional[datetime] = Field(default=None)
+    last_seen: Optional[datetime] = Field(default=None)
     state: ServiceState = Field(default=ServiceState.UNKNOWN)
-
-    run_info: Optional[RunInfoType] = Field(default=None)
 
 
 class ServiceManagerBase(ABC):
@@ -40,10 +35,16 @@ class ServiceManagerBase(ABC):
         self.required_service_types = required_service_types
         self.config = config
         # Maps to track service information
-        self.service_map: Dict[ServiceType, List[ServiceRunInfo[RunInfoType]]] = {}
+        self.service_map: Dict[ServiceType, List[ServiceRunInfo]] = {}
 
         # Create service ID map for component lookups
-        self.service_id_map: Dict[str, ServiceRunInfo[RunInfoType]] = {}
+        self.service_id_map: Dict[str, ServiceRunInfo] = {}
+
+    def get(self, service_id: str) -> Optional[ServiceRunInfo]:
+        """
+        Get the service run information by service ID.
+        """
+        return self.service_id_map.get(service_id)
 
     @abstractmethod
     async def initialize_all_services(self) -> None:

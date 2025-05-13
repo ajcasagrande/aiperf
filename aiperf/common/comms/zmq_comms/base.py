@@ -37,7 +37,7 @@ class ZmqSocketBase:
         self.client_id = f"client_{uuid.uuid4().hex[:8]}"
 
     async def initialize(self) -> None:
-        """Initialize the PubSub communication."""
+        """Initialize the communication."""
         try:
             if self.bind:
                 self.socket.bind(self.address)
@@ -57,7 +57,7 @@ class ZmqSocketBase:
             raise
 
     async def shutdown(self) -> None:
-        """Shutdown the PubSub communication."""
+        """Shutdown the communication."""
         try:
             self.socket.close()
             self._is_shutdown = True

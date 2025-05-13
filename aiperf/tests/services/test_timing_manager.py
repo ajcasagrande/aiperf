@@ -6,10 +6,9 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from aiperf.common.enums import ServiceType, ServiceState, Topic
+from aiperf.common.enums import ServiceType, ServiceState
 from aiperf.services.timing_manager.timing_manager import TimingManager
 from aiperf.tests.base_test_service import BaseServiceTest
-from aiperf.tests.utils.message_mocks import MessageTestUtils
 
 
 @pytest.mark.asyncio
@@ -51,25 +50,3 @@ class TestTimingManager(BaseServiceTest):
         service = timing_manager_service
         assert service.service_type == ServiceType.TIMING_MANAGER
         # Add timing manager specific assertions here
-
-    async def test_handle_command_message(
-        self, timing_manager_service, mock_communication
-    ):
-        """Test that the timing manager handles command messages correctly."""
-        service = timing_manager_service
-
-        # Create a command message using the helper method
-        command_msg = await self.create_command_message(service, command="start")
-
-        # Send the message to the service
-        await MessageTestUtils.simulate_message_receive(
-            service, Topic.COMMAND, command_msg
-        )
-
-        # TODO: Implement verification when the timing manager is implemented
-
-    async def test_timing_manager_specific_functionality(self, timing_manager_service):
-        """Test timing manager specific functionality."""
-        service = timing_manager_service
-
-        # TODO: Implement timing manager specific tests

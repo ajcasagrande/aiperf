@@ -1,7 +1,7 @@
 import asyncio
 from datetime import datetime, timedelta
 from multiprocessing import Process
-from typing import Generic, List, Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -9,18 +9,20 @@ from aiperf.common.bootstrap import bootstrap_and_run_service
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ServiceRegistrationStatus, ServiceType
 from aiperf.services.system_controller.service_manager import (
-    RunInfoType,
     ServiceManagerBase,
-    ServiceRunInfo,
 )
 
 
-class MultiProcessRunInfo(BaseModel, Generic[RunInfoType]):
+class MultiProcessRunInfo(BaseModel):
     """Information about a service running as a multiprocessing process."""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     process: Optional[Process] = Field(default=None)
+    service_type: ServiceType = Field(
+        ...,
+        description="Type of service running in the process",
+    )
 
 
 class MultiProcessManager(ServiceManagerBase):
@@ -40,7 +42,9 @@ class MultiProcessManager(ServiceManagerBase):
         # TODO: This is a hack to get the service classes
         # TODO: We should find a better way to do this
         from aiperf.services.dataset_manager.dataset_manager import DatasetManager
-        from aiperf.services.post_processor_manager.post_processor_manager import PostProcessorManager
+        from aiperf.services.post_processor_manager.post_processor_manager import (
+            PostProcessorManager,
+        )
         from aiperf.services.records_manager.records_manager import RecordsManager
         from aiperf.services.timing_manager.timing_manager import TimingManager
         from aiperf.services.worker_manager.worker_manager import WorkerManager
@@ -147,17 +151,17 @@ class MultiProcessManager(ServiceManagerBase):
         pass
 
     async def _wait_for_process(
-        self, service_info: ServiceRunInfo[MultiProcessRunInfo]
+        self, multi_process_info: MultiProcessRunInfo
     ) -> None:
         """Wait for a process to terminate with timeout handling."""
-        if not service_info.process or not service_info.process.is_alive():
+        if not multi_process_info.process or not multi_process_info.process.is_alive():
             return
 
         try:
-            service_info.process.terminate()
+            multi_process_info.process.terminate()
             await asyncio.wait_for(
                 asyncio.to_thread(
-                    service_info.process.join, timeout=1.0
+                    multi_process_info.process.join, timeout=1.0
                 ),  # Add timeout to join
                 timeout=5.0,  # Overall timeout
             )

@@ -8,11 +8,6 @@ from pydantic import BaseModel, Field
 class BasePayload(BaseModel):
     """Base model for all payload data."""
 
-    payload_type: str = Field(
-        ...,
-        description="Type of payload data",
-    )
-
 
 class RequestResponseBasePayload(BasePayload):
     """Base payload for request-response patterns."""

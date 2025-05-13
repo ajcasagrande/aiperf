@@ -1,5 +1,4 @@
 import sys
-import uuid
 from datetime import datetime
 from typing import List
 
@@ -16,10 +15,9 @@ from aiperf.common.enums import (
 )
 from aiperf.common.exceptions.service import ServiceInitializationException
 from aiperf.common.models.messages import (
-    CommandMessage,
     HeartbeatMessage,
     RegistrationMessage,
-    StatusMessage,
+    StatusMessage, CommandPayload,
 )
 from aiperf.common.service.controller import ControllerServiceBase
 from aiperf.services.system_controller.kubernetes_manager import (
@@ -179,9 +177,9 @@ class SystemController(ControllerServiceBase):
             registration_status=ServiceRegistrationStatus.REGISTERED,
             service_type=service_type,
             service_id=service_id,
-            registration_time=datetime.now(),
+            first_seen=datetime.now(),
             state=ServiceState.READY,
-            last_heartbeat=datetime.now(),
+            last_seen=datetime.fromtimestamp(0),
         )
 
         self.service_manager.service_id_map[service_id] = service_info
@@ -220,8 +218,8 @@ class SystemController(ControllerServiceBase):
         self.logger.debug(f"Received heartbeat from {service_type} (ID: {service_id})")
 
         # Update the last heartbeat timestamp if the component exists
-        if service_id in self.service_manager.service_id_map:
-            self.service_manager.service_id_map[service_id].last_heartbeat = timestamp
+        if service_info := self.service_manager.get(service_id):
+            service_info.last_seen = timestamp
             self.logger.debug(f"Updated heartbeat for {service_id} to {timestamp}")
         else:
             self.logger.warning(
@@ -236,7 +234,7 @@ class SystemController(ControllerServiceBase):
         """
         service_id = message.service_id
         service_type = message.service_type
-        state = message.state
+        state = message.payload.state
 
         self.logger.debug(
             f"Received status update from {service_type} (ID: {service_id}): {state}"
@@ -268,13 +266,10 @@ class SystemController(ControllerServiceBase):
             return False
 
         # Create command message using the helper method
-        command_message = CommandMessage.create(
-            service_id=self.service_id,
-            service_type=self.service_type,
-            command_id=f"cmd_{uuid.uuid4().hex[:8]}",
-            command_type=command,
+        command_message = self.create_message(CommandPayload(
+            command=command,
             target_service_id=target_service_id,
-        )
+        ))
 
         # Publish command message
         return await self._publish_message(

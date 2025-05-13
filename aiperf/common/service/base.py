@@ -18,10 +18,11 @@ from aiperf.common.enums import (
     Topic,
     ClientType,
 )
+from aiperf.common.models.base_models import BasePayload
 from aiperf.common.models.messages import (
     BaseMessage,
-    HeartbeatMessage,
-    RegistrationMessage,
+    HeartbeatPayload,
+    RegistrationPayload,
 )
 
 # Type variable for message types
@@ -133,10 +134,7 @@ class ServiceBase(ABC):
 
     async def _send_heartbeat(self) -> None:
         """Send a heartbeat message to the system controller."""
-        heartbeat_message = HeartbeatMessage(
-            service_id=self.service_id,
-            service_type=self.service_type,
-        )
+        heartbeat_message = self.create_message(HeartbeatPayload())
         self.logger.debug("Sending heartbeat message: %s", heartbeat_message)
         await self._publish_message(
             ClientType.COMPONENT_PUB, Topic.HEARTBEAT, heartbeat_message
@@ -173,10 +171,7 @@ class ServiceBase(ABC):
         await self._publish_message(
             ClientType.COMPONENT_PUB,
             Topic.REGISTRATION,
-            RegistrationMessage(
-                service_id=self.service_id,
-                service_type=self.service_type,
-            ),
+            self.create_message(RegistrationPayload()),
         )
 
     @abstractmethod
@@ -186,6 +181,19 @@ class ServiceBase(ABC):
         This method should be implemented by derived classes to run the main loop of the service.
         """
         pass
+
+    def create_message(self, payload: BasePayload) -> BaseMessage:
+        """Create a message of the given type with the given payload.
+        Pre-fills the service_id and service_type.
+
+        Args:
+            payload: The payload for the message
+        """
+        return BaseMessage(
+            service_id=self.service_id,
+            service_type=self.service_type,
+            payload=payload,
+        )
 
     def _setup_signal_handlers(self) -> None:
         """Set up signal handlers for graceful shutdown."""

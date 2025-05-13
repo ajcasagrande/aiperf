@@ -62,9 +62,7 @@ class MessageTestUtils:
             Topic.COMMAND: "_process_command_message",
         }
 
-        if hasattr(service, "_process_message"):
-            await service._process_message(topic, message)
-        elif topic in handler_map and hasattr(service, handler_map[topic]):
+        if topic in handler_map and hasattr(service, handler_map[topic]):
             handler = getattr(service, handler_map[topic])
             await handler(message)
         else:

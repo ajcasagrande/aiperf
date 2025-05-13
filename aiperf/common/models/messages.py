@@ -1,15 +1,19 @@
 """Pydantic models for message structures used in inter-service communication."""
 
 import time
-from typing import Any, Dict, List, Optional, Union
+import uuid
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Union, TypeVar, Generic
 
 from pydantic import BaseModel, Field
 
 from aiperf.common.enums import CommandType, MessageType, PayloadType, ServiceState
 from aiperf.common.models.base_models import BasePayload, DataPayload
 
+T = TypeVar("T", bound=BaseModel)
 
-class BaseMessage(BaseModel):
+
+class BaseMessage(BaseModel, Generic[T]):
     """Base message model with common fields for all messages."""
 
     service_id: str = Field(
@@ -20,40 +24,65 @@ class BaseMessage(BaseModel):
         ...,
         description="Type of service sending the message",
     )
-    timestamp: float = Field(
-        default_factory=time.time,
+    timestamp: datetime = Field(
+        default_factory=datetime.now,
         description="Time when the message was created",
+    )
+    payload: T = Field(
+        ...,
+        description="Overloaded Payload of the message",
     )
 
 
-class StatusMessage(BaseMessage):
-    """Status message sent by services to report their state."""
+class StatusPayload(BasePayload):
+    """Payload for status messages."""
 
-    message_type: MessageType = MessageType.STATUS
     state: ServiceState = Field(
         ...,
         description="Current state of the service",
     )
 
 
-class HeartbeatMessage(StatusMessage):
+class StatusMessage(BaseMessage[StatusPayload]):
+    """Status message sent by services to report their state."""
+
+    pass
+
+
+class HeartbeatPayload(BasePayload):
+    """Payload for heartbeat messages."""
+
+    state: ServiceState = ServiceState.RUNNING
+    timestamp: datetime = Field(
+        default_factory=datetime.now,
+        description="Time when the heartbeat was sent",
+    )
+
+
+
+class HeartbeatMessage(BaseMessage[HeartbeatPayload]):
     """Heartbeat message sent periodically by services."""
 
-    message_type: MessageType = MessageType.HEARTBEAT
-    state: ServiceState = ServiceState.RUNNING
 
+class RegistrationPayload(StatusPayload):
+    """Payload for registration messages."""
 
-class CommandMessage(BaseMessage):
-    """Command message sent to services to request an action."""
-
-    message_type: MessageType = MessageType.COMMAND
-    command_id: str = Field(
-        ...,
-        description="Unique identifier for this command",
+    state: ServiceState = Field(
+        default=ServiceState.READY,
+        description="Current state of the service",
     )
+
+
+class CommandPayload(BasePayload):
+    """Payload for command messages."""
+
     command: CommandType = Field(
         ...,
         description="Command to execute",
+    )
+    command_id: str = Field(
+        default_factory=lambda: uuid.uuid4().hex[:8],
+        description="Unique identifier for this command",
     )
     require_response: bool = Field(
         default=False,
@@ -63,42 +92,10 @@ class CommandMessage(BaseMessage):
         default=None,
         description="ID of the target service for this command",
     )
-    payload: Optional[BasePayload] = Field(
-        default=None,
-        description="Payload for the command",
-    )
 
-    @classmethod
-    def create(
-        cls,
-        service_id: str,
-        service_type: str,
-        command_id: str,
-        command_type: CommandType,
-        target_service_id: Optional[str] = None,
-        require_response: bool = False,
-    ) -> "CommandMessage":
-        """Create a CommandMessage with the specified command type.
 
-        Args:
-            service_id: ID of the service sending the command
-            service_type: Type of the service sending the command
-            command_id: Unique identifier for this command
-            command_type: The CommandType enum value for the command
-            target_service_id: ID of the target service
-            require_response: Whether a response is required
-
-        Returns:
-            A new CommandMessage instance
-        """
-        return cls(
-            service_id=service_id,
-            service_type=service_type,
-            command_id=command_id,
-            command=command_type,
-            target_service_id=target_service_id,
-            require_response=require_response,
-        )
+class CommandMessage(BaseMessage[CommandPayload]):
+    """Command message sent to services to request an action."""
 
 
 class ResponsePayload(BasePayload):
@@ -119,15 +116,27 @@ class ResponsePayload(BasePayload):
     )
 
 
-class ResponseMessage(BaseMessage):
-    """Response message sent in reply to a command."""
+ResponseType = TypeVar("ResponseType", bound=ResponsePayload)
 
-    message_type: MessageType = MessageType.RESPONSE
+
+class ResponsePayload(BasePayload):
+    """Payload for response messages."""
+
+    message_type: PayloadType = PayloadType.RESPONSE
+    status: str = Field(
+        default="ok",
+        description="Status of the response (ok, error, etc.)",
+    )
     request_id: str = Field(
         ...,
         description="ID of the command this is responding to",
     )
-    payload: ResponsePayload = Field(
+
+
+class ResponseMessage(BaseMessage[ResponsePayload]):
+    """Response message sent in reply to a command."""
+
+    response: ResponseType = Field(
         default_factory=ResponsePayload,
         description="Response payload data",
     )
@@ -143,14 +152,8 @@ class DataMessage(BaseMessage):
     )
 
 
-class RegistrationMessage(BaseMessage):
+class RegistrationMessage(BaseMessage[RegistrationPayload]):
     """Registration message sent by services to register with the controller."""
-
-    message_type: MessageType = MessageType.REGISTRATION
-    state: ServiceState = Field(
-        default=ServiceState.READY,
-        description="Current state of the service",
-    )
 
 
 class RegistrationResponseMessage(BaseModel):

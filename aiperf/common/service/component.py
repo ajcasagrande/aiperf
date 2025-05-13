@@ -10,7 +10,7 @@ from aiperf.common.enums import (
     Topic,
 )
 from aiperf.common.models.base_models import BasePayload
-from aiperf.common.models.messages import CommandMessage, StatusMessage
+from aiperf.common.models.messages import CommandMessage, StatusPayload
 from aiperf.common.service.base import ServiceBase
 
 
@@ -89,11 +89,7 @@ class ComponentServiceBase(ServiceBase, ABC):
     async def _set_service_status(self, status: ServiceState) -> None:
         """Send a service state message to the system controller."""
         self.state = status
-        status_message = StatusMessage(
-            service_id=self.service_id,
-            service_type=self.service_type,
-            state=self.state,
-        )
+        status_message = self.create_message(StatusPayload(state=self.state))
         await self._publish_message(
             ClientType.COMPONENT_PUB, Topic.STATUS, status_message
         )
