@@ -1,7 +1,6 @@
 import asyncio
 from abc import ABC, abstractmethod
 
-from aiperf.common.comms.communication_factory import CommunicationFactory
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import (
     CommandType,

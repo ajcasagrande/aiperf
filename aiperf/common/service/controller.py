@@ -1,6 +1,5 @@
 from abc import ABC
 
-from aiperf.common.comms.communication_factory import CommunicationFactory
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ClientType, ServiceType, ServiceState
 from aiperf.common.service.base import ServiceBase

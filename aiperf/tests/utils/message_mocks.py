@@ -2,35 +2,49 @@
 Utilities for mocking messages and testing message handling.
 """
 
-from typing import Any, Dict, List, Type
+from typing import Any, Dict, List, Protocol, Type, TypeVar
 from unittest.mock import AsyncMock
 
 from aiperf.common.enums import Topic
 from aiperf.common.models.messages import BaseMessage
+
+T = TypeVar("T", bound=BaseMessage)
+
+
+class ServiceProtocol(Protocol):
+    """Protocol for service objects with message processing methods."""
+
+    async def _process_message(self, topic: Topic, message: BaseMessage) -> None: ...
+
+    async def _process_registration_message(self, message: BaseMessage) -> None: ...
+
+    async def _process_status_message(self, message: BaseMessage) -> None: ...
+
+    async def _process_heartbeat_message(self, message: BaseMessage) -> None: ...
+
+    async def _process_command_message(self, message: BaseMessage) -> None: ...
 
 
 class MessageTestUtils:
     """Utilities for testing message handling in services."""
 
     @staticmethod
-    def create_mock_message(message_class: Type[BaseMessage], **kwargs) -> BaseMessage:
+    def create_mock_message(message_class: Type[T], **kwargs) -> T:
         """
-        Create a mock message of the specified class with the given attributes.
+        Create a message of the specified class with the given attributes.
 
         Args:
             message_class: The class of message to create
             **kwargs: Attributes to set on the message
 
         Returns:
-            A mock message instance
+            A message instance
         """
-        # Create a new instance of the message class
-        message = message_class(**kwargs)
-        return message
+        return message_class(**kwargs)
 
     @staticmethod
     async def simulate_message_receive(
-        service, topic: Topic, message: BaseMessage
+        service: Any, topic: Topic, message: BaseMessage
     ) -> None:
         """
         Simulate a service receiving a message on a specific topic.
@@ -40,11 +54,27 @@ class MessageTestUtils:
             topic: The topic the message is sent on
             message: The message to send
         """
-        await service._process_message(topic, message)
+        # Map topics to their corresponding handler method names
+        handler_map = {
+            Topic.REGISTRATION: "_process_registration_message",
+            Topic.STATUS: "_process_status_message",
+            Topic.HEARTBEAT: "_process_heartbeat_message",
+            Topic.COMMAND: "_process_command_message",
+        }
+
+        if hasattr(service, "_process_message"):
+            await service._process_message(topic, message)
+        elif topic in handler_map and hasattr(service, handler_map[topic]):
+            handler = getattr(service, handler_map[topic])
+            await handler(message)
+        else:
+            raise AttributeError(
+                f"Service does not have a handler for {topic} messages"
+            )
 
     @staticmethod
     def verify_message_published(
-        mock_communication, topic: Topic, expected_fields: Dict[str, Any]
+        mock_communication: Any, topic: Topic, expected_fields: Dict[str, Any]
     ) -> bool:
         """
         Verify that a message with the expected fields was published to the given topic.
@@ -61,13 +91,11 @@ class MessageTestUtils:
             return False
 
         for message in mock_communication.published_messages[topic]:
-            matches = True
-            for field, value in expected_fields.items():
-                if not hasattr(message, field) or getattr(message, field) != value:
-                    matches = False
-                    break
-
-            if matches:
+            # Check if all expected fields match
+            if all(
+                hasattr(message, field) and getattr(message, field) == value
+                for field, value in expected_fields.items()
+            ):
                 return True
 
         return False
@@ -93,26 +121,23 @@ class MessageParamBuilder:
         Returns:
             List of parameter dictionaries for use with pytest.mark.parametrize
         """
-        if required_fields is None:
-            required_fields = {}
+        required_fields = required_fields or {}
 
         # Start with a parameter set containing just the required fields
         param_sets = [required_fields.copy()]
 
         # For each field with variations, create new parameter sets
         for field, values in field_variations.items():
-            new_param_sets = []
-            for param_set in param_sets:
-                for value in values:
-                    new_set = param_set.copy()
-                    new_set[field] = value
-                    new_param_sets.append(new_set)
-            param_sets = new_param_sets
+            param_sets = [
+                {**param_set, field: value}
+                for param_set in param_sets
+                for value in values
+            ]
 
         return param_sets
 
 
-def message_handler_test(message_class, topic, **params):
+def message_handler_test(message_class: Type[BaseMessage], topic: Topic, **params):
     """
     Decorator for creating parameterized tests of message handlers.
 
@@ -128,7 +153,6 @@ def message_handler_test(message_class, topic, **params):
     def decorator(func):
         """Decorator function."""
 
-        # Create a wrapper that sets up the test environment
         async def wrapper(self, service_under_test, mock_communication):
             # Create the message
             message = MessageTestUtils.create_mock_message(message_class, **params)
@@ -158,7 +182,7 @@ class AsyncMockWithTracking(AsyncMock):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.call_history = []
+        self.call_history: List[tuple] = []
 
     async def __call__(self, *args, **kwargs):
         self.call_history.append((args, kwargs))

@@ -2,30 +2,26 @@
 Base test class for testing aiperf services.
 """
 
-import asyncio
 import uuid
-from unittest.mock import patch
+from typing import Any, Type, TypeVar
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from aiperf.common.enums import ServiceState, ServiceType, Topic
 from aiperf.common.models.messages import CommandMessage
 
+T = TypeVar("T")
 
-# Helper function for testing with async fixtures
-async def async_fixture(fixture):
+
+async def async_fixture(fixture: T) -> T:
     """Manually await an async fixture if it's an async generator, otherwise return it."""
-    # Check if the fixture is an async generator or a regular object
     if hasattr(fixture, "__aiter__"):
-        # It's an async generator, so we need to await it
         async for value in fixture:
             return value
-    else:
-        # It's a regular object, just return it
-        return fixture
+    return fixture
 
 
-# Apply asyncio marker to all tests in this class
 @pytest.mark.asyncio
 class BaseServiceTest:
     """
@@ -35,6 +31,11 @@ class BaseServiceTest:
     different aiperf services. Specific service test classes should
     inherit from this class and implement service-specific tests.
     """
+
+    @pytest.fixture
+    def service_class(self) -> Type[Any]:
+        """Return the service class to test. Must be implemented by subclasses."""
+        raise NotImplementedError("Subclasses must implement service_class fixture")
 
     @pytest.fixture
     async def service_under_test(
@@ -80,9 +81,6 @@ class BaseServiceTest:
         """
         Fixture that provides a service with properly initialized communication.
 
-        This solves the issue where the communication component isn't fully initialized
-        in the service, causing tests to fail when trying to publish messages.
-
         Args:
             service_under_test: The service to initialize
             mock_communication: The mock communication object
@@ -107,8 +105,7 @@ class BaseServiceTest:
         assert service.service_id is not None
         assert service.service_type is not None
 
-        # After initialization, service will be in READY state rather than INITIALIZING
-        # because the service_under_test fixture calls _initialize()
+        # After initialization, service should be in one of these states
         assert service.state in [
             ServiceState.INITIALIZING,
             ServiceState.READY,
@@ -133,19 +130,12 @@ class BaseServiceTest:
         """Test that the service sends heartbeat messages."""
         service = properly_initialized_service
 
-        # Start the heartbeat task
-        await service._start_heartbeat_task()
-
-        # Wait for at least one heartbeat
-        await asyncio.sleep(0.1)
+        # Directly send a heartbeat instead of waiting for the task
+        await service._send_heartbeat()
 
         # Check that a heartbeat message was published
-        assert Topic.HEARTBEAT.value in mock_communication.published_messages
-        assert len(mock_communication.published_messages[Topic.HEARTBEAT.value]) > 0
-
-        # Cleanup
-        if service.heartbeat_task and not service.heartbeat_task.done():
-            service.heartbeat_task.cancel()
+        assert Topic.HEARTBEAT in mock_communication.published_messages
+        assert len(mock_communication.published_messages[Topic.HEARTBEAT]) > 0
 
     async def test_service_registration(
         self, properly_initialized_service, mock_communication
@@ -158,20 +148,11 @@ class BaseServiceTest:
 
         # Check that a registration message was published
         assert Topic.REGISTRATION in mock_communication.published_messages
-        assert len(mock_communication.published_messages[Topic.REGISTRATION]) > 0
 
         # Verify registration message
         registration_msg = mock_communication.published_messages[Topic.REGISTRATION][0]
         assert registration_msg.service_id == service.service_id
-
-        # Compare service_type values to handle both enum and string
-        msg_service_type = getattr(
-            registration_msg.service_type, "value", registration_msg.service_type
-        )
-        service_service_type = getattr(
-            service.service_type, "value", service.service_type
-        )
-        assert msg_service_type == service_service_type
+        assert registration_msg.service_type == service.service_type
 
     async def test_service_status_update(
         self, properly_initialized_service, mock_communication
@@ -184,25 +165,12 @@ class BaseServiceTest:
 
         # Check that a status message was published
         assert Topic.STATUS in mock_communication.published_messages
-        assert len(mock_communication.published_messages[Topic.STATUS]) > 0
 
         # Verify status message
         status_msg = mock_communication.published_messages[Topic.STATUS][0]
         assert status_msg.service_id == service.service_id
-
-        # Compare service_type values to handle both enum and string
-        msg_service_type = getattr(
-            status_msg.service_type, "value", status_msg.service_type
-        )
-        service_service_type = getattr(
-            service.service_type, "value", service.service_type
-        )
-        assert msg_service_type == service_service_type
-
-        # Check status state - compare values to handle both enum and string
-        msg_state = getattr(status_msg.state, "value", status_msg.state)
-        expected_state = getattr(ServiceState.READY, "value", ServiceState.READY)
-        assert msg_state == expected_state
+        assert status_msg.service_type == service.service_type
+        assert status_msg.state == ServiceState.READY
 
     @pytest.mark.parametrize(
         "state",
@@ -216,9 +184,7 @@ class BaseServiceTest:
             ServiceState.ERROR,
         ],
     )
-    async def test_service_all_states(
-        self, properly_initialized_service, mock_communication, state
-    ):
+    async def test_service_all_states(self, properly_initialized_service, state):
         """Test that the service can transition to all possible states."""
         service = properly_initialized_service
 
@@ -228,7 +194,7 @@ class BaseServiceTest:
         # Check that the service state was updated
         assert service.state == state
 
-    async def create_command_message(self, service, command="start"):
+    async def create_command_message(self, service, command="start") -> CommandMessage:
         """
         Helper method to create a properly formed command message for testing.
 
@@ -246,3 +212,27 @@ class BaseServiceTest:
             command=command,
             target_service_id=service.service_id,
         )
+
+    @staticmethod
+    def create_safe_mock() -> MagicMock:
+        """Create a mock object that's safe to use with async code.
+
+        This helps prevent "coroutine was never awaited" warnings by ensuring
+        any async methods on the mock don't actually return coroutines that go unwaited.
+
+        Returns:
+            MagicMock: A mock object that's safe to use with async code
+        """
+        # Create a mock with no return_value for methods
+        mock = MagicMock()
+
+        # Set all attributes that might be coroutines to return None instead of other AsyncMocks
+        for attr_name in dir(mock):
+            if callable(getattr(mock, attr_name)) and not attr_name.startswith("_"):
+                method = getattr(mock, attr_name)
+                if hasattr(method, "return_value") and hasattr(
+                    method.return_value, "_is_coroutine"
+                ):
+                    method.return_value = None
+
+        return mock

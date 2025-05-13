@@ -22,7 +22,6 @@ from aiperf.common.models.messages import (
     BaseMessage,
     HeartbeatMessage,
     RegistrationMessage,
-    StatusMessage,
 )
 
 # Type variable for message types

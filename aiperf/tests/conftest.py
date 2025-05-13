@@ -4,10 +4,11 @@ This module contains shared fixtures for testing aiperf services.
 
 import asyncio
 import uuid
-from typing import Any, Callable, Dict
-from unittest.mock import AsyncMock, MagicMock, patch
+from typing import Any, Callable, Dict, List, Type
+from unittest.mock import AsyncMock, patch
 
 import pytest
+from pydantic import BaseModel
 
 from aiperf.common.comms.communication import Communication
 from aiperf.common.config.service_config import ServiceConfig
@@ -23,29 +24,30 @@ from aiperf.common.models.messages import BaseMessage
 from aiperf.common.service.base import ServiceBase
 
 # Configure pytest-asyncio to run all async tests
-pytestmark = pytest.mark.asyncio  # Apply asyncio marker to all tests in this module
+pytestmark = pytest.mark.asyncio
 
 
 @pytest.fixture
-def service_id():
+def service_id() -> str:
     """Generate a unique service ID for testing."""
     return uuid.uuid4().hex
 
 
 @pytest.fixture
-def service_config():
+def service_config() -> ServiceConfig:
     """Create a service configuration for testing."""
-    config = ServiceConfig(
+    return ServiceConfig(
         service_run_type=ServiceRunType.MULTIPROCESSING,
         comm_backend=CommBackend.ZMQ_TCP,
     )
-    return config
 
 
 @pytest.fixture
-def mock_communication():
-    """Create a mock communication object."""
+def mock_communication() -> AsyncMock:
+    """Create a mock communication object with publishing and subscription tracking."""
     mock_comm = AsyncMock(spec=Communication)
+
+    # Configure basic returns for methods
     mock_comm.initialize.return_value = True
     mock_comm.subscribe.return_value = True
     mock_comm.publish.return_value = True
@@ -54,20 +56,30 @@ def mock_communication():
     mock_comm.push.return_value = True
 
     # Store published messages for verification
-    mock_comm.published_messages = {}
+    mock_comm.published_messages: Dict[Any, List[BaseMessage]] = {}
 
-    async def mock_publish(client_type: ClientType, topic: str, message: BaseMessage):
-        if topic not in mock_comm.published_messages:
-            mock_comm.published_messages[topic] = []
-        mock_comm.published_messages[topic].append(message)
+    async def mock_publish(
+        client_type: ClientType, topic: Any, message: BaseMessage
+    ) -> bool:
+        # Use the topic as the key, whether it's an enum or string
+        topic_key = topic
+
+        # Initialize list for this topic if needed
+        if topic_key not in mock_comm.published_messages:
+            mock_comm.published_messages[topic_key] = []
+
+        # Store the message
+        mock_comm.published_messages[topic_key].append(message)
         return True
 
     mock_comm.publish.side_effect = mock_publish
 
     # Store subscription callbacks
-    mock_comm.subscriptions = {}
+    mock_comm.subscriptions: Dict[str, Callable] = {}
 
-    async def mock_subscribe(client_type: ClientType, topic: str, callback: Callable):
+    async def mock_subscribe(
+        client_type: ClientType, topic: str, callback: Callable
+    ) -> bool:
         mock_comm.subscriptions[topic] = callback
         return True
 
@@ -110,7 +122,7 @@ async def mock_service_base(service_id, service_config, mock_communication):
         try:
             yield service
         finally:
-            # Clean up
+            # Clean up heartbeat task
             if service.heartbeat_task and not service.heartbeat_task.done():
                 service.heartbeat_task.cancel()
 
@@ -119,11 +131,8 @@ async def mock_service_base(service_id, service_config, mock_communication):
 def mock_message_factory():
     """Factory for creating mock messages of different types."""
 
-    def _create_message(message_type, **kwargs):
-        message = MagicMock(spec=message_type)
-        for key, value in kwargs.items():
-            setattr(message, key, value)
-        return message
+    def _create_message(message_type: Type[BaseModel], **kwargs) -> Any:
+        return message_type(**kwargs)
 
     return _create_message
 
@@ -139,10 +148,7 @@ def mock_event_loop():
 
 @pytest.fixture
 def parametrize_services():
-    """
-    A fixture that provides a decorator for parameterizing test functions with service classes.
-    This allows testing multiple service implementations with the same test function.
-    """
+    """Decorator for parameterizing test functions with service classes."""
 
     def _parametrize_services(*service_classes):
         return pytest.mark.parametrize("service_class", service_classes)
@@ -157,17 +163,12 @@ def mock_dependent_services():
     Returns a dictionary of mock services keyed by service type.
     """
     mock_services = {}
-    service_types = [
-        ServiceType.SYSTEM_CONTROLLER,
-        ServiceType.DATASET_MANAGER,
-        ServiceType.TIMING_MANAGER,
-        ServiceType.WORKER_MANAGER,
-        ServiceType.POST_PROCESSOR_MANAGER,
-        ServiceType.RECORDS_MANAGER,
-        ServiceType.WORKER,
-    ]
 
-    for service_type in service_types:
+    for service_type in ServiceType:
+        # Skip abstract types
+        if service_type in [ServiceType.UNKNOWN, ServiceType.TEST]:
+            continue
+
         mock_service = AsyncMock()
         mock_service.service_id = uuid.uuid4().hex
         mock_service.service_type = service_type

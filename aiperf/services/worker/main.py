@@ -9,7 +9,6 @@ from pydantic import Field
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import (
     PayloadType,
-    ServiceState,
     ServiceType,
     Topic,
     ClientType,
