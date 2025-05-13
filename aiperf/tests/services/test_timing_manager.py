@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from aiperf.common.enums import ServiceType, ServiceState, Topic
-from aiperf.services.timing_manager.main import TimingManager
+from aiperf.services.timing_manager.timing_manager import TimingManager
 from aiperf.tests.base_test_service import BaseServiceTest
 from aiperf.tests.utils.message_mocks import MessageTestUtils
 

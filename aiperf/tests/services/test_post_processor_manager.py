@@ -5,7 +5,7 @@ Tests for the post processor manager service.
 import pytest
 
 from aiperf.common.enums import ServiceType, Topic
-from aiperf.services.post_processor_manager.main import PostProcessorManager
+from aiperf.services.post_processor_manager.post_processor_manager import PostProcessorManager
 from aiperf.tests.base_test_service import BaseServiceTest
 from aiperf.tests.utils.message_mocks import MessageTestUtils
 

@@ -5,7 +5,7 @@ Tests for the records manager service.
 import pytest
 
 from aiperf.common.enums import ServiceType, Topic
-from aiperf.services.records_manager.main import RecordsManager
+from aiperf.services.records_manager.records_manager import RecordsManager
 from aiperf.tests.base_test_service import BaseServiceTest
 from aiperf.tests.utils.message_mocks import MessageTestUtils
 

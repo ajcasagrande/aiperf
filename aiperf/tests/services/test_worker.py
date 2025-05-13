@@ -14,7 +14,7 @@ from aiperf.common.models.messages import (
     CreditData,
     CreditMessage,
 )
-from aiperf.services.worker.main import Worker
+from aiperf.services.worker.worker import Worker
 
 
 @pytest.mark.asyncio

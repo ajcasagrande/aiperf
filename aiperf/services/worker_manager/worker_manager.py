@@ -10,7 +10,7 @@ from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ServiceType, ServiceRunType
 from aiperf.common.models.base_models import BasePayload
 from aiperf.common.service.component import ComponentServiceBase
-from aiperf.services.worker.main import Worker
+from aiperf.services.worker.worker import Worker
 
 
 class WorkerProcess(BaseModel):

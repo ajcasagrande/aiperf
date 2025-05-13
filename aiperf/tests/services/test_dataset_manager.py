@@ -5,7 +5,7 @@ Tests for the dataset manager service.
 import pytest
 
 from aiperf.common.enums import ServiceType, Topic
-from aiperf.services.dataset_manager.main import DatasetManager
+from aiperf.services.dataset_manager.dataset_manager import DatasetManager
 from aiperf.tests.base_test_service import BaseServiceTest
 from aiperf.tests.utils.message_mocks import MessageTestUtils
 
