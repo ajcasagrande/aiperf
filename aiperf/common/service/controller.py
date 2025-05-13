@@ -1,7 +1,7 @@
 from abc import ABC
 
 from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.enums import ClientType, ServiceType, ServiceState
+from aiperf.common.enums import ClientType, ServiceState
 from aiperf.common.service.base import ServiceBase
 
 
@@ -13,8 +13,8 @@ class ControllerServiceBase(ServiceBase, ABC):
     services.
     """
 
-    def __init__(self, service_type: ServiceType, config: ServiceConfig) -> None:
-        super().__init__(service_type=service_type, config=config)
+    def __init__(self, service_config: ServiceConfig, service_id: str = None) -> None:
+        super().__init__(service_config=service_config, service_id=service_id)
 
     # TODO: Complete the implementation of the controller service methods
     async def run(self) -> None:

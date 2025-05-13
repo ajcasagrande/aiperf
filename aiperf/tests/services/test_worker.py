@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from aiperf.common.comms.communication import Communication
+from aiperf.common.comms.communication import BaseCommunication
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.services.worker.worker import Worker
 
@@ -16,14 +16,19 @@ class TestWorker:
     """Tests for the worker service."""
 
     @pytest.fixture
-    def worker_config(self):
-        """Return a worker configuration for testing."""
+    def service_class(self):
+        """Return the service class for testing."""
+        return Worker
+
+    @pytest.fixture
+    def service_config(self):
+        """Return a service configuration for testing."""
         return ServiceConfig()
 
     @pytest.fixture
     def mock_communication(self):
         """Create a mock communication object for worker tests."""
-        mock_comm = AsyncMock(spec=Communication)
+        mock_comm: AsyncMock = AsyncMock(spec=BaseCommunication)
         mock_comm.initialize.return_value = True
         mock_comm.pull.return_value = True
         mock_comm.push.return_value = True
@@ -34,13 +39,13 @@ class TestWorker:
         return mock_comm
 
     @pytest.fixture
-    def worker(self, worker_config, mock_communication):
+    def worker(self, service_config, mock_communication):
         """Return a worker instance for testing."""
         with patch(
             "aiperf.common.comms.communication_factory.CommunicationFactory.create_communication",
             return_value=mock_communication,
         ):
-            worker = Worker(config=worker_config)
+            worker = Worker(service_config=service_config)
             worker.communication = mock_communication
             return worker
 
@@ -48,7 +53,7 @@ class TestWorker:
         """Test that the worker initializes correctly."""
         # Basic existence checks
         assert worker is not None
-        assert worker.config is not None
+        assert worker.service_config is not None
 
     async def test_worker_start_stop(self, worker):
         """Test that the worker can start and stop."""

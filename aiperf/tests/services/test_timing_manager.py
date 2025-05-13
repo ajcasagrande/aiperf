@@ -30,7 +30,7 @@ class TestTimingManager(BaseServiceTest):
             "aiperf.common.comms.communication_factory.CommunicationFactory.create_communication",
             return_value=mock_communication,
         ):
-            service = TimingManager(config=service_config)
+            service = TimingManager(service_config=service_config)
 
             # Manually set up the communication
             service.communication = mock_communication

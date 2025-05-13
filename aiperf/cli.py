@@ -50,7 +50,7 @@ def main() -> None:
     logger.info("Creating System Controller")
 
     logger.info("Starting AIPerf System")
-    bootstrap_and_run_service(SystemController, config=config)
+    bootstrap_and_run_service(SystemController, service_config=config)
 
 
 if __name__ == "__main__":

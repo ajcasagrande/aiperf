@@ -14,11 +14,11 @@ from aiperf.common.enums import (
     ClientType,
 )
 from aiperf.common.exceptions.service import ServiceInitializationException
+from aiperf.common.models.messages import CommandMessage
 from aiperf.common.models.messages import (
     HeartbeatMessage,
     RegistrationMessage,
     StatusMessage,
-    CommandPayload,
 )
 from aiperf.common.service.controller import ControllerServiceBase
 from aiperf.services.system_controller.kubernetes_manager import (
@@ -32,8 +32,8 @@ from aiperf.services.system_controller.service_manager import (
 
 
 class SystemController(ControllerServiceBase):
-    def __init__(self, config: ServiceConfig) -> None:
-        super().__init__(service_type=ServiceType.SYSTEM_CONTROLLER, config=config)
+    def __init__(self, service_config: ServiceConfig, service_id: str = None) -> None:
+        super().__init__(service_config=service_config, service_id=service_id)
 
         # List of required service types, in the order they should be started
         self.required_service_types: List[ServiceType] = [
@@ -46,16 +46,21 @@ class SystemController(ControllerServiceBase):
 
         self.service_manager: ServiceManagerBase = None
 
+    @property
+    def service_type(self) -> ServiceType:
+        """The type of service."""
+        return ServiceType.SYSTEM_CONTROLLER
+
     async def _initialize(self) -> None:
         """Initialize system controller-specific components."""
         self.logger.debug("Initializing System Controller")
 
         # Initialize communication component based on config
-        comm_type = self.config.comm_backend
+        comm_type = self.service_config.comm_backend
         self.logger.info(f"Initializing communication with backend: {comm_type}")
 
         self.communication = CommunicationFactory.create_communication(
-            comm_type=comm_type
+            self.service_config
         )
 
         if self.communication is None:
@@ -66,17 +71,17 @@ class SystemController(ControllerServiceBase):
                 f"Failed to initialize communication backend: {comm_type}"
             )
 
-        if self.config.service_run_type == ServiceRunType.MULTIPROCESSING:
+        if self.service_config.service_run_type == ServiceRunType.MULTIPROCESSING:
             self.service_manager = MultiProcessManager(
-                self.required_service_types, self.config
+                self.required_service_types, self.service_config
             )
-        elif self.config.service_run_type == ServiceRunType.KUBERNETES:
+        elif self.service_config.service_run_type == ServiceRunType.KUBERNETES:
             self.service_manager = KubernetesServiceManager(
-                self.required_service_types, self.config
+                self.required_service_types, self.service_config
             )
         else:
             raise ValueError(
-                f"Unsupported service run type: {self.config.service_run_type}"
+                f"Unsupported service run type: {self.service_config.service_run_type}"
             )
 
         # Initialize the communication
@@ -230,7 +235,7 @@ class SystemController(ControllerServiceBase):
         """
         service_id = message.service_id
         service_type = message.service_type
-        state = message.payload.state
+        state = message.state
 
         self.logger.debug(
             f"Received status update from {service_type} (ID: {service_id}): {state}"
@@ -262,8 +267,8 @@ class SystemController(ControllerServiceBase):
             return False
 
         # Create command message using the helper method
-        command_message = self.create_message(
-            CommandPayload(
+        command_message = self.wrap_message(
+            CommandMessage(
                 command=command,
                 target_service_id=target_service_id,
             )

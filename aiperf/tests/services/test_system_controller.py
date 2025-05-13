@@ -18,10 +18,7 @@ from aiperf.common.enums import (
 from aiperf.common.models.messages import (
     HeartbeatMessage,
     RegistrationMessage,
-    RegistrationPayload,
     StatusMessage,
-    StatusPayload,
-    HeartbeatPayload,
 )
 from aiperf.services.system_controller.system_controller import SystemController
 from aiperf.tests.base_test_service import BaseServiceTest, async_fixture
@@ -37,47 +34,20 @@ class TestSystemController(BaseServiceTest):
         """Return the service class to test."""
         return SystemController
 
-    @pytest.fixture
-    async def service_under_test(
-        self, service_class, service_config, mock_communication
-    ):
-        """Override the service_under_test fixture to customize SystemController initialization."""
-        with patch(
-            "aiperf.common.comms.communication_factory.CommunicationFactory.create_communication",
-            return_value=mock_communication,
-        ):
-            service = service_class(config=service_config)
-            await service._initialize()
-
-            try:
-                yield service
-            finally:
-                if service.state != ServiceState.STOPPED:
-                    await service.stop()
-
-    @pytest.fixture
-    async def initialized_service(self, service_under_test, mock_communication):
-        """Override to add SystemController specific attributes and methods."""
-        service = await async_fixture(service_under_test)
-        service.communication = mock_communication
-        service.communication.initialized = True
-        mock_communication.published_messages = {}
-        return service
-
-    async def test_system_controller_initialization(self, initialized_service):
+    async def test_system_controller_initialization(self, service_under_test):
         """Test that the system controller initializes correctly."""
-        service = initialized_service
+        service = await async_fixture(service_under_test)
         assert service.service_type == ServiceType.SYSTEM_CONTROLLER
         assert hasattr(service, "service_manager")
         assert hasattr(service.service_manager, "service_id_map")
         assert isinstance(service.service_manager.service_id_map, dict)
 
-    async def test_service_status_update(self, initialized_service, mock_communication):
+    async def test_service_status_update(self, service_under_test, mock_communication):
         """Override to test that the service updates its status correctly for SystemController."""
-        service = initialized_service
+        service = await async_fixture(service_under_test)
 
         # Directly create and publish a status message for testing
-        status_message = service.create_message(StatusPayload(state=ServiceState.READY))
+        status_message = service.wrap_message(StatusMessage(state=ServiceState.READY))
         await service._publish_message(
             ClientType.COMPONENT_PUB, Topic.STATUS, status_message
         )
@@ -87,25 +57,25 @@ class TestSystemController(BaseServiceTest):
         status_msg = mock_communication.published_messages[Topic.STATUS][0]
         assert status_msg.service_id == service.service_id
         assert status_msg.service_type == ServiceType.SYSTEM_CONTROLLER
-        assert status_msg.payload.state == ServiceState.READY
+        assert status_msg.state == ServiceState.READY
 
     @pytest.fixture
-    def test_worker_registration(self, initialized_service) -> RegistrationMessage:
+    def test_worker_registration(self, service_under_test) -> RegistrationMessage:
         """Fixture providing test data for worker registration."""
-        return initialized_service.create_message(RegistrationPayload())
+        return service_under_test.wrap_message(RegistrationMessage())
 
     async def test_handle_registration_message(
-        self, initialized_service, mock_communication, test_worker_registration
+        self, service_under_test, mock_communication, test_worker_registration
     ):
         """Test handling of registration messages."""
-        service = initialized_service
+        service = await async_fixture(service_under_test)
         worker_data = test_worker_registration
 
         # Send the message to the service
         await MessageTestUtils.simulate_message_receive(
             service,
             Topic.REGISTRATION,
-            initialized_service.create_message(RegistrationPayload()),
+            service.wrap_message(RegistrationMessage()),
         )
 
         # Check that the component was registered in the service manager
@@ -116,23 +86,21 @@ class TestSystemController(BaseServiceTest):
         )
 
     async def test_handle_status_message(
-        self, initialized_service, mock_communication, test_worker_registration
+        self, service_under_test, mock_communication, test_worker_registration
     ):
         """Test handling of status messages."""
-        service = initialized_service
+        service = await async_fixture(service_under_test)
         worker_data = test_worker_registration
 
         # First register a service
         await MessageTestUtils.simulate_message_receive(
             service,
             Topic.REGISTRATION,
-            initialized_service.create_message(RegistrationPayload()),
+            service.wrap_message(RegistrationMessage()),
         )
 
         # Now send a status update
-        status_message = service.create_message(
-            StatusPayload(state=ServiceState.RUNNING)
-        )
+        status_message = service.wrap_message(StatusMessage(state=ServiceState.RUNNING))
         await MessageTestUtils.simulate_message_receive(
             service, Topic.STATUS, status_message
         )
@@ -144,10 +112,10 @@ class TestSystemController(BaseServiceTest):
         )
 
     async def test_handle_heartbeat_message(
-        self, initialized_service, mock_communication, test_worker_registration
+        self, service_under_test, mock_communication, test_worker_registration
     ):
         """Test handling of heartbeat messages."""
-        service = initialized_service
+        service = await async_fixture(service_under_test)
         worker_data = test_worker_registration
         timestamp = datetime.now() + timedelta(seconds=-5)
 
@@ -155,14 +123,13 @@ class TestSystemController(BaseServiceTest):
         await MessageTestUtils.simulate_message_receive(
             service,
             Topic.REGISTRATION,
-            initialized_service.create_message(RegistrationPayload()),
+            service.wrap_message(RegistrationMessage()),
         )
 
         # Now send a heartbeat
         heartbeat_message = HeartbeatMessage(
             service_id=worker_data.service_id,
             service_type=worker_data.service_type,
-            payload=HeartbeatPayload(timestamp=timestamp),
         )
         await MessageTestUtils.simulate_message_receive(
             service, Topic.HEARTBEAT, heartbeat_message
@@ -195,20 +162,20 @@ class TestSystemController(BaseServiceTest):
     )
     async def test_send_command_to_service(
         self,
-        initialized_service,
+        service_under_test,
         mock_communication,
         test_worker_registration,
         command,
     ):
         """Test sending commands to services."""
-        service = initialized_service
+        service = await async_fixture(service_under_test)
         worker_data = test_worker_registration
 
         # First register a service
         await MessageTestUtils.simulate_message_receive(
             service,
             Topic.REGISTRATION,
-            initialized_service.create_message(RegistrationPayload()),
+            service.wrap_message(RegistrationMessage()),
         )
 
         # Clear any registration-related messages
@@ -223,14 +190,14 @@ class TestSystemController(BaseServiceTest):
         # Verify the command was published with correct fields
         assert Topic.COMMAND in mock_communication.published_messages
         command_message = mock_communication.published_messages[Topic.COMMAND][0]
-        assert command_message.payload.target_service_id == worker_data.service_id
-        assert command_message.payload.command == command
+        assert command_message.target_service_id == worker_data.service_id
+        assert command_message.command == command
 
     async def test_system_controller_full_lifecycle(
-        self, initialized_service, mock_communication
+        self, service_under_test, mock_communication
     ):
         """Test the full lifecycle of the system controller."""
-        service = initialized_service
+        service = await async_fixture(service_under_test)
 
         # Start the service by directly setting state to RUNNING
         await service._set_service_status(ServiceState.RUNNING)
@@ -252,7 +219,6 @@ class TestSystemController(BaseServiceTest):
                 RegistrationMessage(
                     service_id=service_id,
                     service_type=component_type,
-                    payload=RegistrationPayload(state=ServiceState.READY),
                 ),
             )
             assert service_id in service.service_manager.service_id_map
@@ -265,20 +231,16 @@ class TestSystemController(BaseServiceTest):
         assert service.state == ServiceState.STOPPED
 
     async def test_handle_unknown_service_heartbeat(
-        self, initialized_service, mock_communication
+        self, service_under_test, mock_communication
     ):
         """Test handling heartbeat from an unknown service."""
-        service = initialized_service
+        service = await async_fixture(service_under_test)
         unknown_id = "unknown-service-id"
 
         # Send heartbeat from unknown service
         heartbeat_message = HeartbeatMessage(
             service_id=unknown_id,
             service_type=ServiceType.WORKER,
-            payload=HeartbeatPayload(
-                state=ServiceState.RUNNING,
-                timestamp=datetime.now(),
-            ),
         )
 
         # This should not raise an exception
@@ -290,19 +252,17 @@ class TestSystemController(BaseServiceTest):
         assert unknown_id not in service.service_manager.service_id_map
 
     async def test_handle_unknown_service_status(
-        self, initialized_service, mock_communication
+        self, service_under_test, mock_communication
     ):
         """Test handling status from an unknown service."""
-        service = initialized_service
+        service = await async_fixture(service_under_test)
         unknown_id = "unknown-service-id"
 
         # Send status from unknown service
         status_message = StatusMessage(
             service_id=unknown_id,
             service_type=ServiceType.WORKER,
-            payload=StatusPayload(
-                state=ServiceState.RUNNING,
-            ),
+            state=ServiceState.RUNNING,
         )
 
         # This should not raise an exception
@@ -314,10 +274,10 @@ class TestSystemController(BaseServiceTest):
         assert unknown_id not in service.service_manager.service_id_map
 
     async def test_service_required_registration(
-        self, initialized_service, mock_communication
+        self, service_under_test, mock_communication
     ):
         """Test that required services are properly tracked."""
-        service = initialized_service
+        service = await async_fixture(service_under_test)
 
         # Get required service types from the service
         required_services = service.required_service_types
@@ -331,7 +291,6 @@ class TestSystemController(BaseServiceTest):
         registration_message = RegistrationMessage(
             service_id=service_id,
             service_type=service_type,
-            payload=RegistrationPayload(state=ServiceState.READY),
         )
 
         await MessageTestUtils.simulate_message_receive(

@@ -21,13 +21,19 @@ class WorkerProcess(BaseModel):
 
 
 class WorkerManager(ComponentServiceBase):
-    def __init__(self, config: ServiceConfig) -> None:
-        super().__init__(service_type=ServiceType.WORKER_MANAGER, config=config)
+    def __init__(self, service_config: ServiceConfig, service_id: str = None) -> None:
+        super().__init__(service_config=service_config, service_id=service_id)
         self.logger.debug("Initializing worker manager")
         self.workers: Dict[str, WorkerProcess] = {}
         # TODO: Need to implement some sort of max workers
         self.cpu_count = multiprocessing.cpu_count()
-        self.logger.info(f"Detected {self.cpu_count} CPU threads")
+        self.worker_count = self.cpu_count
+        self.logger.info(f"Detected {self.cpu_count} CPU threads. Spawning {self.worker_count} workers")
+
+    @property
+    def service_type(self) -> ServiceType:
+        """The type of service."""
+        return ServiceType.WORKER_MANAGER
 
     async def _initialize(self) -> None:
         """Initialize worker manager-specific components."""
@@ -38,23 +44,27 @@ class WorkerManager(ComponentServiceBase):
         self.logger.debug("Starting worker manager")
 
         # Spawn workers based on CPU count
-        if self.config.service_run_type == ServiceRunType.MULTIPROCESSING:
+        if self.service_config.service_run_type == ServiceRunType.MULTIPROCESSING:
             await self._spawn_multiprocessing_workers()
-        elif self.config.service_run_type == ServiceRunType.KUBERNETES:
+        elif self.service_config.service_run_type == ServiceRunType.KUBERNETES:
             await self._spawn_kubernetes_workers()
         else:
-            self.logger.warning(f"Unsupported run type: {self.config.service_run_type}")
+            self.logger.warning(
+                f"Unsupported run type: {self.service_config.service_run_type}"
+            )
 
     async def _on_stop(self) -> None:
         """Stop the worker manager."""
         self.logger.debug("Stopping worker manager")
         # Spawn workers based on CPU count
-        if self.config.service_run_type == ServiceRunType.MULTIPROCESSING:
+        if self.service_config.service_run_type == ServiceRunType.MULTIPROCESSING:
             await self._stop_multiprocessing_workers()
-        elif self.config.service_run_type == ServiceRunType.KUBERNETES:
-            await self._spawn_kubernetes_workers()
+        elif self.service_config.service_run_type == ServiceRunType.KUBERNETES:
+            await self._stop_kubernetes_workers()
         else:
-            self.logger.warning(f"Unsupported run type: {self.config.service_run_type}")
+            self.logger.warning(
+                f"Unsupported run type: {self.service_config.service_run_type}"
+            )
 
     async def _cleanup(self) -> None:
         """Clean up worker manager-specific components."""
@@ -63,7 +73,7 @@ class WorkerManager(ComponentServiceBase):
 
     async def _spawn_kubernetes_workers(self) -> None:
         """Spawn worker processes using Kubernetes."""
-        self.logger.info(f"Spawning {self.cpu_count} worker processes")
+        self.logger.info(f"Spawning {self.worker_count} worker processes")
 
         # TODO: Implement Kubernetes start
         raise NotImplementedError("Kubernetes start not implemented")
@@ -77,14 +87,14 @@ class WorkerManager(ComponentServiceBase):
 
     async def _spawn_multiprocessing_workers(self) -> None:
         """Spawn worker processes using multiprocessing."""
-        self.logger.info(f"Spawning {self.cpu_count} worker processes")
+        self.logger.info(f"Spawning {self.worker_count} worker processes")
 
-        for i in range(self.cpu_count):
+        for i in range(self.worker_count):
             worker_id = f"worker_{i}"
             process = multiprocessing.Process(
                 target=bootstrap_and_run_service,
                 name=f"worker_{i}_process",
-                args=(Worker, self.config),
+                args=(Worker, self.service_config),
                 daemon=True,
             )
             process.start()

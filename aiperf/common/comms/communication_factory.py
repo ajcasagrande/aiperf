@@ -1,8 +1,9 @@
 import logging
 from typing import Dict, Optional, Type
 
-from aiperf.common.comms.communication import Communication
+from aiperf.common.comms.communication import BaseCommunication
 from aiperf.common.comms.zmq_comms.zmq_communication import ZMQCommunication
+from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import CommBackend
 from aiperf.common.models.comms import (
     ZMQCommunicationConfig,
@@ -20,13 +21,13 @@ class CommunicationFactory:
     """
 
     # Registry of communication types
-    _comm_types: Dict[CommBackend, Type[Communication]] = {
+    _comm_types: Dict[CommBackend, Type[BaseCommunication]] = {
         CommBackend.ZMQ_TCP: ZMQCommunication,
     }
 
     @classmethod
     def register_comm_type(
-        cls, comm_type: CommBackend, comm_class: Type[Communication]
+        cls, comm_type: CommBackend, comm_class: Type[BaseCommunication]
     ) -> None:
         """Register a new communication type.
 
@@ -39,25 +40,23 @@ class CommunicationFactory:
 
     @classmethod
     def create_communication(
-        cls, comm_type: CommBackend, **kwargs
-    ) -> Optional[Communication]:
+        cls, service_config: ServiceConfig, **kwargs
+    ) -> Optional[BaseCommunication]:
         """Create a communication instance.
 
         Args:
-            comm_type: Communication type string
-            **kwargs: Additional arguments to pass to the communication constructor
-                      For ZMQ:
-                      - config (ZMQCommunicationConfig): Optional configuration
+            service_config: Service configuration containing the communication type
+            **kwargs: Additional arguments for the communication class
 
         Returns:
             Communication instance or None if creation failed
         """
-        if comm_type not in cls._comm_types:
-            logger.error(f"Unknown communication type: {comm_type}")
+        if service_config.comm_backend not in cls._comm_types:
+            logger.error(f"Unknown communication type: {service_config.comm_backend}")
             return None
 
         try:
-            comm_class = cls._comm_types[comm_type]
+            comm_class = cls._comm_types[service_config.comm_backend]
             config = kwargs.get("config") or ZMQCommunicationConfig(
                 protocol_config=ZMQTCPTransportConfig()
             )
@@ -65,5 +64,7 @@ class CommunicationFactory:
 
             return comm_class(**kwargs)
         except Exception as e:
-            logger.error(f"Error creating communication for type {comm_type}: {e}")
+            logger.error(
+                f"Error creating communication for type {service_config.comm_backend}: {e}"
+            )
             return None

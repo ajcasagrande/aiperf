@@ -3,7 +3,7 @@ from aiperf.common.service.base import ServiceBase
 
 
 def bootstrap_and_run_service(
-    service_class: type[ServiceBase], config: ServiceConfig | None = None
+    service_class: type[ServiceBase], service_config: ServiceConfig | None = None
 ):
     """Bootstrap the service and run it.
 
@@ -12,7 +12,7 @@ def bootstrap_and_run_service(
 
     Args:
         service_class: The service class of the service to run
-        config: The service configuration to use, if not provided, the service configuration
+        service_config: The service configuration to use, if not provided, the service configuration
                 will be loaded from the config file
 
     """
@@ -21,11 +21,11 @@ def bootstrap_and_run_service(
     uvloop.install()
 
     # Load the service configuration
-    if config is None:
+    if service_config is None:
         from aiperf.common.config.loader import load_service_config
 
-        config = load_service_config()
+        service_config = load_service_config()
 
     # service_type is filled in by all the service class implementations
-    service = service_class(config=config)
+    service = service_class(service_config=service_config)
     uvloop.run(service.run())

@@ -9,7 +9,7 @@ from typing import Optional, TypeVar
 from rich.console import Console
 from rich.logging import RichHandler
 
-from aiperf.common.comms.communication import Communication
+from aiperf.common.comms.communication import BaseCommunication
 from aiperf.common.comms.communication_factory import CommunicationFactory
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import (
@@ -18,11 +18,11 @@ from aiperf.common.enums import (
     Topic,
     ClientType,
 )
-from aiperf.common.models.base_models import BasePayload
 from aiperf.common.models.messages import (
     BaseMessage,
-    HeartbeatPayload,
-    RegistrationPayload,
+    HeartbeatMessage,
+    RegistrationMessage,
+    MessageT,
 )
 
 # Type variable for message types
@@ -64,21 +64,28 @@ class ServiceBase(ABC):
     such as the System Controller, Dataset Manager, Timing Manager, Worker Manager, etc.
     """
 
-    def __init__(self, service_type: ServiceType, config: ServiceConfig):
-        self.service_id: str = uuid.uuid4().hex
-        self.service_type: ServiceType = service_type
-        self.config = config
+    def __init__(self, service_config: ServiceConfig, service_id: str = None):
+        self.service_id: str = service_id or uuid.uuid4().hex
+        self.service_config = service_config
         self.logger = get_logger(self.__class__.__name__)
         self.logger.debug(
-            f"Initializing service {self.service_id} {self.service_type.value} {self.__class__.__name__}"
+            f"Initializing service {self.service_id} {self.service_type} {self.__class__.__name__}"
         )
         self.state: ServiceState = ServiceState.UNKNOWN
         self.heartbeat_task = None
-        self.heartbeat_interval = 10  # Default interval in seconds
+        self.heartbeat_interval = (
+            self.service_config.heartbeat_interval
+        )  # Default interval in seconds
         self.stop_event = asyncio.Event()
-        self.communication: Optional[Communication] = None
+        self.communication: Optional[BaseCommunication] = None
         # Set to store signal handler tasks
         self._signal_tasks = set()
+
+    @property
+    @abstractmethod
+    def service_type(self) -> ServiceType:
+        """The type of service."""
+        pass
 
     async def _base_init(self) -> None:
         """Initialize the service communication and signal handlers.
@@ -96,7 +103,7 @@ class ServiceBase(ABC):
         # Initialize communication unless explicitly skipped
         if not self.communication:
             self.communication = CommunicationFactory.create_communication(
-                comm_type=self.config.comm_backend
+                self.service_config
             )
 
             # Initialize the communication instance
@@ -104,7 +111,7 @@ class ServiceBase(ABC):
                 success = await self.communication.initialize()
                 if not success:
                     self.logger.error(
-                        f"Failed to initialize {self.config.comm_backend} communication"
+                        f"Failed to initialize {self.service_config.comm_backend} communication"
                     )
                     self.state = ServiceState.ERROR
                     return
@@ -134,7 +141,7 @@ class ServiceBase(ABC):
 
     async def _send_heartbeat(self) -> None:
         """Send a heartbeat message to the system controller."""
-        heartbeat_message = self.create_message(HeartbeatPayload())
+        heartbeat_message = self.wrap_message(HeartbeatMessage())
         self.logger.debug("Sending heartbeat message: %s", heartbeat_message)
         await self._publish_message(
             ClientType.COMPONENT_PUB, Topic.HEARTBEAT, heartbeat_message
@@ -171,7 +178,7 @@ class ServiceBase(ABC):
         await self._publish_message(
             ClientType.COMPONENT_PUB,
             Topic.REGISTRATION,
-            self.create_message(RegistrationPayload()),
+            self.wrap_message(RegistrationMessage()),
         )
 
     @abstractmethod
@@ -182,18 +189,16 @@ class ServiceBase(ABC):
         """
         pass
 
-    def create_message(self, payload: BasePayload) -> BaseMessage:
-        """Create a message of the given type with the given payload.
+    def wrap_message(self, message: MessageT) -> MessageT:
+        """Wrap a message of the given type with the given payload.
         Pre-fills the service_id and service_type.
 
         Args:
-            payload: The payload for the message
+            message: The message to wrap
         """
-        return BaseMessage(
-            service_id=self.service_id,
-            service_type=self.service_type,
-            payload=payload,
-        )
+        message.service_id = self.service_id
+        message.service_type = self.service_type
+        return message
 
     def _setup_signal_handlers(self) -> None:
         """Set up signal handlers for graceful shutdown."""

@@ -4,13 +4,12 @@ from abc import ABC, abstractmethod
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import (
     CommandType,
-    ServiceType,
     ServiceState,
     ClientType,
     Topic,
 )
-from aiperf.common.models.base_models import BasePayload
-from aiperf.common.models.messages import CommandMessage, StatusPayload
+from aiperf.common.models.base_models import PayloadT
+from aiperf.common.models.messages import CommandMessage, StatusMessage
 from aiperf.common.service.base import ServiceBase
 
 
@@ -21,8 +20,8 @@ class ComponentServiceBase(ServiceBase, ABC):
     services.
     """
 
-    def __init__(self, service_type: ServiceType, config: ServiceConfig) -> None:
-        super().__init__(service_type=service_type, config=config)
+    def __init__(self, service_config: ServiceConfig, service_id: str = None) -> None:
+        super().__init__(service_config=service_config, service_id=service_id)
 
     async def run(self) -> None:
         """Start the service and initialize its components."""
@@ -69,27 +68,28 @@ class ComponentServiceBase(ServiceBase, ABC):
 
     async def _process_command_message(self, message: CommandMessage) -> None:
         """Process a command message."""
-        if message.payload.target_service_id not in [None, self.service_id]:
+        if message.target_service_id not in [None, self.service_id]:
             return  # Ignore commands for other services
 
-        if message.payload.command == CommandType.START:
+        cmd = message.command
+        if cmd == CommandType.START:
             await self._on_start()
-        elif message.payload.command == CommandType.STOP:
+        elif cmd == CommandType.STOP:
             await self.stop()
-        elif message.payload.command == CommandType.CONFIGURE:
+        elif cmd == CommandType.CONFIGURE:
             await self._configure(message.payload)
         else:
-            self.logger.warning(f"Received unknown command: {message.command}")
+            self.logger.warning(f"Received unknown command: {cmd}")
 
     @abstractmethod
-    async def _configure(self, payload: BasePayload) -> None:
+    async def _configure(self, payload: PayloadT) -> None:
         """Configure the service."""
         pass
 
     async def _set_service_status(self, status: ServiceState) -> None:
         """Send a service state message to the system controller."""
         self.state = status
-        status_message = self.create_message(StatusPayload(state=self.state))
+        status_message = self.wrap_message(StatusMessage(state=self.state))
         await self._publish_message(
             ClientType.COMPONENT_PUB, Topic.STATUS, status_message
         )

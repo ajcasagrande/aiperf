@@ -1,12 +1,14 @@
 import asyncio
+import logging
 import uuid
 
 import zmq
 from zmq import SocketType
 
-from aiperf.common.comms.zmq_comms.base import ZmqSocketBase
-from aiperf.common.comms.zmq_comms.pub import logger
+from .base import ZmqSocketBase
 from aiperf.common.models.request_response import ResponseData, RequestData
+
+logger = logging.getLogger(__name__)
 
 
 class ZmqReqSocket(ZmqSocketBase):
@@ -23,6 +25,73 @@ class ZmqReqSocket(ZmqSocketBase):
             socket_ops (dict, optional): Additional socket options to set.
         """
         super().__init__(context, SocketType.REQ, address, bind, socket_ops)
+        self._response_futures = {}
+        self.client_id = uuid.uuid4().hex
+
+    async def initialize(self) -> bool:
+        """Initialize the socket and start processing messages."""
+        success = await super().initialize()
+        if success:
+            self._background_task = asyncio.create_task(self._process_messages())
+            return True
+        return False
+
+    async def _process_messages(self) -> None:
+        """Process incoming response messages in the background."""
+        while not self._is_shutdown:
+            try:
+                if self.socket and not self._is_shutdown:
+                    response_json = await self.socket.recv_string()
+                    await self._handle_response(response_json)
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"Error processing messages: {e}")
+                await asyncio.sleep(0.1)
+
+    async def _handle_response(self, response_json: str) -> None:
+        """Handle a response message.
+
+        Args:
+            response_json: The JSON response string
+        """
+        try:
+            response = ResponseData.model_validate_json(response_json)
+            request_id = response.request_id
+
+            if request_id in self._response_futures:
+                future = self._response_futures[request_id]
+                if not future.done():
+                    future.set_result(response_json)
+            else:
+                logger.warning(
+                    f"Received response for unknown request ID: {request_id}"
+                )
+        except Exception as e:
+            logger.error(f"Error handling response: {e}")
+
+    async def shutdown(self) -> None:
+        """Shutdown the socket and clean up resources."""
+        if self._background_task and not self._background_task.done():
+            self._background_task.cancel()
+            try:
+                await self._background_task
+            except asyncio.CancelledError:
+                pass
+
+        # Resolve any pending futures with errors
+        for request_id, future in self._response_futures.items():
+            if not future.done():
+                error_response = ResponseData(
+                    request_id=request_id,
+                    client_id=self.client_id,
+                    status="error",
+                    message="Socket was shut down",
+                )
+                future.set_result(error_response.model_dump_json())
+
+        self._response_futures.clear()
+        await super().shutdown()
 
     async def request(
         self,
@@ -99,7 +168,9 @@ class ZmqReqSocket(ZmqSocketBase):
             logger.error(f"Error sending request to {target}: {e}")
 
             return ResponseData(
-                request_id=request_data.request_id,
+                request_id=request_data.request_id
+                if hasattr(request_data, "request_id")
+                else "error",
                 client_id=self.client_id,
                 status="error",
                 message=str(e),

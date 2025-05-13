@@ -1,12 +1,14 @@
 import asyncio
+import logging
 from typing import Dict, Callable, Optional, Union, Any
 
 import zmq
 from zmq import SocketType
 
-from aiperf.common.comms.zmq_comms.base import ZmqSocketBase
-from aiperf.common.comms.zmq_comms.pub import logger
+from .base import ZmqSocketBase
 from aiperf.common.models.push_pull import PushPullData
+
+logger = logging.getLogger(__name__)
 
 
 class ZmqPullSocket(ZmqSocketBase):
@@ -101,7 +103,7 @@ class ZmqPullSocket(ZmqSocketBase):
                 message_bytes = await self.socket.recv()
                 message_json = message_bytes.decode()
 
-                pull_data = PushPullData.from_json(message_json)
+                pull_data = PushPullData.model_validate_json(message_json)
                 return pull_data
         except Exception as e:
             logger.error(f"Error pulling data from {topic}: {e}")

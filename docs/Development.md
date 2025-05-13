@@ -154,7 +154,7 @@ from aiperf.common.models.messages import BaseMessage
 
 class ExampleService(ServiceBase):
    def __init__(self, config: ServiceConfig) -> None:
-      super().__init__(service_type="example_service", config=config)
+      super().__init__(service_type="example_service", service_config=config)
       self.my_resource = None
 
    async def _initialize(self) -> None:

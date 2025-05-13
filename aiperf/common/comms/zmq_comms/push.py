@@ -1,9 +1,13 @@
+import logging
+
 import zmq
 from zmq import SocketType
 
-from aiperf.common.comms.zmq_comms.base import ZmqSocketBase
-from aiperf.common.comms.zmq_comms.pub import logger
 from aiperf.common.models.push_pull import PushPullData
+
+from .base import ZmqSocketBase
+
+logger = logging.getLogger(__name__)
 
 
 class ZmqPushSocket(ZmqSocketBase):

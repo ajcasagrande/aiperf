@@ -1,14 +1,11 @@
 import asyncio
 import sys
 import uuid
-from typing import Any, Dict
 
 import uvloop
-from pydantic import Field
 
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import (
-    PayloadType,
     ServiceType,
     Topic,
     ClientType,
@@ -22,39 +19,32 @@ from aiperf.common.models.messages import (
 )
 from aiperf.common.models.push_pull import PushPullData
 from aiperf.common.models.request_response import (
-    BaseRequestPayload,
     RequestData,
     ResponseData,
+    WorkerRequestPayload,
 )
 from aiperf.common.service.base import ServiceBase
-
-
-class WorkerRequestPayload(BaseRequestPayload):
-    """Specific request payload for worker requests."""
-
-    payload_type: PayloadType = PayloadType.WORKER_REQUEST
-    operation: str = Field(
-        ...,
-        description="The operation to perform",
-    )
-    parameters: Dict[str, Any] = Field(
-        default_factory=dict,
-        description="Operation parameters",
-    )
 
 
 class Worker(ServiceBase):
     """Worker responsible for sending requests to the server."""
 
-    def __init__(self, config: ServiceConfig) -> None:
-        super().__init__(service_type=ServiceType.WORKER, config=config)
+    def __init__(self, service_config: ServiceConfig, service_id: str = None) -> None:
+        super().__init__(service_config=service_config, service_id=service_id)
         self.logger.debug("Initializing worker")
+
+    @property
+    def service_type(self) -> ServiceType:
+        """The type of service."""
+        return ServiceType.WORKER
 
     async def _initialize(self) -> None:
         """Initialize worker-specific components."""
         self.logger.debug("Initializing worker")
         await self.communication.create_clients(
-            ClientType.CREDIT_RETURN_PUSH, ClientType.CREDIT_DROP_PULL
+            ClientType.CREDIT_RETURN_PUSH,
+            ClientType.CREDIT_DROP_PULL,
+            ClientType.CONVERSATION_DATA_REQ,
         )
 
     async def run(self) -> None:
@@ -98,7 +88,23 @@ class Worker(ServiceBase):
             pull_data: The data received from the pull request
         """
         self.logger.debug(f"Processing credit drop: {pull_data}")
+
         await asyncio.sleep(1)  # Simulate some processing time
+        
+        # await self.communication.request(
+        #     ClientType.CONVERSATION_DATA_REQ,
+        #     target=ServiceType.DATASET_MANAGER,
+        #     request_data=RequestData(
+        #         request_id=f"req_{uuid.uuid4().hex[:8]}",
+        #         client_id=self.service_id,
+        #         target=ServiceType.DATASET_MANAGER,
+        #         payload=WorkerRequestPayload(
+        #             operation="get_conversation_data",
+        #             parameters={},
+        #         ),
+        #     ),
+        # )
+
         self.logger.debug("Returning credits")
         (
             await self.communication.push(

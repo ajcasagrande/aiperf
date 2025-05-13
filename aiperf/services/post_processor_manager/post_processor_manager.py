@@ -9,9 +9,14 @@ from aiperf.common.service.component import ComponentServiceBase
 class PostProcessorManager(ComponentServiceBase):
     """Manager responsible for post-processing results data."""
 
-    def __init__(self, config: ServiceConfig) -> None:
-        super().__init__(service_type=ServiceType.POST_PROCESSOR_MANAGER, config=config)
+    def __init__(self, service_config: ServiceConfig, service_id: str = None) -> None:
+        super().__init__(service_config=service_config, service_id=service_id)
         self.logger.debug("Initializing post processor manager")
+
+    @property
+    def service_type(self) -> ServiceType:
+        """The type of service."""
+        return ServiceType.POST_PROCESSOR_MANAGER
 
     async def _initialize(self) -> None:
         """Initialize post processor manager-specific components."""

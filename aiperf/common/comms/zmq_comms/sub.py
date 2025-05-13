@@ -5,7 +5,7 @@ from typing import Dict, List, Callable
 import zmq
 from zmq import SocketType
 
-from aiperf.common.comms.zmq_comms.base import ZmqSocketBase
+from .base import ZmqSocketBase
 from aiperf.common.enums import Topic
 from aiperf.common.models.messages import (
     BaseMessage,

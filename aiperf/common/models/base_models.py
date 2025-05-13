@@ -1,12 +1,15 @@
 """Base Pydantic models used across the application."""
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, TypeVar
 
 from pydantic import BaseModel, Field
 
 
 class BasePayload(BaseModel):
     """Base model for all payload data."""
+
+
+PayloadT = TypeVar("PayloadT", bound=BasePayload)
 
 
 class RequestResponseBasePayload(BasePayload):

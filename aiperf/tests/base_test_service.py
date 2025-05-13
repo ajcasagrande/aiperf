@@ -7,8 +7,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from aiperf.common.enums import CommandType
 from aiperf.common.enums import ServiceState, Topic
-from aiperf.common.models.messages import CommandMessage, CommandPayload
+from aiperf.common.models.messages import CommandMessage
 from aiperf.tests.utils.async_test_utils import async_noop
 
 T = TypeVar("T")
@@ -70,16 +71,17 @@ class BaseServiceTest:
             "aiperf.common.comms.communication_factory.CommunicationFactory.create_communication",
             return_value=mock_communication,
         ):
-            service = service_class(config=service_config)
+            service = service_class(service_config=service_config)
 
-            # Special handling for TimingManager due to its create_clients call
-            if service_class.__name__ == "TimingManager":
-                service.communication = mock_communication
-                service.communication.initialized = True
-                await service._set_service_status(ServiceState.READY)
-            else:
-                # Initialize but don't run
-                await service._initialize()
+            # Manually set up the mock communication
+            service.communication = mock_communication
+            service.communication.initialized = True
+
+            # Reset the published messages tracking
+            mock_communication.published_messages = {}
+
+            # Initialize but don't run
+            await service._initialize()
 
             try:
                 yield service
@@ -87,29 +89,6 @@ class BaseServiceTest:
                 # Clean up
                 if service.state != ServiceState.STOPPED:
                     await service.stop()
-
-    @pytest.fixture
-    async def initialized_service(self, service_under_test, mock_communication):
-        """
-        Fixture that provides a service with properly initialized communication.
-
-        Args:
-            service_under_test: The service to initialize
-            mock_communication: The mock communication object
-
-        Returns:
-            A service with properly initialized communication
-        """
-        service = await async_fixture(service_under_test)
-
-        # Manually set up the mock communication
-        service.communication = mock_communication
-        service.communication.initialized = True
-
-        # Reset the published messages tracking
-        mock_communication.published_messages = {}
-
-        return service
 
     async def test_service_initialization(self, service_under_test):
         """Test that the service initializes correctly."""
@@ -136,9 +115,9 @@ class BaseServiceTest:
         await service.stop()
         assert service.state == ServiceState.STOPPED
 
-    async def test_service_heartbeat(self, initialized_service, mock_communication):
+    async def test_service_heartbeat(self, service_under_test, mock_communication):
         """Test that the service sends heartbeat messages."""
-        service = initialized_service
+        service = await async_fixture(service_under_test)
 
         # Directly send a heartbeat instead of waiting for the task
         await service._send_heartbeat()
@@ -147,9 +126,9 @@ class BaseServiceTest:
         assert Topic.HEARTBEAT in mock_communication.published_messages
         assert len(mock_communication.published_messages[Topic.HEARTBEAT]) > 0
 
-    async def test_service_registration(self, initialized_service, mock_communication):
+    async def test_service_registration(self, service_under_test, mock_communication):
         """Test that the service registers with the system controller."""
-        service = initialized_service
+        service = await async_fixture(service_under_test)
 
         # Register the service
         await service._register()
@@ -162,9 +141,9 @@ class BaseServiceTest:
         assert registration_msg.service_id == service.service_id
         assert registration_msg.service_type == service.service_type
 
-    async def test_service_status_update(self, initialized_service, mock_communication):
+    async def test_service_status_update(self, service_under_test, mock_communication):
         """Test that the service updates its status."""
-        service = initialized_service
+        service = await async_fixture(service_under_test)
 
         # Update the service status
         await service._set_service_status(ServiceState.READY)
@@ -176,7 +155,7 @@ class BaseServiceTest:
         status_msg = mock_communication.published_messages[Topic.STATUS][0]
         assert status_msg.service_id == service.service_id
         assert status_msg.service_type == service.service_type
-        assert status_msg.payload.state == ServiceState.READY
+        assert status_msg.state == ServiceState.READY
 
     @pytest.mark.parametrize(
         "state",
@@ -190,9 +169,9 @@ class BaseServiceTest:
             ServiceState.ERROR,
         ],
     )
-    async def test_service_all_states(self, initialized_service, state):
+    async def test_service_all_states(self, service_under_test, state):
         """Test that the service can transition to all possible states."""
-        service = initialized_service
+        service = await async_fixture(service_under_test)
 
         # Update the service status
         await service._set_service_status(state)
@@ -200,7 +179,9 @@ class BaseServiceTest:
         # Check that the service state was updated
         assert service.state == state
 
-    async def create_command_message(self, service, command="start") -> CommandMessage:
+    async def create_command_message(
+        self, service, command=CommandType.START
+    ) -> CommandMessage:
         """
         Helper method to create a properly formed command message for testing.
 
@@ -211,7 +192,7 @@ class BaseServiceTest:
         Returns:
             A CommandMessage instance with all required fields
         """
-        return service.create_message(CommandPayload(command=command))
+        return service.wrap_message(CommandMessage(command=command))
 
     @staticmethod
     def create_safe_mock() -> MagicMock:

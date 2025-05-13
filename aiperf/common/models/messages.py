@@ -7,35 +7,36 @@ from typing import Any, Dict, List, Optional, Union, TypeVar, Generic
 
 from pydantic import BaseModel, Field
 
-from aiperf.common.enums import CommandType, MessageType, PayloadType, ServiceState
-from aiperf.common.models.base_models import BasePayload, DataPayload
-
-T = TypeVar("T", bound=BaseModel)
+from aiperf.common.enums import CommandType, MessageType, ServiceState, PayloadType
+from aiperf.common.models.base_models import BasePayload, PayloadT, DataPayload
 
 
-class BaseMessage(BaseModel, Generic[T]):
+class BaseMessage(BaseModel, Generic[PayloadT]):
     """Base message model with common fields for all messages."""
 
-    service_id: str = Field(
-        ...,
+    service_id: Optional[str] = Field(
+        default=None,
         description="ID of the service sending the message",
     )
-    service_type: str = Field(
-        ...,
+    service_type: Optional[str] = Field(
+        default=None,
         description="Type of service sending the message",
     )
-    timestamp: datetime = Field(
-        default_factory=datetime.now,
+    timestamp: int = Field(
+        default_factory=time.time_ns,
         description="Time when the message was created",
     )
-    payload: T = Field(
-        ...,
+    payload: Optional[PayloadT] = Field(
+        default=None,
         description="Overloaded Payload of the message",
     )
 
 
-class StatusPayload(BasePayload):
-    """Payload for status messages."""
+MessageT = TypeVar("MessageT", bound=BaseMessage)
+
+
+class StatusMessage(BaseMessage):
+    """Status message sent by services to report their state."""
 
     state: ServiceState = Field(
         ...,
@@ -43,14 +44,8 @@ class StatusPayload(BasePayload):
     )
 
 
-class StatusMessage(BaseMessage[StatusPayload]):
-    """Status message sent by services to report their state."""
-
-    pass
-
-
-class HeartbeatPayload(BasePayload):
-    """Payload for heartbeat messages."""
+class HeartbeatMessage(StatusMessage):
+    """Heartbeat message sent periodically by services."""
 
     state: ServiceState = ServiceState.RUNNING
     timestamp: datetime = Field(
@@ -59,11 +54,7 @@ class HeartbeatPayload(BasePayload):
     )
 
 
-class HeartbeatMessage(BaseMessage[HeartbeatPayload]):
-    """Heartbeat message sent periodically by services."""
-
-
-class RegistrationPayload(StatusPayload):
+class RegistrationMessage(StatusMessage):
     """Payload for registration messages."""
 
     state: ServiceState = Field(
@@ -72,8 +63,8 @@ class RegistrationPayload(StatusPayload):
     )
 
 
-class CommandPayload(BasePayload):
-    """Payload for command messages."""
+class CommandMessage(BaseMessage):
+    """Command message sent to services to request an action."""
 
     command: CommandType = Field(
         ...,
@@ -91,10 +82,6 @@ class CommandPayload(BasePayload):
         default=None,
         description="ID of the target service for this command",
     )
-
-
-class CommandMessage(BaseMessage[CommandPayload]):
-    """Command message sent to services to request an action."""
 
 
 class ResponsePayload(BasePayload):
@@ -115,27 +102,13 @@ class ResponsePayload(BasePayload):
     )
 
 
-ResponseType = TypeVar("ResponseType", bound=ResponsePayload)
+ResponseT = TypeVar("ResponseT", bound=ResponsePayload)
 
 
-class ResponsePayload(BasePayload):
-    """Payload for response messages."""
-
-    message_type: PayloadType = PayloadType.RESPONSE
-    status: str = Field(
-        default="ok",
-        description="Status of the response (ok, error, etc.)",
-    )
-    request_id: str = Field(
-        ...,
-        description="ID of the command this is responding to",
-    )
-
-
-class ResponseMessage(BaseMessage[ResponsePayload]):
+class ResponseMessage(BaseMessage):
     """Response message sent in reply to a command."""
 
-    response: ResponseType = Field(
+    response: ResponseT = Field(
         default_factory=ResponsePayload,
         description="Response payload data",
     )
@@ -149,10 +122,6 @@ class DataMessage(BaseMessage):
         ...,
         description="Structured data payload",
     )
-
-
-class RegistrationMessage(BaseMessage[RegistrationPayload]):
-    """Registration message sent by services to register with the controller."""
 
 
 class RegistrationResponseMessage(BaseModel):

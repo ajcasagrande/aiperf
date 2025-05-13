@@ -41,13 +41,11 @@ class MultiProcessManager(ServiceManagerBase):
 
         # TODO: This is a hack to get the service classes
         # TODO: We should find a better way to do this
-        from aiperf.services.dataset_manager.dataset_manager import DatasetManager
-        from aiperf.services.post_processor_manager.post_processor_manager import (
-            PostProcessorManager,
-        )
-        from aiperf.services.records_manager.records_manager import RecordsManager
-        from aiperf.services.timing_manager.timing_manager import TimingManager
-        from aiperf.services.worker_manager.worker_manager import WorkerManager
+        from aiperf.services.dataset_manager import DatasetManager
+        from aiperf.services.post_processor_manager import PostProcessorManager
+        from aiperf.services.records_manager import RecordsManager
+        from aiperf.services.timing_manager import TimingManager
+        from aiperf.services.worker_manager import WorkerManager
 
         service_class_map = {
             ServiceType.DATASET_MANAGER: DatasetManager,

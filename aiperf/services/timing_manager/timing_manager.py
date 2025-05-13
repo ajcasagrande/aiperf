@@ -11,10 +11,15 @@ from aiperf.common.service.component import ComponentServiceBase
 
 
 class TimingManager(ComponentServiceBase):
-    def __init__(self, config: ServiceConfig) -> None:
-        super().__init__(service_type=ServiceType.TIMING_MANAGER, config=config)
+    def __init__(self, service_config: ServiceConfig, service_id: str = None) -> None:
+        super().__init__(service_config=service_config, service_id=service_id)
         self._credits_available = 100
         self.logger.debug("Initializing timing manager")
+
+    @property
+    def service_type(self) -> ServiceType:
+        """The type of service."""
+        return ServiceType.TIMING_MANAGER
 
     async def _initialize(self) -> None:
         """Initialize timing manager-specific components."""
@@ -33,7 +38,7 @@ class TimingManager(ComponentServiceBase):
             ClientType.CREDIT_RETURN_PULL, Topic.CREDIT_RETURN, self._on_credit_return
         )
         self.state = ServiceState.RUNNING
-        await asyncio.sleep(5)
+        await asyncio.sleep(3)
         asyncio.create_task(self._issue_credit_drops())
 
     async def _issue_credit_drops(self) -> None:

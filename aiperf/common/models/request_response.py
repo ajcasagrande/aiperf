@@ -5,6 +5,7 @@ from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, Field
 
+from aiperf.common.enums import PayloadType
 from aiperf.common.models.base_models import RequestResponseBasePayload
 
 
@@ -127,4 +128,18 @@ class RequestStateInfo(BaseModel):
     error: Optional[str] = Field(
         default=None,
         description="Error message if there was an error getting state info",
+    )
+
+
+class WorkerRequestPayload(BaseRequestPayload):
+    """Specific request payload for worker requests."""
+
+    payload_type: PayloadType = PayloadType.WORKER_REQUEST
+    operation: str = Field(
+        ...,
+        description="The operation to perform",
+    )
+    parameters: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Operation parameters",
     )

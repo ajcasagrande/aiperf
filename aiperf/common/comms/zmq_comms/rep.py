@@ -1,14 +1,15 @@
 import asyncio
-
+import logging
 import zmq
 from zmq import SocketType
 
-from aiperf.common.comms.zmq_comms.base import ZmqSocketBase
-from aiperf.common.comms.zmq_comms.pub import logger
+from .base import ZmqSocketBase
 from aiperf.common.models.request_response import (
     RequestData,
     ResponseData,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class ZmqRepSocket(ZmqSocketBase):
@@ -28,11 +29,86 @@ class ZmqRepSocket(ZmqSocketBase):
 
         self._response_futures = {}
         self._response_data = {}
+        self._receiver_task = None
+
+    async def initialize(self) -> bool:
+        """Initialize the socket and start the receiver task.
+
+        Returns:
+            True if initialization was successful, False otherwise
+        """
+        success = await super().initialize()
+        if success:
+            await self._initialize()
+            return True
+        return False
 
     async def _initialize(self) -> None:
         # Start the receiver task
-        asyncio.create_task(self._rep_receiver())
+        self._receiver_task = asyncio.create_task(self._rep_receiver())
         logger.info(f"REP socket initialized and listening on {self.address}")
+
+    async def shutdown(self) -> None:
+        """Shutdown the socket and clean up resources."""
+        if self._receiver_task and not self._receiver_task.done():
+            self._receiver_task.cancel()
+            try:
+                await self._receiver_task
+            except asyncio.CancelledError:
+                pass
+
+        # Resolve any pending futures with errors
+        for request_id, future in self._response_futures.items():
+            if not future.done():
+                future.set_exception(ConnectionError("Socket was shut down"))
+
+        self._response_futures.clear()
+        self._response_data.clear()
+        await super().shutdown()
+
+    async def wait_for_request(self, timeout: float = None) -> RequestData | None:
+        """Wait for a request to arrive.
+
+        Args:
+            timeout: Timeout in seconds or None for no timeout
+
+        Returns:
+            RequestData object or None if timeout occurred
+        """
+        if not self._is_initialized or self._is_shutdown:
+            logger.error(
+                "Cannot wait for request: communication not initialized or already shut down"
+            )
+            return None
+
+        try:
+            # Create a future for the next request
+            request_id = "next_request"  # Special ID for the next request
+            future = asyncio.Future()
+            self._response_futures[request_id] = future
+
+            try:
+                # Wait for the request with optional timeout
+                if timeout is not None:
+                    request_json = await asyncio.wait_for(future, timeout)
+                else:
+                    request_json = await future
+
+                # Parse the request
+                request = RequestData.model_validate_json(request_json)
+                return request
+
+            except asyncio.TimeoutError:
+                logger.debug("Timeout waiting for request")
+                return None
+
+            finally:
+                # Clean up future
+                self._response_futures.pop(request_id, None)
+
+        except Exception as e:
+            logger.error(f"Error waiting for request: {e}")
+            return None
 
     async def respond(self, target: str, response: ResponseData) -> bool:
         """Send a response to a request.
@@ -74,14 +150,19 @@ class ZmqRepSocket(ZmqSocketBase):
                 request_json = await self.socket.recv_string()
 
                 # Parse JSON to create RequestData object
-                request = RequestData.from_json(request_json)
+                request = RequestData.model_validate_json(request_json)
                 request_id = request.request_id
 
                 # Store request data
                 self._response_data[request_id] = request
 
-                # Resolve future if it exists
-                if request_id in self._response_futures:
+                # Check for special "next_request" future
+                if "next_request" in self._response_futures:
+                    future = self._response_futures.pop("next_request")
+                    if not future.done():
+                        future.set_result(request_json)
+                # Resolve future if it exists for the specific request ID
+                elif request_id in self._response_futures:
                     future = self._response_futures[request_id]
                     if not future.done():
                         future.set_result(request_json)

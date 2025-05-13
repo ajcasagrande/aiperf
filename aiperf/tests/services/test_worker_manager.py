@@ -9,7 +9,8 @@ import pytest
 
 from aiperf.common.enums import ServiceType, Topic
 from aiperf.services.worker_manager.worker_manager import WorkerManager, WorkerProcess
-from aiperf.tests.base_test_service import BaseServiceTest
+from aiperf.tests.base_test_service import BaseServiceTest, async_fixture
+from aiperf.tests.utils.async_test_utils import async_noop
 from aiperf.tests.utils.message_mocks import MessageTestUtils
 
 
@@ -22,19 +23,17 @@ class TestWorkerManager(BaseServiceTest):
         """Return the service class to test."""
         return WorkerManager
 
-    async def test_worker_manager_initialization(self, initialized_service):
+    async def test_worker_manager_initialization(self, service_under_test):
         """Test that the worker manager initializes correctly."""
-        service = initialized_service
+        service = await async_fixture(service_under_test)
         assert service.service_type == ServiceType.WORKER_MANAGER
         assert hasattr(service, "workers")
         assert hasattr(service, "cpu_count")
         assert service.cpu_count > 0
 
-    async def test_handle_command_message(
-        self, initialized_service, mock_communication
-    ):
+    async def test_handle_command_message(self, service_under_test, mock_communication):
         """Test that the worker manager handles command messages correctly."""
-        service = initialized_service
+        service = await async_fixture(service_under_test)
 
         # Create a command message using the helper method
         command_msg = await self.create_command_message(service, command="start")
@@ -54,19 +53,9 @@ class TestWorkerManager(BaseServiceTest):
             # Verify the method was called with our message
             mock_process.assert_called_once_with(command_msg)
 
-    async def test_worker_spawn_methods_exist(self, initialized_service):
-        """Test that worker spawn methods exist and are callable."""
-        service = initialized_service
-
-        # Verify the required worker management methods exist
-        assert hasattr(service, "_spawn_multiprocessing_workers")
-        assert callable(service._spawn_multiprocessing_workers)
-        assert hasattr(service, "_stop_multiprocessing_workers")
-        assert callable(service._stop_multiprocessing_workers)
-
-    async def test_spawn_multiprocessing_workers(self, initialized_service):
+    async def test_spawn_multiprocessing_workers(self, service_under_test):
         """Test spawning multiprocessing workers."""
-        service = initialized_service
+        service = await async_fixture(service_under_test)
 
         # Mock the multiprocessing.Process
         mock_process = self.create_safe_mock()
@@ -89,9 +78,9 @@ class TestWorkerManager(BaseServiceTest):
             # Verify process was started
             mock_process.start.assert_called()
 
-    async def test_stop_multiprocessing_workers(self, initialized_service):
+    async def test_stop_multiprocessing_workers(self, service_under_test):
         """Test stopping multiprocessing workers."""
-        service = initialized_service
+        service = await async_fixture(service_under_test)
 
         # Create mock workers
         mock_process = self.create_safe_mock()
@@ -107,12 +96,8 @@ class TestWorkerManager(BaseServiceTest):
                 worker_id=worker_id, process=mock_process
             )
 
-        # Mock asyncio.to_thread and wait_for to prevent actual waiting
-        future = asyncio.Future()
-        future.set_result(None)
-
         with (
-            patch("asyncio.to_thread", return_value=future),
+            patch("asyncio.to_thread", return_value=async_noop),
             patch("asyncio.wait_for", side_effect=asyncio.TimeoutError),
         ):
             # Stop the workers - this should now handle the TimeoutError case
@@ -122,9 +107,9 @@ class TestWorkerManager(BaseServiceTest):
             assert mock_process.terminate.call_count == 2
             assert mock_process.kill.call_count > 0
 
-    async def test_worker_manager_specific_functionality(self, initialized_service):
+    async def test_worker_manager_specific_functionality(self, service_under_test):
         """Test worker manager specific functionality."""
-        service = initialized_service
+        service = await async_fixture(service_under_test)
 
         # Use a normal dict without mocks to avoid async issues
         service.workers = {"worker_1": {"some_data": "test"}}

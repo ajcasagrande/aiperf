@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Callable, Optional, Union, Coroutine, Any
+from typing import Callable, Optional, Union, Coroutine, Any, TypeVar
 
 from aiperf.common.enums import ClientType
 from aiperf.common.models.messages import BaseMessage
@@ -9,8 +9,10 @@ from aiperf.common.models.request_response import (
     ResponseData,
 )
 
+T = TypeVar("T")
 
-class Communication(ABC):
+
+class BaseCommunication(ABC):
     """Base class for communication between AIPerf components."""
 
     @abstractmethod
@@ -61,7 +63,7 @@ class Communication(ABC):
         self,
         client_type: ClientType,
         topic: str,
-        callback: Callable[[BaseMessage], Coroutine[Any, Any, None]] = None,
+        callback: Callable[[T], Coroutine[Any, Any, None]] = None,
     ) -> bool:
         """Subscribe to a topic.
 

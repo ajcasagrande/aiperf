@@ -1,4 +1,4 @@
-from aiperf.common.exceptions.base import AIPerfException
+from .base import AIPerfException
 
 
 class ServiceException(AIPerfException):

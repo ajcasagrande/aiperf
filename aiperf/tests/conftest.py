@@ -4,11 +4,11 @@ This module contains shared fixtures for testing aiperf services.
 
 import uuid
 from typing import Any, Callable, Dict, List
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from aiperf.common.comms.communication import Communication
+from aiperf.common.comms.communication import BaseCommunication
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import (
     ServiceRunType,
@@ -16,6 +16,14 @@ from aiperf.common.enums import (
     ClientType,
 )
 from aiperf.common.models.messages import BaseMessage
+from aiperf.tests.utils.async_test_utils import async_noop
+
+
+@pytest.fixture
+def no_sleep(self):
+    """Fixture to replace asyncio.sleep with a no-op."""
+    with patch("asyncio.sleep", returns=async_noop):
+        yield
 
 
 @pytest.fixture
@@ -36,7 +44,7 @@ def service_config() -> ServiceConfig:
 @pytest.fixture
 def mock_communication() -> AsyncMock:
     """Create a mock communication object with publishing and subscription tracking."""
-    mock_comm = AsyncMock(spec=Communication)
+    mock_comm = AsyncMock(spec=BaseCommunication)
 
     # Configure basic returns for methods
     mock_comm.initialize.return_value = True
