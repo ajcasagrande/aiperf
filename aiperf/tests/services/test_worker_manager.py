@@ -122,9 +122,7 @@ class TestWorkerManager(BaseServiceTest):
             assert mock_process.terminate.call_count == 2
             assert mock_process.kill.call_count > 0
 
-    async def test_worker_manager_specific_functionality(
-        self, initialized_service
-    ):
+    async def test_worker_manager_specific_functionality(self, initialized_service):
         """Test worker manager specific functionality."""
         service = initialized_service
 

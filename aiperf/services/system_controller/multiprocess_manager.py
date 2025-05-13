@@ -150,9 +150,7 @@ class MultiProcessManager(ServiceManagerBase):
     async def wait_for_all_services_start(self) -> bool:
         pass
 
-    async def _wait_for_process(
-        self, multi_process_info: MultiProcessRunInfo
-    ) -> None:
+    async def _wait_for_process(self, multi_process_info: MultiProcessRunInfo) -> None:
         """Wait for a process to terminate with timeout handling."""
         if not multi_process_info.process or not multi_process_info.process.is_alive():
             return

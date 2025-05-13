@@ -1,6 +1,7 @@
 """
 Base test class for testing aiperf services.
 """
+
 from typing import Any, Type, TypeVar
 from unittest.mock import MagicMock, patch
 
@@ -88,9 +89,7 @@ class BaseServiceTest:
                     await service.stop()
 
     @pytest.fixture
-    async def initialized_service(
-        self, service_under_test, mock_communication
-    ):
+    async def initialized_service(self, service_under_test, mock_communication):
         """
         Fixture that provides a service with properly initialized communication.
 
@@ -137,9 +136,7 @@ class BaseServiceTest:
         await service.stop()
         assert service.state == ServiceState.STOPPED
 
-    async def test_service_heartbeat(
-        self, initialized_service, mock_communication
-    ):
+    async def test_service_heartbeat(self, initialized_service, mock_communication):
         """Test that the service sends heartbeat messages."""
         service = initialized_service
 
@@ -150,9 +147,7 @@ class BaseServiceTest:
         assert Topic.HEARTBEAT in mock_communication.published_messages
         assert len(mock_communication.published_messages[Topic.HEARTBEAT]) > 0
 
-    async def test_service_registration(
-        self, initialized_service, mock_communication
-    ):
+    async def test_service_registration(self, initialized_service, mock_communication):
         """Test that the service registers with the system controller."""
         service = initialized_service
 
@@ -167,9 +162,7 @@ class BaseServiceTest:
         assert registration_msg.service_id == service.service_id
         assert registration_msg.service_type == service.service_type
 
-    async def test_service_status_update(
-        self, initialized_service, mock_communication
-    ):
+    async def test_service_status_update(self, initialized_service, mock_communication):
         """Test that the service updates its status."""
         service = initialized_service
 

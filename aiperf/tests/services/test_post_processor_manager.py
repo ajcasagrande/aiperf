@@ -20,9 +20,7 @@ class TestPostProcessorManager(BaseServiceTest):
         """Return the service class to test."""
         return PostProcessorManager
 
-    async def test_post_processor_manager_initialization(
-        self, initialized_service
-    ):
+    async def test_post_processor_manager_initialization(self, initialized_service):
         """Test that the post processor manager initializes correctly."""
         service = initialized_service
         assert service.service_type == ServiceType.POST_PROCESSOR_MANAGER

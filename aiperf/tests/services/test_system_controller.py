@@ -20,7 +20,8 @@ from aiperf.common.models.messages import (
     RegistrationMessage,
     RegistrationPayload,
     StatusMessage,
-    StatusPayload, HeartbeatPayload,
+    StatusPayload,
+    HeartbeatPayload,
 )
 from aiperf.services.system_controller.system_controller import SystemController
 from aiperf.tests.base_test_service import BaseServiceTest, async_fixture
@@ -55,9 +56,7 @@ class TestSystemController(BaseServiceTest):
                     await service.stop()
 
     @pytest.fixture
-    async def initialized_service(
-        self, service_under_test, mock_communication
-    ):
+    async def initialized_service(self, service_under_test, mock_communication):
         """Override to add SystemController specific attributes and methods."""
         service = await async_fixture(service_under_test)
         service.communication = mock_communication
@@ -73,9 +72,7 @@ class TestSystemController(BaseServiceTest):
         assert hasattr(service.service_manager, "service_id_map")
         assert isinstance(service.service_manager.service_id_map, dict)
 
-    async def test_service_status_update(
-        self, initialized_service, mock_communication
-    ):
+    async def test_service_status_update(self, initialized_service, mock_communication):
         """Override to test that the service updates its status correctly for SystemController."""
         service = initialized_service
 
@@ -93,9 +90,7 @@ class TestSystemController(BaseServiceTest):
         assert status_msg.payload.state == ServiceState.READY
 
     @pytest.fixture
-    def test_worker_registration(
-        self, initialized_service
-    ) -> RegistrationMessage:
+    def test_worker_registration(self, initialized_service) -> RegistrationMessage:
         """Fixture providing test data for worker registration."""
         return initialized_service.create_message(RegistrationPayload())
 
@@ -175,9 +170,7 @@ class TestSystemController(BaseServiceTest):
 
         # Check that the last heartbeat was updated
         assert (
-            service.service_manager.service_id_map[
-                worker_data.service_id
-            ].last_seen
+            service.service_manager.service_id_map[worker_data.service_id].last_seen
             >= timestamp
         )
 
@@ -202,7 +195,7 @@ class TestSystemController(BaseServiceTest):
     )
     async def test_send_command_to_service(
         self,
-            initialized_service,
+        initialized_service,
         mock_communication,
         test_worker_registration,
         command,
@@ -280,7 +273,8 @@ class TestSystemController(BaseServiceTest):
 
         # Send heartbeat from unknown service
         heartbeat_message = HeartbeatMessage(
-            service_id=unknown_id, service_type=ServiceType.WORKER,
+            service_id=unknown_id,
+            service_type=ServiceType.WORKER,
             payload=HeartbeatPayload(
                 state=ServiceState.RUNNING,
                 timestamp=datetime.now(),

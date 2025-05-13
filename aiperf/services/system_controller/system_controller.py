@@ -17,7 +17,8 @@ from aiperf.common.exceptions.service import ServiceInitializationException
 from aiperf.common.models.messages import (
     HeartbeatMessage,
     RegistrationMessage,
-    StatusMessage, CommandPayload,
+    StatusMessage,
+    CommandPayload,
 )
 from aiperf.common.service.controller import ControllerServiceBase
 from aiperf.services.system_controller.kubernetes_manager import (
@@ -266,10 +267,12 @@ class SystemController(ControllerServiceBase):
             return False
 
         # Create command message using the helper method
-        command_message = self.create_message(CommandPayload(
-            command=command,
-            target_service_id=target_service_id,
-        ))
+        command_message = self.create_message(
+            CommandPayload(
+                command=command,
+                target_service_id=target_service_id,
+            )
+        )
 
         # Publish command message
         return await self._publish_message(

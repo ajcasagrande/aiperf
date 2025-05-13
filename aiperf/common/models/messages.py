@@ -59,7 +59,6 @@ class HeartbeatPayload(BasePayload):
     )
 
 
-
 class HeartbeatMessage(BaseMessage[HeartbeatPayload]):
     """Heartbeat message sent periodically by services."""
 
