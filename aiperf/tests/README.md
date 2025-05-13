@@ -1,3 +1,19 @@
+<!--
+#  SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+#  SPDX-License-Identifier: Apache-2.0
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#  http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+-->
 # AI Perf Testing Framework
 
 This document provides a comprehensive guide to the AIPerf testing framework, explaining its architecture, how to use it, and how to troubleshoot common issues.
@@ -172,11 +188,11 @@ Use this fixture when testing code that would normally sleep or wait:
 ```python
 async def test_service_operation(self, service_under_test, no_sleep):
     service = await async_fixture(service_under_test)
-    
+
     # The no_sleep fixture will prevent actual sleeping
     # so this test will run quickly
     await service.operation_with_delays()
-    
+
     # Test assertions
     assert service.some_property == expected_value
 ```
@@ -277,4 +293,4 @@ service = await async_fixture(service_under_test)
 
 3. **Check mock behavior**:
    - Verify mock return values and side effects
-   - Use `AsyncMockWithTracking` to record call history 
+   - Use `AsyncMockWithTracking` to record call history
