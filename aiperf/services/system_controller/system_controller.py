@@ -162,13 +162,8 @@ class SystemController(ControllerServiceBase):
         Args:
             message: The registration message to process
         """
-        self.logger.warning(f"Processing registration message: {message}")
         service_id = message.service_id
         service_type = message.service_type
-
-        self.logger.warning(
-            f"Processing registration from {service_type} with ID: {service_id}"
-        )
 
         self.logger.debug(
             f"Processing registration from {service_type} with ID: {service_id}"

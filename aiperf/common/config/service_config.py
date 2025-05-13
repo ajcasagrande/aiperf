@@ -20,7 +20,7 @@ class ServiceConfig(BaseModel):
         description="Type of service run (MULTIPROCESSING, KUBERNETES)",
     )
     heartbeat_timeout: float = Field(
-        default=15.0,
+        default=60.0,
         description="Time in seconds after which a service is considered dead if no heartbeat received",
     )
     registration_timeout: float = Field(
@@ -32,7 +32,7 @@ class ServiceConfig(BaseModel):
         description="Default timeout for command responses",
     )
     heartbeat_interval: float = Field(
-        default=5.0,
+        default=10.0,
         description="Interval in seconds between heartbeat messages",
     )
     min_workers: int = Field(

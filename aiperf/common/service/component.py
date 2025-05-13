@@ -69,14 +69,14 @@ class ComponentServiceBase(ServiceBase, ABC):
 
     async def _process_command_message(self, message: CommandMessage) -> None:
         """Process a command message."""
-        if message.target_service_id != self.service_id:
+        if message.payload.target_service_id not in [None, self.service_id]:
             return  # Ignore commands for other services
 
-        if message.command == CommandType.START:
+        if message.payload.command == CommandType.START:
             await self._on_start()
-        elif message.command == CommandType.STOP:
+        elif message.payload.command == CommandType.STOP:
             await self.stop()
-        elif message.command == CommandType.CONFIGURE:
+        elif message.payload.command == CommandType.CONFIGURE:
             await self._configure(message.payload)
         else:
             self.logger.warning(f"Received unknown command: {message.command}")

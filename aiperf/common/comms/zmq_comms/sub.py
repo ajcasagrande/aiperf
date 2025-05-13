@@ -101,7 +101,7 @@ class ZmqSubscriber(ZmqSocketBase):
                         try:
                             await callback(message)
                         except Exception as e:
-                            logger.error(
+                            logger.exception(
                                 f"Error in subscriber callback for topic {topic}: {e} {type(e)}"
                             )
             except asyncio.CancelledError:
