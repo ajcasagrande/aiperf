@@ -3,27 +3,19 @@ This module contains shared fixtures for testing aiperf services.
 """
 
 import uuid
-from typing import Any, Callable, Dict, List, Type
-from unittest.mock import AsyncMock, patch
+from typing import Any, Callable, Dict, List
+from unittest.mock import AsyncMock
 
 import pytest
-from pydantic import BaseModel
 
 from aiperf.common.comms.communication import Communication
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import (
     ServiceRunType,
-    ServiceState,
-    ServiceType,
-    Topic,
     CommBackend,
     ClientType,
 )
 from aiperf.common.models.messages import BaseMessage
-from aiperf.common.service.base import ServiceBase
-
-# Configure pytest-asyncio to run all async tests
-pytestmark = pytest.mark.asyncio
 
 
 @pytest.fixture
@@ -85,89 +77,3 @@ def mock_communication() -> AsyncMock:
     mock_comm.subscribe.side_effect = mock_subscribe
 
     return mock_comm
-
-
-@pytest.fixture
-async def mock_service_base(service_id, service_config, mock_communication):
-    """Create a mock service base for testing."""
-
-    # Create a concrete implementation of the abstract ServiceBase
-    class ConcreteService(ServiceBase):
-        async def _initialize(self) -> None:
-            pass
-
-        async def _on_start(self) -> None:
-            pass
-
-        async def _on_stop(self) -> None:
-            pass
-
-        async def _cleanup(self) -> None:
-            pass
-
-        async def _process_message(self, topic: Topic, message: BaseMessage) -> None:
-            pass
-
-    with patch(
-        "aiperf.common.comms.communication_factory.CommunicationFactory.create_communication",
-        return_value=mock_communication,
-    ):
-        service = ConcreteService(service_type=ServiceType.TEST, config=service_config)
-        service.service_id = service_id
-
-        # Initialize but don't run
-        await service._initialize()
-
-        try:
-            yield service
-        finally:
-            # Clean up heartbeat task
-            if service.heartbeat_task and not service.heartbeat_task.done():
-                service.heartbeat_task.cancel()
-
-
-@pytest.fixture
-def mock_message_factory():
-    """Factory for creating mock messages of different types."""
-
-    def _create_message(message_type: Type[BaseModel], **kwargs) -> Any:
-        return message_type(**kwargs)
-
-    return _create_message
-
-
-@pytest.fixture
-def mock_dependent_services():
-    """
-    Mock all dependent services that a service might interact with.
-    Returns a dictionary of mock services keyed by service type.
-    """
-    mock_services = {}
-
-    for service_type in ServiceType:
-        # Skip abstract types
-        if service_type in [ServiceType.UNKNOWN, ServiceType.TEST]:
-            continue
-
-        mock_service = AsyncMock()
-        mock_service.service_id = uuid.uuid4().hex
-        mock_service.service_type = service_type
-        mock_service.state = ServiceState.RUNNING
-        mock_services[service_type.value] = mock_service
-
-    return mock_services
-
-
-@pytest.fixture
-async def simulate_message_flow():
-    """
-    Fixture that provides a function to simulate message flow between services.
-    This allows testing complex interactions without actually running the services.
-    """
-
-    async def _simulate_message(service, topic: Topic, message_data: Dict[str, Any]):
-        """Simulate receiving a message on a specific topic."""
-        message = BaseMessage.model_validate(message_data)
-        await service._process_message(topic, message)
-
-    yield _simulate_message

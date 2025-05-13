@@ -15,7 +15,6 @@ from aiperf.common.enums import (
 )
 from aiperf.common.models.credits import CreditReturn
 from aiperf.common.models.messages import (
-    BaseMessage,
     ConversationData,
     CreditMessage,
     ResultData,
@@ -111,19 +110,6 @@ class Worker(ServiceBase):
                 ),
             ),
         )
-
-    async def _process_message(self, topic: Topic, message: BaseMessage) -> None:
-        """Process a message from another service.
-
-        Args:
-            topic: The topic the message was received on
-            message: The message to process
-        """
-        self.logger.debug(f"Processing message: {topic}, {message}")
-
-        # Handle different message types
-        if topic == Topic.DATA and isinstance(message, CreditMessage):
-            await self.process_credit(message)
 
     async def send_request(
         self, operation: str, parameters: dict = None, target: str = None

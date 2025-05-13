@@ -1,9 +1,8 @@
 import sys
 
 from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.enums import ServiceType, Topic
+from aiperf.common.enums import ServiceType
 from aiperf.common.models.base_models import BasePayload
-from aiperf.common.models.messages import BaseMessage
 from aiperf.common.service.component import ComponentServiceBase
 
 
@@ -33,16 +32,6 @@ class PostProcessorManager(ComponentServiceBase):
         """Clean up post processor manager-specific components."""
         self.logger.debug("Cleaning up post processor manager")
         # TODO: Implement post processor manager cleanup
-
-    async def _process_message(self, topic: Topic, message: BaseMessage) -> None:
-        """Process a message from another service.
-
-        Args:
-            topic: The topic the message was received on
-            message: The message to process
-        """
-        self.logger.debug(f"Processing message: {topic}, {message}")
-        # TODO: Implement post processor manager message processing
 
     async def _configure(self, payload: BasePayload) -> None:
         """Configure the post processor manager."""

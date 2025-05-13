@@ -2,27 +2,13 @@
 Utilities for mocking messages and testing message handling.
 """
 
-from typing import Any, Dict, List, Protocol, Type, TypeVar
+from typing import Any, Dict, List, Type, TypeVar
 from unittest.mock import AsyncMock
 
 from aiperf.common.enums import Topic
 from aiperf.common.models.messages import BaseMessage
 
 T = TypeVar("T", bound=BaseMessage)
-
-
-class ServiceProtocol(Protocol):
-    """Protocol for service objects with message processing methods."""
-
-    async def _process_message(self, topic: Topic, message: BaseMessage) -> None: ...
-
-    async def _process_registration_message(self, message: BaseMessage) -> None: ...
-
-    async def _process_status_message(self, message: BaseMessage) -> None: ...
-
-    async def _process_heartbeat_message(self, message: BaseMessage) -> None: ...
-
-    async def _process_command_message(self, message: BaseMessage) -> None: ...
 
 
 class MessageTestUtils:

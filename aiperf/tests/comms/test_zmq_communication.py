@@ -2,30 +2,25 @@
 Tests for the ZMQ communication module.
 """
 
-import json
 from unittest.mock import patch, MagicMock, AsyncMock
 
 import pytest
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from aiperf.common.comms.zmq_comms.zmq_communication import ZMQCommunication
 from aiperf.common.enums import ClientType, Topic, ServiceType
+from aiperf.common.models.base_models import BasePayload
 from aiperf.common.models.comms import ZMQCommunicationConfig, ZMQTCPTransportConfig
+from aiperf.common.models.messages import BaseMessage
 
 
-# Define a standard Pydantic model for test messages
-class MockMessage(BaseModel):
-    """A test message for testing serialization."""
+class MockPayload(BasePayload):
+    """Mock message payload class for testing."""
 
-    service_id: str
-    service_type: ServiceType
-    content: str
-    value: int
-    timestamp: float = Field(default_factory=lambda: 123456789.0)
-
-    def model_dump_json(self):
-        """Mock implementation for compatibility with BaseMessage."""
-        return json.dumps(self.model_dump())
+    content: str = Field(
+        ...,
+        description="Content of the message",
+    )
 
 
 @pytest.mark.asyncio
@@ -51,11 +46,10 @@ class TestZMQCommunication:
     @pytest.fixture
     def test_message(self):
         """Create a test message for communication tests."""
-        return MockMessage(
+        return BaseMessage(
             service_id="test-service",
             service_type=ServiceType.TEST,
-            content="Test content",
-            value=42,
+            payload=MockPayload(content="Test content"),
         )
 
     async def test_initialization(self, zmq_communication):
