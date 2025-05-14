@@ -67,7 +67,7 @@ class ComponentServiceBase(BaseService, ABC):
             await self._register()
             # Start heartbeat task
             await self._start_heartbeat_task()
-            await self._set_service_status(ServiceState.READY)
+            await self.set_state(ServiceState.READY)
 
             # Wait forever for the stop event to be set
             await self.stop_event.wait()
@@ -75,10 +75,10 @@ class ComponentServiceBase(BaseService, ABC):
             self.logger.debug("Service execution cancelled")
         except BaseException:
             self.logger.exception("Service execution failed:")
-            await self._set_service_status(ServiceState.ERROR)
+            await self.set_state(ServiceState.ERROR)
         finally:
             # Make sure to clean up properly even if there was an error
-            if self._state == ServiceState.RUNNING:
+            if self.state == ServiceState.RUNNING:
                 await self.stop()
 
     async def _process_command_message(self, message: BaseMessage) -> None:
@@ -101,7 +101,7 @@ class ComponentServiceBase(BaseService, ABC):
         """Configure the service."""
         pass
 
-    async def _set_service_status(self, status: ServiceState) -> None:
+    async def set_state(self, status: ServiceState) -> None:
         """Send a service state response to the system controller."""
         self._state = status
         status_message = self.create_status_message(self._state)

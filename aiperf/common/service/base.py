@@ -66,6 +66,20 @@ class BaseService(ABC):
         self._signal_tasks = set()
 
     @property
+    def state(self) -> ServiceState:
+        """The current state of the service."""
+        return self._state
+
+    async def set_state(self, state: ServiceState) -> None:
+        """Set the state of the service."""
+        self._state = state
+        if self.comms.is_initialized:
+            await self.comms.publish(
+                topic=Topic.STATUS,
+                message=self.create_status_message(state),
+            )
+
+    @property
     @abstractmethod
     def required_clients(self) -> list[ClientType]:
         """The communication clients required by the service."""
@@ -171,10 +185,6 @@ class BaseService(ABC):
             message=heartbeat_message,
         )
 
-    async def _set_service_status(self, status: ServiceState) -> None:
-        """Set the status of the service."""
-        self._state = status
-
     async def _start_heartbeat_task(self) -> None:
         """Start a background task to send heartbeats at regular intervals."""
 
@@ -239,7 +249,7 @@ class BaseService(ABC):
         self.logger.debug(f"Received signal {sig_name}, initiating graceful shutdown")
 
         # Stop the service if it's running
-        if self._state == ServiceState.RUNNING:
+        if self.state == ServiceState.RUNNING:
             await self.stop()
         else:
             # Just set the stop event to break out of the run loop
@@ -251,15 +261,15 @@ class BaseService(ABC):
         This method should be called to start the service after it has been initialized.
         """
         self.logger.debug("Starting %s service %s", self.service_type, self.service_id)
-        await self._set_service_status(ServiceState.STARTING)
+        await self.set_state(ServiceState.STARTING)
         try:
             await self._on_start()
-            await self._set_service_status(ServiceState.RUNNING)
+            await self.set_state(ServiceState.RUNNING)
         except BaseException:
             self.logger.exception(
                 "Failed to start service %s: %s", self.service_type, self.service_id
             )
-            await self._set_service_status(ServiceState.ERROR)
+            await self.set_state(ServiceState.ERROR)
             raise
 
     async def stop(self) -> None:
@@ -269,7 +279,7 @@ class BaseService(ABC):
                 "Service %s is not running, cannot stop", self.service_type
             )
             return
-        await self._set_service_status(ServiceState.STOPPING)
+        await self.set_state(ServiceState.STOPPING)
         # Signal the run method to exit if it hasn't already
         self.stop_event.set()
 

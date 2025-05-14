@@ -27,7 +27,6 @@ from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import (
     ServiceRunType,
     CommBackend,
-    ClientType,
 )
 from aiperf.common.models.messages import BaseMessage
 from aiperf.tests.utils.async_test_utils import async_noop
@@ -66,13 +65,15 @@ def mock_communication() -> AsyncMock:
     mock_comm.publish.return_value = True
     mock_comm.pull.return_value = True
     mock_comm.push.return_value = True
+    mock_comm.shutdown.return_value = True
+    mock_comm.is_initialized = True
+    mock_comm.is_shutdown = False
+    mock_comm.create_clients.return_value = True
 
     # Store published messages for verification
     mock_comm.published_messages: Dict[Any, List[BaseMessage]] = {}
 
-    async def mock_publish(
-        client_type: ClientType, topic: Any, message: BaseMessage
-    ) -> bool:
+    async def mock_publish(topic: Any, message: BaseMessage) -> bool:
         # Use the topic as the key, whether it's an enum or string
         topic_key = topic
 
@@ -89,9 +90,7 @@ def mock_communication() -> AsyncMock:
     # Store subscription callbacks
     mock_comm.subscriptions: Dict[str, Callable] = {}
 
-    async def mock_subscribe(
-        client_type: ClientType, topic: str, callback: Callable
-    ) -> bool:
+    async def mock_subscribe(topic: str, callback: Callable) -> bool:
         mock_comm.subscriptions[topic] = callback
         return True
 

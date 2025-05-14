@@ -43,7 +43,7 @@ class ControllerServiceBase(BaseService, ABC):
 
         await self._initialize()
 
-        await self._set_service_status(ServiceState.READY)
+        await self.set_state(ServiceState.READY)
 
         # Start the service
         await self._start()

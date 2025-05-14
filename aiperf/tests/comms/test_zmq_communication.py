@@ -22,7 +22,11 @@ import pytest
 from pydantic import Field
 
 from aiperf.common.comms.zmq_comms.zmq_communication import ZMQCommunication
-from aiperf.common.enums import ClientType, Topic
+from aiperf.common.enums import (
+    Topic,
+    PubClientType,
+    SubClientType,
+)
 from aiperf.common.models.comms import ZMQCommunicationConfig, ZMQTCPTransportConfig
 from aiperf.common.models.messages import BaseMessage
 from aiperf.common.models.payloads import BasePayload, DataPayload
@@ -55,6 +59,7 @@ class TestZMQCommunication:
             # Set up the context mock to return properly
             mock_context.return_value = MagicMock()
             comm = ZMQCommunication(config=mock_config)
+            comm.context = mock_context
             return comm
 
     @pytest.fixture
@@ -99,22 +104,22 @@ class TestZMQCommunication:
         # Patch the specific client classes and ensure they return our mock
         with (
             patch(
-                "aiperf.common.comms.zmq_comms.pub.ZMQPubClient",
+                "aiperf.common.comms.zmq_comms.clients.ZMQPubClient",
                 return_value=mock_client,
             ),
             patch(
-                "aiperf.common.comms.zmq_comms.sub.ZMQSubClient",
+                "aiperf.common.comms.zmq_comms.clients.ZMQSubClient",
                 return_value=mock_client,
             ),
         ):
             # Call create_clients
-            await zmq_communication._create_clients(
-                ClientType.COMPONENT_PUB, ClientType.COMPONENT_SUB
+            await zmq_communication.create_clients(
+                PubClientType.COMPONENT, SubClientType.COMPONENT
             )
 
             # Verify clients were added to the dictionary
-            assert ClientType.COMPONENT_PUB in zmq_communication.clients
-            assert ClientType.COMPONENT_SUB in zmq_communication.clients
+            assert PubClientType.COMPONENT in zmq_communication.clients
+            assert SubClientType.COMPONENT in zmq_communication.clients
 
             # Verify initialize was called for each client
             assert len(zmq_communication.clients) == 2
@@ -126,13 +131,11 @@ class TestZMQCommunication:
         mock_client.publish.return_value = True
 
         # Set up the client in the clients dictionary
-        zmq_communication.clients = {ClientType.COMPONENT_PUB: mock_client}
+        zmq_communication.clients = {PubClientType.COMPONENT: mock_client}
         zmq_communication._is_initialized = True
 
         # Publish a response
-        result = await zmq_communication.publish(
-            ClientType.COMPONENT_PUB, Topic.STATUS, test_message
-        )
+        result = await zmq_communication.publish(Topic.STATUS, test_message)
 
         # Verify the response was published
         assert result is True
@@ -150,12 +153,10 @@ class TestZMQCommunication:
             zmq_communication._is_initialized = True
 
             # Try to publish with a non-existent client
-            await zmq_communication.publish(
-                ClientType.COMPONENT_PUB, Topic.STATUS, test_message
-            )
+            await zmq_communication.publish(Topic.STATUS, test_message)
 
             # Verify create_clients was called
-            mock_create.assert_called_once_with(ClientType.COMPONENT_PUB)
+            mock_create.assert_called_once_with(PubClientType.COMPONENT)
 
     async def test_subscribe_to_topic(self, zmq_communication):
         """Test subscribing to a topic."""
@@ -164,7 +165,7 @@ class TestZMQCommunication:
         mock_client.subscribe.return_value = True
 
         # Set up the client in the clients dictionary
-        zmq_communication.clients = {ClientType.COMPONENT_SUB: mock_client}
+        zmq_communication.clients = {SubClientType.COMPONENT: mock_client}
         zmq_communication._is_initialized = True
 
         # Create a callback function
@@ -172,9 +173,7 @@ class TestZMQCommunication:
             pass
 
         # Subscribe to a topic
-        result = await zmq_communication.subscribe(
-            ClientType.COMPONENT_SUB, Topic.STATUS, callback
-        )
+        result = await zmq_communication.subscribe(Topic.STATUS, callback)
 
         # Verify subscription was set up
         assert result is True
@@ -190,8 +189,8 @@ class TestZMQCommunication:
 
         # Set up clients
         zmq_communication.clients = {
-            ClientType.COMPONENT_PUB: mock_client1,
-            ClientType.COMPONENT_SUB: mock_client2,
+            PubClientType.COMPONENT: mock_client1,
+            SubClientType.COMPONENT: mock_client2,
         }
         zmq_communication._is_initialized = True
         zmq_communication._is_shutdown = False

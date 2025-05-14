@@ -68,15 +68,10 @@ class BaseServiceTest:
 
     @pytest.fixture
     async def service_under_test(
-        self, service_class, service_config, mock_communication
+        self, service_class, service_config, mock_communication, no_sleep
     ):
         """
         Fixture that creates and initializes the service under test.
-
-        Args:
-            service_class: The class of the service to be tested
-            service_config: The service configuration
-            mock_communication: Mocked communication object
 
         Returns:
             An initialized instance of the service
@@ -94,6 +89,7 @@ class BaseServiceTest:
             # Reset the published messages tracking
             mock_communication.published_messages = {}
 
+            await service._base_init()
             # Initialize but don't run
             await service._initialize()
 
@@ -101,7 +97,7 @@ class BaseServiceTest:
                 yield service
             finally:
                 # Clean up
-                if service.state != ServiceState.STOPPED:
+                if service._state != ServiceState.STOPPED:
                     await service.stop()
 
     async def test_service_initialization(self, service_under_test):
@@ -111,7 +107,7 @@ class BaseServiceTest:
         assert service.service_type is not None
 
         # After initialization, service should be in one of these states
-        assert service.state in [
+        assert service._state in [
             ServiceState.INITIALIZING,
             ServiceState.READY,
             ServiceState.UNKNOWN,
@@ -160,7 +156,7 @@ class BaseServiceTest:
         service = await async_fixture(service_under_test)
 
         # Update the service status
-        await service._set_service_status(ServiceState.READY)
+        await service.set_state(ServiceState.READY)
 
         # Check that a status response was published
         assert Topic.STATUS in mock_communication.published_messages
@@ -188,7 +184,7 @@ class BaseServiceTest:
         service = await async_fixture(service_under_test)
 
         # Update the service status
-        await service._set_service_status(state)
+        await service.set_state(state)
 
         # Check that the service state was updated
         assert service.state == state

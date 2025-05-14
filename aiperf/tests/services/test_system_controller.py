@@ -23,7 +23,6 @@ from unittest.mock import patch
 import pytest
 
 from aiperf.common.enums import (
-    ClientType,
     CommandType,
     ServiceState,
     ServiceType,
@@ -63,9 +62,7 @@ class TestSystemController(BaseServiceTest):
 
         # Directly create and publish a status response for testing
         status_message = service.create_status_message(state=ServiceState.READY)
-        await service._publish_message(
-            ClientType.COMPONENT_PUB, Topic.STATUS, status_message
-        )
+        await service.comms.publish(Topic.STATUS, status_message)
 
         # Verify the response was published with correct fields
         assert Topic.STATUS in mock_communication.published_messages
@@ -212,7 +209,7 @@ class TestSystemController(BaseServiceTest):
         service = await async_fixture(service_under_test)
 
         # Start the service by directly setting state to RUNNING
-        await service._set_service_status(ServiceState.RUNNING)
+        await service.set_state(ServiceState.RUNNING)
         assert service.state == ServiceState.RUNNING
 
         # Register several components

@@ -74,7 +74,7 @@ class TimingManager(ComponentServiceBase):
         """Issue credit drops to workers."""
         self.logger.debug("Issuing credit drops to workers")
         # TODO: Actually implement real credit drop logic
-        while self._state == ServiceState.RUNNING:
+        while self.state == ServiceState.RUNNING:
             try:
                 await asyncio.sleep(0.1)
                 if self._credits_available <= 0:

@@ -20,7 +20,7 @@ import pytest
 
 from aiperf.common.enums import ServiceType
 from aiperf.services.timing_manager.timing_manager import TimingManager
-from aiperf.tests.base_test_service import BaseServiceTest
+from aiperf.tests.base_test_service import BaseServiceTest, async_fixture
 
 
 @pytest.mark.asyncio
@@ -32,8 +32,8 @@ class TestTimingManager(BaseServiceTest):
         """Return the service class to test."""
         return TimingManager
 
-    async def test_timing_manager_initialization(self, timing_manager_service):
+    async def test_timing_manager_initialization(self, service_under_test):
         """Test that the timing manager initializes correctly."""
-        service = timing_manager_service
+        service = await async_fixture(service_under_test)
         assert service.service_type == ServiceType.TIMING_MANAGER
         # Add timing manager specific assertions here
