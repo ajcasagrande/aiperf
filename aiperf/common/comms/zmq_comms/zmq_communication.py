@@ -41,13 +41,13 @@ from aiperf.common.models.messages import (
     BaseRequestMessage,
     BaseResponseMessage,
 )
-from .clients.base import BaseZMQClient
-from .clients.pub import ZMQPubClient
-from .clients.pull import ZMQPullClient
-from .clients.push import ZMQPushClient
-from .clients.rep import ZMQRepClient
-from .clients.req import ZMQReqClient
-from .clients.sub import ZMQSubClient
+from aiperf.common.comms.zmq_comms.clients.base import BaseZMQClient
+from aiperf.common.comms.zmq_comms.clients.pub import ZMQPubClient
+from aiperf.common.comms.zmq_comms.clients.pull import ZMQPullClient
+from aiperf.common.comms.zmq_comms.clients.push import ZMQPushClient
+from aiperf.common.comms.zmq_comms.clients.rep import ZMQRepClient
+from aiperf.common.comms.zmq_comms.clients.req import ZMQReqClient
+from aiperf.common.comms.zmq_comms.clients.sub import ZMQSubClient
 
 logger = logging.getLogger(__name__)
 

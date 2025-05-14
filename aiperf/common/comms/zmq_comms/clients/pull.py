@@ -20,7 +20,7 @@ import zmq
 from zmq import SocketType
 
 from aiperf.common.models.messages import BaseMessage
-from .base import BaseZMQClient
+from aiperf.common.comms.zmq_comms.clients.base import BaseZMQClient
 
 logger = logging.getLogger(__name__)
 
