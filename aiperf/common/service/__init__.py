@@ -12,8 +12,9 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from .base import BaseService
-from .component import ComponentServiceBase
-from .controller import ControllerServiceBase
 
 __all__ = ["BaseService", "ComponentServiceBase", "ControllerServiceBase"]
+
+from aiperf.common.service.base import BaseService
+from aiperf.common.service.component import ComponentServiceBase
+from aiperf.common.service.controller import ControllerServiceBase

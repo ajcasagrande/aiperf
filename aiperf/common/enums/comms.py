@@ -14,18 +14,7 @@
 #  limitations under the License.
 from typing import Union
 
-from .base import StrEnum
-
-# __all__ allows us to choose what gets imported when using import * on this file
-# Note: To generate the contents of __all__ from class name definitions, use the following shell snippet:
-#   sed -En "s/^class ([^\(:]+).*:|^def ([^\(]+).*|(\w+) = Union\[.*\]/    \"\1\2\3\",/p" aiperf/common/enums/comms.py | sort -u
-__all__ = [
-    "CommBackend",
-    "CommType",
-    "DataTopic",
-    "Topic",
-    "TopicType",
-]
+from aiperf.common.enums.base import StrEnum
 
 
 class CommBackend(StrEnum):

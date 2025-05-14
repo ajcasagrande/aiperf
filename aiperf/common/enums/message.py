@@ -12,15 +12,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from .base import StrEnum
-
-# __all__ allows us to choose what gets imported when using import * on this file
-# Note: To generate the contents of __all__ from class name definitions, use the following shell snippet:
-#   sed -En "s/^class ([^\(:]+).*:|^def ([^\(]+).*|(\w+) = Union\[/    \"\1\2\3\",/p" aiperf/common/enums/message.py | sort -u
-__all__ = [
-    "CommandType",
-    "MessageType",
-]
+from aiperf.common.enums.base import StrEnum
 
 
 # Message-related enums
