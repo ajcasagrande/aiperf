@@ -26,13 +26,12 @@ from aiperf.common.enums import CommandType, MessageType, ServiceState, ServiceT
 class BasePayload(BaseModel):
     """Base model for all payload data. Each payload type must inherit
     from this class and override the `message_type` field.
-
-    This is used with Pydantic's `discriminator` to allow for polymorphic payloads.
     """
 
     message_type: Literal[MessageType.UNKNOWN] = Field(
         ...,
-        description="Type of message",
+        description="Type of message. Must be overridden by the subclass. "
+        "This is used with Pydantic's `discriminator` to allow for polymorphic payloads.",
     )
 
 
@@ -72,7 +71,7 @@ class StatusPayload(BasePayload):
     )
     service_type: ServiceType = Field(
         ...,
-        description="Type of service",
+        description="Type of service the message is from",
     )
 
 
@@ -81,7 +80,7 @@ class HeartbeatPayload(StatusPayload):
 
     message_type: Literal[MessageType.HEARTBEAT] = MessageType.HEARTBEAT
 
-    state: ServiceState = ServiceState.RUNNING
+    state: Literal[ServiceState.RUNNING] = ServiceState.RUNNING
 
 
 class RegistrationPayload(StatusPayload):
@@ -89,7 +88,7 @@ class RegistrationPayload(StatusPayload):
 
     message_type: Literal[MessageType.REGISTRATION] = MessageType.REGISTRATION
 
-    state: ServiceState = ServiceState.READY
+    state: Literal[ServiceState.READY] = ServiceState.READY
 
 
 class CommandPayload(BasePayload):

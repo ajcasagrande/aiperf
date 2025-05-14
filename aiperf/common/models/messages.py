@@ -78,6 +78,7 @@ class BaseResponseMessage(BaseMessage):
     )
 
     request_id: str = Field(
+        ...,
         description="ID of the request",
     )
     payload: ResponsePayload = Field(

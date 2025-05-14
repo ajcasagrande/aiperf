@@ -13,7 +13,5 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 from .communication import BaseCommunication
-from .communication_factory import CommunicationFactory
-from .zmq_comms import ZMQCommunication
 
-__all__ = ["BaseCommunication", "CommunicationFactory", "ZMQCommunication"]
+__all__ = ["BaseCommunication"]

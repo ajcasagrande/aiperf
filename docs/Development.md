@@ -40,15 +40,15 @@ source .venv/bin/activate
 uv pip install -e ".[dev]"
 ```
 
-- Run `aiperf` in asyncio mode (current default)
+- Run `aiperf` with the process manager backend
 ```bash
-aiperf --run-type async
+aiperf --run-type process
 ```
 Press `Ctrl-C` to stop the process
 
-- Run `aiperf` in multiprocessing mode
+- Run `aiperf` with the Kubernetes backend
 ```bash
-aiperf --run-type process
+aiperf --run-type k8s
 ```
 Press `Ctrl-C` to stop the process
 
@@ -67,13 +67,19 @@ aiperf/
 │   ├── app/                 # Application components
 │   ├── cli.py               # Command line interface
 │   ├── common/              # Shared utilities and models
+│   │   ├── bootstrap.py        # Service bootstrap functionality
+│   │   ├── comms/              # Communication components
 │   │   ├── config/             # Configuration management
 │   │   ├── enums.py            # Enum definitions
 │   │   ├── exceptions/         # Custom exceptions
 │   │   ├── models/             # Pydantic data models
 │   │   │   ├── messages.py         # Message definitions
-│   │   │   └── service.py          # Service related model definitions
-│   │   └── service.py          # Base service implementation
+│   │   │   └── payloads.py         # Message payload definitions
+│   │   ├── service/            # Service components
+│   │   │   ├── base.py             # Base service implementation
+│   │   │   ├── component.py        # Component base classes
+│   │   │   └── controller.py       # Controller base classes
+│   │   └── utils.py             # Utility functions
 │   └── services/            # System services
 │       ├── dataset_manager/        # Handles dataset operations
 │       ├── post_processor_manager/ # Processes results
@@ -117,16 +123,12 @@ Services communicate using a message-based system with the following components:
 
 #### Command Line Interface
 
-The CLI (`aiperf/cli.py`) provides the entry point to the system
+The CLI (`aiperf/cli.py`) provides the entry point to the system with options including:
 
+- `--config`: Path to configuration file
+- `--log-level`: Set logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+- `--run-type`: Process manager backend to use (process, k8s)
 
-#### Message Processing
-
-To handle messages:
-
-1. Subscribe to relevant topics using `_subscribe_to_topic(Topic)`
-2. Implement message processing logic in `_process_message(topic, message)`
-3. Send messages using `_publish_message(topic, message)`
 
 
 ### Service Inheritance Model
@@ -135,7 +137,7 @@ AIPerf uses an inheritance-based architecture where all system services inherit 
 
 #### Base Service Responsibilities
 
-The `ServiceBase` class (`aiperf/common/service.py`) provides automatically for all services:
+The `ServiceBase` class (`aiperf/common/service/base.py`) provides automatically for all services:
 
 - **Lifecycle Management**: Standard initialize/run/stop/cleanup methods
 - **State Transitions**: Manages service state changes (INITIALIZING → RUNNING → STOPPING → STOPPED)
@@ -151,7 +153,6 @@ When implementing a new service that inherits from `ServiceBase`, you must:
    - `_on_start()`: Main service logic
    - `_on_stop()`: Handle graceful shutdown
    - `_cleanup()`: Release resources
-   - `_process_message()`: Handle incoming messages
 
 2. **Configuration**:
    - Define service-specific configuration needs
@@ -162,63 +163,54 @@ When implementing a new service that inherits from `ServiceBase`, you must:
 Here's a simplified example of a service implementation:
 
 ```python
-from aiperf.common.service.base import ServiceBase
 from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.enums import Topic, ZmqClientType
+from aiperf.common.enums import Topic, ClientType, ServiceType
 from aiperf.common.models.messages import BaseMessage
+from aiperf.common.service.base import ServiceBase
 
 
 class ExampleService(ServiceBase):
-   def __init__(self, config: ServiceConfig) -> None:
-      super().__init__(service_type="example_service", service_config=config)
-      self.my_resource = None
+    @property
+    def service_type(self) -> ServiceType:
+        return ServiceType.EXAMPLE_SERVICE
 
-   async def _initialize(self) -> None:
-      """Initialize service-specific resources."""
-      self.logger.debug("Initializing Example Service")
-      # Subscribe to required topics
-      # TODO: Fix this documentation
-      await self._subscribe_to_topic(ZmqClientType.CONTROLLER_SUB, Topic.COMMAND)
-      await self._subscribe_to_topic(ZmqClientType.INFERENCE_REQUEST_SUB, Topic.DATA)
-      # Initialize resources
-      self.my_resource = SomeResource()
+    def __init__(self, service_config: ServiceConfig, service_id: str = None) -> None:
+        super().__init__(service_config=service_config, service_id=service_id)
+        self.my_resource = None
 
-   async def _on_start(self) -> None:
-      """Main service logic."""
-      self.logger.debug("Running Example Service")
-      # Implement your service's main logic here
-      # This method should typically set up ongoing tasks or loops
+    async def _initialize(self) -> None:
+        """Initialize service-specific resources."""
+        await self._base_init()
+        self.logger.debug("Initializing Example Service")
+        # Subscribe to required topics
+        success = await self.communication.subscribe(
+            ClientType.COMPONENT_SUB, Topic.COMMAND, self._handle_command
+        )
+        # Initialize resources
+        self.my_resource = SomeResource()
 
-   async def _on_stop(self) -> None:
-      """Handle graceful shutdown."""
-      self.logger.debug("Stopping Example Service")
-      # Cancel any ongoing tasks
-      # Prepare for cleanup
+    async def _on_start(self) -> None:
+        """Main service logic."""
+        self.logger.debug("Running Example Service")
+        # Implement your service's main logic here
+        # This method should typically set up ongoing tasks or loops
 
-   async def _cleanup(self) -> None:
-      """Release resources."""
-      self.logger.debug("Cleaning up Example Service")
-      # Release any resources
-      if self.my_resource:
-         await self.my_resource.close()
+    async def _on_stop(self) -> None:
+        """Handle graceful shutdown."""
+        self.logger.debug("Stopping Example Service")
+        # Cancel any ongoing tasks
+        # Prepare for cleanup
 
-   async def _process_message(self, topic: Topic, message: BaseMessage) -> None:
-      """Handle incoming messages."""
-      self.logger.debug(f"Processing message: {topic}, {message}")
-      if topic == Topic.COMMAND:
-         # Handle command messages
-         await self._handle_command(message)
-      elif topic == Topic.DATA:
-         # Handle data messages
-         await self._handle_data(message)
+    async def _cleanup(self) -> None:
+        """Release resources."""
+        self.logger.debug("Cleaning up Example Service")
+        # Release any resources
+        if self.my_resource:
+            await self.my_resource.close()
 
-   async def _handle_command(self, message: BaseMessage) -> None:
-      """Handle command messages."""
-      # Implement command handling logic
-
-   async def _handle_data(self, message: BaseMessage) -> None:
-      """Handle data messages."""
-      # Implement data handling logic
+    async def _handle_command(self, message: BaseMessage) -> None:
+        """Handle command messages."""
+        # Implement command handling logic
 ```
 
 #### Using the Service
@@ -226,14 +218,14 @@ class ExampleService(ServiceBase):
 To instantiate and run a service:
 
 ```python
-def main() -> None:
-    from aiperf.common.bootstrap import bootstrap_and_run_service
+from aiperf.common.bootstrap import bootstrap_and_run_service
+from aiperf.common.config.service_config import ServiceConfig
 
-    bootstrap_and_run_service(ExampleService)
+# Create a service configuration
+config = ServiceConfig(service_run_type="process")
 
-
-if __name__ == "__main__":
-    sys.exit(main())
+# Bootstrap and run the service
+bootstrap_and_run_service(ExampleService, service_config=config)
 ```
 
 The `bootstrap_and_run_service` function handles:

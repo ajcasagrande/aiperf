@@ -23,6 +23,10 @@ from aiperf.common.enums import ServiceType, ServiceRegistrationStatus, ServiceS
 class ServiceRunInfo(BaseModel):
     """Base model for tracking service run information."""
 
+    service_id: str = Field(
+        ...,
+        description="The ID of the service",
+    )
     service_type: ServiceType = Field(
         ...,
         description="The type of service",
@@ -30,10 +34,6 @@ class ServiceRunInfo(BaseModel):
     registration_status: ServiceRegistrationStatus = Field(
         ...,
         description="The registration status of the service",
-    )
-    service_id: str = Field(
-        ...,
-        description="The ID of the service",
     )
     first_seen: Optional[int] = Field(
         default_factory=time.time_ns,

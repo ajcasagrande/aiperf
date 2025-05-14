@@ -16,7 +16,6 @@ import logging
 from typing import Dict, Optional, Type
 
 from aiperf.common.comms.communication import BaseCommunication
-from aiperf.common.comms.zmq_comms.zmq_communication import ZMQCommunication
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import CommBackend
 from aiperf.common.models.comms import (
@@ -36,7 +35,7 @@ class CommunicationFactory:
 
     # Registry of communication types
     _comm_types: Dict[CommBackend, Type[BaseCommunication]] = {
-        CommBackend.ZMQ_TCP: ZMQCommunication,
+        CommBackend.ZMQ_TCP: "ZMQCommunication",
     }
 
     @classmethod
