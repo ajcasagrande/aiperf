@@ -12,7 +12,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""Pydantic models for response structures used in inter-service communication."""
+"""Pydantic models for messages used in inter-service communication."""
 
 import time
 import uuid
@@ -24,8 +24,8 @@ from aiperf.common.models.payloads import PayloadType, RequestPayload, ResponseP
 
 
 class BaseMessage(BaseModel):
-    """Base response model with common fields for all messages.
-    The payload can be any of the payload types defined by .
+    """Base message model with common fields for all messages.
+    The payload can be any of the payload types defined by the payloads.py module.
     """
 
     service_id: Optional[str] = Field(
@@ -76,7 +76,6 @@ class BaseResponseMessage(BaseMessage):
         default=None,
         description="Type of the response",
     )
-
     request_id: str = Field(
         description="ID of the request",
     )

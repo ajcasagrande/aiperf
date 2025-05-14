@@ -97,7 +97,7 @@ class BaseServiceTest:
                 yield service
             finally:
                 # Clean up
-                if service._state != ServiceState.STOPPED:
+                if service.state != ServiceState.STOPPED:
                     await service.stop()
 
     async def test_service_initialization(self, service_under_test):
@@ -107,7 +107,7 @@ class BaseServiceTest:
         assert service.service_type is not None
 
         # After initialization, service should be in one of these states
-        assert service._state in [
+        assert service.state in [
             ServiceState.INITIALIZING,
             ServiceState.READY,
             ServiceState.UNKNOWN,

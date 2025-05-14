@@ -55,7 +55,7 @@ class BaseService(ABC):
         self.logger.debug(
             f"Initializing service {self.service_id} {self.service_type} {self.__class__.__name__}"
         )
-        self._state: ServiceState = ServiceState.UNKNOWN
+        self.state: ServiceState = ServiceState.UNKNOWN
         self._heartbeat_task = None
         self._heartbeat_interval = (
             self.service_config.heartbeat_interval
@@ -68,11 +68,11 @@ class BaseService(ABC):
     @property
     def state(self) -> ServiceState:
         """The current state of the service."""
-        return self._state
+        return self.state
 
     async def set_state(self, state: ServiceState) -> None:
         """Set the state of the service."""
-        self._state = state
+        self.state = state
         if self.comms.is_initialized:
             await self.comms.publish(
                 topic=Topic.STATUS,
@@ -156,7 +156,7 @@ class BaseService(ABC):
         self._setup_signal_handlers()
 
         # Initialize the service
-        self._state = ServiceState.INITIALIZING
+        self.state = ServiceState.INITIALIZING
 
         # Initialize communication
         self.comms = CommunicationFactory.create_communication(self.service_config)
@@ -165,7 +165,7 @@ class BaseService(ABC):
             self.logger.error(
                 f"Failed to initialize {self.service_config.comm_backend} communication"
             )
-            self._state = ServiceState.ERROR
+            self.state = ServiceState.ERROR
             return
 
         self.logger.debug(
@@ -274,7 +274,7 @@ class BaseService(ABC):
 
     async def stop(self) -> None:
         """Stop the service and clean up its components."""
-        if self._state != ServiceState.RUNNING:
+        if self.state != ServiceState.RUNNING:
             self.logger.warning(
                 "Service %s is not running, cannot stop", self.service_type
             )
@@ -297,7 +297,7 @@ class BaseService(ABC):
 
         await self._cleanup()
 
-        self._state = ServiceState.STOPPED
+        self.state = ServiceState.STOPPED
 
     ################################################################################
     ## Abstract methods to be implemented by derived classes

@@ -36,6 +36,7 @@ __all__ = [
 ]
 
 from aiperf.common.enums.base import StrEnum
+
 from aiperf.common.enums.comm_clients import (
     ClientType,
     PubClientType,

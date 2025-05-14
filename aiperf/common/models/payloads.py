@@ -12,7 +12,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""Base Pydantic models used across the application."""
+"""Base Pydantic payload models used for communication between services."""
 
 import time
 import uuid
@@ -25,14 +25,18 @@ from aiperf.common.enums import CommandType, MessageType, ServiceState, ServiceT
 
 class BasePayload(BaseModel):
     """Base model for all payload data. Each payload type must inherit
-    from this class and override the `message_type` field.
+    from this class, and override the `message_type` field.
 
-    This is used with Pydantic's `discriminator` to allow for polymorphic payloads.
+    This is used with Pydantic's `discriminator` to allow for polymorphic payloads,
+    and automatic type coercion when receiving messages.
     """
 
+    # Note: Literal[MessageType.UNKNOWN] is required due to the way the
+    # discriminator is implemented in Pydantic, it requires everything to be a
+    # literal.
     message_type: Literal[MessageType.UNKNOWN] = Field(
         ...,
-        description="Type of response",
+        description="Type of message this payload represents",
     )
 
 
@@ -62,7 +66,7 @@ class DataPayload(BasePayload):
 
 
 class StatusPayload(BasePayload):
-    """Status payload sent by services to report their state."""
+    """Status payload sent by services to report their current state."""
 
     message_type: Literal[MessageType.STATUS] = MessageType.STATUS
 
@@ -141,7 +145,7 @@ class CreditReturnPayload(BasePayload):
 
 
 class RequestPayload(BasePayload):
-    """Request payload sent to services to request a resource."""
+    """Base request payload sent to services to request a resource."""
 
     target_service_id: str = Field(
         ...,
@@ -150,12 +154,13 @@ class RequestPayload(BasePayload):
 
 
 class ResponsePayload(BasePayload):
-    """Response payload sent to services to respond to a request."""
+    """Base response payload sent to services to respond to a request."""
 
     pass
 
 
-# Only put concrete payload types here
+# Only put concrete payload types here, with unique message_type values,
+# otherwise the discriminator will complain.
 PayloadType = Union[
     DataPayload,
     HeartbeatPayload,
@@ -168,5 +173,6 @@ PayloadType = Union[
 ]
 """This is a union of all the payload types that can be sent and received.
 
-This is used with Pydantic's `discriminator` to allow for polymorphic payloads.
+This is used with Pydantic's `discriminator` to allow for polymorphic payloads,
+and automatic type coercion when receiving messages.
 """

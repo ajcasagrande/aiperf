@@ -66,7 +66,7 @@ class TimingManager(ComponentServiceBase):
             topic=Topic.CREDIT_RETURN,
             callback=self._on_credit_return,
         )
-        self._state = ServiceState.RUNNING
+        await self.set_state(ServiceState.RUNNING)
         await asyncio.sleep(3)
         asyncio.create_task(self._issue_credit_drops())
 
