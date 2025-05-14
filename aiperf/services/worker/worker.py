@@ -14,7 +14,6 @@
 #  limitations under the License.
 import asyncio
 import sys
-import uuid
 
 import uvloop
 
@@ -24,19 +23,8 @@ from aiperf.common.enums import (
     Topic,
     ClientType,
 )
-from aiperf.common.models.credits import CreditReturn
-from aiperf.common.models.messages import (
-    ConversationData,
-    CreditMessage,
-    ResultData,
-    ResultMessage,
-)
-from aiperf.common.models.push_pull import PushPullData
-from aiperf.common.models.request_response import (
-    RequestData,
-    ResponseData,
-    WorkerRequestPayload,
-)
+from aiperf.common.models.messages import BaseMessage
+from aiperf.common.models.payloads import CreditDropPayload, CreditReturnPayload
 from aiperf.common.service.base import ServiceBase
 
 
@@ -95,13 +83,13 @@ class Worker(ServiceBase):
         """Clean up worker-specific components."""
         self.logger.debug("Cleaning up worker")
 
-    async def _process_credit_drop(self, pull_data: PushPullData) -> None:
+    async def _process_credit_drop(self, payload: CreditDropPayload) -> None:
         """Process a credit drop message.
 
         Args:
             pull_data: The data received from the pull request
         """
-        self.logger.debug(f"Processing credit drop: {pull_data}")
+        self.logger.debug(f"Processing credit drop: {payload}")
 
         await asyncio.sleep(1)  # Simulate some processing time
 
@@ -123,113 +111,12 @@ class Worker(ServiceBase):
         (
             await self.communication.push(
                 ClientType.CREDIT_RETURN_PUSH,
-                PushPullData(
+                BaseMessage(
                     topic=Topic.CREDIT_RETURN,
                     source=self.service_id,
-                    data=CreditReturn(amount=1),
+                    payload=CreditReturnPayload(amount=1),
                 ),
             ),
-        )
-
-    async def send_request(
-        self, operation: str, parameters: dict = None, target: str = None
-    ) -> ResponseData:
-        """Send a structured request to the target service.
-
-        Args:
-            operation: The operation to perform
-            parameters: Operation parameters
-            target: Target service (defaults to system_controller)
-
-        Returns:
-            The response from the service
-        """
-        if not self.communication:
-            self.logger.error("Communication not initialized")
-            return ResponseData(
-                request_id=f"error_{uuid.uuid4().hex[:8]}",
-                client_id=self.service_id,
-                status="error",
-                message="Communication not initialized",
-            )
-
-        # Create the request payload
-        request_payload = WorkerRequestPayload(
-            operation=operation,
-            parameters=parameters or {},
-        )
-
-        # Create the request data
-        request_data = RequestData(
-            request_id=f"req_{uuid.uuid4().hex[:8]}",
-            client_id=self.service_id,
-            target=target or "system_controller",
-            payload=request_payload,
-        )
-
-        try:
-            return await self.communication.request(request_data.target, request_data)
-        except Exception as e:
-            self.logger.error(f"Error sending request: {e}")
-            return ResponseData(
-                request_id=request_data.request_id,
-                client_id=self.service_id,
-                status="error",
-                message=f"Error sending request: {e}",
-            )
-
-    async def process_credit(self, credit_message: CreditMessage) -> None:
-        """Process a credit from the system controller.
-
-        Args:
-            credit_message: The credit message to process
-        """
-        credit_data = credit_message.credit
-        self.logger.debug(
-            f"Processing credit {credit_data.credit_id} for {credit_data.request_count} requests"
-        )
-
-        # TODO: Implement actual credit processing logic
-
-    async def handle_conversation(self, conversation_data: ConversationData) -> None:
-        """Handle a conversation with the system.
-
-        Args:
-            conversation_data: The conversation data to handle
-        """
-        self.logger.debug(
-            f"Handling conversation {conversation_data.conversation_id} with {len(conversation_data.turns)} turns"
-        )
-
-        # TODO: Implement conversation handling logic
-
-    async def publish_result(self, metrics: dict, tags: list = None) -> None:
-        """Publish a structured result to the records manager.
-
-        Args:
-            metrics: Dictionary of performance metrics
-            tags: Optional list of tags
-        """
-        if not self.communication:
-            self.logger.error("Communication not initialized")
-            return
-
-        # Create a structured result
-        result_data = ResultData(
-            result_id=f"result_{uuid.uuid4().hex[:8]}",
-            metrics=metrics,
-            tags=tags or [],
-        )
-
-        # Create the result message
-        result_message = ResultMessage(
-            service_id=self.service_id,
-            service_type=self.service_type.value,
-            result=result_data,
-        )
-
-        await self._publish_message(
-            ClientType.COMPONENT_PUB, Topic.DATA, result_message
         )
 
 

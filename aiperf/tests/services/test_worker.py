@@ -16,17 +16,18 @@
 Tests for the worker service.
 """
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 import pytest
 
-from aiperf.common.comms.communication import BaseCommunication
 from aiperf.common.config.service_config import ServiceConfig
+from aiperf.common.enums import ServiceState
 from aiperf.services.worker.worker import Worker
+from aiperf.tests.base_test_service import BaseServiceTest
 
 
 @pytest.mark.asyncio
-class TestWorker:
+class TestWorker(BaseServiceTest):
     """Tests for the worker service."""
 
     @pytest.fixture
@@ -40,19 +41,6 @@ class TestWorker:
         return ServiceConfig()
 
     @pytest.fixture
-    def mock_communication(self):
-        """Create a mock communication object for worker tests."""
-        mock_comm: AsyncMock = AsyncMock(spec=BaseCommunication)
-        mock_comm.initialize.return_value = True
-        mock_comm.pull.return_value = True
-        mock_comm.push.return_value = True
-        mock_comm.publish.return_value = True
-        mock_comm.subscribe.return_value = True
-        mock_comm.request.return_value = {"status": "success", "data": "test_data"}
-        mock_comm.respond.return_value = True
-        return mock_comm
-
-    @pytest.fixture
     def worker(self, service_config, mock_communication):
         """Return a worker instance for testing."""
         with patch(
@@ -62,6 +50,23 @@ class TestWorker:
             worker = Worker(service_config=service_config)
             worker.communication = mock_communication
             return worker
+
+    async def test_service_status_update(self, worker, **kwargs):
+        """Test that the worker service status is correct."""
+        # Check the initial status
+        assert worker.state == ServiceState.UNKNOWN
+
+        # Start the worker
+        await worker._start()
+
+        # Check the status after starting
+        assert worker.state == ServiceState.RUNNING
+
+        # Stop the worker
+        await worker.stop()
+
+        # Check the status after stopping
+        assert worker.state == ServiceState.STOPPED
 
     async def test_worker_initialization(self, worker):
         """Test that the worker initializes correctly."""
@@ -76,23 +81,3 @@ class TestWorker:
 
         # Stop the worker
         await worker.stop()
-
-    async def test_worker_send_request(self, worker):
-        """Test that the worker can send requests."""
-        # Mock response data
-        mock_response = {"status": "success", "data": "test_data"}
-
-        # Mock the send_request method to return the mock response
-        original_send_request = worker.send_request
-        worker.send_request = AsyncMock(return_value=mock_response)
-
-        # Call the method
-        response = await worker.send_request(
-            operation="test_operation", parameters={"param": "value"}
-        )
-
-        # Verify the response
-        assert response == mock_response
-
-        # Restore the original method
-        worker.send_request = original_send_request

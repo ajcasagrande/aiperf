@@ -14,60 +14,30 @@
 #  limitations under the License.
 import asyncio
 import contextlib
-import logging
 import signal
 import uuid
 from abc import ABC, abstractmethod
-from typing import Optional, TypeVar
-
-from rich.console import Console
-from rich.logging import RichHandler
+from typing import Optional
 
 from aiperf.common.comms.communication import BaseCommunication
 from aiperf.common.comms.communication_factory import CommunicationFactory
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import (
+    CommandType,
     ServiceState,
     ServiceType,
     Topic,
     ClientType,
 )
-from aiperf.common.models.messages import (
-    BaseMessage,
-    HeartbeatMessage,
-    RegistrationMessage,
-    MessageT,
+from aiperf.common.models.messages import BaseMessage
+from aiperf.common.models.payloads import (
+    HeartbeatPayload,
+    PayloadType,
+    RegistrationPayload,
+    StatusPayload,
+    CommandPayload,
 )
-
-# Type variable for message types
-M = TypeVar("M", bound=BaseMessage)
-
-# Create a central console object for rich logging
-_console = Console()
-
-
-def get_logger(name: str) -> logging.Logger:
-    """Get a logger configured with rich for colored output.
-
-    Args:
-        name: The name for the logger
-
-    Returns:
-        A configured logger instance
-    """
-    logger = logging.getLogger(name)
-
-    # Only configure if it hasn't been configured yet
-    if not logger.handlers:
-        handler = RichHandler(
-            rich_tracebacks=True,
-            show_path=True,
-            console=_console,
-            tracebacks_show_locals=True,
-        )
-        logger.addHandler(handler)
-
-    return logger
+from aiperf.common.utils import get_logger
 
 
 class ServiceBase(ABC):
@@ -100,6 +70,60 @@ class ServiceBase(ABC):
     def service_type(self) -> ServiceType:
         """The type of service."""
         pass
+
+    def create_message(
+        self, payload: PayloadType, request_id: Optional[str] = None
+    ) -> BaseMessage:
+        """Create a message of the given type.
+
+        Pre-fills the service_id and service_type.
+
+        Args:
+            payload: The payload of the message
+            Optional[request_id]: The request id of the message this is a response to
+
+        Returns:
+            A message of the given type
+        """
+        message = BaseMessage(
+            service_id=self.service_id,
+            request_id=request_id,
+            payload=payload,
+        )
+        return message
+
+    def create_heartbeat_message(self) -> BaseMessage:
+        """Create a heartbeat message."""
+        return self.create_message(
+            HeartbeatPayload(
+                service_type=self.service_type,
+            )
+        )
+
+    def create_registration_message(self) -> BaseMessage:
+        """Create a registration message."""
+        return self.create_message(
+            RegistrationPayload(
+                service_type=self.service_type,
+            )
+        )
+
+    def create_status_message(self, state: ServiceState) -> BaseMessage:
+        """Create a status message."""
+        return self.create_message(
+            StatusPayload(
+                state=state,
+                service_type=self.service_type,
+            )
+        )
+
+    def create_command_message(
+        self, command: CommandType, target_service_id: str
+    ) -> BaseMessage:
+        """Create a command message."""
+        return self.create_message(
+            CommandPayload(command=command, target_service_id=target_service_id)
+        )
 
     async def _base_init(self) -> None:
         """Initialize the service communication and signal handlers.
@@ -136,6 +160,7 @@ class ServiceBase(ABC):
         """Publish a message to a topic.
 
         Args:
+            client_type: Client type to publish to
             topic: Topic to publish to
             message: Message to publish
 
@@ -155,7 +180,7 @@ class ServiceBase(ABC):
 
     async def _send_heartbeat(self) -> None:
         """Send a heartbeat message to the system controller."""
-        heartbeat_message = self.wrap_message(HeartbeatMessage())
+        heartbeat_message = self.create_heartbeat_message()
         self.logger.debug("Sending heartbeat message: %s", heartbeat_message)
         await self._publish_message(
             ClientType.COMPONENT_PUB, Topic.HEARTBEAT, heartbeat_message
@@ -192,7 +217,7 @@ class ServiceBase(ABC):
         await self._publish_message(
             ClientType.COMPONENT_PUB,
             Topic.REGISTRATION,
-            self.wrap_message(RegistrationMessage()),
+            self.create_registration_message(),
         )
 
     @abstractmethod
@@ -202,17 +227,6 @@ class ServiceBase(ABC):
         This method should be implemented by derived classes to run the main loop of the service.
         """
         pass
-
-    def wrap_message(self, message: MessageT) -> MessageT:
-        """Wrap a message of the given type with the given payload.
-        Pre-fills the service_id and service_type.
-
-        Args:
-            message: The message to wrap
-        """
-        message.service_id = self.service_id
-        message.service_type = self.service_type
-        return message
 
     def _setup_signal_handlers(self) -> None:
         """Set up signal handlers for graceful shutdown."""

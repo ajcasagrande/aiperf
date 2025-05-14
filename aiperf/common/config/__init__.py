@@ -12,7 +12,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from .service_config import ServiceConfig
 from .loader import load_service_config
+from .service_config import ServiceConfig
 
 __all__ = ["ServiceConfig", "load_service_config"]

@@ -17,8 +17,7 @@ import logging
 import zmq
 from zmq import SocketType
 
-from aiperf.common.models.push_pull import PushPullData
-
+from aiperf.common.models.messages import BaseMessage
 from .base import ZmqSocketBase
 
 logger = logging.getLogger(__name__)
@@ -39,7 +38,7 @@ class ZmqPushSocket(ZmqSocketBase):
         """
         super().__init__(context, SocketType.PUSH, address, bind, socket_ops)
 
-    async def push(self, data: PushPullData) -> bool:
+    async def push(self, data: BaseMessage) -> bool:
         """Push data to a target.
 
         Args:
@@ -55,10 +54,6 @@ class ZmqPushSocket(ZmqSocketBase):
             return False
 
         try:
-            # Ensure source is set if not already
-            if not data.source:
-                data.source = self.client_id
-
             # Serialize data directly using Pydantic's built-in method
             data_json = data.model_dump_json()
 

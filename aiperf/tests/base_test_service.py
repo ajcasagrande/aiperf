@@ -23,7 +23,7 @@ import pytest
 
 from aiperf.common.enums import CommandType
 from aiperf.common.enums import ServiceState, Topic
-from aiperf.common.models.messages import CommandMessage
+from aiperf.common.models.messages import BaseMessage
 from aiperf.tests.utils.async_test_utils import async_noop
 
 T = TypeVar("T")
@@ -153,7 +153,7 @@ class BaseServiceTest:
         # Verify registration message
         registration_msg = mock_communication.published_messages[Topic.REGISTRATION][0]
         assert registration_msg.service_id == service.service_id
-        assert registration_msg.service_type == service.service_type
+        assert registration_msg.payload.service_type == service.service_type
 
     async def test_service_status_update(self, service_under_test, mock_communication):
         """Test that the service updates its status."""
@@ -168,8 +168,8 @@ class BaseServiceTest:
         # Verify status message
         status_msg = mock_communication.published_messages[Topic.STATUS][0]
         assert status_msg.service_id == service.service_id
-        assert status_msg.service_type == service.service_type
-        assert status_msg.state == ServiceState.READY
+        assert status_msg.payload.service_type == service.service_type
+        assert status_msg.payload.state == ServiceState.READY
 
     @pytest.mark.parametrize(
         "state",
@@ -193,9 +193,9 @@ class BaseServiceTest:
         # Check that the service state was updated
         assert service.state == state
 
-    async def create_command_message(
-        self, service, command=CommandType.START
-    ) -> CommandMessage:
+    def create_command_message(
+        self, service, command: CommandType, target_service_id: str
+    ) -> BaseMessage:
         """
         Helper method to create a properly formed command message for testing.
 
@@ -204,9 +204,11 @@ class BaseServiceTest:
             command: The command to execute (default: "start")
 
         Returns:
-            A CommandMessage instance with all required fields
+            A BaseMessage instance with all required fields
         """
-        return service.wrap_message(CommandMessage(command=command))
+        return service.create_command_message(
+            command=command, target_service_id=target_service_id
+        )
 
     @staticmethod
     def create_safe_mock() -> MagicMock:

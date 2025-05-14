@@ -22,7 +22,7 @@ from pydantic import BaseModel, Field
 from aiperf.common.bootstrap import bootstrap_and_run_service
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ServiceType, ServiceRunType
-from aiperf.common.models.base_models import BasePayload
+from aiperf.common.models.payloads import BasePayload
 from aiperf.common.service.component import ComponentServiceBase
 from aiperf.services.worker.worker import Worker
 

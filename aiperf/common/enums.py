@@ -43,6 +43,7 @@ class ServiceState(StrEnum):
 class MessageType(StrEnum):
     """Types of messages exchanged between services."""
 
+    UNKNOWN = "unknown"
     REGISTRATION = "registration"
     HEARTBEAT = "heartbeat"
     COMMAND = "command"
@@ -50,17 +51,12 @@ class MessageType(StrEnum):
     STATUS = "status"
     DATA = "data"
     ERROR = "error"
-    CREDIT = "credit"
-
-
-class PayloadType(StrEnum):
-    """Types of payloads that can be included in messages."""
-
-    RESPONSE = "response"
-    CREDIT = "credit"
     CONVERSATION = "conversation"
     RESULT = "result"
     WORKER_REQUEST = "worker_request"
+    WORKER_RESPONSE = "worker_response"
+    CREDIT_DROP = "credit_drop"
+    CREDIT_RETURN = "credit_return"
 
 
 class CommandType(StrEnum):

@@ -18,9 +18,11 @@ import time
 
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ServiceType, Topic, ClientType, ServiceState
-from aiperf.common.models.base_models import BasePayload
-from aiperf.common.models.credits import CreditDrop, CreditReturn
-from aiperf.common.models.push_pull import PushPullData
+from aiperf.common.models.messages import BaseMessage
+from aiperf.common.models.payloads import (
+    BasePayload,
+    CreditDropPayload,
+)
 from aiperf.common.service.component import ComponentServiceBase
 
 
@@ -70,12 +72,12 @@ class TimingManager(ComponentServiceBase):
                 self._credits_available -= 1
                 await self.communication.push(
                     ClientType.CREDIT_DROP_PUSH,
-                    PushPullData(
+                    BaseMessage(
                         topic=Topic.CREDIT_DROP,
                         source=self.service_id,
-                        data=CreditDrop(
+                        payload=CreditDropPayload(
                             amount=1,
-                            timestamp=time.time(),
+                            timestamp=time.time_ns(),
                         ),
                     ),
                 )
@@ -96,15 +98,14 @@ class TimingManager(ComponentServiceBase):
         self.logger.debug("Cleaning up timing manager")
         # TODO: Implement timing manager cleanup
 
-    async def _on_credit_return(self, pull_data: PushPullData) -> None:
+    async def _on_credit_return(self, message: BaseMessage) -> None:
         """Process a credit return message.
 
         Args:
-            pull_data: The data received from the pull request
+            message: The message received from the pull request
         """
-        self.logger.debug(f"Processing credit return: {pull_data}")
-        credit_return = CreditReturn.model_validate(pull_data.data)
-        self._credits_available += credit_return.amount
+        self.logger.debug(f"Processing credit return: {message.payload}")
+        self._credits_available += message.payload.amount
 
     async def _configure(self, payload: BasePayload) -> None:
         """Configure the timing manager."""

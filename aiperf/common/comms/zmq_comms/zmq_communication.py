@@ -21,6 +21,13 @@ import zmq
 import zmq.asyncio
 
 from aiperf.common.comms.communication import BaseCommunication
+from aiperf.common.enums import ClientType
+from aiperf.common.models.comms import ZMQCommunicationConfig
+from aiperf.common.models.messages import (
+    BaseMessage,
+    BaseRequestMessage,
+    BaseResponseMessage,
+)
 from .base import ZmqSocketBase
 from .pub import ZmqPublisher
 from .pull import ZmqPullSocket
@@ -28,11 +35,6 @@ from .push import ZmqPushSocket
 from .rep import ZmqRepSocket
 from .req import ZmqReqSocket
 from .sub import ZmqSubscriber
-from aiperf.common.enums import ClientType
-from aiperf.common.models.comms import ZMQCommunicationConfig
-from aiperf.common.models.messages import BaseMessage
-from aiperf.common.models.push_pull import PushPullData
-from aiperf.common.models.request_response import RequestData, ResponseData
 
 logger = logging.getLogger(__name__)
 
@@ -259,9 +261,9 @@ class ZMQCommunication(BaseCommunication):
         self,
         client_type: ClientType,
         target: str,
-        request_data: RequestData,
+        request_data: BaseRequestMessage,
         timeout: float = 5,
-    ) -> ResponseData:
+    ) -> BaseResponseMessage:
         logger.info(f"Requesting from {target} with data: {request_data}")
         if client_type not in self.clients:
             await self.create_clients(client_type)
@@ -274,7 +276,7 @@ class ZMQCommunication(BaseCommunication):
             return False
 
     async def respond(
-        self, client_type: ClientType, target: str, response: ResponseData
+        self, client_type: ClientType, target: str, response: BaseResponseMessage
     ) -> bool:
         logger.info(f"Responding to {target} with data: {response}")
         if client_type not in self.clients:
@@ -285,7 +287,7 @@ class ZMQCommunication(BaseCommunication):
             logger.error(f"Error responding to {target}: {e}")
             return False
 
-    async def push(self, client_type: ClientType, data: PushPullData) -> bool:
+    async def push(self, client_type: ClientType, data: BaseMessage) -> bool:
         logger.info(f"Pushing data: {data}")
         if client_type not in self.clients:
             await self.create_clients(client_type)
@@ -299,8 +301,8 @@ class ZMQCommunication(BaseCommunication):
         self,
         client_type: ClientType,
         source: str,
-        callback: Callable[[PushPullData], None] | None = None,
-    ) -> PushPullData | bool:
+        callback: Callable[[BaseMessage], None] | None = None,
+    ) -> BaseMessage | bool:
         logger.info(f"Pulling data from {source}")
         if client_type not in self.clients:
             await self.create_clients(client_type)

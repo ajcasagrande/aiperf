@@ -21,7 +21,7 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
-from aiperf.common.enums import ServiceType, Topic
+from aiperf.common.enums import CommandType, ServiceType, Topic
 from aiperf.services.worker_manager.worker_manager import WorkerManager, WorkerProcess
 from aiperf.tests.base_test_service import BaseServiceTest, async_fixture
 from aiperf.tests.utils.async_test_utils import async_noop
@@ -50,7 +50,9 @@ class TestWorkerManager(BaseServiceTest):
         service = await async_fixture(service_under_test)
 
         # Create a command message using the helper method
-        command_msg = await self.create_command_message(service, command="start")
+        command_msg = self.create_command_message(
+            service, command=CommandType.START, target_service_id="test-service-id"
+        )
 
         # Use patch to mock _process_command_message for cleaner testing
         with patch.object(

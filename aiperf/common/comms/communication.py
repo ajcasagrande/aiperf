@@ -13,17 +13,11 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 from abc import ABC, abstractmethod
-from typing import Callable, Optional, Union, Coroutine, Any, TypeVar
+from typing import Callable, Optional, Union, Coroutine, Any
 
 from aiperf.common.enums import ClientType
-from aiperf.common.models.messages import BaseMessage
-from aiperf.common.models.push_pull import PushPullData
-from aiperf.common.models.request_response import (
-    RequestData,
-    ResponseData,
-)
-
-T = TypeVar("T")
+from aiperf.common.models.messages import BaseResponseMessage, BaseMessage
+from aiperf.common.models.payloads import RequestPayload, ResponsePayload
 
 
 class BaseCommunication(ABC):
@@ -77,7 +71,7 @@ class BaseCommunication(ABC):
         self,
         client_type: ClientType,
         topic: str,
-        callback: Callable[[T], Coroutine[Any, Any, None]] = None,
+        callback: Callable[[BaseMessage], Coroutine[Any, Any, None]] = None,
     ) -> bool:
         """Subscribe to a topic.
 
@@ -96,32 +90,32 @@ class BaseCommunication(ABC):
         self,
         client_type: ClientType,
         target: str,
-        request_data: RequestData,
+        request_data: RequestPayload,
         timeout: float = 5.0,
-    ) -> ResponseData:
+    ) -> BaseResponseMessage:
         """Send a request and wait for a response.
 
         Args:
             client_type: Client type to send request from
             target: Target component to send request to
-            request_data: Request data (must be a RequestData instance)
+            request_data: Request data (must be a RequestPayload instance)
             timeout: Timeout in seconds
 
         Returns:
-            ResponseData object
+            BaseResponseMessage object
         """
         pass
 
     @abstractmethod
     async def respond(
-        self, client_type: ClientType, target: str, response: ResponseData
+        self, client_type: ClientType, target: str, response: ResponsePayload
     ) -> bool:
         """Send a response to a request.
 
         Args:
             client_type: Client type to send response from
             target: Target component to send response to
-            response: Response message (must be a ResponseData instance)
+            response: Response message (must be a ResponsePayload instance)
 
         Returns:
             True if response was sent successfully, False otherwise
@@ -129,12 +123,12 @@ class BaseCommunication(ABC):
         pass
 
     @abstractmethod
-    async def push(self, client_type: ClientType, data: PushPullData) -> bool:
+    async def push(self, client_type: ClientType, message: BaseMessage) -> bool:
         """Push data to a target.
 
         Args:
             client_type: Client type to push data from
-            data: Data to be pushed (must be a PushData instance)
+            message: Message to be pushed (must be a BaseMessage instance)
 
         Returns:
             True if data was pushed successfully, False otherwise
@@ -146,8 +140,8 @@ class BaseCommunication(ABC):
         self,
         client_type: ClientType,
         source: str,
-        callback: Optional[Callable[[PushPullData], Coroutine[Any, Any, None]]] = None,
-    ) -> Union[PushPullData, bool]:
+        callback: Optional[Callable[[BaseMessage], Coroutine[Any, Any, None]]] = None,
+    ) -> Union[BaseMessage, bool]:
         """Pull data from a source.
 
         Args:
@@ -159,6 +153,6 @@ class BaseCommunication(ABC):
 
         Returns:
             If callback is provided: True if pull registration was successful, False otherwise
-            If callback is not provided: The received PushPullData object
+            If callback is not provided: The received BaseMessage object
         """
         pass

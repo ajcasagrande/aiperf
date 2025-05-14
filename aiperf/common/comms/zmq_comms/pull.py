@@ -19,8 +19,8 @@ from typing import Dict, Callable, Optional, Union, Any
 import zmq
 from zmq import SocketType
 
+from aiperf.common.models.messages import BaseMessage
 from .base import ZmqSocketBase
-from aiperf.common.models.push_pull import PushPullData
 
 logger = logging.getLogger(__name__)
 
@@ -60,14 +60,14 @@ class ZmqPullSocket(ZmqSocketBase):
                 message_json = message_bytes.decode()
 
                 # Parse JSON into a PushPullData object
-                pull_data = PushPullData.model_validate_json(message_json)
-                topic = pull_data.topic
+                message = BaseMessage.model_validate_json(message_json)
+                topic = message.payload.message_type
 
                 # Call callbacks with PushPullData object
                 if topic in self._pull_callbacks:
                     for callback in self._pull_callbacks[topic]:
                         try:
-                            await callback(pull_data)
+                            await callback(message)
                         except Exception as e:
                             logger.error(
                                 f"Error in pull callback for topic {topic}: {e}"
@@ -83,8 +83,8 @@ class ZmqPullSocket(ZmqSocketBase):
     async def pull(
         self,
         topic: str,
-        callback: Optional[Callable[[PushPullData], None]] = None,
-    ) -> Union[PushPullData, bool, None]:
+        callback: Optional[Callable[[BaseMessage], None]] = None,
+    ) -> Union[BaseMessage, bool, None]:
         """Pull data from a source.
 
         Args:
@@ -95,7 +95,7 @@ class ZmqPullSocket(ZmqSocketBase):
 
         Returns:
             If callback is provided: True if pull registration was successful, False otherwise
-            If callback is not provided: The received PushPullData object
+            If callback is not provided: The received BaseMessage object
         """
         if not self._is_initialized or self._is_shutdown:
             logger.error(
@@ -117,8 +117,8 @@ class ZmqPullSocket(ZmqSocketBase):
                 message_bytes = await self.socket.recv()
                 message_json = message_bytes.decode()
 
-                pull_data = PushPullData.model_validate_json(message_json)
-                return pull_data
+                message = BaseMessage.model_validate_json(message_json)
+                return message
         except Exception as e:
             logger.error(f"Error pulling data from {topic}: {e}")
             return None

@@ -22,10 +22,10 @@ import pytest
 from pydantic import Field
 
 from aiperf.common.comms.zmq_comms.zmq_communication import ZMQCommunication
-from aiperf.common.enums import ClientType, Topic, ServiceType
-from aiperf.common.models.base_models import BasePayload
+from aiperf.common.enums import ClientType, Topic
 from aiperf.common.models.comms import ZMQCommunicationConfig, ZMQTCPTransportConfig
 from aiperf.common.models.messages import BaseMessage
+from aiperf.common.models.payloads import BasePayload, DataPayload
 
 
 class MockPayload(BasePayload):
@@ -62,8 +62,7 @@ class TestZMQCommunication:
         """Create a test message for communication tests."""
         return BaseMessage(
             service_id="test-service",
-            service_type=ServiceType.TEST,
-            payload=MockPayload(content="Test content"),
+            payload=DataPayload(),
         )
 
     async def test_initialization(self, zmq_communication):

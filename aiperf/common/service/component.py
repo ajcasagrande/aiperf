@@ -22,8 +22,8 @@ from aiperf.common.enums import (
     ClientType,
     Topic,
 )
-from aiperf.common.models.base_models import PayloadT
-from aiperf.common.models.messages import CommandMessage, StatusMessage
+from aiperf.common.models.messages import BaseMessage
+from aiperf.common.models.payloads import PayloadType
 from aiperf.common.service.base import ServiceBase
 
 
@@ -80,12 +80,12 @@ class ComponentServiceBase(ServiceBase, ABC):
             if self.state == ServiceState.RUNNING:
                 await self.stop()
 
-    async def _process_command_message(self, message: CommandMessage) -> None:
+    async def _process_command_message(self, message: BaseMessage) -> None:
         """Process a command message."""
-        if message.target_service_id not in [None, self.service_id]:
+        if message.payload.target_service_id not in [None, self.service_id]:
             return  # Ignore commands for other services
 
-        cmd = message.command
+        cmd = message.payload.command
         if cmd == CommandType.START:
             await self._on_start()
         elif cmd == CommandType.STOP:
@@ -96,14 +96,14 @@ class ComponentServiceBase(ServiceBase, ABC):
             self.logger.warning(f"Received unknown command: {cmd}")
 
     @abstractmethod
-    async def _configure(self, payload: PayloadT) -> None:
+    async def _configure(self, payload: PayloadType) -> None:
         """Configure the service."""
         pass
 
     async def _set_service_status(self, status: ServiceState) -> None:
         """Send a service state message to the system controller."""
         self.state = status
-        status_message = self.wrap_message(StatusMessage(state=self.state))
+        status_message = self.create_status_message(self.state)
         await self._publish_message(
             ClientType.COMPONENT_PUB, Topic.STATUS, status_message
         )

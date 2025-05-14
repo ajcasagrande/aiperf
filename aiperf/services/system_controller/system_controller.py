@@ -13,7 +13,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import sys
-from datetime import datetime
+import time
 from typing import List
 
 from aiperf.common.comms.communication_factory import CommunicationFactory
@@ -28,12 +28,8 @@ from aiperf.common.enums import (
     ClientType,
 )
 from aiperf.common.exceptions.service import ServiceInitializationException
-from aiperf.common.models.messages import CommandMessage
-from aiperf.common.models.messages import (
-    HeartbeatMessage,
-    RegistrationMessage,
-    StatusMessage,
-)
+from aiperf.common.models.messages import BaseMessage
+from aiperf.common.models.service import ServiceRunInfo
 from aiperf.common.service.controller import ControllerServiceBase
 from aiperf.services.system_controller.kubernetes_manager import (
     KubernetesServiceManager,
@@ -41,7 +37,6 @@ from aiperf.services.system_controller.kubernetes_manager import (
 from aiperf.services.system_controller.multiprocess_manager import MultiProcessManager
 from aiperf.services.system_controller.service_manager import (
     ServiceManagerBase,
-    ServiceRunInfo,
 )
 
 
@@ -175,14 +170,14 @@ class SystemController(ControllerServiceBase):
         self.logger.debug("Cleaning up System Controller")
         # TODO: Additional cleanup if needed
 
-    async def _process_registration_message(self, message: RegistrationMessage) -> None:
+    async def _process_registration_message(self, message: BaseMessage) -> None:
         """Process a registration message from a service.
 
         Args:
             message: The registration message to process
         """
         service_id = message.service_id
-        service_type = message.service_type
+        service_type = message.payload.service_type
 
         self.logger.debug(
             f"Processing registration from {service_type} with ID: {service_id}"
@@ -192,9 +187,9 @@ class SystemController(ControllerServiceBase):
             registration_status=ServiceRegistrationStatus.REGISTERED,
             service_type=service_type,
             service_id=service_id,
-            first_seen=datetime.now(),
+            first_seen=time.time_ns(),
             state=ServiceState.READY,
-            last_seen=datetime.fromtimestamp(0),
+            last_seen=time.time_ns(),
         )
 
         self.service_manager.service_id_map[service_id] = service_info
@@ -220,14 +215,14 @@ class SystemController(ControllerServiceBase):
                 f"Failed to send configure command to {service_type} (ID: {service_id})"
             )
 
-    async def _process_heartbeat_message(self, message: HeartbeatMessage) -> None:
+    async def _process_heartbeat_message(self, message: BaseMessage) -> None:
         """Process a heartbeat message from a service.
 
         Args:
             message: The heartbeat message to process
         """
         service_id = message.service_id
-        service_type = message.service_type
+        service_type = message.payload.service_type
         timestamp = message.timestamp
 
         self.logger.debug(f"Received heartbeat from {service_type} (ID: {service_id})")
@@ -235,29 +230,30 @@ class SystemController(ControllerServiceBase):
         # Update the last heartbeat timestamp if the component exists
         if service_info := self.service_manager.get(service_id):
             service_info.last_seen = timestamp
+            service_info.state = message.payload.state
             self.logger.debug(f"Updated heartbeat for {service_id} to {timestamp}")
         else:
             self.logger.warning(
                 f"Received heartbeat from unknown service: {service_id} ({service_type})"
             )
 
-    async def _process_status_message(self, message: StatusMessage) -> None:
+    async def _process_status_message(self, message: BaseMessage) -> None:
         """Process a status message from a service.
 
         Args:
             message: The status message to process
         """
         service_id = message.service_id
-        service_type = message.service_type
-        state = message.state
+        service_type = message.payload.service_type
+        state = message.payload.state
 
         self.logger.debug(
             f"Received status update from {service_type} (ID: {service_id}): {state}"
         )
 
         # Update the component state if the component exists
-        if service_id in self.service_manager.service_id_map:
-            self.service_manager.service_id_map[service_id].state = state
+        if service_info := self.service_manager.get(service_id):
+            service_info.state = message.payload.state
             self.logger.debug(f"Updated state for {service_id} to {state}")
         else:
             self.logger.warning(
@@ -281,11 +277,9 @@ class SystemController(ControllerServiceBase):
             return False
 
         # Create command message using the helper method
-        command_message = self.wrap_message(
-            CommandMessage(
-                command=command,
-                target_service_id=target_service_id,
-            )
+        command_message = self.create_command_message(
+            command=command,
+            target_service_id=target_service_id,
         )
 
         # Publish command message

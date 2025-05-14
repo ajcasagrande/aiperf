@@ -19,8 +19,8 @@ import uuid
 import zmq
 from zmq import SocketType
 
+from aiperf.common.models.messages import BaseRequestMessage, BaseResponseMessage
 from .base import ZmqSocketBase
-from aiperf.common.models.request_response import ResponseData, RequestData
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +70,7 @@ class ZmqReqSocket(ZmqSocketBase):
             response_json: The JSON response string
         """
         try:
-            response = ResponseData.model_validate_json(response_json)
+            response = BaseResponseMessage.model_validate_json(response_json)
             request_id = response.request_id
 
             if request_id in self._response_futures:
@@ -96,7 +96,7 @@ class ZmqReqSocket(ZmqSocketBase):
         # Resolve any pending futures with errors
         for request_id, future in self._response_futures.items():
             if not future.done():
-                error_response = ResponseData(
+                error_response = BaseResponseMessage(
                     request_id=request_id,
                     client_id=self.client_id,
                     status="error",
@@ -110,9 +110,9 @@ class ZmqReqSocket(ZmqSocketBase):
     async def request(
         self,
         target: str,
-        request_data: RequestData,
+        request_data: BaseRequestMessage,
         timeout: float = 5.0,
-    ) -> ResponseData | None:
+    ) -> BaseResponseMessage | None:
         """Send a request and wait for a response.
 
         Args:
@@ -127,7 +127,7 @@ class ZmqReqSocket(ZmqSocketBase):
             logger.error(
                 "Cannot send request: communication not initialized or already shut down"
             )
-            return ResponseData(
+            return BaseResponseMessage(
                 request_id="error",
                 client_id=self.client_id,
                 status="error",
@@ -160,7 +160,7 @@ class ZmqReqSocket(ZmqSocketBase):
             # Wait for response with timeout
             try:
                 response_json = await asyncio.wait_for(future, timeout)
-                response = ResponseData.model_validate_json(response_json)
+                response = BaseResponseMessage.model_validate_json(response_json)
                 return response
 
             except asyncio.TimeoutError:
@@ -169,7 +169,7 @@ class ZmqReqSocket(ZmqSocketBase):
                 )
                 self._response_futures.pop(request_data.request_id, None)
 
-                return ResponseData(
+                return BaseResponseMessage(
                     request_id=request_data.request_id,
                     client_id=self.client_id,
                     status="error",
@@ -181,7 +181,7 @@ class ZmqReqSocket(ZmqSocketBase):
         except Exception as e:
             logger.error(f"Error sending request to {target}: {e}")
 
-            return ResponseData(
+            return BaseResponseMessage(
                 request_id=request_data.request_id
                 if hasattr(request_data, "request_id")
                 else "error",

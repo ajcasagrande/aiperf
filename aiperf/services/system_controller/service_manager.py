@@ -14,27 +14,12 @@
 #  limitations under the License.
 import asyncio
 from abc import ABC, abstractmethod
-from datetime import datetime
 from typing import Dict, List, Optional
 
-from pydantic import BaseModel, Field
-
 from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.enums import ServiceType, ServiceRegistrationStatus, ServiceState
+from aiperf.common.enums import ServiceType
+from aiperf.common.models.service import ServiceRunInfo
 from aiperf.common.service.base import get_logger
-
-
-class ServiceRunInfo(BaseModel):
-    """Base model for tracking service run information."""
-
-    service_type: ServiceType
-    registration_status: ServiceRegistrationStatus = Field(
-        default=ServiceRegistrationStatus.UNREGISTERED
-    )
-    service_id: str = Field(default="")
-    first_seen: Optional[datetime] = Field(default=None)
-    last_seen: Optional[datetime] = Field(default=None)
-    state: ServiceState = Field(default=ServiceState.UNKNOWN)
 
 
 class ServiceManagerBase(ABC):

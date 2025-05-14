@@ -14,14 +14,12 @@
 #  limitations under the License.
 import asyncio
 import logging
+
 import zmq
 from zmq import SocketType
 
+from aiperf.common.models.messages import BaseRequestMessage, BaseResponseMessage
 from .base import ZmqSocketBase
-from aiperf.common.models.request_response import (
-    RequestData,
-    ResponseData,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +78,9 @@ class ZmqRepSocket(ZmqSocketBase):
         self._response_data.clear()
         await super().shutdown()
 
-    async def wait_for_request(self, timeout: float = None) -> RequestData | None:
+    async def wait_for_request(
+        self, timeout: float = None
+    ) -> BaseResponseMessage | None:
         """Wait for a request to arrive.
 
         Args:
@@ -109,7 +109,7 @@ class ZmqRepSocket(ZmqSocketBase):
                     request_json = await future
 
                 # Parse the request
-                request = RequestData.model_validate_json(request_json)
+                request = BaseRequestMessage.model_validate_json(request_json)
                 return request
 
             except asyncio.TimeoutError:
@@ -124,7 +124,7 @@ class ZmqRepSocket(ZmqSocketBase):
             logger.error(f"Error waiting for request: {e}")
             return None
 
-    async def respond(self, target: str, response: ResponseData) -> bool:
+    async def respond(self, target: str, response: BaseResponseMessage) -> bool:
         """Send a response to a request.
 
         Args:
@@ -164,7 +164,7 @@ class ZmqRepSocket(ZmqSocketBase):
                 request_json = await self.socket.recv_string()
 
                 # Parse JSON to create RequestData object
-                request = RequestData.model_validate_json(request_json)
+                request = BaseRequestMessage.model_validate_json(request_json)
                 request_id = request.request_id
 
                 # Store request data

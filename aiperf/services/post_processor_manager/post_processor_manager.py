@@ -16,7 +16,7 @@ import sys
 
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ServiceType
-from aiperf.common.models.base_models import BasePayload
+from aiperf.common.models.payloads import BasePayload
 from aiperf.common.service.component import ComponentServiceBase
 
 

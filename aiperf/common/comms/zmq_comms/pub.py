@@ -17,8 +17,8 @@ import logging
 import zmq.asyncio
 from zmq import SocketType
 
-from .base import ZmqSocketBase
 from aiperf.common.models.messages import BaseMessage
+from .base import ZmqSocketBase
 
 logger = logging.getLogger(__name__)
 
