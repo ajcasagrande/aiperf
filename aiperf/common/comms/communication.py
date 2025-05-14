@@ -15,9 +15,12 @@
 from abc import ABC, abstractmethod
 from typing import Callable, Optional, Union, Coroutine, Any
 
-from aiperf.common.enums import ClientType
-from aiperf.common.models.messages import BaseResponseMessage, BaseMessage
-from aiperf.common.models.payloads import RequestPayload, ResponsePayload
+from aiperf.common.enums import ClientType, TopicType
+from aiperf.common.models.messages import (
+    BaseRequestMessage,
+    BaseResponseMessage,
+    BaseMessage,
+)
 
 
 class BaseCommunication(ABC):
@@ -32,6 +35,26 @@ class BaseCommunication(ABC):
         """
         pass
 
+    @property
+    @abstractmethod
+    def is_initialized(self) -> bool:
+        """Check if communication channels are initialized.
+
+        Returns:
+            True if communication channels are initialized, False otherwise
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def is_shutdown(self) -> bool:
+        """Check if communication channels are shutdown.
+
+        Returns:
+            True if communication channels are shutdown, False otherwise
+        """
+        pass
+
     @abstractmethod
     async def shutdown(self) -> bool:
         """Gracefully shutdown communication channels.
@@ -42,43 +65,38 @@ class BaseCommunication(ABC):
         pass
 
     @abstractmethod
-    async def create_clients(self, *types: ClientType) -> None:
-        """Create and initialize clients for the given types.
+    async def create_clients(self, *client_types: ClientType) -> bool:
+        """Create the communication clients.
 
-        Args:
-            types: List of ClientType values to create clients for
+        Returns:
+            True if clients were created successfully, False otherwise
         """
         pass
 
     @abstractmethod
-    async def publish(
-        self, client_type: ClientType, topic: str, message: BaseMessage
-    ) -> bool:
-        """Publish a message to a topic.
+    async def publish(self, topic: TopicType, message: BaseMessage) -> bool:
+        """Publish a response to a topic.
 
         Args:
-            client_type: Client type to publish from
             topic: Topic to publish to
             message: Message to publish (must be a Pydantic model)
 
         Returns:
-            True if message was published successfully, False otherwise
+            True if response was published successfully, False otherwise
         """
         pass
 
     @abstractmethod
     async def subscribe(
         self,
-        client_type: ClientType,
-        topic: str,
+        topic: TopicType,
         callback: Callable[[BaseMessage], Coroutine[Any, Any, None]] = None,
     ) -> bool:
         """Subscribe to a topic.
 
         Args:
-            client_type: Client type to subscribe from
             topic: Topic to subscribe to
-            callback: Function to call when a message is received (receives BaseMessage object)
+            callback: Function to call when a response is received (receives BaseMessage object)
 
         Returns:
             True if subscription was successful, False otherwise
@@ -88,17 +106,15 @@ class BaseCommunication(ABC):
     @abstractmethod
     async def request(
         self,
-        client_type: ClientType,
         target: str,
-        request_data: RequestPayload,
+        request_data: BaseRequestMessage,
         timeout: float = 5.0,
     ) -> BaseResponseMessage:
         """Send a request and wait for a response.
 
         Args:
-            client_type: Client type to send request from
             target: Target component to send request to
-            request_data: Request data (must be a RequestPayload instance)
+            request_data: Request data (must be a BaseRequestMessage instance)
             timeout: Timeout in seconds
 
         Returns:
@@ -107,15 +123,12 @@ class BaseCommunication(ABC):
         pass
 
     @abstractmethod
-    async def respond(
-        self, client_type: ClientType, target: str, response: ResponsePayload
-    ) -> bool:
+    async def respond(self, target: str, response: BaseResponseMessage) -> bool:
         """Send a response to a request.
 
         Args:
-            client_type: Client type to send response from
             target: Target component to send response to
-            response: Response message (must be a ResponsePayload instance)
+            response: Response message (must be a BaseResponseMessage instance)
 
         Returns:
             True if response was sent successfully, False otherwise
@@ -123,11 +136,11 @@ class BaseCommunication(ABC):
         pass
 
     @abstractmethod
-    async def push(self, client_type: ClientType, message: BaseMessage) -> bool:
+    async def push(self, topic: TopicType, message: BaseMessage) -> bool:
         """Push data to a target.
 
         Args:
-            client_type: Client type to push data from
+            topic: Topic to push to (must be a TopicType instance)
             message: Message to be pushed (must be a BaseMessage instance)
 
         Returns:
@@ -138,18 +151,16 @@ class BaseCommunication(ABC):
     @abstractmethod
     async def pull(
         self,
-        client_type: ClientType,
-        source: str,
+        topic: TopicType,
         callback: Optional[Callable[[BaseMessage], Coroutine[Any, Any, None]]] = None,
     ) -> Union[BaseMessage, bool]:
         """Pull data from a source.
 
         Args:
-            client_type: Client type to pull data from
-            source: Source endpoint to pull data from
+            topic: Topic to pull from (must be a TopicType instance)
             callback: Optional function to call when data is received.
                      If provided, this method will register the callback and return a boolean.
-                     If not provided, this method will wait for and return the next message.
+                     If not provided, this method will wait for and return the next response.
 
         Returns:
             If callback is provided: True if pull registration was successful, False otherwise

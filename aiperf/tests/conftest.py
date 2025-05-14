@@ -64,7 +64,6 @@ def mock_communication() -> AsyncMock:
     mock_comm.initialize.return_value = True
     mock_comm.subscribe.return_value = True
     mock_comm.publish.return_value = True
-    mock_comm.create_clients.return_value = True
     mock_comm.pull.return_value = True
     mock_comm.push.return_value = True
 
@@ -81,7 +80,7 @@ def mock_communication() -> AsyncMock:
         if topic_key not in mock_comm.published_messages:
             mock_comm.published_messages[topic_key] = []
 
-        # Store the message
+        # Store the response
         mock_comm.published_messages[topic_key].append(message)
         return True
 

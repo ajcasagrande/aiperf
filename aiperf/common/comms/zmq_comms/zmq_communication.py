@@ -15,26 +15,39 @@
 import asyncio
 import logging
 import uuid
-from typing import Callable, Optional, Dict
+from typing import Callable, Optional, Dict, Coroutine, Any
 
 import zmq
 import zmq.asyncio
 
 from aiperf.common.comms.communication import BaseCommunication
-from aiperf.common.enums import ClientType
+from aiperf.common.enums import (
+    ClientType,
+    PubClientType,
+    SubClientType,
+    PushClientType,
+    PullClientType,
+    ReqClientType,
+    RepClientType,
+)
+from aiperf.common.enums import TopicType
+from aiperf.common.exceptions.comms import (
+    CommunicationNotInitializedError,
+    CommunicationShutdownError,
+)
 from aiperf.common.models.comms import ZMQCommunicationConfig
 from aiperf.common.models.messages import (
     BaseMessage,
     BaseRequestMessage,
     BaseResponseMessage,
 )
-from .base import ZmqSocketBase
-from .pub import ZmqPublisher
-from .pull import ZmqPullSocket
-from .push import ZmqPushSocket
-from .rep import ZmqRepSocket
-from .req import ZmqReqSocket
-from .sub import ZmqSubscriber
+from .clients.base import BaseZMQClient
+from .clients.pub import ZMQPubClient
+from .clients.pull import ZMQPullClient
+from .clients.push import ZMQPushClient
+from .clients.rep import ZMQRepClient
+from .clients.req import ZMQReqClient
+from .clients.sub import ZMQSubClient
 
 logger = logging.getLogger(__name__)
 
@@ -63,9 +76,8 @@ class ZMQCommunication(BaseCommunication):
         if not self.config.client_id:
             self.config.client_id = f"client_{uuid.uuid4().hex[:8]}"
 
-        self.context = zmq.asyncio.Context()
-
-        self.clients: Dict[ClientType, ZmqSocketBase] = {}
+        self.context: Optional[zmq.asyncio.Context] = None
+        self.clients: Dict[ClientType, BaseZMQClient] = {}
 
         logger.info(
             f"ZMQ communication using protocol: {type(self.config.protocol_config).__name__} "
@@ -81,124 +93,27 @@ class ZMQCommunication(BaseCommunication):
         if self._is_initialized:
             return True
 
+        self.context = zmq.asyncio.Context()
         self._is_initialized = True
         return True
 
-    async def create_clients(self, *types: ClientType) -> None:
-        """Create ZMQ clients based on the provided types.
+    @property
+    def is_initialized(self) -> bool:
+        """Check if communication channels are initialized.
 
-        Args:
-            types: List of ZmqClientType enums indicating the types of clients to create
+        Returns:
+            True if communication channels are initialized, False otherwise
         """
+        return self._is_initialized
 
-        for client_type in types:
-            if client_type in self.clients:
-                continue
+    @property
+    def is_shutdown(self) -> bool:
+        """Check if communication channels are shutdown.
 
-            match client_type:
-                #### Controller ####
-                case ClientType.CONTROLLER_PUB:
-                    client = ZmqPublisher(
-                        self.context,
-                        self.config.controller_pub_sub_address,
-                        bind=True,  # Controller is the publisher
-                    )
-                case ClientType.CONTROLLER_SUB:
-                    client = ZmqSubscriber(
-                        self.context,
-                        self.config.controller_pub_sub_address,
-                        bind=False,  # Component services are the subscribers
-                    )
-
-                #### Component ####
-                case ClientType.COMPONENT_PUB:
-                    client = ZmqPublisher(
-                        self.context,
-                        self.config.component_pub_sub_address,
-                        bind=False,  # Component services are the publishers
-                    )
-                case ClientType.COMPONENT_SUB:
-                    client = ZmqSubscriber(
-                        self.context,
-                        self.config.component_pub_sub_address,
-                        bind=True,  # Controller is the subscriber
-                    )
-
-                #### Inference ####
-                case ClientType.INFERENCE_RESULTS_PUSH:
-                    client = ZmqPushSocket(
-                        self.context,
-                        self.config.inference_push_pull_address,
-                        bind=False,  # Workers are the pushers
-                    )
-                case ClientType.INFERENCE_RESULTS_PULL:
-                    client = ZmqPullSocket(
-                        self.context,
-                        self.config.inference_push_pull_address,
-                        bind=True,  # Records manager is the pull
-                    )
-
-                #### Records ####
-                case ClientType.RECORDS_PUSH:
-                    client = ZmqPushSocket(
-                        self.context,
-                        self.config.records_address,
-                        bind=True,  # Records manager is the pusher
-                    )
-                case ClientType.RECORDS_PULL:
-                    client = ZmqPullSocket(
-                        self.context,
-                        self.config.records_address,
-                        bind=True,  # Post processor is the puller
-                    )
-
-                #### Conversation ####
-                case ClientType.CONVERSATION_DATA_REP:
-                    client = ZmqRepSocket(
-                        self.context,
-                        self.config.conversation_data_address,
-                        bind=True,  # Data manager is the reply
-                    )
-                case ClientType.CONVERSATION_DATA_REQ:
-                    client = ZmqReqSocket(
-                        self.context,
-                        self.config.conversation_data_address,
-                        bind=False,  # Worker manager is the request
-                    )
-
-                #### Credit Drop ####
-                case ClientType.CREDIT_DROP_PUSH:
-                    client = ZmqPushSocket(
-                        self.context,
-                        self.config.credit_drop_address,
-                        bind=True,  # Timing manager is the push
-                    )
-                case ClientType.CREDIT_DROP_PULL:
-                    client = ZmqPullSocket(
-                        self.context,
-                        self.config.credit_drop_address,
-                        bind=False,  # Workers are the pullers
-                    )
-
-                #### Credit Return ####
-                case ClientType.CREDIT_RETURN_PUSH:
-                    client = ZmqPushSocket(
-                        self.context,
-                        self.config.credit_return_address,
-                        bind=False,  # Workers are the pushers
-                    )
-                case ClientType.CREDIT_RETURN_PULL:
-                    client = ZmqPullSocket(
-                        self.context,
-                        self.config.credit_return_address,
-                        bind=True,  # Timing manager is the puller
-                    )
-
-                case _:
-                    raise ValueError(f"Invalid client type: {client_type}")
-
-            await client.initialize()
-            self.clients[client_type] = client
+        Returns:
+            True if communication channels are shutdown, False otherwise
+        """
+        return self._is_shutdown
 
     async def shutdown(self) -> bool:
         """Gracefully shutdown communication channels.
@@ -207,11 +122,12 @@ class ZMQCommunication(BaseCommunication):
             True if shutdown was successful, False otherwise
         """
         if self._is_shutdown:
+            logger.debug("ZMQ communication already shutdown")
             return True
 
         return_val = False
         try:
-            logger.info(
+            logger.debug(
                 f"Shutting down ZMQ communication for client {self.config.client_id}"
             )
             await asyncio.gather(
@@ -219,7 +135,7 @@ class ZMQCommunication(BaseCommunication):
             )
             self.context.term()
             self._is_shutdown = True
-            logger.info("ZMQ communication shutdown successfully")
+            logger.debug("ZMQ communication shutdown successfully")
             return_val = True
         except Exception as e:
             logger.error(f"Error shutting down ZMQ communication: {e}")
@@ -230,11 +146,200 @@ class ZMQCommunication(BaseCommunication):
             self.context = None
             return return_val
 
-    async def publish(
-        self, client_type: ClientType, topic: str, message: BaseMessage
-    ) -> bool:
-        logger.info(f"Publishing message to topic: {topic}")
+    def _ensure_initialized(self) -> None:
+        """Ensure the communication channels are initialized.
+
+        Raises:
+            RuntimeError: If the communication channels are not initialized
+        """
+        if not self.is_initialized:
+            raise CommunicationNotInitializedError()
+        if self.is_shutdown:
+            raise CommunicationShutdownError()
+
+    def _create_pub_client(self, client_type: PubClientType) -> ZMQPubClient:
+        """Create a ZMQ publisher client based on the client type.
+
+        Args:
+            client_type: The type of client to create
+        """
+        match client_type:
+            case PubClientType.CONTROLLER:
+                return ZMQPubClient(
+                    self.context,
+                    self.config.controller_pub_sub_address,
+                    bind=True,
+                )
+            case PubClientType.COMPONENT:
+                return ZMQPubClient(
+                    self.context,
+                    self.config.component_pub_sub_address,
+                    bind=False,
+                )
+            case _:
+                raise ValueError(f"Invalid client type: {client_type}")
+
+    def _create_sub_client(self, client_type: SubClientType) -> ZMQSubClient:
+        """Create a ZMQ subscriber client based on the client type.
+
+        Args:
+            client_type: The type of client to create
+        """
+        match client_type:
+            case SubClientType.CONTROLLER:
+                return ZMQSubClient(
+                    self.context,
+                    self.config.controller_pub_sub_address,
+                    bind=False,
+                )
+            case SubClientType.COMPONENT:
+                return ZMQSubClient(
+                    self.context,
+                    self.config.component_pub_sub_address,
+                    bind=True,
+                )
+            case _:
+                raise ValueError(f"Invalid client type: {client_type}")
+
+    def _create_push_client(self, client_type: PushClientType) -> ZMQPushClient:
+        """Create a ZMQ push client based on the client type.
+
+        Args:
+            client_type: The type of client to create
+        """
+        match client_type:
+            case PushClientType.INFERENCE_RESULTS:
+                return ZMQPushClient(
+                    self.context,
+                    self.config.inference_push_pull_address,
+                    bind=False,  # Workers are the pushers
+                )
+            case PushClientType.CREDIT_DROP:
+                return ZMQPushClient(
+                    self.context,
+                    self.config.credit_drop_address,
+                    bind=True,
+                )
+            case PushClientType.CREDIT_RETURN:
+                return ZMQPushClient(
+                    self.context,
+                    self.config.credit_return_address,
+                    bind=False,
+                )
+            case PushClientType.RECORDS:
+                return ZMQPushClient(
+                    self.context,
+                    self.config.records_address,
+                    bind=False,
+                )
+            case _:
+                raise ValueError(f"Invalid client type: {client_type}")
+
+    def _create_pull_client(self, client_type: PullClientType) -> ZMQPullClient:
+        """Create a ZMQ pull client based on the client type.
+
+        Args:
+            client_type: The type of client to create
+        """
+        match client_type:
+            case PullClientType.INFERENCE_RESULTS:
+                return ZMQPullClient(
+                    self.context,
+                    self.config.inference_push_pull_address,
+                    bind=True,  # Records manager is the pull
+                )
+            case PullClientType.CREDIT_DROP:
+                return ZMQPullClient(
+                    self.context,
+                    self.config.credit_drop_address,
+                    bind=False,
+                )
+            case PullClientType.CREDIT_RETURN:
+                return ZMQPullClient(
+                    self.context,
+                    self.config.credit_return_address,
+                    bind=True,
+                )
+            case PushClientType.RECORDS:
+                return ZMQPullClient(
+                    self.context,
+                    self.config.records_address,
+                    bind=True,
+                )
+            case _:
+                raise ValueError(f"Invalid client type: {client_type}")
+
+    def _create_req_client(self, client_type: ReqClientType) -> ZMQReqClient:
+        """Create a ZMQ request client based on the client type.
+
+        Args:
+            client_type: The type of client to create
+        """
+        match client_type:
+            case ReqClientType.CONVERSATION_DATA:
+                return ZMQReqClient(
+                    self.context,
+                    self.config.conversation_data_address,
+                    bind=False,  # Worker manager is the request
+                )
+            case _:
+                raise ValueError(f"Invalid client type: {client_type}")
+
+    def _create_rep_client(self, client_type: RepClientType) -> ZMQRepClient:
+        """Create a ZMQ reply client based on the client type.
+
+        Args:
+            client_type: The type of client to create
+        """
+        match client_type:
+            case RepClientType.CONVERSATION_DATA:
+                return ZMQRepClient(
+                    self.context,
+                    self.config.conversation_data_address,
+                    bind=True,  # Data manager is the reply
+                )
+            case _:
+                raise ValueError(f"Invalid client type: {client_type}")
+
+    async def create_clients(self, *types: ClientType) -> None:
+        """Create and initialize ZMQ clients based on the client types.
+
+        Args:
+            types: List of ClientType enums indicating the types of clients to create and initialize
+        """
+
+        for client_type in types:
+            if client_type in self.clients:
+                continue
+
+            if isinstance(client_type, PubClientType):
+                client = self._create_pub_client(client_type)
+            elif isinstance(client_type, SubClientType):
+                client = self._create_sub_client(client_type)
+            elif isinstance(client_type, PushClientType):
+                client = self._create_push_client(client_type)
+            elif isinstance(client_type, PullClientType):
+                client = self._create_pull_client(client_type)
+            elif isinstance(client_type, ReqClientType):
+                client = self._create_req_client(client_type)
+            elif isinstance(client_type, RepClientType):
+                client = self._create_rep_client(client_type)
+            else:
+                raise ValueError(f"Invalid client type: {client_type}")
+
+            await client.initialize()
+            self.clients[client_type] = client
+
+    async def publish(self, topic: TopicType, message: BaseMessage) -> bool:
+        self._ensure_initialized()
+        logger.debug(f"Publishing message to topic: {topic}")
+        client_type = PubClientType.from_topic(topic)
         if client_type not in self.clients:
+            logger.warning(
+                "Client type %s not found for pub topic %s, creating client",
+                client_type,
+                topic,
+            )
             await self.create_clients(client_type)
         try:
             return await self.clients[client_type].publish(topic, message)
@@ -244,12 +349,18 @@ class ZMQCommunication(BaseCommunication):
 
     async def subscribe(
         self,
-        client_type: ClientType,
-        topic: str,
-        callback: Callable[[BaseMessage], None],
+        topic: TopicType,
+        callback: Callable[[BaseMessage], Coroutine[Any, Any, None]] = None,
     ) -> bool:
-        logger.info(f"Subscribing to topic: {topic}")
+        logger.debug(f"Subscribing to topic: {topic}")
+        self._ensure_initialized()
+        client_type = SubClientType.from_topic(topic)
         if client_type not in self.clients:
+            logger.warning(
+                "Client type %s not found for sub topic %s, creating client",
+                client_type,
+                topic,
+            )
             await self.create_clients(client_type)
         try:
             return await self.clients[client_type].subscribe(topic, callback)
@@ -259,13 +370,19 @@ class ZMQCommunication(BaseCommunication):
 
     async def request(
         self,
-        client_type: ClientType,
         target: str,
         request_data: BaseRequestMessage,
-        timeout: float = 5,
+        timeout: float = 5.0,
     ) -> BaseResponseMessage:
-        logger.info(f"Requesting from {target} with data: {request_data}")
+        logger.debug(f"Requesting from {target} with data: {request_data}")
+        self._ensure_initialized()
+        client_type = ReqClientType.from_topic(target)
         if client_type not in self.clients:
+            logger.warning(
+                "Client type %s not found for req topic %s, creating client",
+                client_type,
+                target,
+            )
             await self.create_clients(client_type)
         try:
             return await self.clients[client_type].request(
@@ -275,11 +392,16 @@ class ZMQCommunication(BaseCommunication):
             logger.error(f"Error requesting from {target}: {e}")
             return False
 
-    async def respond(
-        self, client_type: ClientType, target: str, response: BaseResponseMessage
-    ) -> bool:
-        logger.info(f"Responding to {target} with data: {response}")
+    async def respond(self, target: str, response: BaseResponseMessage) -> bool:
+        logger.debug(f"Responding to {target} with data: {response}")
+        self._ensure_initialized()
+        client_type = RepClientType.from_topic(target)
         if client_type not in self.clients:
+            logger.warning(
+                "Client type %s not found for rep topic %s, creating client",
+                client_type,
+                target,
+            )
             await self.create_clients(client_type)
         try:
             return await self.clients[client_type].respond(target, response)
@@ -287,27 +409,38 @@ class ZMQCommunication(BaseCommunication):
             logger.error(f"Error responding to {target}: {e}")
             return False
 
-    async def push(self, client_type: ClientType, data: BaseMessage) -> bool:
-        logger.info(f"Pushing data: {data}")
+    async def push(self, topic: TopicType, message: BaseMessage) -> bool:
+        logger.debug(f"Pushing data: {message}")
+        self._ensure_initialized()
+        client_type = PushClientType.from_topic(topic)
         if client_type not in self.clients:
+            logger.warning(
+                "Client type %s not found for push, creating client",
+                client_type,
+            )
             await self.create_clients(client_type)
         try:
-            return await self.clients[client_type].push(data)
+            return await self.clients[client_type].push(message)
         except Exception as e:
             logger.error(f"Error pushing data: {e}")
             return False
 
     async def pull(
         self,
-        client_type: ClientType,
-        source: str,
+        topic: TopicType,
         callback: Callable[[BaseMessage], None] | None = None,
     ) -> BaseMessage | bool:
-        logger.info(f"Pulling data from {source}")
+        logger.debug(f"Pulling data from {topic}")
+        self._ensure_initialized()
+        client_type = PullClientType.from_topic(topic)
         if client_type not in self.clients:
+            logger.warning(
+                "Client type %s not found for pull, creating client",
+                client_type,
+            )
             await self.create_clients(client_type)
         try:
-            return await self.clients[client_type].pull(source, callback)
+            return await self.clients[client_type].pull(topic, callback)
         except Exception as e:
-            logger.error(f"Error pulling data from {source}: {e}")
+            logger.error(f"Error pulling data from {topic}: {e}")
             return False

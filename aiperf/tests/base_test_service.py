@@ -136,7 +136,7 @@ class BaseServiceTest:
         # Directly send a heartbeat instead of waiting for the task
         await service._send_heartbeat()
 
-        # Check that a heartbeat message was published
+        # Check that a heartbeat response was published
         assert Topic.HEARTBEAT in mock_communication.published_messages
         assert len(mock_communication.published_messages[Topic.HEARTBEAT]) > 0
 
@@ -147,10 +147,10 @@ class BaseServiceTest:
         # Register the service
         await service._register()
 
-        # Check that a registration message was published
+        # Check that a registration response was published
         assert Topic.REGISTRATION in mock_communication.published_messages
 
-        # Verify registration message
+        # Verify registration response
         registration_msg = mock_communication.published_messages[Topic.REGISTRATION][0]
         assert registration_msg.service_id == service.service_id
         assert registration_msg.payload.service_type == service.service_type
@@ -162,10 +162,10 @@ class BaseServiceTest:
         # Update the service status
         await service._set_service_status(ServiceState.READY)
 
-        # Check that a status message was published
+        # Check that a status response was published
         assert Topic.STATUS in mock_communication.published_messages
 
-        # Verify status message
+        # Verify status response
         status_msg = mock_communication.published_messages[Topic.STATUS][0]
         assert status_msg.service_id == service.service_id
         assert status_msg.payload.service_type == service.service_type
@@ -197,7 +197,7 @@ class BaseServiceTest:
         self, service, command: CommandType, target_service_id: str
     ) -> BaseMessage:
         """
-        Helper method to create a properly formed command message for testing.
+        Helper method to create a properly formed command response for testing.
 
         Args:
             service: The service that will receive the command

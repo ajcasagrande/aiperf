@@ -14,6 +14,7 @@
 #  limitations under the License.
 import logging
 import uuid
+from typing import Optional
 
 import zmq
 from zmq import SocketType
@@ -21,14 +22,14 @@ from zmq import SocketType
 logger = logging.getLogger(__name__)
 
 
-class ZmqSocketBase:
+class BaseZMQClient:
     def __init__(
         self,
         context: zmq.Context,
         socket_type: SocketType,
         address: str,
         bind: bool,
-        socket_ops: dict = None,
+        socket_ops: Optional[dict] = None,
     ) -> None:
         """
         Initialize the ZMQ Base class.
@@ -40,22 +41,34 @@ class ZmqSocketBase:
             socket_type (SocketType): The type of ZMQ socket (PUB or SUB).
             socket_ops (dict, optional): Additional socket options to set.
         """
-        self._is_shutdown = False
-        self._is_initialized = False
-        self.context = context
-        self.address = address
-        self.bind = bind
-        self.socket_type = socket_type
-        self.socket = self.context.socket(socket_type)
-        self.socket_ops = socket_ops or {}
-        self.client_id = f"client_{uuid.uuid4().hex[:8]}"
+        self._is_shutdown: bool = False
+        self._is_initialized: bool = False
+        self.context: zmq.Context = context
+        self.address: str = address
+        self.bind: bool = bind
+        self.socket_type: SocketType = socket_type
+        self.socket: Optional[zmq.Socket] = None
+        self.socket_ops: dict = socket_ops or {}
+        self.client_id: str = f"client_{uuid.uuid4().hex[:8]}"
+
+    @property
+    def socket_type_name(self) -> str:
+        """Get the name of the socket type."""
+        return self.socket_type.name
 
     async def initialize(self) -> None:
         """Initialize the communication."""
         try:
+            self.socket = self.context.socket(self.socket_type)
             if self.bind:
+                logger.debug(
+                    f"Binding ZMQ {self.socket_type_name} socket to {self.address}"
+                )
                 self.socket.bind(self.address)
             else:
+                logger.debug(
+                    f"Connecting ZMQ {self.socket_type_name} socket to {self.address}"
+                )
                 self.socket.connect(self.address)
             self.socket.setsockopt(zmq.RCVTIMEO, 30 * 1000)
             self.socket.setsockopt(zmq.SNDTIMEO, 30 * 1000)
@@ -63,8 +76,8 @@ class ZmqSocketBase:
                 self.socket.setsockopt(k, v)
             await self._initialize()
             self._is_initialized = True
-            logger.info(
-                f"ZMQ{self.socket_type} initialized and bound to {self.address}"
+            logger.debug(
+                f"ZMQ {self.socket_type_name} socket initialized and connected to {self.address}"
             )
         except Exception as e:
             logger.error(f"Error initializing ZMQ socket: {e}")
@@ -75,10 +88,14 @@ class ZmqSocketBase:
         try:
             self.socket.close()
             self._is_shutdown = True
-            logger.info(f"ZMQ {self.socket_type} socket closed")
+            logger.info(f"ZMQ {self.socket_type_name} socket closed")
         except Exception as e:
             logger.error(f"Error shutting down ZMQ socket: {e}")
             raise
 
     async def _initialize(self) -> None:
+        """Override in subclass to implement custom initialization logic.
+
+        This method is called after the socket is bound or connected.
+        """
         pass

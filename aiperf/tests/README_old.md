@@ -110,19 +110,19 @@ from aiperf.tests.utils.message_mocks import MessageTestUtils
 async def test_handle_message(self, service_under_test, mock_communication):
     service = await async_fixture(service_under_test)
 
-    # Create a mock message
+    # Create a mock response
     message = MessageTestUtils.create_mock_message(
         MessageClass,
         param1="value1",
         param2="value2"
     )
 
-    # Simulate receiving the message
+    # Simulate receiving the response
     await MessageTestUtils.simulate_message_receive(
         service, Topic.MY_TOPIC, message
     )
 
-    # Verify the service handled the message correctly
+    # Verify the service handled the response correctly
     # ...
 ```
 
@@ -211,7 +211,7 @@ async def test_workflow(self, service_under_test, mock_communication, simulate_m
     # Start the service
     await service._start()
 
-    # Simulate a message flow
+    # Simulate a response flow
     await simulate_message_flow(
         service,
         Topic.COMMAND,

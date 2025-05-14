@@ -20,12 +20,12 @@ import zmq
 from zmq import SocketType
 
 from aiperf.common.models.messages import BaseMessage
-from .base import ZmqSocketBase
+from .base import BaseZMQClient
 
 logger = logging.getLogger(__name__)
 
 
-class ZmqPullSocket(ZmqSocketBase):
+class ZMQPullClient(BaseZMQClient):
     def __init__(
         self, context: zmq.Context, address: str, bind: bool, socket_ops: dict = None
     ) -> None:
@@ -91,7 +91,7 @@ class ZmqPullSocket(ZmqSocketBase):
             topic: Topic to pull data from
             callback: Optional function to call when data is received.
                      If provided, this method will register the callback and return a boolean.
-                     If not provided, this method will wait for and return the next message.
+                     If not provided, this method will wait for and return the next response.
 
         Returns:
             If callback is provided: True if pull registration was successful, False otherwise
@@ -111,7 +111,7 @@ class ZmqPullSocket(ZmqSocketBase):
                 logger.debug(f"Registered pull callback for {topic}")
                 return True
 
-            # If no callback, wait for message
+            # If no callback, wait for response
             else:
                 # Receive data
                 message_bytes = await self.socket.recv()

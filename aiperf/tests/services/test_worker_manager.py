@@ -49,7 +49,7 @@ class TestWorkerManager(BaseServiceTest):
         """Test that the worker manager handles command messages correctly."""
         service = await async_fixture(service_under_test)
 
-        # Create a command message using the helper method
+        # Create a command response using the helper method
         command_msg = self.create_command_message(
             service, command=CommandType.START, target_service_id="test-service-id"
         )
@@ -61,12 +61,12 @@ class TestWorkerManager(BaseServiceTest):
             # Set up the mock to return successfully
             mock_process.return_value = None
 
-            # Send the message to the service
+            # Send the response to the service
             await MessageTestUtils.simulate_message_receive(
                 service, Topic.COMMAND, command_msg
             )
 
-            # Verify the method was called with our message
+            # Verify the method was called with our response
             mock_process.assert_called_once_with(command_msg)
 
     async def test_spawn_multiprocessing_workers(self, service_under_test):

@@ -32,7 +32,7 @@ class BasePayload(BaseModel):
 
     message_type: Literal[MessageType.UNKNOWN] = Field(
         ...,
-        description="Type of message",
+        description="Type of response",
     )
 
 
@@ -47,7 +47,7 @@ class ErrorPayload(BasePayload):
     )
     error: str = Field(
         ...,
-        description="Error message",
+        description="Error response",
     )
     error_details: Optional[Dict[str, Any]] = Field(
         default=None,

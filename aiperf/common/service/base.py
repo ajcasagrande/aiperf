@@ -14,6 +14,7 @@
 #  limitations under the License.
 import asyncio
 import contextlib
+import logging
 import signal
 import uuid
 from abc import ABC, abstractmethod
@@ -23,11 +24,11 @@ from aiperf.common.comms.communication import BaseCommunication
 from aiperf.common.comms.communication_factory import CommunicationFactory
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import (
+    ClientType,
     CommandType,
     ServiceState,
     ServiceType,
     Topic,
-    ClientType,
 )
 from aiperf.common.models.messages import BaseMessage
 from aiperf.common.models.payloads import (
@@ -37,10 +38,9 @@ from aiperf.common.models.payloads import (
     StatusPayload,
     CommandPayload,
 )
-from aiperf.common.utils import get_logger
 
 
-class ServiceBase(ABC):
+class BaseService(ABC):
     """Base class for all AIPerf services, providing common functionality for communication,
     state management, and lifecycle operations.
 
@@ -51,19 +51,25 @@ class ServiceBase(ABC):
     def __init__(self, service_config: ServiceConfig, service_id: str = None):
         self.service_id: str = service_id or uuid.uuid4().hex
         self.service_config = service_config
-        self.logger = get_logger(self.__class__.__name__)
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.logger.debug(
             f"Initializing service {self.service_id} {self.service_type} {self.__class__.__name__}"
         )
-        self.state: ServiceState = ServiceState.UNKNOWN
-        self.heartbeat_task = None
-        self.heartbeat_interval = (
+        self._state: ServiceState = ServiceState.UNKNOWN
+        self._heartbeat_task = None
+        self._heartbeat_interval = (
             self.service_config.heartbeat_interval
         )  # Default interval in seconds
         self.stop_event = asyncio.Event()
-        self.communication: Optional[BaseCommunication] = None
+        self.comms: Optional[BaseCommunication] = None
         # Set to store signal handler tasks
         self._signal_tasks = set()
+
+    @property
+    @abstractmethod
+    def required_clients(self) -> list[ClientType]:
+        """The communication clients required by the service."""
+        pass
 
     @property
     @abstractmethod
@@ -74,16 +80,16 @@ class ServiceBase(ABC):
     def create_message(
         self, payload: PayloadType, request_id: Optional[str] = None
     ) -> BaseMessage:
-        """Create a message of the given type.
+        """Create a response of the given type.
 
         Pre-fills the service_id and service_type.
 
         Args:
-            payload: The payload of the message
-            Optional[request_id]: The request id of the message this is a response to
+            payload: The payload of the response
+            Optional[request_id]: The request id of the response this is a response to
 
         Returns:
-            A message of the given type
+            A response of the given type
         """
         message = BaseMessage(
             service_id=self.service_id,
@@ -93,7 +99,7 @@ class ServiceBase(ABC):
         return message
 
     def create_heartbeat_message(self) -> BaseMessage:
-        """Create a heartbeat message."""
+        """Create a heartbeat response."""
         return self.create_message(
             HeartbeatPayload(
                 service_type=self.service_type,
@@ -101,7 +107,7 @@ class ServiceBase(ABC):
         )
 
     def create_registration_message(self) -> BaseMessage:
-        """Create a registration message."""
+        """Create a registration response."""
         return self.create_message(
             RegistrationPayload(
                 service_type=self.service_type,
@@ -109,7 +115,7 @@ class ServiceBase(ABC):
         )
 
     def create_status_message(self, state: ServiceState) -> BaseMessage:
-        """Create a status message."""
+        """Create a status response."""
         return self.create_message(
             StatusPayload(
                 state=state,
@@ -120,7 +126,7 @@ class ServiceBase(ABC):
     def create_command_message(
         self, command: CommandType, target_service_id: str
     ) -> BaseMessage:
-        """Create a command message."""
+        """Create a command response."""
         return self.create_message(
             CommandPayload(command=command, target_service_id=target_service_id)
         )
@@ -136,71 +142,50 @@ class ServiceBase(ABC):
         self._setup_signal_handlers()
 
         # Initialize the service
-        self.state = ServiceState.INITIALIZING
+        self._state = ServiceState.INITIALIZING
 
-        # Initialize communication unless explicitly skipped
-        if not self.communication:
-            self.communication = CommunicationFactory.create_communication(
-                self.service_config
-            )
-
-            # Initialize the communication instance
-            if self.communication:
-                success = await self.communication.initialize()
-                if not success:
-                    self.logger.error(
-                        f"Failed to initialize {self.service_config.comm_backend} communication"
-                    )
-                    self.state = ServiceState.ERROR
-                    return
-
-    async def _publish_message(
-        self, client_type: ClientType, topic: Topic, message: BaseMessage
-    ) -> bool:
-        """Publish a message to a topic.
-
-        Args:
-            client_type: Client type to publish to
-            topic: Topic to publish to
-            message: Message to publish
-
-        Returns:
-            True if published successfully
-        """
-        if not self.communication:
-            self.logger.warning("Cannot publish: Communication is not initialized")
-            return False
-
-        self.logger.debug(f"Publishing message to topic {topic}: {message}")
-
-        success = await self.communication.publish(client_type, topic, message)
+        # Initialize communication
+        self.comms = CommunicationFactory.create_communication(self.service_config)
+        success = await self.comms.initialize()
         if not success:
-            self.logger.error(f"Failed to publish message to topic {topic}")
-        return success
+            self.logger.error(
+                f"Failed to initialize {self.service_config.comm_backend} communication"
+            )
+            self._state = ServiceState.ERROR
+            return
+
+        self.logger.debug(
+            "Creating communication clients (%s), service: %s",
+            self.required_clients,
+            self.service_type,
+        )
+        # Create the communication clients ahead of time
+        await self.comms.create_clients(*self.required_clients)
 
     async def _send_heartbeat(self) -> None:
-        """Send a heartbeat message to the system controller."""
+        """Send a heartbeat response to the system controller."""
         heartbeat_message = self.create_heartbeat_message()
-        self.logger.debug("Sending heartbeat message: %s", heartbeat_message)
-        await self._publish_message(
-            ClientType.COMPONENT_PUB, Topic.HEARTBEAT, heartbeat_message
+        self.logger.debug("Sending heartbeat: %s", heartbeat_message)
+        await self.comms.publish(
+            topic=Topic.HEARTBEAT,
+            message=heartbeat_message,
         )
 
     async def _set_service_status(self, status: ServiceState) -> None:
         """Set the status of the service."""
-        self.state = status
+        self._state = status
 
     async def _start_heartbeat_task(self) -> None:
         """Start a background task to send heartbeats at regular intervals."""
 
         async def heartbeat_loop() -> None:
             while True:
-                await asyncio.sleep(self.heartbeat_interval)
+                await asyncio.sleep(self._heartbeat_interval)
                 await self._send_heartbeat()
 
-        self.heartbeat_task = asyncio.create_task(heartbeat_loop())
+        self._heartbeat_task = asyncio.create_task(heartbeat_loop())
         self.logger.debug(
-            "Started heartbeat task with interval %ss", self.heartbeat_interval
+            "Started heartbeat task with interval %ss", self._heartbeat_interval
         )
 
     async def _register(self) -> None:
@@ -214,10 +199,9 @@ class ServiceBase(ABC):
             self.service_type,
             self.service_id,
         )
-        await self._publish_message(
-            ClientType.COMPONENT_PUB,
-            Topic.REGISTRATION,
-            self.create_registration_message(),
+        await self.comms.publish(
+            topic=Topic.REGISTRATION,
+            message=self.create_registration_message(),
         )
 
     @abstractmethod
@@ -255,7 +239,7 @@ class ServiceBase(ABC):
         self.logger.debug(f"Received signal {sig_name}, initiating graceful shutdown")
 
         # Stop the service if it's running
-        if self.state == ServiceState.RUNNING:
+        if self._state == ServiceState.RUNNING:
             await self.stop()
         else:
             # Just set the stop event to break out of the run loop
@@ -266,7 +250,7 @@ class ServiceBase(ABC):
 
         This method should be called to start the service after it has been initialized.
         """
-        self.logger.debug("Starting service %s", self.service_id)
+        self.logger.debug("Starting %s service %s", self.service_type, self.service_id)
         await self._set_service_status(ServiceState.STARTING)
         try:
             await self._on_start()
@@ -280,7 +264,7 @@ class ServiceBase(ABC):
 
     async def stop(self) -> None:
         """Stop the service and clean up its components."""
-        if self.state != ServiceState.RUNNING:
+        if self._state != ServiceState.RUNNING:
             self.logger.warning(
                 "Service %s is not running, cannot stop", self.service_type
             )
@@ -290,22 +274,20 @@ class ServiceBase(ABC):
         self.stop_event.set()
 
         # Cancel heartbeat task if running
-        if self.heartbeat_task and not self.heartbeat_task.done():
-            self.heartbeat_task.cancel()
+        if self._heartbeat_task and not self._heartbeat_task.done():
+            self._heartbeat_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
-                await self.heartbeat_task
+                await self._heartbeat_task
 
         await self._on_stop()
 
         # Shutdown communication component
-        if self.communication:
-            success = await self.communication.shutdown()
-            if not success:
-                self.logger.warning("Failed to properly shutdown communication")
+        if self.comms:
+            await self.comms.shutdown()
 
         await self._cleanup()
 
-        self.state = ServiceState.STOPPED
+        self._state = ServiceState.STOPPED
 
     ################################################################################
     ## Abstract methods to be implemented by derived classes

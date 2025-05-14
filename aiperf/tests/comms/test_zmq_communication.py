@@ -29,11 +29,11 @@ from aiperf.common.models.payloads import BasePayload, DataPayload
 
 
 class MockPayload(BasePayload):
-    """Mock message payload class for testing."""
+    """Mock response payload class for testing."""
 
     content: str = Field(
         ...,
-        description="Content of the message",
+        description="Content of the response",
     )
 
 
@@ -59,7 +59,7 @@ class TestZMQCommunication:
 
     @pytest.fixture
     def test_message(self):
-        """Create a test message for communication tests."""
+        """Create a test response for communication tests."""
         return BaseMessage(
             service_id="test-service",
             payload=DataPayload(),
@@ -99,16 +99,16 @@ class TestZMQCommunication:
         # Patch the specific client classes and ensure they return our mock
         with (
             patch(
-                "aiperf.common.comms.zmq_comms.pub.ZmqPublisher",
+                "aiperf.common.comms.zmq_comms.pub.ZMQPubClient",
                 return_value=mock_client,
             ),
             patch(
-                "aiperf.common.comms.zmq_comms.sub.ZmqSubscriber",
+                "aiperf.common.comms.zmq_comms.sub.ZMQSubClient",
                 return_value=mock_client,
             ),
         ):
             # Call create_clients
-            await zmq_communication.create_clients(
+            await zmq_communication._create_clients(
                 ClientType.COMPONENT_PUB, ClientType.COMPONENT_SUB
             )
 
@@ -129,12 +129,12 @@ class TestZMQCommunication:
         zmq_communication.clients = {ClientType.COMPONENT_PUB: mock_client}
         zmq_communication._is_initialized = True
 
-        # Publish a message
+        # Publish a response
         result = await zmq_communication.publish(
             ClientType.COMPONENT_PUB, Topic.STATUS, test_message
         )
 
-        # Verify the message was published
+        # Verify the response was published
         assert result is True
         mock_client.publish.assert_called_once_with(Topic.STATUS, test_message)
 

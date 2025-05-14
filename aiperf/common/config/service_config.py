@@ -14,7 +14,8 @@
 #  limitations under the License.
 from pydantic import BaseModel, Field
 
-from aiperf.common.enums import CommBackend, ServiceRunType
+from aiperf.common.enums import CommBackend
+from aiperf.common.enums import ServiceRunType
 
 
 class ServiceConfig(BaseModel):

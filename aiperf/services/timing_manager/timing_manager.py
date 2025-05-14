@@ -17,7 +17,14 @@ import sys
 import time
 
 from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.enums import ServiceType, Topic, ClientType, ServiceState
+from aiperf.common.enums import (
+    ClientType,
+    PullClientType,
+    PushClientType,
+    ServiceType,
+    Topic,
+    ServiceState,
+)
 from aiperf.common.models.messages import BaseMessage
 from aiperf.common.models.payloads import (
     BasePayload,
@@ -37,23 +44,29 @@ class TimingManager(ComponentServiceBase):
         """The type of service."""
         return ServiceType.TIMING_MANAGER
 
+    @property
+    def required_clients(self) -> list[ClientType]:
+        """The communication clients required by the service."""
+        return [
+            *super().required_clients,
+            PullClientType.CREDIT_RETURN,
+            PushClientType.CREDIT_DROP,
+        ]
+
     async def _initialize(self) -> None:
         """Initialize timing manager-specific components."""
         self.logger.debug("Initializing timing manager")
         # TODO: Implement timing manager initialization
-        await self.communication.create_clients(
-            ClientType.CREDIT_DROP_PUSH,
-            ClientType.CREDIT_RETURN_PULL,
-        )
 
     async def _on_start(self) -> None:
         """Start the timing manager."""
         self.logger.debug("Starting timing manager")
         # TODO: Implement timing manager start
-        await self.communication.pull(
-            ClientType.CREDIT_RETURN_PULL, Topic.CREDIT_RETURN, self._on_credit_return
+        await self.comms.pull(
+            topic=Topic.CREDIT_RETURN,
+            callback=self._on_credit_return,
         )
-        self.state = ServiceState.RUNNING
+        self._state = ServiceState.RUNNING
         await asyncio.sleep(3)
         asyncio.create_task(self._issue_credit_drops())
 
@@ -61,7 +74,7 @@ class TimingManager(ComponentServiceBase):
         """Issue credit drops to workers."""
         self.logger.debug("Issuing credit drops to workers")
         # TODO: Actually implement real credit drop logic
-        while self.state == ServiceState.RUNNING:
+        while self._state == ServiceState.RUNNING:
             try:
                 await asyncio.sleep(0.1)
                 if self._credits_available <= 0:
@@ -70,11 +83,9 @@ class TimingManager(ComponentServiceBase):
                 self.logger.debug("Issuing credit drop")
                 # TODO: Actually implement real credit drop logic
                 self._credits_available -= 1
-                await self.communication.push(
-                    ClientType.CREDIT_DROP_PUSH,
-                    BaseMessage(
-                        topic=Topic.CREDIT_DROP,
-                        source=self.service_id,
+                await self.comms.push(
+                    topic=Topic.CREDIT_DROP,
+                    message=self.create_message(
                         payload=CreditDropPayload(
                             amount=1,
                             timestamp=time.time_ns(),
@@ -99,10 +110,10 @@ class TimingManager(ComponentServiceBase):
         # TODO: Implement timing manager cleanup
 
     async def _on_credit_return(self, message: BaseMessage) -> None:
-        """Process a credit return message.
+        """Process a credit return response.
 
         Args:
-            message: The message received from the pull request
+            message: The response received from the pull request
         """
         self.logger.debug(f"Processing credit return: {message.payload}")
         self._credits_available += message.payload.amount

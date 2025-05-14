@@ -13,13 +13,13 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import asyncio
+import logging
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional
 
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ServiceType
 from aiperf.common.models.service import ServiceRunInfo
-from aiperf.common.service.base import get_logger
 
 
 class ServiceManagerBase(ABC):
@@ -30,7 +30,7 @@ class ServiceManagerBase(ABC):
     def __init__(
         self, required_service_types: List[ServiceType], config: ServiceConfig
     ):
-        self.logger = get_logger(self.__class__.__name__)
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.required_service_types = required_service_types
         self.config = config
         # Maps to track service information

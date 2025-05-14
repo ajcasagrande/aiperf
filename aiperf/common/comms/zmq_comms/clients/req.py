@@ -20,12 +20,12 @@ import zmq
 from zmq import SocketType
 
 from aiperf.common.models.messages import BaseRequestMessage, BaseResponseMessage
-from .base import ZmqSocketBase
+from .base import BaseZMQClient
 
 logger = logging.getLogger(__name__)
 
 
-class ZmqReqSocket(ZmqSocketBase):
+class ZMQReqClient(BaseZMQClient):
     def __init__(
         self, context: zmq.Context, address: str, bind: bool, socket_ops: dict = None
     ) -> None:
@@ -64,7 +64,7 @@ class ZmqReqSocket(ZmqSocketBase):
                 await asyncio.sleep(0.1)
 
     async def _handle_response(self, response_json: str) -> None:
-        """Handle a response message.
+        """Handle a response response.
 
         Args:
             response_json: The JSON response string

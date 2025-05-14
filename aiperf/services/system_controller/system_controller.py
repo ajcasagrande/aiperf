@@ -12,11 +12,11 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+import asyncio
 import sys
 import time
 from typing import List
 
-from aiperf.common.comms.communication_factory import CommunicationFactory
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import (
     CommandType,
@@ -25,7 +25,6 @@ from aiperf.common.enums import (
     ServiceState,
     ServiceType,
     Topic,
-    ClientType,
 )
 from aiperf.common.exceptions.service import ServiceInitializationException
 from aiperf.common.models.messages import BaseMessage
@@ -64,22 +63,6 @@ class SystemController(ControllerServiceBase):
         """Initialize system controller-specific components."""
         self.logger.debug("Initializing System Controller")
 
-        # Initialize communication component based on config
-        comm_type = self.service_config.comm_backend
-        self.logger.info(f"Initializing communication with backend: {comm_type}")
-
-        self.communication = CommunicationFactory.create_communication(
-            self.service_config
-        )
-
-        if self.communication is None:
-            self.logger.error(
-                f"Failed to create communication with backend: {comm_type}"
-            )
-            raise ServiceInitializationException(
-                f"Failed to initialize communication backend: {comm_type}"
-            )
-
         if self.service_config.service_run_type == ServiceRunType.MULTIPROCESSING:
             self.service_manager = MultiProcessManager(
                 self.required_service_types, self.service_config
@@ -93,34 +76,26 @@ class SystemController(ControllerServiceBase):
                 f"Unsupported service run type: {self.service_config.service_run_type}"
             )
 
-        # Initialize the communication
-        success = await self.communication.initialize()
-        if not success:
-            self.logger.error("Failed to initialize communication")
-            raise ServiceInitializationException("Failed to initialize communication")
-
-        # Create clients
-        await self.communication.create_clients(
-            ClientType.COMPONENT_SUB,
-            ClientType.CONTROLLER_PUB,
-        )
-
         # Subscribe to relevant messages
-        await self.communication.subscribe(
-            ClientType.COMPONENT_SUB,
-            Topic.REGISTRATION,
-            self._process_registration_message,
+        await self.comms.subscribe(
+            topic=Topic.REGISTRATION,
+            callback=self._process_registration_message,
         )
-        await self.communication.subscribe(
-            ClientType.COMPONENT_SUB, Topic.HEARTBEAT, self._process_heartbeat_message
+        await self.comms.subscribe(
+            topic=Topic.HEARTBEAT,
+            callback=self._process_heartbeat_message,
         )
-        await self.communication.subscribe(
-            ClientType.COMPONENT_SUB, Topic.STATUS, self._process_status_message
+        await self.comms.subscribe(
+            topic=Topic.STATUS,
+            callback=self._process_status_message,
         )
 
-        self.logger.info(
-            f"Successfully initialized communication with backend: {comm_type}"
+        self.logger.debug(
+            "System controller waiting for 1 second to ensure that the communication is initialized"
         )
+
+        # wait 1 second to ensure that the communication is initialized
+        await asyncio.sleep(1)
 
     async def _on_start(self) -> None:
         """Start the system controller and launch required services."""
@@ -171,10 +146,10 @@ class SystemController(ControllerServiceBase):
         # TODO: Additional cleanup if needed
 
     async def _process_registration_message(self, message: BaseMessage) -> None:
-        """Process a registration message from a service.
+        """Process a registration response from a service.
 
         Args:
-            message: The registration message to process
+            message: The registration response to process
         """
         service_id = message.service_id
         service_type = message.payload.service_type
@@ -216,10 +191,10 @@ class SystemController(ControllerServiceBase):
             )
 
     async def _process_heartbeat_message(self, message: BaseMessage) -> None:
-        """Process a heartbeat message from a service.
+        """Process a heartbeat response from a service.
 
         Args:
-            message: The heartbeat message to process
+            message: The heartbeat response to process
         """
         service_id = message.service_id
         service_type = message.payload.service_type
@@ -238,10 +213,10 @@ class SystemController(ControllerServiceBase):
             )
 
     async def _process_status_message(self, message: BaseMessage) -> None:
-        """Process a status message from a service.
+        """Process a status response from a service.
 
         Args:
-            message: The status message to process
+            message: The status response to process
         """
         service_id = message.service_id
         service_type = message.payload.service_type
@@ -272,19 +247,20 @@ class SystemController(ControllerServiceBase):
         Returns:
             True if the command was sent successfully
         """
-        if not self.communication:
+        if not self.comms:
             self.logger.error("Cannot send command: Communication is not initialized")
             return False
 
-        # Create command message using the helper method
+        # Create command response using the helper method
         command_message = self.create_command_message(
             command=command,
             target_service_id=target_service_id,
         )
 
-        # Publish command message
-        return await self._publish_message(
-            ClientType.CONTROLLER_PUB, Topic.COMMAND, command_message
+        # Publish command response
+        return await self.comms.publish(
+            topic=Topic.COMMAND,
+            message=command_message,
         )
 
 

@@ -13,11 +13,11 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.service.base import ServiceBase
+from aiperf.common.service.base import BaseService
 
 
 def bootstrap_and_run_service(
-    service_class: type[ServiceBase], service_config: ServiceConfig | None = None
+    service_class: type[BaseService], service_config: ServiceConfig | None = None
 ):
     """Bootstrap the service and run it.
 

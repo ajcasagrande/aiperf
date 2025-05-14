@@ -15,11 +15,11 @@
 from abc import ABC
 
 from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.enums import ClientType, ServiceState
-from aiperf.common.service.base import ServiceBase
+from aiperf.common.enums import ClientType, PubClientType, ServiceState, SubClientType
+from aiperf.common.service.base import BaseService
 
 
-class ControllerServiceBase(ServiceBase, ABC):
+class ControllerServiceBase(BaseService, ABC):
     """Base class for all controller services.
 
     This class provides a common interface for all controller services in the AIPerf framework.
@@ -30,15 +30,16 @@ class ControllerServiceBase(ServiceBase, ABC):
     def __init__(self, service_config: ServiceConfig, service_id: str = None) -> None:
         super().__init__(service_config=service_config, service_id=service_id)
 
+    @property
+    def required_clients(self) -> list[ClientType]:
+        """The communication clients required by the service."""
+        # The controller service subscribes to controller messages and publishes to components
+        return [PubClientType.CONTROLLER, SubClientType.COMPONENT]
+
     # TODO: Complete the implementation of the controller service methods
     async def run(self) -> None:
         """Start the service and initialize its components."""
         await self._base_init()
-
-        await self.communication.create_clients(
-            ClientType.CONTROLLER_SUB,
-            ClientType.COMPONENT_PUB,
-        )
 
         await self._initialize()
 

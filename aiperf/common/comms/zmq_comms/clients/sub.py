@@ -20,12 +20,12 @@ import zmq
 from zmq import SocketType
 
 from aiperf.common.models.messages import BaseMessage
-from .base import ZmqSocketBase
+from .base import BaseZMQClient
 
 logger = logging.getLogger(__name__)
 
 
-class ZmqSubscriber(ZmqSocketBase):
+class ZMQSubClient(BaseZMQClient):
     def __init__(
         self, context: zmq.Context, address: str, bind: bool, socket_ops: dict = None
     ) -> None:
@@ -51,7 +51,7 @@ class ZmqSubscriber(ZmqSocketBase):
 
         Args:
             topic: Topic to subscribe to
-            callback: Function to call when a message is received (receives BaseMessage object)
+            callback: Function to call when a response is received (receives BaseMessage object)
 
         Returns:
             True if subscription was successful, False otherwise
@@ -86,7 +86,7 @@ class ZmqSubscriber(ZmqSocketBase):
                 continue
 
             try:
-                # Receive message
+                # Receive response
                 (
                     topic_bytes,
                     message_bytes,
@@ -95,7 +95,7 @@ class ZmqSubscriber(ZmqSocketBase):
                 message_json = message_bytes.decode()
                 message = BaseMessage.model_validate_json(message_json)
 
-                # Call callbacks with the parsed message object
+                # Call callbacks with the parsed response object
                 if topic in self._subscribers:
                     for callback in self._subscribers[topic]:
                         try:
@@ -114,6 +114,6 @@ class ZmqSubscriber(ZmqSocketBase):
                 await asyncio.sleep(0.001)
             except Exception as e:
                 logger.error(
-                    f"Error receiving message from subscription: {e}, {type(e)}"
+                    f"Error receiving response from subscription: {e}, {type(e)}"
                 )
                 await asyncio.sleep(0.1)

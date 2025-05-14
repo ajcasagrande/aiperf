@@ -12,9 +12,22 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""
-AIPerf testing utilities.
+from enum import Enum
 
-This package contains utilities for testing AIPerf services, including tools for
-mocking communication, simulating response flows, and testing asynchronous code.
-"""
+# __all__ allows us to choose what gets imported when using import * on this file
+# Note: To generate the contents of __all__ from class name definitions, use the following shell snippet:
+#   sed -En "s/^class ([^\(:]+).*:|^def ([^\(]+).*|(\w+) = Union\[/    \"\1\2\3\",/p" aiperf/common/enums/base.py | sort -u
+__all__ = [
+    "StrEnum",
+]
+
+
+class StrEnum(str, Enum):
+    """Base class for string-based enums.
+
+    Using this as a base class allows enum values to be used directly as
+    strings without having to use .value.
+    """
+
+    def __str__(self) -> str:
+        return self.value

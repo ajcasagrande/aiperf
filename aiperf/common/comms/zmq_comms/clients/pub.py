@@ -12,23 +12,24 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+
 import logging
 
-import zmq
+import zmq.asyncio
 from zmq import SocketType
 
 from aiperf.common.models.messages import BaseMessage
-from .base import ZmqSocketBase
+from .base import BaseZMQClient
 
 logger = logging.getLogger(__name__)
 
 
-class ZmqPushSocket(ZmqSocketBase):
+class ZMQPubClient(BaseZMQClient):
     def __init__(
         self, context: zmq.Context, address: str, bind: bool, socket_ops: dict = None
     ) -> None:
         """
-        Initialize the ZMQ Pusher class.
+        Initialize the ZMQ Publisher class.
 
         Args:
             context (zmq.Context): The ZMQ context.
@@ -36,31 +37,31 @@ class ZmqPushSocket(ZmqSocketBase):
             bind (bool): Whether to bind or connect the socket.
             socket_ops (dict, optional): Additional socket options to set.
         """
-        super().__init__(context, SocketType.PUSH, address, bind, socket_ops)
+        super().__init__(context, SocketType.PUB, address, bind, socket_ops)
 
-    async def push(self, data: BaseMessage) -> bool:
-        """Push data to a target.
+    async def publish(self, topic: str, message: BaseMessage) -> bool:
+        """Publish a response to a topic.
 
         Args:
-            data: Data to be pushed (must be a PushData instance)
+            topic: Topic to publish to
+            message: Message to publish (must be a Pydantic model)
 
         Returns:
-            True if data was pushed successfully, False otherwise
+            True if response was published successfully, False otherwise
         """
         if not self._is_initialized or self._is_shutdown:
             logger.error(
-                "Cannot push data: communication not initialized or already shut down"
+                "Cannot publish response: communication not initialized or already shut down"
             )
             return False
 
         try:
-            # Serialize data directly using Pydantic's built-in method
-            data_json = data.model_dump_json()
+            # Serialize response using Pydantic's built-in method
+            message_json = message.model_dump_json()
 
-            # Send data
-            await self.socket.send_string(data_json)
-            logger.debug("Pushed data")
+            # Publish response
+            await self.socket.send_multipart([topic.encode(), message_json.encode()])
             return True
         except Exception as e:
-            logger.error(f"Error pushing data: {e} {type(e)}")
+            logger.error(f"Error publishing response to topic {topic}: {e}")
             return False

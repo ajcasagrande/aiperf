@@ -19,12 +19,12 @@ import zmq
 from zmq import SocketType
 
 from aiperf.common.models.messages import BaseRequestMessage, BaseResponseMessage
-from .base import ZmqSocketBase
+from .base import BaseZMQClient
 
 logger = logging.getLogger(__name__)
 
 
-class ZmqRepSocket(ZmqSocketBase):
+class ZMQRepClient(BaseZMQClient):
     def __init__(
         self, context: zmq.Context, address: str, bind: bool, socket_ops: dict = None
     ) -> None:
@@ -129,7 +129,7 @@ class ZmqRepSocket(ZmqSocketBase):
 
         Args:
             target: Target component to send response to
-            response: Response message (must be a ResponseData instance)
+            response: Response response (must be a ResponseData instance)
 
         Returns:
             True if response was sent successfully, False otherwise

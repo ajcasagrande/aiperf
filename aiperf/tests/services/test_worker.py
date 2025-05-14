@@ -48,7 +48,7 @@ class TestWorker(BaseServiceTest):
             return_value=mock_communication,
         ):
             worker = Worker(service_config=service_config)
-            worker.communication = mock_communication
+            worker.comms = mock_communication
             return worker
 
     async def test_service_status_update(self, worker, **kwargs):

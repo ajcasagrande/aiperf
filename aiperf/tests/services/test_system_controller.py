@@ -61,13 +61,13 @@ class TestSystemController(BaseServiceTest):
         """Override to test that the service updates its status correctly for SystemController."""
         service = await async_fixture(service_under_test)
 
-        # Directly create and publish a status message for testing
+        # Directly create and publish a status response for testing
         status_message = service.create_status_message(state=ServiceState.READY)
         await service._publish_message(
             ClientType.COMPONENT_PUB, Topic.STATUS, status_message
         )
 
-        # Verify the message was published with correct fields
+        # Verify the response was published with correct fields
         assert Topic.STATUS in mock_communication.published_messages
         status_msg = mock_communication.published_messages[Topic.STATUS][0]
         assert status_msg.service_id == service.service_id
@@ -86,7 +86,7 @@ class TestSystemController(BaseServiceTest):
         service = await async_fixture(service_under_test)
         worker_data = test_worker_registration
 
-        # Send the message to the service
+        # Send the response to the service
         await MessageTestUtils.simulate_message_receive(
             service,
             Topic.REGISTRATION,

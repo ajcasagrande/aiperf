@@ -13,7 +13,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 """
-Utilities for mocking messages and testing message handling.
+Utilities for mocking messages and testing response handling.
 """
 
 from typing import Any, Dict, List, Type, TypeVar
@@ -26,19 +26,19 @@ T = TypeVar("T", bound=BaseMessage)
 
 
 class MessageTestUtils:
-    """Utilities for testing message handling in services."""
+    """Utilities for testing response handling in services."""
 
     @staticmethod
     def create_mock_message(message_class: Type[T], **kwargs) -> T:
         """
-        Create a message of the specified class with the given attributes.
+        Create a response of the specified class with the given attributes.
 
         Args:
-            message_class: The class of message to create
-            **kwargs: Attributes to set on the message
+            message_class: The class of response to create
+            **kwargs: Attributes to set on the response
 
         Returns:
-            A message instance
+            A response instance
         """
         return message_class(**kwargs)
 
@@ -47,12 +47,12 @@ class MessageTestUtils:
         service: Any, topic: Topic, message: BaseMessage
     ) -> None:
         """
-        Simulate a service receiving a message on a specific topic.
+        Simulate a service receiving a response on a specific topic.
 
         Args:
-            service: The service that should receive the message
-            topic: The topic the message is sent on
-            message: The message to send
+            service: The service that should receive the response
+            topic: The topic the response is sent on
+            message: The response to send
         """
         # Map topics to their corresponding handler method names
         handler_map = {
@@ -75,7 +75,7 @@ class MessageTestUtils:
         mock_communication: Any, topic: Topic, expected_fields: Dict[str, Any]
     ) -> bool:
         """
-        Verify that a message with the expected fields was published to the given topic.
+        Verify that a response with the expected fields was published to the given topic.
 
         Args:
             mock_communication: The mock communication object
@@ -83,7 +83,7 @@ class MessageTestUtils:
             expected_fields: Dictionary of field names and values to check
 
         Returns:
-            True if a matching message was found, False otherwise
+            True if a matching response was found, False otherwise
         """
         if topic not in mock_communication.published_messages:
             return False
@@ -100,7 +100,7 @@ class MessageTestUtils:
 
 
 class MessageParamBuilder:
-    """Builder for creating parameterized message tests."""
+    """Builder for creating parameterized response tests."""
 
     @staticmethod
     def build_message_params(
@@ -109,10 +109,10 @@ class MessageParamBuilder:
         required_fields: Dict[str, Any] = None,
     ) -> List[Dict[str, Any]]:
         """
-        Build a list of parameter dictionaries for testing message handling with different field values.
+        Build a list of parameter dictionaries for testing response handling with different field values.
 
         Args:
-            message_class: The class of message to parameterize
+            message_class: The class of response to parameterize
             field_variations: Dictionary mapping field names to lists of possible values
             required_fields: Dictionary of fields that should be included in all parameter sets
 
@@ -137,11 +137,11 @@ class MessageParamBuilder:
 
 def message_handler_test(message_class: Type[BaseMessage], topic: Topic, **params):
     """
-    Decorator for creating parameterized tests of message handlers.
+    Decorator for creating parameterized tests of response handlers.
 
     Args:
-        message_class: The class of message to test
-        topic: The topic the message is sent on
+        message_class: The class of response to test
+        topic: The topic the response is sent on
         **params: Parameters to use for the test
 
     Returns:
@@ -152,10 +152,10 @@ def message_handler_test(message_class: Type[BaseMessage], topic: Topic, **param
         """Decorator function."""
 
         async def wrapper(self, service_under_test, mock_communication):
-            # Create the message
+            # Create the response
             message = MessageTestUtils.create_mock_message(message_class, **params)
 
-            # Simulate receiving the message
+            # Simulate receiving the response
             await MessageTestUtils.simulate_message_receive(
                 service_under_test, topic, message
             )

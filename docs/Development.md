@@ -164,7 +164,7 @@ Here's a simplified example of a service implementation:
 ```python
 from aiperf.common.service.base import ServiceBase
 from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.enums import Topic, ZmqClientType
+from aiperf.common.enums import Topic, ZMQClientType
 from aiperf.common.models.messages import BaseMessage
 
 
@@ -178,8 +178,8 @@ class ExampleService(ServiceBase):
       self.logger.debug("Initializing Example Service")
       # Subscribe to required topics
       # TODO: Fix this documentation
-      await self._subscribe_to_topic(ZmqClientType.CONTROLLER_SUB, Topic.COMMAND)
-      await self._subscribe_to_topic(ZmqClientType.INFERENCE_REQUEST_SUB, Topic.DATA)
+      await self._subscribe_to_topic(ZMQClientType.CONTROLLER_SUB, Topic.COMMAND)
+      await self._subscribe_to_topic(ZMQClientType.INFERENCE_REQUEST_SUB, Topic.DATA)
       # Initialize resources
       self.my_resource = SomeResource()
 
@@ -204,7 +204,7 @@ class ExampleService(ServiceBase):
 
    async def _process_message(self, topic: Topic, message: BaseMessage) -> None:
       """Handle incoming messages."""
-      self.logger.debug(f"Processing message: {topic}, {message}")
+      self.logger.debug(f"Processing response: {topic}, {message}")
       if topic == Topic.COMMAND:
          # Handle command messages
          await self._handle_command(message)

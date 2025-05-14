@@ -12,7 +12,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""Pydantic models for message structures used in inter-service communication."""
+"""Pydantic models for response structures used in inter-service communication."""
 
 import time
 import uuid
@@ -24,17 +24,17 @@ from aiperf.common.models.payloads import PayloadType, RequestPayload, ResponseP
 
 
 class BaseMessage(BaseModel):
-    """Base message model with common fields for all messages.
+    """Base response model with common fields for all messages.
     The payload can be any of the payload types defined by .
     """
 
     service_id: Optional[str] = Field(
         default=None,
-        description="ID of the service sending the message",
+        description="ID of the service sending the response",
     )
     timestamp: int = Field(
         default_factory=time.time_ns,
-        description="Time when the message was created",
+        description="Time when the response was created",
     )
     request_id: Optional[str] = Field(
         default=None,
@@ -43,18 +43,18 @@ class BaseMessage(BaseModel):
     payload: PayloadType = Field(
         default=None,
         discriminator="message_type",
-        description="Payload of the message",
+        description="Payload of the response",
     )
 
 
 class BaseRequestMessage(BaseMessage):
-    """Base request message model with common fields for all request messages.
+    """Base request response model with common fields for all request messages.
     The payload must override the RequestPayload type.
     """
 
     message_type: RequestPayload = Field(
         default=None,
-        description="Type of the message",
+        description="Type of the response",
     )
     request_id: str = Field(
         default_factory=lambda: uuid.uuid4().hex[:8],
@@ -63,18 +63,18 @@ class BaseRequestMessage(BaseMessage):
     payload: RequestPayload = Field(
         default=None,
         discriminator="message_type",
-        description="Payload of the message",
+        description="Payload of the response",
     )
 
 
 class BaseResponseMessage(BaseMessage):
-    """Base response message model with common fields for all response messages.
+    """Base response response model with common fields for all response messages.
     The payload must override the ResponsePayload type.
     """
 
     message_type: ResponsePayload = Field(
         default=None,
-        description="Type of the message",
+        description="Type of the response",
     )
 
     request_id: str = Field(
@@ -83,5 +83,5 @@ class BaseResponseMessage(BaseMessage):
     payload: ResponsePayload = Field(
         default=None,
         discriminator="message_type",
-        description="Payload of the message",
+        description="Payload of the response",
     )
