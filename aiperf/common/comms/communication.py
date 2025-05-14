@@ -16,11 +16,7 @@ from abc import ABC, abstractmethod
 from typing import Callable, Optional, Union, Coroutine, Any
 
 from aiperf.common.enums import ClientType, TopicType
-from aiperf.common.models.messages import (
-    BaseRequestMessage,
-    BaseResponseMessage,
-    BaseMessage,
-)
+from aiperf.common.models.messages import BaseMessage
 
 
 class BaseCommunication(ABC):
@@ -107,28 +103,28 @@ class BaseCommunication(ABC):
     async def request(
         self,
         target: str,
-        request_data: BaseRequestMessage,
+        request_data: BaseMessage,
         timeout: float = 5.0,
-    ) -> BaseResponseMessage:
+    ) -> BaseMessage:
         """Send a request and wait for a response.
 
         Args:
             target: Target component to send request to
-            request_data: Request data (must be a BaseRequestMessage instance)
+            request_data: Request data (must be a BaseMessage instance)
             timeout: Timeout in seconds
 
         Returns:
-            BaseResponseMessage object
+            BaseMessage object
         """
         pass
 
     @abstractmethod
-    async def respond(self, target: str, response: BaseResponseMessage) -> bool:
+    async def respond(self, target: str, response: BaseMessage) -> bool:
         """Send a response to a request.
 
         Args:
             target: Target component to send response to
-            response: Response message (must be a BaseResponseMessage instance)
+            response: Response message (must be a BaseMessage instance)
 
         Returns:
             True if response was sent successfully, False otherwise

@@ -55,7 +55,7 @@ class BaseService(ABC):
         self.logger.debug(
             f"Initializing service {self.service_id} {self.service_type} {self.__class__.__name__}"
         )
-        self.state: ServiceState = ServiceState.UNKNOWN
+        self._state: ServiceState = ServiceState.UNKNOWN
         self._heartbeat_task = None
         self._heartbeat_interval = (
             self.service_config.heartbeat_interval
@@ -68,11 +68,11 @@ class BaseService(ABC):
     @property
     def state(self) -> ServiceState:
         """The current state of the service."""
-        return self.state
+        return self._state
 
     async def set_state(self, state: ServiceState) -> None:
         """Set the state of the service."""
-        self.state = state
+        self._state = state
         if self.comms.is_initialized:
             await self.comms.publish(
                 topic=Topic.STATUS,
@@ -156,7 +156,7 @@ class BaseService(ABC):
         self._setup_signal_handlers()
 
         # Initialize the service
-        self.state = ServiceState.INITIALIZING
+        self._state = ServiceState.INITIALIZING
 
         # Initialize communication
         self.comms = CommunicationFactory.create_communication(self.service_config)
@@ -165,7 +165,7 @@ class BaseService(ABC):
             self.logger.error(
                 f"Failed to initialize {self.service_config.comm_backend} communication"
             )
-            self.state = ServiceState.ERROR
+            self._state = ServiceState.ERROR
             return
 
         self.logger.debug(
@@ -249,7 +249,7 @@ class BaseService(ABC):
         self.logger.debug(f"Received signal {sig_name}, initiating graceful shutdown")
 
         # Stop the service if it's running
-        if self.state == ServiceState.RUNNING:
+        if self._state == ServiceState.RUNNING:
             await self.stop()
         else:
             # Just set the stop event to break out of the run loop
@@ -297,7 +297,7 @@ class BaseService(ABC):
 
         await self._cleanup()
 
-        self.state = ServiceState.STOPPED
+        self._state = ServiceState.STOPPED
 
     ################################################################################
     ## Abstract methods to be implemented by derived classes

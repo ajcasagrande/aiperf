@@ -36,11 +36,7 @@ from aiperf.common.exceptions.comms import (
     CommunicationShutdownError,
 )
 from aiperf.common.models.comms import ZMQCommunicationConfig
-from aiperf.common.models.messages import (
-    BaseMessage,
-    BaseRequestMessage,
-    BaseResponseMessage,
-)
+from aiperf.common.models.messages import BaseMessage
 from aiperf.common.comms.zmq_comms.clients.base import BaseZMQClient
 from aiperf.common.comms.zmq_comms.clients.pub import ZMQPubClient
 from aiperf.common.comms.zmq_comms.clients.pull import ZMQPullClient
@@ -371,9 +367,9 @@ class ZMQCommunication(BaseCommunication):
     async def request(
         self,
         target: str,
-        request_data: BaseRequestMessage,
+        request_data: BaseMessage,
         timeout: float = 5.0,
-    ) -> BaseResponseMessage:
+    ) -> BaseMessage:
         logger.debug(f"Requesting from {target} with data: {request_data}")
         self._ensure_initialized()
         client_type = ReqClientType.from_topic(target)
@@ -392,7 +388,7 @@ class ZMQCommunication(BaseCommunication):
             logger.error(f"Error requesting from {target}: {e}")
             return False
 
-    async def respond(self, target: str, response: BaseResponseMessage) -> bool:
+    async def respond(self, target: str, response: BaseMessage) -> bool:
         logger.debug(f"Responding to {target} with data: {response}")
         self._ensure_initialized()
         client_type = RepClientType.from_topic(target)

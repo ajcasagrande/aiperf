@@ -18,7 +18,7 @@ import logging
 import zmq
 from zmq import SocketType
 
-from aiperf.common.models.messages import BaseRequestMessage, BaseResponseMessage
+from aiperf.common.models.messages import BaseMessage
 from aiperf.common.comms.zmq_comms.clients.base import BaseZMQClient
 
 logger = logging.getLogger(__name__)
@@ -78,16 +78,14 @@ class ZMQRepClient(BaseZMQClient):
         self._response_data.clear()
         await super().shutdown()
 
-    async def wait_for_request(
-        self, timeout: float = None
-    ) -> BaseResponseMessage | None:
+    async def wait_for_request(self, timeout: float = None) -> BaseMessage | None:
         """Wait for a request to arrive.
 
         Args:
             timeout: Timeout in seconds or None for no timeout
 
         Returns:
-            RequestData object or None if timeout occurred
+            Request message or None if timeout occurred
         """
         if not self._is_initialized or self._is_shutdown:
             logger.error(
@@ -109,7 +107,7 @@ class ZMQRepClient(BaseZMQClient):
                     request_json = await future
 
                 # Parse the request
-                request = BaseRequestMessage.model_validate_json(request_json)
+                request = BaseMessage.model_validate_json(request_json)
                 return request
 
             except asyncio.TimeoutError:
@@ -124,12 +122,12 @@ class ZMQRepClient(BaseZMQClient):
             logger.error(f"Error waiting for request: {e}")
             return None
 
-    async def respond(self, target: str, response: BaseResponseMessage) -> bool:
+    async def respond(self, target: str, response: BaseMessage) -> bool:
         """Send a response to a request.
 
         Args:
             target: Target component to send response to
-            response: Response response (must be a ResponseData instance)
+            response: Response message (must be a BaseMessage instance)
 
         Returns:
             True if response was sent successfully, False otherwise
@@ -164,7 +162,7 @@ class ZMQRepClient(BaseZMQClient):
                 request_json = await self.socket.recv_string()
 
                 # Parse JSON to create RequestData object
-                request = BaseRequestMessage.model_validate_json(request_json)
+                request = BaseMessage.model_validate_json(request_json)
                 request_id = request.request_id
 
                 # Store request data

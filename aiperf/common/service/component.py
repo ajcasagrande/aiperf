@@ -103,7 +103,7 @@ class ComponentServiceBase(BaseService, ABC):
 
     async def set_state(self, status: ServiceState) -> None:
         """Send a service state response to the system controller."""
-        self.state = status
+        self._state = status
         status_message = self.create_status_message(self.state)
         await self.comms.publish(
             topic=Topic.STATUS,
