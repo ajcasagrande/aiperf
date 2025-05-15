@@ -129,7 +129,8 @@ class ZMQCommunication(BaseCommunication):
             await asyncio.gather(
                 *(client.shutdown() for client in self.clients.values())
             )
-            self.context.term()
+            if self.context:
+                self.context.term()
             self._is_shutdown = True
             logger.debug("ZMQ communication shutdown successfully")
             return_val = True

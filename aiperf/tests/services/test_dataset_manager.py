@@ -20,11 +20,12 @@ import pytest
 
 from aiperf.common.enums import ServiceType
 from aiperf.services.dataset_manager.dataset_manager import DatasetManager
-from aiperf.tests.base_test_service import BaseServiceTest, async_fixture
+from aiperf.tests.base_test_component_service import BaseTestComponentService
+from aiperf.tests.utils.async_test_utils import async_fixture
 
 
 @pytest.mark.asyncio
-class TestDatasetManager(BaseServiceTest):
+class TestDatasetManager(BaseTestComponentService):
     """Tests for the dataset manager service."""
 
     @pytest.fixture

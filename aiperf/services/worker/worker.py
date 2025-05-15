@@ -50,22 +50,6 @@ class Worker(BaseService):
         """Initialize worker-specific components."""
         self.logger.debug("Initializing worker")
 
-    async def run(self) -> None:
-        """Run the worker."""
-        self.logger.debug("Running worker")
-
-        await self._base_init()
-
-        await self._initialize()
-        await self._on_start()
-
-        # Wait for the worker to finish
-        # TODO: implement actual worker run logic
-        await self.stop_event.wait()
-
-        await self._on_stop()
-        await self._cleanup()
-
     async def _on_start(self) -> None:
         """Start the worker."""
         self.logger.debug("Starting worker")
@@ -107,8 +91,8 @@ if __name__ == "__main__":
     uvloop.install()
 
     # Load the service configuration
-    from aiperf.common.config.loader import load_worker_config
+    from aiperf.common.config.loader import load_service_config
 
-    cfg = load_worker_config()
+    cfg = load_service_config()
     worker = Worker(cfg)
     sys.exit(uvloop.run(worker.run()))

@@ -209,7 +209,7 @@ async def test_workflow(self, service_under_test, mock_communication, simulate_m
     service = await async_fixture(service_under_test)
 
     # Start the service
-    await service._start()
+    await service.start()
 
     # Simulate a response flow
     await simulate_message_flow(

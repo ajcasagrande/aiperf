@@ -17,10 +17,10 @@ import sys
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ServiceType
 from aiperf.common.models.payloads import BasePayload
-from aiperf.common.service.component import ComponentServiceBase
+from aiperf.common.service.component import BaseComponentService
 
 
-class DatasetManager(ComponentServiceBase):
+class DatasetManager(BaseComponentService):
     def __init__(self, service_config: ServiceConfig, service_id: str = None) -> None:
         super().__init__(service_config=service_config, service_id=service_id)
         self.logger.debug("Initializing dataset manager")

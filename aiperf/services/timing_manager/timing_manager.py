@@ -30,10 +30,10 @@ from aiperf.common.models.payloads import (
     BasePayload,
     CreditDropPayload,
 )
-from aiperf.common.service.component import ComponentServiceBase
+from aiperf.common.service.component import BaseComponentService
 
 
-class TimingManager(ComponentServiceBase):
+class TimingManager(BaseComponentService):
     def __init__(self, service_config: ServiceConfig, service_id: str = None) -> None:
         super().__init__(service_config=service_config, service_id=service_id)
         self._credits_available = 100

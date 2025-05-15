@@ -23,11 +23,11 @@ import pytest
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ServiceState
 from aiperf.services.worker.worker import Worker
-from aiperf.tests.base_test_service import BaseServiceTest
+from aiperf.tests.base_test_service import BaseTestService
 
 
 @pytest.mark.asyncio
-class TestWorker(BaseServiceTest):
+class TestWorker(BaseTestService):
     """Tests for the worker service."""
 
     @pytest.fixture
@@ -57,7 +57,7 @@ class TestWorker(BaseServiceTest):
         assert worker.state == ServiceState.UNKNOWN
 
         # Start the worker
-        await worker._start()
+        await worker.start()
 
         # Check the status after starting
         assert worker.state == ServiceState.RUNNING
@@ -77,7 +77,7 @@ class TestWorker(BaseServiceTest):
     async def test_worker_start_stop(self, worker):
         """Test that the worker can start and stop."""
         # Start the worker
-        await worker._start()
+        await worker.start()
 
         # Stop the worker
         await worker.stop()

@@ -16,37 +16,19 @@
 Base test class for testing aiperf services.
 """
 
-from typing import Any, Type, TypeVar
+from typing import Any, Type
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from aiperf.common.enums import CommandType
-from aiperf.common.enums import ServiceState, Topic
+from aiperf.common.enums import ServiceState
 from aiperf.common.models.messages import BaseMessage
-from aiperf.tests.utils.async_test_utils import async_noop
-
-T = TypeVar("T")
-
-
-async def async_fixture(fixture: T) -> T:
-    """Manually await an async fixture if it's an async generator, otherwise return it.
-    This is necessary because pytest fixtures are not awaited by default.
-
-    Args:
-        fixture: The fixture to await
-
-    Returns:
-        The fixture value
-    """
-    if hasattr(fixture, "__aiter__"):
-        async for value in fixture:
-            return value
-    return fixture
+from aiperf.tests.utils.async_test_utils import async_noop, async_fixture
 
 
 @pytest.mark.asyncio
-class BaseServiceTest:
+class BaseTestService:
     """
     Base test class for all service tests.
 
@@ -89,9 +71,7 @@ class BaseServiceTest:
             # Reset the published messages tracking
             mock_communication.published_messages = {}
 
-            await service._base_init()
-            # Initialize but don't run
-            await service._initialize()
+            await service.initialize()
 
             try:
                 yield service
@@ -118,54 +98,12 @@ class BaseServiceTest:
         service = await async_fixture(service_under_test)
 
         # Start the service
-        await service._start()
+        await service.start()
         assert service.state == ServiceState.RUNNING
 
         # Stop the service
         await service.stop()
         assert service.state == ServiceState.STOPPED
-
-    async def test_service_heartbeat(self, service_under_test, mock_communication):
-        """Test that the service sends heartbeat messages."""
-        service = await async_fixture(service_under_test)
-
-        # Directly send a heartbeat instead of waiting for the task
-        await service._send_heartbeat()
-
-        # Check that a heartbeat response was published
-        assert Topic.HEARTBEAT in mock_communication.published_messages
-        assert len(mock_communication.published_messages[Topic.HEARTBEAT]) > 0
-
-    async def test_service_registration(self, service_under_test, mock_communication):
-        """Test that the service registers with the system controller."""
-        service = await async_fixture(service_under_test)
-
-        # Register the service
-        await service._register()
-
-        # Check that a registration response was published
-        assert Topic.REGISTRATION in mock_communication.published_messages
-
-        # Verify registration response
-        registration_msg = mock_communication.published_messages[Topic.REGISTRATION][0]
-        assert registration_msg.service_id == service.service_id
-        assert registration_msg.payload.service_type == service.service_type
-
-    async def test_service_status_update(self, service_under_test, mock_communication):
-        """Test that the service updates its status."""
-        service = await async_fixture(service_under_test)
-
-        # Update the service status
-        await service.set_state(ServiceState.READY)
-
-        # Check that a status response was published
-        assert Topic.STATUS in mock_communication.published_messages
-
-        # Verify status response
-        status_msg = mock_communication.published_messages[Topic.STATUS][0]
-        assert status_msg.service_id == service.service_id
-        assert status_msg.payload.service_type == service.service_type
-        assert status_msg.payload.state == ServiceState.READY
 
     @pytest.mark.parametrize(
         "state",

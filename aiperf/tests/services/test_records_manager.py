@@ -20,11 +20,12 @@ import pytest
 
 from aiperf.common.enums import ServiceType
 from aiperf.services.records_manager.records_manager import RecordsManager
-from aiperf.tests.base_test_service import BaseServiceTest, async_fixture
+from aiperf.tests.base_test_component_service import BaseTestComponentService
+from aiperf.tests.utils.async_test_utils import async_fixture
 
 
 @pytest.mark.asyncio
-class TestRecordsManager(BaseServiceTest):
+class TestRecordsManager(BaseTestComponentService):
     """Tests for the records manager service."""
 
     @pytest.fixture

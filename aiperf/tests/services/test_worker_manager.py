@@ -21,15 +21,15 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
-from aiperf.common.enums import CommandType, ServiceType, Topic
+from aiperf.common.enums import ServiceType
 from aiperf.services.worker_manager.worker_manager import WorkerManager, WorkerProcess
-from aiperf.tests.base_test_service import BaseServiceTest, async_fixture
+from aiperf.tests.base_test_component_service import BaseTestComponentService
+from aiperf.tests.utils.async_test_utils import async_fixture
 from aiperf.tests.utils.async_test_utils import async_noop
-from aiperf.tests.utils.message_mocks import MessageTestUtils
 
 
 @pytest.mark.asyncio
-class TestWorkerManager(BaseServiceTest):
+class TestWorkerManager(BaseTestComponentService):
     """Tests for the worker manager service."""
 
     @pytest.fixture
@@ -44,30 +44,6 @@ class TestWorkerManager(BaseServiceTest):
         assert hasattr(service, "workers")
         assert hasattr(service, "cpu_count")
         assert service.cpu_count > 0
-
-    async def test_handle_command_message(self, service_under_test, mock_communication):
-        """Test that the worker manager handles command messages correctly."""
-        service = await async_fixture(service_under_test)
-
-        # Create a command response using the helper method
-        command_msg = self.create_command_message(
-            service, command=CommandType.START, target_service_id="test-service-id"
-        )
-
-        # Use patch to mock _process_command_message for cleaner testing
-        with patch.object(
-            service, "_process_command_message", autospec=True
-        ) as mock_process:
-            # Set up the mock to return successfully
-            mock_process.return_value = None
-
-            # Send the response to the service
-            await MessageTestUtils.simulate_message_receive(
-                service, Topic.COMMAND, command_msg
-            )
-
-            # Verify the method was called with our response
-            mock_process.assert_called_once_with(command_msg)
 
     async def test_spawn_multiprocessing_workers(self, service_under_test):
         """Test spawning multiprocessing workers."""
