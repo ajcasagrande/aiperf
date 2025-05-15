@@ -45,7 +45,7 @@ exclude = ["__pycache__", "build", "dist", ".venv", "venv"]
 
 [tool.ruff.lint]
 select = [
-    # pycodestyle
+    # pycodestyle (except E501)
     "E",
     # Pyflakes
     "F",
@@ -58,6 +58,9 @@ select = [
     # isort
     "I",
 ]
+# Ignore line length errors, ruff format will handle this but
+# can have some lines that are slightly over due to the way formatting works
+ignore = ["E501"]
 
 [tool.pytest.ini_options]
 # Basic pytest configuration
