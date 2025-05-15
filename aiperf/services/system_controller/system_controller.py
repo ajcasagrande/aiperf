@@ -25,7 +25,7 @@ from aiperf.common.enums import (
     ServiceType,
     Topic,
 )
-from aiperf.common.exceptions.service_exceptions import ServiceInitializationException
+from aiperf.common.errors.service_errors import ServiceInitializationError
 from aiperf.common.models.message_models import BaseMessage
 from aiperf.common.models.service_models import ServiceRunInfo
 from aiperf.common.service.base_controller_service import BaseControllerService
@@ -115,7 +115,7 @@ class SystemController(BaseControllerService):
             self.logger.error(
                 "Not all required services registered within the timeout period"
             )
-            raise ServiceInitializationException(
+            raise ServiceInitializationError(
                 "Not all required services registered within the timeout period"
             )
         else:

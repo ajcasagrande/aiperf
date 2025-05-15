@@ -24,6 +24,8 @@ from aiperf.common.comms.base_communication import BaseCommunication
 from aiperf.common.comms.communication_factory import CommunicationFactory
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ServiceState
+from aiperf.common.errors.base_error import Error
+from aiperf.common.errors.service_errors import ServiceStartError, ServiceStopError
 from aiperf.common.models.message_models import BaseMessage
 from aiperf.common.models.payload_models import PayloadType
 from aiperf.common.service.abstract_base_service import AbstractBaseService
@@ -72,11 +74,11 @@ class BaseService(AbstractBaseService, ABC):
 
     # Note: Not using as a setter so it can be overridden by derived classes and still
     # be async
-    async def set_state(self, state: ServiceState) -> None:
+    async def set_state(self, state: ServiceState) -> Error | None:
         """Set the state of the service."""
         self._state = state
 
-    async def initialize(self) -> None:
+    async def initialize(self) -> Error | None:
         """Initialize the service communication and signal handlers."""
         # Set up signal handlers for graceful shutdown
         self.setup_signal_handlers()
@@ -87,15 +89,14 @@ class BaseService(AbstractBaseService, ABC):
         self._state = ServiceState.INITIALIZING
 
         # Initialize communication
-        self.comms = CommunicationFactory.create_communication(self.service_config)
-        success = await self.comms.initialize()
-        if not success:
-            self.logger.error(
-                f"{self.service_type}: Failed to initialize "
-                f"{self.service_config.comm_backend} communication"
-            )
-            self._state = ServiceState.ERROR
-            return
+        self.comms, comm_error = CommunicationFactory.create_communication(
+            self.service_config
+        )
+        if comm_error:
+            return comm_error
+
+        if comm_error := await self.comms.initialize():
+            return comm_error
 
         if len(self.required_clients) > 0:
             # Create the communication clients ahead of time
@@ -104,92 +105,116 @@ class BaseService(AbstractBaseService, ABC):
                 self.service_type,
                 self.required_clients,
             )
-            await self.comms.create_clients(*self.required_clients)
+            if comm_error := await self.comms.create_clients(*self.required_clients):
+                return comm_error
 
         # Initialize any derived service components
-        await self._initialize()
+        if init_error := await self._initialize():
+            return init_error
 
-    async def run(self) -> None:
-        """Run the worker."""
+        return None
+
+    async def run(self) -> Error | None:
+        """Run the service."""
         try:
             # Initialize the service
-            await self.initialize()
+            if init_error := await self.initialize():
+                return init_error
 
             # Set the service to ready state
-            await self.set_state(ServiceState.READY)
+            _ = await self.set_state(ServiceState.READY)
 
             # Start the service
-            await self.start()
+            if start_error := await self.start():
+                return start_error
 
             # Wait forever for the stop event to be set
             await self.stop_event.wait()
 
         except asyncio.exceptions.CancelledError:
             self.logger.debug("Service %s execution cancelled", self.service_type)
-        except BaseException:
+        except BaseException as e:  # noqa: E722
             self.logger.exception("Service %s execution failed:", self.service_type)
-            await self.set_state(ServiceState.ERROR)
+            _ = await self.set_state(ServiceState.ERROR)
+            return ServiceStartError.from_exception(e)
         finally:
             # Shutdown the service
-            await self.stop()
+            if stop_error := await self.stop():
+                return stop_error  # noqa: B012
+        return None
 
-    async def start(self) -> None:
+    async def start(self) -> Error | None:
         """Start the service and its components.
 
         This method should be called to start the service after it has been initialized
         and configured.
         """
-        self.logger.debug(
-            "Starting %s service (id: %s)", self.service_type, self.service_id
-        )
-        await self.set_state(ServiceState.STARTING)
 
         try:
-            await self._on_start()
-            await self.set_state(ServiceState.RUNNING)
-        except Exception:
+            self.logger.debug(
+                "Starting %s service (id: %s)", self.service_type, self.service_id
+            )
+            _ = await self.set_state(ServiceState.STARTING)
+
+            if start_error := await self._on_start():
+                return start_error
+            _ = await self.set_state(ServiceState.RUNNING)
+        except BaseException as e:  # noqa: E722
             self.logger.exception(
                 "Failed to start service %s (id: %s)",
                 self.service_type,
                 self.service_id,
             )
-            await self.set_state(ServiceState.ERROR)
-            raise
+            self._state = ServiceState.ERROR
 
-    async def stop(self) -> None:
+            return ServiceStartError.from_exception(e)
+
+    async def stop(self) -> Error | None:
         """Stop the service and clean up its components. It will also cancel the
         heartbeat task if it is running.
         """
-        if self.state == ServiceState.STOPPED:
-            self.logger.warning(
-                "Service %s state %s is already STOPPED, ignoring stop request",
-                self.service_type,
-                self.state,
+        try:
+            if self.state == ServiceState.STOPPED:
+                self.logger.warning(
+                    "Service %s state %s is already STOPPED, ignoring stop request",
+                    self.service_type,
+                    self.state,
+                )
+                return
+
+            # ignore if we were unable to send the STOPPING state message
+            _ = await self.set_state(ServiceState.STOPPING)
+
+            # Signal the run method to exit if it hasn't already
+            if not self.stop_event.is_set():
+                self.stop_event.set()
+
+            # Custom stop logic implemented by derived classes
+            _ = await self._on_stop()
+
+            # Shutdown communication component
+            if self.comms and not self.comms.is_shutdown:
+                await self.comms.shutdown()
+
+            # Custom cleanup logic implemented by derived classes
+            await self._cleanup()
+
+            # Set the state to STOPPED. Communications are shutdown, so we don't need to
+            # publish a status message
+            self._state = ServiceState.STOPPED
+            self.logger.debug(
+                "Service %s (id: %s) stopped", self.service_type, self.service_id
             )
-            return
+        except BaseException as e:  # noqa: E722
+            self.logger.exception(
+                "Failed to stop service %s (id: %s)",
+                self.service_type,
+                self.service_id,
+            )
+            self._state = ServiceState.ERROR
+            return ServiceStopError.from_exception(e)
 
-        await self.set_state(ServiceState.STOPPING)
-
-        # Signal the run method to exit if it hasn't already
-        if not self.stop_event.is_set():
-            self.stop_event.set()
-
-        # Custom stop logic implemented by derived classes
-        await self._on_stop()
-
-        # Shutdown communication component
-        if self.comms and not self.comms.is_shutdown:
-            await self.comms.shutdown()
-
-        # Custom cleanup logic implemented by derived classes
-        await self._cleanup()
-
-        # Set the state to STOPPED. Communications are shutdown, so we don't need to
-        # publish a status message
-        self._state = ServiceState.STOPPED
-        self.logger.debug(
-            "Service %s (id: %s) stopped", self.service_type, self.service_id
-        )
+        return None
 
     def create_message(
         self, payload: PayloadType, request_id: str | None = None

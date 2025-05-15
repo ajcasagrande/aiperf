@@ -17,6 +17,7 @@ from collections.abc import Callable, Coroutine
 from typing import Any
 
 from aiperf.common.enums import ClientType, TopicType
+from aiperf.common.errors.base_error import Error
 from aiperf.common.models.message_models import BaseMessage
 
 
@@ -24,11 +25,11 @@ class BaseCommunication(ABC):
     """Base class for communication between AIPerf components."""
 
     @abstractmethod
-    async def initialize(self) -> bool:
+    async def initialize(self) -> Error | None:
         """Initialize communication channels.
 
         Returns:
-            True if initialization was successful, False otherwise
+            Error object or None if initialization was successful
         """
         pass
 
@@ -53,25 +54,25 @@ class BaseCommunication(ABC):
         pass
 
     @abstractmethod
-    async def shutdown(self) -> bool:
+    async def shutdown(self) -> Error | None:
         """Gracefully shutdown communication channels.
 
         Returns:
-            True if shutdown was successful, False otherwise
+            Error object or None if shutdown was successful
         """
         pass
 
     @abstractmethod
-    async def create_clients(self, *client_types: ClientType) -> bool:
+    async def create_clients(self, *client_types: ClientType) -> Error | None:
         """Create the communication clients.
 
         Returns:
-            True if clients were created successfully, False otherwise
+            Error object or None if clients were created successfully
         """
         pass
 
     @abstractmethod
-    async def publish(self, topic: TopicType, message: BaseMessage) -> bool:
+    async def publish(self, topic: TopicType, message: BaseMessage) -> Error | None:
         """Publish a response to a topic.
 
         Args:
@@ -79,7 +80,7 @@ class BaseCommunication(ABC):
             message: Message to publish (must be a Pydantic model)
 
         Returns:
-            True if response was published successfully, False otherwise
+            Error object or None if response was published successfully
         """
         pass
 
@@ -88,7 +89,7 @@ class BaseCommunication(ABC):
         self,
         topic: TopicType,
         callback: Callable[[BaseMessage], Coroutine[Any, Any, None]] = None,
-    ) -> bool:
+    ) -> Error | None:
         """Subscribe to a topic.
 
         Args:
@@ -97,7 +98,7 @@ class BaseCommunication(ABC):
             (receives BaseMessage object)
 
         Returns:
-            True if subscription was successful, False otherwise
+            Error object or None if subscription was successful
         """
         pass
 
@@ -107,7 +108,7 @@ class BaseCommunication(ABC):
         target: str,
         request_data: BaseMessage,
         timeout: float = 5.0,
-    ) -> BaseMessage:
+    ) -> tuple[BaseMessage, Error | None]:
         """Send a request and wait for a response.
 
         Args:
@@ -116,12 +117,15 @@ class BaseCommunication(ABC):
             timeout: Timeout in seconds
 
         Returns:
-            BaseMessage object
+            tuple[
+                BaseMessage,  # Response message
+                Error | None,  # Error if request failed
+            ]:
         """
         pass
 
     @abstractmethod
-    async def respond(self, target: str, response: BaseMessage) -> bool:
+    async def respond(self, target: str, response: BaseMessage) -> Error | None:
         """Send a response to a request.
 
         Args:
@@ -129,12 +133,12 @@ class BaseCommunication(ABC):
             response: Response message (must be a BaseMessage instance)
 
         Returns:
-            True if response was sent successfully, False otherwise
+            Error object or None if response was sent successfully
         """
         pass
 
     @abstractmethod
-    async def push(self, topic: TopicType, message: BaseMessage) -> bool:
+    async def push(self, topic: TopicType, message: BaseMessage) -> Error | None:
         """Push data to a target.
 
         Args:
@@ -142,7 +146,7 @@ class BaseCommunication(ABC):
             message: Message to be pushed (must be a BaseMessage instance)
 
         Returns:
-            True if data was pushed successfully, False otherwise
+            Error object or None if data was pushed successfully
         """
         pass
 
@@ -151,7 +155,7 @@ class BaseCommunication(ABC):
         self,
         topic: TopicType,
         callback: Callable[[BaseMessage], Coroutine[Any, Any, None]] | None = None,
-    ) -> BaseMessage | bool:
+    ) -> BaseMessage | Error | None:
         """Pull data from a source.
 
         Args:
@@ -162,7 +166,8 @@ class BaseCommunication(ABC):
                      return the next response.
 
         Returns:
-            If callback is provided: True if pull registration was successful, False
-            otherwise. If callback is not provided: The received BaseMessage object
+            If callback is provided: Error object or None if pull registration
+            was successful, False otherwise. If callback is not provided: The
+            received BaseMessage object or Error object
         """
         pass

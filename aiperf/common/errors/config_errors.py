@@ -12,7 +12,21 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-class AIPerfException(Exception):
-    """Base class for all exceptions raised by AIPerf."""
 
-    pass
+from aiperf.common.errors.base_error import Error
+
+
+class ConfigError(Error):
+    error_message: str = "An error occurred while processing configuration."
+
+
+class ConfigLoadError(ConfigError):
+    error_message: str = "An error occurred while loading configuration."
+
+
+class ConfigParseError(ConfigError):
+    error_message: str = "An error occurred while parsing configuration."
+
+
+class ConfigurationValidationError(ConfigError):
+    error_message: str = "An error occurred while validating configuration."

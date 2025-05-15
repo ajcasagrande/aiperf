@@ -19,6 +19,11 @@ from aiperf.common.comms.base_communication import BaseCommunication
 from aiperf.common.comms.zmq_comms.zmq_communication import ZMQCommunication
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import CommBackend
+from aiperf.common.errors import Error
+from aiperf.common.errors.comm_errors import (
+    CommCreateError,
+    CommTypeUnknownError,
+)
 from aiperf.common.models.comm_models import (
     ZMQCommunicationConfig,
     ZMQTCPTransportConfig,
@@ -55,7 +60,7 @@ class CommunicationFactory:
     @classmethod
     def create_communication(
         cls, service_config: ServiceConfig, **kwargs
-    ) -> BaseCommunication | None:
+    ) -> tuple[BaseCommunication | None, Error | None]:
         """Create a communication instance.
 
         Args:
@@ -63,11 +68,16 @@ class CommunicationFactory:
             **kwargs: Additional arguments for the communication class
 
         Returns:
-            Communication instance or None if creation failed
+            tuple[
+                BaseCommunication | None,  # Communication instance
+                Error | None,  # Error if creation failed
+            ]:
         """
         if service_config.comm_backend not in cls._comm_types:
             logger.error("Unknown communication type: %s", service_config.comm_backend)
-            return None
+            return None, CommTypeUnknownError(
+                error_details=f"Unknown communication type: {service_config.comm_backend}"  # noqa: E501
+            )
 
         try:
             comm_class = cls._comm_types[service_config.comm_backend]
@@ -76,11 +86,11 @@ class CommunicationFactory:
             )
             kwargs["config"] = config
 
-            return comm_class(**kwargs)
+            return comm_class(**kwargs), None
         except Exception as e:
             logger.error(
                 "Error creating communication for type %s: %s",
                 service_config.comm_backend,
                 e,
             )
-            return None
+            return None, CommCreateError.from_exception(e)

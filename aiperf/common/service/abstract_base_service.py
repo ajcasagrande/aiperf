@@ -18,6 +18,7 @@ from aiperf.common.enums import (
     ClientType,
     ServiceType,
 )
+from aiperf.common.errors.base_error import Error
 
 
 class AbstractBaseService(ABC):
@@ -48,7 +49,7 @@ class AbstractBaseService(ABC):
         pass
 
     @abstractmethod
-    async def initialize(self) -> None:
+    async def initialize(self) -> Error | None:
         """Initialize the service.
 
         This method will be implemented by the base class.
@@ -56,7 +57,7 @@ class AbstractBaseService(ABC):
         pass
 
     @abstractmethod
-    async def run(self) -> None:
+    async def run(self) -> Error | None:
         """Run the service. This method will be the primary entry point for the service
         and will be called by the bootstrap script. It should not return until the
         service is completely shutdown.
@@ -66,7 +67,7 @@ class AbstractBaseService(ABC):
         pass
 
     @abstractmethod
-    async def stop(self) -> None:
+    async def stop(self) -> Error | None:
         """Stop the service.
 
         This method will be implemented by the base class.
@@ -74,7 +75,7 @@ class AbstractBaseService(ABC):
         pass
 
     @abstractmethod
-    async def start(self) -> None:
+    async def start(self) -> Error | None:
         """Start the service. It should be called after the service has been initialized
         and configured.
 
@@ -83,28 +84,28 @@ class AbstractBaseService(ABC):
         pass
 
     @abstractmethod
-    async def _initialize(self) -> None:
+    async def _initialize(self) -> Error | None:
         """Called by the base class when the service is initializing to allow the
         derived service to set up any resources specific to that service.
         """
         pass
 
     @abstractmethod
-    async def _on_start(self) -> None:
+    async def _on_start(self) -> Error | None:
         """Called by the base class when the service is started to allow the
         derived service to run any processes or components specific to that service.
         """
         pass
 
     @abstractmethod
-    async def _on_stop(self) -> None:
+    async def _on_stop(self) -> Error | None:
         """Called by the base class when the service is stopping to allow the
         derived service to stop any processes or components specific to that service.
         """
         pass
 
     @abstractmethod
-    async def _cleanup(self) -> None:
+    async def _cleanup(self) -> Error | None:
         """Called by the base class after the service is stopped to allow the
         derived service to free any resources allocated by the service.
         """

@@ -12,10 +12,12 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from typing import Union
+from typing import Self, Union
 
 from aiperf.common.enums.base_enums import StrEnum
 from aiperf.common.enums.comm_enums import DataTopic, Topic, TopicType
+from aiperf.common.errors.base_error import Error
+from aiperf.common.errors.comm_errors import CommClientNotFoundError
 
 
 class PubClientType(StrEnum):
@@ -25,22 +27,27 @@ class PubClientType(StrEnum):
     COMPONENT = "component_pub"
 
     @classmethod
-    def from_topic(cls, topic: TopicType) -> "PubClientType":
+    def from_topic(cls, topic: TopicType) -> tuple[Self | None, Error | None]:
         """Determine the appropriate ClientType based on topic.
 
         Args:
             topic: The topic to communicate on
 
         Returns:
-            The appropriate ClientType for the given topic
+            tuple[
+                Self,  # The appropriate ClientType for the given topic
+                Error | None,  # Error if the topic is not found
+            ]:
         """
         match topic:
             case Topic.HEARTBEAT | Topic.REGISTRATION | Topic.STATUS | Topic.RESPONSE:
-                return cls.COMPONENT
+                return cls.COMPONENT, None
             case Topic.COMMAND:
-                return cls.CONTROLLER
+                return cls.CONTROLLER, None
             case _:
-                raise ValueError(f"No client type found for topic {topic}")
+                return None, CommClientNotFoundError(
+                    error_details=f"No client type found for topic {topic}"
+                )
 
 
 class SubClientType(StrEnum):
@@ -50,22 +57,27 @@ class SubClientType(StrEnum):
     COMPONENT = "component_sub"
 
     @classmethod
-    def from_topic(cls, topic: TopicType) -> "SubClientType":
+    def from_topic(cls, topic: TopicType) -> tuple[Self | None, Error | None]:
         """Determine the appropriate ClientType based on topic.
 
         Args:
             topic: The topic to communicate on
 
         Returns:
-            The appropriate ClientType for the given topic
+            tuple[
+                Self,  # The appropriate ClientType for the given topic
+                Error | None,  # Error if the topic is not found
+            ]:
         """
         match topic:
             case Topic.HEARTBEAT | Topic.REGISTRATION | Topic.STATUS | Topic.RESPONSE:
-                return cls.COMPONENT
+                return cls.COMPONENT, None
             case Topic.COMMAND:
-                return cls.CONTROLLER
+                return cls.CONTROLLER, None
             case _:
-                raise ValueError(f"No client type found for topic {topic}")
+                return None, CommClientNotFoundError(
+                    error_details=f"No client type found for topic {topic}"
+                )
 
 
 class PushClientType(StrEnum):
@@ -77,26 +89,32 @@ class PushClientType(StrEnum):
     CREDIT_RETURN = "credit_return_push"
 
     @classmethod
-    def from_topic(cls, topic: TopicType) -> "PushClientType":
+    def from_topic(cls, topic: TopicType) -> tuple[Self | None, Error | None]:
         """Determine the appropriate ClientType based on communication type and topic.
 
         Args:
             topic: The topic to communicate on
 
         Returns:
-            The appropriate ClientType for the given communication type and topic
+            tuple[
+                Self,  # The appropriate ClientType for the given communication
+                type and topic
+                Error | None,  # Error if the topic is not found
+            ]:
         """
         match topic:
             case Topic.CREDIT_DROP:
-                return cls.CREDIT_DROP
+                return cls.CREDIT_DROP, None
             case Topic.CREDIT_RETURN:
-                return cls.CREDIT_RETURN
+                return cls.CREDIT_RETURN, None
             case DataTopic.RECORDS:
-                return cls.RECORDS
+                return cls.RECORDS, None
             case DataTopic.RESULTS:
-                return cls.INFERENCE_RESULTS
+                return cls.INFERENCE_RESULTS, None
             case _:
-                raise ValueError(f"No client type found for topic {topic}")
+                return None, CommClientNotFoundError(
+                    error_details=f"No client type found for topic {topic}"
+                )
 
 
 class PullClientType(StrEnum):
@@ -108,26 +126,31 @@ class PullClientType(StrEnum):
     CREDIT_RETURN = "credit_return_pull"
 
     @classmethod
-    def from_topic(cls, topic: TopicType) -> "PullClientType":
+    def from_topic(cls, topic: TopicType) -> tuple[Self | None, Error | None]:
         """Determine the appropriate ClientType based on topic.
 
         Args:
             topic: The topic to communicate on
 
         Returns:
-            The appropriate ClientType for the given topic
+            tuple[
+                Self,  # The appropriate ClientType for the given topic
+                Error | None,  # Error if the topic is not found
+            ]:
         """
         match topic:
             case Topic.CREDIT_DROP:
-                return cls.CREDIT_DROP
+                return cls.CREDIT_DROP, None
             case Topic.CREDIT_RETURN:
-                return cls.CREDIT_RETURN
+                return cls.CREDIT_RETURN, None
             case DataTopic.RECORDS:
-                return cls.RECORDS
+                return cls.RECORDS, None
             case DataTopic.RESULTS:
-                return cls.INFERENCE_RESULTS
+                return cls.INFERENCE_RESULTS, None
             case _:
-                raise ValueError(f"No client type found for topic {topic}")
+                return None, CommClientNotFoundError(
+                    error_details=f"No client type found for topic {topic}"
+                )
 
 
 class ReqClientType(StrEnum):
@@ -136,20 +159,25 @@ class ReqClientType(StrEnum):
     CONVERSATION_DATA = "conversation_data_req"
 
     @classmethod
-    def from_topic(cls, topic: TopicType) -> "ReqClientType":
+    def from_topic(cls, topic: TopicType) -> tuple[Self | None, Error | None]:
         """Determine the appropriate ClientType based on topic.
 
         Args:
             topic: The topic to communicate on
 
         Returns:
-            The appropriate ClientType for the given topic
+            tuple[
+                Self,  # The appropriate ClientType for the given topic
+                Error | None,  # Error if the topic is not found
+            ]:
         """
         match topic:
             case DataTopic.CONVERSATION:
-                return cls.CONVERSATION_DATA
+                return cls.CONVERSATION_DATA, None
             case _:
-                raise ValueError(f"No client type found for topic {topic}")
+                return None, CommClientNotFoundError(
+                    error_details=f"No client type found for topic {topic}"
+                )
 
 
 class RepClientType(StrEnum):
@@ -158,20 +186,25 @@ class RepClientType(StrEnum):
     CONVERSATION_DATA = "conversation_data_rep"
 
     @classmethod
-    def from_topic(cls, topic: TopicType) -> "RepClientType":
+    def from_topic(cls, topic: TopicType) -> tuple[Self | None, Error | None]:
         """Determine the appropriate ClientType based on topic.
 
         Args:
             topic: The topic to communicate on
 
         Returns:
-            The appropriate ClientType for the given topic
+            tuple[
+                Self,  # The appropriate ClientType for the given topic
+                Error | None,  # Error if the topic is not found
+            ]:
         """
         match topic:
             case DataTopic.CONVERSATION:
-                return cls.CONVERSATION_DATA
+                return cls.CONVERSATION_DATA, None
             case _:
-                raise ValueError(f"No client type found for topic {topic}")
+                return None, CommClientNotFoundError(
+                    error_details=f"No client type found for topic {topic}"
+                )
 
 
 ClientType = Union[  # noqa: UP007
