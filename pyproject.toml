@@ -1,5 +1,3 @@
-
-
 # Build
 [build-system]
 requires = ["hatchling"]
@@ -60,7 +58,6 @@ select = [
     # isort
     "I",
 ]
-
 
 [tool.pytest.ini_options]
 # Basic pytest configuration
