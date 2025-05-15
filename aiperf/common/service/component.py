@@ -45,6 +45,15 @@ class ComponentServiceBase(BaseService, ABC):
         # The component service subscribes to component messages and publishes to the controller
         return [PubClientType.COMPONENT, SubClientType.CONTROLLER]
 
+    @abstractmethod
+    async def _configure(self, payload: PayloadType) -> None:
+        """Configure the service.
+
+        This method is called when a configure command is received from the controller.
+        It should be implemented by the derived class to configure the service.
+        """
+        pass
+
     async def run(self) -> None:
         """Start the service and initialize its components."""
         try:
@@ -95,11 +104,6 @@ class ComponentServiceBase(BaseService, ABC):
             await self._configure(message.payload)
         else:
             self.logger.warning(f"Received unknown command: {cmd}")
-
-    @abstractmethod
-    async def _configure(self, payload: PayloadType) -> None:
-        """Configure the service."""
-        pass
 
     async def set_state(self, status: ServiceState) -> None:
         """Send a service state response to the system controller."""

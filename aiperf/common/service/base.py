@@ -17,17 +17,14 @@ import contextlib
 import logging
 import signal
 import uuid
-from abc import ABC, abstractmethod
 from typing import Optional
 
 from aiperf.common.comms.communication import BaseCommunication
 from aiperf.common.comms.communication_factory import CommunicationFactory
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import (
-    ClientType,
     CommandType,
     ServiceState,
-    ServiceType,
     Topic,
 )
 from aiperf.common.models.messages import BaseMessage
@@ -38,9 +35,10 @@ from aiperf.common.models.payloads import (
     StatusPayload,
     CommandPayload,
 )
+from aiperf.common.service.abstract import AbstractBaseService
 
 
-class BaseService(ABC):
+class BaseService(AbstractBaseService):
     """Base class for all AIPerf services, providing common functionality for communication,
     state management, and lifecycle operations.
 
@@ -78,18 +76,6 @@ class BaseService(ABC):
                 topic=Topic.STATUS,
                 message=self.create_status_message(state),
             )
-
-    @property
-    @abstractmethod
-    def required_clients(self) -> list[ClientType]:
-        """The communication clients required by the service."""
-        pass
-
-    @property
-    @abstractmethod
-    def service_type(self) -> ServiceType:
-        """The type of service."""
-        pass
 
     def create_message(
         self, payload: PayloadType, request_id: Optional[str] = None
@@ -214,14 +200,6 @@ class BaseService(ABC):
             message=self.create_registration_message(),
         )
 
-    @abstractmethod
-    async def run(self) -> None:
-        """Run the service.
-
-        This method should be implemented by derived classes to run the main loop of the service.
-        """
-        pass
-
     def _setup_signal_handlers(self) -> None:
         """Set up signal handlers for graceful shutdown."""
         loop = asyncio.get_running_loop()
@@ -298,39 +276,3 @@ class BaseService(ABC):
         await self._cleanup()
 
         self._state = ServiceState.STOPPED
-
-    ################################################################################
-    ## Abstract methods to be implemented by derived classes
-    ################################################################################
-
-    @abstractmethod
-    async def _initialize(self) -> None:
-        """Initialize service-specific components.
-
-        This method should be implemented by derived classes to set up any resources
-        specific to that service.
-        """
-
-    @abstractmethod
-    async def _on_start(self) -> None:
-        """Start the service.
-
-        This method should be implemented by derived classes to run any processes
-        or components specific to that service.
-        """
-
-    @abstractmethod
-    async def _on_stop(self) -> None:
-        """Stop the service.
-
-        This method should be implemented by derived classes to stop any processes
-        or components specific to that service.
-        """
-
-    @abstractmethod
-    async def _cleanup(self) -> None:
-        """Clean up service-specific components.
-
-        This method should be implemented by derived classes to free any resources
-        allocated by the service.
-        """
