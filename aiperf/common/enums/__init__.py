@@ -23,7 +23,6 @@ __all__ = [
     "ReqClientType",
     "SubClientType",
     "CommBackend",
-    "CommType",
     "DataTopic",
     "Topic",
     "TopicType",
@@ -49,7 +48,6 @@ from aiperf.common.enums.comm_clients import (
 
 from aiperf.common.enums.comms import (
     CommBackend,
-    CommType,
     DataTopic,
     Topic,
     TopicType,
