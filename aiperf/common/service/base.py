@@ -17,6 +17,8 @@ import logging
 import signal
 import uuid
 
+import setproctitle
+
 from aiperf.common.comms.communication import BaseCommunication
 from aiperf.common.comms.communication_factory import CommunicationFactory
 from aiperf.common.config.service_config import ServiceConfig
@@ -54,6 +56,13 @@ class BaseService(AbstractBaseService):
 
         # Set to store signal handler tasks
         self._signal_tasks = set()
+
+        # noinspection PyBroadException
+        try:
+            setproctitle.setproctitle(f"aiperf {self.service_type} ({self.service_id})")
+        except:  # noqa: E722
+            # setproctitle is not available on all platforms, so we ignore the error
+            self.logger.debug("Failed to set process title, ignoring")
 
     @property
     def state(self) -> ServiceState:

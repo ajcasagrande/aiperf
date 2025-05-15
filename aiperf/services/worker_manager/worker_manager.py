@@ -73,15 +73,17 @@ class WorkerManager(BaseComponentService):
     async def _on_stop(self) -> None:
         """Stop the worker manager."""
         self.logger.debug("Stopping worker manager")
-        # Spawn workers based on CPU count
-        if self.service_config.service_run_type == ServiceRunType.MULTIPROCESSING:
-            await self._stop_multiprocessing_workers()
-        elif self.service_config.service_run_type == ServiceRunType.KUBERNETES:
-            await self._stop_kubernetes_workers()
-        else:
-            self.logger.warning(
-                f"Unsupported run type: {self.service_config.service_run_type}"
-            )
+        # TODO: This needs to be investigated, as currently we handle the exit signal
+        #       by all workers already, so need to understand best way to handle this
+        # # Stop all workers
+        # if self.service_config.service_run_type == ServiceRunType.MULTIPROCESSING:
+        #     await self._stop_multiprocessing_workers()
+        # elif self.service_config.service_run_type == ServiceRunType.KUBERNETES:
+        #     await self._stop_kubernetes_workers()
+        # else:
+        #     self.logger.warning(
+        #         f"Unsupported run type: {self.service_config.service_run_type}"
+        #     )
 
     async def _cleanup(self) -> None:
         """Clean up worker manager-specific components."""
