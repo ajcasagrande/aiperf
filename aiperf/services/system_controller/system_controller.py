@@ -25,15 +25,17 @@ from aiperf.common.enums import (
     ServiceType,
     Topic,
 )
-from aiperf.common.exceptions.service import ServiceInitializationException
-from aiperf.common.models.messages import BaseMessage
-from aiperf.common.models.service import ServiceRunInfo
-from aiperf.common.service.controller import BaseControllerService
-from aiperf.services.system_controller.kubernetes_manager import (
+from aiperf.common.exceptions.service_exceptions import ServiceInitializationException
+from aiperf.common.models.message_models import BaseMessage
+from aiperf.common.models.service_models import ServiceRunInfo
+from aiperf.common.service.base_controller_service import BaseControllerService
+from aiperf.services.system_controller.base_service_manager import BaseServiceManager
+from aiperf.services.system_controller.kubernetes_service_manager import (
     KubernetesServiceManager,
 )
-from aiperf.services.system_controller.multiprocess_manager import MultiProcessManager
-from aiperf.services.system_controller.service_manager import BaseServiceManager
+from aiperf.services.system_controller.multiprocess_manager import (
+    MultiProcessServiceManager,
+)
 
 
 class SystemController(BaseControllerService):
@@ -61,7 +63,7 @@ class SystemController(BaseControllerService):
         self.logger.debug("Initializing System Controller")
 
         if self.service_config.service_run_type == ServiceRunType.MULTIPROCESSING:
-            self.service_manager = MultiProcessManager(
+            self.service_manager = MultiProcessServiceManager(
                 self.required_service_types, self.service_config
             )
         elif self.service_config.service_run_type == ServiceRunType.KUBERNETES:
@@ -266,7 +268,7 @@ class SystemController(BaseControllerService):
 
 
 def main() -> None:
-    from aiperf.common.bootstrap import bootstrap_and_run_service
+    from aiperf.common.bootstrap_utils import bootstrap_and_run_service
 
     bootstrap_and_run_service(SystemController)
 

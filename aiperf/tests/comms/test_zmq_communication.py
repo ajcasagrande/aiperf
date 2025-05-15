@@ -27,9 +27,12 @@ from aiperf.common.enums import (
     SubClientType,
     Topic,
 )
-from aiperf.common.models.comms import ZMQCommunicationConfig, ZMQTCPTransportConfig
-from aiperf.common.models.messages import BaseMessage
-from aiperf.common.models.payloads import BasePayload, DataPayload
+from aiperf.common.models.comm_models import (
+    ZMQCommunicationConfig,
+    ZMQTCPTransportConfig,
+)
+from aiperf.common.models.message_models import BaseMessage
+from aiperf.common.models.payload_models import BasePayload, DataPayload
 
 
 class MockPayload(BasePayload):

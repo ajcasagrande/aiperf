@@ -13,7 +13,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-from aiperf.common.exceptions.base import AIPerfException
+from aiperf.common.exceptions.base_exceptions import AIPerfException
 
 
 class CommunicationNotInitializedError(AIPerfException):

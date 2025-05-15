@@ -23,13 +23,13 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from aiperf.common.comms.communication import BaseCommunication
+from aiperf.common.comms.base_communication import BaseCommunication
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import (
     CommBackend,
     ServiceRunType,
 )
-from aiperf.common.models.messages import BaseMessage
+from aiperf.common.models.message_models import BaseMessage
 from aiperf.tests.utils.async_test_utils import async_noop
 
 

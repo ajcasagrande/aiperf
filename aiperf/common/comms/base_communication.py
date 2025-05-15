@@ -17,7 +17,7 @@ from collections.abc import Callable, Coroutine
 from typing import Any
 
 from aiperf.common.enums import ClientType, TopicType
-from aiperf.common.models.messages import BaseMessage
+from aiperf.common.models.message_models import BaseMessage
 
 
 class BaseCommunication(ABC):

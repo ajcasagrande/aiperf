@@ -16,19 +16,20 @@ import asyncio
 import logging
 import signal
 import uuid
+from abc import ABC
 
 import setproctitle
 
-from aiperf.common.comms.communication import BaseCommunication
+from aiperf.common.comms.base_communication import BaseCommunication
 from aiperf.common.comms.communication_factory import CommunicationFactory
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ServiceState
-from aiperf.common.models.messages import BaseMessage
-from aiperf.common.models.payloads import PayloadType
-from aiperf.common.service.abstract import AbstractBaseService
+from aiperf.common.models.message_models import BaseMessage
+from aiperf.common.models.payload_models import PayloadType
+from aiperf.common.service.abstract_base_service import AbstractBaseService
 
 
-class BaseService(AbstractBaseService):
+class BaseService(AbstractBaseService, ABC):
     """Base class for all AIPerf services, providing common functionality for
     communication, state management, and lifecycle operations.
 

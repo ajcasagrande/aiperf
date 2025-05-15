@@ -15,11 +15,11 @@
 
 import logging
 
-from aiperf.common.comms.communication import BaseCommunication
+from aiperf.common.comms.base_communication import BaseCommunication
 from aiperf.common.comms.zmq_comms.zmq_communication import ZMQCommunication
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import CommBackend
-from aiperf.common.models.comms import (
+from aiperf.common.models.comm_models import (
     ZMQCommunicationConfig,
     ZMQTCPTransportConfig,
 )

@@ -21,14 +21,14 @@ from typing import Any
 import zmq
 import zmq.asyncio
 
-from aiperf.common.comms.communication import BaseCommunication
-from aiperf.common.comms.zmq_comms.clients.base import BaseZMQClient
-from aiperf.common.comms.zmq_comms.clients.pub import ZMQPubClient
-from aiperf.common.comms.zmq_comms.clients.pull import ZMQPullClient
-from aiperf.common.comms.zmq_comms.clients.push import ZMQPushClient
-from aiperf.common.comms.zmq_comms.clients.rep import ZMQRepClient
-from aiperf.common.comms.zmq_comms.clients.req import ZMQReqClient
-from aiperf.common.comms.zmq_comms.clients.sub import ZMQSubClient
+from aiperf.common.comms.base_communication import BaseCommunication
+from aiperf.common.comms.zmq_comms.clients.base_zmq_client import BaseZMQClient
+from aiperf.common.comms.zmq_comms.clients.zmq_pub_client import ZMQPubClient
+from aiperf.common.comms.zmq_comms.clients.zmq_pull_client import ZMQPullClient
+from aiperf.common.comms.zmq_comms.clients.zmq_push_client import ZMQPushClient
+from aiperf.common.comms.zmq_comms.clients.zmq_rep_client import ZMQRepClient
+from aiperf.common.comms.zmq_comms.clients.zmq_req_client import ZMQReqClient
+from aiperf.common.comms.zmq_comms.clients.zmq_sub_client import ZMQSubClient
 from aiperf.common.enums import (
     ClientType,
     PubClientType,
@@ -39,12 +39,12 @@ from aiperf.common.enums import (
     SubClientType,
     TopicType,
 )
-from aiperf.common.exceptions.comms import (
+from aiperf.common.exceptions.comm_exceptions import (
     CommunicationNotInitializedError,
     CommunicationShutdownError,
 )
-from aiperf.common.models.comms import ZMQCommunicationConfig
-from aiperf.common.models.messages import BaseMessage
+from aiperf.common.models.comm_models import ZMQCommunicationConfig
+from aiperf.common.models.message_models import BaseMessage
 
 logger = logging.getLogger(__name__)
 

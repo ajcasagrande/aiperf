@@ -22,7 +22,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from aiperf.common.enums import CommandType, ServiceState
-from aiperf.common.models.messages import BaseMessage
+from aiperf.common.models.message_models import BaseMessage
 from aiperf.tests.utils.async_test_utils import async_fixture, async_noop
 
 

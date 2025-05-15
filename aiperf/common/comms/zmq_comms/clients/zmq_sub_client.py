@@ -19,8 +19,8 @@ from collections.abc import Callable
 import zmq
 from zmq import SocketType
 
-from aiperf.common.comms.zmq_comms.clients.base import BaseZMQClient
-from aiperf.common.models.messages import BaseMessage
+from aiperf.common.comms.zmq_comms.clients.base_zmq_client import BaseZMQClient
+from aiperf.common.models.message_models import BaseMessage
 
 logger = logging.getLogger(__name__)
 

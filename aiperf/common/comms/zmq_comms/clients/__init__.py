@@ -23,10 +23,10 @@ __all__ = [
     "ZMQSubClient",
 ]
 
-from aiperf.common.comms.zmq_comms.clients.base import BaseZMQClient
-from aiperf.common.comms.zmq_comms.clients.pub import ZMQPubClient
-from aiperf.common.comms.zmq_comms.clients.pull import ZMQPullClient
-from aiperf.common.comms.zmq_comms.clients.push import ZMQPushClient
-from aiperf.common.comms.zmq_comms.clients.rep import ZMQRepClient
-from aiperf.common.comms.zmq_comms.clients.req import ZMQReqClient
-from aiperf.common.comms.zmq_comms.clients.sub import ZMQSubClient
+from aiperf.common.comms.zmq_comms.clients.base_zmq_client import BaseZMQClient
+from aiperf.common.comms.zmq_comms.clients.zmq_pub_client import ZMQPubClient
+from aiperf.common.comms.zmq_comms.clients.zmq_pull_client import ZMQPullClient
+from aiperf.common.comms.zmq_comms.clients.zmq_push_client import ZMQPushClient
+from aiperf.common.comms.zmq_comms.clients.zmq_rep_client import ZMQRepClient
+from aiperf.common.comms.zmq_comms.clients.zmq_req_client import ZMQReqClient
+from aiperf.common.comms.zmq_comms.clients.zmq_sub_client import ZMQSubClient

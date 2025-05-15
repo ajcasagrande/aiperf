@@ -20,8 +20,9 @@ import uuid
 import zmq
 from zmq import SocketType
 
-from aiperf.common.comms.zmq_comms.clients.base import BaseZMQClient
-from aiperf.common.models.messages import BaseMessage
+from aiperf.common.comms.zmq_comms.clients.base_zmq_client import BaseZMQClient
+from aiperf.common.models.message_models import BaseMessage
+from aiperf.common.models.payload_models import ErrorPayload
 
 logger = logging.getLogger(__name__)
 
@@ -97,9 +98,9 @@ class ZMQReqClient(BaseZMQClient):
             if not future.done():
                 error_response = BaseMessage(
                     request_id=request_id,
-                    client_id=self.client_id,
-                    status="error",
-                    message="Socket was shut down",
+                    payload=ErrorPayload(
+                        error_message="Socket was shut down",
+                    ),
                 )
                 future.set_result(error_response.model_dump_json())
 

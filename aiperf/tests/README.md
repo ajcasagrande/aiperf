@@ -141,7 +141,8 @@ The framework provides utilities for testing message handling:
 ```python
 from aiperf.tests.utils.message_mocks import MessageTestUtils, message_handler_test
 from aiperf.common.enums import Topic
-from aiperf.common.models.messages import CommandMessage
+from aiperf.common.models.message_models import CommandMessage
+
 
 # Using the simulate_message_receive utility
 async def test_command_handling(self, service_under_test):
@@ -153,10 +154,11 @@ async def test_command_handling(self, service_under_test):
     )
     # Verify expected behavior
 
+
 # Using the message_handler_test decorator
 @message_handler_test(CommandMessage, Topic.COMMAND, command=CommandType.START)
 async def test_start_command(self, service, mock_communication, message):
-    # Test code here, response is already sent to the service
+# Test code here, response is already sent to the service
 ```
 
 ### Testing Async Code

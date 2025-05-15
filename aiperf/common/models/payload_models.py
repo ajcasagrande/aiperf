@@ -46,13 +46,13 @@ class ErrorPayload(BasePayload):
 
     message_type: Literal[MessageType.ERROR] = MessageType.ERROR
 
-    error_code: str = Field(
-        ...,
+    error_code: str | None = Field(
+        default=None,
         description="Error code",
     )
-    error: str = Field(
-        ...,
-        description="Error response",
+    error_message: str | None = Field(
+        default=None,
+        description="Error message",
     )
     error_details: dict[str, Any] | None = Field(
         default=None,

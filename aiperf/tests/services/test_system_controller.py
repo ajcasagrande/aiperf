@@ -28,8 +28,8 @@ from aiperf.common.enums import (
     ServiceType,
     Topic,
 )
-from aiperf.common.models.messages import BaseMessage
-from aiperf.common.models.payloads import (
+from aiperf.common.models.message_models import BaseMessage
+from aiperf.common.models.payload_models import (
     HeartbeatPayload,
     RegistrationPayload,
     StatusPayload,

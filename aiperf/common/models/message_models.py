@@ -18,7 +18,7 @@ import time
 
 from pydantic import BaseModel, Field
 
-from aiperf.common.models.payloads import PayloadType
+from aiperf.common.models.payload_models import PayloadType
 
 
 class BaseMessage(BaseModel):

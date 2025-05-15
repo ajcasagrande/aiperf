@@ -25,12 +25,12 @@ from aiperf.common.enums import (
     ServiceType,
     Topic,
 )
-from aiperf.common.models.messages import BaseMessage
-from aiperf.common.models.payloads import (
+from aiperf.common.models.message_models import BaseMessage
+from aiperf.common.models.payload_models import (
     BasePayload,
     CreditDropPayload,
 )
-from aiperf.common.service.component import BaseComponentService
+from aiperf.common.service.base_component_service import BaseComponentService
 
 
 class TimingManager(BaseComponentService):
@@ -125,7 +125,7 @@ class TimingManager(BaseComponentService):
 
 
 def main() -> None:
-    from aiperf.common.bootstrap import bootstrap_and_run_service
+    from aiperf.common.bootstrap_utils import bootstrap_and_run_service
 
     bootstrap_and_run_service(TimingManager)
 

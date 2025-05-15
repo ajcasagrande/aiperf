@@ -20,7 +20,7 @@ from typing import Any, TypeVar
 from unittest.mock import AsyncMock
 
 from aiperf.common.enums import Topic
-from aiperf.common.models.messages import BaseMessage
+from aiperf.common.models.message_models import BaseMessage
 
 T = TypeVar("T", bound=BaseMessage)
 

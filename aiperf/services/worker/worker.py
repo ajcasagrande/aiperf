@@ -25,8 +25,8 @@ from aiperf.common.enums import (
     ServiceType,
     Topic,
 )
-from aiperf.common.models.payloads import CreditDropPayload, CreditReturnPayload
-from aiperf.common.service.base import BaseService
+from aiperf.common.models.payload_models import CreditDropPayload, CreditReturnPayload
+from aiperf.common.service.base_service import BaseService
 
 
 class Worker(BaseService):
@@ -91,7 +91,7 @@ if __name__ == "__main__":
     uvloop.install()
 
     # Load the service configuration
-    from aiperf.common.config.loader import load_service_config
+    from aiperf.common.config.config_loader import load_service_config
 
     cfg = load_service_config()
     worker = Worker(cfg)

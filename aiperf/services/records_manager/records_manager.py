@@ -16,8 +16,8 @@ import sys
 
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ServiceType
-from aiperf.common.models.payloads import BasePayload
-from aiperf.common.service.component import BaseComponentService
+from aiperf.common.models.payload_models import BasePayload
+from aiperf.common.service.base_component_service import BaseComponentService
 
 
 class RecordsManager(BaseComponentService):
@@ -57,7 +57,7 @@ class RecordsManager(BaseComponentService):
 
 
 def main() -> None:
-    from aiperf.common.bootstrap import bootstrap_and_run_service
+    from aiperf.common.bootstrap_utils import bootstrap_and_run_service
 
     bootstrap_and_run_service(RecordsManager)
 
