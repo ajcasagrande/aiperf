@@ -15,28 +15,13 @@
 import asyncio
 import logging
 import uuid
-from typing import Callable, Optional, Dict, Coroutine, Any
+from collections.abc import Callable, Coroutine
+from typing import Any
 
 import zmq
 import zmq.asyncio
 
 from aiperf.common.comms.communication import BaseCommunication
-from aiperf.common.enums import (
-    ClientType,
-    PubClientType,
-    SubClientType,
-    PushClientType,
-    PullClientType,
-    ReqClientType,
-    RepClientType,
-)
-from aiperf.common.enums import TopicType
-from aiperf.common.exceptions.comms import (
-    CommunicationNotInitializedError,
-    CommunicationShutdownError,
-)
-from aiperf.common.models.comms import ZMQCommunicationConfig
-from aiperf.common.models.messages import BaseMessage
 from aiperf.common.comms.zmq_comms.clients.base import BaseZMQClient
 from aiperf.common.comms.zmq_comms.clients.pub import ZMQPubClient
 from aiperf.common.comms.zmq_comms.clients.pull import ZMQPullClient
@@ -44,6 +29,22 @@ from aiperf.common.comms.zmq_comms.clients.push import ZMQPushClient
 from aiperf.common.comms.zmq_comms.clients.rep import ZMQRepClient
 from aiperf.common.comms.zmq_comms.clients.req import ZMQReqClient
 from aiperf.common.comms.zmq_comms.clients.sub import ZMQSubClient
+from aiperf.common.enums import (
+    ClientType,
+    PubClientType,
+    PullClientType,
+    PushClientType,
+    RepClientType,
+    ReqClientType,
+    SubClientType,
+    TopicType,
+)
+from aiperf.common.exceptions.comms import (
+    CommunicationNotInitializedError,
+    CommunicationShutdownError,
+)
+from aiperf.common.models.comms import ZMQCommunicationConfig
+from aiperf.common.models.messages import BaseMessage
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +58,7 @@ class ZMQCommunication(BaseCommunication):
 
     def __init__(
         self,
-        config: Optional[ZMQCommunicationConfig] = None,
+        config: ZMQCommunicationConfig | None = None,
     ):
         """Initialize ZMQ communication.
 
@@ -72,12 +73,13 @@ class ZMQCommunication(BaseCommunication):
         if not self.config.client_id:
             self.config.client_id = f"client_{uuid.uuid4().hex[:8]}"
 
-        self.context: Optional[zmq.asyncio.Context] = None
-        self.clients: Dict[ClientType, BaseZMQClient] = {}
+        self.context: zmq.asyncio.Context | None = None
+        self.clients: dict[ClientType, BaseZMQClient] = {}
 
         logger.info(
-            f"ZMQ communication using protocol: {type(self.config.protocol_config).__name__} "
-            f"with client ID: {self.config.client_id}"
+            "ZMQ communication using protocol: %s with client ID: %s",
+            type(self.config.protocol_config).__name__,
+            self.config.client_id,
         )
 
     async def initialize(self) -> bool:
@@ -141,7 +143,7 @@ class ZMQCommunication(BaseCommunication):
             self._is_initialized = False
             self.clients = {}
             self.context = None
-            return return_val
+        return return_val
 
     def _ensure_initialized(self) -> None:
         """Ensure the communication channels are initialized.
@@ -302,7 +304,8 @@ class ZMQCommunication(BaseCommunication):
         """Create and initialize ZMQ clients based on the client types.
 
         Args:
-            types: List of ClientType enums indicating the types of clients to create and initialize
+            types: List of ClientType enums indicating the types of clients to
+            create and initialize
         """
 
         for client_type in types:

@@ -12,7 +12,6 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -58,7 +57,7 @@ class ZMQCommunicationConfig(BaseModel):
         default_factory=ZMQTCPTransportConfig,
         description="Configuration for the selected transport protocol",
     )
-    client_id: Optional[str] = Field(
+    client_id: str | None = Field(
         default=None, description="Client ID, will be generated if not provided"
     )
 

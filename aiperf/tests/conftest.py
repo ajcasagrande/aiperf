@@ -17,7 +17,8 @@ This module contains shared fixtures for testing aiperf services.
 """
 
 import uuid
-from typing import Any, Callable, Dict, List
+from collections.abc import Callable
+from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -25,8 +26,8 @@ import pytest
 from aiperf.common.comms.communication import BaseCommunication
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import (
-    ServiceRunType,
     CommBackend,
+    ServiceRunType,
 )
 from aiperf.common.models.messages import BaseMessage
 from aiperf.tests.utils.async_test_utils import async_noop
@@ -71,7 +72,7 @@ def mock_communication() -> AsyncMock:
     mock_comm.create_clients.return_value = True
 
     # Store published messages for verification
-    mock_comm.published_messages: Dict[Any, List[BaseMessage]] = {}
+    mock_comm.published_messages: dict[Any, list[BaseMessage]] = {}
 
     async def mock_publish(topic: Any, message: BaseMessage) -> bool:
         # Use the topic as the key, whether it's an enum or string
@@ -88,7 +89,7 @@ def mock_communication() -> AsyncMock:
     mock_comm.publish.side_effect = mock_publish
 
     # Store subscription callbacks
-    mock_comm.subscriptions: Dict[str, Callable] = {}
+    mock_comm.subscriptions: dict[str, Callable] = {}
 
     async def mock_subscribe(topic: str, callback: Callable) -> bool:
         mock_comm.subscriptions[topic] = callback

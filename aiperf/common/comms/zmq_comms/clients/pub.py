@@ -18,8 +18,8 @@ import logging
 import zmq.asyncio
 from zmq import SocketType
 
-from aiperf.common.models.messages import BaseMessage
 from aiperf.common.comms.zmq_comms.clients.base import BaseZMQClient
+from aiperf.common.models.messages import BaseMessage
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +51,8 @@ class ZMQPubClient(BaseZMQClient):
         """
         if not self._is_initialized or self._is_shutdown:
             logger.error(
-                "Cannot publish response: communication not initialized or already shut down"
+                "Cannot publish response: communication not initialized or already "
+                "shut down"
             )
             return False
 
@@ -63,5 +64,5 @@ class ZMQPubClient(BaseZMQClient):
             await self.socket.send_multipart([topic.encode(), message_json.encode()])
             return True
         except Exception as e:
-            logger.error(f"Error publishing response to topic {topic}: {e}")
+            logger.error("Error publishing response to topic %s: %s", topic, e)
             return False

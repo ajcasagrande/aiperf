@@ -14,7 +14,6 @@
 #  limitations under the License.
 
 import logging
-from typing import Dict, Optional, Type
 
 from aiperf.common.comms.communication import BaseCommunication
 from aiperf.common.comms.zmq_comms.zmq_communication import ZMQCommunication
@@ -36,13 +35,13 @@ class CommunicationFactory:
     """
 
     # Registry of communication types
-    _comm_types: Dict[CommBackend, Type[BaseCommunication]] = {
+    _comm_types: dict[CommBackend, type[BaseCommunication]] = {
         CommBackend.ZMQ_TCP: ZMQCommunication,
     }
 
     @classmethod
     def register_comm_type(
-        cls, comm_type: CommBackend, comm_class: Type[BaseCommunication]
+        cls, comm_type: CommBackend, comm_class: type[BaseCommunication]
     ) -> None:
         """Register a new communication type.
 
@@ -51,12 +50,12 @@ class CommunicationFactory:
             comm_class: Communication class
         """
         cls._comm_types[comm_type] = comm_class
-        logger.info(f"Registered communication type: {comm_type}")
+        logger.info("Registered communication type: %s", comm_type)
 
     @classmethod
     def create_communication(
         cls, service_config: ServiceConfig, **kwargs
-    ) -> Optional[BaseCommunication]:
+    ) -> BaseCommunication | None:
         """Create a communication instance.
 
         Args:
@@ -67,7 +66,7 @@ class CommunicationFactory:
             Communication instance or None if creation failed
         """
         if service_config.comm_backend not in cls._comm_types:
-            logger.error(f"Unknown communication type: {service_config.comm_backend}")
+            logger.error("Unknown communication type: %s", service_config.comm_backend)
             return None
 
         try:
@@ -80,6 +79,8 @@ class CommunicationFactory:
             return comm_class(**kwargs)
         except Exception as e:
             logger.error(
-                f"Error creating communication for type {service_config.comm_backend}: {e}"
+                "Error creating communication for type %s: %s",
+                service_config.comm_backend,
+                e,
             )
             return None

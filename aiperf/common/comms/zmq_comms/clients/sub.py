@@ -14,13 +14,13 @@
 #  limitations under the License.
 import asyncio
 import logging
-from typing import Dict, List, Callable
+from collections.abc import Callable
 
 import zmq
 from zmq import SocketType
 
-from aiperf.common.models.messages import BaseMessage
 from aiperf.common.comms.zmq_comms.clients.base import BaseZMQClient
+from aiperf.common.models.messages import BaseMessage
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +39,7 @@ class ZMQSubClient(BaseZMQClient):
             socket_ops (dict, optional): Additional socket options to set.
         """
         super().__init__(context, SocketType.SUB, address, bind, socket_ops)
-        self._subscribers: Dict[str, List[Callable[[BaseMessage], None]]] = {}
+        self._subscribers: dict[str, list[Callable[[BaseMessage], None]]] = {}
 
     async def _initialize(self) -> None:
         asyncio.create_task(self._sub_receiver())
@@ -51,14 +51,16 @@ class ZMQSubClient(BaseZMQClient):
 
         Args:
             topic: Topic to subscribe to
-            callback: Function to call when a response is received (receives BaseMessage object)
+            callback: Function to call when a response is received
+            (receives BaseMessage object)
 
         Returns:
             True if subscription was successful, False otherwise
         """
         if not self._is_initialized or self._is_shutdown:
             logger.error(
-                "Cannot subscribe to topic: communication not initialized or already shut down"
+                "Cannot subscribe to topic: communication not initialized or already "
+                "shut down"
             )
             return False
 
@@ -71,10 +73,10 @@ class ZMQSubClient(BaseZMQClient):
                 self._subscribers[topic] = []
             self._subscribers[topic].append(callback)
 
-            logger.info(f"Subscribed to topic: {topic}")
+            logger.info("Subscribed to topic: %s", topic)
             return True
         except Exception as e:
-            logger.error(f"Error subscribing to topic {topic}: {e}")
+            logger.error("Error subscribing to topic %s: %s", topic, e)
             return False
 
     async def _sub_receiver(self) -> None:
@@ -102,18 +104,24 @@ class ZMQSubClient(BaseZMQClient):
                             await callback(message)
                         except Exception as e:
                             logger.exception(
-                                f"Error in subscriber callback for topic {topic}: {e} {type(e)}"
+                                "Error in subscriber callback for topic %s: %s %s",
+                                topic,
+                                e,
+                                type(e),
                             )
             except asyncio.CancelledError:
                 break
             except zmq.Again:
                 # Handle ZMQ timeout or interruption
                 logger.debug(
-                    f"ZMQ recv timeout due to no messages. trying again @ {self.address}"
+                    "ZMQ recv timeout due to no messages. trying again @ %s",
+                    self.address,
                 )
                 await asyncio.sleep(0.001)
             except Exception as e:
                 logger.error(
-                    f"Error receiving response from subscription: {e}, {type(e)}"
+                    "Error receiving response from subscription: %s, %s",
+                    e,
+                    type(e),
                 )
                 await asyncio.sleep(0.1)

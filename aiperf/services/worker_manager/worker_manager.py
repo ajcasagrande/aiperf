@@ -15,13 +15,13 @@
 import asyncio
 import multiprocessing
 import sys
-from typing import Dict, Any
+from typing import Any
 
 from pydantic import BaseModel, Field
 
 from aiperf.common.bootstrap import bootstrap_and_run_service
 from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.enums import ServiceType, ServiceRunType
+from aiperf.common.enums import ServiceRunType, ServiceType
 from aiperf.common.models.payloads import BasePayload
 from aiperf.common.service.component import BaseComponentService
 from aiperf.services.worker.worker import Worker
@@ -38,12 +38,13 @@ class WorkerManager(BaseComponentService):
     def __init__(self, service_config: ServiceConfig, service_id: str = None) -> None:
         super().__init__(service_config=service_config, service_id=service_id)
         self.logger.debug("Initializing worker manager")
-        self.workers: Dict[str, WorkerProcess] = {}
+        self.workers: dict[str, WorkerProcess] = {}
         # TODO: Need to implement some sort of max workers
         self.cpu_count = multiprocessing.cpu_count()
         self.worker_count = self.cpu_count
         self.logger.info(
-            f"Detected {self.cpu_count} CPU threads. Spawning {self.worker_count} workers"
+            f"Detected {self.cpu_count} CPU threads. "
+            f"Spawning {self.worker_count} workers"
         )
 
     @property
@@ -158,7 +159,8 @@ class WorkerManager(BaseComponentService):
             self.logger.info(f"Worker process {worker_id} (pid: {process.pid}) stopped")
         except asyncio.TimeoutError:
             self.logger.warning(
-                f"Worker process {worker_id} (pid: {process.pid}) did not terminate gracefully, killing"
+                f"Worker process {worker_id} (pid: {process.pid}) did not "
+                f"terminate gracefully, killing"
             )
             process.kill()
 

@@ -15,7 +15,7 @@
 from typing import Union
 
 from aiperf.common.enums.base import StrEnum
-from aiperf.common.enums.comms import Topic, TopicType, DataTopic
+from aiperf.common.enums.comms import DataTopic, Topic, TopicType
 
 
 class PubClientType(StrEnum):
@@ -174,7 +174,7 @@ class RepClientType(StrEnum):
                 raise ValueError(f"No client type found for topic {topic}")
 
 
-ClientType = Union[
+ClientType = Union[  # noqa: UP007
     PubClientType,
     SubClientType,
     PushClientType,

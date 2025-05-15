@@ -13,6 +13,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import pytest
+
 from aiperf.common.enums.comms import Topic
 from aiperf.common.enums.service import ServiceState
 from aiperf.common.service.component import BaseComponentService

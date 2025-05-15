@@ -13,7 +13,8 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 from abc import ABC, abstractmethod
-from typing import Callable, Optional, Union, Coroutine, Any
+from collections.abc import Callable, Coroutine
+from typing import Any
 
 from aiperf.common.enums import ClientType, TopicType
 from aiperf.common.models.messages import BaseMessage
@@ -92,7 +93,8 @@ class BaseCommunication(ABC):
 
         Args:
             topic: Topic to subscribe to
-            callback: Function to call when a response is received (receives BaseMessage object)
+            callback: Function to call when a response is received
+            (receives BaseMessage object)
 
         Returns:
             True if subscription was successful, False otherwise
@@ -148,18 +150,19 @@ class BaseCommunication(ABC):
     async def pull(
         self,
         topic: TopicType,
-        callback: Optional[Callable[[BaseMessage], Coroutine[Any, Any, None]]] = None,
-    ) -> Union[BaseMessage, bool]:
+        callback: Callable[[BaseMessage], Coroutine[Any, Any, None]] | None = None,
+    ) -> BaseMessage | bool:
         """Pull data from a source.
 
         Args:
             topic: Topic to pull from (must be a TopicType instance)
             callback: Optional function to call when data is received.
-                     If provided, this method will register the callback and return a boolean.
-                     If not provided, this method will wait for and return the next response.
+                     If provided, this method will register the callback and return
+                     a boolean. If not provided, this method will wait for and
+                     return the next response.
 
         Returns:
-            If callback is provided: True if pull registration was successful, False otherwise
-            If callback is not provided: The received BaseMessage object
+            If callback is provided: True if pull registration was successful, False
+            otherwise. If callback is not provided: The received BaseMessage object
         """
         pass

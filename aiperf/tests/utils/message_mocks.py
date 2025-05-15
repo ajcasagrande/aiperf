@@ -16,7 +16,7 @@
 Utilities for mocking messages and testing message handling.
 """
 
-from typing import Any, Dict, List, Type, TypeVar
+from typing import Any, TypeVar
 from unittest.mock import AsyncMock
 
 from aiperf.common.enums import Topic
@@ -29,7 +29,7 @@ class MessageTestUtils:
     """Utilities for testing message handling in services."""
 
     @staticmethod
-    def create_mock_message(message_class: Type[T], **kwargs) -> T:
+    def create_mock_message(message_class: type[T], **kwargs) -> T:
         """
         Create a message of the specified class with the given attributes.
 
@@ -74,7 +74,7 @@ class MessageTestUtils:
 
     @staticmethod
     def verify_message_published(
-        mock_communication: Any, topic: Topic, expected_fields: Dict[str, Any]
+        mock_communication: Any, topic: Topic, expected_fields: dict[str, Any]
     ) -> bool:
         """
         Verify that a message with the expected fields was published to the given topic.
@@ -106,17 +106,19 @@ class MessageParamBuilder:
 
     @staticmethod
     def build_message_params(
-        message_class: Type[BaseMessage],
-        field_variations: Dict[str, List[Any]],
-        required_fields: Dict[str, Any] = None,
-    ) -> List[Dict[str, Any]]:
+        message_class: type[BaseMessage],
+        field_variations: dict[str, list[Any]],
+        required_fields: dict[str, Any] = None,
+    ) -> list[dict[str, Any]]:
         """
-        Build a list of parameter dictionaries for testing message handling with different field values.
+        Build a list of parameter dictionaries for testing message handling with
+        different field values.
 
         Args:
             message_class: The class of message to parameterize
             field_variations: Dictionary mapping field names to lists of possible values
-            required_fields: Dictionary of fields that should be included in all parameter sets
+            required_fields: Dictionary of fields that should be included in all
+            parameter sets
 
         Returns:
             List of parameter dictionaries for use with pytest.mark.parametrize
@@ -137,7 +139,7 @@ class MessageParamBuilder:
         return param_sets
 
 
-def message_handler_test(message_class: Type[BaseMessage], topic: Topic, **params):
+def message_handler_test(message_class: type[BaseMessage], topic: Topic, **params):
     """
     Decorator for creating parameterized tests of message handlers.
 
@@ -182,7 +184,7 @@ class AsyncMockWithTracking(AsyncMock):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.call_history: List[tuple] = []
+        self.call_history: list[tuple] = []
 
     async def __call__(self, *args, **kwargs):
         self.call_history.append((args, kwargs))

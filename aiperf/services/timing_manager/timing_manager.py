@@ -21,9 +21,9 @@ from aiperf.common.enums import (
     ClientType,
     PullClientType,
     PushClientType,
+    ServiceState,
     ServiceType,
     Topic,
-    ServiceState,
 )
 from aiperf.common.models.messages import BaseMessage
 from aiperf.common.models.payloads import (

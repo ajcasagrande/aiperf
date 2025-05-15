@@ -14,7 +14,6 @@
 #  limitations under the License.
 import logging
 import uuid
-from typing import Optional
 
 import zmq
 from zmq import SocketType
@@ -29,7 +28,7 @@ class BaseZMQClient:
         socket_type: SocketType,
         address: str,
         bind: bool,
-        socket_ops: Optional[dict] = None,
+        socket_ops: dict | None = None,
     ) -> None:
         """
         Initialize the ZMQ Base class.
@@ -47,7 +46,7 @@ class BaseZMQClient:
         self.address: str = address
         self.bind: bool = bind
         self.socket_type: SocketType = socket_type
-        self.socket: Optional[zmq.Socket] = None
+        self.socket: zmq.Socket | None = None
         self.socket_ops: dict = socket_ops or {}
         self.client_id: str = f"client_{uuid.uuid4().hex[:8]}"
 
@@ -77,10 +76,12 @@ class BaseZMQClient:
             await self._initialize()
             self._is_initialized = True
             logger.debug(
-                f"ZMQ {self.socket_type_name} socket initialized and connected to {self.address}"
+                "ZMQ %s socket initialized and connected to %s",
+                self.socket_type_name,
+                self.address,
             )
         except Exception as e:
-            logger.error(f"Error initializing ZMQ socket: {e}")
+            logger.error("Error initializing ZMQ socket: %s", e)
             raise
 
     async def shutdown(self) -> None:
@@ -88,9 +89,9 @@ class BaseZMQClient:
         try:
             self.socket.close()
             self._is_shutdown = True
-            logger.info(f"ZMQ {self.socket_type_name} socket closed")
+            logger.info("ZMQ %s socket closed", self.socket_type_name)
         except Exception as e:
-            logger.error(f"Error shutting down ZMQ socket: {e}")
+            logger.error("Error shutting down ZMQ socket: %s", e)
             raise
 
     async def _initialize(self) -> None:

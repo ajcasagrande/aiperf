@@ -13,14 +13,15 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import asyncio
+import contextlib
 import logging
 import uuid
 
 import zmq
 from zmq import SocketType
 
-from aiperf.common.models.messages import BaseMessage
 from aiperf.common.comms.zmq_comms.clients.base import BaseZMQClient
+from aiperf.common.models.messages import BaseMessage
 
 logger = logging.getLogger(__name__)
 
@@ -88,10 +89,8 @@ class ZMQReqClient(BaseZMQClient):
         """Shutdown the socket and clean up resources."""
         if self._background_task and not self._background_task.done():
             self._background_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._background_task
-            except asyncio.CancelledError:
-                pass
 
         # Resolve any pending futures with errors
         for request_id, future in self._response_futures.items():
@@ -125,7 +124,8 @@ class ZMQReqClient(BaseZMQClient):
         """
         if not self._is_initialized or self._is_shutdown:
             logger.error(
-                "Cannot send request: communication not initialized or already shut down"
+                "Cannot send request: communication not initialized or already "
+                "shut down"
             )
             return BaseMessage(
                 request_id="error",

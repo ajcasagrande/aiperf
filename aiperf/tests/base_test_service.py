@@ -16,15 +16,14 @@
 Base test class for testing aiperf services.
 """
 
-from typing import Any, Type
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from aiperf.common.enums import CommandType
-from aiperf.common.enums import ServiceState
+from aiperf.common.enums import CommandType, ServiceState
 from aiperf.common.models.messages import BaseMessage
-from aiperf.tests.utils.async_test_utils import async_noop, async_fixture
+from aiperf.tests.utils.async_test_utils import async_fixture, async_noop
 
 
 @pytest.mark.asyncio
@@ -44,7 +43,7 @@ class BaseTestService:
             yield
 
     @pytest.fixture
-    def service_class(self) -> Type[Any]:
+    def service_class(self) -> type[Any]:
         """Return the service class to test. Must be implemented by subclasses."""
         raise NotImplementedError("Subclasses must implement service_class fixture")
 
@@ -149,7 +148,8 @@ class BaseTestService:
         """Create a mock object that's safe to use with async code.
 
         This helps prevent "coroutine was never awaited" warnings by ensuring
-        any async methods on the mock don't actually return coroutines that go unwaited.
+        any async methods on the mock don't actually return coroutines that go
+        unwaited.
 
         Returns:
             MagicMock: A mock object that's safe to use with async code
@@ -157,7 +157,8 @@ class BaseTestService:
         # Create a mock with no return_value for methods
         mock = MagicMock()
 
-        # Set all attributes that might be coroutines to return None instead of other AsyncMocks
+        # Set all attributes that might be coroutines to return None instead of
+        # other AsyncMocks
         for attr_name in dir(mock):
             if callable(getattr(mock, attr_name)) and not attr_name.startswith("_"):
                 method = getattr(mock, attr_name)

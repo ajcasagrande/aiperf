@@ -13,14 +13,6 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-from aiperf.common.comms.zmq_comms.clients.base import BaseZMQClient
-from aiperf.common.comms.zmq_comms.clients.pub import ZMQPubClient
-from aiperf.common.comms.zmq_comms.clients.pull import ZMQPullClient
-from aiperf.common.comms.zmq_comms.clients.push import ZMQPushClient
-from aiperf.common.comms.zmq_comms.clients.rep import ZMQRepClient
-from aiperf.common.comms.zmq_comms.clients.req import ZMQReqClient
-from aiperf.common.comms.zmq_comms.clients.sub import ZMQSubClient
-
 __all__ = [
     "BaseZMQClient",
     "ZMQPubClient",
@@ -30,3 +22,11 @@ __all__ = [
     "ZMQReqClient",
     "ZMQSubClient",
 ]
+
+from aiperf.common.comms.zmq_comms.clients.base import BaseZMQClient
+from aiperf.common.comms.zmq_comms.clients.pub import ZMQPubClient
+from aiperf.common.comms.zmq_comms.clients.pull import ZMQPullClient
+from aiperf.common.comms.zmq_comms.clients.push import ZMQPushClient
+from aiperf.common.comms.zmq_comms.clients.rep import ZMQRepClient
+from aiperf.common.comms.zmq_comms.clients.req import ZMQReqClient
+from aiperf.common.comms.zmq_comms.clients.sub import ZMQSubClient

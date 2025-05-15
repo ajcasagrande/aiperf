@@ -17,15 +17,14 @@ Tests for the worker manager service.
 """
 
 import asyncio
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from aiperf.common.enums import ServiceType
 from aiperf.services.worker_manager.worker_manager import WorkerManager, WorkerProcess
 from aiperf.tests.base_test_component_service import BaseTestComponentService
-from aiperf.tests.utils.async_test_utils import async_fixture
-from aiperf.tests.utils.async_test_utils import async_noop
+from aiperf.tests.utils.async_test_utils import async_fixture, async_noop
 
 
 @pytest.mark.asyncio

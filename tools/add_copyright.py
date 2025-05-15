@@ -16,9 +16,9 @@ import argparse
 import os
 import re
 import sys
-from pathlib import Path
+from collections.abc import Callable, Sequence
 from datetime import datetime
-from typing import Callable, Dict, Optional, Sequence
+from pathlib import Path
 
 current_year = str(datetime.now().year)
 
@@ -36,14 +36,14 @@ def has_copyright(content: str) -> bool:
 
 
 def update_copyright_year(
-    path: str, content: Optional[str] = None, disallow_range: bool = False
+    path: str, content: str | None = None, disallow_range: bool = False
 ) -> None:
     """
     Updates the copyright year in the provided file.
     If the copyright is not present in the file, this function has no effect.
     """
     if content is None:
-        with open(path, "r") as f:
+        with open(path) as f:
             content = f.read()
 
     match = COPYRIGHT_YEAR_PAT.search(content)
@@ -74,7 +74,7 @@ def update_and_get_license() -> str:
     # License file should always have the current year.
     update_copyright_year(LICENSE_PATH, disallow_range=True)
 
-    with open(LICENSE_PATH, "r") as license_file:
+    with open(LICENSE_PATH) as license_file:
         return license_file.read()
 
 
@@ -86,8 +86,8 @@ LICENSE_TEXT = update_and_get_license()
 
 
 def prefix_lines(content: str, prefix: str) -> str:
-    # NOTE: This could have been done via `textwrap.indent`, but we're not actually indenting,
-    # so it seems semantically wrong to do that.
+    # NOTE: This could have been done via `textwrap.indent`, but we're not
+    # actually indenting, so it seems semantically wrong to do that.
     return prefix + f"\n{prefix}".join(content.splitlines())
 
 
@@ -102,7 +102,8 @@ def insert_after(regex: str) -> Callable[[str, str], str]:
         regex: The regular expression to match.
 
     Returns:
-        A callable that can be used as the `add_header` argument to `update_or_add_header`.
+        A callable that can be used as the `add_header` argument
+        to `update_or_add_header`.
     """
 
     def add_header(header: str, content: str) -> str:
@@ -119,7 +120,7 @@ def insert_after(regex: str) -> Callable[[str, str], str]:
 
 
 def update_or_add_header(
-    path: str, header: str, add_header: Optional[Callable[[str, str], str]] = None
+    path: str, header: str, add_header: Callable[[str, str], str] | None = None
 ):
     """
     Updates in place or adds a new copyright header to the specified file.
@@ -131,7 +132,7 @@ def update_or_add_header(
             controls how the contents of the file are updated. By default, the copyright
             header is prepended to the file.
     """
-    with open(path, "r") as f:
+    with open(path) as f:
         content = f.read()
 
     if has_copyright(content):
@@ -147,7 +148,8 @@ def update_or_add_header(
     if content.count("Copyright (c)") != 1:
         print(
             f"WARNING: Something went wrong while processing: {path}!\n"
-            "Please check if the copyright header was included twice or wasn't added at all. "
+            "Please check if the copyright header was included twice "
+            "or wasn't added at all. "
         )
 
     with open(path, "w") as f:
@@ -158,10 +160,10 @@ def update_or_add_header(
 # header. For example, for C++ files, the header must be prefixed with `//` and for
 # shell scripts, it must be prefixed with `#` and must be inserted *after* the shebang.
 #
-# This mapping stores callables that return whether a handler wants to process a specified
-# file based on the path along with callables that will accept the file path and update
-# it with the copyright header.
-FILE_TYPE_HANDLERS: Dict[Callable[[str], bool], Callable[[str], None]] = {}
+# This mapping stores callables that return whether a handler wants to process a
+# specified file based on the path along with callables that will accept the file path
+# and update it with the copyright header.
+FILE_TYPE_HANDLERS: dict[Callable[[str], bool], Callable[[str], None]] = {}
 
 
 #
@@ -223,8 +225,9 @@ def py_or_shell_like(path):
         path,
         prefix_lines(LICENSE_TEXT, "# "),
         # Insert the header *after* the shebang.
-        # NOTE: This could break if there is a shebang-like pattern elsewhere in the file.
-        # In that case, this could be edited to check only the first line of the file (after removing whitespace).
+        # NOTE: This could break if there is a shebang-like pattern elsewhere in
+        # the file. In that case, this could be edited to check only the first line
+        # of the file (after removing whitespace).
         insert_after(r"#!(.*)\n"),
     )
 
@@ -274,7 +277,8 @@ def add_copyrights(paths):
                 break
         else:
             print(
-                f"WARNING: No handler registered for file: {path}. Please add a new handler to {__file__}!"
+                f"WARNING: No handler registered for file: {path}. "
+                f"Please add a new handler to {__file__}!"
             )
 
 
@@ -290,5 +294,6 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    # sys.exit is important here to avoid the test-related imports below during normal execution.
+    # sys.exit is important here to avoid the test-related imports below during
+    # normal execution.
     sys.exit(main())

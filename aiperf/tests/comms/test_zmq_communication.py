@@ -16,16 +16,16 @@
 Tests for the ZMQ communication module.
 """
 
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from pydantic import Field
 
 from aiperf.common.comms.zmq_comms.zmq_communication import ZMQCommunication
 from aiperf.common.enums import (
-    Topic,
     PubClientType,
     SubClientType,
+    Topic,
 )
 from aiperf.common.models.comms import ZMQCommunicationConfig, ZMQTCPTransportConfig
 from aiperf.common.models.messages import BaseMessage
@@ -195,7 +195,8 @@ class TestZMQCommunication:
         zmq_communication._is_initialized = True
         zmq_communication._is_shutdown = False
 
-        # Mock the context with a patched shutdown method to avoid setting context to None
+        # Mock the context with a patched shutdown method to avoid setting
+        # context to None
         context_mock = MagicMock()
         zmq_communication.context = context_mock
 
@@ -203,7 +204,8 @@ class TestZMQCommunication:
         original_shutdown = zmq_communication.shutdown
 
         async def patched_shutdown():
-            # Call original gather but patch term() to prevent context from becoming None
+            # Call original gather but patch term() to prevent context from
+            # becoming None
             with patch.object(zmq_communication, "context", context_mock):
                 return await original_shutdown()
 

@@ -14,13 +14,14 @@
 #  limitations under the License.
 import asyncio
 import logging
-from typing import Dict, Callable, Optional, Union, Any
+from collections.abc import Callable
+from typing import Any
 
 import zmq
 from zmq import SocketType
 
-from aiperf.common.models.messages import BaseMessage
 from aiperf.common.comms.zmq_comms.clients.base import BaseZMQClient
+from aiperf.common.models.messages import BaseMessage
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +40,7 @@ class ZMQPullClient(BaseZMQClient):
             socket_ops (dict, optional): Additional socket options to set.
         """
         super().__init__(context, SocketType.PULL, address, bind, socket_ops)
-        self._pull_callbacks: Dict[str, Any] = {}
+        self._pull_callbacks: dict[str, Any] = {}
 
     async def _initialize(self) -> None:
         # Start the receiver task
@@ -83,19 +84,20 @@ class ZMQPullClient(BaseZMQClient):
     async def pull(
         self,
         topic: str,
-        callback: Optional[Callable[[BaseMessage], None]] = None,
-    ) -> Union[BaseMessage, bool, None]:
+        callback: Callable[[BaseMessage], None] | None = None,
+    ) -> BaseMessage | bool | None:
         """Pull data from a source.
 
         Args:
             topic: Topic to pull data from
             callback: Optional function to call when data is received.
-                     If provided, this method will register the callback and return a boolean.
-                     If not provided, this method will wait for and return the next response.
+                      If provided, this method will register the callback and return
+                      a boolean. If not provided, this method will wait for and return
+                      the next response.
 
         Returns:
-            If callback is provided: True if pull registration was successful, False otherwise
-            If callback is not provided: The received BaseMessage object
+            If callback is provided: True if pull registration was successful, False
+            otherwise. If callback is not provided: The received BaseMessage object
         """
         if not self._is_initialized or self._is_shutdown:
             logger.error(
