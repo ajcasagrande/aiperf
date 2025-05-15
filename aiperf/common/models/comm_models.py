@@ -64,50 +64,36 @@ class ZMQCommunicationConfig(BaseModel):
     @property
     def controller_pub_sub_address(self) -> str:
         """Get the controller pub/sub address based on protocol configuration."""
-        if isinstance(self.protocol_config, ZMQTCPTransportConfig):
-            return f"tcp://{self.protocol_config.host}:{self.protocol_config.controller_pub_sub_port}"
-        raise ValueError("Invalid protocol configuration")
+        return f"tcp://{self.protocol_config.host}:{self.protocol_config.controller_pub_sub_port}"
 
     @property
     def component_pub_sub_address(self) -> str:
         """Get the component pub/sub address based on protocol configuration."""
-        if isinstance(self.protocol_config, ZMQTCPTransportConfig):
-            return f"tcp://{self.protocol_config.host}:{self.protocol_config.component_pub_sub_port}"
-        raise ValueError("Invalid protocol configuration")
+        return f"tcp://{self.protocol_config.host}:{self.protocol_config.component_pub_sub_port}"
 
     @property
     def inference_push_pull_address(self) -> str:
         """Get the inference pub/sub address based on protocol configuration."""
-        if isinstance(self.protocol_config, ZMQTCPTransportConfig):
-            return f"tcp://{self.protocol_config.host}:{self.protocol_config.inference_push_pull_port}"
-        raise ValueError("Invalid protocol configuration")
+        return f"tcp://{self.protocol_config.host}:{self.protocol_config.inference_push_pull_port}"
 
     @property
     def records_address(self) -> str:
         """Get the records address based on protocol configuration."""
-        if isinstance(self.protocol_config, ZMQTCPTransportConfig):
-            return (
-                f"tcp://{self.protocol_config.host}:{self.protocol_config.records_port}"
-            )
-        raise ValueError("Invalid protocol configuration")
+        return f"tcp://{self.protocol_config.host}:{self.protocol_config.records_port}"
 
     @property
     def conversation_data_address(self) -> str:
         """Get the conversation data address based on protocol configuration."""
-        if isinstance(self.protocol_config, ZMQTCPTransportConfig):
-            return f"tcp://{self.protocol_config.host}:{self.protocol_config.conversation_data_port}"
-        raise ValueError("Invalid protocol configuration")
+        return f"tcp://{self.protocol_config.host}:{self.protocol_config.conversation_data_port}"
 
     @property
     def credit_drop_address(self) -> str:
         """Get the credit drop address based on protocol configuration."""
-        if isinstance(self.protocol_config, ZMQTCPTransportConfig):
-            return f"tcp://{self.protocol_config.host}:{self.protocol_config.credit_drop_port}"
-        raise ValueError("Invalid protocol configuration")
+        return (
+            f"tcp://{self.protocol_config.host}:{self.protocol_config.credit_drop_port}"
+        )
 
     @property
     def credit_return_address(self) -> str:
         """Get the credit return address based on protocol configuration."""
-        if isinstance(self.protocol_config, ZMQTCPTransportConfig):
-            return f"tcp://{self.protocol_config.host}:{self.protocol_config.credit_return_port}"
-        raise ValueError("Invalid protocol configuration")
+        return f"tcp://{self.protocol_config.host}:{self.protocol_config.credit_return_port}"
