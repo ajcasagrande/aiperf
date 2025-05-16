@@ -15,7 +15,7 @@
 import logging
 import uuid
 
-import zmq
+import zmq.asyncio
 from zmq import SocketType
 
 logger = logging.getLogger(__name__)
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 class BaseZMQClient:
     def __init__(
         self,
-        context: zmq.Context,
+        context: zmq.asyncio.Context,
         socket_type: SocketType,
         address: str,
         bind: bool,
@@ -34,7 +34,7 @@ class BaseZMQClient:
         Initialize the ZMQ Base class.
 
         Args:
-            context (zmq.Context): The ZMQ context.
+            context (zmq.asyncio.Context): The ZMQ context.
             address (str): The address to bind or connect to.
             bind (bool): Whether to bind or connect the socket.
             socket_type (SocketType): The type of ZMQ socket (PUB or SUB).
@@ -42,11 +42,11 @@ class BaseZMQClient:
         """
         self._is_shutdown: bool = False
         self._is_initialized: bool = False
-        self.context: zmq.Context = context
+        self.context: zmq.asyncio.Context = context
         self.address: str = address
         self.bind: bool = bind
         self.socket_type: SocketType = socket_type
-        self.socket: zmq.Socket | None = None
+        self.socket: zmq.asyncio.Socket | None = None
         self.socket_ops: dict = socket_ops or {}
         self.client_id: str = f"client_{uuid.uuid4().hex[:8]}"
 

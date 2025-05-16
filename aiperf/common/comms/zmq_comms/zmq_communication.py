@@ -18,7 +18,6 @@ import uuid
 from collections.abc import Callable, Coroutine
 from typing import Any
 
-import zmq
 import zmq.asyncio
 
 from aiperf.common.comms.base_communication import BaseCommunication

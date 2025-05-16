@@ -17,7 +17,7 @@ import contextlib
 import logging
 import uuid
 
-import zmq
+import zmq.asyncio
 from zmq import SocketType
 
 from aiperf.common.comms.zmq_comms.clients.base_zmq_client import BaseZMQClient
@@ -31,13 +31,17 @@ logger = logging.getLogger(__name__)
 
 class ZMQReqClient(BaseZMQClient):
     def __init__(
-        self, context: zmq.Context, address: str, bind: bool, socket_ops: dict = None
+        self,
+        context: zmq.asyncio.Context,
+        address: str,
+        bind: bool,
+        socket_ops: dict = None,
     ) -> None:
         """
         Initialize the ZMQ Req class.
 
         Args:
-            context (zmq.Context): The ZMQ context.
+            context (zmq.asyncio.Context): The ZMQ context.
             address (str): The address to bind or connect to.
             bind (bool): Whether to bind or connect the socket.
             socket_ops (dict, optional): Additional socket options to set.
