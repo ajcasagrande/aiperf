@@ -20,6 +20,8 @@ import zmq
 from zmq import SocketType
 
 from aiperf.common.comms.zmq_comms.clients.base_zmq_client import BaseZMQClient
+from aiperf.common.errors.base_error import Error
+from aiperf.common.errors.comm_errors import CommNotInitializedError, CommSubscribeError
 from aiperf.common.models.message_models import BaseMessage
 
 logger = logging.getLogger(__name__)
@@ -41,12 +43,13 @@ class ZMQSubClient(BaseZMQClient):
         super().__init__(context, SocketType.SUB, address, bind, socket_ops)
         self._subscribers: dict[str, list[Callable[[BaseMessage], None]]] = {}
 
-    async def _initialize(self) -> None:
+    async def _initialize(self) -> Error | None:
         asyncio.create_task(self._sub_receiver())
+        return None
 
     async def subscribe(
         self, topic: str, callback: Callable[[BaseMessage], None]
-    ) -> bool:
+    ) -> Error | None:
         """Subscribe to a topic.
 
         Args:
@@ -55,14 +58,14 @@ class ZMQSubClient(BaseZMQClient):
             (receives BaseMessage object)
 
         Returns:
-            True if subscription was successful, False otherwise
+            Error if subscription was not successful, None otherwise
         """
         if not self._is_initialized or self._is_shutdown:
             logger.error(
                 "Cannot subscribe to topic: communication not initialized or already "
                 "shut down"
             )
-            return False
+            return CommNotInitializedError()
 
         try:
             # Subscribe to topic
@@ -74,10 +77,12 @@ class ZMQSubClient(BaseZMQClient):
             self._subscribers[topic].append(callback)
 
             logger.info("Subscribed to topic: %s", topic)
-            return True
+
         except Exception as e:
             logger.error("Error subscribing to topic %s: %s", topic, e)
-            return False
+            return CommSubscribeError.from_exception(e)
+
+        return None
 
     async def _sub_receiver(self) -> None:
         """Background task for receiving messages from subscribed topics."""
@@ -95,6 +100,13 @@ class ZMQSubClient(BaseZMQClient):
                 ) = await self.socket.recv_multipart()
                 topic = topic_bytes.decode()
                 message_json = message_bytes.decode()
+                logger.debug(
+                    "Client %s received message from topic: '%s', message: %s",
+                    self.client_id,
+                    topic,
+                    message_json,
+                )
+
                 message = BaseMessage.model_validate_json(message_json)
 
                 # Call callbacks with the parsed response object

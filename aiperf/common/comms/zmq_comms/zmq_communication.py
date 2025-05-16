@@ -46,8 +46,8 @@ from aiperf.common.errors.comm_errors import (
     CommPublishError,
     CommPullError,
     CommPushError,
-    CommRequestError,
-    CommResponseError,
+    CommRepError,
+    CommReqError,
     CommShutdownError,
     CommSubscribeError,
 )
@@ -350,6 +350,9 @@ class ZMQCommunication(BaseCommunication):
         Args:
             types: List of ClientType enums indicating the types of clients to
             create and initialize
+
+        Returns:
+            Error if the clients were not created successfully, None otherwise
         """
 
         for client_type in types:
@@ -387,10 +390,12 @@ class ZMQCommunication(BaseCommunication):
 
             self.clients[client_type] = client
 
+        return None
+
     async def publish(self, topic: TopicType, message: BaseMessage) -> Error | None:
         if error := self._ensure_initialized():
             return error
-        logger.debug(f"Publishing message to topic: {topic}")
+        logger.debug("Publishing message to topic: %s, message: %s", topic, message)
 
         client_type, error = PubClientType.from_topic(topic)
         if error:
@@ -408,13 +413,19 @@ class ZMQCommunication(BaseCommunication):
         try:
             return await self.clients[client_type].publish(topic, message)
         except Exception as e:
-            logger.error(f"Error publishing message: {e}")
+            logger.error(
+                "Error publishing message to topic: %s, message: %s, error: %s",
+                topic,
+                message,
+                e,
+            )
             return CommPublishError.from_exception(e)
 
     async def subscribe(
         self,
         topic: TopicType,
-        callback: Callable[[BaseMessage], Coroutine[Any, Any, None]] = None,
+        callback: Callable[[BaseMessage], Coroutine[Any, Any, Error | None]]
+        | None = None,
     ) -> Error | None:
         logger.debug(f"Subscribing to topic: {topic}")
 
@@ -470,7 +481,7 @@ class ZMQCommunication(BaseCommunication):
             )
         except Exception as e:
             logger.error(f"Error requesting from {target}: {e}")
-            return None, CommRequestError.from_exception(e)
+            return None, CommReqError.from_exception(e)
 
     async def respond(self, target: str, response: BaseMessage) -> Error | None:
         logger.debug(f"Responding to {target} with data: {response}")
@@ -494,10 +505,10 @@ class ZMQCommunication(BaseCommunication):
             return await self.clients[client_type].respond(target, response)
         except Exception as e:
             logger.error(f"Error responding to {target}: {e}")
-            return CommResponseError.from_exception(e)
+            return CommRepError.from_exception(e)
 
     async def push(self, topic: TopicType, message: BaseMessage) -> Error | None:
-        logger.debug(f"Pushing data: {message}")
+        logger.debug("Pushing data to topic: %s, message: %s", topic, message)
         if error := self._ensure_initialized():
             return error
 

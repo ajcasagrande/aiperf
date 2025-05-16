@@ -21,6 +21,8 @@ import zmq
 from zmq import SocketType
 
 from aiperf.common.comms.zmq_comms.clients.base_zmq_client import BaseZMQClient
+from aiperf.common.errors.base_error import Error
+from aiperf.common.errors.comm_errors import CommNotInitializedError, CommPullError
 from aiperf.common.models.message_models import BaseMessage
 
 logger = logging.getLogger(__name__)
@@ -84,8 +86,8 @@ class ZMQPullClient(BaseZMQClient):
     async def pull(
         self,
         topic: str,
-        callback: Callable[[BaseMessage], None] | None = None,
-    ) -> BaseMessage | bool | None:
+        callback: Callable[[BaseMessage], Error | None] | None = None,
+    ) -> tuple[BaseMessage | None, Error | None]:
         """Pull data from a source.
 
         Args:
@@ -96,14 +98,14 @@ class ZMQPullClient(BaseZMQClient):
                       the next response.
 
         Returns:
-            If callback is provided: True if pull registration was successful, False
-            otherwise. If callback is not provided: The received BaseMessage object
+            If callback is provided: tuple[None, Error | None].
+            If callback is not provided: tuple[BaseMessage | None, Error | None].
         """
         if not self._is_initialized or self._is_shutdown:
             logger.error(
                 "Cannot pull data: communication not initialized or already shut down"
             )
-            return None
+            return None, CommNotInitializedError()
         try:
             # If callback is provided, register it
             if callback:
@@ -111,7 +113,7 @@ class ZMQPullClient(BaseZMQClient):
                     self._pull_callbacks[topic] = []
                 self._pull_callbacks[topic].append(callback)
                 logger.debug(f"Registered pull callback for {topic}")
-                return True
+                return None, None
 
             # If no callback, wait for response
             else:
@@ -120,7 +122,7 @@ class ZMQPullClient(BaseZMQClient):
                 message_json = message_bytes.decode()
 
                 message = BaseMessage.model_validate_json(message_json)
-                return message
+                return message, None
         except Exception as e:
             logger.error(f"Error pulling data from {topic}: {e}")
-            return None
+            return None, CommPullError.from_exception(e)

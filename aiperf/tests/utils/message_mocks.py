@@ -59,9 +59,9 @@ class MessageTestUtils:
             Topic.REGISTRATION: "_process_registration_message",
             Topic.STATUS: "_process_status_message",
             Topic.HEARTBEAT: "_process_heartbeat_message",
-            Topic.COMMAND: "_process_command_message",
-            Topic.CREDIT_DROP: "_process_credit_drop_message",
-            Topic.CREDIT_RETURN: "_process_credit_return_message",
+            Topic.COMMAND: "process_command_message",
+            Topic.CREDIT_DROP: "process_credit_drop",
+            Topic.CREDIT_RETURN: "process_credit_return",
         }
 
         if topic in handler_map and hasattr(service, handler_map[topic]):

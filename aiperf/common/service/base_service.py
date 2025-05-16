@@ -175,7 +175,7 @@ class BaseService(AbstractBaseService, ABC):
         """
         try:
             if self.state == ServiceState.STOPPED:
-                self.logger.warning(
+                self.logger.debug(
                     "Service %s state %s is already STOPPED, ignoring stop request",
                     self.service_type,
                     self.state,

@@ -59,7 +59,7 @@ class BaseTestService:
         """
         with patch(
             "aiperf.common.comms.communication_factory.CommunicationFactory.create_communication",
-            return_value=mock_communication,
+            return_value=(mock_communication, None),
         ):
             service = service_class(service_config=service_config)
 

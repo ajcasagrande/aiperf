@@ -22,6 +22,7 @@ from unittest.mock import patch
 
 import pytest
 
+from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import (
     CommandType,
     ServiceState,
@@ -33,6 +34,13 @@ from aiperf.common.models.payload_models import (
     HeartbeatPayload,
     RegistrationPayload,
     StatusPayload,
+)
+from aiperf.services.system_controller.base_service_manager import BaseServiceManager
+from aiperf.services.system_controller.kubernetes_service_manager import (
+    KubernetesServiceManager,
+)
+from aiperf.services.system_controller.multiprocess_manager import (
+    MultiProcessServiceManager,
 )
 from aiperf.services.system_controller.system_controller import SystemController
 from aiperf.tests.base_test_service import BaseTestService, async_fixture
@@ -53,17 +61,62 @@ class TestSystemController(BaseTestService):
         """Return the service ID of a test service."""
         return "test-id"
 
-    async def test_system_controller_initialization(self, service_under_test):
-        """Test that the system controller initializes correctly."""
+    @pytest.fixture
+    def test_service_manager(self):
+        """Return a test service manager."""
+        return BaseServiceManager(
+            required_service_types=[ServiceType.TEST],
+            config=ServiceConfig(
+                service_type=ServiceType.SYSTEM_CONTROLLER,
+            ),
+        )
+
+    @pytest.fixture
+    def test_service_manager_with_multiprocess(self):
+        """Return a test service manager with multiprocess."""
+        multiprocess_manager = MultiProcessServiceManager(
+            required_service_types=[ServiceType.TEST],
+            config=ServiceConfig(
+                service_type=ServiceType.SYSTEM_CONTROLLER,
+            ),
+        )
+        return multiprocess_manager
+
+    @pytest.fixture
+    def test_service_manager_with_kubernetes(self):
+        """Return a test service manager with kubernetes."""
+        kubernetes_manager = KubernetesServiceManager(
+            required_service_types=[ServiceType.TEST],
+            config=ServiceConfig(
+                service_type=ServiceType.SYSTEM_CONTROLLER,
+            ),
+        )
+        return kubernetes_manager
+
+    @pytest.fixture
+    async def test_system_controller_multiprocess(
+        self, service_under_test, test_service_manager_with_multiprocess
+    ):
+        """Return a test system controller with multiprocess."""
         service = await async_fixture(service_under_test)
+        service.service_manager = test_service_manager_with_multiprocess
+        return service
+
+    async def test_system_controller_initialization(
+        self, test_system_controller_multiprocess
+    ):
+        """Test that the system controller initializes correctly."""
+        service = await async_fixture(test_system_controller_multiprocess)
         assert service.service_type == ServiceType.SYSTEM_CONTROLLER
         assert hasattr(service, "service_manager")
         assert hasattr(service.service_manager, "service_id_map")
         assert isinstance(service.service_manager.service_id_map, dict)
 
-    async def test_handle_registration_message(self, service_under_test):
+    async def test_handle_registration_message(
+        self, test_system_controller_multiprocess
+    ):
         """Test handling of registration messages."""
-        service = await async_fixture(service_under_test)
+        service = await async_fixture(test_system_controller_multiprocess)
         registration_message = BaseMessage(
             service_id="test-id",
             payload=RegistrationPayload(
@@ -87,9 +140,11 @@ class TestSystemController(BaseTestService):
             == registration_message.payload.service_type
         )
 
-    async def test_handle_status_message(self, service_under_test, test_service_id):
+    async def test_handle_status_message(
+        self, test_system_controller_multiprocess, test_service_id
+    ):
         """Test handling of status messages."""
-        service = await async_fixture(service_under_test)
+        service = await async_fixture(test_system_controller_multiprocess)
         registration_message = BaseMessage(
             service_id=test_service_id,
             payload=RegistrationPayload(
@@ -122,9 +177,11 @@ class TestSystemController(BaseTestService):
             == ServiceState.RUNNING
         )
 
-    async def test_handle_heartbeat_message(self, service_under_test, test_service_id):
+    async def test_handle_heartbeat_message(
+        self, test_system_controller_multiprocess, test_service_id
+    ):
         """Test handling of heartbeat messages."""
-        service = await async_fixture(service_under_test)
+        service = await async_fixture(test_system_controller_multiprocess)
         registration_message = BaseMessage(
             service_id=test_service_id,
             payload=RegistrationPayload(
@@ -157,9 +214,9 @@ class TestSystemController(BaseTestService):
             >= timestamp
         )
 
-    async def test_service_start_stop(self, service_under_test):
+    async def test_service_start_stop(self, test_system_controller_multiprocess):
         """Override the base test to handle SystemController special needs."""
-        service = await async_fixture(service_under_test)
+        service = await async_fixture(test_system_controller_multiprocess)
 
         # Patch the _on_start method to avoid blocking operations
         with patch.object(service, "_on_start", return_value=asyncio.Future()):
@@ -167,6 +224,7 @@ class TestSystemController(BaseTestService):
 
             # Start the service
             await service.start()
+            await service.service_manager.wait_for_all_services_start()
             assert service.state == ServiceState.RUNNING
 
             # Stop the service
@@ -178,13 +236,13 @@ class TestSystemController(BaseTestService):
     )
     async def test_send_command_to_service(
         self,
-        service_under_test,
+        test_system_controller_multiprocess,
         test_service_id,
         mock_communication,
         command,
     ):
         """Test sending commands to services."""
-        service = await async_fixture(service_under_test)
+        service = await async_fixture(test_system_controller_multiprocess)
         registration_message = BaseMessage(
             service_id=test_service_id,
             payload=RegistrationPayload(
@@ -215,10 +273,10 @@ class TestSystemController(BaseTestService):
         assert command_message.payload.command == command
 
     async def test_system_controller_full_lifecycle(
-        self, service_under_test, mock_communication
+        self, test_system_controller_multiprocess, mock_communication
     ):
         """Test the full lifecycle of the system controller."""
-        service = await async_fixture(service_under_test)
+        service = await async_fixture(test_system_controller_multiprocess)
 
         # Start the service by directly setting state to RUNNING
         await service.set_state(ServiceState.RUNNING)
@@ -255,10 +313,10 @@ class TestSystemController(BaseTestService):
         assert service.state == ServiceState.STOPPED
 
     async def test_handle_unknown_service_heartbeat(
-        self, service_under_test, mock_communication
+        self, test_system_controller_multiprocess, mock_communication
     ):
         """Test handling heartbeat from an unknown service."""
-        service = await async_fixture(service_under_test)
+        service = await async_fixture(test_system_controller_multiprocess)
         unknown_id = "unknown-service-id"
 
         # Send heartbeat from unknown service
@@ -278,10 +336,10 @@ class TestSystemController(BaseTestService):
         assert unknown_id not in service.service_manager.service_id_map
 
     async def test_handle_unknown_service_status(
-        self, service_under_test, mock_communication
+        self, test_system_controller_multiprocess, mock_communication
     ):
         """Test handling status from an unknown service."""
-        service = await async_fixture(service_under_test)
+        service = await async_fixture(test_system_controller_multiprocess)
         unknown_id = "unknown-service-id"
 
         # Send status from unknown service
@@ -302,10 +360,10 @@ class TestSystemController(BaseTestService):
         assert unknown_id not in service.service_manager.service_id_map
 
     async def test_service_required_registration(
-        self, service_under_test, mock_communication
+        self, test_system_controller_multiprocess, mock_communication
     ):
         """Test that required services are properly tracked."""
-        service = await async_fixture(service_under_test)
+        service = await async_fixture(test_system_controller_multiprocess)
 
         # Get required service types from the service
         required_services = service.required_service_types

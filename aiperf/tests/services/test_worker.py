@@ -45,7 +45,7 @@ class TestWorker(BaseTestService):
         """Return a worker instance for testing."""
         with patch(
             "aiperf.common.comms.communication_factory.CommunicationFactory.create_communication",
-            return_value=mock_communication,
+            return_value=(mock_communication, None),
         ):
             worker = Worker(service_config=service_config)
             worker.comms = mock_communication

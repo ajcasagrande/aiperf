@@ -74,11 +74,11 @@ class CommPushError(CommError):
     error_message: str = "An error occurred while pushing a message."
 
 
-class CommRequestError(CommError):
+class CommReqError(CommError):
     error_message: str = "An error occurred while sending or receiving a request."
 
 
-class CommResponseError(CommError):
+class CommRepError(CommError):
     error_message: str = "An error occurred while sending or receiving a response."
 
 

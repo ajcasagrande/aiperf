@@ -21,6 +21,8 @@ import zmq
 from zmq import SocketType
 
 from aiperf.common.comms.zmq_comms.clients.base_zmq_client import BaseZMQClient
+from aiperf.common.errors.base_error import Error
+from aiperf.common.errors.comm_errors import CommReqError
 from aiperf.common.models.message_models import BaseMessage
 from aiperf.common.models.payload_models import ErrorPayload
 
@@ -44,15 +46,15 @@ class ZMQReqClient(BaseZMQClient):
         self._response_futures = {}
         self.client_id = uuid.uuid4().hex
 
-    async def initialize(self) -> bool:
+    async def initialize(self) -> Error | None:
         """Initialize the socket and start processing messages."""
-        success = await super().initialize()
-        if success:
-            self._background_task = asyncio.create_task(self._process_messages())
-            return True
-        return False
+        if err := await super().initialize():
+            return err
 
-    async def _process_messages(self) -> None:
+        self._background_task = asyncio.create_task(self._process_messages())
+        return None
+
+    async def _process_messages(self) -> Error | None:
         """Process incoming response messages in the background."""
         while not self._is_shutdown:
             try:
@@ -65,7 +67,9 @@ class ZMQReqClient(BaseZMQClient):
                 logger.error(f"Error processing messages: {e}")
                 await asyncio.sleep(0.1)
 
-    async def _handle_response(self, response_json: str) -> None:
+        return None
+
+    async def _handle_response(self, response_json: str) -> Error | None:
         """Handle a response response.
 
         Args:
@@ -85,8 +89,11 @@ class ZMQReqClient(BaseZMQClient):
                 )
         except Exception as e:
             logger.error(f"Error handling response: {e}")
+            return CommReqError.from_exception(e)
 
-    async def shutdown(self) -> None:
+        return None
+
+    async def shutdown(self) -> Error | None:
         """Shutdown the socket and clean up resources."""
         if self._background_task and not self._background_task.done():
             self._background_task.cancel()
@@ -105,7 +112,8 @@ class ZMQReqClient(BaseZMQClient):
                 future.set_result(error_response.model_dump_json())
 
         self._response_futures.clear()
-        await super().shutdown()
+
+        return await super().shutdown()
 
     async def request(
         self,

@@ -19,6 +19,8 @@ import zmq.asyncio
 from zmq import SocketType
 
 from aiperf.common.comms.zmq_comms.clients.base_zmq_client import BaseZMQClient
+from aiperf.common.errors.base_error import Error
+from aiperf.common.errors.comm_errors import CommNotInitializedError, CommPublishError
 from aiperf.common.models.message_models import BaseMessage
 
 logger = logging.getLogger(__name__)
@@ -39,30 +41,30 @@ class ZMQPubClient(BaseZMQClient):
         """
         super().__init__(context, SocketType.PUB, address, bind, socket_ops)
 
-    async def publish(self, topic: str, message: BaseMessage) -> bool:
-        """Publish a response to a topic.
+    async def publish(self, topic: str, message: BaseMessage) -> Error | None:
+        """Publish a message to a topic.
 
         Args:
             topic: Topic to publish to
             message: Message to publish (must be a Pydantic model)
 
         Returns:
-            True if response was published successfully, False otherwise
+            Error if message was not published successfully, None otherwise
         """
         if not self._is_initialized or self._is_shutdown:
             logger.error(
-                "Cannot publish response: communication not initialized or already "
-                "shut down"
+                "Cannot publish message: communication not initialized or already shut down"
             )
-            return False
+            return CommNotInitializedError()
 
         try:
-            # Serialize response using Pydantic's built-in method
+            # Serialize message using Pydantic's built-in method
             message_json = message.model_dump_json()
 
-            # Publish response
+            # Publish message
             await self.socket.send_multipart([topic.encode(), message_json.encode()])
-            return True
         except Exception as e:
-            logger.error("Error publishing response to topic %s: %s", topic, e)
-            return False
+            logger.error("Error publishing message to topic %s: %s", topic, e)
+            return CommPublishError.from_exception(e)
+
+        return None

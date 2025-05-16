@@ -76,7 +76,7 @@ class TestZMQCommunication:
     async def test_initialization(self, zmq_communication):
         """Test that the ZMQ communication initializes correctly."""
         result = await zmq_communication.initialize()
-        assert result is True
+        assert result is None
         assert zmq_communication._is_initialized is True
 
     async def test_initialization_failure(self, zmq_communication):
@@ -165,7 +165,7 @@ class TestZMQCommunication:
         """Test subscribing to a topic."""
         # Mock the client socket
         mock_client = AsyncMock()
-        mock_client.subscribe.return_value = True
+        mock_client.subscribe.return_value = None
 
         # Set up the client in the clients dictionary
         zmq_communication.clients = {SubClientType.COMPONENT: mock_client}
@@ -179,7 +179,7 @@ class TestZMQCommunication:
         result = await zmq_communication.subscribe(Topic.STATUS, callback)
 
         # Verify subscription was set up
-        assert result is True
+        assert result is None
         mock_client.subscribe.assert_called_once_with(Topic.STATUS, callback)
 
     async def test_shutdown(self, zmq_communication):
@@ -219,7 +219,7 @@ class TestZMQCommunication:
             result = await zmq_communication.shutdown()
 
             # Verify both clients were shutdown
-            assert result is True
+            assert result is None
             assert mock_client1.shutdown.called
             assert mock_client2.shutdown.called
             assert context_mock.term.called

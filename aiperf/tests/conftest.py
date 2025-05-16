@@ -29,6 +29,7 @@ from aiperf.common.enums import (
     CommBackend,
     ServiceRunType,
 )
+from aiperf.common.errors.base_error import Error
 from aiperf.common.models.message_models import BaseMessage
 from aiperf.tests.utils.async_test_utils import async_noop
 
@@ -74,7 +75,7 @@ def mock_communication() -> AsyncMock:
     # Store published messages for verification
     mock_comm.published_messages: dict[Any, list[BaseMessage]] = {}
 
-    async def mock_publish(topic: Any, message: BaseMessage) -> bool:
+    async def mock_publish(topic: Any, message: BaseMessage) -> Error | None:
         # Use the topic as the key, whether it's an enum or string
         topic_key = topic
 
@@ -84,16 +85,16 @@ def mock_communication() -> AsyncMock:
 
         # Store the response
         mock_comm.published_messages[topic_key].append(message)
-        return True
+        return None
 
     mock_comm.publish.side_effect = mock_publish
 
     # Store subscription callbacks
     mock_comm.subscriptions: dict[str, Callable] = {}
 
-    async def mock_subscribe(topic: str, callback: Callable) -> bool:
+    async def mock_subscribe(topic: str, callback: Callable) -> Error | None:
         mock_comm.subscriptions[topic] = callback
-        return True
+        return None
 
     mock_comm.subscribe.side_effect = mock_subscribe
 

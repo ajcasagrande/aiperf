@@ -88,7 +88,8 @@ class BaseCommunication(ABC):
     async def subscribe(
         self,
         topic: TopicType,
-        callback: Callable[[BaseMessage], Coroutine[Any, Any, None]] = None,
+        callback: Callable[[BaseMessage], Coroutine[Any, Any, Error | None]]
+        | None = None,
     ) -> Error | None:
         """Subscribe to a topic.
 
@@ -154,7 +155,8 @@ class BaseCommunication(ABC):
     async def pull(
         self,
         topic: TopicType,
-        callback: Callable[[BaseMessage], Coroutine[Any, Any, None]] | None = None,
+        callback: Callable[[BaseMessage], Coroutine[Any, Any, Error | None]]
+        | None = None,
     ) -> BaseMessage | Error | None:
         """Pull data from a source.
 
