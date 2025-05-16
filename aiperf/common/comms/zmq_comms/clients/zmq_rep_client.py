@@ -87,23 +87,21 @@ class ZMQRepClient(BaseZMQClient):
 
         return await super().shutdown()
 
-    async def wait_for_request(
-        self, timeout: float = None
-    ) -> tuple[BaseMessage | None, Error | None]:
+    async def wait_for_request(self, timeout: float = None) -> BaseMessage | Error:
         """Wait for a request to arrive.
 
         Args:
             timeout: Timeout in seconds or None for no timeout
 
         Returns:
-            Tuple containing request message or None if timeout occurred and Error or None
+            BaseMessage or Error if request was not received successfully
         """
         if not self._is_initialized or self._is_shutdown:
             logger.error(
                 "Cannot wait for request: communication not initialized or already "
                 "shut down"
             )
-            return None, CommNotInitializedError()
+            return CommNotInitializedError()
 
         try:
             # Create a future for the next request
@@ -120,11 +118,15 @@ class ZMQRepClient(BaseZMQClient):
 
                 # Parse the request
                 request = BaseMessage.model_validate_json(request_json)
-                return request, None
+                return request
 
             except asyncio.TimeoutError:
                 logger.debug("Timeout waiting for request")
-                return None, CommRepError.from_exception(asyncio.TimeoutError())
+                return CommRepError.from_exception(asyncio.TimeoutError())
+
+            except Exception as e:
+                logger.error(f"Error waiting for request: {e}")
+                return CommRepError.from_exception(e)
 
             finally:
                 # Clean up future
@@ -132,7 +134,7 @@ class ZMQRepClient(BaseZMQClient):
 
         except Exception as e:
             logger.error(f"Error waiting for request: {e}")
-            return None, CommRepError.from_exception(e)
+            return CommRepError.from_exception(e)
 
     async def respond(self, target: str, response: BaseMessage) -> Error | None:
         """Send a response to a request.

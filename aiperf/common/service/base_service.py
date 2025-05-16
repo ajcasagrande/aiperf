@@ -96,11 +96,10 @@ class BaseService(AbstractBaseService, ABC):
         self._state = ServiceState.INITIALIZING
 
         # Initialize communication
-        self.comms, comm_error = CommunicationFactory.create_communication(
-            self.service_config
-        )
-        if comm_error:
-            return comm_error
+        result = CommunicationFactory.create_communication(self.service_config)
+        if isinstance(result, Error):
+            return result
+        self.comms = result
 
         if comm_error := await self.comms.initialize():
             return comm_error

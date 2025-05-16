@@ -60,7 +60,7 @@ class CommunicationFactory:
     @classmethod
     def create_communication(
         cls, service_config: ServiceConfig, **kwargs
-    ) -> tuple[BaseCommunication | None, Error | None]:
+    ) -> BaseCommunication | Error:
         """Create a communication instance.
 
         Args:
@@ -68,14 +68,11 @@ class CommunicationFactory:
             **kwargs: Additional arguments for the communication class
 
         Returns:
-            tuple[
-                BaseCommunication | None,  # Communication instance
-                Error | None,  # Error if creation failed
-            ]:
+            BaseCommunication instance or an error if the creation fails
         """
         if service_config.comm_backend not in cls._comm_types:
             logger.error("Unknown communication type: %s", service_config.comm_backend)
-            return None, CommTypeUnknownError(
+            return CommTypeUnknownError(
                 error_details=f"Unknown communication type: {service_config.comm_backend}"  # noqa: E501
             )
 
@@ -86,11 +83,11 @@ class CommunicationFactory:
             )
             kwargs["config"] = config
 
-            return comm_class(**kwargs), None
+            return comm_class(**kwargs)
         except Exception as e:
             logger.error(
                 "Error creating communication for type %s: %s",
                 service_config.comm_backend,
                 e,
             )
-            return None, CommCreateError.from_exception(e)
+            return CommCreateError.from_exception(e)
