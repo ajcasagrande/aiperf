@@ -21,8 +21,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from aiperf.common.enums import CommandType, ServiceState
-from aiperf.common.models.message_models import BaseMessage
+from aiperf.common.config.service_config import ServiceConfig
+from aiperf.common.enums import ServiceState
+from aiperf.common.enums.comm_enums import CommBackend
+from aiperf.common.enums.service_enums import ServiceRunType
 from aiperf.tests.utils.async_test_utils import async_fixture, async_noop
 
 
@@ -39,13 +41,21 @@ class BaseTestService:
     @pytest.fixture
     def no_sleep(self):
         """Fixture to replace asyncio.sleep with a no-op."""
-        with patch("asyncio.sleep", returns=async_noop):
+        with patch("asyncio.sleep", return_value=async_noop):
             yield
 
     @pytest.fixture
     def service_class(self) -> type[Any]:
         """Return the service class to test. Must be implemented by subclasses."""
         raise NotImplementedError("Subclasses must implement service_class fixture")
+
+    @pytest.fixture
+    def service_config(self) -> ServiceConfig:
+        """Create a service configuration for testing."""
+        return ServiceConfig(
+            service_run_type=ServiceRunType.MULTIPROCESSING,
+            comm_backend=CommBackend.ZMQ_TCP,
+        )
 
     @pytest.fixture
     async def service_under_test(
@@ -125,23 +135,6 @@ class BaseTestService:
 
         # Check that the service state was updated
         assert service.state == state
-
-    def create_command_message(
-        self, service, command: CommandType, target_service_id: str
-    ) -> BaseMessage:
-        """
-        Helper method to create a properly formed command response for testing.
-
-        Args:
-            service: The service that will receive the command
-            command: The command to execute (default: "start")
-
-        Returns:
-            A BaseMessage instance with all required fields
-        """
-        return service.create_command_message(
-            command=command, target_service_id=target_service_id
-        )
 
     @staticmethod
     def create_safe_mock() -> MagicMock:

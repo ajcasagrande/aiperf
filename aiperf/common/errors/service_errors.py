@@ -40,6 +40,10 @@ class ServiceStartError(ServiceError):
     error_message: str = "An error occurred while starting the service."
 
 
+class ServiceRunError(ServiceError):
+    error_message: str = "An error occurred while attempting to run the service."
+
+
 class ServiceStopError(ServiceError):
     error_message: str = "An error occurred while stopping the service."
 

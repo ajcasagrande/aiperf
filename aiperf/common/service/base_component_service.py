@@ -76,65 +76,42 @@ class BaseComponentService(BaseService, ABC):
         """
         pass
 
-    async def run(self) -> Error | None:
-        """This method will start the service and initialize its components. It will
-        also subscribe to the command topic and process commands as they are received.
+    async def _run(self) -> Error | None:
+        """Internal method to run the service. This method will start the service and
+        initialize its components. It will also subscribe to the command topic and
+        process commands as they are received.
+
+        This method will be called by the base service class to run the service.
         """
-        try:
-            # Initialize the service
-            await self.initialize()
+        # Initialize the service
+        if init_error := await self.initialize():
+            return init_error
 
-            # Subscribe to the command topic
-            if error := await self.comms.subscribe(
-                Topic.COMMAND,
-                self.process_command_message,
-            ):
-                return error
+        # Subscribe to the command topic
+        if subscribe_error := await self.comms.subscribe(
+            Topic.COMMAND,
+            self.process_command_message,
+        ):
+            return subscribe_error
 
-            # TODO: Find a way to wait for the communication to be fully initialized
-            # Wait for 1 second to ensure the communication is fully initialized
-            await asyncio.sleep(1)
+        # TODO: Find a way to wait for the communication to be fully initialized
+        # FIXME: This is a hack to ensure the communication is fully initialized
+        await asyncio.sleep(1)
 
-            # Register the service
-            if error := await self.register():
-                return error
+        # Register the service
+        if register_error := await self.register():
+            return register_error
 
-            # ignore the error for now
-            _ = await self.set_state(ServiceState.READY)
+        # ignore errors with setting the state for now
+        _ = await self.set_state(ServiceState.READY)
 
-            # Note: Do not start the service here, let the system controller start it
-            # This is because the service needs to be configured first and may need
-            # to wait for other services to register before it can start
+        # Note: Do not start the service here, let the system controller start it
+        # This is because the service needs to be configured first and may need
+        # to wait for other services to register before it can start
 
-            # Start the heartbeat task
-            await self.start_heartbeat_task()
-
-        except asyncio.exceptions.CancelledError:
-            self.logger.debug("Service %s execution cancelled", self.service_type)
-        except BaseException as e:
-            self.logger.exception(
-                "Service %s execution failed: %s", self.service_type, e
-            )
-            await self.set_state(ServiceState.ERROR)
-
-        while True:
-            try:
-                # Wait forever for the stop event to be set
-                await self.stop_event.wait()
-                if self.stop_event.is_set():
-                    break
-            except asyncio.exceptions.CancelledError:
-                self.logger.debug("Service %s execution cancelled", self.service_type)
-            except BaseException as e:
-                self.logger.exception(
-                    "Service %s execution failed: %s", self.service_type, e
-                )
-                await self.set_state(ServiceState.ERROR)
-            finally:
-                # Shutdown the service
-                if error := await self.stop():
-                    self.logger.error("Error stopping service: %s", error)
-                    return error  # noqa: B012
+        # Start the heartbeat task
+        await self.start_heartbeat_task()
+        return None
 
     async def send_heartbeat(self) -> Error | None:
         """Send a heartbeat notification to the system controller."""

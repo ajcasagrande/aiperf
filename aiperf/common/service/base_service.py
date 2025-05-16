@@ -26,7 +26,11 @@ from aiperf.common.comms.communication_factory import CommunicationFactory
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ServiceState
 from aiperf.common.errors.base_error import Error
-from aiperf.common.errors.service_errors import ServiceStartError, ServiceStopError
+from aiperf.common.errors.service_errors import (
+    ServiceRunError,
+    ServiceStartError,
+    ServiceStopError,
+)
 from aiperf.common.models.message_models import BaseMessage
 from aiperf.common.models.payload_models import PayloadType
 from aiperf.common.service.abstract_base_service import AbstractBaseService
@@ -117,33 +121,70 @@ class BaseService(AbstractBaseService, ABC):
 
         return None
 
-    async def run(self) -> Error | None:
+    async def _run(self) -> Error | None:
         """Run the service."""
+        # Initialize the service
+        if init_error := await self.initialize():
+            return init_error
+
+        # Set the service to ready state
+        _ = await self.set_state(ServiceState.READY)
+
+        # Start the service
+        if start_error := await self.start():
+            return start_error
+
+        _ = await self.set_state(ServiceState.RUNNING)
+
+        return None
+
+    async def run(self) -> Error | None:
+        """Run the service.
+
+        This method will be called as the main entry point for the service. It will
+        not return until the service is completely shutdown.
+        """
         try:
-            # Initialize the service
-            if init_error := await self.initialize():
-                return init_error
-
-            # Set the service to ready state
-            _ = await self.set_state(ServiceState.READY)
-
-            # Start the service
-            if start_error := await self.start():
-                return start_error
-
-            # Wait forever for the stop event to be set
-            await self.stop_event.wait()
+            await self._run()
 
         except asyncio.exceptions.CancelledError:
             self.logger.debug("Service %s execution cancelled", self.service_type)
+            return None
+
         except BaseException as e:  # noqa: E722
             self.logger.exception("Service %s execution failed:", self.service_type)
             _ = await self.set_state(ServiceState.ERROR)
-            return ServiceStartError.from_exception(e)
-        finally:
-            # Shutdown the service
-            if stop_error := await self.stop():
-                return stop_error  # noqa: B012
+            return ServiceRunError.from_exception(e)
+
+        # Run the service forever until the stop event is set
+        return await self._forever_loop()
+
+    async def _forever_loop(self) -> Error | None:
+        """Run the service in a loop until the stop event is set.
+
+        This method will be called by the `run` method to allow the service to run
+        indefinitely.
+        """
+        while not self.stop_event.is_set():
+            try:
+                # Wait forever for the stop event to be set
+                await self.stop_event.wait()
+
+            except (KeyboardInterrupt, SystemExit, asyncio.CancelledError):
+                self.logger.debug("Service %s execution cancelled", self.service_type)
+                self.stop_event.set()
+
+            except Exception:
+                self.logger.exception(
+                    "Caught unexpected exception in service %s execution",
+                    self.service_type,
+                )
+
+        # Shutdown the service
+        if error := await self.stop():
+            self.logger.error("Error stopping service: %s", error)
+            return error  # noqa: B012
+
         return None
 
     async def start(self) -> Error | None:
@@ -161,9 +202,12 @@ class BaseService(AbstractBaseService, ABC):
 
             if start_error := await self._on_start():
                 return start_error
+
             _ = await self.set_state(ServiceState.RUNNING)
+
         except asyncio.CancelledError:
             self.logger.debug("Service %s execution cancelled", self.service_type)
+
         except BaseException as e:  # noqa: E722
             self.logger.exception(
                 "Failed to start service %s (id: %s)",
@@ -175,9 +219,7 @@ class BaseService(AbstractBaseService, ABC):
             return ServiceStartError.from_exception(e)
 
     async def stop(self) -> Error | None:
-        """Stop the service and clean up its components. It will also cancel the
-        heartbeat task if it is running.
-        """
+        """Stop the service and clean up its components."""
         try:
             if self.state == ServiceState.STOPPED:
                 self.logger.debug(
@@ -211,6 +253,7 @@ class BaseService(AbstractBaseService, ABC):
             self.logger.debug(
                 "Service %s (id: %s) stopped", self.service_type, self.service_id
             )
+
         except BaseException as e:  # noqa: E722
             self.logger.exception(
                 "Failed to stop service %s (id: %s)",

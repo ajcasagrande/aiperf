@@ -13,47 +13,27 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 """
-This module contains shared fixtures for testing aiperf services.
+Shared fixtures for testing AIPerf services.
+
+`conftest.py` is a special file that pytest automatically recognizes and
+loads before running tests. The main purpose of is to define fixtures that
+can be shared across multiple test files. Fixtures defined in this file
+are automatically discovered by pytest and made available to test functions
+in the same directory and subdirectories.
+
+You can have multiple `conftest.py` files in different directories.
+Each one affects tests in its directory and subdirectories.
 """
 
-import uuid
 from collections.abc import Callable
 from typing import Any
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 
 from aiperf.common.comms.base_communication import BaseCommunication
-from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.enums import (
-    CommBackend,
-    ServiceRunType,
-)
 from aiperf.common.errors.base_error import Error
 from aiperf.common.models.message_models import BaseMessage
-from aiperf.tests.utils.async_test_utils import async_noop
-
-
-@pytest.fixture
-def no_sleep(self):
-    """Fixture to replace asyncio.sleep with a no-op."""
-    with patch("asyncio.sleep", returns=async_noop):
-        yield
-
-
-@pytest.fixture
-def service_id() -> str:
-    """Generate a unique service ID for testing."""
-    return uuid.uuid4().hex
-
-
-@pytest.fixture
-def service_config() -> ServiceConfig:
-    """Create a service configuration for testing."""
-    return ServiceConfig(
-        service_run_type=ServiceRunType.MULTIPROCESSING,
-        comm_backend=CommBackend.ZMQ_TCP,
-    )
 
 
 @pytest.fixture

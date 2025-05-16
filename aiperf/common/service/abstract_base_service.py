@@ -67,6 +67,17 @@ class AbstractBaseService(ABC):
         pass
 
     @abstractmethod
+    async def _run(self) -> Error | None:
+        """Internal method to run the service. By default, this method will call the
+        `initialize` and `start` methods, however, derived classes can override this
+        method to provide their own implementation. This method will not block.
+
+        This method has a default implementation in the base class, but can be
+        overridden by derived classes if needed.
+        """
+        pass
+
+    @abstractmethod
     async def stop(self) -> Error | None:
         """Stop the service.
 
@@ -80,6 +91,16 @@ class AbstractBaseService(ABC):
         and configured.
 
         This method will be implemented by the base class.
+        """
+        pass
+
+    @abstractmethod
+    async def _forever_loop(self) -> Error | None:
+        """Run the service in a loop until the stop event is set. This method will be
+        called by the `run` method to allow the service to run indefinitely.
+
+        This method will be implemented by the base class, and is not expected to be
+        overridden by derived classes.
         """
         pass
 

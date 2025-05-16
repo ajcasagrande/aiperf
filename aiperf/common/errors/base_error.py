@@ -35,10 +35,7 @@ class Error(BaseModel):
     )
 
     def __str__(self) -> str:
-        return (
-            f"{self.__class__.__name__}: {self.error_message} "
-            f"{self.error_details or ''}"
-        )
+        return f"{self.__class__.__name__}: {self.error_message} {self.error_details or ''}"
 
     @classmethod
     def from_exception(cls, exception: BaseException) -> Self:

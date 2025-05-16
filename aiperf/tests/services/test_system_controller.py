@@ -16,9 +16,8 @@
 Tests for the system controller service.
 """
 
-import asyncio
 import time
-from unittest.mock import patch
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -43,12 +42,13 @@ from aiperf.services.system_controller.multiprocess_manager import (
     MultiProcessServiceManager,
 )
 from aiperf.services.system_controller.system_controller import SystemController
-from aiperf.tests.base_test_service import BaseTestService, async_fixture
+from aiperf.tests.base_test_controller_service import BaseTestControllerService
+from aiperf.tests.base_test_service import async_fixture
 from aiperf.tests.utils.message_mocks import MessageTestUtils
 
 
 @pytest.mark.asyncio
-class TestSystemController(BaseTestService):
+class TestSystemController(BaseTestControllerService):
     """Tests for the system controller service."""
 
     @pytest.fixture
@@ -72,14 +72,27 @@ class TestSystemController(BaseTestService):
         )
 
     @pytest.fixture
-    def test_service_manager_with_multiprocess(self):
+    def test_service_manager_with_multiprocess(self, monkeypatch):
         """Return a test service manager with multiprocess."""
+        # Create a proper async mock for the initialize_all_services method
+        async_mock = AsyncMock(return_value=None)
+
+        monkeypatch.setattr(
+            MultiProcessServiceManager, "wait_for_all_services_registration", async_mock
+        )
+
+        monkeypatch.setattr(
+            MultiProcessServiceManager, "wait_for_all_services_start", async_mock
+        )
+
+        # Create the service manager with test configuration
         multiprocess_manager = MultiProcessServiceManager(
             required_service_types=[ServiceType.TEST],
             config=ServiceConfig(
                 service_type=ServiceType.SYSTEM_CONTROLLER,
             ),
         )
+
         return multiprocess_manager
 
     @pytest.fixture
@@ -111,6 +124,16 @@ class TestSystemController(BaseTestService):
         assert hasattr(service, "service_manager")
         assert hasattr(service.service_manager, "service_id_map")
         assert isinstance(service.service_manager.service_id_map, dict)
+
+    async def test_service_start_stop(
+        self, test_system_controller_multiprocess, no_sleep
+    ):
+        """Test that the service can start and stop."""
+        service = await async_fixture(test_system_controller_multiprocess)
+        await service.start()
+        assert service.state == ServiceState.RUNNING
+        await service.stop()
+        assert service.state == ServiceState.STOPPED
 
     async def test_handle_registration_message(
         self, test_system_controller_multiprocess
@@ -213,23 +236,6 @@ class TestSystemController(BaseTestService):
             service.service_manager.service_id_map[test_service_id].last_seen
             >= timestamp
         )
-
-    async def test_service_start_stop(self, test_system_controller_multiprocess):
-        """Override the base test to handle SystemController special needs."""
-        service = await async_fixture(test_system_controller_multiprocess)
-
-        # Patch the _on_start method to avoid blocking operations
-        with patch.object(service, "_on_start", return_value=asyncio.Future()):
-            service._on_start.return_value.set_result(None)
-
-            # Start the service
-            await service.start()
-            await service.service_manager.wait_for_all_services_start()
-            assert service.state == ServiceState.RUNNING
-
-            # Stop the service
-            await service.stop()
-            assert service.state == ServiceState.STOPPED
 
     @pytest.mark.parametrize(
         "command", [CommandType.START, CommandType.STOP, CommandType.CONFIGURE]

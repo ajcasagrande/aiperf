@@ -19,7 +19,6 @@ Tests for the ZMQ communication module.
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from pydantic import Field
 
 from aiperf.common.comms.zmq_comms.zmq_communication import ZMQCommunication
 from aiperf.common.enums import (
@@ -32,16 +31,7 @@ from aiperf.common.models.comm_models import (
     ZMQTCPTransportConfig,
 )
 from aiperf.common.models.message_models import BaseMessage
-from aiperf.common.models.payload_models import BasePayload, DataPayload
-
-
-class MockPayload(BasePayload):
-    """Mock response payload class for testing."""
-
-    content: str = Field(
-        ...,
-        description="Content of the response",
-    )
+from aiperf.common.models.payload_models import DataPayload
 
 
 @pytest.mark.asyncio
