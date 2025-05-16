@@ -62,3 +62,9 @@ class ServiceStatusException(ServiceException):
     """Exception raised for service status errors."""
 
     pass
+
+
+class ServiceRunException(ServiceException):
+    """Exception raised for service run errors."""
+
+    pass

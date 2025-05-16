@@ -17,7 +17,6 @@ from collections.abc import Callable, Coroutine
 from typing import Any
 
 from aiperf.common.enums import ClientType, TopicType
-from aiperf.common.errors.base_error import Error
 from aiperf.common.models.message_models import BaseMessage
 
 
@@ -26,11 +25,7 @@ class BaseCommunication(ABC):
 
     @abstractmethod
     async def initialize(self) -> None:
-        """Initialize communication channels.
-
-        Returns:
-            Error object if an exception occurred, or None if initialization was successful
-        """
+        """Initialize communication channels."""
         pass
 
     @property
@@ -57,18 +52,14 @@ class BaseCommunication(ABC):
     async def shutdown(self) -> None:
         """Gracefully shutdown communication channels.
 
-        Returns:
-            Error object if an exception occurred, or None if shutdown was successful
+        Raises:
+            Exception object if an exception occurred, or None if shutdown was successful
         """
         pass
 
     @abstractmethod
     async def create_clients(self, *client_types: ClientType) -> None:
-        """Create the communication clients.
-
-        Returns:
-            Error object if an exception occurred, or None if clients were created successfully
-        """
+        """Create the communication clients."""
         pass
 
     @abstractmethod
@@ -79,8 +70,8 @@ class BaseCommunication(ABC):
             topic: Topic to publish to
             message: Message to publish (must be a Pydantic model)
 
-        Returns:
-            Error object if an exception occurred, or None if response was published successfully
+        Raises:
+            Exception object if an exception occurred, or None if response was published successfully
         """
         pass
 
@@ -95,9 +86,6 @@ class BaseCommunication(ABC):
         Args:
             topic: Topic to subscribe to
             callback: Function to call when a response is received (receives BaseMessage object)
-
-        Returns:
-            Error object if an exception occurred, or None if subscription was successful
         """
         pass
 
@@ -107,7 +95,7 @@ class BaseCommunication(ABC):
         target: str,
         request_data: BaseMessage,
         timeout: float = 5.0,
-    ) -> BaseMessage | Error:
+    ) -> BaseMessage:
         """Send a request and wait for a response.
 
         Args:
@@ -116,7 +104,7 @@ class BaseCommunication(ABC):
             timeout: Timeout in seconds
 
         Returns:
-            Response message (BaseMessage instance) if successful, or Error object if an exception occurred
+            Response message (BaseMessage instance) if successful, or Exception object if an exception occurred
         """
         pass
 
@@ -128,8 +116,8 @@ class BaseCommunication(ABC):
             target: Target component to send response to
             response: Response message (must be a BaseMessage instance)
 
-        Returns:
-            Error object if an exception occurred, or None if response was sent successfully
+        Raises:
+            Exception object if an exception occurred, or None if response was sent successfully
         """
         pass
 
@@ -141,8 +129,8 @@ class BaseCommunication(ABC):
             topic: Topic to push to (must be a TopicType instance)
             message: Message to be pushed (must be a BaseMessage instance)
 
-        Returns:
-            Error object if an exception occurred, or None if data was pushed successfully
+        Raises:
+            Exception object if an exception occurred, or None if data was pushed successfully
         """
         pass
 
@@ -158,7 +146,7 @@ class BaseCommunication(ABC):
             topic: Topic to pull from (must be a TopicType instance)
             callback: function to call when data is received. (receives BaseMessage object)
 
-        Returns:
-            Error object if an exception occurred, or None if pull registration was successful.
+        Raises:
+            Exception object if an exception occurred, or None if pull registration was successful.
         """
         pass

@@ -21,7 +21,9 @@ import zmq.asyncio
 from zmq import SocketType
 
 from aiperf.common.comms.zmq_comms.clients.base_zmq_client import BaseZMQClient
-from aiperf.common.errors.comm_errors import CommNotInitializedError
+from aiperf.common.exceptions.comm_exceptions import (
+    CommunicationNotInitializedException,
+)
 from aiperf.common.models.message_models import BaseMessage
 
 logger = logging.getLogger(__name__)
@@ -76,14 +78,14 @@ class ZMQPullClient(BaseZMQClient):
                             await callback(message)
                         except Exception as e:
                             logger.error(
-                                f"Error in pull callback for topic {topic}: {e}"
+                                f"Exception in pull callback for topic {topic}: {e}"
                             )
                 else:
                     logger.warning(f"No callbacks registered for pull topic {topic}")
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(f"Error receiving data from pull socket: {e}")
+                logger.error(f"Exception receiving data from pull socket: {e}")
                 await asyncio.sleep(0.1)
 
     async def pull(
@@ -97,17 +99,16 @@ class ZMQPullClient(BaseZMQClient):
             topic: Topic (source) to pull data from
             callback: function to call when data is received.
 
-        Returns:
-            Error if an exception occurred registering the pull callback, None otherwise
+        Raises:
+            Exception if an exception occurred registering the pull callback, None otherwise
         """
         if not self._is_initialized or self._is_shutdown:
             logger.error(
                 "Cannot pull data: communication not initialized or already shut down"
             )
-            return CommNotInitializedError()
+            raise CommunicationNotInitializedException()
 
         # Register callback
         if topic not in self._pull_callbacks:
             self._pull_callbacks[topic] = []
         self._pull_callbacks[topic].append(callback)
-        return None

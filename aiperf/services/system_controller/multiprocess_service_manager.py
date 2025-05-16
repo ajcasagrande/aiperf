@@ -112,8 +112,8 @@ class MultiProcessServiceManager(BaseServiceManager):
             stop_event: Event to check if operation should be cancelled
             timeout_seconds: Maximum time to wait in seconds
 
-        Returns:
-            Error if any service failed to register, None otherwise
+        Raises:
+            Exception if any service failed to register, None otherwise
         """
         self.logger.debug("Waiting for all required services to register...")
 
@@ -140,7 +140,7 @@ class MultiProcessServiceManager(BaseServiceManager):
                     # Wait a bit before checking again
                     await asyncio.sleep(0.5)
 
-        except asyncio.TimeoutError:
+        except asyncio.TimeoutException:
             # Log which services didn't register in time
             registered_types = {
                 service_info.service_type
@@ -182,7 +182,7 @@ class MultiProcessServiceManager(BaseServiceManager):
                 info.service_type,
                 info.process.pid,
             )
-        except asyncio.TimeoutError:
+        except asyncio.TimeoutException:
             self.logger.warning(
                 "Service %s process (pid: %d) did not terminate gracefully, killing",
                 info.service_type,

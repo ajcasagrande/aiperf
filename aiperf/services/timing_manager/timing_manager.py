@@ -96,7 +96,7 @@ class TimingManager(BaseComponentService):
                 self.logger.debug("Credit drop task cancelled")
                 break
             except Exception as e:
-                self.logger.error(f"Error issuing credit drop: {e}")
+                self.logger.error(f"Exception issuing credit drop: {e}")
                 await asyncio.sleep(0.1)
 
     async def _on_stop(self) -> None:

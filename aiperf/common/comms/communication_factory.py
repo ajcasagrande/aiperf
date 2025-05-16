@@ -18,11 +18,10 @@ import logging
 from aiperf.common.comms.base_communication import BaseCommunication
 from aiperf.common.comms.zmq_comms.zmq_communication import ZMQCommunication
 from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.enums import CommBackend
-from aiperf.common.errors import Error
-from aiperf.common.errors.comm_errors import (
-    CommCreateError,
-    CommTypeUnknownError,
+from aiperf.common.enums import CommunicationBackend
+from aiperf.common.exceptions.comm_exceptions import (
+    CommunicationCreateException,
+    CommunicationTypeUnknownException,
 )
 from aiperf.common.models.comm_models import (
     ZMQCommunicationConfig,
@@ -40,13 +39,13 @@ class CommunicationFactory:
     """
 
     # Registry of communication types
-    _comm_types: dict[CommBackend, type[BaseCommunication]] = {
-        CommBackend.ZMQ_TCP: ZMQCommunication,
+    _comm_types: dict[CommunicationBackend, type[BaseCommunication]] = {
+        CommunicationBackend.ZMQ_TCP: ZMQCommunication,
     }
 
     @classmethod
     def register_comm_type(
-        cls, comm_type: CommBackend, comm_class: type[BaseCommunication]
+        cls, comm_type: CommunicationBackend, comm_class: type[BaseCommunication]
     ) -> None:
         """Register a new communication type.
 
@@ -60,7 +59,7 @@ class CommunicationFactory:
     @classmethod
     def create_communication(
         cls, service_config: ServiceConfig, **kwargs
-    ) -> BaseCommunication | Error:
+    ) -> BaseCommunication:
         """Create a communication instance.
 
         Args:
@@ -68,12 +67,12 @@ class CommunicationFactory:
             **kwargs: Additional arguments for the communication class
 
         Returns:
-            BaseCommunication instance or an error if the creation fails
+            BaseCommunication instance
         """
         if service_config.comm_backend not in cls._comm_types:
             logger.error("Unknown communication type: %s", service_config.comm_backend)
-            return CommTypeUnknownError(
-                error_details=f"Unknown communication type: {service_config.comm_backend}"  # noqa: E501
+            raise CommunicationTypeUnknownException(
+                f"Unknown communication type: {service_config.comm_backend}"
             )
 
         try:
@@ -86,8 +85,8 @@ class CommunicationFactory:
             return comm_class(**kwargs)
         except Exception as e:
             logger.error(
-                "Error creating communication for type %s: %s",
+                "Exception creating communication for type %s: %s",
                 service_config.comm_backend,
                 e,
             )
-            return CommCreateError.from_exception(e)
+            raise CommunicationCreateException from e

@@ -14,6 +14,7 @@
 #  limitations under the License.
 
 __all__ = [
+    "ZMQClient",
     "BaseZMQClient",
     "ZMQPubClient",
     "ZMQPullClient",

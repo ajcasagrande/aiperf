@@ -24,7 +24,7 @@ import pytest
 
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ServiceState
-from aiperf.common.enums.comm_enums import CommBackend
+from aiperf.common.enums.comm_enums import CommunicationBackend
 from aiperf.common.enums.service_enums import ServiceRunType
 from aiperf.tests.utils.async_test_utils import async_fixture, async_noop
 
@@ -56,7 +56,7 @@ class BaseTestService(ABC):
         """Create a service configuration for testing."""
         return ServiceConfig(
             service_run_type=ServiceRunType.MULTIPROCESSING,
-            comm_backend=CommBackend.ZMQ_TCP,
+            comm_backend=CommunicationBackend.ZMQ_TCP,
         )
 
     @pytest.fixture

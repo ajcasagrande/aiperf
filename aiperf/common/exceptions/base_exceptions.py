@@ -12,7 +12,10 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-class AIPerfException(Exception):
+
+
+class AIPerfException(BaseException):
     """Base class for all exceptions raised by AIPerf."""
 
-    pass
+    def __str__(self) -> str:
+        return f"{self.__class__.__name__}: {super().__str__()}"

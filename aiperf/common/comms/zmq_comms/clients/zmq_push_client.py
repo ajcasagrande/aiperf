@@ -19,7 +19,10 @@ import zmq.asyncio
 from zmq import SocketType
 
 from aiperf.common.comms.zmq_comms.clients.base_zmq_client import BaseZMQClient
-from aiperf.common.errors.comm_errors import CommNotInitializedError, CommPushError
+from aiperf.common.exceptions.comm_exceptions import (
+    CommunicationNotInitializedException,
+    CommunicationPushException,
+)
 from aiperf.common.models.message_models import BaseMessage
 
 logger = logging.getLogger(__name__)
@@ -50,14 +53,14 @@ class ZMQPushClient(BaseZMQClient):
         Args:
             message: Message to be sent must be a BaseMessage object
 
-        Returns:
-            Error if data was not pushed successfully, None otherwise
+        Raises:
+            Exception if data was not pushed successfully, None otherwise
         """
         if not self._is_initialized or self._is_shutdown:
             logger.error(
                 "Cannot push data: communication not initialized or already shut down"
             )
-            return CommNotInitializedError()
+            raise CommunicationNotInitializedException()
 
         try:
             # Serialize data directly using Pydantic's built-in method
@@ -67,7 +70,7 @@ class ZMQPushClient(BaseZMQClient):
             await self.socket.send_string(data_json)
             logger.debug("Pushed data")
         except Exception as e:
-            logger.error(f"Error pushing data: {e} {type(e)}")
-            return CommPushError.from_exception(e)
+            logger.error(f"Exception pushing data: {e} {type(e)}")
+            raise CommunicationPushException from e
 
         return None

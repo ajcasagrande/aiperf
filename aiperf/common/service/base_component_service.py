@@ -25,6 +25,8 @@ from aiperf.common.enums import (
     SubClientType,
     Topic,
 )
+from aiperf.common.exceptions.comm_exceptions import CommunicationSubscribeException
+from aiperf.common.exceptions.service_exceptions import ServiceInitializationException
 from aiperf.common.models.message_models import BaseMessage
 from aiperf.common.models.payload_models import (
     HeartbeatPayload,
@@ -83,15 +85,23 @@ class BaseComponentService(BaseService, ABC):
         This method will be called by the base service class to run the service.
         """
         # Initialize the service
-        if init_error := await self.initialize():
-            return init_error
+        try:
+            await self.initialize()
+        except Exception as e:
+            self.logger.error("Exception initializing service: %s", e)
+            raise ServiceInitializationException("Failed to initialize service") from e
 
         # Subscribe to the command topic
-        if subscribe_error := await self.comms.subscribe(
-            Topic.COMMAND,
-            self.process_command_message,
-        ):
-            return subscribe_error
+        try:
+            await self.comms.subscribe(
+                Topic.COMMAND,
+                self.process_command_message,
+            )
+        except Exception as e:
+            self.logger.error("Exception subscribing to command topic: %s", e)
+            raise CommunicationSubscribeException(
+                "Failed to subscribe to command topic"
+            ) from e
 
         # TODO: Find a way to wait for the communication to be fully initialized
         # FIXME: This is a hack to ensure the communication is fully initialized
@@ -219,7 +229,7 @@ class BaseComponentService(BaseService, ABC):
             await asyncio.sleep(self._heartbeat_interval)
 
             if error := await self.send_heartbeat():
-                self.logger.error("Error sending heartbeat: %s", error)
+                self.logger.error("Exception sending heartbeat: %s", error)
                 # continue to keep sending heartbeats regardless of the error
 
     async def start_heartbeat_task(self) -> None:

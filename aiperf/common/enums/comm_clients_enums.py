@@ -16,7 +16,9 @@ from typing import Self, Union
 
 from aiperf.common.enums.base_enums import StrEnum
 from aiperf.common.enums.comm_enums import DataTopic, Topic, TopicType
-from aiperf.common.errors.comm_errors import CommClientNotFoundError
+from aiperf.common.exceptions.comm_exceptions import (
+    CommunicationClientNotFoundException,
+)
 
 
 class PubClientType(StrEnum):
@@ -41,8 +43,8 @@ class PubClientType(StrEnum):
             case Topic.COMMAND:
                 return cls.CONTROLLER, None
             case _:
-                return None, CommClientNotFoundError(
-                    error_details=f"No client type found for topic {topic}"
+                raise CommunicationClientNotFoundException(
+                    f"No client type found for topic {topic}"
                 )
 
 
@@ -68,8 +70,8 @@ class SubClientType(StrEnum):
             case Topic.COMMAND:
                 return cls.CONTROLLER, None
             case _:
-                return None, CommClientNotFoundError(
-                    error_details=f"No client type found for topic {topic}"
+                raise CommunicationClientNotFoundException(
+                    f"No client type found for topic {topic}"
                 )
 
 
@@ -101,8 +103,8 @@ class PushClientType(StrEnum):
             case DataTopic.RESULTS:
                 return cls.INFERENCE_RESULTS, None
             case _:
-                return None, CommClientNotFoundError(
-                    error_details=f"No client type found for topic {topic}"
+                raise CommunicationClientNotFoundException(
+                    f"No client type found for topic {topic}"
                 )
 
 
@@ -134,8 +136,8 @@ class PullClientType(StrEnum):
             case DataTopic.RESULTS:
                 return cls.INFERENCE_RESULTS, None
             case _:
-                return None, CommClientNotFoundError(
-                    error_details=f"No client type found for topic {topic}"
+                raise CommunicationClientNotFoundException(
+                    f"No client type found for topic {topic}"
                 )
 
 
@@ -158,8 +160,8 @@ class ReqClientType(StrEnum):
             case DataTopic.CONVERSATION:
                 return cls.CONVERSATION_DATA, None
             case _:
-                return None, CommClientNotFoundError(
-                    error_details=f"No client type found for topic {topic}"
+                raise CommunicationClientNotFoundException(
+                    f"No client type found for topic {topic}"
                 )
 
 
@@ -182,8 +184,8 @@ class RepClientType(StrEnum):
             case DataTopic.CONVERSATION:
                 return cls.CONVERSATION_DATA, None
             case _:
-                return None, CommClientNotFoundError(
-                    error_details=f"No client type found for topic {topic}"
+                raise CommunicationClientNotFoundException(
+                    f"No client type found for topic {topic}"
                 )
 
 

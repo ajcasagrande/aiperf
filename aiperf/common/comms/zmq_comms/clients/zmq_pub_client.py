@@ -19,7 +19,10 @@ import zmq.asyncio
 from zmq import SocketType
 
 from aiperf.common.comms.zmq_comms.clients.base_zmq_client import BaseZMQClient
-from aiperf.common.errors.comm_errors import CommNotInitializedError, CommPublishError
+from aiperf.common.exceptions.comm_exceptions import (
+    CommunicationNotInitializedException,
+    CommunicationPublishException,
+)
 from aiperf.common.models.message_models import BaseMessage
 
 logger = logging.getLogger(__name__)
@@ -51,14 +54,14 @@ class ZMQPubClient(BaseZMQClient):
             topic: Topic to publish to
             message: Message to publish (must be a Pydantic model)
 
-        Returns:
-            Error if message was not published successfully, None otherwise
+        Raises:
+            Exception if message was not published successfully, None otherwise
         """
         if not self._is_initialized or self._is_shutdown:
             logger.error(
                 "Cannot publish message: communication not initialized or already shut down"
             )
-            return CommNotInitializedError()
+            raise CommunicationNotInitializedException()
 
         try:
             # Serialize message using Pydantic's built-in method
@@ -67,7 +70,7 @@ class ZMQPubClient(BaseZMQClient):
             # Publish message
             await self.socket.send_multipart([topic.encode(), message_json.encode()])
         except Exception as e:
-            logger.error("Error publishing message to topic %s: %s", topic, e)
-            return CommPublishError.from_exception(e)
-
-        return None
+            logger.error("Exception publishing message to topic %s: %s", topic, e)
+            raise CommunicationPublishException(
+                "Failed to publish message to topic %s", topic
+            ) from e

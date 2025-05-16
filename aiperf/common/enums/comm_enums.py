@@ -16,7 +16,7 @@
 from aiperf.common.enums.base_enums import StrEnum
 
 
-class CommBackend(StrEnum):
+class CommunicationBackend(StrEnum):
     """Supported communication backends."""
 
     ZMQ_TCP = "zmq_tcp"

@@ -20,8 +20,10 @@ import zmq.asyncio
 from zmq import SocketType
 
 from aiperf.common.comms.zmq_comms.clients.base_zmq_client import BaseZMQClient
-from aiperf.common.errors.base_error import Error
-from aiperf.common.errors.comm_errors import CommNotInitializedError, CommRepError
+from aiperf.common.exceptions.comm_exceptions import (
+    CommunicationNotInitializedException,
+    CommunicationRepException,
+)
 from aiperf.common.models.message_models import BaseMessage
 
 logger = logging.getLogger(__name__)
@@ -51,11 +53,7 @@ class ZMQRepClient(BaseZMQClient):
         self._receiver_task = None
 
     async def initialize(self) -> None:
-        """Initialize the socket and start the receiver task.
-
-        Returns:
-            Error if initialization was not successful, None otherwise
-        """
+        """Initialize the socket and start the receiver task."""
         if err := await super().initialize():
             return err
 
@@ -87,21 +85,21 @@ class ZMQRepClient(BaseZMQClient):
 
         return await super().shutdown()
 
-    async def wait_for_request(self, timeout: float = None) -> BaseMessage | Error:
+    async def wait_for_request(self, timeout: float = None) -> BaseMessage:
         """Wait for a request to arrive.
 
         Args:
             timeout: Timeout in seconds or None for no timeout
 
         Returns:
-            BaseMessage or Error if request was not received successfully
+            BaseMessage or Exception if request was not received successfully
         """
         if not self._is_initialized or self._is_shutdown:
             logger.error(
                 "Cannot wait for request: communication not initialized or already "
                 "shut down"
             )
-            return CommNotInitializedError()
+            raise CommunicationNotInitializedException()
 
         try:
             # Create a future for the next request
@@ -120,21 +118,21 @@ class ZMQRepClient(BaseZMQClient):
                 request = BaseMessage.model_validate_json(request_json)
                 return request
 
-            except asyncio.TimeoutError:
+            except asyncio.TimeoutException as e:
                 logger.debug("Timeout waiting for request")
-                return CommRepError.from_exception(asyncio.TimeoutError())
+                raise CommunicationRepException("Timeout waiting for request") from e
 
             except Exception as e:
-                logger.error(f"Error waiting for request: {e}")
-                return CommRepError.from_exception(e)
+                logger.error(f"Exception waiting for request: {e}")
+                raise CommunicationRepException("Exception waiting for request") from e
 
             finally:
                 # Clean up future
                 self._response_futures.pop(request_id, None)
 
         except Exception as e:
-            logger.error(f"Error waiting for request: {e}")
-            return CommRepError.from_exception(e)
+            logger.error(f"Exception waiting for request: {e}")
+            raise CommunicationRepException("Exception waiting for request") from e
 
     async def respond(self, target: str, response: BaseMessage) -> None:
         """Send a response to a request.
@@ -143,15 +141,15 @@ class ZMQRepClient(BaseZMQClient):
             target: Target component to send response to
             response: Response message (must be a BaseMessage instance)
 
-        Returns:
-            Error if response was not sent successfully, None otherwise
+        Raises:
+            Exception if response was not sent successfully, None otherwise
         """
         if not self._is_initialized or self._is_shutdown:
             logger.error(
                 "Cannot send response: communication not initialized or already "
                 "shut down"
             )
-            return CommNotInitializedError()
+            raise CommunicationNotInitializedException()
 
         try:
             # Serialize response using Pydantic's built-in method
@@ -161,8 +159,10 @@ class ZMQRepClient(BaseZMQClient):
             await self.socket.send_string(response_json)
             return None
         except Exception as e:
-            logger.error(f"Error sending response to {target}: {e}")
-            return CommRepError.from_exception(e)
+            logger.error(f"Exception sending response to {target}: {e}")
+            raise CommunicationRepException(
+                "Exception sending response to %s", target
+            ) from e
 
     async def _rep_receiver(self) -> None:
         """Background task for receiving requests and sending responses."""
@@ -196,7 +196,7 @@ class ZMQRepClient(BaseZMQClient):
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(f"Error receiving request: {e}")
+                logger.error(f"Exception receiving request: {e}")
                 await asyncio.sleep(0.1)
 
         return None

@@ -21,7 +21,7 @@ import zmq.asyncio
 from zmq import SocketType
 
 from aiperf.common.comms.zmq_comms.clients.base_zmq_client import BaseZMQClient
-from aiperf.common.errors.comm_errors import CommReqError
+from aiperf.common.exceptions.comm_exceptions import CommunicationReqException
 from aiperf.common.models.message_models import BaseMessage
 from aiperf.common.models.payload_models import ErrorPayload
 
@@ -48,6 +48,7 @@ class ZMQReqClient(BaseZMQClient):
         super().__init__(context, SocketType.REQ, address, bind, socket_ops)
         self._response_futures = {}
         self.client_id = uuid.uuid4().hex
+        self._background_task = None
 
     async def initialize(self) -> None:
         """Initialize the socket and start processing messages."""
@@ -67,7 +68,7 @@ class ZMQReqClient(BaseZMQClient):
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(f"Error processing messages: {e}")
+                logger.error(f"Exception processing messages: {e}")
                 await asyncio.sleep(0.1)
 
         return None
@@ -91,10 +92,8 @@ class ZMQReqClient(BaseZMQClient):
                     f"Received response for unknown request ID: {request_id}"
                 )
         except Exception as e:
-            logger.error(f"Error handling response: {e}")
-            return CommReqError.from_exception(e)
-
-        return None
+            logger.error(f"Exception handling response: {e}")
+            raise CommunicationReqException("Exception handling response") from e
 
     async def shutdown(self) -> None:
         """Shutdown the socket and clean up resources."""
@@ -116,7 +115,7 @@ class ZMQReqClient(BaseZMQClient):
 
         self._response_futures.clear()
 
-        return await super().shutdown()
+        await super().shutdown()
 
     async def request(
         self,
@@ -175,7 +174,7 @@ class ZMQReqClient(BaseZMQClient):
                 response = BaseMessage.model_validate_json(response_json)
                 return response
 
-            except asyncio.TimeoutError:
+            except asyncio.TimeoutException:
                 logger.error(
                     f"Timeout waiting for response to request {request_data.request_id}"
                 )
@@ -191,7 +190,7 @@ class ZMQReqClient(BaseZMQClient):
                 # Clean up future
                 self._response_futures.pop(request_data.request_id, None)
         except Exception as e:
-            logger.error(f"Error sending request to {target}: {e}")
+            logger.error(f"Exception sending request to {target}: {e}")
 
             return BaseMessage(
                 request_id=request_data.request_id

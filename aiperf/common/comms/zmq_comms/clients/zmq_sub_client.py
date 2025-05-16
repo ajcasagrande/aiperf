@@ -20,7 +20,10 @@ import zmq.asyncio
 from zmq import SocketType
 
 from aiperf.common.comms.zmq_comms.clients.base_zmq_client import BaseZMQClient
-from aiperf.common.errors.comm_errors import CommNotInitializedError, CommSubscribeError
+from aiperf.common.exceptions.comm_exceptions import (
+    CommunicationNotInitializedException,
+    CommunicationSubscribeException,
+)
 from aiperf.common.models.message_models import BaseMessage
 
 logger = logging.getLogger(__name__)
@@ -60,15 +63,15 @@ class ZMQSubClient(BaseZMQClient):
             callback: Function to call when a response is received
             (receives BaseMessage object)
 
-        Returns:
-            Error if subscription was not successful, None otherwise
+        Raises:
+            Exception if subscription was not successful, None otherwise
         """
         if not self._is_initialized or self._is_shutdown:
             logger.error(
                 "Cannot subscribe to topic: communication not initialized or already "
                 "shut down"
             )
-            return CommNotInitializedError()
+            raise CommunicationNotInitializedException()
 
         try:
             # Subscribe to topic
@@ -82,8 +85,8 @@ class ZMQSubClient(BaseZMQClient):
             logger.debug("Subscribed to topic: %s", topic)
 
         except Exception as e:
-            logger.error("Error subscribing to topic %s: %s", topic, e)
-            return CommSubscribeError.from_exception(e)
+            logger.error("Exception subscribing to topic %s: %s", topic, e)
+            raise CommunicationSubscribeException from e
 
         return None
 
@@ -119,7 +122,7 @@ class ZMQSubClient(BaseZMQClient):
                             await callback(message)
                         except Exception as e:
                             logger.exception(
-                                "Error in subscriber callback for topic %s: %s %s",
+                                "Exception in subscriber callback for topic %s: %s %s",
                                 topic,
                                 e,
                                 type(e),
@@ -135,7 +138,7 @@ class ZMQSubClient(BaseZMQClient):
                 await asyncio.sleep(0.001)
             except Exception as e:
                 logger.error(
-                    "Error receiving response from subscription: %s, %s",
+                    "Exception receiving response from subscription: %s, %s",
                     e,
                     type(e),
                 )

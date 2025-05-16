@@ -42,17 +42,17 @@ class BasePayload(BaseModel, ABC):
 
 
 class ErrorPayload(BasePayload):
-    """Error payload sent by services to report an error."""
+    """Exception payload sent by services to report an error."""
 
     message_type: Literal[MessageType.ERROR] = MessageType.ERROR
 
     error_code: str | None = Field(
         default=None,
-        description="Error code",
+        description="Exception code",
     )
     error_message: str | None = Field(
         default=None,
-        description="Error message",
+        description="Exception message",
     )
     error_details: dict[str, Any] | None = Field(
         default=None,

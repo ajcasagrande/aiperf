@@ -25,9 +25,12 @@ from aiperf.common.enums import (
     ServiceType,
     Topic,
 )
-from aiperf.common.errors.comm_errors import CommNotInitializedError
-from aiperf.common.errors.config_errors import ConfigError
-from aiperf.common.errors.service_errors import ServiceInitializationError
+from aiperf.common.exceptions.comm_exceptions import (
+    CommunicationNotInitializedException,
+    CommunicationPublishException,
+)
+from aiperf.common.exceptions.config_errors import ConfigException
+from aiperf.common.exceptions.service_errors import ServiceInitializationException
 from aiperf.common.models.message_models import BaseMessage
 from aiperf.common.models.service_models import ServiceRunInfo
 from aiperf.common.service.base_controller_service import BaseControllerService
@@ -79,8 +82,8 @@ class SystemController(BaseControllerService):
                 self.required_service_types, self.service_config
             )
         else:
-            return ConfigError(
-                error_message=f"Unsupported service run type: {self.service_config.service_run_type}"
+            raise ConfigException(
+                f"Unsupported service run type: {self.service_config.service_run_type}"
             )
 
         # Subscribe to relevant messages
@@ -129,28 +132,28 @@ class SystemController(BaseControllerService):
         # Start all required services
         await self.service_manager.initialize_all_services()
 
-        # Wait for all required services to be registered
-        registration_err = (
+        try:
+            # Wait for all required services to be registered
             await self.service_manager.wait_for_all_services_registration(
                 self.stop_event
             )
-        )
-        if self.stop_event.is_set():
-            self.logger.debug(
-                "System Controller stopped before all services registered"
-            )
-            return None  # Don't continue with the rest of the initialization
+
+            if self.stop_event.is_set():
+                self.logger.debug(
+                    "System Controller stopped before all services registered"
+                )
+                return None  # Don't continue with the rest of the initialization
 
         # Check if all required services are registered
-        if registration_err:
+        except Exception as e:
             self.logger.error(
                 "Not all required services registered within the timeout period"
             )
-            return ServiceInitializationError(
-                error_message="Not all required services registered within the timeout period"
-            )
-        else:
-            self.logger.debug("All required services registered successfully")
+            raise ServiceInitializationException(
+                "Not all required services registered within the timeout period"
+            ) from e
+
+        self.logger.debug("All required services registered successfully")
 
         self.logger.info("AIPerf System is READY")
         # Wait for all required services to be started
@@ -165,8 +168,8 @@ class SystemController(BaseControllerService):
             self.logger.error(
                 "Not all required services started within the timeout period"
             )
-            return ServiceInitializationError(
-                error_message="Not all required services started within the timeout period"
+            raise ServiceInitializationException(
+                "Not all required services started within the timeout period"
             )
         else:
             self.logger.debug("All required services started successfully")
@@ -265,14 +268,14 @@ class SystemController(BaseControllerService):
         self.logger.debug(f"Received heartbeat from {service_type} (ID: {service_id})")
 
         # Update the last heartbeat timestamp if the component exists
-        if service_info := self.service_manager.get(service_id):
+        try:
+            service_info = self.service_manager.get(service_id)
             service_info.last_seen = timestamp
             service_info.state = message.payload.state
             self.logger.debug(f"Updated heartbeat for {service_id} to {timestamp}")
-        else:
+        except Exception:
             self.logger.warning(
-                f"Received heartbeat from unknown service: {service_id} "
-                f"({service_type})"
+                f"Received heartbeat from unknown service: {service_id} ({service_type})"
             )
 
     async def _process_status_message(self, message: BaseMessage) -> None:
@@ -308,12 +311,12 @@ class SystemController(BaseControllerService):
             target_service_id: ID of the target service
             command: The command to send (from CommandType enum)
 
-        Returns:
-            Error if the command was not sent successfully, None otherwise
+        Raises:
+            Exception if the command was not sent successfully, None otherwise
         """
         if not self.comms:
             self.logger.error("Cannot send command: Communication is not initialized")
-            return CommNotInitializedError()
+            raise CommunicationNotInitializedException()
 
         # Create command response using the helper method
         command_message = self.create_command_message(
@@ -322,10 +325,14 @@ class SystemController(BaseControllerService):
         )
 
         # Publish command response
-        return await self.comms.publish(
-            topic=Topic.COMMAND,
-            message=command_message,
-        )
+        try:
+            await self.comms.publish(
+                topic=Topic.COMMAND,
+                message=command_message,
+            )
+        except Exception as e:
+            self.logger.error("Exception publishing command: %s", e)
+            raise CommunicationPublishException("Failed to publish command") from e
 
 
 def main() -> None:

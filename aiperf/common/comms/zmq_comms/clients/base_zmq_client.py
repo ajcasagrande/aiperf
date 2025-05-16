@@ -14,17 +14,19 @@
 #  limitations under the License.
 import logging
 import uuid
-from abc import ABC, abstractmethod
 
 import zmq.asyncio
 from zmq import SocketType
 
-from aiperf.common.errors.comm_errors import CommInitializationError, CommShutdownError
+from aiperf.common.exceptions.comm_exceptions import (
+    CommunicationInitializationException,
+    CommunicationShutdownException,
+)
 
 logger = logging.getLogger(__name__)
 
 
-class BaseZMQClient(ABC):
+class BaseZMQClient:
     def __init__(
         self,
         context: zmq.asyncio.Context,
@@ -92,8 +94,8 @@ class BaseZMQClient(ABC):
             )
             return None
         except Exception as e:
-            logger.error("Error initializing ZMQ socket: %s", e)
-            return CommInitializationError.from_exception(e)
+            logger.error("Exception initializing ZMQ socket: %s", e)
+            raise CommunicationInitializationException from e
 
     async def shutdown(self) -> None:
         """Shutdown the communication."""
@@ -102,14 +104,13 @@ class BaseZMQClient(ABC):
             logger.debug("ZMQ %s socket closed", self.socket_type_name)
 
         except Exception as e:
-            logger.error("Error shutting down ZMQ socket: %s", e)
-            return CommShutdownError.from_exception(e)
+            logger.error("Exception shutting down ZMQ socket: %s", e)
+            raise CommunicationShutdownException("Failed to shutdown ZMQ socket") from e
 
         finally:
             self._is_shutdown = True
 
-    @abstractmethod
-    async def _initialize(self) -> None:
+    async def _initialize(self) -> None:  # noqa: B027 - This is optional to override
         """Override in subclass to implement custom initialization logic.
 
         This method is called after the socket is bound or connected.

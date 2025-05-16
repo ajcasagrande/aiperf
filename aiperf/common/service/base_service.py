@@ -25,11 +25,10 @@ from aiperf.common.comms.base_communication import BaseCommunication
 from aiperf.common.comms.communication_factory import CommunicationFactory
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ServiceState
-from aiperf.common.errors.base_error import Error
-from aiperf.common.errors.service_errors import (
-    ServiceRunError,
-    ServiceStartError,
-    ServiceStopError,
+from aiperf.common.exceptions.service_exceptions import (
+    ServiceRunException,
+    ServiceStartException,
+    ServiceStopException,
 )
 from aiperf.common.models.message_models import BaseMessage
 from aiperf.common.models.payload_models import PayloadType
@@ -97,7 +96,7 @@ class BaseService(AbstractBaseService, ABC):
 
         # Initialize communication
         result = CommunicationFactory.create_communication(self.service_config)
-        if isinstance(result, Error):
+        if isinstance(result, Exception):
             return result
         self.comms = result
 
@@ -146,14 +145,16 @@ class BaseService(AbstractBaseService, ABC):
         try:
             await self._run()
 
-        except asyncio.exceptions.CancelledError:
+        except asyncio.CancelledError:
             self.logger.debug("Service %s execution cancelled", self.service_type)
             return None
 
         except BaseException as e:  # noqa: E722
             self.logger.exception("Service %s execution failed:", self.service_type)
             _ = await self.set_state(ServiceState.ERROR)
-            return ServiceRunError.from_exception(e)
+            raise ServiceRunException(
+                "Service %s execution failed", self.service_type
+            ) from e
 
         # Run the service forever until the stop event is set
         return await self._forever_loop()
@@ -178,13 +179,17 @@ class BaseService(AbstractBaseService, ABC):
                     "Caught unexpected exception in service %s execution",
                     self.service_type,
                 )
-
-        # Shutdown the service
-        if error := await self.stop():
-            self.logger.error("Error stopping service: %s", error)
-            return error  # noqa: B012
-
-        return None
+            finally:
+                # Shutdown the service
+                try:
+                    await self.stop()
+                except Exception as e:
+                    self.logger.exception(
+                        "Exception stopping service %s", self.service_type
+                    )
+                    raise ServiceStopException(
+                        "Exception stopping service %s", self.service_type
+                    ) from e
 
     async def start(self) -> None:
         """Start the service and its components.
@@ -215,7 +220,11 @@ class BaseService(AbstractBaseService, ABC):
             )
             self._state = ServiceState.ERROR
 
-            return ServiceStartError.from_exception(e)
+            raise ServiceStartException(
+                "Failed to start service %s (id: %s)",
+                self.service_type,
+                self.service_id,
+            ) from e
 
     async def stop(self) -> None:
         """Stop the service and clean up its components."""
@@ -237,7 +246,7 @@ class BaseService(AbstractBaseService, ABC):
 
             # Custom stop logic implemented by derived classes
             with contextlib.suppress(asyncio.CancelledError):
-                _ = await self._on_stop()
+                await self._on_stop()
 
             # Shutdown communication component
             if self.comms and not self.comms.is_shutdown:
@@ -260,7 +269,11 @@ class BaseService(AbstractBaseService, ABC):
                 self.service_id,
             )
             self._state = ServiceState.ERROR
-            return ServiceStopError.from_exception(e)
+            raise ServiceStopException(
+                "Failed to stop service %s (id: %s)",
+                self.service_type,
+                self.service_id,
+            ) from e
 
         return None
 
