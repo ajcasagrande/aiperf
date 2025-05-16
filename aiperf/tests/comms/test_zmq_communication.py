@@ -75,6 +75,7 @@ class TestZMQCommunication:
         zmq_communication._is_initialized = False
 
         # Create a mock implementation that raises an exception
+        # FIXME: TODO: Is this correct/needed now that we use Error objects?
         async def mock_init_with_error():
             raise Exception("Connection error")
 

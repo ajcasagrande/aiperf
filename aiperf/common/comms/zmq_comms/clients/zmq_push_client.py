@@ -49,7 +49,7 @@ class ZMQPushClient(BaseZMQClient):
         """Push data to a target.
 
         Args:
-            data: Data to be pushed (must be a PushData instance)
+            message: Message to be sent must be a BaseMessage object
 
         Returns:
             Error if data was not pushed successfully, None otherwise

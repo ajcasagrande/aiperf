@@ -21,7 +21,7 @@ from typing import Any
 import zmq.asyncio
 
 from aiperf.common.comms.base_communication import BaseCommunication
-from aiperf.common.comms.zmq_comms.clients.base_zmq_client import BaseZMQClient
+from aiperf.common.comms.zmq_comms.clients import ZMQClient
 from aiperf.common.comms.zmq_comms.clients.zmq_pub_client import ZMQPubClient
 from aiperf.common.comms.zmq_comms.clients.zmq_pull_client import ZMQPullClient
 from aiperf.common.comms.zmq_comms.clients.zmq_push_client import ZMQPushClient
@@ -43,7 +43,6 @@ from aiperf.common.errors.comm_errors import (
     CommClientCreationError,
     CommNotInitializedError,
     CommPublishError,
-    CommPullError,
     CommPushError,
     CommRepError,
     CommReqError,
@@ -81,7 +80,7 @@ class ZMQCommunication(BaseCommunication):
             self.config.client_id = f"client_{uuid.uuid4().hex[:8]}"
 
         self.context: zmq.asyncio.Context | None = None
-        self.clients: dict[ClientType, BaseZMQClient] = {}
+        self.clients: dict[ClientType, ZMQClient] = {}
 
         logger.debug(
             "ZMQ communication using protocol: %s with client ID: %s",
@@ -455,15 +454,15 @@ class ZMQCommunication(BaseCommunication):
         target: str,
         request_data: BaseMessage,
         timeout: float = 5.0,
-    ) -> tuple[BaseMessage | None, Error | None]:
+    ) -> BaseMessage | Error:
         logger.debug(f"Requesting from {target} with data: {request_data}")
 
         if error := self._ensure_initialized():
-            return None, error
+            return error
 
         client_type, error = ReqClientType.from_topic(target)
         if error:
-            return None, error
+            return error
 
         if client_type not in self.clients:
             logger.warning(
@@ -472,7 +471,7 @@ class ZMQCommunication(BaseCommunication):
                 target,
             )
             if error := await self.create_clients(client_type):
-                return None, error
+                return error
 
         try:
             return await self.clients[client_type].request(
@@ -480,7 +479,7 @@ class ZMQCommunication(BaseCommunication):
             )
         except Exception as e:
             logger.error(f"Error requesting from {target}: {e}")
-            return None, CommReqError.from_exception(e)
+            return CommReqError.from_exception(e)
 
     async def respond(self, target: str, response: BaseMessage) -> Error | None:
         logger.debug(f"Responding to {target} with data: {response}")
@@ -532,8 +531,8 @@ class ZMQCommunication(BaseCommunication):
     async def pull(
         self,
         topic: TopicType,
-        callback: Callable[[BaseMessage], None] | None = None,
-    ) -> BaseMessage | Error:
+        callback: Callable[[BaseMessage], None],
+    ) -> Error | None:
         logger.debug(f"Pulling data from {topic}")
 
         if error := self._ensure_initialized():
@@ -551,8 +550,4 @@ class ZMQCommunication(BaseCommunication):
             if error := await self.create_clients(client_type):
                 return error
 
-        try:
-            return await self.clients[client_type].pull(topic, callback)
-        except Exception as e:
-            logger.error(f"Error pulling data from {topic}: {e}")
-            return CommPullError.from_exception(e)
+        return await self.clients[client_type].pull(topic, callback)

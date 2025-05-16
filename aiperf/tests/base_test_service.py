@@ -16,6 +16,7 @@
 Base test class for testing aiperf services.
 """
 
+from abc import ABC, abstractmethod
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -29,7 +30,7 @@ from aiperf.tests.utils.async_test_utils import async_fixture, async_noop
 
 
 @pytest.mark.asyncio
-class BaseTestService:
+class BaseTestService(ABC):
     """
     Base test class for all service tests.
 
@@ -44,10 +45,11 @@ class BaseTestService:
         with patch("asyncio.sleep", return_value=async_noop):
             yield
 
+    @abstractmethod
     @pytest.fixture
     def service_class(self) -> type[Any]:
         """Return the service class to test. Must be implemented by subclasses."""
-        raise NotImplementedError("Subclasses must implement service_class fixture")
+        pass
 
     @pytest.fixture
     def service_config(self) -> ServiceConfig:

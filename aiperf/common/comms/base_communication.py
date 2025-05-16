@@ -29,7 +29,7 @@ class BaseCommunication(ABC):
         """Initialize communication channels.
 
         Returns:
-            Error object or None if initialization was successful
+            Error object if an exception occurred, or None if initialization was successful
         """
         pass
 
@@ -58,7 +58,7 @@ class BaseCommunication(ABC):
         """Gracefully shutdown communication channels.
 
         Returns:
-            Error object or None if shutdown was successful
+            Error object if an exception occurred, or None if shutdown was successful
         """
         pass
 
@@ -67,7 +67,7 @@ class BaseCommunication(ABC):
         """Create the communication clients.
 
         Returns:
-            Error object or None if clients were created successfully
+            Error object if an exception occurred, or None if clients were created successfully
         """
         pass
 
@@ -80,7 +80,7 @@ class BaseCommunication(ABC):
             message: Message to publish (must be a Pydantic model)
 
         Returns:
-            Error object or None if response was published successfully
+            Error object if an exception occurred, or None if response was published successfully
         """
         pass
 
@@ -88,18 +88,16 @@ class BaseCommunication(ABC):
     async def subscribe(
         self,
         topic: TopicType,
-        callback: Callable[[BaseMessage], Coroutine[Any, Any, Error | None]]
-        | None = None,
+        callback: Callable[[BaseMessage], Coroutine[Any, Any, Error | None]],
     ) -> Error | None:
         """Subscribe to a topic.
 
         Args:
             topic: Topic to subscribe to
-            callback: Function to call when a response is received
-            (receives BaseMessage object)
+            callback: Function to call when a response is received (receives BaseMessage object)
 
         Returns:
-            Error object or None if subscription was successful
+            Error object if an exception occurred, or None if subscription was successful
         """
         pass
 
@@ -109,7 +107,7 @@ class BaseCommunication(ABC):
         target: str,
         request_data: BaseMessage,
         timeout: float = 5.0,
-    ) -> tuple[BaseMessage, Error | None]:
+    ) -> BaseMessage | Error:
         """Send a request and wait for a response.
 
         Args:
@@ -118,10 +116,7 @@ class BaseCommunication(ABC):
             timeout: Timeout in seconds
 
         Returns:
-            tuple[
-                BaseMessage,  # Response message
-                Error | None,  # Error if request failed
-            ]:
+            Response message (BaseMessage instance) if successful, or Error object if an exception occurred
         """
         pass
 
@@ -134,7 +129,7 @@ class BaseCommunication(ABC):
             response: Response message (must be a BaseMessage instance)
 
         Returns:
-            Error object or None if response was sent successfully
+            Error object if an exception occurred, or None if response was sent successfully
         """
         pass
 
@@ -147,7 +142,7 @@ class BaseCommunication(ABC):
             message: Message to be pushed (must be a BaseMessage instance)
 
         Returns:
-            Error object or None if data was pushed successfully
+            Error object if an exception occurred, or None if data was pushed successfully
         """
         pass
 
@@ -155,21 +150,15 @@ class BaseCommunication(ABC):
     async def pull(
         self,
         topic: TopicType,
-        callback: Callable[[BaseMessage], Coroutine[Any, Any, Error | None]]
-        | None = None,
-    ) -> BaseMessage | Error | None:
+        callback: Callable[[BaseMessage], Coroutine[Any, Any, Error | None]],
+    ) -> Error | None:
         """Pull data from a source.
 
         Args:
             topic: Topic to pull from (must be a TopicType instance)
-            callback: Optional function to call when data is received.
-                     If provided, this method will register the callback and return
-                     a boolean. If not provided, this method will wait for and
-                     return the next response.
+            callback: function to call when data is received. (receives BaseMessage object)
 
         Returns:
-            If callback is provided: Error object or None if pull registration
-            was successful, False otherwise. If callback is not provided: The
-            received BaseMessage object or Error object
+            Error object if an exception occurred, or None if pull registration was successful.
         """
         pass

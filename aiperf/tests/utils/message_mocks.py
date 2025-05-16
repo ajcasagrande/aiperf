@@ -68,6 +68,7 @@ class MessageTestUtils:
             handler = getattr(service, handler_map[topic])
             await handler(message)
         else:
+            # FIXME: TODO: Is this correct/needed now that we use Error objects?
             raise AttributeError(
                 f"Service does not have a handler for {topic} messages"
             )

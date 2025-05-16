@@ -44,13 +44,17 @@ class KubernetesServiceManager(BaseServiceManager):
         """Initialize all required services as Kubernetes pods."""
         self.logger.debug("Initializing all required services as Kubernetes pods")
         # TODO: Implement Kubernetes
-        raise NotImplementedError
+        raise NotImplementedError(
+            "KubernetesServiceManager.initialize_all_services not implemented"
+        )
 
     async def stop_all_services(self) -> Error | None:
         """Stop all required services as Kubernetes pods."""
         self.logger.debug("Stopping all required services as Kubernetes pods")
         # TODO: Implement Kubernetes
-        raise NotImplementedError
+        raise NotImplementedError(
+            "KubernetesServiceManager.stop_all_services not implemented"
+        )
 
     async def wait_for_all_services_registration(
         self, stop_event: asyncio.Event, timeout_seconds: int = 30
@@ -60,7 +64,9 @@ class KubernetesServiceManager(BaseServiceManager):
             "Waiting for all required services to be registered in Kubernetes"
         )
         # TODO: Implement Kubernetes
-        raise NotImplementedError
+        raise NotImplementedError(
+            "KubernetesServiceManager.wait_for_all_services_registration not implemented"
+        )
 
     async def wait_for_all_services_start(self) -> Error | None:
         """Wait for all required services to be started in Kubernetes."""
@@ -68,4 +74,6 @@ class KubernetesServiceManager(BaseServiceManager):
             "Waiting for all required services to be started in Kubernetes"
         )
         # TODO: Implement Kubernetes
-        raise NotImplementedError
+        raise NotImplementedError(
+            "KubernetesServiceManager.wait_for_all_services_start not implemented"
+        )

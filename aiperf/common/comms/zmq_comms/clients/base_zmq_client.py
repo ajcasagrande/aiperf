@@ -14,14 +14,18 @@
 #  limitations under the License.
 import logging
 import uuid
+from abc import ABC, abstractmethod
 
 import zmq.asyncio
 from zmq import SocketType
 
+from aiperf.common.errors import Error
+from aiperf.common.errors.comm_errors import CommInitializationError, CommShutdownError
+
 logger = logging.getLogger(__name__)
 
 
-class BaseZMQClient:
+class BaseZMQClient(ABC):
     def __init__(
         self,
         context: zmq.asyncio.Context,
@@ -55,7 +59,7 @@ class BaseZMQClient:
         """Get the name of the socket type."""
         return self.socket_type.name
 
-    async def initialize(self) -> None:
+    async def initialize(self) -> Error | None:
         """Initialize the communication."""
         try:
             self.socket = self.context.socket(self.socket_type)
@@ -69,32 +73,44 @@ class BaseZMQClient:
                     f"Connecting ZMQ {self.socket_type_name} socket to {self.address}"
                 )
                 self.socket.connect(self.address)
+
+            # Set safe timeouts for send and receive operations
             self.socket.setsockopt(zmq.RCVTIMEO, 30 * 1000)
             self.socket.setsockopt(zmq.SNDTIMEO, 30 * 1000)
-            for k, v in self.socket_ops.items():
-                self.socket.setsockopt(k, v)
-            await self._initialize()
+
+            # Set additional socket options requested by the caller
+            for key, val in self.socket_ops.items():
+                self.socket.setsockopt(key, val)
+
+            if init_err := await self._initialize():
+                return init_err
+
             self._is_initialized = True
             logger.debug(
                 "ZMQ %s socket initialized and connected to %s",
                 self.socket_type_name,
                 self.address,
             )
+            return None
         except Exception as e:
             logger.error("Error initializing ZMQ socket: %s", e)
-            raise
+            return CommInitializationError.from_exception(e)
 
-    async def shutdown(self) -> None:
+    async def shutdown(self) -> Error | None:
         """Shutdown the communication."""
         try:
             self.socket.close()
-            self._is_shutdown = True
             logger.debug("ZMQ %s socket closed", self.socket_type_name)
+
         except Exception as e:
             logger.error("Error shutting down ZMQ socket: %s", e)
-            raise
+            return CommShutdownError.from_exception(e)
 
-    async def _initialize(self) -> None:
+        finally:
+            self._is_shutdown = True
+
+    @abstractmethod
+    async def _initialize(self) -> Error | None:
         """Override in subclass to implement custom initialization logic.
 
         This method is called after the socket is bound or connected.

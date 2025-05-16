@@ -27,6 +27,7 @@ from aiperf.common.enums import (
 )
 from aiperf.common.errors import Error
 from aiperf.common.errors.comm_errors import CommNotInitializedError
+from aiperf.common.errors.config_errors import ConfigError
 from aiperf.common.errors.service_errors import ServiceInitializationError
 from aiperf.common.models.message_models import BaseMessage
 from aiperf.common.models.service_models import ServiceRunInfo
@@ -79,8 +80,8 @@ class SystemController(BaseControllerService):
                 self.required_service_types, self.service_config
             )
         else:
-            raise ValueError(
-                f"Unsupported service run type: {self.service_config.service_run_type}"
+            return ConfigError(
+                error_message=f"Unsupported service run type: {self.service_config.service_run_type}"
             )
 
         # Subscribe to relevant messages
