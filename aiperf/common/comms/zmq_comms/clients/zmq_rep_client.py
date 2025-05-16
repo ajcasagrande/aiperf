@@ -22,7 +22,7 @@ from zmq import SocketType
 from aiperf.common.comms.zmq_comms.clients.base_zmq_client import BaseZMQClient
 from aiperf.common.exceptions.comm_exceptions import (
     CommunicationNotInitializedException,
-    CommunicationRepException,
+    CommunicationResponseException,
 )
 from aiperf.common.models.message_models import BaseMessage
 
@@ -120,11 +120,15 @@ class ZMQRepClient(BaseZMQClient):
 
             except asyncio.TimeoutException as e:
                 logger.debug("Timeout waiting for request")
-                raise CommunicationRepException("Timeout waiting for request") from e
+                raise CommunicationResponseException(
+                    "Timeout waiting for request"
+                ) from e
 
             except Exception as e:
                 logger.error(f"Exception waiting for request: {e}")
-                raise CommunicationRepException("Exception waiting for request") from e
+                raise CommunicationResponseException(
+                    "Exception waiting for request"
+                ) from e
 
             finally:
                 # Clean up future
@@ -132,7 +136,7 @@ class ZMQRepClient(BaseZMQClient):
 
         except Exception as e:
             logger.error(f"Exception waiting for request: {e}")
-            raise CommunicationRepException("Exception waiting for request") from e
+            raise CommunicationResponseException("Exception waiting for request") from e
 
     async def respond(self, target: str, response: BaseMessage) -> None:
         """Send a response to a request.
@@ -160,7 +164,7 @@ class ZMQRepClient(BaseZMQClient):
             return None
         except Exception as e:
             logger.error(f"Exception sending response to {target}: {e}")
-            raise CommunicationRepException(
+            raise CommunicationResponseException(
                 "Exception sending response to %s", target
             ) from e
 

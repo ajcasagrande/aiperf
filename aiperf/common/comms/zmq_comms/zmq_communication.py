@@ -94,11 +94,10 @@ class ZMQCommunication(BaseCommunication):
             True if initialization was successful, False otherwise
         """
         if self._is_initialized:
-            return None
+            return
 
         self.context = zmq.asyncio.Context()
         self._is_initialized = True
-        return None
 
     @property
     def is_initialized(self) -> bool:
@@ -126,7 +125,7 @@ class ZMQCommunication(BaseCommunication):
         """
         if self._is_shutdown:
             logger.debug("ZMQ communication already shutdown")
-            return None
+            return
 
         try:
             logger.debug(
@@ -137,18 +136,21 @@ class ZMQCommunication(BaseCommunication):
             )
             if self.context:
                 self.context.term()
+
+            self.context = None
             self._is_shutdown = True
             logger.debug("ZMQ communication shutdown successfully")
+
         except Exception as e:
             logger.error(f"Exception shutting down ZMQ communication: {e}")
             raise CommunicationShutdownException(
                 "Failed to shutdown ZMQ communication"
             ) from e
+
         finally:
             self._is_initialized = False
             self.clients = {}
             self.context = None
-        return None
 
     def _ensure_initialized(self) -> None:
         """Ensure the communication channels are initialized."""

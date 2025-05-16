@@ -16,25 +16,25 @@
 from aiperf.common.exceptions.base_exceptions import AIPerfException
 
 
-class ConfigurationException(AIPerfException):
+class ConfigException(AIPerfException):
     """Base class for all exceptions raised by configuration errors."""
 
-    pass
+    message: str = "Configuration error"
 
 
-class ConfigurationLoadException(ConfigurationException):
+class ConfigLoadException(ConfigException):
     """Exception raised for configuration load errors."""
 
-    pass
+    message: str = "Failed to load configuration"
 
 
-class ConfigurationParseException(ConfigurationException):
+class ConfigParseException(ConfigException):
     """Exception raised for configuration parse errors."""
 
-    pass
+    message: str = "Failed to parse configuration"
 
 
-class ConfigurationValidationException(ConfigurationException):
+class ConfigValidationException(ConfigException):
     """Exception raised for configuration validation errors."""
 
-    pass
+    message: str = "Failed to validate configuration"

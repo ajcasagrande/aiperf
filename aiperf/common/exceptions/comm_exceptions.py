@@ -31,57 +31,57 @@ class CommunicationNotInitializedException(CommunicationException):
 class CommunicationInitializationException(CommunicationException):
     """Exception raised when communication channels fail to initialize."""
 
-    message: str = "Communication channels failed to initialize"
+    message: str = "Failed to initialize communication channels"
 
 
 class CommunicationPublishException(CommunicationException):
-    """Exception raised when communication channels fail to publish a response."""
+    """Exception raised when communication channels fail to publish a message."""
 
-    message: str = "Communication channels failed to publish a response"
+    message: str = "Failed to publish message"
 
 
 class CommunicationShutdownException(CommunicationException):
     """Exception raised when communication channels fail to shutdown."""
 
-    message: str = "Communication channels failed to shutdown"
+    message: str = "Failed to shutdown communication channels"
 
 
 class CommunicationSubscribeException(CommunicationException):
     """Exception raised when communication channels fail to subscribe to a topic."""
 
-    message: str = "Communication channels failed to subscribe to a topic"
+    message: str = "Failed to subscribe to a topic"
 
 
 class CommunicationPullException(CommunicationException):
-    """Exception raised when communication channels fail to pull a response from
+    """Exception raised when communication channels fail to pull a message from
     a topic."""
 
-    message: str = "Communication channels failed to pull a response from a topic"
+    message: str = "Failed to pull a message from a topic"
 
 
 class CommunicationPushException(CommunicationException):
-    """Exception raised when communication channels fail to push a response to
+    """Exception raised when communication channels fail to push a message to
     a topic."""
 
-    message: str = "Communication channels failed to push a response to a topic"
+    message: str = "Failed to push a message to a topic"
 
 
 class CommunicationRequestException(CommunicationException):
     """Exception raised when communication channels fail to send a request."""
 
-    message: str = "Communication channels failed to send a request"
+    message: str = "Failed to send a request"
 
 
 class CommunicationResponseException(CommunicationException):
     """Exception raised when communication channels fail to receive a response."""
 
-    message: str = "Communication channels failed to receive a response"
+    message: str = "Failed to receive a response"
 
 
 class CommunicationClientCreationException(CommunicationException):
     """Exception raised when communication channels fail to create a client."""
 
-    message: str = "Communication channels failed to create a client"
+    message: str = "Failed to create a client"
 
 
 class CommunicationClientNotFoundException(CommunicationException):
@@ -93,7 +93,7 @@ class CommunicationClientNotFoundException(CommunicationException):
 class CommunicationCreateException(CommunicationException):
     """Exception raised when communication channels fail to create a client."""
 
-    message: str = "Communication channels failed to create a client"
+    message: str = "Failed to create a communication client"
 
 
 class CommunicationTypeUnknownException(CommunicationException):

@@ -26,7 +26,11 @@ from aiperf.common.enums import (
     Topic,
 )
 from aiperf.common.exceptions.comm_exceptions import CommunicationSubscribeException
-from aiperf.common.exceptions.service_exceptions import ServiceInitializationException
+from aiperf.common.exceptions.service_exceptions import (
+    ServiceHeartbeatException,
+    ServiceInitializationException,
+    ServiceRegistrationException,
+)
 from aiperf.common.models.message_models import BaseMessage
 from aiperf.common.models.payload_models import (
     HeartbeatPayload,
@@ -108,8 +112,11 @@ class BaseComponentService(BaseService, ABC):
         await asyncio.sleep(1)
 
         # Register the service
-        if register_error := await self.register():
-            return register_error
+        try:
+            await self.register()
+        except Exception as e:
+            self.logger.error("Exception registering service: %s", e)
+            raise ServiceRegistrationException("Failed to register service") from e
 
         # ignore errors with setting the state for now
         _ = await self.set_state(ServiceState.READY)
@@ -120,16 +127,19 @@ class BaseComponentService(BaseService, ABC):
 
         # Start the heartbeat task
         await self.start_heartbeat_task()
-        return None
 
     async def send_heartbeat(self) -> None:
         """Send a heartbeat notification to the system controller."""
         heartbeat_message = self.create_heartbeat_message()
         self.logger.debug("Sending heartbeat: %s", heartbeat_message)
-        return await self.comms.publish(
-            topic=Topic.HEARTBEAT,
-            message=heartbeat_message,
-        )
+        try:
+            await self.comms.publish(
+                topic=Topic.HEARTBEAT,
+                message=heartbeat_message,
+            )
+        except Exception as e:
+            self.logger.error("Exception sending heartbeat: %s", e)
+            raise ServiceHeartbeatException from e
 
     async def register(self) -> None:
         """Publish a registration request to the system controller.

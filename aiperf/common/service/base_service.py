@@ -147,7 +147,7 @@ class BaseService(AbstractBaseService, ABC):
 
         except asyncio.CancelledError:
             self.logger.debug("Service %s execution cancelled", self.service_type)
-            return None
+            return
 
         except BaseException as e:  # noqa: E722
             self.logger.exception("Service %s execution failed:", self.service_type)

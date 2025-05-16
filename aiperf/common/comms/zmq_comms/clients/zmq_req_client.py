@@ -21,7 +21,7 @@ import zmq.asyncio
 from zmq import SocketType
 
 from aiperf.common.comms.zmq_comms.clients.base_zmq_client import BaseZMQClient
-from aiperf.common.exceptions.comm_exceptions import CommunicationReqException
+from aiperf.common.exceptions.comm_exceptions import CommunicationRequestException
 from aiperf.common.models.message_models import BaseMessage
 from aiperf.common.models.payload_models import ErrorPayload
 
@@ -93,7 +93,7 @@ class ZMQReqClient(BaseZMQClient):
                 )
         except Exception as e:
             logger.error(f"Exception handling response: {e}")
-            raise CommunicationReqException("Exception handling response") from e
+            raise CommunicationRequestException("Exception handling response") from e
 
     async def shutdown(self) -> None:
         """Shutdown the socket and clean up resources."""
