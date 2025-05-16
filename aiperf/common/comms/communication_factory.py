@@ -55,7 +55,7 @@ class CommunicationFactory:
             comm_class: Communication class
         """
         cls._comm_types[comm_type] = comm_class
-        logger.info("Registered communication type: %s", comm_type)
+        logger.debug("Registered communication type: %s", comm_type)
 
     @classmethod
     def create_communication(

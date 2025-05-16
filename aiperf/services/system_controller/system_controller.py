@@ -43,6 +43,7 @@ from aiperf.services.system_controller.multiprocess_manager import (
 class SystemController(BaseControllerService):
     def __init__(self, service_config: ServiceConfig, service_id: str = None) -> None:
         super().__init__(service_config=service_config, service_id=service_id)
+        self.logger.debug("Creating System Controller")
 
         # List of required service types, in the order they should be started
         self.required_service_types: list[ServiceType] = [
@@ -59,6 +60,11 @@ class SystemController(BaseControllerService):
     def service_type(self) -> ServiceType:
         """The type of service."""
         return ServiceType.SYSTEM_CONTROLLER
+
+    async def run(self) -> Error | None:
+        """Run the system controller."""
+        self.logger.info("AIPerf System is STARTING")
+        return await super().run()
 
     async def _initialize(self) -> Error | None:
         """Initialize system controller-specific components."""
@@ -130,7 +136,9 @@ class SystemController(BaseControllerService):
             )
         )
         if self.stop_event.is_set():
-            self.logger.info("System Controller stopped before all services registered")
+            self.logger.debug(
+                "System Controller stopped before all services registered"
+            )
             return None  # Don't continue with the rest of the initialization
 
         # Check if all required services are registered
@@ -142,13 +150,14 @@ class SystemController(BaseControllerService):
                 error_message="Not all required services registered within the timeout period"
             )
         else:
-            self.logger.info("All required services registered successfully")
+            self.logger.debug("All required services registered successfully")
 
+        self.logger.info("AIPerf System is READY")
         # Wait for all required services to be started
         await self.start_all_services()
         start_err = await self.service_manager.wait_for_all_services_start()
         if self.stop_event.is_set():
-            self.logger.info("System Controller stopped before all services started")
+            self.logger.debug("System Controller stopped before all services started")
             return None  # Don't continue with the rest of the initialization
 
         # Check if all required services are started
@@ -161,6 +170,8 @@ class SystemController(BaseControllerService):
             )
         else:
             self.logger.debug("All required services started successfully")
+
+        self.logger.info("AIPerf System is RUNNING")
 
         return None
 
@@ -177,6 +188,7 @@ class SystemController(BaseControllerService):
     async def _on_stop(self) -> Error | None:
         """Stop the system controller and all running services."""
         self.logger.debug("Stopping System Controller")
+        self.logger.info("AIPerf System is SHUTTING DOWN")
 
         stop_err = await self.service_manager.stop_all_services()
         if stop_err:
@@ -219,7 +231,7 @@ class SystemController(BaseControllerService):
         self.service_manager.service_map[service_type].append(service_info)
 
         is_required = service_type in self.required_service_types
-        self.logger.info(
+        self.logger.debug(
             f"Registered {'required' if is_required else 'non-required'} "
             f"service: {service_type} with ID: {service_id}"
         )

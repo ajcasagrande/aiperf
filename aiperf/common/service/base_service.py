@@ -13,6 +13,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import asyncio
+import contextlib
 import logging
 import signal
 import uuid
@@ -41,7 +42,9 @@ class BaseService(AbstractBaseService, ABC):
     """
 
     def __init__(self, service_config: ServiceConfig, service_id: str = None):
-        self.service_id: str = service_id or uuid.uuid4().hex
+        self.service_id: str = (
+            service_id or f"{self.service_type}_{uuid.uuid4().hex[:8]}"
+        )
         self.service_config = service_config
 
         self.logger = logging.getLogger(self.service_type)
@@ -62,7 +65,7 @@ class BaseService(AbstractBaseService, ABC):
 
         # noinspection PyBroadException
         try:
-            setproctitle.setproctitle(f"aiperf {self.service_type} ({self.service_id})")
+            setproctitle.setproctitle(f"aiperf {self.service_id}")
         except:  # noqa: E722
             # setproctitle is not available on all platforms, so we ignore the error
             self.logger.debug("Failed to set process title, ignoring")
@@ -159,6 +162,8 @@ class BaseService(AbstractBaseService, ABC):
             if start_error := await self._on_start():
                 return start_error
             _ = await self.set_state(ServiceState.RUNNING)
+        except asyncio.CancelledError:
+            self.logger.debug("Service %s execution cancelled", self.service_type)
         except BaseException as e:  # noqa: E722
             self.logger.exception(
                 "Failed to start service %s (id: %s)",
@@ -190,7 +195,8 @@ class BaseService(AbstractBaseService, ABC):
                 self.stop_event.set()
 
             # Custom stop logic implemented by derived classes
-            _ = await self._on_stop()
+            with contextlib.suppress(asyncio.CancelledError):
+                _ = await self._on_stop()
 
             # Shutdown communication component
             if self.comms and not self.comms.is_shutdown:
@@ -265,4 +271,4 @@ class BaseService(AbstractBaseService, ABC):
             signal_name,
         )
 
-        await self.stop()
+        self.stop_event.set()

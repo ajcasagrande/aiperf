@@ -47,7 +47,7 @@ class ZMQPullClient(BaseZMQClient):
     async def _initialize(self) -> None:
         # Start the receiver task
         asyncio.create_task(self._pull_receiver())
-        logger.info(f"Pull socket initialized and listening on {self.address}")
+        logger.debug(f"Pull socket initialized and listening on {self.address}")
 
     async def _pull_receiver(self) -> None:
         """Background task for receiving data from the pull socket."""

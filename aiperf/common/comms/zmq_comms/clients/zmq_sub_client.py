@@ -76,7 +76,7 @@ class ZMQSubClient(BaseZMQClient):
                 self._subscribers[topic] = []
             self._subscribers[topic].append(callback)
 
-            logger.info("Subscribed to topic: %s", topic)
+            logger.debug("Subscribed to topic: %s", topic)
 
         except Exception as e:
             logger.error("Error subscribing to topic %s: %s", topic, e)

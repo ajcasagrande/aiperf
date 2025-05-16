@@ -42,7 +42,7 @@ class WorkerManager(BaseComponentService):
         # TODO: Need to implement some sort of max workers
         self.cpu_count = multiprocessing.cpu_count()
         self.worker_count = self.cpu_count
-        self.logger.info(
+        self.logger.debug(
             f"Detected {self.cpu_count} CPU threads. "
             f"Spawning {self.worker_count} workers"
         )
@@ -92,21 +92,21 @@ class WorkerManager(BaseComponentService):
 
     async def _spawn_kubernetes_workers(self) -> None:
         """Spawn worker processes using Kubernetes."""
-        self.logger.info(f"Spawning {self.worker_count} worker processes")
+        self.logger.debug(f"Spawning {self.worker_count} worker processes")
 
         # TODO: Implement Kubernetes start
         raise NotImplementedError("Kubernetes start not implemented")
 
     async def _stop_kubernetes_workers(self) -> None:
         """Stop worker processes using Kubernetes."""
-        self.logger.info("Stopping all worker processes")
+        self.logger.debug("Stopping all worker processes")
 
         # TODO: Implement Kubernetes stop
         raise NotImplementedError("Kubernetes stop not implemented")
 
     async def _spawn_multiprocessing_workers(self) -> None:
         """Spawn worker processes using multiprocessing."""
-        self.logger.info(f"Spawning {self.worker_count} worker processes")
+        self.logger.debug(f"Spawning {self.worker_count} worker processes")
 
         for i in range(self.worker_count):
             worker_id = f"worker_{i}"
@@ -126,7 +126,7 @@ class WorkerManager(BaseComponentService):
 
     async def _stop_multiprocessing_workers(self) -> None:
         """Stop all multiprocessing worker processes."""
-        self.logger.info("Stopping all worker processes")
+        self.logger.debug("Stopping all worker processes")
 
         # First terminate all processes
         for worker_id, worker_info in self.workers.items():
@@ -147,7 +147,7 @@ class WorkerManager(BaseComponentService):
             ]
         )
 
-        self.logger.info("All worker processes stopped")
+        self.logger.debug("All worker processes stopped")
 
     async def _wait_for_process(
         self, worker_id: str, process: multiprocessing.Process
@@ -158,7 +158,9 @@ class WorkerManager(BaseComponentService):
                 asyncio.to_thread(process.join, timeout=1.0),  # Add timeout to join
                 timeout=5.0,  # Overall timeout
             )
-            self.logger.info(f"Worker process {worker_id} (pid: {process.pid}) stopped")
+            self.logger.debug(
+                f"Worker process {worker_id} (pid: {process.pid}) stopped"
+            )
         except asyncio.TimeoutError:
             self.logger.warning(
                 f"Worker process {worker_id} (pid: {process.pid}) did not "

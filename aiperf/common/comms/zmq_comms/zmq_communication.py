@@ -84,7 +84,7 @@ class ZMQCommunication(BaseCommunication):
         self.context: zmq.asyncio.Context | None = None
         self.clients: dict[ClientType, BaseZMQClient] = {}
 
-        logger.info(
+        logger.debug(
             "ZMQ communication using protocol: %s with client ID: %s",
             type(self.config.protocol_config).__name__,
             self.config.client_id,

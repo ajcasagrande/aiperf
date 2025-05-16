@@ -89,7 +89,7 @@ class BaseZMQClient:
         try:
             self.socket.close()
             self._is_shutdown = True
-            logger.info("ZMQ %s socket closed", self.socket_type_name)
+            logger.debug("ZMQ %s socket closed", self.socket_type_name)
         except Exception as e:
             logger.error("Error shutting down ZMQ socket: %s", e)
             raise

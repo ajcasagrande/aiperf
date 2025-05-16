@@ -63,7 +63,7 @@ class ZMQRepClient(BaseZMQClient):
     async def _initialize(self) -> Error | None:
         # Start the receiver task
         self._receiver_task = asyncio.create_task(self._rep_receiver())
-        logger.info(f"REP socket initialized and listening on {self.address}")
+        logger.debug(f"REP socket initialized and listening on {self.address}")
         return None
 
     async def shutdown(self) -> Error | None:

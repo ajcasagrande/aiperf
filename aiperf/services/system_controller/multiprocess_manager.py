@@ -83,7 +83,7 @@ class MultiProcessServiceManager(BaseServiceManager):
             )
             process.start()
 
-            self.logger.info(
+            self.logger.debug(
                 "Service %s started as process (pid: %d)",
                 service_type,
                 process.pid,
@@ -117,7 +117,7 @@ class MultiProcessServiceManager(BaseServiceManager):
         Returns:
             Error if any service failed to register, None otherwise
         """
-        self.logger.info("Waiting for all required services to register...")
+        self.logger.debug("Waiting for all required services to register...")
 
         # Set the deadline
         deadline = datetime.now() + timedelta(seconds=timeout_seconds)
@@ -158,9 +158,10 @@ class MultiProcessServiceManager(BaseServiceManager):
 
     async def wait_for_all_services_start(self) -> Error | None:
         """Wait for all required services to be started."""
-        self.logger.info("Waiting for all required services to start...")
+        self.logger.debug("Waiting for all required services to start...")
 
         # TODO: Implement this
+        self.logger.warning("wait_for_all_services_start not implemented")
         return None
 
     async def _wait_for_process(self, info: MultiProcessRunInfo) -> None:
@@ -176,7 +177,7 @@ class MultiProcessServiceManager(BaseServiceManager):
                 ),  # Add timeout to join
                 timeout=5.0,  # Overall timeout
             )
-            self.logger.info(
+            self.logger.debug(
                 "Service %s process stopped (pid: %d)",
                 info.service_type,
                 info.process.pid,

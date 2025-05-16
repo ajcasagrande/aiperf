@@ -30,7 +30,7 @@ class Error(BaseModel):
     error_details: dict[str, Any] | None = Field(
         None, description="Additional details about the error"
     )
-    exception: Exception | None = Field(
+    exception: BaseException | None = Field(
         None, description="The exception that caused the error, if applicable"
     )
 
@@ -41,7 +41,7 @@ class Error(BaseModel):
         )
 
     @classmethod
-    def from_exception(cls, exception: Exception) -> Self:
+    def from_exception(cls, exception: BaseException) -> Self:
         """Create a new error object from an exception.
 
         Args:
