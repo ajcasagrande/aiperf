@@ -13,7 +13,6 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import asyncio
-from datetime import datetime, timedelta
 from multiprocessing import Process
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -119,15 +118,31 @@ class MultiProcessServiceManager(BaseServiceManager):
         """
         self.logger.debug("Waiting for all required services to register...")
 
-        # Set the deadline
-        deadline = datetime.now() + timedelta(seconds=timeout_seconds)
-
         # Get the set of required service types for checking completion
         required_types = set(self.required_service_types)
 
-        # Wait until all services are registered or timeout
-        while datetime.now() < deadline and not stop_event.is_set():
-            # Get all registered service types from the id map
+        # TODO: Can this be done better by using asyncio.Event()?
+
+        try:
+            async with asyncio.timeout(timeout_seconds):
+                while not stop_event.is_set():
+                    # Get all registered service types from the id map
+                    registered_types = {
+                        service_info.service_type
+                        for service_info in self.service_id_map.values()
+                        if service_info.registration_status
+                        == ServiceRegistrationStatus.REGISTERED
+                    }
+
+                    # Check if all required types are registered
+                    if required_types.issubset(registered_types):
+                        return None
+
+                    # Wait a bit before checking again
+                    await asyncio.sleep(0.5)
+
+        except asyncio.TimeoutError:
+            # Log which services didn't register in time
             registered_types = {
                 service_info.service_type
                 for service_info in self.service_id_map.values()
@@ -135,24 +150,10 @@ class MultiProcessServiceManager(BaseServiceManager):
                 == ServiceRegistrationStatus.REGISTERED
             }
 
-            # Check if all required types are registered
-            if required_types.issubset(registered_types):
-                return None
-
-            # Wait a bit before checking again
-            await asyncio.sleep(0.5)
-
-        # Log which services didn't register in time
-        registered_types = {
-            service_info.service_type
-            for service_info in self.service_id_map.values()
-            if service_info.registration_status == ServiceRegistrationStatus.REGISTERED
-        }
-
-        for service_type in required_types - registered_types:
-            self.logger.warning(
-                f"Service {service_type} failed to register within timeout"
-            )
+            for service_type in required_types - registered_types:
+                self.logger.warning(
+                    f"Service {service_type} failed to register within timeout"
+                )
 
         return None
 

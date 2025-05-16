@@ -39,7 +39,7 @@ class BaseTestService:
     """
 
     @pytest.fixture
-    def no_sleep(self):
+    async def no_sleep(self):
         """Fixture to replace asyncio.sleep with a no-op."""
         with patch("asyncio.sleep", return_value=async_noop):
             yield
