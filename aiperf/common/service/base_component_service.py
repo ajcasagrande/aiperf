@@ -85,20 +85,22 @@ class BaseComponentService(BaseService, ABC):
             await self.initialize()
 
             # Subscribe to the command topic
-            await self.comms.subscribe(
+            if error := await self.comms.subscribe(
                 Topic.COMMAND,
                 self.process_command_message,
-            )
+            ):
+                return error
 
             # TODO: Find a way to wait for the communication to be fully initialized
             # Wait for 1 second to ensure the communication is fully initialized
             await asyncio.sleep(1)
 
             # Register the service
-            await self.register()
+            if error := await self.register():
+                return error
 
-            # Set the service to ready state
-            await self.set_state(ServiceState.READY)
+            # ignore the error for now
+            _ = await self.set_state(ServiceState.READY)
 
             # Note: Do not start the service here, let the system controller start it
             # This is because the service needs to be configured first and may need
@@ -107,23 +109,38 @@ class BaseComponentService(BaseService, ABC):
             # Start the heartbeat task
             await self.start_heartbeat_task()
 
-            # Wait forever for the stop event to be set
-            await self.stop_event.wait()
-
         except asyncio.exceptions.CancelledError:
             self.logger.debug("Service %s execution cancelled", self.service_type)
-        except BaseException:
-            self.logger.exception("Service %s execution failed:", self.service_type)
+        except BaseException as e:
+            self.logger.exception(
+                "Service %s execution failed: %s", self.service_type, e
+            )
             await self.set_state(ServiceState.ERROR)
-        finally:
-            # Shutdown the service
-            await self.stop()
+
+        while True:
+            try:
+                # Wait forever for the stop event to be set
+                await self.stop_event.wait()
+                if self.stop_event.is_set():
+                    break
+            except asyncio.exceptions.CancelledError:
+                self.logger.debug("Service %s execution cancelled", self.service_type)
+            except BaseException as e:
+                self.logger.exception(
+                    "Service %s execution failed: %s", self.service_type, e
+                )
+                await self.set_state(ServiceState.ERROR)
+            finally:
+                # Shutdown the service
+                if error := await self.stop():
+                    self.logger.error("Error stopping service: %s", error)
+                    return error  # noqa: B012
 
     async def send_heartbeat(self) -> Error | None:
         """Send a heartbeat notification to the system controller."""
         heartbeat_message = self.create_heartbeat_message()
         self.logger.debug("Sending heartbeat: %s", heartbeat_message)
-        await self.comms.publish(
+        return await self.comms.publish(
             topic=Topic.HEARTBEAT,
             message=heartbeat_message,
         )
@@ -139,7 +156,7 @@ class BaseComponentService(BaseService, ABC):
             self.service_type,
             self.service_id,
         )
-        await self.comms.publish(
+        return await self.comms.publish(
             topic=Topic.REGISTRATION,
             message=self.create_registration_message(),
         )
@@ -154,13 +171,17 @@ class BaseComponentService(BaseService, ABC):
 
         cmd = message.payload.command
         if cmd == CommandType.START:
-            await self.start()
+            return await self.start()
+
         elif cmd == CommandType.STOP:
-            await self.stop()
+            return await self.stop()
+
         elif cmd == CommandType.CONFIGURE:
-            await self._configure(message.payload)
+            return await self._configure(message.payload)
+
         else:
             self.logger.warning(f"{self.service_type} received unknown command: {cmd}")
+            return None
 
     async def set_state(self, state: ServiceState) -> Error | None:
         """Set the state of the service.
@@ -170,15 +191,18 @@ class BaseComponentService(BaseService, ABC):
         """
         self._state = state
         if self.comms and self.comms.is_initialized:
-            await self.comms.publish(
+            return await self.comms.publish(
                 topic=Topic.STATUS,
                 message=self.create_status_message(state),
             )
 
+        return None
+
     async def stop(self) -> Error | None:
         """Stop the service."""
-        await super().stop()
-        await self.stop_heartbeat_task()
+        err = await super().stop()
+        heartbeat_err = await self.stop_heartbeat_task()
+        return err or heartbeat_err
 
     async def stop_heartbeat_task(self) -> None:
         """Stop the heartbeat task if it is running."""
@@ -212,17 +236,20 @@ class BaseComponentService(BaseService, ABC):
             )
         )
 
+    async def _heartbeat_loop(self) -> None:
+        while not self.stop_event.is_set():
+            # Sleep first to avoid sending a heartbeat before the registration
+            # message has been published
+            await asyncio.sleep(self._heartbeat_interval)
+
+            if error := await self.send_heartbeat():
+                self.logger.error("Error sending heartbeat: %s", error)
+                # continue to keep sending heartbeats regardless of the error
+
     async def start_heartbeat_task(self) -> None:
         """Start a background task to send heartbeats at regular intervals."""
 
-        async def heartbeat_loop() -> None:
-            while not self.stop_event.is_set():
-                # Sleep first to avoid sending a heartbeat before the registration
-                # message has been published
-                await asyncio.sleep(self._heartbeat_interval)
-                await self.send_heartbeat()
-
-        self._heartbeat_task = asyncio.create_task(heartbeat_loop())
+        self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
         self.logger.debug(
             "%s: Started heartbeat task with interval %fs",
             self.service_type,
