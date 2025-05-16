@@ -19,7 +19,6 @@ import zmq.asyncio
 from zmq import SocketType
 
 from aiperf.common.comms.zmq_comms.clients.base_zmq_client import BaseZMQClient
-from aiperf.common.errors.base_error import Error
 from aiperf.common.errors.comm_errors import CommNotInitializedError, CommPublishError
 from aiperf.common.models.message_models import BaseMessage
 
@@ -45,7 +44,7 @@ class ZMQPubClient(BaseZMQClient):
         """
         super().__init__(context, SocketType.PUB, address, bind, socket_ops)
 
-    async def publish(self, topic: str, message: BaseMessage) -> Error | None:
+    async def publish(self, topic: str, message: BaseMessage) -> None:
         """Publish a message to a topic.
 
         Args:

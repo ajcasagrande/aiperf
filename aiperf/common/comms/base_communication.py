@@ -25,7 +25,7 @@ class BaseCommunication(ABC):
     """Base class for communication between AIPerf components."""
 
     @abstractmethod
-    async def initialize(self) -> Error | None:
+    async def initialize(self) -> None:
         """Initialize communication channels.
 
         Returns:
@@ -54,7 +54,7 @@ class BaseCommunication(ABC):
         pass
 
     @abstractmethod
-    async def shutdown(self) -> Error | None:
+    async def shutdown(self) -> None:
         """Gracefully shutdown communication channels.
 
         Returns:
@@ -63,7 +63,7 @@ class BaseCommunication(ABC):
         pass
 
     @abstractmethod
-    async def create_clients(self, *client_types: ClientType) -> Error | None:
+    async def create_clients(self, *client_types: ClientType) -> None:
         """Create the communication clients.
 
         Returns:
@@ -72,7 +72,7 @@ class BaseCommunication(ABC):
         pass
 
     @abstractmethod
-    async def publish(self, topic: TopicType, message: BaseMessage) -> Error | None:
+    async def publish(self, topic: TopicType, message: BaseMessage) -> None:
         """Publish a response to a topic.
 
         Args:
@@ -88,8 +88,8 @@ class BaseCommunication(ABC):
     async def subscribe(
         self,
         topic: TopicType,
-        callback: Callable[[BaseMessage], Coroutine[Any, Any, Error | None]],
-    ) -> Error | None:
+        callback: Callable[[BaseMessage], Coroutine[Any, Any, None]],
+    ) -> None:
         """Subscribe to a topic.
 
         Args:
@@ -121,7 +121,7 @@ class BaseCommunication(ABC):
         pass
 
     @abstractmethod
-    async def respond(self, target: str, response: BaseMessage) -> Error | None:
+    async def respond(self, target: str, response: BaseMessage) -> None:
         """Send a response to a request.
 
         Args:
@@ -134,7 +134,7 @@ class BaseCommunication(ABC):
         pass
 
     @abstractmethod
-    async def push(self, topic: TopicType, message: BaseMessage) -> Error | None:
+    async def push(self, topic: TopicType, message: BaseMessage) -> None:
         """Push data to a target.
 
         Args:
@@ -150,8 +150,8 @@ class BaseCommunication(ABC):
     async def pull(
         self,
         topic: TopicType,
-        callback: Callable[[BaseMessage], Coroutine[Any, Any, Error | None]],
-    ) -> Error | None:
+        callback: Callable[[BaseMessage], Coroutine[Any, Any, None]],
+    ) -> None:
         """Pull data from a source.
 
         Args:

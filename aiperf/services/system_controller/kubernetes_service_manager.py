@@ -18,7 +18,6 @@ from pydantic import BaseModel
 
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ServiceType
-from aiperf.common.errors.base_error import Error
 from aiperf.services.system_controller.base_service_manager import BaseServiceManager
 
 
@@ -40,7 +39,7 @@ class KubernetesServiceManager(BaseServiceManager):
     ):
         super().__init__(required_service_types, config)
 
-    async def initialize_all_services(self) -> Error | None:
+    async def initialize_all_services(self) -> None:
         """Initialize all required services as Kubernetes pods."""
         self.logger.debug("Initializing all required services as Kubernetes pods")
         # TODO: Implement Kubernetes
@@ -48,7 +47,7 @@ class KubernetesServiceManager(BaseServiceManager):
             "KubernetesServiceManager.initialize_all_services not implemented"
         )
 
-    async def stop_all_services(self) -> Error | None:
+    async def stop_all_services(self) -> None:
         """Stop all required services as Kubernetes pods."""
         self.logger.debug("Stopping all required services as Kubernetes pods")
         # TODO: Implement Kubernetes
@@ -58,7 +57,7 @@ class KubernetesServiceManager(BaseServiceManager):
 
     async def wait_for_all_services_registration(
         self, stop_event: asyncio.Event, timeout_seconds: int = 30
-    ) -> Error | None:
+    ) -> None:
         """Wait for all required services to be registered in Kubernetes."""
         self.logger.debug(
             "Waiting for all required services to be registered in Kubernetes"
@@ -68,7 +67,7 @@ class KubernetesServiceManager(BaseServiceManager):
             "KubernetesServiceManager.wait_for_all_services_registration not implemented"
         )
 
-    async def wait_for_all_services_start(self) -> Error | None:
+    async def wait_for_all_services_start(self) -> None:
         """Wait for all required services to be started in Kubernetes."""
         self.logger.debug(
             "Waiting for all required services to be started in Kubernetes"

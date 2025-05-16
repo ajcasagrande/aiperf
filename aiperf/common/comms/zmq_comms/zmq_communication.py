@@ -88,7 +88,7 @@ class ZMQCommunication(BaseCommunication):
             self.config.client_id,
         )
 
-    async def initialize(self) -> Error | None:
+    async def initialize(self) -> None:
         """Initialize communication channels.
 
         Returns:
@@ -119,7 +119,7 @@ class ZMQCommunication(BaseCommunication):
         """
         return self._is_shutdown
 
-    async def shutdown(self) -> Error | None:
+    async def shutdown(self) -> None:
         """Gracefully shutdown communication channels.
 
         Returns:
@@ -149,7 +149,7 @@ class ZMQCommunication(BaseCommunication):
             self.context = None
         return None
 
-    def _ensure_initialized(self) -> Error | None:
+    def _ensure_initialized(self) -> None:
         """Ensure the communication channels are initialized.
 
         Returns:
@@ -330,7 +330,7 @@ class ZMQCommunication(BaseCommunication):
                     error_details=f"Invalid client type: {client_type}"
                 )
 
-    async def create_clients(self, *types: ClientType) -> Error | None:
+    async def create_clients(self, *types: ClientType) -> None:
         """Create and initialize ZMQ clients based on the client types.
 
         Args:
@@ -379,7 +379,7 @@ class ZMQCommunication(BaseCommunication):
 
         return None
 
-    async def publish(self, topic: TopicType, message: BaseMessage) -> Error | None:
+    async def publish(self, topic: TopicType, message: BaseMessage) -> None:
         if error := self._ensure_initialized():
             return error
         logger.debug("Publishing message to topic: %s, message: %s", topic, message)
@@ -411,8 +411,8 @@ class ZMQCommunication(BaseCommunication):
     async def subscribe(
         self,
         topic: TopicType,
-        callback: Callable[[BaseMessage], Coroutine[Any, Any, Error | None]],
-    ) -> Error | None:
+        callback: Callable[[BaseMessage], Coroutine[Any, Any, None]],
+    ) -> None:
         logger.debug(f"Subscribing to topic: {topic}")
 
         if error := self._ensure_initialized():
@@ -469,7 +469,7 @@ class ZMQCommunication(BaseCommunication):
             logger.error(f"Error requesting from {target}: {e}")
             return CommReqError.from_exception(e)
 
-    async def respond(self, target: str, response: BaseMessage) -> Error | None:
+    async def respond(self, target: str, response: BaseMessage) -> None:
         logger.debug(f"Responding to {target} with data: {response}")
         if error := self._ensure_initialized():
             return error
@@ -493,7 +493,7 @@ class ZMQCommunication(BaseCommunication):
             logger.error(f"Error responding to {target}: {e}")
             return CommRepError.from_exception(e)
 
-    async def push(self, topic: TopicType, message: BaseMessage) -> Error | None:
+    async def push(self, topic: TopicType, message: BaseMessage) -> None:
         logger.debug("Pushing data to topic: %s, message: %s", topic, message)
         if error := self._ensure_initialized():
             return error
@@ -520,7 +520,7 @@ class ZMQCommunication(BaseCommunication):
         self,
         topic: TopicType,
         callback: Callable[[BaseMessage], None],
-    ) -> Error | None:
+    ) -> None:
         logger.debug(f"Pulling data from {topic}")
 
         if error := self._ensure_initialized():

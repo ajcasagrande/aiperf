@@ -25,7 +25,6 @@ from aiperf.common.enums import (
     ServiceType,
     Topic,
 )
-from aiperf.common.errors import Error
 from aiperf.common.errors.comm_errors import CommNotInitializedError
 from aiperf.common.errors.config_errors import ConfigError
 from aiperf.common.errors.service_errors import ServiceInitializationError
@@ -62,12 +61,12 @@ class SystemController(BaseControllerService):
         """The type of service."""
         return ServiceType.SYSTEM_CONTROLLER
 
-    async def run(self) -> Error | None:
+    async def run(self) -> None:
         """Run the system controller."""
         self.logger.info("AIPerf System is STARTING")
         return await super().run()
 
-    async def _initialize(self) -> Error | None:
+    async def _initialize(self) -> None:
         """Initialize system controller-specific components."""
         self.logger.debug("Initializing System Controller")
 
@@ -123,7 +122,7 @@ class SystemController(BaseControllerService):
 
         return None
 
-    async def _on_start(self) -> Error | None:
+    async def _on_start(self) -> None:
         """Start the system controller and launch required services."""
         self.logger.debug("Starting System Controller")
 
@@ -186,7 +185,7 @@ class SystemController(BaseControllerService):
                     command=CommandType.START,
                 )
 
-    async def _on_stop(self) -> Error | None:
+    async def _on_stop(self) -> None:
         """Stop the system controller and all running services."""
         self.logger.debug("Stopping System Controller")
         self.logger.info("AIPerf System is SHUTTING DOWN")
@@ -198,13 +197,13 @@ class SystemController(BaseControllerService):
 
         return None
 
-    async def _cleanup(self) -> Error | None:
+    async def _cleanup(self) -> None:
         """Clean up system controller-specific components."""
         self.logger.debug("Cleaning up System Controller")
         # TODO: Additional cleanup if needed
         return None
 
-    async def _process_registration_message(self, message: BaseMessage) -> Error | None:
+    async def _process_registration_message(self, message: BaseMessage) -> None:
         """Process a registration response from a service.
 
         Args:
@@ -253,7 +252,7 @@ class SystemController(BaseControllerService):
 
         return None
 
-    async def _process_heartbeat_message(self, message: BaseMessage) -> Error | None:
+    async def _process_heartbeat_message(self, message: BaseMessage) -> None:
         """Process a heartbeat response from a service.
 
         Args:
@@ -302,7 +301,7 @@ class SystemController(BaseControllerService):
 
     async def send_command_to_service(
         self, target_service_id: str, command: CommandType
-    ) -> Error | None:
+    ) -> None:
         """Send a command to a specific service.
 
         Args:

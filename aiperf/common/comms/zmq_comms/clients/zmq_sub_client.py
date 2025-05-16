@@ -20,7 +20,6 @@ import zmq.asyncio
 from zmq import SocketType
 
 from aiperf.common.comms.zmq_comms.clients.base_zmq_client import BaseZMQClient
-from aiperf.common.errors.base_error import Error
 from aiperf.common.errors.comm_errors import CommNotInitializedError, CommSubscribeError
 from aiperf.common.models.message_models import BaseMessage
 
@@ -47,13 +46,13 @@ class ZMQSubClient(BaseZMQClient):
         super().__init__(context, SocketType.SUB, address, bind, socket_ops)
         self._subscribers: dict[str, list[Callable[[BaseMessage], None]]] = {}
 
-    async def _initialize(self) -> Error | None:
+    async def _initialize(self) -> None:
         asyncio.create_task(self._sub_receiver())
         return None
 
     async def subscribe(
         self, topic: str, callback: Callable[[BaseMessage], None]
-    ) -> Error | None:
+    ) -> None:
         """Subscribe to a topic.
 
         Args:

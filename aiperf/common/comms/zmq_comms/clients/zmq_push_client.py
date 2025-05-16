@@ -19,7 +19,6 @@ import zmq.asyncio
 from zmq import SocketType
 
 from aiperf.common.comms.zmq_comms.clients.base_zmq_client import BaseZMQClient
-from aiperf.common.errors.base_error import Error
 from aiperf.common.errors.comm_errors import CommNotInitializedError, CommPushError
 from aiperf.common.models.message_models import BaseMessage
 
@@ -45,7 +44,7 @@ class ZMQPushClient(BaseZMQClient):
         """
         super().__init__(context, SocketType.PUSH, address, bind, socket_ops)
 
-    async def push(self, message: BaseMessage) -> Error | None:
+    async def push(self, message: BaseMessage) -> None:
         """Push data to a target.
 
         Args:

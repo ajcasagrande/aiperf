@@ -20,7 +20,6 @@ from pydantic import BaseModel, ConfigDict, Field
 from aiperf.common.bootstrap_utils import bootstrap_and_run_service
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ServiceRegistrationStatus, ServiceType
-from aiperf.common.errors.base_error import Error
 from aiperf.services.system_controller.base_service_manager import BaseServiceManager
 
 
@@ -47,7 +46,7 @@ class MultiProcessServiceManager(BaseServiceManager):
         super().__init__(required_service_types, config)
         self.multi_process_info: list[MultiProcessRunInfo] = []
 
-    async def initialize_all_services(self) -> Error | None:
+    async def initialize_all_services(self) -> None:
         """Start all required services as multiprocessing processes."""
         self.logger.debug("Starting all required services as multiprocessing processes")
 
@@ -94,7 +93,7 @@ class MultiProcessServiceManager(BaseServiceManager):
 
         return None
 
-    async def stop_all_services(self) -> Error | None:
+    async def stop_all_services(self) -> None:
         """Stop all required services as multiprocessing processes."""
         self.logger.debug("Stopping all service processes")
 
@@ -106,7 +105,7 @@ class MultiProcessServiceManager(BaseServiceManager):
 
     async def wait_for_all_services_registration(
         self, stop_event: asyncio.Event, timeout_seconds: int = 30
-    ) -> Error | None:
+    ) -> None:
         """Wait for all required services to be registered.
 
         Args:
@@ -157,7 +156,7 @@ class MultiProcessServiceManager(BaseServiceManager):
 
         return None
 
-    async def wait_for_all_services_start(self) -> Error | None:
+    async def wait_for_all_services_start(self) -> None:
         """Wait for all required services to be started."""
         self.logger.debug("Waiting for all required services to start...")
 

@@ -32,7 +32,6 @@ from unittest.mock import AsyncMock
 import pytest
 
 from aiperf.common.comms.base_communication import BaseCommunication
-from aiperf.common.errors.base_error import Error
 from aiperf.common.models.message_models import BaseMessage
 
 
@@ -55,7 +54,7 @@ def mock_communication() -> AsyncMock:
     # Store published messages for verification
     mock_comm.published_messages: dict[Any, list[BaseMessage]] = {}
 
-    async def mock_publish(topic: Any, message: BaseMessage) -> Error | None:
+    async def mock_publish(topic: Any, message: BaseMessage) -> None:
         # Use the topic as the key, whether it's an enum or string
         topic_key = topic
 
@@ -72,7 +71,7 @@ def mock_communication() -> AsyncMock:
     # Store subscription callbacks
     mock_comm.subscriptions: dict[str, Callable] = {}
 
-    async def mock_subscribe(topic: str, callback: Callable) -> Error | None:
+    async def mock_subscribe(topic: str, callback: Callable) -> None:
         mock_comm.subscriptions[topic] = callback
         return None
 

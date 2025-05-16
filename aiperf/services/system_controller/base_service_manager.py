@@ -18,7 +18,6 @@ from abc import ABC, abstractmethod
 
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ServiceType
-from aiperf.common.errors.base_error import Error
 from aiperf.common.models.service_models import ServiceRunInfo
 
 
@@ -40,30 +39,30 @@ class BaseServiceManager(ABC):
         # Create service ID map for component lookups
         self.service_id_map: dict[str, ServiceRunInfo] = {}
 
-    def get(self, service_id: str) -> ServiceRunInfo | None:
+    def get(self, service_id: str) -> ServiceRunInfo:
         """
         Get the service run information by service ID.
         """
         return self.service_id_map.get(service_id)
 
     @abstractmethod
-    async def initialize_all_services(self) -> Error | None:
+    async def initialize_all_services(self) -> None:
         """Initialize all required services."""
         pass
 
     @abstractmethod
-    async def stop_all_services(self) -> Error | None:
+    async def stop_all_services(self) -> None:
         """Stop all managed services."""
         pass
 
     @abstractmethod
     async def wait_for_all_services_registration(
         self, stop_event: asyncio.Event, timeout_seconds: int = 30
-    ) -> Error | None:
+    ) -> None:
         """Wait for all required services to be registered."""
         pass
 
     @abstractmethod
-    async def wait_for_all_services_start(self) -> Error | None:
+    async def wait_for_all_services_start(self) -> None:
         """Wait for all required services to be started."""
         pass

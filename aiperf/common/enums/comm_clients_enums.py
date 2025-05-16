@@ -16,7 +16,6 @@ from typing import Self, Union
 
 from aiperf.common.enums.base_enums import StrEnum
 from aiperf.common.enums.comm_enums import DataTopic, Topic, TopicType
-from aiperf.common.errors.base_error import Error
 from aiperf.common.errors.comm_errors import CommClientNotFoundError
 
 
@@ -27,17 +26,14 @@ class PubClientType(StrEnum):
     COMPONENT = "component_pub"
 
     @classmethod
-    def from_topic(cls, topic: TopicType) -> tuple[Self | None, Error | None]:
+    def from_topic(cls, topic: TopicType) -> Self:
         """Determine the appropriate ClientType based on topic.
 
         Args:
             topic: The topic to communicate on
 
         Returns:
-            tuple[
-                Self,  # The appropriate ClientType for the given topic
-                Error | None,  # Error if the topic is not found
-            ]:
+            TODO: document
         """
         match topic:
             case Topic.HEARTBEAT | Topic.REGISTRATION | Topic.STATUS | Topic.RESPONSE:
@@ -57,17 +53,14 @@ class SubClientType(StrEnum):
     COMPONENT = "component_sub"
 
     @classmethod
-    def from_topic(cls, topic: TopicType) -> tuple[Self | None, Error | None]:
+    def from_topic(cls, topic: TopicType) -> Self:
         """Determine the appropriate ClientType based on topic.
 
-        Args:
-            topic: The topic to communicate on
+                Args:
+                    topic: The topic to communicate on
 
-        Returns:
-            tuple[
-                Self,  # The appropriate ClientType for the given topic
-                Error | None,  # Error if the topic is not found
-            ]:
+                Returns:
+        TODO: document
         """
         match topic:
             case Topic.HEARTBEAT | Topic.REGISTRATION | Topic.STATUS | Topic.RESPONSE:
@@ -89,18 +82,14 @@ class PushClientType(StrEnum):
     CREDIT_RETURN = "credit_return_push"
 
     @classmethod
-    def from_topic(cls, topic: TopicType) -> tuple[Self | None, Error | None]:
+    def from_topic(cls, topic: TopicType) -> Self:
         """Determine the appropriate ClientType based on communication type and topic.
 
-        Args:
-            topic: The topic to communicate on
+                Args:
+                    topic: The topic to communicate on
 
-        Returns:
-            tuple[
-                Self,  # The appropriate ClientType for the given communication
-                type and topic
-                Error | None,  # Error if the topic is not found
-            ]:
+                Returns:
+        TODO: document
         """
         match topic:
             case Topic.CREDIT_DROP:
@@ -126,17 +115,14 @@ class PullClientType(StrEnum):
     CREDIT_RETURN = "credit_return_pull"
 
     @classmethod
-    def from_topic(cls, topic: TopicType) -> tuple[Self | None, Error | None]:
+    def from_topic(cls, topic: TopicType) -> Self:
         """Determine the appropriate ClientType based on topic.
 
-        Args:
-            topic: The topic to communicate on
+                Args:
+                    topic: The topic to communicate on
 
-        Returns:
-            tuple[
-                Self,  # The appropriate ClientType for the given topic
-                Error | None,  # Error if the topic is not found
-            ]:
+                Returns:
+        TODO: document
         """
         match topic:
             case Topic.CREDIT_DROP:
@@ -159,17 +145,14 @@ class ReqClientType(StrEnum):
     CONVERSATION_DATA = "conversation_data_req"
 
     @classmethod
-    def from_topic(cls, topic: TopicType) -> tuple[Self | None, Error | None]:
+    def from_topic(cls, topic: TopicType) -> Self:
         """Determine the appropriate ClientType based on topic.
 
-        Args:
-            topic: The topic to communicate on
+                Args:
+                    topic: The topic to communicate on
 
-        Returns:
-            tuple[
-                Self,  # The appropriate ClientType for the given topic
-                Error | None,  # Error if the topic is not found
-            ]:
+                Returns:
+        TODO: document
         """
         match topic:
             case DataTopic.CONVERSATION:
@@ -186,17 +169,14 @@ class RepClientType(StrEnum):
     CONVERSATION_DATA = "conversation_data_rep"
 
     @classmethod
-    def from_topic(cls, topic: TopicType) -> tuple[Self | None, Error | None]:
+    def from_topic(cls, topic: TopicType) -> Self:
         """Determine the appropriate ClientType based on topic.
 
-        Args:
-            topic: The topic to communicate on
+                Args:
+                    topic: The topic to communicate on
 
-        Returns:
-            tuple[
-                Self,  # The appropriate ClientType for the given topic
-                Error | None,  # Error if the topic is not found
-            ]:
+                Returns:
+        TODO: document
         """
         match topic:
             case DataTopic.CONVERSATION:

@@ -25,7 +25,6 @@ from aiperf.common.enums import (
     SubClientType,
     Topic,
 )
-from aiperf.common.errors.base_error import Error
 from aiperf.common.models.message_models import BaseMessage
 from aiperf.common.models.payload_models import (
     HeartbeatPayload,
@@ -59,7 +58,7 @@ class BaseComponentService(BaseService, ABC):
         return [PubClientType.COMPONENT, SubClientType.CONTROLLER]
 
     @abstractmethod
-    async def _configure(self, payload: PayloadType) -> Error | None:
+    async def _configure(self, payload: PayloadType) -> None:
         """Configure the service with the given configuration payload.
 
         This method is called when a configure command is received from the controller.
@@ -76,7 +75,7 @@ class BaseComponentService(BaseService, ABC):
         """
         pass
 
-    async def _run(self) -> Error | None:
+    async def _run(self) -> None:
         """Internal method to run the service. This method will start the service and
         initialize its components. It will also subscribe to the command topic and
         process commands as they are received.
@@ -113,7 +112,7 @@ class BaseComponentService(BaseService, ABC):
         await self.start_heartbeat_task()
         return None
 
-    async def send_heartbeat(self) -> Error | None:
+    async def send_heartbeat(self) -> None:
         """Send a heartbeat notification to the system controller."""
         heartbeat_message = self.create_heartbeat_message()
         self.logger.debug("Sending heartbeat: %s", heartbeat_message)
@@ -122,7 +121,7 @@ class BaseComponentService(BaseService, ABC):
             message=heartbeat_message,
         )
 
-    async def register(self) -> Error | None:
+    async def register(self) -> None:
         """Publish a registration request to the system controller.
 
         This method should be called after the service has been initialized and is
@@ -138,7 +137,7 @@ class BaseComponentService(BaseService, ABC):
             message=self.create_registration_message(),
         )
 
-    async def process_command_message(self, message: BaseMessage) -> Error | None:
+    async def process_command_message(self, message: BaseMessage) -> None:
         """Process a command message received from the controller.
 
         This method will process the command message and execute the appropriate action.
@@ -160,7 +159,7 @@ class BaseComponentService(BaseService, ABC):
             self.logger.warning(f"{self.service_type} received unknown command: {cmd}")
             return None
 
-    async def set_state(self, state: ServiceState) -> Error | None:
+    async def set_state(self, state: ServiceState) -> None:
         """Set the state of the service.
 
         This method will also publish the status message to the status topic if the
@@ -175,7 +174,7 @@ class BaseComponentService(BaseService, ABC):
 
         return None
 
-    async def stop(self) -> Error | None:
+    async def stop(self) -> None:
         """Stop the service."""
         err = await super().stop()
         heartbeat_err = await self.stop_heartbeat_task()

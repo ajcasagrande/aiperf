@@ -21,7 +21,6 @@ import zmq.asyncio
 from zmq import SocketType
 
 from aiperf.common.comms.zmq_comms.clients.base_zmq_client import BaseZMQClient
-from aiperf.common.errors.base_error import Error
 from aiperf.common.errors.comm_errors import CommNotInitializedError
 from aiperf.common.models.message_models import BaseMessage
 
@@ -90,8 +89,8 @@ class ZMQPullClient(BaseZMQClient):
     async def pull(
         self,
         topic: str,
-        callback: Callable[[BaseMessage], Error | None],
-    ) -> Error | None:
+        callback: Callable[[BaseMessage], None],
+    ) -> None:
         """Register a ZMQ Pull data callback from a source (topic).
 
         Args:

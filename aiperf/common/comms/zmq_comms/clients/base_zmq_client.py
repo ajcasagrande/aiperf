@@ -19,7 +19,6 @@ from abc import ABC, abstractmethod
 import zmq.asyncio
 from zmq import SocketType
 
-from aiperf.common.errors import Error
 from aiperf.common.errors.comm_errors import CommInitializationError, CommShutdownError
 
 logger = logging.getLogger(__name__)
@@ -59,7 +58,7 @@ class BaseZMQClient(ABC):
         """Get the name of the socket type."""
         return self.socket_type.name
 
-    async def initialize(self) -> Error | None:
+    async def initialize(self) -> None:
         """Initialize the communication."""
         try:
             self.socket = self.context.socket(self.socket_type)
@@ -96,7 +95,7 @@ class BaseZMQClient(ABC):
             logger.error("Error initializing ZMQ socket: %s", e)
             return CommInitializationError.from_exception(e)
 
-    async def shutdown(self) -> Error | None:
+    async def shutdown(self) -> None:
         """Shutdown the communication."""
         try:
             self.socket.close()
@@ -110,7 +109,7 @@ class BaseZMQClient(ABC):
             self._is_shutdown = True
 
     @abstractmethod
-    async def _initialize(self) -> Error | None:
+    async def _initialize(self) -> None:
         """Override in subclass to implement custom initialization logic.
 
         This method is called after the socket is bound or connected.

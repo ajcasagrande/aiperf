@@ -81,11 +81,11 @@ class BaseService(AbstractBaseService, ABC):
 
     # Note: Not using as a setter so it can be overridden by derived classes and still
     # be async
-    async def set_state(self, state: ServiceState) -> Error | None:
+    async def set_state(self, state: ServiceState) -> None:
         """Set the state of the service."""
         self._state = state
 
-    async def initialize(self) -> Error | None:
+    async def initialize(self) -> None:
         """Initialize the service communication and signal handlers."""
         # Set up signal handlers for graceful shutdown
         self.setup_signal_handlers()
@@ -120,7 +120,7 @@ class BaseService(AbstractBaseService, ABC):
 
         return None
 
-    async def _run(self) -> Error | None:
+    async def _run(self) -> None:
         """Run the service."""
         # Initialize the service
         if init_error := await self.initialize():
@@ -137,7 +137,7 @@ class BaseService(AbstractBaseService, ABC):
 
         return None
 
-    async def run(self) -> Error | None:
+    async def run(self) -> None:
         """Run the service.
 
         This method will be called as the main entry point for the service. It will
@@ -158,7 +158,7 @@ class BaseService(AbstractBaseService, ABC):
         # Run the service forever until the stop event is set
         return await self._forever_loop()
 
-    async def _forever_loop(self) -> Error | None:
+    async def _forever_loop(self) -> None:
         """Run the service in a loop until the stop event is set.
 
         This method will be called by the `run` method to allow the service to run
@@ -186,7 +186,7 @@ class BaseService(AbstractBaseService, ABC):
 
         return None
 
-    async def start(self) -> Error | None:
+    async def start(self) -> None:
         """Start the service and its components.
 
         This method should be called to start the service after it has been initialized
@@ -217,7 +217,7 @@ class BaseService(AbstractBaseService, ABC):
 
             return ServiceStartError.from_exception(e)
 
-    async def stop(self) -> Error | None:
+    async def stop(self) -> None:
         """Stop the service and clean up its components."""
         try:
             if self.state == ServiceState.STOPPED:

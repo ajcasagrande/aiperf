@@ -50,7 +50,7 @@ class ZMQRepClient(BaseZMQClient):
         self._response_data = {}
         self._receiver_task = None
 
-    async def initialize(self) -> Error | None:
+    async def initialize(self) -> None:
         """Initialize the socket and start the receiver task.
 
         Returns:
@@ -64,13 +64,13 @@ class ZMQRepClient(BaseZMQClient):
 
         return None
 
-    async def _initialize(self) -> Error | None:
+    async def _initialize(self) -> None:
         # Start the receiver task
         self._receiver_task = asyncio.create_task(self._rep_receiver())
         logger.debug(f"REP socket initialized and listening on {self.address}")
         return None
 
-    async def shutdown(self) -> Error | None:
+    async def shutdown(self) -> None:
         """Shutdown the socket and clean up resources."""
         if self._receiver_task and not self._receiver_task.done():
             self._receiver_task.cancel()
@@ -136,7 +136,7 @@ class ZMQRepClient(BaseZMQClient):
             logger.error(f"Error waiting for request: {e}")
             return CommRepError.from_exception(e)
 
-    async def respond(self, target: str, response: BaseMessage) -> Error | None:
+    async def respond(self, target: str, response: BaseMessage) -> None:
         """Send a response to a request.
 
         Args:
@@ -164,7 +164,7 @@ class ZMQRepClient(BaseZMQClient):
             logger.error(f"Error sending response to {target}: {e}")
             return CommRepError.from_exception(e)
 
-    async def _rep_receiver(self) -> Error | None:
+    async def _rep_receiver(self) -> None:
         """Background task for receiving requests and sending responses."""
         while not self._is_shutdown:
             if not self._is_initialized or not self.socket:
