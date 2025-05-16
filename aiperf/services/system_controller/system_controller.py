@@ -35,7 +35,7 @@ from aiperf.services.system_controller.base_service_manager import BaseServiceMa
 from aiperf.services.system_controller.kubernetes_service_manager import (
     KubernetesServiceManager,
 )
-from aiperf.services.system_controller.multiprocess_manager import (
+from aiperf.services.system_controller.multiprocess_service_manager import (
     MultiProcessServiceManager,
 )
 
