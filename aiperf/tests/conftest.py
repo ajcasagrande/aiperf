@@ -64,7 +64,6 @@ def mock_communication() -> AsyncMock:
 
         # Store the response
         mock_comm.published_messages[topic_key].append(message)
-        return None
 
     mock_comm.publish.side_effect = mock_publish
 
@@ -73,7 +72,6 @@ def mock_communication() -> AsyncMock:
 
     async def mock_subscribe(topic: str, callback: Callable) -> None:
         mock_comm.subscriptions[topic] = callback
-        return None
 
     mock_comm.subscribe.side_effect = mock_subscribe
 

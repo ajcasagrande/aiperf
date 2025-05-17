@@ -91,8 +91,6 @@ class MultiProcessServiceManager(BaseServiceManager):
                 MultiProcessRunInfo(process=process, service_type=service_type)
             )
 
-        return None
-
     async def stop_all_services(self) -> None:
         """Stop all required services as multiprocessing processes."""
         self.logger.debug("Stopping all service processes")
@@ -101,7 +99,6 @@ class MultiProcessServiceManager(BaseServiceManager):
         await asyncio.gather(
             *[self._wait_for_process(info) for info in self.multi_process_info]
         )
-        return None
 
     async def wait_for_all_services_registration(
         self, stop_event: asyncio.Event, timeout_seconds: int = 30
@@ -135,7 +132,7 @@ class MultiProcessServiceManager(BaseServiceManager):
 
                     # Check if all required types are registered
                     if required_types.issubset(registered_types):
-                        return None
+                        return
 
                     # Wait a bit before checking again
                     await asyncio.sleep(0.5)
@@ -153,8 +150,6 @@ class MultiProcessServiceManager(BaseServiceManager):
                 self.logger.warning(
                     f"Service {service_type} failed to register within timeout"
                 )
-
-        return None
 
     async def wait_for_all_services_start(self) -> None:
         """Wait for all required services to be started."""

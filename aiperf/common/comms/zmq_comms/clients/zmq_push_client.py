@@ -72,5 +72,3 @@ class ZMQPushClient(BaseZMQClient):
         except Exception as e:
             logger.error(f"Exception pushing data: {e} {type(e)}")
             raise CommunicationPushException from e
-
-        return None

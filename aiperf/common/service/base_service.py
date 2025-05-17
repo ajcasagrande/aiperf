@@ -302,8 +302,6 @@ class BaseService(AbstractBaseService, ABC):
                 self.service_id,
             ) from e
 
-        return None
-
     def create_message(
         self, payload: PayloadType, request_id: str | None = None
     ) -> BaseMessage:

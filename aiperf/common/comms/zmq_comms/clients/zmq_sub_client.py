@@ -51,7 +51,6 @@ class ZMQSubClient(BaseZMQClient):
 
     async def _initialize(self) -> None:
         asyncio.create_task(self._sub_receiver())
-        return None
 
     async def subscribe(
         self, topic: str, callback: Callable[[BaseMessage], None]
@@ -86,8 +85,6 @@ class ZMQSubClient(BaseZMQClient):
         except Exception as e:
             logger.error("Exception subscribing to topic %s: %s", topic, e)
             raise CommunicationSubscribeException from e
-
-        return None
 
     async def _sub_receiver(self) -> None:
         """Background task for receiving messages from subscribed topics."""

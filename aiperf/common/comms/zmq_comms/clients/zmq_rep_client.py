@@ -159,7 +159,7 @@ class ZMQRepClient(BaseZMQClient):
 
             # Send response
             await self.socket.send_string(response_json)
-            return None
+
         except Exception as e:
             logger.error(f"Exception sending response to {target}: {e}")
             raise CommunicationResponseException(
@@ -200,5 +200,3 @@ class ZMQRepClient(BaseZMQClient):
             except Exception as e:
                 logger.error(f"Exception receiving request: {e}")
                 await asyncio.sleep(0.1)
-
-        return None

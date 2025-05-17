@@ -150,7 +150,7 @@ class SystemController(BaseControllerService):
                 self.logger.debug(
                     "System Controller stopped before all services registered"
                 )
-                return None  # Don't continue with the rest of the initialization
+                return  # Don't continue with the rest of the initialization
 
         except Exception as e:
             self.logger.error(
@@ -173,7 +173,7 @@ class SystemController(BaseControllerService):
 
         if self.stop_event.is_set():
             self.logger.debug("System Controller stopped before all services started")
-            return None  # Don't continue with the rest of the initialization
+            return  # Don't continue with the rest of the initialization
 
         self.logger.debug("All required services started successfully")
         self.logger.info("AIPerf System is RUNNING")
