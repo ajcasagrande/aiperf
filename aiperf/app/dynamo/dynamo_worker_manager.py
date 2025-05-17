@@ -16,25 +16,13 @@ import asyncio
 import logging
 
 from dynamo.sdk import DYNAMO_IMAGE, service
-from dynamo.sdk.core.decorators.endpoint import dynamo_api
-from dynamo.sdk.core.lib import depends
+from dynamo.sdk.core.decorators.endpoint import dynamo_endpoint
 from dynamo.sdk.lib.config import ServiceConfig as DynamoServiceConfig
 from dynamo.sdk.lib.decorators import async_on_start
 from pydantic import BaseModel
 
-from aiperf.app.dynamo.timing_manager import DynamoTimingManager
-from aiperf.app.dynamo.worker import DynamoWorker
 from aiperf.common.config.service_config import ServiceConfig
-from aiperf.services.system_controller.system_controller import SystemController
-
-
-class RequestType(BaseModel):
-    text: str
-
-
-class ResponseType(BaseModel):
-    text: str
-
+from aiperf.services.worker_manager.worker_manager import WorkerManager
 
 logger = logging.getLogger(__name__)
 
@@ -48,39 +36,34 @@ logger = logging.getLogger(__name__)
     image=DYNAMO_IMAGE,
     static=True,
 )
-class DynamoSystemController:
-    timing_manager: DynamoTimingManager = depends(DynamoTimingManager)
-    worker: DynamoWorker = depends(DynamoWorker)
-
+class DynamoWorkerManager:
     def __init__(self) -> None:
-        logger.info("Starting system controller")
+        logger.info("Starting worker manager")
         config = DynamoServiceConfig.get_instance()
-        self.message = config.get("SystemController", {}).get(
-            "message", "system_controller"
-        )
-        logger.info(f"System controller config message: {self.message}")
-        self.system_controller = SystemController(ServiceConfig())
+        self.message = config.get("WorkerManager", {}).get("message", "worker_manager")
+        logger.info(f"Worker manager config message: {self.message}")
+        self.worker_manager = WorkerManager(ServiceConfig())
 
     @async_on_start
     async def init(self):
-        await asyncio.create_task(self.system_controller.run())
+        await asyncio.create_task(self.worker_manager.run())
 
-    @dynamo_api()
-    async def initialize(self, input: RequestType) -> ResponseType:
-        await self.system_controller.initialize()
-        return ResponseType(text=input.text)
+    @dynamo_endpoint()
+    async def initialize(self, input: BaseModel) -> BaseModel:
+        await self.worker_manager.initialize()
+        return BaseModel()
 
-    @dynamo_api()
-    async def start(self, input: RequestType) -> ResponseType:
-        await self.system_controller.start()
-        return ResponseType(text=input.text)
+    @dynamo_endpoint()
+    async def start(self, input: BaseModel) -> BaseModel:
+        await self.worker_manager.start()
+        return BaseModel()
 
-    @dynamo_api()
-    async def run(self, input: RequestType) -> ResponseType:
-        await asyncio.create_task(self.system_controller.run())
-        return ResponseType(text=input.text)
+    @dynamo_endpoint()
+    async def run(self, input: BaseModel) -> BaseModel:
+        await asyncio.create_task(self.worker_manager.run())
+        return BaseModel()
 
-    @dynamo_api()
-    async def stop(self, input: RequestType) -> ResponseType:
-        await self.system_controller.stop()
-        return ResponseType(text=input.text)
+    @dynamo_endpoint()
+    async def stop(self, input: BaseModel) -> BaseModel:
+        await self.worker_manager.stop()
+        return BaseModel()

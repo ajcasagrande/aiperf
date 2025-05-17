@@ -13,15 +13,47 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-TimingManager:
+DynamoSystemController:
   port: 8000
   ServiceArgs:
     workers: 1
     resources:
       cpu: "1"
 
-Worker:
+DynamoWorker:
   ServiceArgs:
-    workers: 2
+    workers: 10
     resources:
       cpu: "1"
+
+DynamoDatasetManager:
+  ServiceArgs:
+    workers: 1
+    resources:
+      cpu: "1"
+
+DynamoRecordsManager:
+  ServiceArgs:
+    workers: 1
+    resources:
+      cpu: "1"
+
+DynamoPostProcessorManager:
+  ServiceArgs:
+    workers: 1
+    resources:
+      cpu: "1"
+
+DynamoTimingManager:
+  ServiceArgs:
+    workers: 1
+    resources:
+      cpu: "1"
+
+DynamoWorkerManager:
+  ServiceArgs:
+    workers: 1
+    resources:
+      cpu: "1"
+
+

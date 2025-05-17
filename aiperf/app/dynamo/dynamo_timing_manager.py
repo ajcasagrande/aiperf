@@ -21,16 +21,7 @@ from dynamo.sdk.lib.decorators import async_on_start
 from pydantic import BaseModel
 
 from aiperf.common.config.service_config import ServiceConfig
-from aiperf.services.worker.worker import Worker
-
-
-class RequestType(BaseModel):
-    text: str
-
-
-class ResponseType(BaseModel):
-    text: str
-
+from aiperf.services.timing_manager.timing_manager import TimingManager
 
 logger = logging.getLogger(__name__)
 
@@ -40,28 +31,38 @@ logger = logging.getLogger(__name__)
         "namespace": "aiperf",
     },
     resource={"cpu": 1, "memory": "500Mi"},
-    workers=10,
+    workers=1,
     image=DYNAMO_IMAGE,
     static=True,
 )
-class DynamoWorker:
+class DynamoTimingManager:
     def __init__(self) -> None:
-        logger.info("Starting worker")
+        logger.info("Starting timing manager")
         config = DynamoServiceConfig.get_instance()
-        self.message = config.get("Worker", {}).get("message", "worker")
-        logger.info(f"Worker config message: {self.message}")
-        self.worker = Worker(ServiceConfig())
+        self.message = config.get("TimingManager", {}).get("message", "timing_manager")
+        logger.info(f"Timing manager config message: {self.message}")
+        self.timing_manager = TimingManager(ServiceConfig())
 
     @async_on_start
     async def init(self):
-        await asyncio.create_task(self.worker.run())
+        await asyncio.create_task(self.timing_manager.run())
 
     @dynamo_endpoint()
-    async def run(self, input: RequestType) -> ResponseType:
-        await asyncio.create_task(self.worker.run())
-        return ResponseType(text=input.text)
+    async def initialize(self, input: BaseModel) -> BaseModel:
+        await self.timing_manager.initialize()
+        return BaseModel()
 
     @dynamo_endpoint()
-    async def start(self, input: RequestType) -> ResponseType:
-        await asyncio.create_task(self.worker.start())
-        return ResponseType(text=input.text)
+    async def start(self, input: BaseModel) -> BaseModel:
+        await asyncio.create_task(self.timing_manager.start())
+        return BaseModel()
+
+    @dynamo_endpoint()
+    async def run(self, input: BaseModel) -> BaseModel:
+        await asyncio.create_task(self.timing_manager.run())
+        return BaseModel()
+
+    @dynamo_endpoint()
+    async def stop(self, input: BaseModel) -> BaseModel:
+        await self.timing_manager.stop()
+        return BaseModel()

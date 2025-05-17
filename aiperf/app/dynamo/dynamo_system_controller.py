@@ -22,19 +22,13 @@ from dynamo.sdk.lib.config import ServiceConfig as DynamoServiceConfig
 from dynamo.sdk.lib.decorators import async_on_start
 from pydantic import BaseModel
 
-from aiperf.app.dynamo.timing_manager import DynamoTimingManager
-from aiperf.app.dynamo.worker import DynamoWorker
+from aiperf.app.dynamo.dynamo_dataset_manager import DynamoDatasetManager
+from aiperf.app.dynamo.dynamo_post_processor_manager import DynamoPostProcessorManager
+from aiperf.app.dynamo.dynamo_records_manager import DynamoRecordsManager
+from aiperf.app.dynamo.dynamo_timing_manager import DynamoTimingManager
+from aiperf.app.dynamo.dynamo_worker_manager import DynamoWorkerManager
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.services.system_controller.system_controller import SystemController
-
-
-class RequestType(BaseModel):
-    text: str
-
-
-class ResponseType(BaseModel):
-    text: str
-
 
 logger = logging.getLogger(__name__)
 
@@ -49,8 +43,15 @@ logger = logging.getLogger(__name__)
     static=True,
 )
 class DynamoSystemController:
-    timing_manager: DynamoTimingManager = depends(DynamoTimingManager)
-    worker: DynamoWorker = depends(DynamoWorker)
+    """
+    This is the system controller for the AIPerf Dynamo system.
+    """
+
+    worker_manager = depends(DynamoWorkerManager)
+    dataset_manager = depends(DynamoDatasetManager)
+    records_manager = depends(DynamoRecordsManager)
+    post_processor_manager = depends(DynamoPostProcessorManager)
+    timing_manager = depends(DynamoTimingManager)
 
     def __init__(self) -> None:
         logger.info("Starting system controller")
@@ -66,21 +67,21 @@ class DynamoSystemController:
         await asyncio.create_task(self.system_controller.run())
 
     @dynamo_api()
-    async def initialize(self, input: RequestType) -> ResponseType:
+    async def initialize(self, input: BaseModel) -> BaseModel:
         await self.system_controller.initialize()
-        return ResponseType(text=input.text)
+        return BaseModel()
 
     @dynamo_api()
-    async def start(self, input: RequestType) -> ResponseType:
+    async def start(self, input: BaseModel) -> BaseModel:
         await self.system_controller.start()
-        return ResponseType(text=input.text)
+        return BaseModel()
 
     @dynamo_api()
-    async def run(self, input: RequestType) -> ResponseType:
+    async def run(self, input: BaseModel) -> BaseModel:
         await asyncio.create_task(self.system_controller.run())
-        return ResponseType(text=input.text)
+        return BaseModel()
 
     @dynamo_api()
-    async def stop(self, input: RequestType) -> ResponseType:
+    async def stop(self, input: BaseModel) -> BaseModel:
         await self.system_controller.stop()
-        return ResponseType(text=input.text)
+        return BaseModel()
