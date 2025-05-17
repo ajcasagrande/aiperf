@@ -21,8 +21,7 @@ from abc import ABC
 
 import setproctitle
 
-from aiperf.common.comms.base_communication import BaseCommunication
-from aiperf.common.comms.communication_factory import CommunicationFactory
+from aiperf.app.comms import BaseCommunication, CommunicationFactory
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ServiceState
 from aiperf.common.exceptions.comm_exceptions import (

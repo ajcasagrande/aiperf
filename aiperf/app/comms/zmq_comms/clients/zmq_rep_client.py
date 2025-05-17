@@ -19,7 +19,7 @@ import logging
 import zmq.asyncio
 from zmq import SocketType
 
-from aiperf.common.comms.zmq_comms.clients.base_zmq_client import BaseZMQClient
+from aiperf.app.comms.zmq_comms.clients.base_zmq_client import BaseZMQClient
 from aiperf.common.exceptions.comm_exceptions import (
     CommunicationInitializationException,
     CommunicationNotInitializedException,

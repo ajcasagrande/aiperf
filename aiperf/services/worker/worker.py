@@ -17,6 +17,7 @@ import sys
 
 import uvloop
 
+from aiperf.app.service.base_service import BaseService
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import (
     ClientType,
@@ -27,7 +28,6 @@ from aiperf.common.enums import (
 )
 from aiperf.common.models.message_models import CreditDropMessage
 from aiperf.common.models.payload_models import CreditReturnPayload
-from aiperf.common.service.base_service import BaseService
 
 
 class Worker(BaseService):

@@ -14,9 +14,9 @@
 #  limitations under the License.
 import pytest
 
+from aiperf.app.service.base_component_service import BaseComponentService
 from aiperf.common.enums.comm_enums import Topic
 from aiperf.common.enums.service_enums import ServiceState
-from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.tests.base_test_service import BaseTestService, async_fixture
 
 

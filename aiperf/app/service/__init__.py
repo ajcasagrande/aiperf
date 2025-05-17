@@ -13,8 +13,8 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-__all__ = ["BaseCommunication", "CommunicationFactory", "ZMQCommunication"]
+__all__ = ["BaseService", "BaseComponentService", "BaseControllerService"]
 
-from aiperf.common.comms.base_communication import BaseCommunication
-from aiperf.common.comms.communication_factory import CommunicationFactory
-from aiperf.common.comms.zmq_comms.zmq_communication import ZMQCommunication
+from aiperf.app.service.base_component_service import BaseComponentService
+from aiperf.app.service.base_controller_service import BaseControllerService
+from aiperf.app.service.base_service import BaseService

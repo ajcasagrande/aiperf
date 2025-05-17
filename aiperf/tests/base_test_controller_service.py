@@ -14,7 +14,7 @@
 #  limitations under the License.
 import pytest
 
-from aiperf.common.service.base_controller_service import BaseControllerService
+from aiperf.app.service.base_controller_service import BaseControllerService
 from aiperf.tests.base_test_service import BaseTestService
 
 

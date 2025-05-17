@@ -15,8 +15,8 @@
 
 import logging
 
-from aiperf.common.comms.base_communication import BaseCommunication
-from aiperf.common.comms.zmq_comms.zmq_communication import ZMQCommunication
+from aiperf.app.comms.base_communication import BaseCommunication
+from aiperf.app.comms.zmq_comms.zmq_communication import ZMQCommunication
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import CommunicationBackend
 from aiperf.common.exceptions.comm_exceptions import (

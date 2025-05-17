@@ -162,7 +162,7 @@ When implementing a new service that inherits from `ServiceBase`, you must:
 Here's a simplified example of a service implementation:
 
 ```python
-from aiperf.common.service.base_service import BaseService
+from aiperf.app.service.base_service import BaseService
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import Topic, ClientType
 from aiperf.common.models.message_models import BaseMessage
@@ -227,7 +227,7 @@ To instantiate and run a service:
 
 ```python
 def main() -> None:
-    from aiperf.common.bootstrap_utils import bootstrap_and_run_service
+    from aiperf.app.bootstrap_utils import bootstrap_and_run_service
 
     bootstrap_and_run_service(ExampleService)
 

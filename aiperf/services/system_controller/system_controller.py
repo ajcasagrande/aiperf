@@ -16,6 +16,7 @@ import asyncio
 import sys
 import time
 
+from aiperf.app.service.base_controller_service import BaseControllerService
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import (
     CommandType,
@@ -38,7 +39,6 @@ from aiperf.common.exceptions.service_exceptions import (
 )
 from aiperf.common.models.message_models import BaseMessage
 from aiperf.common.models.service_models import ServiceRunInfo
-from aiperf.common.service.base_controller_service import BaseControllerService
 from aiperf.services.service_manager.base_service_manager import BaseServiceManager
 from aiperf.services.service_manager.kubernetes_service_manager import (
     KubernetesServiceManager,
@@ -339,7 +339,7 @@ class SystemController(BaseControllerService):
 
 
 def main() -> None:
-    from aiperf.common.bootstrap_utils import bootstrap_and_run_service
+    from aiperf.app.bootstrap_utils import bootstrap_and_run_service
 
     bootstrap_and_run_service(SystemController)
 

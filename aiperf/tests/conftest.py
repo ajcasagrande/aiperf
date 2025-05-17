@@ -31,7 +31,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from aiperf.common.comms.base_communication import BaseCommunication
+from aiperf.app.comms import BaseCommunication
 from aiperf.common.models.message_models import Message
 
 

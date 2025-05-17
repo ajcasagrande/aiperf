@@ -19,12 +19,12 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from aiperf.common.bootstrap_utils import bootstrap_and_run_service
+from aiperf.app.bootstrap_utils import bootstrap_and_run_service
+from aiperf.app.service.base_component_service import BaseComponentService
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ServiceRunType, ServiceType
 from aiperf.common.exceptions.config_exceptions import ConfigException
 from aiperf.common.models.payload_models import BasePayload
-from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.services.worker.worker import Worker
 
 
@@ -180,7 +180,7 @@ class WorkerManager(BaseComponentService):
 
 
 def main() -> None:
-    from aiperf.common.bootstrap_utils import bootstrap_and_run_service
+    from aiperf.app.bootstrap_utils import bootstrap_and_run_service
 
     bootstrap_and_run_service(WorkerManager)
 

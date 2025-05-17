@@ -20,7 +20,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from aiperf.common.comms.zmq_comms.zmq_communication import ZMQCommunication
+from aiperf.app.comms.zmq_comms.zmq_communication import ZMQCommunication
 from aiperf.common.enums import (
     PubClientType,
     SubClientType,

@@ -12,8 +12,8 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+from aiperf.app.service.base_service import BaseService
 from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.service.base_service import BaseService
 
 
 def bootstrap_and_run_service(

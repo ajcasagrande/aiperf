@@ -20,14 +20,14 @@ from typing import Any
 
 import zmq.asyncio
 
-from aiperf.common.comms.base_communication import BaseCommunication
-from aiperf.common.comms.zmq_comms.clients import ZMQClient
-from aiperf.common.comms.zmq_comms.clients.zmq_pub_client import ZMQPubClient
-from aiperf.common.comms.zmq_comms.clients.zmq_pull_client import ZMQPullClient
-from aiperf.common.comms.zmq_comms.clients.zmq_push_client import ZMQPushClient
-from aiperf.common.comms.zmq_comms.clients.zmq_rep_client import ZMQRepClient
-from aiperf.common.comms.zmq_comms.clients.zmq_req_client import ZMQReqClient
-from aiperf.common.comms.zmq_comms.clients.zmq_sub_client import ZMQSubClient
+from aiperf.app.comms.base_communication import BaseCommunication
+from aiperf.app.comms.zmq_comms.clients import ZMQClient
+from aiperf.app.comms.zmq_comms.clients.zmq_pub_client import ZMQPubClient
+from aiperf.app.comms.zmq_comms.clients.zmq_pull_client import ZMQPullClient
+from aiperf.app.comms.zmq_comms.clients.zmq_push_client import ZMQPushClient
+from aiperf.app.comms.zmq_comms.clients.zmq_rep_client import ZMQRepClient
+from aiperf.app.comms.zmq_comms.clients.zmq_req_client import ZMQReqClient
+from aiperf.app.comms.zmq_comms.clients.zmq_sub_client import ZMQSubClient
 from aiperf.common.enums import (
     ClientType,
     PubClientType,

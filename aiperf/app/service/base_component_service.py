@@ -16,6 +16,7 @@ import asyncio
 import contextlib
 from abc import ABC, abstractmethod
 
+from aiperf.app.service.base_service import BaseService
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import (
     ClientType,
@@ -38,7 +39,6 @@ from aiperf.common.models.payload_models import (
     RegistrationPayload,
     StatusPayload,
 )
-from aiperf.common.service.base_service import BaseService
 
 
 class BaseComponentService(BaseService, ABC):

@@ -14,10 +14,10 @@
 #  limitations under the License.
 import sys
 
+from aiperf.app.service.base_component_service import BaseComponentService
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ServiceType
 from aiperf.common.models.payload_models import BasePayload
-from aiperf.common.service.base_component_service import BaseComponentService
 
 
 class DatasetManager(BaseComponentService):
@@ -57,7 +57,7 @@ class DatasetManager(BaseComponentService):
 
 
 def main() -> None:
-    from aiperf.common.bootstrap_utils import bootstrap_and_run_service
+    from aiperf.app.bootstrap_utils import bootstrap_and_run_service
 
     bootstrap_and_run_service(DatasetManager)
 
