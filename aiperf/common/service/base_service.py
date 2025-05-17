@@ -25,7 +25,12 @@ from aiperf.common.comms.base_communication import BaseCommunication
 from aiperf.common.comms.communication_factory import CommunicationFactory
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ServiceState
+from aiperf.common.exceptions.comm_exceptions import (
+    CommunicationClientCreationException,
+    CommunicationCreateException,
+)
 from aiperf.common.exceptions.service_exceptions import (
+    ServiceInitializationException,
     ServiceRunException,
     ServiceStartException,
     ServiceStopException,
@@ -95,13 +100,25 @@ class BaseService(AbstractBaseService, ABC):
         self._state = ServiceState.INITIALIZING
 
         # Initialize communication
-        result = CommunicationFactory.create_communication(self.service_config)
-        if isinstance(result, Exception):
-            return result
-        self.comms = result
+        try:
+            self.comms = CommunicationFactory.create_communication(self.service_config)
+        except Exception as e:
+            self.logger.exception(
+                "Failed to create communication for service %s (id: %s)",
+                self.service_type,
+                self.service_id,
+            )
+            raise CommunicationCreateException from e
 
-        if comm_error := await self.comms.initialize():
-            return comm_error
+        try:
+            await self.comms.initialize()
+        except Exception as e:
+            self.logger.exception(
+                "Failed to initialize communication for service %s (id: %s)",
+                self.service_type,
+                self.service_id,
+            )
+            raise ServiceInitializationException from e
 
         if len(self.required_clients) > 0:
             # Create the communication clients ahead of time
@@ -110,31 +127,42 @@ class BaseService(AbstractBaseService, ABC):
                 self.service_type,
                 self.required_clients,
             )
-            if comm_error := await self.comms.create_clients(*self.required_clients):
-                return comm_error
+
+            try:
+                await self.comms.create_clients(*self.required_clients)
+            except Exception as e:
+                self.logger.exception(
+                    "Failed to create communication clients for service %s (id: %s)",
+                    self.service_type,
+                    self.service_id,
+                )
+                raise CommunicationClientCreationException from e
 
         # Initialize any derived service components
-        if init_error := await self._initialize():
-            return init_error
-
-        return None
+        try:
+            await self._initialize()
+        except Exception as e:
+            self.logger.exception(
+                "Failed to initialize service %s (id: %s)",
+                self.service_type,
+                self.service_id,
+            )
+            raise ServiceInitializationException from e
 
     async def _run(self) -> None:
         """Run the service."""
-        # Initialize the service
-        if init_error := await self.initialize():
-            return init_error
-
-        # Set the service to ready state
-        _ = await self.set_state(ServiceState.READY)
-
-        # Start the service
-        if start_error := await self.start():
-            return start_error
-
-        _ = await self.set_state(ServiceState.RUNNING)
-
-        return None
+        try:
+            await self.initialize()
+            await self.set_state(ServiceState.READY)
+            await self.start()
+            await self.set_state(ServiceState.RUNNING)
+        except Exception as e:
+            self.logger.exception(
+                "Failed to initialize service %s (id: %s)",
+                self.service_type,
+                self.service_id,
+            )
+            raise ServiceRunException from e
 
     async def run(self) -> None:
         """Run the service.
@@ -204,8 +232,7 @@ class BaseService(AbstractBaseService, ABC):
             )
             _ = await self.set_state(ServiceState.STARTING)
 
-            if start_error := await self._on_start():
-                return start_error
+            await self._on_start()
 
             _ = await self.set_state(ServiceState.RUNNING)
 

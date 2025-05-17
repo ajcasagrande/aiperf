@@ -148,7 +148,6 @@ class ZMQCommunication(BaseCommunication):
             ) from e
 
         finally:
-            self._is_initialized = False
             self.clients = {}
             self.context = None
 
@@ -425,7 +424,7 @@ class ZMQCommunication(BaseCommunication):
         client_type = SubClientType.from_topic(topic)
 
         if client_type not in self.clients:
-            logger.warning(
+            logger.debug(
                 "Client type %s not found for sub topic %s, creating client",
                 client_type,
                 topic,

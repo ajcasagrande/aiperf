@@ -21,6 +21,7 @@ from zmq import SocketType
 
 from aiperf.common.comms.zmq_comms.clients.base_zmq_client import BaseZMQClient
 from aiperf.common.exceptions.comm_exceptions import (
+    CommunicationInitializationException,
     CommunicationNotInitializedException,
     CommunicationResponseException,
 )
@@ -54,19 +55,17 @@ class ZMQRepClient(BaseZMQClient):
 
     async def initialize(self) -> None:
         """Initialize the socket and start the receiver task."""
-        if err := await super().initialize():
-            return err
-
-        if err := await self._initialize():
-            return err
-
-        return None
+        try:
+            await super().initialize()
+            await self._initialize()
+        except Exception as e:
+            logger.error("Exception initializing ZMQ socket: %s", e)
+            raise CommunicationInitializationException from e
 
     async def _initialize(self) -> None:
         # Start the receiver task
         self._receiver_task = asyncio.create_task(self._rep_receiver())
         logger.debug(f"REP socket initialized and listening on {self.address}")
-        return None
 
     async def shutdown(self) -> None:
         """Shutdown the socket and clean up resources."""
@@ -83,7 +82,7 @@ class ZMQRepClient(BaseZMQClient):
         self._response_futures.clear()
         self._response_data.clear()
 
-        return await super().shutdown()
+        await super().shutdown()
 
     async def wait_for_request(self, timeout: float = None) -> BaseMessage:
         """Wait for a request to arrive.
@@ -96,8 +95,7 @@ class ZMQRepClient(BaseZMQClient):
         """
         if not self._is_initialized or self._is_shutdown:
             logger.error(
-                "Cannot wait for request: communication not initialized or already "
-                "shut down"
+                "Cannot wait for request: communication not initialized or already shut down"
             )
             raise CommunicationNotInitializedException()
 

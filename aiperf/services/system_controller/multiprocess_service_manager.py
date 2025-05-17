@@ -162,7 +162,6 @@ class MultiProcessServiceManager(BaseServiceManager):
 
         # TODO: Implement this
         self.logger.warning("wait_for_all_services_start not implemented")
-        return None
 
     async def _wait_for_process(self, info: MultiProcessRunInfo) -> None:
         """Wait for a process to terminate with timeout handling."""

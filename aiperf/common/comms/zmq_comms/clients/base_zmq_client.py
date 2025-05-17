@@ -83,8 +83,7 @@ class BaseZMQClient:
             for key, val in self.socket_ops.items():
                 self.socket.setsockopt(key, val)
 
-            if init_err := await self._initialize():
-                return init_err
+            await self._initialize()
 
             self._is_initialized = True
             logger.debug(
@@ -92,7 +91,6 @@ class BaseZMQClient:
                 self.socket_type_name,
                 self.address,
             )
-            return None
         except Exception as e:
             logger.error("Exception initializing ZMQ socket: %s", e)
             raise CommunicationInitializationException from e

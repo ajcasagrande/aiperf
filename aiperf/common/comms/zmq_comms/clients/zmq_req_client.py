@@ -21,7 +21,10 @@ import zmq.asyncio
 from zmq import SocketType
 
 from aiperf.common.comms.zmq_comms.clients.base_zmq_client import BaseZMQClient
-from aiperf.common.exceptions.comm_exceptions import CommunicationRequestException
+from aiperf.common.exceptions.comm_exceptions import (
+    CommunicationInitializationException,
+    CommunicationRequestException,
+)
 from aiperf.common.models.message_models import BaseMessage
 from aiperf.common.models.payload_models import ErrorPayload
 
@@ -52,11 +55,13 @@ class ZMQReqClient(BaseZMQClient):
 
     async def initialize(self) -> None:
         """Initialize the socket and start processing messages."""
-        if err := await super().initialize():
-            return err
+        try:
+            await super().initialize()
+            self._background_task = asyncio.create_task(self._process_messages())
 
-        self._background_task = asyncio.create_task(self._process_messages())
-        return None
+        except Exception as e:
+            logger.error("Exception initializing ZMQ socket: %s", e)
+            raise CommunicationInitializationException from e
 
     async def _process_messages(self) -> None:
         """Process incoming response messages in the background."""
@@ -70,8 +75,6 @@ class ZMQReqClient(BaseZMQClient):
             except Exception as e:
                 logger.error(f"Exception processing messages: {e}")
                 await asyncio.sleep(0.1)
-
-        return None
 
     async def _handle_response(self, response_json: str) -> None:
         """Handle a response response.

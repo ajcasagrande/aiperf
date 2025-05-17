@@ -39,9 +39,9 @@ class PubClientType(StrEnum):
         """
         match topic:
             case Topic.HEARTBEAT | Topic.REGISTRATION | Topic.STATUS | Topic.RESPONSE:
-                return cls.COMPONENT, None
+                return cls.COMPONENT
             case Topic.COMMAND:
-                return cls.CONTROLLER, None
+                return cls.CONTROLLER
             case _:
                 raise CommunicationClientNotFoundException(
                     f"No client type found for topic {topic}"
@@ -66,9 +66,9 @@ class SubClientType(StrEnum):
         """
         match topic:
             case Topic.HEARTBEAT | Topic.REGISTRATION | Topic.STATUS | Topic.RESPONSE:
-                return cls.COMPONENT, None
+                return cls.COMPONENT
             case Topic.COMMAND:
-                return cls.CONTROLLER, None
+                return cls.CONTROLLER
             case _:
                 raise CommunicationClientNotFoundException(
                     f"No client type found for topic {topic}"
@@ -95,13 +95,13 @@ class PushClientType(StrEnum):
         """
         match topic:
             case Topic.CREDIT_DROP:
-                return cls.CREDIT_DROP, None
+                return cls.CREDIT_DROP
             case Topic.CREDIT_RETURN:
-                return cls.CREDIT_RETURN, None
+                return cls.CREDIT_RETURN
             case DataTopic.RECORDS:
-                return cls.RECORDS, None
+                return cls.RECORDS
             case DataTopic.RESULTS:
-                return cls.INFERENCE_RESULTS, None
+                return cls.INFERENCE_RESULTS
             case _:
                 raise CommunicationClientNotFoundException(
                     f"No client type found for topic {topic}"
@@ -128,13 +128,13 @@ class PullClientType(StrEnum):
         """
         match topic:
             case Topic.CREDIT_DROP:
-                return cls.CREDIT_DROP, None
+                return cls.CREDIT_DROP
             case Topic.CREDIT_RETURN:
-                return cls.CREDIT_RETURN, None
+                return cls.CREDIT_RETURN
             case DataTopic.RECORDS:
-                return cls.RECORDS, None
+                return cls.RECORDS
             case DataTopic.RESULTS:
-                return cls.INFERENCE_RESULTS, None
+                return cls.INFERENCE_RESULTS
             case _:
                 raise CommunicationClientNotFoundException(
                     f"No client type found for topic {topic}"
@@ -158,7 +158,7 @@ class ReqClientType(StrEnum):
         """
         match topic:
             case DataTopic.CONVERSATION:
-                return cls.CONVERSATION_DATA, None
+                return cls.CONVERSATION_DATA
             case _:
                 raise CommunicationClientNotFoundException(
                     f"No client type found for topic {topic}"
@@ -182,7 +182,7 @@ class RepClientType(StrEnum):
         """
         match topic:
             case DataTopic.CONVERSATION:
-                return cls.CONVERSATION_DATA, None
+                return cls.CONVERSATION_DATA
             case _:
                 raise CommunicationClientNotFoundException(
                     f"No client type found for topic {topic}"

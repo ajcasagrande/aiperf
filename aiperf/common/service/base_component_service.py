@@ -115,8 +115,7 @@ class BaseComponentService(BaseService, ABC):
         try:
             await self.register()
         except Exception as e:
-            self.logger.error("Exception registering service: %s", e)
-            raise ServiceRegistrationException("Failed to register service") from e
+            raise ServiceRegistrationException() from e
 
         # ignore errors with setting the state for now
         _ = await self.set_state(ServiceState.READY)
@@ -138,7 +137,6 @@ class BaseComponentService(BaseService, ABC):
                 message=heartbeat_message,
             )
         except Exception as e:
-            self.logger.error("Exception sending heartbeat: %s", e)
             raise ServiceHeartbeatException from e
 
     async def register(self) -> None:
@@ -152,10 +150,13 @@ class BaseComponentService(BaseService, ABC):
             self.service_type,
             self.service_id,
         )
-        return await self.comms.publish(
-            topic=Topic.REGISTRATION,
-            message=self.create_registration_message(),
-        )
+        try:
+            await self.comms.publish(
+                topic=Topic.REGISTRATION,
+                message=self.create_registration_message(),
+            )
+        except Exception as e:
+            raise ServiceRegistrationException() from e
 
     async def process_command_message(self, message: BaseMessage) -> None:
         """Process a command message received from the controller.
@@ -167,17 +168,16 @@ class BaseComponentService(BaseService, ABC):
 
         cmd = message.payload.command
         if cmd == CommandType.START:
-            return await self.start()
+            await self.start()
 
         elif cmd == CommandType.STOP:
-            return await self.stop()
+            await self.stop()
 
         elif cmd == CommandType.CONFIGURE:
-            return await self._configure(message.payload)
+            await self._configure(message.payload)
 
         else:
             self.logger.warning(f"{self.service_type} received unknown command: {cmd}")
-            return None
 
     async def set_state(self, state: ServiceState) -> None:
         """Set the state of the service.
@@ -187,18 +187,15 @@ class BaseComponentService(BaseService, ABC):
         """
         self._state = state
         if self.comms and self.comms.is_initialized:
-            return await self.comms.publish(
+            await self.comms.publish(
                 topic=Topic.STATUS,
                 message=self.create_status_message(state),
             )
 
-        return None
-
     async def stop(self) -> None:
         """Stop the service."""
-        err = await super().stop()
-        heartbeat_err = await self.stop_heartbeat_task()
-        return err or heartbeat_err
+        await super().stop()
+        await self.stop_heartbeat_task()
 
     async def stop_heartbeat_task(self) -> None:
         """Stop the heartbeat task if it is running."""
@@ -238,8 +235,10 @@ class BaseComponentService(BaseService, ABC):
             # message has been published
             await asyncio.sleep(self._heartbeat_interval)
 
-            if error := await self.send_heartbeat():
-                self.logger.error("Exception sending heartbeat: %s", error)
+            try:
+                await self.send_heartbeat()
+            except Exception as e:
+                self.logger.warning("Exception sending heartbeat: %s", e)
                 # continue to keep sending heartbeats regardless of the error
 
     async def start_heartbeat_task(self) -> None:

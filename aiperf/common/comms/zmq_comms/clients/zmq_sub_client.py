@@ -68,8 +68,7 @@ class ZMQSubClient(BaseZMQClient):
         """
         if not self._is_initialized or self._is_shutdown:
             logger.error(
-                "Cannot subscribe to topic: communication not initialized or already "
-                "shut down"
+                "Cannot subscribe to topic: communication not initialized or already shut down"
             )
             raise CommunicationNotInitializedException()
 
