@@ -31,10 +31,10 @@ from aiperf.common.exceptions.service_exceptions import (
     ServiceInitializationException,
     ServiceRegistrationException,
 )
-from aiperf.common.models.message_models import BaseMessage
+from aiperf.common.models.message_models import Message
 from aiperf.common.models.payload_models import (
     HeartbeatPayload,
-    PayloadType,
+    Payload,
     RegistrationPayload,
     StatusPayload,
 )
@@ -64,7 +64,7 @@ class BaseComponentService(BaseService, ABC):
         return [PubClientType.COMPONENT, SubClientType.CONTROLLER]
 
     @abstractmethod
-    async def _configure(self, payload: PayloadType) -> None:
+    async def _configure(self, payload: Payload) -> None:
         """Configure the service with the given configuration payload.
 
         This method is called when a configure command is received from the controller.
@@ -158,7 +158,7 @@ class BaseComponentService(BaseService, ABC):
         except Exception as e:
             raise ServiceRegistrationException() from e
 
-    async def process_command_message(self, message: BaseMessage) -> None:
+    async def process_command_message(self, message: Message) -> None:
         """Process a command message received from the controller.
 
         This method will process the command message and execute the appropriate action.
@@ -204,7 +204,7 @@ class BaseComponentService(BaseService, ABC):
             with contextlib.suppress(asyncio.CancelledError):
                 await self._heartbeat_task
 
-    def create_heartbeat_message(self) -> BaseMessage:
+    def create_heartbeat_message(self) -> Message:
         """Create a heartbeat notification message."""
         return self.create_message(
             HeartbeatPayload(
@@ -212,7 +212,7 @@ class BaseComponentService(BaseService, ABC):
             )
         )
 
-    def create_registration_message(self) -> BaseMessage:
+    def create_registration_message(self) -> Message:
         """Create a registration request message."""
         return self.create_message(
             RegistrationPayload(
@@ -220,7 +220,7 @@ class BaseComponentService(BaseService, ABC):
             )
         )
 
-    def create_status_message(self, state: ServiceState) -> BaseMessage:
+    def create_status_message(self, state: ServiceState) -> Message:
         """Create a status notification message."""
         return self.create_message(
             StatusPayload(

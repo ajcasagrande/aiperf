@@ -34,11 +34,11 @@ from aiperf.common.models.payload_models import (
     RegistrationPayload,
     StatusPayload,
 )
-from aiperf.services.system_controller.base_service_manager import BaseServiceManager
-from aiperf.services.system_controller.kubernetes_service_manager import (
+from aiperf.services.service_manager.base_service_manager import BaseServiceManager
+from aiperf.services.service_manager.kubernetes_service_manager import (
     KubernetesServiceManager,
 )
-from aiperf.services.system_controller.multiprocess_service_manager import (
+from aiperf.services.service_manager.multiprocess_service_manager import (
     MultiProcessServiceManager,
 )
 from aiperf.services.system_controller.system_controller import SystemController

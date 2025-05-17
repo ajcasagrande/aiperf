@@ -108,7 +108,7 @@ class BaseZMQClient:
         finally:
             self._is_shutdown = True
 
-    async def _initialize(self) -> None:  # noqa: B027 - This is optional to override
+    async def _initialize(self) -> None:
         """Override in subclass to implement custom initialization logic.
 
         This method is called after the socket is bound or connected.

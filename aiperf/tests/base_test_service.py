@@ -18,7 +18,7 @@ Base test class for testing aiperf services.
 
 from abc import ABC, abstractmethod
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -39,7 +39,7 @@ class BaseTestService(ABC):
     inherit from this class and implement service-specific tests.
     """
 
-    @pytest.fixture
+    @pytest.fixture(autouse=True)
     async def no_sleep(self):
         """Fixture to replace asyncio.sleep with a no-op."""
         with patch("asyncio.sleep", return_value=async_noop):
@@ -60,6 +60,21 @@ class BaseTestService(ABC):
         )
 
     @pytest.fixture
+    async def uninitialized_service(
+        self, service_class, service_config, mock_communication, no_sleep
+    ):
+        """
+        Fixture that creates an uninitialized instance of the service.
+        """
+        with patch(
+            "aiperf.common.comms.communication_factory.CommunicationFactory.create_communication",
+            return_value=mock_communication,
+        ):
+            service = service_class(service_config=service_config)
+            service.comms = mock_communication
+            return service
+
+    @pytest.fixture
     async def service_under_test(
         self, service_class, service_config, mock_communication, no_sleep
     ):
@@ -76,8 +91,8 @@ class BaseTestService(ABC):
             service = service_class(service_config=service_config)
 
             # Manually set up the mock communication
-            service.communication = mock_communication
-            service.communication.initialized = True
+            service.comms = mock_communication
+            service.comms._is_initialized = True
 
             # Reset the published messages tracking
             mock_communication.published_messages = {}
@@ -91,18 +106,31 @@ class BaseTestService(ABC):
                 if service.state != ServiceState.STOPPED:
                     await service.stop()
 
-    async def test_service_initialization(self, service_under_test):
+    async def test_service_initialization(self, uninitialized_service):
         """Test that the service initializes correctly."""
-        service = await async_fixture(service_under_test)
+        service = await async_fixture(uninitialized_service)
+
+        # Check that the service has an ID and type
         assert service.service_id is not None
         assert service.service_type is not None
 
-        # After initialization, service should be in one of these states
-        assert service.state in [
-            ServiceState.INITIALIZING,
-            ServiceState.READY,
-            ServiceState.UNKNOWN,
-        ]
+        # Check that the service is not initialized
+        assert service.state == ServiceState.UNKNOWN
+
+        service._initialize = AsyncMock()
+
+        # Initialize the service
+        await service.initialize()
+
+        # Check that the internal _initialize method was called
+        assert service._initialize.called
+
+        # Check that the communication was initialized
+        assert service.comms.is_shutdown is False
+
+        # Check that the service is initialized
+        assert service.is_initialized is True
+        assert service.state == ServiceState.READY
 
     async def test_service_start_stop(self, service_under_test, no_sleep):
         """Test that the service can start and stop correctly."""

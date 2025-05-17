@@ -25,14 +25,14 @@ You can have multiple `conftest.py` files in different directories.
 Each one affects tests in its directory and subdirectories.
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Coroutine
 from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
 
 from aiperf.common.comms.base_communication import BaseCommunication
-from aiperf.common.models.message_models import BaseMessage
+from aiperf.common.models.message_models import Message
 
 
 @pytest.fixture
@@ -42,8 +42,6 @@ def mock_communication() -> AsyncMock:
 
     # Configure basic returns for methods
     mock_comm.initialize.return_value = True
-    mock_comm.subscribe.return_value = True
-    mock_comm.publish.return_value = True
     mock_comm.pull.return_value = True
     mock_comm.push.return_value = True
     mock_comm.shutdown.return_value = True
@@ -52,9 +50,9 @@ def mock_communication() -> AsyncMock:
     mock_comm.create_clients.return_value = True
 
     # Store published messages for verification
-    mock_comm.published_messages: dict[Any, list[BaseMessage]] = {}
+    mock_comm.published_messages: dict[Any, list[Message]] = {}
 
-    async def mock_publish(topic: Any, message: BaseMessage) -> None:
+    async def mock_publish(topic: Any, message: Message) -> None:
         # Use the topic as the key, whether it's an enum or string
         topic_key = topic
 
@@ -70,7 +68,9 @@ def mock_communication() -> AsyncMock:
     # Store subscription callbacks
     mock_comm.subscriptions: dict[str, Callable] = {}
 
-    async def mock_subscribe(topic: str, callback: Callable) -> None:
+    async def mock_subscribe(
+        topic: str, callback: Callable[[Message], Coroutine[Any, Any, None]]
+    ) -> None:
         mock_comm.subscriptions[topic] = callback
 
     mock_comm.subscribe.side_effect = mock_subscribe

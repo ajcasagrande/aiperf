@@ -35,8 +35,8 @@ from aiperf.common.exceptions.service_exceptions import (
     ServiceStartException,
     ServiceStopException,
 )
-from aiperf.common.models.message_models import BaseMessage
-from aiperf.common.models.payload_models import PayloadType
+from aiperf.common.models.message_models import BaseMessage, Message
+from aiperf.common.models.payload_models import Payload
 from aiperf.common.service.abstract_base_service import AbstractBaseService
 
 
@@ -149,6 +149,8 @@ class BaseService(AbstractBaseService, ABC):
             )
             raise ServiceInitializationException from e
 
+        await self.set_state(ServiceState.READY)
+
     async def _run(self) -> None:
         """Run the service."""
         try:
@@ -177,7 +179,7 @@ class BaseService(AbstractBaseService, ABC):
             self.logger.debug("Service %s execution cancelled", self.service_type)
             return
 
-        except BaseException as e:  # noqa: E722
+        except Exception as e:
             self.logger.exception("Service %s execution failed:", self.service_type)
             _ = await self.set_state(ServiceState.ERROR)
             raise ServiceRunException(
@@ -239,7 +241,7 @@ class BaseService(AbstractBaseService, ABC):
         except asyncio.CancelledError:
             self.logger.debug("Service %s execution cancelled", self.service_type)
 
-        except BaseException as e:  # noqa: E722
+        except Exception as e:
             self.logger.exception(
                 "Failed to start service %s (id: %s)",
                 self.service_type,
@@ -289,7 +291,7 @@ class BaseService(AbstractBaseService, ABC):
                 "Service %s (id: %s) stopped", self.service_type, self.service_id
             )
 
-        except BaseException as e:  # noqa: E722
+        except Exception as e:
             self.logger.exception(
                 "Failed to stop service %s (id: %s)",
                 self.service_type,
@@ -303,13 +305,13 @@ class BaseService(AbstractBaseService, ABC):
             ) from e
 
     def create_message(
-        self, payload: PayloadType, request_id: str | None = None
-    ) -> BaseMessage:
+        self, payload: Payload, request_id: str | None = None
+    ) -> Message:
         """Create a message of the given type, and pre-fill the service_id.
 
         Args:
             payload: The payload of the message
-            Optional[request_id]: The request id of the message this is a response to
+            request_id: optional The request id of the message this is a response to
 
         Returns:
             A message of the given type

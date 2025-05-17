@@ -39,11 +39,11 @@ from aiperf.common.exceptions.service_exceptions import (
 from aiperf.common.models.message_models import BaseMessage
 from aiperf.common.models.service_models import ServiceRunInfo
 from aiperf.common.service.base_controller_service import BaseControllerService
-from aiperf.services.system_controller.base_service_manager import BaseServiceManager
-from aiperf.services.system_controller.kubernetes_service_manager import (
+from aiperf.services.service_manager.base_service_manager import BaseServiceManager
+from aiperf.services.service_manager.kubernetes_service_manager import (
     KubernetesServiceManager,
 )
-from aiperf.services.system_controller.multiprocess_service_manager import (
+from aiperf.services.service_manager.multiprocess_service_manager import (
     MultiProcessServiceManager,
 )
 

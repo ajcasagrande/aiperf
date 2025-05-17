@@ -147,7 +147,7 @@ class CreditReturnPayload(BasePayload):
 
 # Only put concrete payload types here, with unique message_type values,
 # otherwise the discriminator will complain.
-PayloadType = Union[  # noqa: UP007
+Payload = Union[  # noqa: UP007
     DataPayload,
     HeartbeatPayload,
     RegistrationPayload,

@@ -59,8 +59,7 @@ class ZMQSubClient(BaseZMQClient):
 
         Args:
             topic: Topic to subscribe to
-            callback: Function to call when a response is received
-            (receives BaseMessage object)
+            callback: Function to call when a response is received (receives BaseMessage object)
 
         Raises:
             Exception if subscription was not successful, None otherwise

@@ -25,7 +25,8 @@ from aiperf.common.enums import (
     ServiceType,
     Topic,
 )
-from aiperf.common.models.payload_models import CreditDropPayload, CreditReturnPayload
+from aiperf.common.models.message_models import CreditDropMessage
+from aiperf.common.models.payload_models import CreditReturnPayload
 from aiperf.common.service.base_service import BaseService
 
 
@@ -67,14 +68,13 @@ class Worker(BaseService):
         """Clean up worker-specific components."""
         self.logger.debug("Cleaning up worker")
 
-    async def _process_credit_drop(self, payload: CreditDropPayload) -> None:
+    async def _process_credit_drop(self, message: CreditDropMessage) -> None:
         """Process a credit drop response.
 
         Args:
-            payload: The payload received from the credit drop response
+            message: The message received from the credit drop
         """
-        self.logger.debug(f"Processing credit drop: {payload}")
-
+        self.logger.debug(f"Processing credit drop: {message}")
         # TODO: Implement actual worker logic
         await asyncio.sleep(1)  # Simulate some processing time
 

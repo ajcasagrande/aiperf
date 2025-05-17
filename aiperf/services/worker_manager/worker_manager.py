@@ -22,6 +22,7 @@ from pydantic import BaseModel, Field
 from aiperf.common.bootstrap_utils import bootstrap_and_run_service
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ServiceRunType, ServiceType
+from aiperf.common.exceptions.config_exceptions import ConfigException
 from aiperf.common.models.payload_models import BasePayload
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.services.worker.worker import Worker
@@ -43,8 +44,7 @@ class WorkerManager(BaseComponentService):
         self.cpu_count = multiprocessing.cpu_count()
         self.worker_count = self.cpu_count
         self.logger.debug(
-            f"Detected {self.cpu_count} CPU threads. "
-            f"Spawning {self.worker_count} workers"
+            f"Detected {self.cpu_count} CPU threads. Spawning {self.worker_count} workers"
         )
 
     @property
@@ -63,10 +63,15 @@ class WorkerManager(BaseComponentService):
         # Spawn workers based on CPU count
         if self.service_config.service_run_type == ServiceRunType.MULTIPROCESSING:
             await self._spawn_multiprocessing_workers()
+
         elif self.service_config.service_run_type == ServiceRunType.KUBERNETES:
             await self._spawn_kubernetes_workers()
+
         else:
             self.logger.warning(
+                f"Unsupported run type: {self.service_config.service_run_type}"
+            )
+            raise ConfigException(
                 f"Unsupported run type: {self.service_config.service_run_type}"
             )
 

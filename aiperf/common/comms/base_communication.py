@@ -17,7 +17,7 @@ from collections.abc import Callable, Coroutine
 from typing import Any
 
 from aiperf.common.enums import ClientType, TopicType
-from aiperf.common.models.message_models import BaseMessage
+from aiperf.common.models.message_models import Message
 
 
 class BaseCommunication(ABC):
@@ -63,7 +63,7 @@ class BaseCommunication(ABC):
         pass
 
     @abstractmethod
-    async def publish(self, topic: TopicType, message: BaseMessage) -> None:
+    async def publish(self, topic: TopicType, message: Message) -> None:
         """Publish a response to a topic.
 
         Args:
@@ -79,13 +79,13 @@ class BaseCommunication(ABC):
     async def subscribe(
         self,
         topic: TopicType,
-        callback: Callable[[BaseMessage], Coroutine[Any, Any, None]],
+        callback: Callable[[Message], Coroutine[Any, Any, None]],
     ) -> None:
         """Subscribe to a topic.
 
         Args:
             topic: Topic to subscribe to
-            callback: Function to call when a response is received (receives BaseMessage object)
+            callback: Function to call when a response is received (receives Message object)
         """
         pass
 
@@ -93,28 +93,28 @@ class BaseCommunication(ABC):
     async def request(
         self,
         target: str,
-        request_data: BaseMessage,
+        request_data: Message,
         timeout: float = 5.0,
-    ) -> BaseMessage:
+    ) -> Message:
         """Send a request and wait for a response.
 
         Args:
             target: Target component to send request to
-            request_data: Request data (must be a BaseMessage instance)
+            request_data: Request data (must be a Message instance)
             timeout: Timeout in seconds
 
         Returns:
-            Response message (BaseMessage instance) if successful, or Exception object if an exception occurred
+            Response message (Message instance) if successful, or Exception object if an exception occurred
         """
         pass
 
     @abstractmethod
-    async def respond(self, target: str, response: BaseMessage) -> None:
+    async def respond(self, target: str, response: Message) -> None:
         """Send a response to a request.
 
         Args:
             target: Target component to send response to
-            response: Response message (must be a BaseMessage instance)
+            response: Response message (must be a Message instance)
 
         Raises:
             Exception object if an exception occurred, or None if response was sent successfully
@@ -122,12 +122,12 @@ class BaseCommunication(ABC):
         pass
 
     @abstractmethod
-    async def push(self, topic: TopicType, message: BaseMessage) -> None:
+    async def push(self, topic: TopicType, message: Message) -> None:
         """Push data to a target.
 
         Args:
             topic: Topic to push to (must be a TopicType instance)
-            message: Message to be pushed (must be a BaseMessage instance)
+            message: Message to be pushed (must be a Message instance)
 
         Raises:
             Exception object if an exception occurred, or None if data was pushed successfully
@@ -138,13 +138,13 @@ class BaseCommunication(ABC):
     async def pull(
         self,
         topic: TopicType,
-        callback: Callable[[BaseMessage], Coroutine[Any, Any, None]],
+        callback: Callable[[Message], Coroutine[Any, Any, None]],
     ) -> None:
         """Pull data from a source.
 
         Args:
             topic: Topic to pull from (must be a TopicType instance)
-            callback: function to call when data is received. (receives BaseMessage object)
+            callback: function to call when data is received. (receives Message object)
 
         Raises:
             Exception object if an exception occurred, or None if pull registration was successful.
