@@ -161,7 +161,7 @@ class WorkerManager(BaseComponentService):
             self.logger.debug(
                 f"Worker process {worker_id} (pid: {process.pid}) stopped"
             )
-        except asyncio.TimeoutException:
+        except asyncio.TimeoutError:
             self.logger.warning(
                 f"Worker process {worker_id} (pid: {process.pid}) did not "
                 f"terminate gracefully, killing"

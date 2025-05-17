@@ -89,9 +89,9 @@ class TestWorkerManager(BaseTestComponentService):
 
         with (
             patch("asyncio.to_thread", return_value=async_noop),
-            patch("asyncio.wait_for", side_effect=asyncio.TimeoutException),
+            patch("asyncio.wait_for", side_effect=asyncio.TimeoutError),
         ):
-            # Stop the workers - this should now handle the TimeoutException case
+            # Stop the workers - this should now handle the TimeoutError case
             await service._stop_multiprocessing_workers()
 
             # Verify workers were terminated and one was killed due to timeout

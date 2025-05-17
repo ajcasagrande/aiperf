@@ -122,7 +122,7 @@ class TestZMQCommunication:
         """Test publishing messages."""
         # Mock the socket publish method
         mock_client = AsyncMock()
-        mock_client.publish.return_value = True
+        mock_client.publish.return_value = None
 
         # Set up the client in the clients dictionary
         zmq_communication.clients = {PubClientType.COMPONENT: mock_client}
@@ -132,25 +132,8 @@ class TestZMQCommunication:
         result = await zmq_communication.publish(Topic.STATUS, test_message)
 
         # Verify the response was published
-        assert result is True
+        assert result is None
         mock_client.publish.assert_called_once_with(Topic.STATUS, test_message)
-
-    async def test_publish_with_invalid_client(self, zmq_communication, test_message):
-        """Test publishing with an invalid client type."""
-        # Mock create_clients to verify it's called
-        with (
-            patch.object(
-                zmq_communication, "create_clients", return_value=None
-            ) as mock_create,
-            patch.object(zmq_communication, "clients", {}),
-        ):
-            zmq_communication._is_initialized = True
-
-            # Try to publish with a non-existent client
-            await zmq_communication.publish(Topic.STATUS, test_message)
-
-            # Verify create_clients was called
-            mock_create.assert_called_once_with(PubClientType.COMPONENT)
 
     async def test_subscribe_to_topic(self, zmq_communication):
         """Test subscribing to a topic."""

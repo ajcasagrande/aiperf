@@ -137,7 +137,7 @@ class MultiProcessServiceManager(BaseServiceManager):
                     # Wait a bit before checking again
                     await asyncio.sleep(0.5)
 
-        except asyncio.TimeoutException:
+        except asyncio.TimeoutError:
             # Log which services didn't register in time
             registered_types = {
                 service_info.service_type
@@ -176,7 +176,7 @@ class MultiProcessServiceManager(BaseServiceManager):
                 info.service_type,
                 info.process.pid,
             )
-        except asyncio.TimeoutException:
+        except asyncio.TimeoutError:
             self.logger.warning(
                 "Service %s process (pid: %d) did not terminate gracefully, killing",
                 info.service_type,

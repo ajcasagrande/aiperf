@@ -177,7 +177,7 @@ class ZMQReqClient(BaseZMQClient):
                 response = BaseMessage.model_validate_json(response_json)
                 return response
 
-            except asyncio.TimeoutException:
+            except asyncio.TimeoutError:
                 logger.error(
                     f"Timeout waiting for response to request {request_data.request_id}"
                 )
