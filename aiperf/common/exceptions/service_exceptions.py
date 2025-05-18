@@ -13,10 +13,10 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-from aiperf.common.exceptions.base_exceptions import AIPerfException
+from aiperf.common.exceptions.base_exceptions import AIPerfError
 
 
-class ServiceException(AIPerfException):
+class ServiceError(AIPerfError):
     """Base class for all exceptions raised by services."""
 
     # TODO: have the base exception class accept the service information
@@ -24,61 +24,69 @@ class ServiceException(AIPerfException):
     message: str = "Service error"
 
 
-class ServiceInitializationException(ServiceException):
+class ServiceMetaclassError(AIPerfError):
+    """Exception raised for service metaclass errors."""
+
+    message: str = (
+        "Service metaclass error. Please check the service definition decorators."
+    )
+
+
+class ServiceInitializationError(ServiceError):
     """Exception raised for service initialization errors."""
 
     message: str = "Failed to initialize service"
 
 
-class ServiceStartException(ServiceException):
+class ServiceStartError(ServiceError):
     """Exception raised for service start errors."""
 
     message: str = "Failed to start service"
 
 
-class ServiceStopException(ServiceException):
+class ServiceStopError(ServiceError):
     """Exception raised for service stop errors."""
 
     message: str = "Failed to stop service"
 
 
-class ServiceCleanupException(ServiceException):
+class ServiceCleanupError(ServiceError):
     """Exception raised for service cleanup errors."""
 
     message: str = "Failed to cleanup service"
 
 
-class ServiceMessageProcessingException(ServiceException):
+class ServiceMessageProcessingError(ServiceError):
     """Exception raised for service message processing errors."""
 
     message: str = "Failed to process message"
 
 
-class ServiceRegistrationException(ServiceException):
+class ServiceRegistrationError(ServiceError):
     """Exception raised for service registration errors."""
 
     message: str = "Failed to register service"
 
 
-class ServiceStatusException(ServiceException):
+class ServiceStatusError(ServiceError):
     """Exception raised for service status errors."""
 
     message: str = "Failed to get service status"
 
 
-class ServiceRunException(ServiceException):
+class ServiceRunError(ServiceError):
     """Exception raised for service run errors."""
 
     message: str = "Failed to run service"
 
 
-class ServiceConfigureException(ServiceException):
+class ServiceConfigureError(ServiceError):
     """Exception raised for service configure errors."""
 
     message: str = "Failed to configure service"
 
 
-class ServiceHeartbeatException(ServiceException):
+class ServiceHeartbeatError(ServiceError):
     """Exception raised for service heartbeat errors."""
 
     message: str = "Failed to send heartbeat"

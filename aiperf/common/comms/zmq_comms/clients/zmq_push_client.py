@@ -20,10 +20,9 @@ from zmq import SocketType
 
 from aiperf.common.comms.zmq_comms.clients.base_zmq_client import BaseZMQClient
 from aiperf.common.exceptions.comm_exceptions import (
-    CommunicationNotInitializedException,
-    CommunicationPushException,
+    CommunicationPushError,
 )
-from aiperf.common.models.message_models import BaseMessage
+from aiperf.common.models.message_models import Message
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +33,7 @@ class ZMQPushClient(BaseZMQClient):
         context: zmq.asyncio.Context,
         address: str,
         bind: bool,
-        socket_ops: dict = None,
+        socket_ops: dict | None = None,
     ) -> None:
         """
         Initialize the ZMQ Pusher class.
@@ -47,20 +46,16 @@ class ZMQPushClient(BaseZMQClient):
         """
         super().__init__(context, SocketType.PUSH, address, bind, socket_ops)
 
-    async def push(self, message: BaseMessage) -> None:
+    async def push(self, message: Message) -> None:
         """Push data to a target.
 
         Args:
-            message: Message to be sent must be a BaseMessage object
+            message: Message to be sent must be a Message object
 
         Raises:
             Exception if data was not pushed successfully, None otherwise
         """
-        if not self._is_initialized or self._is_shutdown:
-            logger.error(
-                "Cannot push data: communication not initialized or already shut down"
-            )
-            raise CommunicationNotInitializedException()
+        self._ensure_initialized()
 
         try:
             # Serialize data directly using Pydantic's built-in method
@@ -68,7 +63,7 @@ class ZMQPushClient(BaseZMQClient):
 
             # Send data
             await self.socket.send_string(data_json)
-            logger.debug("Pushed data")
+            logger.debug("Pushed json data: %s", data_json)
         except Exception as e:
             logger.error(f"Exception pushing data: {e} {type(e)}")
-            raise CommunicationPushException from e
+            raise CommunicationPushError from e

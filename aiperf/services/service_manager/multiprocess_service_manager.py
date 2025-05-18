@@ -91,6 +91,9 @@ class MultiProcessServiceManager(BaseServiceManager):
                 MultiProcessRunInfo(process=process, service_type=service_type)
             )
 
+            # Sleep to allow the service to register
+            await asyncio.sleep(0.01)
+
     async def stop_all_services(self) -> None:
         """Stop all required services as multiprocessing processes."""
         self.logger.debug("Stopping all service processes")

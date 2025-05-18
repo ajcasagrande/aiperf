@@ -13,10 +13,18 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import asyncio
+import contextlib
 import sys
 import time
 
 from aiperf.common.config.service_config import ServiceConfig
+from aiperf.common.decorators import (
+    on_cleanup,
+    on_configure,
+    on_init,
+    on_start,
+    on_stop,
+)
 from aiperf.common.enums import (
     ClientType,
     PullClientType,
@@ -25,7 +33,7 @@ from aiperf.common.enums import (
     ServiceType,
     Topic,
 )
-from aiperf.common.models.message_models import BaseMessage
+from aiperf.common.models.message_models import Message
 from aiperf.common.models.payload_models import (
     BasePayload,
     CreditDropPayload,
@@ -36,8 +44,10 @@ from aiperf.common.service.base_component_service import BaseComponentService
 class TimingManager(BaseComponentService):
     def __init__(self, service_config: ServiceConfig, service_id: str = None) -> None:
         super().__init__(service_config=service_config, service_id=service_id)
+        self._credit_lock = asyncio.Lock()
         self._credits_available = 100
         self.logger.debug("Initializing timing manager")
+        self._credit_drop_task: asyncio.Task | None = None
 
     @property
     def service_type(self) -> ServiceType:
@@ -48,17 +58,19 @@ class TimingManager(BaseComponentService):
     def required_clients(self) -> list[ClientType]:
         """The communication clients required by the service."""
         return [
-            *super().required_clients,
+            *(super().required_clients or []),
             PullClientType.CREDIT_RETURN,
             PushClientType.CREDIT_DROP,
         ]
 
+    @on_init
     async def _initialize(self) -> None:
         """Initialize timing manager-specific components."""
         self.logger.debug("Initializing timing manager")
         # TODO: Implement timing manager initialization
 
-    async def _on_start(self) -> None:
+    @on_start
+    async def _start(self) -> None:
         """Start the timing manager."""
         self.logger.debug("Starting timing manager")
         # TODO: Implement timing manager start
@@ -68,21 +80,26 @@ class TimingManager(BaseComponentService):
         )
         await self.set_state(ServiceState.RUNNING)
         await asyncio.sleep(3)
-        asyncio.create_task(self._issue_credit_drops())
+
+        self._credit_drop_task = asyncio.create_task(self._issue_credit_drops())
 
     async def _issue_credit_drops(self) -> None:
         """Issue credit drops to workers."""
         self.logger.debug("Issuing credit drops to workers")
         # TODO: Actually implement real credit drop logic
-        while self.state == ServiceState.RUNNING:
+        while not self.stop_event.is_set():
             try:
                 await asyncio.sleep(0.1)
-                if self._credits_available <= 0:
-                    self.logger.warning("No credits available, skipping credit drop")
-                    continue
-                self.logger.debug("Issuing credit drop")
-                # TODO: Actually implement real credit drop logic
-                self._credits_available -= 1
+
+                async with self._credit_lock:
+                    if self._credits_available <= 0:
+                        self.logger.warning(
+                            "No credits available, skipping credit drop"
+                        )
+                        continue
+                    self.logger.debug("Issuing credit drop")
+                    self._credits_available -= 1
+
                 await self.comms.push(
                     topic=Topic.CREDIT_DROP,
                     message=self.create_message(
@@ -99,25 +116,35 @@ class TimingManager(BaseComponentService):
                 self.logger.error(f"Exception issuing credit drop: {e}")
                 await asyncio.sleep(0.1)
 
-    async def _on_stop(self) -> None:
+    @on_stop
+    async def _stop(self) -> None:
         """Stop the timing manager."""
         self.logger.debug("Stopping timing manager")
         # TODO: Implement timing manager stop
 
+        if self._credit_drop_task and not self._credit_drop_task.done():
+            self._credit_drop_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._credit_drop_task
+            self._credit_drop_task = None
+
+    @on_cleanup
     async def _cleanup(self) -> None:
         """Clean up timing manager-specific components."""
         self.logger.debug("Cleaning up timing manager")
         # TODO: Implement timing manager cleanup
 
-    async def _on_credit_return(self, message: BaseMessage) -> None:
+    async def _on_credit_return(self, message: Message) -> None:
         """Process a credit return response.
 
         Args:
             message: The response received from the pull request
         """
         self.logger.debug(f"Processing credit return: {message.payload}")
-        self._credits_available += message.payload.amount
+        async with self._credit_lock:
+            self._credits_available += message.payload.amount
 
+    @on_configure
     async def _configure(self, payload: BasePayload) -> None:
         """Configure the timing manager."""
         self.logger.debug(f"Configuring timing manager with payload: {payload}")

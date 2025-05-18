@@ -13,18 +13,15 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import asyncio
+import contextlib
 import logging
 from collections.abc import Callable
-from typing import Any
 
 import zmq.asyncio
 from zmq import SocketType
 
 from aiperf.common.comms.zmq_comms.clients.base_zmq_client import BaseZMQClient
-from aiperf.common.exceptions.comm_exceptions import (
-    CommunicationNotInitializedException,
-)
-from aiperf.common.models.message_models import BaseMessage
+from aiperf.common.models.message_models import BaseMessage, Message
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +32,7 @@ class ZMQPullClient(BaseZMQClient):
         context: zmq.asyncio.Context,
         address: str,
         bind: bool,
-        socket_ops: dict = None,
+        socket_ops: dict | None = None,
     ) -> None:
         """
         Initialize the ZMQ Puller class.
@@ -47,31 +44,30 @@ class ZMQPullClient(BaseZMQClient):
             socket_ops (dict, optional): Additional socket options to set.
         """
         super().__init__(context, SocketType.PULL, address, bind, socket_ops)
-        self._pull_callbacks: dict[str, Any] = {}
+        self._pull_callbacks: dict[str, list[Callable[[Message], None]]] = {}
+        self._pull_receiver_task: asyncio.Task | None = None
 
     async def _initialize(self) -> None:
         # Start the receiver task
-        asyncio.create_task(self._pull_receiver())
+        self._pull_receiver_task = asyncio.create_task(self._pull_receiver())
         logger.debug(f"Pull socket initialized and listening on {self.address}")
 
     async def _pull_receiver(self) -> None:
         """Background task for receiving data from the pull socket."""
-        while not self._is_shutdown:
-            if not self._is_initialized or not self.socket:
-                # Not initialized yet, wait a bit and check again
-                await asyncio.sleep(0.1)
-                continue
-
+        while not self.is_shutdown:
             try:
+                if not self.is_initialized:
+                    await self.initialized_event.wait()
+
                 # Receive data
                 message_bytes = await self.socket.recv()
                 message_json = message_bytes.decode()
 
-                # Parse JSON into a PushPullData object
+                # Parse JSON into a BaseMessage object
                 message = BaseMessage.model_validate_json(message_json)
                 topic = message.payload.message_type
 
-                # Call callbacks with PushPullData object
+                # Call callbacks with BaseMessage object
                 if topic in self._pull_callbacks:
                     for callback in self._pull_callbacks[topic]:
                         try:
@@ -91,7 +87,7 @@ class ZMQPullClient(BaseZMQClient):
     async def pull(
         self,
         topic: str,
-        callback: Callable[[BaseMessage], None],
+        callback: Callable[[Message], None],
     ) -> None:
         """Register a ZMQ Pull data callback from a source (topic).
 
@@ -100,15 +96,18 @@ class ZMQPullClient(BaseZMQClient):
             callback: function to call when data is received.
 
         Raises:
-            Exception if an exception occurred registering the pull callback, None otherwise
+            Comm if an exception occurred registering the pull callback, None otherwise
         """
-        if not self._is_initialized or self._is_shutdown:
-            logger.error(
-                "Cannot pull data: communication not initialized or already shut down"
-            )
-            raise CommunicationNotInitializedException()
+        self._ensure_initialized()
 
         # Register callback
         if topic not in self._pull_callbacks:
             self._pull_callbacks[topic] = []
         self._pull_callbacks[topic].append(callback)
+
+    async def _cleanup(self) -> None:
+        if self._pull_receiver_task:
+            self._pull_receiver_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._pull_receiver_task
+            self._pull_receiver_task = None

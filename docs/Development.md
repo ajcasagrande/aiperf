@@ -165,7 +165,7 @@ Here's a simplified example of a service implementation:
 from aiperf.common.service.base_service import BaseService
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import Topic, ClientType
-from aiperf.common.models.message_models import BaseMessage
+from aiperf.common.models.message_models import Message
 
 
 class ExampleService(BaseService):
@@ -202,7 +202,7 @@ class ExampleService(BaseService):
         if self.my_resource:
             await self.my_resource.close()
 
-    async def _process_message(self, topic: Topic, message: BaseMessage) -> None:
+    async def _process_message(self, topic: Topic, message: Message) -> None:
         """Handle incoming messages."""
         self.logger.debug(f"Processing response: {topic}, {message}")
         if topic == Topic.COMMAND:
@@ -212,11 +212,11 @@ class ExampleService(BaseService):
             # Handle data messages
             await self._handle_data(message)
 
-    async def _handle_command(self, message: BaseMessage) -> None:
+    async def _handle_command(self, message: Message) -> None:
         """Handle command messages."""
         # Implement command handling logic
 
-    async def _handle_data(self, message: BaseMessage) -> None:
+    async def _handle_data(self, message: Message) -> None:
         """Handle data messages."""
         # Implement data handling logic
 ```

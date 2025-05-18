@@ -22,10 +22,10 @@ from zmq import SocketType
 
 from aiperf.common.comms.zmq_comms.clients.base_zmq_client import BaseZMQClient
 from aiperf.common.exceptions.comm_exceptions import (
-    CommunicationInitializationException,
-    CommunicationRequestException,
+    CommunicationInitializationError,
+    CommunicationRequestError,
 )
-from aiperf.common.models.message_models import BaseMessage
+from aiperf.common.models.message_models import BaseMessage, Message
 from aiperf.common.models.payload_models import ErrorPayload
 
 logger = logging.getLogger(__name__)
@@ -37,7 +37,7 @@ class ZMQReqClient(BaseZMQClient):
         context: zmq.asyncio.Context,
         address: str,
         bind: bool,
-        socket_ops: dict = None,
+        socket_ops: dict | None = None,
     ) -> None:
         """
         Initialize the ZMQ Req class.
@@ -61,15 +61,17 @@ class ZMQReqClient(BaseZMQClient):
 
         except Exception as e:
             logger.error("Exception initializing ZMQ socket: %s", e)
-            raise CommunicationInitializationException from e
+            raise CommunicationInitializationError from e
 
     async def _process_messages(self) -> None:
         """Process incoming response messages in the background."""
-        while not self._is_shutdown:
+        while not self.is_shutdown:
             try:
-                if self.socket and not self._is_shutdown:
-                    response_json = await self.socket.recv_string()
-                    await self._handle_response(response_json)
+                if not self.is_initialized:
+                    await self.initialized_event.wait()
+
+                response_json = await self.socket.recv_string()
+                await self._handle_response(response_json)
             except asyncio.CancelledError:
                 break
             except Exception as e:
@@ -96,7 +98,7 @@ class ZMQReqClient(BaseZMQClient):
                 )
         except Exception as e:
             logger.error(f"Exception handling response: {e}")
-            raise CommunicationRequestException("Exception handling response") from e
+            raise CommunicationRequestError("Exception handling response") from e
 
     async def shutdown(self) -> None:
         """Shutdown the socket and clean up resources."""
@@ -123,9 +125,9 @@ class ZMQReqClient(BaseZMQClient):
     async def request(
         self,
         target: str,
-        request_data: BaseMessage,
+        request_data: Message,
         timeout: float = 5.0,
-    ) -> BaseMessage:
+    ) -> Message:
         """Send a request and wait for a response.
 
         Args:
@@ -136,17 +138,7 @@ class ZMQReqClient(BaseZMQClient):
         Returns:
             ResponseData object
         """
-        if not self._is_initialized or self._is_shutdown:
-            logger.error(
-                "Cannot send request: communication not initialized or already "
-                "shut down"
-            )
-            return BaseMessage(
-                request_id="error",
-                client_id=self.client_id,
-                status="error",
-                message="Communication not initialized or already shut down",
-            )
+        self._ensure_initialized()
 
         try:
             # Set target if not already set
@@ -192,6 +184,7 @@ class ZMQReqClient(BaseZMQClient):
             finally:
                 # Clean up future
                 self._response_futures.pop(request_data.request_id, None)
+
         except Exception as e:
             logger.error(f"Exception sending request to {target}: {e}")
 

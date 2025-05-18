@@ -14,8 +14,24 @@
 #  limitations under the License.
 
 
-class AIPerfException(Exception):
+class AIPerfError(Exception):
     """Base class for all exceptions raised by AIPerf."""
 
     def __str__(self) -> str:
         return f"{self.__class__.__name__}: {super().__str__()}"
+
+
+class AIPerfMultiError(AIPerfError):
+    """
+    # TODO: Document
+    """
+
+    def __init__(self, exceptions) -> None:
+        super().__init__(f"{','.join([str(e) for e in exceptions])}")
+        self.exceptions = exceptions
+
+
+class AIPerfMetaclassError(AIPerfError):
+    """Exception raised for AIPerf metaclass errors."""
+
+    message: str = "AIPerf metaclass error. Please check the decorators defined on the class members."

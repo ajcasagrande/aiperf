@@ -14,14 +14,15 @@
 #  limitations under the License.
 
 import logging
+from collections.abc import Callable
 
 from aiperf.common.comms.base_communication import BaseCommunication
-from aiperf.common.comms.zmq_comms.zmq_communication import ZMQCommunication
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import CommunicationBackend
+from aiperf.common.exceptions.base_exceptions import AIPerfError
 from aiperf.common.exceptions.comm_exceptions import (
-    CommunicationCreateException,
-    CommunicationTypeUnknownException,
+    CommunicationCreateError,
+    CommunicationTypeUnknownError,
 )
 from aiperf.common.models.comm_models import (
     ZMQCommunicationConfig,
@@ -39,13 +40,11 @@ class CommunicationFactory:
     """
 
     # Registry of communication types
-    _comm_types: dict[CommunicationBackend, type[BaseCommunication]] = {
-        CommunicationBackend.ZMQ_TCP: ZMQCommunication,
-    }
+    _comm_registry: dict[CommunicationBackend | str, type[BaseCommunication]] = {}
 
     @classmethod
     def register_comm_type(
-        cls, comm_type: CommunicationBackend, comm_class: type[BaseCommunication]
+        cls, comm_type: CommunicationBackend | str, comm_class: type[BaseCommunication]
     ) -> None:
         """Register a new communication type.
 
@@ -53,8 +52,20 @@ class CommunicationFactory:
             comm_type: Communication type string
             comm_class: Communication class
         """
-        cls._comm_types[comm_type] = comm_class
+        cls._comm_registry[comm_type] = comm_class
         logger.debug("Registered communication type: %s", comm_type)
+
+    @classmethod
+    def register(cls, comm_type: CommunicationBackend | str) -> Callable:
+        def decorator(comm_cls: type[BaseCommunication]) -> type[BaseCommunication]:
+            if comm_type in cls._comm_registry:
+                raise AIPerfError(
+                    f"Communication type {comm_type!r} already registered"
+                )
+            cls._comm_registry[comm_type] = comm_cls
+            return comm_cls
+
+        return decorator
 
     @classmethod
     def create_communication(
@@ -69,14 +80,14 @@ class CommunicationFactory:
         Returns:
             BaseCommunication instance
         """
-        if service_config.comm_backend not in cls._comm_types:
+        if service_config.comm_backend not in cls._comm_registry:
             logger.error("Unknown communication type: %s", service_config.comm_backend)
-            raise CommunicationTypeUnknownException(
+            raise CommunicationTypeUnknownError(
                 f"Unknown communication type: {service_config.comm_backend}"
             )
 
         try:
-            comm_class = cls._comm_types[service_config.comm_backend]
+            comm_class = cls._comm_registry[service_config.comm_backend]
             config = kwargs.get("config") or ZMQCommunicationConfig(
                 protocol_config=ZMQTCPTransportConfig()
             )
@@ -89,4 +100,4 @@ class CommunicationFactory:
                 service_config.comm_backend,
                 e,
             )
-            raise CommunicationCreateException from e
+            raise CommunicationCreateError from e

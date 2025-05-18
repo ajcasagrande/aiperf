@@ -21,6 +21,7 @@ from typing import Any
 import zmq.asyncio
 
 from aiperf.common.comms.base_communication import BaseCommunication
+from aiperf.common.comms.communication_factory import CommunicationFactory
 from aiperf.common.comms.zmq_comms.clients import ZMQClient
 from aiperf.common.comms.zmq_comms.clients.zmq_pub_client import ZMQPubClient
 from aiperf.common.comms.zmq_comms.clients.zmq_pull_client import ZMQPullClient
@@ -38,22 +39,24 @@ from aiperf.common.enums import (
     SubClientType,
     TopicType,
 )
+from aiperf.common.enums.comm_enums import CommunicationBackend
 from aiperf.common.exceptions.comm_exceptions import (
-    CommunicationClientCreationException,
-    CommunicationNotInitializedException,
-    CommunicationPublishException,
-    CommunicationPushException,
-    CommunicationRequestException,
-    CommunicationResponseException,
-    CommunicationShutdownException,
-    CommunicationSubscribeException,
+    CommunicationClientCreationError,
+    CommunicationNotInitializedError,
+    CommunicationPublishError,
+    CommunicationPushError,
+    CommunicationRequestError,
+    CommunicationResponseError,
+    CommunicationShutdownError,
+    CommunicationSubscribeError,
 )
 from aiperf.common.models.comm_models import ZMQCommunicationConfig
-from aiperf.common.models.message_models import BaseMessage
+from aiperf.common.models.message_models import Message
 
 logger = logging.getLogger(__name__)
 
 
+@CommunicationFactory.register(CommunicationBackend.ZMQ_TCP)
 class ZMQCommunication(BaseCommunication):
     """ZeroMQ-based implementation of the Communication interface.
 
@@ -64,14 +67,14 @@ class ZMQCommunication(BaseCommunication):
     def __init__(
         self,
         config: ZMQCommunicationConfig | None = None,
-    ):
+    ) -> None:
         """Initialize ZMQ communication.
 
         Args:
             config: ZMQCommunicationConfig object with configuration parameters
         """
-        self._is_initialized = False
-        self._is_shutdown = False
+        self.stop_event: asyncio.Event = asyncio.Event()
+        self.initialized_event: asyncio.Event = asyncio.Event()
         self.config = config
 
         # Generate client_id if not provided
@@ -87,18 +90,6 @@ class ZMQCommunication(BaseCommunication):
             self.config.client_id,
         )
 
-    async def initialize(self) -> None:
-        """Initialize communication channels.
-
-        Returns:
-            True if initialization was successful, False otherwise
-        """
-        if self._is_initialized:
-            return
-
-        self.context = zmq.asyncio.Context()
-        self._is_initialized = True
-
     @property
     def is_initialized(self) -> bool:
         """Check if communication channels are initialized.
@@ -106,7 +97,7 @@ class ZMQCommunication(BaseCommunication):
         Returns:
             True if communication channels are initialized, False otherwise
         """
-        return self._is_initialized
+        return self.initialized_event.is_set()
 
     @property
     def is_shutdown(self) -> bool:
@@ -115,7 +106,19 @@ class ZMQCommunication(BaseCommunication):
         Returns:
             True if communication channels are shutdown, False otherwise
         """
-        return self._is_shutdown
+        return self.stop_event.is_set()
+
+    async def initialize(self) -> None:
+        """Initialize communication channels.
+
+        Returns:
+            True if initialization was successful, False otherwise
+        """
+        if self.is_initialized:
+            return
+
+        self.context = zmq.asyncio.Context()
+        self.initialized_event.set()
 
     async def shutdown(self) -> None:
         """Gracefully shutdown communication channels.
@@ -123,27 +126,30 @@ class ZMQCommunication(BaseCommunication):
         Returns:
             True if shutdown was successful, False otherwise
         """
-        if self._is_shutdown:
+        if self.is_shutdown:
             logger.debug("ZMQ communication already shutdown")
             return
 
         try:
+            self.stop_event.set()
+            self.initialized_event.clear()
+
             logger.debug(
                 f"Shutting down ZMQ communication for client {self.config.client_id}"
             )
             await asyncio.gather(
                 *(client.shutdown() for client in self.clients.values())
             )
+
             if self.context:
                 self.context.term()
 
             self.context = None
-            self._is_shutdown = True
             logger.debug("ZMQ communication shutdown successfully")
 
         except Exception as e:
             logger.error(f"Exception shutting down ZMQ communication: {e}")
-            raise CommunicationShutdownException(
+            raise CommunicationShutdownError(
                 "Failed to shutdown ZMQ communication"
             ) from e
 
@@ -154,9 +160,9 @@ class ZMQCommunication(BaseCommunication):
     def _ensure_initialized(self) -> None:
         """Ensure the communication channels are initialized."""
         if not self.is_initialized:
-            raise CommunicationNotInitializedException()
+            raise CommunicationNotInitializedError()
         if self.is_shutdown:
-            raise CommunicationShutdownException()
+            raise CommunicationShutdownError()
 
     def _create_pub_client(self, client_type: PubClientType) -> ZMQPubClient:
         """Create a ZMQ publisher client based on the client type.
@@ -183,7 +189,7 @@ class ZMQCommunication(BaseCommunication):
                 )
 
             case _:
-                raise CommunicationClientCreationException(
+                raise CommunicationClientCreationError(
                     f"Invalid client type: {client_type}"
                 )
 
@@ -212,7 +218,7 @@ class ZMQCommunication(BaseCommunication):
                 )
 
             case _:
-                raise CommunicationClientCreationException(
+                raise CommunicationClientCreationError(
                     f"Invalid client type: {client_type}"
                 )
 
@@ -255,7 +261,7 @@ class ZMQCommunication(BaseCommunication):
                 )
 
             case _:
-                raise CommunicationClientCreationException(
+                raise CommunicationClientCreationError(
                     f"Invalid client type: {client_type}"
                 )
 
@@ -298,7 +304,7 @@ class ZMQCommunication(BaseCommunication):
                 )
 
             case _:
-                raise CommunicationClientCreationException(
+                raise CommunicationClientCreationError(
                     f"Invalid client type: {client_type}"
                 )
 
@@ -319,7 +325,7 @@ class ZMQCommunication(BaseCommunication):
                     bind=False,  # Worker manager is the request
                 )
             case _:
-                raise CommunicationClientCreationException(
+                raise CommunicationClientCreationError(
                     f"Invalid client type: {client_type}"
                 )
 
@@ -341,7 +347,7 @@ class ZMQCommunication(BaseCommunication):
                 )
 
             case _:
-                raise CommunicationClientCreationException(
+                raise CommunicationClientCreationError(
                     f"Invalid client type: {client_type}"
                 )
 
@@ -379,7 +385,7 @@ class ZMQCommunication(BaseCommunication):
                 client = self._create_rep_client(client_type)
 
             else:
-                raise CommunicationClientCreationException(
+                raise CommunicationClientCreationError(
                     f"Invalid client type: {client_type}"
                 )
 
@@ -387,7 +393,7 @@ class ZMQCommunication(BaseCommunication):
 
             self.clients[client_type] = client
 
-    async def publish(self, topic: TopicType, message: BaseMessage) -> None:
+    async def publish(self, topic: TopicType, message: Message) -> None:
         self._ensure_initialized()
         logger.debug("Publishing message to topic: %s, message: %s", topic, message)
 
@@ -410,12 +416,12 @@ class ZMQCommunication(BaseCommunication):
                 message,
                 e,
             )
-            raise CommunicationPublishException() from e
+            raise CommunicationPublishError() from e
 
     async def subscribe(
         self,
         topic: TopicType,
-        callback: Callable[[BaseMessage], Coroutine[Any, Any, None]],
+        callback: Callable[[Message], Coroutine[Any, Any, None]],
     ) -> None:
         logger.debug(f"Subscribing to topic: {topic}")
 
@@ -435,14 +441,14 @@ class ZMQCommunication(BaseCommunication):
             await self.clients[client_type].subscribe(topic, callback)
         except Exception as e:
             logger.error(f"Exception subscribing to topic: {e}")
-            raise CommunicationSubscribeException() from e
+            raise CommunicationSubscribeError() from e
 
     async def request(
         self,
         target: str,
-        request_data: BaseMessage,
+        request_data: Message,
         timeout: float = 5.0,
-    ) -> BaseMessage:
+    ) -> Message:
         logger.debug(f"Requesting from {target} with data: {request_data}")
 
         self._ensure_initialized()
@@ -461,9 +467,9 @@ class ZMQCommunication(BaseCommunication):
             await self.clients[client_type].request(target, request_data, timeout)
         except Exception as e:
             logger.error(f"Exception requesting from {target}: {e}")
-            raise CommunicationRequestException() from e
+            raise CommunicationRequestError() from e
 
-    async def respond(self, target: str, response: BaseMessage) -> None:
+    async def respond(self, target: str, response: Message) -> None:
         logger.debug(f"Responding to {target} with data: {response}")
 
         self._ensure_initialized()
@@ -482,9 +488,9 @@ class ZMQCommunication(BaseCommunication):
             await self.clients[client_type].respond(target, response)
         except Exception as e:
             logger.error(f"Exception responding to {target}: {e}")
-            raise CommunicationResponseException() from e
+            raise CommunicationResponseError() from e
 
-    async def push(self, topic: TopicType, message: BaseMessage) -> None:
+    async def push(self, topic: TopicType, message: Message) -> None:
         logger.debug("Pushing data to topic: %s, message: %s", topic, message)
         self._ensure_initialized()
 
@@ -501,12 +507,12 @@ class ZMQCommunication(BaseCommunication):
             await self.clients[client_type].push(message)
         except Exception as e:
             logger.error(f"Exception pushing data: {e}")
-            raise CommunicationPushException() from e
+            raise CommunicationPushError() from e
 
     async def pull(
         self,
         topic: TopicType,
-        callback: Callable[[BaseMessage], None],
+        callback: Callable[[Message], None],
     ) -> None:
         logger.debug(f"Pulling data from {topic}")
 

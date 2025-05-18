@@ -12,7 +12,6 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from abc import ABC
 
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import (
@@ -21,12 +20,12 @@ from aiperf.common.enums import (
     PubClientType,
     SubClientType,
 )
-from aiperf.common.models.message_models import BaseMessage
+from aiperf.common.models.message_models import Message
 from aiperf.common.models.payload_models import CommandPayload
 from aiperf.common.service.base_service import BaseService
 
 
-class BaseControllerService(BaseService, ABC):
+class BaseControllerService(BaseService):
     """Base class for all controller services, such as the System Controller.
 
     This class provides a common interface for all controller services in the AIPerf
@@ -34,7 +33,9 @@ class BaseControllerService(BaseService, ABC):
     methods for controller services.
     """
 
-    def __init__(self, service_config: ServiceConfig, service_id: str = None) -> None:
+    def __init__(
+        self, service_config: ServiceConfig, service_id: str | None = None
+    ) -> None:
         super().__init__(service_config=service_config, service_id=service_id)
 
     @property
@@ -44,11 +45,15 @@ class BaseControllerService(BaseService, ABC):
         The controller service subscribes to controller messages and publishes
         to components.
         """
-        return [PubClientType.CONTROLLER, SubClientType.COMPONENT]
+        return [
+            *(super().required_clients or []),
+            PubClientType.CONTROLLER,
+            SubClientType.COMPONENT,
+        ]
 
     def create_command_message(
         self, command: CommandType, target_service_id: str
-    ) -> BaseMessage:
+    ) -> Message:
         """Create a command message to be sent to a specific service.
 
         Args:

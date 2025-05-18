@@ -39,7 +39,7 @@ class BaseServiceManager(ABC):
         # Create service ID map for component lookups
         self.service_id_map: dict[str, ServiceRunInfo] = {}
 
-    def get(self, service_id: str) -> ServiceRunInfo:
+    def get(self, service_id: str) -> ServiceRunInfo | None:
         """
         Get the service run information by service ID.
         """

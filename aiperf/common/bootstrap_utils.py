@@ -42,4 +42,4 @@ def bootstrap_and_run_service(
 
     # Create the service instance and run it
     service = service_class(service_config=service_config)
-    uvloop.run(service.run())
+    uvloop.run(service.run_forever())

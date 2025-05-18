@@ -15,6 +15,13 @@
 import sys
 
 from aiperf.common.config.service_config import ServiceConfig
+from aiperf.common.decorators import (
+    on_cleanup,
+    on_configure,
+    on_init,
+    on_start,
+    on_stop,
+)
 from aiperf.common.enums import ServiceType
 from aiperf.common.models.payload_models import BasePayload
 from aiperf.common.service.base_component_service import BaseComponentService
@@ -30,26 +37,31 @@ class RecordsManager(BaseComponentService):
         """The type of service."""
         return ServiceType.RECORDS_MANAGER
 
+    @on_init
     async def _initialize(self) -> None:
         """Initialize records manager-specific components."""
         self.logger.debug("Initializing records manager")
         # TODO: Implement records manager initialization
 
-    async def _on_start(self) -> None:
+    @on_start
+    async def _start(self) -> None:
         """Start the records manager."""
         self.logger.debug("Starting records manager")
         # TODO: Implement records manager start
 
-    async def _on_stop(self) -> None:
+    @on_stop
+    async def _stop(self) -> None:
         """Stop the records manager."""
         self.logger.debug("Stopping records manager")
         # TODO: Implement records manager stop
 
+    @on_cleanup
     async def _cleanup(self) -> None:
         """Clean up records manager-specific components."""
         self.logger.debug("Cleaning up records manager")
         # TODO: Implement records manager cleanup
 
+    @on_configure
     async def _configure(self, payload: BasePayload) -> None:
         """Configure the records manager."""
         self.logger.debug(f"Configuring records manager with payload: {payload}")

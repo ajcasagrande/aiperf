@@ -18,9 +18,10 @@ from aiperf.common.enums import (
     ClientType,
     ServiceType,
 )
+from aiperf.common.service.service_metaclass import ServiceMetaclass
 
 
-class AbstractBaseService(ABC):
+class AbstractBaseService(ABC, metaclass=ServiceMetaclass):
     """Abstract base class for all services.
 
     This class provides the base foundation for which every service should provide. Some
@@ -56,23 +57,12 @@ class AbstractBaseService(ABC):
         pass
 
     @abstractmethod
-    async def run(self) -> None:
+    async def run_forever(self) -> None:
         """Run the service. This method will be the primary entry point for the service
         and will be called by the bootstrap script. It should not return until the
         service is completely shutdown.
 
         This method will be implemented by the base class.
-        """
-        pass
-
-    @abstractmethod
-    async def _run(self) -> None:
-        """Internal method to run the service. By default, this method will call the
-        `initialize` and `start` methods, however, derived classes can override this
-        method to provide their own implementation. This method will not block.
-
-        This method has a default implementation in the base class, but can be
-        overridden by derived classes if needed.
         """
         pass
 
@@ -94,39 +84,11 @@ class AbstractBaseService(ABC):
         pass
 
     @abstractmethod
-    async def _forever_loop(self) -> None:
+    async def forever_loop(self) -> None:
         """Run the service in a loop until the stop event is set. This method will be
         called by the `run` method to allow the service to run indefinitely.
 
         This method will be implemented by the base class, and is not expected to be
         overridden by derived classes.
-        """
-        pass
-
-    @abstractmethod
-    async def _initialize(self) -> None:
-        """Called by the base class when the service is initializing to allow the
-        derived service to set up any resources specific to that service.
-        """
-        pass
-
-    @abstractmethod
-    async def _on_start(self) -> None:
-        """Called by the base class when the service is started to allow the
-        derived service to run any processes or components specific to that service.
-        """
-        pass
-
-    @abstractmethod
-    async def _on_stop(self) -> None:
-        """Called by the base class when the service is stopping to allow the
-        derived service to stop any processes or components specific to that service.
-        """
-        pass
-
-    @abstractmethod
-    async def _cleanup(self) -> None:
-        """Called by the base class after the service is stopped to allow the
-        derived service to free any resources allocated by the service.
         """
         pass

@@ -14,9 +14,10 @@
 #  limitations under the License.
 import asyncio
 import contextlib
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 
 from aiperf.common.config.service_config import ServiceConfig
+from aiperf.common.decorators import AIPerfHooks, on_stop
 from aiperf.common.enums import (
     ClientType,
     CommandType,
@@ -25,11 +26,12 @@ from aiperf.common.enums import (
     SubClientType,
     Topic,
 )
-from aiperf.common.exceptions.comm_exceptions import CommunicationSubscribeException
+from aiperf.common.exceptions.comm_exceptions import CommunicationSubscribeError
 from aiperf.common.exceptions.service_exceptions import (
-    ServiceHeartbeatException,
-    ServiceInitializationException,
-    ServiceRegistrationException,
+    ServiceHeartbeatError,
+    ServiceInitializationError,
+    ServiceRegistrationError,
+    ServiceRunError,
 )
 from aiperf.common.models.message_models import Message
 from aiperf.common.models.payload_models import (
@@ -41,7 +43,7 @@ from aiperf.common.models.payload_models import (
 from aiperf.common.service.base_service import BaseService
 
 
-class BaseComponentService(BaseService, ABC):
+class BaseComponentService(BaseService):
     """Base class for all component services.
 
     This class provides a common interface for all component services in the AIPerf
@@ -51,7 +53,9 @@ class BaseComponentService(BaseService, ABC):
     component services.
     """
 
-    def __init__(self, service_config: ServiceConfig, service_id: str = None) -> None:
+    def __init__(
+        self, service_config: ServiceConfig, service_id: str | None = None
+    ) -> None:
         super().__init__(service_config=service_config, service_id=service_id)
 
     @property
@@ -61,7 +65,11 @@ class BaseComponentService(BaseService, ABC):
         The component services subscribe to controller messages and publish
         component messages.
         """
-        return [PubClientType.COMPONENT, SubClientType.CONTROLLER]
+        return [
+            *(super().required_clients or []),
+            PubClientType.COMPONENT,
+            SubClientType.CONTROLLER,
+        ]
 
     @abstractmethod
     async def _configure(self, payload: Payload) -> None:
@@ -81,7 +89,7 @@ class BaseComponentService(BaseService, ABC):
         """
         pass
 
-    async def _run(self) -> None:
+    async def run_forever(self) -> None:
         """Internal method to run the service. This method will start the service and
         initialize its components. It will also subscribe to the command topic and
         process commands as they are received.
@@ -93,7 +101,7 @@ class BaseComponentService(BaseService, ABC):
             await self.initialize()
         except Exception as e:
             self.logger.error("Exception initializing service: %s", e)
-            raise ServiceInitializationException("Failed to initialize service") from e
+            raise ServiceInitializationError("Failed to initialize service") from e
 
         # Subscribe to the command topic
         try:
@@ -103,7 +111,7 @@ class BaseComponentService(BaseService, ABC):
             )
         except Exception as e:
             self.logger.error("Exception subscribing to command topic: %s", e)
-            raise CommunicationSubscribeException(
+            raise CommunicationSubscribeError(
                 "Failed to subscribe to command topic"
             ) from e
 
@@ -114,18 +122,28 @@ class BaseComponentService(BaseService, ABC):
         # Register the service
         try:
             await self.register()
+            await asyncio.sleep(0.5)
         except Exception as e:
-            raise ServiceRegistrationException() from e
-
-        # ignore errors with setting the state for now
-        _ = await self.set_state(ServiceState.READY)
+            raise ServiceRegistrationError() from e
 
         # Note: Do not start the service here, let the system controller start it
         # This is because the service needs to be configured first and may need
         # to wait for other services to register before it can start
 
+        try:
+            await self._run_hooks(AIPerfHooks.RUN)
+        except Exception as e:
+            self.logger.error("Exception running service: %s", e)
+            raise ServiceRunError from e
+
         # Start the heartbeat task
         await self.start_heartbeat_task()
+
+        # ignore errors with setting the state for now
+        _ = await self.set_state(ServiceState.READY)
+
+        # Run the service forever until the stop event is set
+        await self.forever_loop()
 
     async def send_heartbeat(self) -> None:
         """Send a heartbeat notification to the system controller."""
@@ -137,7 +155,7 @@ class BaseComponentService(BaseService, ABC):
                 message=heartbeat_message,
             )
         except Exception as e:
-            raise ServiceHeartbeatException from e
+            raise ServiceHeartbeatError from e
 
     async def register(self) -> None:
         """Publish a registration request to the system controller.
@@ -156,7 +174,7 @@ class BaseComponentService(BaseService, ABC):
                 message=self.create_registration_message(),
             )
         except Exception as e:
-            raise ServiceRegistrationException() from e
+            raise ServiceRegistrationError() from e
 
     async def process_command_message(self, message: Message) -> None:
         """Process a command message received from the controller.
@@ -171,7 +189,7 @@ class BaseComponentService(BaseService, ABC):
             await self.start()
 
         elif cmd == CommandType.STOP:
-            await self.stop()
+            self.stop_event.set()
 
         elif cmd == CommandType.CONFIGURE:
             await self._configure(message.payload)
@@ -186,17 +204,13 @@ class BaseComponentService(BaseService, ABC):
         communications are initialized.
         """
         self._state = state
-        if self.comms and self.comms.is_initialized:
+        if self._comms and self._comms.is_initialized:
             await self.comms.publish(
                 topic=Topic.STATUS,
                 message=self.create_status_message(state),
             )
 
-    async def stop(self) -> None:
-        """Stop the service."""
-        await super().stop()
-        await self.stop_heartbeat_task()
-
+    @on_stop
     async def stop_heartbeat_task(self) -> None:
         """Stop the heartbeat task if it is running."""
         if self._heartbeat_task and not self._heartbeat_task.done():
@@ -240,6 +254,7 @@ class BaseComponentService(BaseService, ABC):
             except Exception as e:
                 self.logger.warning("Exception sending heartbeat: %s", e)
                 # continue to keep sending heartbeats regardless of the error
+        self.logger.debug("Heartbeat loop stopped")
 
     async def start_heartbeat_task(self) -> None:
         """Start a background task to send heartbeats at regular intervals."""

@@ -12,29 +12,22 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-
-from aiperf.common.exceptions.base_exceptions import AIPerfError
-
-
-class ConfigError(AIPerfError):
-    """Base class for all exceptions raised by configuration errors."""
-
-    message: str = "Configuration error"
+from aiperf.common.base_metaclass import BaseMetaclass, register_metaclass
+from aiperf.common.decorators import AIPerfHooks
 
 
-class ConfigLoadError(ConfigError):
-    """Exception raised for configuration load errors."""
+@register_metaclass(
+    AIPerfHooks.INIT,
+    AIPerfHooks.START,
+    AIPerfHooks.STOP,
+    AIPerfHooks.CLEANUP,
+    AIPerfHooks.RUN,
+    AIPerfHooks.CONFIGURE,
+)
+class ServiceMetaclass(BaseMetaclass):
+    """Meta class for services.
 
-    message: str = "Failed to load configuration"
+    This meta class is used to collect the hooks for a service.
+    """
 
-
-class ConfigParseError(ConfigError):
-    """Exception raised for configuration parse errors."""
-
-    message: str = "Failed to parse configuration"
-
-
-class ConfigValidationError(ConfigError):
-    """Exception raised for configuration validation errors."""
-
-    message: str = "Failed to validate configuration"
+    pass

@@ -20,10 +20,9 @@ from zmq import SocketType
 
 from aiperf.common.comms.zmq_comms.clients.base_zmq_client import BaseZMQClient
 from aiperf.common.exceptions.comm_exceptions import (
-    CommunicationNotInitializedException,
-    CommunicationPublishException,
+    CommunicationPublishError,
 )
-from aiperf.common.models.message_models import BaseMessage
+from aiperf.common.models.message_models import Message
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +33,7 @@ class ZMQPubClient(BaseZMQClient):
         context: zmq.asyncio.Context,
         address: str,
         bind: bool,
-        socket_ops: dict = None,
+        socket_ops: dict | None = None,
     ) -> None:
         """
         Initialize the ZMQ Publisher class.
@@ -47,7 +46,7 @@ class ZMQPubClient(BaseZMQClient):
         """
         super().__init__(context, SocketType.PUB, address, bind, socket_ops)
 
-    async def publish(self, topic: str, message: BaseMessage) -> None:
+    async def publish(self, topic: str, message: Message) -> None:
         """Publish a message to a topic.
 
         Args:
@@ -57,11 +56,7 @@ class ZMQPubClient(BaseZMQClient):
         Raises:
             Exception if message was not published successfully, None otherwise
         """
-        if not self._is_initialized or self._is_shutdown:
-            logger.error(
-                "Cannot publish message: communication not initialized or already shut down"
-            )
-            raise CommunicationNotInitializedException()
+        self._ensure_initialized()
 
         try:
             # Serialize message using Pydantic's built-in method
@@ -71,6 +66,6 @@ class ZMQPubClient(BaseZMQClient):
             await self.socket.send_multipart([topic.encode(), message_json.encode()])
         except Exception as e:
             logger.error("Exception publishing message to topic %s: %s", topic, e)
-            raise CommunicationPublishException(
+            raise CommunicationPublishError(
                 "Failed to publish message to topic %s", topic
             ) from e

@@ -18,7 +18,6 @@ import time
 from typing import Union
 
 from pydantic import BaseModel, Field
-from pydantic_core import PydanticUndefined
 
 from aiperf.common.models.payload_models import (
     CommandPayload,
@@ -39,7 +38,7 @@ class BaseMessage(BaseModel):
     """
 
     service_id: str | None = Field(
-        default=PydanticUndefined,
+        default=None,
         description="ID of the service sending the response",
     )
     timestamp: int = Field(
@@ -51,7 +50,7 @@ class BaseMessage(BaseModel):
         description="ID of the request",
     )
     payload: Payload = Field(
-        default=None,
+        ...,
         discriminator="message_type",
         description="Payload of the response",
     )

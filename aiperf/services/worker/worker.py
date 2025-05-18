@@ -18,6 +18,12 @@ import sys
 import uvloop
 
 from aiperf.common.config.service_config import ServiceConfig
+from aiperf.common.decorators import (
+    on_cleanup,
+    on_init,
+    on_start,
+    on_stop,
+)
 from aiperf.common.enums import (
     ClientType,
     PullClientType,
@@ -45,13 +51,19 @@ class Worker(BaseService):
     @property
     def required_clients(self) -> list[ClientType]:
         """The communication clients required by the service."""
-        return [PullClientType.CREDIT_DROP, PushClientType.CREDIT_RETURN]
+        return [
+            *(super().required_clients or []),
+            PullClientType.CREDIT_DROP,
+            PushClientType.CREDIT_RETURN,
+        ]
 
+    @on_init
     async def _initialize(self) -> None:
         """Initialize worker-specific components."""
         self.logger.debug("Initializing worker")
 
-    async def _on_start(self) -> None:
+    @on_start
+    async def _start(self) -> None:
         """Start the worker."""
         self.logger.debug("Starting worker")
         # Subscribe to the credit drop topic
@@ -60,10 +72,12 @@ class Worker(BaseService):
             callback=self._process_credit_drop,
         )
 
-    async def _on_stop(self) -> None:
+    @on_stop
+    async def _stop(self) -> None:
         """Stop the worker."""
         self.logger.debug("Stopping worker")
 
+    @on_cleanup
     async def _cleanup(self) -> None:
         """Clean up worker-specific components."""
         self.logger.debug("Cleaning up worker")
@@ -88,11 +102,9 @@ class Worker(BaseService):
 
 
 if __name__ == "__main__":
-    uvloop.install()
-
     # Load the service configuration
     from aiperf.common.config.config_loader import load_service_config
 
     cfg = load_service_config()
     worker = Worker(cfg)
-    sys.exit(uvloop.run(worker.run()))
+    sys.exit(uvloop.run(worker.run_forever()))

@@ -21,8 +21,15 @@ from pydantic import BaseModel, Field
 
 from aiperf.common.bootstrap_utils import bootstrap_and_run_service
 from aiperf.common.config.service_config import ServiceConfig
+from aiperf.common.decorators import (
+    on_cleanup,
+    on_configure,
+    on_init,
+    on_start,
+    on_stop,
+)
 from aiperf.common.enums import ServiceRunType, ServiceType
-from aiperf.common.exceptions.config_exceptions import ConfigException
+from aiperf.common.exceptions.config_exceptions import ConfigError
 from aiperf.common.models.payload_models import BasePayload
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.services.worker.worker import Worker
@@ -52,11 +59,13 @@ class WorkerManager(BaseComponentService):
         """The type of service."""
         return ServiceType.WORKER_MANAGER
 
+    @on_init
     async def _initialize(self) -> None:
         """Initialize worker manager-specific components."""
         self.logger.debug("Initializing worker manager")
 
-    async def _on_start(self) -> None:
+    @on_start
+    async def _start(self) -> None:
         """Start the worker manager."""
         self.logger.debug("Starting worker manager")
 
@@ -71,11 +80,12 @@ class WorkerManager(BaseComponentService):
             self.logger.warning(
                 f"Unsupported run type: {self.service_config.service_run_type}"
             )
-            raise ConfigException(
+            raise ConfigError(
                 f"Unsupported run type: {self.service_config.service_run_type}"
             )
 
-    async def _on_stop(self) -> None:
+    @on_stop
+    async def _stop(self) -> None:
         """Stop the worker manager."""
         self.logger.debug("Stopping worker manager")
         # TODO: This needs to be investigated, as currently we handle the exit signal
@@ -90,6 +100,7 @@ class WorkerManager(BaseComponentService):
         #         f"Unsupported run type: {self.service_config.service_run_type}"
         #     )
 
+    @on_cleanup
     async def _cleanup(self) -> None:
         """Clean up worker manager-specific components."""
         self.logger.debug("Cleaning up worker manager")
@@ -173,6 +184,7 @@ class WorkerManager(BaseComponentService):
             )
             process.kill()
 
+    @on_configure
     async def _configure(self, payload: BasePayload) -> None:
         """Configure the worker manager."""
         self.logger.debug(f"Configuring worker manager with payload: {payload}")

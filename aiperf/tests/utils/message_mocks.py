@@ -20,9 +20,9 @@ from typing import Any, TypeVar
 from unittest.mock import AsyncMock
 
 from aiperf.common.enums import Topic
-from aiperf.common.models.message_models import BaseMessage
+from aiperf.common.models.message_models import Message
 
-T = TypeVar("T", bound=BaseMessage)
+T = TypeVar("T", bound=Message)
 
 
 class MessageTestUtils:
@@ -44,7 +44,7 @@ class MessageTestUtils:
 
     @staticmethod
     async def simulate_message_receive(
-        service: Any, topic: Topic, message: BaseMessage
+        service: Any, topic: Topic, message: Message
     ) -> None:
         """
         Simulate a service receiving a message on a specific topic.
@@ -107,7 +107,7 @@ class MessageParamBuilder:
 
     @staticmethod
     def build_message_params(
-        message_class: type[BaseMessage],
+        message_class: type[Message],
         field_variations: dict[str, list[Any]],
         required_fields: dict[str, Any] = None,
     ) -> list[dict[str, Any]]:
@@ -140,7 +140,7 @@ class MessageParamBuilder:
         return param_sets
 
 
-def message_handler_test(message_class: type[BaseMessage], topic: Topic, **params):
+def message_handler_test(message_class: type[Message], topic: Topic, **params):
     """
     Decorator for creating parameterized tests of message handlers.
 

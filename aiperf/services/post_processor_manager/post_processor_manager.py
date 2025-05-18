@@ -15,6 +15,13 @@
 import sys
 
 from aiperf.common.config.service_config import ServiceConfig
+from aiperf.common.decorators import (
+    on_cleanup,
+    on_configure,
+    on_init,
+    on_start,
+    on_stop,
+)
 from aiperf.common.enums import ServiceType
 from aiperf.common.models.payload_models import BasePayload
 from aiperf.common.service.base_component_service import BaseComponentService
@@ -32,26 +39,31 @@ class PostProcessorManager(BaseComponentService):
         """The type of service."""
         return ServiceType.POST_PROCESSOR_MANAGER
 
+    @on_init
     async def _initialize(self) -> None:
         """Initialize post processor manager-specific components."""
         self.logger.debug("Initializing post processor manager")
         # TODO: Implement post processor manager initialization
 
-    async def _on_start(self) -> None:
+    @on_start
+    async def _start(self) -> None:
         """Start the post processor manager."""
         self.logger.debug("Starting post processor manager")
         # TODO: Implement post processor manager start
 
-    async def _on_stop(self) -> None:
+    @on_stop
+    async def _stop(self) -> None:
         """Stop the post processor manager."""
         self.logger.debug("Stopping post processor manager")
         # TODO: Implement post processor manager stop
 
+    @on_cleanup
     async def _cleanup(self) -> None:
         """Clean up post processor manager-specific components."""
         self.logger.debug("Cleaning up post processor manager")
         # TODO: Implement post processor manager cleanup
 
+    @on_configure
     async def _configure(self, payload: BasePayload) -> None:
         """Configure the post processor manager."""
         self.logger.debug(f"Configuring post processor manager with payload: {payload}")

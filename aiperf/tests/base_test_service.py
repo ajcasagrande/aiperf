@@ -71,7 +71,7 @@ class BaseTestService(ABC):
             return_value=mock_communication,
         ):
             service = service_class(service_config=service_config)
-            service.comms = mock_communication
+            service._comms = mock_communication
             return service
 
     @pytest.fixture
@@ -91,8 +91,8 @@ class BaseTestService(ABC):
             service = service_class(service_config=service_config)
 
             # Manually set up the mock communication
-            service.comms = mock_communication
-            service.comms._is_initialized = True
+            service._comms = mock_communication
+            service._comms._is_initialized = True
 
             # Reset the published messages tracking
             mock_communication.published_messages = {}
@@ -103,7 +103,7 @@ class BaseTestService(ABC):
                 yield service
             finally:
                 # Clean up
-                if service.state != ServiceState.STOPPED:
+                if service._state != ServiceState.STOPPED:
                     await service.stop()
 
     async def test_service_initialization(self, uninitialized_service):
@@ -126,7 +126,7 @@ class BaseTestService(ABC):
         assert service._initialize.called
 
         # Check that the communication was initialized
-        assert service.comms.is_shutdown is False
+        assert service._comms.is_shutdown is False
 
         # Check that the service is initialized
         assert service.is_initialized is True
