@@ -26,6 +26,7 @@ from aiperf.app.dynamo.dynamo_dataset_manager import DynamoDatasetManager
 from aiperf.app.dynamo.dynamo_post_processor_manager import DynamoPostProcessorManager
 from aiperf.app.dynamo.dynamo_records_manager import DynamoRecordsManager
 from aiperf.app.dynamo.dynamo_timing_manager import DynamoTimingManager
+from aiperf.app.dynamo.dynamo_worker import DynamoWorker
 from aiperf.app.dynamo.dynamo_worker_manager import DynamoWorkerManager
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.services.system_controller.system_controller import SystemController
@@ -52,6 +53,7 @@ class DynamoSystemController:
     records_manager = depends(DynamoRecordsManager)
     post_processor_manager = depends(DynamoPostProcessorManager)
     timing_manager = depends(DynamoTimingManager)
+    worker = depends(DynamoWorker)
 
     def __init__(self) -> None:
         logger.info("Starting system controller")
@@ -61,10 +63,11 @@ class DynamoSystemController:
         )
         logger.info(f"System controller config message: {self.message}")
         self.system_controller = SystemController(ServiceConfig())
+        asyncio.to_thread(self.system_controller.run)
 
     @async_on_start
     async def init(self):
-        await asyncio.create_task(self.system_controller.run())
+        asyncio.create_task(self.system_controller.run())
 
     @dynamo_api()
     async def initialize(self, input: BaseModel) -> BaseModel:

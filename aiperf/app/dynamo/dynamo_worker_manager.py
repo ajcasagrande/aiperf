@@ -46,7 +46,7 @@ class DynamoWorkerManager:
 
     @async_on_start
     async def init(self):
-        await asyncio.create_task(self.worker_manager.run())
+        asyncio.create_task(self.worker_manager.run())
 
     @dynamo_endpoint()
     async def initialize(self, input: BaseModel) -> BaseModel:
