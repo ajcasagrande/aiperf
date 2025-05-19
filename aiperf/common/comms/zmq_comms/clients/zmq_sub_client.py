@@ -21,11 +21,12 @@ import zmq.asyncio
 from zmq import SocketType
 
 from aiperf.common.comms.zmq_comms.clients.base_zmq_client import BaseZMQClient
+from aiperf.common.decorators import aiperf_task
 from aiperf.common.exceptions.comm_exceptions import (
     CommunicationSubscribeError,
 )
 from aiperf.common.models.message_models import BaseMessage, Message
-from aiperf.common.utils import call_all_functions_self
+from aiperf.common.utils import call_all_functions
 
 logger = logging.getLogger(__name__)
 
@@ -49,9 +50,6 @@ class ZMQSubClient(BaseZMQClient):
         """
         super().__init__(context, SocketType.SUB, address, bind, socket_ops)
         self._subscribers: dict[str, list[Callable[[Message], Any]]] = {}
-
-    async def _initialize(self) -> None:
-        asyncio.create_task(self._sub_receiver())
 
     async def subscribe(self, topic: str, callback: Callable[[Message], Any]) -> None:
         """Subscribe to a topic.
@@ -80,6 +78,7 @@ class ZMQSubClient(BaseZMQClient):
             logger.error("Exception subscribing to topic %s: %s", topic, e)
             raise CommunicationSubscribeError from e
 
+    @aiperf_task
     async def _sub_receiver(self) -> None:
         """Background task for receiving messages from subscribed topics."""
         while not self.is_shutdown:
@@ -109,7 +108,7 @@ class ZMQSubClient(BaseZMQClient):
 
                 # Call callbacks with the parsed response object
                 if topic in self._subscribers:
-                    await call_all_functions_self(self._subscribers[topic], message)
+                    await call_all_functions(self._subscribers[topic], message)
 
             except asyncio.CancelledError:
                 break

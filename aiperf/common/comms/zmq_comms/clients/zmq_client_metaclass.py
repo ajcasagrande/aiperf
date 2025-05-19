@@ -16,7 +16,7 @@ from aiperf.common.base_metaclass import BaseMetaclass, register_metaclass
 from aiperf.common.decorators import AIPerfHooks
 
 
-@register_metaclass(AIPerfHooks.INIT, AIPerfHooks.CLEANUP)
+@register_metaclass(AIPerfHooks.INIT, AIPerfHooks.CLEANUP, AIPerfHooks.TASK)
 class ZMQClientMetaclass(BaseMetaclass):
     """Meta class for ZMQ clients.
 

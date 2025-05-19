@@ -100,3 +100,9 @@ class CommunicationTypeUnknownError(CommunicationError):
     """Exception raised when the communication type is unknown."""
 
     message: str = "Communication type is unknown"
+
+
+class CommunicationTypeAlreadyRegisteredError(CommunicationError):
+    """Exception raised when the communication type is already registered."""
+
+    message: str = "Communication type is already registered"

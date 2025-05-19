@@ -13,7 +13,6 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import asyncio
-import contextlib
 import logging
 from collections.abc import Callable
 
@@ -21,6 +20,7 @@ import zmq.asyncio
 from zmq import SocketType
 
 from aiperf.common.comms.zmq_comms.clients.base_zmq_client import BaseZMQClient
+from aiperf.common.decorators import aiperf_task
 from aiperf.common.models.message_models import BaseMessage, Message
 
 logger = logging.getLogger(__name__)
@@ -45,13 +45,8 @@ class ZMQPullClient(BaseZMQClient):
         """
         super().__init__(context, SocketType.PULL, address, bind, socket_ops)
         self._pull_callbacks: dict[str, list[Callable[[Message], None]]] = {}
-        self._pull_receiver_task: asyncio.Task | None = None
 
-    async def _initialize(self) -> None:
-        # Start the receiver task
-        self._pull_receiver_task = asyncio.create_task(self._pull_receiver())
-        logger.debug(f"Pull socket initialized and listening on {self.address}")
-
+    @aiperf_task
     async def _pull_receiver(self) -> None:
         """Background task for receiving data from the pull socket."""
         while not self.is_shutdown:
@@ -104,10 +99,3 @@ class ZMQPullClient(BaseZMQClient):
         if topic not in self._pull_callbacks:
             self._pull_callbacks[topic] = []
         self._pull_callbacks[topic].append(callback)
-
-    async def _cleanup(self) -> None:
-        if self._pull_receiver_task:
-            self._pull_receiver_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await self._pull_receiver_task
-            self._pull_receiver_task = None

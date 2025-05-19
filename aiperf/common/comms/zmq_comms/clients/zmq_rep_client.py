@@ -13,14 +13,13 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import asyncio
-import contextlib
 import logging
 
 import zmq.asyncio
 from zmq import SocketType
 
 from aiperf.common.comms.zmq_comms.clients.base_zmq_client import BaseZMQClient
-from aiperf.common.decorators import on_init
+from aiperf.common.decorators import aiperf_task, on_cleanup
 from aiperf.common.exceptions.comm_exceptions import (
     CommunicationNotInitializedError,
     CommunicationResponseError,
@@ -51,21 +50,10 @@ class ZMQRepClient(BaseZMQClient):
 
         self._response_futures = {}
         self._response_data = {}
-        self._receiver_task = None
 
-    @on_init
-    async def _initialize(self) -> None:
-        # Start the receiver task
-        self._receiver_task = asyncio.create_task(self._rep_receiver())
-        logger.debug(f"REP socket initialized and listening on {self.address}")
-
-    async def shutdown(self) -> None:
-        """Shutdown the socket and clean up resources."""
-        if self._receiver_task and not self._receiver_task.done():
-            self._receiver_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await self._receiver_task
-
+    @on_cleanup
+    async def _cleanup(self) -> None:
+        """Clean up any pending futures."""
         # Resolve any pending futures with errors
         for _, future in self._response_futures.items():
             if not future.done():
@@ -73,8 +61,6 @@ class ZMQRepClient(BaseZMQClient):
 
         self._response_futures.clear()
         self._response_data.clear()
-
-        await super().shutdown()
 
     async def wait_for_request(self, timeout: float = None) -> Message:
         """Wait for a request to arrive.
@@ -154,6 +140,7 @@ class ZMQRepClient(BaseZMQClient):
                 "Exception sending response to %s", target
             ) from e
 
+    @aiperf_task
     async def _rep_receiver(self) -> None:
         """Background task for receiving requests and sending responses."""
         while not self.is_shutdown:

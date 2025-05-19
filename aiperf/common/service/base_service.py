@@ -129,7 +129,7 @@ class BaseService(AbstractBaseService, ABC):
     def _get_hooks(self, hook_type: AIPerfHooks) -> list[Callable]:
         """Get the hooks for the given hook type."""
         self.logger.debug(
-            f"Getting hooks for {hook_type}: {self._aiperf_hooks[hook_type]}"
+            f"Getting hooks for {self.service_id}.{hook_type}: {self._aiperf_hooks[hook_type]}"
         )
         return self._aiperf_hooks[hook_type]
 
@@ -247,7 +247,7 @@ class BaseService(AbstractBaseService, ABC):
     async def forever_loop(self) -> None:
         """Run the service in a loop until the stop event is set.
 
-        This method will be called by the `run` method to allow the service to run
+        This method will be called by the `run_forever` method to allow the service to run
         indefinitely.
         """
         while not self.stop_event.is_set():
@@ -317,7 +317,7 @@ class BaseService(AbstractBaseService, ABC):
         """Stop the service and clean up its components."""
         try:
             if self.state == ServiceState.STOPPED:
-                self.logger.debug(
+                self.logger.warning(
                     "Service %s state %s is already STOPPED, ignoring stop request",
                     self.service_type,
                     self.state,
@@ -340,7 +340,8 @@ class BaseService(AbstractBaseService, ABC):
                 await self._comms.shutdown()
 
             # Custom cleanup logic implemented by derived classes
-            await self._run_hooks(AIPerfHooks.CLEANUP)
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._run_hooks(AIPerfHooks.CLEANUP)
 
             # Set the state to STOPPED. Communications are shutdown, so we don't need to
             # publish a status message

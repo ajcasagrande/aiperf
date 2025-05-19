@@ -13,6 +13,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import asyncio
+import contextlib
 import logging
 import uuid
 from abc import ABC
@@ -32,8 +33,6 @@ from aiperf.common.exceptions.comm_exceptions import (
     CommunicationShutdownError,
 )
 from aiperf.common.utils import call_all_functions_self
-
-logger = logging.getLogger(__name__)
 
 
 class BaseZMQClient(ABC, metaclass=ZMQClientMetaclass):
@@ -57,6 +56,7 @@ class BaseZMQClient(ABC, metaclass=ZMQClientMetaclass):
             socket_type (SocketType): The type of ZMQ socket (PUB or SUB).
             socket_ops (dict, optional): Additional socket options to set.
         """
+        self.logger = logging.getLogger(__name__)
         self.stop_event: asyncio.Event = asyncio.Event()
         self.initialized_event: asyncio.Event = asyncio.Event()
         self.context: zmq.asyncio.Context = context
@@ -65,7 +65,8 @@ class BaseZMQClient(ABC, metaclass=ZMQClientMetaclass):
         self.socket_type: SocketType = socket_type
         self._socket: zmq.asyncio.Socket | None = None
         self.socket_ops: dict = socket_ops or {}
-        self.client_id: str = f"client_{uuid.uuid4().hex[:8]}"
+        self.client_id: str = f"{self.socket_type.name}_client_{uuid.uuid4().hex[:8]}"
+        self._task_registry: dict[str, asyncio.Task] = {}
 
     @property
     def is_initialized(self) -> bool:
@@ -88,6 +89,9 @@ class BaseZMQClient(ABC, metaclass=ZMQClientMetaclass):
 
     def _get_hooks(self, hook_type: AIPerfHooks) -> list[Callable]:
         """Get the hooks for the given hook type."""
+        self.logger.debug(
+            f"Getting hooks for {self.client_id}.{hook_type}: {self._aiperf_hooks[hook_type]}"
+        )
         return self._aiperf_hooks[hook_type]
 
     async def _run_hooks(self, hook_type: AIPerfHooks, *args, **kwargs) -> None:
@@ -106,12 +110,12 @@ class BaseZMQClient(ABC, metaclass=ZMQClientMetaclass):
         try:
             self._socket = self.context.socket(self.socket_type)
             if self.bind:
-                logger.debug(
+                self.logger.debug(
                     f"Binding ZMQ {self.socket_type_name} socket to {self.address}"
                 )
                 self.socket.bind(self.address)
             else:
-                logger.debug(
+                self.logger.debug(
                     f"Connecting ZMQ {self.socket_type_name} socket to {self.address}"
                 )
                 self.socket.connect(self.address)
@@ -126,15 +130,20 @@ class BaseZMQClient(ABC, metaclass=ZMQClientMetaclass):
 
             await self._run_hooks(AIPerfHooks.INIT)
 
+            # Start all registered tasks
+            for hook in self._get_hooks(AIPerfHooks.TASK):
+                # TODO: support task intervals
+                self._task_registry[hook.__name__] = asyncio.create_task(hook(self))
+
             self.initialized_event.set()
-            logger.debug(
+            self.logger.debug(
                 "ZMQ %s socket initialized and connected to %s",
                 self.socket_type_name,
                 self.address,
             )
 
         except Exception as e:
-            logger.error("Exception initializing ZMQ socket: %s", e)
+            self.logger.error("Exception initializing ZMQ socket: %s", e)
             raise CommunicationInitializationError from e
 
     async def shutdown(self) -> None:
@@ -142,15 +151,16 @@ class BaseZMQClient(ABC, metaclass=ZMQClientMetaclass):
         if self.is_shutdown:
             return
 
-        self.stop_event.set()
+        if not self.stop_event.is_set():
+            self.stop_event.set()
 
         try:
             if self._socket:
                 self.socket.close()
-                logger.debug("ZMQ %s socket closed", self.socket_type_name)
+                self.logger.debug("ZMQ %s socket closed", self.socket_type_name)
 
         except Exception as e:
-            logger.error("Exception shutting down ZMQ socket: %s", e)
+            self.logger.error("Exception shutting down ZMQ socket: %s", e)
             raise CommunicationShutdownError("Failed to shutdown ZMQ socket") from e
 
         finally:
@@ -160,11 +170,15 @@ class BaseZMQClient(ABC, metaclass=ZMQClientMetaclass):
             await self._run_hooks(AIPerfHooks.CLEANUP)
 
         except Exception as e:
-            logger.error("Exception cleaning up ZMQ socket: %s", e)
+            self.logger.error("Exception cleaning up ZMQ socket: %s", e)
             raise CommunicationError("Failed to cleanup ZMQ socket") from e
 
-    async def _initialize(self) -> None:
-        """Override in subclass to implement custom initialization logic.
+        # Cancel all registered tasks
+        for task in self._task_registry.values():
+            task.cancel()
 
-        This method is called after the socket is bound or connected.
-        """
+        # Wait for all tasks to complete
+        with contextlib.suppress(asyncio.CancelledError):
+            await asyncio.gather(*self._task_registry.values())
+
+        self._task_registry.clear()

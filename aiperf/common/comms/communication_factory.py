@@ -19,9 +19,9 @@ from collections.abc import Callable
 from aiperf.common.comms.base_communication import BaseCommunication
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import CommunicationBackend
-from aiperf.common.exceptions.base_exceptions import AIPerfError
 from aiperf.common.exceptions.comm_exceptions import (
     CommunicationCreateError,
+    CommunicationTypeAlreadyRegisteredError,
     CommunicationTypeUnknownError,
 )
 from aiperf.common.models.comm_models import (
@@ -57,10 +57,22 @@ class CommunicationFactory:
 
     @classmethod
     def register(cls, comm_type: CommunicationBackend | str) -> Callable:
+        """Register a new communication type.
+
+        Args:
+            comm_type: Communication type string
+
+        Returns:
+            Decorator for the communication class
+
+        Raises:
+            CommunicationTypeAlreadyRegisteredError: If the communication type is already registered
+        """
+
         def decorator(comm_cls: type[BaseCommunication]) -> type[BaseCommunication]:
             if comm_type in cls._comm_registry:
-                raise AIPerfError(
-                    f"Communication type {comm_type!r} already registered"
+                raise CommunicationTypeAlreadyRegisteredError(
+                    f"Communication type {comm_type} already registered"
                 )
             cls._comm_registry[comm_type] = comm_cls
             return comm_cls

@@ -13,7 +13,6 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import asyncio
-import contextlib
 import logging
 import uuid
 
@@ -21,8 +20,8 @@ import zmq.asyncio
 from zmq import SocketType
 
 from aiperf.common.comms.zmq_comms.clients.base_zmq_client import BaseZMQClient
+from aiperf.common.decorators import aiperf_task, on_cleanup
 from aiperf.common.exceptions.comm_exceptions import (
-    CommunicationInitializationError,
     CommunicationRequestError,
 )
 from aiperf.common.models.message_models import BaseMessage, Message
@@ -51,18 +50,8 @@ class ZMQReqClient(BaseZMQClient):
         super().__init__(context, SocketType.REQ, address, bind, socket_ops)
         self._response_futures = {}
         self.client_id = uuid.uuid4().hex
-        self._background_task = None
 
-    async def initialize(self) -> None:
-        """Initialize the socket and start processing messages."""
-        try:
-            await super().initialize()
-            self._background_task = asyncio.create_task(self._process_messages())
-
-        except Exception as e:
-            logger.error("Exception initializing ZMQ socket: %s", e)
-            raise CommunicationInitializationError from e
-
+    @aiperf_task
     async def _process_messages(self) -> None:
         """Process incoming response messages in the background."""
         while not self.is_shutdown:
@@ -100,13 +89,9 @@ class ZMQReqClient(BaseZMQClient):
             logger.error(f"Exception handling response: {e}")
             raise CommunicationRequestError("Exception handling response") from e
 
-    async def shutdown(self) -> None:
-        """Shutdown the socket and clean up resources."""
-        if self._background_task and not self._background_task.done():
-            self._background_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await self._background_task
-
+    @on_cleanup
+    async def _cleanup(self) -> None:
+        """Clean up any pending futures."""
         # Resolve any pending futures with errors
         for request_id, future in self._response_futures.items():
             if not future.done():
@@ -119,8 +104,6 @@ class ZMQReqClient(BaseZMQClient):
                 future.set_result(error_response.model_dump_json())
 
         self._response_futures.clear()
-
-        await super().shutdown()
 
     async def request(
         self,

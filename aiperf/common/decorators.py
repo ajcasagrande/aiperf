@@ -101,12 +101,12 @@ def on_run(func: Callable) -> Callable:
 
 def aiperf_task(func: Callable, interval: float | None = None) -> Callable:
     """
-    Decorator to indicate that the function is a task function.
+    Decorator to indicate that the function is a task function. It will be
+    started automatically and stopped when the service shuts down.
 
-    It will be called during the service run to allow the derived service to
-    run any tasks specific to that service. An interval can be provided to
-    indicate the frequency at which the task should be run, otherwise it will
-    run once.
+    It allows a derived class to run any tasks specific to that class. An
+    interval can be provided to indicate the frequency at which the task should
+    be run, otherwise it will run once.
 
     Args:
         func: The function to decorate.
