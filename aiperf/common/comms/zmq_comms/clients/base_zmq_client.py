@@ -116,12 +116,18 @@ class BaseZMQClient(ABC, metaclass=ZMQClientMetaclass):
             self._socket = self.context.socket(self.socket_type)
             if self.bind:
                 self.logger.debug(
-                    f"Binding ZMQ {self.socket_type_name} socket to {self.address}"
+                    "ZMQ %s socket initialized and bound to %s (%s)",
+                    self.socket_type_name,
+                    self.address,
+                    self.client_id,
                 )
                 self.socket.bind(self.address)
             else:
                 self.logger.debug(
-                    f"Connecting ZMQ {self.socket_type_name} socket to {self.address}"
+                    "ZMQ %s socket initialized and connected to %s (%s)",
+                    self.socket_type_name,
+                    self.address,
+                    self.client_id,
                 )
                 self.socket.connect(self.address)
 
@@ -142,9 +148,10 @@ class BaseZMQClient(ABC, metaclass=ZMQClientMetaclass):
 
             self.initialized_event.set()
             self.logger.debug(
-                "ZMQ %s socket initialized and connected to %s",
+                "ZMQ %s socket initialized and connected to %s (%s)",
                 self.socket_type_name,
                 self.address,
+                self.client_id,
             )
 
         except Exception as e:
@@ -162,10 +169,14 @@ class BaseZMQClient(ABC, metaclass=ZMQClientMetaclass):
         try:
             if self._socket:
                 self.socket.close()
-                self.logger.debug("ZMQ %s socket closed", self.socket_type_name)
+                self.logger.debug(
+                    "ZMQ %s socket closed (%s)", self.socket_type_name, self.client_id
+                )
 
         except Exception as e:
-            self.logger.error("Exception shutting down ZMQ socket: %s", e)
+            self.logger.error(
+                "Exception shutting down ZMQ socket: %s (%s)", e, self.client_id
+            )
             raise CommunicationShutdownError("Failed to shutdown ZMQ socket") from e
 
         finally:
@@ -175,7 +186,9 @@ class BaseZMQClient(ABC, metaclass=ZMQClientMetaclass):
             await self._run_hooks(AIPerfHooks.CLEANUP)
 
         except Exception as e:
-            self.logger.error("Exception cleaning up ZMQ socket: %s", e)
+            self.logger.error(
+                "Exception cleaning up ZMQ socket: %s (%s)", e, self.client_id
+            )
             raise CommunicationError("Failed to cleanup ZMQ socket") from e
 
         # Cancel all registered tasks
