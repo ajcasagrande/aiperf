@@ -22,7 +22,13 @@ from aiperf.common.exceptions.base_exceptions import AIPerfMetaclassError
 
 
 class BaseMetaclass(ABCMeta):
-    """Base metaclass for all AIPerf metaclasses that support hooks."""
+    """Base metaclass for all AIPerf metaclasses that support hooks.
+
+    This metaclass is used to collect the hooks for a service. All of the logic
+    for the hooks is implemented here, and other metaclasses should inherit from
+    this one, and specify the supported hook types via the `register_metaclass`
+    decorator.
+    """
 
     _supported_hook_types: list[AIPerfHooks] = []
     _strict_hook_types: bool = True
@@ -42,7 +48,13 @@ class BaseMetaclass(ABCMeta):
 
             _aiperf_hooks[hook_type].append(attr_value)
 
-        namespace["_aiperf_hooks"] = _aiperf_hooks
+        # Add the hooks to the namespace, or update the existing hooks if they
+        # already exist from a base class.
+        if "_aiperf_hooks" not in namespace:
+            namespace["_aiperf_hooks"] = _aiperf_hooks
+        else:
+            for hook_type, hooks in _aiperf_hooks.items():
+                namespace["_aiperf_hooks"][hook_type].extend(hooks)
 
         cls = super().__new__(mcs, name, bases, namespace)
         return cls
@@ -52,7 +64,22 @@ def register_metaclass(
     *supported_hook_types: AIPerfHooks,
     strict: bool = True,
 ) -> Callable[[type], type]:
-    """Decorator to register a metaclass with the AIPerf framework."""
+    """Decorator to register a metaclass with the AIPerf framework.
+
+    It will add the supported hook types to the metaclass and set whether the
+    hook types are strict or not.
+
+    Args:
+        supported_hook_types: The hook types that the metaclass supports.
+        strict: Whether the hook types are strict or not. If strict is True
+            (default: True), then the metaclass will raise an error if an invalid
+            hook type is used. This is to prevent issues that arise from using
+            a hook type that is not supported, and wondering why it is not
+            working.
+
+    Returns:
+        The decorated metaclass.
+    """
 
     def decorator(cls: type[BaseMetaclass]) -> type[BaseMetaclass]:
         cls._supported_hook_types = list(supported_hook_types)

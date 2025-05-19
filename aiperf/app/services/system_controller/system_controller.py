@@ -15,6 +15,7 @@
 import asyncio
 import sys
 import time
+from typing import Any
 
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.decorators import (
@@ -43,7 +44,8 @@ from aiperf.common.exceptions.service_exceptions import (
     ServiceStopError,
 )
 from aiperf.common.models.message_models import (
-    Message,
+    HeartbeatMessage,
+    RegistrationMessage,
     StatusMessage,
 )
 from aiperf.common.models.service_models import ServiceRunInfo
@@ -138,11 +140,6 @@ class SystemController(BaseControllerService):
         await asyncio.sleep(1)
 
     @on_start
-    async def _start1(self) -> None:
-        """Start the system controller."""
-        self.logger.info("AIPerf System is STARTING")
-
-    @on_start
     async def _start(self) -> None:
         """Start the system controller and launch required services."""
         self.logger.debug("Starting System Controller")
@@ -192,22 +189,6 @@ class SystemController(BaseControllerService):
         self.logger.debug("All required services started successfully")
         self.logger.info("AIPerf System is RUNNING")
 
-    async def start_all_services(self) -> None:
-        """Start all required services."""
-        self.logger.debug("Starting services")
-        for service_info in self.service_manager.service_id_map.values():
-            if service_info.state == ServiceState.READY:
-                try:
-                    await self.send_command_to_service(
-                        target_service_id=service_info.service_id,
-                        command=CommandType.START,
-                    )
-                except Exception as e:
-                    self.logger.warning("Failed to start service: %s", e)
-                    # Continue to the next service
-                    # TODO: should we have some sort of retries?
-                    continue
-
     @on_stop
     async def _stop(self) -> None:
         """Stop the system controller and all running services."""
@@ -226,7 +207,33 @@ class SystemController(BaseControllerService):
         self.logger.debug("Cleaning up System Controller")
         # TODO: Additional cleanup if needed
 
-    async def _process_registration_message(self, message: Message) -> None:
+    async def start_all_services(self) -> None:
+        """Start all required services."""
+        self.logger.debug("Starting services")
+        for service_info in self.service_manager.service_id_map.values():
+            if service_info.state == ServiceState.READY:
+                try:
+                    await self.send_command_to_service(
+                        target_service_id=service_info.service_id,
+                        command=CommandType.START,
+                    )
+
+                    ###########
+
+                    await self.send_command_to_service(
+                        target_service_id=service_info.service_id,
+                        command=CommandType.START,
+                    )
+
+                    ############
+
+                except Exception as e:
+                    self.logger.warning("Failed to start service: %s", e)
+                    # Continue to the next service
+                    # TODO: should we have some sort of retries?
+                    continue
+
+    async def _process_registration_message(self, message: RegistrationMessage) -> None:
         """Process a registration response from a service.
 
         Args:
@@ -274,7 +281,7 @@ class SystemController(BaseControllerService):
             f"Sent configure command to {service_type} (ID: {service_id})"
         )
 
-    async def _process_heartbeat_message(self, message: Message) -> None:
+    async def _process_heartbeat_message(self, message: HeartbeatMessage) -> None:
         """Process a heartbeat response from a service.
 
         Args:
@@ -322,13 +329,17 @@ class SystemController(BaseControllerService):
             )
 
     async def send_command_to_service(
-        self, target_service_id: str, command: CommandType
+        self,
+        target_service_id: str,
+        command: CommandType,
+        payload: Any | None = None,
     ) -> None:
         """Send a command to a specific service.
 
         Args:
             target_service_id: ID of the target service
-            command: The command to send (from CommandType enum)
+            command: The command to send (from CommandType enum).
+            payload: Optional payload to send with the command.
 
         Raises:
             Exception if the command was not sent successfully, None otherwise
@@ -341,6 +352,7 @@ class SystemController(BaseControllerService):
         command_message = self.create_command_message(
             command=command,
             target_service_id=target_service_id,
+            payload=payload,
         )
 
         # Publish command response

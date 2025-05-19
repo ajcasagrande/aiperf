@@ -13,6 +13,8 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+from typing import Any
+
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.decorators import on_run
 from aiperf.common.enums import (
@@ -63,13 +65,17 @@ class BaseControllerService(BaseService):
         await self.start()
 
     def create_command_message(
-        self, command: CommandType, target_service_id: str
+        self,
+        command: CommandType,
+        target_service_id: str,
+        payload: Any | None = None,
     ) -> Message:
         """Create a command message to be sent to a specific service.
 
         Args:
             command: The command to send
             target_service_id: The ID of the service to send the command to
+            payload: Optional payload to send with the command.
 
         Returns:
             A command message

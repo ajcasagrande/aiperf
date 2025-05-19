@@ -23,11 +23,13 @@ from aiperf.common.decorators import AIPerfHooks
     AIPerfHooks.CLEANUP,
     AIPerfHooks.RUN,
     AIPerfHooks.CONFIGURE,
+    AIPerfHooks.TASK,
 )
 class ServiceMetaclass(BaseMetaclass):
     """Meta class for services.
 
-    This meta class is used to collect the hooks for a service.
+    This meta class is used to collect the hooks for a service. All of the logic
+    for the hooks is implemented in the BaseMetaclass.
     """
 
     pass

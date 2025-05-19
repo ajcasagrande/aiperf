@@ -43,10 +43,11 @@ from aiperf.common.exceptions.service_exceptions import (
 from aiperf.common.models.message_models import BaseMessage, Message
 from aiperf.common.models.payload_models import Payload
 from aiperf.common.service.base_service_interface import BaseServiceInterface
+from aiperf.common.service.service_metaclass import ServiceMetaclass
 from aiperf.common.utils import call_all_functions_self
 
 
-class BaseService(BaseServiceInterface, ABC):
+class BaseService(BaseServiceInterface, ABC, metaclass=ServiceMetaclass):
     """Base class for all AIPerf services, providing common functionality for
     communication, state management, and lifecycle operations.
 

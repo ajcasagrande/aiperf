@@ -32,8 +32,6 @@ def bootstrap_and_run_service(
     """
     import uvloop
 
-    uvloop.install()
-
     # Load the service configuration
     if service_config is None:
         from aiperf.common.config.config_loader import load_service_config

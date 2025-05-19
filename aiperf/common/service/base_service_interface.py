@@ -18,10 +18,9 @@ from aiperf.common.enums import (
     ClientType,
     ServiceType,
 )
-from aiperf.common.service.service_metaclass import ServiceMetaclass
 
 
-class BaseServiceInterface(ABC, metaclass=ServiceMetaclass):
+class BaseServiceInterface(ABC):
     """Base interface for all services.
 
     This class provides the base foundation for which every service should provide. Some

@@ -83,6 +83,29 @@ class TimingManager(BaseComponentService):
 
         self._credit_drop_task = asyncio.create_task(self._issue_credit_drops())
 
+    @on_stop
+    async def _stop(self) -> None:
+        """Stop the timing manager."""
+        self.logger.debug("Stopping timing manager")
+        # TODO: Implement timing manager stop
+        if self._credit_drop_task and not self._credit_drop_task.done():
+            self._credit_drop_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._credit_drop_task
+            self._credit_drop_task = None
+
+    @on_cleanup
+    async def _cleanup(self) -> None:
+        """Clean up timing manager-specific components."""
+        self.logger.debug("Cleaning up timing manager")
+        # TODO: Implement timing manager cleanup
+
+    @on_configure
+    async def _configure(self, payload: BasePayload) -> None:
+        """Configure the timing manager."""
+        self.logger.debug(f"Configuring timing manager with payload: {payload}")
+        # TODO: Implement timing manager configuration
+
     async def _issue_credit_drops(self) -> None:
         """Issue credit drops to workers."""
         self.logger.debug("Issuing credit drops to workers")
@@ -116,24 +139,6 @@ class TimingManager(BaseComponentService):
                 self.logger.error(f"Exception issuing credit drop: {e}")
                 await asyncio.sleep(0.1)
 
-    @on_stop
-    async def _stop(self) -> None:
-        """Stop the timing manager."""
-        self.logger.debug("Stopping timing manager")
-        # TODO: Implement timing manager stop
-
-        if self._credit_drop_task and not self._credit_drop_task.done():
-            self._credit_drop_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await self._credit_drop_task
-            self._credit_drop_task = None
-
-    @on_cleanup
-    async def _cleanup(self) -> None:
-        """Clean up timing manager-specific components."""
-        self.logger.debug("Cleaning up timing manager")
-        # TODO: Implement timing manager cleanup
-
     async def _on_credit_return(self, message: Message) -> None:
         """Process a credit return response.
 
@@ -143,12 +148,6 @@ class TimingManager(BaseComponentService):
         self.logger.debug(f"Processing credit return: {message.payload}")
         async with self._credit_lock:
             self._credits_available += message.payload.amount
-
-    @on_configure
-    async def _configure(self, payload: BasePayload) -> None:
-        """Configure the timing manager."""
-        self.logger.debug(f"Configuring timing manager with payload: {payload}")
-        # TODO: Implement timing manager configuration
 
 
 def main() -> None:
