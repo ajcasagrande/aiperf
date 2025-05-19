@@ -49,7 +49,6 @@ class ZMQReqClient(BaseZMQClient):
         """
         super().__init__(context, SocketType.REQ, address, bind, socket_ops)
         self._response_futures = {}
-        self.client_id = uuid.uuid4().hex
 
     @aiperf_task
     async def _process_messages(self) -> None:
@@ -152,30 +151,20 @@ class ZMQReqClient(BaseZMQClient):
                 response = BaseMessage.model_validate_json(response_json)
                 return response
 
-            except asyncio.TimeoutError:
+            except asyncio.TimeoutError as e:
                 logger.error(
                     f"Timeout waiting for response to request {request_data.request_id}"
                 )
-                self._response_futures.pop(request_data.request_id, None)
+                raise CommunicationRequestError(
+                    f"Timeout waiting for response to request {request_data.request_id}"
+                ) from e
 
-                return BaseMessage(
-                    request_id=request_data.request_id,
-                    client_id=self.client_id,
-                    status="error",
-                    message="Request timed out",
-                )
             finally:
                 # Clean up future
                 self._response_futures.pop(request_data.request_id, None)
 
         except Exception as e:
             logger.error(f"Exception sending request to {target}: {e}")
-
-            return BaseMessage(
-                request_id=request_data.request_id
-                if hasattr(request_data, "request_id")
-                else "error",
-                client_id=self.client_id,
-                status="error",
-                message=str(e),
-            )
+            raise CommunicationRequestError(
+                f"Exception sending request to {target}: {e}"
+            ) from e
