@@ -42,11 +42,11 @@ from aiperf.common.exceptions.service_exceptions import (
 )
 from aiperf.common.models.message_models import BaseMessage, Message
 from aiperf.common.models.payload_models import Payload
-from aiperf.common.service.abstract_base_service import AbstractBaseService
+from aiperf.common.service.base_service_interface import BaseServiceInterface
 from aiperf.common.utils import call_all_functions_self
 
 
-class BaseService(AbstractBaseService, ABC):
+class BaseService(BaseServiceInterface, ABC):
     """Base class for all AIPerf services, providing common functionality for
     communication, state management, and lifecycle operations.
 
@@ -71,9 +71,9 @@ class BaseService(AbstractBaseService, ABC):
         )
 
         self._state: ServiceState = ServiceState.UNKNOWN
-
-        self._heartbeat_task = None
         self._heartbeat_interval = self.service_config.heartbeat_interval
+
+        self._task_registry: dict[str, asyncio.Task] = {}
 
         self.stop_event = asyncio.Event()
         self.initialized_event = asyncio.Event()
@@ -127,14 +127,14 @@ class BaseService(AbstractBaseService, ABC):
         return self.stop_event.is_set()
 
     def _get_hooks(self, hook_type: AIPerfHooks) -> list[Callable]:
-        """Get the hooks for the given hook type."""
+        """Get all the hooks for the given hook type."""
         self.logger.debug(
             f"Getting hooks for {self.service_id}.{hook_type}: {self._aiperf_hooks[hook_type]}"
         )
         return self._aiperf_hooks[hook_type]
 
     async def _run_hooks(self, hook_type: AIPerfHooks, *args, **kwargs) -> None:
-        """Run the hooks for the given hook type."""
+        """Run all the hooks for the given hook type."""
         await call_all_functions_self(self, self._get_hooks(hook_type), *args, **kwargs)
 
     # Note: Not using as a setter so it can be overridden by derived classes and still
@@ -144,14 +144,22 @@ class BaseService(AbstractBaseService, ABC):
         self._state = state
 
     async def initialize(self) -> None:
-        """Initialize the service communication and signal handlers."""
+        """Initialize the service communication and signal handlers.
+
+        This method will:
+        - Set the service to ServiceState.INITIALIZING state
+        - Set up signal handlers for graceful shutdown
+        - Allow time for the event loop to start
+        - Initialize communication
+        - Call all registered AIPerfHooks.INIT hooks
+        - Set the service to ServiceState.READY state
+        - Set the initialized asyncio event
+        """
+        self._state = ServiceState.INITIALIZING
         # Set up signal handlers for graceful shutdown
         self._setup_signal_handlers()
-
         # Allow time for the event loop to start
         await asyncio.sleep(0.1)
-
-        self._state = ServiceState.INITIALIZING
 
         # Initialize communication
         try:
@@ -208,10 +216,16 @@ class BaseService(AbstractBaseService, ABC):
         self.initialized_event.set()
 
     async def run_forever(self) -> None:
-        """Run the service.
+        """Run the service in a loop until the stop event is set.
 
-        This method will be called as the main entry point for the service. It will
-        not return until the service is completely shutdown.
+        This method will:
+        - Call the initialize method to initialize the service
+        - Start all the registered tasks
+        - Call all registered AIPerfHooks.RUN hooks
+        - Wait for the stop event to be set
+        - Shuts down the service when the stop event is set
+
+        This method will be called as the main entry point for the service.
         """
         try:
             self.logger.debug(
@@ -220,7 +234,6 @@ class BaseService(AbstractBaseService, ABC):
 
             try:
                 await self.initialize()
-                await self.start()
             except Exception as e:
                 self.logger.exception(
                     "Failed to initialize service %s (id: %s)",
@@ -229,7 +242,20 @@ class BaseService(AbstractBaseService, ABC):
                 )
                 raise ServiceRunError from e
 
-            await self._run_hooks(AIPerfHooks.RUN)
+            # Start all registered tasks
+            for hook in self._get_hooks(AIPerfHooks.TASK):
+                # TODO: support task intervals
+                self._task_registry[hook.__name__] = asyncio.create_task(hook(self))
+
+            try:
+                await self._run_hooks(AIPerfHooks.RUN)
+            except AIPerfMultiError as e:
+                self.logger.exception(
+                    "Failed to run service %s (id: %s)",
+                    self.service_type,
+                    self.service_id,
+                )
+                raise ServiceRunError from e
 
         except asyncio.CancelledError:
             self.logger.debug("Service %s execution cancelled", self.service_type)
@@ -242,13 +268,16 @@ class BaseService(AbstractBaseService, ABC):
                 "Service %s execution failed", self.service_type
             ) from e
 
-        await self.forever_loop()
+        await self._forever_loop()
 
-    async def forever_loop(self) -> None:
-        """Run the service in a loop until the stop event is set.
-
+    async def _forever_loop(self) -> None:
+        """
         This method will be called by the `run_forever` method to allow the service to run
         indefinitely.
+
+        This method will:
+        - Wait for the stop event to be set
+        - Shuts down the service when the stop event is set
         """
         while not self.stop_event.is_set():
             try:
@@ -284,6 +313,11 @@ class BaseService(AbstractBaseService, ABC):
 
         This method should be called to start the service after it has been initialized
         and configured.
+
+        This method will:
+        - Set the service to ServiceState.STARTING state
+        - Call all registered AIPerfHooks.START hooks
+        - Set the service to ServiceState.RUNNING state
         """
 
         try:
@@ -314,7 +348,16 @@ class BaseService(AbstractBaseService, ABC):
             ) from e
 
     async def stop(self) -> None:
-        """Stop the service and clean up its components."""
+        """Stop the service and clean up its components.
+
+        This method will:
+        - Set the service to ServiceState.STOPPING state
+        - Call all registered AIPerfHooks.STOP hooks
+        - Shutdown the service communication component
+        - Cancel all registered tasks
+        - Call all registered AIPerfHooks.CLEANUP hooks
+        - Set the service to ServiceState.STOPPED state
+        """
         try:
             if self.state == ServiceState.STOPPED:
                 self.logger.warning(
@@ -338,6 +381,14 @@ class BaseService(AbstractBaseService, ABC):
             # Shutdown communication component
             if self._comms and not self._comms.is_shutdown:
                 await self._comms.shutdown()
+
+            # Cancel all registered tasks
+            for task in self._task_registry.values():
+                task.cancel()
+
+            # Wait for all tasks to complete
+            with contextlib.suppress(asyncio.CancelledError):
+                await asyncio.gather(*self._task_registry.values())
 
             # Custom cleanup logic implemented by derived classes
             with contextlib.suppress(asyncio.CancelledError):

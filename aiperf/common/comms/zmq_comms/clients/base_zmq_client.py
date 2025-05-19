@@ -99,7 +99,12 @@ class BaseZMQClient(ABC, metaclass=ZMQClientMetaclass):
         await call_all_functions_self(self, self._get_hooks(hook_type), *args, **kwargs)
 
     def _ensure_initialized(self) -> None:
-        """Ensure the communication channels are initialized and not shutdown."""
+        """Ensure the communication channels are initialized and not shutdown.
+
+        Raises:
+            CommunicationNotInitializedError: If the communication channels are not initialized.
+            CommunicationShutdownError: If the communication channels are shutdown.
+        """
         if not self.is_initialized:
             raise CommunicationNotInitializedError()
         if self.is_shutdown:

@@ -113,6 +113,7 @@ def aiperf_task(func: Callable, interval: float | None = None) -> Callable:
         interval: The interval at which the task should be run. If the interval is
             None, the task will be run once.
     """
+    # TODO: task intervals are not supported yet
 
     setattr(func, AIPerfHooks.HOOK_TYPE, AIPerfHooks.TASK)
     setattr(func, AIPerfHooks.TASK_INTERVAL, interval)

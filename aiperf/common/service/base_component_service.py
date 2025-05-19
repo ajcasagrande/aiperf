@@ -13,11 +13,9 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import asyncio
-import contextlib
-from abc import abstractmethod
 
 from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.decorators import AIPerfHooks, on_stop
+from aiperf.common.decorators import aiperf_task, on_run
 from aiperf.common.enums import (
     ClientType,
     CommandType,
@@ -29,14 +27,11 @@ from aiperf.common.enums import (
 from aiperf.common.exceptions.comm_exceptions import CommunicationSubscribeError
 from aiperf.common.exceptions.service_exceptions import (
     ServiceHeartbeatError,
-    ServiceInitializationError,
     ServiceRegistrationError,
-    ServiceRunError,
 )
 from aiperf.common.models.message_models import Message
 from aiperf.common.models.payload_models import (
     HeartbeatPayload,
-    Payload,
     RegistrationPayload,
     StatusPayload,
 )
@@ -44,13 +39,19 @@ from aiperf.common.service.base_service import BaseService
 
 
 class BaseComponentService(BaseService):
-    """Base class for all component services.
+    """Base class for all Component services.
 
-    This class provides a common interface for all component services in the AIPerf
+    This class provides a common interface for all Component services in the AIPerf
     framework such as the Timing Manager, Dataset Manager, etc.
 
-    It inherits from the BaseService class and implements the required methods for
-    component services.
+    It extends the BaseService by:
+    - Subscribing to the command topic
+    - Processing command messages
+    - Sending registration requests to the system controller
+    - Sending heartbeat notifications to the system controller
+    - Sending status notifications to the system controller
+    - Helpers to create heartbeat, registration, and status messages
+    - Request the appropriate communication clients for a component service
     """
 
     def __init__(
@@ -71,38 +72,35 @@ class BaseComponentService(BaseService):
             SubClientType.CONTROLLER,
         ]
 
-    @abstractmethod
-    async def _configure(self, payload: Payload) -> None:
-        """Configure the service with the given configuration payload.
+    # TODO: The configure method is turning into a service hook
+    # @abstractmethod
+    # async def _configure(self, payload: Payload) -> None:
+    #     """Configure the service with the given configuration payload.
 
-        This method is called when a configure command is received from the controller.
-        It should be implemented by the derived class to configure the service.
+    #     This method is called when a configure command is received from the controller.
+    #     It should be implemented by the derived class to configure the service.
 
-        The service should validate the payload and configure itself accordingly.
-        If successful, the service should publish a success message to the controller.
-        On failure, the service should publish an error message to the controller.
+    #     The service should validate the payload and configure itself accordingly.
+    #     If successful, the service should publish a success message to the controller.
+    #     On failure, the service should publish an error message to the controller.
 
-        Args:
-            payload: The configuration payload. This is a union type of all the possible
-            configuration payloads.
+    #     Args:
+    #         payload: The configuration payload. This is a union type of all the possible
+    #         configuration payloads.
 
+    #     """
+    #     pass
+
+    @on_run
+    async def _on_run(self) -> None:
+        """Automatically subscribe to the command topic and register the service
+        with the system controller when the run hook is called.
+
+        This method will:
+        - Subscribe to the command topic
+        - Wait for the communication to be fully initialized
+        - Register the service with the system controller
         """
-        pass
-
-    async def run_forever(self) -> None:
-        """Internal method to run the service. This method will start the service and
-        initialize its components. It will also subscribe to the command topic and
-        process commands as they are received.
-
-        This method will be called by the base service class to run the service.
-        """
-        # Initialize the service
-        try:
-            await self.initialize()
-        except Exception as e:
-            self.logger.error("Exception initializing service: %s", e)
-            raise ServiceInitializationError("Failed to initialize service") from e
-
         # Subscribe to the command topic
         try:
             await self.comms.subscribe(
@@ -126,24 +124,24 @@ class BaseComponentService(BaseService):
         except Exception as e:
             raise ServiceRegistrationError() from e
 
-        # Note: Do not start the service here, let the system controller start it
-        # This is because the service needs to be configured first and may need
-        # to wait for other services to register before it can start
+    @aiperf_task
+    async def _heartbeat_task(self) -> None:
+        """Starts a background task to send heartbeats at regular intervals. It
+        will continue to send heartbeats even if an error occurs until the stop
+        event is set.
+        """
+        while not self.stop_event.is_set():
+            # Sleep first to avoid sending a heartbeat before the registration
+            # message has been published
+            await asyncio.sleep(self._heartbeat_interval)
 
-        try:
-            await self._run_hooks(AIPerfHooks.RUN)
-        except Exception as e:
-            self.logger.error("Exception running service: %s", e)
-            raise ServiceRunError from e
+            try:
+                await self.send_heartbeat()
+            except Exception as e:
+                self.logger.warning("Exception sending heartbeat: %s", e)
+                # continue to keep sending heartbeats regardless of the error
 
-        # Start the heartbeat task
-        await self.start_heartbeat_task()
-
-        # ignore errors with setting the state for now
-        _ = await self.set_state(ServiceState.READY)
-
-        # Run the service forever until the stop event is set
-        await self.forever_loop()
+        self.logger.debug("Heartbeat task stopped")
 
     async def send_heartbeat(self) -> None:
         """Send a heartbeat notification to the system controller."""
@@ -210,14 +208,6 @@ class BaseComponentService(BaseService):
                 message=self.create_status_message(state),
             )
 
-    @on_stop
-    async def stop_heartbeat_task(self) -> None:
-        """Stop the heartbeat task if it is running."""
-        if self._heartbeat_task and not self._heartbeat_task.done():
-            self._heartbeat_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await self._heartbeat_task
-
     def create_heartbeat_message(self) -> Message:
         """Create a heartbeat notification message."""
         return self.create_message(
@@ -241,27 +231,4 @@ class BaseComponentService(BaseService):
                 state=state,
                 service_type=self.service_type,
             )
-        )
-
-    async def _heartbeat_loop(self) -> None:
-        while not self.stop_event.is_set():
-            # Sleep first to avoid sending a heartbeat before the registration
-            # message has been published
-            await asyncio.sleep(self._heartbeat_interval)
-
-            try:
-                await self.send_heartbeat()
-            except Exception as e:
-                self.logger.warning("Exception sending heartbeat: %s", e)
-                # continue to keep sending heartbeats regardless of the error
-        self.logger.debug("Heartbeat loop stopped")
-
-    async def start_heartbeat_task(self) -> None:
-        """Start a background task to send heartbeats at regular intervals."""
-
-        self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
-        self.logger.debug(
-            "%s: Started heartbeat task with interval %fs",
-            self.service_type,
-            self._heartbeat_interval,
         )

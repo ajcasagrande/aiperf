@@ -21,8 +21,8 @@ from aiperf.common.enums import (
 from aiperf.common.service.service_metaclass import ServiceMetaclass
 
 
-class AbstractBaseService(ABC, metaclass=ServiceMetaclass):
-    """Abstract base class for all services.
+class BaseServiceInterface(ABC, metaclass=ServiceMetaclass):
+    """Base interface for all services.
 
     This class provides the base foundation for which every service should provide. Some
     methods are required to be implemented by derived classes, while others are
@@ -84,7 +84,7 @@ class AbstractBaseService(ABC, metaclass=ServiceMetaclass):
         pass
 
     @abstractmethod
-    async def forever_loop(self) -> None:
+    async def _forever_loop(self) -> None:
         """Run the service in a loop until the stop event is set. This method will be
         called by the `run` method to allow the service to run indefinitely.
 

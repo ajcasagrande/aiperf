@@ -14,6 +14,7 @@
 #  limitations under the License.
 
 from aiperf.common.config.service_config import ServiceConfig
+from aiperf.common.decorators import on_run
 from aiperf.common.enums import (
     ClientType,
     CommandType,
@@ -31,6 +32,11 @@ class BaseControllerService(BaseService):
     This class provides a common interface for all controller services in the AIPerf
     framework. It inherits from the BaseService class and implements the required
     methods for controller services.
+
+    It extends the BaseService by:
+    - Starting the service automatically when the run hook is called
+    - Helpers to create command messages to be sent to a specific service
+    - Request the appropriate communication clients for a controller service
     """
 
     def __init__(
@@ -50,6 +56,11 @@ class BaseControllerService(BaseService):
             PubClientType.CONTROLLER,
             SubClientType.COMPONENT,
         ]
+
+    @on_run
+    async def _on_run(self) -> None:
+        """Automatically start the service when the run hook is called."""
+        await self.start()
 
     def create_command_message(
         self, command: CommandType, target_service_id: str
