@@ -35,6 +35,36 @@ from aiperf.common.models.payload_models import (
 class BaseMessage(BaseModel):
     """Base message model with common fields for all messages.
     The payload can be any of the payload types defined by the payloads.py module.
+
+    The message type is determined by the discriminator field `message_type`. This is
+    used by the Pydantic `discriminator` argument to determine the type of the
+    payload automatically when the message is deserialized from a JSON string.
+
+    To serialize a message to a JSON string, use the `model_dump_json` method.
+    To deserialize a message from a JSON string, use the `model_validate_json`
+    method.
+
+    Example:
+    ```python
+    >>> message = BaseMessage(
+    ...     service_id="service_1",
+    ...     request_id="request_1",
+    ...     payload=DataPayload(data="Hello, world!"),
+    ... )
+    >>> json_string = message.model_dump_json()
+    >>> print(json_string)
+    {"payload": {"data": "Hello, world!"}, "service_id": "service_1", "request_id": "request_1"}
+    >>> deserialized_message = BaseMessage.model_validate_json(json_string)
+    >>> print(deserialized_message)
+    BaseMessage(
+        payload=DataPayload(data="Hello, world!"),
+        service_id="service_1",
+        request_id="request_1",
+        timestamp=1716278400000000000,
+    )
+    >>> print(deserialized_message.payload.data)
+    Hello, world!
+    ```
     """
 
     service_id: str | None = Field(
@@ -115,4 +145,15 @@ Message = Union[  # noqa: UP007
     CreditReturnMessage,
     ErrorMessage,
 ]
-"""Union of all message types."""
+"""Union of all message types. This is used as a type hint when a function
+accepts a message as an argument.
+
+Example:
+```python
+>>> def process_message(message: Message) -> None:
+...     if isinstance(message, DataMessage):
+...         print(message.payload.data)
+...     elif isinstance(message, HeartbeatMessage):
+...         print(message.payload.state)
+```
+"""

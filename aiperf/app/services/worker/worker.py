@@ -21,6 +21,7 @@ from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.decorators import (
     on_cleanup,
     on_init,
+    on_run,
     on_start,
     on_stop,
 )
@@ -61,6 +62,11 @@ class Worker(BaseService):
     async def _initialize(self) -> None:
         """Initialize worker-specific components."""
         self.logger.debug("Initializing worker")
+
+    @on_run
+    async def _run(self) -> None:
+        """Automatically start the worker in the run method."""
+        await self.start()
 
     @on_start
     async def _start(self) -> None:

@@ -36,11 +36,17 @@ class BaseMetaclass(ABCMeta):
     def __new__(mcs, name: str, bases: tuple[type, ...], namespace: dict[str, Any]):
         _aiperf_hooks: dict[str, list[Callable]] = defaultdict(list)
 
+        # Add hooks from the current class by looking through each element
+        # in the namespace and checking if it has a hook type attribute.
         for _, attr_value in namespace.items():
             hook_type = getattr(attr_value, AIPerfHooks.HOOK_TYPE, None)
             if hook_type is None:
                 continue
 
+            # If strict hook types are enabled, and the hook type is not in the
+            # list of supported hook types, raise an error. This is to prevent
+            # issues that arise from using a hook type that is not supported,
+            # and wondering why it is not working.
             if mcs._strict_hook_types and hook_type not in mcs._supported_hook_types:
                 raise AIPerfMetaclassError(
                     f"Invalid hook type: {hook_type} for {name} ({attr_value})"
@@ -48,13 +54,14 @@ class BaseMetaclass(ABCMeta):
 
             _aiperf_hooks[hook_type].append(attr_value)
 
-        # Add the hooks to the namespace, or update the existing hooks if they
-        # already exist from a base class.
-        if "_aiperf_hooks" not in namespace:
-            namespace["_aiperf_hooks"] = _aiperf_hooks
-        else:
-            for hook_type, hooks in _aiperf_hooks.items():
-                namespace["_aiperf_hooks"][hook_type].extend(hooks)
+        # Add hooks from all base classes. This is done to allow for hooks to be
+        # defined in base classes and still be inherited by derived classes.
+        for base in bases:
+            if hasattr(base, "_aiperf_hooks"):
+                for hook_type, hooks in base._aiperf_hooks.items():
+                    _aiperf_hooks[hook_type].extend(hooks)
+
+        namespace["_aiperf_hooks"] = _aiperf_hooks
 
         cls = super().__new__(mcs, name, bases, namespace)
         return cls
