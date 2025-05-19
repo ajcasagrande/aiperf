@@ -21,6 +21,14 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from aiperf.app.services.service_manager.base_service_manager import BaseServiceManager
+from aiperf.app.services.service_manager.kubernetes_service_manager import (
+    KubernetesServiceManager,
+)
+from aiperf.app.services.service_manager.multiprocess_service_manager import (
+    MultiProcessServiceManager,
+)
+from aiperf.app.services.system_controller.system_controller import SystemController
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import (
     CommandType,
@@ -34,14 +42,6 @@ from aiperf.common.models.payload_models import (
     RegistrationPayload,
     StatusPayload,
 )
-from aiperf.services.service_manager.base_service_manager import BaseServiceManager
-from aiperf.services.service_manager.kubernetes_service_manager import (
-    KubernetesServiceManager,
-)
-from aiperf.services.service_manager.multiprocess_service_manager import (
-    MultiProcessServiceManager,
-)
-from aiperf.services.system_controller.system_controller import SystemController
 from aiperf.tests.base_test_controller_service import BaseTestControllerService
 from aiperf.tests.base_test_service import async_fixture
 from aiperf.tests.utils.message_mocks import MessageTestUtils

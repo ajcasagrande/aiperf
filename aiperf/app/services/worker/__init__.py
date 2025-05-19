@@ -14,4 +14,4 @@
 #  limitations under the License.
 __all__ = ["Worker"]
 
-from aiperf.services.worker.worker import Worker
+from aiperf.app.services.worker.worker import Worker

@@ -18,8 +18,8 @@ Tests for the dataset manager service.
 
 import pytest
 
+from aiperf.app.services.dataset_manager.dataset_manager import DatasetManager
 from aiperf.common.enums import ServiceType
-from aiperf.services.dataset_manager.dataset_manager import DatasetManager
 from aiperf.tests.base_test_component_service import BaseTestComponentService
 from aiperf.tests.utils.async_test_utils import async_fixture
 

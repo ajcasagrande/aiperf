@@ -18,8 +18,8 @@ Tests for the timing manager service.
 
 import pytest
 
+from aiperf.app.services.timing_manager.timing_manager import TimingManager
 from aiperf.common.enums import ServiceType
-from aiperf.services.timing_manager.timing_manager import TimingManager
 from aiperf.tests.base_test_component_service import BaseTestComponentService
 from aiperf.tests.utils.async_test_utils import async_fixture
 

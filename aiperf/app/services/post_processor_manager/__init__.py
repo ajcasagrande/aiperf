@@ -15,6 +15,6 @@
 
 __all__ = ["PostProcessorManager"]
 
-from aiperf.services.post_processor_manager.post_processor_manager import (
+from aiperf.app.services.post_processor_manager.post_processor_manager import (
     PostProcessorManager,
 )

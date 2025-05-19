@@ -15,4 +15,4 @@
 
 __all__ = ["DatasetManager"]
 
-from aiperf.services.dataset_manager.dataset_manager import DatasetManager
+from aiperf.app.services.dataset_manager.dataset_manager import DatasetManager

@@ -20,9 +20,9 @@ from unittest.mock import patch
 
 import pytest
 
+from aiperf.app.services.worker.worker import Worker
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ServiceState
-from aiperf.services.worker.worker import Worker
 from aiperf.tests.base_test_service import BaseTestService
 
 

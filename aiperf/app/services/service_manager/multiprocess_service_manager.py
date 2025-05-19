@@ -17,10 +17,10 @@ from multiprocessing import Process
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from aiperf.app.services.service_manager.base_service_manager import BaseServiceManager
 from aiperf.common.bootstrap_utils import bootstrap_and_run_service
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ServiceRegistrationStatus, ServiceType
-from aiperf.services.service_manager.base_service_manager import BaseServiceManager
 
 
 class MultiProcessRunInfo(BaseModel):
@@ -52,11 +52,11 @@ class MultiProcessServiceManager(BaseServiceManager):
 
         # TODO: This is a hack to get the service classes
         # TODO: We should find a better way to do this
-        from aiperf.services.dataset_manager import DatasetManager
-        from aiperf.services.post_processor_manager import PostProcessorManager
-        from aiperf.services.records_manager import RecordsManager
-        from aiperf.services.timing_manager import TimingManager
-        from aiperf.services.worker_manager import WorkerManager
+        from aiperf.app.services.dataset_manager import DatasetManager
+        from aiperf.app.services.post_processor_manager import PostProcessorManager
+        from aiperf.app.services.records_manager import RecordsManager
+        from aiperf.app.services.timing_manager import TimingManager
+        from aiperf.app.services.worker_manager import WorkerManager
 
         service_class_map = {
             ServiceType.DATASET_MANAGER: DatasetManager,

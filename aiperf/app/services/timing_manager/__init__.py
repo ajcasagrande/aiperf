@@ -15,4 +15,4 @@
 
 __all__ = ["TimingManager"]
 
-from aiperf.services.timing_manager.timing_manager import TimingManager
+from aiperf.app.services.timing_manager.timing_manager import TimingManager

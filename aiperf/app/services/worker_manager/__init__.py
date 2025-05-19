@@ -14,4 +14,4 @@
 #  limitations under the License.
 __all__ = ["WorkerManager"]
 
-from aiperf.services.worker_manager.worker_manager import WorkerManager
+from aiperf.app.services.worker_manager.worker_manager import WorkerManager

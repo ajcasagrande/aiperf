@@ -15,4 +15,4 @@
 
 __all__ = ["RecordsManager"]
 
-from aiperf.services.records_manager.records_manager import RecordsManager
+from aiperf.app.services.records_manager.records_manager import RecordsManager
