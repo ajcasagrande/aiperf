@@ -17,7 +17,8 @@ Base test class for testing AIPerf services.
 """
 
 from abc import ABC, abstractmethod
-from unittest.mock import AsyncMock, MagicMock, patch
+from collections.abc import AsyncGenerator
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -110,8 +111,7 @@ class BaseTestService(ABC):
         self,
         service_class: type[BaseService],
         service_config: ServiceConfig,
-        mock_communication: AsyncMock,
-    ) -> BaseService:
+    ) -> AsyncGenerator[BaseService, None]:
         """
         Create an uninitialized instance of the service under test.
 
@@ -122,16 +122,14 @@ class BaseTestService(ABC):
             An uninitialized instance of the service
         """
         service = service_class(service_config=service_config)
-        service._comms = mock_communication
-        return service
+        yield service
 
     @pytest.fixture
     async def service_under_test(
         self,
         service_class: type[BaseService],
         service_config: ServiceConfig,
-        mock_communication: AsyncMock,
-    ) -> BaseService:
+    ) -> AsyncGenerator[BaseService, None]:
         """
         Create and initialize the service under test.
 
@@ -143,16 +141,13 @@ class BaseTestService(ABC):
         """
         service = service_class(service_config=service_config)
 
-        # Manually set up the mock communication
-        service._comms = mock_communication
-
         await service.initialize()
 
         try:
             yield service
         finally:
             # Clean up
-            if service._state != ServiceState.STOPPED:
+            if not service.stop_event.is_set():
                 await service.stop()
 
     async def test_service_initialization(
@@ -187,8 +182,8 @@ class BaseTestService(ABC):
         Test that the service can start and stop correctly.
 
         This verifies:
-        1. The service transitions to the RUNNING state when started
-        2. The service transitions to the STOPPED state when stopped
+        1. The service transitions to the `ServiceState.RUNNING` state when started
+        2. The service transitions to the `ServiceState.STOPPED` state when stopped
         """
         service = await async_fixture(service_under_test)
 
@@ -202,7 +197,7 @@ class BaseTestService(ABC):
 
     @pytest.mark.parametrize(
         "state",
-        [state for state in ServiceState],
+        [state for state in ServiceState if state != ServiceState.UNKNOWN],
     )
     async def test_service_state_transitions(
         self, service_under_test: BaseService, state: ServiceState
@@ -221,29 +216,3 @@ class BaseTestService(ABC):
 
         # Check that the service state was updated
         assert service.state == state
-
-    @staticmethod
-    def create_safe_mock() -> MagicMock:
-        """
-        Create a mock object that's safe to use with async code.
-
-        This prevents "coroutine was never awaited" warnings by ensuring
-        any async methods on the mock don't actually return coroutines
-        that would need to be awaited.
-
-        Returns:
-            A mock object that's safe to use with async code
-        """
-        # Create a mock with no return_value for methods
-        mock = MagicMock()
-
-        # Set all attributes that might be coroutines to return None
-        for attr_name in dir(mock):
-            if callable(getattr(mock, attr_name)) and not attr_name.startswith("_"):
-                method = getattr(mock, attr_name)
-                if hasattr(method, "return_value") and hasattr(
-                    method.return_value, "_is_coroutine"
-                ):
-                    method.return_value = None
-
-        return mock

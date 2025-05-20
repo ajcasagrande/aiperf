@@ -155,7 +155,7 @@ class BaseService(BaseServiceInterface, ABC, metaclass=ServiceMetaclass):
 
         This method will:
         - Set the service state to the given state
-        - Call all registered AIPerfHooks.SET_STATE hooks
+        - Call all registered `AIPerfHooks.SET_STATE` hooks
         """
         self._state = state
         await self._run_hooks(AIPerfHooks.SET_STATE, state)
@@ -165,12 +165,12 @@ class BaseService(BaseServiceInterface, ABC, metaclass=ServiceMetaclass):
         the `BaseServiceInterface.initialize` method.
 
         This method will:
-        - Set the service to ServiceState.INITIALIZING state
+        - Set the service to `ServiceState.INITIALIZING` state
         - Set up signal handlers for graceful shutdown
         - Allow time for the event loop to start
         - Initialize communication
-        - Call all registered AIPerfHooks.INIT hooks
-        - Set the service to ServiceState.READY state
+        - Call all registered `AIPerfHooks.INIT` hooks
+        - Set the service to `ServiceState.READY` state
         - Set the initialized asyncio event
         """
         self._state = ServiceState.INITIALIZING
@@ -240,7 +240,7 @@ class BaseService(BaseServiceInterface, ABC, metaclass=ServiceMetaclass):
         This method will:
         - Call the initialize method to initialize the service
         - Start all the registered tasks
-        - Call all registered AIPerfHooks.RUN hooks
+        - Call all registered `AIPerfHooks.RUN` hooks
         - Wait for the stop event to be set
         - Shuts down the service when the stop event is set
 
@@ -335,9 +335,9 @@ class BaseService(BaseServiceInterface, ABC, metaclass=ServiceMetaclass):
         and configured.
 
         This method will:
-        - Set the service to ServiceState.STARTING state
-        - Call all registered AIPerfHooks.START hooks
-        - Set the service to ServiceState.RUNNING state
+        - Set the service to `ServiceState.STARTING` state
+        - Call all registered `AIPerfHooks.START` hooks
+        - Set the service to `ServiceState.RUNNING` state
         """
 
         try:
@@ -372,12 +372,12 @@ class BaseService(BaseServiceInterface, ABC, metaclass=ServiceMetaclass):
         the `BaseServiceInterface.stop` method.
 
         This method will:
-        - Set the service to ServiceState.STOPPING state
-        - Call all registered AIPerfHooks.STOP hooks
+        - Set the service to `ServiceState.STOPPING` state
+        - Call all registered `AIPerfHooks.STOP` hooks
         - Shutdown the service communication component
         - Cancel all registered tasks
-        - Call all registered AIPerfHooks.CLEANUP hooks
-        - Set the service to ServiceState.STOPPED state
+        - Call all registered `AIPerfHooks.CLEANUP` hooks
+        - Set the service to `ServiceState.STOPPED` state
         """
         try:
             if self.state == ServiceState.STOPPED:
