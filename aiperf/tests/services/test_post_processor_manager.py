@@ -22,7 +22,6 @@ from pydantic import BaseModel
 from aiperf.app.services.post_processor_manager.post_processor_manager import (
     PostProcessorManager,
 )
-from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ServiceType
 from aiperf.common.service.base_service import BaseService
 from aiperf.tests.base_test_component_service import BaseTestComponentService
@@ -47,25 +46,8 @@ class TestPostProcessorManager(BaseTestComponentService):
 
     @pytest.fixture
     def service_class(self) -> type[BaseService]:
-        """
-        Return the post processor manager service class for testing.
-
-        Returns:
-            The PostProcessorManager class
-        """
+        """Return the service class to be tested."""
         return PostProcessorManager
-
-    @pytest.fixture
-    def service_config(self) -> ServiceConfig:
-        """
-        Return a post processor manager specific configuration for testing.
-
-        Returns:
-            ServiceConfig configured for post processor manager tests
-        """
-        return ServiceConfig(
-            # Add any post processor manager specific configuration here
-        )
 
     @pytest.fixture
     def processor_config(self) -> PostProcessorTestConfig:

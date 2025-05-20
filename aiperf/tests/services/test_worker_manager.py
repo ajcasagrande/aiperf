@@ -22,7 +22,6 @@ from pydantic import BaseModel
 from aiperf.app.services.worker_manager.worker_manager import (
     WorkerManager,
 )
-from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ServiceType
 from aiperf.common.service.base_service import BaseService
 from aiperf.tests.base_test_component_service import BaseTestComponentService
@@ -47,25 +46,8 @@ class TestWorkerManager(BaseTestComponentService):
 
     @pytest.fixture
     def service_class(self) -> type[BaseService]:
-        """
-        Return the worker manager service class for testing.
-
-        Returns:
-            The WorkerManager class
-        """
+        """Return the service class to be tested."""
         return WorkerManager
-
-    @pytest.fixture
-    def service_config(self) -> ServiceConfig:
-        """
-        Return a worker manager specific configuration for testing.
-
-        Returns:
-            ServiceConfig configured for worker manager tests
-        """
-        return ServiceConfig(
-            # Add any worker manager specific configuration here
-        )
 
     @pytest.fixture
     def worker_manager_config(self) -> WorkerManagerTestConfig:

@@ -16,6 +16,7 @@
 Utilities for testing asynchronous code.
 """
 
+import contextlib
 from collections.abc import AsyncIterator
 from typing import Any, TypeVar, cast
 
@@ -47,12 +48,10 @@ async def async_fixture(fixture: T) -> T:
     """
     if hasattr(fixture, "__aiter__"):
         # If it's an async generator, get the first yielded value
-        try:
+        with contextlib.suppress(StopAsyncIteration):
             async_gen = cast(AsyncIterator[Any], fixture)
             value = await anext(async_gen)
             return cast(T, value)
-        except StopAsyncIteration:
-            pass
 
     # Otherwise return the fixture as is
     return fixture

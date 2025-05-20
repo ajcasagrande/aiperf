@@ -49,25 +49,8 @@ class TestWorker(BaseTestService):
 
     @pytest.fixture
     def service_class(self) -> type[BaseService]:
-        """
-        Return the worker service class for testing.
-
-        Returns:
-            The Worker class
-        """
+        """Return the service class to be tested."""
         return Worker
-
-    @pytest.fixture
-    def service_config(self) -> ServiceConfig:
-        """
-        Return a worker-specific service configuration for testing.
-
-        Returns:
-            ServiceConfig configured for worker tests
-        """
-        return ServiceConfig(
-            # Add any worker-specific configuration here
-        )
 
     @pytest.fixture
     def worker_config(self) -> WorkerTestConfig:

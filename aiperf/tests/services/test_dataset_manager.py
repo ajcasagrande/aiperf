@@ -20,7 +20,6 @@ import pytest
 from pydantic import BaseModel
 
 from aiperf.app.services.dataset_manager.dataset_manager import DatasetManager
-from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ServiceType
 from aiperf.common.service.base_service import BaseService
 from aiperf.tests.base_test_component_service import BaseTestComponentService
@@ -45,25 +44,8 @@ class TestDatasetManager(BaseTestComponentService):
 
     @pytest.fixture
     def service_class(self) -> type[BaseService]:
-        """
-        Return the dataset manager service class for testing.
-
-        Returns:
-            The DatasetManager class
-        """
+        """Return the service class to be tested."""
         return DatasetManager
-
-    @pytest.fixture
-    def service_config(self) -> ServiceConfig:
-        """
-        Return a dataset manager specific configuration for testing.
-
-        Returns:
-            ServiceConfig configured for dataset manager tests
-        """
-        return ServiceConfig(
-            # Add any dataset manager specific configuration here
-        )
 
     @pytest.fixture
     def dataset_config(self) -> DatasetManagerTestConfig:

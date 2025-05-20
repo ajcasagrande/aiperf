@@ -20,7 +20,6 @@ import pytest
 from pydantic import BaseModel
 
 from aiperf.app.services.timing_manager.timing_manager import TimingManager
-from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ServiceType
 from aiperf.common.service.base_service import BaseService
 from aiperf.tests.base_test_component_service import BaseTestComponentService
@@ -45,25 +44,8 @@ class TestTimingManager(BaseTestComponentService):
 
     @pytest.fixture
     def service_class(self) -> type[BaseService]:
-        """
-        Return the timing manager service class for testing.
-
-        Returns:
-            The TimingManager class
-        """
+        """Return the service class to be tested."""
         return TimingManager
-
-    @pytest.fixture
-    def service_config(self) -> ServiceConfig:
-        """
-        Return a timing manager specific configuration for testing.
-
-        Returns:
-            ServiceConfig configured for timing manager tests
-        """
-        return ServiceConfig(
-            # Add any timing manager specific configuration here
-        )
 
     @pytest.fixture
     def timing_config(self) -> TimingManagerTestConfig:

@@ -20,7 +20,6 @@ import pytest
 from pydantic import BaseModel
 
 from aiperf.app.services.records_manager.records_manager import RecordsManager
-from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ServiceType
 from aiperf.common.service.base_service import BaseService
 from aiperf.tests.base_test_component_service import BaseTestComponentService
@@ -45,25 +44,8 @@ class TestRecordsManager(BaseTestComponentService):
 
     @pytest.fixture
     def service_class(self) -> type[BaseService]:
-        """
-        Return the records manager service class for testing.
-
-        Returns:
-            The RecordsManager class
-        """
+        """Return the service class to be tested."""
         return RecordsManager
-
-    @pytest.fixture
-    def service_config(self) -> ServiceConfig:
-        """
-        Return a records manager specific configuration for testing.
-
-        Returns:
-            ServiceConfig configured for records manager tests
-        """
-        return ServiceConfig(
-            # Add any records manager specific configuration here
-        )
 
     @pytest.fixture
     def records_config(self) -> RecordsManagerTestConfig:

@@ -19,115 +19,39 @@ This file contains fixtures that are automatically discovered by pytest
 and made available to test functions in the same directory and subdirectories.
 """
 
-import sys
-from unittest.mock import MagicMock, patch
-
-import zmq as _zmq
-
-from aiperf.common.comms.zmq_comms.zmq_communication import ZMQCommunication
-
-
-# Create mock modules to prevent actual ZMQ imports before any real imports happen
-class MockZMQSocket:
-    """Mock ZMQ socket to prevent actual network operations."""
-
-    def __init__(self, *args, **kwargs):
-        pass
-
-    def bind(self, *args, **kwargs):
-        pass
-
-    def connect(self, *args, **kwargs):
-        pass
-
-    def send(self, *args, **kwargs):
-        pass
-
-    def send_multipart(self, *args, **kwargs):
-        pass
-
-    def recv(self, *args, **kwargs):
-        return b""
-
-    def recv_multipart(self, *args, **kwargs):
-        return [b"", b""]
-
-    def close(self, *args, **kwargs):
-        pass
-
-    def setsockopt(self, *args, **kwargs):
-        pass
-
-
-class MockZMQContext:
-    """Mock ZMQ context to prevent actual context creation."""
-
-    def __init__(self, *args, **kwargs):
-        pass
-
-    def socket(self, *args, **kwargs):
-        return MockZMQSocket()
-
-    def term(self, *args, **kwargs):
-        pass
-
-
-class MockZMQAsyncIO:
-    """Mock ZMQ asyncio module."""
-
-    Context = MockZMQContext
-    Socket = MagicMock()
-    SocketType = _zmq.SocketType
-
-
-class MockZMQ:
-    """Mock ZMQ module."""
-
-    PUSH = 0
-    PULL = 1
-    PUB = 2
-    SUB = 3
-    DEALER = 4
-    ROUTER = 5
-    REQ = 6
-    REP = 7
-
-    SUBSCRIBE = 0
-    IDENTITY = 1
-
-    RCVTIMEO = 1000
-    SNDTIMEO = 1000
-
-    asyncio = MockZMQAsyncIO()
-
-    class Again(Exception):
-        pass
-
-
-# Apply ZMQ mocking immediately before any imports happen
-mock_zmq = MockZMQ()
-sys.modules["zmq"] = mock_zmq
-sys.modules["zmq.asyncio"] = mock_zmq.asyncio
-mock_zmq.SocketType = _zmq.SocketType
-mock_zmq.Socket = MockZMQSocket
-
 # Now we can safely import the rest
 from collections.abc import Callable, Coroutine  # noqa: E402
 from typing import Any  # noqa: E402
+from unittest.mock import MagicMock, patch
 
 import pytest  # noqa: E402
 from pydantic import BaseModel, Field  # noqa: E402
 
+from aiperf.common.comms.zmq_comms.zmq_communication import ZMQCommunication
 from aiperf.common.enums.comm_enums import Topic  # noqa: E402
 from aiperf.common.models.message_models import Message  # noqa: E402
+from aiperf.tests.mock_zmq import MockZMQContext, MockZMQSocket
+
+# # Just in case, apply the patch again in the fixture to ensure it's maintained
+# @pytest.fixture(scope="session", autouse=True)
+# def patch_zmq():
+#     """Patch ZMQ to prevent any actual network connections."""
+#     with patch.dict("sys.modules", {"zmq": mock_zmq, "zmq.asyncio": mock_zmq.asyncio}):
+#         yield
 
 
-# Just in case, apply the patch again in the fixture to ensure it's maintained
-@pytest.fixture(scope="session", autouse=True)
-def patch_zmq():
-    """Patch ZMQ to prevent any actual network connections."""
-    with patch.dict("sys.modules", {"zmq": mock_zmq, "zmq.asyncio": mock_zmq.asyncio}):
-        yield
+@pytest.fixture
+def mock_zmq_socket():
+    """Fixture to provide a mock ZMQ socket."""
+    with patch("zmq.Socket", new_callable=MockZMQSocket):
+        yield MockZMQSocket()
+
+
+@pytest.fixture
+def mock_zmq_context():
+    """Fixture to provide a mock ZMQ context."""
+    with patch("zmq.Context", new_callable=MockZMQContext):
+        yield MockZMQContext()
 
 
 class MockCommData(BaseModel):
@@ -190,27 +114,27 @@ def mock_communication() -> MagicMock:
     return mock_comm
 
 
-@pytest.fixture(autouse=True)
-def block_zmq_imports(monkeypatch):
-    """
-    Block imports of ZMQ and related modules during tests.
+# @pytest.fixture(autouse=True)
+# def block_zmq_imports(monkeypatch):
+#     """
+#     Block imports of ZMQ and related modules during tests.
 
-    Some code might attempt to import ZMQ dynamically during test execution.
-    This fixture ensures those imports fail safely to prevent actual network connections.
-    """
+#     Some code might attempt to import ZMQ dynamically during test execution.
+#     This fixture ensures those imports fail safely to prevent actual network connections.
+#     """
 
-    def mock_import(name, *args, **kwargs):
-        if name.startswith("zmq"):
-            if name == "zmq":
-                return MockZMQ()
-            elif name == "zmq.asyncio":
-                return MockZMQ().asyncio
-            else:
-                # For other zmq submodules, return an empty module
-                import types
+#     def mock_import(name, *args, **kwargs):
+#         if name.startswith("zmq"):
+#             if name == "zmq":
+#                 return MockZMQ()
+#             elif name == "zmq.asyncio":
+#                 return MockZMQ().asyncio
+#             else:
+#                 # For other zmq submodules, return an empty module
+#                 import types
 
-                return types.ModuleType(name)
-        return orig_import(name, *args, **kwargs)
+#                 return types.ModuleType(name)
+#         return orig_import(name, *args, **kwargs)
 
-    orig_import = __import__
-    monkeypatch.setattr("builtins.__import__", mock_import)
+#     orig_import = __import__
+#     monkeypatch.setattr("builtins.__import__", mock_import)
