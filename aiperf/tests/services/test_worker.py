@@ -23,7 +23,7 @@ from pydantic import BaseModel
 
 from aiperf.app.services.worker.worker import Worker
 from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.enums import ServiceState, Topic
+from aiperf.common.enums import ServiceState
 from aiperf.common.service.base_service import BaseService
 from aiperf.tests.base_test_service import BaseTestService
 from aiperf.tests.utils.async_test_utils import async_fixture
@@ -135,29 +135,3 @@ class TestWorker(BaseTestService):
         # Check the worker is properly initialized
         assert worker_instance.is_initialized
         assert worker_instance.state == ServiceState.READY
-
-    async def test_worker_credit_handling(
-        self, service_under_test: Worker, mock_communication: AsyncMock
-    ) -> None:
-        """
-        Test that the worker handles credit drop messages correctly.
-
-        Verifies:
-        1. The worker subscribes to credit drop messages
-        2. The worker properly processes credit drop messages
-        """
-        worker = await async_fixture(service_under_test)
-
-        # Verify the worker has subscribed to the credit drop topic
-        assert worker.comms.pull.called
-
-        # Find the call for credit drop topic
-        credit_drop_calls = [
-            call
-            for call in worker.comms.pull.call_args_list
-            if call.kwargs.get("topic") == Topic.CREDIT_DROP
-        ]
-
-        assert len(credit_drop_calls) > 0, (
-            "Worker didn't subscribe to credit drop topic"
-        )

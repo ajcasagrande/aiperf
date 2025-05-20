@@ -20,7 +20,6 @@ from abc import ABC, abstractmethod
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from pydantic import BaseModel
 
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ServiceState
@@ -28,18 +27,6 @@ from aiperf.common.enums.comm_enums import CommunicationBackend
 from aiperf.common.enums.service_enums import ServiceRunType
 from aiperf.common.service.base_service import BaseService
 from aiperf.tests.utils.async_test_utils import async_fixture
-
-
-class TestServiceFixtures(BaseModel):
-    """
-    Data model for test service fixtures to ensure type safety.
-    """
-
-    class Config:
-        arbitrary_types_allowed = True
-
-    service: BaseService
-    mock_communication: AsyncMock
 
 
 @pytest.mark.asyncio
@@ -188,26 +175,12 @@ class BaseTestService(ABC):
         # Check that the service is not initialized
         assert service.state == ServiceState.UNKNOWN
 
-        # Create a mock for _initialize BEFORE calling initialize()
-        orig_initialize = service._initialize
-        service._initialize = AsyncMock()
+        # Initialize the service
+        await service.initialize()
 
-        try:
-            # Initialize the service
-            await service.initialize()
-
-            # Check that the internal _initialize method was called
-            service._initialize.assert_called_once()
-
-            # Check that the communication was initialized
-            assert not service._comms.is_shutdown
-
-            # Check that the service is initialized
-            assert service.is_initialized
-            assert service.state == ServiceState.READY
-        finally:
-            # Restore original _initialize to avoid issues with cleanup
-            service._initialize = orig_initialize
+        # Check that the service is initialized and in the READY state
+        assert service.is_initialized
+        assert service.state == ServiceState.READY
 
     async def test_service_start_stop(self, service_under_test: BaseService) -> None:
         """

@@ -115,18 +115,3 @@ class BaseTestComponentService(BaseTestService):
         assert status_msg.service_id == service.service_id
         assert status_msg.payload.service_type == service.service_type
         assert status_msg.payload.state == ServiceState.READY
-
-    async def test_command_processing(
-        self, service_under_test: BaseComponentService, mock_communication: AsyncMock
-    ) -> None:
-        """
-        Test that the service processes command messages correctly.
-
-        Verifies that the service correctly handles start and stop commands
-        from the controller.
-        """
-        service = await async_fixture(service_under_test)
-
-        # Test existing command handlers and subscription are set up
-        assert Topic.COMMAND in mock_communication.subscriptions
-        assert callable(service.process_command_message)

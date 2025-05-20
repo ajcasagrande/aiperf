@@ -53,7 +53,7 @@ class TestZMQCommunication:
             # Set up the context mock to return properly
             mock_context.return_value = MagicMock()
             comm = ZMQCommunication(config=mock_config)
-            comm.context = mock_context
+            comm._context = mock_context
             return comm
 
     @pytest.fixture
@@ -176,7 +176,7 @@ class TestZMQCommunication:
         # Mock the context with a patched shutdown method to avoid setting
         # context to None
         context_mock = MagicMock()
-        zmq_communication.context = context_mock
+        zmq_communication._context = context_mock
 
         # Create a patched version of shutdown that doesn't set context to None
         original_shutdown = zmq_communication.shutdown
@@ -184,7 +184,7 @@ class TestZMQCommunication:
         async def patched_shutdown():
             # Call original gather but patch term() to prevent context from
             # becoming None
-            with patch.object(zmq_communication, "context", context_mock):
+            with patch.object(zmq_communication, "_context", context_mock):
                 return await original_shutdown()
 
         zmq_communication.shutdown = patched_shutdown
