@@ -76,13 +76,13 @@ class TestTimingManager(BaseTestComponentService):
         return TimingManagerTestConfig()
 
     async def test_timing_manager_initialization(
-        self, service_under_test: TimingManager
+        self, initialized_service: TimingManager
     ) -> None:
         """
         Test that the timing manager initializes with the correct service type.
 
         Verifies that the timing manager has the correct service type after initialization.
         """
-        service = await async_fixture(service_under_test)
+        service = await async_fixture(initialized_service)
         assert service.service_type == ServiceType.TIMING_MANAGER
         # Add timing manager specific assertions here

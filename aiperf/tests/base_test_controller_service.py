@@ -48,14 +48,14 @@ class BaseTestControllerService(BaseTestService):
         return BaseControllerService
 
     async def test_controller_command_publishing(
-        self, service_under_test: BaseControllerService, mock_communication: AsyncMock
+        self, initialized_service: BaseControllerService, mock_communication: AsyncMock
     ) -> None:
         """
         Test that the controller can publish command messages.
 
         Verifies the controller can send properly formatted commands to components.
         """
-        service = await async_fixture(service_under_test)
+        service = await async_fixture(initialized_service)
 
         # Create a test command message
         test_service_id = "test_service_123"
@@ -82,14 +82,14 @@ class BaseTestControllerService(BaseTestService):
         assert published_cmd.payload.target_service_id == test_service_id
 
     async def test_controller_subscriptions(
-        self, service_under_test: BaseControllerService, mock_communication: AsyncMock
+        self, initialized_service: BaseControllerService, mock_communication: AsyncMock
     ) -> None:
         """
         Test that the controller has the required subscriptions.
 
         Verifies the controller sets up subscriptions to receive messages from components.
         """
-        await async_fixture(service_under_test)
+        await async_fixture(initialized_service)
 
         # A controller should typically subscribe to registration, status, and heartbeat topics
         expected_topics = [Topic.REGISTRATION, Topic.STATUS, Topic.HEARTBEAT]

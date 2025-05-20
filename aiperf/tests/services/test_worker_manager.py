@@ -78,7 +78,7 @@ class TestWorkerManager(BaseTestComponentService):
         return WorkerManagerTestConfig()
 
     async def test_worker_manager_initialization(
-        self, service_under_test: WorkerManager
+        self, initialized_service: WorkerManager
     ) -> None:
         """
         Test that the worker manager initializes with the correct attributes.
@@ -87,7 +87,7 @@ class TestWorkerManager(BaseTestComponentService):
         1. The service has the correct service type
         2. The service has the required worker management attributes
         """
-        service = await async_fixture(service_under_test)
+        service = await async_fixture(initialized_service)
         assert service.service_type == ServiceType.WORKER_MANAGER
         assert hasattr(service, "workers")
         assert hasattr(service, "cpu_count")

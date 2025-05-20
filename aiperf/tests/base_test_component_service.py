@@ -46,7 +46,7 @@ class BaseTestComponentService(BaseTestService):
         return BaseComponentService
 
     async def test_service_heartbeat(
-        self, service_under_test: BaseComponentService, mock_communication: AsyncMock
+        self, initialized_service: BaseComponentService, mock_communication: AsyncMock
     ) -> None:
         """
         Test that the service sends heartbeat messages correctly.
@@ -55,7 +55,7 @@ class BaseTestComponentService(BaseTestService):
         1. The service generates and sends a valid heartbeat message
         2. The message contains the correct service information
         """
-        service = await async_fixture(service_under_test)
+        service = await async_fixture(initialized_service)
 
         # Directly send a heartbeat instead of waiting for the task
         await service.send_heartbeat()
@@ -70,7 +70,7 @@ class BaseTestComponentService(BaseTestService):
         assert heartbeat_msg.payload.service_type == service.service_type
 
     async def test_service_registration(
-        self, service_under_test: BaseComponentService, mock_communication: MagicMock
+        self, initialized_service: BaseComponentService, mock_communication: MagicMock
     ) -> None:
         """
         Test that the service registers with the system controller.
@@ -79,7 +79,7 @@ class BaseTestComponentService(BaseTestService):
         1. The service sends a registration message to the controller
         2. The registration message contains the correct service information
         """
-        service = await async_fixture(service_under_test)
+        service = await async_fixture(initialized_service)
 
         # Register the service
         await service.register()
@@ -93,7 +93,7 @@ class BaseTestComponentService(BaseTestService):
         assert registration_msg.payload.service_type == service.service_type
 
     async def test_service_status_update(
-        self, service_under_test: BaseComponentService, mock_communication: AsyncMock
+        self, initialized_service: BaseComponentService, mock_communication: AsyncMock
     ) -> None:
         """
         Test that the service updates its status correctly.
@@ -102,7 +102,7 @@ class BaseTestComponentService(BaseTestService):
         1. The service publishes status messages when state changes
         2. The status message contains the correct state and service information
         """
-        service = await async_fixture(service_under_test)
+        service = await async_fixture(initialized_service)
 
         # Update the service status
         await service.set_state(ServiceState.READY)

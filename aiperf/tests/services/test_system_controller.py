@@ -169,7 +169,7 @@
 
 #     @pytest.fixture
 #     async def test_system_controller_multiprocess(
-#         self, service_under_test: SystemController,
+#         self, initialized_service: SystemController,
 #         test_service_manager_with_multiprocess: MultiProcessServiceManager
 #     ) -> SystemController:
 #         """
@@ -179,13 +179,13 @@
 #         that uses a MultiProcessServiceManager for tests.
 
 #         Args:
-#             service_under_test: The base service instance
+#             initialized_service: The base service instance
 #             test_service_manager_with_multiprocess: The multiprocess service manager
 
 #         Returns:
 #             A SystemController instance with multiprocess manager
 #         """
-#         service = await async_fixture(service_under_test)
+#         service = await async_fixture(initialized_service)
 #         service.service_manager = test_service_manager_with_multiprocess
 #         return service
 

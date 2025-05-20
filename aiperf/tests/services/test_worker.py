@@ -97,14 +97,14 @@ class TestWorker(BaseTestService):
         return worker
 
     async def test_worker_specific_state_transitions(
-        self, service_under_test: Worker
+        self, initialized_service: Worker
     ) -> None:
         """
         Test worker-specific state transitions beyond the base service tests.
 
         Verifies the worker service correctly transitions through its lifecycle states.
         """
-        worker = await async_fixture(service_under_test)
+        worker = await async_fixture(initialized_service)
 
         # Start the worker
         await worker.start()

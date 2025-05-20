@@ -17,7 +17,7 @@ Base test class for testing AIPerf services.
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Generator
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -54,7 +54,9 @@ class BaseTestService(ABC):
         monkeypatch.setattr(asyncio, "sleep", async_noop)
 
     @pytest.fixture(autouse=True)
-    def patch_communication_factory(self, mock_communication: AsyncMock) -> None:
+    def patch_communication_factory(
+        self, mock_communication: AsyncMock
+    ) -> Generator[None, None, None]:
         """
         Patch the communication factory to always return our mock communication.
 
@@ -75,7 +77,7 @@ class BaseTestService(ABC):
             yield
 
     @pytest.fixture(autouse=True)
-    def patch_process_creation(self) -> None:
+    def patch_process_creation(self) -> Generator[None, None, None]:
         """
         Patch process creation methods to prevent spawning actual processes.
         """
@@ -125,10 +127,9 @@ class BaseTestService(ABC):
         yield service
 
     @pytest.fixture
-    async def service_under_test(
+    async def initialized_service(
         self,
-        service_class: type[BaseService],
-        service_config: ServiceConfig,
+        uninitialized_service: BaseService,
     ) -> AsyncGenerator[BaseService, None]:
         """
         Create and initialize the service under test.
@@ -139,7 +140,7 @@ class BaseTestService(ABC):
         Returns:
             An initialized instance of the service
         """
-        service = service_class(service_config=service_config)
+        service = await async_fixture(uninitialized_service)
 
         await service.initialize()
 
@@ -177,7 +178,7 @@ class BaseTestService(ABC):
         assert service.is_initialized
         assert service.state == ServiceState.READY
 
-    async def test_service_start_stop(self, service_under_test: BaseService) -> None:
+    async def test_service_start_stop(self, initialized_service: BaseService) -> None:
         """
         Test that the service can start and stop correctly.
 
@@ -185,7 +186,7 @@ class BaseTestService(ABC):
         1. The service transitions to the `ServiceState.RUNNING` state when started
         2. The service transitions to the `ServiceState.STOPPED` state when stopped
         """
-        service = await async_fixture(service_under_test)
+        service = await async_fixture(initialized_service)
 
         # Start the service
         await service.start()
@@ -200,16 +201,16 @@ class BaseTestService(ABC):
         [state for state in ServiceState if state != ServiceState.UNKNOWN],
     )
     async def test_service_state_transitions(
-        self, service_under_test: BaseService, state: ServiceState
+        self, initialized_service: BaseService, state: ServiceState
     ) -> None:
         """
         Test that the service can transition to all possible states.
 
         Args:
-            service_under_test: The service instance to test
+            initialized_service: The service instance to test
             state: The state to test transitioning to
         """
-        service = await async_fixture(service_under_test)
+        service = await async_fixture(initialized_service)
 
         # Update the service state
         await service.set_state(state)

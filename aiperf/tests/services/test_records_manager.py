@@ -76,14 +76,14 @@ class TestRecordsManager(BaseTestComponentService):
         return RecordsManagerTestConfig()
 
     async def test_records_manager_initialization(
-        self, service_under_test: RecordsManager
+        self, initialized_service: RecordsManager
     ) -> None:
         """
         Test that the records manager initializes with the correct service type.
 
         Verifies that the records manager has the correct service type after initialization.
         """
-        service = await async_fixture(service_under_test)
+        service = await async_fixture(initialized_service)
 
         assert service.service_type == ServiceType.RECORDS_MANAGER
         # Add records manager specific assertions here
