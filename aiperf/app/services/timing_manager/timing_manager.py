@@ -151,6 +151,7 @@ class TimingManager(BaseComponentService):
 
 
 def main() -> None:
+    """Main entry point for the timing manager."""
     from aiperf.common.bootstrap_utils import bootstrap_and_run_service
 
     bootstrap_and_run_service(TimingManager)

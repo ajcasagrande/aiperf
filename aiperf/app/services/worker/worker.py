@@ -15,8 +15,6 @@
 import asyncio
 import sys
 
-import uvloop
-
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.decorators import (
     on_cleanup,
@@ -107,10 +105,20 @@ class Worker(BaseService):
         )
 
 
-if __name__ == "__main__":
-    # Load the service configuration
+def main() -> None:
+    """Main entry point for the worker."""
+
+    import uvloop
+
     from aiperf.common.config.config_loader import load_service_config
 
+    # Load the service configuration
     cfg = load_service_config()
+
+    # Create and run the worker
     worker = Worker(cfg)
-    sys.exit(uvloop.run(worker.run_forever()))
+    uvloop.run(worker.run_forever())
+
+
+if __name__ == "__main__":
+    sys.exit(main())

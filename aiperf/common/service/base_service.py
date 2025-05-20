@@ -56,7 +56,7 @@ class BaseService(BaseServiceInterface, ABC, metaclass=ServiceMetaclass):
     are still required to be implemented by derived classes.
     """
 
-    _service_hooks: dict[str, list[Callable]] = defaultdict(list)
+    _aiperf_hooks: dict[str, list[Callable]] = defaultdict(list)
 
     def __init__(
         self, service_config: ServiceConfig, service_id: str | None = None
@@ -135,17 +135,34 @@ class BaseService(BaseServiceInterface, ABC, metaclass=ServiceMetaclass):
         return self._aiperf_hooks[hook_type]
 
     async def _run_hooks(self, hook_type: AIPerfHooks, *args, **kwargs) -> None:
-        """Run all the hooks for the given hook type."""
+        """Run all the hooks for the given hook type.
+
+        Args:
+            hook_type: The type of hook to run
+            *args: The arguments to pass to the hooks
+            **kwargs: The keyword arguments to pass to the hooks
+
+        Raises:
+            AIPerfMultiError: If any of the hooks raise an exception
+        """
         await call_all_functions_self(self, self._get_hooks(hook_type), *args, **kwargs)
 
     # Note: Not using as a setter so it can be overridden by derived classes and still
     # be async
     async def set_state(self, state: ServiceState) -> None:
-        """Set the state of the service."""
+        """Set the state of the service. This method implements
+        the `BaseServiceInterface.set_state` method.
+
+        This method will:
+        - Set the service state to the given state
+        - Call all registered AIPerfHooks.SET_STATE hooks
+        """
         self._state = state
+        await self._run_hooks(AIPerfHooks.SET_STATE, state)
 
     async def initialize(self) -> None:
-        """Initialize the service communication and signal handlers.
+        """Initialize the service communication and signal handlers. This method implements
+        the `BaseServiceInterface.initialize` method.
 
         This method will:
         - Set the service to ServiceState.INITIALIZING state
@@ -217,7 +234,8 @@ class BaseService(BaseServiceInterface, ABC, metaclass=ServiceMetaclass):
         self.initialized_event.set()
 
     async def run_forever(self) -> None:
-        """Run the service in a loop until the stop event is set.
+        """Run the service in a loop until the stop event is set. This method implements
+        the `BaseServiceInterface.run_forever` method.
 
         This method will:
         - Call the initialize method to initialize the service
@@ -274,7 +292,7 @@ class BaseService(BaseServiceInterface, ABC, metaclass=ServiceMetaclass):
     async def _forever_loop(self) -> None:
         """
         This method will be called by the `run_forever` method to allow the service to run
-        indefinitely.
+        indefinitely. This method is not expected to be overridden by derived classes.
 
         This method will:
         - Wait for the stop event to be set
@@ -310,7 +328,8 @@ class BaseService(BaseServiceInterface, ABC, metaclass=ServiceMetaclass):
                     ) from e
 
     async def start(self) -> None:
-        """Start the service and its components.
+        """Start the service and its components. This method implements
+        the `BaseServiceInterface.start` method.
 
         This method should be called to start the service after it has been initialized
         and configured.
@@ -349,7 +368,8 @@ class BaseService(BaseServiceInterface, ABC, metaclass=ServiceMetaclass):
             ) from e
 
     async def stop(self) -> None:
-        """Stop the service and clean up its components.
+        """Stop the service and clean up its components. This method implements
+        the `BaseServiceInterface.stop` method.
 
         This method will:
         - Set the service to ServiceState.STOPPING state
@@ -415,6 +435,15 @@ class BaseService(BaseServiceInterface, ABC, metaclass=ServiceMetaclass):
                 self.service_id,
             ) from e
 
+    async def configure(self, message: Message) -> None:
+        """Configure the service with the given configuration. This method implements
+        the `BaseServiceInterface.configure` method.
+
+        This method will:
+        - Call all registered AIPerfHooks.CONFIGURE hooks
+        """
+        await self._run_hooks(AIPerfHooks.CONFIGURE, message)
+
     def create_message(
         self, payload: Payload, request_id: str | None = None
     ) -> Message:
@@ -422,7 +451,8 @@ class BaseService(BaseServiceInterface, ABC, metaclass=ServiceMetaclass):
 
         Args:
             payload: The payload of the message
-            request_id: optional The request id of the message this is a response to
+            request_id: optional The request id of this message, or the request id of the
+                message this is a response to
 
         Returns:
             A message of the given type
@@ -443,6 +473,7 @@ class BaseService(BaseServiceInterface, ABC, metaclass=ServiceMetaclass):
         def signal_handler(sig: int) -> None:
             # Create a task and store it so it doesn't get garbage collected
             task = asyncio.create_task(self._handle_signal(sig))
+
             # Store the task somewhere to prevent it from being garbage collected
             # before it completes
             self._signal_tasks.add(task)

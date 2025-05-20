@@ -69,6 +69,8 @@ class RecordsManager(BaseComponentService):
 
 
 def main() -> None:
+    """Main entry point for the records manager."""
+
     from aiperf.common.bootstrap_utils import bootstrap_and_run_service
 
     bootstrap_and_run_service(RecordsManager)
