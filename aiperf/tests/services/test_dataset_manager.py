@@ -51,9 +51,6 @@ class TestDatasetManager(BaseTestComponentService):
     def dataset_config(self) -> DatasetManagerTestConfig:
         """
         Return a test configuration for the dataset manager.
-
-        Returns:
-            DatasetManagerTestConfig with test parameters
         """
         return DatasetManagerTestConfig()
 
@@ -62,9 +59,6 @@ class TestDatasetManager(BaseTestComponentService):
     ) -> None:
         """
         Test that the dataset manager initializes with the correct service type.
-
-        Verifies that the dataset manager has the correct service type after initialization.
         """
         service = await async_fixture(initialized_service)
         assert service.service_type == ServiceType.DATASET_MANAGER
-        # Add dataset manager specific assertions here

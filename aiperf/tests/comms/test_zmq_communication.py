@@ -31,7 +31,7 @@ from aiperf.common.models.comm_models import (
     ZMQCommunicationConfig,
     ZMQTCPTransportConfig,
 )
-from aiperf.common.models.message_models import BaseMessage
+from aiperf.common.models.message_models import BaseMessage, Message
 from aiperf.common.models.payload_models import DataPayload
 
 
@@ -64,33 +64,37 @@ class TestZMQCommunication:
             payload=DataPayload(),
         )
 
+    @pytest.mark.asyncio
     async def test_initialization(self, zmq_communication):
         """Test that the ZMQ communication initializes correctly."""
         result = await zmq_communication.initialize()
         assert result is None
         assert zmq_communication.is_initialized is True
 
+    @pytest.mark.asyncio
     async def test_initialization_failure(self, zmq_communication):
         """Test initialization failure handling."""
         # Temporarily clear initialized_event to test error path
         zmq_communication.initialized_event.clear()
 
         # Create a mock implementation that raises an exception
-        # FIXME: TODO: Is this correct/needed now that we use Exception objects?
         async def mock_init_with_error():
-            raise CommunicationInitializationError("Connection error")
+            raise CommunicationInitializationError("Test connection error")
 
         # Replace the original method and call to test error handling
         original_init = zmq_communication.initialize
         zmq_communication.initialize = mock_init_with_error
 
         try:
-            with pytest.raises(Exception, match="Connection error"):
+            with pytest.raises(
+                CommunicationInitializationError, match="Test connection error"
+            ):
                 await zmq_communication.initialize()
         finally:
             # Restore the original method
             zmq_communication.initialize = original_init
 
+    @pytest.mark.asyncio
     async def test_create_clients(self, zmq_communication):
         """Test creating clients for different communication patterns."""
         # Mock the client socket creation
@@ -119,6 +123,7 @@ class TestZMQCommunication:
             # Verify initialize was called for each client
             assert len(zmq_communication.clients) == 2
 
+    @pytest.mark.asyncio
     async def test_publish_message(self, zmq_communication, test_message):
         """Test publishing messages."""
         # Mock the socket publish method
@@ -129,13 +134,14 @@ class TestZMQCommunication:
         zmq_communication.clients = {PubClientType.COMPONENT: mock_client}
         zmq_communication.initialized_event.set()
 
-        # Publish a response
+        # Publish a message
         result = await zmq_communication.publish(Topic.STATUS, test_message)
 
-        # Verify the response was published
+        # Verify the message was published
         assert result is None
         mock_client.publish.assert_called_once_with(Topic.STATUS, test_message)
 
+    @pytest.mark.asyncio
     async def test_subscribe_to_topic(self, zmq_communication):
         """Test subscribing to a topic."""
         # Mock the client socket
@@ -147,7 +153,7 @@ class TestZMQCommunication:
         zmq_communication.initialized_event.set()
 
         # Create a callback function
-        async def callback(message):
+        async def callback(message: Message):
             pass
 
         # Subscribe to a topic
@@ -157,6 +163,7 @@ class TestZMQCommunication:
         assert result is None
         mock_client.subscribe.assert_called_once_with(Topic.STATUS, callback)
 
+    @pytest.mark.asyncio
     async def test_shutdown(self, zmq_communication):
         """Test graceful shutdown of communication."""
         # Mock the client socket
@@ -182,7 +189,7 @@ class TestZMQCommunication:
         original_shutdown = zmq_communication.shutdown
 
         async def patched_shutdown():
-            # Call original gather but patch term() to prevent context from
+            # Calls original gather but patch term() to prevent context from
             # becoming None
             with patch.object(zmq_communication, "_context", context_mock):
                 return await original_shutdown()

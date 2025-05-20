@@ -16,9 +16,10 @@
 Base test class for testing AIPerf services.
 """
 
+import asyncio
 from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator, Generator
-from unittest.mock import AsyncMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -27,7 +28,7 @@ from aiperf.common.enums import ServiceState
 from aiperf.common.enums.comm_enums import CommunicationBackend
 from aiperf.common.enums.service_enums import ServiceRunType
 from aiperf.common.service.base_service import BaseService
-from aiperf.tests.utils.async_test_utils import async_fixture
+from aiperf.tests.utils.async_test_utils import async_fixture, async_noop
 
 
 @pytest.mark.asyncio
@@ -47,42 +48,21 @@ class BaseTestService(ABC):
 
         This ensures tests don't need to wait for real sleep calls.
         """
-        import asyncio
-
-        from aiperf.tests.utils.async_test_utils import async_noop
-
         monkeypatch.setattr(asyncio, "sleep", async_noop)
 
     @pytest.fixture(autouse=True)
     def patch_communication_factory(
-        self, mock_communication: AsyncMock
+        self, mock_communication: MagicMock
     ) -> Generator[None, None, None]:
         """
         Patch the communication factory to always return our mock communication.
 
         This ensures no real communication is attempted during tests.
         """
-        with (
-            patch(
-                "aiperf.common.comms.communication_factory.CommunicationFactory.create_communication",
-                return_value=mock_communication,
-            ),
-            patch(
-                "aiperf.common.comms.zmq_comms.zmq_communication.ZMQCommunication",
-                side_effect=Exception(
-                    "ZMQCommunication should not be instantiated directly in tests"
-                ),
-            ),
+        with patch(
+            "aiperf.common.comms.communication_factory.CommunicationFactory.create_communication",
+            return_value=mock_communication,
         ):
-            yield
-
-    @pytest.fixture(autouse=True)
-    def patch_process_creation(self) -> Generator[None, None, None]:
-        """
-        Patch process creation methods to prevent spawning actual processes.
-        """
-        # Mock both multiprocessing Process and threading Thread
-        with patch("multiprocessing.Process"), patch("threading.Thread"):
             yield
 
     @abstractmethod
@@ -93,7 +73,7 @@ class BaseTestService(ABC):
 
         Must be implemented by subclasses to specify which service is being tested.
         """
-        pass
+        raise NotImplementedError("Subclasses must implement this method")
 
     @pytest.fixture
     def service_config(self) -> ServiceConfig:
@@ -122,6 +102,13 @@ class BaseTestService(ABC):
 
         Returns:
             An uninitialized instance of the service
+
+        Example usage:
+        ```python
+        async def test_service_initialization(uninitialized_service: BaseService):
+            service = await async_fixture(uninitialized_service)
+            await service.initialize()
+        ```
         """
         service = service_class(service_config=service_config)
         yield service
@@ -130,6 +117,7 @@ class BaseTestService(ABC):
     async def initialized_service(
         self,
         uninitialized_service: BaseService,
+        mock_communication: MagicMock,
     ) -> AsyncGenerator[BaseService, None]:
         """
         Create and initialize the service under test.
@@ -139,23 +127,27 @@ class BaseTestService(ABC):
 
         Returns:
             An initialized instance of the service
+
+        Example usage:
+        ```python
+        async def test_service_foo(initialized_service: BaseService):
+            service = await async_fixture(initialized_service)
+            await service.foo()
+        ```
         """
         service = await async_fixture(uninitialized_service)
 
         await service.initialize()
 
-        try:
-            yield service
-        finally:
-            # Clean up
-            if not service.stop_event.is_set():
-                await service.stop()
+        yield service
 
+    @pytest.mark.asyncio
     async def test_service_initialization(
-        self, uninitialized_service: BaseService
+        self, uninitialized_service: BaseService, mock_communication: MagicMock
     ) -> None:
         """
-        Test that the service initializes correctly.
+        Test that the service initializes correctly. This will be executed
+        for every service that inherits from BaseTestService.
 
         This verifies:
         1. The service has a valid ID and type
@@ -178,9 +170,11 @@ class BaseTestService(ABC):
         assert service.is_initialized
         assert service.state == ServiceState.READY
 
+    @pytest.mark.asyncio
     async def test_service_start_stop(self, initialized_service: BaseService) -> None:
         """
-        Test that the service can start and stop correctly.
+        Test that the service can start and stop correctly. This will be executed
+        for every service that inherits from BaseTestService.
 
         This verifies:
         1. The service transitions to the `ServiceState.RUNNING` state when started
@@ -200,15 +194,13 @@ class BaseTestService(ABC):
         "state",
         [state for state in ServiceState if state != ServiceState.UNKNOWN],
     )
+    @pytest.mark.asyncio
     async def test_service_state_transitions(
         self, initialized_service: BaseService, state: ServiceState
     ) -> None:
         """
-        Test that the service can transition to all possible states.
-
-        Args:
-            initialized_service: The service instance to test
-            state: The state to test transitioning to
+        Test that the service can transition to all possible states. This will be executed
+        for every service that inherits from BaseTestService.
         """
         service = await async_fixture(initialized_service)
 
@@ -217,3 +209,17 @@ class BaseTestService(ABC):
 
         # Check that the service state was updated
         assert service.state == state
+
+    @pytest.mark.asyncio
+    async def test_service_run_does_not_start(
+        self, initialized_service: BaseService
+    ) -> None:
+        """
+        Test that the service does not start when the run method is called (default behavior). This will be executed
+        for every service that inherits from BaseTestService.
+        """
+        service = await async_fixture(MagicMock(wraps=initialized_service))
+
+        service._forever_loop.return_value = None
+        await service.run_forever()
+        assert not service.start.called

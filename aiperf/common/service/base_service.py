@@ -147,8 +147,7 @@ class BaseService(BaseServiceInterface, ABC, metaclass=ServiceMetaclass):
         """
         await call_all_functions_self(self, self._get_hooks(hook_type), *args, **kwargs)
 
-    # Note: Not using as a setter so it can be overridden by derived classes and still
-    # be async
+    # Note: Not using as a property setter so it can be async
     async def set_state(self, state: ServiceState) -> None:
         """Set the state of the service. This method implements
         the `BaseServiceInterface.set_state` method.

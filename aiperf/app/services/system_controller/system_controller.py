@@ -342,14 +342,14 @@ class SystemController(BaseControllerService):
         self,
         target_service_id: str,
         command: CommandType,
-        payload: Any | None = None,
+        data: Any | None = None,
     ) -> None:
         """Send a command to a specific service.
 
         Args:
             target_service_id: ID of the target service
             command: The command to send (from CommandType enum).
-            payload: Optional payload to send with the command.
+            data: Optional data to send with the command.
 
         Raises:
             CommunicationNotInitializedError if the communication is not initialized
@@ -363,7 +363,7 @@ class SystemController(BaseControllerService):
         command_message = self.create_command_message(
             command=command,
             target_service_id=target_service_id,
-            payload=payload,
+            data=data,
         )
 
         # Publish command response

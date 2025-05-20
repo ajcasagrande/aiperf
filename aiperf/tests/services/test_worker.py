@@ -16,14 +16,11 @@
 Tests for the worker service.
 """
 
-from unittest.mock import AsyncMock
-
 import pytest
 from pydantic import BaseModel
 
 from aiperf.app.services.worker.worker import Worker
-from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.enums import ServiceState
+from aiperf.common.enums import ServiceState, ServiceType
 from aiperf.common.service.base_service import BaseService
 from aiperf.tests.base_test_service import BaseTestService
 from aiperf.tests.utils.async_test_utils import async_fixture
@@ -56,65 +53,24 @@ class TestWorker(BaseTestService):
     def worker_config(self) -> WorkerTestConfig:
         """
         Return a test configuration for the worker.
-
-        Returns:
-            WorkerTestConfig with test parameters
         """
         return WorkerTestConfig()
 
-    @pytest.fixture
-    def worker_instance(
-        self, service_config: ServiceConfig, mock_communication: AsyncMock
-    ) -> Worker:
-        """
-        Return a worker instance for testing that hasn't been initialized.
-
-        This is separate from the fixtures provided by the base class to allow
-        for worker-specific setup.
-
-        Returns:
-            An uninitialized Worker instance
-        """
-        worker = Worker(service_config=service_config)
-        worker._comms = mock_communication
-        return worker
-
-    async def test_worker_specific_state_transitions(
-        self, initialized_service: Worker
-    ) -> None:
-        """
-        Test worker-specific state transitions beyond the base service tests.
-
-        Verifies the worker service correctly transitions through its lifecycle states.
-        """
-        worker = await async_fixture(initialized_service)
-
-        # Start the worker
-        await worker.start()
-
-        # Check the status after starting
-        assert worker.state == ServiceState.RUNNING
-
-        # Stop the worker
-        await worker.stop()
-
-        # Check the status after stopping
-        assert worker.state == ServiceState.STOPPED
-
-    async def test_worker_initialization(self, worker_instance: Worker) -> None:
+    async def test_worker_initialization(self, initialized_service: Worker) -> None:
         """
         Test that the worker initializes with the correct configuration.
 
         Verifies the worker service is properly instantiated with its configuration.
         """
         # Basic existence checks
-        assert worker_instance is not None
-        assert worker_instance.service_config is not None
-        assert worker_instance.service_type is not None
+        service = await async_fixture(initialized_service)
+        assert service is not None
+        assert service.service_config is not None
+        assert service.service_type == ServiceType.WORKER
 
         # Initialize the worker
-        await worker_instance.initialize()
+        await service.initialize()
 
         # Check the worker is properly initialized
-        assert worker_instance.is_initialized
-        assert worker_instance.state == ServiceState.READY
+        assert service.is_initialized
+        assert service.state == ServiceState.READY

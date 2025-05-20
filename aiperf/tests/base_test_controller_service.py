@@ -16,15 +16,12 @@
 Base test class for controller services.
 """
 
-from unittest.mock import AsyncMock
-
-import pytest
+from unittest.mock import MagicMock
 
 from aiperf.common.enums import CommandType
 from aiperf.common.enums.comm_enums import Topic
 from aiperf.common.models.payload_models import CommandPayload
 from aiperf.common.service.base_controller_service import BaseControllerService
-from aiperf.common.service.base_service import BaseService
 from aiperf.tests.base_test_service import BaseTestService, async_fixture
 
 
@@ -37,18 +34,8 @@ class BaseTestControllerService(BaseTestService):
     and monitoring of component services.
     """
 
-    @pytest.fixture
-    def service_class(self) -> type[BaseService]:
-        """
-        Return the service class to test.
-
-        Returns:
-            The BaseControllerService class for testing
-        """
-        return BaseControllerService
-
     async def test_controller_command_publishing(
-        self, initialized_service: BaseControllerService, mock_communication: AsyncMock
+        self, initialized_service: BaseControllerService, mock_communication: MagicMock
     ) -> None:
         """
         Test that the controller can publish command messages.
@@ -72,31 +59,13 @@ class BaseTestControllerService(BaseTestService):
         await service.comms.publish(Topic.COMMAND, command_message)
 
         # Check that the command was published
-        assert Topic.COMMAND in mock_communication.published_messages
-        assert len(mock_communication.published_messages[Topic.COMMAND]) > 0
+        assert Topic.COMMAND in mock_communication.mock_data.published_messages
+        assert len(mock_communication.mock_data.published_messages[Topic.COMMAND]) == 1
 
         # Verify command message
-        published_cmd = mock_communication.published_messages[Topic.COMMAND][0]
+        published_cmd = mock_communication.mock_data.published_messages[Topic.COMMAND][
+            0
+        ]
         assert published_cmd.service_id == service.service_id
         assert published_cmd.payload.command == command
         assert published_cmd.payload.target_service_id == test_service_id
-
-    async def test_controller_subscriptions(
-        self, initialized_service: BaseControllerService, mock_communication: AsyncMock
-    ) -> None:
-        """
-        Test that the controller has the required subscriptions.
-
-        Verifies the controller sets up subscriptions to receive messages from components.
-        """
-        await async_fixture(initialized_service)
-
-        # A controller should typically subscribe to registration, status, and heartbeat topics
-        expected_topics = [Topic.REGISTRATION, Topic.STATUS, Topic.HEARTBEAT]
-
-        # Check that the controller has subscribed to expected topics
-        for topic in expected_topics:
-            # This is only checking subscriptions mocked via the mock_communication fixture
-            # Actual subscription checks would vary depending on the controller implementation
-            if topic in mock_communication.subscriptions:
-                assert callable(mock_communication.subscriptions[topic])

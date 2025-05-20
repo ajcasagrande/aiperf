@@ -16,6 +16,8 @@
 Tests for the worker manager service.
 """
 
+import multiprocessing
+
 import pytest
 from pydantic import BaseModel
 
@@ -53,9 +55,6 @@ class TestWorkerManager(BaseTestComponentService):
     def worker_manager_config(self) -> WorkerManagerTestConfig:
         """
         Return a test configuration for the worker manager.
-
-        Returns:
-            WorkerManagerTestConfig with test parameters
         """
         return WorkerManagerTestConfig()
 
@@ -64,13 +63,10 @@ class TestWorkerManager(BaseTestComponentService):
     ) -> None:
         """
         Test that the worker manager initializes with the correct attributes.
-
-        Verifies:
-        1. The service has the correct service type
-        2. The service has the required worker management attributes
         """
         service = await async_fixture(initialized_service)
         assert service.service_type == ServiceType.WORKER_MANAGER
         assert hasattr(service, "workers")
         assert hasattr(service, "cpu_count")
-        assert service.cpu_count > 0
+        assert service.cpu_count == multiprocessing.cpu_count()
+        assert service.worker_count == service.cpu_count

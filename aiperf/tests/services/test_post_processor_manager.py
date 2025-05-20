@@ -53,9 +53,6 @@ class TestPostProcessorManager(BaseTestComponentService):
     def processor_config(self) -> PostProcessorTestConfig:
         """
         Return a test configuration for the post processor manager.
-
-        Returns:
-            PostProcessorTestConfig with test parameters
         """
         return PostProcessorTestConfig()
 
@@ -64,9 +61,6 @@ class TestPostProcessorManager(BaseTestComponentService):
     ) -> None:
         """
         Test that the post processor manager initializes with the correct service type.
-
-        Verifies that the post processor manager has the correct service type after initialization.
         """
         service = await async_fixture(initialized_service)
         assert service.service_type == ServiceType.POST_PROCESSOR_MANAGER
-        # Add post processor manager specific assertions here
