@@ -15,6 +15,7 @@
 import asyncio
 import sys
 
+from aiperf.app.services.worker.conversation import ConversationManager
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.decorators import (
     on_cleanup,
@@ -29,6 +30,14 @@ from aiperf.common.enums import (
     PushClientType,
     ServiceType,
     Topic,
+)
+from aiperf.common.exceptions.backend_client_exceptions import (
+    BackendClientNotInitializedError,
+)
+from aiperf.common.factories.backend_client_factory import BackendClientFactory
+from aiperf.common.interfaces.backend_client_interface import BackendClientInterface
+from aiperf.common.models.backend_clients.backend_client_models import (
+    BackendClientConfig,
 )
 from aiperf.common.models.message_models import CreditDropMessage
 from aiperf.common.models.payload_models import CreditReturnPayload
@@ -46,6 +55,8 @@ class Worker(BaseService):
     ) -> None:
         super().__init__(service_config=service_config, service_id=service_id)
         self.logger.debug("Initializing worker")
+        self.conversation_manager: ConversationManager = ConversationManager()
+        self.backend_client: BackendClientInterface | None = None
 
     @property
     def service_type(self) -> ServiceType:
@@ -108,6 +119,44 @@ class Worker(BaseService):
                 payload=CreditReturnPayload(amount=1),
             ),
         )
+
+    async def _initialize_backend_client(self, config: BackendClientConfig) -> None:
+        """Initialize the backend client."""
+        self.backend_client = BackendClientFactory.create_backend_client(config)
+
+    def _require_backend_client(self) -> None:
+        """Require the backend client to be initialized.
+
+        Raises:
+            BackendClientNotInitializedError: If the backend client is not initialized
+        """
+        if self.backend_client is None:
+            raise BackendClientNotInitializedError
+
+    async def execute_conversation(self) -> None:
+        """Execute a conversation."""
+
+        self._require_backend_client()
+
+        conversation = self.conversation_manager.create_conversation()
+        while not conversation.is_complete():
+            # Get data for this conversation
+            data = self.dataset_manager.get_data(conversation.id)
+            # Prepare conversation state
+            conversation = self.conversation_manager.init_conversation(data)
+            # Select endpoint
+            endpoint = self.endpoint_dispatcher.select()
+            # Format payload
+            payload = self.backend_client.format_payload(conversation.current_turn())
+            # Send request (timing as per credit)
+            response = await self.backend_client.send_request(endpoint, payload)
+            # Advance conversation, handle multi-turn/branching
+            self.conversation_manager.advance_turn(response)
+            # Collect and forward results
+            self.records_manager.store_result(conversation.id, response)
+
+        # Logging and error handling
+        self.logger.info(f"Processed conversation {conversation.id}")
 
 
 def main() -> None:
