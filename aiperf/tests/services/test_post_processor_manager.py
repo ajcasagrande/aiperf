@@ -17,26 +17,74 @@ Tests for the post processor manager service.
 """
 
 import pytest
+from pydantic import BaseModel
 
 from aiperf.app.services.post_processor_manager.post_processor_manager import (
     PostProcessorManager,
 )
+from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ServiceType
+from aiperf.common.service.base_service import BaseService
 from aiperf.tests.base_test_component_service import BaseTestComponentService
 from aiperf.tests.utils.async_test_utils import async_fixture
 
 
+class PostProcessorTestConfig(BaseModel):
+    """Configuration model for post processor manager tests."""
+
+    # TODO: Replace this with the actual configuration model once available
+    pass
+
+
 @pytest.mark.asyncio
 class TestPostProcessorManager(BaseTestComponentService):
-    """Tests for the post processor manager service."""
+    """
+    Tests for the post processor manager service.
+
+    This test class extends BaseTestComponentService to leverage common
+    component service tests while adding post processor manager specific tests.
+    """
 
     @pytest.fixture
-    def service_class(self):
-        """Return the service class to test."""
+    def service_class(self) -> type[BaseService]:
+        """
+        Return the post processor manager service class for testing.
+
+        Returns:
+            The PostProcessorManager class
+        """
         return PostProcessorManager
 
-    async def test_post_processor_manager_initialization(self, service_under_test):
-        """Test that the post processor manager initializes correctly."""
+    @pytest.fixture
+    def service_config(self) -> ServiceConfig:
+        """
+        Return a post processor manager specific configuration for testing.
+
+        Returns:
+            ServiceConfig configured for post processor manager tests
+        """
+        return ServiceConfig(
+            # Add any post processor manager specific configuration here
+        )
+
+    @pytest.fixture
+    def processor_config(self) -> PostProcessorTestConfig:
+        """
+        Return a test configuration for the post processor manager.
+
+        Returns:
+            PostProcessorTestConfig with test parameters
+        """
+        return PostProcessorTestConfig()
+
+    async def test_post_processor_manager_initialization(
+        self, service_under_test: PostProcessorManager
+    ) -> None:
+        """
+        Test that the post processor manager initializes with the correct service type.
+
+        Verifies that the post processor manager has the correct service type after initialization.
+        """
         service = await async_fixture(service_under_test)
         assert service.service_type == ServiceType.POST_PROCESSOR_MANAGER
         # Add post processor manager specific assertions here

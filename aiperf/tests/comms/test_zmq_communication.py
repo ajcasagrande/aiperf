@@ -26,6 +26,7 @@ from aiperf.common.enums import (
     SubClientType,
     Topic,
 )
+from aiperf.common.exceptions.comm_exceptions import CommunicationInitializationError
 from aiperf.common.models.comm_models import (
     ZMQCommunicationConfig,
     ZMQTCPTransportConfig,
@@ -67,17 +68,17 @@ class TestZMQCommunication:
         """Test that the ZMQ communication initializes correctly."""
         result = await zmq_communication.initialize()
         assert result is None
-        assert zmq_communication._is_initialized is True
+        assert zmq_communication.is_initialized is True
 
     async def test_initialization_failure(self, zmq_communication):
         """Test initialization failure handling."""
-        # Temporarily set _is_initialized to false to test error path
-        zmq_communication._is_initialized = False
+        # Temporarily clear initialized_event to test error path
+        zmq_communication.initialized_event.clear()
 
         # Create a mock implementation that raises an exception
         # FIXME: TODO: Is this correct/needed now that we use Exception objects?
         async def mock_init_with_error():
-            raise Exception("Connection error")
+            raise CommunicationInitializationError("Connection error")
 
         # Replace the original method and call to test error handling
         original_init = zmq_communication.initialize
@@ -126,7 +127,7 @@ class TestZMQCommunication:
 
         # Set up the client in the clients dictionary
         zmq_communication.clients = {PubClientType.COMPONENT: mock_client}
-        zmq_communication._is_initialized = True
+        zmq_communication.initialized_event.set()
 
         # Publish a response
         result = await zmq_communication.publish(Topic.STATUS, test_message)
@@ -143,7 +144,7 @@ class TestZMQCommunication:
 
         # Set up the client in the clients dictionary
         zmq_communication.clients = {SubClientType.COMPONENT: mock_client}
-        zmq_communication._is_initialized = True
+        zmq_communication.initialized_event.set()
 
         # Create a callback function
         async def callback(message):
@@ -169,8 +170,8 @@ class TestZMQCommunication:
             PubClientType.COMPONENT: mock_client1,
             SubClientType.COMPONENT: mock_client2,
         }
-        zmq_communication._is_initialized = True
-        zmq_communication._is_shutdown = False
+        zmq_communication.initialized_event.set()
+        zmq_communication.stop_event.clear()
 
         # Mock the context with a patched shutdown method to avoid setting
         # context to None
@@ -197,7 +198,7 @@ class TestZMQCommunication:
             assert mock_client1.shutdown.called
             assert mock_client2.shutdown.called
             assert context_mock.term.called
-            assert zmq_communication._is_shutdown is True
+            assert zmq_communication.stop_event.is_set()
         finally:
             # Restore the original method
             zmq_communication.shutdown = original_shutdown

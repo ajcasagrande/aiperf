@@ -21,7 +21,6 @@ from zmq import SocketType
 from aiperf.common.comms.zmq_comms.clients.base_zmq_client import BaseZMQClient
 from aiperf.common.decorators import aiperf_task, on_cleanup
 from aiperf.common.exceptions.comm_exceptions import (
-    CommunicationNotInitializedError,
     CommunicationResponseError,
 )
 from aiperf.common.models.message_models import BaseMessage, Message
@@ -71,11 +70,7 @@ class ZMQRepClient(BaseZMQClient):
         Returns:
             Message or Exception if request was not received successfully
         """
-        if not self._is_initialized or self._is_shutdown:
-            logger.error(
-                "Cannot wait for request: communication not initialized or already shut down"
-            )
-            raise CommunicationNotInitializedError()
+        self._ensure_initialized()
 
         try:
             # Create a future for the next request
@@ -120,12 +115,7 @@ class ZMQRepClient(BaseZMQClient):
         Raises:
             Exception if response was not sent successfully, None otherwise
         """
-        if not self._is_initialized or self._is_shutdown:
-            logger.error(
-                "Cannot send response: communication not initialized or already "
-                "shut down"
-            )
-            raise CommunicationNotInitializedError()
+        self._ensure_initialized()
 
         try:
             # Serialize response using Pydantic's built-in method

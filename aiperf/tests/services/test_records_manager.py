@@ -17,24 +17,72 @@ Tests for the records manager service.
 """
 
 import pytest
+from pydantic import BaseModel
 
 from aiperf.app.services.records_manager.records_manager import RecordsManager
+from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ServiceType
+from aiperf.common.service.base_service import BaseService
 from aiperf.tests.base_test_component_service import BaseTestComponentService
 from aiperf.tests.utils.async_test_utils import async_fixture
 
 
+class RecordsManagerTestConfig(BaseModel):
+    """Configuration model for records manager tests."""
+
+    # TODO: Replace this with the actual configuration model once available
+    pass
+
+
 @pytest.mark.asyncio
 class TestRecordsManager(BaseTestComponentService):
-    """Tests for the records manager service."""
+    """
+    Tests for the records manager service.
+
+    This test class extends BaseTestComponentService to leverage common
+    component service tests while adding records manager specific tests.
+    """
 
     @pytest.fixture
-    def service_class(self):
-        """Return the service class to test."""
+    def service_class(self) -> type[BaseService]:
+        """
+        Return the records manager service class for testing.
+
+        Returns:
+            The RecordsManager class
+        """
         return RecordsManager
 
-    async def test_records_manager_initialization(self, service_under_test):
-        """Test that the records manager initializes correctly."""
+    @pytest.fixture
+    def service_config(self) -> ServiceConfig:
+        """
+        Return a records manager specific configuration for testing.
+
+        Returns:
+            ServiceConfig configured for records manager tests
+        """
+        return ServiceConfig(
+            # Add any records manager specific configuration here
+        )
+
+    @pytest.fixture
+    def records_config(self) -> RecordsManagerTestConfig:
+        """
+        Return a test configuration for the records manager.
+
+        Returns:
+            RecordsManagerTestConfig with test parameters
+        """
+        return RecordsManagerTestConfig()
+
+    async def test_records_manager_initialization(
+        self, service_under_test: RecordsManager
+    ) -> None:
+        """
+        Test that the records manager initializes with the correct service type.
+
+        Verifies that the records manager has the correct service type after initialization.
+        """
         service = await async_fixture(service_under_test)
 
         assert service.service_type == ServiceType.RECORDS_MANAGER

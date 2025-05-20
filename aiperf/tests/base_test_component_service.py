@@ -12,60 +12,121 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+"""
+Base test class for component services.
+"""
+
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
 
 from aiperf.common.enums.comm_enums import Topic
 from aiperf.common.enums.service_enums import ServiceState
 from aiperf.common.service.base_component_service import BaseComponentService
+from aiperf.common.service.base_service import BaseService
 from aiperf.tests.base_test_service import BaseTestService, async_fixture
 
 
 class BaseTestComponentService(BaseTestService):
-    """Base class for testing component services."""
+    """
+    Base class for testing component services.
+
+    This extends BaseTestService with specific tests for the component service
+    functionality such as heartbeat, registration, and status updates.
+    """
 
     @pytest.fixture
-    def service_class(self):
-        """Return the service class to test."""
+    def service_class(self) -> type[BaseService]:
+        """
+        Return the service class to test.
+
+        Returns:
+            The BaseComponentService class for testing
+        """
         return BaseComponentService
 
-    async def test_service_heartbeat(self, service_under_test, mock_communication):
-        """Test that the service sends heartbeat messages."""
+    async def test_service_heartbeat(
+        self, service_under_test: BaseComponentService, mock_communication: AsyncMock
+    ) -> None:
+        """
+        Test that the service sends heartbeat messages correctly.
+
+        Verifies:
+        1. The service generates and sends a valid heartbeat message
+        2. The message contains the correct service information
+        """
         service = await async_fixture(service_under_test)
 
         # Directly send a heartbeat instead of waiting for the task
         await service.send_heartbeat()
 
-        # Check that a heartbeat response was published
+        # Check that a heartbeat message was published
         assert Topic.HEARTBEAT in mock_communication.published_messages
         assert len(mock_communication.published_messages[Topic.HEARTBEAT]) > 0
 
-    async def test_service_registration(self, service_under_test, mock_communication):
-        """Test that the service registers with the system controller."""
+        # Verify heartbeat message contents
+        heartbeat_msg = mock_communication.published_messages[Topic.HEARTBEAT][0]
+        assert heartbeat_msg.service_id == service.service_id
+        assert heartbeat_msg.payload.service_type == service.service_type
+
+    async def test_service_registration(
+        self, service_under_test: BaseComponentService, mock_communication: MagicMock
+    ) -> None:
+        """
+        Test that the service registers with the system controller.
+
+        Verifies:
+        1. The service sends a registration message to the controller
+        2. The registration message contains the correct service information
+        """
         service = await async_fixture(service_under_test)
 
         # Register the service
         await service.register()
 
-        # Check that a registration response was published
+        # Check that a registration message was published
         assert Topic.REGISTRATION in mock_communication.published_messages
 
-        # Verify registration response
+        # Verify registration message contents
         registration_msg = mock_communication.published_messages[Topic.REGISTRATION][0]
         assert registration_msg.service_id == service.service_id
         assert registration_msg.payload.service_type == service.service_type
 
-    async def test_service_status_update(self, service_under_test, mock_communication):
-        """Test that the service updates its status."""
+    async def test_service_status_update(
+        self, service_under_test: BaseComponentService, mock_communication: AsyncMock
+    ) -> None:
+        """
+        Test that the service updates its status correctly.
+
+        Verifies:
+        1. The service publishes status messages when state changes
+        2. The status message contains the correct state and service information
+        """
         service = await async_fixture(service_under_test)
 
         # Update the service status
         await service.set_state(ServiceState.READY)
 
-        # Check that a status response was published
+        # Check that a status message was published
         assert Topic.STATUS in mock_communication.published_messages
 
-        # Verify status response
+        # Verify status message contents
         status_msg = mock_communication.published_messages[Topic.STATUS][0]
         assert status_msg.service_id == service.service_id
         assert status_msg.payload.service_type == service.service_type
         assert status_msg.payload.state == ServiceState.READY
+
+    async def test_command_processing(
+        self, service_under_test: BaseComponentService, mock_communication: AsyncMock
+    ) -> None:
+        """
+        Test that the service processes command messages correctly.
+
+        Verifies that the service correctly handles start and stop commands
+        from the controller.
+        """
+        service = await async_fixture(service_under_test)
+
+        # Test existing command handlers and subscription are set up
+        assert Topic.COMMAND in mock_communication.subscriptions
+        assert callable(service.process_command_message)

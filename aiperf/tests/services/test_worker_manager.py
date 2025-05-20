@@ -17,63 +17,135 @@ Tests for the worker manager service.
 """
 
 import asyncio
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
+from pydantic import BaseModel
 
 from aiperf.app.services.worker_manager.worker_manager import (
     WorkerManager,
     WorkerProcess,
 )
+from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ServiceType
+from aiperf.common.service.base_service import BaseService
 from aiperf.tests.base_test_component_service import BaseTestComponentService
 from aiperf.tests.utils.async_test_utils import async_fixture, async_noop
 
 
+class WorkerManagerTestConfig(BaseModel):
+    """Configuration model for worker manager tests."""
+
+    # TODO: Replace this with the actual configuration model once available
+    pass
+
+
 @pytest.mark.asyncio
 class TestWorkerManager(BaseTestComponentService):
-    """Tests for the worker manager service."""
+    """
+    Tests for the worker manager service.
+
+    This test class extends BaseTestComponentService to leverage common
+    component service tests while adding worker manager specific tests.
+    """
 
     @pytest.fixture
-    def service_class(self):
-        """Return the service class to test."""
+    def service_class(self) -> type[BaseService]:
+        """
+        Return the worker manager service class for testing.
+
+        Returns:
+            The WorkerManager class
+        """
         return WorkerManager
 
-    async def test_worker_manager_initialization(self, service_under_test):
-        """Test that the worker manager initializes correctly."""
+    @pytest.fixture
+    def service_config(self) -> ServiceConfig:
+        """
+        Return a worker manager specific configuration for testing.
+
+        Returns:
+            ServiceConfig configured for worker manager tests
+        """
+        return ServiceConfig(
+            # Add any worker manager specific configuration here
+        )
+
+    @pytest.fixture
+    def worker_manager_config(self) -> WorkerManagerTestConfig:
+        """
+        Return a test configuration for the worker manager.
+
+        Returns:
+            WorkerManagerTestConfig with test parameters
+        """
+        return WorkerManagerTestConfig()
+
+    async def test_worker_manager_initialization(
+        self, service_under_test: WorkerManager
+    ) -> None:
+        """
+        Test that the worker manager initializes with the correct attributes.
+
+        Verifies:
+        1. The service has the correct service type
+        2. The service has the required worker management attributes
+        """
         service = await async_fixture(service_under_test)
         assert service.service_type == ServiceType.WORKER_MANAGER
         assert hasattr(service, "workers")
         assert hasattr(service, "cpu_count")
         assert service.cpu_count > 0
 
-    async def test_spawn_multiprocessing_workers(self, service_under_test):
-        """Test spawning multiprocessing workers."""
+    async def test_spawn_multiprocessing_workers(
+        self, service_under_test: WorkerManager
+    ) -> None:
+        """
+        Test spawning multiprocessing workers.
+
+        Verifies:
+        1. The worker manager creates the correct number of worker processes
+        2. The workers are properly configured and started
+        """
         service = await async_fixture(service_under_test)
 
-        # Mock the multiprocessing.Process
+        # Get a reference to the mocked Process class
+        from multiprocessing import Process
+
+        # Configure our mock
         mock_process = self.create_safe_mock()
         mock_process.start.return_value = None
         mock_process.pid = 12345
 
-        with patch("multiprocessing.Process", return_value=mock_process):
-            # Call the worker spawn method
-            await service._spawn_multiprocessing_workers()
+        # Update the mock Process to return our configured mock
+        Process.return_value = mock_process
 
-            # Check that workers were created based on CPU count
-            assert len(service.workers) == service.cpu_count
+        # Call the worker spawn method
+        await service._spawn_multiprocessing_workers()
 
-            # Verify the first worker was started correctly
-            worker_id = "worker_0"
-            assert worker_id in service.workers
-            assert isinstance(service.workers[worker_id], WorkerProcess)
-            assert service.workers[worker_id].worker_id == worker_id
+        # Check that workers were created based on CPU count
+        assert len(service.workers) == service.cpu_count
 
-            # Verify process was started
-            mock_process.start.assert_called()
+        # Verify the first worker was started correctly
+        worker_id = "worker_0"
+        assert worker_id in service.workers
+        assert isinstance(service.workers[worker_id], WorkerProcess)
+        assert service.workers[worker_id].worker_id == worker_id
 
-    async def test_stop_multiprocessing_workers(self, service_under_test):
-        """Test stopping multiprocessing workers."""
+        # Verify process was started
+        assert Process.call_count > 0
+        mock_process.start.assert_called()
+
+    async def test_stop_multiprocessing_workers(
+        self, service_under_test: WorkerManager
+    ) -> None:
+        """
+        Test stopping multiprocessing workers.
+
+        Verifies:
+        1. The worker manager attempts to gracefully terminate workers
+        2. Workers that don't terminate in time are forcefully killed
+        """
         service = await async_fixture(service_under_test)
 
         # Create mock workers
@@ -90,19 +162,39 @@ class TestWorkerManager(BaseTestComponentService):
                 worker_id=worker_id, process=mock_process
             )
 
-        with (
-            patch("asyncio.to_thread", return_value=async_noop),
-            patch("asyncio.wait_for", side_effect=asyncio.TimeoutError),
-        ):
+        # Patch asyncio.to_thread and asyncio.wait_for at the module level
+        # to avoid issues with context managers and async code
+        original_to_thread = asyncio.to_thread
+        original_wait_for = asyncio.wait_for
+
+        asyncio.to_thread = lambda func, *args, **kwargs: async_noop()
+
+        # Make wait_for raise TimeoutError
+        async def mock_wait_for(*args, **kwargs):
+            raise asyncio.TimeoutError()
+
+        asyncio.wait_for = mock_wait_for
+
+        try:
             # Stop the workers - this should now handle the TimeoutError case
             await service._stop_multiprocessing_workers()
 
             # Verify workers were terminated and one was killed due to timeout
             assert mock_process.terminate.call_count == 2
             assert mock_process.kill.call_count > 0
+        finally:
+            # Restore original functions
+            asyncio.to_thread = original_to_thread
+            asyncio.wait_for = original_wait_for
 
-    async def test_worker_manager_specific_functionality(self, service_under_test):
-        """Test worker manager specific functionality."""
+    async def test_worker_manager_cleanup(
+        self, service_under_test: WorkerManager
+    ) -> None:
+        """
+        Test worker manager cleanup functionality.
+
+        Verifies that the cleanup method properly clears the worker registry.
+        """
         service = await async_fixture(service_under_test)
 
         # Use a normal dict without mocks to avoid async issues

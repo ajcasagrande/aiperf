@@ -147,7 +147,7 @@ class ReqClientType(StrEnum):
     CONVERSATION_DATA = "conversation_data_req"
 
     @classmethod
-    def from_topic(cls, topic: TopicType) -> Self:
+    def from_topic(cls, topic: TopicType) -> "ReqClientType":
         """Determine the appropriate ClientType based on topic.
 
                 Args:

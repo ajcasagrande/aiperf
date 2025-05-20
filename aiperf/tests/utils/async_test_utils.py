@@ -16,29 +16,43 @@
 Utilities for testing asynchronous code.
 """
 
-from typing import TypeVar
+from collections.abc import AsyncIterator
+from typing import Any, TypeVar, cast
 
 T = TypeVar("T")
 
 
-async def async_noop():
-    """A no-op async function for testing purposes.
-    Can be used to replace asyncio.sleep or asyncio.to_thread calls in tests.
+async def async_noop(*args, **kwargs) -> None:
     """
-    yield
+    A no-op async function for testing purposes.
+
+    Can be used to replace asyncio.sleep, asyncio.wait_for, or other async calls in tests.
+    Accepts any arguments but performs no operation and returns immediately.
+    """
+    return
 
 
 async def async_fixture(fixture: T) -> T:
-    """Manually await an async fixture if it's an async generator, otherwise return it.
-    This is necessary because pytest fixtures are not awaited by default.
+    """
+    Manually await an async pytest fixture.
+
+    This is necessary because pytest fixtures are not awaited by default in test methods.
+    If the fixture is an async generator, this will get the first yielded value.
 
     Args:
         fixture: The fixture to await
 
     Returns:
-        The fixture value
+        The awaited fixture value
     """
     if hasattr(fixture, "__aiter__"):
-        async for value in fixture:
-            return value
+        # If it's an async generator, get the first yielded value
+        try:
+            async_gen = cast(AsyncIterator[Any], fixture)
+            value = await anext(async_gen)
+            return cast(T, value)
+        except StopAsyncIteration:
+            pass
+
+    # Otherwise return the fixture as is
     return fixture

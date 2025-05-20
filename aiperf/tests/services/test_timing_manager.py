@@ -17,24 +17,72 @@ Tests for the timing manager service.
 """
 
 import pytest
+from pydantic import BaseModel
 
 from aiperf.app.services.timing_manager.timing_manager import TimingManager
+from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ServiceType
+from aiperf.common.service.base_service import BaseService
 from aiperf.tests.base_test_component_service import BaseTestComponentService
 from aiperf.tests.utils.async_test_utils import async_fixture
 
 
+class TimingManagerTestConfig(BaseModel):
+    """Configuration model for timing manager tests."""
+
+    # TODO: Replace this with the actual configuration model once available
+    pass
+
+
 @pytest.mark.asyncio
 class TestTimingManager(BaseTestComponentService):
-    """Tests for the timing manager service."""
+    """
+    Tests for the timing manager service.
+
+    This test class extends BaseTestComponentService to leverage common
+    component service tests while adding timing manager specific tests.
+    """
 
     @pytest.fixture
-    def service_class(self):
-        """Return the service class to test."""
+    def service_class(self) -> type[BaseService]:
+        """
+        Return the timing manager service class for testing.
+
+        Returns:
+            The TimingManager class
+        """
         return TimingManager
 
-    async def test_timing_manager_initialization(self, service_under_test):
-        """Test that the timing manager initializes correctly."""
+    @pytest.fixture
+    def service_config(self) -> ServiceConfig:
+        """
+        Return a timing manager specific configuration for testing.
+
+        Returns:
+            ServiceConfig configured for timing manager tests
+        """
+        return ServiceConfig(
+            # Add any timing manager specific configuration here
+        )
+
+    @pytest.fixture
+    def timing_config(self) -> TimingManagerTestConfig:
+        """
+        Return a test configuration for the timing manager.
+
+        Returns:
+            TimingManagerTestConfig with test parameters
+        """
+        return TimingManagerTestConfig()
+
+    async def test_timing_manager_initialization(
+        self, service_under_test: TimingManager
+    ) -> None:
+        """
+        Test that the timing manager initializes with the correct service type.
+
+        Verifies that the timing manager has the correct service type after initialization.
+        """
         service = await async_fixture(service_under_test)
         assert service.service_type == ServiceType.TIMING_MANAGER
         # Add timing manager specific assertions here

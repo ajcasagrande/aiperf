@@ -15,7 +15,7 @@
 import asyncio
 
 from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.decorators import aiperf_task, on_run
+from aiperf.common.decorators import AIPerfHooks, aiperf_task, on_run
 from aiperf.common.enums import (
     ClientType,
     CommandType,
@@ -190,7 +190,7 @@ class BaseComponentService(BaseService):
             self.stop_event.set()
 
         elif cmd == CommandType.CONFIGURE:
-            await self._configure(message.payload)
+            await self._run_hooks(AIPerfHooks.CONFIGURE, message)
 
         else:
             self.logger.warning(f"{self.service_type} received unknown command: {cmd}")
