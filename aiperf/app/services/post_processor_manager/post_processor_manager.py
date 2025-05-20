@@ -28,9 +28,13 @@ from aiperf.common.service.base_component_service import BaseComponentService
 
 
 class PostProcessorManager(BaseComponentService):
-    """Manager responsible for post-processing results data."""
+    """PostProcessorManager is primarily responsible for iterating over the
+    records to generate metrics and other conclusions from the records.
+    """
 
-    def __init__(self, service_config: ServiceConfig, service_id: str = None) -> None:
+    def __init__(
+        self, service_config: ServiceConfig, service_id: str | None = None
+    ) -> None:
         super().__init__(service_config=service_config, service_id=service_id)
         self.logger.debug("Initializing post processor manager")
 

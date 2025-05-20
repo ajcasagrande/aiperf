@@ -36,7 +36,10 @@ from aiperf.common.service.base_service import BaseService
 
 
 class Worker(BaseService):
-    """Worker responsible for sending requests to the server."""
+    """Worker is primarily responsible for converting the data into the appropriate
+    format for the interface being used by the server. Also responsible for managing
+    the conversation between turns.
+    """
 
     def __init__(self, service_config: ServiceConfig, service_id: str = None) -> None:
         super().__init__(service_config=service_config, service_id=service_id)
