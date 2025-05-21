@@ -1,0 +1,83 @@
+#  SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+#  SPDX-License-Identifier: Apache-2.0
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#  http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+import logging
+import sys
+from argparse import ArgumentParser
+
+from rich.console import Console
+from rich.logging import RichHandler
+
+from aiperf.bootstrap import bootstrap_and_run_service
+from aiperf.core.config.settings import ServiceConfig
+from aiperf.service.system.controller import SystemController
+
+# TODO: Each service may have to initialize logging from a shared
+#  configuration due to running on separate processes
+
+logger = logging.getLogger(__name__)
+
+
+def main() -> None:
+    """Main entry point for the AIPerf system."""
+    parser = ArgumentParser(description="AIPerf Benchmarking System")
+    parser.add_argument("--config", type=str, help="Path to configuration file")
+    parser.add_argument(
+        "--log-level",
+        type=str,
+        default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        help="Set the logging level",
+    )
+    parser.add_argument(
+        "--run-type",
+        type=str,
+        default="process",
+        choices=["process", "k8s"],
+        help="Process manager backend to use "
+        "(multiprocessing: 'process', or kubernetes: 'k8s')",
+    )
+    args = parser.parse_args()
+
+    # Set logging level for the root logger (affects all loggers)
+    logging.root.setLevel(getattr(logging, args.log_level))
+
+    # Set up logging to use Rich
+    handler = RichHandler(
+        rich_tracebacks=True,
+        show_path=True,
+        console=Console(),
+        tracebacks_show_locals=True,
+    )
+    logging.root.addHandler(handler)
+
+    # Load configuration
+    config = ServiceConfig(
+        service_run_type=args.run_type,
+    )
+
+    if args.config:
+        # In a real implementation, this would load from the specified file
+        logger.debug("Loading configuration from %s", args.config)
+        # config.load_from_file(args.config)
+
+    # Create and start the system controller
+
+    logger.info("Starting AIPerf System")
+    bootstrap_and_run_service(SystemController, service_config=config)
+    logger.info("AIPerf System exited")
+
+
+if __name__ == "__main__":
+    sys.exit(main())

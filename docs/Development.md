@@ -135,7 +135,7 @@ AIPerf uses an inheritance-based architecture where all system services inherit 
 
 #### Base Service Responsibilities
 
-The `ServiceBase` class (`aiperf/common/service.py`) provides automatically for all services:
+The `ServiceBase` class (`aiperf.core/service.py`) provides automatically for all services:
 
 - **Lifecycle Management**: Standard initialize/run/stop/cleanup methods
 - **State Transitions**: Manages service state changes (INITIALIZING → RUNNING → STOPPING → STOPPED)
@@ -162,10 +162,10 @@ When implementing a new service that inherits from `ServiceBase`, you must:
 Here's a simplified example of a service implementation:
 
 ```python
-from aiperf.common.service.base_service import BaseService
-from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.enums import Topic, ClientType
-from aiperf.common.models.message_models import Message
+from aiperf.core.service.base_service import BaseService
+from aiperf.core.config.service_config import ServiceConfig
+from aiperf.core.enum import Topic, ClientType
+from aiperf.core.model.message_models import Message
 
 
 class ExampleService(BaseService):
@@ -227,7 +227,7 @@ To instantiate and run a service:
 
 ```python
 def main() -> None:
-    from aiperf.common.bootstrap_utils import bootstrap_and_run_service
+    from aiperf.core.bootstrap_utils import bootstrap_and_run_service
 
     bootstrap_and_run_service(ExampleService)
 

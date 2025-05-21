@@ -24,7 +24,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from aiperf.tests.comms.mock_zmq import (
+from aiperf.tests.mock_zmq import (
     mock_zmq_communication,  # noqa: F401 : used as a fixture
 )
 
