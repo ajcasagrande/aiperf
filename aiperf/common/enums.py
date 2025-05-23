@@ -13,6 +13,9 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 from enum import Enum
+from typing import Annotated, Literal
+
+from typing_extensions import Doc
 
 ################################################################################
 # Base Enums
@@ -154,9 +157,12 @@ class MessageType(StrEnum):
     """A message sent by a component service to the system controller to
     report an error."""
 
-    CREDIT_DROP = "credit_drop"
-    """A message sent by the Timing Manager service to allocate credits
-    for a worker."""
+    CREDIT_DROP = Annotated[
+        Literal["credit_drop"],
+        Doc(
+            "A message sent by the Timing Manager service to allocate credits for a worker.",
+        ),
+    ]
 
     CREDIT_RETURN = "credit_return"
     """A message sent by the Worker services to return credits to the credit pool."""

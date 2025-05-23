@@ -39,7 +39,19 @@ dev = [
   "ruff>=0.0.0",
   "pre-commit>=4.2.0",
 ]
-
+dask = [
+  "dask[complete]>=2025.5.1",
+  "distributed>=2025.5.1",
+  "psutil>=7.0.0",
+  "bokeh>=3.7.3",  # For Dask dashboard
+  "cloudpickle>=3.1.1",  # For serialization
+  "tornado>=6.5.1",  # For async networking
+  "jupyter-server-proxy>=0.1.0", # To route to workers diagnostics web server
+]
+complete = [
+  "aiperf[dask]",
+  "aiperf[dev]",
+]
 
 [tool.ruff]
 # Base settings for ruff

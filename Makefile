@@ -120,7 +120,7 @@ coverage cov: #? run the tests and generate an html coverage report.
 	$(activate_venv) && pytest aiperf/tests --cov=aiperf --cov-report=html
 
 install: #? install the project in editable mode.
-	$(activate_venv) && uv pip install -e ".[dev]"
+	$(activate_venv) && uv pip install -e ".[complete]"
 
 docker: #? build the docker image.
 	docker build -t $(DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_TAG) .
