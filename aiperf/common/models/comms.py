@@ -49,6 +49,19 @@ class ZMQTCPTransportConfig(BaseModel):
         default=5563, description="Port for credit return operations"
     )
 
+    credit_broker_router_port: int = Field(
+        default=5564, description="Port for credit broker router operations"
+    )
+    credit_broker_dealer_port: int = Field(
+        default=5565, description="Port for credit broker dealer operations"
+    )
+    credit_broker_capture_port: int = Field(
+        default=5566, description="Port for credit broker capture operations"
+    )
+    credit_broker_control_port: int = Field(
+        default=5567, description="Port for credit broker control operations"
+    )
+
 
 class ZMQCommunicationConfig(BaseModel):
     """Configuration for ZMQ communication."""
@@ -97,3 +110,23 @@ class ZMQCommunicationConfig(BaseModel):
     def credit_return_address(self) -> str:
         """Get the credit return address based on protocol configuration."""
         return f"tcp://{self.protocol_config.host}:{self.protocol_config.credit_return_port}"
+
+    @property
+    def credit_broker_router_address(self) -> str:
+        """Get the credit broker router address based on protocol configuration."""
+        return f"tcp://{self.protocol_config.host}:{self.protocol_config.credit_broker_router_port}"
+
+    @property
+    def credit_broker_dealer_address(self) -> str:
+        """Get the credit broker dealer address based on protocol configuration."""
+        return f"tcp://{self.protocol_config.host}:{self.protocol_config.credit_broker_dealer_port}"
+
+    @property
+    def credit_broker_control_address(self) -> str:
+        """Get the credit broker control address based on protocol configuration."""
+        return f"tcp://{self.protocol_config.host}:{self.protocol_config.credit_broker_control_port}"
+
+    @property
+    def credit_broker_capture_address(self) -> str:
+        """Get the credit broker capture address based on protocol configuration."""
+        return f"tcp://{self.protocol_config.host}:{self.protocol_config.credit_broker_capture_port}"

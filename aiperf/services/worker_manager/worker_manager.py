@@ -32,7 +32,7 @@ from aiperf.common.enums import ServiceRunType, ServiceType
 from aiperf.common.exceptions.config import ConfigError
 from aiperf.common.models.payload import BasePayload
 from aiperf.common.service.base_component_service import BaseComponentService
-from aiperf.services.worker.worker import Worker
+from aiperf.services.worker import worker
 
 
 class WorkerProcess(BaseModel):
@@ -57,7 +57,7 @@ class WorkerManager(BaseComponentService):
         self.workers: dict[str, WorkerProcess] = {}
         # TODO: Need to implement some sort of max workers
         self.cpu_count = multiprocessing.cpu_count()
-        self.worker_count = self.cpu_count
+        self.worker_count = self.cpu_count - 1
         self.logger.debug(
             f"Detected {self.cpu_count} CPU threads. Spawning {self.worker_count} workers"
         )
@@ -135,9 +135,9 @@ class WorkerManager(BaseComponentService):
         for i in range(self.worker_count):
             worker_id = f"worker_{i}"
             process = multiprocessing.Process(
-                target=bootstrap_and_run_service,
+                target=worker.run_from_config,
                 name=f"worker_{i}_process",
-                args=(Worker, self.service_config),
+                args=(self.service_config,),
                 daemon=True,
             )
             process.start()
@@ -201,8 +201,6 @@ class WorkerManager(BaseComponentService):
 
 def main() -> None:
     """Main entry point for the worker manager."""
-
-    from aiperf.common.bootstrap import bootstrap_and_run_service
 
     bootstrap_and_run_service(WorkerManager)
 

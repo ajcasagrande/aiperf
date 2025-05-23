@@ -55,13 +55,13 @@ class MultiProcessServiceManager(BaseServiceManager):
         from aiperf.services.dataset_manager import DatasetManager
         from aiperf.services.post_processor_manager import PostProcessorManager
         from aiperf.services.records_manager import RecordsManager
-        from aiperf.services.timing_manager import TimingManager
-        from aiperf.services.worker_manager import WorkerManager
+        from aiperf.services.timing_manager.zmq_timing_manager import ZMQTimingManager
+        from aiperf.services.worker_manager.zmq_worker_manager import ZMQWorkerManager
 
         service_class_map = {
             ServiceType.DATASET_MANAGER: DatasetManager,
-            ServiceType.TIMING_MANAGER: TimingManager,
-            ServiceType.WORKER_MANAGER: WorkerManager,
+            ServiceType.TIMING_MANAGER: ZMQTimingManager,
+            ServiceType.WORKER_MANAGER: ZMQWorkerManager,
             ServiceType.RECORDS_MANAGER: RecordsManager,
             ServiceType.POST_PROCESSOR_MANAGER: PostProcessorManager,
         }
@@ -73,6 +73,17 @@ class MultiProcessServiceManager(BaseServiceManager):
                 self.logger.error(f"No service class found for {service_type}")
                 continue
 
+            # if service_type == ServiceType.WORKER_MANAGER:
+
+            #     def run_worker_manager():
+            #         uvloop.run(zmq_worker_manager.main())
+
+            #     process = Process(
+            #         target=run_worker_manager,
+            #         name=f"{service_type}_process",
+            #         daemon=False,
+            #     )
+            # else:
             process = Process(
                 target=bootstrap_and_run_service,
                 name=f"{service_type}_process",

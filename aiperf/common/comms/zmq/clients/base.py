@@ -16,7 +16,6 @@ import asyncio
 import contextlib
 import logging
 import uuid
-from abc import ABC
 from collections import defaultdict
 from collections.abc import Callable
 
@@ -36,7 +35,7 @@ from aiperf.common.exceptions.comms import (
 from aiperf.common.utils import call_all_functions_self
 
 
-class BaseZMQClient(ABC, metaclass=ZMQClientMetaclass):
+class BaseZMQClient(metaclass=ZMQClientMetaclass):
     """Base class for all ZMQ clients.
 
     This class provides a common interface for all ZMQ clients in the AIPerf
@@ -163,9 +162,10 @@ class BaseZMQClient(ABC, metaclass=ZMQClientMetaclass):
                 )
                 self.socket.connect(self.address)
 
-            # Set safe timeouts for send and receive operations
-            self._socket.setsockopt(zmq.RCVTIMEO, 30 * 1000)
-            self._socket.setsockopt(zmq.SNDTIMEO, 30 * 1000)
+            # Set safe timeouts for send and receive operations (30 seconds)
+            # TODO: Make this configurable, and not in the base class implementation
+            self._socket.setsockopt(zmq.RCVTIMEO, 30_000)
+            self._socket.setsockopt(zmq.SNDTIMEO, 30_000)
 
             # Set additional socket options requested by the caller
             for key, val in self.socket_ops.items():

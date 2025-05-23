@@ -233,19 +233,8 @@ class BaseService(BaseServiceInterface, ABC, metaclass=ServiceMetaclass):
 
         self.initialized_event.set()
 
-    async def run_forever(self) -> None:
-        """Run the service in a loop until the stop event is set. This method implements
-        the `BaseServiceInterface.run_forever` method.
-
-        This method will:
-        - Call the initialize method to initialize the service
-        - Start all the registered tasks
-        - Call all registered `AIPerfHooks.RUN` hooks
-        - Wait for the stop event to be set
-        - Shuts down the service when the stop event is set
-
-        This method will be called as the main entry point for the service.
-        """
+    async def _run_internal(self) -> None:
+        """Run the service."""
         try:
             self.logger.debug(
                 "Running %s service (id: %s)", self.service_type, self.service_id
@@ -287,6 +276,20 @@ class BaseService(BaseServiceInterface, ABC, metaclass=ServiceMetaclass):
                 "Service %s execution failed", self.service_type
             ) from e
 
+    async def run_forever(self) -> None:
+        """Run the service in a loop until the stop event is set. This method implements
+        the `BaseServiceInterface.run_forever` method.
+
+        This method will:
+        - Call the initialize method to initialize the service
+        - Start all the registered tasks
+        - Call all registered `AIPerfHooks.RUN` hooks
+        - Wait for the stop event to be set
+        - Shuts down the service when the stop event is set
+
+        This method will be called as the main entry point for the service.
+        """
+        await self._run_internal()
         await self._forever_loop()
 
     async def _forever_loop(self) -> None:
