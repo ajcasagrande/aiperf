@@ -13,8 +13,6 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-import logging
-
 import zmq.asyncio
 from zmq import SocketType
 
@@ -23,8 +21,6 @@ from aiperf.common.exceptions.comms import (
     CommunicationPublishError,
 )
 from aiperf.common.models.message import Message
-
-logger = logging.getLogger(__name__)
 
 
 class ZMQPubClient(BaseZMQClient):
@@ -62,12 +58,13 @@ class ZMQPubClient(BaseZMQClient):
         try:
             # Serialize message using Pydantic's built-in method
             message_json = message.model_dump_json()
+            self.logger.debug("Publishing message to topic %s: %s", topic, message_json)
 
             # Publish message
             await self.socket.send_multipart([topic.encode(), message_json.encode()])
 
         except Exception as e:
-            logger.error("Exception publishing message to topic %s: %s", topic, e)
+            self.logger.error("Exception publishing message to topic %s: %s", topic, e)
             raise CommunicationPublishError(
                 "Failed to publish message to topic %s", topic
             ) from e

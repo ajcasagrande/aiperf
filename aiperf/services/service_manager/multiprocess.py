@@ -55,15 +55,15 @@ class MultiProcessServiceManager(BaseServiceManager):
         from aiperf.services.dataset_manager import DatasetManager
         from aiperf.services.post_processor_manager import PostProcessorManager
         from aiperf.services.records_manager import RecordsManager
-        from aiperf.services.timing_manager.zmq_timing_manager import ZMQTimingManager
+        from aiperf.services.timing_manager.timing_manager import TimingManager
         from aiperf.services.worker_manager.zmq_worker_manager import ZMQWorkerManager
 
         service_class_map = {
             ServiceType.DATASET_MANAGER: DatasetManager,
-            ServiceType.TIMING_MANAGER: ZMQTimingManager,
-            ServiceType.WORKER_MANAGER: ZMQWorkerManager,
+            ServiceType.TIMING_MANAGER: TimingManager,
             ServiceType.RECORDS_MANAGER: RecordsManager,
             ServiceType.POST_PROCESSOR_MANAGER: PostProcessorManager,
+            ServiceType.WORKER_MANAGER: ZMQWorkerManager,
         }
 
         # Create and start all service processes

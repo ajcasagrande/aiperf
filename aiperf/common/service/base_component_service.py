@@ -121,7 +121,7 @@ class BaseComponentService(BaseService):
 
         # TODO: Find a way to wait for the communication to be fully initialized
         # FIXME: This is a hack to ensure the communication is fully initialized
-        await asyncio.sleep(1)
+        await asyncio.sleep(0.1)
 
         # Register the service
         try:
@@ -189,6 +189,8 @@ class BaseComponentService(BaseService):
             return  # Ignore commands meant for other services
 
         cmd = message.payload.command
+        self.logger.debug("COMMAND: %s (%s)", cmd, self.service_id)
+
         if cmd == CommandType.START:
             await self.start()
 
@@ -196,6 +198,7 @@ class BaseComponentService(BaseService):
             self.stop_event.set()
 
         elif cmd == CommandType.CONFIGURE:
+            self.logger.debug("CONFIGURE: %s", message.payload)
             await self._run_hooks(AIPerfHooks.CONFIGURE, message)
 
         else:

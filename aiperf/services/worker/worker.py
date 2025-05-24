@@ -28,7 +28,6 @@ from aiperf.common.decorators import (
 )
 from aiperf.common.enums import (
     ClientType,
-    PullClientType,
     PushClientType,
     ServiceType,
     Topic,
@@ -70,7 +69,6 @@ class Worker(metaclass=ServiceMetaclass):
         """The communication clients required by the service."""
         return [
             *(super().required_clients or []),
-            PullClientType.CREDIT_DROP,
             PushClientType.CREDIT_RETURN,
         ]
 
@@ -88,11 +86,6 @@ class Worker(metaclass=ServiceMetaclass):
     async def _start(self) -> None:
         """Start the worker."""
         self.logger.debug("Starting worker")
-        # Subscribe to the credit drop topic
-        await self.comms.pull(
-            topic=Topic.CREDIT_DROP,
-            callback=self._process_credit_drop,
-        )
 
     @on_stop
     async def _stop(self) -> None:

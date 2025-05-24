@@ -12,60 +12,79 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+import logging
 import uuid
+from typing import Any
 
 from aiperf.common.interfaces import (
-    SupportsCleanup,
     SupportsId,
-    SupportsInitialize,
-    SupportsRun,
-    SupportsStop,
+    SupportsLogging,
+    SupportsZMQConfig,
 )
+from aiperf.common.logging import TraceLogger
+from aiperf.common.models.comms import ZMQCommunicationConfig
+
+
+class LoggingMixin(SupportsLogging):
+    """
+    Mixin that provides logging capabilities conforming to SupportsLogging protocol.
+
+    The logger is available immediately when a class inherits from this mixin,
+    even in __init__ methods.
+    """
+
+    _logger: logging.Logger
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        """Set up class-specific logger when subclassed."""
+        super().__init_subclass__(**kwargs)
+
+        logger_name = f"{cls.__module__}.{cls.__qualname__}"
+        cls._logger = logging.getLogger(logger_name)
+
+    @property
+    def logger(self) -> logging.Logger:
+        """Get the logger for this class."""
+        return self._logger
+
+
+class TraceLoggingMixin:
+    """Enhanced logging mixin with TRACE level support."""
+
+    _logger: TraceLogger
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+
+        logger_name = f"{cls.__module__}.{cls.__qualname__}"
+        cls._logger = TraceLogger(logger_name)
+
+    @property
+    def logger(self) -> TraceLogger:
+        return self._logger
+
+
+class ZMQConfigMixin(SupportsZMQConfig):
+    """Mixin for classes that support ZMQ configuration."""
+
+    def __init__(self, zmq_config: ZMQCommunicationConfig, *args, **kwargs):
+        self._zmq_config = zmq_config
+        super().__init__(*args, **kwargs)
+
+    @property
+    def zmq_config(self) -> ZMQCommunicationConfig:
+        """Get the ZMQ configuration for the class."""
+        return self._zmq_config
 
 
 class SupportsIdMixin(SupportsId):
-    """Mixin for services that support getting an ID.
+    """Mixin for classes that support getting an ID."""
 
-    This mixin is used to provide a default implementation of the id property.
-    """
-
-    def __init__(self, service_id: str | None = None) -> None:
-        """Initialize the service."""
-        self.service_id = service_id or uuid.uuid4().hex
+    def __init__(self, id: str | None = None, *args, **kwargs) -> None:
+        self._id = id or uuid.uuid4().hex
+        super().__init__(*args, **kwargs)
 
     @property
     def id(self) -> str:
-        """Get the ID of the service."""
-        return self.service_id
-
-
-class SupportsRunMixin(SupportsRun):
-    """Mixin for services that support running."""
-
-    def run(self) -> None:
-        """Run the service."""
-        ...
-
-
-class SupportsStopMixin(SupportsStop):
-    """Mixin for services that support stopping."""
-
-    def stop(self) -> None:
-        """Stop the service."""
-        ...
-
-
-class SupportsCleanupMixin(SupportsCleanup):
-    """Mixin for services that support cleanup."""
-
-    def cleanup(self) -> None:
-        """Clean up the service."""
-        ...
-
-
-class SupportsInitializeMixin(SupportsInitialize):
-    """Mixin for services that support initialization."""
-
-    def initialize(self) -> None:
-        """Initialize the service."""
-        ...
+        """Get the ID of the class."""
+        return self._id

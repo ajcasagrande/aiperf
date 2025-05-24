@@ -13,16 +13,19 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import asyncio
-import logging
 
 import zmq.asyncio
 from zmq import SocketType
 
 from aiperf.common.comms.zmq.clients.base import BaseZMQClient
+from aiperf.common.comms.zmq.clients.router import RouterClient
 from aiperf.common.exceptions.comms import CommunicationError
+from aiperf.common.interfaces import SupportsRun, SupportsStop
+from aiperf.common.mixins import LoggingMixin
+from aiperf.common.models.comms import ZMQCommunicationConfig
 
 
-class DealerRouterBroker:
+class DealerRouterBroker(LoggingMixin, SupportsStop, SupportsRun):
     """
     A ZMQ Dealer Router Broker class.
 
@@ -53,7 +56,6 @@ class DealerRouterBroker:
             capture_address (str, optional): The capture address to bind to.
             socket_ops (dict, optional): Additional socket options to set.
         """
-        self.logger = logging.getLogger(__name__)
         self.context = context
         self.logger.info(
             f"Initializing DealerRouterBroker with router_address: {router_address} and dealer_address: {dealer_address}"
@@ -71,9 +73,8 @@ class DealerRouterBroker:
             bind=True,
             socket_ops=self.socket_ops,
         )
-        self.router_client = BaseZMQClient(
+        self.router_client = RouterClient(
             self.context,
-            SocketType.ROUTER,
             self.router_address,
             bind=True,
             socket_ops=self.socket_ops,
@@ -97,6 +98,20 @@ class DealerRouterBroker:
 
         self.proxy: zmq.asyncio.Socket | None = None
 
+    @classmethod
+    def from_zmq_config(
+        cls, zmq_config: ZMQCommunicationConfig, socket_ops: dict | None = None
+    ) -> "DealerRouterBroker":
+        """Create a DealerRouterBroker from a ZMQCommunicationConfig."""
+        return cls(
+            context=zmq.asyncio.Context.instance(),
+            router_address=zmq_config.credit_broker_router_address,
+            dealer_address=zmq_config.credit_broker_dealer_address,
+            control_address=zmq_config.credit_broker_control_address,
+            capture_address=zmq_config.credit_broker_capture_address,
+            socket_ops=socket_ops,
+        )
+
     async def _initialize(self) -> None:
         """Initialize and start the DealerRouterBroker."""
 
@@ -110,7 +125,7 @@ class DealerRouterBroker:
             ],
         )
 
-    async def _shutdown(self) -> None:
+    async def stop(self) -> None:
         """Shutdown the DealerRouterBroker."""
         await asyncio.gather(
             self.dealer_client.shutdown(),
@@ -141,7 +156,39 @@ class DealerRouterBroker:
                 control=self.control_client.socket if self.control_client else None,
             )
         except Exception as e:
-            self.logger.error("Exception in DealerRouterBroker: %s", e)
             raise CommunicationError from e
         finally:
-            await self._shutdown()
+            await self.stop()
+
+
+class RouterZMQClient(BaseZMQClient):
+    """
+    A ZMQ Router client class.
+    """
+
+    def __init__(
+        self,
+        context: zmq.asyncio.Context,
+        address: str,
+        bind: bool,
+        socket_ops: dict | None = None,
+    ) -> None:
+        super().__init__(context, SocketType.ROUTER, address, bind, socket_ops)
+
+    def send_message(self, message: str) -> None:
+        self.socket.send_multipart([b"", message.encode()])
+
+
+class DealerZMQClient(BaseZMQClient):
+    """
+    A ZMQ Dealer client class.
+    """
+
+    def __init__(
+        self,
+        context: zmq.asyncio.Context,
+        address: str,
+        bind: bool,
+        socket_ops: dict | None = None,
+    ) -> None:
+        super().__init__(context, SocketType.DEALER, address, bind, socket_ops)

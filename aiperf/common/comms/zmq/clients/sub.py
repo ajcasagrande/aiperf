@@ -13,7 +13,6 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import asyncio
-import logging
 from collections.abc import Callable
 from typing import Any
 
@@ -27,8 +26,6 @@ from aiperf.common.exceptions.comms import (
 )
 from aiperf.common.models.message import BaseMessage, Message
 from aiperf.common.utils import call_all_functions
-
-logger = logging.getLogger(__name__)
 
 
 class ZMQSubClient(BaseZMQClient):
@@ -72,10 +69,12 @@ class ZMQSubClient(BaseZMQClient):
                 self._subscribers[topic] = []
             self._subscribers[topic].append(callback)
 
-            logger.debug("Subscribed to topic: %s, %s", topic, self._subscribers[topic])
+            self.logger.debug(
+                "Subscribed to topic: %s, %s", topic, self._subscribers[topic]
+            )
 
         except Exception as e:
-            logger.error("Exception subscribing to topic %s: %s", topic, e)
+            self.logger.error("Exception subscribing to topic %s: %s", topic, e)
             raise CommunicationSubscribeError from e
 
     @aiperf_task
@@ -88,11 +87,11 @@ class ZMQSubClient(BaseZMQClient):
         while not self.is_shutdown:
             try:
                 if not self.is_initialized:
-                    logger.debug(
+                    self.logger.debug(
                         "Sub client %s waiting for initialization", self.client_id
                     )
                     await self.initialized_event.wait()
-                    logger.debug("Sub client %s initialized", self.client_id)
+                    self.logger.debug("Sub client %s initialized", self.client_id)
 
                 # Receive response
                 (
@@ -101,12 +100,12 @@ class ZMQSubClient(BaseZMQClient):
                 ) = await self.socket.recv_multipart()
                 topic = topic_bytes.decode()
                 message_json = message_bytes.decode()
-                logger.debug(
-                    "Client %s received message from topic: '%s', message: %s",
-                    self.client_id,
-                    topic,
-                    message_json,
-                )
+                # self.logger.debug(
+                #     "Client %s received message from topic: '%s', message: %s",
+                #     self.client_id,
+                #     topic,
+                #     message_json,
+                # )
 
                 message = BaseMessage.model_validate_json(message_json)
 
@@ -118,13 +117,13 @@ class ZMQSubClient(BaseZMQClient):
                 break
             except zmq.Again:
                 # Handle ZMQ timeout or interruption
-                logger.debug(
+                self.logger.debug(
                     "ZMQ recv timeout due to no messages. trying again @ %s",
                     self.address,
                 )
                 await asyncio.sleep(0.001)
             except Exception as e:
-                logger.error(
+                self.logger.error(
                     "Exception receiving response from subscription: %s, %s",
                     e,
                     type(e),

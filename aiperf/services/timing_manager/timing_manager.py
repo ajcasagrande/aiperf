@@ -52,7 +52,7 @@ class TimingManager(BaseComponentService):
     ) -> None:
         super().__init__(service_config=service_config, service_id=service_id)
         self._credit_lock = asyncio.Lock()
-        self._credits_available = 100
+        self._credits_available = 1000
         self.logger.debug("Initializing timing manager")
         self._credit_drop_task: asyncio.Task | None = None
 
@@ -86,7 +86,7 @@ class TimingManager(BaseComponentService):
             callback=self._on_credit_return,
         )
         await self.set_state(ServiceState.RUNNING)
-        await asyncio.sleep(3)
+        await asyncio.sleep(1)
 
         self._credit_drop_task = asyncio.create_task(self._issue_credit_drops())
 
@@ -119,26 +119,29 @@ class TimingManager(BaseComponentService):
         # TODO: Actually implement real credit drop logic
         while not self.stop_event.is_set():
             try:
-                await asyncio.sleep(0.1)
+                # await asyncio.sleep(1)
 
                 async with self._credit_lock:
                     if self._credits_available <= 0:
-                        self.logger.warning(
-                            "No credits available, skipping credit drop"
-                        )
+                        # self.logger.warning(
+                        #     "No credits available, skipping credit drop"
+                        # )
                         continue
                     self.logger.debug("Issuing credit drop")
-                    self._credits_available -= 1
+                    to_send = min(self._credits_available, 1000)
+                    self._credits_available -= to_send
 
-                await self.comms.push(
-                    topic=Topic.CREDIT_DROP,
-                    message=self.create_message(
-                        payload=CreditDropPayload(
-                            amount=1,
-                            timestamp=time.time_ns(),
+                for i in range(to_send):
+                    await self.comms.push(
+                        topic=Topic.CREDIT_DROP,
+                        message=self.create_message(
+                            payload=CreditDropPayload(
+                                amount=1,
+                                timestamp=time.time_ns(),
+                            ),
                         ),
-                    ),
-                )
+                    )
+
             except asyncio.CancelledError:
                 self.logger.debug("Credit drop task cancelled")
                 break

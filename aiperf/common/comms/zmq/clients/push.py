@@ -13,8 +13,6 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-import logging
-
 import zmq.asyncio
 from zmq import SocketType
 
@@ -23,8 +21,6 @@ from aiperf.common.exceptions.comms import (
     CommunicationPushError,
 )
 from aiperf.common.models.message import Message
-
-logger = logging.getLogger(__name__)
 
 
 class ZMQPushClient(BaseZMQClient):
@@ -61,10 +57,13 @@ class ZMQPushClient(BaseZMQClient):
         try:
             # Serialize data directly using Pydantic's built-in method
             data_json = message.model_dump_json()
+            # self.logger.debug("Pushed json data: %s", data_json)
 
             # Send data
             await self.socket.send_string(data_json)
-            logger.debug("Pushed json data: %s", data_json)
+
+            # self.logger.debug("Pushed data")
+
         except Exception as e:
-            logger.error(f"Exception pushing data: {e} {type(e)}")
+            self.logger.error(f"Exception pushing data: {e} {type(e)}")
             raise CommunicationPushError from e

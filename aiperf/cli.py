@@ -21,12 +21,13 @@ from rich.logging import RichHandler
 
 from aiperf.common.bootstrap import bootstrap_and_run_service
 from aiperf.common.config.service_config import ServiceConfig
+from aiperf.common.logging import TraceLogger
 from aiperf.services.system_controller.system_controller import SystemController
 
 # TODO: Each service may have to initialize logging from a common
 #  configuration due to running on separate processes
 
-logger = logging.getLogger(__name__)
+logger = TraceLogger(__name__)
 
 
 def main() -> None:
@@ -37,7 +38,7 @@ def main() -> None:
         "--log-level",
         type=str,
         default="INFO",
-        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        choices=["TRACE", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
         help="Set the logging level",
     )
     parser.add_argument(
@@ -50,17 +51,21 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    # Set logging level for the root logger (affects all loggers)
-    logging.root.setLevel(getattr(logging, args.log_level))
-
     # Set up logging to use Rich
     handler = RichHandler(
         rich_tracebacks=True,
         show_path=True,
+        log_time_format="[%X.%f]",
         console=Console(),
-        tracebacks_show_locals=True,
+        omit_repeated_times=False,
     )
     logging.root.addHandler(handler)
+
+    # Set logging level for the root logger (affects all loggers)
+    if args.log_level == "TRACE":
+        logging.root.setLevel(TraceLogger.TRACE_LEVEL)
+    else:
+        logging.root.setLevel(getattr(logging, args.log_level))
 
     # Load configuration
     config = ServiceConfig(

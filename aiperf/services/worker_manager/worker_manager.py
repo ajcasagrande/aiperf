@@ -29,7 +29,10 @@ from aiperf.common.decorators import (
     on_stop,
 )
 from aiperf.common.enums import ServiceRunType, ServiceType
+from aiperf.common.enums.comm_clients import ClientType, PullClientType
+from aiperf.common.enums.comms import Topic
 from aiperf.common.exceptions.config import ConfigError
+from aiperf.common.models.message import CreditDropMessage
 from aiperf.common.models.payload import BasePayload
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.services.worker import worker
@@ -63,6 +66,14 @@ class WorkerManager(BaseComponentService):
         )
 
     @property
+    def required_clients(self) -> list[ClientType]:
+        """The communication clients required by the service."""
+        return [
+            *(super().required_clients or []),
+            PullClientType.CREDIT_DROP,
+        ]
+
+    @property
     def service_type(self) -> ServiceType:
         """The type of service."""
         return ServiceType.WORKER_MANAGER
@@ -92,21 +103,16 @@ class WorkerManager(BaseComponentService):
                 f"Unsupported run type: {self.service_config.service_run_type}"
             )
 
+        # Subscribe to the credit drop topic
+        await self.comms.pull(
+            topic=Topic.CREDIT_DROP,
+            callback=self._process_credit_drop,
+        )
+
     @on_stop
     async def _stop(self) -> None:
         """Stop the worker manager."""
         self.logger.debug("Stopping worker manager")
-        # TODO: This needs to be investigated, as currently we handle the exit signal
-        #       by all workers already, so need to understand best way to handle this
-        # # Stop all workers
-        # if self.service_config.service_run_type == ServiceRunType.MULTIPROCESSING:
-        #     await self._stop_multiprocessing_workers()
-        # elif self.service_config.service_run_type == ServiceRunType.KUBERNETES:
-        #     await self._stop_kubernetes_workers()
-        # else:
-        #     self.logger.warning(
-        #         f"Unsupported run type: {self.service_config.service_run_type}"
-        #     )
 
     @on_cleanup
     async def _cleanup(self) -> None:
@@ -197,6 +203,15 @@ class WorkerManager(BaseComponentService):
         """Configure the worker manager."""
         self.logger.debug(f"Configuring worker manager with payload: {payload}")
         # TODO: Implement worker manager configuration
+
+    async def _process_credit_drop(self, message: CreditDropMessage) -> None:
+        """Process a credit drop response.
+
+        Args:
+            message: The message received from the credit drop
+        """
+        self.logger.debug(f"Processing credit drop: {message}")
+        # TODO: Send to worker
 
 
 def main() -> None:

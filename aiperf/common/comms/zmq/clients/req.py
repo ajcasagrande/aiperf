@@ -13,7 +13,6 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import asyncio
-import logging
 import uuid
 
 import zmq.asyncio
@@ -26,8 +25,6 @@ from aiperf.common.exceptions.comms import (
 )
 from aiperf.common.models.message import BaseMessage, Message
 from aiperf.common.models.payload import ErrorPayload
-
-logger = logging.getLogger(__name__)
 
 
 class ZMQReqClient(BaseZMQClient):
@@ -67,7 +64,7 @@ class ZMQReqClient(BaseZMQClient):
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(f"Exception processing messages: {e}")
+                self.logger.error(f"Exception processing messages: {e}")
                 await asyncio.sleep(0.1)
 
     async def _handle_response(self, response_json: str) -> None:
@@ -85,11 +82,11 @@ class ZMQReqClient(BaseZMQClient):
                 if not future.done():
                     future.set_result(response_json)
             else:
-                logger.warning(
+                self.logger.warning(
                     f"Received response for unknown request ID: {request_id}"
                 )
         except Exception as e:
-            logger.error(f"Exception handling response: {e}")
+            self.logger.error(f"Exception handling response: {e}")
             raise CommunicationRequestError("Exception handling response") from e
 
     @on_cleanup
@@ -156,7 +153,7 @@ class ZMQReqClient(BaseZMQClient):
                 return response
 
             except asyncio.TimeoutError as e:
-                logger.error(
+                self.logger.error(
                     f"Timeout waiting for response to request {request_data.request_id}"
                 )
                 raise CommunicationRequestError(
@@ -168,7 +165,7 @@ class ZMQReqClient(BaseZMQClient):
                 self._response_futures.pop(request_data.request_id, None)
 
         except Exception as e:
-            logger.error(f"Exception sending request to {target}: {e}")
+            self.logger.error(f"Exception sending request to {target}: {e}")
             raise CommunicationRequestError(
                 f"Exception sending request to {target}: {e}"
             ) from e

@@ -17,7 +17,6 @@ import contextlib
 import logging
 import signal
 import uuid
-from abc import ABC
 from collections import defaultdict
 from collections.abc import Callable
 
@@ -27,7 +26,8 @@ from aiperf.common.comms.base import BaseCommunication
 from aiperf.common.comms.factory import CommunicationFactory
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.decorators import AIPerfHooks
-from aiperf.common.enums import ServiceState
+from aiperf.common.enums import ServiceState, ServiceType
+from aiperf.common.enums.comm_clients import ClientType
 from aiperf.common.exceptions.base import AIPerfMultiError
 from aiperf.common.exceptions.comms import (
     CommunicationClientCreationError,
@@ -42,12 +42,11 @@ from aiperf.common.exceptions.service import (
 )
 from aiperf.common.models.message import BaseMessage, Message
 from aiperf.common.models.payload import Payload
-from aiperf.common.service.base_service_interface import BaseServiceInterface
 from aiperf.common.service.service_metaclass import ServiceMetaclass
 from aiperf.common.utils import call_all_functions_self
 
 
-class BaseService(BaseServiceInterface, ABC, metaclass=ServiceMetaclass):
+class BaseService(metaclass=ServiceMetaclass):
     """Base class for all AIPerf services, providing common functionality for
     communication, state management, and lifecycle operations.
 
@@ -57,6 +56,12 @@ class BaseService(BaseServiceInterface, ABC, metaclass=ServiceMetaclass):
     """
 
     _aiperf_hooks: dict[str, list[Callable]] = defaultdict(list)
+    logger: logging.Logger
+
+    # Set the logger for the service
+    def __init_subclass__(cls, **kwargs) -> None:
+        super().__init_subclass__(**kwargs)
+        cls.logger = logging.getLogger(cls.__module__ + "." + cls.__name__)
 
     def __init__(
         self, service_config: ServiceConfig, service_id: str | None = None
@@ -66,7 +71,6 @@ class BaseService(BaseServiceInterface, ABC, metaclass=ServiceMetaclass):
         )
         self.service_config = service_config
 
-        self.logger = logging.getLogger(self.service_type)
         self.logger.debug(
             f"Initializing {self.service_type} service (id: {self.service_id})"
         )
@@ -92,6 +96,16 @@ class BaseService(BaseServiceInterface, ABC, metaclass=ServiceMetaclass):
             self.logger.debug("Failed to set process title, ignoring")
 
         self.logger.debug("__init__ finished for %s", self.__class__.__name__)
+
+    @property
+    def service_type(self) -> ServiceType:
+        """The type of the service."""
+        return ServiceType.UNKNOWN
+
+    @property
+    def required_clients(self) -> list[ClientType]:
+        """The clients required by the service."""
+        return []
 
     @property
     def comms(self) -> BaseCommunication:
@@ -344,7 +358,7 @@ class BaseService(BaseServiceInterface, ABC, metaclass=ServiceMetaclass):
         """
 
         try:
-            self.logger.debug(
+            self.logger.info(
                 "Starting %s service (id: %s)", self.service_type, self.service_id
             )
             _ = await self.set_state(ServiceState.STARTING)

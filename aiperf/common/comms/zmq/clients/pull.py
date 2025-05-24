@@ -13,7 +13,6 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import asyncio
-import logging
 from collections.abc import Callable
 
 import zmq.asyncio
@@ -23,8 +22,6 @@ from aiperf.common.comms.zmq.clients.base import BaseZMQClient
 from aiperf.common.decorators import aiperf_task
 from aiperf.common.models.message import BaseMessage, Message
 from aiperf.common.utils import call_all_functions
-
-logger = logging.getLogger(__name__)
 
 
 class ZMQPullClient(BaseZMQClient):
@@ -60,11 +57,11 @@ class ZMQPullClient(BaseZMQClient):
                     await self.initialized_event.wait()
 
                 # Receive data
-                message_bytes = await self.socket.recv()
-                message_json = message_bytes.decode()
+                message_json = await self.socket.recv_string()
+                self.logger.debug("Received pull message: %s", message_json)
 
                 # Parse JSON into a BaseMessage object
-                message = BaseMessage.model_validate_json(message_json)
+                message = BaseMessage.model_validate_json(message_json)  # type: ignore
                 topic = message.payload.message_type
 
                 # Call callbacks with BaseMessage object
@@ -74,7 +71,7 @@ class ZMQPullClient(BaseZMQClient):
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(f"Exception receiving data from pull socket: {e}")
+                self.logger.error(f"Exception receiving data from pull socket: {e}")
                 await asyncio.sleep(0.1)
 
     async def pull(
@@ -93,6 +90,8 @@ class ZMQPullClient(BaseZMQClient):
             CommunicationPullError: If an exception occurred registering the pull callback
         """
         self._ensure_initialized()
+
+        self.logger.debug("Pulling data from topic: %s", topic)
 
         # Register callback
         if topic not in self._pull_callbacks:

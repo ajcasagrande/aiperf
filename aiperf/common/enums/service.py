@@ -91,6 +91,9 @@ class ServiceType(StrEnum):
     TEST = "test_service"
     """Used in tests."""
 
+    UNKNOWN = "unknown"
+    """The service type is unknown."""
+
 
 class ServiceRegistrationStatus(StrEnum):
     """Defines the various states a service can be in during registration with

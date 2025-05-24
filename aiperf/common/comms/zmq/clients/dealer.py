@@ -59,27 +59,32 @@ class DealerClient(BaseZMQClient):
 
         while not self.stop_event.is_set():
             try:
+                # self.logger.debug(f"Waiting for dealer message from broker: {self.id}")
                 # Receive message from broker
-                message = await self._socket.recv_multipart()
+                received = await self.socket.recv_multipart()
+                message_id = received[0]
+                # Pass raw message data to callback - no validation needed
+                message_data = received[1]
+                self.logger.debug(f"Received dealer message from broker: {received}")
+                # await self.socket.send_multipart([message_id, b"ACK"])
 
+                result = None
                 try:
                     # Process message using provided callback
-                    result = await self.callback(message, self.id)
+                    result = await self.callback(message_data, self.id)
+
+                    # Send response back through broker to client
+                    if result:
+                        await self.socket.send_multipart([message_id, result])
+                    else:
+                        # Send acknowledgment if no specific result
+                        await self.socket.send_multipart([message_id, b"ACK"])
                 except Exception as e:
                     self.logger.error(f"Error in worker {self.id}: {e}")
                     # Send error response
-                    await self._socket.send_multipart(
-                        [message[0], f"ERROR: {str(e)}".encode()]
+                    await self.socket.send_multipart(
+                        [message_id, f"ERROR: {str(e)}".encode()]
                     )
-
-                # Send response back through broker to client
-                if result:
-                    await self._socket.send_multipart(
-                        result if isinstance(result, list) else [result]
-                    )
-                else:
-                    # Send acknowledgment if no specific result
-                    await self._socket.send_multipart([message[0], b"ACK"])
 
             except Exception as e:
                 self.logger.error(f"Error in worker {self.id}: {e}")

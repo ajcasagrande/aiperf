@@ -13,7 +13,6 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import asyncio
-import logging
 
 import zmq.asyncio
 from zmq import SocketType
@@ -24,8 +23,6 @@ from aiperf.common.exceptions.comms import (
     CommunicationResponseError,
 )
 from aiperf.common.models.message import BaseMessage, Message
-
-logger = logging.getLogger(__name__)
 
 
 class ZMQRepClient(BaseZMQClient):
@@ -94,11 +91,11 @@ class ZMQRepClient(BaseZMQClient):
                 return request
 
             except asyncio.TimeoutError as e:
-                logger.debug("Timeout waiting for request")
+                self.logger.debug("Timeout waiting for request")
                 raise CommunicationResponseError("Timeout waiting for request") from e
 
             except Exception as e:
-                logger.error(f"Exception waiting for request: {e}")
+                self.logger.error(f"Exception waiting for request: {e}")
                 raise CommunicationResponseError("Exception waiting for request") from e
 
             finally:
@@ -106,7 +103,7 @@ class ZMQRepClient(BaseZMQClient):
                 self._response_futures.pop(request_id, None)
 
         except Exception as e:
-            logger.error(f"Exception waiting for request: {e}")
+            self.logger.error(f"Exception waiting for request: {e}")
             raise CommunicationResponseError("Exception waiting for request") from e
 
     async def respond(self, target: str, response: Message) -> None:
@@ -130,7 +127,7 @@ class ZMQRepClient(BaseZMQClient):
             await self.socket.send_string(response_json)
 
         except Exception as e:
-            logger.error(f"Exception sending response to {target}: {e}")
+            self.logger.error(f"Exception sending response to {target}: {e}")
             raise CommunicationResponseError(
                 f"Exception sending response to {target}"
             ) from e
@@ -170,5 +167,5 @@ class ZMQRepClient(BaseZMQClient):
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(f"Exception receiving request: {e}")
+                self.logger.error(f"Exception receiving request: {e}")
                 await asyncio.sleep(0.1)

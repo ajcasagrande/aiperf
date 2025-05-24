@@ -269,7 +269,7 @@ class SystemController(BaseControllerService):
         self.service_manager.service_map[service_type].append(service_info)
 
         is_required = service_type in self.required_service_types
-        self.logger.debug(
+        self.logger.info(
             f"Registered {'required' if is_required else 'non-required'} "
             f"service: {service_type} with ID: {service_id}"
         )
@@ -291,6 +291,13 @@ class SystemController(BaseControllerService):
         self.logger.debug(
             f"Sent configure command to {service_type} (ID: {service_id})"
         )
+
+        await self.send_command_to_service(
+            target_service_id=service_id,
+            command=CommandType.START,
+            data=None,
+        )
+        self.logger.debug(f"Sent start command to {service_type} (ID: {service_id})")
 
     async def _process_heartbeat_message(self, message: HeartbeatMessage) -> None:
         """Process a heartbeat response from a service. It will

@@ -24,7 +24,6 @@ import zmq
 import zmq.asyncio
 from pydantic import BaseModel, Field
 
-from aiperf.common.comms.zmq.clients.dealer_router import DealerRouterBroker
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.decorators import (
     on_cleanup,
@@ -40,7 +39,6 @@ from aiperf.common.enums import (
     Topic,
 )
 from aiperf.common.enums.base import StrEnum
-from aiperf.common.exceptions.comms import CommunicationError
 from aiperf.common.models.comms import ZMQCommunicationConfig
 from aiperf.common.models.message import Message
 from aiperf.common.models.payload import (
@@ -218,28 +216,6 @@ class ZMQTimingManager(BaseComponentService):
         """Configure the timing manager."""
         self.logger.info(f"Configuring ZMQ timing manager with payload: {payload}")
         # Handle configuration updates for credit distribution parameters
-
-    async def run_broker(self):
-        """Run the broker using DealerRouterBroker."""
-        self.logger.info("Starting timing broker process")
-        context = zmq.asyncio.Context.instance()
-
-        broker = DealerRouterBroker(
-            context=context,
-            router_address=self.config.zmq_config.credit_broker_router_address,
-            dealer_address=self.config.zmq_config.credit_broker_dealer_address,
-            control_address=self.config.zmq_config.credit_broker_control_address,
-            capture_address=self.config.zmq_config.credit_broker_capture_address,
-        )
-
-        try:
-            await broker.run()
-        except CommunicationError as e:
-            self.logger.error(f"Broker error: {e}")
-        except asyncio.CancelledError:
-            self.logger.info("Broker cancelled")
-        except Exception as e:
-            self.logger.error(f"Unexpected broker error: {e}")
 
     def broker_process_main(self):
         """Entry point for the broker process."""

@@ -13,11 +13,14 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import asyncio
+import json
+import logging
 import multiprocessing
 import resource
 import signal
 from typing import Any
 
+import httpx
 import uvloop
 import zmq
 import zmq.asyncio
@@ -27,11 +30,15 @@ from aiperf.common.comms.zmq.clients.dealer import DealerClient
 from aiperf.common.comms.zmq.clients.dealer_router import DealerRouterBroker
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.decorators import on_run, on_stop
+from aiperf.common.enums import Topic
 from aiperf.common.enums.base import StrEnum
 from aiperf.common.enums.comm_clients import ClientType
 from aiperf.common.enums.service import ServiceType
 from aiperf.common.exceptions.comms import CommunicationError
+from aiperf.common.metrics.performance_monitor import get_monitor
 from aiperf.common.models.comms import ZMQCommunicationConfig, ZMQTCPTransportConfig
+from aiperf.common.models.message import Message
+from aiperf.common.models.payload import CreditDropPayload, CreditReturnPayload
 from aiperf.common.service.base_component_service import BaseComponentService
 
 
@@ -90,12 +97,14 @@ class ZMQWorkerManager(BaseComponentService):
             worker_args: Additional arguments to pass to worker handler
         """
         super().__init__(service_config=service_config, service_id=service_id)
-        self.worker_handler = example_worker_handler
+        self.worker_handler = http_request_worker_handler
         self.config: WorkerConfig = WorkerConfig()
         self.mode = TaskMode.HYBRID
         self.worker_args = worker_args if worker_args is not None else {}
         self.processes: list[multiprocessing.Process] = []
         self.broker_process: multiprocessing.Process | None = None
+        self.task_socket: zmq.asyncio.Socket | None = None
+        self.context: zmq.asyncio.Context | None = None
 
     @property
     def service_type(self) -> ServiceType:
@@ -127,6 +136,7 @@ class ZMQWorkerManager(BaseComponentService):
             self.worker_handler,
             id=worker_id,
         )
+        await dealer.initialize()
         await dealer.run()
 
     async def _monitor_workers(self, process_id: int, num_workers: int):
@@ -249,6 +259,8 @@ class ZMQWorkerManager(BaseComponentService):
     async def _on_run2(self):
         """Start the broker and worker processes."""
         self.logger.info(f"Starting ZMQ Worker Manager in {self.mode} mode")
+        self.logger.info(f"Service ID: {self.service_id}")
+        self.logger.info(f"Communication config: {self.service_config}")
         self.increase_limits()
 
         # Start the broker process first
@@ -260,9 +272,7 @@ class ZMQWorkerManager(BaseComponentService):
         self.logger.info(f"Started broker process (PID: {self.broker_process.pid})")
 
         # Give broker time to initialize
-        import time
-
-        time.sleep(1)
+        await asyncio.sleep(1)
 
         # Configure worker deployment based on mode
         if self.mode == TaskMode.PROCESS_ONLY:
@@ -297,10 +307,32 @@ class ZMQWorkerManager(BaseComponentService):
             f"All processes started: 1 broker + {len(self.processes)} workers"
         )
 
+        # Initialize task sender socket to send work to broker
+        self.context = zmq.asyncio.Context.instance()
+        self.task_socket = self.context.socket(zmq.DEALER)
+        self.task_socket.connect(self.config.zmq_config.credit_broker_router_address)
+        self.logger.debug("Connected to broker router for task distribution")
+
+        self.logger.info("Setting up credit drop subscription...")
+        self.logger.info(f"Subscribing to topic: {Topic.CREDIT_DROP}")
+        self.logger.info(f"Callback function: {self._process_credit_drop}")
+
+        await self.comms.pull(
+            topic=Topic.CREDIT_DROP,
+            callback=self._process_credit_drop,
+        )
+
+        self.logger.info("✅ Credit drop subscription setup complete!")
+        self.logger.info("Worker manager is now ready to receive credit drops")
+
     @on_stop
     async def _on_stop2(self):
         """Stop all processes gracefully."""
         self.logger.info("Stopping all worker processes...")
+
+        # Close task sender socket
+        if self.task_socket:
+            self.task_socket.close()
 
         # Terminate worker processes
         for p in self.processes:
@@ -331,12 +363,215 @@ class ZMQWorkerManager(BaseComponentService):
         if self.broker_process:
             await asyncio.to_thread(self.broker_process.join)
 
+    async def _test_pull_callback(self, message: Message) -> None:
+        """Test callback to verify pull mechanism is working."""
+        self.logger.warning(f"🔥 TEST: Received message via pull: {message}")
+        self.logger.warning(f"🔥 TEST: Message type: {type(message)}")
+        self.logger.warning(f"🔥 TEST: Payload type: {type(message.payload)}")
+
+    async def _process_credit_drop(self, message: Message) -> None:
+        """Process a credit drop response and send to workers.
+
+        Args:
+            message: The message received from the credit drop
+        """
+        # self.logger.debug(f"🚨 CREDIT DROP RECEIVED! Processing credit drop from new zmq worker manager: {message}")
+        # self.logger.debug(f"🚨 Message payload type: {type(message.payload)}")
+        # self.logger.debug(f"🚨 Message payload: {message.payload}")
+
+        if self.task_socket and isinstance(message.payload, CreditDropPayload):
+            try:
+                # self.logger.debug("🚨 Sending credit drop task to workers via the broker")
+
+                # Convert credit drop to HTTP request format
+                http_request = {
+                    "method": "POST",
+                    "path": "/api/credit-drop",
+                    "headers": {
+                        "Content-Type": "application/json",
+                        "X-Credit-Amount": str(message.payload.amount),
+                        "X-Credit-Timestamp": str(message.payload.timestamp),
+                    },
+                    "json": {
+                        "credit_drop": {
+                            "amount": message.payload.amount,
+                            "timestamp": message.payload.timestamp,
+                            "request_id": message.request_id,
+                            "service_id": message.service_id,
+                        }
+                    },
+                }
+
+                # Send the HTTP request data to workers via the broker
+                task_data = json.dumps(http_request).encode()
+                self.logger.debug(f"Sending HTTP request data: {http_request}")
+
+                await self.task_socket.send(task_data)
+                self.logger.debug("Credit drop task sent successfully")
+
+                # Wait for response from worker
+                response = await self.task_socket.recv()
+                self.logger.debug(f"Received worker response: {response}")
+
+                # Parse worker response
+                try:
+                    response_data = json.loads(response.decode())
+                    if response_data.get("success"):
+                        self.logger.info(
+                            f"Worker processed credit drop successfully: {response_data}"
+                        )
+                    else:
+                        self.logger.warning(
+                            f"Worker failed to process credit drop: {response_data}"
+                        )
+                except (json.JSONDecodeError, UnicodeDecodeError) as e:
+                    self.logger.warning(
+                        f"Could not parse worker response: {response}, error: {e}"
+                    )
+
+                # Return credit after processing
+                await self.comms.push(
+                    topic=Topic.CREDIT_RETURN,
+                    message=self.create_message(
+                        payload=CreditReturnPayload(
+                            amount=message.payload.amount,  # Return the same amount
+                        )
+                    ),
+                )
+                self.logger.debug(f"Returned {message.payload.amount} credits")
+
+            except Exception as e:
+                self.logger.error(f"Failed to send credit drop to workers: {e}")
+                # Still return credits even if processing failed
+                await self.comms.push(
+                    topic=Topic.CREDIT_RETURN,
+                    message=self.create_message(
+                        payload=CreditReturnPayload(
+                            amount=message.payload.amount,
+                        )
+                    ),
+                )
+        else:
+            self.logger.error(
+                f"🚨 UNEXPECTED: task_socket={self.task_socket}, payload_type={type(message.payload)}"
+            )
+            self.logger.error(f"🚨 Expected CreditDropPayload, got: {message.payload}")
+
 
 # Example worker handler implementation
+async def http_request_worker_handler(message, worker_id, **kwargs):
+    """High-performance HTTP worker that makes requests to FastAPI server."""
+
+    # Get performance monitor
+    monitor = get_monitor()
+
+    # Record request start
+    start_time = monitor.record_request_start(worker_id)
+
+    # Create reusable HTTP client with connection pooling
+    async with httpx.AsyncClient(
+        timeout=httpx.Timeout(10.0),
+        limits=httpx.Limits(max_keepalive_connections=20, max_connections=100),
+        http2=True,
+    ) as client:
+        try:
+            # Extract request data from message
+            if isinstance(message, bytes):
+                try:
+                    request_data = json.loads(message.decode("utf-8"))
+                except (json.JSONDecodeError, UnicodeDecodeError):
+                    request_data = {"path": "/", "method": "GET"}
+            elif isinstance(message, str):
+                try:
+                    request_data = json.loads(message)
+                except json.JSONDecodeError:
+                    request_data = {"path": "/", "method": "GET"}
+            else:
+                # Default request for other types
+                request_data = {"path": "/", "method": "GET"}
+
+            # Extract request parameters
+            method = request_data.get("method", "GET").upper()
+            path = request_data.get("path", "/")
+            headers_raw = request_data.get("headers", {})
+            headers = dict(headers_raw) if isinstance(headers_raw, dict) else {}
+            params = request_data.get("params", {})
+            json_data = request_data.get("json", None)
+
+            # Construct URL
+            base_url = "http://localhost:9797"
+            url = f"{base_url}{path}"
+
+            # Add worker ID to headers for tracking
+            headers["X-Worker-ID"] = worker_id
+
+            # Make HTTP request
+            response = await client.request(
+                method=method, url=url, headers=headers, params=params, json=json_data
+            )
+
+            # Calculate response time
+            response_time_ms = response.elapsed.total_seconds() * 1000
+
+            # Record successful request
+            monitor.record_request_end(worker_id, start_time, True, response_time_ms)
+
+            # Return response data
+            result = {
+                "worker_id": worker_id,
+                "status_code": response.status_code,
+                "response_time_ms": response_time_ms,
+                "headers": dict(response.headers),
+                "content": response.text,
+                "url": str(response.url),
+                "method": method,
+                "success": True,
+            }
+
+            return json.dumps(result).encode()
+
+        except httpx.TimeoutException:
+            # Record failed request
+            monitor.record_request_end(worker_id, start_time, False)
+
+            error_result = {
+                "worker_id": worker_id,
+                "error": "Request timeout",
+                "status": "timeout",
+                "success": False,
+            }
+            return json.dumps(error_result).encode()
+
+        except httpx.ConnectError:
+            # Record failed request
+            monitor.record_request_end(worker_id, start_time, False)
+
+            error_result = {
+                "worker_id": worker_id,
+                "error": "Connection failed - FastAPI server may not be running",
+                "status": "connection_error",
+                "success": False,
+            }
+            return json.dumps(error_result).encode()
+
+        except Exception as e:
+            # Record failed request
+            monitor.record_request_end(worker_id, start_time, False)
+
+            error_result = {
+                "worker_id": worker_id,
+                "error": str(e),
+                "status": "error",
+                "success": False,
+            }
+            return json.dumps(error_result).encode()
+
+
+# Example worker handler implementation (legacy)
 async def example_worker_handler(message, worker_id, **kwargs):
     """Example worker message handler."""
-    await asyncio.sleep(0.01)  # Simulate work
-    return [message[0], f"Processed by {worker_id}".encode()]
+    await asyncio.sleep(1)  # Simulate work
+    return f"Processed by {worker_id}"
 
 
 async def main():
@@ -348,20 +583,16 @@ async def main():
         zmq_config=ZMQCommunicationConfig(protocol_config=ZMQTCPTransportConfig()),
     )
 
+    logging.basicConfig(level=logging.DEBUG)
+
     # Create and start worker manager
-    manager = WorkerManager(
-        worker_handler=example_worker_handler,
-        config=config,
-        mode=TaskMode.HYBRID,
+    manager = ZMQWorkerManager(
+        service_config=ServiceConfig(),
+        worker_args={},
     )
 
-    try:
-        await manager.start()
-        await manager.join()  # This will block until all processes exit
-    except KeyboardInterrupt:
-        pass
-    finally:
-        await manager.stop()
+    # Start the manager
+    await manager.run_forever()
 
 
 def run_forever():

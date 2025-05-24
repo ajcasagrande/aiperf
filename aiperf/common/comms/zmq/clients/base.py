@@ -63,7 +63,7 @@ class BaseZMQClient(metaclass=ZMQClientMetaclass):
             socket_type (SocketType): The type of ZMQ socket (PUB or SUB).
             socket_ops (dict, optional): Additional socket options to set.
         """
-        self.logger = logging.getLogger(__name__)
+        self.logger = logging.getLogger(self.__module__ + "." + self.__class__.__name__)
         self.stop_event: asyncio.Event = asyncio.Event()
         self.initialized_event: asyncio.Event = asyncio.Event()
         self.context: zmq.asyncio.Context = context
@@ -74,6 +74,7 @@ class BaseZMQClient(metaclass=ZMQClientMetaclass):
         self.socket_ops: dict = socket_ops or {}
         self.client_id: str = f"{self.socket_type.name}_client_{uuid.uuid4().hex[:8]}"
         self._task_registry: dict[str, asyncio.Task] = {}
+        # self.logger.debug("ZMQ client %s created", self.client_id)
 
     @property
     def is_initialized(self) -> bool:
@@ -164,8 +165,9 @@ class BaseZMQClient(metaclass=ZMQClientMetaclass):
 
             # Set safe timeouts for send and receive operations (30 seconds)
             # TODO: Make this configurable, and not in the base class implementation
-            self._socket.setsockopt(zmq.RCVTIMEO, 30_000)
-            self._socket.setsockopt(zmq.SNDTIMEO, 30_000)
+            # TODO: Is this needed?
+            # self._socket.setsockopt(zmq.RCVTIMEO, 30_000)
+            # self._socket.setsockopt(zmq.SNDTIMEO, 30_000)
 
             # Set additional socket options requested by the caller
             for key, val in self.socket_ops.items():
