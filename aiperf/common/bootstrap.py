@@ -15,6 +15,10 @@
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.service.base_service import BaseService
 
+__all__ = [
+    "bootstrap_and_run_service",
+]
+
 
 def bootstrap_and_run_service(
     service_class: type[BaseService], service_config: ServiceConfig | None = None

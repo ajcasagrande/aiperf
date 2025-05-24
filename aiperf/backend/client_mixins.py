@@ -19,7 +19,12 @@
 
 from typing import Generic
 
-from aiperf.common.models import BackendClientConfig, ConfigT
+from aiperf.common.models import BackendClientConfig
+from aiperf.common.types import ConfigT
+
+__all__ = [
+    "BackendClientConfigMixin",
+]
 
 
 class BackendClientConfigMixin(Generic[ConfigT]):

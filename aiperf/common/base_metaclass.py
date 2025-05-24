@@ -20,6 +20,10 @@ from typing import Any
 from aiperf.common.decorators import AIPerfHooks
 from aiperf.common.exceptions import AIPerfMetaclassError
 
+__all__ = [
+    "BaseMetaclass",
+]
+
 
 class BaseMetaclass(ABCMeta):
     """Base metaclass for all AIPerf metaclasses that support hooks.

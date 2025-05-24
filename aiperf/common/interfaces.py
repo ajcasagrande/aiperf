@@ -12,13 +12,15 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from typing import Any, Generic, Protocol, TypeVar
+from typing import Generic, Protocol
 
-from aiperf.common.models import BackendClientConfig, BackendClientResponse, ConfigT
+from aiperf.common.models import BackendClientConfig, BackendClientResponse
+from aiperf.common.types import ConfigT, RequestT, ResponseT
 
-RequestT = TypeVar("RequestT", bound=Any, infer_variance=True)
-ResponseT = TypeVar("ResponseT", bound=Any, infer_variance=True)
-
+__all__ = [
+    "BackendClientConfigProtocol",
+    "BackendClientProtocol",
+]
 
 ################################################################################
 # Backend Client Protocols

@@ -15,14 +15,18 @@
 
 import logging
 from collections.abc import Callable
-from typing import Any
 
-from aiperf.backend.client_interface import BackendClientProtocol
 from aiperf.common.enums import BackendClientType
 from aiperf.common.exceptions import BackendClientError
+from aiperf.common.interfaces import BackendClientProtocol
 from aiperf.common.models import BackendClientConfig
+from aiperf.common.types import ConfigT
 
 logger = logging.getLogger(__name__)
+
+__all__ = [
+    "BackendClientFactory",
+]
 
 
 class BackendClientFactory:
@@ -53,7 +57,6 @@ class BackendClientFactory:
                 f"Backend client type {backend_client_type} already registered"
             )
         cls._backend_client_registry[backend_client_type] = backend_client_class
-
         logger.debug("Registered backend client type: %s", backend_client_type)
 
     @classmethod
@@ -81,7 +84,7 @@ class BackendClientFactory:
     @classmethod
     def create_backend_client(
         cls,
-        client_config: BackendClientConfig[Any],
+        client_config: BackendClientConfig[ConfigT],
     ) -> BackendClientProtocol:
         """Create a backend client instance.
 
@@ -96,9 +99,6 @@ class BackendClientFactory:
             BackendClientCreationError: If there was an error creating the backend client instance
         """
         if client_config.backend_client_type not in cls._backend_client_registry:
-            logger.error(
-                "Unknown backend client type: %s", client_config.backend_client_type
-            )
             raise BackendClientError(
                 f"Unknown backend client type: {client_config.backend_client_type}"
             )
@@ -110,11 +110,6 @@ class BackendClientFactory:
             return backend_client_class(client_config=client_config)
 
         except Exception as e:
-            logger.error(
-                "Exception creating backend client for type %s: %s",
-                client_config.backend_client_type,
-                e,
-            )
             raise BackendClientError(
                 f"Error creating backend client for type {client_config.backend_client_type}"
             ) from e

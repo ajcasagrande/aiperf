@@ -20,10 +20,19 @@ from pydantic import BaseModel
 from aiperf.backend.client_factory import (
     BackendClientFactory,
 )
-from aiperf.backend.client_interface import BackendClientProtocol
 from aiperf.backend.client_mixins import BackendClientConfigMixin
 from aiperf.common.enums import BackendClientType
+from aiperf.common.interfaces import BackendClientProtocol
 from aiperf.common.models import BackendClientConfig, BackendClientResponse
+
+__all__ = [
+    "OpenAIBackendClientConfig",
+    "OpenAIRequest",
+    "OpenAIResponse",
+    "OpenAIBackendClientConfigMixin",
+    "OpenAIBackendClientProtocol",
+    "OpenAIBackendClient",
+]
 
 ################################################################################
 # OpenAI Backend Client Models
@@ -43,15 +52,12 @@ class OpenAIResponse(BaseModel):
 
 
 ################################################################################
-# OpenAI Backend Client Mixins
+# OpenAI Backend Client Mixins / Protocols
 ################################################################################
 
+OpenAIBackendClientConfigMixin = BackendClientConfigMixin[OpenAIBackendClientConfig]
 
-class OpenAIBackendClientConfigMixin(
-    BackendClientConfigMixin[OpenAIBackendClientConfig]
-):
-    """Mixin for OpenAI backend client configuration."""
-
+OpenAIBackendClientProtocol = BackendClientProtocol[OpenAIRequest, OpenAIResponse]
 
 ################################################################################
 # OpenAI Backend Client
@@ -59,9 +65,7 @@ class OpenAIBackendClientConfigMixin(
 
 
 @BackendClientFactory.register(BackendClientType.OPENAI)
-class OpenAIBackendClient(
-    OpenAIBackendClientConfigMixin, BackendClientProtocol[OpenAIRequest, OpenAIResponse]
-):
+class OpenAIBackendClient(OpenAIBackendClientConfigMixin, OpenAIBackendClientProtocol):
     """A backend client for OpenAI communication.
 
     This class is responsible for formatting payloads, sending requests, and parsing responses for OpenAI communication.

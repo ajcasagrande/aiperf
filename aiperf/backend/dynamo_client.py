@@ -13,8 +13,6 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-
-from http.client import HTTPResponse
 from typing import Any
 
 from pydantic import BaseModel
@@ -28,72 +26,72 @@ from aiperf.common.interfaces import BackendClientProtocol
 from aiperf.common.models import BackendClientConfig, BackendClientResponse
 
 __all__ = [
-    "HTTPBackendClientConfig",
-    "HTTPRequest",
-    "HTTPResponse",
-    "HTTPBackendClientConfigMixin",
-    "HTTPBackendClientProtocol",
-    "HTTPBackendClient",
+    "DynamoBackendClientConfig",
+    "DynamoRequest",
+    "DynamoResponse",
+    "DynamoBackendClientConfigMixin",
+    "DynamoBackendClientProtocol",
+    "DynamoBackendClient",
 ]
 
 ################################################################################
-# HTTP Backend Client Models
+# Dynamo Backend Client Models
 ################################################################################
 
 
-class HTTPBackendClientConfig(BaseModel):
-    """Configuration specific to an HTTP backend client."""
+class DynamoBackendClientConfig(BaseModel):
+    """Configuration specific to an Dynamo backend client."""
 
 
-class HTTPRequest(BaseModel):
-    """Request specific to an HTTP backend client."""
+class DynamoRequest(BaseModel):
+    """Request specific to an Dynamo backend client."""
 
 
-class HttpResponse(BaseModel):
-    """Response specific to an HTTP backend client."""
-
-
-################################################################################
-# HTTP Backend Client Mixins / Protocols
-################################################################################
-
-
-HTTPBackendClientConfigMixin = BackendClientConfigMixin[HTTPBackendClientConfig]
-
-HTTPBackendClientProtocol = BackendClientProtocol[HTTPRequest, HTTPResponse]
+class DynamoResponse(BaseModel):
+    """Response specific to an Dynamo backend client."""
 
 
 ################################################################################
-# HTTP Backend Client
+# Dynamo Backend Client Mixins / Protocols
+################################################################################
+
+DynamoBackendClientConfigMixin = BackendClientConfigMixin[DynamoBackendClientConfig]
+
+DynamoBackendClientProtocol = BackendClientProtocol[DynamoRequest, DynamoResponse]
+
+################################################################################
+# Dynamo Backend Client
 ################################################################################
 
 
-@BackendClientFactory.register(BackendClientType.HTTP)
-class HTTPBackendClient(HTTPBackendClientConfigMixin, HTTPBackendClientProtocol):
-    """A backend client for HTTP communication.
+@BackendClientFactory.register(BackendClientType.OPENAI)
+class DynamoBackendClient(DynamoBackendClientConfigMixin, DynamoBackendClientProtocol):
+    """A backend client for communicating with Dynamo directly.
 
-    This class is responsible for formatting payloads, sending requests, and parsing responses for HTTP communication.
+    This class is responsible for formatting payloads, sending requests, and parsing responses for communicating with Dynamo directly.
     """
 
-    def __init__(self, client_config: BackendClientConfig[HTTPBackendClientConfig]):
+    def __init__(self, client_config: BackendClientConfig[DynamoBackendClientConfig]):
         super().__init__(client_config)
         # TODO: Implement
-        raise NotImplementedError("HttpBackendClient is not implemented")
+        raise NotImplementedError("DynamoBackendClient is not implemented")
 
-    def format_payload(self, payload: Any) -> HTTPRequest:
+    def format_payload(self, payload: Any) -> DynamoRequest:
         # TODO: Implement
         raise NotImplementedError(
-            "HttpBackendClient does not support formatting payloads"
+            "DynamoBackendClient does not support formatting payloads"
         )
 
-    def send_request(self, endpoint: str, payload: HTTPRequest) -> HTTPResponse:
-        # TODO: Implement
-        raise NotImplementedError("HttpBackendClient does not support sending requests")
-
-    def parse_response(
-        self, response: HTTPResponse
-    ) -> BackendClientResponse[HTTPResponse]:
+    def send_request(self, endpoint: str, payload: DynamoRequest) -> DynamoResponse:
         # TODO: Implement
         raise NotImplementedError(
-            "HttpBackendClient does not support parsing responses"
+            "DynamoBackendClient does not support sending requests"
+        )
+
+    def parse_response(
+        self, response: DynamoResponse
+    ) -> BackendClientResponse[DynamoResponse]:
+        # TODO: Implement
+        raise NotImplementedError(
+            "DynamoBackendClient does not support parsing responses"
         )

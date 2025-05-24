@@ -17,6 +17,18 @@ from typing import Any
 
 from aiperf.common.enums import ServiceState, StrEnum
 
+__all__ = [
+    "on_cleanup",
+    "on_init",
+    "on_comms_init",
+    "on_stop",
+    "on_start",
+    "on_configure",
+    "on_run",
+    "on_set_state",
+    "aiperf_task",
+]
+
 
 def on_cleanup(func: Callable) -> Callable:
     """

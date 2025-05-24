@@ -20,10 +20,19 @@ from pydantic import BaseModel
 from aiperf.backend.client_factory import (
     BackendClientFactory,
 )
-from aiperf.backend.client_interface import BackendClientProtocol
 from aiperf.backend.client_mixins import BackendClientConfigMixin
 from aiperf.common.enums import BackendClientType
+from aiperf.common.interfaces import BackendClientProtocol
 from aiperf.common.models import BackendClientConfig, BackendClientResponse
+
+__all__ = [
+    "GRPCBackendClientConfig",
+    "GRPCRequest",
+    "GRPCResponse",
+    "GRPCBackendClientConfigMixin",
+    "GRPCBackendClientProtocol",
+    "GRPCBackendClient",
+]
 
 ################################################################################
 # GRPC Backend Client Models
@@ -43,13 +52,13 @@ class GRPCResponse(BaseModel):
 
 
 ################################################################################
-# GRPC Backend Client Mixins
+# GRPC Backend Client Mixins / Protocols
 ################################################################################
 
 
-class GRPCBackendClientConfigMixin(BackendClientConfigMixin[GRPCBackendClientConfig]):
-    """Mixin for GRPC backend client configuration."""
+GRPCBackendClientConfigMixin = BackendClientConfigMixin[GRPCBackendClientConfig]
 
+GRPCBackendClientProtocol = BackendClientProtocol[GRPCRequest, GRPCResponse]
 
 ################################################################################
 # GRPC Backend Client
@@ -57,9 +66,7 @@ class GRPCBackendClientConfigMixin(BackendClientConfigMixin[GRPCBackendClientCon
 
 
 @BackendClientFactory.register(BackendClientType.GRPC)
-class GRPCBackendClient(
-    GRPCBackendClientConfigMixin, BackendClientProtocol[GRPCRequest, GRPCResponse]
-):
+class GRPCBackendClient(GRPCBackendClientConfigMixin, GRPCBackendClientProtocol):
     """A backend client for GRPC communication.
 
     This class is responsible for formatting payloads, sending requests, and parsing responses for GRPC communication.
