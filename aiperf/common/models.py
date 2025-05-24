@@ -15,12 +15,12 @@
 
 import time
 import uuid
-from abc import ABC
-from typing import Any, Literal, Union
+from typing import Any, Generic, Literal, TypeVar, Union
 
 from pydantic import BaseModel, Field
 
 from aiperf.common.enums import (
+    BackendClientType,
     CommandType,
     MessageType,
     ServiceRegistrationStatus,
@@ -121,7 +121,7 @@ class ZMQCommunicationConfig(BaseModel):
 ################################################################################
 
 
-class BasePayload(BaseModel, ABC):
+class BasePayload(BaseModel):
     """Base model for all payload data. Each payload type must inherit
     from this class, and override the `message_type` field.
 
@@ -429,3 +429,38 @@ class ServiceRunInfo(BaseModel):
         default=ServiceState.UNKNOWN,
         description="The current state of the service",
     )
+
+
+################################################################################
+# Backend Client Models
+################################################################################
+
+
+ConfigT = TypeVar("ConfigT", bound=BaseModel, infer_variance=True)
+ResponseT = TypeVar("ResponseT", bound=Any, infer_variance=True)
+
+
+class BackendClientConfig(BaseModel, Generic[ConfigT]):
+    """Configuration for a backend client.
+
+    This is a generic model that can be used to configure any backend client.
+    The type of the backend client configuration is specified by the generic type `ConfigT`.
+    """
+
+    backend_client_type: BackendClientType | str = Field(
+        ...,
+        description="The type of backend client to use. This should be a valid backend client "
+        "type that is registered in the backend client factory.",
+    )
+    client_config: ConfigT = Field(
+        ...,
+        description="Configuration for the backend client. This should be a Pydantic model that "
+        "is specific to the backend client type.",
+    )
+
+
+class BackendClientResponse(BaseModel, Generic[ResponseT]):
+    """Response from a backend client."""
+
+    response: ResponseT
+    error: Exception | None = None

@@ -235,3 +235,17 @@ class ServiceRegistrationStatus(StrEnum):
 
     ERROR = "error"
     """The service registration failed."""
+
+
+################################################################################
+# Backend Client Enums
+################################################################################
+
+
+class BackendClientType(StrEnum):
+    """Backend client types."""
+
+    GRPC = "grpc"
+    HTTP = "http"
+    OPENAI = "openai"
+    DYNAMO = "dynamo"

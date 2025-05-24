@@ -213,3 +213,12 @@ class TokenizerError(AIPerfError):
 
 class TokenizerInitializationError(TokenizerError):
     """Exception raised for errors during tokenizer initialization."""
+
+
+################################################################################
+# Backend Client Exceptions
+################################################################################
+
+
+class BackendClientError(AIPerfError):
+    """Exception raised when a backend client encounters an error."""

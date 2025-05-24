@@ -15,24 +15,52 @@
 
 from typing import Any
 
-from aiperf.backend.client.base import (
-    BaseBackendClient,
-)
-from aiperf.backend.client.factory import (
+from pydantic import BaseModel
+
+from aiperf.backend.client_factory import (
     BackendClientFactory,
 )
-from aiperf.backend.client.model import (
-    BackendClientConfig,
-    OpenAIBackendClientConfig,
-    OpenAIRequest,
-    OpenAIResponse,
-)
-from aiperf.backend.enum import BackendClientType
+from aiperf.backend.client_interface import BackendClientProtocol
+from aiperf.backend.client_mixins import BackendClientConfigMixin
+from aiperf.common.enums import BackendClientType
+from aiperf.common.models import BackendClientConfig, BackendClientResponse
+
+################################################################################
+# OpenAI Backend Client Models
+################################################################################
+
+
+class OpenAIBackendClientConfig(BaseModel):
+    """Configuration specific to an OpenAI backend client."""
+
+
+class OpenAIRequest(BaseModel):
+    """Request specific to an OpenAI backend client."""
+
+
+class OpenAIResponse(BaseModel):
+    """Response specific to an OpenAI backend client."""
+
+
+################################################################################
+# OpenAI Backend Client Mixins
+################################################################################
+
+
+class OpenAIBackendClientConfigMixin(
+    BackendClientConfigMixin[OpenAIBackendClientConfig]
+):
+    """Mixin for OpenAI backend client configuration."""
+
+
+################################################################################
+# OpenAI Backend Client
+################################################################################
 
 
 @BackendClientFactory.register(BackendClientType.OPENAI)
 class OpenAIBackendClient(
-    BaseBackendClient[OpenAIBackendClientConfig, OpenAIRequest, OpenAIResponse]
+    OpenAIBackendClientConfigMixin, BackendClientProtocol[OpenAIRequest, OpenAIResponse]
 ):
     """A backend client for OpenAI communication.
 
@@ -56,7 +84,9 @@ class OpenAIBackendClient(
             "OpenAIBackendClient does not support sending requests"
         )
 
-    def parse_response(self, response: OpenAIResponse) -> Any:
+    def parse_response(
+        self, response: OpenAIResponse
+    ) -> BackendClientResponse[OpenAIResponse]:
         # TODO: Implement
         raise NotImplementedError(
             "OpenAIBackendClient does not support parsing responses"

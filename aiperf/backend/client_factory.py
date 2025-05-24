@@ -17,10 +17,10 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
-from aiperf.backend.client.client_protocol import BackendClientProtocol
-from aiperf.backend.client.error import BackendClientError
-from aiperf.backend.client.model import BackendClientConfig
-from aiperf.backend.enum import BackendClientType
+from aiperf.backend.client_interface import BackendClientProtocol
+from aiperf.common.enums import BackendClientType
+from aiperf.common.exceptions import BackendClientError
+from aiperf.common.models import BackendClientConfig
 
 logger = logging.getLogger(__name__)
 
