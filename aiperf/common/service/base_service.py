@@ -21,8 +21,6 @@ from abc import ABC
 from collections import defaultdict
 from collections.abc import Callable
 
-import setproctitle
-
 from aiperf.common.comms import BaseCommunication, CommunicationFactory
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.decorators import AIPerfHooks
@@ -82,8 +80,10 @@ class BaseService(BaseServiceInterface, ABC, metaclass=ServiceMetaclass):
 
         # noinspection PyBroadException
         try:
+            import setproctitle
+
             setproctitle.setproctitle(f"aiperf {self.service_id}")
-        except:  # noqa: E722
+        except Exception:  # noqa: E722
             # setproctitle is not available on all platforms, so we ignore the error
             self.logger.debug("Failed to set process title, ignoring")
 

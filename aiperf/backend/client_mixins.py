@@ -30,11 +30,11 @@ __all__ = [
 class BackendClientConfigMixin(Generic[ConfigT]):
     """Mixin for backend client configuration."""
 
-    def __init__(self, client_config: BackendClientConfig[ConfigT]) -> None:
+    def __init__(self, cfg: BackendClientConfig[ConfigT]) -> None:
         """Create a new backend client based on the provided configuration."""
-        self._client_config = client_config
+        self._client_config = cfg.client_config
 
     @property
-    def client_config(self) -> BackendClientConfig[ConfigT]:
+    def client_config(self) -> ConfigT:
         """Get the client configuration."""
         return self._client_config

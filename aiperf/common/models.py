@@ -13,8 +13,10 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+import sys
 import time
 import uuid
+from datetime import datetime
 from typing import Any, Generic, Literal, Union
 
 from pydantic import BaseModel, Field
@@ -23,6 +25,7 @@ from aiperf.common.enums import (
     BackendClientType,
     CommandType,
     MessageType,
+    RequestTimerKind,
     ServiceRegistrationStatus,
     ServiceState,
     ServiceType,
@@ -45,6 +48,17 @@ __all__ = [
     "ServiceRunInfo",
     "BackendClientConfig",
     "BackendClientResponse",
+    "Payload",
+    "BaseMessage",
+    "DataMessage",
+    "HeartbeatMessage",
+    "RegistrationMessage",
+    "StatusMessage",
+    "CommandMessage",
+    "CreditDropMessage",
+    "CreditReturnMessage",
+    "ErrorMessage",
+    "Message",
 ]
 
 ################################################################################
@@ -474,8 +488,171 @@ class BackendClientConfig(BaseModel, Generic[ConfigT]):
     )
 
 
+class BaseBackendClientConfig(BaseModel):
+    """Base configuration options for all backend clients."""
+
+    url: str = Field(
+        default="localhost:8000", description="The URL of the backend client."
+    )
+    protocol: str = Field(
+        default="http", description="The protocol to use for the backend client."
+    )
+    ssl_options: dict[str, Any] | None = Field(
+        default=None,
+        description="The SSL options to use for the backend client.",
+    )
+    timeout_ms: int = Field(
+        default=5000,
+        description="The timeout in milliseconds for the backend client.",
+    )
+    headers: dict[str, str] = Field(
+        default_factory=dict,
+        description="The headers to use for the backend client.",
+    )
+    api_key: str | None = Field(
+        default=None,
+        description="The API key to use for the backend client.",
+    )
+
+
 class BackendClientResponse(BaseModel, Generic[ResponseT]):
     """Response from a backend client."""
 
     response: ResponseT
-    error: Exception | None = None
+    error: str | None = None
+
+    model_config = {
+        "arbitrary_types_allowed": True,
+    }
+
+
+################################################################################
+# Worker Internal Models
+################################################################################
+
+
+class RequestRecord(BaseModel):
+    """Record of a request."""
+
+    start_time_ns: int = Field(
+        default_factory=time.time_ns,
+        description="The start time of the request in nanoseconds since the epoch.",
+    )
+    response_timestamps_ns: list[int] = Field(
+        default_factory=list,
+        description="The timestamps of each response in nanoseconds since the epoch.",
+    )
+    responses: list[ResponseT] = Field(
+        default_factory=list,
+        description="The responses received from the request.",
+    )
+    has_null_last_response: bool = Field(
+        default=False, description="Whether the last response received was null."
+    )
+    sequence_end: bool = Field(
+        default=False, description="Whether the sequence has ended."
+    )
+    delayed: bool = Field(default=False, description="Whether the request was delayed.")
+
+    @property
+    def valid(self) -> bool:
+        """Check if the request record is valid by ensuring that the start time
+        and response timestamps are within valid ranges.
+
+        Returns:
+            bool: True if the record is valid, False otherwise.
+        """
+        return (
+            0 < self.start_time_ns < sys.maxsize
+            and len(self.response_timestamps_ns) > 0
+            and all(0 < ts < sys.maxsize for ts in self.response_timestamps_ns)
+        )
+
+    @property
+    def start_time_(self) -> datetime:
+        """Get start time as a datetime object."""
+        from datetime import datetime, timezone
+
+        return datetime.fromtimestamp(self.start_time_ns / 1e9, tz=timezone.utc)
+
+    @property
+    def response_timestamps_(self):
+        """Get response timestamps as datetime objects."""
+        from datetime import datetime, timezone
+
+        return [
+            datetime.fromtimestamp(ts / 1e9, tz=timezone.utc)
+            for ts in self.response_timestamps_ns
+        ]
+
+    @property
+    def time_to_first_response_ns(self) -> int:
+        """Get the time to the first response in nanoseconds."""
+        if not self.valid:
+            return sys.maxsize
+        return self.response_timestamps_ns[0] - self.start_time_ns
+
+    @property
+    def time_to_last_response_ns(self) -> int:
+        """Get the time to the last response in nanoseconds."""
+        if not self.valid:
+            return sys.maxsize
+        return self.response_timestamps_ns[-1] - self.start_time_ns
+
+
+class RequestTimers:
+    """Records timestamps for different stages of request handling."""
+
+    def __init__(self):
+        """Initialize timer with zeroed timestamps."""
+        self.timestamps: list[int] = [0] * len(RequestTimerKind)
+        self.reset()
+
+    def reset(self) -> None:
+        """Reset all timestamp values to zero. Must be called before re-using the timer."""
+        self.timestamps = [0] * len(RequestTimerKind)
+
+    def timestamp(self, kind: RequestTimerKind) -> int:
+        """Get the timestamp, in nanoseconds, for a kind.
+
+        Args:
+            kind: The timestamp kind.
+
+        Returns:
+            The timestamp in nanoseconds.
+        """
+        return self.timestamps[kind.value - 1]
+
+    def capture_timestamp(self, kind: RequestTimerKind) -> int:
+        """Set a timestamp to the current time, in nanoseconds.
+
+        Args:
+            kind: The timestamp kind.
+
+        Returns:
+            The timestamp in nanoseconds.
+        """
+        ts = time.time_ns()
+        self.timestamps[kind.value - 1] = ts
+        return ts
+
+    def duration(self, start: RequestTimerKind, end: RequestTimerKind) -> int:
+        """Return the duration between start time point and end timepoint in nanoseconds.
+
+        Args:
+            start: The start time point.
+            end: The end time point.
+
+        Returns:
+            Duration in nanoseconds, or sys.maxsize to indicate that duration
+            could not be calculated.
+        """
+        stime = self.timestamps[start.value - 1]
+        etime = self.timestamps[end.value - 1]
+
+        # If the start or end timestamp is 0 then can't calculate the
+        # duration, so return max to indicate error.
+        if stime == 0 or etime == 0:
+            return sys.maxsize
+
+        return sys.maxsize if stime > etime else etime - stime

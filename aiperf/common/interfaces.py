@@ -12,9 +12,15 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from typing import Generic, Protocol
+from typing import TYPE_CHECKING, Generic, Protocol
 
-from aiperf.common.models import BackendClientConfig, BackendClientResponse
+if TYPE_CHECKING:
+    from aiperf.common.models import (
+        BackendClientConfig,
+        BackendClientResponse,
+        RequestRecord,
+    )
+
 from aiperf.common.types import ConfigT, RequestT, ResponseT
 
 __all__ = [
@@ -27,27 +33,27 @@ __all__ = [
 ################################################################################
 
 
-class BackendClientConfigProtocol(Protocol, Generic[ConfigT]):
+class BackendClientConfigProtocol(Protocol):
     """Protocol for a backend client configuration."""
 
-    def __init__(self, client_config: BackendClientConfig[ConfigT]) -> None:
+    def __init__(self, client_config: "BackendClientConfig[ConfigT]") -> None:
         """Create a new backend client based on the provided configuration."""
         ...
 
     @property
-    def client_config(self) -> BackendClientConfig[ConfigT]:
+    def client_config(self) -> "BackendClientConfig[ConfigT]":
         """Get the client configuration."""
         ...
 
 
-class BackendClientProtocol(BackendClientConfigProtocol, Generic[RequestT, ResponseT]):
+class BackendClientProtocol(Protocol, Generic[RequestT, ResponseT]):
     """Protocol for a backend client.
 
     This protocol defines the methods that must be implemented by any backend client
     implementation that is compatible with the AIPerf framework.
     """
 
-    def format_payload(self, payload: RequestT) -> RequestT:
+    async def format_payload(self, endpoint: str, payload: RequestT) -> RequestT:
         """Format the payload for the backend client.
 
         This method is used to format the payload for the backend client.
@@ -60,7 +66,7 @@ class BackendClientProtocol(BackendClientConfigProtocol, Generic[RequestT, Respo
         """
         ...
 
-    def send_request(self, endpoint: str, payload: RequestT) -> ResponseT:
+    async def send_request(self, endpoint: str, payload: RequestT) -> "RequestRecord":
         """Send a request to the backend client.
 
         This method is used to send a request to the backend client.
@@ -74,7 +80,9 @@ class BackendClientProtocol(BackendClientConfigProtocol, Generic[RequestT, Respo
         """
         ...
 
-    def parse_response(self, response: ResponseT) -> BackendClientResponse[ResponseT]:
+    async def parse_response(
+        self, response: ResponseT
+    ) -> "BackendClientResponse[ResponseT]":
         """Parse the response from the backend client.
 
         This method is used to parse the response from the backend client.

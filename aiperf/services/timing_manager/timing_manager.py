@@ -50,7 +50,7 @@ class TimingManager(BaseComponentService):
     ) -> None:
         super().__init__(service_config=service_config, service_id=service_id)
         self._credit_lock = asyncio.Lock()
-        self._credits_available = 100
+        self._credits_available = 5000
         self.logger.debug("Initializing timing manager")
         self._credit_drop_task: asyncio.Task | None = None
 
@@ -117,16 +117,16 @@ class TimingManager(BaseComponentService):
         # TODO: Actually implement real credit drop logic
         while not self.stop_event.is_set():
             try:
-                await asyncio.sleep(0.1)
+                # await asyncio.sleep(0.000000001)
 
-                async with self._credit_lock:
-                    if self._credits_available <= 0:
-                        self.logger.warning(
-                            "No credits available, skipping credit drop"
-                        )
-                        continue
-                    self.logger.debug("Issuing credit drop")
-                    self._credits_available -= 1
+                # async with self._credit_lock:
+                #     if self._credits_available <= 0:
+                #         self.logger.warning(
+                #             "No credits available, skipping credit drop"
+                #         )
+                #         # continue
+                #     self.logger.debug("Issuing credit drop")
+                #     self._credits_available -= 1
 
                 await self.comms.push(
                     topic=Topic.CREDIT_DROP,

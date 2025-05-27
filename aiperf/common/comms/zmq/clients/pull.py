@@ -14,7 +14,8 @@
 #  limitations under the License.
 import asyncio
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Coroutine
+from typing import Any
 
 import zmq.asyncio
 from zmq import SocketType
@@ -45,7 +46,9 @@ class ZMQPullClient(BaseZMQClient):
             socket_ops (dict, optional): Additional socket options to set.
         """
         super().__init__(context, SocketType.PULL, address, bind, socket_ops)
-        self._pull_callbacks: dict[str, list[Callable[[Message], None]]] = {}
+        self._pull_callbacks: dict[
+            str, list[Callable[[Message], Coroutine[Any, Any, None]]]
+        ] = {}
 
     @aiperf_task
     async def _pull_receiver(self) -> None:
@@ -80,7 +83,7 @@ class ZMQPullClient(BaseZMQClient):
     async def pull(
         self,
         topic: str,
-        callback: Callable[[Message], None],
+        callback: Callable[[Message], Coroutine[Any, Any, None]],
     ) -> None:
         """Register a ZMQ Pull data callback from a source (topic).
 

@@ -16,7 +16,7 @@ import asyncio
 import logging
 import uuid
 from collections.abc import Callable, Coroutine
-from typing import Any
+from typing import Any, cast
 
 import zmq.asyncio
 
@@ -457,7 +457,7 @@ class ZMQCommunication(BaseCommunication):
             await self.create_clients(client_type)
 
         try:
-            await self.clients[client_type].publish(topic, message)
+            await cast(ZMQPubClient, self.clients[client_type]).publish(topic, message)
         except Exception as e:
             logger.error(
                 "Exception publishing message to topic: %s, message: %s, error: %s",
@@ -500,7 +500,9 @@ class ZMQCommunication(BaseCommunication):
             await self.create_clients(client_type)
 
         try:
-            await self.clients[client_type].subscribe(topic, callback)
+            await cast(ZMQSubClient, self.clients[client_type]).subscribe(
+                topic, callback
+            )
         except Exception as e:
             logger.error(f"Exception subscribing to topic: {e}")
             raise CommunicationSubscribeError() from e
@@ -543,7 +545,7 @@ class ZMQCommunication(BaseCommunication):
             await self.create_clients(client_type)
 
         try:
-            return await self.clients[client_type].request(
+            return await cast(ZMQReqClient, self.clients[client_type]).request(
                 target, request_data, timeout
             )
         except Exception as e:
@@ -579,7 +581,9 @@ class ZMQCommunication(BaseCommunication):
             await self.create_clients(client_type)
 
         try:
-            await self.clients[client_type].respond(target, response)
+            await cast(ZMQRepClient, self.clients[client_type]).respond(
+                target, response
+            )
         except Exception as e:
             logger.error(f"Exception responding to {target}: {e}")
             raise CommunicationResponseError() from e
@@ -611,7 +615,7 @@ class ZMQCommunication(BaseCommunication):
             await self.create_clients(client_type)
 
         try:
-            await self.clients[client_type].push(message)
+            await cast(ZMQPushClient, self.clients[client_type]).push(message)
         except Exception as e:
             logger.error(f"Exception pushing data: {e}")
             raise CommunicationPushError() from e
@@ -619,7 +623,7 @@ class ZMQCommunication(BaseCommunication):
     async def pull(
         self,
         topic: TopicType,
-        callback: Callable[[Message], None],
+        callback: Callable[[Message], Coroutine[Any, Any, None]],
     ) -> None:
         """Pull a message from a topic. If the proper ZMQ client type is not found,
         it will be created.
@@ -649,4 +653,4 @@ class ZMQCommunication(BaseCommunication):
             await self.create_clients(client_type)
 
         # Only adds to the callback list, does not block, and does not raise an exception
-        await self.clients[client_type].pull(topic, callback)
+        await cast(ZMQPullClient, self.clients[client_type]).pull(topic, callback)
