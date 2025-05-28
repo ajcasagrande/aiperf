@@ -14,34 +14,32 @@
 #  limitations under the License.
 
 import time
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from openai import AsyncAzureOpenAI, AsyncOpenAI
+from openai.types.chat.chat_completion import ChatCompletion
 from openai.types.chat.chat_completion_stream_options_param import (
     ChatCompletionStreamOptionsParam,
 )
+from openai.types.completion import Completion
+from openai.types.embedding import Embedding
+from openai.types.responses.response import Response
 from pydantic import BaseModel, Field
 
-from aiperf.backend.client_factory import (
-    BackendClientFactory,
-)
 from aiperf.backend.client_mixins import BackendClientConfigMixin
 from aiperf.common.enums import BackendClientType, StrEnum
+from aiperf.common.factories import BackendClientFactory
 from aiperf.common.interfaces import BackendClientProtocol
 from aiperf.common.models import (
-    BackendClientConfig,
     BackendClientResponse,
-    BaseBackendClientConfig,
+    GenericHTTPBackendClientConfig,
     RequestRecord,
 )
 
-if TYPE_CHECKING:
-    from openai.types.chat.chat_completion import ChatCompletion
-
 __all__ = [
     "OpenAIBackendClientConfig",
-    "OpenAIRequest",
-    "OpenAIResponse",
+    "OpenAIBaseRequest",
+    "OpenAIBaseResponse",
     "OpenAIBackendClientConfigMixin",
     "OpenAIBackendClientProtocol",
     "OpenAIBackendClient",
@@ -52,22 +50,22 @@ __all__ = [
 ################################################################################
 
 
-class OpenAIAPIType(StrEnum):
+class OpenAIType(StrEnum):
     """The type of API to use for the OpenAI backend client."""
 
     OPENAI = "openai"
     AZURE = "azure"
 
 
-class OpenAIBackendClientConfig(BaseBackendClientConfig):
+class OpenAIBackendClientConfig(GenericHTTPBackendClientConfig):
     """Configuration specific to an OpenAI backend client."""
 
     organization: str | None = Field(
         default=None,
         description="The organization to use for the OpenAI backend client.",
     )
-    api_type: OpenAIAPIType = Field(
-        default=OpenAIAPIType.OPENAI,
+    api_type: OpenAIType = Field(
+        default=OpenAIType.OPENAI,
         description="The API type to use for the OpenAI backend client.",
     )
     api_version: str | None = Field(
@@ -106,11 +104,16 @@ class OpenAIBackendClientConfig(BaseBackendClientConfig):
     )
 
 
-class OpenAIRequest(BaseModel):
+################################################################################
+# OpenAI Backend Client Requests
+################################################################################
+
+
+class OpenAIBaseRequest(BaseModel):
     """Request specific to an OpenAI backend client."""
 
 
-class OpenAIChatCompletionRequest(OpenAIRequest):
+class OpenAIChatCompletionRequest(OpenAIBaseRequest):
     """Request specific to an OpenAI chat completion."""
 
     messages: list[Any]
@@ -123,7 +126,7 @@ class OpenAIChatCompletionRequest(OpenAIRequest):
     presence_penalty: float
 
 
-class OpenAICompletionRequest(OpenAIRequest):
+class OpenAICompletionRequest(OpenAIBaseRequest):
     """Request specific to an OpenAI completion."""
 
     prompt: str
@@ -136,7 +139,7 @@ class OpenAICompletionRequest(OpenAIRequest):
     presence_penalty: float
 
 
-class OpenAIEmbeddingsRequest(OpenAIRequest):
+class OpenAIEmbeddingsRequest(OpenAIBaseRequest):
     """Request specific to an OpenAI embeddings."""
 
     input: str
@@ -146,11 +149,16 @@ class OpenAIEmbeddingsRequest(OpenAIRequest):
     user: str
 
 
-class OpenAIResponse(BaseModel):
+################################################################################
+# OpenAI Backend Client Responses
+################################################################################
+
+
+class OpenAIBaseResponse(BaseModel):
     """Response specific to an OpenAI backend client."""
 
 
-class OpenAIChatResponsesRequest(OpenAIRequest):
+class OpenAIChatResponsesRequest(OpenAIBaseRequest):
     """Request specific to an OpenAI responses."""
 
     input: str
@@ -158,31 +166,31 @@ class OpenAIChatResponsesRequest(OpenAIRequest):
     max_output_tokens: int
 
 
-class OpenAIChatResponsesResponse(OpenAIResponse):
+class OpenAIChatResponsesResponse(OpenAIBaseResponse):
     """Response specific to an OpenAI responses."""
 
-    response: "ChatResponse"
+    response: Response
 
 
-class OpenAIEmbeddingsResponse(OpenAIResponse):
+class OpenAIEmbeddingsResponse(OpenAIBaseResponse):
     """Response specific to an OpenAI embeddings."""
 
-    response: "Embeddings"
+    response: Embedding
 
 
-class OpenAICompletionResponse(OpenAIResponse):
+class OpenAICompletionResponse(OpenAIBaseResponse):
     """Response specific to an OpenAI completion."""
 
-    response: "Completion"
+    response: Completion
     status_code: int
     headers: dict[str, str]
     body: dict[str, Any]
 
 
-class OpenAIChatCompletionResponse(OpenAIResponse):
+class OpenAIChatCompletionResponse(OpenAIBaseResponse):
     """Response specific to an OpenAI chat completion."""
 
-    response: "ChatCompletion"
+    response: ChatCompletion
 
 
 ################################################################################
@@ -191,27 +199,29 @@ class OpenAIChatCompletionResponse(OpenAIResponse):
 
 OpenAIBackendClientConfigMixin = BackendClientConfigMixin[OpenAIBackendClientConfig]
 
-OpenAIBackendClientProtocol = BackendClientProtocol[OpenAIRequest, OpenAIResponse]
+OpenAIBackendClientProtocol = BackendClientProtocol[
+    OpenAIBackendClientConfig, OpenAIBaseRequest, OpenAIBaseResponse
+]
 
 
 class OpenAIClientMixin(OpenAIBackendClientConfigMixin):
     """Mixin to provide an OpenAI client based on the configuration."""
 
-    def __init__(self, cfg: BackendClientConfig[OpenAIBackendClientConfig]):
-        super().__init__(cfg)
+    def __init__(self, client_config: OpenAIBackendClientConfig):
+        super().__init__(client_config)
         base_url = (
             f"https://{self.client_config.url}"
             if not self.client_config.url.startswith(("http://", "https://"))
             else self.client_config.url
         )
-        if self.client_config.api_type == OpenAIAPIType.OPENAI:
+        if self.client_config.api_type == OpenAIType.OPENAI:
             self._client = AsyncOpenAI(
                 api_key=self.client_config.api_key,
                 base_url=base_url,
                 organization=self.client_config.organization,
                 timeout=self.client_config.timeout_ms,
             )
-        elif self.client_config.api_type == OpenAIAPIType.AZURE:
+        elif self.client_config.api_type == OpenAIType.AZURE:
             self._client = AsyncAzureOpenAI(
                 api_key=self.client_config.api_key,
                 base_url=base_url,
@@ -239,12 +249,10 @@ class OpenAIBackendClient(OpenAIClientMixin, OpenAIBackendClientProtocol):
     This class is responsible for formatting payloads, sending requests, and parsing responses for OpenAI communication.
     """
 
-    def __init__(self, cfg: BackendClientConfig[OpenAIBackendClientConfig]):
-        super().__init__(cfg)
+    def __init__(self, client_config: OpenAIBackendClientConfig):
+        super().__init__(client_config)
 
-    record: RequestRecord = RequestRecord()
-
-    async def format_payload(self, endpoint: str, payload: Any) -> OpenAIRequest:
+    async def format_payload(self, endpoint: str, payload: Any) -> OpenAIBaseRequest:
         if endpoint == "v1/chat/completions":
             return OpenAIChatCompletionRequest(
                 messages=payload["messages"],
@@ -259,8 +267,12 @@ class OpenAIBackendClient(OpenAIClientMixin, OpenAIBackendClientProtocol):
         else:
             raise ValueError(f"Invalid endpoint: {endpoint}")
 
+    @property
+    def client_type(self) -> BackendClientType:
+        return BackendClientType.OPENAI
+
     async def send_request(
-        self, endpoint: str, payload: OpenAIRequest
+        self, endpoint: str, payload: OpenAIBaseRequest
     ) -> RequestRecord:
         if isinstance(payload, OpenAIChatCompletionRequest):
             record: RequestRecord = RequestRecord()
@@ -279,7 +291,7 @@ class OpenAIBackendClient(OpenAIClientMixin, OpenAIBackendClientProtocol):
                 ),
             ):
                 record.response_timestamps_ns.append(time.time_ns())
-                record.responses.append(response)
+                record.responses.append(BackendClientResponse(response=response))
 
             return record
 
@@ -311,11 +323,11 @@ class OpenAIBackendClient(OpenAIClientMixin, OpenAIBackendClientProtocol):
         else:
             raise ValueError(f"Invalid payload: {payload}")
 
-        return OpenAIResponse(response=response)
+        return OpenAIBaseResponse(response=response)
 
     async def parse_response(
-        self, response: OpenAIResponse
-    ) -> BackendClientResponse[OpenAIResponse]:
+        self, response: OpenAIBaseResponse
+    ) -> BackendClientResponse[OpenAIBaseResponse]:
         # TODO: Implement
         raise NotImplementedError(
             "OpenAIBackendClient does not support parsing responses"

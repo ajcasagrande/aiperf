@@ -20,18 +20,6 @@ The backend clients are responsible for formatting payloads, sending requests, a
 The backend clients are registered with the BackendClientFactory, which is responsible for creating backend client instances.
 """
 
-__all__ = [
-    "BackendClientFactory",
-    "BackendClientConfigMixin",
-    "DynamoBackendClient",
-    "GRPCBackendClient",
-    "HTTPBackendClient",
-    "OpenAIBackendClient",
-]
-
-from aiperf.backend.client_factory import BackendClientFactory
-from aiperf.backend.client_mixins import BackendClientConfigMixin
-from aiperf.backend.dynamo_client import DynamoBackendClient
-from aiperf.backend.grpc_client import GRPCBackendClient
-from aiperf.backend.http_client import HTTPBackendClient
 from aiperf.backend.openai_client import OpenAIBackendClient
+
+__all__ = ["OpenAIBackendClient"]

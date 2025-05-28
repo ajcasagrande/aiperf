@@ -222,3 +222,16 @@ class TokenizerInitializationError(TokenizerError):
 
 class BackendClientError(AIPerfError):
     """Exception raised when a backend client encounters an error."""
+
+
+################################################################################
+# Factory Exceptions
+################################################################################
+
+
+class FactoryRegistrationError(AIPerfError):
+    """Exception raised when a factory encounters an error while registering a class."""
+
+
+class FactoryCreationError(AIPerfError):
+    """Exception raised when a factory encounters an error while creating a class."""

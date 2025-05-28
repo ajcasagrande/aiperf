@@ -278,3 +278,33 @@ class RequestTimerKind(Enum):
     SEND_END = auto()  # End of sending request bytes
     RECV_START = auto()  # Start of receiving response bytes
     RECV_END = auto()  # End of receiving response bytes
+
+
+################################################################################
+# Converter Enums
+################################################################################
+
+
+class PromptSource(StrEnum):
+    """Source of prompts for the model."""
+
+    SYNTHETIC = "synthetic"
+    FILE = "file"
+    PAYLOAD = "payload"
+
+
+class ModelSelectionStrategy(StrEnum):
+    """Strategy for selecting the model to use for the request."""
+
+    ROUND_ROBIN = "round_robin"
+    RANDOM = "random"
+    MODALITY_AWARE = "modality_aware"
+
+
+class OutputFormat(StrEnum):
+    """Output format types."""
+
+    OPENAI_CHAT_COMPLETIONS = "openai_chat_completions"
+    OPENAI_COMPLETIONS = "openai_completions"
+    OPENAI_EMBEDDINGS = "openai_embeddings"
+    OPENAI_MULTIMODAL = "openai_multimodal"

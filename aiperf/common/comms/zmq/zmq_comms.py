@@ -20,7 +20,6 @@ from typing import Any, cast
 
 import zmq.asyncio
 
-from aiperf.common.comms import CommunicationFactory
 from aiperf.common.comms.base import BaseCommunication
 from aiperf.common.comms.client_enums import (
     ClientType,
@@ -52,6 +51,7 @@ from aiperf.common.exceptions import (
     CommunicationShutdownError,
     CommunicationSubscribeError,
 )
+from aiperf.common.factories import CommunicationFactory
 from aiperf.common.models import Message, ZMQCommunicationConfig
 
 logger = logging.getLogger(__name__)

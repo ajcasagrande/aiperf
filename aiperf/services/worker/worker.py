@@ -30,8 +30,8 @@ from aiperf.common.decorators import (
     on_start,
     on_stop,
 )
-from aiperf.common.enums import BackendClientType, ServiceType, Topic
-from aiperf.common.models import BackendClientConfig, CreditReturnPayload
+from aiperf.common.enums import ServiceType, Topic
+from aiperf.common.models import CreditReturnPayload
 from aiperf.common.service.base_service import BaseService
 
 
@@ -73,17 +73,14 @@ class Worker(BaseService):
         api_key = os.environ.get("OPENAI_API_KEY", "dummy-key-for-testing")
 
         # Create OpenAI client configuration
-        openai_client_config = BackendClientConfig(
-            backend_client_type=BackendClientType.OPENAI,
-            client_config=OpenAIBackendClientConfig(
-                api_key=api_key,
-                url="http://127.0.0.1:8000/v1",  # Default OpenAI API endpoint
-                model="gpt-3.5-turbo",  # Default model
-            ),
+        openai_client_config = OpenAIBackendClientConfig(
+            api_key=api_key,
+            url="http://127.0.0.1:8000/v1",  # Default OpenAI API endpoint
+            model="gpt-3.5-turbo",  # Default model
         )
 
         # Initialize the OpenAI client
-        self.openai_client = OpenAIBackendClient(cfg=openai_client_config)
+        self.openai_client = OpenAIBackendClient(client_config=openai_client_config)
         self.logger.info("OpenAI backend client initialized")
 
     @on_run

@@ -56,7 +56,7 @@ class WorkerManager(BaseComponentService):
         self.workers: dict[str, WorkerProcess] = {}
         # TODO: Need to implement some sort of max workers
         self.cpu_count = multiprocessing.cpu_count()
-        self.worker_count = 16  # self.cpu_count
+        self.worker_count = self.cpu_count - 1
         self.logger.debug(
             f"Detected {self.cpu_count} CPU threads. Spawning {self.worker_count} workers"
         )

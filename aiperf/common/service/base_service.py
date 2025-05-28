@@ -21,10 +21,10 @@ from abc import ABC
 from collections import defaultdict
 from collections.abc import Callable
 
-from aiperf.common.comms import BaseCommunication, CommunicationFactory
+from aiperf.common.comms import BaseCommunication
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.decorators import AIPerfHooks
-from aiperf.common.enums import ServiceState
+from aiperf.common.enums import CommunicationBackend, ServiceState
 from aiperf.common.exceptions import (
     AIPerfMultiError,
     CommunicationClientCreationError,
@@ -35,7 +35,8 @@ from aiperf.common.exceptions import (
     ServiceStartError,
     ServiceStopError,
 )
-from aiperf.common.models import BaseMessage, Message, Payload
+from aiperf.common.factories import CommunicationFactory
+from aiperf.common.models import BaseMessage, Message, Payload, ZMQCommunicationConfig
 from aiperf.common.service.base_service_interface import BaseServiceInterface
 from aiperf.common.service.service_metaclass import ServiceMetaclass
 from aiperf.common.utils import call_all_functions_self
@@ -177,7 +178,10 @@ class BaseService(BaseServiceInterface, ABC, metaclass=ServiceMetaclass):
 
         # Initialize communication
         try:
-            self._comms = CommunicationFactory.create_communication(self.service_config)
+            self._comms = CommunicationFactory.create_instance(
+                CommunicationBackend.ZMQ_TCP,
+                config=ZMQCommunicationConfig(),
+            )
         except Exception as e:
             self.logger.exception(
                 "Failed to create communication for service %s (id: %s)",

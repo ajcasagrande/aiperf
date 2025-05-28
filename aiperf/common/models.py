@@ -22,7 +22,6 @@ from typing import Any, Generic, Literal, Union
 from pydantic import BaseModel, Field
 
 from aiperf.common.enums import (
-    BackendClientType,
     CommandType,
     MessageType,
     RequestTimerKind,
@@ -30,7 +29,7 @@ from aiperf.common.enums import (
     ServiceState,
     ServiceType,
 )
-from aiperf.common.types import ConfigT, ResponseT
+from aiperf.common.types import ResponseT
 
 __all__ = [
     "ZMQTCPTransportConfig",
@@ -46,8 +45,6 @@ __all__ = [
     "CreditReturnPayload",
     "Message",
     "ServiceRunInfo",
-    "BackendClientConfig",
-    "BackendClientResponse",
     "Payload",
     "BaseMessage",
     "DataMessage",
@@ -59,6 +56,14 @@ __all__ = [
     "CreditReturnMessage",
     "ErrorMessage",
     "Message",
+    "InferResult",
+    "InferInput",
+    "InferRequestOptions",
+    "RequestRecord",
+    "RequestTimers",
+    "GenericHTTPBackendClientConfig",
+    "BackendClientResponse",
+    "BaseBackendClientConfig",
 ]
 
 ################################################################################
@@ -469,27 +474,14 @@ class ServiceRunInfo(BaseModel):
 ################################################################################
 
 
-class BackendClientConfig(BaseModel, Generic[ConfigT]):
-    """Configuration for a backend client.
-
-    This is a generic model that can be used to configure any backend client.
-    The type of the backend client configuration is specified by the generic type `ConfigT`.
-    """
-
-    backend_client_type: BackendClientType | str = Field(
-        ...,
-        description="The type of backend client to use. This should be a valid backend client "
-        "type that is registered in the backend client factory.",
-    )
-    client_config: ConfigT = Field(
-        ...,
-        description="Configuration for the backend client. This should be a Pydantic model that "
-        "is specific to the backend client type.",
-    )
-
-
 class BaseBackendClientConfig(BaseModel):
     """Base configuration options for all backend clients."""
+
+    ...
+
+
+class GenericHTTPBackendClientConfig(BaseBackendClientConfig):
+    """Configuration options for a generic HTTP backend client."""
 
     url: str = Field(
         default="localhost:8000", description="The URL of the backend client."
@@ -521,9 +513,42 @@ class BackendClientResponse(BaseModel, Generic[ResponseT]):
     response: ResponseT
     error: str | None = None
 
-    model_config = {
-        "arbitrary_types_allowed": True,
-    }
+
+################################################################################
+# Inference Data Models
+################################################################################
+
+
+class InferResult(BaseModel):
+    """Result of an inference request."""
+
+    id: str
+    model_name: str
+    model_version: str | None = None
+    outputs: dict[str, Any] = Field(default_factory=dict)
+    client_id: int | None = None
+    request_id: int | None = None
+    raw_response: Any | None = None
+
+
+class InferInput(BaseModel):
+    """Input for an inference request."""
+
+    name: str
+    shape: list[int] | None = None
+    datatype: str | None = None
+    data: Any | None = None
+
+
+class InferRequestOptions(BaseModel):
+    """Options for an inference request."""
+
+    sequence_id: int | None = None
+    sequence_start: bool = False
+    sequence_end: bool = False
+    priority: int | None = None
+    timeout_ms: int | None = None
+    headers: dict[str, str] = Field(default_factory=dict)
 
 
 ################################################################################
@@ -531,7 +556,7 @@ class BackendClientResponse(BaseModel, Generic[ResponseT]):
 ################################################################################
 
 
-class RequestRecord(BaseModel):
+class RequestRecord(BaseModel, Generic[ResponseT]):
     """Record of a request."""
 
     start_time_ns: int = Field(
@@ -542,7 +567,7 @@ class RequestRecord(BaseModel):
         default_factory=list,
         description="The timestamps of each response in nanoseconds since the epoch.",
     )
-    responses: list[ResponseT] = Field(
+    responses: list[BackendClientResponse[ResponseT]] = Field(
         default_factory=list,
         description="The responses received from the request.",
     )

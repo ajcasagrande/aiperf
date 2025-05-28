@@ -19,7 +19,6 @@
 
 from typing import Generic
 
-from aiperf.common.models import BackendClientConfig
 from aiperf.common.types import ConfigT
 
 __all__ = [
@@ -30,9 +29,9 @@ __all__ = [
 class BackendClientConfigMixin(Generic[ConfigT]):
     """Mixin for backend client configuration."""
 
-    def __init__(self, cfg: BackendClientConfig[ConfigT]) -> None:
+    def __init__(self, client_config: ConfigT) -> None:
         """Create a new backend client based on the provided configuration."""
-        self._client_config = cfg.client_config
+        self._client_config = client_config
 
     @property
     def client_config(self) -> ConfigT:

@@ -12,10 +12,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from typing import TYPE_CHECKING, Any, TypeVar
-
-if TYPE_CHECKING:
-    from pydantic import BaseModel
+from typing import Any, TypeVar
 
 # Prevent exporting other imported types
 __all__ = [
@@ -24,6 +21,8 @@ __all__ = [
     "ResponseT",
 ]
 
-ConfigT = TypeVar("ConfigT", bound="BaseModel", infer_variance=True)
+ConfigT = TypeVar("ConfigT", bound=Any, infer_variance=True)
 RequestT = TypeVar("RequestT", bound=Any, infer_variance=True)
 ResponseT = TypeVar("ResponseT", bound=Any, infer_variance=True)
+InputT = TypeVar("InputT", bound=Any, infer_variance=True)
+OutputT = TypeVar("OutputT", bound=Any, infer_variance=True)
