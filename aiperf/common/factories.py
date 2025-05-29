@@ -18,19 +18,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 if TYPE_CHECKING:
-    from aiperf.common.comms.base import BaseCommunication
-    from aiperf.common.enums import (
-        BackendClientType,
-        CommunicationBackend,
-        OutputFormat,
-        PromptSource,
-    )
     from aiperf.common.exceptions import FactoryCreationError
-    from aiperf.common.interfaces import (
-        BackendClientProtocol,
-        InputConverterProtocol,
-        OutputConverterProtocol,
-    )
 
 ClassEnumT = TypeVar("ClassEnumT", bound=Any, infer_variance=True)
 ClassProtocolT = TypeVar("ClassProtocolT", bound=Any, infer_variance=True)
@@ -178,7 +166,7 @@ class FactoryMixin(Generic[ClassEnumT, ClassProtocolT]):
 ################################################################################
 
 
-class InputConverterFactory(FactoryMixin[PromptSource, InputConverterProtocol]):
+class InputConverterFactory(FactoryMixin["PromptSource", "InputConverterProtocol"]):
     """Factory for registering and creating InputConverterProtocol instances based on the specified prompt source.
 
     Example:
@@ -197,7 +185,7 @@ class InputConverterFactory(FactoryMixin[PromptSource, InputConverterProtocol]):
     """
 
 
-class OutputConverterFactory(FactoryMixin[OutputFormat, OutputConverterProtocol]):
+class OutputConverterFactory(FactoryMixin["OutputFormat", "OutputConverterProtocol"]):
     """Factory for registering and creating OutputConverterProtocol instances based on the specified output format.
 
     Example:
@@ -216,7 +204,7 @@ class OutputConverterFactory(FactoryMixin[OutputFormat, OutputConverterProtocol]
     """
 
 
-class CommunicationFactory(FactoryMixin[CommunicationBackend, BaseCommunication]):
+class CommunicationFactory(FactoryMixin["CommunicationBackend", "BaseCommunication"]):
     """Factory for registering and creating BaseCommunication instances based on the specified communication backend.
 
     Example:
@@ -235,7 +223,7 @@ class CommunicationFactory(FactoryMixin[CommunicationBackend, BaseCommunication]
     """
 
 
-class BackendClientFactory(FactoryMixin[BackendClientType, BackendClientProtocol]):
+class BackendClientFactory(FactoryMixin["BackendClientType", "BackendClientProtocol"]):
     """Factory for registering and creating BackendClientProtocol instances based on the specified backend client type.
 
     Example:
