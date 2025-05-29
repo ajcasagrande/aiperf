@@ -110,7 +110,7 @@ class OpenAIBackendClientConfig(GenericHTTPBackendClientConfig):
 
 
 class OpenAIBaseRequest(BaseModel):
-    """Request specific to an OpenAI backend client."""
+    """Base request specific to an OpenAI backend client."""
 
 
 class OpenAIChatCompletionRequest(OpenAIBaseRequest):
@@ -124,6 +124,14 @@ class OpenAIChatCompletionRequest(OpenAIBaseRequest):
     stop: list[str]
     frequency_penalty: float
     presence_penalty: float
+
+
+class OpenAIChatResponsesRequest(OpenAIBaseRequest):
+    """Response specific to an OpenAI responses ."""
+
+    input: str
+    model: str
+    max_output_tokens: int
 
 
 class OpenAICompletionRequest(OpenAIBaseRequest):
@@ -158,14 +166,6 @@ class OpenAIBaseResponse(BaseModel):
     """Response specific to an OpenAI backend client."""
 
 
-class OpenAIChatResponsesRequest(OpenAIBaseRequest):
-    """Request specific to an OpenAI responses."""
-
-    input: str
-    model: str
-    max_output_tokens: int
-
-
 class OpenAIChatResponsesResponse(OpenAIBaseResponse):
     """Response specific to an OpenAI responses."""
 
@@ -198,22 +198,27 @@ class OpenAIChatCompletionResponse(OpenAIBaseResponse):
 ################################################################################
 
 OpenAIBackendClientConfigMixin = BackendClientConfigMixin[OpenAIBackendClientConfig]
+"""Type alias for a backend client config mixin that supports OpenAI configuration."""
 
 OpenAIBackendClientProtocol = BackendClientProtocol[
     OpenAIBackendClientConfig, OpenAIBaseRequest, OpenAIBaseResponse
 ]
+"""Type alias for a backend client protocol that supports OpenAI."""
 
 
 class OpenAIClientMixin(OpenAIBackendClientConfigMixin):
-    """Mixin to provide an OpenAI client based on the configuration."""
+    """Mixin to provide an OpenAI client based on the configuration.
+    Currently supports OpenAI and Azure OpenAI."""
 
     def __init__(self, client_config: OpenAIBackendClientConfig):
         super().__init__(client_config)
+
         base_url = (
             f"https://{self.client_config.url}"
             if not self.client_config.url.startswith(("http://", "https://"))
             else self.client_config.url
         )
+
         if self.client_config.api_type == OpenAIType.OPENAI:
             self._client = AsyncOpenAI(
                 api_key=self.client_config.api_key,
@@ -221,6 +226,7 @@ class OpenAIClientMixin(OpenAIBackendClientConfigMixin):
                 organization=self.client_config.organization,
                 timeout=self.client_config.timeout_ms,
             )
+
         elif self.client_config.api_type == OpenAIType.AZURE:
             self._client = AsyncAzureOpenAI(
                 api_key=self.client_config.api_key,
@@ -228,6 +234,7 @@ class OpenAIClientMixin(OpenAIBackendClientConfigMixin):
                 organization=self.client_config.organization,
                 timeout=self.client_config.timeout_ms,
             )
+
         else:
             raise ValueError(f"Invalid OpenAI API type: {self.client_config.api_type}")
 
@@ -244,15 +251,17 @@ class OpenAIClientMixin(OpenAIBackendClientConfigMixin):
 
 @BackendClientFactory.register(BackendClientType.OPENAI)
 class OpenAIBackendClient(OpenAIClientMixin, OpenAIBackendClientProtocol):
-    """A backend client for OpenAI communication.
+    """A backend client for communicating with OpenAI based REST APIs.
 
-    This class is responsible for formatting payloads, sending requests, and parsing responses for OpenAI communication.
+    This class is responsible for formatting payloads, sending requests, and parsing responses for OpenAI based REST APIs.
     """
 
     def __init__(self, client_config: OpenAIBackendClientConfig):
         super().__init__(client_config)
 
     async def format_payload(self, endpoint: str, payload: Any) -> OpenAIBaseRequest:
+        # TODO: Is this actually an InputConverterProtocol?
+
         if endpoint == "v1/chat/completions":
             return OpenAIChatCompletionRequest(
                 messages=payload["messages"],
@@ -264,6 +273,35 @@ class OpenAIBackendClient(OpenAIClientMixin, OpenAIBackendClientProtocol):
                 frequency_penalty=self.client_config.frequency_penalty,
                 presence_penalty=self.client_config.presence_penalty,
             )
+
+        elif endpoint == "v1/completions":
+            return OpenAICompletionRequest(
+                prompt=payload["prompt"],
+                model=self.client_config.model,
+                max_tokens=self.client_config.max_tokens,
+                temperature=self.client_config.temperature,
+                top_p=self.client_config.top_p,
+                stop=self.client_config.stop or [],
+                frequency_penalty=self.client_config.frequency_penalty,
+                presence_penalty=self.client_config.presence_penalty,
+            )
+
+        elif endpoint == "v1/embeddings":
+            return OpenAIEmbeddingsRequest(
+                input=payload["input"],
+                model=self.client_config.model,
+                dimensions=payload["dimensions"],
+                encoding_format=payload["encoding_format"],
+                user=payload["user"],
+            )
+
+        elif endpoint == "v1/responses":
+            return OpenAIChatResponsesRequest(
+                input=payload["input"],
+                model=self.client_config.model,
+                max_output_tokens=self.client_config.max_tokens,
+            )
+
         else:
             raise ValueError(f"Invalid endpoint: {endpoint}")
 
@@ -274,6 +312,8 @@ class OpenAIBackendClient(OpenAIClientMixin, OpenAIBackendClientProtocol):
     async def send_request(
         self, endpoint: str, payload: OpenAIBaseRequest
     ) -> RequestRecord:
+        # TODO: Is this actually an OutputConverterProtocol?
+
         if isinstance(payload, OpenAIChatCompletionRequest):
             record: RequestRecord = RequestRecord()
             async for response in await self.client.chat.completions.create(
@@ -306,14 +346,15 @@ class OpenAIBackendClient(OpenAIClientMixin, OpenAIBackendClientProtocol):
                 frequency_penalty=self.client_config.frequency_penalty,
                 presence_penalty=self.client_config.presence_penalty,
             )
+
         elif isinstance(payload, OpenAIEmbeddingsRequest):
             response = await self.client.embeddings.create(
                 model=self.client_config.model,
                 input=payload.input,
                 dimensions=payload.dimensions,
-                encoding_format=payload.encoding_format,
                 user=payload.user,
             )
+
         elif isinstance(payload, OpenAIChatResponsesRequest):
             response = await self.client.responses.create(
                 input=payload.input,

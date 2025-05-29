@@ -15,20 +15,33 @@
 import logging
 from collections.abc import Callable
 from enum import StrEnum
-from typing import Any, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
-from aiperf.common.exceptions import FactoryCreationError
+if TYPE_CHECKING:
+    from aiperf.common.comms.base import BaseCommunication
+    from aiperf.common.enums import (
+        BackendClientType,
+        CommunicationBackend,
+        OutputFormat,
+        PromptSource,
+    )
+    from aiperf.common.exceptions import FactoryCreationError
+    from aiperf.common.interfaces import (
+        BackendClientProtocol,
+        InputConverterProtocol,
+        OutputConverterProtocol,
+    )
 
-ClassNameT = TypeVar("ClassNameT", bound=Any, infer_variance=True)
+ClassEnumT = TypeVar("ClassEnumT", bound=Any, infer_variance=True)
 ClassProtocolT = TypeVar("ClassProtocolT", bound=Any, infer_variance=True)
 
 __all__ = [
-    "GenericBaseFactory",
+    "FactoryMixin",
     "InputConverterFactory",
     "OutputConverterFactory",
     "CommunicationFactory",
     "BackendClientFactory",
-    "ClassNameT",
+    "ClassEnumT",
     "ClassProtocolT",
 ]
 
@@ -37,18 +50,60 @@ __all__ = [
 ################################################################################
 
 
-class GenericBaseFactory(Generic[ClassNameT, ClassProtocolT]):
-    """Defines a generic base class for all factories, which supports registering
-    and creating instances of classes."""
+class FactoryMixin(Generic[ClassEnumT, ClassProtocolT]):
+    """Defines a mixin for all factories, which supports registering and creating instances of classes.
+
+    This mixin is used to create a factory for a given class type and protocol.
+
+    Example:
+    ```python
+        # Define a new enum for the expected implementation types
+        # This is optional, but recommended for type safety.
+        class DatasetLoaderType(StrEnum):
+            FILE = "file"
+            S3 = "s3"
+
+        # Define a new class protocol.
+        class DatasetLoaderProtocol(Protocol):
+            def load(self) -> Dataset:
+                pass
+
+        # Create a new factory for a given class type and protocol.
+        class DatasetFactory(FactoryMixin[DatasetLoaderType, DatasetLoaderProtocol]):
+            pass
+
+        # Register a new class type mapping to its corresponding class. It should implement the class protocol.
+        @DatasetFactory.register(DatasetLoaderType.FILE)
+        class FileDatasetLoader:
+            def __init__(self, filename: str):
+                self.filename = filename
+
+            def load(self) -> Dataset:
+                return Dataset.from_file(self.filename)
+
+        DatasetConfig = {
+            "type": DatasetLoaderType.FILE,
+            "filename": "data.csv"
+        }
+
+        # Create a new instance of the class.
+        if DatasetConfig["type"] == DatasetLoaderType.FILE:
+            dataset_instance = DatasetFactory.create_instance(DatasetLoaderType.FILE, filename=DatasetConfig["filename"])
+        else:
+            raise ValueError(f"Unsupported dataset loader type: {DatasetConfig['type']}")
+
+        dataset_instance.load()
+    ```
+    """
 
     logger = logging.getLogger(__name__)
 
-    _registry: dict[ClassNameT | StrEnum | str, type[ClassProtocolT]] = {}
-    _override_priorities: dict[ClassNameT | StrEnum | str, int] = {}
+    _registry: dict[ClassEnumT | str, type[ClassProtocolT]] = {}
+    _override_priorities: dict[ClassEnumT | str, int] = {}
 
     @classmethod
     def register(
-        cls, class_type: ClassNameT | StrEnum | str, override_priority: int = 0
+        cls, class_type: ClassEnumT | str, override_priority: int = 0
     ) -> Callable:
         """Register a new class type mapping to its corresponding class.
 
@@ -74,11 +129,11 @@ class GenericBaseFactory(Generic[ClassNameT, ClassProtocolT]):
                 return class_cls
 
             if class_type not in cls._registry:
-                cls.logger.info(
+                cls.logger.debug(
                     f"{class_type!r} class {class_cls.__name__} registered with priority {override_priority}."
                 )
             else:
-                cls.logger.info(
+                cls.logger.debug(
                     f"{class_type!r} class {class_cls.__name__} with priority {override_priority} overrides "
                     f"already registered class {cls._registry[class_type].__name__} with lower priority ({existing_priority})."
                 )
@@ -91,7 +146,7 @@ class GenericBaseFactory(Generic[ClassNameT, ClassProtocolT]):
     @classmethod
     def create_instance(
         cls,
-        class_type: ClassNameT | StrEnum | str,
+        class_type: ClassEnumT | StrEnum | str,
         config: Any | None = None,
         **kwargs: Any,
     ) -> ClassProtocolT:
@@ -123,9 +178,7 @@ class GenericBaseFactory(Generic[ClassNameT, ClassProtocolT]):
 ################################################################################
 
 
-class InputConverterFactory(
-    GenericBaseFactory["PromptSource", "InputConverterProtocol"]
-):
+class InputConverterFactory(FactoryMixin[PromptSource, InputConverterProtocol]):
     """Factory for registering and creating InputConverterProtocol instances based on the specified prompt source.
 
     Example:
@@ -144,9 +197,7 @@ class InputConverterFactory(
     """
 
 
-class OutputConverterFactory(
-    GenericBaseFactory["OutputFormat", "OutputConverterProtocol"]
-):
+class OutputConverterFactory(FactoryMixin[OutputFormat, OutputConverterProtocol]):
     """Factory for registering and creating OutputConverterProtocol instances based on the specified output format.
 
     Example:
@@ -165,9 +216,7 @@ class OutputConverterFactory(
     """
 
 
-class CommunicationFactory(
-    GenericBaseFactory["CommunicationBackend", "BaseCommunication"]
-):
+class CommunicationFactory(FactoryMixin[CommunicationBackend, BaseCommunication]):
     """Factory for registering and creating BaseCommunication instances based on the specified communication backend.
 
     Example:
@@ -186,17 +235,15 @@ class CommunicationFactory(
     """
 
 
-class BackendClientFactory(
-    GenericBaseFactory["BackendClientType", "BackendClientProtocol"]
-):
+class BackendClientFactory(FactoryMixin[BackendClientType, BackendClientProtocol]):
     """Factory for registering and creating BackendClientProtocol instances based on the specified backend client type.
 
     Example:
     ```python
         # Register a new backend client
         @BackendClientFactory.register(BackendClientType.OPENAI)
-        class OpenAIBackendClient(BackendClientProtocol):
-            pass
+        class OpenAIBackendClient:
+            pass  # Implement the BackendClientProtocol
 
         backend_client = BackendClientFactory.create_instance(
             BackendClientType.OPENAI,

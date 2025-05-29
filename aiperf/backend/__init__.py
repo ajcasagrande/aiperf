@@ -15,9 +15,9 @@
 """
 This package contains the backend clients for the AIPerf framework.
 
-The backend clients are responsible for formatting payloads, sending requests, and parsing responses for communicating with the backend.
+Backend clients are responsible for formatting payloads, sending requests, and parsing responses for communicating with the system under test.
 
-The backend clients are registered with the BackendClientFactory, which is responsible for creating backend client instances.
+They are registered with the :class:`aiperf.common.factories.BackendClientFactory`, which is responsible for creating backend client instances.
 """
 
 from aiperf.backend.openai_client import OpenAIBackendClient
