@@ -4,6 +4,7 @@ import sys
 
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ServiceType
+from aiperf.common.factories import MetricProviderFactory, ServiceFactory
 from aiperf.common.hooks import (
     on_cleanup,
     on_configure,
@@ -11,8 +12,6 @@ from aiperf.common.hooks import (
     on_start,
     on_stop,
 )
-from aiperf.common.enums import ServiceType
-from aiperf.common.factories import ServiceFactory
 from aiperf.common.models import BasePayload
 from aiperf.common.service.base_component_service import BaseComponentService
 
@@ -28,6 +27,7 @@ class PostProcessorManager(BaseComponentService):
     ) -> None:
         super().__init__(service_config=service_config, service_id=service_id)
         self.logger.debug("Initializing post processor manager")
+        self.running_providers = []
 
     @property
     def service_type(self) -> ServiceType:
@@ -46,11 +46,22 @@ class PostProcessorManager(BaseComponentService):
         self.logger.debug("Starting post processor manager")
         # TODO: Implement post processor manager start
 
+        for provider_cls in MetricProviderFactory.get_all_classes():
+            provider = provider_cls(
+                service_config=self.service_config, service_id=self.service_id
+            )
+            self.running_providers.append(provider)
+            provider.start()
+
+
     @on_stop
     async def _stop(self) -> None:
         """Stop the post processor manager."""
         self.logger.debug("Stopping post processor manager")
         # TODO: Implement post processor manager stop
+        for provider in self.running_providers:
+            provider.get_metrics()
+            provider.stop()
 
     @on_cleanup
     async def _cleanup(self) -> None:

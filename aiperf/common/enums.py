@@ -238,3 +238,16 @@ class ServiceRegistrationStatus(StrEnum):
 
     ERROR = "error"
     """The service registration failed."""
+
+
+################################################################################
+# Metric Providers Enums
+################################################################################
+
+
+class MetricProviders(StrEnum):
+    """Enum for the different metric providers."""
+
+    NVIDIA_DCGM = "nvidia_dcgm"
+    NVIDIA_SMI = "nvidia_smi"
+    NVIDIA_NVML = "nvidia_nvml"
