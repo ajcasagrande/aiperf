@@ -241,11 +241,39 @@ class ServiceRegistrationStatus(StrEnum):
 
 
 ################################################################################
+# Hooks Enums
+################################################################################
+
+
+class AIPerfHook(StrEnum):
+    """Enum for the various AIPerf hooks.
+
+    Note: If you add a new hook, you must also add it to the @supports_hooks
+    decorator of the class you wish to use the hook in.
+    """
+
+    ON_INIT = "__aiperf_on_init__"
+    ON_RUN = "__aiperf_on_run__"
+    ON_CONFIGURE = "__aiperf_on_configure__"
+    ON_START = "__aiperf_on_start__"
+    ON_STOP = "__aiperf_on_stop__"
+    ON_CLEANUP = "__aiperf_on_cleanup__"
+
+    ON_SET_STATE = "__aiperf_on_set_state__"
+
+    AIPERF_TASK = "__aiperf_task__"
+
+
+HookType = AIPerfHook | str
+"""Type alias for valid hook types. This is a union of the AIPerfHook enum and any user-defined custom strings."""
+
+
+################################################################################
 # Metric Providers Enums
 ################################################################################
 
 
-class MetricProviders(StrEnum):
+class MetricProviderType(StrEnum):
     """Enum for the different metric providers."""
 
     NVIDIA_DCGM = "nvidia_dcgm"

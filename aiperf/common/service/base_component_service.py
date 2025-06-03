@@ -13,6 +13,7 @@ from aiperf.common.exceptions import (
 )
 from aiperf.common.hooks import AIPerfHook, aiperf_task, on_run, on_set_state
 from aiperf.common.models import (
+    AIPerfTaskOptions,
     CommandMessage,
     HeartbeatMessage,
     HeartbeatPayload,
@@ -110,24 +111,22 @@ class BaseComponentService(BaseService):
         except Exception as e:
             raise ServiceRegistrationError() from e
 
-    @aiperf_task
+    @aiperf_task(
+        options=AIPerfTaskOptions(
+            interval=5,
+            start_hook=AIPerfHook.ON_INIT,
+            delay_first_run=True,
+        )
+    )
     async def _heartbeat_task(self) -> None:
         """Starts a background task to send heartbeats at regular intervals. It
         will continue to send heartbeats even if an error occurs until the stop
         event is set.
         """
-        while not self.stop_event.is_set():
-            # Sleep first to avoid sending a heartbeat before the registration
-            # message has been published
-            await asyncio.sleep(self._heartbeat_interval)
-
-            try:
-                await self.send_heartbeat()
-            except Exception as e:
-                self.logger.warning("Exception sending heartbeat: %s", e)
-                # continue to keep sending heartbeats regardless of the error
-
-        self.logger.debug("Heartbeat task stopped")
+        try:
+            await self.send_heartbeat()
+        except Exception as e:
+            self.logger.warning("Exception sending heartbeat: %s", e)
 
     async def send_heartbeat(self) -> None:
         """Send a heartbeat notification to the system controller."""

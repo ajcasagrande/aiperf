@@ -7,13 +7,14 @@ import uuid
 import zmq.asyncio
 from zmq import SocketType
 
+from aiperf.common.enums import AIPerfHook
 from aiperf.common.exceptions import (
     CommunicationError,
     CommunicationInitializationError,
     CommunicationNotInitializedError,
     CommunicationShutdownError,
 )
-from aiperf.common.hooks import AIPerfHook, AIPerfTaskMixin, supports_hooks
+from aiperf.common.mixins import AIPerfTaskMixin, supports_hooks
 
 
 @supports_hooks(

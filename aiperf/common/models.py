@@ -9,6 +9,7 @@ from typing import Any, Literal, Union
 from pydantic import BaseModel, Field
 
 from aiperf.common.enums import (
+    AIPerfHook,
     CommandType,
     MessageType,
     ServiceRegistrationStatus,
@@ -416,4 +417,27 @@ class ServiceRunInfo(BaseModel):
     state: ServiceState = Field(
         default=ServiceState.UNKNOWN,
         description="The current state of the service",
+    )
+
+
+################################################################################
+# Task Models
+################################################################################
+
+
+class AIPerfTaskOptions(BaseModel):
+    """Options for a task function."""
+
+    interval: float | None = Field(
+        default=1,
+        description="The interval in seconds to run the task. If None, the task will run once.",
+    )
+    start_hook: Literal[AIPerfHook.ON_INIT, AIPerfHook.ON_START] = Field(
+        default=AIPerfHook.ON_START,
+        description="The hook to start the task at.",
+    )
+    delay_first_run: bool = Field(
+        default=False,
+        description="Whether to delay the first run of the task by the interval. "
+        "If True, the task will wait one interval before running the first time.",
     )

@@ -9,7 +9,7 @@ from abc import ABC
 
 from aiperf.common.comms.base import BaseCommunication
 from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.enums import CommunicationBackend, ServiceState
+from aiperf.common.enums import AIPerfHook, ServiceState
 from aiperf.common.exceptions import (
     AIPerfMultiError,
     CommunicationClientCreationError,
@@ -20,10 +20,9 @@ from aiperf.common.exceptions import (
     ServiceStartError,
     ServiceStopError,
 )
-from aiperf.common.hooks import AIPerfHook, AIPerfTaskMixin, supports_hooks
-from aiperf.common.models import BaseMessage, Message, Payload
 from aiperf.common.factories import CommunicationFactory
-from aiperf.common.models import BaseMessage, Message, Payload, ZMQCommunicationConfig
+from aiperf.common.mixins import AIPerfTaskMixin, LifecycleMixin, supports_hooks
+from aiperf.common.models import BaseMessage, Message, Payload
 from aiperf.common.service.base_service_interface import BaseServiceInterface
 
 
@@ -37,7 +36,7 @@ from aiperf.common.service.base_service_interface import BaseServiceInterface
     AIPerfHook.ON_SET_STATE,
     AIPerfHook.AIPERF_TASK,
 )
-class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
+class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin, LifecycleMixin):
     """Base class for all AIPerf services, providing common functionality for
     communication, state management, and lifecycle operations.
 
@@ -60,10 +59,6 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
         )
 
         self._state: ServiceState = ServiceState.UNKNOWN
-        self._heartbeat_interval = self.service_config.heartbeat_interval
-
-        self.stop_event = asyncio.Event()
-        self.initialized_event = asyncio.Event()
 
         self._comms: BaseCommunication | None = None
 
@@ -96,15 +91,6 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
     def state(self) -> ServiceState:
         """The current state of the service."""
         return self._state
-
-    @property
-    def is_initialized(self) -> bool:
-        """Check if service is initialized.
-
-        Returns:
-            True if service is initialized, False otherwise
-        """
-        return self.initialized_event.is_set()
 
     @property
     def is_shutdown(self) -> bool:
@@ -201,8 +187,6 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
             raise ServiceInitializationError from e
 
         await self.set_state(ServiceState.READY)
-
-        self.initialized_event.set()
 
     async def run_forever(self) -> None:
         """Run the service in a loop until the stop event is set. This method implements

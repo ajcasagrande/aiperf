@@ -90,26 +90,26 @@ class MultiProcessServiceManager(BaseServiceManager):
         # Get the set of required service types for checking completion
         required_types = set(self.required_service_types)
 
-        # TODO: Can this be done better by using asyncio.Event()?
+        async def _wait_for_registration():
+            """Helper function to wait for service registration."""
+            while not stop_event.is_set():
+                # Get all registered service types from the id map
+                registered_types = {
+                    service_info.service_type
+                    for service_info in self.service_id_map.values()
+                    if service_info.registration_status
+                    == ServiceRegistrationStatus.REGISTERED
+                }
+
+                # Check if all required types are registered
+                if required_types.issubset(registered_types):
+                    return
+
+                # Wait a bit before checking again
+                await asyncio.sleep(0.5)
 
         try:
-            async with asyncio.timeout(timeout_seconds):
-                while not stop_event.is_set():
-                    # Get all registered service types from the id map
-                    registered_types = {
-                        service_info.service_type
-                        for service_info in self.service_id_map.values()
-                        if service_info.registration_status
-                        == ServiceRegistrationStatus.REGISTERED
-                    }
-
-                    # Check if all required types are registered
-                    if required_types.issubset(registered_types):
-                        return
-
-                    # Wait a bit before checking again
-                    await asyncio.sleep(0.5)
-
+            await asyncio.wait_for(_wait_for_registration(), timeout=timeout_seconds)
         except asyncio.TimeoutError:
             # Log which services didn't register in time
             registered_types = {

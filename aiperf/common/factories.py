@@ -14,10 +14,12 @@ if TYPE_CHECKING:
     )
     from aiperf.common.enums import (
         CommunicationBackend,  # noqa: F401 - for type checking
-        MetricProviders,  # noqa: F401 - for type checking
+        MetricProviderType,  # noqa: F401 - for type checking
         ServiceType,  # noqa: F401 - for type checking
     )
-    from aiperf.common.metrics import BaseMetricProvider  # noqa: F401 - for type checking
+    from aiperf.common.metrics import (
+        BaseMetricProvider,  # noqa: F401 - for type checking
+    )
     from aiperf.common.service.base_service import (
         BaseService,  # noqa: F401 - for type checking
     )
@@ -195,6 +197,11 @@ class FactoryMixin(Generic[ClassEnumT, ClassProtocolT]):
         """Get all the registered classes."""
         return list(cls._registry.values())
 
+    @classmethod
+    def get_all_types(cls) -> list[ClassEnumT | str]:
+        """Get all the registered class types."""
+        return list(cls._registry.keys())
+
 
 ################################################################################
 # Built-in Factories
@@ -243,13 +250,13 @@ class ServiceFactory(FactoryMixin["ServiceType", "BaseService"]):
     """
 
 
-class MetricProviderFactory(FactoryMixin["MetricProviders", "BaseMetricProvider"]):
+class MetricProviderFactory(FactoryMixin["MetricProviderType", "BaseMetricProvider"]):
     """Factory for registering and creating BaseMetricProvider instances based on the specified metric provider.
 
     Example:
     ```python
         # Register a new metric provider
-        @MetricProviderFactory.register(MetricProviders.NVIDIA_DCGM)
+        @MetricProviderFactory.register(MetricProviderType.NVIDIA_DCGM)
         class DCGMProvider(BaseMetricProvider):
             pass
     ```

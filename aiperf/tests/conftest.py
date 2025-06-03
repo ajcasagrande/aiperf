@@ -17,6 +17,7 @@ from aiperf.tests.comms.mock_zmq import (
     mock_zmq_communication,  # noqa: F401 : used as a fixture
 )
 
+logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
 
 

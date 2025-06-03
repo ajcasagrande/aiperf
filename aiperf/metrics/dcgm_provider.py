@@ -1,11 +1,15 @@
+#  SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+#  SPDX-License-Identifier: Apache-2.0
 import asyncio
-from aiperf.common.enums import MetricProviders
+
+from aiperf.common.enums import MetricProviderType
 from aiperf.common.factories import MetricProviderFactory
 from aiperf.common.hooks import aiperf_task
 from aiperf.common.metrics import BaseMetricProvider
+from aiperf.common.models import AIPerfTaskOptions
 
 
-@MetricProviderFactory.register(MetricProviders.NVIDIA_DCGM)
+@MetricProviderFactory.register(MetricProviderType.NVIDIA_DCGM)
 class DCGMProvider(BaseMetricProvider):
     """DCGM provider."""
 
@@ -15,28 +19,28 @@ class DCGMProvider(BaseMetricProvider):
         self.metrics_2 = 0
         self.metrics_3 = 0
 
-    @aiperf_task
+    @aiperf_task(AIPerfTaskOptions(interval=None))
     async def _poll_metric_1(self) -> None:
         """Run the DCGM provider."""
-        self.logger.debug("Running DCGM provider")
+        self.logger.info("Running DCGM provider")
         while not self.stop_event.is_set():
             # start the metrics endpoint polling
             await asyncio.sleep(1)
             self.metrics_1 += 1
 
-    @aiperf_task
+    @aiperf_task(AIPerfTaskOptions(interval=None))
     async def _poll_metric_2(self) -> None:
         """Run the DCGM provider."""
-        self.logger.debug("Running DCGM provider")
+        self.logger.info("Running DCGM provider")
         while not self.stop_event.is_set():
             # start the metrics endpoint polling
             await asyncio.sleep(1)
             self.metrics_2 += 1
 
-    @aiperf_task
+    @aiperf_task(AIPerfTaskOptions(interval=None))
     async def _poll_metric_3(self) -> None:
         """Run the DCGM provider."""
-        self.logger.debug("Running DCGM provider")
+        self.logger.info("Running DCGM provider")
         while not self.stop_event.is_set():
             # start the metrics endpoint polling
             await asyncio.sleep(1)
@@ -49,7 +53,3 @@ class DCGMProvider(BaseMetricProvider):
             "metrics_2": self.metrics_2,
             "metrics_3": self.metrics_3,
         }
-
-    def get_metrics_name(self) -> str:
-        """Get the name of the metrics."""
-        return "dcgm"
