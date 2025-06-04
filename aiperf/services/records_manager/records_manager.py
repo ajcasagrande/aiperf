@@ -3,18 +3,20 @@
 import sys
 
 from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.decorators import (
+from aiperf.common.enums import ServiceType
+from aiperf.common.factories import ServiceFactory
+from aiperf.common.hooks import (
     on_cleanup,
     on_configure,
     on_init,
     on_start,
     on_stop,
 )
-from aiperf.common.enums import ServiceType
 from aiperf.common.models import BasePayload
 from aiperf.common.service.base_component_service import BaseComponentService
 
 
+@ServiceFactory.register(ServiceType.RECORDS_MANAGER)
 class RecordsManager(BaseComponentService):
     """
     The RecordsManager service is primarily responsible for holding the

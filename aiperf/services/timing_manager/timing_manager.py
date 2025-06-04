@@ -7,7 +7,9 @@ from typing import cast
 
 from aiperf.common.comms.client_enums import ClientType, PullClientType, PushClientType
 from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.decorators import (
+from aiperf.common.enums import ServiceState, ServiceType, Topic
+from aiperf.common.factories import ServiceFactory
+from aiperf.common.hooks import (
     aiperf_task,
     on_cleanup,
     on_configure,
@@ -15,7 +17,6 @@ from aiperf.common.decorators import (
     on_start,
     on_stop,
 )
-from aiperf.common.enums import ServiceState, ServiceType, Topic
 from aiperf.common.models import (
     BasePayload,
     CreditDropPayload,
@@ -26,6 +27,7 @@ from aiperf.common.models import (
 from aiperf.common.service.base_component_service import BaseComponentService
 
 
+@ServiceFactory.register(ServiceType.TIMING_MANAGER)
 class TimingManager(BaseComponentService):
     """
     The TimingManager service is responsible to generate the schedule and issuing
@@ -66,6 +68,12 @@ class TimingManager(BaseComponentService):
         """Initialize timing manager-specific components."""
         self.logger.debug("Initializing timing manager")
         # TODO: Implement timing manager initialization
+
+    @on_configure
+    async def _configure(self, payload: BasePayload) -> None:
+        """Configure the timing manager."""
+        self.logger.debug(f"Configuring timing manager with payload: {payload}")
+        # TODO: Implement timing manager configuration
 
     @on_start
     async def _start(self) -> None:

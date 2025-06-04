@@ -6,7 +6,7 @@ from collections.abc import Callable, Coroutine
 from typing import Any
 
 from aiperf.common.comms.client_enums import ClientType
-from aiperf.common.enums import MessageType, TopicType
+from aiperf.common.enums import TopicType
 from aiperf.common.models import Message
 
 logger = logging.getLogger(__name__)
@@ -109,24 +109,6 @@ class BaseCommunication(ABC):
         Args:
             topic: Topic to send response to
             response: Response message
-        """
-        pass
-
-    @abstractmethod
-    async def register_request_handler(
-        self,
-        service_id: str,
-        topic: TopicType,
-        message_type: MessageType,
-        handler: Callable[[Message], Coroutine[Any, Any, Message | None]],
-    ) -> None:
-        """Register a request handler for a topic.
-
-        Args:
-            service_id: The service ID to register the handler for
-            topic: Topic to register handler for
-            message_type: The message type to register the handler for
-            handler: Function to call when a request is received
         """
         pass
 

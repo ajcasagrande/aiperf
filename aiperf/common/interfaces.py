@@ -12,22 +12,14 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from typing import TYPE_CHECKING, Generic, Protocol
-
-if TYPE_CHECKING:
-    from aiperf.common.models import (
-        BackendClientResponse,
-        RequestRecord,
-    )
+from typing import Generic, Protocol
 
 from aiperf.common.enums import BackendClientType
+from aiperf.common.models import (
+    BackendClientResponse,
+    RequestRecord,
+)
 from aiperf.common.types import ConfigT, InputT, OutputT, RequestT, ResponseT
-
-__all__ = [
-    "BackendClientConfigProtocol",
-    "BackendClientProtocol",
-]
-
 
 ################################################################################
 # Converter Protocols
@@ -102,7 +94,7 @@ class BackendClientProtocol(Protocol, Generic[ConfigT, RequestT, ResponseT]):
         """
         ...
 
-    async def send_request(self, endpoint: str, payload: RequestT) -> "RequestRecord":
+    async def send_request(self, endpoint: str, payload: RequestT) -> RequestRecord:
         """Send a request to the backend client.
 
         This method is used to send a request to the backend client.
@@ -118,7 +110,7 @@ class BackendClientProtocol(Protocol, Generic[ConfigT, RequestT, ResponseT]):
 
     async def parse_response(
         self, response: ResponseT
-    ) -> "BackendClientResponse[ResponseT]":
+    ) -> BackendClientResponse[ResponseT]:
         """Parse the response from the backend client.
 
         This method is used to parse the response from the backend client.

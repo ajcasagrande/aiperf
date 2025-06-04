@@ -15,8 +15,8 @@ from aiperf.common.comms.client_enums import (
     ReqClientType,
 )
 from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.decorators import on_cleanup, on_init, on_run, on_start, on_stop
 from aiperf.common.enums import BackendClientType, DataTopic, ServiceType, Topic
+from aiperf.common.hooks import on_cleanup, on_init, on_run, on_start, on_stop
 from aiperf.common.interfaces import BackendClientProtocol
 from aiperf.common.models import (
     ConversationRequestPayload,

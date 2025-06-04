@@ -5,14 +5,15 @@ from typing import cast
 
 from aiperf.common.comms.client_enums import ClientType, RepClientType
 from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.decorators import (
+from aiperf.common.enums import DataTopic, MessageType, ServiceType
+from aiperf.common.factories import ServiceFactory
+from aiperf.common.hooks import (
     on_cleanup,
     on_configure,
     on_init,
     on_start,
     on_stop,
 )
-from aiperf.common.enums import DataTopic, MessageType, ServiceType
 from aiperf.common.models import (
     ConversationRequestMessage,
     ConversationResponseMessage,
@@ -23,6 +24,7 @@ from aiperf.common.models import (
 from aiperf.common.service.base_component_service import BaseComponentService
 
 
+@ServiceFactory.register(ServiceType.DATASET_MANAGER)
 class DatasetManager(BaseComponentService):
     """
     The DatasetManager primary responsibility is to manage the data generation or acquisition.

@@ -2,38 +2,40 @@
 # SPDX-License-Identifier: Apache-2.0
 from enum import Enum, auto
 
-__all__ = [
-    "StrEnum",
-    "CommunicationBackend",
-    "Topic",
-    "DataTopic",
-    "TopicType",
-    "ImageFormat",
-    "AudioFormat",
-    "MessageType",
-    "CommandType",
-    "ServiceRunType",
-    "ServiceState",
-    "ServiceType",
-    "ServiceRegistrationStatus",
-    "BackendClientType",
-    "RequestTimerKind",
-]
 
 ################################################################################
 # Base Enums
 ################################################################################
-
-
-class StrEnum(str, Enum):
-    """Base class for string-based enums.
-
-    Using this as a base class allows enum values to be used directly as
-    strings without having to use .value.
+class CaseInsensitiveStrEnum(str, Enum):
+    """
+    CaseInsensitiveStrEnum is a custom enumeration class that extends `str` and `Enum` to provide case-insensitive
+    lookup functionality for its members.
     """
 
     def __str__(self) -> str:
         return self.value
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}.{self.name}"
+
+    @classmethod
+    def _missing_(cls, value):
+        """
+        Handles cases where a value is not directly found in the enumeration.
+
+        This method is called when an attempt is made to access an enumeration
+        member using a value that does not directly match any of the defined
+        members. It provides custom logic to handle such cases.
+
+        Returns:
+            The matching enumeration member if a case-insensitive match is found
+            for string values; otherwise, returns None.
+        """
+        if isinstance(value, str):
+            for member in cls:
+                if member.value.lower() == value.lower():
+                    return member
+        return None
 
 
 ################################################################################
@@ -41,14 +43,14 @@ class StrEnum(str, Enum):
 ################################################################################
 
 
-class CommunicationBackend(StrEnum):
+class CommunicationBackend(CaseInsensitiveStrEnum):
     """Supported communication backends."""
 
     ZMQ_TCP = "zmq_tcp"
     """ZeroMQ backend using TCP sockets."""
 
 
-class Topic(StrEnum):
+class Topic(CaseInsensitiveStrEnum):
     """Communication topics for the main messaging bus.
     Right now, there is some overlap between Topic and MessageType."""
 
@@ -64,7 +66,7 @@ class Topic(StrEnum):
 
 
 # TODO: Is this separation needed? Or should we just use the Topic enum?
-class DataTopic(StrEnum):
+class DataTopic(CaseInsensitiveStrEnum):
     """TBD. Specific data topics for use in the future."""
 
     DATASET = "dataset_data"
@@ -86,14 +88,14 @@ type hinting."""
 ################################################################################
 
 
-class ImageFormat(StrEnum):
-    PNG = "PNG"
-    JPEG = "JPEG"
+class ImageFormat(CaseInsensitiveStrEnum):
+    PNG = "png"
+    JPEG = "jpeg"
 
 
-class AudioFormat(StrEnum):
-    WAV = "WAV"
-    MP3 = "MP3"
+class AudioFormat(CaseInsensitiveStrEnum):
+    WAV = "wav"
+    MP3 = "mp3"
 
 
 ################################################################################
@@ -101,7 +103,7 @@ class AudioFormat(StrEnum):
 ################################################################################
 
 
-class MessageType(StrEnum):
+class MessageType(CaseInsensitiveStrEnum):
     """The various types of messages that can be sent between services.
 
     The message type is used to determine what Pydantic model the payload maps to.
@@ -161,7 +163,7 @@ class MessageType(StrEnum):
 ################################################################################
 
 
-class CommandType(StrEnum):
+class CommandType(CaseInsensitiveStrEnum):
     """List of commands that the SystemController can send to component services."""
 
     START = "start"
@@ -176,7 +178,7 @@ class CommandType(StrEnum):
 ################################################################################
 
 
-class ServiceRunType(StrEnum):
+class ServiceRunType(CaseInsensitiveStrEnum):
     """The different ways the SystemController should run the component services."""
 
     MULTIPROCESSING = "process"
@@ -188,7 +190,7 @@ class ServiceRunType(StrEnum):
     This is the default way for multi-node deployments."""
 
 
-class ServiceState(StrEnum):
+class ServiceState(CaseInsensitiveStrEnum):
     """States a service can be in throughout its lifecycle."""
 
     UNKNOWN = "unknown"
@@ -216,7 +218,7 @@ class ServiceState(StrEnum):
     """The service is currently in an error state."""
 
 
-class ServiceType(StrEnum):
+class ServiceType(CaseInsensitiveStrEnum):
     """Types of services in the AIPerf system.
 
     This is used to identify the service type when registering with the
@@ -235,7 +237,7 @@ class ServiceType(StrEnum):
     TEST = "test_service"
 
 
-class ServiceRegistrationStatus(StrEnum):
+class ServiceRegistrationStatus(CaseInsensitiveStrEnum):
     """Defines the various states a service can be in during registration with
     the SystemController."""
 
@@ -262,7 +264,7 @@ class ServiceRegistrationStatus(StrEnum):
 ################################################################################
 
 
-class BackendClientType(StrEnum):
+class BackendClientType(CaseInsensitiveStrEnum):
     """Backend client types."""
 
     GRPC = "grpc"
@@ -287,7 +289,7 @@ class RequestTimerKind(Enum):
 ################################################################################
 
 
-class PromptSource(StrEnum):
+class PromptSource(CaseInsensitiveStrEnum):
     """Source of prompts for the model."""
 
     SYNTHETIC = "synthetic"
@@ -295,7 +297,7 @@ class PromptSource(StrEnum):
     PAYLOAD = "payload"
 
 
-class ModelSelectionStrategy(StrEnum):
+class ModelSelectionStrategy(CaseInsensitiveStrEnum):
     """Strategy for selecting the model to use for the request."""
 
     ROUND_ROBIN = "round_robin"
@@ -303,10 +305,12 @@ class ModelSelectionStrategy(StrEnum):
     MODALITY_AWARE = "modality_aware"
 
 
-class OutputFormat(StrEnum):
+class OutputFormat(CaseInsensitiveStrEnum):
     """Output format types."""
 
     OPENAI_CHAT_COMPLETIONS = "openai_chat_completions"
     OPENAI_COMPLETIONS = "openai_completions"
     OPENAI_EMBEDDINGS = "openai_embeddings"
     OPENAI_MULTIMODAL = "openai_multimodal"
+    TENSORRTLLM = "tensorrtllm"
+    VLLM = "vllm"

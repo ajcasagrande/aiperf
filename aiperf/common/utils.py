@@ -40,7 +40,7 @@ async def call_all_functions_self(
             exceptions.append(e)
 
     if len(exceptions) > 0:
-        raise AIPerfMultiError(exceptions)
+        raise AIPerfMultiError("Errors calling functions", exceptions)
 
 
 async def call_all_functions(funcs: list[Callable], *args, **kwargs) -> None:
@@ -69,4 +69,4 @@ async def call_all_functions(funcs: list[Callable], *args, **kwargs) -> None:
             exceptions.append(e)
 
     if len(exceptions) > 0:
-        raise AIPerfMultiError(exceptions)
+        raise AIPerfMultiError("Errors calling functions", exceptions)

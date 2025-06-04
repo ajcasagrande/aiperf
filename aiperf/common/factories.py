@@ -14,37 +14,28 @@
 #  limitations under the License.
 import logging
 from collections.abc import Callable
-from enum import StrEnum
-from typing import TYPE_CHECKING, Any, Generic, TypeVar
+from typing import Any, Generic, TypeVar
 
+from aiperf.common.comms.base import BaseCommunication
+from aiperf.common.enums import (
+    CaseInsensitiveStrEnum,
+    CommunicationBackend,
+    OutputFormat,
+    PromptSource,
+    ServiceType,
+)
 from aiperf.common.exceptions import FactoryCreationError
+from aiperf.common.interfaces import (
+    InputConverterProtocol,
+    OutputConverterProtocol,
+)
+from aiperf.common.service import BaseService
 
-if TYPE_CHECKING:
-    from aiperf.common.comms.base import BaseCommunication  # noqa: F401
-    from aiperf.common.enums import (  # noqa: F401
-        CommunicationBackend,
-        OutputFormat,
-        PromptSource,
-    )
-    from aiperf.common.interfaces import (  # noqa: F401
-        InputConverterProtocol,
-        OutputConverterProtocol,
-    )
-
-ClassEnumT = TypeVar("ClassEnumT", bound=Any, infer_variance=True)
-ClassProtocolT = TypeVar("ClassProtocolT", bound=Any, infer_variance=True)
-
-__all__ = [
-    "FactoryMixin",
-    "InputConverterFactory",
-    "OutputConverterFactory",
-    "CommunicationFactory",
-    "ClassEnumT",
-    "ClassProtocolT",
-]
+ClassEnumT = TypeVar("ClassEnumT", bound=CaseInsensitiveStrEnum)
+ClassProtocolT = TypeVar("ClassProtocolT", bound=Any)
 
 ################################################################################
-# Generic Base Factory
+# Generic Base Factory Mixin
 ################################################################################
 
 
@@ -96,8 +87,13 @@ class FactoryMixin(Generic[ClassEnumT, ClassProtocolT]):
 
     logger = logging.getLogger(__name__)
 
-    _registry: dict[ClassEnumT | str, type[ClassProtocolT]] = {}
-    _override_priorities: dict[ClassEnumT | str, int] = {}
+    _registry: dict[ClassEnumT | str, type[ClassProtocolT]]
+    _override_priorities: dict[ClassEnumT | str, int]
+
+    def __init_subclass__(cls) -> None:
+        cls._registry = {}
+        cls._override_priorities = {}
+        super().__init_subclass__()
 
     @classmethod
     def register(
@@ -120,20 +116,33 @@ class FactoryMixin(Generic[ClassEnumT, ClassProtocolT]):
             if class_type in cls._registry and existing_priority >= override_priority:
                 # TODO: Will logging be initialized before this method is called?
                 cls.logger.warning(
-                    f"{class_type!r} class {cls._registry[class_type].__name__} already registered with same or higher priority "
-                    f"({existing_priority}). The new registration of class {class_cls.__name__} with priority "
-                    f"{override_priority} will be ignored."
+                    "%r class %s already registered with same or higher priority "
+                    "(%s). The new registration of class %s with priority "
+                    "%s will be ignored.",
+                    class_type,
+                    cls._registry[class_type].__name__,
+                    existing_priority,
+                    class_cls.__name__,
+                    override_priority,
                 )
                 return class_cls
 
             if class_type not in cls._registry:
                 cls.logger.debug(
-                    f"{class_type!r} class {class_cls.__name__} registered with priority {override_priority}."
+                    "%r class %s registered with priority %s.",
+                    class_type,
+                    class_cls.__name__,
+                    override_priority,
                 )
             else:
                 cls.logger.debug(
-                    f"{class_type!r} class {class_cls.__name__} with priority {override_priority} overrides "
-                    f"already registered class {cls._registry[class_type].__name__} with lower priority ({existing_priority})."
+                    "%r class %s with priority %s overrides "
+                    "already registered class %s with lower priority (%s).",
+                    class_type,
+                    class_cls.__name__,
+                    override_priority,
+                    cls._registry[class_type].__name__,
+                    existing_priority,
                 )
             cls._registry[class_type] = class_cls
             cls._override_priorities[class_type] = override_priority
@@ -144,7 +153,7 @@ class FactoryMixin(Generic[ClassEnumT, ClassProtocolT]):
     @classmethod
     def create_instance(
         cls,
-        class_type: ClassEnumT | StrEnum | str,
+        class_type: ClassEnumT | str,
         config: Any | None = None,
         **kwargs: Any,
     ) -> ClassProtocolT:
@@ -170,13 +179,32 @@ class FactoryMixin(Generic[ClassEnumT, ClassProtocolT]):
                 f"Error creating {class_type!r} instance: {e}"
             ) from e
 
+    @classmethod
+    def get_class_from_type(cls, class_type: ClassEnumT | str) -> type[ClassProtocolT]:
+        """Get the class from a class type.
+
+        Args:
+            class_type: The class type to get the class from
+
+        Returns:
+            The class for the given class type
+
+        Raises:
+            TypeError: If the class type is not registered
+        """
+        if class_type not in cls._registry:
+            raise TypeError(
+                f"No class found for {class_type!r}. Please register the class first."
+            )
+        return cls._registry[class_type]
+
 
 ################################################################################
 # Built-in Factories
 ################################################################################
 
 
-class InputConverterFactory(FactoryMixin["PromptSource", "InputConverterProtocol"]):
+class InputConverterFactory(FactoryMixin[PromptSource, InputConverterProtocol]):
     """Factory for registering and creatinPromptSourcerterProtocol instances based on the specified prompt source.
 
     Example:
@@ -195,7 +223,7 @@ class InputConverterFactory(FactoryMixin["PromptSource", "InputConverterProtocol
     """
 
 
-class OutputConverterFactory(FactoryMixin["OutputFormat", "OutputConverterProtocol"]):
+class OutputConverterFactory(FactoryMixin[OutputFormat, OutputConverterProtocol]):
     """Factory for registering and creating OutputConverterProtocol instances based on the specified output format.
 
     Example:
@@ -214,7 +242,7 @@ class OutputConverterFactory(FactoryMixin["OutputFormat", "OutputConverterProtoc
     """
 
 
-class CommunicationFactory(FactoryMixin["CommunicationBackend", "BaseCommunication"]):
+class CommunicationFactory(FactoryMixin[CommunicationBackend, BaseCommunication]):
     """Factory for registering and creating BaseCommunication instances based on the specified communication backend.
 
     Example:
@@ -230,4 +258,27 @@ class CommunicationFactory(FactoryMixin["CommunicationBackend", "BaseCommunicati
             config=ZMQTCPCommunicationConfig(
                 host="localhost", port=5555, timeout=10.0),
         )
+    """
+
+
+class ServiceFactory(FactoryMixin[ServiceType, BaseService]):
+    """Factory for registering and creating BaseService instances based on the specified service type.
+
+    Example:
+    ```python
+        # Register a new service type
+        @ServiceFactory.register(ServiceType.DATASET_MANAGER)
+        class DatasetManager(BaseService):
+            pass
+
+        # Create a new service instance in a separate process
+        service_class = ServiceFactory.get_class_from_type(service_type)
+
+        process = Process(
+            target=bootstrap_and_run_service,
+            name=f"{service_type}_process",
+            args=(service_class, self.config),
+            daemon=False,
+        )
+    ```
     """
