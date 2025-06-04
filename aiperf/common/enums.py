@@ -54,6 +54,8 @@ class Topic(StrEnum):
 
     CREDIT_DROP = "credit_drop"
     CREDIT_RETURN = "credit_return"
+    CREDITS_COMPLETE = "credits_complete"
+    PROFILE_PROGRESS = "profile_progress"
     REGISTRATION = "registration"
     COMMAND = "command"
     RESPONSE = "response"
@@ -141,8 +143,17 @@ class MessageType(StrEnum):
     CREDIT_RETURN = "credit_return"
     """A message sent by the Worker services to return credits to the credit pool."""
 
+    CREDITS_COMPLETE = "credits_complete"
+    """A message sent by the Timing Manager services to signify all requests have completed."""
+
     DATA = "data"
     """A message containing data. This is TBD."""
+
+    CONVERSATION_REQUEST = "conversation_request"
+    """A message sent by one service to another to request a conversation."""
+
+    CONVERSATION_RESPONSE = "conversation_response"
+    """A message sent by one service to another to respond to a conversation request."""
 
 
 ################################################################################
@@ -155,6 +166,8 @@ class CommandType(StrEnum):
 
     START = "start"
     STOP = "stop"
+    PROFILE_BEGIN = "profile_begin"
+    PROFILE_END = "profile_end"
     CONFIGURE = "configure"
 
 
@@ -217,6 +230,7 @@ class ServiceType(StrEnum):
     RECORDS_MANAGER = "records_manager"
     POST_PROCESSOR_MANAGER = "post_processor_manager"
     WORKER_MANAGER = "worker_manager"
+    MULTI_WORKER_PROCESS = "multi_worker_process"
     WORKER = "worker"
     TEST = "test_service"
 

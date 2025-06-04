@@ -2,14 +2,17 @@
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
 import logging
+from collections.abc import Callable, Coroutine
+from typing import Any
 
 import zmq.asyncio
 from zmq import SocketType
 
 from aiperf.common.comms.zmq.clients.base import BaseZMQClient
 from aiperf.common.decorators import aiperf_task, on_cleanup
+from aiperf.common.enums import MessageType
 from aiperf.common.exceptions import CommunicationResponseError
-from aiperf.common.models import BaseMessage, Message
+from aiperf.common.models import BaseMessage, ErrorMessage, ErrorPayload, Message
 
 logger = logging.getLogger(__name__)
 
@@ -33,73 +36,19 @@ class ZMQRepClient(BaseZMQClient):
         """
         super().__init__(context, SocketType.REP, address, bind, socket_ops)
 
-        self._response_futures = {}
-        self._response_data = {}
+        self._request_handlers: dict[
+            MessageType,
+            tuple[str, Callable[[Message], Coroutine[Any, Any, Message | None]]],
+        ] = {}
 
     @on_cleanup
     async def _cleanup(self) -> None:
-        """Clean up any pending futures."""
-        # Resolve any pending futures with errors
-        for _, future in self._response_futures.items():
-            if not future.done():
-                future.set_exception(ConnectionError("Socket was shut down"))
+        self._request_handlers.clear()
 
-        self._response_futures.clear()
-        self._response_data.clear()
-
-    async def wait_for_request(self, timeout: float | None = None) -> Message:
-        """Wait for a request to arrive.
-
-        Args:
-            timeout: Timeout in seconds or None for no timeout
-
-        Returns:
-            Message or Exception if request was not received successfully
-
-        Raises:
-            CommunicationNotInitializedError: If the client is not initialized
-            CommunicationResponseError: If the request was not received successfully
-        """
-        self._ensure_initialized()
-
-        try:
-            # Create a future for the next request
-            request_id = "next_request"  # Special ID for the next request
-            future = asyncio.Future()
-            self._response_futures[request_id] = future
-
-            try:
-                # Wait for the request with optional timeout
-                if timeout is not None:
-                    request_json = await asyncio.wait_for(future, timeout)
-                else:
-                    request_json = await future
-
-                # Parse the request
-                request = BaseMessage.model_validate_json(request_json)
-                return request
-
-            except asyncio.TimeoutError as e:
-                logger.debug("Timeout waiting for request")
-                raise CommunicationResponseError("Timeout waiting for request") from e
-
-            except Exception as e:
-                logger.error(f"Exception waiting for request: {e}")
-                raise CommunicationResponseError("Exception waiting for request") from e
-
-            finally:
-                # Clean up future
-                self._response_futures.pop(request_id, None)
-
-        except Exception as e:
-            logger.error(f"Exception waiting for request: {e}")
-            raise CommunicationResponseError("Exception waiting for request") from e
-
-    async def respond(self, target: str, response: Message) -> None:
+    async def respond(self, response: Message) -> None:
         """Send a response to a request.
 
         Args:
-            target: Target component to send response to
             response: Response message (must be a Message instance)
 
         Raises:
@@ -116,10 +65,48 @@ class ZMQRepClient(BaseZMQClient):
             await self.socket.send_string(response_json)
 
         except Exception as e:
-            logger.error(f"Exception sending response to {target}: {e}")
-            raise CommunicationResponseError(
-                f"Exception sending response to {target}"
-            ) from e
+            logger.error(f"Exception sending response: {e}")
+            raise CommunicationResponseError("Exception sending response") from e
+
+    def register_request_handler(
+        self,
+        service_id: str,
+        message_type: MessageType,
+        handler: Callable[[Message], Coroutine[Any, Any, Message | None]],
+    ) -> None:
+        """Register a request handler.
+
+        Args:
+            service_id: The service ID to register the handler for
+            message_type: The message type to register the handler for
+            handler: The handler to register
+        """
+        self._request_handlers[message_type] = (service_id, handler)
+
+    async def _handle_request(self, request_json: str) -> None:
+        """Handle a request."""
+        # Parse JSON to create RequestData object
+        request = BaseMessage.model_validate_json(request_json)
+        message_type = request.payload.message_type
+
+        # Call the handler
+        service_id = None
+        try:
+            service_id, handler = self._request_handlers[message_type]
+            response = await handler(request)
+
+        except Exception as e:
+            logger.error(f"Exception calling handler for {message_type}: {e}")
+            response = ErrorMessage(
+                service_id=service_id or request.service_id,
+                request_id=request.request_id,
+                payload=ErrorPayload(
+                    error=str(e),
+                ),
+            )
+
+        if response is not None:
+            await self.respond(response)
 
     @aiperf_task
     async def _rep_receiver(self) -> None:
@@ -128,31 +115,15 @@ class ZMQRepClient(BaseZMQClient):
         This method is a coroutine that will run indefinitely until the client is
         shutdown. It will wait for requests from the socket and send responses.
         """
+        if not self.is_initialized:
+            await self.initialized_event.wait()
+
         while not self.is_shutdown:
             try:
-                if not self.is_initialized:
-                    await self.initialized_event.wait()
-
                 # Receive request
                 request_json = await self.socket.recv_string()
+                asyncio.create_task(self._handle_request(request_json))
 
-                # Parse JSON to create RequestData object
-                request = BaseMessage.model_validate_json(request_json)
-                request_id = request.request_id
-
-                # Store request data
-                self._response_data[request_id] = request
-
-                # Check for special "next_request" future
-                if "next_request" in self._response_futures:
-                    future = self._response_futures.pop("next_request")
-                    if not future.done():
-                        future.set_result(request_json)
-                # Resolve future if it exists for the specific request ID
-                elif request_id in self._response_futures:
-                    future = self._response_futures[request_id]
-                    if not future.done():
-                        future.set_result(request_json)
             except asyncio.CancelledError:
                 break
             except Exception as e:

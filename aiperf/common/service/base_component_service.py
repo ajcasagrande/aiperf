@@ -173,6 +173,7 @@ class BaseComponentService(BaseService):
             await self.start()
 
         elif cmd == CommandType.STOP:
+            self.logger.debug("%s received stop command", self.service_id)
             self.stop_event.set()
 
         elif cmd == CommandType.CONFIGURE:

@@ -50,7 +50,7 @@ class BaseControllerService(BaseService):
     def create_command_message(
         self,
         command: CommandType,
-        target_service_id: str,
+        target_service_id: str | None,
         data: Any | None = None,
     ) -> Message:
         """Create a command message to be sent to a specific service.

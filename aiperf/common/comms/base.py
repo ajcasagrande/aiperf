@@ -6,7 +6,7 @@ from collections.abc import Callable, Coroutine
 from typing import Any
 
 from aiperf.common.comms.client_enums import ClientType
-from aiperf.common.enums import TopicType
+from aiperf.common.enums import MessageType, TopicType
 from aiperf.common.models import Message
 
 logger = logging.getLogger(__name__)
@@ -86,15 +86,15 @@ class BaseCommunication(ABC):
     @abstractmethod
     async def request(
         self,
-        target: str,
-        request_data: Message,
+        topic: TopicType,
+        message: Message,
         timeout: float = 5.0,
     ) -> Message:
         """Send a request and wait for a response.
 
         Args:
-            target: Target component to send request to
-            request_data: Request data
+            topic: Topic to send request to
+            message: Message to send
             timeout: Timeout in seconds
 
         Returns:
@@ -103,12 +103,30 @@ class BaseCommunication(ABC):
         pass
 
     @abstractmethod
-    async def respond(self, target: str, response: Message) -> None:
+    async def respond(self, topic: TopicType, response: Message) -> None:
         """Send a response to a request.
 
         Args:
-            target: Target component to send response to
+            topic: Topic to send response to
             response: Response message
+        """
+        pass
+
+    @abstractmethod
+    async def register_request_handler(
+        self,
+        service_id: str,
+        topic: TopicType,
+        message_type: MessageType,
+        handler: Callable[[Message], Coroutine[Any, Any, Message | None]],
+    ) -> None:
+        """Register a request handler for a topic.
+
+        Args:
+            service_id: The service ID to register the handler for
+            topic: Topic to register handler for
+            message_type: The message type to register the handler for
+            handler: Function to call when a request is received
         """
         pass
 

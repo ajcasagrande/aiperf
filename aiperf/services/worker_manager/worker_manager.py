@@ -3,10 +3,12 @@
 import asyncio
 import multiprocessing
 import sys
+from multiprocessing import Process
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
+from aiperf.common.bootstrap import bootstrap_and_run_service
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.decorators import (
     on_cleanup,
@@ -20,13 +22,19 @@ from aiperf.common.exceptions import ConfigError
 from aiperf.common.models import BasePayload
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.services.worker import worker
+from aiperf.services.worker.worker import MultiWorkerProcess
 
 
 class WorkerProcess(BaseModel):
     """Information about a worker process."""
 
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     worker_id: str = Field(..., description="ID of the worker process")
     process: Any = Field(None, description="Process object or task")
+    multi_worker_process: MultiWorkerProcess = Field(
+        ..., description="Multi worker process object"
+    )
 
 
 class WorkerManager(BaseComponentService):
@@ -45,8 +53,10 @@ class WorkerManager(BaseComponentService):
         # TODO: Need to implement some sort of max workers
         self.cpu_count = multiprocessing.cpu_count()
         self.worker_count = self.cpu_count - 1
-        self.logger.debug(
-            f"Detected {self.cpu_count} CPU threads. Spawning {self.worker_count} workers"
+        self.logger.info(
+            "Detected %s CPU threads. Spawning %s workers",
+            self.cpu_count,
+            self.worker_count,
         )
 
     @property
@@ -58,11 +68,6 @@ class WorkerManager(BaseComponentService):
     async def _initialize(self) -> None:
         """Initialize worker manager-specific components."""
         self.logger.debug("Initializing worker manager")
-
-    @on_start
-    async def _start(self) -> None:
-        """Start the worker manager."""
-        self.logger.debug("Starting worker manager")
 
         # Spawn workers based on CPU count
         if self.service_config.service_run_type == ServiceRunType.MULTIPROCESSING:
@@ -79,21 +84,26 @@ class WorkerManager(BaseComponentService):
                 f"Unsupported run type: {self.service_config.service_run_type}"
             )
 
+    @on_start
+    async def _start(self) -> None:
+        """Start the worker manager."""
+        self.logger.debug("Starting worker manager")
+
     @on_stop
     async def _stop(self) -> None:
         """Stop the worker manager."""
         self.logger.debug("Stopping worker manager")
         # TODO: This needs to be investigated, as currently we handle the exit signal
         #       by all workers already, so need to understand best way to handle this
-        # # Stop all workers
-        # if self.service_config.service_run_type == ServiceRunType.MULTIPROCESSING:
-        #     await self._stop_multiprocessing_workers()
-        # elif self.service_config.service_run_type == ServiceRunType.KUBERNETES:
-        #     await self._stop_kubernetes_workers()
-        # else:
-        #     self.logger.warning(
-        #         f"Unsupported run type: {self.service_config.service_run_type}"
-        #     )
+        # Stop all workers
+        if self.service_config.service_run_type == ServiceRunType.MULTIPROCESSING:
+            await self._stop_multiprocessing_workers()
+        elif self.service_config.service_run_type == ServiceRunType.KUBERNETES:
+            await self._stop_kubernetes_workers()
+        else:
+            self.logger.warning(
+                f"Unsupported run type: {self.service_config.service_run_type}"
+            )
 
     @on_cleanup
     async def _cleanup(self) -> None:
@@ -120,15 +130,22 @@ class WorkerManager(BaseComponentService):
         self.logger.debug(f"Spawning {self.worker_count} worker processes")
 
         for i in range(self.worker_count):
+            multi_worker_process = worker.MultiWorkerProcess(
+                service_config=self.service_config, service_id=f"worker_{i}"
+            )
             worker_id = f"worker_{i}"
-            process = multiprocessing.Process(
-                target=worker.main,
+            process = Process(
+                target=bootstrap_and_run_service,
                 name=f"worker_{i}_process",
+                args=(MultiWorkerProcess, self.service_config),
                 daemon=True,
             )
             process.start()
+
             self.workers[worker_id] = WorkerProcess(
-                worker_id=worker_id, process=process
+                worker_id=worker_id,
+                process=process,
+                multi_worker_process=multi_worker_process,
             )
             self.logger.debug(
                 f"Started worker process {worker_id} (pid: {process.pid})"
@@ -141,6 +158,8 @@ class WorkerManager(BaseComponentService):
         # First terminate all processes
         for worker_id, worker_info in self.workers.items():
             self.logger.debug(f"Stopping worker process {worker_id} {worker_info}")
+            multi_worker_process = worker_info.multi_worker_process
+            multi_worker_process.stop_event.set()
             process = worker_info.process
             if process and process.is_alive():
                 self.logger.debug(
@@ -159,9 +178,7 @@ class WorkerManager(BaseComponentService):
 
         self.logger.debug("All worker processes stopped")
 
-    async def _wait_for_process(
-        self, worker_id: str, process: multiprocessing.Process
-    ) -> None:
+    async def _wait_for_process(self, worker_id: str, process: Process) -> None:
         """Wait for a process to terminate with timeout handling."""
         try:
             await asyncio.wait_for(

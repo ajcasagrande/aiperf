@@ -10,6 +10,7 @@ from zmq import SocketType
 
 from aiperf.common.comms.zmq.clients.base import BaseZMQClient
 from aiperf.common.decorators import aiperf_task
+from aiperf.common.exceptions import AIPerfError
 from aiperf.common.models import BaseMessage, Message
 from aiperf.common.utils import call_all_functions
 
@@ -45,14 +46,13 @@ class ZMQPullClient(BaseZMQClient):
         This method is a coroutine that will run indefinitely until the client is
         shutdown. It will wait for messages from the socket and handle them.
         """
+        if not self.is_initialized:
+            await self.initialized_event.wait()
+
         while not self.is_shutdown:
             try:
-                if not self.is_initialized:
-                    await self.initialized_event.wait()
-
                 # Receive data
-                message_bytes = await self.socket.recv()
-                message_json = message_bytes.decode()
+                message_json = await self.socket.recv_string()
 
                 # Parse JSON into a BaseMessage object
                 message = BaseMessage.model_validate_json(message_json)
@@ -64,9 +64,19 @@ class ZMQPullClient(BaseZMQClient):
 
             except asyncio.CancelledError:
                 break
-            except Exception as e:
-                logger.error(f"Exception receiving data from pull socket: {e}")
+            except AIPerfError:
+                raise  # re-raise it up the stack
+            except zmq.Again:
                 await asyncio.sleep(0.1)
+            except Exception as e:
+                logger.error(
+                    "Exception receiving data from pull socket: %s %s",
+                    type(e).__name__,
+                    e,
+                )
+                await asyncio.sleep(0.1)
+
+        logger.debug("Pull receiver task finished %s", self.client_id)
 
     async def pull(
         self,

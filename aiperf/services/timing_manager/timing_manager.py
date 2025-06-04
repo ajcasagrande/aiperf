@@ -1,13 +1,14 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
-import contextlib
 import sys
 import time
+from typing import cast
 
 from aiperf.common.comms.client_enums import ClientType, PullClientType, PushClientType
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.decorators import (
+    aiperf_task,
     on_cleanup,
     on_configure,
     on_init,
@@ -15,7 +16,13 @@ from aiperf.common.decorators import (
     on_stop,
 )
 from aiperf.common.enums import ServiceState, ServiceType, Topic
-from aiperf.common.models import BasePayload, CreditDropPayload, Message
+from aiperf.common.models import (
+    BasePayload,
+    CreditDropPayload,
+    CreditReturnPayload,
+    CreditsCompletePayload,
+    Message,
+)
 from aiperf.common.service.base_component_service import BaseComponentService
 
 
@@ -30,9 +37,15 @@ class TimingManager(BaseComponentService):
     ) -> None:
         super().__init__(service_config=service_config, service_id=service_id)
         self._credit_lock = asyncio.Lock()
-        self._credits_available = 5000
+
+        self._total_credits = 5000
+        self._credits_available = 1000
+
+        self._sent_credits = 0
+        self._completed_credits = 0
+        self._credit_event = asyncio.Event()
+        self.start_time_ns = 0
         self.logger.debug("Initializing timing manager")
-        self._credit_drop_task: asyncio.Task | None = None
 
     @property
     def service_type(self) -> ServiceType:
@@ -64,20 +77,12 @@ class TimingManager(BaseComponentService):
             callback=self._on_credit_return,
         )
         await self.set_state(ServiceState.RUNNING)
-        await asyncio.sleep(3)
-
-        self._credit_drop_task = asyncio.create_task(self._issue_credit_drops())
 
     @on_stop
     async def _stop(self) -> None:
         """Stop the timing manager."""
         self.logger.debug("Stopping timing manager")
         # TODO: Implement timing manager stop
-        if self._credit_drop_task and not self._credit_drop_task.done():
-            self._credit_drop_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await self._credit_drop_task
-            self._credit_drop_task = None
 
     @on_cleanup
     async def _cleanup(self) -> None:
@@ -91,22 +96,37 @@ class TimingManager(BaseComponentService):
         self.logger.debug(f"Configuring timing manager with payload: {payload}")
         # TODO: Implement timing manager configuration
 
+    @aiperf_task
     async def _issue_credit_drops(self) -> None:
         """Issue credit drops to workers."""
         self.logger.debug("Issuing credit drops to workers")
         # TODO: Actually implement real credit drop logic
+        await asyncio.sleep(3)
+
+        await self.initialized_event.wait()
+
+        self.start_time_ns = time.perf_counter_ns()
+
         while not self.stop_event.is_set():
             try:
-                # await asyncio.sleep(0.000000001)
+                async with self._credit_lock:
+                    if self._credits_available <= 0:
+                        self.logger.debug("No credits available, skipping credit drop")
+                        credit_available = False
+                    else:
+                        self._credits_available -= 1
+                        credit_available = True
 
-                # async with self._credit_lock:
-                #     if self._credits_available <= 0:
-                #         self.logger.warning(
-                #             "No credits available, skipping credit drop"
-                #         )
-                #         # continue
-                #     self.logger.debug("Issuing credit drop")
-                #     self._credits_available -= 1
+                if not credit_available:
+                    self.logger.debug("Waiting for credit event")
+                    self._credit_event.clear()
+                    await self._credit_event.wait()
+                    self.logger.debug("Credit event received")
+                    continue
+
+                self.logger.info(
+                    f"Issuing credit drop {self._sent_credits + 1} of {self._total_credits}"
+                )
 
                 await self.comms.push(
                     topic=Topic.CREDIT_DROP,
@@ -117,6 +137,12 @@ class TimingManager(BaseComponentService):
                         ),
                     ),
                 )
+                self._sent_credits += 1
+
+                if self._sent_credits >= self._total_credits:
+                    self.logger.info("All credits sent, stopping credit drop task")
+                    break
+
             except asyncio.CancelledError:
                 self.logger.debug("Credit drop task cancelled")
                 break
@@ -130,9 +156,34 @@ class TimingManager(BaseComponentService):
         Args:
             message: The response received from the pull request
         """
-        self.logger.debug(f"Processing credit return: {message.payload}")
         async with self._credit_lock:
-            self._credits_available += message.payload.amount
+            amount = cast(CreditReturnPayload, message.payload).amount
+            self._credits_available += amount
+            self._completed_credits += amount
+
+        self.logger.info(
+            "Processing credit return: %s (completed credits: %s of %s) (%.2f requests/s)",
+            message.payload,
+            self._completed_credits,
+            self._total_credits,
+            self._completed_credits
+            / (time.perf_counter_ns() - self.start_time_ns)
+            * 1e9,
+        )
+
+        if self._completed_credits >= self._total_credits:
+            self.logger.info(
+                "All credits completed, stopping credit drop task after %.2f seconds (%.2f requests/s)",
+                (time.perf_counter_ns() - self.start_time_ns) / 1e9,
+                self._total_credits
+                / ((time.perf_counter_ns() - self.start_time_ns) / 1e9),
+            )
+            await self.comms.publish(
+                topic=Topic.CREDITS_COMPLETE,
+                message=self.create_message(payload=CreditsCompletePayload()),
+            )
+
+        self._credit_event.set()
 
 
 def main() -> None:

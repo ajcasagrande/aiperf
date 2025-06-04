@@ -25,14 +25,14 @@ from aiperf.common.comms.zmq.clients.push import ZMQPushClient
 from aiperf.common.comms.zmq.clients.rep import ZMQRepClient
 from aiperf.common.comms.zmq.clients.req import ZMQReqClient
 from aiperf.common.comms.zmq.clients.sub import ZMQSubClient
-from aiperf.common.enums import CommunicationBackend, TopicType
+from aiperf.common.enums import CommunicationBackend, MessageType, TopicType
 from aiperf.common.exceptions import (
     CommunicationClientCreationError,
+    CommunicationError,
     CommunicationNotInitializedError,
     CommunicationPublishError,
     CommunicationPushError,
     CommunicationRequestError,
-    CommunicationResponseError,
     CommunicationShutdownError,
     CommunicationSubscribeError,
 )
@@ -434,8 +434,8 @@ class ZMQCommunication(BaseCommunication):
         client_type = PubClientType.from_topic(topic)
 
         if client_type not in self.clients:
-            logger.warning(
-                "Client type %s not found for pub topic %s, creating client",
+            logger.debug(
+                "Client type %r not found for pub topic %r, creating client",
                 client_type,
                 topic,
             )
@@ -478,7 +478,7 @@ class ZMQCommunication(BaseCommunication):
 
         if client_type not in self.clients:
             logger.debug(
-                "Client type %s not found for sub topic %s, creating client",
+                "Client type %r not found for sub topic %r, creating client",
                 client_type,
                 topic,
             )
@@ -494,16 +494,16 @@ class ZMQCommunication(BaseCommunication):
 
     async def request(
         self,
-        target: str,
-        request_data: Message,
+        topic: TopicType,
+        message: Message,
         timeout: float = 5.0,
     ) -> Message:
         """Request a message from a target. If the proper ZMQ client type is not
         found, it will be created.
 
         Args:
-            target: The target to request from
-            request_data: The data to request
+            topic: The topic to request from
+            message: The message to request
             timeout: The timeout for the request
 
         Returns:
@@ -519,30 +519,66 @@ class ZMQCommunication(BaseCommunication):
 
         self._ensure_initialized()
 
-        client_type = ReqClientType.from_topic(target)
+        client_type = ReqClientType.from_topic(topic)
 
         if client_type not in self.clients:
-            logger.warning(
-                "Client type %s not found for req topic %s, creating client",
+            logger.debug(
+                "Client type %r not found for req topic %r, creating client",
                 client_type,
-                target,
+                topic,
             )
             await self.create_clients(client_type)
 
         try:
             return await cast(ZMQReqClient, self.clients[client_type]).request(
-                target, request_data, timeout
+                topic, message, timeout
             )
         except Exception as e:
-            logger.error(f"Exception requesting from {target}: {e}")
+            logger.error(f"Exception requesting from {topic}: {e}")
             raise CommunicationRequestError() from e
 
-    async def respond(self, target: str, response: Message) -> None:
+    async def register_request_handler(
+        self,
+        service_id: str,
+        topic: TopicType,
+        message_type: MessageType,
+        handler: Callable[[Message], Coroutine[Any, Any, Message | None]],
+    ) -> None:
+        """Register a request handler for a topic.
+
+        Args:
+            service_id: The service ID to register the handler for
+            topic: The topic to register the handler for
+            message_type: The message type to register the handler for
+            handler: The handler to register
+        """
+
+        self._ensure_initialized()
+
+        client_type = RepClientType.from_topic(topic)
+
+        if client_type not in self.clients:
+            logger.debug(
+                "Client type %r not found for req topic %r, creating client",
+                client_type,
+                topic,
+            )
+            await self.create_clients(client_type)
+
+        try:
+            cast(ZMQRepClient, self.clients[client_type]).register_request_handler(
+                service_id, message_type, handler
+            )
+        except Exception as e:
+            logger.error(f"Exception registering request handler for {topic}: {e}")
+            raise CommunicationError() from e
+
+    async def respond(self, topic: TopicType, response: Message) -> None:
         """Respond to a request. If the proper ZMQ client type is not found, it
         will be created.
 
         Args:
-            target: The target to respond to
+            topic: The topic to respond to
             response: The response to send
 
         Raises:
@@ -555,23 +591,21 @@ class ZMQCommunication(BaseCommunication):
 
         self._ensure_initialized()
 
-        client_type = RepClientType.from_topic(target)
+        client_type = RepClientType.from_topic(topic)
 
         if client_type not in self.clients:
-            logger.warning(
-                "Client type %s not found for rep topic %s, creating client",
+            logger.debug(
+                "Client type %r not found for rep topic %r, creating client",
                 client_type,
-                target,
+                topic,
             )
             await self.create_clients(client_type)
 
         try:
-            await cast(ZMQRepClient, self.clients[client_type]).respond(
-                target, response
-            )
+            await cast(ZMQRepClient, self.clients[client_type]).respond(topic, response)
         except Exception as e:
-            logger.error(f"Exception responding to {target}: {e}")
-            raise CommunicationResponseError() from e
+            logger.error(f"Exception responding to {topic}: {e}")
+            raise CommunicationError() from e
 
     async def push(self, topic: TopicType, message: Message) -> None:
         """Push a message to a topic. If the proper ZMQ client type is not found,
@@ -593,8 +627,8 @@ class ZMQCommunication(BaseCommunication):
         client_type = PushClientType.from_topic(topic)
 
         if client_type not in self.clients:
-            logger.warning(
-                "Client type %s not found for push, creating client",
+            logger.debug(
+                "Client type %r not found for push, creating client",
                 client_type,
             )
             await self.create_clients(client_type)
@@ -631,8 +665,8 @@ class ZMQCommunication(BaseCommunication):
         client_type = PullClientType.from_topic(topic)
 
         if client_type not in self.clients:
-            logger.warning(
-                "Client type %s not found for pull, creating client",
+            logger.debug(
+                "Client type %r not found for pull, creating client",
                 client_type,
             )
             await self.create_clients(client_type)

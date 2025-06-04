@@ -9,7 +9,7 @@ from zmq import SocketType
 
 from aiperf.common.comms.zmq.clients.base import BaseZMQClient
 from aiperf.common.decorators import aiperf_task, on_cleanup
-from aiperf.common.exceptions import CommunicationRequestError
+from aiperf.common.exceptions import AIPerfError, CommunicationRequestError
 from aiperf.common.models import BaseMessage, ErrorPayload, Message
 
 logger = logging.getLogger(__name__)
@@ -51,9 +51,18 @@ class ZMQReqClient(BaseZMQClient):
                 await self._handle_response(response_json)
             except asyncio.CancelledError:
                 break
-            except Exception as e:
-                logger.error(f"Exception processing messages: {e}")
+            except zmq.Again:
                 await asyncio.sleep(0.1)
+            except AIPerfError:
+                raise  # re-raise it up the stack
+            except Exception as e:
+                logger.error(
+                    "Exception processing messages: %s %s",
+                    type(e).__name__,
+                    e,
+                )
+                await asyncio.sleep(0.1)
+        logger.debug("ZMQReqClient _process_messages task finished %s", self.client_id)
 
     async def _handle_response(self, response_json: str) -> None:
         """Handle a response message.
@@ -86,7 +95,7 @@ class ZMQReqClient(BaseZMQClient):
                 error_response = BaseMessage(
                     request_id=request_id,
                     payload=ErrorPayload(
-                        error_message="Socket was shut down",
+                        error="Socket was shut down",
                     ),
                 )
                 future.set_result(error_response.model_dump_json())
@@ -95,7 +104,7 @@ class ZMQReqClient(BaseZMQClient):
 
     async def request(
         self,
-        target: str,
+        topic: str,
         request_data: Message,
         timeout: float = 5.0,
     ) -> Message:
@@ -112,14 +121,6 @@ class ZMQReqClient(BaseZMQClient):
         self._ensure_initialized()
 
         try:
-            # Set target if not already set
-            if not request_data.target:
-                request_data.target = target
-
-            # Ensure client_id is set
-            if not request_data.client_id:
-                request_data.client_id = self.client_id
-
             # Generate request ID if not provided
             if not request_data.request_id:
                 request_data.request_id = uuid.uuid4().hex
@@ -153,7 +154,6 @@ class ZMQReqClient(BaseZMQClient):
                 self._response_futures.pop(request_data.request_id, None)
 
         except Exception as e:
-            logger.error(f"Exception sending request to {target}: {e}")
             raise CommunicationRequestError(
-                f"Exception sending request to {target}: {e}"
+                f"Exception sending request to {topic}: {e}"
             ) from e

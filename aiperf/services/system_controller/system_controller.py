@@ -25,6 +25,7 @@ from aiperf.common.exceptions import (
     ServiceStopError,
 )
 from aiperf.common.models import (
+    CreditsCompleteMessage,
     HeartbeatMessage,
     RegistrationMessage,
     ServiceRunInfo,
@@ -86,37 +87,18 @@ class SystemController(BaseControllerService):
             )
 
         # Subscribe to relevant messages
-        try:
-            await self.comms.subscribe(
-                topic=Topic.REGISTRATION,
-                callback=self._process_registration_message,
-            )
-        except Exception as e:
-            self.logger.error("Failed to subscribe to registration topic: %s", e)
-            raise CommunicationSubscribeError from e
-
-        try:
-            await self.comms.subscribe(
-                topic=Topic.HEARTBEAT,
-                callback=self._process_heartbeat_message,
-            )
-        except Exception as e:
-            self.logger.error("Failed to subscribe to heartbeat topic: %s", e)
-            raise CommunicationSubscribeError from e
-
-        try:
-            await self.comms.subscribe(
-                topic=Topic.STATUS,
-                callback=self._process_status_message,
-            )
-        except Exception as e:
-            self.logger.error("Failed to subscribe to status topic: %s", e)
-            raise CommunicationSubscribeError from e
-
-        self.logger.debug(
-            "System controller waiting for 1 second to ensure that the "
-            "communication is initialized"
-        )
+        subscribe_callbacks = [
+            (Topic.REGISTRATION, self._process_registration_message),
+            (Topic.HEARTBEAT, self._process_heartbeat_message),
+            (Topic.STATUS, self._process_status_message),
+            (Topic.CREDITS_COMPLETE, self._process_credits_complete_message),
+        ]
+        for topic, callback in subscribe_callbacks:
+            try:
+                await self.comms.subscribe(topic=topic, callback=callback)
+            except Exception as e:
+                self.logger.error("Failed to subscribe to topic %s: %s", topic, e)
+                raise CommunicationSubscribeError from e
 
         # wait 1 second to ensure that the communication is initialized
         await asyncio.sleep(1)
@@ -186,6 +168,12 @@ class SystemController(BaseControllerService):
         """
         self.logger.debug("Stopping System Controller")
         self.logger.info("AIPerf System is SHUTTING DOWN")
+
+        # Broadcast a stop command to all services
+        await self.send_command_to_service(
+            target_service_id=None,
+            command=CommandType.STOP,
+        )
 
         try:
             await self.service_manager.stop_all_services()
@@ -293,6 +281,25 @@ class SystemController(BaseControllerService):
                 f"Received heartbeat from unknown service: {service_id} ({service_type})"
             )
 
+    async def _process_credits_complete_message(
+        self, message: CreditsCompleteMessage
+    ) -> None:
+        """Process a credits complete message from a service. It will
+        update the state of the service with the service manager.
+
+        Args:
+            message: The credits complete message to process
+        """
+        service_id = message.service_id
+        service_type = message.payload
+
+        self.logger.info(
+            f"Received credits complete from {service_type} (ID: {service_id})"
+        )
+        # TODO: this should eventually be replaced with a profile end command instead of a stop event
+        # request to stop the system
+        self.stop_event.set()
+
     async def _process_status_message(self, message: StatusMessage) -> None:
         """Process a status response from a service. It will
         update the state of the service with the service manager.
@@ -309,25 +316,26 @@ class SystemController(BaseControllerService):
         )
 
         # Update the component state if the component exists
-        try:
-            service_info = self.service_manager.service_id_map.get(service_id)
-            service_info.state = message.payload.state
-            self.logger.debug(f"Updated state for {service_id} to {state}")
-        except Exception:
-            self.logger.warning(
+        if service_id not in self.service_manager.service_id_map:
+            self.logger.debug(
                 f"Received status update from un-registered service: {service_id} ({service_type})"
             )
+            return
+
+        service_info = self.service_manager.service_id_map.get(service_id)
+        service_info.state = message.payload.state
+        self.logger.debug(f"Updated state for {service_id} to {state}")
 
     async def send_command_to_service(
         self,
-        target_service_id: str,
+        target_service_id: str | None,
         command: CommandType,
         data: Any | None = None,
     ) -> None:
         """Send a command to a specific service.
 
         Args:
-            target_service_id: ID of the target service
+            target_service_id: ID of the target service, or None to send to all services
             command: The command to send (from CommandType enum).
             data: Optional data to send with the command.
 

@@ -17,8 +17,19 @@ from collections.abc import Callable
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
+from aiperf.common.exceptions import FactoryCreationError
+
 if TYPE_CHECKING:
-    from aiperf.common.exceptions import FactoryCreationError
+    from aiperf.common.comms.base import BaseCommunication  # noqa: F401
+    from aiperf.common.enums import (  # noqa: F401
+        CommunicationBackend,
+        OutputFormat,
+        PromptSource,
+    )
+    from aiperf.common.interfaces import (  # noqa: F401
+        InputConverterProtocol,
+        OutputConverterProtocol,
+    )
 
 ClassEnumT = TypeVar("ClassEnumT", bound=Any, infer_variance=True)
 ClassProtocolT = TypeVar("ClassProtocolT", bound=Any, infer_variance=True)
@@ -28,7 +39,6 @@ __all__ = [
     "InputConverterFactory",
     "OutputConverterFactory",
     "CommunicationFactory",
-    "BackendClientFactory",
     "ClassEnumT",
     "ClassProtocolT",
 ]
@@ -167,7 +177,7 @@ class FactoryMixin(Generic[ClassEnumT, ClassProtocolT]):
 
 
 class InputConverterFactory(FactoryMixin["PromptSource", "InputConverterProtocol"]):
-    """Factory for registering and creating InputConverterProtocol instances based on the specified prompt source.
+    """Factory for registering and creatinPromptSourcerterProtocol instances based on the specified prompt source.
 
     Example:
     ```python
@@ -220,23 +230,4 @@ class CommunicationFactory(FactoryMixin["CommunicationBackend", "BaseCommunicati
             config=ZMQTCPCommunicationConfig(
                 host="localhost", port=5555, timeout=10.0),
         )
-    """
-
-
-class BackendClientFactory(FactoryMixin["BackendClientType", "BackendClientProtocol"]):
-    """Factory for registering and creating BackendClientProtocol instances based on the specified backend client type.
-
-    Example:
-    ```python
-        # Register a new backend client
-        @BackendClientFactory.register(BackendClientType.OPENAI)
-        class OpenAIBackendClient:
-            pass  # Implement the BackendClientProtocol
-
-        backend_client = BackendClientFactory.create_instance(
-            BackendClientType.OPENAI,
-            config=OpenAIBackendClientConfig(api_key="sk-1234567890"),
-        )
-        backend_client.send_request(...)
-    ```
     """

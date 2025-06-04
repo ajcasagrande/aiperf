@@ -13,6 +13,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+import os
 import time
 from typing import Any
 
@@ -27,8 +28,8 @@ from openai.types.responses.response import Response
 from pydantic import BaseModel, Field
 
 from aiperf.backend.client_mixins import BackendClientConfigMixin
+from aiperf.backend.factory import BackendClientFactory
 from aiperf.common.enums import BackendClientType, StrEnum
-from aiperf.common.factories import BackendClientFactory
 from aiperf.common.interfaces import BackendClientProtocol
 from aiperf.common.models import (
     BackendClientResponse,
@@ -213,6 +214,10 @@ class OpenAIClientMixin(OpenAIBackendClientConfigMixin):
     def __init__(self, client_config: OpenAIBackendClientConfig):
         super().__init__(client_config)
 
+        self.client_config.api_key = os.environ.get(
+            "OPENAI_API_KEY", "sk-fakeai-1234567890abcdef"
+        )
+
         base_url = (
             f"https://{self.client_config.url}"
             if not self.client_config.url.startswith(("http://", "https://"))
@@ -313,6 +318,38 @@ class OpenAIBackendClient(OpenAIClientMixin, OpenAIBackendClientProtocol):
         self, endpoint: str, payload: OpenAIBaseRequest
     ) -> RequestRecord:
         # TODO: Is this actually an OutputConverterProtocol?
+
+        # return RequestRecord(
+        #     start_time_ns=time.time_ns(),
+        #     response_timestamps_ns=[time.time_ns()],
+        #     responses=[BackendClientResponse(
+        #             response=OpenAIChatCompletionResponse(
+        #                 response=ChatCompletion(
+        #                     id=uuid.uuid4().hex,
+        #                     object="chat.completion",
+        #                     created=int(time.time()),
+        #                     model=self.client_config.model,
+        #                     choices=[
+        #                         Choice(
+        #                             index=0,
+        #                             message=ChatCompletionMessage(
+        #                                 role="assistant",
+        #                                 content="test",
+        #                             ),
+        #                             finish_reason="stop",
+        #                             logprobs=None,
+        #                         )
+        #                     ],
+        #                     usage=CompletionUsage(
+        #                         completion_tokens=100,
+        #                         prompt_tokens=100,
+        #                         total_tokens=200,
+        #                     ),
+        #                 )
+        #             )
+        #         )
+        #     ]
+        # )
 
         if isinstance(payload, OpenAIChatCompletionRequest):
             record: RequestRecord = RequestRecord()

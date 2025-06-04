@@ -14,6 +14,7 @@ from zmq import SocketType
 from aiperf.common.comms.zmq.clients.metaclass import ZMQClientMetaclass
 from aiperf.common.decorators import AIPerfHooks
 from aiperf.common.exceptions import (
+    AIPerfError,
     CommunicationError,
     CommunicationInitializationError,
     CommunicationNotInitializedError,
@@ -172,6 +173,8 @@ class BaseZMQClient(ABC, metaclass=ZMQClientMetaclass):
                 self.client_id,
             )
 
+        except AIPerfError:
+            raise  # re-raise it up the stack
         except Exception as e:
             self.logger.error("Exception initializing ZMQ socket: %s", e)
             raise CommunicationInitializationError from e
@@ -189,6 +192,10 @@ class BaseZMQClient(ABC, metaclass=ZMQClientMetaclass):
 
         if not self.stop_event.is_set():
             self.stop_event.set()
+
+        # Cancel all registered tasks
+        for task in self._task_registry.values():
+            task.cancel()
 
         try:
             if self._socket:
@@ -214,10 +221,6 @@ class BaseZMQClient(ABC, metaclass=ZMQClientMetaclass):
                 "Exception cleaning up ZMQ socket: %s (%s)", e, self.client_id
             )
             raise CommunicationError("Failed to cleanup ZMQ socket") from e
-
-        # Cancel all registered tasks
-        for task in self._task_registry.values():
-            task.cancel()
 
         # Wait for all tasks to complete
         with contextlib.suppress(asyncio.CancelledError):

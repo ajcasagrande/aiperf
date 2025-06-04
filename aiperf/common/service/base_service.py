@@ -14,6 +14,7 @@ from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.decorators import AIPerfHooks
 from aiperf.common.enums import CommunicationBackend, ServiceState
 from aiperf.common.exceptions import (
+    AIPerfError,
     AIPerfMultiError,
     CommunicationClientCreationError,
     CommunicationCreateError,
@@ -241,6 +242,8 @@ class BaseService(BaseServiceInterface, ABC, metaclass=ServiceMetaclass):
 
             try:
                 await self.initialize()
+            except AIPerfError:
+                raise  # re-raise it up the stack
             except Exception as e:
                 self.logger.exception(
                     "Failed to initialize service %s (id: %s)",

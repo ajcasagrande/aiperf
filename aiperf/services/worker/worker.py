@@ -3,13 +3,27 @@
 import asyncio
 import os
 import sys
+import uuid
+from typing import cast
 
-from aiperf.backend.openai_client import OpenAIBackendClient, OpenAIBackendClientConfig
-from aiperf.common.comms.client_enums import ClientType, PullClientType, PushClientType
+from aiperf.backend.factory import BackendClientFactory
+from aiperf.backend.openai_client import OpenAIBackendClientConfig
+from aiperf.common.comms.client_enums import (
+    ClientType,
+    PullClientType,
+    PushClientType,
+    ReqClientType,
+)
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.decorators import on_cleanup, on_init, on_run, on_start, on_stop
-from aiperf.common.enums import ServiceType, Topic
-from aiperf.common.models import CreditReturnPayload
+from aiperf.common.enums import BackendClientType, DataTopic, ServiceType, Topic
+from aiperf.common.interfaces import BackendClientProtocol
+from aiperf.common.models import (
+    ConversationRequestPayload,
+    ConversationResponseMessage,
+    CreditReturnPayload,
+)
+from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.common.service.base_service import BaseService
 
 
@@ -25,8 +39,8 @@ class Worker(BaseService):
         super().__init__(service_config=service_config, service_id=service_id)
         self.logger.debug("Initializing worker")
 
-        # OpenAI client will be initialized in _initialize
-        self.openai_client = None
+        # Backend client will be initialized in _initialize
+        self.backend_client: BackendClientProtocol | None = None
 
     @property
     def service_type(self) -> ServiceType:
@@ -40,6 +54,7 @@ class Worker(BaseService):
             *(super().required_clients or []),
             PullClientType.CREDIT_DROP,
             PushClientType.CREDIT_RETURN,
+            ReqClientType.CONVERSATION_DATA,
         ]
 
     @on_init
@@ -48,7 +63,7 @@ class Worker(BaseService):
         self.logger.debug("Initializing worker")
 
         # Get API key from environment variable or use a default for testing
-        api_key = os.environ.get("OPENAI_API_KEY", "dummy-key-for-testing")
+        api_key = os.environ.get("OPENAI_API_KEY", "sk-fakeai-1234567890abcdef")
 
         # Create OpenAI client configuration
         openai_client_config = OpenAIBackendClientConfig(
@@ -58,8 +73,10 @@ class Worker(BaseService):
         )
 
         # Initialize the OpenAI client
-        self.openai_client = OpenAIBackendClient(client_config=openai_client_config)
-        self.logger.info("OpenAI backend client initialized")
+        self.backend_client = BackendClientFactory.create_instance(
+            BackendClientType.OPENAI, config=openai_client_config
+        )
+        self.logger.debug("Backend client initialized")
 
     @on_run
     async def _run(self) -> None:
@@ -94,16 +111,17 @@ class Worker(BaseService):
         """
         self.logger.debug(f"Processing credit drop: {message}")
 
+        credit_amount = 0
         try:
             # Extract the credit drop message payload
             if hasattr(message, "payload") and hasattr(message.payload, "amount"):
                 credit_amount = message.payload.amount
-                self.logger.info(f"Received {credit_amount} credit(s)")
+                self.logger.debug(f"Received {credit_amount} credit(s)")
 
                 # Make a call to OpenAI API for each credit
                 for _ in range(credit_amount):
-                    await self._call_openai_api()
-                    await asyncio.sleep(0.1)  # Small delay between calls
+                    await self._call_backend_api()
+                    # await asyncio.sleep(0.1)  # Small delay between calls
             else:
                 self.logger.warning(
                     f"Received credit drop message without amount: {message}"
@@ -118,86 +136,114 @@ class Worker(BaseService):
             await self.comms.push(
                 topic=Topic.CREDIT_RETURN,
                 message=self.create_message(
-                    payload=CreditReturnPayload(amount=1),
+                    payload=CreditReturnPayload(amount=credit_amount),
                 ),
             )
 
-    async def _call_openai_api(self) -> None:
-        """Make a call to the OpenAI API."""
+    async def _call_backend_api(self) -> None:
+        """Make a call to the backend API."""
         try:
-            self.logger.debug("Calling OpenAI API")
+            self.logger.debug("Calling backend API")
 
-            if not self.openai_client:
-                self.logger.warning("OpenAI client not initialized, skipping API call")
+            if not self.backend_client:
+                self.logger.warning("Backend client not initialized, skipping API call")
                 return
 
+            # retrieve the prompt from the dataset
+            response = await self.comms.request(
+                topic=DataTopic.CONVERSATION,
+                message=self.create_message(
+                    payload=ConversationRequestPayload(
+                        conversation_id="123",
+                    ),
+                ),
+            )
+            messages = cast(
+                ConversationResponseMessage, response
+            ).payload.conversation_data
+
             # Sample messages for the API call
-            messages = [
-                {"role": "system", "content": "You are a helpful assistant."},
-                {
-                    "role": "user",
-                    "content": "Tell me about NVIDIA AI performance testing.",
-                },
-            ]
+            # messages = [
+            #     {"role": "system", "content": "You are a helpful assistant."},
+            #     {
+            #         "role": "user",
+            #         "content": "Tell me about NVIDIA AI performance testing.",
+            #     },
+            # ]
 
-            try:
-                # Format payload for the API request
-                formatted_payload = await self.openai_client.format_payload(
-                    endpoint="v1/chat/completions", payload={"messages": messages}
+            # Format payload for the API request
+            formatted_payload = await self.backend_client.format_payload(
+                endpoint="v1/chat/completions", payload={"messages": messages}
+            )
+
+            # Send the request to the API
+            record = await self.backend_client.send_request(
+                endpoint="v1/chat/completions", payload=formatted_payload
+            )
+
+            if record.valid:
+                self.logger.debug("Backend API call successful")
+                self.logger.debug(
+                    f"Record: {record.time_to_first_response_ns / 1e6} milliseconds. {record.time_to_last_response_ns / 1e6} milliseconds."
                 )
-
-                # Send the request to the API
-                record = await self.openai_client.send_request(
-                    endpoint="v1/chat/completions", payload=formatted_payload
-                )
-
-                if record.valid:
-                    self.logger.debug("OpenAI API call successful")
-                    self.logger.info(
-                        f"Record: {record.time_to_first_response_ns / 1e6} milliseconds. {record.time_to_last_response_ns / 1e6} milliseconds."
-                    )
-                else:
-                    self.logger.warning("OpenAI API call returned invalid response")
-
-            except NotImplementedError:
-                # Handle the case where methods are not fully implemented
-                self.logger.warning(
-                    "OpenAI client methods not fully implemented, using fallback"
-                )
-                self.logger.info("Simulated OpenAI API call (fallback)")
+            else:
+                self.logger.warning("Backend API call returned invalid response")
 
         except Exception as e:
-            self.logger.error("Error calling OpenAI API: %s", str(e))
+            self.logger.error("Error calling backend API: %s", str(e))
 
 
-async def run_workers(service_config: ServiceConfig):
-    """Create and run multiple worker instances.
+class MultiWorkerProcess(BaseComponentService):
+    """MultiWorkerProcess is a process that runs multiple workers as concurrent tasks on the event loop."""
 
-    Args:
-        service_config: The service configuration for the worker.
-    """
-    tasks = []
-    # Create multiple worker instances
-    # This is just an example, you can adjust the number of workers as needed
-    for i in range(32):
-        worker = Worker(service_config=service_config, service_id=f"worker_{i}")
-        tasks.append(asyncio.create_task(worker.run_forever()))
-    await asyncio.gather(*tasks)
+    def __init__(self, service_config: ServiceConfig, service_id: str | None = None):
+        super().__init__(service_config=service_config, service_id=service_id)
+        self.logger.debug("Initializing worker process")
+        self.workers: list[Worker] = []
+        self.tasks: list[asyncio.Task] = []
+        self.worker_count = 50
+
+    @property
+    def service_type(self) -> ServiceType:
+        """The type of service."""
+        return ServiceType.MULTI_WORKER_PROCESS
+
+    @property
+    def required_clients(self) -> list[ClientType]:
+        """The communication clients required by the service."""
+        return super().required_clients or []
+
+    @on_run
+    async def _run(self) -> None:
+        self.logger.debug("%s: Creating %s workers", self.service_id, self.worker_count)
+        for _ in range(self.worker_count):
+            worker = Worker(
+                service_config=self.service_config,
+                service_id=f"worker_{uuid.uuid4().hex[:8]}",
+            )
+            self.workers.append(worker)
+            self.tasks.append(asyncio.create_task(worker.run_forever()))
+
+    @on_stop
+    async def _stop(self) -> None:
+        self.logger.debug("Stopping multi-worker process %s", self.service_id)
+        for task in self.tasks:
+            task.cancel()
+        for worker in self.workers:
+            worker.stop_event.set()
+
+    @on_cleanup
+    async def _cleanup(self) -> None:
+        self.logger.debug("Cleaning up multi-worker process %s", self.service_id)
+        await asyncio.gather(*self.tasks)
 
 
 def main() -> None:
-    """Main entry point for the worker."""
+    """Main entry point for the worker process."""
 
-    import uvloop
+    from aiperf.common.bootstrap import bootstrap_and_run_service
 
-    from aiperf.common.config.loader import load_service_config
-
-    # Load the service configuration
-    cfg = load_service_config()
-
-    # Create and run the worker
-    # worker = Worker(cfg)
-    uvloop.run(run_workers(cfg))
+    bootstrap_and_run_service(MultiWorkerProcess)
 
 
 if __name__ == "__main__":

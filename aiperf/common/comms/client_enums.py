@@ -26,7 +26,13 @@ class PubClientType(StrEnum):
             The appropriate ClientType for the given topic
         """
         match topic:
-            case Topic.HEARTBEAT | Topic.REGISTRATION | Topic.STATUS | Topic.RESPONSE:
+            case (
+                Topic.HEARTBEAT
+                | Topic.REGISTRATION
+                | Topic.STATUS
+                | Topic.RESPONSE
+                | Topic.CREDITS_COMPLETE
+            ):
                 return cls.COMPONENT
             case Topic.COMMAND:
                 return cls.CONTROLLER
@@ -56,7 +62,13 @@ class SubClientType(StrEnum):
             The appropriate ClientType for the given topic
         """
         match topic:
-            case Topic.HEARTBEAT | Topic.REGISTRATION | Topic.STATUS | Topic.RESPONSE:
+            case (
+                Topic.HEARTBEAT
+                | Topic.REGISTRATION
+                | Topic.STATUS
+                | Topic.RESPONSE
+                | Topic.CREDITS_COMPLETE
+            ):
                 return cls.COMPONENT
             case Topic.COMMAND:
                 return cls.CONTROLLER

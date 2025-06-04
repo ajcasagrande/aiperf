@@ -155,10 +155,7 @@ class BasePayload(BaseModel):
     and automatic type coercion when receiving messages.
     """
 
-    # Note: Literal[MessageType.UNKNOWN] is required due to the way the
-    # discriminator is implemented in Pydantic, it requires everything to be a
-    # literal.
-    message_type: Literal[MessageType.UNKNOWN] = Field(
+    message_type: MessageType = Field(
         ...,
         description="Type of message this payload represents",
     )
@@ -167,32 +164,21 @@ class BasePayload(BaseModel):
 class ErrorPayload(BasePayload):
     """Exception payload sent by services to report an error."""
 
-    message_type: Literal[MessageType.ERROR] = MessageType.ERROR
+    message_type: Literal[MessageType.ERROR] = MessageType.ERROR  # type: ignore
 
-    error_code: str | None = Field(
-        default=None,
-        description="Exception code",
-    )
-    error_message: str | None = Field(
-        default=None,
-        description="Exception message",
-    )
-    error_details: dict[str, Any] | None = Field(
-        default=None,
-        description="Additional details about the error",
-    )
+    error: str = Field(..., description="Exception message")
 
 
 class DataPayload(BasePayload):
     """Base model for data payloads with metadata."""
 
-    message_type: Literal[MessageType.DATA] = MessageType.DATA
+    message_type: Literal[MessageType.DATA] = MessageType.DATA  # type: ignore
 
 
 class StatusPayload(BasePayload):
     """Status payload sent by services to report their current state."""
 
-    message_type: Literal[MessageType.STATUS] = MessageType.STATUS
+    message_type: Literal[MessageType.STATUS] = MessageType.STATUS  # type: ignore
 
     state: ServiceState = Field(
         ...,
@@ -207,7 +193,7 @@ class StatusPayload(BasePayload):
 class HeartbeatPayload(StatusPayload):
     """Heartbeat payload sent periodically by services."""
 
-    message_type: Literal[MessageType.HEARTBEAT] = MessageType.HEARTBEAT
+    message_type: Literal[MessageType.HEARTBEAT] = MessageType.HEARTBEAT  # type: ignore
 
     state: ServiceState = ServiceState.RUNNING
 
@@ -215,7 +201,7 @@ class HeartbeatPayload(StatusPayload):
 class RegistrationPayload(StatusPayload):
     """Registration payload sent by services to register themselves."""
 
-    message_type: Literal[MessageType.REGISTRATION] = MessageType.REGISTRATION
+    message_type: Literal[MessageType.REGISTRATION] = MessageType.REGISTRATION  # type: ignore
 
     state: ServiceState = ServiceState.READY
 
@@ -223,7 +209,7 @@ class RegistrationPayload(StatusPayload):
 class CommandPayload(BasePayload):
     """Command payload sent to services to request an action."""
 
-    message_type: Literal[MessageType.COMMAND] = MessageType.COMMAND
+    message_type: Literal[MessageType.COMMAND] = MessageType.COMMAND  # type: ignore
 
     command: CommandType = Field(
         ...,
@@ -250,7 +236,7 @@ class CommandPayload(BasePayload):
 class CreditDropPayload(BasePayload):
     """Credit drop payload sent to services to request a credit drop."""
 
-    message_type: Literal[MessageType.CREDIT_DROP] = MessageType.CREDIT_DROP
+    message_type: Literal[MessageType.CREDIT_DROP] = MessageType.CREDIT_DROP  # type: ignore
 
     amount: int = Field(
         ...,
@@ -264,11 +250,38 @@ class CreditDropPayload(BasePayload):
 class CreditReturnPayload(BasePayload):
     """Credit return payload sent to services to request a credit return."""
 
-    message_type: Literal[MessageType.CREDIT_RETURN] = MessageType.CREDIT_RETURN
+    message_type: Literal[MessageType.CREDIT_RETURN] = MessageType.CREDIT_RETURN  # type: ignore
 
     amount: int = Field(
         ...,
         description="Amount of credits to return",
+    )
+
+
+class CreditsCompletePayload(BasePayload):
+    """Credits complete payload sent to System controller to signify all requests have completed."""
+
+    message_type: Literal[MessageType.CREDITS_COMPLETE] = MessageType.CREDITS_COMPLETE  # type: ignore
+
+
+class ConversationRequestPayload(BasePayload):
+    """Request payload sent to services to request a conversation."""
+
+    message_type: Literal[MessageType.CONVERSATION_REQUEST] = (  # type: ignore
+        MessageType.CONVERSATION_REQUEST
+    )
+    conversation_id: str = Field(..., description="The ID of the conversation")
+
+
+class ConversationResponsePayload(BasePayload):
+    """Response payload sent to services to respond to a conversation request."""
+
+    message_type: Literal[MessageType.CONVERSATION_RESPONSE] = (  # type: ignore
+        MessageType.CONVERSATION_RESPONSE
+    )
+    conversation_id: str = Field(..., description="The ID of the conversation")
+    conversation_data: list[dict[str, Any]] = Field(
+        ..., description="The data of the conversation"
     )
 
 
@@ -282,7 +295,10 @@ Payload = Union[  # noqa: UP007
     CommandPayload,
     CreditDropPayload,
     CreditReturnPayload,
+    CreditsCompletePayload,
     ErrorPayload,
+    ConversationRequestPayload,
+    ConversationResponsePayload,
 ]
 """This is a union of all the payload types that can be sent and received.
 
@@ -353,49 +369,67 @@ class BaseMessage(BaseModel):
 class DataMessage(BaseMessage):
     """Message containing data."""
 
-    payload: DataPayload
+    payload: DataPayload  # type: ignore
 
 
 class HeartbeatMessage(BaseMessage):
     """Message containing heartbeat data."""
 
-    payload: HeartbeatPayload
+    payload: HeartbeatPayload  # type: ignore
 
 
 class RegistrationMessage(BaseMessage):
     """Message containing registration data."""
 
-    payload: RegistrationPayload
+    payload: RegistrationPayload  # type: ignore
 
 
 class StatusMessage(BaseMessage):
     """Message containing status data."""
 
-    payload: StatusPayload
+    payload: StatusPayload  # type: ignore
 
 
 class CommandMessage(BaseMessage):
     """Message containing command data."""
 
-    payload: CommandPayload
+    payload: CommandPayload  # type: ignore
 
 
 class CreditDropMessage(BaseMessage):
     """Message indicating that a credit has been dropped."""
 
-    payload: CreditDropPayload
+    payload: CreditDropPayload  # type: ignore
 
 
 class CreditReturnMessage(BaseMessage):
     """Message indicating that a credit has been returned."""
 
-    payload: CreditReturnPayload
+    payload: CreditReturnPayload  # type: ignore
 
 
 class ErrorMessage(BaseMessage):
     """Message containing error data."""
 
-    payload: ErrorPayload
+    payload: ErrorPayload  # type: ignore
+
+
+class ConversationRequestMessage(BaseMessage):
+    """Message containing conversation request data."""
+
+    payload: ConversationRequestPayload  # type: ignore
+
+
+class ConversationResponseMessage(BaseMessage):
+    """Message containing conversation response data."""
+
+    payload: ConversationResponsePayload  # type: ignore
+
+
+class CreditsCompleteMessage(BaseMessage):
+    """Message containing credits complete data."""
+
+    payload: CreditsCompletePayload  # type: ignore
 
 
 Message = Union[  # noqa: UP007
@@ -408,6 +442,9 @@ Message = Union[  # noqa: UP007
     CreditDropMessage,
     CreditReturnMessage,
     ErrorMessage,
+    ConversationRequestMessage,
+    ConversationResponseMessage,
+    CreditsCompleteMessage,
 ]
 """Union of all message types. This is used as a type hint when a function
 accepts a message as an argument.
