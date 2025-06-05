@@ -63,24 +63,8 @@ class Topic(CaseInsensitiveStrEnum):
     RESPONSE = "response"
     STATUS = "status"
     HEARTBEAT = "heartbeat"
-
-
-# TODO: Is this separation needed? Or should we just use the Topic enum?
-class DataTopic(CaseInsensitiveStrEnum):
-    """TBD. Specific data topics for use in the future."""
-
-    DATASET = "dataset_data"
-    RECORDS = "records_data"
-    WORKER = "worker_data"
-    POST_PROCESSOR = "post_processor_data"
-    RESULTS = "results"
-    METRICS = "metrics"
-    CONVERSATION = "conversation_data"
-
-
-TopicType = Topic | DataTopic
-"""Union of all the various different topic types supported by the system, for use in
-type hinting."""
+    INFERENCE_RESULTS = "inference_results"
+    CONVERSATION_DATA = "conversation_data"
 
 
 ################################################################################
@@ -156,6 +140,9 @@ class MessageType(CaseInsensitiveStrEnum):
 
     CONVERSATION_RESPONSE = "conversation_response"
     """A message sent by one service to another to respond to a conversation request."""
+
+    INFERENCE_RESULTS = "inference_results"
+    """A message containing inference results from a worker."""
 
 
 ################################################################################

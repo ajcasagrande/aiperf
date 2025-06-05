@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
+import copy
 import os
 import sys
 import uuid
@@ -15,13 +16,17 @@ from aiperf.common.comms.client_enums import (
     ReqClientType,
 )
 from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.enums import BackendClientType, DataTopic, ServiceType, Topic
+from aiperf.common.constants import NANOS_PER_MILLIS
+from aiperf.common.enums import BackendClientType, MessageType, ServiceType, Topic
 from aiperf.common.hooks import on_cleanup, on_init, on_run, on_start, on_stop
 from aiperf.common.interfaces import BackendClientProtocol
 from aiperf.common.models import (
     ConversationRequestPayload,
     ConversationResponseMessage,
     CreditReturnPayload,
+    InferenceResultsPayload,
+    RequestErrorRecord,
+    RequestRecord,
 )
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.common.service.base_service import BaseService
@@ -87,9 +92,9 @@ class Worker(BaseService):
     async def _start(self) -> None:
         """Start the worker."""
         self.logger.debug("Starting worker")
-        # Subscribe to the credit drop topic
-        await self.comms.pull(
-            topic=Topic.CREDIT_DROP,
+        # Pull credit drops
+        await self.comms.register_pull_callback(
+            message_type=MessageType.CREDIT_DROP,
             callback=self._process_credit_drop,
         )
 
@@ -120,7 +125,24 @@ class Worker(BaseService):
 
                 # Make a call to OpenAI API for each credit
                 for _ in range(credit_amount):
-                    await self._call_backend_api()
+                    record = await self._call_backend_api()
+
+                    try:
+                        msg = self.create_message(
+                            payload=InferenceResultsPayload(
+                                record=copy.deepcopy(record),
+                            ),
+                        )
+                        # self.logger.info(f"Pushing request record: {msg}")
+                        await self.comms.push(
+                            topic=Topic.INFERENCE_RESULTS,
+                            message=msg,
+                        )
+                    except Exception as e:
+                        self.logger.error(
+                            f"Error pushing request record: {e.__class__.__name__}: {e}"
+                        )
+
                     # await asyncio.sleep(0.1)  # Small delay between calls
             else:
                 self.logger.warning(
@@ -140,18 +162,20 @@ class Worker(BaseService):
                 ),
             )
 
-    async def _call_backend_api(self) -> None:
+    async def _call_backend_api(self) -> RequestErrorRecord | RequestRecord:
         """Make a call to the backend API."""
         try:
             self.logger.debug("Calling backend API")
 
             if not self.backend_client:
                 self.logger.warning("Backend client not initialized, skipping API call")
-                return
+                return RequestErrorRecord(
+                    error="Backend client not initialized",
+                )
 
             # retrieve the prompt from the dataset
             response = await self.comms.request(
-                topic=DataTopic.CONVERSATION,
+                topic=Topic.CONVERSATION_DATA,
                 message=self.create_message(
                     payload=ConversationRequestPayload(
                         conversation_id="123",
@@ -182,15 +206,21 @@ class Worker(BaseService):
             )
 
             if record.valid:
-                self.logger.debug("Backend API call successful")
                 self.logger.debug(
-                    f"Record: {record.time_to_first_response_ns / 1e6} milliseconds. {record.time_to_last_response_ns / 1e6} milliseconds."
+                    f"Record: {record.time_to_first_response_ns / NANOS_PER_MILLIS} milliseconds. {record.time_to_last_response_ns / NANOS_PER_MILLIS} milliseconds."
                 )
             else:
                 self.logger.warning("Backend API call returned invalid response")
 
+            return record
+
         except Exception as e:
-            self.logger.error("Error calling backend API: %s", str(e))
+            self.logger.error(
+                "Error calling backend API: %s %s", e.__class__.__name__, str(e)
+            )
+            return RequestErrorRecord(
+                error=f"{e.__class__.__name__}: {e}",
+            )
 
 
 class MultiWorkerProcess(BaseComponentService):

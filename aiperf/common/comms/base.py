@@ -6,7 +6,7 @@ from collections.abc import Callable, Coroutine
 from typing import Any
 
 from aiperf.common.comms.client_enums import ClientType
-from aiperf.common.enums import TopicType
+from aiperf.common.enums import MessageType, Topic
 from aiperf.common.models import Message
 
 logger = logging.getLogger(__name__)
@@ -60,7 +60,7 @@ class BaseCommunication(ABC):
         pass
 
     @abstractmethod
-    async def publish(self, topic: TopicType, message: Message) -> None:
+    async def publish(self, topic: Topic, message: Message) -> None:
         """Publish a response to a topic.
 
         Args:
@@ -72,7 +72,7 @@ class BaseCommunication(ABC):
     @abstractmethod
     async def subscribe(
         self,
-        topic: TopicType,
+        topic: Topic,
         callback: Callable[[Message], Coroutine[Any, Any, None]],
     ) -> None:
         """Subscribe to a topic.
@@ -86,7 +86,7 @@ class BaseCommunication(ABC):
     @abstractmethod
     async def request(
         self,
-        topic: TopicType,
+        topic: Topic,
         message: Message,
         timeout: float = 5.0,
     ) -> Message:
@@ -103,7 +103,7 @@ class BaseCommunication(ABC):
         pass
 
     @abstractmethod
-    async def respond(self, topic: TopicType, response: Message) -> None:
+    async def respond(self, topic: Topic, response: Message) -> None:
         """Send a response to a request.
 
         Args:
@@ -113,7 +113,7 @@ class BaseCommunication(ABC):
         pass
 
     @abstractmethod
-    async def push(self, topic: TopicType, message: Message) -> None:
+    async def push(self, topic: Topic, message: Message) -> None:
         """Push data to a target.
 
         Args:
@@ -123,15 +123,15 @@ class BaseCommunication(ABC):
         pass
 
     @abstractmethod
-    async def pull(
+    async def register_pull_callback(
         self,
-        topic: TopicType,
+        message_type: MessageType,
         callback: Callable[[Message], Coroutine[Any, Any, None]],
     ) -> None:
-        """Pull data from a source.
+        """Register a callback for a pull client.
 
         Args:
-            topic: Topic to pull from
-            callback: function to call when data is received.
+            message_type: The message type to register the callback for
+            callback: The callback to register
         """
         pass

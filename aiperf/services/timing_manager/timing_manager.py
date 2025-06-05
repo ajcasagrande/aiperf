@@ -7,7 +7,8 @@ from typing import cast
 
 from aiperf.common.comms.client_enums import ClientType, PullClientType, PushClientType
 from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.enums import ServiceState, ServiceType, Topic
+from aiperf.common.constants import NANOS_PER_SECOND
+from aiperf.common.enums import MessageType, ServiceState, ServiceType, Topic
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
     aiperf_task,
@@ -80,8 +81,8 @@ class TimingManager(BaseComponentService):
         """Start the timing manager."""
         self.logger.debug("Starting timing manager")
         # TODO: Implement timing manager start
-        await self.comms.pull(
-            topic=Topic.CREDIT_RETURN,
+        await self.comms.register_pull_callback(
+            message_type=MessageType.CREDIT_RETURN,
             callback=self._on_credit_return,
         )
         await self.set_state(ServiceState.RUNNING)
@@ -164,8 +165,8 @@ class TimingManager(BaseComponentService):
         Args:
             message: The response received from the pull request
         """
+        amount = cast(CreditReturnPayload, message.payload).amount
         async with self._credit_lock:
-            amount = cast(CreditReturnPayload, message.payload).amount
             self._credits_available += amount
             self._completed_credits += amount
 
@@ -176,15 +177,15 @@ class TimingManager(BaseComponentService):
             self._total_credits,
             self._completed_credits
             / (time.perf_counter_ns() - self.start_time_ns)
-            * 1e9,
+            * NANOS_PER_SECOND,
         )
 
         if self._completed_credits >= self._total_credits:
             self.logger.info(
                 "All credits completed, stopping credit drop task after %.2f seconds (%.2f requests/s)",
-                (time.perf_counter_ns() - self.start_time_ns) / 1e9,
+                (time.perf_counter_ns() - self.start_time_ns) / NANOS_PER_SECOND,
                 self._total_credits
-                / ((time.perf_counter_ns() - self.start_time_ns) / 1e9),
+                / ((time.perf_counter_ns() - self.start_time_ns) / NANOS_PER_SECOND),
             )
             await self.comms.publish(
                 topic=Topic.CREDITS_COMPLETE,

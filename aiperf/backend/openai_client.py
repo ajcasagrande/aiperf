@@ -92,25 +92,21 @@ class OpenAIBackendClientConfig(GenericHTTPBackendClientConfig):
 class OpenAIBaseRequest(BaseModel):
     """Base request specific to an OpenAI backend client."""
 
+    model: str
+    kwargs: dict[str, Any] | None = None
+
 
 class OpenAIChatCompletionRequest(OpenAIBaseRequest):
     """Request specific to an OpenAI chat completion."""
 
     messages: list[Any]
-    model: str
     max_tokens: int
-    temperature: float
-    top_p: float
-    stop: list[str]
-    frequency_penalty: float
-    presence_penalty: float
 
 
 class OpenAIChatResponsesRequest(OpenAIBaseRequest):
     """Response specific to an OpenAI responses ."""
 
     input: str
-    model: str
     max_output_tokens: int
 
 
@@ -118,20 +114,13 @@ class OpenAICompletionRequest(OpenAIBaseRequest):
     """Request specific to an OpenAI completion."""
 
     prompt: str
-    model: str
     max_tokens: int
-    temperature: float
-    top_p: float
-    stop: list[str]
-    frequency_penalty: float
-    presence_penalty: float
 
 
 class OpenAIEmbeddingsRequest(OpenAIBaseRequest):
     """Request specific to an OpenAI embeddings."""
 
     input: str
-    model: str
     dimensions: int
     encoding_format: str
     user: str
@@ -243,7 +232,9 @@ class OpenAIBackendClient(OpenAIClientMixin, OpenAIBackendClientProtocol):
     def __init__(self, client_config: OpenAIBackendClientConfig):
         super().__init__(client_config)
 
-    async def format_payload(self, endpoint: str, payload: Any) -> OpenAIBaseRequest:
+    async def format_payload(
+        self, endpoint: str, payload: dict[str, Any]
+    ) -> OpenAIBaseRequest:
         # TODO: Is this actually an InputConverterProtocol?
 
         if endpoint == "v1/chat/completions":
@@ -251,11 +242,7 @@ class OpenAIBackendClient(OpenAIClientMixin, OpenAIBackendClientProtocol):
                 messages=payload["messages"],
                 model=self.client_config.model,
                 max_tokens=self.client_config.max_tokens,
-                temperature=self.client_config.temperature,
-                top_p=self.client_config.top_p,
-                stop=self.client_config.stop or [],
-                frequency_penalty=self.client_config.frequency_penalty,
-                presence_penalty=self.client_config.presence_penalty,
+                kwargs=payload.get("kwargs", {}),
             )
 
         elif endpoint == "v1/completions":
@@ -263,11 +250,7 @@ class OpenAIBackendClient(OpenAIClientMixin, OpenAIBackendClientProtocol):
                 prompt=payload["prompt"],
                 model=self.client_config.model,
                 max_tokens=self.client_config.max_tokens,
-                temperature=self.client_config.temperature,
-                top_p=self.client_config.top_p,
-                stop=self.client_config.stop or [],
-                frequency_penalty=self.client_config.frequency_penalty,
-                presence_penalty=self.client_config.presence_penalty,
+                kwargs=payload.get("kwargs", {}),
             )
 
         elif endpoint == "v1/embeddings":
@@ -277,6 +260,7 @@ class OpenAIBackendClient(OpenAIClientMixin, OpenAIBackendClientProtocol):
                 dimensions=payload["dimensions"],
                 encoding_format=payload["encoding_format"],
                 user=payload["user"],
+                kwargs=payload.get("kwargs", {}),
             )
 
         elif endpoint == "v1/responses":
@@ -284,6 +268,7 @@ class OpenAIBackendClient(OpenAIClientMixin, OpenAIBackendClientProtocol):
                 input=payload["input"],
                 model=self.client_config.model,
                 max_output_tokens=self.client_config.max_tokens,
+                kwargs=payload.get("kwargs", {}),
             )
 
         else:
@@ -330,57 +315,78 @@ class OpenAIBackendClient(OpenAIClientMixin, OpenAIBackendClientProtocol):
         #     ]
         # )
 
+        record: RequestRecord[Any] = RequestRecord()
+
         if isinstance(payload, OpenAIChatCompletionRequest):
-            record: RequestRecord = RequestRecord()
+            record.start_time_ns = time.perf_counter_ns()
+
             async for response in await self.client.chat.completions.create(
                 model=self.client_config.model,
                 messages=payload.messages,
                 max_tokens=self.client_config.max_tokens,
-                temperature=self.client_config.temperature,
-                top_p=self.client_config.top_p,
-                stop=self.client_config.stop,
-                frequency_penalty=self.client_config.frequency_penalty,
-                presence_penalty=self.client_config.presence_penalty,
                 stream=True,
                 stream_options=ChatCompletionStreamOptionsParam(
                     include_usage=True,
                 ),
+                **payload.kwargs,
             ):
-                record.response_timestamps_ns.append(time.time_ns())
-                record.responses.append(BackendClientResponse(response=response))
-
-            return record
+                record.responses.append(
+                    BackendClientResponse(
+                        timestamp_ns=time.perf_counter_ns(),
+                        response=response.choices[0].delta.content,
+                    )
+                )
 
         elif isinstance(payload, OpenAICompletionRequest):
+            record.start_time_ns = time.perf_counter_ns()
             response = await self.client.completions.create(
                 model=self.client_config.model,
                 prompt=payload.prompt,
                 max_tokens=self.client_config.max_tokens,
-                temperature=self.client_config.temperature,
-                top_p=self.client_config.top_p,
-                stop=self.client_config.stop,
-                frequency_penalty=self.client_config.frequency_penalty,
-                presence_penalty=self.client_config.presence_penalty,
+                **payload.kwargs,
+            )
+            record.responses.append(
+                BackendClientResponse(
+                    timestamp_ns=time.perf_counter_ns(),
+                    response=response,
+                )
             )
 
         elif isinstance(payload, OpenAIEmbeddingsRequest):
+            record.start_time_ns = time.perf_counter_ns()
             response = await self.client.embeddings.create(
                 model=self.client_config.model,
                 input=payload.input,
                 dimensions=payload.dimensions,
                 user=payload.user,
+                **payload.kwargs,
+            )
+            record.responses.append(
+                BackendClientResponse(
+                    timestamp_ns=time.perf_counter_ns(),
+                    response=response,
+                )
             )
 
         elif isinstance(payload, OpenAIChatResponsesRequest):
-            response = await self.client.responses.create(
+            record.start_time_ns = time.perf_counter_ns()
+            async for response in await self.client.responses.create(
                 input=payload.input,
                 model=self.client_config.model,
-                max_output_tokens=self.client_config.max_tokens,
-            )
+                stream=True,
+                **payload.kwargs,
+            ):
+                record.responses.append(
+                    BackendClientResponse(
+                        timestamp_ns=time.perf_counter_ns(),
+                        response=response,
+                    )
+                )
+
         else:
             raise ValueError(f"Invalid payload: {payload}")
 
-        return OpenAIBaseResponse(response=response)
+        return record
 
     async def parse_response(
         self, response: OpenAIBaseResponse

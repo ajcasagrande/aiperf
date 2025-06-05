@@ -9,6 +9,7 @@ import zmq.asyncio
 from zmq import SocketType
 
 from aiperf.common.comms.zmq.clients.base import BaseZMQClient
+from aiperf.common.enums import MessageType
 from aiperf.common.exceptions import AIPerfError
 from aiperf.common.hooks import aiperf_task
 from aiperf.common.models import BaseMessage, Message
@@ -36,7 +37,7 @@ class ZMQPullClient(BaseZMQClient):
         """
         super().__init__(context, SocketType.PULL, address, bind, socket_ops)
         self._pull_callbacks: dict[
-            str, list[Callable[[Message], Coroutine[Any, Any, None]]]
+            MessageType, list[Callable[[Message], Coroutine[Any, Any, None]]]
         ] = {}
 
     @aiperf_task
@@ -61,6 +62,10 @@ class ZMQPullClient(BaseZMQClient):
                 # Call callbacks with BaseMessage object
                 if topic in self._pull_callbacks:
                     await call_all_functions(self._pull_callbacks[topic], message)
+                else:
+                    logger.debug(
+                        "Pull message received on topic without callback %s", topic
+                    )
 
             except asyncio.CancelledError:
                 break
@@ -78,15 +83,15 @@ class ZMQPullClient(BaseZMQClient):
 
         logger.debug("Pull receiver task finished %s", self.client_id)
 
-    async def pull(
+    async def register_pull_callback(
         self,
-        topic: str,
+        message_type: MessageType,
         callback: Callable[[Message], Coroutine[Any, Any, None]],
     ) -> None:
-        """Register a ZMQ Pull data callback from a source (topic).
+        """Register a ZMQ Pull data callback from a message type.
 
         Args:
-            topic: Topic (source) to pull data from
+            message_type:
             callback: function to call when data is received.
 
         Raises:
@@ -96,6 +101,6 @@ class ZMQPullClient(BaseZMQClient):
         self._ensure_initialized()
 
         # Register callback
-        if topic not in self._pull_callbacks:
-            self._pull_callbacks[topic] = []
-        self._pull_callbacks[topic].append(callback)
+        if message_type not in self._pull_callbacks:
+            self._pull_callbacks[message_type] = []
+        self._pull_callbacks[message_type].append(callback)

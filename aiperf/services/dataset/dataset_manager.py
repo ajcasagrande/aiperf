@@ -5,7 +5,7 @@ from typing import cast
 
 from aiperf.common.comms.client_enums import ClientType, RepClientType
 from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.enums import DataTopic, MessageType, ServiceType
+from aiperf.common.enums import MessageType, ServiceType, Topic
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
     on_cleanup,
@@ -60,7 +60,7 @@ class DatasetManager(BaseComponentService):
         # TODO: Implement dataset manager initialization
         await self.comms.register_request_handler(
             service_id=self.service_id,
-            topic=DataTopic.CONVERSATION,
+            topic=Topic.CONVERSATION_DATA,
             message_type=MessageType.CONVERSATION_REQUEST,
             handler=self._handle_conversation_request,
         )

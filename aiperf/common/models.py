@@ -9,6 +9,7 @@ from typing import Any, Generic, Literal, Union
 
 from pydantic import BaseModel, Field
 
+from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import (
     CommandType,
     MessageType,
@@ -250,6 +251,15 @@ class ConversationResponsePayload(BasePayload):
     )
 
 
+class InferenceResultsPayload(BasePayload):
+    """Payload for a inference results."""
+
+    message_type: Literal[MessageType.INFERENCE_RESULTS] = MessageType.INFERENCE_RESULTS  # type: ignore
+    record: "RequestErrorRecord | RequestRecord" = Field(
+        ..., description="The inference results record"
+    )
+
+
 # Only put concrete payload types here, with unique message_type values,
 # otherwise the discriminator will complain.
 Payload = Union[  # noqa: UP007
@@ -264,6 +274,7 @@ Payload = Union[  # noqa: UP007
     ErrorPayload,
     ConversationRequestPayload,
     ConversationResponsePayload,
+    InferenceResultsPayload,
 ]
 """This is a union of all the payload types that can be sent and received.
 
@@ -500,6 +511,10 @@ class GenericHTTPBackendClientConfig(BaseBackendClientConfig):
 class BackendClientResponse(BaseModel, Generic[ResponseT]):
     """Response from a backend client."""
 
+    timestamp_ns: int = Field(
+        ...,
+        description="The timestamp of the response in nanoseconds since the epoch.",
+    )
     response: ResponseT
     error: str | None = None
 
@@ -546,16 +561,27 @@ class InferRequestOptions(BaseModel):
 ################################################################################
 
 
-class RequestRecord(BaseModel, Generic[ResponseT]):
+class BaseRequestRecord(BaseModel):
+    """Base record of a request."""
+
+    pass
+
+
+class RequestErrorRecord(BaseRequestRecord):
+    """Record of a request error."""
+
+    error: str = Field(
+        ...,
+        description="The error message.",
+    )
+
+
+class RequestRecord(BaseRequestRecord, Generic[ResponseT]):
     """Record of a request."""
 
     start_time_ns: int = Field(
         default_factory=time.time_ns,
         description="The start time of the request in nanoseconds since the epoch.",
-    )
-    response_timestamps_ns: list[int] = Field(
-        default_factory=list,
-        description="The timestamps of each response in nanoseconds since the epoch.",
     )
     responses: list[BackendClientResponse[ResponseT]] = Field(
         default_factory=list,
@@ -579,8 +605,10 @@ class RequestRecord(BaseModel, Generic[ResponseT]):
         """
         return (
             0 < self.start_time_ns < sys.maxsize
-            and len(self.response_timestamps_ns) > 0
-            and all(0 < ts < sys.maxsize for ts in self.response_timestamps_ns)
+            and len(self.responses) > 0
+            and all(
+                0 < response.timestamp_ns < sys.maxsize for response in self.responses
+            )
         )
 
     @property
@@ -588,7 +616,9 @@ class RequestRecord(BaseModel, Generic[ResponseT]):
         """Get start time as a datetime object."""
         from datetime import datetime, timezone
 
-        return datetime.fromtimestamp(self.start_time_ns / 1e9, tz=timezone.utc)
+        return datetime.fromtimestamp(
+            self.start_time_ns / NANOS_PER_SECOND, tz=timezone.utc
+        )
 
     @property
     def response_timestamps_(self):
@@ -596,8 +626,10 @@ class RequestRecord(BaseModel, Generic[ResponseT]):
         from datetime import datetime, timezone
 
         return [
-            datetime.fromtimestamp(ts / 1e9, tz=timezone.utc)
-            for ts in self.response_timestamps_ns
+            datetime.fromtimestamp(
+                response.timestamp_ns / NANOS_PER_SECOND, tz=timezone.utc
+            )
+            for response in self.responses
         ]
 
     @property
@@ -605,14 +637,14 @@ class RequestRecord(BaseModel, Generic[ResponseT]):
         """Get the time to the first response in nanoseconds."""
         if not self.valid:
             return sys.maxsize
-        return self.response_timestamps_ns[0] - self.start_time_ns
+        return self.responses[0].timestamp_ns - self.start_time_ns
 
     @property
     def time_to_last_response_ns(self) -> int:
         """Get the time to the last response in nanoseconds."""
         if not self.valid:
             return sys.maxsize
-        return self.response_timestamps_ns[-1] - self.start_time_ns
+        return self.responses[-1].timestamp_ns - self.start_time_ns
 
 
 class RequestTimers:
@@ -620,12 +652,12 @@ class RequestTimers:
 
     def __init__(self):
         """Initialize timer with zeroed timestamps."""
-        self.timestamps: list[int] = [0] * len(RequestTimerKind)
+        self.timestamps: dict[RequestTimerKind, int] = {}
         self.reset()
 
     def reset(self) -> None:
         """Reset all timestamp values to zero. Must be called before re-using the timer."""
-        self.timestamps = [0] * len(RequestTimerKind)
+        self.timestamps = {}
 
     def timestamp(self, kind: RequestTimerKind) -> int:
         """Get the timestamp, in nanoseconds, for a kind.
@@ -636,7 +668,7 @@ class RequestTimers:
         Returns:
             The timestamp in nanoseconds.
         """
-        return self.timestamps[kind.value - 1]
+        return self.timestamps[kind]
 
     def capture_timestamp(self, kind: RequestTimerKind) -> int:
         """Set a timestamp to the current time, in nanoseconds.
@@ -647,8 +679,8 @@ class RequestTimers:
         Returns:
             The timestamp in nanoseconds.
         """
-        ts = time.time_ns()
-        self.timestamps[kind.value - 1] = ts
+        ts = time.perf_counter_ns()
+        self.timestamps[kind] = ts
         return ts
 
     def duration(self, start: RequestTimerKind, end: RequestTimerKind) -> int:
@@ -662,12 +694,12 @@ class RequestTimers:
             Duration in nanoseconds, or sys.maxsize to indicate that duration
             could not be calculated.
         """
-        stime = self.timestamps[start.value - 1]
-        etime = self.timestamps[end.value - 1]
+        start_time = self.timestamps[start]
+        end_time = self.timestamps[end]
 
         # If the start or end timestamp is 0 then can't calculate the
         # duration, so return max to indicate error.
-        if stime == 0 or etime == 0:
+        if start_time == 0 or end_time == 0:
             return sys.maxsize
 
-        return sys.maxsize if stime > etime else etime - stime
+        return sys.maxsize if start_time > end_time else end_time - start_time
