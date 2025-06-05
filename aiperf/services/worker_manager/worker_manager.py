@@ -56,7 +56,7 @@ class WorkerManager(BaseComponentService):
         self.cpu_count = multiprocessing.cpu_count()
         self.worker_count = self.cpu_count - 1
         self.logger.info(
-            "Detected %s CPU threads. Spawning %s workers",
+            "Detected %s CPU threads. Spawning %s worker processes",
             self.cpu_count,
             self.worker_count,
         )
@@ -115,7 +115,7 @@ class WorkerManager(BaseComponentService):
 
     async def _spawn_kubernetes_workers(self) -> None:
         """Spawn worker processes using Kubernetes."""
-        self.logger.debug(f"Spawning {self.worker_count} worker processes")
+        self.logger.debug(f"Spawning {self.worker_count} worker pods")
 
         # TODO: Implement Kubernetes start
         raise NotImplementedError("Kubernetes start not implemented")
