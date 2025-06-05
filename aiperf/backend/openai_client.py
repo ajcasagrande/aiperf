@@ -29,7 +29,7 @@ from pydantic import BaseModel, Field
 
 from aiperf.backend.client_mixins import BackendClientConfigMixin
 from aiperf.backend.factory import BackendClientFactory
-from aiperf.common.enums import BackendClientType, StrEnum
+from aiperf.common.enums import BackendClientType, CaseInsensitiveStrEnum
 from aiperf.common.interfaces import BackendClientProtocol
 from aiperf.common.models import (
     BackendClientResponse,
@@ -37,21 +37,12 @@ from aiperf.common.models import (
     RequestRecord,
 )
 
-__all__ = [
-    "OpenAIBackendClientConfig",
-    "OpenAIBaseRequest",
-    "OpenAIBaseResponse",
-    "OpenAIBackendClientConfigMixin",
-    "OpenAIBackendClientProtocol",
-    "OpenAIBackendClient",
-]
-
 ################################################################################
 # OpenAI Backend Client Models
 ################################################################################
 
 
-class OpenAIType(StrEnum):
+class OpenAIType(CaseInsensitiveStrEnum):
     """The type of API to use for the OpenAI backend client."""
 
     OPENAI = "openai"

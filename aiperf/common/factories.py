@@ -14,9 +14,8 @@
 #  limitations under the License.
 import logging
 from collections.abc import Callable
-from typing import Any, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
-from aiperf.common.comms.base import BaseCommunication
 from aiperf.common.enums import (
     CaseInsensitiveStrEnum,
     CommunicationBackend,
@@ -29,7 +28,9 @@ from aiperf.common.interfaces import (
     InputConverterProtocol,
     OutputConverterProtocol,
 )
-from aiperf.common.service import BaseService
+
+if TYPE_CHECKING:
+    pass
 
 ClassEnumT = TypeVar("ClassEnumT", bound=CaseInsensitiveStrEnum)
 ClassProtocolT = TypeVar("ClassProtocolT", bound=Any)
@@ -242,7 +243,7 @@ class OutputConverterFactory(FactoryMixin[OutputFormat, OutputConverterProtocol]
     """
 
 
-class CommunicationFactory(FactoryMixin[CommunicationBackend, BaseCommunication]):
+class CommunicationFactory(FactoryMixin[CommunicationBackend, "BaseCommunication"]):
     """Factory for registering and creating BaseCommunication instances based on the specified communication backend.
 
     Example:
@@ -261,7 +262,7 @@ class CommunicationFactory(FactoryMixin[CommunicationBackend, BaseCommunication]
     """
 
 
-class ServiceFactory(FactoryMixin[ServiceType, BaseService]):
+class ServiceFactory(FactoryMixin[ServiceType, "BaseService"]):
     """Factory for registering and creating BaseService instances based on the specified service type.
 
     Example:
