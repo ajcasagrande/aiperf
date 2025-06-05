@@ -162,7 +162,7 @@ class BaseMessage(BaseModel, Generic[PayloadT]):
         default=None,
         description="ID of the request",
     )
-    message_type: Literal[MessageType.UNKNOWN] = Field(
+    message_type: MessageType = Field(
         MessageType.UNKNOWN,
         description="Type of message this message represents",
     )

@@ -57,8 +57,7 @@ class BackendClientResponse(BaseModel, Generic[ResponseT]):
         ...,
         description="The timestamp of the response in nanoseconds since the epoch.",
     )
-    response: ResponseT
-    error: str | None = None
+    response: ResponseT | None = None
 
 
 ################################################################################

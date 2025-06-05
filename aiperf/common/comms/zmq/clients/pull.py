@@ -6,6 +6,7 @@ from collections.abc import Callable, Coroutine
 from typing import Any
 
 import zmq.asyncio
+from pydantic import ValidationError
 from zmq import SocketType
 
 from aiperf.common.comms.zmq.clients.base import BaseZMQClient
@@ -56,7 +57,17 @@ class ZMQPullClient(BaseZMQClient):
                 message_json = await self.socket.recv_string()
 
                 # Parse JSON into a Message object
-                message = MessageTypeAdapter.validate_json(message_json)
+                try:
+                    message = MessageTypeAdapter.validate_json(message_json)
+                except ValidationError as e:
+                    logger.error(
+                        "Error parsing pull message: %s %s %s",
+                        message_json,
+                        type(e).__name__,
+                        e,
+                    )
+                    continue
+
                 topic = message.message_type
 
                 # Call callbacks with Message object

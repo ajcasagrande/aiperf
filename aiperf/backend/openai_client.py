@@ -331,7 +331,7 @@ class OpenAIBackendClient(OpenAIClientMixin, OpenAIBackendClientProtocol):
                 **payload.kwargs,
             ):
                 record.responses.append(
-                    BackendClientResponse(
+                    BackendClientResponse[str | None](
                         timestamp_ns=time.perf_counter_ns(),
                         response=response.choices[0].delta.content,
                     )
