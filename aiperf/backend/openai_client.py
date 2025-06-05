@@ -19,7 +19,7 @@ from aiperf.backend.client_mixins import BackendClientConfigMixin
 from aiperf.backend.factory import BackendClientFactory
 from aiperf.common.enums import BackendClientType, CaseInsensitiveStrEnum
 from aiperf.common.interfaces import BackendClientProtocol
-from aiperf.common.models import (
+from aiperf.common.record_models import (
     BackendClientResponse,
     GenericHTTPBackendClientConfig,
     RequestRecord,

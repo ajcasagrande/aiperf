@@ -18,10 +18,12 @@ from aiperf.common.hooks import (
     on_start,
     on_stop,
 )
-from aiperf.common.models import (
-    BasePayload,
+from aiperf.common.messages import (
+    CreditDropMessage,
     CreditDropPayload,
+    CreditReturnMessage,
     CreditReturnPayload,
+    CreditsCompleteMessage,
     CreditsCompletePayload,
     Message,
 )
@@ -71,7 +73,7 @@ class TimingManager(BaseComponentService):
         # TODO: Implement timing manager initialization
 
     @on_configure
-    async def _configure(self, payload: BasePayload) -> None:
+    async def _configure(self, payload: Message) -> None:
         """Configure the timing manager."""
         self.logger.debug(f"Configuring timing manager with payload: {payload}")
         # TODO: Implement timing manager configuration
@@ -98,12 +100,6 @@ class TimingManager(BaseComponentService):
         """Clean up timing manager-specific components."""
         self.logger.debug("Cleaning up timing manager")
         # TODO: Implement timing manager cleanup
-
-    @on_configure
-    async def _configure(self, payload: BasePayload) -> None:
-        """Configure the timing manager."""
-        self.logger.debug(f"Configuring timing manager with payload: {payload}")
-        # TODO: Implement timing manager configuration
 
     @aiperf_task
     async def _issue_credit_drops(self) -> None:
@@ -140,6 +136,7 @@ class TimingManager(BaseComponentService):
                 await self.comms.push(
                     topic=Topic.CREDIT_DROP,
                     message=self.create_message(
+                        CreditDropMessage,
                         payload=CreditDropPayload(
                             amount=1,
                             timestamp=time.time_ns(),
@@ -159,11 +156,11 @@ class TimingManager(BaseComponentService):
                 self.logger.error(f"Exception issuing credit drop: {e}")
                 await asyncio.sleep(0.1)
 
-    async def _on_credit_return(self, message: Message) -> None:
-        """Process a credit return response.
+    async def _on_credit_return(self, message: CreditReturnMessage) -> None:
+        """Process a credit return message.
 
         Args:
-            message: The response received from the pull request
+            message: The credit return message received from the pull request
         """
         amount = cast(CreditReturnPayload, message.payload).amount
         async with self._credit_lock:
@@ -189,7 +186,9 @@ class TimingManager(BaseComponentService):
             )
             await self.comms.publish(
                 topic=Topic.CREDITS_COMPLETE,
-                message=self.create_message(payload=CreditsCompletePayload()),
+                message=self.create_message(
+                    CreditsCompleteMessage, CreditsCompletePayload()
+                ),
             )
 
         self._credit_event.set()

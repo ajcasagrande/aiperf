@@ -3,7 +3,7 @@
 from typing import Generic, Protocol
 
 from aiperf.common.enums import BackendClientType
-from aiperf.common.models import (
+from aiperf.common.record_models import (
     BackendClientResponse,
     RequestRecord,
 )

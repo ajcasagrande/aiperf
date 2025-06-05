@@ -12,7 +12,7 @@ from aiperf.common.comms.zmq.clients.base import BaseZMQClient
 from aiperf.common.enums import MessageType
 from aiperf.common.exceptions import AIPerfError
 from aiperf.common.hooks import aiperf_task
-from aiperf.common.models import BaseMessage, Message
+from aiperf.common.messages import Message, MessageTypeAdapter
 from aiperf.common.utils import call_all_functions
 
 logger = logging.getLogger(__name__)
@@ -55,11 +55,11 @@ class ZMQPullClient(BaseZMQClient):
                 # Receive data
                 message_json = await self.socket.recv_string()
 
-                # Parse JSON into a BaseMessage object
-                message = BaseMessage.model_validate_json(message_json)
-                topic = message.payload.message_type
+                # Parse JSON into a Message object
+                message = MessageTypeAdapter.validate_json(message_json)
+                topic = message.message_type
 
-                # Call callbacks with BaseMessage object
+                # Call callbacks with Message object
                 if topic in self._pull_callbacks:
                     await call_all_functions(self._pull_callbacks[topic], message)
                 else:

@@ -12,7 +12,12 @@ from aiperf.common.comms.zmq.clients.base import BaseZMQClient
 from aiperf.common.enums import MessageType
 from aiperf.common.exceptions import CommunicationResponseError
 from aiperf.common.hooks import aiperf_task, on_cleanup
-from aiperf.common.models import BaseMessage, ErrorMessage, ErrorPayload, Message
+from aiperf.common.messages import (
+    ErrorMessage,
+    ErrorPayload,
+    Message,
+    MessageTypeAdapter,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -86,8 +91,8 @@ class ZMQRepClient(BaseZMQClient):
     async def _handle_request(self, request_json: str) -> None:
         """Handle a request."""
         # Parse JSON to create RequestData object
-        request = BaseMessage.model_validate_json(request_json)
-        message_type = request.payload.message_type
+        request = MessageTypeAdapter.validate_json(request_json)
+        message_type = request.message_type
 
         # Call the handler
         service_id = None

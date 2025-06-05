@@ -20,7 +20,7 @@ from aiperf.common.hooks import (
     on_start,
     on_stop,
 )
-from aiperf.common.models import BasePayload
+from aiperf.common.messages import Message
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.services.worker import worker
 from aiperf.services.worker.worker import MultiWorkerProcess
@@ -198,7 +198,7 @@ class WorkerManager(BaseComponentService):
             process.kill()
 
     @on_configure
-    async def _configure(self, payload: BasePayload) -> None:
+    async def _configure(self, payload: Message) -> None:
         """Configure the worker manager."""
         self.logger.debug(f"Configuring worker manager with payload: {payload}")
         # TODO: Implement worker manager configuration

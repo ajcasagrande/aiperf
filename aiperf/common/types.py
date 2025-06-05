@@ -2,13 +2,6 @@
 #  SPDX-License-Identifier: Apache-2.0
 from typing import Any, TypeVar
 
-# Prevent exporting other imported types
-__all__ = [
-    "ConfigT",
-    "RequestT",
-    "ResponseT",
-]
-
 ConfigT = TypeVar("ConfigT", bound=Any, infer_variance=True)
 RequestT = TypeVar("RequestT", bound=Any, infer_variance=True)
 ResponseT = TypeVar("ResponseT", bound=Any, infer_variance=True)

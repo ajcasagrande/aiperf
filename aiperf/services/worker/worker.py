@@ -20,11 +20,16 @@ from aiperf.common.constants import NANOS_PER_MILLIS
 from aiperf.common.enums import BackendClientType, MessageType, ServiceType, Topic
 from aiperf.common.hooks import on_cleanup, on_init, on_run, on_start, on_stop
 from aiperf.common.interfaces import BackendClientProtocol
-from aiperf.common.models import (
+from aiperf.common.messages import (
+    ConversationRequestMessage,
     ConversationRequestPayload,
     ConversationResponseMessage,
+    CreditReturnMessage,
     CreditReturnPayload,
+    InferenceResultsMessage,
     InferenceResultsPayload,
+)
+from aiperf.common.record_models import (
     RequestErrorRecord,
     RequestRecord,
 )
@@ -129,7 +134,8 @@ class Worker(BaseService):
 
                     try:
                         msg = self.create_message(
-                            payload=InferenceResultsPayload(
+                            InferenceResultsMessage,
+                            InferenceResultsPayload(
                                 record=copy.deepcopy(record),
                             ),
                         )
@@ -158,6 +164,7 @@ class Worker(BaseService):
             await self.comms.push(
                 topic=Topic.CREDIT_RETURN,
                 message=self.create_message(
+                    CreditReturnMessage,
                     payload=CreditReturnPayload(amount=credit_amount),
                 ),
             )
@@ -177,6 +184,7 @@ class Worker(BaseService):
             response = await self.comms.request(
                 topic=Topic.CONVERSATION_DATA,
                 message=self.create_message(
+                    ConversationRequestMessage,
                     payload=ConversationRequestPayload(
                         conversation_id="123",
                     ),
