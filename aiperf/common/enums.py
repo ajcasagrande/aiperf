@@ -259,3 +259,12 @@ class OutputFormat(CaseInsensitiveStrEnum):
 class ModelSelectionStrategy(CaseInsensitiveStrEnum):
     ROUND_ROBIN = "round_robin"
     RANDOM = "random"
+
+
+#################################################################################
+# Post Processor Enums
+################################################################################
+
+
+class PostProcessorType(CaseInsensitiveStrEnum):
+    METRIC_SUMMARY = "metric_summary"
