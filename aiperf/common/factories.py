@@ -2,9 +2,10 @@
 #  SPDX-License-Identifier: Apache-2.0
 import logging
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, Generic, TypeVar
+from typing import Any, Generic, TypeVar
 
 from aiperf.common.enums import (
+    BackendClientType,
     CaseInsensitiveStrEnum,
     CommunicationBackend,
     OutputFormat,
@@ -13,12 +14,10 @@ from aiperf.common.enums import (
 )
 from aiperf.common.exceptions import FactoryCreationError
 from aiperf.common.interfaces import (
+    BackendClientProtocol,
     InputConverterProtocol,
     OutputConverterProtocol,
 )
-
-if TYPE_CHECKING:
-    pass
 
 ClassEnumT = TypeVar("ClassEnumT", bound=CaseInsensitiveStrEnum)
 ClassProtocolT = TypeVar("ClassProtocolT", bound=Any)
@@ -269,5 +268,24 @@ class ServiceFactory(FactoryMixin[ServiceType, "BaseService"]):
             args=(service_class, self.config),
             daemon=False,
         )
+    ```
+    """
+
+
+class BackendClientFactory(FactoryMixin[BackendClientType, BackendClientProtocol]):
+    """Factory for registering and creating BackendClientProtocol instances based on the specified backend client type.
+
+    Example:
+    ```python
+        # Register a new backend client
+        @BackendClientFactory.register(BackendClientType.OPENAI)
+        class OpenAIBackendClient:
+            pass  # Implement the BackendClientProtocol
+
+        backend_client = BackendClientFactory.create_instance(
+            BackendClientType.OPENAI,
+            config=OpenAIBackendClientConfig(api_key="sk-1234567890"),
+        )
+        backend_client.send_request(...)
     ```
     """
