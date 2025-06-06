@@ -14,10 +14,14 @@ if TYPE_CHECKING:
     )
     from aiperf.common.enums import (
         CommunicationBackend,  # noqa: F401 - for type checking
+        PostProcessorType,  # noqa: F401 - for type checking
         ServiceType,  # noqa: F401 - for type checking
     )
     from aiperf.common.service.base_service import (
         BaseService,  # noqa: F401 - for type checking
+    )
+    from aiperf.services.records_manager.post_processors.post_processor_interface import (
+        PostProcessorInterface,  # noqa: F401 - for type checking
     )
 
 ClassEnumT = TypeVar("ClassEnumT", bound=CaseInsensitiveStrEnum)
@@ -188,6 +192,15 @@ class FactoryMixin(Generic[ClassEnumT, ClassProtocolT]):
             )
         return cls._registry[class_type]
 
+    @classmethod
+    def get_registered_classes_types(cls) -> list[type[ClassProtocolT]]:
+        """Get all registered class types.
+
+        Returns:
+            A list of all registered class types.
+        """
+        return cls._registry.values()
+
 
 ################################################################################
 # Built-in Factories
@@ -233,4 +246,21 @@ class ServiceFactory(FactoryMixin["ServiceType", "BaseService"]):
             daemon=False,
         )
     ```
+    """
+
+
+class PostProcessorFactory(FactoryMixin["PostProcessorType", "PostProcessorInterface"]):
+    """Factory for registering and creating PostProcessor instances based on the specified post-processor type.
+
+    Example:
+    ```python
+        # Register a new post-processor type
+        @PostProcessorFactory.register(PostProcessorType.METRIC_SUMMARY)
+        class MetricSummary:
+            pass
+
+        # Create a new post-processor instance
+        post_processor = PostProcessorFactory.create_instance(
+            PostProcessorType.METRIC_SUMMARY,
+        )
     """
