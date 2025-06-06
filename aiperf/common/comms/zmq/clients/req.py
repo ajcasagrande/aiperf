@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-import asyncio
 import logging
 import uuid
 
@@ -8,11 +7,8 @@ import zmq.asyncio
 from zmq import SocketType
 
 from aiperf.common.comms.zmq.clients.base import BaseZMQClient
-from aiperf.common.exceptions import AIPerfError, CommunicationRequestError
-from aiperf.common.hooks import aiperf_task, on_cleanup
+from aiperf.common.exceptions import CommunicationRequestError
 from aiperf.common.messages import (
-    ErrorMessage,
-    ErrorPayload,
     Message,
     MessageTypeAdapter,
 )
@@ -38,86 +34,43 @@ class ZMQReqClient(BaseZMQClient):
             socket_ops (dict, optional): Additional socket options to set.
         """
         super().__init__(context, SocketType.REQ, address, bind, socket_ops)
-        self._response_futures = {}
 
-    @aiperf_task
-    async def _process_messages(self) -> None:
-        """Process incoming response messages in the background.
+    async def _reset_socket(self) -> None:
+        """Reset the socket to recover from inconsistent state.
 
-        This method is a coroutine that will run indefinitely until the client is
-        shutdown. It will wait for messages from the socket and handle them.
+        This is necessary when a REQ socket gets stuck after a failed request/response cycle.
         """
-        while not self.is_shutdown:
-            try:
-                if not self.is_initialized:
-                    await self.initialized_event.wait()
+        logger.warning(
+            "Resetting REQ socket due to inconsistent state (%s)", self.client_id
+        )
 
-                response_json = await self.socket.recv_string()
-                await self._handle_response(response_json)
-            except asyncio.CancelledError:
-                break
-            except zmq.Again:
-                await asyncio.sleep(0.1)
-            except AIPerfError:
-                raise  # re-raise it up the stack
-            except Exception as e:
-                logger.error(
-                    "Exception processing messages: %s %s",
-                    type(e).__name__,
-                    e,
-                )
-                await asyncio.sleep(0.1)
-        logger.debug("ZMQReqClient _process_messages task finished %s", self.client_id)
+        if self._socket:
+            self._socket.close()
 
-    async def _handle_response(self, response_json: str) -> None:
-        """Handle a response message.
+        # Recreate socket
+        self._socket = self.context.socket(self.socket_type)
 
-        Args:
-            response_json: The JSON response string
-        """
-        try:
-            response = MessageTypeAdapter.validate_json(response_json)
-            request_id = response.request_id
+        if self.bind:
+            self.socket.bind(self.address)
+        else:
+            self.socket.connect(self.address)
 
-            if request_id in self._response_futures:
-                future = self._response_futures[request_id]
-                if not future.done():
-                    future.set_result(response_json)
-            else:
-                logger.warning(
-                    f"Received response for unknown request ID: {request_id}"
-                )
-        except Exception as e:
-            logger.error(f"Exception handling response: {e}")
-            raise CommunicationRequestError("Exception handling response") from e
+        # Set safe timeouts for send and receive operations
+        self._socket.setsockopt(zmq.RCVTIMEO, 30 * 1000)
+        self._socket.setsockopt(zmq.SNDTIMEO, 30 * 1000)
 
-    @on_cleanup
-    async def _cleanup(self) -> None:
-        """Clean up any pending futures."""
-        # Resolve any pending futures with errors
-        for request_id, future in self._response_futures.items():
-            if not future.done():
-                error_response = ErrorMessage(
-                    service_id=self.client_id,
-                    request_id=request_id,
-                    payload=ErrorPayload(
-                        error="Socket was shut down",
-                    ),
-                )
-                future.set_result(error_response.model_dump_json())
-
-        self._response_futures.clear()
+        # Set additional socket options requested by the caller
+        for key, val in self.socket_ops.items():
+            self._socket.setsockopt(key, val)
 
     async def request(
         self,
-        topic: str,
         request_data: Message,
         timeout: float = 5.0,
     ) -> Message:
         """Send a request and wait for a response.
 
         Args:
-            target: Target component to send request to
             request_data: Request data (must be a RequestData instance)
             timeout: Timeout in seconds
 
@@ -126,40 +79,45 @@ class ZMQReqClient(BaseZMQClient):
         """
         self._ensure_initialized()
 
-        try:
-            # Generate request ID if not provided
-            if not request_data.request_id:
-                request_data.request_id = uuid.uuid4().hex
+        # Generate request ID if not provided
+        if not request_data.request_id:
+            request_data.request_id = uuid.uuid4().hex
 
-            # Serialize request
-            request_json = request_data.model_dump_json()
+        # Serialize request
+        request_json = request_data.model_dump_json()
 
-            # Create future for response
-            future = asyncio.Future()
-            self._response_futures[request_data.request_id] = future
-
-            # Send request
-            await self.socket.send_string(request_json)
-
-            # Wait for response with timeout
+        max_retries = 3
+        for attempt in range(max_retries):
             try:
-                response_json = await asyncio.wait_for(future, timeout)
+                self._socket.setsockopt(zmq.RCVTIMEO, int(timeout * 1000))
+                # Send request
+                await self._socket.send_string(request_json)
+
+                # Wait for response with timeout
+                response_json = await self._socket.recv_string()
                 response = MessageTypeAdapter.validate_json(response_json)
                 return response
 
-            except asyncio.TimeoutError as e:
-                logger.error(
-                    f"Timeout waiting for response to request {request_data.request_id}"
-                )
+            except zmq.ZMQError as e:
+                if "Operation cannot be accomplished in current state" in str(e):
+                    logger.warning(
+                        "REQ socket in inconsistent state (attempt %d/%d): %s",
+                        attempt + 1,
+                        max_retries,
+                        e,
+                    )
+                    if attempt < max_retries - 1:
+                        await self._reset_socket()
+                        continue
                 raise CommunicationRequestError(
-                    f"Timeout waiting for response to request {request_data.request_id}"
+                    f"Exception sending request after {max_retries} attempts: {e.__class__.__name__} {e}"
+                ) from e
+            except Exception as e:
+                raise CommunicationRequestError(
+                    f"Exception sending request: {e.__class__.__name__} {e}"
                 ) from e
 
-            finally:
-                # Clean up future
-                self._response_futures.pop(request_data.request_id, None)
-
-        except Exception as e:
-            raise CommunicationRequestError(
-                f"Exception sending request to {topic}: {e}"
-            ) from e
+        # This should not be reached due to the raise in the except block
+        raise CommunicationRequestError(
+            "Maximum retries exceeded without successful request"
+        )

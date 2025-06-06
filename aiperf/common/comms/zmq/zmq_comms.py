@@ -525,7 +525,7 @@ class ZMQCommunication(BaseCommunication):
 
         try:
             return await cast(ZMQReqClient, self.clients[client_type]).request(
-                topic, message, timeout
+                message, timeout
             )
         except Exception as e:
             logger.error(f"Exception requesting from {topic}: {e}")

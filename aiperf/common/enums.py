@@ -144,6 +144,9 @@ class MessageType(CaseInsensitiveStrEnum):
     INFERENCE_RESULTS = "inference_results"
     """A message containing inference results from a worker."""
 
+    PROFILE_PROGRESS = "profile_progress"
+    """A message containing profile progress."""
+
 
 ################################################################################
 # Command Enums

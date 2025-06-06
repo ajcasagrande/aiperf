@@ -7,7 +7,6 @@ import sys
 import uuid
 from typing import cast
 
-from aiperf.backend.factory import BackendClientFactory
 from aiperf.backend.openai_client import OpenAIBackendClientConfig
 from aiperf.common.comms.client_enums import (
     ClientType,
@@ -18,6 +17,7 @@ from aiperf.common.comms.client_enums import (
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.constants import NANOS_PER_MILLIS
 from aiperf.common.enums import BackendClientType, MessageType, ServiceType, Topic
+from aiperf.common.factories import BackendClientFactory
 from aiperf.common.hooks import on_cleanup, on_init, on_run, on_start, on_stop
 from aiperf.common.interfaces import BackendClientProtocol
 from aiperf.common.messages import (
@@ -120,16 +120,6 @@ class Worker(BaseService):
         Args:
             message: The message received from the credit drop
         """
-        task = asyncio.create_task(self._process_credit_drop_internal(message))
-        task.add_done_callback(self._on_credit_drop_done)
-        # await task
-
-    async def _process_credit_drop_internal(self, message: CreditDropMessage) -> None:
-        """Process a credit drop response.
-
-        Args:
-            message: The message received from the credit drop
-        """
         self.logger.debug(f"Processing credit drop: {message}")
 
         credit_amount = 0
@@ -171,7 +161,14 @@ class Worker(BaseService):
 
         finally:
             # Always return the credits
-            pass
+            self.logger.info("Returning credits, %s", credit_amount)
+            await self.comms.push(
+                topic=Topic.CREDIT_RETURN,
+                message=self.create_message(
+                    CreditReturnMessage,
+                    payload=CreditReturnPayload(amount=credit_amount),
+                ),
+            )
 
     async def _call_backend_api(self) -> RequestErrorRecord | RequestRecord:
         """Make a call to the backend API."""
@@ -233,26 +230,6 @@ class Worker(BaseService):
             return RequestErrorRecord(
                 error=f"{e.__class__.__name__}: {e}",
             )
-
-    def _on_credit_drop_done(self, task: asyncio.Task) -> None:
-        """Callback function for the credit drop task.
-
-        Args:
-            task: The task that completed
-        """
-        try:
-            self.logger.info("Returning credits, %s", task.result())
-            asyncio.create_task(
-                self.comms.push(
-                    topic=Topic.CREDIT_RETURN,
-                    message=self.create_message(
-                        CreditReturnMessage,
-                        payload=CreditReturnPayload(amount=1),
-                    ),
-                )
-            )
-        except Exception as e:
-            self.logger.error(f"Error processing credit drop: {e}")
 
 
 class MultiWorkerProcess(BaseComponentService):

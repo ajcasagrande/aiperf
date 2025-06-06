@@ -26,6 +26,8 @@ from aiperf.common.messages import (
     CreditsCompleteMessage,
     CreditsCompletePayload,
     Message,
+    ProfileProgressMessage,
+    ProfileProgressPayload,
 )
 from aiperf.common.service.base_component_service import BaseComponentService
 
@@ -43,8 +45,8 @@ class TimingManager(BaseComponentService):
         super().__init__(service_config=service_config, service_id=service_id)
         self._credit_lock = asyncio.Lock()
 
-        self._total_credits = 1000
-        self._credits_available = 1000
+        self._total_credits = 50000
+        self._credits_available = 5000
 
         self._sent_credits = 0
         self._completed_credits = 0
@@ -71,6 +73,10 @@ class TimingManager(BaseComponentService):
         """Initialize timing manager-specific components."""
         self.logger.debug("Initializing timing manager")
         # TODO: Implement timing manager initialization
+        await self.comms.register_pull_callback(
+            message_type=MessageType.CREDIT_RETURN,
+            callback=self._on_credit_return,
+        )
 
     @on_configure
     async def _configure(self, payload: Message) -> None:
@@ -83,10 +89,6 @@ class TimingManager(BaseComponentService):
         """Start the timing manager."""
         self.logger.debug("Starting timing manager")
         # TODO: Implement timing manager start
-        await self.comms.register_pull_callback(
-            message_type=MessageType.CREDIT_RETURN,
-            callback=self._on_credit_return,
-        )
         await self.set_state(ServiceState.RUNNING)
 
     @on_stop
@@ -175,6 +177,18 @@ class TimingManager(BaseComponentService):
             self._completed_credits
             / (time.perf_counter_ns() - self.start_time_ns)
             * NANOS_PER_SECOND,
+        )
+
+        await self.comms.publish(
+            topic=Topic.PROFILE_PROGRESS,
+            message=self.create_message(
+                ProfileProgressMessage,
+                ProfileProgressPayload(
+                    sweep_start_ns=self.start_time_ns,
+                    total=self._total_credits,
+                    completed=self._completed_credits,
+                ),
+            ),
         )
 
         if self._completed_credits >= self._total_credits:

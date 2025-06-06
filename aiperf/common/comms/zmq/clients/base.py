@@ -118,7 +118,7 @@ class BaseZMQClient(AIPerfTaskMixin):
                     self.address,
                     self.client_id,
                 )
-                self.socket.bind(self.address)
+                self._socket.bind(self.address)
             else:
                 self.logger.debug(
                     "ZMQ %s socket initialized and connected to %s (%s)",
@@ -126,7 +126,7 @@ class BaseZMQClient(AIPerfTaskMixin):
                     self.address,
                     self.client_id,
                 )
-                self.socket.connect(self.address)
+                self._socket.connect(self.address)
 
             # Set safe timeouts for send and receive operations
             self._socket.setsockopt(zmq.RCVTIMEO, 30 * 1000)
@@ -171,7 +171,7 @@ class BaseZMQClient(AIPerfTaskMixin):
 
         try:
             if self._socket:
-                self.socket.close()
+                self._socket.close()
                 self.logger.debug(
                     "ZMQ %s socket closed (%s)", self.socket_type_name, self.client_id
                 )

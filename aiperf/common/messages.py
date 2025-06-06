@@ -256,6 +256,36 @@ class InferenceResultsMessage(BaseMessage[InferenceResultsPayload]):
     message_type: Literal[MessageType.INFERENCE_RESULTS] = MessageType.INFERENCE_RESULTS  # type: ignore
 
 
+class ProfileProgressPayload(BaseModel):
+    """Payload for a profile progress."""
+
+    sweep_id: str | None = Field(
+        default=None, description="The ID of the current sweep"
+    )
+    sweep_start_ns: int = Field(
+        ..., description="The start time of the sweep in nanoseconds"
+    )
+    sweep_end_ns: int | None = Field(
+        default=None, description="The end time of the sweep in nanoseconds"
+    )
+    total: int = Field(
+        ..., description="The total number of inference requests to be made"
+    )
+    completed: int = Field(
+        ..., description="The number of inference requests completed"
+    )
+    timestamp: int = Field(
+        default_factory=time.perf_counter_ns,
+        description="Current timestamp in nanoseconds",
+    )
+
+
+class ProfileProgressMessage(BaseMessage[ProfileProgressPayload]):
+    """Payload for profile progress."""
+
+    message_type: Literal[MessageType.PROFILE_PROGRESS] = MessageType.PROFILE_PROGRESS  # type: ignore
+
+
 # Discriminated union type
 Message = Annotated[
     Union[  # noqa: UP007
@@ -271,6 +301,7 @@ Message = Annotated[
         ConversationRequestMessage,
         ConversationResponseMessage,
         InferenceResultsMessage,
+        ProfileProgressMessage,
     ],
     Field(discriminator="message_type"),
 ]

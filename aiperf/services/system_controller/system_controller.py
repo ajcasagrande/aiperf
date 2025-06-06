@@ -38,6 +38,7 @@ from aiperf.common.messages import (
 )
 from aiperf.common.models import ServiceRunInfo
 from aiperf.common.service.base_controller_service import BaseControllerService
+from aiperf.common.ui import AIPerfUI
 from aiperf.services.service_manager.base import BaseServiceManager
 from aiperf.services.service_manager.kubernetes import KubernetesServiceManager
 from aiperf.services.service_manager.multiprocess import MultiProcessServiceManager
@@ -67,6 +68,7 @@ class SystemController(BaseControllerService):
         ]
 
         self.service_manager: BaseServiceManager | None = None
+        self.ui: AIPerfUI = AIPerfUI()
         self.logger.debug("System Controller created")
 
     @property
@@ -83,6 +85,8 @@ class SystemController(BaseControllerService):
         - Subscribe to relevant messages
         """
         self.logger.debug("Initializing System Controller")
+
+        self.ui.run()
 
         if self.service_config.service_run_type == ServiceRunType.MULTIPROCESSING:
             self.service_manager = MultiProcessServiceManager(
@@ -105,6 +109,7 @@ class SystemController(BaseControllerService):
             (Topic.HEARTBEAT, self._process_heartbeat_message),
             (Topic.STATUS, self._process_status_message),
             (Topic.CREDITS_COMPLETE, self._process_credits_complete_message),
+            (Topic.PROFILE_PROGRESS, self.ui.update_profile_progress),
         ]
         for topic, callback in subscribe_callbacks:
             try:
@@ -198,7 +203,7 @@ class SystemController(BaseControllerService):
     async def _cleanup(self) -> None:
         """Clean up system controller-specific components."""
         self.logger.debug("Cleaning up System Controller")
-        # TODO: Additional cleanup if needed
+        self.ui.stop()
 
     async def start_all_services(self) -> None:
         """Start all required services."""
