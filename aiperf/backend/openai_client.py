@@ -57,7 +57,7 @@ class OpenAIBackendClientConfig(GenericHTTPBackendClientConfig):
         description="The endpoint to use for the OpenAI backend client.",
     )
     model: str = Field(
-        default="gpt-3.5-turbo",
+        default="deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
         description="The model to use for the OpenAI backend client.",
     )
     max_tokens: int = Field(

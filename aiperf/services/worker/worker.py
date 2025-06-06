@@ -24,6 +24,7 @@ from aiperf.common.messages import (
     ConversationRequestMessage,
     ConversationRequestPayload,
     ConversationResponseMessage,
+    CreditDropMessage,
     CreditReturnMessage,
     CreditReturnPayload,
     InferenceResultsMessage,
@@ -78,8 +79,8 @@ class Worker(BaseService):
         # Create OpenAI client configuration
         openai_client_config = OpenAIBackendClientConfig(
             api_key=api_key,
-            url="http://127.0.0.1:8000/v1",  # Default OpenAI API endpoint
-            model="gpt-3.5-turbo",  # Default model
+            url="http://127.0.0.1:8080/v1",  # Default OpenAI API endpoint
+            model="deepseek-ai/DeepSeek-R1-Distill-Llama-8B",  # Default model
         )
 
         # Initialize the OpenAI client
@@ -113,7 +114,17 @@ class Worker(BaseService):
         """Clean up worker-specific components."""
         self.logger.debug("Cleaning up worker")
 
-    async def _process_credit_drop(self, message) -> None:
+    async def _process_credit_drop(self, message: CreditDropMessage) -> None:
+        """Process a credit drop response.
+
+        Args:
+            message: The message received from the credit drop
+        """
+        task = asyncio.create_task(self._process_credit_drop_internal(message))
+        task.add_done_callback(self._on_credit_drop_done)
+        # await task
+
+    async def _process_credit_drop_internal(self, message: CreditDropMessage) -> None:
         """Process a credit drop response.
 
         Args:
@@ -160,14 +171,7 @@ class Worker(BaseService):
 
         finally:
             # Always return the credits
-            self.logger.debug("Returning credits")
-            await self.comms.push(
-                topic=Topic.CREDIT_RETURN,
-                message=self.create_message(
-                    CreditReturnMessage,
-                    payload=CreditReturnPayload(amount=credit_amount),
-                ),
-            )
+            pass
 
     async def _call_backend_api(self) -> RequestErrorRecord | RequestRecord:
         """Make a call to the backend API."""
@@ -230,6 +234,26 @@ class Worker(BaseService):
                 error=f"{e.__class__.__name__}: {e}",
             )
 
+    def _on_credit_drop_done(self, task: asyncio.Task) -> None:
+        """Callback function for the credit drop task.
+
+        Args:
+            task: The task that completed
+        """
+        try:
+            self.logger.info("Returning credits, %s", task.result())
+            asyncio.create_task(
+                self.comms.push(
+                    topic=Topic.CREDIT_RETURN,
+                    message=self.create_message(
+                        CreditReturnMessage,
+                        payload=CreditReturnPayload(amount=1),
+                    ),
+                )
+            )
+        except Exception as e:
+            self.logger.error(f"Error processing credit drop: {e}")
+
 
 class MultiWorkerProcess(BaseComponentService):
     """MultiWorkerProcess is a process that runs multiple workers as concurrent tasks on the event loop."""
@@ -239,7 +263,7 @@ class MultiWorkerProcess(BaseComponentService):
         self.logger.debug("Initializing worker process")
         self.workers: list[Worker] = []
         self.tasks: list[asyncio.Task] = []
-        self.worker_count = 50
+        self.worker_count = 100
 
     @property
     def service_type(self) -> ServiceType:

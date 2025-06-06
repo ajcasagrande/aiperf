@@ -27,7 +27,7 @@ class GenericHTTPBackendClientConfig(BaseBackendClientConfig):
     """Configuration options for a generic HTTP backend client."""
 
     url: str = Field(
-        default="localhost:8000", description="The URL of the backend client."
+        default="localhost:8080", description="The URL of the backend client."
     )
     protocol: str = Field(
         default="http", description="The protocol to use for the backend client."

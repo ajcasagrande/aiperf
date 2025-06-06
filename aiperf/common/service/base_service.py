@@ -12,11 +12,7 @@ from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ServiceState
 from aiperf.common.exceptions import (
     AIPerfError,
-    AIPerfMultiError,
-    CommunicationClientCreationError,
-    CommunicationCreateError,
     CommunicationNotInitializedError,
-    ServiceInitializationError,
     ServiceRunError,
     ServiceStartError,
     ServiceStopError,
@@ -152,28 +148,12 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
         await asyncio.sleep(0.1)
 
         # Initialize communication
-        try:
-            self._comms = CommunicationFactory.create_instance(
-                self.service_config.comm_backend,
-                config=self.service_config.comm_config,
-            )
-        except Exception as e:
-            self.logger.exception(
-                "Failed to create communication for service %s (id: %s)",
-                self.service_type,
-                self.service_id,
-            )
-            raise CommunicationCreateError from e
+        self._comms = CommunicationFactory.create_instance(
+            self.service_config.comm_backend,
+            config=self.service_config.comm_config,
+        )
 
-        try:
-            await self._comms.initialize()
-        except Exception as e:
-            self.logger.exception(
-                "Failed to initialize communication for service %s (id: %s)",
-                self.service_type,
-                self.service_id,
-            )
-            raise ServiceInitializationError from e
+        await self._comms.initialize()
 
         if len(self.required_clients) > 0:
             # Create the communication clients ahead of time
@@ -183,27 +163,10 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
                 self.required_clients,
             )
 
-            try:
-                await self._comms.create_clients(*self.required_clients)
-            except Exception as e:
-                self.logger.exception(
-                    "Failed to create communication clients for service %s (id: %s)",
-                    self.service_type,
-                    self.service_id,
-                )
-                raise CommunicationClientCreationError from e
+            await self._comms.create_clients(*self.required_clients)
 
         # Initialize any derived service components
-        try:
-            await self.run_hooks(AIPerfHook.ON_INIT)
-        except AIPerfMultiError as e:
-            self.logger.exception(
-                "Failed to initialize service %s (id: %s)",
-                self.service_type,
-                self.service_id,
-            )
-            raise ServiceInitializationError from e
-
+        await self.run_hooks(AIPerfHook.ON_INIT)
         await self.set_state(ServiceState.READY)
 
         self.initialized_event.set()
@@ -225,31 +188,15 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
                 "Running %s service (id: %s)", self.service_type, self.service_id
             )
 
-            try:
-                await self.initialize()
-            except AIPerfError:
-                raise  # re-raise it up the stack
-            except Exception as e:
-                self.logger.exception(
-                    "Failed to initialize service %s (id: %s)",
-                    self.service_type,
-                    self.service_id,
-                )
-                raise ServiceRunError from e
-
-            try:
-                await self.run_hooks(AIPerfHook.ON_RUN)
-            except AIPerfMultiError as e:
-                self.logger.exception(
-                    "Failed to run service %s (id: %s)",
-                    self.service_type,
-                    self.service_id,
-                )
-                raise ServiceRunError from e
+            await self.initialize()
+            await self.run_hooks(AIPerfHook.ON_RUN)
 
         except asyncio.CancelledError:
             self.logger.debug("Service %s execution cancelled", self.service_type)
             return
+
+        except AIPerfError:
+            raise  # re-raise it up the stack
 
         except Exception as e:
             self.logger.exception("Service %s execution failed:", self.service_type)
