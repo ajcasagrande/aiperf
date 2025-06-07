@@ -21,6 +21,8 @@ from aiperf.common.messages import (
     Message,
 )
 from aiperf.common.service.base_component_service import BaseComponentService
+from aiperf.common.tokenizer import Tokenizer
+from aiperf.services.dataset.generator.prompt import PromptGenerator
 
 
 @ServiceFactory.register(ServiceType.DATASET_MANAGER)
@@ -38,6 +40,7 @@ class DatasetManager(BaseComponentService):
     ) -> None:
         super().__init__(service_config=service_config, service_id=service_id)
         self.logger.debug("Initializing dataset manager")
+        self.tokenizer: Tokenizer | None = None
 
     @property
     def service_type(self) -> ServiceType:
@@ -57,6 +60,9 @@ class DatasetManager(BaseComponentService):
         """Initialize dataset manager-specific components."""
         self.logger.debug("Initializing dataset manager")
         # TODO: Implement dataset manager initialization
+        self.tokenizer = Tokenizer.from_pretrained(
+            "deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
+        )
         await self.comms.register_request_handler(
             service_id=self.service_id,
             topic=Topic.CONVERSATION_DATA,
@@ -102,7 +108,11 @@ class DatasetManager(BaseComponentService):
                     {"role": "system", "content": "You are a helpful assistant."},
                     {
                         "role": "user",
-                        "content": "Tell me about NVIDIA AI performance testing.",
+                        "content": PromptGenerator.create_synthetic_prompt(
+                            tokenizer=self.tokenizer,
+                            prompt_tokens_mean=100,
+                            prompt_tokens_stddev=25,
+                        ),
                     },
                 ],
             ),

@@ -68,7 +68,7 @@ class SystemController(BaseControllerService):
         ]
 
         self.service_manager: BaseServiceManager | None = None
-        self.ui: AIPerfUI = AIPerfUI()
+        self.ui: AIPerfUI = AIPerfUI.get_instance()
         self.logger.debug("System Controller created")
 
     @property
@@ -86,7 +86,7 @@ class SystemController(BaseControllerService):
         """
         self.logger.debug("Initializing System Controller")
 
-        self.ui.run()
+        # self.ui.run()
 
         if self.service_config.service_run_type == ServiceRunType.MULTIPROCESSING:
             self.service_manager = MultiProcessServiceManager(
@@ -198,6 +198,9 @@ class SystemController(BaseControllerService):
         except Exception as e:
             self.logger.error("Failed to stop all services: %s", e)
             raise ServiceStopError from e
+
+        # TODO: This is a hack to give the services time to produce results
+        # await asyncio.sleep(3)
 
     @on_cleanup
     async def _cleanup(self) -> None:
@@ -311,7 +314,7 @@ class SystemController(BaseControllerService):
         service_id = message.service_id
         service_type = message.payload
 
-        self.logger.info(
+        self.logger.debug(
             f"Received credits complete from {service_type} (ID: {service_id})"
         )
         # TODO: this should eventually be replaced with a profile end command instead of a stop event

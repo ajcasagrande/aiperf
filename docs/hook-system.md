@@ -194,13 +194,13 @@ sequenceDiagram
 class BaseService(HooksMixin):
     @on_init
     async def base_init(self):
-        self.logger.info("Base service initializing")
+        self.logger.debug("Base service initializing")
 
 @supports_hooks(AIPerfHook.ON_START)  # Adds ON_START to inherited hooks
 class WebService(BaseService):
     @on_init
     async def web_init(self):
-        self.logger.info("Web service initializing")
+        self.logger.debug("Web service initializing")
 
     @on_start
     async def start_server(self):
@@ -427,7 +427,7 @@ class BackgroundService(AIPerfTaskMixin):
                 await asyncio.sleep(5)  # Poll every 5 seconds
 
             except asyncio.CancelledError:
-                self.logger.info("Health monitoring task cancelled")
+                self.logger.debug("Health monitoring task cancelled")
                 break
             except Exception as e:
                 self.logger.error(f"Error in health monitoring: {e}")

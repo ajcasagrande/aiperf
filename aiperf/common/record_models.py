@@ -60,6 +60,19 @@ class BackendClientResponse(BaseModel, Generic[ResponseT]):
     response: ResponseT | None = None
 
 
+class BackendClientErrorRecord(BaseModel):
+    """Error response from a backend client."""
+
+    timestamp_ns: int = Field(
+        ...,
+        description="The timestamp of the response in nanoseconds since the epoch.",
+    )
+    error: str = Field(
+        ...,
+        description="The error message.",
+    )
+
+
 ################################################################################
 # Inference Data Models
 ################################################################################

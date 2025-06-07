@@ -45,8 +45,8 @@ class TimingManager(BaseComponentService):
         super().__init__(service_config=service_config, service_id=service_id)
         self._credit_lock = asyncio.Lock()
 
-        self._total_credits = 50000
-        self._credits_available = 5000
+        self._total_credits = 2000
+        self._credits_available = 200
 
         self._sent_credits = 0
         self._completed_credits = 0
@@ -131,7 +131,7 @@ class TimingManager(BaseComponentService):
                     self.logger.debug("Credit event received")
                     continue
 
-                self.logger.info(
+                self.logger.debug(
                     f"Issuing credit drop {self._sent_credits + 1} of {self._total_credits}"
                 )
 
@@ -148,7 +148,7 @@ class TimingManager(BaseComponentService):
                 self._sent_credits += 1
 
                 if self._sent_credits >= self._total_credits:
-                    self.logger.info("All credits sent, stopping credit drop task")
+                    self.logger.debug("All credits sent, stopping credit drop task")
                     break
 
             except asyncio.CancelledError:
@@ -169,7 +169,7 @@ class TimingManager(BaseComponentService):
             self._credits_available += amount
             self._completed_credits += amount
 
-        self.logger.info(
+        self.logger.debug(
             "Processing credit return: %s (completed credits: %s of %s) (%.2f requests/s)",
             message.payload,
             self._completed_credits,
@@ -192,7 +192,7 @@ class TimingManager(BaseComponentService):
         )
 
         if self._completed_credits >= self._total_credits:
-            self.logger.info(
+            self.logger.debug(
                 "All credits completed, stopping credit drop task after %.2f seconds (%.2f requests/s)",
                 (time.perf_counter_ns() - self.start_time_ns) / NANOS_PER_SECOND,
                 self._total_credits

@@ -1,8 +1,10 @@
 #  SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #  SPDX-License-Identifier: Apache-2.0
 
+import logging
 import os
 import time
+import traceback
 from typing import Any
 
 from openai import AsyncAzureOpenAI, AsyncOpenAI
@@ -22,6 +24,7 @@ from aiperf.common.interfaces import BackendClientProtocol
 from aiperf.common.record_models import (
     BackendClientResponse,
     GenericHTTPBackendClientConfig,
+    RequestErrorRecord,
     RequestRecord,
 )
 
@@ -221,6 +224,8 @@ class OpenAIClientMixin(OpenAIBackendClientConfigMixin):
 # OpenAI Backend Client
 ################################################################################
 
+logger = logging.getLogger(__name__)
+
 
 @BackendClientFactory.register(BackendClientType.OPENAI)
 class OpenAIBackendClient(OpenAIClientMixin, OpenAIBackendClientProtocol):
@@ -315,26 +320,62 @@ class OpenAIBackendClient(OpenAIClientMixin, OpenAIBackendClientProtocol):
         #     ]
         # )
 
-        record: RequestRecord[Any] = RequestRecord()
+        record: RequestRecord[Any] | RequestErrorRecord = RequestRecord()
 
         if isinstance(payload, OpenAIChatCompletionRequest):
             record.start_time_ns = time.perf_counter_ns()
 
-            async for response in await self.client.chat.completions.create(
-                model=self.client_config.model,
-                messages=payload.messages,
-                max_tokens=self.client_config.max_tokens,
-                stream=True,
-                stream_options=ChatCompletionStreamOptionsParam(
-                    include_usage=True,
-                ),
-                **payload.kwargs,
-            ):
-                record.responses.append(
-                    BackendClientResponse[str | None](
-                        timestamp_ns=time.perf_counter_ns(),
-                        response=response.choices[0].delta.content,
-                    )
+            try:
+                # Use raw response to get unparsed JSON
+                async with self.client.chat.completions.with_streaming_response.create(
+                    model=self.client_config.model,
+                    messages=payload.messages,
+                    max_tokens=self.client_config.max_tokens,
+                    stream=True,
+                    stream_options=ChatCompletionStreamOptionsParam(
+                        include_usage=True,
+                    ),
+                ) as response_obj:
+                    # Get the parsed streaming response from the raw response
+                    stream = response_obj.iter_text()
+
+                    # Now iterate through the stream
+                    # i = 0
+                    async for chunk in stream:
+                        if chunk.startswith("event: error"):
+                            logger.error("Error in streaming API call: %s", chunk)
+                            record = RequestErrorRecord(
+                                error=chunk,
+                            )
+                            break
+
+                        try:
+                            # Store the raw chunk data directly
+                            # You can access chunk.model_dump_json() for raw JSON string
+                            # Or chunk.model_dump() for raw dict
+                            # raw_data = chunk  # This gives you the raw JSON string
+                            # logger.info("Raw data: (%i) %s", i, raw_data)
+                            # i += 1
+
+                            record.responses.append(
+                                BackendClientResponse[str](
+                                    timestamp_ns=time.perf_counter_ns(),
+                                    response=chunk,  # Raw JSON string
+                                )
+                            )
+                        except Exception:
+                            traceback.print_exc()
+                            # Handle any response processing errors
+                            # logger.warning(f"Error processing response chunk: {e}")
+                            continue
+            except Exception as e:
+                traceback.print_exc()
+                # Handle exceptions from the streaming API call itself
+                # This catches errors in the initial API call or streaming process
+                # logger.error(f"Error in streaming API call: {e}")
+                # You might want to add a fallback response or re-raise depending on your needs
+                record = RequestErrorRecord(
+                    error=str(e),
                 )
 
         elif isinstance(payload, OpenAICompletionRequest):
@@ -343,7 +384,6 @@ class OpenAIBackendClient(OpenAIClientMixin, OpenAIBackendClientProtocol):
                 model=self.client_config.model,
                 prompt=payload.prompt,
                 max_tokens=self.client_config.max_tokens,
-                **payload.kwargs,
             )
             record.responses.append(
                 BackendClientResponse(
@@ -359,7 +399,6 @@ class OpenAIBackendClient(OpenAIClientMixin, OpenAIBackendClientProtocol):
                 input=payload.input,
                 dimensions=payload.dimensions,
                 user=payload.user,
-                **payload.kwargs,
             )
             record.responses.append(
                 BackendClientResponse(

@@ -50,6 +50,8 @@ class AIPerfUI:
     AIPerfUI is a class that provides a UI for the AIPerf system.
     """
 
+    _instance: "AIPerfUI | None" = None
+
     def __init__(self) -> None:
         self.console = Console()
         self.live: Live | None = None
@@ -57,6 +59,13 @@ class AIPerfUI:
         self.task_id: TaskID | None = None
         self.start_time_ns: int | None = None
         self.last_update_time: float | None = None
+
+    @classmethod
+    def get_instance(cls) -> "AIPerfUI":
+        """Get the singleton instance of the AIPerfUI."""
+        if cls._instance is None:
+            cls._instance = AIPerfUI()
+        return cls._instance
 
     def run(self) -> None:
         """Start the live dashboard."""

@@ -140,7 +140,7 @@ class Worker(BaseService):
                                 record=copy.deepcopy(record),
                             ),
                         )
-                        # self.logger.info(f"Pushing request record: {msg}")
+                        # self.logger.debug(f"Pushing request record: {msg}")
                         await self.comms.push(
                             topic=Topic.INFERENCE_RESULTS,
                             message=msg,
@@ -161,7 +161,7 @@ class Worker(BaseService):
 
         finally:
             # Always return the credits
-            self.logger.info("Returning credits, %s", credit_amount)
+            self.logger.debug("Returning credits, %s", credit_amount)
             await self.comms.push(
                 topic=Topic.CREDIT_RETURN,
                 message=self.create_message(
@@ -214,7 +214,7 @@ class Worker(BaseService):
                 endpoint="v1/chat/completions", payload=formatted_payload
             )
 
-            if record.valid:
+            if isinstance(record, RequestRecord) and record.valid:
                 self.logger.debug(
                     f"Record: {record.time_to_first_response_ns / NANOS_PER_MILLIS} milliseconds. {record.time_to_last_response_ns / NANOS_PER_MILLIS} milliseconds."
                 )
