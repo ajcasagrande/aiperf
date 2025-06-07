@@ -58,6 +58,7 @@ class Topic(CaseInsensitiveStrEnum):
     CREDIT_RETURN = "credit_return"
     CREDITS_COMPLETE = "credits_complete"
     PROFILE_PROGRESS = "profile_progress"
+    PROFILE_RESULTS = "profile_results"
     REGISTRATION = "registration"
     COMMAND = "command"
     RESPONSE = "response"
@@ -143,8 +144,45 @@ class MessageType(CaseInsensitiveStrEnum):
     INFERENCE_RESULTS = "inference_results"
     """A message containing inference results from a worker."""
 
+    # Sweep run messages
+
+    SWEEP_CONFIGURE = "sweep_configure"
+    """A message sent to configure a sweep run."""
+
+    SWEEP_BEGIN = "sweep_begin"
+    """A message sent to indicate that a sweep has begun."""
+
+    SWEEP_PROGRESS = "sweep_progress"
+    """A message containing sweep run progress."""
+
+    SWEEP_END = "sweep_end"
+    """A message sent to indicate that a sweep has ended."""
+
+    SWEEP_RESULTS = "sweep_results"
+    """A message containing sweep run results."""
+
+    SWEEP_ERROR = "sweep_error"
+    """A message containing an error from a sweep run."""
+
+    # Profile run messages
+
+    PROFILE_BEGIN = "profile_begin"
+    """A message sent to indicate that a profile run has begun."""
+
+    PROFILE_CONFIGURE = "profile_configure"
+    """A message sent to configure a profile run."""
+
     PROFILE_PROGRESS = "profile_progress"
-    """A message containing profile progress."""
+    """A message containing profile run progress."""
+
+    PROFILE_END = "profile_end"
+    """A message sent to indicate that a profile run has ended."""
+
+    PROFILE_RESULTS = "profile_results"
+    """A message containing profile run results."""
+
+    PROFILE_ERROR = "profile_error"
+    """A message containing an error from a profile run."""
 
 
 ################################################################################
@@ -301,5 +339,6 @@ class OutputFormat(CaseInsensitiveStrEnum):
     OPENAI_COMPLETIONS = "openai_completions"
     OPENAI_EMBEDDINGS = "openai_embeddings"
     OPENAI_MULTIMODAL = "openai_multimodal"
+    OPENAI_RESPONSES = "openai_responses"
     TENSORRTLLM = "tensorrtllm"
     VLLM = "vllm"

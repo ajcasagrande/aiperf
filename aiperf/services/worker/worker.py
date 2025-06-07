@@ -92,7 +92,7 @@ class Worker(BaseService):
     @on_start
     async def _start(self) -> None:
         """Start the worker."""
-        self.logger.debug("Starting worker")
+        # self.logger.debug("Starting worker")
         # Pull credit drops
         await self.comms.register_pull_callback(
             message_type=MessageType.CREDIT_DROP,
@@ -102,12 +102,12 @@ class Worker(BaseService):
     @on_stop
     async def _stop(self) -> None:
         """Stop the worker."""
-        self.logger.debug("Stopping worker")
+        # self.logger.debug("Stopping worker")
 
     @on_cleanup
     async def _cleanup(self) -> None:
         """Clean up worker-specific components."""
-        self.logger.debug("Cleaning up worker")
+        # self.logger.debug("Cleaning up worker")
 
     async def _process_credit_drop(self, message: CreditDropMessage) -> None:
         """Process a credit drop response.

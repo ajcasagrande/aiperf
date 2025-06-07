@@ -33,6 +33,7 @@ from aiperf.common.hooks import (
 from aiperf.common.messages import (
     CreditsCompleteMessage,
     HeartbeatMessage,
+    ProfileResultsMessage,
     RegistrationMessage,
     StatusMessage,
 )
@@ -86,7 +87,8 @@ class SystemController(BaseControllerService):
         """
         self.logger.debug("Initializing System Controller")
 
-        self.ui.run()
+        await self.ui.initialize()
+        await self.ui.start()
 
         if self.service_config.service_run_type == ServiceRunType.MULTIPROCESSING:
             self.service_manager = MultiProcessServiceManager(
@@ -110,6 +112,7 @@ class SystemController(BaseControllerService):
             (Topic.STATUS, self._process_status_message),
             (Topic.CREDITS_COMPLETE, self._process_credits_complete_message),
             (Topic.PROFILE_PROGRESS, self.ui.update_profile_progress),
+            (Topic.PROFILE_RESULTS, self._process_profile_results_message),
         ]
         for topic, callback in subscribe_callbacks:
             try:
@@ -206,7 +209,7 @@ class SystemController(BaseControllerService):
     async def _cleanup(self) -> None:
         """Clean up system controller-specific components."""
         self.logger.debug("Cleaning up System Controller")
-        self.ui.stop()
+        await self.ui.stop()
 
     async def start_all_services(self) -> None:
         """Start all required services."""
@@ -224,6 +227,14 @@ class SystemController(BaseControllerService):
                     # Continue to the next service
                     # TODO: should we have some sort of retries?
                     continue
+
+    async def _process_profile_results_message(
+        self, message: ProfileResultsMessage
+    ) -> None:
+        """Process a profile results message."""
+        self.logger.debug(f"Received profile results: {message}")
+        self.stop_event.set()
+        await self.ui.process_final_results(message)
 
     async def _process_registration_message(self, message: RegistrationMessage) -> None:
         """Process a registration message from a service. It will
@@ -315,7 +326,7 @@ class SystemController(BaseControllerService):
         self.logger.debug(f"Received credits complete from {service_id}")
         # TODO: this should eventually be replaced with a profile end command instead of a stop event
         # request to stop the system
-        self.stop_event.set()
+        # self.stop_event.set()
 
     async def _process_status_message(self, message: StatusMessage) -> None:
         """Process a status message from a service. It will

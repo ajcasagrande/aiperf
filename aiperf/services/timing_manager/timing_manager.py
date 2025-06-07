@@ -40,8 +40,8 @@ class TimingManager(BaseComponentService):
         super().__init__(service_config=service_config, service_id=service_id)
         self._credit_lock = asyncio.Lock()
 
-        self._total_credits = 2000
-        self._credits_available = 200
+        self._total_credits = 10000
+        self._credits_available = 10000
 
         self._sent_credits = 0
         self._completed_credits = 0
@@ -112,6 +112,7 @@ class TimingManager(BaseComponentService):
         while not self.stop_event.is_set():
             try:
                 async with self._credit_lock:
+                    # TODO: This could be optimized using a semaphore or a queue of some sort
                     if self._credits_available <= 0:
                         self.logger.debug("No credits available, skipping credit drop")
                         credit_available = False

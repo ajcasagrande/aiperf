@@ -7,6 +7,7 @@ from typing import Annotated, Any, ClassVar, Literal
 
 from pydantic import BaseModel, Field, TypeAdapter, model_serializer
 
+from aiperf.common.data_exporter.record import Record
 from aiperf.common.enums import CommandType, MessageType, ServiceState, ServiceType
 from aiperf.common.record_models import RequestErrorRecord, RequestRecord
 
@@ -262,6 +263,14 @@ class InferenceResultsMessage(BaseServiceMessage):
     )
 
 
+class ProfileResultsMessage(BaseServiceMessage):
+    """Message for profile results."""
+
+    message_type: Literal[MessageType.PROFILE_RESULTS] = MessageType.PROFILE_RESULTS
+
+    records: list[Record] = Field(..., description="The records of the profile results")
+
+
 class ProfileProgressMessage(BaseServiceMessage):
     """Message for profile progress."""
 
@@ -282,6 +291,7 @@ class ProfileProgressMessage(BaseServiceMessage):
     completed: int = Field(
         ..., description="The number of inference requests completed"
     )
+    errors: int = Field(default=0, description="The number of errors encountered")
 
 
 # Discriminated union type - only include message types that include a message_type field
@@ -297,6 +307,7 @@ Message = Annotated[
     | ConversationResponseMessage
     | InferenceResultsMessage
     | ProfileProgressMessage
+    | ProfileResultsMessage
     | CreditsCompleteMessage,
     Field(discriminator="message_type"),
 ]

@@ -13,8 +13,10 @@ class ConsoleExporter:
 
     STAT_COLUMN_KEYS = ["avg", "min", "max", "p99", "p90", "p75"]
 
-    def __init__(self, endpoint_config: EndPointConfig) -> None:
-        self.console = Console()
+    def __init__(
+        self, endpoint_config: EndPointConfig, console: Console | None = None
+    ) -> None:
+        self.console = console or Console()
         self.endpoint_type = endpoint_config.type
         self.streaming = endpoint_config.streaming
 

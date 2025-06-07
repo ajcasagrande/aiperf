@@ -20,9 +20,17 @@ from rich.progress import (
 from rich.table import Table
 from rich.text import Text
 
+from aiperf.common.config.endpoint_config import EndPointConfig
 from aiperf.common.constants import NANOS_PER_SECOND
-from aiperf.common.enums import MessageType
-from aiperf.common.messages import Message, ProfileProgressMessage
+from aiperf.common.data_exporter.console_exporter import ConsoleExporter
+from aiperf.common.hooks import (
+    AIPerfHook,
+    HooksMixin,
+    on_start,
+    on_stop,
+    supports_hooks,
+)
+from aiperf.common.messages import ProfileProgressMessage, ProfileResultsMessage
 
 
 class RequestsPerSecondColumn(ProgressColumn):
@@ -45,109 +53,72 @@ class RequestsPerSecondColumn(ProgressColumn):
         return Text(text, style="progress.data.speed")
 
 
-class AIPerfUI:
-    """
-    AIPerfUI is a class that provides a UI for the AIPerf system.
-    """
-
-    _instance: "AIPerfUI | None" = None
+@supports_hooks(AIPerfHook.ON_INIT, AIPerfHook.ON_START, AIPerfHook.ON_STOP)
+class ConsoleUIMixin(HooksMixin):
+    """Mixin for updating the console UI."""
 
     def __init__(self) -> None:
+        super().__init__()
         self.console = Console()
+
+    async def initialize(self) -> None:
+        """Initialize the console UI."""
+        await self.run_hooks_async(AIPerfHook.ON_INIT)
+
+    async def start(self) -> None:
+        """Start the console UI."""
+        await self.run_hooks_async(AIPerfHook.ON_START)
+
+    async def stop(self) -> None:
+        """Stop the console UI."""
+        await self.run_hooks_async(AIPerfHook.ON_STOP)
+
+
+class ProfileProgressDashboardMixin(ConsoleUIMixin):
+    """Mixin for updating the profile progress dashboard."""
+
+    def __init__(self) -> None:
+        super().__init__()
         self.live: Live | None = None
         self.progress: Progress | None = None
         self.task_id: TaskID | None = None
         self.start_time_ns: int | None = None
         self.last_update_time: float | None = None
+        self.error_count: int = 0
+        self.error_rate: float = 0.0
 
-    @classmethod
-    def get_instance(cls) -> "AIPerfUI":
-        """Get the singleton instance of the AIPerfUI."""
-        if cls._instance is None:
-            cls._instance = AIPerfUI()
-        return cls._instance
-
-    def run(self) -> None:
-        """Start the live dashboard."""
-        if self.live is None:
-            # Create progress bar with custom columns
-            self.progress = Progress(
-                SpinnerColumn(),
-                "[bold blue]{task.description}",
-                BarColumn(),
-                MofNCompleteColumn(),
-                TaskProgressColumn(),
-                RequestsPerSecondColumn(),
-                TimeElapsedColumn(),
-                TimeRemainingColumn(),
-                console=self.console,
-                expand=True,
-            )
-
-            # Create the main dashboard layout
-            dashboard = self._create_dashboard()
-
-            self.live = Live(
-                dashboard,
-                console=self.console,
-                refresh_per_second=4,
-                vertical_overflow="visible",
-            )
-            self.live.start()
-
-    def stop(self) -> None:
-        """Stop the live dashboard."""
+    @on_start
+    async def run_profile_progress_dashboard(self) -> None:
+        """Run the profile progress dashboard."""
         if self.live:
-            self.live.stop()
-            self.live = None
-        self.progress = None
-        self.task_id = None
-
-    def update(self, message: Message) -> None:
-        match message.message_type:
-            case MessageType.PROFILE_PROGRESS:
-                self.update_profile_progress(message)
-            case _:
-                pass
-
-    def update_profile_progress(self, progress: ProfileProgressMessage) -> None:
-        """
-        Update the profile progress with rich dashboard display.
-        """
-        if not self.progress or not self.live:
             return
 
-        payload = progress.payload
-        current_time = time.time()
-
-        # Initialize start time and task on first update
-        if self.start_time_ns is None or self.task_id is None:
-            self.start_time_ns = payload.sweep_start_ns
-            self.task_id = self.progress.add_task(
-                "Processing Requests",
-                total=payload.total,
-                completed=payload.completed,
-            )
-
-        # Calculate requests per second
-        elapsed_seconds = (payload.timestamp - self.start_time_ns) / NANOS_PER_SECOND
-        req_per_second = (
-            payload.completed / elapsed_seconds if elapsed_seconds > 0 else 0.0
+        # Create progress bar with custom columns
+        self.progress = Progress(
+            SpinnerColumn(),
+            "[bold blue]{task.description}",
+            BarColumn(),
+            MofNCompleteColumn(),
+            TaskProgressColumn(),
+            RequestsPerSecondColumn(),
+            TimeElapsedColumn(),
+            TimeRemainingColumn(),
+            console=self.console,
+            expand=True,
         )
 
-        # Update the progress task
-        self.progress.update(
-            self.task_id,
-            completed=payload.completed,
-            total=payload.total,
-            req_per_second=req_per_second,
+        # Create the main dashboard layout
+        dashboard = self._create_progress_dashboard()
+
+        self.live = Live(
+            dashboard,
+            console=self.console,
+            refresh_per_second=4,
+            vertical_overflow="visible",
         )
+        self.live.start()
 
-        # Update the live display
-        self.live.update(self._create_dashboard())
-        self.last_update_time = current_time
-
-    def _create_dashboard(self) -> Panel:
+    def _create_progress_dashboard(self) -> Panel:
         """Create the main dashboard layout."""
         if not self.progress:
             return Panel(
@@ -179,6 +150,7 @@ class AIPerfUI:
                 "Progress:", f"{task.completed:,} / {task.total:,} requests"
             )
             stats_table.add_row("Completion:", f"{completion_pct:.1f}%")
+            stats_table.add_row("Errors:", f"{self.error_count:,} ()")
             stats_table.add_row(
                 "Rate:",
                 f"{task.speed:.1f} req/s" if task.speed else "-- req/s",
@@ -209,3 +181,97 @@ class AIPerfUI:
             border_style="blue",
             padding=(1, 2),
         )
+
+    @on_stop
+    async def stop_profile_progress_dashboard(self) -> None:
+        """Stop the profile progress dashboard."""
+        """Stop the live dashboard."""
+        if self.live:
+            self.live.stop()
+            self.live = None
+        self.progress = None
+        self.task_id = None
+
+    def update_profile_progress(self, message: ProfileProgressMessage) -> None:
+        """
+        Update the profile progress with rich dashboard display.
+        """
+        if not self.progress or not self.live:
+            return
+
+        current_time = time.time()
+
+        # Initialize start time and task on first update
+        if self.start_time_ns is None or self.task_id is None:
+            self.start_time_ns = message.sweep_start_ns
+            self.task_id = self.progress.add_task(
+                "Processing Requests",
+                total=message.total,
+                completed=message.completed,
+            )
+
+        # Calculate requests per second
+        elapsed_seconds = (
+            (message.request_ns or time.perf_counter_ns()) - self.start_time_ns
+        ) / NANOS_PER_SECOND
+
+        req_per_second = (
+            message.completed / elapsed_seconds if (elapsed_seconds or 0) > 0 else 0.0
+        )
+
+        self.error_count = message.errors
+        self.error_rate = self.error_count / message.total
+
+        # Update the progress task
+        self.progress.update(
+            self.task_id,
+            completed=message.completed,
+            total=message.total,
+            req_per_second=req_per_second,
+        )
+
+        # Update the live display
+        self.live.update(self._create_progress_dashboard())
+        self.last_update_time = current_time
+
+
+class FinalResultsDashboardMixin(ConsoleUIMixin):
+    """Mixin for updating the final results dashboard."""
+
+    def __init__(self) -> None:
+        super().__init__()
+
+        # TODO: make this configurable
+        self.console_exporter: ConsoleExporter = ConsoleExporter(
+            console=self.console,
+            endpoint_config=EndPointConfig(
+                type="console",
+                streaming=True,
+            ),
+        )
+
+
+class AIPerfUI(ProfileProgressDashboardMixin, FinalResultsDashboardMixin):
+    """
+    AIPerfUI is a class that provides a UI for the AIPerf system.
+    """
+
+    _instance: "AIPerfUI | None" = None
+
+    def __init__(self) -> None:
+        super().__init__()
+
+    @classmethod
+    def get_instance(cls) -> "AIPerfUI":
+        """Get the singleton instance of the AIPerfUI."""
+        if cls._instance is None:
+            cls._instance = AIPerfUI()
+        return cls._instance  # type: ignore[reportUnboundVariable]
+
+    async def process_final_results(self, message: ProfileResultsMessage) -> None:
+        """Export the final results."""
+        self.stop_profile_progress_dashboard()
+        self.console.clear()
+        print(message.records)
+        self.console_exporter.export(message.records)
+        self.console.print("[bold green]Profile complete!")

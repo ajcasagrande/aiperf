@@ -7,7 +7,8 @@ import pandas as pd
 from aiperf.common.comms.client_enums import ClientType, PullClientType
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.constants import NANOS_PER_MILLIS
-from aiperf.common.enums import MessageType, ServiceType
+from aiperf.common.data_exporter.record import Record
+from aiperf.common.enums import MessageType, ServiceType, Topic
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
     on_cleanup,
@@ -19,6 +20,7 @@ from aiperf.common.hooks import (
 from aiperf.common.messages import (
     InferenceResultsMessage,
     Message,
+    ProfileResultsMessage,
 )
 from aiperf.common.record_models import RequestErrorRecord, RequestRecord
 from aiperf.common.service.base_component_service import BaseComponentService
@@ -111,15 +113,20 @@ class RecordsManager(BaseComponentService):
         self.logger.debug(f"Processed {len(self.records)} successful records")
         self.logger.debug(f"Processed {len(self.error_records)} error records")
 
-        await self.post_process_records()
+        profile_results = await self.post_process_records()
+        if profile_results:
+            await self.comms.publish(
+                topic=Topic.PROFILE_RESULTS,
+                message=profile_results,
+            )
 
-    async def post_process_records(self) -> None:
+    async def post_process_records(self) -> ProfileResultsMessage | None:
         """Post process the records."""
         self.logger.debug("Post processing records")
 
         if not self.records:
             self.logger.warning("No successful records to process")
-            return
+            return None
 
         # Extract time to first response values
         time_to_first_response_values = [
@@ -128,35 +135,79 @@ class RecordsManager(BaseComponentService):
         time_to_last_response_values = [
             record.time_to_last_response_ns for record in self.records
         ]
+        inter_token_latency_values = [
+            record.inter_token_latency_ns for record in self.records
+        ]
 
-        # Create DataFrame for statistics calculation
-        ttft_df = pd.DataFrame(
-            time_to_first_response_values, columns=["time_to_first_response_ns"]
+        # Create single DataFrame with all metrics
+        metrics_df = pd.DataFrame(
+            {
+                "ttft_ns": time_to_first_response_values,
+                "ttlt_ns": time_to_last_response_values,
+                "itl_ns": inter_token_latency_values,
+            }
         )
-        ttls_df = pd.DataFrame(
-            time_to_last_response_values, columns=["time_to_last_response_ns"]
+
+        # Create Record objects (converting from ns to ms)
+        ttft_record = Record(
+            name="Time to First Token",
+            unit="ms",
+            avg=metrics_df["ttft_ns"].mean() / NANOS_PER_MILLIS,
+            min=metrics_df["ttft_ns"].min() / NANOS_PER_MILLIS,
+            max=metrics_df["ttft_ns"].max() / NANOS_PER_MILLIS,
+            p1=metrics_df["ttft_ns"].quantile(0.01) / NANOS_PER_MILLIS,
+            p5=metrics_df["ttft_ns"].quantile(0.05) / NANOS_PER_MILLIS,
+            p25=metrics_df["ttft_ns"].quantile(0.25) / NANOS_PER_MILLIS,
+            p50=metrics_df["ttft_ns"].quantile(0.50) / NANOS_PER_MILLIS,
+            p75=metrics_df["ttft_ns"].quantile(0.75) / NANOS_PER_MILLIS,
+            p90=metrics_df["ttft_ns"].quantile(0.90) / NANOS_PER_MILLIS,
+            p95=metrics_df["ttft_ns"].quantile(0.95) / NANOS_PER_MILLIS,
+            p99=metrics_df["ttft_ns"].quantile(0.99) / NANOS_PER_MILLIS,
+            std=metrics_df["ttft_ns"].std() / NANOS_PER_MILLIS,
+            streaming_only=True,
         )
-        # Calculate statistics
-        avg_ttft_ns = ttft_df["time_to_first_response_ns"].mean()
-        p95_ttft_ns = ttft_df["time_to_first_response_ns"].quantile(0.95)
-        p99_ttft_ns = ttft_df["time_to_first_response_ns"].quantile(0.99)
 
-        # Log the statistics
-        self.logger.warning("Time to First Token Statistics:")
-        self.logger.warning(f"  Average: {avg_ttft_ns / NANOS_PER_MILLIS:.2f} ms")
-        self.logger.warning(f"      P95: {p95_ttft_ns / NANOS_PER_MILLIS:.2f} ms")
-        self.logger.warning(f"      P99: {p99_ttft_ns / NANOS_PER_MILLIS:.2f} ms")
+        ttlt_record = Record(
+            name="Time to Last Token",
+            unit="ms",
+            avg=metrics_df["ttlt_ns"].mean() / NANOS_PER_MILLIS,
+            min=metrics_df["ttlt_ns"].min() / NANOS_PER_MILLIS,
+            max=metrics_df["ttlt_ns"].max() / NANOS_PER_MILLIS,
+            p1=metrics_df["ttlt_ns"].quantile(0.01) / NANOS_PER_MILLIS,
+            p5=metrics_df["ttlt_ns"].quantile(0.05) / NANOS_PER_MILLIS,
+            p25=metrics_df["ttlt_ns"].quantile(0.25) / NANOS_PER_MILLIS,
+            p50=metrics_df["ttlt_ns"].quantile(0.50) / NANOS_PER_MILLIS,
+            p75=metrics_df["ttlt_ns"].quantile(0.75) / NANOS_PER_MILLIS,
+            p90=metrics_df["ttlt_ns"].quantile(0.90) / NANOS_PER_MILLIS,
+            p95=metrics_df["ttlt_ns"].quantile(0.95) / NANOS_PER_MILLIS,
+            p99=metrics_df["ttlt_ns"].quantile(0.99) / NANOS_PER_MILLIS,
+            std=metrics_df["ttlt_ns"].std() / NANOS_PER_MILLIS,
+            streaming_only=False,
+        )
 
-        # Calculate statistics
-        avg_ttlt_ns = ttls_df["time_to_last_response_ns"].mean()
-        p95_ttlt_ns = ttls_df["time_to_last_response_ns"].quantile(0.95)
-        p99_ttlt_ns = ttls_df["time_to_last_response_ns"].quantile(0.99)
+        itl_record = Record(
+            name="Inter Token Latency",
+            unit="ms",
+            avg=metrics_df["itl_ns"].mean() / NANOS_PER_MILLIS,
+            min=metrics_df["itl_ns"].min() / NANOS_PER_MILLIS,
+            max=metrics_df["itl_ns"].max() / NANOS_PER_MILLIS,
+            p1=metrics_df["itl_ns"].quantile(0.01) / NANOS_PER_MILLIS,
+            p5=metrics_df["itl_ns"].quantile(0.05) / NANOS_PER_MILLIS,
+            p25=metrics_df["itl_ns"].quantile(0.25) / NANOS_PER_MILLIS,
+            p50=metrics_df["itl_ns"].quantile(0.50) / NANOS_PER_MILLIS,
+            p75=metrics_df["itl_ns"].quantile(0.75) / NANOS_PER_MILLIS,
+            p90=metrics_df["itl_ns"].quantile(0.90) / NANOS_PER_MILLIS,
+            p95=metrics_df["itl_ns"].quantile(0.95) / NANOS_PER_MILLIS,
+            p99=metrics_df["itl_ns"].quantile(0.99) / NANOS_PER_MILLIS,
+            std=metrics_df["itl_ns"].std() / NANOS_PER_MILLIS,
+            streaming_only=True,
+        )
 
-        # Log the statistics
-        self.logger.warning("Time to Last Token Statistics:")
-        self.logger.warning(f"  Average: {avg_ttlt_ns / NANOS_PER_MILLIS:.2f} ms")
-        self.logger.warning(f"      P95: {p95_ttlt_ns / NANOS_PER_MILLIS:.2f} ms")
-        self.logger.warning(f"      P99: {p99_ttlt_ns / NANOS_PER_MILLIS:.2f} ms")
+        # Create and return ProfileResultsMessage
+        return ProfileResultsMessage(
+            service_id=self.service_id,
+            records=[ttft_record, ttlt_record, itl_record],
+        )
 
 
 def main() -> None:

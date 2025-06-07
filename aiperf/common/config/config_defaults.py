@@ -18,7 +18,7 @@ class UserDefaults:
 @dataclass(frozen=True)
 class EndPointDefaults:
     MODEL_SELECTION_STRATEGY = ModelSelectionStrategy.ROUND_ROBIN
-    BACKEND = OutputFormat.TENSORRTLLM
+    BACKEND = OutputFormat.OPENAI_CHAT_COMPLETIONS
     CUSTOM = ""
     TYPE = "kserve"
     STREAMING = False

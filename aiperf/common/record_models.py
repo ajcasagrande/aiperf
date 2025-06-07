@@ -198,6 +198,15 @@ class RequestRecord(BaseRequestRecord, Generic[ResponseT]):
             return sys.maxsize
         return self.responses[-1].timestamp_ns - self.start_time_ns
 
+    @property
+    def inter_token_latency_ns(self) -> float:
+        """Get the interval between responses in nanoseconds."""
+        if not self.valid:
+            return sys.maxsize
+        return (self.responses[-1].timestamp_ns - self.responses[0].timestamp_ns) / (
+            len(self.responses) - 1
+        )
+
 
 class RequestTimers:
     """Records timestamps for different stages of request handling."""

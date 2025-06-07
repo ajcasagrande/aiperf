@@ -92,7 +92,7 @@ class ZMQPullClient(BaseZMQClient):
                 )
                 await asyncio.sleep(0.1)
 
-        logger.debug("Pull receiver task finished %s", self.client_id)
+        # logger.debug("Pull receiver task finished %s", self.client_id)
 
     async def register_pull_callback(
         self,
