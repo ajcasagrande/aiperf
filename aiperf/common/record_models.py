@@ -60,6 +60,15 @@ class BackendClientResponse(BaseModel, Generic[ResponseT]):
     response: ResponseT | None = None
 
 
+class BackendClientErrorResponse(BackendClientResponse[None]):
+    """Error response from a backend client."""
+
+    error: str = Field(
+        ...,
+        description="The error message.",
+    )
+
+
 class BackendClientErrorRecord(BaseModel):
     """Error response from a backend client."""
 
@@ -114,11 +123,16 @@ class InferRequestOptions(BaseModel):
 # Worker Internal Models
 ################################################################################
 
+# TODO: Maybe a RecordType like a MessageType for discriminated unions?
+
 
 class BaseRequestRecord(BaseModel):
     """Base record of a request."""
 
-    ...
+    start_time_ns: int = Field(
+        default_factory=time.time_ns,
+        description="The start time of the request in nanoseconds since the epoch.",
+    )
 
 
 class RequestErrorRecord(BaseRequestRecord):
@@ -133,13 +147,11 @@ class RequestErrorRecord(BaseRequestRecord):
 class RequestRecord(BaseRequestRecord, Generic[ResponseT]):
     """Record of a request."""
 
-    start_time_ns: int = Field(
-        default_factory=time.time_ns,
-        description="The start time of the request in nanoseconds since the epoch.",
-    )
-    responses: list[BackendClientResponse[ResponseT]] = Field(
-        default_factory=list,
-        description="The responses received from the request.",
+    responses: list[BackendClientResponse[ResponseT] | BackendClientErrorResponse] = (
+        Field(
+            default_factory=list,
+            description="The responses received from the request.",
+        )
     )
     has_null_last_response: bool = Field(
         default=False, description="Whether the last response received was null."
@@ -150,6 +162,14 @@ class RequestRecord(BaseRequestRecord, Generic[ResponseT]):
     delayed: bool = Field(default=False, description="Whether the request was delayed.")
 
     @property
+    def has_error(self) -> bool:
+        """Check if the request record has an error."""
+        return any(
+            isinstance(response, BackendClientErrorResponse)
+            for response in self.responses
+        )
+
+    @property
     def valid(self) -> bool:
         """Check if the request record is valid by ensuring that the start time
         and response timestamps are within valid ranges.
@@ -157,7 +177,7 @@ class RequestRecord(BaseRequestRecord, Generic[ResponseT]):
         Returns:
             bool: True if the record is valid, False otherwise.
         """
-        return (
+        return not self.has_error and (
             0 < self.start_time_ns < sys.maxsize
             and len(self.responses) > 0
             and all(
@@ -185,24 +205,31 @@ class RequestRecord(BaseRequestRecord, Generic[ResponseT]):
         ]
 
     @property
-    def time_to_first_response_ns(self) -> int:
+    def time_to_first_response_ns(self) -> int | None:
         """Get the time to the first response in nanoseconds."""
         if not self.valid:
-            return sys.maxsize
+            return None
         return self.responses[0].timestamp_ns - self.start_time_ns
 
     @property
-    def time_to_last_response_ns(self) -> int:
+    def time_to_second_response_ns(self) -> int | None:
+        """Get the time to the second response in nanoseconds."""
+        if not self.valid:
+            return None
+        return self.responses[1].timestamp_ns - self.responses[0].timestamp_ns
+
+    @property
+    def time_to_last_response_ns(self) -> int | None:
         """Get the time to the last response in nanoseconds."""
         if not self.valid:
-            return sys.maxsize
+            return None
         return self.responses[-1].timestamp_ns - self.start_time_ns
 
     @property
-    def inter_token_latency_ns(self) -> float:
+    def inter_token_latency_ns(self) -> float | None:
         """Get the interval between responses in nanoseconds."""
         if not self.valid:
-            return sys.maxsize
+            return None
         return (self.responses[-1].timestamp_ns - self.responses[0].timestamp_ns) / (
             len(self.responses) - 1
         )

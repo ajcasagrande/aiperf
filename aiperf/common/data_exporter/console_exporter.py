@@ -1,22 +1,21 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from rich.console import Console
+from rich.live import Live
 from rich.table import Table
 
 from aiperf.common.config.endpoint_config import EndPointConfig
 from aiperf.common.data_exporter.record import Record
 
 
+# TODO: Possibly add a registry for exporters
 class ConsoleExporter:
     """A class that exports data to the console"""
 
     STAT_COLUMN_KEYS = ["avg", "min", "max", "p99", "p90", "p75"]
 
-    def __init__(
-        self, endpoint_config: EndPointConfig, console: Console | None = None
-    ) -> None:
-        self.console = console or Console()
+    def __init__(self, endpoint_config: EndPointConfig, live: Live) -> None:
+        self.live = live
         self.endpoint_type = endpoint_config.type
         self.streaming = endpoint_config.streaming
 
@@ -26,7 +25,7 @@ class ConsoleExporter:
         for key in self.STAT_COLUMN_KEYS:
             table.add_column(key, justify="right", style="green")
         self._construct_table(table, records)
-        self.console.print(table)
+        self.live.update(table, refresh=True)
 
     def _construct_table(self, table: Table, records: list[Record]) -> None:
         for record in records:

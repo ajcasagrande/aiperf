@@ -40,8 +40,8 @@ class TimingManager(BaseComponentService):
         super().__init__(service_config=service_config, service_id=service_id)
         self._credit_lock = asyncio.Lock()
 
-        self._total_credits = 10000
-        self._credits_available = 10000
+        self._total_credits = 100
+        self._credits_available = 25
 
         self._sent_credits = 0
         self._completed_credits = 0
@@ -102,12 +102,23 @@ class TimingManager(BaseComponentService):
     async def _issue_credit_drops(self) -> None:
         """Issue credit drops to workers."""
         self.logger.debug("Issuing credit drops to workers")
+
         # TODO: Actually implement real credit drop logic
         await asyncio.sleep(3)
 
         await self.initialized_event.wait()
 
         self.start_time_ns = time.perf_counter_ns()
+
+        await self.comms.publish(
+            topic=Topic.PROFILE_PROGRESS,
+            message=ProfileProgressMessage(
+                service_id=self.service_id,
+                sweep_start_ns=self.start_time_ns,
+                total=self._total_credits,
+                completed=self._completed_credits,
+            ),
+        )
 
         while not self.stop_event.is_set():
             try:

@@ -40,7 +40,7 @@ class RecordsManager(BaseComponentService):
         self.logger.debug("Initializing records manager")
 
         self.records: list[RequestRecord] = []
-        self.error_records: list[RequestErrorRecord] = []
+        self.error_records: list[RequestErrorRecord | RequestRecord] = []
 
     @property
     def service_type(self) -> ServiceType:
@@ -96,15 +96,24 @@ class RecordsManager(BaseComponentService):
         record = message.record
 
         if isinstance(record, RequestErrorRecord):
-            self.logger.error(f"Received inference results error: {record.error}")
+            self.logger.warning(f"Received error inference results: {record}")
             self.error_records.append(record)
+
         elif isinstance(record, RequestRecord):
-            self.logger.debug(
-                f"Received inference results: {record.time_to_first_response_ns / NANOS_PER_MILLIS} milliseconds. {record.time_to_last_response_ns / NANOS_PER_MILLIS} milliseconds."
-            )
-            self.records.append(record)
+            if record.valid:
+                self.logger.debug(
+                    f"Received inference results: {record.time_to_first_response_ns / NANOS_PER_MILLIS} milliseconds. {record.time_to_last_response_ns / NANOS_PER_MILLIS} milliseconds."
+                )
+                self.records.append(record)
+            else:
+                self.logger.warning(f"Received invalid inference results: {record}")
+                self.error_records.append(record)
+
         else:
-            self.logger.error(f"Unknown inference results type: {type(record)}")
+            self.logger.warning(
+                f"Received unknown inference results type: {type(record)}"
+            )
+            self.error_records.append(record)
 
     async def process_records(self) -> None:
         """Process the records."""
@@ -128,86 +137,96 @@ class RecordsManager(BaseComponentService):
             self.logger.warning("No successful records to process")
             return None
 
+        valid_records = [record for record in self.records if record.valid]
         # Extract time to first response values
         time_to_first_response_values = [
-            record.time_to_first_response_ns for record in self.records
+            record.time_to_first_response_ns for record in valid_records
+        ]
+        time_to_second_response_values = [
+            record.time_to_second_response_ns for record in valid_records
         ]
         time_to_last_response_values = [
-            record.time_to_last_response_ns for record in self.records
+            record.time_to_last_response_ns for record in valid_records
         ]
         inter_token_latency_values = [
-            record.inter_token_latency_ns for record in self.records
+            record.inter_token_latency_ns for record in valid_records
         ]
 
         # Create single DataFrame with all metrics
         metrics_df = pd.DataFrame(
             {
                 "ttft_ns": time_to_first_response_values,
+                "ttst_ns": time_to_second_response_values,
                 "ttlt_ns": time_to_last_response_values,
                 "itl_ns": inter_token_latency_values,
             }
         )
 
         # Create Record objects (converting from ns to ms)
-        ttft_record = Record(
+        ttft_record = record_from_dataframe(
+            df=metrics_df,
+            column_name="ttft_ns",
             name="Time to First Token",
             unit="ms",
-            avg=metrics_df["ttft_ns"].mean() / NANOS_PER_MILLIS,
-            min=metrics_df["ttft_ns"].min() / NANOS_PER_MILLIS,
-            max=metrics_df["ttft_ns"].max() / NANOS_PER_MILLIS,
-            p1=metrics_df["ttft_ns"].quantile(0.01) / NANOS_PER_MILLIS,
-            p5=metrics_df["ttft_ns"].quantile(0.05) / NANOS_PER_MILLIS,
-            p25=metrics_df["ttft_ns"].quantile(0.25) / NANOS_PER_MILLIS,
-            p50=metrics_df["ttft_ns"].quantile(0.50) / NANOS_PER_MILLIS,
-            p75=metrics_df["ttft_ns"].quantile(0.75) / NANOS_PER_MILLIS,
-            p90=metrics_df["ttft_ns"].quantile(0.90) / NANOS_PER_MILLIS,
-            p95=metrics_df["ttft_ns"].quantile(0.95) / NANOS_PER_MILLIS,
-            p99=metrics_df["ttft_ns"].quantile(0.99) / NANOS_PER_MILLIS,
-            std=metrics_df["ttft_ns"].std() / NANOS_PER_MILLIS,
             streaming_only=True,
         )
 
-        ttlt_record = Record(
+        ttst_record = record_from_dataframe(
+            df=metrics_df,
+            column_name="ttst_ns",
+            name="Time to Second Token",
+            unit="ms",
+            streaming_only=True,
+        )
+
+        ttlt_record = record_from_dataframe(
+            df=metrics_df,
+            column_name="ttlt_ns",
             name="Time to Last Token",
             unit="ms",
-            avg=metrics_df["ttlt_ns"].mean() / NANOS_PER_MILLIS,
-            min=metrics_df["ttlt_ns"].min() / NANOS_PER_MILLIS,
-            max=metrics_df["ttlt_ns"].max() / NANOS_PER_MILLIS,
-            p1=metrics_df["ttlt_ns"].quantile(0.01) / NANOS_PER_MILLIS,
-            p5=metrics_df["ttlt_ns"].quantile(0.05) / NANOS_PER_MILLIS,
-            p25=metrics_df["ttlt_ns"].quantile(0.25) / NANOS_PER_MILLIS,
-            p50=metrics_df["ttlt_ns"].quantile(0.50) / NANOS_PER_MILLIS,
-            p75=metrics_df["ttlt_ns"].quantile(0.75) / NANOS_PER_MILLIS,
-            p90=metrics_df["ttlt_ns"].quantile(0.90) / NANOS_PER_MILLIS,
-            p95=metrics_df["ttlt_ns"].quantile(0.95) / NANOS_PER_MILLIS,
-            p99=metrics_df["ttlt_ns"].quantile(0.99) / NANOS_PER_MILLIS,
-            std=metrics_df["ttlt_ns"].std() / NANOS_PER_MILLIS,
             streaming_only=False,
         )
 
-        itl_record = Record(
+        itl_record = record_from_dataframe(
+            df=metrics_df,
+            column_name="itl_ns",
             name="Inter Token Latency",
             unit="ms",
-            avg=metrics_df["itl_ns"].mean() / NANOS_PER_MILLIS,
-            min=metrics_df["itl_ns"].min() / NANOS_PER_MILLIS,
-            max=metrics_df["itl_ns"].max() / NANOS_PER_MILLIS,
-            p1=metrics_df["itl_ns"].quantile(0.01) / NANOS_PER_MILLIS,
-            p5=metrics_df["itl_ns"].quantile(0.05) / NANOS_PER_MILLIS,
-            p25=metrics_df["itl_ns"].quantile(0.25) / NANOS_PER_MILLIS,
-            p50=metrics_df["itl_ns"].quantile(0.50) / NANOS_PER_MILLIS,
-            p75=metrics_df["itl_ns"].quantile(0.75) / NANOS_PER_MILLIS,
-            p90=metrics_df["itl_ns"].quantile(0.90) / NANOS_PER_MILLIS,
-            p95=metrics_df["itl_ns"].quantile(0.95) / NANOS_PER_MILLIS,
-            p99=metrics_df["itl_ns"].quantile(0.99) / NANOS_PER_MILLIS,
-            std=metrics_df["itl_ns"].std() / NANOS_PER_MILLIS,
             streaming_only=True,
         )
 
         # Create and return ProfileResultsMessage
         return ProfileResultsMessage(
             service_id=self.service_id,
-            records=[ttft_record, ttlt_record, itl_record],
+            records=[ttft_record, ttst_record, ttlt_record, itl_record],
         )
+
+
+def record_from_dataframe(
+    df: pd.DataFrame,
+    column_name: str,
+    name: str,
+    unit: str,
+    streaming_only: bool,
+) -> Record:
+    """Create a Record from a DataFrame."""
+    return Record(
+        name=name,
+        unit=unit,
+        avg=df[column_name].mean() / NANOS_PER_MILLIS,
+        min=df[column_name].min() / NANOS_PER_MILLIS,
+        max=df[column_name].max() / NANOS_PER_MILLIS,
+        p1=df[column_name].quantile(0.01) / NANOS_PER_MILLIS,
+        p5=df[column_name].quantile(0.05) / NANOS_PER_MILLIS,
+        p25=df[column_name].quantile(0.25) / NANOS_PER_MILLIS,
+        p50=df[column_name].quantile(0.50) / NANOS_PER_MILLIS,
+        p75=df[column_name].quantile(0.75) / NANOS_PER_MILLIS,
+        p90=df[column_name].quantile(0.90) / NANOS_PER_MILLIS,
+        p95=df[column_name].quantile(0.95) / NANOS_PER_MILLIS,
+        p99=df[column_name].quantile(0.99) / NANOS_PER_MILLIS,
+        std=df[column_name].std() / NANOS_PER_MILLIS,
+        streaming_only=streaming_only,
+    )
 
 
 def main() -> None:

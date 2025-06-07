@@ -60,6 +60,7 @@ class ConsoleUIMixin(HooksMixin):
     def __init__(self) -> None:
         super().__init__()
         self.console = Console()
+        self.live: Live = Live(console=self.console)
 
     async def initialize(self) -> None:
         """Initialize the console UI."""
@@ -67,11 +68,13 @@ class ConsoleUIMixin(HooksMixin):
 
     async def start(self) -> None:
         """Start the console UI."""
+        self.live.start()
         await self.run_hooks_async(AIPerfHook.ON_START)
 
     async def stop(self) -> None:
         """Stop the console UI."""
         await self.run_hooks_async(AIPerfHook.ON_STOP)
+        self.live.stop()
 
 
 class ProfileProgressDashboardMixin(ConsoleUIMixin):
@@ -79,20 +82,15 @@ class ProfileProgressDashboardMixin(ConsoleUIMixin):
 
     def __init__(self) -> None:
         super().__init__()
-        self.live: Live | None = None
         self.progress: Progress | None = None
         self.task_id: TaskID | None = None
         self.start_time_ns: int | None = None
-        self.last_update_time: float | None = None
         self.error_count: int = 0
         self.error_rate: float = 0.0
 
     @on_start
     async def run_profile_progress_dashboard(self) -> None:
         """Run the profile progress dashboard."""
-        if self.live:
-            return
-
         # Create progress bar with custom columns
         self.progress = Progress(
             SpinnerColumn(),
@@ -107,26 +105,15 @@ class ProfileProgressDashboardMixin(ConsoleUIMixin):
             expand=True,
         )
 
-        # Create the main dashboard layout
-        dashboard = self._create_progress_dashboard()
-
-        self.live = Live(
-            dashboard,
-            console=self.console,
-            refresh_per_second=4,
-            vertical_overflow="visible",
+        panel = Panel(
+            Text("Waiting for profile data...", style="dim"),
+            title="AIPerf Dashboard",
+            border_style="blue",
         )
-        self.live.start()
+        self.live.update(panel, refresh=True)
 
     def _create_progress_dashboard(self) -> Panel:
         """Create the main dashboard layout."""
-        if not self.progress:
-            return Panel(
-                Text("Waiting for profile data...", style="dim"),
-                title="AIPerf Dashboard",
-                border_style="blue",
-            )
-
         # Create stats table
         stats_table = Table.grid(padding=1)
         stats_table.add_column(style="cyan", no_wrap=True)
@@ -150,7 +137,7 @@ class ProfileProgressDashboardMixin(ConsoleUIMixin):
                 "Progress:", f"{task.completed:,} / {task.total:,} requests"
             )
             stats_table.add_row("Completion:", f"{completion_pct:.1f}%")
-            stats_table.add_row("Errors:", f"{self.error_count:,} ()")
+            # stats_table.add_row("Errors:", f"{self.error_count:,} ()")
             stats_table.add_row(
                 "Rate:",
                 f"{task.speed:.1f} req/s" if task.speed else "-- req/s",
@@ -185,10 +172,6 @@ class ProfileProgressDashboardMixin(ConsoleUIMixin):
     @on_stop
     async def stop_profile_progress_dashboard(self) -> None:
         """Stop the profile progress dashboard."""
-        """Stop the live dashboard."""
-        if self.live:
-            self.live.stop()
-            self.live = None
         self.progress = None
         self.task_id = None
 
@@ -196,10 +179,8 @@ class ProfileProgressDashboardMixin(ConsoleUIMixin):
         """
         Update the profile progress with rich dashboard display.
         """
-        if not self.progress or not self.live:
+        if not self.progress:
             return
-
-        current_time = time.time()
 
         # Initialize start time and task on first update
         if self.start_time_ns is None or self.task_id is None:
@@ -232,7 +213,6 @@ class ProfileProgressDashboardMixin(ConsoleUIMixin):
 
         # Update the live display
         self.live.update(self._create_progress_dashboard())
-        self.last_update_time = current_time
 
 
 class FinalResultsDashboardMixin(ConsoleUIMixin):
@@ -241,9 +221,9 @@ class FinalResultsDashboardMixin(ConsoleUIMixin):
     def __init__(self) -> None:
         super().__init__()
 
-        # TODO: make this configurable
+        # TODO: make this take in the endpoint config
         self.console_exporter: ConsoleExporter = ConsoleExporter(
-            console=self.console,
+            live=self.live,
             endpoint_config=EndPointConfig(
                 type="console",
                 streaming=True,
@@ -270,8 +250,6 @@ class AIPerfUI(ProfileProgressDashboardMixin, FinalResultsDashboardMixin):
 
     async def process_final_results(self, message: ProfileResultsMessage) -> None:
         """Export the final results."""
-        self.stop_profile_progress_dashboard()
-        self.console.clear()
         print(message.records)
         self.console_exporter.export(message.records)
         self.console.print("[bold green]Profile complete!")

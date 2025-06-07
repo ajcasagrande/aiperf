@@ -4,7 +4,6 @@
 import logging
 import os
 import time
-import traceback
 from typing import Any
 
 from openai import AsyncAzureOpenAI, AsyncOpenAI
@@ -19,12 +18,13 @@ from pydantic import BaseModel, Field
 
 from aiperf.backend.client_mixins import BackendClientConfigMixin
 from aiperf.common.enums import BackendClientType, CaseInsensitiveStrEnum
+from aiperf.common.exceptions import InvalidPayloadError
 from aiperf.common.factories import BackendClientFactory
 from aiperf.common.interfaces import BackendClientProtocol
 from aiperf.common.record_models import (
+    BackendClientErrorResponse,
     BackendClientResponse,
     GenericHTTPBackendClientConfig,
-    RequestErrorRecord,
     RequestRecord,
 )
 
@@ -237,6 +237,11 @@ class OpenAIBackendClient(OpenAIClientMixin, OpenAIBackendClientProtocol):
     def __init__(self, client_config: OpenAIBackendClientConfig):
         super().__init__(client_config)
 
+    @property
+    def client_type(self) -> BackendClientType:
+        """Get the type of the backend client."""
+        return BackendClientType.OPENAI
+
     async def format_payload(
         self, endpoint: str, payload: dict[str, Any]
     ) -> OpenAIBaseRequest:
@@ -279,151 +284,163 @@ class OpenAIBackendClient(OpenAIClientMixin, OpenAIBackendClientProtocol):
         else:
             raise ValueError(f"Invalid endpoint: {endpoint}")
 
-    @property
-    def client_type(self) -> BackendClientType:
-        return BackendClientType.OPENAI
-
     async def send_request(
         self, endpoint: str, payload: OpenAIBaseRequest
     ) -> RequestRecord:
         # TODO: Is this actually an OutputConverterProtocol?
 
-        # return RequestRecord(
-        #     start_time_ns=time.time_ns(),
-        #     response_timestamps_ns=[time.time_ns()],
-        #     responses=[BackendClientResponse(
-        #             response=OpenAIChatCompletionResponse(
-        #                 response=ChatCompletion(
-        #                     id=uuid.uuid4().hex,
-        #                     object="chat.completion",
-        #                     created=int(time.time()),
-        #                     model=self.client_config.model,
-        #                     choices=[
-        #                         Choice(
-        #                             index=0,
-        #                             message=ChatCompletionMessage(
-        #                                 role="assistant",
-        #                                 content="test",
-        #                             ),
-        #                             finish_reason="stop",
-        #                             logprobs=None,
-        #                         )
-        #                     ],
-        #                     usage=CompletionUsage(
-        #                         completion_tokens=100,
-        #                         prompt_tokens=100,
-        #                         total_tokens=200,
-        #                     ),
-        #                 )
-        #             )
-        #         )
-        #     ]
-        # )
+        record: RequestRecord[Any] = RequestRecord(
+            start_time_ns=time.perf_counter_ns(),
+        )
 
-        record: RequestRecord[Any] | RequestErrorRecord = RequestRecord()
+        try:
+            if isinstance(payload, OpenAIChatCompletionRequest):
+                record = await self.send_chat_completion_request(payload)
 
-        if isinstance(payload, OpenAIChatCompletionRequest):
-            record.start_time_ns = time.perf_counter_ns()
+            elif isinstance(payload, OpenAICompletionRequest):
+                record = await self.send_completion_request(payload)
 
-            try:
-                # Use raw response to get unparsed JSON
-                async with self.client.chat.completions.with_streaming_response.create(
-                    model=self.client_config.model,
-                    messages=payload.messages,
-                    max_tokens=self.client_config.max_tokens,
-                    stream=True,
-                    stream_options=ChatCompletionStreamOptionsParam(
-                        include_usage=True,
-                    ),
-                ) as response_obj:
-                    # Get the parsed streaming response from the raw response
-                    stream = response_obj.iter_text()
+            elif isinstance(payload, OpenAIEmbeddingsRequest):
+                record = await self.send_embeddings_request(payload)
 
-                    # Now iterate through the stream
-                    # i = 0
-                    async for chunk in stream:
-                        if chunk.startswith("event: error"):
-                            logger.error("Error in streaming API call: %s", chunk)
-                            record = RequestErrorRecord(
-                                error=chunk,
-                            )
-                            break
+            elif isinstance(payload, OpenAIChatResponsesRequest):
+                record = await self.send_chat_responses_request(payload)
 
-                        try:
-                            # Store the raw chunk data directly
-                            # You can access chunk.model_dump_json() for raw JSON string
-                            # Or chunk.model_dump() for raw dict
-                            # raw_data = chunk  # This gives you the raw JSON string
-                            # logger.info("Raw data: (%i) %s", i, raw_data)
-                            # i += 1
+            else:
+                raise InvalidPayloadError(f"Invalid payload: {payload}")
 
-                            record.responses.append(
-                                BackendClientResponse[str](
-                                    timestamp_ns=time.perf_counter_ns(),
-                                    response=chunk,  # Raw JSON string
-                                )
-                            )
-                        except Exception:
-                            traceback.print_exc()
-                            # Handle any response processing errors
-                            # logger.warning(f"Error processing response chunk: {e}")
-                            continue
-            except Exception as e:
-                traceback.print_exc()
-                # Handle exceptions from the streaming API call itself
-                # This catches errors in the initial API call or streaming process
-                # logger.error(f"Error in streaming API call: {e}")
-                # You might want to add a fallback response or re-raise depending on your needs
-                record = RequestErrorRecord(
+        except InvalidPayloadError:
+            raise  # re-raise the error to be handled by the caller
+
+        except Exception as e:
+            # swallow all other errors and return a generic error response
+            record.responses.append(
+                BackendClientErrorResponse(
+                    timestamp_ns=time.perf_counter_ns(),
                     error=str(e),
                 )
-
-        elif isinstance(payload, OpenAICompletionRequest):
-            record.start_time_ns = time.perf_counter_ns()
-            response = await self.client.completions.create(
-                model=self.client_config.model,
-                prompt=payload.prompt,
-                max_tokens=self.client_config.max_tokens,
             )
+
+        return record
+
+    async def send_completion_request(
+        self, payload: OpenAICompletionRequest
+    ) -> RequestRecord[Any]:
+        record: RequestRecord[Any] = RequestRecord(
+            start_time_ns=time.perf_counter_ns(),
+        )
+
+        response = await self.client.completions.create(
+            model=self.client_config.model,
+            prompt=payload.prompt,
+            max_tokens=self.client_config.max_tokens,
+        )
+        record.responses.append(
+            BackendClientResponse(
+                timestamp_ns=time.perf_counter_ns(),
+                response=response,
+            )
+        )
+        return record
+
+    async def send_embeddings_request(
+        self, payload: OpenAIEmbeddingsRequest
+    ) -> RequestRecord[Any]:
+        record: RequestRecord[Any] = RequestRecord(
+            start_time_ns=time.perf_counter_ns(),
+        )
+        response = await self.client.embeddings.create(
+            model=self.client_config.model,
+            input=payload.input,
+            dimensions=payload.dimensions,
+            user=payload.user,
+        )
+        record.responses.append(
+            BackendClientResponse(
+                timestamp_ns=time.perf_counter_ns(),
+                response=response,
+            )
+        )
+        return record
+
+    async def send_chat_responses_request(
+        self, payload: OpenAIChatResponsesRequest
+    ) -> RequestRecord[Any]:
+        record: RequestRecord[Any] = RequestRecord(
+            start_time_ns=time.perf_counter_ns(),
+        )
+
+        async for response in await self.client.responses.create(
+            input=payload.input,
+            model=self.client_config.model,
+            stream=True,
+        ):
             record.responses.append(
                 BackendClientResponse(
                     timestamp_ns=time.perf_counter_ns(),
                     response=response,
                 )
             )
+        return record
 
-        elif isinstance(payload, OpenAIEmbeddingsRequest):
-            record.start_time_ns = time.perf_counter_ns()
-            response = await self.client.embeddings.create(
-                model=self.client_config.model,
-                input=payload.input,
-                dimensions=payload.dimensions,
-                user=payload.user,
+    async def send_chat_completion_request(
+        self, payload: OpenAIChatCompletionRequest
+    ) -> RequestRecord[Any]:
+        # Use raw response to get unparsed JSON for the most accurate timing
+        # and to prevent parsing errors from killing the stream
+        async with self.client.chat.completions.with_streaming_response.create(
+            model=self.client_config.model,
+            messages=payload.messages,
+            max_tokens=self.client_config.max_tokens,
+            stream=True,
+            stream_options=ChatCompletionStreamOptionsParam(
+                include_usage=True,
+            ),
+        ) as response_obj:
+            record: RequestRecord[Any] = RequestRecord(
+                start_time_ns=time.perf_counter_ns(),
             )
-            record.responses.append(
-                BackendClientResponse(
-                    timestamp_ns=time.perf_counter_ns(),
-                    response=response,
-                )
-            )
+            # Get the parsed streaming response from the raw response
+            stream = response_obj.iter_text()
 
-        elif isinstance(payload, OpenAIChatResponsesRequest):
-            record.start_time_ns = time.perf_counter_ns()
-            async for response in await self.client.responses.create(
-                input=payload.input,
-                model=self.client_config.model,
-                stream=True,
-                **payload.kwargs,
-            ):
-                record.responses.append(
-                    BackendClientResponse(
-                        timestamp_ns=time.perf_counter_ns(),
-                        response=response,
+            # Now iterate through the stream
+            # i = 0
+            async for chunk in stream:
+                if chunk.startswith("event: error"):
+                    logger.error("Error in streaming API call: %s", chunk)
+                    record.responses.append(
+                        BackendClientErrorResponse(
+                            timestamp_ns=time.perf_counter_ns(),
+                            error=chunk,
+                        )
                     )
-                )
+                    break
 
-        else:
-            raise ValueError(f"Invalid payload: {payload}")
+                try:
+                    # Store the raw chunk data directly
+                    # You can access chunk.model_dump_json() for raw JSON string
+                    # Or chunk.model_dump() for raw dict
+                    # raw_data = chunk  # This gives you the raw JSON string
+                    # logger.info("Raw data: (%i) %s", i, raw_data)
+                    # i += 1
+
+                    record.responses.append(
+                        BackendClientResponse[str](
+                            timestamp_ns=time.perf_counter_ns(),
+                            response=chunk,  # Raw JSON string
+                        )
+                    )
+                except Exception as e:
+                    # traceback.print_exc()
+                    # Handle any response processing errors
+                    # logger.warning(f"Error processing response chunk: {e}")
+                    record.responses.append(
+                        BackendClientErrorResponse(
+                            timestamp_ns=time.perf_counter_ns(),
+                            error=str(e),
+                        )
+                    )
+                    continue
 
         return record
 
