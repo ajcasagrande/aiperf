@@ -10,7 +10,7 @@ from aiperf.common.enums import AudioFormat, ModelSelectionStrategy, OutputForma
 # Config Defaults
 @dataclass(frozen=True)
 class UserDefaults:
-    MODEL_NAMES = None
+    MODEL_NAMES = []
     VERBOSE = False
     TEMPLATE_FILENAME = "aiperf_config.yaml"
 
@@ -45,5 +45,5 @@ class AudioDefaults:
     LENGTH_STDDEV = 0
     FORMAT = AudioFormat.WAV
     DEPTHS = [16]
-    SAMPLE_RATES = [16]
+    SAMPLE_RATES = [16.0]
     NUM_CHANNELS = 1
