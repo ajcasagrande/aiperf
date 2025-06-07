@@ -102,6 +102,7 @@ class DatasetManager(BaseComponentService):
         self.logger.debug(f"Handling conversation request: {message}")
         # TODO: Implement conversation request handling
         return ConversationResponseMessage(
+            service_id=self.service_id,
             request_id=message.request_id,
             conversation_id=message.conversation_id,
             conversation_data=[

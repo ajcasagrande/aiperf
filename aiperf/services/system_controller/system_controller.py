@@ -86,7 +86,7 @@ class SystemController(BaseControllerService):
         """
         self.logger.debug("Initializing System Controller")
 
-        # self.ui.run()
+        self.ui.run()
 
         if self.service_config.service_run_type == ServiceRunType.MULTIPROCESSING:
             self.service_manager = MultiProcessServiceManager(
@@ -312,11 +312,7 @@ class SystemController(BaseControllerService):
             message: The credits complete message to process
         """
         service_id = message.service_id
-        service_type = message.payload
-
-        self.logger.debug(
-            f"Received credits complete from {service_type} (ID: {service_id})"
-        )
+        self.logger.debug(f"Received credits complete from {service_id}")
         # TODO: this should eventually be replaced with a profile end command instead of a stop event
         # request to stop the system
         self.stop_event.set()

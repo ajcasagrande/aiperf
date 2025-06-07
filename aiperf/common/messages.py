@@ -292,7 +292,12 @@ Message = Annotated[
     | CommandMessage
     | CreditDropMessage
     | CreditReturnMessage
-    | ErrorMessage,
+    | ErrorMessage
+    | ConversationRequestMessage
+    | ConversationResponseMessage
+    | InferenceResultsMessage
+    | ProfileProgressMessage
+    | CreditsCompleteMessage,
     Field(discriminator="message_type"),
 ]
 """Union of all message types. This is used as a type hint when a function
