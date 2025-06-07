@@ -5,7 +5,6 @@ import copy
 import os
 import sys
 import uuid
-from typing import cast
 
 from aiperf.backend.openai_client import OpenAIBackendClientConfig
 from aiperf.common.comms.client_enums import (
@@ -22,13 +21,9 @@ from aiperf.common.hooks import on_cleanup, on_init, on_run, on_start, on_stop
 from aiperf.common.interfaces import BackendClientProtocol
 from aiperf.common.messages import (
     ConversationRequestMessage,
-    ConversationRequestPayload,
-    ConversationResponseMessage,
     CreditDropMessage,
     CreditReturnMessage,
-    CreditReturnPayload,
     InferenceResultsMessage,
-    InferenceResultsPayload,
 )
 from aiperf.common.record_models import (
     RequestErrorRecord,
@@ -125,8 +120,8 @@ class Worker(BaseService):
         credit_amount = 0
         try:
             # Extract the credit drop message payload
-            if hasattr(message, "payload") and hasattr(message.payload, "amount"):
-                credit_amount = message.payload.amount
+            if hasattr(message, "amount"):
+                credit_amount = message.amount
                 self.logger.debug(f"Received {credit_amount} credit(s)")
 
                 # Make a call to OpenAI API for each credit
@@ -134,11 +129,9 @@ class Worker(BaseService):
                     record = await self._call_backend_api()
 
                     try:
-                        msg = self.create_message(
-                            InferenceResultsMessage,
-                            InferenceResultsPayload(
-                                record=copy.deepcopy(record),
-                            ),
+                        msg = InferenceResultsMessage(
+                            service_id=self.service_id,
+                            record=copy.deepcopy(record),
                         )
                         # self.logger.debug(f"Pushing request record: {msg}")
                         await self.comms.push(
@@ -164,9 +157,9 @@ class Worker(BaseService):
             self.logger.debug("Returning credits, %s", credit_amount)
             await self.comms.push(
                 topic=Topic.CREDIT_RETURN,
-                message=self.create_message(
-                    CreditReturnMessage,
-                    payload=CreditReturnPayload(amount=credit_amount),
+                message=CreditReturnMessage(
+                    service_id=self.service_id,
+                    amount=credit_amount,
                 ),
             )
 
@@ -184,16 +177,11 @@ class Worker(BaseService):
             # retrieve the prompt from the dataset
             response = await self.comms.request(
                 topic=Topic.CONVERSATION_DATA,
-                message=self.create_message(
-                    ConversationRequestMessage,
-                    payload=ConversationRequestPayload(
-                        conversation_id="123",
-                    ),
+                message=ConversationRequestMessage(
+                    service_id=self.service_id, conversation_id="123"
                 ),
             )
-            messages = cast(
-                ConversationResponseMessage, response
-            ).payload.conversation_data
+            messages = response.conversation_data
 
             # Sample messages for the API call
             # messages = [

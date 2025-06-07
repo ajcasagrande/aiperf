@@ -201,7 +201,7 @@ class CreditReturnMessage(BaseServiceMessage):
     )
 
 
-class ErrorMessage(BaseServiceMessage):
+class ErrorMessage(BaseMessage):
     """Message containing error data."""
 
     message_type: Literal[MessageType.ERROR] = MessageType.ERROR
@@ -212,13 +212,24 @@ class ErrorMessage(BaseServiceMessage):
     )
 
 
-class CreditsCompleteMessage(BaseMessage):
+class BaseServiceErrorMessage(BaseServiceMessage):
+    """Base message containing error data."""
+
+    message_type: Literal[MessageType.SERVICE_ERROR] = MessageType.SERVICE_ERROR
+
+    error: str | None = Field(
+        default=None,
+        description="Error information",
+    )
+
+
+class CreditsCompleteMessage(BaseServiceMessage):
     """Credits complete message sent to System controller to signify all requests have completed."""
 
     message_type: Literal[MessageType.CREDITS_COMPLETE] = MessageType.CREDITS_COMPLETE
 
 
-class ConversationRequestMessage(BaseMessage):
+class ConversationRequestMessage(BaseServiceMessage):
     """Message for a conversation request."""
 
     message_type: Literal[MessageType.CONVERSATION_REQUEST] = (
@@ -228,7 +239,7 @@ class ConversationRequestMessage(BaseMessage):
     conversation_id: str = Field(..., description="The ID of the conversation")
 
 
-class ConversationResponseMessage(BaseMessage):
+class ConversationResponseMessage(BaseServiceMessage):
     """Message for a conversation response."""
 
     message_type: Literal[MessageType.CONVERSATION_RESPONSE] = (
@@ -241,7 +252,7 @@ class ConversationResponseMessage(BaseMessage):
     )
 
 
-class InferenceResultsMessage(BaseMessage):
+class InferenceResultsMessage(BaseServiceMessage):
     """Message for a inference results."""
 
     message_type: Literal[MessageType.INFERENCE_RESULTS] = MessageType.INFERENCE_RESULTS
@@ -251,7 +262,7 @@ class InferenceResultsMessage(BaseMessage):
     )
 
 
-class ProfileProgressMessage(BaseMessage):
+class ProfileProgressMessage(BaseServiceMessage):
     """Message for profile progress."""
 
     message_type: Literal[MessageType.PROFILE_PROGRESS] = MessageType.PROFILE_PROGRESS

@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import sys
-from typing import cast
 
 import pandas as pd
 
@@ -18,7 +17,7 @@ from aiperf.common.hooks import (
     on_stop,
 )
 from aiperf.common.messages import (
-    InferenceResultsPayload,
+    InferenceResultsMessage,
     Message,
 )
 from aiperf.common.record_models import RequestErrorRecord, RequestRecord
@@ -90,10 +89,9 @@ class RecordsManager(BaseComponentService):
         self.logger.debug(f"Configuring records manager with message: {message}")
         # TODO: Implement records manager configuration
 
-    async def _on_inference_results(self, message: Message) -> None:
+    async def _on_inference_results(self, message: InferenceResultsMessage) -> None:
         """Handle a inference results message."""
-
-        record = cast(InferenceResultsPayload, message.payload).record
+        record = message.record
 
         if isinstance(record, RequestErrorRecord):
             self.logger.error(f"Received inference results error: {record.error}")

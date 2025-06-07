@@ -12,12 +12,7 @@ from aiperf.common.comms.zmq.clients.base import BaseZMQClient
 from aiperf.common.enums import MessageType
 from aiperf.common.exceptions import CommunicationResponseError
 from aiperf.common.hooks import aiperf_task, on_cleanup
-from aiperf.common.messages import (
-    ErrorMessage,
-    ErrorPayload,
-    Message,
-    MessageTypeAdapter,
-)
+from aiperf.common.messages import ErrorMessage, Message, MessageTypeAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -103,11 +98,8 @@ class ZMQRepClient(BaseZMQClient):
         except Exception as e:
             logger.error(f"Exception calling handler for {message_type}: {e}")
             response = ErrorMessage(
-                service_id=service_id or request.service_id,
                 request_id=request.request_id,
-                payload=ErrorPayload(
-                    error=str(e),
-                ),
+                error=str(e),
             )
 
         if response is not None:

@@ -118,6 +118,9 @@ class MessageType(CaseInsensitiveStrEnum):
     report its status."""
 
     ERROR = "error"
+    """A generic error message."""
+
+    SERVICE_ERROR = "service_error"
     """A message sent by a component service to the system controller to
     report an error."""
 

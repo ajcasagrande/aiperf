@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import sys
-from typing import cast
 
 from aiperf.common.comms.client_enums import ClientType, RepClientType
 from aiperf.common.config.service_config import ServiceConfig
@@ -17,7 +16,6 @@ from aiperf.common.hooks import (
 from aiperf.common.messages import (
     ConversationRequestMessage,
     ConversationResponseMessage,
-    ConversationResponsePayload,
     Message,
 )
 from aiperf.common.service.base_component_service import BaseComponentService
@@ -94,28 +92,29 @@ class DatasetManager(BaseComponentService):
         self.logger.debug(f"Configuring dataset manager with message: {message}")
         # TODO: Implement dataset manager configuration
 
-    async def _handle_conversation_request(self, message: Message) -> Message:
+    async def _handle_conversation_request(
+        self, message: ConversationRequestMessage
+    ) -> ConversationResponseMessage:
         """Handle a conversation request."""
+        if self.tokenizer is None:
+            raise ValueError("Tokenizer is not initialized")
+
         self.logger.debug(f"Handling conversation request: {message}")
-        message = cast(ConversationRequestMessage, message)
         # TODO: Implement conversation request handling
         return ConversationResponseMessage(
-            service_id=self.service_id,
             request_id=message.request_id,
-            payload=ConversationResponsePayload(
-                conversation_id=message.payload.conversation_id,
-                conversation_data=[
-                    {"role": "system", "content": "You are a helpful assistant."},
-                    {
-                        "role": "user",
-                        "content": PromptGenerator.create_synthetic_prompt(
-                            tokenizer=self.tokenizer,
-                            prompt_tokens_mean=100,
-                            prompt_tokens_stddev=25,
-                        ),
-                    },
-                ],
-            ),
+            conversation_id=message.conversation_id,
+            conversation_data=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {
+                    "role": "user",
+                    "content": PromptGenerator.create_synthetic_prompt(
+                        tokenizer=self.tokenizer,
+                        prompt_tokens_mean=100,
+                        prompt_tokens_stddev=25,
+                    ),
+                },
+            ],
         )
 
 

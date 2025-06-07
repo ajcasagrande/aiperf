@@ -21,10 +21,8 @@ from aiperf.common.messages import (
     CreditDropMessage,
     CreditReturnMessage,
     CreditsCompleteMessage,
-    CreditsCompletePayload,
     Message,
     ProfileProgressMessage,
-    ProfileProgressPayload,
 )
 from aiperf.common.service.base_component_service import BaseComponentService
 
@@ -166,7 +164,7 @@ class TimingManager(BaseComponentService):
 
         self.logger.debug(
             "Processing credit return: %s (completed credits: %s of %s) (%.2f requests/s)",
-            message.payload,
+            message.amount,
             self._completed_credits,
             self._total_credits,
             self._completed_credits
@@ -176,13 +174,11 @@ class TimingManager(BaseComponentService):
 
         await self.comms.publish(
             topic=Topic.PROFILE_PROGRESS,
-            message=self.create_message(
-                ProfileProgressMessage,
-                ProfileProgressPayload(
-                    sweep_start_ns=self.start_time_ns,
-                    total=self._total_credits,
-                    completed=self._completed_credits,
-                ),
+            message=ProfileProgressMessage(
+                service_id=self.service_id,
+                sweep_start_ns=self.start_time_ns,
+                total=self._total_credits,
+                completed=self._completed_credits,
             ),
         )
 
@@ -195,9 +191,7 @@ class TimingManager(BaseComponentService):
             )
             await self.comms.publish(
                 topic=Topic.CREDITS_COMPLETE,
-                message=self.create_message(
-                    CreditsCompleteMessage, CreditsCompletePayload()
-                ),
+                message=CreditsCompleteMessage(service_id=self.service_id),
             )
 
         self._credit_event.set()
