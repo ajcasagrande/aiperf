@@ -1,37 +1,102 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-
 import time
 import uuid
-from typing import Annotated, Any, Generic, Literal, TypeVar, Union
+from typing import Annotated, Any, ClassVar, Literal
 
-from pydantic import BaseModel, Field, TypeAdapter
+from pydantic import BaseModel, Field, TypeAdapter, model_serializer
 
 from aiperf.common.enums import CommandType, MessageType, ServiceState, ServiceType
 from aiperf.common.record_models import RequestErrorRecord, RequestRecord
 
 ################################################################################
-# Payload Models
+# Abstract Base Message Models
 ################################################################################
 
+EXCLUDE_IF_NONE = "__exclude_if_none__"
 
-class ErrorPayload(BaseModel):
-    """Exception payload sent by services to report an error."""
 
-    error: str | None = Field(
+def exclude_if_none(field_names: list[str]):
+    """Decorator to set the _exclude_if_none_fields class attribute to the set of
+    field names that should be excluded if they are None.
+    """
+
+    def decorator(model: type["BaseMessage"]) -> type["BaseMessage"]:
+        model._exclude_if_none_fields.update(field_names)
+        return model
+
+    return decorator
+
+
+@exclude_if_none(["request_ns", "request_id"])
+class BaseMessage(BaseModel):
+    """Base message model with common fields for all messages.
+
+    Each message model should inherit from this class, set the message_type field,
+    and define its own additional fields.
+
+    Optionally, the @exclude_if_none decorator can be used to specify which fields
+    should be excluded from the serialized message if they are None.
+
+    Example:
+    ```python
+    @exclude_if_none(["some_field"])
+    class ExampleMessage(BaseMessage):
+        some_field: int | None = Field(default=None)
+        other_field: int = Field(default=1)
+    ```
+    """
+
+    _exclude_if_none_fields: ClassVar[set[str]] = set()
+    """Set of field names that should be excluded from the serialized message if they
+    are None. This is set by the @exclude_if_none decorator.
+    """
+
+    request_ns: int | None = Field(
         default=None,
-        description="Error information",
+        description="Timestamp of the request",
+    )
+
+    request_id: str | None = Field(
+        default=None,
+        description="ID of the request",
+    )
+
+    @model_serializer
+    def _serialize_message(self) -> dict[str, Any]:
+        """Serialize the message to a dictionary.
+
+        This method overrides the default serializer to exclude fields that have a
+        value of None and have the EXCLUDE_IF_NONE json_schema_extra key set to True.
+        """
+        return {
+            k: v
+            for k, v in self
+            if not (k in self._exclude_if_none_fields and v is None)
+        }
+
+
+class BaseServiceMessage(BaseMessage):
+    """Base message that is sent from a service. Requires a service_id field to specify
+    the service that sent the message."""
+
+    service_id: str = Field(
+        ...,
+        description="ID of the service sending the message",
     )
 
 
-class DataPayload(BaseModel):
-    """Base model for data payloads with metadata."""
+class BaseStatusMessage(BaseServiceMessage):
+    """Base message containing status data.
+    This message is sent by a service to the system controller to report its status.
+    """
 
-
-class StatusPayload(BaseModel):
-    """Status payload sent by services to report their current state."""
-
+    # override request_ns to be auto-filled if not provided
+    request_ns: int | None = Field(
+        default=time.time_ns(),
+        description="Timestamp of the request",
+    )
     state: ServiceState = Field(
         ...,
         description="Current state of the service",
@@ -42,20 +107,46 @@ class StatusPayload(BaseModel):
     )
 
 
-class HeartbeatPayload(StatusPayload):
-    """Heartbeat payload sent periodically by services."""
+################################################################################
+# Concrete Message Models
+################################################################################
 
-    state: ServiceState = ServiceState.RUNNING
+
+class StatusMessage(BaseStatusMessage):
+    """Message containing status data.
+    This message is sent by a service to the system controller to report its status.
+    """
+
+    message_type: Literal[MessageType.STATUS] = MessageType.STATUS
 
 
-class RegistrationPayload(StatusPayload):
-    """Registration payload sent by services to register themselves."""
+class RegistrationMessage(BaseStatusMessage):
+    """Message containing registration data.
+    This message is sent by a service to the system controller to register itself.
+    """
+
+    message_type: Literal[MessageType.REGISTRATION] = MessageType.REGISTRATION
 
     state: ServiceState = ServiceState.READY
 
 
-class CommandPayload(BaseModel):
-    """Command payload sent to services to request an action."""
+class HeartbeatMessage(BaseStatusMessage):
+    """Message containing heartbeat data.
+    This message is sent by a service to the system controller to indicate that it is
+    still running.
+    """
+
+    message_type: Literal[MessageType.HEARTBEAT] = MessageType.HEARTBEAT
+
+    state: ServiceState = ServiceState.RUNNING
+
+
+class CommandMessage(BaseServiceMessage):
+    """Message containing command data.
+    This message is sent by the system controller to a service to command it to do something.
+    """
+
+    message_type: Literal[MessageType.COMMAND] = MessageType.COMMAND
 
     command: CommandType = Field(
         ...,
@@ -79,185 +170,91 @@ class CommandPayload(BaseModel):
     )
 
 
-class CreditDropPayload(BaseModel):
-    """Credit drop payload sent to services to request a credit drop."""
+class CreditDropMessage(BaseServiceMessage):
+    """Message indicating that a credit has been dropped.
+    This message is sent by the timing manager to a workers to indicate that credit(s)
+    have been dropped.
+    """
+
+    message_type: Literal[MessageType.CREDIT_DROP] = MessageType.CREDIT_DROP
 
     amount: int = Field(
         ...,
-        description="Amount of credits to drop",
+        description="Amount of credits that have been dropped",
     )
-    timestamp: int = Field(
+    credit_drop_ns: int = Field(
         default_factory=time.time_ns, description="Timestamp of the credit drop"
     )
 
 
-class CreditReturnPayload(BaseModel):
-    """Credit return payload sent to services to request a credit return."""
+class CreditReturnMessage(BaseServiceMessage):
+    """Message indicating that a credit has been returned.
+    This message is sent by a worker to the timing manager to indicate that work has
+    been completed.
+    """
+
+    message_type: Literal[MessageType.CREDIT_RETURN] = MessageType.CREDIT_RETURN
 
     amount: int = Field(
         ...,
-        description="Amount of credits to return",
+        description="Amount of credits being returned",
     )
 
 
-class CreditsCompletePayload(BaseModel):
-    """Credits complete payload sent to System controller to signify all requests have completed."""
+class ErrorMessage(BaseServiceMessage):
+    """Message containing error data."""
 
-    message_type: Literal[MessageType.CREDITS_COMPLETE] = MessageType.CREDITS_COMPLETE  # type: ignore
+    message_type: Literal[MessageType.ERROR] = MessageType.ERROR
+
+    error: str | None = Field(
+        default=None,
+        description="Error information",
+    )
 
 
-class ConversationRequestPayload(BaseModel):
-    """Request payload sent to services to request a conversation."""
+class CreditsCompleteMessage(BaseMessage):
+    """Credits complete message sent to System controller to signify all requests have completed."""
 
-    message_type: Literal[MessageType.CONVERSATION_REQUEST] = (  # type: ignore
+    message_type: Literal[MessageType.CREDITS_COMPLETE] = MessageType.CREDITS_COMPLETE
+
+
+class ConversationRequestMessage(BaseMessage):
+    """Message for a conversation request."""
+
+    message_type: Literal[MessageType.CONVERSATION_REQUEST] = (
         MessageType.CONVERSATION_REQUEST
     )
+
     conversation_id: str = Field(..., description="The ID of the conversation")
 
 
-class ConversationResponsePayload(BaseModel):
-    """Response payload sent to services to respond to a conversation request."""
+class ConversationResponseMessage(BaseMessage):
+    """Message for a conversation response."""
 
-    message_type: Literal[MessageType.CONVERSATION_RESPONSE] = (  # type: ignore
+    message_type: Literal[MessageType.CONVERSATION_RESPONSE] = (
         MessageType.CONVERSATION_RESPONSE
     )
+
     conversation_id: str = Field(..., description="The ID of the conversation")
     conversation_data: list[dict[str, Any]] = Field(
         ..., description="The data of the conversation"
     )
 
 
-class InferenceResultsPayload(BaseModel):
-    """Payload for a inference results."""
+class InferenceResultsMessage(BaseMessage):
+    """Message for a inference results."""
 
-    message_type: Literal[MessageType.INFERENCE_RESULTS] = MessageType.INFERENCE_RESULTS  # type: ignore
+    message_type: Literal[MessageType.INFERENCE_RESULTS] = MessageType.INFERENCE_RESULTS
+
     record: RequestErrorRecord | RequestRecord = Field(
         ..., description="The inference results record"
     )
 
 
-################################################################################
-# Message Models
-################################################################################
+class ProfileProgressMessage(BaseMessage):
+    """Message for profile progress."""
 
-
-PayloadT = TypeVar("PayloadT", bound=BaseModel)
-"""Type variable used to type hint the payload of a message. Payloads must be a subclass of BaseModel."""
-
-
-class BaseMessage(BaseModel, Generic[PayloadT]):
-    """Base message model with common fields for all messages.
-    The payload can be any of the payload types defined above.
-    """
-
-    service_id: str | None = Field(
-        default=None,
-        description="ID of the service sending the message",
-    )
-    timestamp: int | None = Field(
-        default=None,
-        description="Time when the message was created",
-    )
-    request_id: str | None = Field(
-        default=None,
-        description="ID of the request",
-    )
-    message_type: MessageType = Field(
-        MessageType.UNKNOWN,
-        description="Type of message this message represents",
-    )
-    payload: PayloadT = Field(
-        ...,
-        description="Payload of the message",
-    )
-
-    def model_dump_json(self, **kwargs) -> str:
-        """Serialize the message to JSON.
-
-        This method overrides the default model_dump_json method to exclude
-        unset fields.
-        """
-        return super().model_dump_json(exclude_none=True, **kwargs)
-
-
-class DataMessage(BaseMessage[DataPayload]):
-    """Message containing data."""
-
-    message_type: Literal[MessageType.DATA] = MessageType.DATA  # type: ignore
-
-
-class HeartbeatMessage(BaseMessage[HeartbeatPayload]):
-    """Message containing heartbeat data."""
-
-    message_type: Literal[MessageType.HEARTBEAT] = MessageType.HEARTBEAT  # type: ignore
-
-
-class RegistrationMessage(BaseMessage[RegistrationPayload]):
-    """Message containing registration data."""
-
-    message_type: Literal[MessageType.REGISTRATION] = MessageType.REGISTRATION  # type: ignore
-
-
-class StatusMessage(BaseMessage[StatusPayload]):
-    """Message containing status data."""
-
-    message_type: Literal[MessageType.STATUS] = MessageType.STATUS  # type: ignore
-
-
-class CommandMessage(BaseMessage[CommandPayload]):
-    """Message containing command data."""
-
-    message_type: Literal[MessageType.COMMAND] = MessageType.COMMAND  # type: ignore
-
-
-class CreditDropMessage(BaseMessage[CreditDropPayload]):
-    """Message indicating that a credit has been dropped."""
-
-    message_type: Literal[MessageType.CREDIT_DROP] = MessageType.CREDIT_DROP  # type: ignore
-
-
-class CreditReturnMessage(BaseMessage[CreditReturnPayload]):
-    """Message indicating that a credit has been returned."""
-
-    message_type: Literal[MessageType.CREDIT_RETURN] = MessageType.CREDIT_RETURN  # type: ignore
-
-
-class ErrorMessage(BaseMessage[ErrorPayload]):
-    """Message containing error data."""
-
-    message_type: Literal[MessageType.ERROR] = MessageType.ERROR  # type: ignore
-
-
-class CreditsCompleteMessage(BaseMessage[CreditsCompletePayload]):
-    """Credits complete payload sent to System controller to signify all requests have completed."""
-
-    message_type: Literal[MessageType.CREDITS_COMPLETE] = MessageType.CREDITS_COMPLETE  # type: ignore
-
-
-class ConversationRequestMessage(BaseMessage[ConversationRequestPayload]):
-    """Request payload sent to services to request a conversation."""
-
-    message_type: Literal[MessageType.CONVERSATION_REQUEST] = (  # type: ignore
-        MessageType.CONVERSATION_REQUEST
-    )
-
-
-class ConversationResponseMessage(BaseMessage[ConversationResponsePayload]):
-    """Response payload sent to services to respond to a conversation request."""
-
-    message_type: Literal[MessageType.CONVERSATION_RESPONSE] = (  # type: ignore
-        MessageType.CONVERSATION_RESPONSE
-    )
-
-
-class InferenceResultsMessage(BaseMessage[InferenceResultsPayload]):
-    """Payload for a inference results."""
-
-    message_type: Literal[MessageType.INFERENCE_RESULTS] = MessageType.INFERENCE_RESULTS  # type: ignore
-
-
-class ProfileProgressPayload(BaseModel):
-    """Payload for a profile progress."""
+    message_type: Literal[MessageType.PROFILE_PROGRESS] = MessageType.PROFILE_PROGRESS
 
     sweep_id: str | None = Field(
         default=None, description="The ID of the current sweep"
@@ -274,35 +271,17 @@ class ProfileProgressPayload(BaseModel):
     completed: int = Field(
         ..., description="The number of inference requests completed"
     )
-    timestamp: int = Field(
-        default_factory=time.perf_counter_ns,
-        description="Current timestamp in nanoseconds",
-    )
 
 
-class ProfileProgressMessage(BaseMessage[ProfileProgressPayload]):
-    """Payload for profile progress."""
-
-    message_type: Literal[MessageType.PROFILE_PROGRESS] = MessageType.PROFILE_PROGRESS  # type: ignore
-
-
-# Discriminated union type
+# Discriminated union type - only include message types that include a message_type field
 Message = Annotated[
-    Union[  # noqa: UP007
-        DataMessage,
-        HeartbeatMessage,
-        RegistrationMessage,
-        StatusMessage,
-        CommandMessage,
-        CreditDropMessage,
-        CreditReturnMessage,
-        ErrorMessage,
-        CreditsCompleteMessage,
-        ConversationRequestMessage,
-        ConversationResponseMessage,
-        InferenceResultsMessage,
-        ProfileProgressMessage,
-    ],
+    HeartbeatMessage
+    | RegistrationMessage
+    | StatusMessage
+    | CommandMessage
+    | CreditDropMessage
+    | CreditReturnMessage
+    | ErrorMessage,
     Field(discriminator="message_type"),
 ]
 """Union of all message types. This is used as a type hint when a function
@@ -310,7 +289,7 @@ accepts a message as an argument.
 
 The message type is determined by the discriminator field `message_type`. This is
 used by the Pydantic `discriminator` argument to determine the type of the
-payload automatically when the message is deserialized from a JSON string.
+message automatically when the message is deserialized from a JSON string.
 
 To serialize a message to a JSON string, use the `model_dump_json` method.
 To deserialize a message from a JSON string, use the `model_validate_json`
@@ -318,25 +297,28 @@ method.
 
 Example:
 ```python
->>> message = DataMessage(
+>>> message = StatusMessage(
 ...     service_id="service_1",
 ...     request_id="request_1",
-...     payload=DataPayload(data="Hello, world!"),
+...     request_ns=1716278400000000000,
+...     state=ServiceState.READY,
+...     service_type=ServiceType.TEST,
 ... )
 >>> json_string = message.model_dump_json()
 >>> print(json_string)
-{"payload": {"data": "Hello, world!"}, "service_id": "service_1", "request_id": "request_1", "timestamp": 1716278400000000000, "message_type": "data"}
+{"state": "ready", "service_type": "test", "service_id": "service_1", "request_id": "request_1", "request_ns": 1716278400000000000, "message_type": "status"}
 >>> deserialized_message = MessageTypeAdapter.validate_json(json_string)
 >>> print(deserialized_message)
-DataMessage(
-    message_type=MessageType.DATA,
-    payload=DataPayload(data="Hello, world!"),
+StatusMessage(
+    message_type=MessageType.STATUS,
+    state=ServiceState.READY,
+    service_type=ServiceType.TEST,
     service_id="service_1",
     request_id="request_1",
-    timestamp=1716278400000000000,
+    request_ns=1716278400000000000,
 )
->>> print(deserialized_message.payload.data)
-Hello, world!
+>>> print(deserialized_message.state)
+ready
 ```
 """
 
@@ -345,15 +327,16 @@ MessageTypeAdapter = TypeAdapter(Message)
 """TypeAdapter for JSON validation of messages.
 Example:
 ```python
->>> json_string = '{"payload": {"data": "Hello, world!"}, "service_id": "service_1", "request_id": "request_1", "timestamp": 1716278400000000000, "message_type": "data"}'
+>>> json_string = '{"state": "ready", "service_type": "test", "service_id": "service_1", "request_id": "request_1", "request_ns": 1716278400000000000, "message_type": "status"}'
 >>> message = MessageTypeAdapter.validate_json(json_string)
 >>> print(message)
-DataMessage(
-    message_type=MessageType.DATA,
-    payload=DataPayload(data="Hello, world!"),
+StatusMessage(
+    message_type=MessageType.STATUS,
+    state=ServiceState.READY,
+    service_type=ServiceType.TEST,
     service_id="service_1",
     request_id="request_1",
-    timestamp=1716278400000000000,
+    request_ns=1716278400000000000,
 )
 ```
 """

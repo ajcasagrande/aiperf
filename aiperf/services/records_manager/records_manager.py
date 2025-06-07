@@ -85,9 +85,9 @@ class RecordsManager(BaseComponentService):
         # TODO: Implement records manager cleanup
 
     @on_configure
-    async def _configure(self, payload: Message) -> None:
+    async def _configure(self, message: Message) -> None:
         """Configure the records manager."""
-        self.logger.debug(f"Configuring records manager with payload: {payload}")
+        self.logger.debug(f"Configuring records manager with message: {message}")
         # TODO: Implement records manager configuration
 
     async def _on_inference_results(self, message: Message) -> None:

@@ -55,10 +55,6 @@ class ZMQReqClient(BaseZMQClient):
         else:
             self.socket.connect(self.address)
 
-        # Set safe timeouts for send and receive operations
-        self._socket.setsockopt(zmq.RCVTIMEO, 30 * 1000)
-        self._socket.setsockopt(zmq.SNDTIMEO, 30 * 1000)
-
         # Set additional socket options requested by the caller
         for key, val in self.socket_ops.items():
             self._socket.setsockopt(key, val)

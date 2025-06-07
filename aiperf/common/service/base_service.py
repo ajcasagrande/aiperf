@@ -19,11 +19,7 @@ from aiperf.common.exceptions import (
 )
 from aiperf.common.factories import CommunicationFactory
 from aiperf.common.hooks import AIPerfHook, AIPerfTaskMixin, supports_hooks
-from aiperf.common.messages import (
-    BaseMessage,
-    Message,
-    PayloadT,
-)
+from aiperf.common.messages import Message
 from aiperf.common.service.base_service_interface import BaseServiceInterface
 
 
@@ -126,7 +122,7 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
         - Call all registered `AIPerfHook.ON_SET_STATE` hooks
         """
         self._state = state
-        asyncio.create_task(self.run_hooks(AIPerfHook.ON_SET_STATE, state))
+        await self.run_hooks(AIPerfHook.ON_SET_STATE, state)
 
     async def initialize(self) -> None:
         """Initialize the service communication and signal handlers. This method implements
@@ -352,29 +348,6 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
         - Call all registered AIPerfHook.ON_CONFIGURE hooks
         """
         await self.run_hooks(AIPerfHook.ON_CONFIGURE, message)
-
-    def create_message(
-        self,
-        message_class: type[BaseMessage[PayloadT]],
-        payload: PayloadT,
-        request_id: str | None = None,
-    ) -> BaseMessage[PayloadT]:
-        """Create a message of the given type, and pre-fill the service_id.
-
-        Args:
-            payload: The payload of the message
-            request_id: optional The request id of this message, or the request id of the
-                message this is a response to
-
-        Returns:
-            A message of the given type
-        """
-        message = message_class(
-            service_id=self.service_id,
-            request_id=request_id,
-            payload=payload,
-        )  # type: ignore[call-arg] : asking for message_type which is already set by the message class
-        return message
 
     def _setup_signal_handlers(self) -> None:
         """This method will set up signal handlers for the SIGTERM and SIGINT signals

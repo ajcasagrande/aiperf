@@ -89,9 +89,9 @@ class DatasetManager(BaseComponentService):
         # TODO: Implement dataset manager cleanup
 
     @on_configure
-    async def _configure(self, payload: Message) -> None:
+    async def _configure(self, message: Message) -> None:
         """Configure the dataset manager."""
-        self.logger.debug(f"Configuring dataset manager with payload: {payload}")
+        self.logger.debug(f"Configuring dataset manager with message: {message}")
         # TODO: Implement dataset manager configuration
 
     async def _handle_conversation_request(self, message: Message) -> Message:
