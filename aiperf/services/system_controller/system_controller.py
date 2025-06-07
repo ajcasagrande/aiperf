@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
+import os
 import sys
 import time
 from typing import Any
@@ -33,6 +34,8 @@ from aiperf.common.hooks import (
 from aiperf.common.messages import (
     CreditsCompleteMessage,
     HeartbeatMessage,
+    ProfileResultsMessage,
+    ProfileStatsMessage,
     RegistrationMessage,
     StatusMessage,
 )
@@ -86,7 +89,9 @@ class SystemController(BaseControllerService):
         """
         self.logger.debug("Initializing System Controller")
 
-        self.ui.run()
+        if not os.getenv("AIPERF_DISABLE_UI"):
+            await self.ui.initialize()
+            await self.ui.start()
 
         if self.service_config.service_run_type == ServiceRunType.MULTIPROCESSING:
             self.service_manager = MultiProcessServiceManager(
@@ -110,6 +115,8 @@ class SystemController(BaseControllerService):
             (Topic.STATUS, self._process_status_message),
             (Topic.CREDITS_COMPLETE, self._process_credits_complete_message),
             (Topic.PROFILE_PROGRESS, self.ui.update_profile_progress),
+            (Topic.PROFILE_STATS, self._process_profile_stats_message),
+            (Topic.PROFILE_RESULTS, self._process_profile_results_message),
         ]
         for topic, callback in subscribe_callbacks:
             try:
@@ -206,7 +213,7 @@ class SystemController(BaseControllerService):
     async def _cleanup(self) -> None:
         """Clean up system controller-specific components."""
         self.logger.debug("Cleaning up System Controller")
-        self.ui.stop()
+        await self.ui.stop()
 
     async def start_all_services(self) -> None:
         """Start all required services."""
@@ -224,6 +231,26 @@ class SystemController(BaseControllerService):
                     # Continue to the next service
                     # TODO: should we have some sort of retries?
                     continue
+
+    async def _process_profile_stats_message(
+        self, message: ProfileStatsMessage
+    ) -> None:
+        """Process a profile stats message."""
+        self.logger.debug("Received profile stats: %s", message)
+        self.ui.update_profile_stats(message)
+        if message.completed >= self.ui.total_requests:
+            await self.send_command_to_service(
+                target_service_id=None,
+                command=CommandType.PROCESS_RECORDS,
+            )
+
+    async def _process_profile_results_message(
+        self, message: ProfileResultsMessage
+    ) -> None:
+        """Process a profile results message."""
+        self.logger.debug("Received profile results: %s", message)
+        await self.ui.process_final_results(message)
+        self.stop_event.set()
 
     async def _process_registration_message(self, message: RegistrationMessage) -> None:
         """Process a registration message from a service. It will
@@ -244,9 +271,9 @@ class SystemController(BaseControllerService):
             registration_status=ServiceRegistrationStatus.REGISTERED,
             service_type=service_type,
             service_id=service_id,
-            first_seen=time.time_ns(),
+            first_seen=time.perf_counter_ns(),
             state=ServiceState.READY,
-            last_seen=time.time_ns(),
+            last_seen=time.perf_counter_ns(),
         )
 
         self.service_manager.service_id_map[service_id] = service_info
@@ -312,9 +339,12 @@ class SystemController(BaseControllerService):
             message: The credits complete message to process
         """
         service_id = message.service_id
-        self.logger.debug(f"Received credits complete from {service_id}")
+        self.logger.info("Received credits complete from %s", service_id)
         # TODO: this should eventually be replaced with a profile end command instead of a stop event
         # request to stop the system
+        # TODO: this is a hack to give the services time to produce results
+        await asyncio.sleep(5)
+        await self.ui.stop()
         self.stop_event.set()
 
     async def _process_status_message(self, message: StatusMessage) -> None:

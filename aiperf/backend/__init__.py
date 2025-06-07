@@ -8,6 +8,8 @@ Backend clients are responsible for formatting payloads, sending requests, and p
 They are registered with the :class:`aiperf.common.factories.BackendClientFactory`, which is responsible for creating backend client instances.
 """
 
-from aiperf.backend.openai_client import OpenAIBackendClient
+from aiperf.backend.openai_client_aiohttp import OpenAIBackendClientAioHttp
 
-__all__ = ["OpenAIBackendClient"]
+__all__ = [
+    "OpenAIBackendClientAioHttp",
+]

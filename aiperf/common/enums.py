@@ -52,12 +52,18 @@ class CommunicationBackend(CaseInsensitiveStrEnum):
 
 class Topic(CaseInsensitiveStrEnum):
     """Communication topics for the main messaging bus.
-    Right now, there is some overlap between Topic and MessageType."""
+    Right now, there is some overlap between Topic and MessageType.
+
+    NOTE: If you add a new topic, you must also add handlers for it in the
+    ClientType enums so the system knows what type of client to use for that topic.
+    """
 
     CREDIT_DROP = "credit_drop"
     CREDIT_RETURN = "credit_return"
     CREDITS_COMPLETE = "credits_complete"
     PROFILE_PROGRESS = "profile_progress"
+    PROFILE_STATS = "profile_stats"
+    PROFILE_RESULTS = "profile_results"
     REGISTRATION = "registration"
     COMMAND = "command"
     RESPONSE = "response"
@@ -143,8 +149,48 @@ class MessageType(CaseInsensitiveStrEnum):
     INFERENCE_RESULTS = "inference_results"
     """A message containing inference results from a worker."""
 
+    # Sweep run messages
+
+    SWEEP_CONFIGURE = "sweep_configure"
+    """A message sent to configure a sweep run."""
+
+    SWEEP_BEGIN = "sweep_begin"
+    """A message sent to indicate that a sweep has begun."""
+
+    SWEEP_PROGRESS = "sweep_progress"
+    """A message containing sweep run progress."""
+
+    SWEEP_END = "sweep_end"
+    """A message sent to indicate that a sweep has ended."""
+
+    SWEEP_RESULTS = "sweep_results"
+    """A message containing sweep run results."""
+
+    SWEEP_ERROR = "sweep_error"
+    """A message containing an error from a sweep run."""
+
+    # Profile run messages
+
+    PROFILE_BEGIN = "profile_begin"
+    """A message sent to indicate that a profile run has begun."""
+
+    PROFILE_CONFIGURE = "profile_configure"
+    """A message sent to configure a profile run."""
+
     PROFILE_PROGRESS = "profile_progress"
-    """A message containing profile progress."""
+    """A message containing profile run progress."""
+
+    PROFILE_STATS = "profile_stats"
+    """A message containing profile run stats such as error rates, etc."""
+
+    PROFILE_END = "profile_end"
+    """A message sent to indicate that a profile run has ended."""
+
+    PROFILE_RESULTS = "profile_results"
+    """A message containing profile run results."""
+
+    PROFILE_ERROR = "profile_error"
+    """A message containing an error from a profile run."""
 
 
 ################################################################################
@@ -160,6 +206,7 @@ class CommandType(CaseInsensitiveStrEnum):
     PROFILE_BEGIN = "profile_begin"
     PROFILE_END = "profile_end"
     CONFIGURE = "configure"
+    PROCESS_RECORDS = "process_records"
 
 
 ################################################################################
@@ -271,6 +318,7 @@ class RequestTimerKind(Enum):
     SEND_END = auto()  # End of sending request bytes
     RECV_START = auto()  # Start of receiving response bytes
     RECV_END = auto()  # End of receiving response bytes
+    RECV_CHUNK = auto()  # Start of receiving response chunk
 
 
 ################################################################################
@@ -301,5 +349,6 @@ class OutputFormat(CaseInsensitiveStrEnum):
     OPENAI_COMPLETIONS = "openai_completions"
     OPENAI_EMBEDDINGS = "openai_embeddings"
     OPENAI_MULTIMODAL = "openai_multimodal"
+    OPENAI_RESPONSES = "openai_responses"
     TENSORRTLLM = "tensorrtllm"
     VLLM = "vllm"

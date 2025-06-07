@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
+from collections.abc import Awaitable, Callable
 
 from aiperf.common.comms.client_enums import ClientType, PubClientType, SubClientType
 from aiperf.common.config.service_config import ServiceConfig
@@ -40,6 +41,9 @@ class BaseComponentService(BaseService):
         self, service_config: ServiceConfig, service_id: str | None = None
     ) -> None:
         super().__init__(service_config=service_config, service_id=service_id)
+        self._command_callbacks: dict[
+            CommandType, Callable[[CommandMessage], Awaitable[None]]
+        ] = {}
 
     @property
     def required_clients(self) -> list[ClientType]:
@@ -156,8 +160,19 @@ class BaseComponentService(BaseService):
         elif cmd == CommandType.CONFIGURE:
             await self.run_hooks(AIPerfHook.ON_CONFIGURE, message)
 
+        elif cmd in self._command_callbacks:
+            await self._command_callbacks[cmd](message)
+
         else:
             self.logger.warning(f"{self.service_type} received unknown command: {cmd}")
+
+    def register_command_callback(
+        self,
+        cmd: CommandType,
+        callback: Callable[[CommandMessage], Awaitable[None]],
+    ) -> None:
+        """Register a callback for a command."""
+        self._command_callbacks[cmd] = callback
 
     @on_set_state
     async def _on_set_state(self, state: ServiceState) -> None:

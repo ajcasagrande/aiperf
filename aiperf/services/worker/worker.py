@@ -6,7 +6,7 @@ import os
 import sys
 import uuid
 
-from aiperf.backend.openai_client import OpenAIBackendClientConfig
+from aiperf.backend.openai_common import OpenAIBackendClientConfig
 from aiperf.common.comms.client_enums import (
     ClientType,
     PullClientType,
@@ -17,7 +17,14 @@ from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.constants import NANOS_PER_MILLIS
 from aiperf.common.enums import BackendClientType, MessageType, ServiceType, Topic
 from aiperf.common.factories import BackendClientFactory
-from aiperf.common.hooks import on_cleanup, on_init, on_run, on_start, on_stop
+from aiperf.common.hooks import (
+    aiperf_task,
+    on_cleanup,
+    on_init,
+    on_run,
+    on_start,
+    on_stop,
+)
 from aiperf.common.interfaces import BackendClientProtocol
 from aiperf.common.messages import (
     ConversationRequestMessage,
@@ -74,13 +81,17 @@ class Worker(BaseService):
         # Create OpenAI client configuration
         openai_client_config = OpenAIBackendClientConfig(
             api_key=api_key,
-            url="http://127.0.0.1:8080/v1",  # Default OpenAI API endpoint
+            url=f"http://127.0.0.1:{os.getenv('AIPERF_PORT', 8080)}",  # Default OpenAI API endpoint
             model="deepseek-ai/DeepSeek-R1-Distill-Llama-8B",  # Default model
         )
 
         # Initialize the OpenAI client
         self.backend_client = BackendClientFactory.create_instance(
             BackendClientType.OPENAI, config=openai_client_config
+        )
+
+        self.queue = asyncio.Queue(
+            maxsize=int(os.getenv("AIPERF_TASKS_PER_WORKER", 100))
         )
         self.logger.debug("Backend client initialized")
 
@@ -92,22 +103,41 @@ class Worker(BaseService):
     @on_start
     async def _start(self) -> None:
         """Start the worker."""
-        self.logger.debug("Starting worker")
+        # self.logger.debug("Starting worker")
         # Pull credit drops
         await self.comms.register_pull_callback(
             message_type=MessageType.CREDIT_DROP,
-            callback=self._process_credit_drop,
+            callback=self._credit_drop_handler,
         )
 
     @on_stop
     async def _stop(self) -> None:
         """Stop the worker."""
-        self.logger.debug("Stopping worker")
+        # self.logger.debug("Stopping worker")
 
     @on_cleanup
     async def _cleanup(self) -> None:
         """Clean up worker-specific components."""
-        self.logger.debug("Cleaning up worker")
+        # self.logger.debug("Cleaning up worker")
+
+    @aiperf_task
+    async def _queue_drainer(self) -> None:
+        """Background task for draining the queue."""
+        while not self.is_shutdown:
+            message = await self.queue.get()
+            self.logger.debug("Received message from queue: %s", message)
+            task = asyncio.create_task(self._process_credit_drop(message))
+            task.add_done_callback(self._queue_drainer_done_callback)
+
+    async def _credit_drop_handler(self, message: CreditDropMessage) -> None:
+        """Handle a credit drop message."""
+        self.logger.debug("Received credit drop message: %s", message)
+        await self.queue.put(message)
+        self.logger.debug("Put message into queue")
+
+    def _queue_drainer_done_callback(self, task: asyncio.Task) -> None:
+        """Callback for the queue drainer task."""
+        self.logger.debug("Queue drainer task done: %s", task)
 
     async def _process_credit_drop(self, message: CreditDropMessage) -> None:
         """Process a credit drop response.
@@ -115,42 +145,38 @@ class Worker(BaseService):
         Args:
             message: The message received from the credit drop
         """
-        self.logger.debug(f"Processing credit drop: {message}")
+        self.logger.debug("Processing credit drop: %s", message)
 
         credit_amount = 0
         try:
             # Extract the credit drop message payload
-            if hasattr(message, "amount"):
-                credit_amount = message.amount
-                self.logger.debug(f"Received {credit_amount} credit(s)")
 
-                # Make a call to OpenAI API for each credit
-                for _ in range(credit_amount):
-                    record = await self._call_backend_api()
+            credit_amount = message.amount
+            self.logger.debug("Received %s credit(s)", credit_amount)
 
-                    try:
-                        msg = InferenceResultsMessage(
-                            service_id=self.service_id,
-                            record=copy.deepcopy(record),
-                        )
-                        # self.logger.debug(f"Pushing request record: {msg}")
-                        await self.comms.push(
-                            topic=Topic.INFERENCE_RESULTS,
-                            message=msg,
-                        )
-                    except Exception as e:
-                        self.logger.error(
-                            f"Error pushing request record: {e.__class__.__name__}: {e}"
-                        )
+            # Make a call to OpenAI API for each credit
+            for _ in range(credit_amount):
+                record = await self._call_backend_api()
 
-                    # await asyncio.sleep(0.1)  # Small delay between calls
-            else:
-                self.logger.warning(
-                    f"Received credit drop message without amount: {message}"
-                )
+                try:
+                    msg = InferenceResultsMessage(
+                        service_id=self.service_id,
+                        record=copy.deepcopy(record),
+                    )
+                    # self.logger.debug(f"Pushing request record: {msg}")
+                    await self.comms.push(
+                        topic=Topic.INFERENCE_RESULTS,
+                        message=msg,
+                    )
+                except Exception as e:
+                    self.logger.error(
+                        "Error pushing request record: %s: %s",
+                        e.__class__.__name__,
+                        e,
+                    )
 
         except Exception as e:
-            self.logger.error(f"Error processing credit drop: {e}")
+            self.logger.error("Error processing credit drop: %s", e)
 
         finally:
             # Always return the credits
@@ -204,7 +230,9 @@ class Worker(BaseService):
 
             if isinstance(record, RequestRecord) and record.valid:
                 self.logger.debug(
-                    f"Record: {record.time_to_first_response_ns / NANOS_PER_MILLIS} milliseconds. {record.time_to_last_response_ns / NANOS_PER_MILLIS} milliseconds."
+                    "Record: %s milliseconds. %s milliseconds.",
+                    record.time_to_first_response_ns / NANOS_PER_MILLIS,
+                    record.time_to_last_response_ns / NANOS_PER_MILLIS,
                 )
             else:
                 self.logger.warning("Backend API call returned invalid response")
@@ -228,7 +256,7 @@ class MultiWorkerProcess(BaseComponentService):
         self.logger.debug("Initializing worker process")
         self.workers: list[Worker] = []
         self.tasks: list[asyncio.Task] = []
-        self.worker_count = 100
+        self.worker_count = int(os.getenv("AIPERF_TASKS_PER_WORKER", 100))
 
     @property
     def service_type(self) -> ServiceType:

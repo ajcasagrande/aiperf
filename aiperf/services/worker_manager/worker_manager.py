@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
 import multiprocessing
+import os
 import sys
 from multiprocessing import Process
 from typing import Any
@@ -54,7 +55,7 @@ class WorkerManager(BaseComponentService):
         self.workers: dict[str, WorkerProcess] = {}
         # TODO: Need to implement some sort of max workers
         self.cpu_count = multiprocessing.cpu_count()
-        self.worker_count = self.cpu_count - 1
+        self.worker_count = int(os.getenv("AIPERF_WORKERS", self.cpu_count - 1))
         self.logger.info(
             "Detected %s CPU threads. Spawning %s worker processes",
             self.cpu_count,

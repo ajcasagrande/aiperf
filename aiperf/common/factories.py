@@ -123,7 +123,7 @@ class FactoryMixin(Generic[ClassEnumT, ClassProtocolT]):
                     override_priority,
                 )
             else:
-                cls.logger.debug(
+                cls.logger.warning(
                     "%r class %s with priority %s overrides "
                     "already registered class %s with lower priority (%s).",
                     class_type,
@@ -193,7 +193,7 @@ class FactoryMixin(Generic[ClassEnumT, ClassProtocolT]):
 
 
 class InputConverterFactory(FactoryMixin[PromptSource, InputConverterProtocol]):
-    """Factory for registering and creatinPromptSourcerterProtocol instances based on the specified prompt source.
+    """Factory for registering and creating InputConverterProtocol instances based on the specified prompt source.
 
     Example:
     ```python

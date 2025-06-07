@@ -172,9 +172,9 @@ class BaseZMQClient(AIPerfTaskMixin):
         try:
             if self._socket:
                 self._socket.close()
-                self.logger.debug(
-                    "ZMQ %s socket closed (%s)", self.socket_type_name, self.client_id
-                )
+                # self.logger.debug(
+                #     "ZMQ %s socket closed (%s)", self.socket_type_name, self.client_id
+                # )
 
         except Exception as e:
             self.logger.error(

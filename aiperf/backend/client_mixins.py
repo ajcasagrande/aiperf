@@ -9,10 +9,6 @@ from typing import Generic
 
 from aiperf.common.types import ConfigT
 
-__all__ = [
-    "BackendClientConfigMixin",
-]
-
 
 class BackendClientConfigMixin(Generic[ConfigT]):
     """Mixin for backend client configuration."""

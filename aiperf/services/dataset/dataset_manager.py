@@ -106,7 +106,7 @@ class DatasetManager(BaseComponentService):
             request_id=message.request_id,
             conversation_id=message.conversation_id,
             conversation_data=[
-                {"role": "system", "content": "You are a helpful assistant."},
+                # {"role": "system", "content": "You are a helpful assistant."},
                 {
                     "role": "user",
                     "content": PromptGenerator.create_synthetic_prompt(

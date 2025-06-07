@@ -7,7 +7,8 @@ import pandas as pd
 from aiperf.common.comms.client_enums import ClientType, PullClientType
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.constants import NANOS_PER_MILLIS
-from aiperf.common.enums import MessageType, ServiceType
+from aiperf.common.data_exporter.record import Record
+from aiperf.common.enums import CommandType, MessageType, ServiceType, Topic
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
     on_cleanup,
@@ -17,8 +18,11 @@ from aiperf.common.hooks import (
     on_stop,
 )
 from aiperf.common.messages import (
+    CommandMessage,
     InferenceResultsMessage,
     Message,
+    ProfileResultsMessage,
+    ProfileStatsMessage,
 )
 from aiperf.common.record_models import RequestErrorRecord, RequestRecord
 from aiperf.common.service.base_component_service import BaseComponentService
@@ -38,7 +42,7 @@ class RecordsManager(BaseComponentService):
         self.logger.debug("Initializing records manager")
 
         self.records: list[RequestRecord] = []
-        self.error_records: list[RequestErrorRecord] = []
+        self.error_records: list[RequestErrorRecord | RequestRecord] = []
 
     @property
     def service_type(self) -> ServiceType:
@@ -58,6 +62,10 @@ class RecordsManager(BaseComponentService):
         """Initialize records manager-specific components."""
         self.logger.debug("Initializing records manager")
         # TODO: Implement records manager initialization
+        self.register_command_callback(
+            CommandType.PROCESS_RECORDS,
+            self.process_records,
+        )
 
     @on_start
     async def _start(self) -> None:
@@ -75,7 +83,6 @@ class RecordsManager(BaseComponentService):
         """Stop the records manager."""
         self.logger.debug("Stopping records manager")
         # TODO: Implement records manager stop
-        await self.process_records()
 
     @on_cleanup
     async def _cleanup(self) -> None:
@@ -94,69 +101,167 @@ class RecordsManager(BaseComponentService):
         record = message.record
 
         if isinstance(record, RequestErrorRecord):
-            self.logger.error(f"Received inference results error: {record.error}")
+            self.logger.warning(f"Received error inference results: {record}")
             self.error_records.append(record)
-        elif isinstance(record, RequestRecord):
-            self.logger.debug(
-                f"Received inference results: {record.time_to_first_response_ns / NANOS_PER_MILLIS} milliseconds. {record.time_to_last_response_ns / NANOS_PER_MILLIS} milliseconds."
-            )
-            self.records.append(record)
-        else:
-            self.logger.error(f"Unknown inference results type: {type(record)}")
 
-    async def process_records(self) -> None:
-        """Process the records."""
+        elif isinstance(record, RequestRecord):
+            if record.valid:
+                self.logger.debug(
+                    "Received inference results: %f milliseconds. %f milliseconds.",
+                    record.time_to_first_response_ns / NANOS_PER_MILLIS,
+                    record.time_to_last_response_ns / NANOS_PER_MILLIS,
+                )
+                self.records.append(record)
+
+            else:
+                self.logger.warning(f"Received invalid inference results: {record}")
+                self.error_records.append(record)
+
+        else:
+            self.logger.warning(
+                f"Received unknown inference results type: {type(record)}"
+            )
+            self.error_records.append(record)
+
+        await self.comms.publish(
+            topic=Topic.PROFILE_STATS,
+            message=ProfileStatsMessage(
+                service_id=self.service_id,
+                error_count=len(self.error_records),
+                completed=len(self.records),
+            ),
+        )
+
+    async def process_records(self, _: CommandMessage) -> None:
+        """Process the records.
+
+        This method is called when the records manager receives a command to process the records.
+        """
         self.logger.debug("Processing records")
         # TODO: Implement records processing
-        self.logger.debug(f"Processed {len(self.records)} successful records")
-        self.logger.debug(f"Processed {len(self.error_records)} error records")
+        self.logger.info(
+            "Processed %d successful records and %d error records",
+            len(self.records),
+            len(self.error_records),
+        )
 
-        await self.post_process_records()
+        profile_results = await self.post_process_records()
+        self.logger.info("Profile results: %s", profile_results)
 
-    async def post_process_records(self) -> None:
+        if profile_results:
+            await self.comms.publish(
+                topic=Topic.PROFILE_RESULTS,
+                message=profile_results,
+            )
+        else:
+            self.logger.error("No profile results to publish")
+            await self.comms.publish(
+                topic=Topic.PROFILE_RESULTS,
+                message=ProfileResultsMessage(
+                    service_id=self.service_id,
+                    records=[],
+                ),
+            )
+
+    async def post_process_records(self) -> ProfileResultsMessage | None:
         """Post process the records."""
         self.logger.debug("Post processing records")
 
         if not self.records:
             self.logger.warning("No successful records to process")
-            return
+            return None
 
+        valid_records = [record for record in self.records if record.valid]
         # Extract time to first response values
-        time_to_first_response_values = [
-            record.time_to_first_response_ns for record in self.records
+        time_to_first_token_values = [
+            record.time_to_first_response_ns for record in valid_records
         ]
-        time_to_last_response_values = [
-            record.time_to_last_response_ns for record in self.records
+        time_to_second_token_values = [
+            record.time_to_second_response_ns for record in valid_records
+        ]
+        time_to_last_token_values = [
+            record.time_to_last_response_ns for record in valid_records
+        ]
+        inter_token_latency_values = [
+            record.inter_token_latency_ns for record in valid_records
         ]
 
-        # Create DataFrame for statistics calculation
-        ttft_df = pd.DataFrame(
-            time_to_first_response_values, columns=["time_to_first_response_ns"]
+        # Create single DataFrame with all metrics
+        metrics_df = pd.DataFrame(
+            {
+                "ttft_ns": time_to_first_token_values,
+                "ttst_ns": time_to_second_token_values,
+                "ttlt_ns": time_to_last_token_values,
+                "itl_ns": inter_token_latency_values,
+            }
         )
-        ttls_df = pd.DataFrame(
-            time_to_last_response_values, columns=["time_to_last_response_ns"]
+
+        # Create Record objects (converting from ns to ms)
+        ttft_record = record_from_dataframe(
+            df=metrics_df,
+            column_name="ttft_ns",
+            name="Time to First Token",
+            unit="ms",
+            streaming_only=True,
         )
-        # Calculate statistics
-        avg_ttft_ns = ttft_df["time_to_first_response_ns"].mean()
-        p95_ttft_ns = ttft_df["time_to_first_response_ns"].quantile(0.95)
-        p99_ttft_ns = ttft_df["time_to_first_response_ns"].quantile(0.99)
 
-        # Log the statistics
-        self.logger.warning("Time to First Token Statistics:")
-        self.logger.warning(f"  Average: {avg_ttft_ns / NANOS_PER_MILLIS:.2f} ms")
-        self.logger.warning(f"      P95: {p95_ttft_ns / NANOS_PER_MILLIS:.2f} ms")
-        self.logger.warning(f"      P99: {p99_ttft_ns / NANOS_PER_MILLIS:.2f} ms")
+        ttst_record = record_from_dataframe(
+            df=metrics_df,
+            column_name="ttst_ns",
+            name="Time to Second Token",
+            unit="ms",
+            streaming_only=True,
+        )
 
-        # Calculate statistics
-        avg_ttlt_ns = ttls_df["time_to_last_response_ns"].mean()
-        p95_ttlt_ns = ttls_df["time_to_last_response_ns"].quantile(0.95)
-        p99_ttlt_ns = ttls_df["time_to_last_response_ns"].quantile(0.99)
+        ttlt_record = record_from_dataframe(
+            df=metrics_df,
+            column_name="ttlt_ns",
+            name="Time to Last Token",
+            unit="ms",
+            streaming_only=False,
+        )
 
-        # Log the statistics
-        self.logger.warning("Time to Last Token Statistics:")
-        self.logger.warning(f"  Average: {avg_ttlt_ns / NANOS_PER_MILLIS:.2f} ms")
-        self.logger.warning(f"      P95: {p95_ttlt_ns / NANOS_PER_MILLIS:.2f} ms")
-        self.logger.warning(f"      P99: {p99_ttlt_ns / NANOS_PER_MILLIS:.2f} ms")
+        itl_record = record_from_dataframe(
+            df=metrics_df,
+            column_name="itl_ns",
+            name="Inter Token Latency",
+            unit="ms",
+            streaming_only=True,
+        )
+
+        # Create and return ProfileResultsMessage
+        return ProfileResultsMessage(
+            service_id=self.service_id,
+            records=[ttft_record, ttst_record, ttlt_record, itl_record],
+        )
+
+
+def record_from_dataframe(
+    df: pd.DataFrame,
+    column_name: str,
+    name: str,
+    unit: str,
+    streaming_only: bool,
+) -> Record:
+    """Create a Record from a DataFrame."""
+    return Record(
+        name=name,
+        unit=unit,
+        avg=df[column_name].mean() / NANOS_PER_MILLIS,
+        min=df[column_name].min() / NANOS_PER_MILLIS,
+        max=df[column_name].max() / NANOS_PER_MILLIS,
+        p1=df[column_name].quantile(0.01) / NANOS_PER_MILLIS,
+        p5=df[column_name].quantile(0.05) / NANOS_PER_MILLIS,
+        p25=df[column_name].quantile(0.25) / NANOS_PER_MILLIS,
+        p50=df[column_name].quantile(0.50) / NANOS_PER_MILLIS,
+        p75=df[column_name].quantile(0.75) / NANOS_PER_MILLIS,
+        p90=df[column_name].quantile(0.90) / NANOS_PER_MILLIS,
+        p95=df[column_name].quantile(0.95) / NANOS_PER_MILLIS,
+        p99=df[column_name].quantile(0.99) / NANOS_PER_MILLIS,
+        std=df[column_name].std() / NANOS_PER_MILLIS,
+        count=int(df[column_name].count()),
+        streaming_only=streaming_only,
+    )
 
 
 def main() -> None:

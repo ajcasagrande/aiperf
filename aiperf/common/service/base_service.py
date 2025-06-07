@@ -9,7 +9,7 @@ from abc import ABC
 
 from aiperf.common.comms.base import BaseCommunication
 from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.enums import ServiceState
+from aiperf.common.enums import ServiceState, ServiceType
 from aiperf.common.exceptions import (
     AIPerfError,
     CommunicationNotInitializedError,
@@ -188,7 +188,7 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
             await self.run_hooks(AIPerfHook.ON_RUN)
 
         except asyncio.CancelledError:
-            self.logger.debug("Service %s execution cancelled", self.service_type)
+            # self.logger.debug("Service %s execution cancelled", self.service_type)
             return
 
         except AIPerfError:
@@ -221,7 +221,7 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
                 await self.stop_event.wait()
 
             except (KeyboardInterrupt, SystemExit, asyncio.CancelledError):
-                self.logger.debug("Service %s execution cancelled", self.service_type)
+                # self.logger.debug("Service %s execution cancelled", self.service_type)
                 self.stop_event.set()
 
             except Exception:
@@ -265,7 +265,8 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
             _ = await self.set_state(ServiceState.RUNNING)
 
         except asyncio.CancelledError:
-            self.logger.debug("Service %s execution cancelled", self.service_type)
+            # self.logger.debug("Service %s execution cancelled", self.service_type)
+            pass
 
         except Exception as e:
             self.logger.exception(
@@ -323,9 +324,13 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
             # Set the state to STOPPED. Communications are shutdown, so we don't need to
             # publish a status message
             self._state = ServiceState.STOPPED
-            self.logger.debug(
-                "Service %s (id: %s) stopped", self.service_type, self.service_id
-            )
+            if self.service_type not in (
+                ServiceType.WORKER,
+                ServiceType.WORKER_MANAGER,
+            ):
+                self.logger.debug(
+                    "Service %s (id: %s) stopped", self.service_type, self.service_id
+                )
 
         except Exception as e:
             self.logger.exception(
@@ -373,11 +378,11 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
         Args:
             sig: The signal number received
         """
-        signal_name = signal.Signals(sig).name
-        self.logger.debug(
-            "%s: Received signal %s, initiating graceful shutdown",
-            self.service_type,
-            signal_name,
-        )
+        # signal_name = signal.Signals(sig).name
+        # # self.logger.debug(
+        # #     "%s: Received signal %s, initiating graceful shutdown",
+        # #     self.service_type,
+        # #     signal_name,
+        # # )
 
         self.stop_event.set()

@@ -192,6 +192,10 @@ class BackendClientError(AIPerfError):
     """Exception raised when a backend client encounters an error."""
 
 
+class InvalidPayloadError(BackendClientError):
+    """Exception raised when a backend client receives an invalid payload."""
+
+
 ################################################################################
 # Hook Exceptions
 ################################################################################

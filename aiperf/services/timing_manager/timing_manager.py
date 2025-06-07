@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
+import os
 import sys
 import time
 
@@ -40,13 +41,15 @@ class TimingManager(BaseComponentService):
         super().__init__(service_config=service_config, service_id=service_id)
         self._credit_lock = asyncio.Lock()
 
-        self._total_credits = 2000
-        self._credits_available = 200
+        self._total_credits = int(os.getenv("AIPERF_TOTAL_REQUESTS", 100))
+        self._credits_available = min(
+            self._total_credits, int(os.getenv("AIPERF_CONCURRENCY", 100))
+        )
 
         self._sent_credits = 0
         self._completed_credits = 0
         self._credit_event = asyncio.Event()
-        self.start_time_ns = 0
+        self.start_perf_counter_ns = 0
         self.logger.debug("Initializing timing manager")
 
     @property
@@ -102,16 +105,28 @@ class TimingManager(BaseComponentService):
     async def _issue_credit_drops(self) -> None:
         """Issue credit drops to workers."""
         self.logger.debug("Issuing credit drops to workers")
+
         # TODO: Actually implement real credit drop logic
         await asyncio.sleep(3)
 
         await self.initialized_event.wait()
 
-        self.start_time_ns = time.perf_counter_ns()
+        self.start_perf_counter_ns = time.perf_counter_ns()
+
+        await self.comms.publish(
+            topic=Topic.PROFILE_PROGRESS,
+            message=ProfileProgressMessage(
+                service_id=self.service_id,
+                sweep_start_ns=self.start_perf_counter_ns,
+                total=self._total_credits,
+                completed=self._completed_credits,
+            ),
+        )
 
         while not self.stop_event.is_set():
             try:
                 async with self._credit_lock:
+                    # TODO: This could be optimized using a semaphore or a queue of some sort
                     if self._credits_available <= 0:
                         self.logger.debug("No credits available, skipping credit drop")
                         credit_available = False
@@ -135,11 +150,11 @@ class TimingManager(BaseComponentService):
                     message=CreditDropMessage(
                         service_id=self.service_id,
                         amount=1,
-                        credit_drop_ns=time.time_ns(),
+                        credit_drop_ns=time.perf_counter_ns(),
                     ),
                 )
                 self._sent_credits += 1
-
+                # await asyncio.sleep(0.001)
                 if self._sent_credits >= self._total_credits:
                     self.logger.debug("All credits sent, stopping credit drop task")
                     break
@@ -168,7 +183,7 @@ class TimingManager(BaseComponentService):
             self._completed_credits,
             self._total_credits,
             self._completed_credits
-            / (time.perf_counter_ns() - self.start_time_ns)
+            / (time.perf_counter_ns() - self.start_perf_counter_ns)
             * NANOS_PER_SECOND,
         )
 
@@ -176,7 +191,7 @@ class TimingManager(BaseComponentService):
             topic=Topic.PROFILE_PROGRESS,
             message=ProfileProgressMessage(
                 service_id=self.service_id,
-                sweep_start_ns=self.start_time_ns,
+                sweep_start_ns=self.start_perf_counter_ns,
                 total=self._total_credits,
                 completed=self._completed_credits,
             ),
@@ -185,9 +200,13 @@ class TimingManager(BaseComponentService):
         if self._completed_credits >= self._total_credits:
             self.logger.debug(
                 "All credits completed, stopping credit drop task after %.2f seconds (%.2f requests/s)",
-                (time.perf_counter_ns() - self.start_time_ns) / NANOS_PER_SECOND,
+                (time.perf_counter_ns() - self.start_perf_counter_ns)
+                / NANOS_PER_SECOND,
                 self._total_credits
-                / ((time.perf_counter_ns() - self.start_time_ns) / NANOS_PER_SECOND),
+                / (
+                    (time.perf_counter_ns() - self.start_perf_counter_ns)
+                    / NANOS_PER_SECOND
+                ),
             )
             await self.comms.publish(
                 topic=Topic.CREDITS_COMPLETE,

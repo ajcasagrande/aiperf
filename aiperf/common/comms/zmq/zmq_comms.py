@@ -128,16 +128,16 @@ class ZMQCommunication(BaseCommunication):
             True if shutdown was successful, False otherwise
         """
         if self.is_shutdown:
-            logger.debug("ZMQ communication already shutdown")
+            # logger.debug("ZMQ communication already shutdown")
             return
 
         try:
             if not self.stop_event.is_set():
                 self.stop_event.set()
 
-            logger.debug(
-                f"Shutting down ZMQ communication for client {self.config.client_id}"
-            )
+            # logger.debug(
+            #     f"Shutting down ZMQ communication for client {self.config.client_id}"
+            # )
             await asyncio.gather(
                 *(client.shutdown() for client in self.clients.values())
             )
@@ -146,7 +146,7 @@ class ZMQCommunication(BaseCommunication):
                 self.context.term()
 
             self._context = None
-            logger.debug("ZMQ communication shutdown successfully")
+            # logger.debug("ZMQ communication shutdown successfully")
 
         except Exception as e:
             logger.error(f"Exception shutting down ZMQ communication: {e}")

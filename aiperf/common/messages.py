@@ -7,6 +7,7 @@ from typing import Annotated, Any, ClassVar, Literal
 
 from pydantic import BaseModel, Field, TypeAdapter, model_serializer
 
+from aiperf.common.data_exporter.record import Record
 from aiperf.common.enums import CommandType, MessageType, ServiceState, ServiceType
 from aiperf.common.record_models import RequestErrorRecord, RequestRecord
 
@@ -94,7 +95,7 @@ class BaseStatusMessage(BaseServiceMessage):
 
     # override request_ns to be auto-filled if not provided
     request_ns: int | None = Field(
-        default=time.time_ns(),
+        default=time.perf_counter_ns(),
         description="Timestamp of the request",
     )
     state: ServiceState = Field(
@@ -160,9 +161,11 @@ class CommandMessage(BaseServiceMessage):
         default=False,
         description="Whether a response is required for this command",
     )
+    # TODO: should we allow a service_type as well to send to all services of a given type?
+
     target_service_id: str | None = Field(
         default=None,
-        description="ID of the target service for this command",
+        description="ID of the target service for this command. If None, the command is sent to all services.",
     )
     data: BaseModel | None = Field(
         default=None,
@@ -183,7 +186,7 @@ class CreditDropMessage(BaseServiceMessage):
         description="Amount of credits that have been dropped",
     )
     credit_drop_ns: int = Field(
-        default_factory=time.time_ns, description="Timestamp of the credit drop"
+        default_factory=time.perf_counter_ns, description="Timestamp of the credit drop"
     )
 
 
@@ -262,6 +265,14 @@ class InferenceResultsMessage(BaseServiceMessage):
     )
 
 
+class ProfileResultsMessage(BaseServiceMessage):
+    """Message for profile results."""
+
+    message_type: Literal[MessageType.PROFILE_RESULTS] = MessageType.PROFILE_RESULTS
+
+    records: list[Record] = Field(..., description="The records of the profile results")
+
+
 class ProfileProgressMessage(BaseServiceMessage):
     """Message for profile progress."""
 
@@ -284,6 +295,15 @@ class ProfileProgressMessage(BaseServiceMessage):
     )
 
 
+class ProfileStatsMessage(BaseServiceMessage):
+    """Message for profile stats."""
+
+    message_type: Literal[MessageType.PROFILE_STATS] = MessageType.PROFILE_STATS
+
+    error_count: int = Field(default=0, description="The number of errors encountered")
+    completed: int = Field(default=0, description="The number of requests completed")
+
+
 # Discriminated union type - only include message types that include a message_type field
 Message = Annotated[
     HeartbeatMessage
@@ -297,6 +317,8 @@ Message = Annotated[
     | ConversationResponseMessage
     | InferenceResultsMessage
     | ProfileProgressMessage
+    | ProfileResultsMessage
+    | ProfileStatsMessage
     | CreditsCompleteMessage,
     Field(discriminator="message_type"),
 ]

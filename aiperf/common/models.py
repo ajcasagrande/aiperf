@@ -120,11 +120,11 @@ class ServiceRunInfo(BaseModel):
         description="The ID of the service",
     )
     first_seen: int | None = Field(
-        default_factory=time.time_ns,
+        default_factory=time.perf_counter_ns,
         description="The first time the service was seen",
     )
     last_seen: int | None = Field(
-        default_factory=time.time_ns,
+        default_factory=time.perf_counter_ns,
         description="The last time the service was seen",
     )
     state: ServiceState = Field(
