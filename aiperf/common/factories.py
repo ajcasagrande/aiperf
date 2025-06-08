@@ -123,7 +123,7 @@ class FactoryMixin(Generic[ClassEnumT, ClassProtocolT]):
                     override_priority,
                 )
             else:
-                cls.logger.debug(
+                cls.logger.warning(
                     "%r class %s with priority %s overrides "
                     "already registered class %s with lower priority (%s).",
                     class_type,

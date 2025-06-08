@@ -40,8 +40,8 @@ class TimingManager(BaseComponentService):
         super().__init__(service_config=service_config, service_id=service_id)
         self._credit_lock = asyncio.Lock()
 
-        self._total_credits = 100
-        self._credits_available = 100
+        self._total_credits = 10
+        self._credits_available = 10
 
         self._sent_credits = 0
         self._completed_credits = 0

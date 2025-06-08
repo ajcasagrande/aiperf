@@ -309,6 +309,7 @@ class RequestTimerKind(Enum):
     SEND_END = auto()  # End of sending request bytes
     RECV_START = auto()  # Start of receiving response bytes
     RECV_END = auto()  # End of receiving response bytes
+    RECV_CHUNK = auto()  # Start of receiving response chunk
 
 
 ################################################################################

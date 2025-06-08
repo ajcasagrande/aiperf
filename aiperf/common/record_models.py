@@ -3,12 +3,10 @@
 
 import sys
 import time
-from datetime import datetime, timezone
 from typing import Any, Generic
 
 from pydantic import BaseModel, Field
 
-from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import RequestTimerKind
 from aiperf.common.types import ResponseT
 
@@ -184,25 +182,6 @@ class RequestRecord(BaseRequestRecord, Generic[ResponseT]):
                 0 < response.timestamp_ns < sys.maxsize for response in self.responses
             )
         )
-
-    @property
-    def start_time_(self) -> datetime:
-        """Get start time as a datetime object."""
-
-        return datetime.fromtimestamp(
-            self.start_perf_counter_ns / NANOS_PER_SECOND, tz=timezone.utc
-        )
-
-    @property
-    def response_timestamps_(self):
-        """Get response timestamps as datetime objects."""
-
-        return [
-            datetime.fromtimestamp(
-                response.timestamp_ns / NANOS_PER_SECOND, tz=timezone.utc
-            )
-            for response in self.responses
-        ]
 
     @property
     def time_to_first_response_ns(self) -> int | None:

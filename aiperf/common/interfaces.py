@@ -2,7 +2,6 @@
 #  SPDX-License-Identifier: Apache-2.0
 from typing import Generic, Protocol
 
-from aiperf.common.enums import BackendClientType
 from aiperf.common.record_models import (
     BackendClientResponse,
     RequestRecord,
@@ -62,11 +61,6 @@ class BackendClientProtocol(Protocol, Generic[ConfigT, RequestT, ResponseT]):
     @property
     def client_config(self) -> ConfigT:
         """Get the client configuration."""
-        ...
-
-    @property
-    def client_type(self) -> BackendClientType | str:
-        """Get the client type."""
         ...
 
     async def format_payload(self, endpoint: str, payload: RequestT) -> RequestT:

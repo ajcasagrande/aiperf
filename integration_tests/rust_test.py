@@ -3,17 +3,17 @@
 import asyncio
 import os
 
-from aiperf.backend.openai_client_aiohttp import OpenAIBackendClientAioHttp
 from aiperf.backend.openai_common import (
     OpenAIBackendClientConfig,
     OpenAIChatCompletionRequest,
 )
+from aiperf.backend.rust_streaming_client import RustStreamingBackendClient
 from aiperf.common.constants import NANOS_PER_MILLIS
 
 
 async def main():
     async def send_request():
-        client = OpenAIBackendClientAioHttp(
+        client = RustStreamingBackendClient(
             client_config=OpenAIBackendClientConfig(
                 url="http://127.0.0.1:8080",
                 api_key=os.getenv("OPENAI_API_KEY"),
@@ -38,16 +38,16 @@ async def main():
     all_responses = await asyncio.gather(*tasks)
 
     print(
-        f"aiohttp ttft: {sum(response.time_to_first_response_ns for response in all_responses) / len(all_responses) / NANOS_PER_MILLIS}"
+        f"rust ttft: {sum(response.time_to_first_response_ns for response in all_responses) / len(all_responses) / NANOS_PER_MILLIS}"
     )
     print(
-        f"aiohttp ttst: {sum(response.time_to_second_response_ns for response in all_responses) / len(all_responses) / NANOS_PER_MILLIS}"
+        f"rust ttst: {sum(response.time_to_second_response_ns for response in all_responses) / len(all_responses) / NANOS_PER_MILLIS}"
     )
     print(
-        f"aiohttp ttlt: {sum(response.time_to_last_response_ns for response in all_responses) / len(all_responses) / NANOS_PER_MILLIS}"
+        f"rust ttlt: {sum(response.time_to_last_response_ns for response in all_responses) / len(all_responses) / NANOS_PER_MILLIS}"
     )
     print(
-        f"aiohttp itl: {sum(response.inter_token_latency_ns for response in all_responses) / len(all_responses) / NANOS_PER_MILLIS}"
+        f"rust itl: {sum(response.inter_token_latency_ns for response in all_responses) / len(all_responses) / NANOS_PER_MILLIS}"
     )
 
 

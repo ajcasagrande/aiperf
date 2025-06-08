@@ -2,229 +2,38 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 import logging
-import os
 import time
 import typing
 from typing import Any
 
 import httpx
+
+# Import the Rust timing module for precise measurements
+from aiperf_timing import RequestTimerKind, RequestTimers  # type: ignore
 from httpx._decoders import ByteChunker
 from httpx._exceptions import request_context
-from openai import AsyncAzureOpenAI, AsyncOpenAI
-from openai.types.chat.chat_completion import ChatCompletion
-from openai.types.completion import Completion
-from openai.types.embedding import Embedding
-from openai.types.responses.response import Response
-from pydantic import BaseModel, Field
 
-from aiperf.backend.client_mixins import BackendClientConfigMixin
+from aiperf.backend.openai_common import (
+    OpenAIBackendClientConfig,
+    OpenAIBackendClientProtocol,
+    OpenAIBaseRequest,
+    OpenAIBaseResponse,
+    OpenAIChatCompletionRequest,
+    OpenAIChatResponsesRequest,
+    OpenAIClientMixin,
+    OpenAICompletionRequest,
+    OpenAIEmbeddingsRequest,
+)
 from aiperf.common.enums import (
     BackendClientType,
-    CaseInsensitiveStrEnum,
-    RequestTimerKind,
 )
 from aiperf.common.exceptions import InvalidPayloadError
 from aiperf.common.factories import BackendClientFactory
-from aiperf.common.interfaces import BackendClientProtocol
 from aiperf.common.record_models import (
     BackendClientErrorResponse,
     BackendClientResponse,
-    GenericHTTPBackendClientConfig,
     RequestRecord,
-    RequestTimers,
 )
-
-################################################################################
-# OpenAI Backend Client Models
-################################################################################
-
-
-class OpenAIType(CaseInsensitiveStrEnum):
-    """The type of API to use for the OpenAI backend client."""
-
-    OPENAI = "openai"
-    AZURE = "azure"
-
-
-class OpenAIBackendClientConfig(GenericHTTPBackendClientConfig):
-    """Configuration specific to an OpenAI backend client."""
-
-    organization: str | None = Field(
-        default=None,
-        description="The organization to use for the OpenAI backend client.",
-    )
-    api_type: OpenAIType = Field(
-        default=OpenAIType.OPENAI,
-        description="The API type to use for the OpenAI backend client.",
-    )
-    api_version: str | None = Field(
-        default=None,
-        description="The API version to use for the OpenAI backend client.",
-    )
-    endpoint: str = Field(
-        default="v1/chat/completions",
-        description="The endpoint to use for the OpenAI backend client.",
-    )
-    model: str = Field(
-        default="deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
-        description="The model to use for the OpenAI backend client.",
-    )
-    max_tokens: int = Field(
-        default=100,
-        description="The maximum number of tokens to use for the OpenAI backend client.",
-    )
-    temperature: float = Field(
-        default=0.7, description="The temperature to use for the OpenAI backend client."
-    )
-    top_p: float = Field(
-        default=1.0, description="The top P to use for the OpenAI backend client."
-    )
-    stop: list[str] | None = Field(
-        default=None,
-        description="The stop sequence to use for the OpenAI backend client.",
-    )
-    frequency_penalty: float = Field(
-        default=0.0,
-        description="The frequency penalty to use for the OpenAI backend client.",
-    )
-    presence_penalty: float = Field(
-        default=0.0,
-        description="The presence penalty to use for the OpenAI backend client.",
-    )
-
-
-################################################################################
-# OpenAI Backend Client Requests
-################################################################################
-
-
-class OpenAIBaseRequest(BaseModel):
-    """Base request specific to an OpenAI backend client."""
-
-    model: str
-    kwargs: dict[str, Any] | None = None
-
-
-class OpenAIChatCompletionRequest(OpenAIBaseRequest):
-    """Request specific to an OpenAI chat completion."""
-
-    messages: list[Any]
-    max_tokens: int
-
-
-class OpenAIChatResponsesRequest(OpenAIBaseRequest):
-    """Response specific to an OpenAI responses ."""
-
-    input: str
-    max_output_tokens: int
-
-
-class OpenAICompletionRequest(OpenAIBaseRequest):
-    """Request specific to an OpenAI completion."""
-
-    prompt: str
-    max_tokens: int
-
-
-class OpenAIEmbeddingsRequest(OpenAIBaseRequest):
-    """Request specific to an OpenAI embeddings."""
-
-    input: str
-    dimensions: int
-    encoding_format: str
-    user: str
-
-
-################################################################################
-# OpenAI Backend Client Responses
-################################################################################
-
-
-class OpenAIBaseResponse(BaseModel):
-    """Response specific to an OpenAI backend client."""
-
-
-class OpenAIChatResponsesResponse(OpenAIBaseResponse):
-    """Response specific to an OpenAI responses."""
-
-    response: Response
-
-
-class OpenAIEmbeddingsResponse(OpenAIBaseResponse):
-    """Response specific to an OpenAI embeddings."""
-
-    response: Embedding
-
-
-class OpenAICompletionResponse(OpenAIBaseResponse):
-    """Response specific to an OpenAI completion."""
-
-    response: Completion
-    status_code: int
-    headers: dict[str, str]
-    body: dict[str, Any]
-
-
-class OpenAIChatCompletionResponse(OpenAIBaseResponse):
-    """Response specific to an OpenAI chat completion."""
-
-    response: ChatCompletion
-
-
-################################################################################
-# OpenAI Backend Client Mixins / Protocols
-################################################################################
-
-OpenAIBackendClientConfigMixin = BackendClientConfigMixin[OpenAIBackendClientConfig]
-"""Type alias for a backend client config mixin that supports OpenAI configuration."""
-
-OpenAIBackendClientProtocol = BackendClientProtocol[
-    OpenAIBackendClientConfig, OpenAIBaseRequest, OpenAIBaseResponse
-]
-"""Type alias for a backend client protocol that supports OpenAI."""
-
-
-class OpenAIClientMixin(OpenAIBackendClientConfigMixin):
-    """Mixin to provide an OpenAI client based on the configuration.
-    Currently supports OpenAI and Azure OpenAI."""
-
-    def __init__(self, client_config: OpenAIBackendClientConfig):
-        super().__init__(client_config)
-
-        self.client_config.api_key = os.environ.get(
-            "OPENAI_API_KEY", "sk-fakeai-1234567890abcdef"
-        )
-
-        base_url = (
-            f"https://{self.client_config.url}"
-            if not self.client_config.url.startswith(("http://", "https://"))
-            else self.client_config.url
-        )
-
-        if self.client_config.api_type == OpenAIType.OPENAI:
-            self._client = AsyncOpenAI(
-                api_key=self.client_config.api_key,
-                base_url=base_url,
-                organization=self.client_config.organization,
-                timeout=self.client_config.timeout_ms,
-            )
-
-        elif self.client_config.api_type == OpenAIType.AZURE:
-            self._client = AsyncAzureOpenAI(
-                api_key=self.client_config.api_key,
-                base_url=base_url,
-                organization=self.client_config.organization,
-                timeout=self.client_config.timeout_ms,
-            )
-
-        else:
-            raise ValueError(f"Invalid OpenAI API type: {self.client_config.api_type}")
-
-    @property
-    def client(self) -> AsyncOpenAI | AsyncAzureOpenAI:
-        """Get the OpenAI client."""
-        return self._client
-
 
 ################################################################################
 # OpenAI Backend Client
@@ -233,7 +42,7 @@ class OpenAIClientMixin(OpenAIBackendClientConfigMixin):
 logger = logging.getLogger(__name__)
 
 
-@BackendClientFactory.register(BackendClientType.OPENAI)
+@BackendClientFactory.register(BackendClientType.OPENAI, override_priority=100000)
 class OpenAIBackendClientHttpx(OpenAIClientMixin, OpenAIBackendClientProtocol):
     """A backend client for communicating with OpenAI based REST APIs.
 
@@ -272,11 +81,6 @@ class OpenAIBackendClientHttpx(OpenAIClientMixin, OpenAIBackendClientProtocol):
             verify=True,  # Keep SSL verification but optimize
             trust_env=False,  # Don't read environment for faster startup
         )
-
-    @property
-    def client_type(self) -> BackendClientType:
-        """Get the type of the backend client."""
-        return BackendClientType.OPENAI
 
     async def format_payload(
         self, endpoint: str, payload: OpenAIBaseRequest | dict[str, Any]
@@ -430,14 +234,16 @@ class OpenAIBackendClientHttpx(OpenAIClientMixin, OpenAIBackendClientProtocol):
     async def send_chat_completion_request(
         self, payload: OpenAIChatCompletionRequest
     ) -> RequestRecord[Any]:
-        """Send chat completion request using optimized httpx for precise timing measurements."""
+        """Send chat completion request using Rust-based timing for precise measurements."""
 
-        # Initialize RequestTimers for precise timing
-        timers = RequestTimers()
+        # Initialize Rust timing metrics for precise timing
+        request_timers = RequestTimers()
 
         # Initialize record upfront to avoid unbound variable issues
         record: RequestRecord[Any] = RequestRecord(
-            start_perf_counter_ns=time.perf_counter_ns(),
+            start_perf_counter_ns=request_timers.capture_timestamp(
+                RequestTimerKind.REQUEST_START
+            ),
         )
 
         try:
@@ -482,12 +288,11 @@ class OpenAIBackendClientHttpx(OpenAIClientMixin, OpenAIBackendClientProtocol):
             )
             url = f"{base_url.rstrip('/')}/{self.client_config.endpoint}"
 
-            # Update record with proper timing
-            record.start_perf_counter_ns = timers.capture_timestamp(
+            # Start request timing with Rust module
+            request_timers.capture_timestamp(RequestTimerKind.REQUEST_START)
+            record.start_perf_counter_ns = request_timers.capture_timestamp(
                 RequestTimerKind.REQUEST_START
             )
-
-            timers.capture_timestamp(RequestTimerKind.SEND_START)
 
             async with self._httpx_client.stream(
                 "POST",
@@ -495,8 +300,6 @@ class OpenAIBackendClientHttpx(OpenAIClientMixin, OpenAIBackendClientProtocol):
                 json=request_payload,
                 headers=headers,
             ) as response:
-                timers.capture_timestamp(RequestTimerKind.SEND_END)
-
                 # Check for HTTP errors
                 if response.status_code != 200:
                     error_text = await response.aread()
@@ -508,11 +311,22 @@ class OpenAIBackendClientHttpx(OpenAIClientMixin, OpenAIBackendClientProtocol):
                     )
                     return record
 
-                timers.capture_timestamp(RequestTimerKind.RECV_START)
+                # Record first byte received (TTFT)
+                first_chunk_received = False
 
                 # Parse SSE stream with optimized buffering
                 buffer = ""
-                async for chunk, _, ns in self.aiter_raw_optimized(response):
+                async for chunk, _, ns in self.aiter_raw_optimized(
+                    response, request_timers
+                ):
+                    # Record first byte time on first chunk
+                    if not first_chunk_received:
+                        request_timers.capture_timestamp(RequestTimerKind.SEND_START)
+                        first_chunk_received = True
+
+                    # Record each chunk timing
+                    request_timers.capture_timestamp(RequestTimerKind.SEND_END)
+
                     buffer += chunk.decode("utf-8")
 
                     # Process complete lines efficiently
@@ -529,7 +343,6 @@ class OpenAIBackendClientHttpx(OpenAIClientMixin, OpenAIBackendClientProtocol):
 
                             # Check for stream end
                             if data_content == "[DONE]":
-                                timers.capture_timestamp(RequestTimerKind.RECV_END)
                                 break
 
                             # Skip empty data chunks at the start
@@ -567,10 +380,6 @@ class OpenAIBackendClientHttpx(OpenAIClientMixin, OpenAIBackendClientProtocol):
                             )
                             break
 
-                # Capture final receive timestamp if not already set
-                if RequestTimerKind.RECV_END not in timers.timestamps:
-                    timers.capture_timestamp(RequestTimerKind.RECV_END)
-
         except Exception as e:
             logger.error("Error in optimized HTTP request: %s", str(e))
             record.responses.append(
@@ -581,26 +390,35 @@ class OpenAIBackendClientHttpx(OpenAIClientMixin, OpenAIBackendClientProtocol):
             )
 
         finally:
-            timers.capture_timestamp(RequestTimerKind.REQUEST_END)
-
-            # Log precise timing information for debugging/monitoring
+            # Log precise timing information from Rust module
             try:
-                total_duration = timers.duration(
-                    RequestTimerKind.REQUEST_START, RequestTimerKind.REQUEST_END
+                ttft = request_timers.duration(
+                    RequestTimerKind.REQUEST_START, RequestTimerKind.SEND_START
                 )
-                send_duration = timers.duration(
-                    RequestTimerKind.SEND_START, RequestTimerKind.SEND_END
-                )
-                recv_duration = timers.duration(
-                    RequestTimerKind.RECV_START, RequestTimerKind.RECV_END
-                )
+                chunk_metrics = [
+                    request_timers.duration(
+                        RequestTimerKind.SEND_START, RequestTimerKind.SEND_END
+                    )
+                    for _ in range(len(record.responses))
+                ]
 
-                logger.debug(
-                    "Request timing - Total: %d ns, Send: %d ns, Receive: %d ns",
-                    total_duration,
-                    send_duration,
-                    recv_duration,
-                )
+                if ttft is not None:
+                    logger.debug(
+                        "Request timing - TTFT: %.2f μs, Total chunks: %d",
+                        ttft,
+                        len(chunk_metrics),
+                    )
+
+                    if chunk_metrics:
+                        logger.debug(
+                            "Chunk timing - Min: %.2f μs, Max: %.2f μs, Avg: %.2f μs",
+                            min(chunk_metrics),
+                            max(chunk_metrics),
+                            sum(chunk_metrics) / len(chunk_metrics),
+                        )
+                else:
+                    logger.debug("Request completed without timing data")
+
             except Exception:
                 # Don't fail on timing logging errors
                 pass
@@ -608,7 +426,10 @@ class OpenAIBackendClientHttpx(OpenAIClientMixin, OpenAIBackendClientProtocol):
         return record
 
     async def aiter_raw_optimized(
-        self, response: httpx.Response, chunk_size: int = 16384
+        self,
+        response: httpx.Response,
+        request_timers: RequestTimers,
+        chunk_size: int = 1024,
     ) -> typing.AsyncIterator[tuple[bytes, int, int]]:
         """
         An optimized byte-iterator over the raw response content with larger chunk sizes.
@@ -628,13 +449,13 @@ class OpenAIBackendClientHttpx(OpenAIClientMixin, OpenAIBackendClientProtocol):
         with request_context(request=response.request):
             i = 0
             async for raw_stream_bytes in response.stream:
-                ns = time.perf_counter_ns()
+                ns = request_timers.capture_timestamp(RequestTimerKind.RECV_CHUNK)
                 response._num_bytes_downloaded += len(raw_stream_bytes)
                 for chunk in chunker.decode(raw_stream_bytes):
                     yield (chunk, i, ns)
                     i += 1
 
-        ns = time.perf_counter_ns()
+        ns = request_timers.capture_timestamp(RequestTimerKind.RECV_END)
         for chunk in chunker.flush():
             yield (chunk, i, ns)
             i += 1
@@ -642,14 +463,19 @@ class OpenAIBackendClientHttpx(OpenAIClientMixin, OpenAIBackendClientProtocol):
         await response.aclose()
 
     async def aiter_raw(
-        self, response: httpx.Response, chunk_size: int | None = None
+        self,
+        response: httpx.Response,
+        request_timers: RequestTimers,
+        chunk_size: int | None = None,
     ) -> typing.AsyncIterator[tuple[bytes, int, int]]:
         """
         A byte-iterator over the raw response content.
         """
         # Delegate to optimized version with default chunk size
         chunk_size = chunk_size or 8192
-        async for chunk, i, ns in self.aiter_raw_optimized(response, chunk_size):
+        async for chunk, i, ns in self.aiter_raw_optimized(
+            response, request_timers, chunk_size
+        ):
             yield (chunk, i, ns)
 
     async def parse_response(
