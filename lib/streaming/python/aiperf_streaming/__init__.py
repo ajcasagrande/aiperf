@@ -9,26 +9,30 @@ for measuring streaming response performance.
 
 from .aiperf_streaming import (
     PrecisionTimer,
-    StreamingChunk,
+    RequestTimers,
     StreamingHttpClient,
     StreamingRequest,
     StreamingStats,
+    StreamingToken,
+    TimestampKind,
 )
 from .models import (
-    StreamingChunkModel,
     StreamingRequestModel,
     StreamingStatsModel,
+    StreamingTokenModel,
     TimingAnalysis,
 )
 
 __all__ = [
     "StreamingHttpClient",
     "StreamingRequest",
-    "StreamingChunk",
+    "StreamingToken",
     "StreamingStats",
     "PrecisionTimer",
+    "RequestTimers",
+    "TimestampKind",
     "StreamingRequestModel",
-    "StreamingChunkModel",
+    "StreamingTokenModel",
     "StreamingStatsModel",
     "TimingAnalysis",
 ]

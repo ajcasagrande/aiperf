@@ -1,13 +1,13 @@
 use pyo3::prelude::*;
-use reqwest::Client;
+use reqwest::{Client, ClientBuilder};
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
 use tokio_stream::StreamExt;
 
-use crate::request::{StreamingRequest, StreamingChunk};
+use crate::request::{StreamingRequest, StreamingToken};
 use crate::errors::StreamingError;
 use crate::timer::PrecisionTimer;
+use crate::timers::{RequestTimers, TimestampKind};
 
 /// High-performance streaming HTTP client with precise timing
 #[pyclass]
@@ -27,9 +27,9 @@ impl StreamingHttpClient {
         default_headers: Option<HashMap<String, String>>,
         user_agent: Option<String>,
     ) -> PyResult<Self> {
-        let headers = default_headers.unwrap_or_default();
+        let headers: HashMap<String, String> = default_headers.unwrap_or_default();
 
-        let mut client_builder = Client::builder()
+        let mut client_builder: ClientBuilder = Client::builder()
             .use_rustls_tls()
             .tcp_keepalive(Some(std::time::Duration::from_secs(30)))
             .pool_idle_timeout(Some(std::time::Duration::from_secs(90)))
@@ -62,11 +62,11 @@ impl StreamingHttpClient {
         })
     }
 
-    /// Execute a streaming request with precise chunk timing
+    /// Execute a streaming request and return the timing information
     pub fn stream_request(
         &self,
         mut request: StreamingRequest,
-    ) -> PyResult<StreamingRequest> {
+    ) -> PyResult<RequestTimers> {
         let client = Arc::clone(&self.client);
         let runtime = Arc::clone(&self.runtime);
         let default_headers = self.default_headers.clone();
@@ -82,19 +82,49 @@ impl StreamingHttpClient {
         });
 
         match result {
-            Ok(_) => Ok(request),
+            Ok(_) => Ok(request.timers),
             Err(e) => Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
                 format!("Streaming request failed: {}", e)
             )),
         }
     }
 
-    /// Execute multiple streaming requests concurrently
+    /// Execute a streaming request and return both the request and timing information
+    pub fn stream_request_with_details(
+        &self,
+        mut request: StreamingRequest,
+    ) -> PyResult<(StreamingRequest, RequestTimers)> {
+        let client = Arc::clone(&self.client);
+        let runtime = Arc::clone(&self.runtime);
+        let default_headers = self.default_headers.clone();
+        let default_timeout = self.default_timeout_ms;
+
+        let result = runtime.block_on(async {
+            Self::execute_streaming_request_async(
+                client,
+                &mut request,
+                &default_headers,
+                default_timeout
+            ).await
+        });
+
+        match result {
+            Ok(_) => {
+                let timers = request.timers.clone();
+                Ok((request, timers))
+            },
+            Err(e) => Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
+                format!("Streaming request failed: {}", e)
+            )),
+        }
+    }
+
+    /// Execute multiple streaming requests concurrently and return timing information
     pub fn stream_requests_concurrent(
         &self,
         requests: Vec<StreamingRequest>,
         max_concurrent: Option<usize>,
-    ) -> PyResult<Vec<StreamingRequest>> {
+    ) -> PyResult<Vec<RequestTimers>> {
         let client = Arc::clone(&self.client);
         let runtime = Arc::clone(&self.runtime);
         let concurrent_limit = max_concurrent.unwrap_or(10);
@@ -140,7 +170,7 @@ impl StreamingHttpClient {
 
             for handle in handles {
                 match handle.await {
-                    Ok(request) => completed_requests.push(request),
+                    Ok(request) => completed_requests.push(request.timers),
                     Err(e) => {
                         eprintln!("Task execution failed: {}", e);
                         // Could create a failed request object here if needed
@@ -154,9 +184,77 @@ impl StreamingHttpClient {
         Ok(result)
     }
 
-    /// Get current timestamp in nanoseconds
-    pub fn now_ns(&self) -> u64 {
-        self.timer.now_ns()
+    /// Execute multiple streaming requests concurrently and return both requests and timing information
+    pub fn stream_requests_concurrent_with_details(
+        &self,
+        requests: Vec<StreamingRequest>,
+        max_concurrent: Option<usize>,
+    ) -> PyResult<Vec<(StreamingRequest, RequestTimers)>> {
+        let client = Arc::clone(&self.client);
+        let runtime = Arc::clone(&self.runtime);
+        let concurrent_limit = max_concurrent.unwrap_or(10);
+        let default_headers = self.default_headers.clone();
+        let default_timeout = self.default_timeout_ms;
+
+        let result = runtime.block_on(async move {
+            let mut completed_requests = Vec::new();
+            let semaphore = Arc::new(tokio::sync::Semaphore::new(concurrent_limit));
+            let mut handles = Vec::new();
+
+            for mut request in requests {
+                let client_clone = Arc::clone(&client);
+                let semaphore_clone = Arc::clone(&semaphore);
+                let headers_clone = default_headers.clone();
+
+                let handle = tokio::spawn(async move {
+                    let _permit = semaphore_clone.acquire().await.unwrap();
+
+                    // Execute request and capture any errors in the request object
+                    match Self::execute_streaming_request_async(
+                        client_clone,
+                        &mut request,
+                        &headers_clone,
+                        default_timeout
+                    ).await {
+                        Ok(_) => {
+                            // Request succeeded
+                        }
+                        Err(e) => {
+                            // Request failed - error details should already be in the request object
+                            if request.error_message.is_none() {
+                                request.set_error(format!("Request execution failed: {}", e));
+                            }
+                        }
+                    }
+
+                    request
+                });
+
+                handles.push(handle);
+            }
+
+            for handle in handles {
+                match handle.await {
+                    Ok(request) => {
+                        let timers = request.timers.clone();
+                        completed_requests.push((request, timers));
+                    },
+                    Err(e) => {
+                        eprintln!("Task execution failed: {}", e);
+                        // Could create a failed request object here if needed
+                    }
+                }
+            }
+
+            completed_requests
+        });
+
+        Ok(result)
+    }
+
+    /// Create a new RequestTimers instance for manual timing
+    pub fn create_timer(&self) -> RequestTimers {
+        RequestTimers::new()
     }
 
     /// Reset the internal timer
@@ -164,12 +262,11 @@ impl StreamingHttpClient {
         self.timer.reset();
     }
 
-    /// Get client statistics
-    pub fn get_stats(&self) -> PyResult<HashMap<String, u64>> {
-        let mut stats = HashMap::new();
-        stats.insert("created_at_ns".to_string(), self.timer.now_ns());
-        stats.insert("elapsed_ns".to_string(), self.timer.elapsed_ns());
-        Ok(stats)
+    /// Get client statistics as a RequestTimers object
+    pub fn get_stats(&self) -> PyResult<RequestTimers> {
+        let timer = RequestTimers::new();
+        // The timer already has a base time set, which represents when it was created
+        Ok(timer)
     }
 }
 
@@ -210,9 +307,16 @@ impl StreamingHttpClient {
             req_builder = req_builder.timeout(std::time::Duration::from_millis(timeout));
         }
 
+        // Capture send start timing
+        request.capture_send_start().map_err(|e| StreamingError::InvalidRequest(format!("Failed to capture send start: {}", e)))?;
+
         // Execute request
         let response = match req_builder.send().await {
-            Ok(response) => response,
+            Ok(response) => {
+                // Capture send end timing immediately after successful send
+                request.capture_send_end().map_err(|e| StreamingError::InvalidRequest(format!("Failed to capture send end: {}", e)))?;
+                response
+            }
             Err(e) => {
                 request.set_error(format!("Request failed: {}", e));
                 return Err(StreamingError::from(e));
@@ -243,35 +347,44 @@ impl StreamingHttpClient {
             return Err(StreamingError::HttpError(error_msg));
         }
 
+        // Capture receive start timing before streaming
+        request.capture_recv_start().map_err(|e| StreamingError::InvalidRequest(format!("Failed to capture recv start: {}", e)))?;
+
         // Stream the response
         Self::process_streaming_response_async(response, request).await?;
 
-        request.complete();
+        // Capture receive end timing after streaming
+        request.capture_recv_end().map_err(|e| StreamingError::InvalidRequest(format!("Failed to capture recv end: {}", e)))?;
+
+        request.complete().map_err(|e| StreamingError::InvalidRequest(format!("Failed to complete request: {}", e)))?;
         Ok(())
     }
 
-    async fn process_streaming_response_async(
+        async fn process_streaming_response_async(
         response: reqwest::Response,
         request: &mut StreamingRequest,
     ) -> Result<(), StreamingError> {
         let mut stream = response.bytes_stream();
-        let mut chunk_index = 0;
+        let mut token_index = 0;
 
-        while let Some(chunk_result) = stream.next().await {
-            let chunk_data = chunk_result?;
-            let timestamp_ns = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_nanos() as u64;
+        while let Some(token_result) = stream.next().await {
+            let token_data = token_result?;
 
-            let chunk = StreamingChunk::new(
-                timestamp_ns,
-                String::from_utf8_lossy(&chunk_data).to_string(),
-                chunk_index,
+            // Capture token start timing for each SSE data payload
+            request.capture_token_start().map_err(|e| StreamingError::InvalidRequest(format!("Failed to capture token start: {}", e)))?;
+
+            // Create streaming token from SSE data payload
+            let token = StreamingToken::new(
+                String::from_utf8_lossy(&token_data).to_string(),
+                token_index,
             );
 
-            request.add_chunk(chunk);
-            chunk_index += 1;
+            request.add_token(token);
+
+            // Capture token end timing after processing the token
+            request.capture_token_end().map_err(|e| StreamingError::InvalidRequest(format!("Failed to capture token end: {}", e)))?;
+
+            token_index += 1;
         }
 
         Ok(())
@@ -291,7 +404,8 @@ pub struct StreamingStats {
     #[pyo3(get)]
     pub avg_throughput_bps: f64,
     #[pyo3(get)]
-    pub total_duration_ns: u64,
+    pub timing_summary: RequestTimers,
+    total_duration_ns: u64,
 }
 
 #[pymethods]
@@ -303,19 +417,35 @@ impl StreamingStats {
             total_bytes: 0,
             avg_chunk_size: 0.0,
             avg_throughput_bps: 0.0,
+            timing_summary: RequestTimers::new(),
             total_duration_ns: 0,
         }
     }
 
-    pub fn add_request(&mut self, request: &StreamingRequest) {
+    /// Add a request's timing information to the statistics
+    pub fn add_timing(&mut self, timers: &RequestTimers) -> PyResult<()> {
         self.total_requests += 1;
-        self.total_bytes += request.total_bytes;
 
-        if let Some(duration) = request.duration_ns() {
+        // Get the request duration and add to total
+        if let Some(duration) = timers.duration_ns(TimestampKind::RequestStart, TimestampKind::RequestEnd)? {
             self.total_duration_ns += duration;
         }
 
         self.recalculate_averages();
+        Ok(())
+    }
+
+    /// Add request data along with timing information
+    pub fn add_request_with_timing(&mut self, request: &StreamingRequest, timers: &RequestTimers) -> PyResult<()> {
+        self.total_requests += 1;
+        self.total_bytes += request.total_bytes;
+
+        if let Some(duration) = timers.duration_ns(TimestampKind::RequestStart, TimestampKind::RequestEnd)? {
+            self.total_duration_ns += duration;
+        }
+
+        self.recalculate_averages();
+        Ok(())
     }
 
     fn recalculate_averages(&mut self) {

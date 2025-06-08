@@ -3,38 +3,38 @@ use pyo3::types::{PyDict, PyList};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
+use crate::timers::{RequestTimers, TimestampKind};
 
-/// A single chunk of streaming response data with precise timing
+/// A single token from SSE streaming response data
 #[pyclass]
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StreamingChunk {
-    #[pyo3(get)]
-    pub timestamp_ns: u64,
+pub struct StreamingToken {
     #[pyo3(get)]
     pub data: String,
     #[pyo3(get)]
     pub size_bytes: usize,
     #[pyo3(get)]
-    pub chunk_index: usize,
+    pub token_index: usize,
 }
 
 #[pymethods]
-impl StreamingChunk {
+impl StreamingToken {
     #[new]
-    pub fn new(timestamp_ns: u64, data: String, chunk_index: usize) -> Self {
+    pub fn new(data: String, token_index: usize) -> Self {
         let size_bytes = data.len();
         Self {
-            timestamp_ns,
             data,
             size_bytes,
-            chunk_index,
+            token_index,
         }
     }
 
     pub fn __repr__(&self) -> String {
         format!(
-            "StreamingChunk(timestamp_ns={}, size_bytes={}, chunk_index={})",
-            self.timestamp_ns, self.size_bytes, self.chunk_index
+            "StreamingToken(token_index={}, size_bytes={}, data_preview=\"{}...\")",
+            self.token_index,
+            self.size_bytes,
+            if self.data.len() > 50 { &self.data[..50] } else { &self.data }
         )
     }
 }
@@ -52,14 +52,12 @@ pub struct StreamingRequest {
     pub headers: HashMap<String, String>,
     pub body: Option<String>,
     #[pyo3(get)]
-    pub start_time_ns: u64,
-    #[pyo3(get)]
-    pub end_time_ns: Option<u64>,
-    pub chunks: Vec<StreamingChunk>,
+    pub timers: RequestTimers,
+    pub tokens: Vec<StreamingToken>,
     #[pyo3(get)]
     pub total_bytes: usize,
     #[pyo3(get)]
-    pub chunk_count: usize,
+    pub token_count: usize,
     #[pyo3(get)]
     pub timeout_ms: Option<u64>,
     #[pyo3(get)]
@@ -80,12 +78,11 @@ impl StreamingRequest {
         timeout_ms: Option<u64>,
     ) -> PyResult<Self> {
         let header_map = headers.unwrap_or_default();
-
         let request_id = Uuid::new_v4().to_string();
-        let start_time_ns = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_nanos() as u64;
+        let mut timers = RequestTimers::new();
+
+        // Capture the request start immediately
+        timers.capture(TimestampKind::RequestStart)?;
 
         Ok(Self {
             request_id,
@@ -93,11 +90,10 @@ impl StreamingRequest {
             method: method.unwrap_or_else(|| "GET".to_string()),
             headers: header_map,
             body,
-            start_time_ns,
-            end_time_ns: None,
-            chunks: Vec::new(),
+            timers,
+            tokens: Vec::new(),
             total_bytes: 0,
-            chunk_count: 0,
+            token_count: 0,
             timeout_ms,
             status_code: None,
             response_headers: HashMap::new(),
@@ -105,21 +101,16 @@ impl StreamingRequest {
         })
     }
 
-    /// Add a chunk to the request
-    pub fn add_chunk(&mut self, chunk: StreamingChunk) {
-        self.total_bytes += chunk.size_bytes;
-        self.chunk_count += 1;
-        self.chunks.push(chunk);
+    /// Add a token to the request
+    pub fn add_token(&mut self, token: StreamingToken) {
+        self.total_bytes += token.size_bytes;
+        self.token_count += 1;
+        self.tokens.push(token);
     }
 
     /// Mark the request as completed
-    pub fn complete(&mut self) {
-        self.end_time_ns = Some(
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_nanos() as u64,
-        );
+    pub fn complete(&mut self) -> PyResult<()> {
+        self.timers.capture(TimestampKind::RequestEnd)
     }
 
     /// Set the HTTP status code
@@ -137,6 +128,36 @@ impl StreamingRequest {
         self.error_message = Some(error);
     }
 
+    /// Capture send start timing
+    pub fn capture_send_start(&mut self) -> PyResult<()> {
+        self.timers.capture(TimestampKind::SendStart)
+    }
+
+    /// Capture send end timing
+    pub fn capture_send_end(&mut self) -> PyResult<()> {
+        self.timers.capture(TimestampKind::SendEnd)
+    }
+
+    /// Capture receive start timing
+    pub fn capture_recv_start(&mut self) -> PyResult<()> {
+        self.timers.capture(TimestampKind::RecvStart)
+    }
+
+    /// Capture receive end timing
+    pub fn capture_recv_end(&mut self) -> PyResult<()> {
+        self.timers.capture(TimestampKind::RecvEnd)
+    }
+
+    /// Capture token start timing (for streaming tokens)
+    pub fn capture_token_start(&mut self) -> PyResult<()> {
+        self.timers.capture(TimestampKind::TokenStart)
+    }
+
+    /// Capture token end timing (for streaming tokens)
+    pub fn capture_token_end(&mut self) -> PyResult<()> {
+        self.timers.capture(TimestampKind::TokenEnd)
+    }
+
     /// Check if the request was successful (2xx status code)
     pub fn is_success(&self) -> bool {
         match self.status_code {
@@ -146,38 +167,44 @@ impl StreamingRequest {
     }
 
     /// Get the total request duration in nanoseconds
-    pub fn duration_ns(&self) -> Option<u64> {
-        self.end_time_ns.map(|end| end - self.start_time_ns)
+    pub fn duration_ns(&self) -> PyResult<Option<u64>> {
+        self.timers.duration_ns(TimestampKind::RequestStart, TimestampKind::RequestEnd)
     }
 
-    /// Get all chunks as a Python list
-    pub fn get_chunks(&self, py: Python) -> PyResult<PyObject> {
+    /// Get all tokens as a Python list
+    #[pyo3(signature = ())]
+    pub fn get_tokens(&self, py: Python) -> PyResult<PyObject> {
         let py_list = PyList::empty(py);
-        for chunk in &self.chunks {
-            py_list.append(Py::new(py, chunk.clone())?)?;
+        for token in &self.tokens {
+            py_list.append(Py::new(py, token.clone())?)?;
         }
         Ok(py_list.into())
     }
 
     /// Get the full response body as a concatenated string
     pub fn get_response_text(&self) -> String {
-        self.chunks.iter()
-            .map(|chunk| chunk.data.as_str())
+        self.tokens.iter()
+            .map(|token| token.data.as_str())
             .collect::<Vec<_>>()
             .join("")
     }
 
     /// Get response data as bytes (useful for binary content)
     pub fn get_response_bytes(&self) -> Vec<u8> {
-        self.chunks.iter()
-            .flat_map(|chunk| chunk.data.as_bytes())
+        self.tokens.iter()
+            .flat_map(|token| token.data.as_bytes())
             .cloned()
             .collect()
     }
 
-    /// Get a specific chunk by index
-    pub fn get_chunk(&self, index: usize) -> Option<StreamingChunk> {
-        self.chunks.get(index).cloned()
+    /// Get a specific token by index
+    pub fn get_token(&self, index: usize) -> Option<StreamingToken> {
+        self.tokens.get(index).cloned()
+    }
+
+    /// Get timing information for a specific token by index
+    pub fn get_token_timing(&self, token_index: usize) -> PyResult<Option<u64>> {
+        self.timers.token_duration_ns(token_index, token_index)
     }
 
     /// Get the first N characters of the response (useful for debugging)
@@ -201,30 +228,22 @@ impl StreamingRequest {
     }
 
     /// Calculate bytes per second throughput
-    pub fn throughput_bps(&self) -> Option<f64> {
-        self.duration_ns().map(|duration_ns| {
-            if duration_ns > 0 {
-                (self.total_bytes as f64) / (duration_ns as f64 / 1_000_000_000.0)
-            } else {
-                0.0
+    pub fn throughput_bps(&self) -> PyResult<Option<f64>> {
+        match self.duration_ns()? {
+            Some(duration_ns) => {
+                if duration_ns > 0 {
+                    Ok(Some((self.total_bytes as f64) / (duration_ns as f64 / 1_000_000_000.0)))
+                } else {
+                    Ok(Some(0.0))
+                }
             }
-        })
+            None => Ok(None),
+        }
     }
 
-    /// Get chunk timing statistics
-    pub fn chunk_timings(&self) -> Vec<u64> {
-        if self.chunks.is_empty() {
-            return Vec::new();
-        }
-
-        let mut timings = Vec::new();
-        let base_time = self.chunks[0].timestamp_ns;
-
-        for chunk in &self.chunks {
-            timings.push(chunk.timestamp_ns - base_time);
-        }
-
-        timings
+    /// Get token timing statistics from the request timers
+    pub fn token_timings(&self) -> PyResult<Vec<u64>> {
+        self.timers.get_token_durations_ns()
     }
 
     /// Get response headers as a Python dictionary
@@ -238,8 +257,8 @@ impl StreamingRequest {
 
     pub fn __repr__(&self) -> String {
         format!(
-            "StreamingRequest(id={}, url={}, method={}, chunks={}, total_bytes={})",
-            self.request_id, self.url, self.method, self.chunk_count, self.total_bytes
+            "StreamingRequest(id={}, url={}, method={}, tokens={}, total_bytes={})",
+            self.request_id, self.url, self.method, self.token_count, self.total_bytes
         )
     }
 }

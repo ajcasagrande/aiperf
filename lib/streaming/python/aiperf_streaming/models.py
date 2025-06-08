@@ -27,25 +27,24 @@ class HttpMethod(str, Enum):
     HEAD = "HEAD"
 
 
-class StreamingChunkModel(BaseModel):
-    """Pydantic model for streaming chunks with precise timing."""
+class StreamingTokenModel(BaseModel):
+    """Pydantic model for streaming tokens representing SSE data payloads."""
 
-    timestamp_ns: int = Field(..., description="Timestamp in nanoseconds since epoch")
-    data: str = Field(..., description="Chunk data content")
-    size_bytes: int = Field(..., description="Size of chunk in bytes")
-    chunk_index: int = Field(..., description="Index of this chunk in the stream")
-
-    @computed_field
-    @property
-    def timestamp_dt(self) -> datetime:
-        """Convert timestamp to datetime object."""
-        return datetime.fromtimestamp(self.timestamp_ns / 1e9, tz=timezone.utc)
+    data: str = Field(..., description="Token data content from SSE payload")
+    size_bytes: int = Field(..., description="Size of token in bytes")
+    token_index: int = Field(..., description="Index of this token in the stream")
 
     @computed_field
     @property
     def size_kb(self) -> float:
         """Size in kilobytes."""
         return self.size_bytes / 1024.0
+
+    @computed_field
+    @property
+    def data_preview(self) -> str:
+        """Preview of token data (first 50 characters)."""
+        return self.data[:50] + ("..." if len(self.data) > 50 else "")
 
     class Config:
         frozen = True
@@ -61,11 +60,11 @@ class StreamingRequestModel(BaseModel):
     body: str | None = Field(None, description="Request body")
     start_time_ns: int = Field(..., description="Request start time in nanoseconds")
     end_time_ns: int | None = Field(None, description="Request end time in nanoseconds")
-    chunks: list[StreamingChunkModel] = Field(
-        default_factory=list, description="Response chunks"
+    tokens: list[StreamingTokenModel] = Field(
+        default_factory=list, description="Response tokens"
     )
     total_bytes: int = Field(0, description="Total bytes received")
-    chunk_count: int = Field(0, description="Number of chunks received")
+    token_count: int = Field(0, description="Number of tokens received")
     timeout_ms: int | None = Field(None, description="Request timeout in milliseconds")
 
     @computed_field
@@ -120,7 +119,7 @@ class StreamingStatsModel(BaseModel):
 
     total_requests: int = Field(0, description="Total number of requests")
     total_bytes: int = Field(0, description="Total bytes transferred")
-    avg_chunk_size: float = Field(0.0, description="Average chunk size")
+    avg_token_size: float = Field(0.0, description="Average token size")
     avg_throughput_bps: float = Field(
         0.0, description="Average throughput in bytes/sec"
     )
@@ -152,29 +151,34 @@ class TimingAnalysis(BaseModel):
 
     @computed_field
     @property
-    def chunk_timing_stats(self) -> dict[str, Any]:
-        """Statistics about chunk timings."""
-        all_chunk_timings = []
-        for req in self.requests:
-            if len(req.chunks) > 1:
-                base_time = req.chunks[0].timestamp_ns
-                timings = [chunk.timestamp_ns - base_time for chunk in req.chunks[1:]]
-                all_chunk_timings.extend(timings)
+    def token_stats(self) -> dict[str, Any]:
+        """Statistics about streaming tokens."""
+        all_token_sizes = []
+        all_token_counts = []
 
-        if not all_chunk_timings:
-            return {}
+        for req in self.requests:
+            all_token_counts.append(req.token_count)
+            for token in req.tokens:
+                all_token_sizes.append(token.size_bytes)
+
+        if not all_token_sizes:
+            return {"token_count": 0, "total_requests": len(self.requests)}
 
         return {
-            "count": len(all_chunk_timings),
-            "mean_ns": statistics.mean(all_chunk_timings),
-            "median_ns": statistics.median(all_chunk_timings),
-            "min_ns": min(all_chunk_timings),
-            "max_ns": max(all_chunk_timings),
-            "stdev_ns": statistics.stdev(all_chunk_timings)
-            if len(all_chunk_timings) > 1
+            "token_count": len(all_token_sizes),
+            "total_requests": len(self.requests),
+            "avg_tokens_per_request": statistics.mean(all_token_counts)
+            if all_token_counts
             else 0,
-            "p95_ns": self._percentile(all_chunk_timings, 95),
-            "p99_ns": self._percentile(all_chunk_timings, 99),
+            "min_tokens_per_request": min(all_token_counts) if all_token_counts else 0,
+            "max_tokens_per_request": max(all_token_counts) if all_token_counts else 0,
+            "mean_token_size": statistics.mean(all_token_sizes),
+            "median_token_size": statistics.median(all_token_sizes),
+            "min_token_size": min(all_token_sizes),
+            "max_token_size": max(all_token_sizes),
+            "stdev_token_size": statistics.stdev(all_token_sizes)
+            if len(all_token_sizes) > 1
+            else 0,
         }
 
     @computed_field
