@@ -3,7 +3,6 @@
 
 import json
 import logging
-import time
 from typing import Any
 
 # Import the high-performance Rust streaming library
@@ -206,7 +205,7 @@ class OpenAIBackendClientRustStreaming(OpenAIClientMixin, OpenAIBackendClientPro
 
         This method provides:
         - Pure Rust nanosecond precision timing using only RequestTimers
-        - StreamingToken processing with SSE data payloads
+        - StreamingTokenChunk processing with SSE data payloads
         - Token-level timing managed entirely by Rust
         - Zero Python timestamp overhead
         """
@@ -274,32 +273,16 @@ class OpenAIBackendClientRustStreaming(OpenAIClientMixin, OpenAIBackendClientPro
                 streaming_request
             )
 
-            # Get the Rust request start timestamp (relative to Rust base_time)
-            rust_request_start_ns = timers.timestamp_ns(TimestampKind.RequestStart, 0)
-            if rust_request_start_ns is None:
+            # Use Rust timestamps directly as relative nanoseconds from request_start (treated as 0)
+            rust_recv_start_ns = timers.timestamp_ns(TimestampKind.RecvStart, 0)
+            if rust_recv_start_ns is None:
                 raise RuntimeError(
-                    "Rust RequestTimers failed to capture RequestStart timestamp"
+                    "Rust RequestTimers failed to capture RecvStart timestamp"
                 )
 
-            # Convert Rust relative timestamps to absolute timestamps
-            # We need to calculate the absolute start time based on the current system time
-            # and the elapsed time since the Rust request started
-            current_time_ns = time.perf_counter_ns()
-            rust_request_end_ns = timers.timestamp_ns(TimestampKind.RequestEnd, 0)
-
-            if rust_request_end_ns is not None:
-                # Calculate elapsed time in Rust
-                rust_elapsed_ns = rust_request_end_ns - rust_request_start_ns
-                # Calculate absolute start time
-                absolute_start_ns = current_time_ns - rust_elapsed_ns
-            else:
-                # Fallback: estimate based on current time minus some small offset
-                absolute_start_ns = (
-                    current_time_ns - 100_000_000
-                )  # 100ms ago as fallback
-
+            # Set request_start as the baseline (0) for all relative timestamps
             record: RequestRecord[Any] = RequestRecord(
-                start_perf_counter_ns=absolute_start_ns,
+                start_perf_counter_ns=rust_recv_start_ns,  # rust_recv_start_ns is our time 0 baseline for tokens
             )
 
             # Statistics are tracked internally by the Rust client
@@ -310,8 +293,7 @@ class OpenAIBackendClientRustStreaming(OpenAIClientMixin, OpenAIBackendClientPro
                 completed_request.token_count,
             )
 
-            # Collect all tokens with their timing first, then sort by timing
-            token_data_list = []
+            # Collect all tokens with their timings
             for i in range(completed_request.token_count):
                 try:
                     # Get token from Rust
@@ -320,101 +302,40 @@ class OpenAIBackendClientRustStreaming(OpenAIClientMixin, OpenAIBackendClientPro
                         continue
 
                     # Get token timing from Rust RequestTimers (relative timestamp)
-                    rust_token_timing_ns = completed_request.get_token_timing(i)
+                    rust_token_timing_ns = timers.timestamp_ns(
+                        TimestampKind.TokenStart, i
+                    )
                     if rust_token_timing_ns is None:
                         logger.warning(f"Missing Rust timing for token {i}")
                         continue
 
-                    # Convert relative token timestamp to absolute timestamp
-                    # Token timing is relative to the Rust base_time, so we add it to our absolute start
-                    token_offset_ns = rust_token_timing_ns - rust_request_start_ns
-                    absolute_token_timestamp_ns = absolute_start_ns + token_offset_ns
-
-                    token_data_list.append(
-                        {
-                            "token": token,
-                            "rust_timing": rust_token_timing_ns,
-                            "absolute_timestamp": absolute_token_timestamp_ns,
-                            "index": i,
-                        }
+                    record.responses.append(
+                        BackendClientResponse[str](
+                            timestamp_ns=rust_token_timing_ns,
+                            response=token.data.rstrip("\n"),
+                        )
                     )
 
                 except Exception as e:
                     logger.warning(f"Error collecting token {i}: {e}")
                     continue
 
-            # Sort tokens by their absolute timestamp to ensure chronological order
-            token_data_list.sort(key=lambda x: x["absolute_timestamp"])
-
-            # Process tokens in chronological order
-            for token_data in token_data_list:
-                try:
-                    token = token_data["token"]
-                    absolute_token_timestamp_ns = token_data["absolute_timestamp"]
-
-                    # Parse SSE data format
-                    token_data_str = token.data.strip()
-
-                    if not token_data_str:
-                        continue
-
-                    # Handle SSE format
-                    if token_data_str.startswith("data: "):
-                        sse_data = token_data_str[6:]  # Remove "data: " prefix
-
-                        # Check for stream end
-                        if sse_data == "[DONE]":
-                            break
-
-                        # Skip empty chunks
-                        if not sse_data.strip():
-                            continue
-
-                        try:
-                            # Use converted absolute timestamp from Rust timing (now chronologically sorted)
-                            record.responses.append(
-                                BackendClientResponse[str](
-                                    timestamp_ns=absolute_token_timestamp_ns,  # Converted to absolute, chronologically sorted
-                                    response=sse_data,  # Raw JSON string from SSE
-                                )
-                            )
-                        except Exception as e:
-                            # Handle any response processing errors with absolute timing
-                            record.responses.append(
-                                BackendClientErrorResponse(
-                                    timestamp_ns=absolute_token_timestamp_ns,  # Converted to absolute, chronologically sorted
-                                    error=str(e),
-                                )
-                            )
-                            continue
-
-                    elif "error" in token_data_str.lower():
-                        record.responses.append(
-                            BackendClientErrorResponse(
-                                timestamp_ns=absolute_token_timestamp_ns,  # Converted to absolute, chronologically sorted
-                                error=token_data_str,
-                            )
-                        )
-
-                except Exception as e:
-                    logger.warning(f"Error processing token {token_data['index']}: {e}")
-                    continue
-
+            # logger.warning(f"Record: {record}")
             # Log comprehensive performance metrics using pure Rust RequestTimers
-            self._log_performance_metrics_with_rust_timers(
-                completed_request, timers, record
-            )
+            # self._log_performance_metrics_with_rust_timers(
+            #     completed_request, timers, record
+            # )
 
             return record
 
         except Exception as e:
             logger.error("Error in Rust streaming request: %s", str(e))
 
-            # Create minimal error record without any Python timestamps
+            # Create minimal error record with relative timestamp (0 = request start)
             record = RequestRecord(start_perf_counter_ns=0)
             record.responses.append(
                 BackendClientErrorResponse(
-                    timestamp_ns=0,
+                    timestamp_ns=0,  # Relative to request start
                     error=str(e),
                 )
             )
@@ -439,11 +360,9 @@ class OpenAIBackendClientRustStreaming(OpenAIClientMixin, OpenAIBackendClientPro
             # Get token timing statistics from Rust
             token_starts_count = timers.token_starts_count()
             token_ends_count = timers.token_ends_count()
-            token_durations_ns = []
-            try:
-                token_durations_ns = timers.get_token_durations_ns()
-            except Exception:
-                pass  # Token durations may not be available
+            token_durations_ns = timers.get_token_durations_ns()
+            if token_durations_ns is None:
+                token_durations_ns = []
 
             # Time to First Token (TTFT) - pure Rust calculation
             ttft_ns = None
@@ -483,15 +402,15 @@ class OpenAIBackendClientRustStreaming(OpenAIClientMixin, OpenAIBackendClientPro
             )
 
             logger.warning(
-                "🚀 Pure Rust Performance Metrics (Converted to Absolute Timestamps):\n"
+                "🚀 Pure Rust Performance Metrics (Relative Timestamps from Request Start):\n"
                 "   • Total Duration: %s ms (Rust RequestTimers)\n"
                 "   • Send Duration: %s ms (Rust RequestTimers)\n"
                 "   • Receive Duration: %s ms (Rust RequestTimers)\n"
                 "   • Time to First Token (TTFT): %s ms (Rust calculated)\n"
                 "   • Time to Second Token (TTST): %s ms (Rust calculated)\n"
-                "   • RequestRecord TTFT: %s ms (from absolute timestamps)\n"
-                "   • RequestRecord TTST: %s ms (from absolute timestamps)\n"
-                "   • Tokens Received: %d (StreamingTokens)\n"
+                "   • RequestRecord TTFT: %s ms (from relative timestamps)\n"
+                "   • RequestRecord TTST: %s ms (from relative timestamps)\n"
+                "   • Tokens Received: %d (StreamingTokenChunks)\n"
                 "   • Total Bytes: %d\n"
                 "   • Throughput: %.2f MB/s (Rust calculated)\n"
                 "   • Request ID: %s\n"
@@ -568,14 +487,14 @@ class OpenAIBackendClientRustStreaming(OpenAIClientMixin, OpenAIBackendClientPro
                     rust_ttst_ns = second_token_ns - first_token_ns
 
             logger.warning(
-                "🔬 Pure Rust Timing Accuracy (NO Python timing):\n"
+                "🔬 Pure Rust Timing Accuracy (Relative Timestamps):\n"
                 "   • TTFT - RequestRecord: %s ms\n"
                 "   • TTFT - Pure Rust: %s ms\n"
                 "   • TTST - RequestRecord: %s ms\n"
                 "   • TTST - Pure Rust: %s ms\n"
-                "   • Timing Source: 100%% Rust RequestTimers + StreamingTokens\n"
+                "   • Timing Source: 100%% Rust RequestTimers + StreamingTokenChunks\n"
                 "   • Measurement Precision: Nanosecond level (Rust native)\n"
-                "   • Python Overhead: ZERO - No Python timestamps used",
+                "   • Timestamp Base: Request Start = 0ns (relative timing)",
                 record_ttft_ns / 1e6 if record_ttft_ns else "N/A",
                 rust_ttft_ns / 1e6 if rust_ttft_ns else "N/A",
                 record_ttst_ns / 1e6 if record_ttst_ns else "N/A",
@@ -588,10 +507,10 @@ class OpenAIBackendClientRustStreaming(OpenAIClientMixin, OpenAIBackendClientPro
     async def send_completion_request(
         self, payload: OpenAICompletionRequest
     ) -> RequestRecord[Any]:
-        """Send completion request with pure Rust timing - NO Python timestamps."""
-        # Create minimal record - Rust will provide all timing
+        """Send completion request with relative timing (request start = 0)."""
+        # Create minimal record with relative timing (request start = 0)
         record: RequestRecord[Any] = RequestRecord(
-            start_perf_counter_ns=0,  # Will be set by Rust timing
+            start_perf_counter_ns=0,  # Request start baseline
         )
 
         response = await self.client.completions.create(
@@ -600,10 +519,10 @@ class OpenAIBackendClientRustStreaming(OpenAIClientMixin, OpenAIBackendClientPro
             max_tokens=self.client_config.max_tokens,
         )
 
-        # Use minimal timestamp - ideally this would also come from Rust
+        # Use relative timestamp (0 = request start)
         record.responses.append(
             BackendClientResponse(
-                timestamp_ns=0,  # Rust timing not available for this endpoint
+                timestamp_ns=0,  # Relative to request start
                 response=response,
             )
         )
@@ -613,10 +532,10 @@ class OpenAIBackendClientRustStreaming(OpenAIClientMixin, OpenAIBackendClientPro
     async def send_embeddings_request(
         self, payload: OpenAIEmbeddingsRequest
     ) -> RequestRecord[Any]:
-        """Send embeddings request with pure Rust timing - NO Python timestamps."""
-        # Create minimal record - Rust will provide all timing
+        """Send embeddings request with relative timing (request start = 0)."""
+        # Create minimal record with relative timing (request start = 0)
         record: RequestRecord[Any] = RequestRecord(
-            start_perf_counter_ns=0,  # Will be set by Rust timing
+            start_perf_counter_ns=0,  # Request start baseline
         )
 
         response = await self.client.embeddings.create(
@@ -626,10 +545,10 @@ class OpenAIBackendClientRustStreaming(OpenAIClientMixin, OpenAIBackendClientPro
             user=payload.user,
         )
 
-        # Use minimal timestamp - ideally this would also come from Rust
+        # Use relative timestamp (0 = request start)
         record.responses.append(
             BackendClientResponse(
-                timestamp_ns=0,  # Rust timing not available for this endpoint
+                timestamp_ns=0,  # Relative to request start
                 response=response,
             )
         )
@@ -639,10 +558,10 @@ class OpenAIBackendClientRustStreaming(OpenAIClientMixin, OpenAIBackendClientPro
     async def send_chat_responses_request(
         self, payload: OpenAIChatResponsesRequest
     ) -> RequestRecord[Any]:
-        """Send chat responses request with pure Rust timing - NO Python timestamps."""
-        # Create minimal record - Rust will provide all timing
+        """Send chat responses request with relative timing (request start = 0)."""
+        # Create minimal record with relative timing (request start = 0)
         record: RequestRecord[Any] = RequestRecord(
-            start_perf_counter_ns=0,  # Will be set by Rust timing
+            start_perf_counter_ns=0,  # Request start baseline
         )
 
         async for response in await self.client.responses.create(
@@ -650,10 +569,10 @@ class OpenAIBackendClientRustStreaming(OpenAIClientMixin, OpenAIBackendClientPro
             model=self.client_config.model,
             stream=True,
         ):
-            # Use minimal timestamp - ideally this would also come from Rust
+            # Use relative timestamp (0 = request start)
             record.responses.append(
                 BackendClientResponse(
-                    timestamp_ns=0,  # Rust timing not available for this endpoint
+                    timestamp_ns=0,  # Relative to request start
                     response=response,
                 )
             )
@@ -685,14 +604,14 @@ class OpenAIBackendClientRustStreaming(OpenAIClientMixin, OpenAIBackendClientPro
                 )
                 / (1024 * 1024),
                 "performance_config": self.perf_config.model_dump(),
-                "timing_source": "100% Rust RequestTimers - NO Python timestamps",
+                "timing_source": "100% Rust RequestTimers with relative timestamps",
                 "rust_native_precision": "nanosecond level",
             }
         except Exception as e:
             logger.warning("Failed to get performance statistics: %s", str(e))
             return {
                 "error": str(e),
-                "timing_source": "100% Rust RequestTimers - NO Python timestamps",
+                "timing_source": "100% Rust RequestTimers with relative timestamps",
             }
 
     def get_advanced_timing_analysis(
@@ -706,7 +625,7 @@ class OpenAIBackendClientRustStreaming(OpenAIClientMixin, OpenAIBackendClientPro
                 "request_duration_stats": analysis.request_duration_stats,
                 "throughput_stats": analysis.throughput_stats,
                 "chunk_timing_stats": analysis.chunk_timing_stats,  # Now token timing stats
-                "timing_source": "100% Rust RequestTimers + StreamingTokens",
+                "timing_source": "100% Rust RequestTimers + StreamingTokenChunks",
                 "python_timing_overhead": "ZERO - Pure Rust implementation",
             }
         except Exception as e:

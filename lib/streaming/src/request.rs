@@ -5,10 +5,10 @@ use std::collections::HashMap;
 use uuid::Uuid;
 use crate::timers::{RequestTimers, TimestampKind};
 
-/// A single token from SSE streaming response data
+/// A single token chunk from SSE streaming response data
 #[pyclass]
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StreamingToken {
+pub struct StreamingTokenChunk {
     #[pyo3(get)]
     pub data: String,
     #[pyo3(get)]
@@ -18,7 +18,7 @@ pub struct StreamingToken {
 }
 
 #[pymethods]
-impl StreamingToken {
+impl StreamingTokenChunk {
     #[new]
     pub fn new(data: String, token_index: usize) -> Self {
         let size_bytes = data.len();
@@ -31,7 +31,7 @@ impl StreamingToken {
 
     pub fn __repr__(&self) -> String {
         format!(
-            "StreamingToken(token_index={}, size_bytes={}, data_preview=\"{}...\")",
+            "StreamingTokenChunk(token_index={}, size_bytes={}, data_preview=\"{}...\")",
             self.token_index,
             self.size_bytes,
             if self.data.len() > 50 { &self.data[..50] } else { &self.data }
@@ -53,7 +53,7 @@ pub struct StreamingRequest {
     pub body: Option<String>,
     #[pyo3(get)]
     pub timers: RequestTimers,
-    pub tokens: Vec<StreamingToken>,
+    pub tokens: Vec<StreamingTokenChunk>,
     #[pyo3(get)]
     pub total_bytes: usize,
     #[pyo3(get)]
@@ -102,7 +102,7 @@ impl StreamingRequest {
     }
 
     /// Add a token to the request
-    pub fn add_token(&mut self, token: StreamingToken) {
+    pub fn add_token(&mut self, token: StreamingTokenChunk) {
         self.total_bytes += token.size_bytes;
         self.token_count += 1;
         self.tokens.push(token);
@@ -167,7 +167,7 @@ impl StreamingRequest {
     }
 
     /// Get the total request duration in nanoseconds
-    pub fn duration_ns(&self) -> PyResult<Option<u64>> {
+    pub fn duration_ns(&self) -> PyResult<Option<u128>> {
         self.timers.duration_ns(TimestampKind::RequestStart, TimestampKind::RequestEnd)
     }
 
@@ -198,12 +198,12 @@ impl StreamingRequest {
     }
 
     /// Get a specific token by index
-    pub fn get_token(&self, index: usize) -> Option<StreamingToken> {
+    pub fn get_token(&self, index: usize) -> Option<StreamingTokenChunk> {
         self.tokens.get(index).cloned()
     }
 
     /// Get timing information for a specific token by index
-    pub fn get_token_timing(&self, token_index: usize) -> PyResult<Option<u64>> {
+    pub fn get_token_timing(&self, token_index: usize) -> PyResult<Option<u128>> {
         self.timers.token_duration_ns(token_index, token_index)
     }
 
@@ -242,7 +242,7 @@ impl StreamingRequest {
     }
 
     /// Get token timing statistics from the request timers
-    pub fn token_timings(&self) -> PyResult<Vec<u64>> {
+    pub fn token_timings(&self) -> PyResult<Vec<u128>> {
         self.timers.get_token_durations_ns()
     }
 

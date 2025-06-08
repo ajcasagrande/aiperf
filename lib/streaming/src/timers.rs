@@ -4,7 +4,7 @@ use std::time::Instant;
 
 /// Timestamp kinds for request timing
 #[pyclass]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum TimestampKind {
     /// The start of request handling
     RequestStart,
@@ -49,11 +49,11 @@ impl TimestampKind {
 #[derive(Debug, Clone)]
 pub struct RequestTimers {
     /// HashMap storing all non-token timestamps
-    timestamps: HashMap<TimestampKind, Instant>,
+    timestamps: HashMap<TimestampKind, u128>,
     /// Vector storing all token start timestamps
-    token_starts: Vec<Instant>,
+    token_starts: Vec<u128>,
     /// Vector storing all token end timestamps
-    token_ends: Vec<Instant>,
+    token_ends: Vec<u128>,
     /// Base time for converting to nanoseconds
     base_time: Instant,
 }
@@ -76,10 +76,14 @@ impl RequestTimers {
         let now = Instant::now();
 
         match kind {
-            TimestampKind::TokenStart => self.token_starts.push(now),
-            TimestampKind::TokenEnd => self.token_ends.push(now),
+            TimestampKind::TokenStart => self.token_starts.push(now.duration_since(self.base_time).as_nanos()),
+            TimestampKind::TokenEnd => self.token_ends.push(now.duration_since(self.base_time).as_nanos()),
+            TimestampKind::RequestStart => {
+                self.base_time = now;
+                self.timestamps.insert(kind, 0);
+            }
             _ => {
-                self.timestamps.insert(kind, now);
+                self.timestamps.insert(kind, now.duration_since(self.base_time).as_nanos());
             }
         }
 
@@ -87,14 +91,14 @@ impl RequestTimers {
     }
 
     /// Get duration in nanoseconds between two timestamp kinds
-    pub fn duration_ns(&self, from_kind: TimestampKind, to_kind: TimestampKind) -> PyResult<Option<u64>> {
-        let from_time = self.get_timestamp(from_kind, None)?;
-        let to_time = self.get_timestamp(to_kind, None)?;
+    pub fn duration_ns(&self, from_kind: TimestampKind, to_kind: TimestampKind) -> PyResult<Option<u128>> {
+        let from_time = self.get_timestamp(from_kind, None);
+        let to_time = self.get_timestamp(to_kind, None);
 
         match (from_time, to_time) {
             (Some(from), Some(to)) => {
                 if to >= from {
-                    Ok(Some(to.duration_since(from).as_nanos() as u64))
+                    Ok(Some(to - from))
                 } else {
                     Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
                         "End time is before start time"
@@ -106,14 +110,14 @@ impl RequestTimers {
     }
 
     /// Get duration in nanoseconds between specific token indices
-    pub fn token_duration_ns(&self, from_token_idx: usize, to_token_idx: usize) -> PyResult<Option<u64>> {
+    pub fn token_duration_ns(&self, from_token_idx: usize, to_token_idx: usize) -> PyResult<Option<u128>> {
         let from_time = self.token_starts.get(from_token_idx);
         let to_time = self.token_ends.get(to_token_idx);
 
         match (from_time, to_time) {
             (Some(from), Some(to)) => {
                 if to >= from {
-                    Ok(Some((*to).duration_since(*from).as_nanos() as u64))
+                    Ok(Some(*to - *from))
                 } else {
                     Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
                         "Token end time is before start time"
@@ -125,11 +129,8 @@ impl RequestTimers {
     }
 
     /// Get timestamp in nanoseconds since base time for a specific kind
-    pub fn timestamp_ns(&self, kind: TimestampKind, index: Option<usize>) -> PyResult<Option<u64>> {
-        match self.get_timestamp(kind, index)? {
-            Some(instant) => Ok(Some(instant.duration_since(self.base_time).as_nanos() as u64)),
-            None => Ok(None),
-        }
+    pub fn timestamp_ns(&self, kind: TimestampKind, index: Option<usize>) -> Option<u128> {
+        self.get_timestamp(kind, index)
     }
 
     /// Get the number of token start timestamps
@@ -143,23 +144,23 @@ impl RequestTimers {
     }
 
     /// Get all token start timestamps as nanoseconds since base time
-    pub fn get_token_start_timestamps_ns(&self) -> Vec<u64> {
+    pub fn get_token_start_timestamps_ns(&self) -> Vec<u128> {
         self.token_starts
             .iter()
-            .map(|instant| instant.duration_since(self.base_time).as_nanos() as u64)
+            .map(|instant| *instant)
             .collect()
     }
 
     /// Get all token end timestamps as nanoseconds since base time
-    pub fn get_token_end_timestamps_ns(&self) -> Vec<u64> {
+    pub fn get_token_end_timestamps_ns(&self) -> Vec<u128> {
         self.token_ends
             .iter()
-            .map(|instant| instant.duration_since(self.base_time).as_nanos() as u64)
+            .map(|instant| *instant)
             .collect()
     }
 
     /// Get all individual token durations in nanoseconds
-    pub fn get_token_durations_ns(&self) -> PyResult<Vec<u64>> {
+    pub fn get_token_durations_ns(&self) -> PyResult<Vec<u128>> {
         let mut durations = Vec::new();
         let min_len = std::cmp::min(self.token_starts.len(), self.token_ends.len());
 
@@ -168,7 +169,7 @@ impl RequestTimers {
             let end = self.token_ends[i];
 
             if end >= start {
-                durations.push(end.duration_since(start).as_nanos() as u64);
+                durations.push(end - start);
             } else {
                 return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
                     format!("Token {} end time is before start time", i)
@@ -208,17 +209,17 @@ impl RequestTimers {
 
 impl RequestTimers {
     /// Helper method to get timestamp for a specific kind and optional index
-    fn get_timestamp(&self, kind: TimestampKind, index: Option<usize>) -> PyResult<Option<Instant>> {
+    fn get_timestamp(&self, kind: TimestampKind, index: Option<usize>) -> Option<u128> {
         match kind {
             TimestampKind::TokenStart => {
                 let idx = index.unwrap_or(0);
-                Ok(self.token_starts.get(idx).copied())
+                self.token_starts.get(idx).cloned()
             }
             TimestampKind::TokenEnd => {
                 let idx = index.unwrap_or(0);
-                Ok(self.token_ends.get(idx).copied())
+                self.token_ends.get(idx).cloned()
             }
-            _ => Ok(self.timestamps.get(&kind).copied()),
+            _ => self.timestamps.get(&kind).cloned(),
         }
     }
 }

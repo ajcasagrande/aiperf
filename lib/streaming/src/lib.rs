@@ -7,7 +7,7 @@ mod timers;
 mod errors;
 
 use client::{StreamingHttpClient, StreamingStats};
-use request::{StreamingRequest, StreamingToken};
+use request::{StreamingRequest, StreamingTokenChunk};
 use timer::PrecisionTimer;
 use timers::{RequestTimers, TimestampKind};
 
@@ -16,7 +16,7 @@ use timers::{RequestTimers, TimestampKind};
 fn aiperf_streaming(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<StreamingHttpClient>()?;
     m.add_class::<StreamingRequest>()?;
-    m.add_class::<StreamingToken>()?;
+    m.add_class::<StreamingTokenChunk>()?;
     m.add_class::<StreamingStats>()?;
     m.add_class::<PrecisionTimer>()?;
     m.add_class::<RequestTimers>()?;

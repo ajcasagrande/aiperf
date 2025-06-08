@@ -41,7 +41,7 @@ class TimingManager(BaseComponentService):
         self._credit_lock = asyncio.Lock()
 
         self._total_credits = 20
-        self._credits_available = 1
+        self._credits_available = 20
 
         self._sent_credits = 0
         self._completed_credits = 0
@@ -151,7 +151,7 @@ class TimingManager(BaseComponentService):
                     ),
                 )
                 self._sent_credits += 1
-
+                # await asyncio.sleep(0.001)
                 if self._sent_credits >= self._total_credits:
                     self.logger.debug("All credits sent, stopping credit drop task")
                     break

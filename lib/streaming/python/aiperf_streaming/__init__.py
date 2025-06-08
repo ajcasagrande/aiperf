@@ -13,26 +13,26 @@ from .aiperf_streaming import (
     StreamingHttpClient,
     StreamingRequest,
     StreamingStats,
-    StreamingToken,
+    StreamingTokenChunk,
     TimestampKind,
 )
 from .models import (
     StreamingRequestModel,
     StreamingStatsModel,
-    StreamingTokenModel,
+    StreamingTokenChunkModel,
     TimingAnalysis,
 )
 
 __all__ = [
     "StreamingHttpClient",
     "StreamingRequest",
-    "StreamingToken",
+    "StreamingTokenChunk",
     "StreamingStats",
     "PrecisionTimer",
     "RequestTimers",
     "TimestampKind",
     "StreamingRequestModel",
-    "StreamingTokenModel",
+    "StreamingTokenChunkModel",
     "StreamingStatsModel",
     "TimingAnalysis",
 ]

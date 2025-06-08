@@ -27,7 +27,7 @@ class HttpMethod(str, Enum):
     HEAD = "HEAD"
 
 
-class StreamingTokenModel(BaseModel):
+class StreamingTokenChunkModel(BaseModel):
     """Pydantic model for streaming tokens representing SSE data payloads."""
 
     data: str = Field(..., description="Token data content from SSE payload")
@@ -60,7 +60,7 @@ class StreamingRequestModel(BaseModel):
     body: str | None = Field(None, description="Request body")
     start_time_ns: int = Field(..., description="Request start time in nanoseconds")
     end_time_ns: int | None = Field(None, description="Request end time in nanoseconds")
-    tokens: list[StreamingTokenModel] = Field(
+    tokens: list[StreamingTokenChunkModel] = Field(
         default_factory=list, description="Response tokens"
     )
     total_bytes: int = Field(0, description="Total bytes received")

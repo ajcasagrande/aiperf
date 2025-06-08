@@ -176,7 +176,7 @@ class RequestRecord(BaseRequestRecord, Generic[ResponseT]):
             bool: True if the record is valid, False otherwise.
         """
         return not self.has_error and (
-            0 < self.start_perf_counter_ns < sys.maxsize
+            0 <= self.start_perf_counter_ns < sys.maxsize
             and len(self.responses) > 0
             and all(
                 0 < response.timestamp_ns < sys.maxsize for response in self.responses

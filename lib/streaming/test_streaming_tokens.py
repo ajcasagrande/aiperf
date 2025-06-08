@@ -2,21 +2,21 @@
 #  SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #  SPDX-License-Identifier: Apache-2.0
 """
-Test the new StreamingToken functionality that represents SSE data payloads.
+Test the new StreamingTokenChunk functionality that represents SSE data payloads.
 """
 
 from aiperf_streaming import (
     StreamingHttpClient,
     StreamingRequest,
-    StreamingToken,
+    StreamingTokenChunk,
     TimestampKind,
 )
 
 
 def test_streaming_tokens():
-    """Test the new StreamingToken functionality."""
+    """Test the new StreamingTokenChunk functionality."""
 
-    print("🔄 Testing StreamingTokens - SSE Data Payloads")
+    print("🔄 Testing StreamingTokenChunks - SSE Data Payloads")
     print("=" * 60)
 
     # Create HTTP client
@@ -64,15 +64,15 @@ def test_streaming_tokens():
 
 
 def test_manual_token_creation():
-    """Test manual StreamingToken creation."""
+    """Test manual StreamingTokenChunk creation."""
 
-    print("\n🔧 Testing Manual StreamingToken Creation")
+    print("\n🔧 Testing Manual StreamingTokenChunk Creation")
     print("-" * 40)
 
     # Create manual tokens
-    token1 = StreamingToken('data: {"message": "hello"}', 0)
-    token2 = StreamingToken('data: {"message": "world"}', 1)
-    token3 = StreamingToken('data: {"status": "complete"}', 2)
+    token1 = StreamingTokenChunk('data: {"message": "hello"}', 0)
+    token2 = StreamingTokenChunk('data: {"message": "world"}', 1)
+    token3 = StreamingTokenChunk('data: {"status": "complete"}', 2)
 
     tokens = [token1, token2, token3]
 
@@ -89,7 +89,7 @@ def test_manual_token_creation():
 
     # Test token data access
     print("\n📝 Token Data:")
-    for i, token in enumerate(tokens):
+    for _, token in enumerate(tokens):
         print(f"  Token {token.token_index}: {token.size_bytes} bytes")
         print(f"    Data preview: {token.data[:30]}...")
 
@@ -97,9 +97,9 @@ def test_manual_token_creation():
 
 
 def analyze_streaming_tokens(request, timers):
-    """Analyze StreamingTokens and their relationship to RequestTimers."""
+    """Analyze StreamingTokenChunks and their relationship to RequestTimers."""
 
-    print("\n📊 StreamingToken Analysis")
+    print("\n📊 StreamingTokenChunk Analysis")
     print("=" * 50)
 
     # Request summary
@@ -202,9 +202,9 @@ def analyze_streaming_tokens(request, timers):
 def main():
     """Main test function."""
 
-    print("🚀 Testing StreamingTokens - SSE Data Payload Concept")
+    print("🚀 Testing StreamingTokenChunks - SSE Data Payload Concept")
     print("=" * 60)
-    print("StreamingTokens now represent SSE data payloads")
+    print("StreamingTokenChunks now represent SSE data payloads")
     print("Timing is handled through RequestTimers with token indices")
     print("No more timestamp_ns stored in tokens directly")
     print("=" * 60)
@@ -217,7 +217,7 @@ def main():
 
     print("\n" + "=" * 60)
     if all([success1, success2]):
-        print("🎉 All StreamingToken tests passed!")
+        print("🎉 All StreamingTokenChunk tests passed!")
         print("✨ Tokens now represent SSE data payloads!")
         print("🔗 Timing handled through RequestTimers indices!")
         print("🚫 No more embedded timestamps in tokens!")

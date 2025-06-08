@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio_stream::StreamExt;
 
-use crate::request::{StreamingRequest, StreamingToken};
+use crate::request::{StreamingRequest, StreamingTokenChunk};
 use crate::errors::StreamingError;
 use crate::timer::PrecisionTimer;
 use crate::timers::{RequestTimers, TimestampKind};
@@ -374,7 +374,7 @@ impl StreamingHttpClient {
             request.capture_token_start().map_err(|e| StreamingError::InvalidRequest(format!("Failed to capture token start: {}", e)))?;
 
             // Create streaming token from SSE data payload
-            let token = StreamingToken::new(
+            let token = StreamingTokenChunk::new(
                 String::from_utf8_lossy(&token_data).to_string(),
                 token_index,
             );
@@ -405,7 +405,7 @@ pub struct StreamingStats {
     pub avg_throughput_bps: f64,
     #[pyo3(get)]
     pub timing_summary: RequestTimers,
-    total_duration_ns: u64,
+    total_duration_ns: u128,
 }
 
 #[pymethods]
@@ -418,7 +418,7 @@ impl StreamingStats {
             avg_chunk_size: 0.0,
             avg_throughput_bps: 0.0,
             timing_summary: RequestTimers::new(),
-            total_duration_ns: 0,
+            total_duration_ns: 0u128,
         }
     }
 

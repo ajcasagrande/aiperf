@@ -145,7 +145,7 @@ async def test_rust_streaming_client():
 async def test_streaming_token_integration():
     """Test the integration with streaming tokens specifically."""
 
-    print("\n🔤 Testing StreamingToken Integration")
+    print("\n🔤 Testing StreamingTokenChunk Integration")
     print("=" * 50)
 
     try:
@@ -227,10 +227,10 @@ async def test_streaming_token_integration():
                 f"   ⚠️  Token-timer mismatch: tokens={completed_request.token_count}, starts={timers.token_starts_count()}, ends={timers.token_ends_count()}"
             )
 
-        print("✅ StreamingToken integration test completed successfully!")
+        print("✅ StreamingTokenChunk integration test completed successfully!")
 
     except Exception as e:
-        print(f"❌ StreamingToken integration test failed: {e}")
+        print(f"❌ StreamingTokenChunk integration test failed: {e}")
         import traceback
 
         traceback.print_exc()
@@ -246,7 +246,7 @@ async def main():
     print("=" * 80)
     print("This verifies the fixes for:")
     print("• Pure Rust timing (no Python timestamps)")
-    print("• StreamingToken processing with SSE data payloads")
+    print("• StreamingTokenChunk processing with SSE data payloads")
     print("• RequestTimers.timestamp_ns(kind, index) API")
     print("• Removed StreamingStats.add_request() dependency")
     print("=" * 80)
@@ -259,14 +259,14 @@ async def main():
     if test1_success and test2_success:
         print("🎉 ALL TESTS PASSED!")
         print("✨ OpenAI Rust streaming client is working with pure Rust timing!")
-        print("🔗 StreamingTokens integration is working correctly!")
+        print("🔗 StreamingTokenChunks integration is working correctly!")
         print("🚫 NO Python timestamp overhead!")
     else:
         print("❌ SOME TESTS FAILED")
         if not test1_success:
             print("   • OpenAI client test failed")
         if not test2_success:
-            print("   • StreamingToken integration test failed")
+            print("   • StreamingTokenChunk integration test failed")
 
 
 if __name__ == "__main__":

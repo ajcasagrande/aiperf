@@ -100,7 +100,6 @@ async def demo_performance_optimization():
             enable_gzip_compression=True,  # Enable compression
             keep_alive_timeout_ms=45000,  # 45 second keep-alive
             user_agent="aiperf-rust-demo/1.0",
-            precision_timing=True,  # Enable nanosecond timing
         )
 
         config = OpenAIBackendClientConfig(
@@ -181,6 +180,13 @@ async def demo_concurrent_requests():
                 )
 
                 response = await client.send_chat_completion_request(request)
+                print(f"\n\nResponse {request_id}:")
+                prev = response.start_perf_counter_ns
+                for i, r in enumerate(response.responses):
+                    print(
+                        f"\tPayload {i}: {(r.timestamp_ns - prev) / 1_000_000:10.2f} ms"
+                    )
+                    prev = r.timestamp_ns
                 stats = client.get_performance_statistics()
 
                 return {

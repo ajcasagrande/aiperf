@@ -2,14 +2,14 @@
 #  SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #  SPDX-License-Identifier: Apache-2.0
 -->
-# StreamingTokens - SSE Data Payload Concept
+# StreamingTokenChunks - SSE Data Payload Concept
 
 ## Overview
-Successfully modified the streaming HTTP client to use **StreamingTokens** instead of **StreamingChunks**, representing SSE (Server-Sent Events) data payloads with timing handled through RequestTimers indices.
+Successfully modified the streaming HTTP client to use **StreamingTokenChunks** instead of **StreamingChunks**, representing SSE (Server-Sent Events) data payloads with timing handled through RequestTimers indices.
 
 ## Key Changes Made
 
-### 1. StreamingToken Structure
+### 1. StreamingTokenChunk Structure
 - **Removed**: `timestamp_ns` field (no more embedded timestamps)
 - **Removed**: `chunk_index` field
 - **Kept**: `data` (SSE payload content)
@@ -17,7 +17,7 @@ Successfully modified the streaming HTTP client to use **StreamingTokens** inste
 - **Kept**: `token_index` (relates to RequestTimers)
 
 ### 2. RequestTimers Integration
-- StreamingTokens relate to RequestTimers through **token_index**
+- StreamingTokenChunks relate to RequestTimers through **token_index**
 - Timing captured via `capture_token_start()` and `capture_token_end()`
 - Perfect 1:1 relationship between tokens and timer measurements
 - Access timing via `get_token_timing(token_index)`
@@ -27,18 +27,18 @@ Successfully modified the streaming HTTP client to use **StreamingTokens** inste
 #### Rust Files Modified:
 - `src/request.rs`: StreamingChunk → StreamingToken
 - `src/client.rs`: Updated streaming processing logic
-- `src/lib.rs`: Export StreamingToken instead of StreamingChunk
+- `src/lib.rs`: Export StreamingTokenChunk instead of StreamingChunk
 - `src/timers.rs`: No changes (already supported token timing)
 
 #### Python Files Modified:
 - `python/aiperf_streaming/__init__.py`: Updated imports
-- `python/aiperf_streaming/models.py`: StreamingChunkModel → StreamingTokenModel
+- `python/aiperf_streaming/models.py`: StreamingChunkModel → StreamingTokenChunkModel
 
 ### 4. Functional Improvements
 
-#### StreamingToken Features:
+#### StreamingTokenChunk Features:
 ```rust
-pub struct StreamingToken {
+pub struct StreamingTokenChunk {
     pub data: String,           // SSE payload content
     pub size_bytes: usize,      // Payload size
     pub token_index: usize,     // Index for RequestTimers
@@ -115,7 +115,7 @@ token_durations = timers.get_token_durations_ns()
 ## Architecture
 
 ```
-StreamingToken (SSE Data)     RequestTimers (Timing)
+StreamingTokenChunk (SSE Data)     RequestTimers (Timing)
 ├── data: String             ├── timestamps: HashMap<Kind, Instant>
 ├── size_bytes: usize        ├── token_starts: Vec<Instant>
 ├── token_index: usize ──────├── token_ends: Vec<Instant>
