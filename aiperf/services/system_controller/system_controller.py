@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
+import os
 import sys
 import time
 from typing import Any
@@ -87,8 +88,9 @@ class SystemController(BaseControllerService):
         """
         self.logger.debug("Initializing System Controller")
 
-        await self.ui.initialize()
-        await self.ui.start()
+        if not os.getenv("AIPERF_DISABLE_UI"):
+            await self.ui.initialize()
+            await self.ui.start()
 
         if self.service_config.service_run_type == ServiceRunType.MULTIPROCESSING:
             self.service_manager = MultiProcessServiceManager(

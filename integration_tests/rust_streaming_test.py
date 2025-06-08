@@ -42,6 +42,21 @@ async def main():
             stats = client.get_performance_statistics()
             print(f"Request stats: {stats}")
 
+            # Show timing verification for accuracy
+            if response.responses:
+                print("🔬 Timing Verification:")
+                print(f"   • Start time (Rust): {response.start_perf_counter_ns} ns")
+                print(
+                    f"   • First chunk time (Rust): {response.responses[0].timestamp_ns} ns"
+                )
+                print(
+                    f"   • TTFT (calculated): {response.time_to_first_response_ns} ns = {response.time_to_first_response_ns / 1e6:.3f} ms"
+                )
+                if len(response.responses) > 1:
+                    print(
+                        f"   • TTST (calculated): {response.time_to_second_response_ns} ns = {response.time_to_second_response_ns / 1e6:.3f} ms"
+                    )
+
             return response
 
         except ImportError as e:

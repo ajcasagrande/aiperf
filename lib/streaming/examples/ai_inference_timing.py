@@ -745,8 +745,8 @@ def main():
                 "Demo Service Concurrent (will likely fail)",
                 demo_config,
                 create_openai_payload("Explain quantum computing in simple terms."),
-                10,
-                True,
+                20,
+                False,
             ),
         ]
     )

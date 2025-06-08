@@ -52,7 +52,7 @@ class RustStreamingPerformanceConfig(BaseModel):
         default=8192, description="Buffer size for streaming chunks in bytes."
     )
     max_concurrent_requests: int = Field(
-        default=10, description="Maximum concurrent requests for batch operations."
+        default=200, description="Maximum concurrent requests for batch operations."
     )
     enable_gzip_compression: bool = Field(
         default=True, description="Enable gzip compression for requests."
@@ -172,12 +172,10 @@ class OpenAIBackendClientRustStreaming(OpenAIClientMixin, OpenAIBackendClientPro
     async def send_request(
         self, endpoint: str, payload: OpenAIBaseRequest
     ) -> RequestRecord:
-        """Send request using the ultra-high-performance Rust streaming client."""
-        record: RequestRecord[Any] = RequestRecord(
-            start_perf_counter_ns=self._precision_timer.now_ns(),
-        )
+        """Send request using the ultra-high-performance Rust streaming client with pure Rust timing."""
 
         try:
+            # For streaming requests (chat completions), use pure Rust timing
             if isinstance(payload, OpenAIChatCompletionRequest):
                 record = await self.send_chat_completion_request(payload)
             elif isinstance(payload, OpenAICompletionRequest):
@@ -192,6 +190,10 @@ class OpenAIBackendClientRustStreaming(OpenAIClientMixin, OpenAIBackendClientPro
         except InvalidPayloadError:
             raise  # re-raise the error to be handled by the caller
         except Exception as e:
+            # Fallback record with Python timing only in error cases
+            record: RequestRecord[Any] = RequestRecord(
+                start_perf_counter_ns=self._precision_timer.now_ns(),
+            )
             # swallow all other errors and return a generic error response
             record.responses.append(
                 BackendClientErrorResponse(
@@ -209,10 +211,10 @@ class OpenAIBackendClientRustStreaming(OpenAIClientMixin, OpenAIBackendClientPro
         Send chat completion request using Rust streaming client for maximum performance.
 
         This method provides:
-        - Nanosecond precision timing for each streaming chunk
+        - Pure Rust nanosecond precision timing for each streaming chunk
         - Zero-copy chunk processing in Rust
         - Optimized SSE parsing
-        - Advanced performance analytics
+        - Advanced performance analytics using only Rust timing data
         """
         # Prepare the OpenAI API request payload
         request_payload = {
@@ -270,18 +272,13 @@ class OpenAIBackendClientRustStreaming(OpenAIClientMixin, OpenAIBackendClientPro
                 timeout_ms=self.perf_config.timeout_ms,
             )
 
-            # Execute the streaming request with nanosecond precision timing
-            start_time_ns = self._precision_timer.now_ns()
-            logger.debug(
-                "Starting Rust streaming request at %s", self._precision_timer.now_iso()
-            )
+            logger.debug("Starting Rust streaming request")
 
-            # This is where the magic happens - all the heavy lifting is done in Rust
+            # This is where the magic happens - ALL timing is done in Rust with nanosecond precision
             completed_request = self._rust_client.stream_request(streaming_request)
 
-            end_time_ns = self._precision_timer.now_ns()
-
-            # Create the record with precise timing
+            # Use ONLY Rust timing data - no Python timing mixed in
+            # Create the record with precise Rust timing
             record: RequestRecord[Any] = RequestRecord(
                 start_perf_counter_ns=completed_request.start_time_ns,
             )
@@ -289,12 +286,20 @@ class OpenAIBackendClientRustStreaming(OpenAIClientMixin, OpenAIBackendClientPro
             # Add the request to our statistics
             self._stats.add_request(completed_request)
 
-            # Process the streaming chunks with precise timing
+            # Process the streaming chunks with precise Rust timing
             chunks = completed_request.get_chunks()
+
+            # Use pure Rust timing for logging
+            rust_total_duration_ns = (
+                completed_request.end_time_ns - completed_request.start_time_ns
+                if hasattr(completed_request, "end_time_ns")
+                and completed_request.end_time_ns
+                else 0
+            )
             logger.debug(
-                "Received %d chunks in %.2f ms",
+                "Received %d chunks in %.2f ms (pure Rust timing)",
                 len(chunks),
-                (end_time_ns - start_time_ns) / 1e6,
+                rust_total_duration_ns / 1e6,
             )
 
             for chunk in chunks:
@@ -317,10 +322,10 @@ class OpenAIBackendClientRustStreaming(OpenAIClientMixin, OpenAIBackendClientPro
                         continue
 
                     try:
-                        # Store the raw SSE data with nanosecond precision timing
+                        # Store the raw SSE data with PURE Rust nanosecond precision timing
                         record.responses.append(
                             BackendClientResponse[str](
-                                timestamp_ns=chunk.timestamp_ns,
+                                timestamp_ns=chunk.timestamp_ns,  # This is pure Rust timing
                                 response=sse_data,  # Raw JSON string from SSE
                             )
                         )
@@ -328,7 +333,7 @@ class OpenAIBackendClientRustStreaming(OpenAIClientMixin, OpenAIBackendClientPro
                         # Handle any response processing errors
                         record.responses.append(
                             BackendClientErrorResponse(
-                                timestamp_ns=chunk.timestamp_ns,
+                                timestamp_ns=chunk.timestamp_ns,  # Pure Rust timing
                                 error=str(e),
                             )
                         )
@@ -337,18 +342,22 @@ class OpenAIBackendClientRustStreaming(OpenAIClientMixin, OpenAIBackendClientPro
                 elif "error" in chunk_data.lower():
                     record.responses.append(
                         BackendClientErrorResponse(
-                            timestamp_ns=chunk.timestamp_ns,
+                            timestamp_ns=chunk.timestamp_ns,  # Pure Rust timing
                             error=chunk_data,
                         )
                     )
 
-            # Log comprehensive performance metrics
-            self._log_performance_metrics(completed_request, start_time_ns, end_time_ns)
+            # # Log comprehensive performance metrics using ONLY Rust timing
+            # self._log_performance_metrics_rust_only(completed_request)
+
+            # # Log additional accuracy verification
+            # self._verify_rust_timing_accuracy(record, completed_request)
 
             return record
 
         except Exception as e:
             logger.error("Error in Rust streaming request: %s", str(e))
+            # Fallback to Python timing only in error cases
             record = RequestRecord(start_perf_counter_ns=self._precision_timer.now_ns())
             record.responses.append(
                 BackendClientErrorResponse(
@@ -358,56 +367,145 @@ class OpenAIBackendClientRustStreaming(OpenAIClientMixin, OpenAIBackendClientPro
             )
             return record
 
-    def _log_performance_metrics(
-        self, completed_request, start_time_ns: int, end_time_ns: int
-    ):
-        """Log comprehensive performance metrics from the Rust client."""
+    def _log_performance_metrics_rust_only(self, completed_request):
+        """Log comprehensive performance metrics using ONLY pure Rust timing data."""
         try:
-            total_duration_ms = (end_time_ns - start_time_ns) / 1e6
+            # Get pure Rust timing data
+            rust_start_time_ns = completed_request.start_time_ns
+            rust_end_time_ns = getattr(completed_request, "end_time_ns", None)
+
+            # Calculate total duration using pure Rust timing
+            if rust_end_time_ns:
+                total_duration_ns = rust_end_time_ns - rust_start_time_ns
+                total_duration_ms = total_duration_ns / 1e6
+            else:
+                total_duration_ms = 0
+
+            # Get chunk timings directly from Rust
             chunk_timings = completed_request.chunk_timings()
 
-            # Time to First Token (TTFT)
-            ttft_ms = chunk_timings[0] / 1e6 if chunk_timings else 0
+            # Time to First Token (TTFT) - pure Rust calculation
+            ttft_ns = chunk_timings[0] if chunk_timings else 0
+            ttft_ms = ttft_ns / 1e6
 
-            # Throughput calculation
+            # Throughput calculation from Rust
             throughput_mbps = 0
-            if completed_request.throughput_bps():
+            if (
+                hasattr(completed_request, "throughput_bps")
+                and completed_request.throughput_bps()
+            ):
                 throughput_mbps = completed_request.throughput_bps() / (1024 * 1024)
 
-            logger.info(
-                "🚀 Rust Streaming Performance Metrics:\n"
-                "   • Total Duration: %.2f ms\n"
-                "   • Time to First Token (TTFT): %.2f ms\n"
+            # Get request ID safely
+            request_id = getattr(completed_request, "request_id", "unknown")
+            request_id_short = request_id[:8] if len(request_id) > 8 else request_id
+
+            logger.warning(
+                "🚀 Pure Rust Streaming Performance Metrics:\n"
+                "   • Total Duration: %.2f ms (Rust timing)\n"
+                "   • Time to First Token (TTFT): %.2f ms (Rust timing)\n"
                 "   • Chunks Received: %d\n"
                 "   • Total Bytes: %d\n"
-                "   • Throughput: %.2f MB/s\n"
-                "   • Request ID: %s",
+                "   • Throughput: %.2f MB/s (Rust calculated)\n"
+                "   • Request ID: %s\n"
+                "   • Rust Start Time: %d ns\n"
+                "   • Rust End Time: %s ns",
                 total_duration_ms,
                 ttft_ms,
                 completed_request.chunk_count,
                 completed_request.total_bytes,
                 throughput_mbps,
-                completed_request.request_id[:8],
+                request_id_short,
+                rust_start_time_ns,
+                rust_end_time_ns if rust_end_time_ns else "N/A",
             )
 
-            # Log chunk timing analysis
+            # Log chunk timing analysis using pure Rust data
             if len(chunk_timings) > 1:
-                avg_interval_ms = sum(chunk_timings[1:]) / len(chunk_timings[1:]) / 1e6
-                max_interval_ms = max(chunk_timings[1:]) / 1e6
-                min_interval_ms = min(chunk_timings[1:]) / 1e6
+                # All intervals calculated by Rust
+                interval_timings_ns = chunk_timings[1:]  # Skip first (TTFT)
+                avg_interval_ns = sum(interval_timings_ns) / len(interval_timings_ns)
+                max_interval_ns = max(interval_timings_ns)
+                min_interval_ns = min(interval_timings_ns)
 
-                logger.debug(
-                    "🔍 Chunk Timing Analysis:\n"
-                    "   • Average Inter-chunk Interval: %.2f ms\n"
-                    "   • Maximum Inter-chunk Interval: %.2f ms\n"
-                    "   • Minimum Inter-chunk Interval: %.2f ms",
-                    avg_interval_ms,
-                    max_interval_ms,
-                    min_interval_ms,
+                logger.warning(
+                    "🔍 Pure Rust Chunk Timing Analysis:\n"
+                    "   • Average Inter-chunk Interval: %.2f ms (Rust)\n"
+                    "   • Maximum Inter-chunk Interval: %.2f ms (Rust)\n"
+                    "   • Minimum Inter-chunk Interval: %.2f ms (Rust)\n"
+                    "   • Total Timing Points: %d",
+                    avg_interval_ns / 1e6,
+                    max_interval_ns / 1e6,
+                    min_interval_ns / 1e6,
+                    len(chunk_timings),
                 )
 
         except Exception as e:
-            logger.debug("Failed to log performance metrics: %s", str(e))
+            logger.debug("Failed to log pure Rust performance metrics: %s", str(e))
+
+    def _verify_rust_timing_accuracy(
+        self, record: RequestRecord[Any], completed_request
+    ):
+        """Verify that we're using pure Rust timing with maximum accuracy."""
+        try:
+            # Verify that the record's timing calculations use pure Rust data
+            rust_ttft_ns = None
+            rust_ttst_ns = None
+
+            if record.responses and len(record.responses) >= 1:
+                # Time to First Token: first response timestamp - start time (both from Rust)
+                rust_ttft_ns = record.time_to_first_response_ns
+
+            if record.responses and len(record.responses) >= 2:
+                # Time to Second Token: second response timestamp - first response timestamp (both from Rust)
+                rust_ttst_ns = record.time_to_second_response_ns
+
+            # Compare with Rust's own chunk timing calculations
+            rust_chunk_timings = completed_request.chunk_timings()
+
+            logger.warning(
+                "🔬 Rust Timing Accuracy Verification:\n"
+                "   • Record TTFT (via RequestRecord): %s ns\n"
+                "   • Rust TTFT (direct calculation): %s ns\n"
+                "   • Record TTST (via RequestRecord): %s ns\n"
+                "   • Rust TTST (direct calculation): %s ns\n"
+                "   • Record Start Time (Rust): %d ns\n"
+                "   • First Response Timestamp (Rust): %s ns\n"
+                "   • Second Response Timestamp (Rust): %s ns\n"
+                "   • Total Rust Chunk Timings: %d\n"
+                "   • Timing Source: 100%% Pure Rust (Zero Python timing)",
+                rust_ttft_ns,
+                completed_request.start_time_ns - rust_chunk_timings[0]
+                if rust_chunk_timings
+                else "N/A",
+                rust_ttst_ns,
+                rust_chunk_timings[1] - rust_chunk_timings[0]
+                if rust_chunk_timings
+                else "N/A",
+                record.start_perf_counter_ns,
+                record.responses[0].timestamp_ns if record.responses else "N/A",
+                record.responses[1].timestamp_ns
+                if len(record.responses) > 1
+                else "N/A",
+                len(rust_chunk_timings),
+            )
+
+            # Verify accuracy by comparing our calculations with Rust calculations
+            if rust_ttft_ns and rust_chunk_timings:
+                rust_direct_ttft = rust_chunk_timings[0]
+                accuracy_diff_ns = (
+                    abs(rust_ttft_ns - rust_direct_ttft) if rust_direct_ttft else 0
+                )
+                logger.debug(
+                    "🎯 Timing Accuracy: %s nanosecond precision (diff: %d ns)",
+                    "Perfect"
+                    if accuracy_diff_ns == 0
+                    else f"High ({accuracy_diff_ns}ns diff)",
+                    accuracy_diff_ns,
+                )
+
+        except Exception as e:
+            logger.debug("Failed to verify Rust timing accuracy: %s", str(e))
 
     async def send_completion_request(
         self, payload: OpenAICompletionRequest
