@@ -6,7 +6,7 @@ import os
 import sys
 import uuid
 
-from aiperf.backend.openai_client import OpenAIBackendClientConfig
+from aiperf.backend.openai_client_httpx import OpenAIBackendClientConfig
 from aiperf.common.comms.client_enums import (
     ClientType,
     PullClientType,
@@ -74,7 +74,7 @@ class Worker(BaseService):
         # Create OpenAI client configuration
         openai_client_config = OpenAIBackendClientConfig(
             api_key=api_key,
-            url="http://127.0.0.1:8080/v1",  # Default OpenAI API endpoint
+            url="http://127.0.0.1:8080",  # Default OpenAI API endpoint
             model="deepseek-ai/DeepSeek-R1-Distill-Llama-8B",  # Default model
         )
 

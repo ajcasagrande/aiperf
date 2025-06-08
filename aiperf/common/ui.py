@@ -84,7 +84,7 @@ class ProfileProgressDashboardMixin(ConsoleUIMixin):
         super().__init__()
         self.progress: Progress | None = None
         self.task_id: TaskID | None = None
-        self.start_time_ns: int | None = None
+        self.start_perf_counter_ns: int | None = None
         self.error_count: int = 0
         self.error_rate: float = 0.0
 
@@ -183,8 +183,8 @@ class ProfileProgressDashboardMixin(ConsoleUIMixin):
             return
 
         # Initialize start time and task on first update
-        if self.start_time_ns is None or self.task_id is None:
-            self.start_time_ns = message.sweep_start_ns
+        if self.start_perf_counter_ns is None or self.task_id is None:
+            self.start_perf_counter_ns = message.sweep_start_ns
             self.task_id = self.progress.add_task(
                 "Processing Requests",
                 total=message.total,
@@ -193,7 +193,7 @@ class ProfileProgressDashboardMixin(ConsoleUIMixin):
 
         # Calculate requests per second
         elapsed_seconds = (
-            (message.request_ns or time.perf_counter_ns()) - self.start_time_ns
+            (message.request_ns or time.perf_counter_ns()) - self.start_perf_counter_ns
         ) / NANOS_PER_SECOND
 
         req_per_second = (

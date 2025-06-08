@@ -129,8 +129,8 @@ class InferRequestOptions(BaseModel):
 class BaseRequestRecord(BaseModel):
     """Base record of a request."""
 
-    start_time_ns: int = Field(
-        default_factory=time.time_ns,
+    start_perf_counter_ns: int = Field(
+        default_factory=time.perf_counter_ns,
         description="The start time of the request in nanoseconds since the epoch.",
     )
 
@@ -178,7 +178,7 @@ class RequestRecord(BaseRequestRecord, Generic[ResponseT]):
             bool: True if the record is valid, False otherwise.
         """
         return not self.has_error and (
-            0 < self.start_time_ns < sys.maxsize
+            0 < self.start_perf_counter_ns < sys.maxsize
             and len(self.responses) > 0
             and all(
                 0 < response.timestamp_ns < sys.maxsize for response in self.responses
@@ -190,7 +190,7 @@ class RequestRecord(BaseRequestRecord, Generic[ResponseT]):
         """Get start time as a datetime object."""
 
         return datetime.fromtimestamp(
-            self.start_time_ns / NANOS_PER_SECOND, tz=timezone.utc
+            self.start_perf_counter_ns / NANOS_PER_SECOND, tz=timezone.utc
         )
 
     @property
@@ -209,7 +209,7 @@ class RequestRecord(BaseRequestRecord, Generic[ResponseT]):
         """Get the time to the first response in nanoseconds."""
         if not self.valid:
             return None
-        return self.responses[0].timestamp_ns - self.start_time_ns
+        return self.responses[0].timestamp_ns - self.start_perf_counter_ns
 
     @property
     def time_to_second_response_ns(self) -> int | None:
@@ -223,7 +223,7 @@ class RequestRecord(BaseRequestRecord, Generic[ResponseT]):
         """Get the time to the last response in nanoseconds."""
         if not self.valid:
             return None
-        return self.responses[-1].timestamp_ns - self.start_time_ns
+        return self.responses[-1].timestamp_ns - self.start_perf_counter_ns
 
     @property
     def inter_token_latency_ns(self) -> float | None:

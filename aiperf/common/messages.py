@@ -95,7 +95,7 @@ class BaseStatusMessage(BaseServiceMessage):
 
     # override request_ns to be auto-filled if not provided
     request_ns: int | None = Field(
-        default=time.time_ns(),
+        default=time.perf_counter_ns(),
         description="Timestamp of the request",
     )
     state: ServiceState = Field(
@@ -184,7 +184,7 @@ class CreditDropMessage(BaseServiceMessage):
         description="Amount of credits that have been dropped",
     )
     credit_drop_ns: int = Field(
-        default_factory=time.time_ns, description="Timestamp of the credit drop"
+        default_factory=time.perf_counter_ns, description="Timestamp of the credit drop"
     )
 
 

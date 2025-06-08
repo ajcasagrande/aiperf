@@ -41,12 +41,12 @@ class TimingManager(BaseComponentService):
         self._credit_lock = asyncio.Lock()
 
         self._total_credits = 100
-        self._credits_available = 25
+        self._credits_available = 100
 
         self._sent_credits = 0
         self._completed_credits = 0
         self._credit_event = asyncio.Event()
-        self.start_time_ns = 0
+        self.start_perf_counter_ns = 0
         self.logger.debug("Initializing timing manager")
 
     @property
@@ -108,13 +108,13 @@ class TimingManager(BaseComponentService):
 
         await self.initialized_event.wait()
 
-        self.start_time_ns = time.perf_counter_ns()
+        self.start_perf_counter_ns = time.perf_counter_ns()
 
         await self.comms.publish(
             topic=Topic.PROFILE_PROGRESS,
             message=ProfileProgressMessage(
                 service_id=self.service_id,
-                sweep_start_ns=self.start_time_ns,
+                sweep_start_ns=self.start_perf_counter_ns,
                 total=self._total_credits,
                 completed=self._completed_credits,
             ),
@@ -147,7 +147,7 @@ class TimingManager(BaseComponentService):
                     message=CreditDropMessage(
                         service_id=self.service_id,
                         amount=1,
-                        credit_drop_ns=time.time_ns(),
+                        credit_drop_ns=time.perf_counter_ns(),
                     ),
                 )
                 self._sent_credits += 1
@@ -180,7 +180,7 @@ class TimingManager(BaseComponentService):
             self._completed_credits,
             self._total_credits,
             self._completed_credits
-            / (time.perf_counter_ns() - self.start_time_ns)
+            / (time.perf_counter_ns() - self.start_perf_counter_ns)
             * NANOS_PER_SECOND,
         )
 
@@ -188,7 +188,7 @@ class TimingManager(BaseComponentService):
             topic=Topic.PROFILE_PROGRESS,
             message=ProfileProgressMessage(
                 service_id=self.service_id,
-                sweep_start_ns=self.start_time_ns,
+                sweep_start_ns=self.start_perf_counter_ns,
                 total=self._total_credits,
                 completed=self._completed_credits,
             ),
@@ -197,9 +197,13 @@ class TimingManager(BaseComponentService):
         if self._completed_credits >= self._total_credits:
             self.logger.debug(
                 "All credits completed, stopping credit drop task after %.2f seconds (%.2f requests/s)",
-                (time.perf_counter_ns() - self.start_time_ns) / NANOS_PER_SECOND,
+                (time.perf_counter_ns() - self.start_perf_counter_ns)
+                / NANOS_PER_SECOND,
                 self._total_credits
-                / ((time.perf_counter_ns() - self.start_time_ns) / NANOS_PER_SECOND),
+                / (
+                    (time.perf_counter_ns() - self.start_perf_counter_ns)
+                    / NANOS_PER_SECOND
+                ),
             )
             await self.comms.publish(
                 topic=Topic.CREDITS_COMPLETE,
