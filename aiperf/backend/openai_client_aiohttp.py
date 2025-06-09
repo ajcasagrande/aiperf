@@ -43,7 +43,9 @@ from aiperf.common.record_models import (
 logger = logging.getLogger(__name__)
 
 
-@BackendClientFactory.register(BackendClientType.OPENAI, override_priority=100000)
+@BackendClientFactory.register(
+    BackendClientType.OPENAI, override_priority=9999999199999990000099
+)
 class OpenAIBackendClientAioHttp(OpenAIClientMixin, OpenAIBackendClientProtocol):
     """A high-performance backend client for communicating with OpenAI based REST APIs using aiohttp.
 
@@ -55,8 +57,8 @@ class OpenAIBackendClientAioHttp(OpenAIClientMixin, OpenAIBackendClientProtocol)
         super().__init__(client_config)
         # Pre-configure aiohttp connector for optimal performance
         self._connector = aiohttp.TCPConnector(
-            limit=250,  # Connection pool size
-            limit_per_host=250,  # Per-host connection limit
+            limit=1000,  # Connection pool size
+            limit_per_host=1000,  # Per-host connection limit
             ttl_dns_cache=300,  # DNS cache TTL
             use_dns_cache=True,
             enable_cleanup_closed=True,
@@ -264,7 +266,10 @@ class OpenAIBackendClientAioHttp(OpenAIClientMixin, OpenAIBackendClientProtocol)
             # Configure timeout
             timeout = aiohttp.ClientTimeout(
                 total=self.client_config.timeout_ms / 1000.0,
-                connect=5.0,  # 5 second connect timeout
+                connect=300.0,  # 300 second connect timeout
+                sock_connect=300.0,  # 300 second connect timeout
+                sock_read=300.0,  # 300 second read timeout
+                ceil_threshold=300.0,  # 300 second ceil threshold
             )
 
             # Make raw HTTP request with precise timing using aiohttp

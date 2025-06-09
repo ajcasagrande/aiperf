@@ -35,7 +35,7 @@ class GenericHTTPBackendClientConfig(BaseBackendClientConfig):
         description="The SSL options to use for the backend client.",
     )
     timeout_ms: int = Field(
-        default=5000,
+        default=300000,
         description="The timeout in milliseconds for the backend client.",
     )
     headers: dict[str, str] = Field(

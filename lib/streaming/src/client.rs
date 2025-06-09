@@ -33,7 +33,68 @@ impl StreamingHttpClient {
             .use_rustls_tls()
             .tcp_keepalive(Some(std::time::Duration::from_secs(30)))
             .pool_idle_timeout(Some(std::time::Duration::from_secs(90)))
+            .pool_max_idle_per_host(32)
+            // Force HTTP/1.1 to reduce protocol overhead and improve TTFB
+            .http1_only()
+            // Enable HTTP/1.1 title case headers for better compatibility
+            .http1_title_case_headers()
+            // Enable TCP_NODELAY to reduce latency
+            .tcp_nodelay(true);
+
+        if let Some(timeout) = timeout_ms {
+            client_builder = client_builder.timeout(std::time::Duration::from_millis(timeout));
+        }
+
+        if let Some(ua) = user_agent {
+            client_builder = client_builder.user_agent(ua);
+        }
+
+        let client = client_builder.build()
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
+                format!("Failed to create HTTP client: {}", e)
+            ))?;
+
+        let runtime = tokio::runtime::Runtime::new()
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
+                format!("Failed to create async runtime: {}", e)
+            ))?;
+
+        Ok(Self {
+            client: Arc::new(client),
+            default_timeout_ms: timeout_ms,
+            default_headers: headers,
+            timer: PrecisionTimer::new(),
+            runtime: Arc::new(runtime),
+        })
+    }
+
+    /// Create a new client with low-latency optimizations
+    #[staticmethod]
+    pub fn new_low_latency(
+        timeout_ms: Option<u64>,
+        default_headers: Option<HashMap<String, String>>,
+        user_agent: Option<String>,
+    ) -> PyResult<Self> {
+        let headers: HashMap<String, String> = default_headers.unwrap_or_default();
+
+        let mut client_builder: ClientBuilder = Client::builder()
+            .use_rustls_tls()
+            .tcp_keepalive(Some(std::time::Duration::from_secs(30)))
+            .pool_idle_timeout(Some(std::time::Duration::from_secs(90)))
             .pool_max_idle_per_host(32);
+
+        // Low-latency optimizations
+        client_builder = client_builder
+            // Force HTTP/1.1 to reduce protocol overhead and improve TTFB
+            .http1_only()
+            // Enable HTTP/1.1 title case headers for better compatibility
+            .http1_title_case_headers()
+            // Enable TCP_NODELAY to reduce latency
+            .tcp_nodelay(true)
+            // Reduce pool size for faster connection establishment
+            .pool_max_idle_per_host(4)
+            // Shorter pool timeout for faster cleanup
+            .pool_idle_timeout(Some(std::time::Duration::from_secs(30)));
 
         if let Some(timeout) = timeout_ms {
             client_builder = client_builder.timeout(std::time::Duration::from_millis(timeout));
@@ -315,6 +376,10 @@ impl StreamingHttpClient {
             Ok(response) => {
                 // Capture send end timing immediately after successful send
                 request.capture_send_end().map_err(|e| StreamingError::InvalidRequest(format!("Failed to capture send end: {}", e)))?;
+
+                // Capture the moment we receive the response headers (true TTFB)
+                request.capture_recv_start().map_err(|e| StreamingError::InvalidRequest(format!("Failed to capture recv start: {}", e)))?;
+
                 response
             }
             Err(e) => {
@@ -347,9 +412,6 @@ impl StreamingHttpClient {
             return Err(StreamingError::HttpError(error_msg));
         }
 
-        // Capture receive start timing before streaming
-        request.capture_recv_start().map_err(|e| StreamingError::InvalidRequest(format!("Failed to capture recv start: {}", e)))?;
-
         // Stream the response
         Self::process_streaming_response_async(response, request).await?;
 
@@ -360,18 +422,31 @@ impl StreamingHttpClient {
         Ok(())
     }
 
-        async fn process_streaming_response_async(
+    async fn process_streaming_response_async(
         response: reqwest::Response,
         request: &mut StreamingRequest,
     ) -> Result<(), StreamingError> {
+        // Use a smaller buffer size to get chunks more immediately
         let mut stream = response.bytes_stream();
         let mut token_index = 0;
+        let mut is_first_chunk = true;
 
         while let Some(token_result) = stream.next().await {
             let token_data = token_result?;
 
+            // Skip empty chunks to avoid false timing measurements
+            if token_data.is_empty() {
+                continue;
+            }
+
             // Capture token start timing for each SSE data payload
-            request.capture_token_start().map_err(|e| StreamingError::InvalidRequest(format!("Failed to capture token start: {}", e)))?;
+            // For the first chunk, capture it immediately to measure TTFB accurately
+            if is_first_chunk {
+                request.capture_token_start().map_err(|e| StreamingError::InvalidRequest(format!("Failed to capture first token start: {}", e)))?;
+                is_first_chunk = false;
+            } else {
+                request.capture_token_start().map_err(|e| StreamingError::InvalidRequest(format!("Failed to capture token start: {}", e)))?;
+            }
 
             // Create streaming token from SSE data payload
             let token = StreamingTokenChunk::new(

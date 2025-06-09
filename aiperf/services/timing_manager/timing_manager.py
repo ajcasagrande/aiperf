@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
+import os
 import sys
 import time
 
@@ -40,8 +41,10 @@ class TimingManager(BaseComponentService):
         super().__init__(service_config=service_config, service_id=service_id)
         self._credit_lock = asyncio.Lock()
 
-        self._total_credits = 20
-        self._credits_available = 20
+        self._total_credits = int(os.getenv("AIPERF_TOTAL_REQUESTS", 100))
+        self._credits_available = min(
+            self._total_credits, int(os.getenv("AIPERF_CONCURRENCY", 100))
+        )
 
         self._sent_credits = 0
         self._completed_credits = 0

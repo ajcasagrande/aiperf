@@ -42,7 +42,9 @@ from aiperf.common.record_models import (
 logger = logging.getLogger(__name__)
 
 
-@BackendClientFactory.register(BackendClientType.OPENAI, override_priority=100000)
+@BackendClientFactory.register(
+    BackendClientType.OPENAI, override_priority=999999919999999000009
+)
 class OpenAIBackendClientHttpx(OpenAIClientMixin, OpenAIBackendClientProtocol):
     """A backend client for communicating with OpenAI based REST APIs.
 

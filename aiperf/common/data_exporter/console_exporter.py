@@ -12,7 +12,7 @@ from aiperf.common.data_exporter.record import Record
 class ConsoleExporter:
     """A class that exports data to the console"""
 
-    STAT_COLUMN_KEYS = ["avg", "min", "max", "p99", "p90", "p75"]
+    STAT_COLUMN_KEYS = ["avg", "min", "max", "p99", "p90", "p75", "std", "count"]
 
     def __init__(self, endpoint_config: EndPointConfig, live: Live) -> None:
         self.live = live

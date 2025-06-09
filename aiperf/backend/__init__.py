@@ -10,6 +10,8 @@ They are registered with the :class:`aiperf.common.factories.BackendClientFactor
 
 from aiperf.backend.openai_client_aiohttp import OpenAIBackendClientAioHttp
 from aiperf.backend.openai_client_httpx import OpenAIBackendClientHttpx
+from aiperf.backend.openai_client_libcurl import OpenAIBackendClientLibcurl
+from aiperf.backend.openai_client_rawsocket import OpenAIBackendClientRawSocket
 from aiperf.backend.openai_client_rust_streaming import OpenAIBackendClientRustStreaming
 
 # from aiperf.backend.rust_streaming_client import RustStreamingBackendClient
@@ -18,5 +20,7 @@ __all__ = [
     "OpenAIBackendClientHttpx",
     "OpenAIBackendClientAioHttp",
     "OpenAIBackendClientRustStreaming",
+    "OpenAIBackendClientRawSocket",
+    "OpenAIBackendClientLibcurl",
     # "RustStreamingBackendClient",
 ]

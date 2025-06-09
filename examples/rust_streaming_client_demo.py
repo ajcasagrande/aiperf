@@ -161,10 +161,10 @@ async def demo_concurrent_requests():
 
     try:
         config = OpenAIBackendClientConfig(
-            url="http://127.0.0.1:8080",
+            url="http://localhost:8080",
             api_key=os.getenv("OPENAI_API_KEY", "sk-fakeai-1234567890abcdef"),
             model="deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
-            max_tokens=30,
+            max_tokens=100,
             timeout_ms=20000,
         )
 
@@ -197,12 +197,8 @@ async def demo_concurrent_requests():
 
         # Create concurrent requests
         prompts = [
-            "What is machine learning?",
-            "Explain neural networks briefly.",
-            "How does AI work?",
-            "What are large language models?",
-            "Define artificial intelligence.",
-        ]
+            " HECTOR Who must we answer AENEAS The noble Menelaus HECTOR O you my lord By Mars his gauntlet thanks Mock not that I affect the untraded oath Your quondam wife swears still by Venus glove Shes well but bade me not commend her to you MENELAUS Name her not now sir shes a deadly theme HECTOR O pardon I offend NESTOR I have thou gallant Trojan seen thee oft Labouring for destiny make cruel way Through ranks of Greekish youth and I have seen thee As hot as Perseus spur thy Phrygian steed Despising",
+        ] * 10
 
         print(f"📤 Sending {len(prompts)} concurrent requests...")
 
@@ -298,10 +294,10 @@ async def main():
     print()
 
     # Run all demos
-    await demo_basic_usage()
-    await demo_performance_optimization()
+    # await demo_basic_usage()
+    # await demo_performance_optimization()
     await demo_concurrent_requests()
-    await demo_advanced_analytics()
+    # await demo_advanced_analytics()
 
     print("\n🎉 Demo complete! The Rust streaming client provides:")
     print("   ✅ Nanosecond precision timing")

@@ -22,4 +22,5 @@ class Record:
     p95: float | None = None
     p99: float | None = None
     std: float | None = None
+    count: int | None = None
     streaming_only: bool = False

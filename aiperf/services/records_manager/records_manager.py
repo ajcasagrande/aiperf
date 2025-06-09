@@ -105,14 +105,14 @@ class RecordsManager(BaseComponentService):
                     f"Received inference results: {record.time_to_first_response_ns / NANOS_PER_MILLIS} milliseconds. {record.time_to_last_response_ns / NANOS_PER_MILLIS} milliseconds."
                 )
                 self.records.append(record)
-                ts = [
-                    f"{(r.timestamp_ns - record.start_perf_counter_ns) / NANOS_PER_MILLIS:6.2f}"
-                    for r in record.responses
-                    if r.timestamp_ns is not None
-                ]
-                self.logger.warning(
-                    f"Response times: {record.start_perf_counter_ns / NANOS_PER_MILLIS:6.2f} {ts}"
-                )
+                # ts = [
+                #     f"{(r.timestamp_ns - record.start_perf_counter_ns) / NANOS_PER_MILLIS:6.2f}"
+                #     for r in record.responses
+                #     if r.timestamp_ns is not None
+                # ]
+                # self.logger.warning(
+                #     f"Response times: {record.start_perf_counter_ns / NANOS_PER_MILLIS:6.2f} {ts}"
+                # )
             else:
                 self.logger.warning(f"Received invalid inference results: {record}")
                 self.error_records.append(record)
@@ -233,6 +233,7 @@ def record_from_dataframe(
         p95=df[column_name].quantile(0.95) / NANOS_PER_MILLIS,
         p99=df[column_name].quantile(0.99) / NANOS_PER_MILLIS,
         std=df[column_name].std() / NANOS_PER_MILLIS,
+        count=int(df[column_name].count()),
         streaming_only=streaming_only,
     )
 

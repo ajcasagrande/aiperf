@@ -29,7 +29,6 @@ from aiperf.backend.openai_common import (
 )
 
 # Import the high-performance Rust streaming library
-from aiperf.common.constants import NANOS_PER_MILLIS
 from aiperf.common.enums import BackendClientType
 from aiperf.common.exceptions import InvalidPayloadError
 from aiperf.common.factories import BackendClientFactory
@@ -69,7 +68,9 @@ class RustStreamingPerformanceConfig(BaseModel):
     )
 
 
-@BackendClientFactory.register(BackendClientType.OPENAI, override_priority=3000000)
+@BackendClientFactory.register(
+    BackendClientType.OPENAI, override_priority=99999991999999900000
+)
 class OpenAIBackendClientRustStreaming(OpenAIClientMixin, OpenAIBackendClientProtocol):
     """
     Ultra high-performance OpenAI backend client using Rust streaming library.
@@ -277,23 +278,23 @@ class OpenAIBackendClientRustStreaming(OpenAIClientMixin, OpenAIBackendClientPro
                 streaming_request
             )
 
-            for key in [
-                TimestampKind.RequestStart,
-                TimestampKind.SendStart,
-                TimestampKind.SendEnd,
-                TimestampKind.RecvStart,
-                TimestampKind.TokenStart,
-                TimestampKind.TokenEnd,
-                TimestampKind.RecvEnd,
-                TimestampKind.RequestEnd,
-            ]:
-                print(
-                    f"{key}: {timers.timestamp_ns(key, 0) / NANOS_PER_MILLIS:6.2f} ms"
-                )
-            print(
-                f"Duration: {timers.duration_ns(TimestampKind.RequestStart, TimestampKind.RequestEnd) / NANOS_PER_MILLIS:6.2f} ms"
-            )
-            print("-" * 80)
+            # for key in [
+            #     TimestampKind.RequestStart,
+            #     TimestampKind.SendStart,
+            #     TimestampKind.SendEnd,
+            #     TimestampKind.RecvStart,
+            #     TimestampKind.TokenStart,
+            #     TimestampKind.TokenEnd,
+            #     TimestampKind.RecvEnd,
+            #     TimestampKind.RequestEnd,
+            # ]:
+            #     print(
+            #         f"{key}: {timers.timestamp_ns(key, 0) / NANOS_PER_MILLIS:6.2f} ms"
+            #     )
+            # print(
+            #     f"Duration: {timers.duration_ns(TimestampKind.RequestStart, TimestampKind.RequestEnd) / NANOS_PER_MILLIS:6.2f} ms"
+            # )
+            # print("-" * 80)
 
             # Use Rust timestamps directly as relative nanoseconds from request_start (treated as 0)
             rust_recv_start_ns = timers.timestamp_ns(TimestampKind.RecvStart, 0)
