@@ -5,7 +5,6 @@ import json
 import logging
 from typing import Any
 
-# Import the high-performance Rust streaming library
 from aiperf_streaming import (
     StreamingHttpClient,
     StreamingRequest,
@@ -28,6 +27,9 @@ from aiperf.backend.openai_common import (
     OpenAICompletionRequest,
     OpenAIEmbeddingsRequest,
 )
+
+# Import the high-performance Rust streaming library
+from aiperf.common.constants import NANOS_PER_MILLIS
 from aiperf.common.enums import BackendClientType
 from aiperf.common.exceptions import InvalidPayloadError
 from aiperf.common.factories import BackendClientFactory
@@ -100,10 +102,12 @@ class OpenAIBackendClientRustStreaming(OpenAIClientMixin, OpenAIBackendClientPro
         # Initialize the high-performance Rust streaming client
         default_headers = {
             "User-Agent": self.perf_config.user_agent,
-            "Accept-Encoding": "gzip, deflate"
-            if self.perf_config.enable_gzip_compression
-            else "",
-            "Connection": "keep-alive",
+            "Accept": "text/event-stream",
+            "Content-Type": "application/json",
+            # "Accept-Encoding": "gzip, deflate"
+            # if self.perf_config.enable_gzip_compression
+            # else "",
+            # "Connection": "keep-alive",
         }
 
         self._rust_client = StreamingHttpClient(
@@ -220,14 +224,14 @@ class OpenAIBackendClientRustStreaming(OpenAIClientMixin, OpenAIBackendClientPro
         # Add optional parameters if configured
         if self.client_config.stop:
             request_payload["stop"] = self.client_config.stop
-        if hasattr(self.client_config, "temperature"):
-            request_payload["temperature"] = self.client_config.temperature
-        if hasattr(self.client_config, "top_p"):
-            request_payload["top_p"] = self.client_config.top_p
-        if hasattr(self.client_config, "frequency_penalty"):
-            request_payload["frequency_penalty"] = self.client_config.frequency_penalty
-        if hasattr(self.client_config, "presence_penalty"):
-            request_payload["presence_penalty"] = self.client_config.presence_penalty
+        # if hasattr(self.client_config, "temperature"):
+        #     request_payload["temperature"] = self.client_config.temperature
+        # if hasattr(self.client_config, "top_p"):
+        #     request_payload["top_p"] = self.client_config.top_p
+        # if hasattr(self.client_config, "frequency_penalty"):
+        #     request_payload["frequency_penalty"] = self.client_config.frequency_penalty
+        # if hasattr(self.client_config, "presence_penalty"):
+        #     request_payload["presence_penalty"] = self.client_config.presence_penalty
 
         # Add any additional kwargs from payload
         if payload.kwargs:
@@ -260,7 +264,7 @@ class OpenAIBackendClientRustStreaming(OpenAIClientMixin, OpenAIBackendClientPro
             streaming_request = StreamingRequest(
                 url=url,
                 method="POST",
-                headers=headers,
+                headers={},
                 body=json.dumps(request_payload),
                 timeout_ms=self.perf_config.timeout_ms,
             )
@@ -272,6 +276,24 @@ class OpenAIBackendClientRustStreaming(OpenAIClientMixin, OpenAIBackendClientPro
             completed_request, timers = self._rust_client.stream_request_with_details(
                 streaming_request
             )
+
+            for key in [
+                TimestampKind.RequestStart,
+                TimestampKind.SendStart,
+                TimestampKind.SendEnd,
+                TimestampKind.RecvStart,
+                TimestampKind.TokenStart,
+                TimestampKind.TokenEnd,
+                TimestampKind.RecvEnd,
+                TimestampKind.RequestEnd,
+            ]:
+                print(
+                    f"{key}: {timers.timestamp_ns(key, 0) / NANOS_PER_MILLIS:6.2f} ms"
+                )
+            print(
+                f"Duration: {timers.duration_ns(TimestampKind.RequestStart, TimestampKind.RequestEnd) / NANOS_PER_MILLIS:6.2f} ms"
+            )
+            print("-" * 80)
 
             # Use Rust timestamps directly as relative nanoseconds from request_start (treated as 0)
             rust_recv_start_ns = timers.timestamp_ns(TimestampKind.RecvStart, 0)
@@ -360,9 +382,7 @@ class OpenAIBackendClientRustStreaming(OpenAIClientMixin, OpenAIBackendClientPro
             # Get token timing statistics from Rust
             token_starts_count = timers.token_starts_count()
             token_ends_count = timers.token_ends_count()
-            token_durations_ns = timers.get_token_durations_ns()
-            if token_durations_ns is None:
-                token_durations_ns = []
+            token_durations_ns = timers.get_token_durations_ns() or []
 
             # Time to First Token (TTFT) - pure Rust calculation
             ttft_ns = None

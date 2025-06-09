@@ -105,6 +105,14 @@ class RecordsManager(BaseComponentService):
                     f"Received inference results: {record.time_to_first_response_ns / NANOS_PER_MILLIS} milliseconds. {record.time_to_last_response_ns / NANOS_PER_MILLIS} milliseconds."
                 )
                 self.records.append(record)
+                ts = [
+                    f"{(r.timestamp_ns - record.start_perf_counter_ns) / NANOS_PER_MILLIS:6.2f}"
+                    for r in record.responses
+                    if r.timestamp_ns is not None
+                ]
+                self.logger.warning(
+                    f"Response times: {record.start_perf_counter_ns / NANOS_PER_MILLIS:6.2f} {ts}"
+                )
             else:
                 self.logger.warning(f"Received invalid inference results: {record}")
                 self.error_records.append(record)

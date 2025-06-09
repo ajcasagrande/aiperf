@@ -228,7 +228,7 @@ class MultiWorkerProcess(BaseComponentService):
         self.logger.debug("Initializing worker process")
         self.workers: list[Worker] = []
         self.tasks: list[asyncio.Task] = []
-        self.worker_count = 100
+        self.worker_count = int(os.getenv("AIPERF_TASKS_PER_WORKER", 100))
 
     @property
     def service_type(self) -> ServiceType:
