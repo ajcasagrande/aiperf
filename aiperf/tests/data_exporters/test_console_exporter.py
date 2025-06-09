@@ -1,9 +1,10 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+from unittest.mock import MagicMock
+
 import pytest
 from _pytest.capture import CaptureFixture
-from pytest_mock import MockerFixture
 
 from aiperf.common.config.endpoint_config import EndPointConfig
 from aiperf.common.data_exporter.console_exporter import ConsoleExporter
@@ -67,10 +68,9 @@ class TestConsoleExporter:
         self,
         endpoint_config: EndPointConfig,
         sample_records: list[Record],
-        mocker: MockerFixture,
         capsys: CaptureFixture[str],
     ):
-        exporter = ConsoleExporter(endpoint_config)
+        exporter = ConsoleExporter(endpoint_config, live=MagicMock())
         exporter.export(sample_records)
         captured = capsys.readouterr()
         output = captured.out
@@ -97,7 +97,7 @@ class TestConsoleExporter:
         should_skip: bool,
     ):
         endpoint_config.streaming = enable_streaming
-        exporter = ConsoleExporter(endpoint_config)
+        exporter = ConsoleExporter(endpoint_config, live=MagicMock())
         record = Record(
             name="Test Metric",
             unit="ms",
@@ -107,7 +107,7 @@ class TestConsoleExporter:
         assert exporter._should_skip(record) is should_skip
 
     def test_format_row_formats_values_correctly(self, endpoint_config: EndPointConfig):
-        exporter = ConsoleExporter(endpoint_config)
+        exporter = ConsoleExporter(endpoint_config, live=MagicMock())
         record = Record(
             name="Request Latency",
             unit="ms",
@@ -129,5 +129,5 @@ class TestConsoleExporter:
         assert row[6] == "12.30"
 
     def test_get_title_returns_expected_string(self, endpoint_config: EndPointConfig):
-        exporter = ConsoleExporter(endpoint_config)
+        exporter = ConsoleExporter(endpoint_config, live=MagicMock())
         assert exporter._get_title() == "NVIDIA AIPerf | LLM Metrics"

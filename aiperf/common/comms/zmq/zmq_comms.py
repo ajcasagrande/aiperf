@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
 import logging
-import uuid
 from collections.abc import Callable, Coroutine
 from typing import Any, cast
 
@@ -38,7 +37,7 @@ from aiperf.common.exceptions import (
 )
 from aiperf.common.factories import CommunicationFactory
 from aiperf.common.messages import Message
-from aiperf.common.models import ZMQCommunicationConfig
+from aiperf.common.models import BaseZMQTransportConfig, ZMQTCPTransportConfig
 
 logger = logging.getLogger(__name__)
 
@@ -53,28 +52,23 @@ class ZMQCommunication(BaseCommunication):
 
     def __init__(
         self,
-        config: ZMQCommunicationConfig | None = None,
+        config: BaseZMQTransportConfig | None = None,
     ) -> None:
         """Initialize ZMQ communication.
 
         Args:
-            config: ZMQCommunicationConfig object with configuration parameters
+            config: ZMQTransportConfigProtocol object with configuration parameters
         """
         self.stop_event: asyncio.Event = asyncio.Event()
         self.initialized_event: asyncio.Event = asyncio.Event()
-        self.config = config or ZMQCommunicationConfig()
-
-        # Generate client_id if not provided
-        if not self.config.client_id:
-            self.config.client_id = f"client_{uuid.uuid4().hex[:8]}"
+        self.config = config or ZMQTCPTransportConfig()
 
         self._context: zmq.asyncio.Context | None = None
         self.clients: dict[ClientType, ZMQClient] = {}
 
         logger.debug(
-            "ZMQ communication using protocol: %s with client ID: %s",
-            type(self.config.protocol_config).__name__,
-            self.config.client_id,
+            "ZMQ communication using protocol: %s",
+            type(self.config).__name__,
         )
 
     @property

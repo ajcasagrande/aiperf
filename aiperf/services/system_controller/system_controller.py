@@ -67,6 +67,7 @@ class SystemController(BaseControllerService):
             ServiceType.WORKER_MANAGER,
             ServiceType.RECORDS_MANAGER,
             ServiceType.POST_PROCESSOR_MANAGER,
+            ServiceType.DATASET_BROKER,
         ]
 
         self.service_manager: BaseServiceManager | None = None

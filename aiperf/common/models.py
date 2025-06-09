@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import time
+from abc import ABC, abstractmethod
 
 from pydantic import BaseModel, Field
 
@@ -12,11 +13,122 @@ from aiperf.common.enums import (
 )
 
 ################################################################################
+# ZMQ Configuration Protocols
+################################################################################
+
+
+class BaseZMQDealerRouterBrokerConfig(BaseModel, ABC):
+    """Configuration Protocol for ZMQ Dealer Router Broker."""
+
+    @property
+    @abstractmethod
+    def router_address(self) -> str: ...
+
+    @property
+    @abstractmethod
+    def dealer_address(self) -> str: ...
+
+    @property
+    @abstractmethod
+    def control_address(self) -> str | None: ...
+
+    @property
+    @abstractmethod
+    def capture_address(self) -> str | None: ...
+
+
+class BaseZMQTransportConfig(BaseModel, ABC):
+    """Configuration Protocol for ZMQ transport."""
+
+    @property
+    @abstractmethod
+    def controller_pub_sub_address(self) -> str: ...
+
+    @property
+    @abstractmethod
+    def component_pub_sub_address(self) -> str:
+        """Get the component pub/sub address based on protocol configuration."""
+        ...
+
+    @property
+    @abstractmethod
+    def inference_push_pull_address(self) -> str:
+        """Get the inference push/pull address based on protocol configuration."""
+        ...
+
+    @property
+    @abstractmethod
+    def records_address(self) -> str:
+        """Get the records address based on protocol configuration."""
+        ...
+
+    @property
+    @abstractmethod
+    def conversation_data_address(self) -> str:
+        """Get the conversation data address based on protocol configuration."""
+        ...
+
+    @property
+    @abstractmethod
+    def credit_drop_address(self) -> str:
+        """Get the credit drop address based on protocol configuration."""
+        ...
+
+    @property
+    @abstractmethod
+    def credit_return_address(self) -> str:
+        """Get the credit return address based on protocol configuration."""
+        ...
+
+
+################################################################################
 # ZMQ Configuration Models
 ################################################################################
 
 
-class ZMQTCPTransportConfig(BaseModel):
+class ZMQTCPDealerRouterBrokerConfig(BaseZMQDealerRouterBrokerConfig):
+    """Configuration for ZMQ Dealer Router Broker."""
+
+    host: str = Field(
+        default="0.0.0.0",
+        description="Host address for TCP connections",
+    )
+    router_port: int = Field(
+        default=5555, description="The port of the router (ROUTER)"
+    )
+    dealer_port: int = Field(
+        default=5556, description="The port of the dealer (DEALER)"
+    )
+
+    control_port: int | None = Field(
+        default=None, description="The port of the control (REP)"
+    )
+    capture_port: int | None = Field(
+        default=None, description="The port of the capture (PUB)"
+    )
+
+    @property
+    def router_address(self) -> str:
+        """Get the router address for the given host."""
+        return f"tcp://{self.host}:{self.router_port}"
+
+    @property
+    def dealer_address(self) -> str:
+        """Get the dealer address for the given host."""
+        return f"tcp://{self.host}:{self.dealer_port}"
+
+    @property
+    def control_address(self) -> str | None:
+        """Get the control address for the given host."""
+        return f"tcp://{self.host}:{self.control_port}"
+
+    @property
+    def capture_address(self) -> str | None:
+        """Get the capture address for the given host."""
+        return f"tcp://{self.host}:{self.capture_port}"
+
+
+class ZMQTCPTransportConfig(BaseZMQTransportConfig):
     """Configuration for TCP transport."""
 
     host: str = Field(
@@ -48,55 +160,48 @@ class ZMQTCPTransportConfig(BaseModel):
     credit_return_port: int = Field(
         default=5563, description="Port for credit return operations"
     )
-
-
-class ZMQCommunicationConfig(BaseModel):
-    """Configuration for ZMQ communication."""
-
-    protocol_config: ZMQTCPTransportConfig = Field(
-        default_factory=ZMQTCPTransportConfig,
-        description="Configuration for the selected transport protocol",
+    dataset_broker_config: BaseZMQDealerRouterBrokerConfig | None = Field(
+        default=None,
+        description="Configuration for the ZMQ Dataset Broker. If provided, the broker will be created and started.",
     )
-    client_id: str | None = Field(
-        default=None, description="Client ID, will be generated if not provided"
+    credit_broker_config: BaseZMQDealerRouterBrokerConfig | None = Field(
+        default=None,
+        description="Configuration for the ZMQ Credit Broker. If provided, the broker will be created and started.",
     )
 
     @property
     def controller_pub_sub_address(self) -> str:
-        """Get the controller pub/sub address based on protocol configuration."""
-        return f"tcp://{self.protocol_config.host}:{self.protocol_config.controller_pub_sub_port}"
+        return f"tcp://{self.host}:{self.controller_pub_sub_port}"
 
     @property
     def component_pub_sub_address(self) -> str:
         """Get the component pub/sub address based on protocol configuration."""
-        return f"tcp://{self.protocol_config.host}:{self.protocol_config.component_pub_sub_port}"
+        return f"tcp://{self.host}:{self.component_pub_sub_port}"
 
     @property
     def inference_push_pull_address(self) -> str:
         """Get the inference push/pull address based on protocol configuration."""
-        return f"tcp://{self.protocol_config.host}:{self.protocol_config.inference_push_pull_port}"
+        return f"tcp://{self.host}:{self.inference_push_pull_port}"
 
     @property
     def records_address(self) -> str:
         """Get the records address based on protocol configuration."""
-        return f"tcp://{self.protocol_config.host}:{self.protocol_config.records_port}"
+        return f"tcp://{self.host}:{self.records_port}"
 
     @property
     def conversation_data_address(self) -> str:
         """Get the conversation data address based on protocol configuration."""
-        return f"tcp://{self.protocol_config.host}:{self.protocol_config.conversation_data_port}"
+        return f"tcp://{self.host}:{self.conversation_data_port}"
 
     @property
     def credit_drop_address(self) -> str:
         """Get the credit drop address based on protocol configuration."""
-        return (
-            f"tcp://{self.protocol_config.host}:{self.protocol_config.credit_drop_port}"
-        )
+        return f"tcp://{self.host}:{self.credit_drop_port}"
 
     @property
     def credit_return_address(self) -> str:
         """Get the credit return address based on protocol configuration."""
-        return f"tcp://{self.protocol_config.host}:{self.protocol_config.credit_return_port}"
+        return f"tcp://{self.host}:{self.credit_return_port}"
 
 
 ################################################################################

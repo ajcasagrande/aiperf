@@ -3,7 +3,7 @@
 from pydantic import BaseModel, Field
 
 from aiperf.common.enums import CommunicationBackend, ServiceRunType
-from aiperf.common.models import ZMQCommunicationConfig
+from aiperf.common.models import ZMQTCPTransportConfig
 
 
 class ServiceConfig(BaseModel):
@@ -23,7 +23,7 @@ class ServiceConfig(BaseModel):
         description="Communication backend to use",
     )
     comm_config: BaseModel = Field(
-        default=ZMQCommunicationConfig(),
+        default=ZMQTCPTransportConfig(),
         description="Communication configuration",
     )
     heartbeat_timeout: float = Field(

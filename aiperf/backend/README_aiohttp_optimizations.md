@@ -8,6 +8,7 @@ This document outlines the performance optimizations implemented in the `OpenAIB
 
 ## Key Performance Optimizations
 
+
 ### 1. Connection Pool Management
 - **Pre-configured TCPConnector**: Maintains persistent connections for reduced latency
 - **Connection Pool Size**: 100 total connections, 30 per host

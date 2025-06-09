@@ -261,6 +261,7 @@ class ServiceType(CaseInsensitiveStrEnum):
     WORKER_MANAGER = "worker_manager"
     MULTI_WORKER_PROCESS = "multi_worker_process"
     WORKER = "worker"
+    DATASET_BROKER = "dataset_broker"
     TEST = "test_service"
 
 
