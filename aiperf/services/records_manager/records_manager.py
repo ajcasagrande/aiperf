@@ -114,7 +114,7 @@ class RecordsManager(BaseComponentService):
                 self.records.append(record)
 
             else:
-                self.logger.warning(f"Received invalid inference results: {record}")
+                self.logger.warning("Received invalid inference results: %s", record)
                 self.error_records.append(record)
 
         else:

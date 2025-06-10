@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
+import multiprocessing
 from multiprocessing import Process
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -30,10 +31,14 @@ class MultiProcessServiceManager(BaseServiceManager):
     """
 
     def __init__(
-        self, required_service_types: list[ServiceType], config: ServiceConfig
+        self,
+        required_service_types: list[ServiceType],
+        config: ServiceConfig,
+        log_queue: multiprocessing.Queue | None = None,
     ):
         super().__init__(required_service_types, config)
         self.multi_process_info: list[MultiProcessRunInfo] = []
+        self.log_queue = log_queue
 
     async def initialize_all_services(self) -> None:
         """Start all required services as multiprocessing processes."""
@@ -46,7 +51,7 @@ class MultiProcessServiceManager(BaseServiceManager):
             process = Process(
                 target=bootstrap_and_run_service,
                 name=f"{service_type}_process",
-                args=(service_class, self.config),
+                args=(service_class, self.config, self.log_queue),
                 daemon=False,
             )
             process.start()
