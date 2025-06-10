@@ -138,7 +138,7 @@ class WorkerManager(BaseComponentService):
             )
             worker_id = f"worker_{i}"
             # Get the global log queue for child process logging
-            from aiperf.common.ui import get_global_log_queue
+            from aiperf.common.logging import get_global_log_queue
 
             log_queue = get_global_log_queue()
 

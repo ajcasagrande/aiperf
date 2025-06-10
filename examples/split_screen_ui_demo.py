@@ -15,7 +15,8 @@ import random
 import time
 from multiprocessing import Process
 
-from aiperf.common.ui import AIPerfUI, setup_child_process_logging
+from aiperf.common.logging import setup_child_process_logging
+from aiperf.common.ui import AIPerfUI
 
 
 def worker_process(worker_id: int, log_queue: multiprocessing.Queue):

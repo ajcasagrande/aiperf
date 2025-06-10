@@ -13,7 +13,7 @@ __all__ = [
 def bootstrap_and_run_service(
     service_class: type[BaseService],
     service_config: ServiceConfig | None = None,
-    log_queue: multiprocessing.Queue | None = None,
+    log_queue: "multiprocessing.Queue | None" = None,
 ):
     """Bootstrap the service and run it.
 
@@ -31,7 +31,7 @@ def bootstrap_and_run_service(
 
     # Set up child process logging if a log queue is provided
     if log_queue is not None:
-        from aiperf.common.ui import setup_child_process_logging
+        from aiperf.common.logging import setup_child_process_logging
 
         setup_child_process_logging(log_queue)
 

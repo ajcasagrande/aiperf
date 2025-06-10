@@ -107,6 +107,7 @@ from aiperf.common.hooks import (
     on_stop,
     supports_hooks,
 )
+from aiperf.common.logging import MultiProcessLogHandler, setup_global_log_queue
 from aiperf.common.messages import (
     ProfileProgressMessage,
     ProfileResultsMessage,
@@ -114,59 +115,6 @@ from aiperf.common.messages import (
 )
 
 logger = logging.getLogger(__name__)
-
-# Global log queue for multiprocessing
-_GLOBAL_LOG_QUEUE: multiprocessing.Queue | None = None
-
-
-def setup_global_log_queue() -> multiprocessing.Queue:
-    """Set up a global log queue that can be used by all processes.
-
-    Returns:
-        The global multiprocessing queue for logging.
-    """
-    global _GLOBAL_LOG_QUEUE
-    if _GLOBAL_LOG_QUEUE is None:
-        _GLOBAL_LOG_QUEUE = multiprocessing.Queue(maxsize=1000)
-    return _GLOBAL_LOG_QUEUE
-
-
-def get_global_log_queue() -> multiprocessing.Queue | None:
-    """Get the global log queue if it exists.
-
-    Returns:
-        The global log queue or None if not set up.
-    """
-    return _GLOBAL_LOG_QUEUE
-
-
-def setup_child_process_logging(log_queue: multiprocessing.Queue | None = None) -> None:
-    """Set up logging for a child process to send logs to the main process.
-
-    This should be called early in child process initialization.
-
-    Args:
-        log_queue: The multiprocessing queue to send logs to. If None, tries to get the global queue.
-    """
-    if log_queue is None:
-        log_queue = get_global_log_queue()
-
-    if log_queue is None:
-        return
-
-    # Set up handler for child process
-    handler = MultiProcessLogHandler(log_queue)
-    handler.setLevel(logging.DEBUG)
-
-    # Add to root logger to capture all logs from this process
-    root_logger = logging.getLogger()
-
-    # Remove existing handlers to avoid duplicate logs
-    for existing_handler in root_logger.handlers[:]:
-        if isinstance(existing_handler, MultiProcessLogHandler):
-            root_logger.removeHandler(existing_handler)
-
-    root_logger.addHandler(handler)
 
 
 class RequestsPerSecondColumn(ProgressColumn):
@@ -385,37 +333,13 @@ class FinalResultsDashboardMixin(ConsoleUIMixin):
         )
 
 
-class MultiProcessLogHandler(logging.Handler):
-    """Custom logging handler that forwards log records to a multiprocessing queue."""
-
-    def __init__(self, log_queue: multiprocessing.Queue) -> None:
-        super().__init__()
-        self.log_queue = log_queue
-
-    def emit(self, record: logging.LogRecord) -> None:
-        """Emit a log record to the queue."""
-        try:
-            # Include process info in the record
-            record.process_name = multiprocessing.current_process().name
-            record.process_id = multiprocessing.current_process().pid
-            self.log_queue.put_nowait(record)
-        except queue.Full:
-            # Drop logs if queue is full to prevent blocking
-            pass
-        except Exception:
-            # Ignore errors to prevent logging from breaking the application
-            pass
-
-
 class LogsDashboardMixin(ConsoleUIMixin):
     """Mixin for capturing and displaying logs from multiple processes."""
 
     def __init__(self) -> None:
         super().__init__()
         self.log_queue: multiprocessing.Queue | None = None
-        self.log_records: deque[logging.LogRecord] = deque(
-            maxlen=100
-        )  # Keep last 100 logs
+        self.log_records: deque[dict] = deque(maxlen=100)  # Keep last 100 logs
         self.log_handler: MultiProcessLogHandler | None = None
         self._log_consumer_task: asyncio.Task | None = None
         self._stop_log_consumer = threading.Event()
@@ -462,8 +386,8 @@ class LogsDashboardMixin(ConsoleUIMixin):
                 if self.log_queue is not None:
                     while True:
                         try:
-                            record = self.log_queue.get_nowait()
-                            self.log_records.append(record)
+                            log_data = self.log_queue.get_nowait()
+                            self.log_records.append(log_data)
                         except queue.Empty:
                             break
 
@@ -486,13 +410,13 @@ class LogsDashboardMixin(ConsoleUIMixin):
         # Show recent logs (most recent first)
         recent_logs = list(self.log_records)[-20:]  # Show last 20 logs
 
-        for record in recent_logs:
+        for log_data in recent_logs:
             # Format timestamp
-            timestamp = time.strftime("%H:%M:%S", time.localtime(record.created))
+            timestamp = time.strftime("%H:%M:%S", time.localtime(log_data["created"]))
 
             # Get process info
-            process_name = getattr(record, "process_name", "main")
-            process_id = getattr(record, "process_id", 0)
+            process_name = log_data.get("process_name", "main")
+            process_id = log_data.get("process_id", 0)
             process_info = f"{process_name}:{process_id}"
 
             # Color code log levels
@@ -502,14 +426,14 @@ class LogsDashboardMixin(ConsoleUIMixin):
                 "WARNING": "yellow",
                 "ERROR": "red",
                 "CRITICAL": "bold red",
-            }.get(record.levelname, "white")
+            }.get(log_data["levelname"], "white")
 
             logs_table.add_row(
                 timestamp,
                 process_info[:15],  # Truncate long process names
-                Text(record.levelname, style=level_style),
-                record.name[:20],  # Truncate long logger names
-                record.getMessage()[:80],  # Truncate long messages
+                Text(log_data["levelname"], style=level_style),
+                log_data["name"][:20],  # Truncate long logger names
+                log_data["msg"][:80],  # Truncate long messages
             )
 
         return Panel(
@@ -601,7 +525,9 @@ class SplitScreenDashboardMixin(ProfileProgressDashboardMixin, LogsDashboardMixi
             return
 
         self.error_count = message.error_count
-        self.error_rate = self.error_count / message.completed
+        self.error_rate = (
+            self.error_count / message.completed if message.completed > 0 else 0.0
+        )
         self.total_completed = message.completed
         self.live.update(self._refresh_split_screen_dashboard())
 
@@ -623,7 +549,7 @@ class AIPerfUI(SplitScreenDashboardMixin, FinalResultsDashboardMixin):
             cls._instance = AIPerfUI()
         return cls._instance  # type: ignore[reportUnboundVariable]
 
-    def get_log_queue_for_child_processes(self) -> multiprocessing.Queue | None:
+    def get_log_queue_for_child_processes(self) -> "multiprocessing.Queue | None":
         """Get the log queue that child processes should use for logging.
 
         Returns:
