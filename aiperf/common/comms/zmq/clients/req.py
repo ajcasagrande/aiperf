@@ -33,7 +33,7 @@ class ZMQReqClient(BaseZMQClient):
             bind (bool): Whether to bind or connect the socket.
             socket_ops (dict, optional): Additional socket options to set.
         """
-        super().__init__(context, SocketType.REQ, address, bind, socket_ops)
+        super().__init__(context, SocketType.DEALER, address, bind, socket_ops)
 
     async def _reset_socket(self) -> None:
         """Reset the socket to recover from inconsistent state.

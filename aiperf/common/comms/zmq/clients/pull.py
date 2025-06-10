@@ -12,7 +12,7 @@ from zmq import SocketType
 from aiperf.common.comms.zmq.clients.base import BaseZMQClient
 from aiperf.common.enums import MessageType
 from aiperf.common.exceptions import AIPerfError
-from aiperf.common.hooks import aiperf_task
+from aiperf.common.hooks import aiperf_task, on_init
 from aiperf.common.messages import Message, MessageTypeAdapter
 from aiperf.common.utils import call_all_functions
 
@@ -40,6 +40,12 @@ class ZMQPullClient(BaseZMQClient):
         self._pull_callbacks: dict[
             MessageType, list[Callable[[Message], Coroutine[Any, Any, None]]]
         ] = {}
+        self.queue = None
+
+    @on_init
+    async def _on_initialize(self) -> None:
+        """Initialize the ZMQ Pull client."""
+        self.queue = asyncio.Queue(maxsize=100)
 
     @aiperf_task
     async def _pull_receiver(self) -> None:
@@ -53,8 +59,35 @@ class ZMQPullClient(BaseZMQClient):
 
         while not self.is_shutdown:
             try:
-                # Receive data
                 message_json = await self.socket.recv_string()
+                logger.debug("Received message from pull socket: %s", message_json)
+                await self.queue.put(message_json)
+                logger.debug("Put message into queue")
+
+            except zmq.Again:
+                await asyncio.sleep(0.1)
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(
+                    "Exception receiving data from pull socket: %s %s",
+                    type(e).__name__,
+                    e,
+                )
+                await asyncio.sleep(0.1)
+
+    @aiperf_task
+    async def _queue_drainer(self) -> None:
+        """Background task for draining the queue."""
+
+        if not self.is_initialized:
+            await self.initialized_event.wait()
+
+        while not self.is_shutdown:
+            try:
+                # Receive data
+                message_json = await self.queue.get()
+                logger.debug("Drained message from queue: %s", message_json)
 
                 # Parse JSON into a Message object
                 try:
@@ -91,8 +124,6 @@ class ZMQPullClient(BaseZMQClient):
                     e,
                 )
                 await asyncio.sleep(0.1)
-
-        # logger.debug("Pull receiver task finished %s", self.client_id)
 
     async def register_pull_callback(
         self,

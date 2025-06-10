@@ -291,7 +291,15 @@ class ProfileProgressMessage(BaseServiceMessage):
     completed: int = Field(
         ..., description="The number of inference requests completed"
     )
-    errors: int = Field(default=0, description="The number of errors encountered")
+
+
+class ProfileStatsMessage(BaseServiceMessage):
+    """Message for profile stats."""
+
+    message_type: Literal[MessageType.PROFILE_STATS] = MessageType.PROFILE_STATS
+
+    error_count: int = Field(default=0, description="The number of errors encountered")
+    completed: int = Field(default=0, description="The number of requests completed")
 
 
 # Discriminated union type - only include message types that include a message_type field
@@ -308,6 +316,7 @@ Message = Annotated[
     | InferenceResultsMessage
     | ProfileProgressMessage
     | ProfileResultsMessage
+    | ProfileStatsMessage
     | CreditsCompleteMessage,
     Field(discriminator="message_type"),
 ]

@@ -21,6 +21,7 @@ from aiperf.common.messages import (
     InferenceResultsMessage,
     Message,
     ProfileResultsMessage,
+    ProfileStatsMessage,
 )
 from aiperf.common.record_models import RequestErrorRecord, RequestRecord
 from aiperf.common.service.base_component_service import BaseComponentService
@@ -122,6 +123,15 @@ class RecordsManager(BaseComponentService):
                 f"Received unknown inference results type: {type(record)}"
             )
             self.error_records.append(record)
+
+        await self.comms.publish(
+            topic=Topic.PROFILE_STATS,
+            message=ProfileStatsMessage(
+                service_id=self.service_id,
+                error_count=len(self.error_records),
+                completed=len(self.records),
+            ),
+        )
 
     async def process_records(self) -> None:
         """Process the records."""

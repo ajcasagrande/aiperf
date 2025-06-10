@@ -178,7 +178,10 @@ async def run_performance_test():
 
     # Configuration
     client_config = OpenAIBackendClientConfig(
-        url=os.getenv("OPENAI_API_URL", "http://localhost:8080"),
+        url=os.getenv(
+            "OPENAI_API_URL",
+            f"http://localhost:{os.getenv('AIPERF_PORT', 8080)}/v1/chat/completions",
+        ),
         api_key=os.getenv("OPENAI_API_KEY", "sk-proj-1234567890"),
         model=os.getenv("OPENAI_MODEL", "deepseek-ai/DeepSeek-R1-Distill-Llama-8B"),
         max_tokens=100,
@@ -251,7 +254,7 @@ async def run_performance_test():
             # Calculate timing statistics
             ttft_times = [r["ttft_ms"] for r in successful_results if r.get("ttft_ms")]
             ttst_times = [r["ttst_ms"] for r in successful_results if r.get("ttst_ms")]
-            ttlt_times = [r["ttlt_ms"] for r in successful_results if r.get("ttlt_ms")]
+            # ttlt_times = [r["ttlt_ms"] for r in successful_results if r.get("ttlt_ms")]
             total_times = [r["total_duration_ms"] for r in successful_results]
             response_counts = [r["response_count"] for r in successful_results]
 

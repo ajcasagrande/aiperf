@@ -30,7 +30,11 @@ from aiperf.common.hooks import (
     on_stop,
     supports_hooks,
 )
-from aiperf.common.messages import ProfileProgressMessage, ProfileResultsMessage
+from aiperf.common.messages import (
+    ProfileProgressMessage,
+    ProfileResultsMessage,
+    ProfileStatsMessage,
+)
 
 
 class RequestsPerSecondColumn(ProgressColumn):
@@ -87,6 +91,7 @@ class ProfileProgressDashboardMixin(ConsoleUIMixin):
         self.start_perf_counter_ns: int | None = None
         self.error_count: int = 0
         self.error_rate: float = 0.0
+        self.total_completed: int = 0
 
     @on_start
     async def run_profile_progress_dashboard(self) -> None:
@@ -105,14 +110,14 @@ class ProfileProgressDashboardMixin(ConsoleUIMixin):
             expand=True,
         )
 
-        panel = Panel(
-            Text("Waiting for profile data...", style="dim"),
-            title="AIPerf Dashboard",
-            border_style="blue",
-        )
-        self.live.update(panel, refresh=True)
+        # panel = Panel(
+        #     Text("Waiting for profile data...", style="dim"),
+        #     title="AIPerf Dashboard",
+        #     border_style="blue",
+        # )
+        # self.live.update(panel, refresh=True)
 
-    def _create_progress_dashboard(self) -> Panel:
+    def _refresh_progress_dashboard(self) -> Panel:
         """Create the main dashboard layout."""
         # Create stats table
         stats_table = Table.grid(padding=1)
@@ -137,7 +142,10 @@ class ProfileProgressDashboardMixin(ConsoleUIMixin):
                 "Progress:", f"{task.completed:,} / {task.total:,} requests"
             )
             stats_table.add_row("Completion:", f"{completion_pct:.1f}%")
-            # stats_table.add_row("Errors:", f"{self.error_count:,} ()")
+            stats_table.add_row(
+                "Errors:",
+                f"{self.error_count:,} / {self.total_completed:,} ({self.error_rate:.1%})",
+            )
             stats_table.add_row(
                 "Rate:",
                 f"{task.speed:.1f} req/s" if task.speed else "-- req/s",
@@ -167,6 +175,10 @@ class ProfileProgressDashboardMixin(ConsoleUIMixin):
             title="[bold blue]AIPerf Profile Dashboard",
             border_style="blue",
             padding=(1, 2),
+            width=self.console.width,
+            height=self.console.height,
+            expand=True,
+            highlight=True,
         )
 
     @on_stop
@@ -200,9 +212,6 @@ class ProfileProgressDashboardMixin(ConsoleUIMixin):
             message.completed / elapsed_seconds if (elapsed_seconds or 0) > 0 else 0.0
         )
 
-        self.error_count = message.errors
-        self.error_rate = self.error_count / message.total
-
         # Update the progress task
         self.progress.update(
             self.task_id,
@@ -212,7 +221,17 @@ class ProfileProgressDashboardMixin(ConsoleUIMixin):
         )
 
         # Update the live display
-        self.live.update(self._create_progress_dashboard())
+        self.live.update(self._refresh_progress_dashboard())
+
+    def update_profile_stats(self, message: ProfileStatsMessage) -> None:
+        """Update the profile stats."""
+        if not self.progress:
+            return
+
+        self.error_count = message.error_count
+        self.error_rate = self.error_count / message.completed
+        self.total_completed = message.completed
+        self.live.update(self._refresh_progress_dashboard())
 
 
 class FinalResultsDashboardMixin(ConsoleUIMixin):

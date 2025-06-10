@@ -34,12 +34,13 @@ class ZMQRepClient(BaseZMQClient):
             bind (bool): Whether to bind or connect the socket.
             socket_ops (dict, optional): Additional socket options to set.
         """
-        super().__init__(context, SocketType.REP, address, bind, socket_ops)
+        super().__init__(context, SocketType.ROUTER, address, bind, socket_ops)
 
         self._request_handlers: dict[
             MessageType,
             tuple[str, Callable[[Message], Coroutine[Any, Any, Message | None]]],
         ] = {}
+        self._response_futures: dict[str, asyncio.Future[Message | None]] = {}
 
     @on_cleanup
     async def _cleanup(self) -> None:
@@ -83,16 +84,16 @@ class ZMQRepClient(BaseZMQClient):
         """
         self._request_handlers[message_type] = (service_id, handler)
 
-    async def _handle_request(self, request_json: str) -> None:
+    async def _handle_request(self, request_id: str, request_json: str) -> None:
         """Handle a request."""
         # Parse JSON to create RequestData object
         request = MessageTypeAdapter.validate_json(request_json)
         message_type = request.message_type
 
         # Call the handler
-        service_id = None
+        _ = None
         try:
-            service_id, handler = self._request_handlers[message_type]
+            _, handler = self._request_handlers[message_type]
             response = await handler(request)
 
         except Exception as e:
@@ -102,8 +103,7 @@ class ZMQRepClient(BaseZMQClient):
                 error=str(e),
             )
 
-        if response is not None:
-            await self.respond(response)
+        self._response_futures[request_id].set_result(response)
 
     @aiperf_task
     async def _rep_receiver(self) -> None:
@@ -118,8 +118,17 @@ class ZMQRepClient(BaseZMQClient):
         while not self.is_shutdown:
             try:
                 # Receive request
-                request_json = await self.socket.recv_string()
-                asyncio.create_task(self._handle_request(request_json))
+                request_id, request_json = await self.socket.recv_multipart()
+                self._response_futures[request_id] = asyncio.Future()
+                asyncio.create_task(self._handle_request(request_id, request_json))
+                response = await self._response_futures[request_id]  # type: ignore
+                if response is not None:
+                    await self.socket.send_multipart(
+                        [request_id, response.model_dump_json().encode()]
+                    )
+                else:
+                    logger.warning("No response for request %s", request_id)
+                    await self.socket.send_multipart([request_id, b"ERROR"])
 
             except asyncio.CancelledError:
                 break

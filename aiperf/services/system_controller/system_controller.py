@@ -114,6 +114,7 @@ class SystemController(BaseControllerService):
             (Topic.STATUS, self._process_status_message),
             (Topic.CREDITS_COMPLETE, self._process_credits_complete_message),
             (Topic.PROFILE_PROGRESS, self.ui.update_profile_progress),
+            (Topic.PROFILE_STATS, self.ui.update_profile_stats),
             (Topic.PROFILE_RESULTS, self._process_profile_results_message),
         ]
         for topic, callback in subscribe_callbacks:
@@ -325,10 +326,13 @@ class SystemController(BaseControllerService):
             message: The credits complete message to process
         """
         service_id = message.service_id
-        self.logger.debug(f"Received credits complete from {service_id}")
+        self.logger.info("Received credits complete from %s", service_id)
         # TODO: this should eventually be replaced with a profile end command instead of a stop event
         # request to stop the system
-        # self.stop_event.set()
+        # TODO: this is a hack to give the services time to produce results
+        await asyncio.sleep(5)
+        await self.ui.stop()
+        self.stop_event.set()
 
     async def _process_status_message(self, message: StatusMessage) -> None:
         """Process a status message from a service. It will

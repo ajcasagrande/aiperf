@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+import os
 import sys
 import time
 from typing import Any, Generic
@@ -25,7 +26,8 @@ class GenericHTTPBackendClientConfig(BaseBackendClientConfig):
     """Configuration options for a generic HTTP backend client."""
 
     url: str = Field(
-        default="localhost:8080", description="The URL of the backend client."
+        default=f"http://localhost:{os.getenv('AIPERF_PORT', 8080)}",
+        description="The URL of the backend client.",
     )
     protocol: str = Field(
         default="http", description="The protocol to use for the backend client."
@@ -220,11 +222,31 @@ class RequestTimers:
     def __init__(self):
         """Initialize timer with zeroed timestamps."""
         self.timestamps: dict[RequestTimerKind, int] = {}
+        self.chunk_timestamps: list[int] = []
         self.reset()
 
     def reset(self) -> None:
         """Reset all timestamp values to zero. Must be called before re-using the timer."""
         self.timestamps = {}
+        self.chunk_timestamps = []
+
+    @property
+    def chunk_count(self) -> int:
+        """Get the number of chunks captured."""
+        return len(self.chunk_timestamps)
+
+    def append_chunk_timestamp(self, timestamp_ns: int) -> None:
+        """Append a timestamp for a chunk.
+
+        Args:
+            timestamp_ns: The timestamp in nanoseconds.
+        """
+        self.chunk_timestamps.append(timestamp_ns)
+
+    def capture_chunk_timestamp(self) -> int:
+        """Capture a timestamp for a chunk."""
+        self.append_chunk_timestamp(time.perf_counter_ns())
+        return self.chunk_timestamps[-1]
 
     def timestamp(self, kind: RequestTimerKind) -> int:
         """Get the timestamp, in nanoseconds, for a kind.
@@ -236,6 +258,12 @@ class RequestTimers:
             The timestamp in nanoseconds.
         """
         return self.timestamps[kind]
+
+    def chunk_timestamp(self, index: int) -> int:
+        """Get the timestamp of a chunk in nanoseconds."""
+        if index < 0 or index >= len(self.chunk_timestamps):
+            raise ValueError(f"Invalid chunk index: {index}")
+        return self.chunk_timestamps[index]
 
     def capture_timestamp(self, kind: RequestTimerKind) -> int:
         """Set a timestamp to the current time, in nanoseconds.

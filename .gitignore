@@ -11,4 +11,5 @@ htmlcov/
 .env.*
 lib/*/target
 *.so
+**/*.log
 

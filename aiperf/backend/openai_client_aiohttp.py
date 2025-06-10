@@ -1,7 +1,6 @@
 #  SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #  SPDX-License-Identifier: Apache-2.0
 
-import json
 import logging
 import socket
 import time
@@ -9,9 +8,7 @@ import typing
 from typing import Any
 
 import aiohttp
-from aiperf_timing import RequestTimerKind, RequestTimers  # type: ignore
 
-# from aiperf.common.record_models import RequestTimerKind, RequestTimers
 from aiperf.backend.openai_common import (
     OpenAIBackendClientConfig,
     OpenAIBackendClientProtocol,
@@ -25,7 +22,6 @@ from aiperf.backend.openai_common import (
 )
 from aiperf.common.enums import (
     BackendClientType,
-    # RequestTimerKind,
 )
 from aiperf.common.exceptions import InvalidPayloadError
 from aiperf.common.factories import BackendClientFactory
@@ -33,7 +29,8 @@ from aiperf.common.record_models import (
     BackendClientErrorResponse,
     BackendClientResponse,
     RequestRecord,
-    # RequestTimers,
+    RequestTimerKind,
+    RequestTimers,
 )
 
 ################################################################################
@@ -56,9 +53,12 @@ class OpenAIBackendClientAioHttp(OpenAIClientMixin, OpenAIBackendClientProtocol)
     def __init__(self, client_config: OpenAIBackendClientConfig):
         super().__init__(client_config)
         # Pre-configure aiohttp connector for optimal performance
-        self._connector = aiohttp.TCPConnector(
-            limit=1000,  # Connection pool size
-            limit_per_host=1000,  # Per-host connection limit
+
+    def create_connector(self) -> aiohttp.TCPConnector:
+        """Create a new connector with the given configuration."""
+        return aiohttp.TCPConnector(
+            limit=2500,  # Connection pool size
+            limit_per_host=2500,  # Per-host connection limit
             ttl_dns_cache=300,  # DNS cache TTL
             use_dns_cache=True,
             enable_cleanup_closed=True,
@@ -274,10 +274,9 @@ class OpenAIBackendClientAioHttp(OpenAIClientMixin, OpenAIBackendClientProtocol)
 
             # Make raw HTTP request with precise timing using aiohttp
             async with aiohttp.ClientSession(
-                connector=self._connector,
+                connector=self.create_connector(),
                 timeout=timeout,
                 headers={"User-Agent": "aiperf/1.0"},
-                json_serialize=json.dumps,  # Use faster JSON serializer
                 skip_auto_headers={"User-Agent"},  # Skip auto-headers for performance
             ) as session:
                 # Create record and capture initial timestamp
@@ -312,9 +311,8 @@ class OpenAIBackendClientAioHttp(OpenAIClientMixin, OpenAIBackendClientProtocol)
                     # Parse SSE stream with optimal performance
                     buffer = ""
                     async for chunk in self._aiter_sse_chunks(response):
-                        chunk_timestamp = timers.capture_timestamp(
-                            RequestTimerKind.RECV_CHUNK
-                        )
+                        chunk_timestamp = time.perf_counter_ns()
+
                         buffer += chunk
 
                         # Process complete lines efficiently
@@ -342,6 +340,7 @@ class OpenAIBackendClientAioHttp(OpenAIClientMixin, OpenAIBackendClientProtocol)
                                     continue
 
                                 try:
+                                    timers.append_chunk_timestamp(chunk_timestamp)
                                     # Store the raw SSE data directly for most accurate timing
                                     record.responses.append(
                                         BackendClientResponse[str](
@@ -443,5 +442,4 @@ class OpenAIBackendClientAioHttp(OpenAIClientMixin, OpenAIBackendClientProtocol)
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """Async context manager exit - cleanup connector."""
-        if hasattr(self, "_connector") and self._connector:
-            await self._connector.close()
+        logger.debug("Async context manager exit - cleanup connector.")

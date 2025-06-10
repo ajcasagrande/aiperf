@@ -34,6 +34,7 @@ class PubClientType(CaseInsensitiveStrEnum):
                 | Topic.CREDITS_COMPLETE
                 | Topic.PROFILE_PROGRESS
                 | Topic.PROFILE_RESULTS
+                | Topic.PROFILE_STATS
             ):
                 return cls.COMPONENT
             case Topic.COMMAND:
@@ -72,6 +73,7 @@ class SubClientType(CaseInsensitiveStrEnum):
                 | Topic.CREDITS_COMPLETE
                 | Topic.PROFILE_PROGRESS
                 | Topic.PROFILE_RESULTS
+                | Topic.PROFILE_STATS
             ):
                 return cls.COMPONENT
             case Topic.COMMAND:

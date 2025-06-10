@@ -52,12 +52,17 @@ class CommunicationBackend(CaseInsensitiveStrEnum):
 
 class Topic(CaseInsensitiveStrEnum):
     """Communication topics for the main messaging bus.
-    Right now, there is some overlap between Topic and MessageType."""
+    Right now, there is some overlap between Topic and MessageType.
+
+    NOTE: If you add a new topic, you must also add handlers for it in the
+    ClientType enums so the system knows what type of client to use for that topic.
+    """
 
     CREDIT_DROP = "credit_drop"
     CREDIT_RETURN = "credit_return"
     CREDITS_COMPLETE = "credits_complete"
     PROFILE_PROGRESS = "profile_progress"
+    PROFILE_STATS = "profile_stats"
     PROFILE_RESULTS = "profile_results"
     REGISTRATION = "registration"
     COMMAND = "command"
@@ -174,6 +179,9 @@ class MessageType(CaseInsensitiveStrEnum):
 
     PROFILE_PROGRESS = "profile_progress"
     """A message containing profile run progress."""
+
+    PROFILE_STATS = "profile_stats"
+    """A message containing profile run stats such as error rates, etc."""
 
     PROFILE_END = "profile_end"
     """A message sent to indicate that a profile run has ended."""
