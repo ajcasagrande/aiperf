@@ -2,8 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import pytest
-from _pytest.capture import CaptureFixture
-from pytest_mock import MockerFixture
 
 from aiperf.common.config.endpoint_config import EndPointConfig
 from aiperf.common.data_exporter.console_exporter import ConsoleExporter
@@ -64,14 +62,10 @@ def sample_records() -> list[Record]:
 
 class TestConsoleExporter:
     def test_export_prints_expected_table(
-        self,
-        endpoint_config: EndPointConfig,
-        sample_records: list[Record],
-        mocker: MockerFixture,
-        capsys: CaptureFixture[str],
+        self, endpoint_config, sample_records, capsys
     ):
         exporter = ConsoleExporter(endpoint_config)
-        exporter.export(sample_records)
+        exporter.export(sample_records, width=100)  # fixed width for consistent output
         captured = capsys.readouterr()
         output = captured.out
         assert "NVIDIA AIPerf | LLM Metrics" in output

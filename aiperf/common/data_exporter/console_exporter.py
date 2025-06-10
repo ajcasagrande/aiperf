@@ -26,13 +26,14 @@ class ConsoleExporter:
         self.endpoint_type = endpoint_config.type
         self.streaming = endpoint_config.streaming
 
-    def export(self, records: list[Record]) -> None:
+    def export(self, records: list[Record], **kwargs) -> None:
+        console = Console(**kwargs)
         table = Table(title=self._get_title())
         table.add_column("Metric", justify="right", style="cyan")
         for key in self.STAT_COLUMN_KEYS:
             table.add_column(key, justify="right", style="green")
         self._construct_table(table, records)
-        self.console.print(table)
+        console.print(table)
         self.live.update(table, refresh=True)
 
     def _construct_table(self, table: Table, records: list[Record]) -> None:
