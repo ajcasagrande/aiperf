@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -64,7 +65,7 @@ class TestConsoleExporter:
     def test_export_prints_expected_table(
         self, endpoint_config, sample_records, capsys
     ):
-        exporter = ConsoleExporter(endpoint_config)
+        exporter = ConsoleExporter(endpoint_config, MagicMock(), MagicMock())
         exporter.export(sample_records, width=100)  # fixed width for consistent output
         captured = capsys.readouterr()
         output = captured.out
@@ -91,7 +92,7 @@ class TestConsoleExporter:
         should_skip: bool,
     ):
         endpoint_config.streaming = enable_streaming
-        exporter = ConsoleExporter(endpoint_config)
+        exporter = ConsoleExporter(endpoint_config, MagicMock(), MagicMock())
         record = Record(
             name="Test Metric",
             unit="ms",
@@ -101,7 +102,7 @@ class TestConsoleExporter:
         assert exporter._should_skip(record) is should_skip
 
     def test_format_row_formats_values_correctly(self, endpoint_config: EndPointConfig):
-        exporter = ConsoleExporter(endpoint_config)
+        exporter = ConsoleExporter(endpoint_config, MagicMock(), MagicMock())
         record = Record(
             name="Request Latency",
             unit="ms",
@@ -123,5 +124,5 @@ class TestConsoleExporter:
         assert row[6] == "12.30"
 
     def test_get_title_returns_expected_string(self, endpoint_config: EndPointConfig):
-        exporter = ConsoleExporter(endpoint_config)
+        exporter = ConsoleExporter(endpoint_config, MagicMock(), MagicMock())
         assert exporter._get_title() == "NVIDIA AIPerf | LLM Metrics"
