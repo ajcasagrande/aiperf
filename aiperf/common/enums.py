@@ -259,7 +259,6 @@ class ServiceType(CaseInsensitiveStrEnum):
     RECORDS_MANAGER = "records_manager"
     POST_PROCESSOR_MANAGER = "post_processor_manager"
     WORKER_MANAGER = "worker_manager"
-    MULTI_WORKER_PROCESS = "multi_worker_process"
     WORKER = "worker"
     DATASET_BROKER = "dataset_broker"
     TEST = "test_service"

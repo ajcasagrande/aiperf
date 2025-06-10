@@ -10,14 +10,7 @@ from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import MessageType, ServiceState, ServiceType, Topic
 from aiperf.common.factories import ServiceFactory
-from aiperf.common.hooks import (
-    aiperf_task,
-    on_cleanup,
-    on_configure,
-    on_init,
-    on_start,
-    on_stop,
-)
+from aiperf.common.hooks import aiperf_task, on_configure, on_init, on_start, on_stop
 from aiperf.common.messages import (
     CreditDropMessage,
     CreditReturnMessage,
@@ -94,12 +87,6 @@ class TimingManager(BaseComponentService):
         """Stop the timing manager."""
         self.logger.debug("Stopping timing manager")
         # TODO: Implement timing manager stop
-
-    @on_cleanup
-    async def _cleanup(self) -> None:
-        """Clean up timing manager-specific components."""
-        self.logger.debug("Cleaning up timing manager")
-        # TODO: Implement timing manager cleanup
 
     @aiperf_task
     async def _issue_credit_drops(self) -> None:

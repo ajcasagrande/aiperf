@@ -49,7 +49,7 @@ class ZMQRouterClient(BaseZMQClient):
         """
         Initialize the ZMQ Router client's identity. Connection has already been made by base class.
         """
-        # self.socket.setsockopt(zmq.IDENTITY, self.id.encode())
+        self.socket.setsockopt(zmq.IDENTITY, self.id.encode())
         self.logger.info(
             f"ROUTER[{self.id}] initialized with identity: {self.id}, Address: {self.address}"
         )
@@ -68,7 +68,7 @@ class ZMQRouterClient(BaseZMQClient):
             handler: The handler to register
         """
         self._request_handlers[message_type] = (service_id, handler)
-        self.logger.info(
+        self.logger.error(
             f"ROUTER[{self.id}] HANDLER REGISTERED - Service: {service_id}, Type: {message_type}"
         )
 
@@ -135,7 +135,7 @@ class ZMQRouterClient(BaseZMQClient):
         if not self.is_initialized:
             await self.initialized_event.wait()
 
-        self.logger.info(
+        self.logger.error(
             f"ROUTER[{self.id}] RECEIVER STARTED - Address: {self.address}"
         )
 

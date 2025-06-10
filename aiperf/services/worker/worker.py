@@ -4,20 +4,19 @@ import asyncio
 import copy
 import os
 import sys
-import uuid
 
 from aiperf.backend.openai_client_httpx import OpenAIBackendClientConfig
 from aiperf.common.comms.client_enums import (
     ClientType,
+    DealerClientType,
     PullClientType,
     PushClientType,
-    RouterClientType,
 )
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.constants import NANOS_PER_MILLIS
 from aiperf.common.enums import BackendClientType, MessageType, ServiceType, Topic
 from aiperf.common.factories import BackendClientFactory
-from aiperf.common.hooks import on_cleanup, on_init, on_run, on_start, on_stop
+from aiperf.common.hooks import on_init, on_run, on_start
 from aiperf.common.interfaces import BackendClientProtocol
 from aiperf.common.messages import (
     ConversationRequestMessage,
@@ -29,7 +28,6 @@ from aiperf.common.record_models import (
     RequestErrorRecord,
     RequestRecord,
 )
-from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.common.service.base_service import BaseService
 
 
@@ -47,6 +45,8 @@ class Worker(BaseService):
 
         # Backend client will be initialized in _initialize
         self.backend_client: BackendClientProtocol | None = None
+        self.max_concurrency = int(os.getenv("AIPERF_TASKS_PER_WORKER", 100))
+        self.semaphore = asyncio.Semaphore(self.max_concurrency)
 
     @property
     def service_type(self) -> ServiceType:
@@ -60,13 +60,19 @@ class Worker(BaseService):
             *(super().required_clients or []),
             PullClientType.CREDIT_DROP,
             PushClientType.CREDIT_RETURN,
-            RouterClientType.CONVERSATION_DATA,
+            DealerClientType.CONVERSATION_DATA,
         ]
 
     @on_init
     async def _initialize(self) -> None:
         """Initialize worker-specific components."""
         self.logger.debug("Initializing worker")
+
+        # Pull credit drops
+        await self.comms.register_pull_callback(
+            message_type=MessageType.CREDIT_DROP,
+            callback=self._process_credit_drop,
+        )
 
         # Get API key from environment variable or use a default for testing
         api_key = os.environ.get("OPENAI_API_KEY", "sk-fakeai-1234567890abcdef")
@@ -92,76 +98,53 @@ class Worker(BaseService):
     @on_start
     async def _start(self) -> None:
         """Start the worker."""
-        # self.logger.debug("Starting worker")
-        # Pull credit drops
-        await self.comms.register_pull_callback(
-            message_type=MessageType.CREDIT_DROP,
-            callback=self._process_credit_drop,
-        )
+        self.logger.debug("Starting worker")
 
-    @on_stop
-    async def _stop(self) -> None:
-        """Stop the worker."""
-        # self.logger.debug("Stopping worker")
-
-    @on_cleanup
-    async def _cleanup(self) -> None:
-        """Clean up worker-specific components."""
-        # self.logger.debug("Cleaning up worker")
+    async def _task_done_callback(self, task: asyncio.Task) -> None:
+        """Callback for when a task is done."""
+        try:
+            self.logger.debug("Task done callback")
+            msg = InferenceResultsMessage(
+                service_id=self.service_id,
+                record=copy.deepcopy(task.result()),
+            )
+            # self.logger.debug(f"Pushing request record: {msg}")
+            await self.comms.push(
+                topic=Topic.INFERENCE_RESULTS,
+                message=msg,
+            )
+        except asyncio.CancelledError:
+            pass  # Task was cancelled
+        except Exception as e:
+            self.logger.error(
+                f"Error pushing request record: {e.__class__.__name__}: {e}"
+            )
+        finally:
+            self.semaphore.release()
+            # Always return the credits
+            self.logger.debug("Returning credits, %s", 1)
+            await self.comms.push(
+                topic=Topic.CREDIT_RETURN,
+                message=CreditReturnMessage(service_id=self.service_id, amount=1),
+            )
 
     async def _process_credit_drop(self, message: CreditDropMessage) -> None:
-        """Process a credit drop response.
+        """Process a credit drop message.
 
         Args:
             message: The message received from the credit drop
         """
         self.logger.debug(f"Processing credit drop: {message}")
 
-        credit_amount = 0
+        await self.semaphore.acquire()
         try:
-            # Extract the credit drop message payload
-            if hasattr(message, "amount"):
-                credit_amount = message.amount
-                self.logger.debug(f"Received {credit_amount} credit(s)")
+            task = asyncio.create_task(self._call_backend_api())
+            task.add_done_callback(self._task_done_callback)
 
-                # Make a call to OpenAI API for each credit
-                for _ in range(credit_amount):
-                    record = await self._call_backend_api()
-
-                    try:
-                        msg = InferenceResultsMessage(
-                            service_id=self.service_id,
-                            record=copy.deepcopy(record),
-                        )
-                        # self.logger.debug(f"Pushing request record: {msg}")
-                        await self.comms.push(
-                            topic=Topic.INFERENCE_RESULTS,
-                            message=msg,
-                        )
-                    except Exception as e:
-                        self.logger.error(
-                            f"Error pushing request record: {e.__class__.__name__}: {e}"
-                        )
-
-                    # await asyncio.sleep(0.1)  # Small delay between calls
-            else:
-                self.logger.warning(
-                    f"Received credit drop message without amount: {message}"
-                )
-
+        except asyncio.CancelledError:
+            pass  # Task was cancelled
         except Exception as e:
             self.logger.error(f"Error processing credit drop: {e}")
-
-        finally:
-            # Always return the credits
-            self.logger.debug("Returning credits, %s", credit_amount)
-            await self.comms.push(
-                topic=Topic.CREDIT_RETURN,
-                message=CreditReturnMessage(
-                    service_id=self.service_id,
-                    amount=credit_amount,
-                ),
-            )
 
     async def _call_backend_api(self) -> RequestErrorRecord | RequestRecord:
         """Make a call to the backend API."""
@@ -181,16 +164,8 @@ class Worker(BaseService):
                     service_id=self.service_id, conversation_id="123"
                 ),
             )
+            self.logger.debug("Response: %s", response)
             messages = response.conversation_data
-
-            # Sample messages for the API call
-            # messages = [
-            #     {"role": "system", "content": "You are a helpful assistant."},
-            #     {
-            #         "role": "user",
-            #         "content": "Tell me about NVIDIA AI performance testing.",
-            #     },
-            # ]
 
             # Format payload for the API request
             formatted_payload = await self.backend_client.format_payload(
@@ -211,6 +186,12 @@ class Worker(BaseService):
 
             return record
 
+        except asyncio.CancelledError:
+            self.logger.debug("Task cancelled")
+            return RequestErrorRecord(
+                error="Task cancelled",
+            )
+
         except Exception as e:
             self.logger.error(
                 "Error calling backend API: %s %s", e.__class__.__name__, str(e)
@@ -220,57 +201,12 @@ class Worker(BaseService):
             )
 
 
-class MultiWorkerProcess(BaseComponentService):
-    """MultiWorkerProcess is a process that runs multiple workers as concurrent tasks on the event loop."""
-
-    def __init__(self, service_config: ServiceConfig, service_id: str | None = None):
-        super().__init__(service_config=service_config, service_id=service_id)
-        self.logger.debug("Initializing worker process")
-        self.workers: list[Worker] = []
-        self.tasks: list[asyncio.Task] = []
-        self.worker_count = int(os.getenv("AIPERF_TASKS_PER_WORKER", 100))
-
-    @property
-    def service_type(self) -> ServiceType:
-        """The type of service."""
-        return ServiceType.MULTI_WORKER_PROCESS
-
-    @property
-    def required_clients(self) -> list[ClientType]:
-        """The communication clients required by the service."""
-        return super().required_clients or []
-
-    @on_run
-    async def _run(self) -> None:
-        self.logger.debug("%s: Creating %s workers", self.service_id, self.worker_count)
-        for _ in range(self.worker_count):
-            worker = Worker(
-                service_config=self.service_config,
-                service_id=f"worker_{uuid.uuid4().hex[:8]}",
-            )
-            self.workers.append(worker)
-            self.tasks.append(asyncio.create_task(worker.run_forever()))
-
-    @on_stop
-    async def _stop(self) -> None:
-        self.logger.debug("Stopping multi-worker process %s", self.service_id)
-        for task in self.tasks:
-            task.cancel()
-        for worker in self.workers:
-            worker.stop_event.set()
-
-    @on_cleanup
-    async def _cleanup(self) -> None:
-        self.logger.debug("Cleaning up multi-worker process %s", self.service_id)
-        await asyncio.gather(*self.tasks)
-
-
 def main() -> None:
     """Main entry point for the worker process."""
 
     from aiperf.common.bootstrap import bootstrap_and_run_service
 
-    bootstrap_and_run_service(MultiWorkerProcess)
+    bootstrap_and_run_service(Worker)
 
 
 if __name__ == "__main__":
