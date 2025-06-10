@@ -19,8 +19,6 @@ __all__ = [
     "ZMQPubClient",
     "ZMQPullClient",
     "ZMQPushClient",
-    "ZMQRepClient",
-    "ZMQReqClient",
     "ZMQSubClient",
     "ZMQDealerClient",
     "ZMQRouterClient",
@@ -33,8 +31,6 @@ from aiperf.common.comms.zmq.clients.dealer_router import ZMQDealerRouterBroker
 from aiperf.common.comms.zmq.clients.pub import ZMQPubClient
 from aiperf.common.comms.zmq.clients.pull import ZMQPullClient
 from aiperf.common.comms.zmq.clients.push import ZMQPushClient
-from aiperf.common.comms.zmq.clients.rep import ZMQRepClient
-from aiperf.common.comms.zmq.clients.req import ZMQReqClient
 from aiperf.common.comms.zmq.clients.router import ZMQRouterClient
 from aiperf.common.comms.zmq.clients.sub import ZMQSubClient
 
@@ -44,8 +40,6 @@ ZMQClient = (
     | ZMQSubClient
     | ZMQPullClient
     | ZMQPushClient
-    | ZMQRepClient
-    | ZMQReqClient
-    | ZMQRouterClient
     | ZMQDealerClient
+    | ZMQRouterClient
 )

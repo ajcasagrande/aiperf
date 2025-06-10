@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-from typing import Union
+
 
 from aiperf.common.enums import CaseInsensitiveStrEnum, MessageType, Topic
 from aiperf.common.exceptions import CommunicationClientNotFoundError
@@ -148,16 +148,15 @@ class PullClientType(CaseInsensitiveStrEnum):
                 )
 
 
-class ReqClientType(CaseInsensitiveStrEnum):
+class RouterClientType(CaseInsensitiveStrEnum):
     """
-    Enum for specifying the client type for requesting messages. Includes a helper method
-    for retrieving the appropriate client type based on the topic.
+    Enum for specifying the client type for router messages.
     """
 
-    CONVERSATION_DATA = "conversation_data_req"
+    CONVERSATION_DATA = "conversation_data_router"
 
     @classmethod
-    def from_topic(cls, topic: Topic) -> "ReqClientType":
+    def from_topic(cls, topic: Topic) -> "RouterClientType":
         """Determine the appropriate ClientType based on topic.
 
         Args:
@@ -175,16 +174,15 @@ class ReqClientType(CaseInsensitiveStrEnum):
                 )
 
 
-class RepClientType(CaseInsensitiveStrEnum):
+class DealerClientType(CaseInsensitiveStrEnum):
     """
-    Enum for specifying the client type for responding to messages. Includes a helper method
-    for retrieving the appropriate client type based on the topic.
+    Enum for specifying the client type for dealer messages.
     """
 
-    CONVERSATION_DATA = "conversation_data_rep"
+    CONVERSATION_DATA = "conversation_data_dealer"
 
     @classmethod
-    def from_topic(cls, topic: Topic) -> "RepClientType":
+    def from_topic(cls, topic: Topic) -> "DealerClientType":
         """Determine the appropriate ClientType based on topic.
 
         Args:
@@ -202,12 +200,12 @@ class RepClientType(CaseInsensitiveStrEnum):
                 )
 
 
-ClientType = Union[  # noqa: UP007
-    PubClientType,
-    SubClientType,
-    PushClientType,
-    PullClientType,
-    ReqClientType,
-    RepClientType,
-]
+ClientType = (
+    PubClientType
+    | SubClientType
+    | PushClientType
+    | PullClientType
+    | RouterClientType
+    | DealerClientType
+)
 """Union of all client types."""

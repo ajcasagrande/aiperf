@@ -43,6 +43,8 @@ class DatasetBroker(BaseComponentService):
         self.dealer_router_broker = ZMQDealerRouterBroker.from_config(
             config=self.service_config.comm_config.dataset_broker_config,
         )
+        if self.dealer_router_broker is None:
+            raise ValueError("DealerRouterBroker config is not set")
 
     @on_run
     async def _run(self) -> None:

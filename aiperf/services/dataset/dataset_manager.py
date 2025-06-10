@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 import sys
 
-from aiperf.common.comms.client_enums import ClientType, RepClientType
+from aiperf.common.comms.client_enums import ClientType, RouterClientType
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import MessageType, ServiceType, Topic
 from aiperf.common.factories import ServiceFactory
@@ -50,7 +50,7 @@ class DatasetManager(BaseComponentService):
         """The communication clients required by the service."""
         return [
             *(super().required_clients or []),
-            RepClientType.CONVERSATION_DATA,
+            RouterClientType.CONVERSATION_DATA,
         ]
 
     @on_init

@@ -22,11 +22,11 @@ class BaseZMQDealerRouterBrokerConfig(BaseModel, ABC):
 
     @property
     @abstractmethod
-    def router_address(self) -> str: ...
+    def frontend_address(self) -> str: ...
 
     @property
     @abstractmethod
-    def dealer_address(self) -> str: ...
+    def backend_address(self) -> str: ...
 
     @property
     @abstractmethod
@@ -93,11 +93,11 @@ class ZMQTCPDealerRouterBrokerConfig(BaseZMQDealerRouterBrokerConfig):
         default="0.0.0.0",
         description="Host address for TCP connections",
     )
-    router_port: int = Field(
-        default=5555, description="The port of the router (ROUTER)"
+    frontend_port: int = Field(
+        default=5564, description="The port of the router (ROUTER)"
     )
-    dealer_port: int = Field(
-        default=5556, description="The port of the dealer (DEALER)"
+    backend_port: int = Field(
+        default=5565, description="The port of the dealer (DEALER)"
     )
 
     control_port: int | None = Field(
@@ -108,24 +108,24 @@ class ZMQTCPDealerRouterBrokerConfig(BaseZMQDealerRouterBrokerConfig):
     )
 
     @property
-    def router_address(self) -> str:
+    def frontend_address(self) -> str:
         """Get the router address for the given host."""
-        return f"tcp://{self.host}:{self.router_port}"
+        return f"tcp://{self.host}:{self.frontend_port}"
 
     @property
-    def dealer_address(self) -> str:
+    def backend_address(self) -> str:
         """Get the dealer address for the given host."""
-        return f"tcp://{self.host}:{self.dealer_port}"
+        return f"tcp://{self.host}:{self.backend_port}"
 
     @property
     def control_address(self) -> str | None:
         """Get the control address for the given host."""
-        return f"tcp://{self.host}:{self.control_port}"
+        return f"tcp://{self.host}:{self.control_port}" if self.control_port else None
 
     @property
     def capture_address(self) -> str | None:
         """Get the capture address for the given host."""
-        return f"tcp://{self.host}:{self.capture_port}"
+        return f"tcp://{self.host}:{self.capture_port}" if self.capture_port else None
 
 
 class ZMQTCPTransportConfig(BaseZMQTransportConfig):
@@ -160,8 +160,8 @@ class ZMQTCPTransportConfig(BaseZMQTransportConfig):
     credit_return_port: int = Field(
         default=5563, description="Port for credit return operations"
     )
-    dataset_broker_config: BaseZMQDealerRouterBrokerConfig | None = Field(
-        default=None,
+    dataset_broker_config: BaseZMQDealerRouterBrokerConfig = Field(
+        default=ZMQTCPDealerRouterBrokerConfig(),
         description="Configuration for the ZMQ Dataset Broker. If provided, the broker will be created and started.",
     )
     credit_broker_config: BaseZMQDealerRouterBrokerConfig | None = Field(

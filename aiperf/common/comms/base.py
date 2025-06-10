@@ -23,7 +23,7 @@ class BaseCommunication(ABC):
     @abstractmethod
     async def initialize(self) -> None:
         """Initialize communication channels."""
-        pass
+        ...
 
     @property
     @abstractmethod
@@ -33,7 +33,7 @@ class BaseCommunication(ABC):
         Returns:
             True if communication channels are initialized, False otherwise
         """
-        pass
+        ...
 
     @property
     @abstractmethod
@@ -43,12 +43,12 @@ class BaseCommunication(ABC):
         Returns:
             True if communication channels are shutdown, False otherwise
         """
-        pass
+        ...
 
     @abstractmethod
     async def shutdown(self) -> None:
         """Gracefully shutdown communication channels."""
-        pass
+        ...
 
     @abstractmethod
     async def create_clients(self, *client_types: ClientType) -> None:
@@ -57,7 +57,7 @@ class BaseCommunication(ABC):
         Args:
             *client_types: The client types to create
         """
-        pass
+        ...
 
     @abstractmethod
     async def publish(self, topic: Topic, message: Message) -> None:
@@ -67,7 +67,7 @@ class BaseCommunication(ABC):
             topic: Topic to publish to
             message: Message to publish
         """
-        pass
+        ...
 
     @abstractmethod
     async def subscribe(
@@ -81,7 +81,7 @@ class BaseCommunication(ABC):
             topic: Topic to subscribe to
             callback: Function to call when a message is received
         """
-        pass
+        ...
 
     @abstractmethod
     async def request(
@@ -100,17 +100,25 @@ class BaseCommunication(ABC):
         Returns:
             Response message if successful
         """
-        pass
+        ...
 
     @abstractmethod
-    async def respond(self, topic: Topic, response: Message) -> None:
-        """Send a response to a request.
+    async def register_request_handler(
+        self,
+        service_id: str,
+        topic: Topic,
+        message_type: MessageType,
+        handler: Callable[[Message], Coroutine[Any, Any, Message | None]],
+    ) -> None:
+        """Register a request handler.
 
         Args:
-            topic: Topic to send response to
-            response: Response message
+            service_id: The service ID to register the handler for
+            topic: The topic to register the handler for
+            message_type: The message type to register the handler for
+            handler: The handler to register
         """
-        pass
+        ...
 
     @abstractmethod
     async def push(self, topic: Topic, message: Message) -> None:
@@ -120,7 +128,7 @@ class BaseCommunication(ABC):
             topic: Topic to push to
             message: Message to be pushed
         """
-        pass
+        ...
 
     @abstractmethod
     async def register_pull_callback(
@@ -134,4 +142,4 @@ class BaseCommunication(ABC):
             message_type: The message type to register the callback for
             callback: The callback to register
         """
-        pass
+        ...

@@ -11,7 +11,7 @@ from aiperf.common.comms.client_enums import (
     ClientType,
     PullClientType,
     PushClientType,
-    ReqClientType,
+    RouterClientType,
 )
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.constants import NANOS_PER_MILLIS
@@ -60,7 +60,7 @@ class Worker(BaseService):
             *(super().required_clients or []),
             PullClientType.CREDIT_DROP,
             PushClientType.CREDIT_RETURN,
-            ReqClientType.CONVERSATION_DATA,
+            RouterClientType.CONVERSATION_DATA,
         ]
 
     @on_init

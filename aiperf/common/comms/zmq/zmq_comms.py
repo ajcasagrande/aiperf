@@ -10,19 +10,19 @@ import zmq.asyncio
 from aiperf.common.comms.base import BaseCommunication
 from aiperf.common.comms.client_enums import (
     ClientType,
+    DealerClientType,
     PubClientType,
     PullClientType,
     PushClientType,
-    RepClientType,
-    ReqClientType,
+    RouterClientType,
     SubClientType,
 )
 from aiperf.common.comms.zmq.clients import ZMQClient
+from aiperf.common.comms.zmq.clients.dealer import ZMQDealerClient
 from aiperf.common.comms.zmq.clients.pub import ZMQPubClient
 from aiperf.common.comms.zmq.clients.pull import ZMQPullClient
 from aiperf.common.comms.zmq.clients.push import ZMQPushClient
-from aiperf.common.comms.zmq.clients.rep import ZMQRepClient
-from aiperf.common.comms.zmq.clients.req import ZMQReqClient
+from aiperf.common.comms.zmq.clients.router import ZMQRouterClient
 from aiperf.common.comms.zmq.clients.sub import ZMQSubClient
 from aiperf.common.enums import CommunicationBackend, MessageType, Topic
 from aiperf.common.exceptions import (
@@ -263,13 +263,6 @@ class ZMQCommunication(BaseCommunication):
                     bind=False,
                 )
 
-            case PushClientType.RECORDS:
-                return ZMQPushClient(
-                    self.context,
-                    self.config.records_address,
-                    bind=False,
-                )
-
             case _:
                 raise CommunicationClientCreationError(
                     f"Invalid client type: {client_type}"
@@ -314,48 +307,49 @@ class ZMQCommunication(BaseCommunication):
                     f"Invalid client type: {client_type}"
                 )
 
-    def _create_req_client(self, client_type: ReqClientType) -> ZMQReqClient:
-        """Create a ZMQ request client based on the client type.
+    def _create_router_client(self, client_type: RouterClientType) -> ZMQRouterClient:
+        """Create a ZMQ router client based on the client type.
 
         Args:
             client_type: The type of client to create
 
         Returns:
-            ZMQReqClient instance
+            ZMQRouterClient instance
 
         Raises:
             CommunicationClientCreationError: If the client type is invalid
         """
         match client_type:
-            case ReqClientType.CONVERSATION_DATA:
-                return ZMQReqClient(
+            case RouterClientType.CONVERSATION_DATA:
+                return ZMQRouterClient(
                     self.context,
-                    self.config.conversation_data_address,
-                    bind=False,  # Worker manager is the request
+                    self.config.dataset_broker_config.backend_address,
+                    bind=False,
                 )
+
             case _:
                 raise CommunicationClientCreationError(
                     f"Invalid client type: {client_type}"
                 )
 
-    def _create_rep_client(self, client_type: RepClientType) -> ZMQRepClient:
-        """Create a ZMQ reply client based on the client type.
+    def _create_dealer_client(self, client_type: DealerClientType) -> ZMQDealerClient:
+        """Create a ZMQ dealer client based on the client type.
 
         Args:
             client_type: The type of client to create
 
         Returns:
-            ZMQRepClient instance
+            ZMQDealerClient instance
 
         Raises:
             CommunicationClientCreationError: If the client type is invalid
         """
         match client_type:
-            case RepClientType.CONVERSATION_DATA:
-                return ZMQRepClient(
+            case DealerClientType.CONVERSATION_DATA:
+                return ZMQDealerClient(
                     self.context,
-                    self.config.conversation_data_address,
-                    bind=True,  # Data manager is the reply
+                    self.config.dataset_broker_config.frontend_address,
+                    bind=False,
                 )
 
             case _:
@@ -391,11 +385,11 @@ class ZMQCommunication(BaseCommunication):
             elif isinstance(client_type, PullClientType):
                 client = self._create_pull_client(client_type)
 
-            elif isinstance(client_type, ReqClientType):
-                client = self._create_req_client(client_type)
+            elif isinstance(client_type, RouterClientType):
+                client = self._create_router_client(client_type)
 
-            elif isinstance(client_type, RepClientType):
-                client = self._create_rep_client(client_type)
+            elif isinstance(client_type, DealerClientType):
+                client = self._create_dealer_client(client_type)
 
             else:
                 raise CommunicationClientCreationError(
@@ -484,7 +478,7 @@ class ZMQCommunication(BaseCommunication):
         self,
         topic: Topic,
         message: Message,
-        timeout: float = 5.0,
+        timeout: float = 300.0,
     ) -> Message:
         """Request a message from a target. If the proper ZMQ client type is not
         found, it will be created.
@@ -507,7 +501,7 @@ class ZMQCommunication(BaseCommunication):
 
         self._ensure_initialized()
 
-        client_type = ReqClientType.from_topic(topic)
+        client_type = DealerClientType.from_topic(topic)
 
         if client_type not in self.clients:
             logger.debug(
@@ -518,7 +512,7 @@ class ZMQCommunication(BaseCommunication):
             await self.create_clients(client_type)
 
         try:
-            return await cast(ZMQReqClient, self.clients[client_type]).request(
+            return await cast(ZMQDealerClient, self.clients[client_type]).request(
                 message, timeout
             )
         except Exception as e:
@@ -543,7 +537,7 @@ class ZMQCommunication(BaseCommunication):
 
         self._ensure_initialized()
 
-        client_type = RepClientType.from_topic(topic)
+        client_type = RouterClientType.from_topic(topic)
 
         if client_type not in self.clients:
             logger.debug(
@@ -554,46 +548,12 @@ class ZMQCommunication(BaseCommunication):
             await self.create_clients(client_type)
 
         try:
-            cast(ZMQRepClient, self.clients[client_type]).register_request_handler(
+            cast(ZMQRouterClient, self.clients[client_type]).register_request_handler(
                 service_id, message_type, handler
             )
         except Exception as e:
             logger.error(f"Exception registering request handler for {topic}: {e}")
-            raise CommunicationError() from e
-
-    async def respond(self, topic: Topic, response: Message) -> None:
-        """Respond to a request. If the proper ZMQ client type is not found, it
-        will be created.
-
-        Args:
-            topic: The topic to respond to
-            response: The response to send
-
-        Raises:
-            CommunicationRespondError: If there was an error responding to the
-                target
-            CommunicationNotInitializedError: If the communication channels are not
-                initialized
-            CommunicationShutdownError: If the communication channels are shutdown
-        """
-
-        self._ensure_initialized()
-
-        client_type = RepClientType.from_topic(topic)
-
-        if client_type not in self.clients:
-            logger.debug(
-                "Client type %r not found for rep topic %r, creating client",
-                client_type,
-                topic,
-            )
-            await self.create_clients(client_type)
-
-        try:
-            await cast(ZMQRepClient, self.clients[client_type]).respond(topic, response)
-        except Exception as e:
-            logger.error(f"Exception responding to {topic}: {e}")
-            raise CommunicationError() from e
+            raise CommunicationError(f"{e.__class__.__name__}: {e}") from e
 
     async def push(self, topic: Topic, message: Message) -> None:
         """Push a message to a topic. If the proper ZMQ client type is not found,

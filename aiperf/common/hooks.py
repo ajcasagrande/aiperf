@@ -25,7 +25,7 @@ import logging
 from collections.abc import Awaitable, Callable
 from enum import Enum
 
-from aiperf.common.exceptions import AIPerfMultiError, UnsupportedHookError
+from aiperf.common.exceptions import AIPerfError, AIPerfMultiError, UnsupportedHookError
 
 ################################################################################
 # Hook Types
@@ -131,7 +131,11 @@ class HookSystem:
                     await asyncio.to_thread(func, *args, **kwargs)
             except Exception as e:
                 logger.error(f"Error running hook {func.__name__}: {e}")
-                exceptions.append(e)
+                exceptions.append(
+                    AIPerfError(
+                        f"Error running hook {func.__qualname__}: {e.__class__.__name__}: {e}"
+                    )
+                )
 
         if exceptions:
             raise AIPerfMultiError("Errors running hooks", exceptions)
@@ -159,7 +163,15 @@ class HookSystem:
         if coroutines:
             results = await asyncio.gather(*coroutines, return_exceptions=True)
 
-            exceptions = [result for result in results if isinstance(result, Exception)]
+            exceptions = [
+                AIPerfError(
+                    f"Error running hook {func.__qualname__}: {result.__class__.__name__}: {result}"
+                )
+                for func, result in zip(
+                    self.get_hooks(hook_type), results, strict=False
+                )
+                if isinstance(result, Exception)
+            ]
             if exceptions:
                 raise AIPerfMultiError("Errors running hooks", exceptions)
 

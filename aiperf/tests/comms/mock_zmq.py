@@ -5,7 +5,6 @@ from collections.abc import Callable, Coroutine
 from typing import Any
 from unittest.mock import MagicMock
 
-import pytest
 from pydantic import BaseModel, Field
 
 from aiperf.common.comms.zmq import ZMQCommunication
@@ -24,6 +23,9 @@ class MockCommunicationData(BaseModel):
     push_messages: dict[Topic, Message] = Field(default_factory=dict)
     requests: dict[str, Message] = Field(default_factory=dict)
     responses: dict[str, Message] = Field(default_factory=dict)
+    request_handlers: dict[str, Callable[[Message], Coroutine[Any, Any, None]]] = Field(
+        default_factory=dict
+    )
 
     def clear(self) -> None:
         self.published_messages.clear()
@@ -32,9 +34,9 @@ class MockCommunicationData(BaseModel):
         self.push_messages.clear()
         self.requests.clear()
         self.responses.clear()
+        self.request_handlers.clear()
 
 
-@pytest.fixture
 def mock_zmq_communication() -> MagicMock:
     """
     Create a mock communication object for testing service communication.
@@ -98,10 +100,12 @@ def mock_zmq_communication() -> MagicMock:
 
     mock_comm.request.side_effect = mock_request
 
-    async def mock_respond(target: str, response: Message) -> None:
-        """Mock implementation of respond that stores responses by target."""
-        mock_comm.mock_data.responses[target] = response
+    async def mock_register_request_handler(
+        target: str, handler: Callable[[Message], Coroutine[Any, Any, None]]
+    ) -> None:
+        """Mock implementation of register_request_handler that stores handlers by target."""
+        mock_comm.mock_data.request_handlers[target] = handler
 
-    mock_comm.respond.side_effect = mock_respond
+    mock_comm.register_request_handler.side_effect = mock_register_request_handler
 
     return mock_comm
