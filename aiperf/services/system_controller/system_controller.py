@@ -340,12 +340,6 @@ class SystemController(BaseControllerService):
         """
         service_id = message.service_id
         self.logger.info("Received credits complete from %s", service_id)
-        # TODO: this should eventually be replaced with a profile end command instead of a stop event
-        # request to stop the system
-        # TODO: this is a hack to give the services time to produce results
-        await asyncio.sleep(5)
-        await self.ui.stop()
-        self.stop_event.set()
 
     async def _process_status_message(self, message: StatusMessage) -> None:
         """Process a status message from a service. It will
