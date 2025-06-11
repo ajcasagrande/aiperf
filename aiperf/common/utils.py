@@ -6,11 +6,6 @@ from collections.abc import Callable
 
 from aiperf.common.exceptions import AIPerfMultiError
 
-__all__ = [
-    "call_all_functions_self",
-    "call_all_functions",
-]
-
 
 async def call_all_functions_self(
     self_: object, funcs: list[Callable], *args, **kwargs

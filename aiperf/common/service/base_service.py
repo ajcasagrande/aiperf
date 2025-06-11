@@ -63,7 +63,7 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
 
         self._comms: BaseCommunication | None = None
 
-        # Set to store signal handler tasks
+        # Set to store signal handler tasks to prevent them from being garbage collected
         self._signal_tasks = set()
 
         try:
@@ -378,11 +378,11 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
         Args:
             sig: The signal number received
         """
-        # signal_name = signal.Signals(sig).name
-        # # self.logger.debug(
-        # #     "%s: Received signal %s, initiating graceful shutdown",
-        # #     self.service_type,
-        # #     signal_name,
-        # # )
+        signal_name = signal.Signals(sig).name
+        self.logger.debug(
+            "%s: Received signal %s, initiating graceful shutdown",
+            self.service_id,
+            signal_name,
+        )
 
         self.stop_event.set()

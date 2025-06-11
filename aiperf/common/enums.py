@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-from enum import Enum, auto
+from enum import Enum
 
 
 ################################################################################
@@ -307,18 +307,6 @@ class BackendClientType(CaseInsensitiveStrEnum):
     HTTP = "http"
     OPENAI = "openai"
     DYNAMO = "dynamo"
-
-
-class RequestTimerKind(Enum):
-    """Timestamp kinds for request handling stages."""
-
-    REQUEST_START = auto()  # Start of request handling
-    REQUEST_END = auto()  # End of request handling
-    SEND_START = auto()  # Start of sending request bytes
-    SEND_END = auto()  # End of sending request bytes
-    RECV_START = auto()  # Start of receiving response bytes
-    RECV_END = auto()  # End of receiving response bytes
-    RECV_CHUNK = auto()  # Start of receiving response chunk
 
 
 ################################################################################

@@ -65,7 +65,6 @@ def main() -> None:
     logger.info("Starting AIPerf System")
     bootstrap_and_run_service(SystemController, service_config=config)
     logger.info("AIPerf System exited")
-    sys.exit(0)
 
 
 if __name__ == "__main__":

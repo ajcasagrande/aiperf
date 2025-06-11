@@ -9,7 +9,3 @@ htmlcov/
 .mypy_cache/
 .env
 .env.*
-lib/*/target
-*.so
-**/*.log
-

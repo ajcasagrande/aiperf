@@ -208,6 +208,7 @@ class TimingManager(BaseComponentService):
                     / NANOS_PER_SECOND
                 ),
             )
+
             await self.comms.publish(
                 topic=Topic.CREDITS_COMPLETE,
                 message=CreditsCompleteMessage(service_id=self.service_id),

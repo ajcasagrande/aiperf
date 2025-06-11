@@ -95,7 +95,7 @@ class BaseStatusMessage(BaseServiceMessage):
 
     # override request_ns to be auto-filled if not provided
     request_ns: int | None = Field(
-        default=time.perf_counter_ns(),
+        default=time.time_ns(),
         description="Timestamp of the request",
     )
     state: ServiceState = Field(
@@ -154,18 +154,25 @@ class CommandMessage(BaseServiceMessage):
         description="Command to execute",
     )
     command_id: str = Field(
-        default_factory=lambda: uuid.uuid4().hex[:8],
-        description="Unique identifier for this command",
+        default_factory=lambda: str(uuid.uuid4()),
+        description="Unique identifier for this command. If not provided, a random UUID will be generated.",
     )
     require_response: bool = Field(
         default=False,
         description="Whether a response is required for this command",
     )
     # TODO: should we allow a service_type as well to send to all services of a given type?
-
+    target_service_type: ServiceType | None = Field(
+        default=None,
+        description="Type of the service to send the command to. "
+        "If both `target_service_type` and `target_service_id` are None, the command is "
+        "sent to all services.",
+    )
     target_service_id: str | None = Field(
         default=None,
-        description="ID of the target service for this command. If None, the command is sent to all services.",
+        description="ID of the target service to send the command to. "
+        "If both `target_service_type` and `target_service_id` are None, the command is "
+        "sent to all services.",
     )
     data: BaseModel | None = Field(
         default=None,
@@ -186,7 +193,7 @@ class CreditDropMessage(BaseServiceMessage):
         description="Amount of credits that have been dropped",
     )
     credit_drop_ns: int = Field(
-        default_factory=time.perf_counter_ns, description="Timestamp of the credit drop"
+        default_factory=time.time_ns, description="Timestamp of the credit drop"
     )
 
 

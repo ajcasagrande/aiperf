@@ -271,9 +271,9 @@ class SystemController(BaseControllerService):
             registration_status=ServiceRegistrationStatus.REGISTERED,
             service_type=service_type,
             service_id=service_id,
-            first_seen=time.perf_counter_ns(),
+            first_seen=time.time_ns(),
             state=ServiceState.READY,
-            last_seen=time.perf_counter_ns(),
+            last_seen=time.time_ns(),
         )
 
         self.service_manager.service_id_map[service_id] = service_info

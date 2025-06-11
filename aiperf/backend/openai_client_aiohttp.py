@@ -260,7 +260,7 @@ class OpenAIBackendClientAioHttp(OpenAIBackendClientConfigMixin):
 
                     timers.capture_timestamp(RequestTimerKind.RECV_START)
 
-                    # TODO: look into better ways to parse the SSE stream in a performant and timestamp accurate way
+                    # TODO: look into better ways to parse the SSE stream in a performant and timestamp accurate manner
 
                     # Parse SSE stream with optimal performance
                     buffer = ""

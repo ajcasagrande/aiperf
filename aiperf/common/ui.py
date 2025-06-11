@@ -210,7 +210,7 @@ class ProfileProgressDashboardMixin(ConsoleUIMixin):
 
         # Calculate requests per second
         elapsed_seconds = (
-            (message.request_ns or time.perf_counter_ns()) - self.start_perf_counter_ns
+            (message.request_ns or time.time_ns()) - self.start_perf_counter_ns
         ) / NANOS_PER_SECOND
 
         req_per_second = (
