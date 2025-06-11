@@ -1,66 +1,79 @@
 #  SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #  SPDX-License-Identifier: Apache-2.0
 import importlib
-import os
-from abc import ABCMeta, abstractmethod
-from typing import Any
+import inspect
+from abc import ABC, abstractmethod
+from pathlib import Path
+from typing import Any, ClassVar
 
 from aiperf.common.enums import MetricTimeType
 from aiperf.common.exceptions import MetricTypeError
 from aiperf.services.records_manager.records import Record
 
 
-class MetricInterface(ABCMeta):
-    metric_interfaces: dict[str, "MetricInterface"] = {}
+class BaseMetric(ABC):
+    """Base class for all metrics with automatic subclass registration."""
 
-    def __new__(cls, name, base, namespace):
+    # Class attribute that subclasses must override
+    tag: ClassVar[str] = ""  # Subclasses must override this
+
+    metric_interfaces: dict[str, type["BaseMetric"]] = {}
+
+    def __init_subclass__(cls, **kwargs):
         """
-        This function is called upon declaration of any classes of type
-        MetricInferface. It registers the class in the metric_interface
-        dictionary using the `tag` attribute of the class as the key.
-        The `tag` attribute should be a string that uniquely identifies the
-        metric type. If the `tag` is not a string, it will not be registered.
-
+        This method is called when a class is subclassed from Metric.
+        It automatically registers the subclass in the metric_interfaces
+        dictionary using the `tag` class attribute.
+        The `tag` attribute must be a non-empty string that uniquely identifies the
+        metric type. Only concrete (non-abstract) classes will be registered.
         """
+        super().__init_subclass__(**kwargs)
 
-        metric_interface = super().__new__(cls, name, base, namespace)
+        # Only register concrete classes (not abstract ones)
+        if inspect.isabstract(cls):
+            return
 
-        if isinstance(metric_interface.tag, str):
-            cls.metric_interfaces[metric_interface.tag] = metric_interface
-        return metric_interface
+        # Enforce that subclasses define a non-empty tag
+        if not cls.tag or not isinstance(cls.tag, str):
+            raise TypeError(f"Concrete metric class {cls.__name__} must define a non-empty 'tag' class attribute")
+
+        # Check for duplicate tags
+        if cls.tag in cls.metric_interfaces:
+            raise ValueError(f"Metric tag '{cls.tag}' is already registered by {cls.metric_interfaces[cls.tag].__name__}")
+
+        cls.metric_interfaces[cls.tag] = cls
 
     @classmethod
-    def get_all(
-        cls,
-    ) -> dict[str, "MetricInterface"]:
+    def get_all(cls) -> dict[str, type["Metric"]]:
         """
         Returns the dictionary of all registered metric interfaces.
+
+        This method dynamically imports all metric type modules from the 'types'
+        directory to ensure all metric classes are registered via __init_subclass__.
+
+        Returns:
+            dict[str, type[Metric]]: Mapping of metric tags to their corresponding classes
+
+        Raises:
+            MetricTypeError: If there's an error importing metric type modules
         """
-        type_module_directory = os.path.join(
-            globals()["__spec__"].origin.rsplit("/", 1)[0], "types"
-        )
-        for filename in os.listdir(type_module_directory):
-            if filename != "__init__.py" and filename.endswith(".py"):
-                try:
-                    importlib.import_module(
-                        f"aiperf.services.records_manager.metrics.types.{filename[:-3]}"
-                    )
-                except AttributeError as err:
-                    raise MetricTypeError("Error retrieving all metric types") from err
+        # Get the types directory path
+        types_dir = Path(__file__).parent / "types"
+
+        # Import all metric type modules to trigger registration
+        if types_dir.exists():
+            for python_file in types_dir.glob("*.py"):
+                if python_file.name != "__init__.py":
+                    module_name = python_file.stem  # Get filename without extension
+                    try:
+                        importlib.import_module(
+                            f"aiperf.services.records_manager.metrics.types.{module_name}"
+                        )
+                    except ImportError as err:
+                        raise MetricTypeError(f"Error importing metric type module '{module_name}'") from err
 
         return cls.metric_interfaces
 
-
-class Metric(metaclass=MetricInterface):
-    @property
-    @abstractmethod
-    def tag(self) -> str:
-        """
-        Returns
-        -------
-        str
-            the name tag of the record type.
-        """
 
     @property
     @abstractmethod
