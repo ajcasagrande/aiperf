@@ -44,6 +44,10 @@ class RecordsManager(BaseComponentService):
         self.records: list[RequestRecord] = []
         self.error_records: list[RequestErrorRecord | RequestRecord] = []
 
+        # Track per-worker statistics
+        self.worker_request_counts: dict[str, int] = {}
+        self.worker_error_counts: dict[str, int] = {}
+
     @property
     def service_type(self) -> ServiceType:
         """The type of service."""
@@ -99,10 +103,18 @@ class RecordsManager(BaseComponentService):
     async def _on_inference_results(self, message: InferenceResultsMessage) -> None:
         """Handle a inference results message."""
         record = message.record
+        worker_id = message.service_id
+
+        # Initialize worker counters if not seen before
+        if worker_id not in self.worker_request_counts:
+            self.worker_request_counts[worker_id] = 0
+        if worker_id not in self.worker_error_counts:
+            self.worker_error_counts[worker_id] = 0
 
         if isinstance(record, RequestErrorRecord):
             self.logger.warning(f"Received error inference results: {record}")
             self.error_records.append(record)
+            self.worker_error_counts[worker_id] += 1
 
         elif isinstance(record, RequestRecord):
             if record.valid:
@@ -112,16 +124,19 @@ class RecordsManager(BaseComponentService):
                     record.time_to_last_response_ns / NANOS_PER_MILLIS,
                 )
                 self.records.append(record)
+                self.worker_request_counts[worker_id] += 1
 
             else:
                 self.logger.warning(f"Received invalid inference results: {record}")
                 self.error_records.append(record)
+                self.worker_error_counts[worker_id] += 1
 
         else:
             self.logger.warning(
                 f"Received unknown inference results type: {type(record)}"
             )
             self.error_records.append(record)
+            self.worker_error_counts[worker_id] += 1
 
         await self.comms.publish(
             topic=Topic.PROFILE_STATS,
@@ -129,6 +144,7 @@ class RecordsManager(BaseComponentService):
                 service_id=self.service_id,
                 error_count=len(self.error_records),
                 completed=len(self.records),
+                worker_stats=self.worker_request_counts.copy(),
             ),
         )
 

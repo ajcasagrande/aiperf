@@ -320,7 +320,7 @@ class SystemController(BaseControllerService):
 
         # Update the last heartbeat timestamp if the component exists
         try:
-            service_info = self.service_manager.service_id_map.get(service_id)
+            service_info = self.service_manager.service_id_map[service_id]
             service_info.last_seen = timestamp
             service_info.state = message.state
             self.logger.debug(f"Updated heartbeat for {service_id} to {timestamp}")

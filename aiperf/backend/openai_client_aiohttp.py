@@ -10,6 +10,7 @@ from typing import Any
 import aiohttp
 
 from aiperf.backend.openai_common import (
+    OpenAIBackendClientConfig,
     OpenAIBackendClientConfigMixin,
     OpenAIBaseRequest,
     OpenAIBaseResponse,
@@ -45,8 +46,63 @@ class OpenAIBackendClientAioHttp(OpenAIBackendClientConfigMixin):
     making it ideal for benchmarking scenarios.
     """
 
+    def __init__(self, client_config: OpenAIBackendClientConfig) -> None:
+        super().__init__(client_config)
+        self.tcp_connector = self._create_tcp_connector()
+
     def _create_tcp_connector(self) -> aiohttp.TCPConnector:
         """Create a new connector with the given configuration."""
+
+        def socket_factory(addr_info):
+            """Custom socket factory optimized for SSE streaming performance."""
+            family, type_, proto, _, _ = addr_info
+            sock = socket.socket(family=family, type=type_, proto=proto)
+
+            # Low-latency optimizations for streaming
+            sock.setsockopt(
+                socket.SOL_TCP, socket.TCP_NODELAY, 1
+            )  # Disable Nagle's algorithm
+
+            # Connection keepalive settings for long-lived SSE connections
+            sock.setsockopt(
+                socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1
+            )  # Enable keepalive
+
+            # Fine-tune keepalive timing (Linux-specific)
+            if hasattr(socket, "TCP_KEEPIDLE"):
+                sock.setsockopt(
+                    socket.SOL_TCP, socket.TCP_KEEPIDLE, 600
+                )  # Start keepalive after 10 min idle
+                sock.setsockopt(
+                    socket.SOL_TCP, socket.TCP_KEEPINTVL, 60
+                )  # Keepalive interval: 60 seconds
+                sock.setsockopt(
+                    socket.SOL_TCP, socket.TCP_KEEPCNT, 3
+                )  # 3 failed keepalive probes = dead
+
+            # Buffer size optimizations for streaming
+            sock.setsockopt(
+                socket.SOL_SOCKET, socket.SO_RCVBUF, 1024
+            )  # 87380)   # 85KB receive buffer
+            sock.setsockopt(
+                socket.SOL_SOCKET, socket.SO_SNDBUF, 1024
+            )  # 65536)   # 64KB send buffer
+
+            # Linux-specific TCP optimizations
+            if hasattr(socket, "TCP_QUICKACK"):
+                sock.setsockopt(
+                    socket.SOL_TCP, socket.TCP_QUICKACK, 1
+                )  # Quick ACK mode
+
+            if hasattr(socket, "TCP_USER_TIMEOUT"):
+                sock.setsockopt(
+                    socket.SOL_TCP, socket.TCP_USER_TIMEOUT, 30000
+                )  # 30 sec timeout
+
+            # DO NOT use TCP_CORK - it delays packet transmission which hurts streaming!
+
+            return sock
+
         return aiohttp.TCPConnector(
             limit=2500,  # Connection pool size
             limit_per_host=2500,  # Per-host connection limit
@@ -58,6 +114,7 @@ class OpenAIBackendClientAioHttp(OpenAIBackendClientConfigMixin):
             # Performance optimizations
             happy_eyeballs_delay=None,  # Disable IPv6/IPv4 dual stack delay
             family=socket.AF_INET,  # IPv4 only for consistency
+            socket_factory=socket_factory,  # Custom socket factory for TCP_NODELAY
         )
 
     async def format_payload(
@@ -199,9 +256,11 @@ class OpenAIBackendClientAioHttp(OpenAIBackendClientConfigMixin):
             # Prepare headers
             headers = {
                 "Content-Type": "application/json",
-                "Authorization": f"Bearer {self.client_config.api_key}",
                 "Accept": "text/event-stream",
             }
+
+            if self.client_config.api_key:
+                headers["Authorization"] = f"Bearer {self.client_config.api_key}"
 
             if self.client_config.organization:
                 headers["OpenAI-Organization"] = self.client_config.organization
@@ -225,10 +284,11 @@ class OpenAIBackendClientAioHttp(OpenAIBackendClientConfigMixin):
 
             # Make raw HTTP request with precise timing using aiohttp
             async with aiohttp.ClientSession(
-                connector=self._create_tcp_connector(),
+                connector=self.tcp_connector,
                 timeout=timeout,
                 headers={"User-Agent": "aiperf/1.0"},
                 skip_auto_headers={"User-Agent"},  # Skip auto-headers for performance
+                connector_owner=False,
             ) as session:
                 # Create record and capture initial timestamp
                 record = RequestRecord(
@@ -300,7 +360,7 @@ class OpenAIBackendClientAioHttp(OpenAIBackendClientConfigMixin):
                                     record.responses.append(
                                         BackendClientResponse[str](
                                             timestamp_ns=chunk_timestamp,
-                                            response=data_content,
+                                            response="data_content",
                                         )
                                     )
                                 except Exception as e:
@@ -370,7 +430,7 @@ class OpenAIBackendClientAioHttp(OpenAIBackendClientConfigMixin):
         return record
 
     async def _aiter_sse_chunks(
-        self, response: aiohttp.ClientResponse, chunk_size: int = 8192
+        self, response: aiohttp.ClientResponse, chunk_size: int = 1024
     ) -> typing.AsyncIterator[str]:
         """Efficiently iterate over SSE chunks from aiohttp response."""
         # Use a larger chunk size for better performance

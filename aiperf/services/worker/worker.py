@@ -4,7 +4,6 @@ import asyncio
 import copy
 import os
 import sys
-import uuid
 
 from aiperf.backend.openai_common import OpenAIBackendClientConfig
 from aiperf.common.comms.client_enums import (
@@ -256,7 +255,7 @@ class MultiWorkerProcess(BaseComponentService):
         self.logger.debug("Initializing worker process")
         self.workers: list[Worker] = []
         self.tasks: list[asyncio.Task] = []
-        self.worker_count = int(os.getenv("AIPERF_TASKS_PER_WORKER", 100))
+        self.worker_count = int(os.getenv("AIPERF_TASKS_PER_WORKER", 1))
 
     @property
     def service_type(self) -> ServiceType:
@@ -271,10 +270,10 @@ class MultiWorkerProcess(BaseComponentService):
     @on_run
     async def _run(self) -> None:
         self.logger.debug("%s: Creating %s workers", self.service_id, self.worker_count)
-        for _ in range(self.worker_count):
+        for i in range(self.worker_count):
             worker = Worker(
                 service_config=self.service_config,
-                service_id=f"worker_{uuid.uuid4().hex[:8]}",
+                service_id=f"{self.service_id}_{i}",
             )
             self.workers.append(worker)
             self.tasks.append(asyncio.create_task(worker.run_forever()))

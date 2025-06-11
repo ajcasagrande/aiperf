@@ -309,6 +309,10 @@ class ProfileStatsMessage(BaseServiceMessage):
 
     error_count: int = Field(default=0, description="The number of errors encountered")
     completed: int = Field(default=0, description="The number of requests completed")
+    worker_stats: dict[str, int] = Field(
+        default_factory=dict,
+        description="Per-worker request completion counts, keyed by worker service_id",
+    )
 
 
 # Discriminated union type - only include message types that include a message_type field

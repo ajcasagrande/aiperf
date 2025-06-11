@@ -140,7 +140,11 @@ class WorkerManager(BaseComponentService):
             process = Process(
                 target=bootstrap_and_run_service,
                 name=f"worker_{i}_process",
-                args=(MultiWorkerProcess, self.service_config),
+                args=(
+                    MultiWorkerProcess,
+                    self.service_config,
+                ),
+                kwargs={"service_id": f"worker_{i}"},
                 daemon=True,
             )
             process.start()
