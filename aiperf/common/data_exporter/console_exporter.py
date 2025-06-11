@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from rich.console import Console
-from rich.live import Live
 from rich.table import Table
 
 from aiperf.common.config.endpoint_config import EndPointConfig
@@ -18,23 +17,19 @@ class ConsoleExporter:
     def __init__(
         self,
         endpoint_config: EndPointConfig,
-        live: Live,
-        console: Console,
     ) -> None:
-        self.console = console
-        self.live = live
         self.endpoint_type = endpoint_config.type
         self.streaming = endpoint_config.streaming
 
-    def export(self, records: list[Record], **kwargs) -> None:
-        console = Console(**kwargs)
+    def export(self, records: list[Record]) -> None:
         table = Table(title=self._get_title())
         table.add_column("Metric", justify="right", style="cyan")
         for key in self.STAT_COLUMN_KEYS:
             table.add_column(key, justify="right", style="green")
         self._construct_table(table, records)
+
+        console = Console()
         console.print(table)
-        self.live.update(table, refresh=True)
 
     def _construct_table(self, table: Table, records: list[Record]) -> None:
         for record in records:

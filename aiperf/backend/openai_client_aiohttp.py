@@ -18,6 +18,7 @@ from aiperf.backend.openai_common import (
     OpenAICompletionRequest,
     OpenAIEmbeddingsRequest,
 )
+from aiperf.backend.timers import RequestTimerKind, RequestTimers
 from aiperf.common.enums import (
     BackendClientType,
 )
@@ -27,8 +28,6 @@ from aiperf.common.record_models import (
     BackendClientErrorResponse,
     BackendClientResponse,
     RequestRecord,
-    RequestTimerKind,
-    RequestTimers,
 )
 
 ################################################################################
@@ -294,7 +293,9 @@ class OpenAIBackendClientAioHttp(OpenAIBackendClientConfigMixin):
                                     continue
 
                                 try:
-                                    timers.append_chunk_timestamp(chunk_timestamp)
+                                    timers.capture_chunk_start_timestamp(
+                                        chunk_timestamp
+                                    )
                                     # Store the raw SSE data directly for most accurate timing
                                     record.responses.append(
                                         BackendClientResponse[str](

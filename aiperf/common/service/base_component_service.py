@@ -164,7 +164,7 @@ class BaseComponentService(BaseService):
             await self._command_callbacks[cmd](message)
 
         else:
-            self.logger.warning(f"{self.service_type} received unknown command: {cmd}")
+            self.logger.debug("%s received unknown command: %s", self.service_id, cmd)
 
     def register_command_callback(
         self,

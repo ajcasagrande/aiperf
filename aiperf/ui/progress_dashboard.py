@@ -1,11 +1,8 @@
 #  SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #  SPDX-License-Identifier: Apache-2.0
 
-import logging
 import time
 
-from rich.console import Console
-from rich.live import Live
 from rich.panel import Panel
 from rich.progress import (
     BarColumn,
@@ -21,23 +18,10 @@ from rich.progress import (
 from rich.table import Table
 from rich.text import Text
 
-from aiperf.common.config.endpoint_config import EndPointConfig
 from aiperf.common.constants import NANOS_PER_SECOND
-from aiperf.common.data_exporter.console_exporter import ConsoleExporter
-from aiperf.common.hooks import (
-    AIPerfHook,
-    HooksMixin,
-    on_start,
-    on_stop,
-    supports_hooks,
-)
-from aiperf.common.messages import (
-    ProfileProgressMessage,
-    ProfileResultsMessage,
-    ProfileStatsMessage,
-)
-
-logger = logging.getLogger(__name__)
+from aiperf.common.hooks import on_init, on_stop
+from aiperf.common.messages import ProfileProgressMessage, ProfileStatsMessage
+from aiperf.ui.base_ui import ConsoleUIMixin
 
 
 class RequestsPerSecondColumn(ProgressColumn):
@@ -60,30 +44,6 @@ class RequestsPerSecondColumn(ProgressColumn):
         return Text(text, style="progress.data.speed")
 
 
-@supports_hooks(AIPerfHook.ON_INIT, AIPerfHook.ON_START, AIPerfHook.ON_STOP)
-class ConsoleUIMixin(HooksMixin):
-    """Mixin for updating the console UI."""
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.console = Console()
-        self.live: Live = Live(console=self.console)
-
-    async def initialize(self) -> None:
-        """Initialize the console UI."""
-        await self.run_hooks_async(AIPerfHook.ON_INIT)
-
-    async def start(self) -> None:
-        """Start the console UI."""
-        self.live.start()
-        await self.run_hooks_async(AIPerfHook.ON_START)
-
-    async def stop(self) -> None:
-        """Stop the console UI."""
-        await self.run_hooks_async(AIPerfHook.ON_STOP)
-        self.live.stop()
-
-
 class ProfileProgressDashboardMixin(ConsoleUIMixin):
     """Mixin for updating the profile progress dashboard."""
 
@@ -92,14 +52,43 @@ class ProfileProgressDashboardMixin(ConsoleUIMixin):
         self.progress: Progress | None = None
         self.task_id: TaskID | None = None
         self.start_perf_counter_ns: int | None = None
+
         self.error_count: int = 0
         self.error_rate: float = 0.0
         self.total_completed: int = 0
         self.total_requests: int = 0
 
-    @on_start
-    async def run_profile_progress_dashboard(self) -> None:
-        """Run the profile progress dashboard."""
+    def _format_duration(self, seconds: float) -> str:
+        """Format duration in seconds to human-readable format."""
+        if seconds < 60:
+            return f"{seconds:.1f}s"
+
+        minutes = int(seconds // 60)
+        remaining_seconds = seconds % 60
+
+        if minutes < 60:
+            if remaining_seconds < 1:
+                return f"{minutes}m"
+            return f"{minutes}m {remaining_seconds:.0f}s"
+
+        hours = minutes // 60
+        minutes = minutes % 60
+
+        if hours < 24:
+            if minutes == 0:
+                return f"{hours}h"
+            return f"{hours}h {minutes}m"
+
+        days = hours // 24
+        hours = hours % 24
+
+        if hours == 0:
+            return f"{days}d"
+        return f"{days}d {hours}h"
+
+    @on_init
+    def _on_init(self) -> None:
+        """Create the progress bar."""
         # Create progress bar with custom columns
         self.progress = Progress(
             SpinnerColumn(),
@@ -114,21 +103,14 @@ class ProfileProgressDashboardMixin(ConsoleUIMixin):
             expand=True,
         )
 
-        # panel = Panel(
-        #     Text("Waiting for profile data...", style="dim"),
-        #     title="AIPerf Dashboard",
-        #     border_style="blue",
-        # )
-        # self.live.update(panel, refresh=True)
-
     def _refresh_progress_dashboard(self) -> Panel:
         """Create the main dashboard layout."""
         # Create stats table
         stats_table = Table.grid(padding=1)
-        stats_table.add_column(style="cyan", no_wrap=True)
+        stats_table.add_column(style="cyan", no_wrap=True, min_width=12)
         stats_table.add_column(style="white")
 
-        if self.task_id is not None:
+        if self.task_id is not None and self.progress is not None:
             task = self.progress.tasks[self.task_id]
 
             # Calculate additional metrics
@@ -139,22 +121,34 @@ class ProfileProgressDashboardMixin(ConsoleUIMixin):
             )
             elapsed_time = task.elapsed or 0
 
+            # Status with clean indicator
+            status_indicator = "●" if not task.finished else "✓"
+            status_text = "Processing" if not task.finished else "Complete"
+            status_style = "yellow" if not task.finished else "green"
+
             stats_table.add_row(
-                "Status:", "Processing" if not task.finished else "Complete"
+                "Status:", f"[{status_style}]{status_indicator}[/] {status_text}"
             )
             stats_table.add_row(
                 "Progress:", f"{task.completed:,} / {task.total:,} requests"
             )
             stats_table.add_row("Completion:", f"{completion_pct:.1f}%")
+
+            # Error styling based on rate
+            error_style = (
+                "green"
+                if self.error_rate == 0
+                else ("yellow" if self.error_rate < 0.05 else "red")
+            )
             stats_table.add_row(
                 "Errors:",
-                f"{self.error_count:,} / {self.total_completed:,} ({self.error_rate:.1%})",
+                f"[{error_style}]●[/] {self.error_count:,} / {self.total_completed:,} ({self.error_rate:.1%})",
             )
             stats_table.add_row(
                 "Rate:",
-                f"{task.speed:.1f} req/s" if task.speed else "-- req/s",
+                f"{task.speed:,.1f} req/s" if task.speed else "-- req/s",
             )
-            stats_table.add_row("Elapsed:", f"{elapsed_time:.1f}s")
+            stats_table.add_row("Elapsed:", self._format_duration(elapsed_time))
 
             if (
                 task.speed
@@ -165,7 +159,7 @@ class ProfileProgressDashboardMixin(ConsoleUIMixin):
             ):
                 remaining_requests = task.total - task.completed
                 eta_seconds = remaining_requests / task.speed
-                stats_table.add_row("ETA:", f"{eta_seconds:,.1f}s")
+                stats_table.add_row("ETA:", self._format_duration(eta_seconds))
 
         # Combine progress bar and stats
         dashboard_content = Table.grid()
@@ -182,7 +176,6 @@ class ProfileProgressDashboardMixin(ConsoleUIMixin):
             width=self.console.width,
             height=self.console.height,
             expand=True,
-            highlight=True,
         )
 
     @on_stop
@@ -234,47 +227,9 @@ class ProfileProgressDashboardMixin(ConsoleUIMixin):
             return
 
         self.error_count = message.error_count
-        self.error_rate = self.error_count / message.completed
-        self.total_completed = message.completed
-        self.live.update(self._refresh_progress_dashboard())
-
-
-class FinalResultsDashboardMixin(ConsoleUIMixin):
-    """Mixin for updating the final results dashboard."""
-
-    def __init__(self) -> None:
-        super().__init__()
-
-        # TODO: make this take in the endpoint config
-        self.console_exporter: ConsoleExporter = ConsoleExporter(
-            console=self.console,
-            live=self.live,
-            endpoint_config=EndPointConfig(
-                type="console",
-                streaming=True,
-            ),
+        self.total_completed = message.completed + message.error_count
+        self.error_rate = (
+            self.error_count / self.total_completed if self.total_completed > 0 else 0.0
         )
 
-
-class AIPerfUI(ProfileProgressDashboardMixin, FinalResultsDashboardMixin):
-    """
-    AIPerfUI is a class that provides a UI for the AIPerf system.
-    """
-
-    _instance: "AIPerfUI | None" = None
-
-    def __init__(self) -> None:
-        super().__init__()
-
-    @classmethod
-    def get_instance(cls) -> "AIPerfUI":
-        """Get the singleton instance of the AIPerfUI."""
-        if cls._instance is None:
-            cls._instance = AIPerfUI()
-        return cls._instance  # type: ignore[reportUnboundVariable]
-
-    async def process_final_results(self, message: ProfileResultsMessage) -> None:
-        """Export the final results."""
-        logger.info("Final results: %s", message.records)
-        self.console_exporter.export(message.records)
-        self.console.print("[bold green]Profile complete!")
+        self.live.update(self._refresh_progress_dashboard())

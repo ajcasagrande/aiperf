@@ -41,10 +41,10 @@ from aiperf.common.messages import (
 )
 from aiperf.common.models import ServiceRunInfo
 from aiperf.common.service.base_controller_service import BaseControllerService
-from aiperf.common.ui import AIPerfUI
 from aiperf.services.service_manager.base import BaseServiceManager
 from aiperf.services.service_manager.kubernetes import KubernetesServiceManager
 from aiperf.services.service_manager.multiprocess import MultiProcessServiceManager
+from aiperf.ui import AIPerfUI
 
 
 @ServiceFactory.register(ServiceType.SYSTEM_CONTROLLER)
@@ -71,7 +71,7 @@ class SystemController(BaseControllerService):
         ]
 
         self.service_manager: BaseServiceManager | None = None
-        self.ui: AIPerfUI = AIPerfUI.get_instance()
+        self.ui: AIPerfUI = AIPerfUI()
         self.logger.debug("System Controller created")
 
     @property
