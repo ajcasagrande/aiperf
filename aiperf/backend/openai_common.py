@@ -61,6 +61,10 @@ class OpenAIBackendClientConfig(GenericHTTPBackendClientConfig):
         default=0.0,
         description="The presence penalty to use for the OpenAI backend client.",
     )
+    socket_options: list[tuple[int, int, int]] | None = Field(
+        default=None,
+        description="Socket options to apply for performance optimization. Format: [(family, option, value), ...]",
+    )
 
 
 ################################################################################

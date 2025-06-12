@@ -112,7 +112,7 @@ class DatasetManager(BaseComponentService):
                     "content": PromptGenerator.create_synthetic_prompt(
                         tokenizer=self.tokenizer,
                         prompt_tokens_mean=100,
-                        prompt_tokens_stddev=25,
+                        prompt_tokens_stddev=0,
                     ),
                 },
             ],

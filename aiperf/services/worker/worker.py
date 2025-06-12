@@ -147,14 +147,14 @@ class Worker(BaseService):
         self.logger.debug("Processing credit drop: %s", message)
 
         credit_amount = 0
+        tasks: list[asyncio.Task] = []
         try:
             # Extract the credit drop message payload
 
             credit_amount = message.amount
             self.logger.debug("Received %s credit(s)", credit_amount)
 
-            # Make a call to OpenAI API for each credit
-            for _ in range(credit_amount):
+            async def run_task():
                 record = await self._call_backend_api()
 
                 try:
@@ -173,6 +173,13 @@ class Worker(BaseService):
                         e.__class__.__name__,
                         e,
                     )
+
+            # Make a call to OpenAI API for each credit concurrently
+            for _ in range(credit_amount):
+                task = asyncio.create_task(run_task())
+                tasks.append(task)
+
+            await asyncio.gather(*tasks)
 
         except Exception as e:
             self.logger.error("Error processing credit drop: %s", e)

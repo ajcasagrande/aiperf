@@ -38,7 +38,7 @@ from aiperf.common.record_models import (
 logger = logging.getLogger(__name__)
 
 
-@BackendClientFactory.register(BackendClientType.OPENAI)
+@BackendClientFactory.register(BackendClientType.OPENAI, override_priority=200)
 class OpenAIBackendClientAioHttp(OpenAIBackendClientConfigMixin):
     """A high-performance backend client for communicating with OpenAI based REST APIs using aiohttp.
 
@@ -98,8 +98,6 @@ class OpenAIBackendClientAioHttp(OpenAIBackendClientConfigMixin):
                 sock.setsockopt(
                     socket.SOL_TCP, socket.TCP_USER_TIMEOUT, 30000
                 )  # 30 sec timeout
-
-            # DO NOT use TCP_CORK - it delays packet transmission which hurts streaming!
 
             return sock
 
@@ -287,7 +285,10 @@ class OpenAIBackendClientAioHttp(OpenAIBackendClientConfigMixin):
                 connector=self.tcp_connector,
                 timeout=timeout,
                 headers={"User-Agent": "aiperf/1.0"},
-                skip_auto_headers={"User-Agent"},  # Skip auto-headers for performance
+                skip_auto_headers={
+                    "User-Agent",
+                    "Accept-Encoding",
+                },  # Skip auto-headers for performance
                 connector_owner=False,
             ) as session:
                 # Create record and capture initial timestamp

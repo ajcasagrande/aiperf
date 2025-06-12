@@ -9,7 +9,9 @@ They are registered with the :class:`aiperf.common.factories.BackendClientFactor
 """
 
 from aiperf.backend.openai_client_aiohttp import OpenAIBackendClientAioHttp
+from aiperf.backend.openai_client_httpx import OpenAIBackendClientHttpx
 
 __all__ = [
     "OpenAIBackendClientAioHttp",
+    "OpenAIBackendClientHttpx",
 ]
