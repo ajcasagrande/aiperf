@@ -3,7 +3,7 @@
 from typing import Generic, Protocol
 
 from aiperf.common.record_models import (
-    BackendClientResponse,
+    InferenceServerResponse,
     RequestRecord,
 )
 from aiperf.common.types import ConfigT, InputT, OutputT, RequestT, ResponseT
@@ -30,15 +30,15 @@ class OutputConverterProtocol(Protocol, Generic[OutputT, ResponseT]):
 
 
 ################################################################################
-# Backend Client Protocols
+# Inference Server Client Protocols
 ################################################################################
 
 
-class BackendClientConfigProtocol(Protocol, Generic[ConfigT]):
-    """Protocol for a backend client configuration."""
+class InferenceClientConfigProtocol(Protocol, Generic[ConfigT]):
+    """Protocol for an inference server client configuration."""
 
     def __init__(self, client_config: ConfigT) -> None:
-        """Create a new backend client based on the provided configuration."""
+        """Create a new inference server client based on the provided configuration."""
         ...
 
     @property
@@ -47,15 +47,15 @@ class BackendClientConfigProtocol(Protocol, Generic[ConfigT]):
         ...
 
 
-class BackendClientProtocol(Protocol, Generic[ConfigT, RequestT, ResponseT]):
-    """Protocol for a backend client.
+class InferenceClientProtocol(Protocol, Generic[ConfigT, RequestT, ResponseT]):
+    """Protocol for an inference server client.
 
-    This protocol defines the methods that must be implemented by any backend client
+    This protocol defines the methods that must be implemented by any inference server client
     implementation that is compatible with the AIPerf framework.
     """
 
     def __init__(self, client_config: ConfigT) -> None:
-        """Create a new backend client based on the provided configuration."""
+        """Create a new inference server client based on the provided configuration."""
         ...
 
     @property
@@ -65,9 +65,9 @@ class BackendClientProtocol(Protocol, Generic[ConfigT, RequestT, ResponseT]):
 
     # TODO: the endpoint should be of type EndpointConfig
     async def format_payload(self, endpoint: str, payload: RequestT) -> RequestT:
-        """Format the payload for the backend client.
+        """Format the payload for the inference server.
 
-        This method is used to format the payload for the backend client.
+        This method is used to format the payload for the inference server.
 
         Args:
             payload: The payload to format.
@@ -79,30 +79,28 @@ class BackendClientProtocol(Protocol, Generic[ConfigT, RequestT, ResponseT]):
 
     # TODO: the endpoint should be of type EndpointConfig
     async def send_request(self, endpoint: str, payload: RequestT) -> RequestRecord:
-        """Send a request to the backend client.
+        """Send a request to the inference server.
 
-        This method is used to send a request to the backend client.
+        This method is used to send a request to the inference server.
 
         Args:
             endpoint: The endpoint to send the request to.
-            payload: The payload to send to the backend client.
+            payload: The payload to send to the inference server.
 
         Returns:
-            The raw response from the backend client.
+            The raw response from the inference server.
         """
         ...
 
-    async def parse_response(
-        self, response: ResponseT
-    ) -> BackendClientResponse[ResponseT]:
-        """Parse the response from the backend client.
+    async def parse_response(self, response: ResponseT) -> InferenceServerResponse:
+        """Parse the response from the inference server.
 
-        This method is used to parse the response from the backend client.
+        This method is used to parse the response from the inference server.
 
         Args:
-            response: The raw response from the backend client.
+            response: The raw response from the inference server.
 
         Returns:
-            The parsed response from the backend client.
+            The parsed response from the inference server.
         """
         ...

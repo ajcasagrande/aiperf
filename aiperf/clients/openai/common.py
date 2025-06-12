@@ -9,57 +9,58 @@ from openai.types.embedding import Embedding
 from openai.types.responses.response import Response
 from pydantic import BaseModel, Field
 
-from aiperf.backend.client_mixins import BackendClientConfigMixin
-from aiperf.common.interfaces import BackendClientProtocol
+from aiperf.clients.mixins import InferenceClientConfigMixin
+from aiperf.common.interfaces import InferenceClientProtocol
 from aiperf.common.record_models import (
-    GenericHTTPBackendClientConfig,
+    GenericHTTPClientConfig,
 )
 
 ################################################################################
-# OpenAI Backend Client Models
+# OpenAI Inference Client Models
 ################################################################################
 
 
-class OpenAIBackendClientConfig(GenericHTTPBackendClientConfig):
-    """Configuration specific to an OpenAI backend client."""
+class OpenAIClientConfig(GenericHTTPClientConfig):
+    """Configuration specific to an OpenAI inference client."""
 
     organization: str | None = Field(
         default=None,
-        description="The organization to use for the OpenAI backend client.",
+        description="The organization to use for the OpenAI inference client.",
     )
     api_version: str | None = Field(
         default=None,
-        description="The API version to use for the OpenAI backend client.",
+        description="The API version to use for the OpenAI inference client.",
     )
     endpoint: str = Field(
         default="v1/chat/completions",
-        description="The endpoint to use for the OpenAI backend client.",
+        description="The endpoint to use for the OpenAI inference client.",
     )
     model: str = Field(
         default="deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
-        description="The model to use for the OpenAI backend client.",
+        description="The model to use for the OpenAI inference client.",
     )
     max_tokens: int = Field(
         default=100,
-        description="The maximum number of tokens to use for the OpenAI backend client.",
+        description="The maximum number of tokens to use for the OpenAI inference client.",
     )
     temperature: float = Field(
-        default=0.7, description="The temperature to use for the OpenAI backend client."
+        default=0.7,
+        description="The temperature to use for the OpenAI inference client.",
     )
     top_p: float = Field(
-        default=1.0, description="The top P to use for the OpenAI backend client."
+        default=1.0, description="The top P to use for the OpenAI inference client."
     )
     stop: list[str] | None = Field(
         default=None,
-        description="The stop sequence to use for the OpenAI backend client.",
+        description="The stop sequence to use for the OpenAI inference client.",
     )
     frequency_penalty: float = Field(
         default=0.0,
-        description="The frequency penalty to use for the OpenAI backend client.",
+        description="The frequency penalty to use for the OpenAI inference client.",
     )
     presence_penalty: float = Field(
         default=0.0,
-        description="The presence penalty to use for the OpenAI backend client.",
+        description="The presence penalty to use for the OpenAI inference client.",
     )
     socket_options: list[tuple[int, int, int]] | None = Field(
         default=None,
@@ -68,12 +69,12 @@ class OpenAIBackendClientConfig(GenericHTTPBackendClientConfig):
 
 
 ################################################################################
-# OpenAI Backend Client Requests
+# OpenAI Inference Client Requests
 ################################################################################
 
 
 class OpenAIBaseRequest(BaseModel):
-    """Base request specific to an OpenAI backend client."""
+    """Base request specific to an OpenAI inference client."""
 
     model: str
     kwargs: dict[str, Any] | None = None
@@ -110,12 +111,12 @@ class OpenAIEmbeddingsRequest(OpenAIBaseRequest):
 
 
 ################################################################################
-# OpenAI Backend Client Responses
+# OpenAI Inference Client Responses
 ################################################################################
 
 
 class OpenAIBaseResponse(BaseModel):
-    """Response specific to an OpenAI backend client."""
+    """Response specific to an OpenAI inference client."""
 
 
 class OpenAIChatResponsesResponse(OpenAIBaseResponse):
@@ -146,13 +147,13 @@ class OpenAIChatCompletionResponse(OpenAIBaseResponse):
 
 
 ################################################################################
-# OpenAI Backend Client Mixins / Protocols
+# OpenAI Inference Client Mixins / Protocols
 ################################################################################
 
-OpenAIBackendClientConfigMixin = BackendClientConfigMixin[OpenAIBackendClientConfig]
-"""Type alias for a backend client config mixin that supports OpenAI configuration."""
+OpenAIClientConfigMixin = InferenceClientConfigMixin[OpenAIClientConfig]
+"""Type alias for a inference client config mixin that supports OpenAI configuration."""
 
-OpenAIBackendClientProtocol = BackendClientProtocol[
-    OpenAIBackendClientConfig, OpenAIBaseRequest, OpenAIBaseResponse
+OpenAIInferenceClientProtocol = InferenceClientProtocol[
+    OpenAIClientConfig, OpenAIBaseRequest, OpenAIBaseResponse
 ]
-"""Type alias for a backend client protocol that supports OpenAI."""
+"""Type alias for a inference client protocol that supports OpenAI."""

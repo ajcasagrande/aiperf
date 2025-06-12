@@ -6,11 +6,11 @@ import os
 import statistics
 import time
 
-from aiperf.backend.openai_client_aiohttp import OpenAIBackendClientAioHttp
-from aiperf.backend.openai_client_httpx import OpenAIBackendClientHttpx
+from aiperf.backend.openai_client_aiohttp import OpenAIInferenceClientAioHttp
+from aiperf.backend.openai_client_httpx import OpenAIInferenceClientHttpx
 from aiperf.backend.openai_common import (
-    OpenAIBackendClientConfig,
     OpenAIChatCompletionRequest,
+    OpenAIClientConfig,
 )
 from aiperf.common.constants import NANOS_PER_MILLIS
 
@@ -24,7 +24,7 @@ async def test_client_performance(
     """Test the performance of a client implementation."""
 
     client = client_class(
-        client_config=OpenAIBackendClientConfig(
+        client_config=OpenAIClientConfig(
             url="http://127.0.0.1:8080",
             api_key=os.getenv("OPENAI_API_KEY", "sk-fakeai-1234567890abcdef"),
             model="deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
@@ -220,7 +220,7 @@ async def main():
 
     # Test HTTPX implementation
     httpx_result = await test_client_performance(
-        OpenAIBackendClientHttpx, "HTTPX (HTTP/2)", num_requests, concurrent_requests
+        OpenAIInferenceClientHttpx, "HTTPX (HTTP/2)", num_requests, concurrent_requests
     )
     if httpx_result:
         results.append(httpx_result)
@@ -230,7 +230,7 @@ async def main():
 
     # Test aiohttp implementation
     aiohttp_result = await test_client_performance(
-        OpenAIBackendClientAioHttp, "aiohttp", num_requests, concurrent_requests
+        OpenAIInferenceClientAioHttp, "aiohttp", num_requests, concurrent_requests
     )
     if aiohttp_result:
         results.append(aiohttp_result)

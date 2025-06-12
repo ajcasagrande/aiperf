@@ -10,7 +10,7 @@ from aiperf.common.comms.zmq.clients.base import BaseZMQClient
 from aiperf.common.exceptions import CommunicationRequestError
 from aiperf.common.messages import (
     Message,
-    MessageTypeAdapter,
+    MessageValidator,
 )
 
 logger = logging.getLogger(__name__)
@@ -91,7 +91,7 @@ class ZMQReqClient(BaseZMQClient):
 
                 # Wait for response with timeout
                 response_json = await self._socket.recv_string()
-                response = MessageTypeAdapter.validate_json(response_json)
+                response = MessageValidator.validate_json(response_json)
                 return response
 
             except zmq.ZMQError as e:

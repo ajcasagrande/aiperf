@@ -184,16 +184,16 @@ class TokenizerInitializationError(TokenizerError):
 
 
 ################################################################################
-# Backend Client Exceptions
+# Inference Client Exceptions
 ################################################################################
 
 
-class BackendClientError(AIPerfError):
-    """Exception raised when a backend client encounters an error."""
+class InferenceClientError(AIPerfError):
+    """Exception raised when a inference client encounters an error."""
 
 
-class InvalidPayloadError(BackendClientError):
-    """Exception raised when a backend client receives an invalid payload."""
+class InvalidPayloadError(InferenceClientError):
+    """Exception raised when a inference client receives an invalid payload."""
 
 
 ################################################################################

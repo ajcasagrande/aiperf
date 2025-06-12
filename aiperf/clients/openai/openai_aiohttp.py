@@ -9,44 +9,45 @@ from typing import Any
 
 import aiohttp
 
-from aiperf.backend.openai_common import (
-    OpenAIBackendClientConfig,
-    OpenAIBackendClientConfigMixin,
+from aiperf.clients.openai.common import (
     OpenAIBaseRequest,
     OpenAIBaseResponse,
     OpenAIChatCompletionRequest,
     OpenAIChatResponsesRequest,
+    OpenAIClientConfig,
+    OpenAIClientConfigMixin,
     OpenAICompletionRequest,
     OpenAIEmbeddingsRequest,
 )
-from aiperf.backend.timers import RequestTimerKind, RequestTimers
-from aiperf.common.enums import (
-    BackendClientType,
-)
+from aiperf.clients.timers import RequestTimerKind, RequestTimers
+from aiperf.common.enums import InferenceClientType
 from aiperf.common.exceptions import InvalidPayloadError
-from aiperf.common.factories import BackendClientFactory
+from aiperf.common.factories import InferenceClientFactory
 from aiperf.common.record_models import (
-    BackendClientErrorResponse,
-    BackendClientResponse,
+    InferenceServerErrorResponse,
+    InferenceServerResponse,
     RequestRecord,
+    SSEField,
+    SSEFieldType,
+    SSEMessage,
 )
 
 ################################################################################
-# OpenAI Backend Client
+# OpenAI Inference Client
 ################################################################################
 
 logger = logging.getLogger(__name__)
 
 
-@BackendClientFactory.register(BackendClientType.OPENAI, override_priority=200)
-class OpenAIBackendClientAioHttp(OpenAIBackendClientConfigMixin):
-    """A high-performance backend client for communicating with OpenAI based REST APIs using aiohttp.
+@InferenceClientFactory.register(InferenceClientType.OPENAI, override_priority=200)
+class OpenAIInferenceClientAioHttp(OpenAIClientConfigMixin):
+    """A high-performance inference client for communicating with OpenAI based REST APIs using aiohttp.
 
     This class is optimized for maximum performance and accurate timing measurements,
     making it ideal for benchmarking scenarios.
     """
 
-    def __init__(self, client_config: OpenAIBackendClientConfig) -> None:
+    def __init__(self, client_config: OpenAIClientConfig) -> None:
         super().__init__(client_config)
         self.tcp_connector = self._create_tcp_connector()
 
@@ -196,8 +197,8 @@ class OpenAIBackendClientAioHttp(OpenAIBackendClientConfigMixin):
         except Exception as e:
             # swallow all other errors and return a generic error response
             record.responses.append(
-                BackendClientErrorResponse(
-                    timestamp_ns=time.perf_counter_ns(),
+                InferenceServerErrorResponse(
+                    perf_ns=time.perf_counter_ns(),
                     error=str(e),
                 )
             )
@@ -208,21 +209,21 @@ class OpenAIBackendClientAioHttp(OpenAIBackendClientConfigMixin):
         self, payload: OpenAICompletionRequest
     ) -> RequestRecord[Any]:
         raise NotImplementedError(
-            "OpenAIBackendClientAioHttp does not support completion requests"
+            "OpenAIInferenceClientAioHttp does not support completion requests"
         )
 
     async def send_embeddings_request(
         self, payload: OpenAIEmbeddingsRequest
     ) -> RequestRecord[Any]:
         raise NotImplementedError(
-            "OpenAIBackendClientAioHttp does not support embeddings requests"
+            "OpenAIInferenceClientAioHttp does not support embeddings requests"
         )
 
     async def send_chat_responses_request(
         self, payload: OpenAIChatResponsesRequest
     ) -> RequestRecord[Any]:
         raise NotImplementedError(
-            "OpenAIBackendClientAioHttp does not support chat responses requests"
+            "OpenAIInferenceClientAioHttp does not support chat responses requests"
         )
 
     async def send_chat_completion_request(
@@ -311,8 +312,8 @@ class OpenAIBackendClientAioHttp(OpenAIBackendClientConfigMixin):
                     if response.status != 200:
                         error_text = await response.text()
                         record.responses.append(
-                            BackendClientErrorResponse(
-                                timestamp_ns=time.perf_counter_ns(),
+                            InferenceServerErrorResponse(
+                                perf_ns=time.perf_counter_ns(),
                                 error=f"HTTP {response.status}: {error_text}",
                             )
                         )
@@ -323,78 +324,42 @@ class OpenAIBackendClientAioHttp(OpenAIBackendClientConfigMixin):
                     # TODO: look into better ways to parse the SSE stream in a performant and timestamp accurate manner
 
                     # Parse SSE stream with optimal performance
-                    buffer = ""
-                    async for chunk in self._aiter_sse_chunks(response):
-                        chunk_timestamp = time.perf_counter_ns()
-
-                        buffer += chunk
-
-                        # Process complete lines efficiently
-                        while "\n" in buffer:
-                            line, buffer = buffer.split("\n", 1)
-                            line = line.strip()
-
+                    async for (
+                        raw_message,
+                        chunk_timestamp,
+                    ) in OpenAIInferenceClientAioHttp._aiter_raw_sse_messages(response):
+                        message = SSEMessage(perf_ns=chunk_timestamp)
+                        for line in raw_message.split("\n"):
                             if not line:
                                 continue
+                            parts = line.strip().split(":", 1)
 
-                            # Handle SSE format
-                            if line.startswith("data: "):
-                                data_content = line[6:]  # Remove "data: " prefix
-
-                                # Check for stream end
-                                if data_content == "[DONE]":
-                                    timers.capture_timestamp(RequestTimerKind.RECV_END)
-                                    break
-
-                                # Skip empty data chunks at the start
-                                if (
-                                    data_content.strip() == ""
-                                    and len(record.responses) == 0
-                                ):
-                                    continue
-
-                                try:
-                                    timers.capture_chunk_start_timestamp(
-                                        chunk_timestamp
-                                    )
-                                    # Store the raw SSE data directly for most accurate timing
-                                    record.responses.append(
-                                        BackendClientResponse[str](
-                                            timestamp_ns=chunk_timestamp,
-                                            response="data_content",
-                                        )
-                                    )
-                                except Exception as e:
-                                    # Handle any response processing errors
-                                    record.responses.append(
-                                        BackendClientErrorResponse(
-                                            timestamp_ns=chunk_timestamp,
-                                            error=str(e),
-                                        )
-                                    )
-                                    continue
-
-                            elif line.startswith("event: error"):
-                                logger.error(
-                                    "Error event in streaming API call: %s", line
+                            if len(parts) < 2:
+                                # Fields without a colon have no value
+                                message.fields.append(
+                                    SSEField(name=parts[0], value=None)
                                 )
-                                record.responses.append(
-                                    BackendClientErrorResponse(
-                                        timestamp_ns=chunk_timestamp,
-                                        error=line,
-                                    )
-                                )
-                                break
+                                continue
 
-                    timers.capture_timestamp(RequestTimerKind.RECV_END)
+                            field_name, value = parts
+
+                            if field_name == "":
+                                # Field name is empty, so this is a comment
+                                field_name = SSEFieldType.COMMENT
+
+                            message.fields.append(
+                                SSEField(name=field_name, value=value)
+                            )
+
+                        record.responses.append(message)
 
         except Exception as e:
             logger.error("Error in aiohttp request: %s", str(e))
             if record is None:
                 record = RequestRecord(start_perf_counter_ns=time.perf_counter_ns())
             record.responses.append(
-                BackendClientErrorResponse(
-                    timestamp_ns=time.perf_counter_ns(),
+                InferenceServerErrorResponse(
+                    perf_ns=time.perf_counter_ns(),
                     error=str(e),
                 )
             )
@@ -430,26 +395,48 @@ class OpenAIBackendClientAioHttp(OpenAIBackendClientConfigMixin):
 
         return record
 
+    @staticmethod
+    async def _aiter_raw_sse_messages(
+        response: aiohttp.ClientResponse,
+    ) -> typing.AsyncIterator[tuple[str, int]]:
+        """Efficiently iterate over raw SSE messages from aiohttp response.
+
+        Returns a tuple of the raw SSE message and the perf_counter_ns of the chunk.
+        """
+
+        while not response.content.at_eof():
+            chunk = await response.content.readuntil(b"\n\n")
+            chunk_ns = time.perf_counter_ns()
+            if chunk:
+                try:
+                    # Use the fastest available decoder
+                    yield chunk.decode("utf-8").strip(), chunk_ns
+                except UnicodeDecodeError:
+                    # Handle potential encoding issues gracefully
+                    yield chunk.decode("utf-8", errors="replace").strip(), chunk_ns
+
+    @staticmethod
     async def _aiter_sse_chunks(
-        self, response: aiohttp.ClientResponse, chunk_size: int = 1024
-    ) -> typing.AsyncIterator[str]:
+        response: aiohttp.ClientResponse, chunk_size: int = 8192
+    ) -> typing.AsyncIterator[tuple[str, int]]:
         """Efficiently iterate over SSE chunks from aiohttp response."""
         # Use a larger chunk size for better performance
         async for chunk in response.content.iter_chunked(chunk_size):
             if chunk:
+                chunk_ns = time.perf_counter_ns()
                 try:
                     # Use the fastest available decoder
-                    yield chunk.decode("utf-8")
+                    yield chunk.decode("utf-8"), chunk_ns
                 except UnicodeDecodeError:
                     # Handle potential encoding issues gracefully
-                    yield chunk.decode("utf-8", errors="replace")
+                    yield chunk.decode("utf-8", errors="replace"), chunk_ns
 
     async def parse_response(
         self, response: OpenAIBaseResponse
-    ) -> BackendClientResponse[OpenAIBaseResponse]:
+    ) -> InferenceServerResponse:
         """Parse response (not implemented for streaming responses)."""
         raise NotImplementedError(
-            "OpenAIBackendClientAioHttp does not support parsing responses"
+            "OpenAIInferenceClientAioHttp does not support parsing responses"
         )
 
     async def __aenter__(self):

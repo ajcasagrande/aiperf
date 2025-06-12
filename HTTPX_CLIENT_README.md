@@ -2,9 +2,9 @@
 #  SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #  SPDX-License-Identifier: Apache-2.0
 -->
-# HTTPX OpenAI Backend Client
+# HTTPX OpenAI Inference Client
 
-A high-performance HTTP/2-enabled OpenAI backend client implementation using `httpx` for maximum concurrent request performance and timestamp accuracy.
+A high-performance HTTP/2-enabled OpenAI inference client implementation using `httpx` for maximum concurrent request performance and timestamp accuracy.
 
 ## Features
 
@@ -27,12 +27,12 @@ A high-performance HTTP/2-enabled OpenAI backend client implementation using `ht
 
 ```python
 import asyncio
-from aiperf.backend.openai_client_httpx import OpenAIBackendClientHttpx
-from aiperf.backend.openai_common import OpenAIBackendClientConfig, OpenAIChatCompletionRequest
+from aiperf.backend.openai_client_httpx import OpenAIInferenceClientHttpx
+from aiperf.backend.openai_common import OpenAIClientConfig, OpenAIChatCompletionRequest
 
 async def main():
     # Create client configuration
-    config = OpenAIBackendClientConfig(
+    config = OpenAIClientConfig(
         url="http://127.0.0.1:8080",
         api_key="your-api-key",
         model="deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
@@ -40,7 +40,7 @@ async def main():
     )
 
     # Create the client
-    client = OpenAIBackendClientHttpx(config)
+    client = OpenAIInferenceClientHttpx(config)
 
     # Create a request
     request = OpenAIChatCompletionRequest(
@@ -65,14 +65,14 @@ asyncio.run(main())
 ### Factory Usage
 
 ```python
-from aiperf.common.factories import BackendClientFactory
-from aiperf.common.enums import BackendClientType
-from aiperf.backend.openai_common import OpenAIBackendClientConfig
+from aiperf.common.factories import InferenceClientFactory
+from aiperf.common.enums import InferenceClientType
+from aiperf.backend.openai_common import OpenAIClientConfig
 
 # Create via factory
-client = BackendClientFactory.create_instance(
-    BackendClientType.OPENAI_HTTPX,
-    config=OpenAIBackendClientConfig(
+client = InferenceClientFactory.create_instance(
+    InferenceClientType.OPENAI_HTTPX,
+    config=OpenAIClientConfig(
         url="http://127.0.0.1:8080",
         api_key="your-api-key",
         model="your-model-name",
@@ -84,7 +84,7 @@ client = BackendClientFactory.create_instance(
 
 ```python
 async def concurrent_example():
-    client = OpenAIBackendClientHttpx(config)
+    client = OpenAIInferenceClientHttpx(config)
 
     async def send_request(prompt):
         request = OpenAIChatCompletionRequest(
@@ -106,7 +106,7 @@ async def concurrent_example():
 
 ## Configuration
 
-### OpenAIBackendClientConfig Parameters
+### OpenAIClientConfig Parameters
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
@@ -151,7 +151,7 @@ python integration_tests/httpx_example.py
 
 The HTTPX client is fully compatible with the existing aiohttp implementation:
 
-- Same interface (`OpenAIBackendClientConfigMixin`)
+- Same interface (`OpenAIClientConfigMixin`)
 - Same request/response models
 - Same factory registration pattern
 - Same timing measurement APIs
@@ -161,13 +161,13 @@ The HTTPX client is fully compatible with the existing aiohttp implementation:
 
 ```python
 # Use aiohttp client
-client_aio = BackendClientFactory.create_instance(
-    BackendClientType.OPENAI, config=config
+client_aio = InferenceClientFactory.create_instance(
+    InferenceClientType.OPENAI, config=config
 )
 
 # Use httpx client (drop-in replacement)
-client_httpx = BackendClientFactory.create_instance(
-    BackendClientType.OPENAI_HTTPX, config=config
+client_httpx = InferenceClientFactory.create_instance(
+    InferenceClientType.OPENAI_HTTPX, config=config
 )
 ```
 
@@ -176,7 +176,7 @@ client_httpx = BackendClientFactory.create_instance(
 ### Architecture
 
 ```
-OpenAIBackendClientHttpx
+OpenAIInferenceClientHttpx
 ├── _create_http_client()      # HTTP/2 client setup
 ├── _create_transport()        # SSL/TLS optimizations
 ├── send_chat_completion_request()  # Main request handler

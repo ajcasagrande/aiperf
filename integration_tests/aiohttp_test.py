@@ -3,18 +3,18 @@
 import asyncio
 import os
 
-from aiperf.backend.openai_client_aiohttp import OpenAIBackendClientAioHttp
+from aiperf.backend.openai_client_aiohttp import OpenAIInferenceClientAioHttp
 from aiperf.backend.openai_common import (
-    OpenAIBackendClientConfig,
     OpenAIChatCompletionRequest,
+    OpenAIClientConfig,
 )
 from aiperf.common.constants import NANOS_PER_MILLIS
 
 
 async def main():
     async def send_request():
-        client = OpenAIBackendClientAioHttp(
-            client_config=OpenAIBackendClientConfig(
+        client = OpenAIInferenceClientAioHttp(
+            client_config=OpenAIClientConfig(
                 url="http://127.0.0.1:8080",
                 api_key=os.getenv("OPENAI_API_KEY"),
                 model="deepseek-ai/DeepSeek-R1-Distill-Llama-8B",

@@ -4,10 +4,10 @@
 import asyncio
 import os
 
-from aiperf.backend.openai_client_httpx import OpenAIBackendClientHttpx
+from aiperf.backend.openai_client_httpx import OpenAIInferenceClientHttpx
 from aiperf.backend.openai_common import (
-    OpenAIBackendClientConfig,
     OpenAIChatCompletionRequest,
+    OpenAIClientConfig,
 )
 from aiperf.common.constants import NANOS_PER_MILLIS
 
@@ -19,7 +19,7 @@ async def main():
     print("=" * 50)
 
     # Create client configuration
-    client_config = OpenAIBackendClientConfig(
+    client_config = OpenAIClientConfig(
         url="http://127.0.0.1:8080",  # Your OpenAI-compatible server
         api_key=os.getenv("OPENAI_API_KEY", "sk-fakeai-1234567890abcdef"),
         model="deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
@@ -28,7 +28,7 @@ async def main():
     )
 
     # Create the client
-    client = OpenAIBackendClientHttpx(client_config)
+    client = OpenAIInferenceClientHttpx(client_config)
 
     print("✅ Client configured:")
     print(f"   • URL: {client_config.url}")
@@ -82,7 +82,7 @@ async def main():
         # Show first few response chunks
         print("\n💬 Response preview:")
         for i, resp in enumerate(response.responses[:5]):
-            timestamp_ms = resp.timestamp_ns / NANOS_PER_MILLIS
+            timestamp_ms = resp.perf_ns / NANOS_PER_MILLIS
             print(f"   [{i + 1}] @ {timestamp_ms:.1f}ms: {type(resp).__name__}")
 
         if len(response.responses) > 5:
@@ -103,14 +103,14 @@ async def concurrent_example():
     print("\n🔥 Concurrent Requests Example")
     print("=" * 50)
 
-    client_config = OpenAIBackendClientConfig(
+    client_config = OpenAIClientConfig(
         url="http://127.0.0.1:8080",
         api_key=os.getenv("OPENAI_API_KEY", "sk-fakeai-1234567890abcdef"),
         model="deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
         max_tokens=50,
     )
 
-    client = OpenAIBackendClientHttpx(client_config)
+    client = OpenAIInferenceClientHttpx(client_config)
 
     async def send_request(prompt: str, request_id: int):
         """Send a single request."""

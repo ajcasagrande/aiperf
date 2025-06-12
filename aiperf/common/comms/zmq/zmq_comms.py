@@ -148,6 +148,8 @@ class ZMQCommunication(BaseCommunication):
             self._context = None
             # logger.debug("ZMQ communication shutdown successfully")
 
+        except asyncio.CancelledError:
+            pass
         except Exception as e:
             logger.error(f"Exception shutting down ZMQ communication: {e}")
             raise CommunicationShutdownError(
@@ -169,7 +171,7 @@ class ZMQCommunication(BaseCommunication):
         if not self.is_initialized:
             raise CommunicationNotInitializedError()
         if self.is_shutdown:
-            raise CommunicationShutdownError()
+            raise asyncio.CancelledError()
 
     def _create_pub_client(self, client_type: PubClientType) -> ZMQPubClient:
         """Create a ZMQ publisher client based on the client type.

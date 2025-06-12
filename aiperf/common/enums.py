@@ -296,11 +296,11 @@ class ServiceRegistrationStatus(CaseInsensitiveStrEnum):
 
 
 ################################################################################
-# Backend Client Enums
+# Inference Client Enums
 ################################################################################
 
 
-class BackendClientType(CaseInsensitiveStrEnum):
+class InferenceClientType(CaseInsensitiveStrEnum):
     """Backend client types."""
 
     GRPC = "grpc"

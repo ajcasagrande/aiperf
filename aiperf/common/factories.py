@@ -5,16 +5,16 @@ from collections.abc import Callable
 from typing import Any, Generic, TypeVar
 
 from aiperf.common.enums import (
-    BackendClientType,
     CaseInsensitiveStrEnum,
     CommunicationBackend,
+    InferenceClientType,
     OutputFormat,
     PromptSource,
     ServiceType,
 )
 from aiperf.common.exceptions import FactoryCreationError
 from aiperf.common.interfaces import (
-    BackendClientProtocol,
+    InferenceClientProtocol,
     InputConverterProtocol,
     OutputConverterProtocol,
 )
@@ -272,19 +272,21 @@ class ServiceFactory(FactoryMixin[ServiceType, "BaseService"]):
     """
 
 
-class BackendClientFactory(FactoryMixin[BackendClientType, BackendClientProtocol]):
-    """Factory for registering and creating BackendClientProtocol instances based on the specified backend client type.
+class InferenceClientFactory(
+    FactoryMixin[InferenceClientType, InferenceClientProtocol]
+):
+    """Factory for registering and creating InferenceClientProtocol instances based on the specified inference client type.
 
     Example:
     ```python
-        # Register a new backend client
-        @BackendClientFactory.register(BackendClientType.OPENAI)
-        class OpenAIBackendClient:
-            pass  # Implement the BackendClientProtocol
+        # Register a new inference client
+        @InferenceClientFactory.register(InferenceClientType.OPENAI)
+        class OpenAIInferenceClient:
+            pass  # Implement the InferenceClientProtocol
 
-        backend_client = BackendClientFactory.create_instance(
-            BackendClientType.OPENAI,
-            config=OpenAIBackendClientConfig(api_key="sk-1234567890"),
+        backend_client = InferenceClientFactory.create_instance(
+            InferenceClientType.OPENAI,
+            config=OpenAIClientConfig(api_key="sk-1234567890"),
         )
         backend_client.send_request(...)
     ```

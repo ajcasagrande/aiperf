@@ -5,7 +5,7 @@ import copy
 import os
 import sys
 
-from aiperf.backend.openai_common import OpenAIBackendClientConfig
+from aiperf.clients.openai.common import OpenAIClientConfig
 from aiperf.common.comms.client_enums import (
     ClientType,
     PullClientType,
@@ -14,8 +14,8 @@ from aiperf.common.comms.client_enums import (
 )
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.constants import NANOS_PER_MILLIS
-from aiperf.common.enums import BackendClientType, MessageType, ServiceType, Topic
-from aiperf.common.factories import BackendClientFactory
+from aiperf.common.enums import InferenceClientType, MessageType, ServiceType, Topic
+from aiperf.common.factories import InferenceClientFactory
 from aiperf.common.hooks import (
     aiperf_task,
     on_cleanup,
@@ -24,7 +24,7 @@ from aiperf.common.hooks import (
     on_start,
     on_stop,
 )
-from aiperf.common.interfaces import BackendClientProtocol
+from aiperf.common.interfaces import InferenceClientProtocol
 from aiperf.common.messages import (
     ConversationRequestMessage,
     CreditDropMessage,
@@ -52,7 +52,7 @@ class Worker(BaseService):
         self.logger.debug("Initializing worker")
 
         # Backend client will be initialized in _initialize
-        self.backend_client: BackendClientProtocol | None = None
+        self.inference_server_client: InferenceClientProtocol | None = None
 
     @property
     def service_type(self) -> ServiceType:
@@ -78,21 +78,21 @@ class Worker(BaseService):
         api_key = os.environ.get("OPENAI_API_KEY", "sk-fakeai-1234567890abcdef")
 
         # Create OpenAI client configuration
-        openai_client_config = OpenAIBackendClientConfig(
+        openai_client_config = OpenAIClientConfig(
             api_key=api_key,
-            url=f"http://127.0.0.1:{os.getenv('AIPERF_PORT', 8080)}",  # Default OpenAI API endpoint
+            url=f"http://127.0.0.1:{os.getenv('AIPERF_PORT', 8080)}",  # Default OpenAI inference server endpoint
             model="deepseek-ai/DeepSeek-R1-Distill-Llama-8B",  # Default model
         )
 
         # Initialize the OpenAI client
-        self.backend_client = BackendClientFactory.create_instance(
-            BackendClientType.OPENAI, config=openai_client_config
+        self.inference_server_client = InferenceClientFactory.create_instance(
+            InferenceClientType.OPENAI, config=openai_client_config
         )
 
         self.queue = asyncio.Queue(
             maxsize=int(os.getenv("AIPERF_TASKS_PER_WORKER", 100))
         )
-        self.logger.debug("Backend client initialized")
+        self.logger.debug("Inference server client initialized")
 
     @on_run
     async def _run(self) -> None:
@@ -200,10 +200,12 @@ class Worker(BaseService):
         try:
             self.logger.debug("Calling backend API")
 
-            if not self.backend_client:
-                self.logger.warning("Backend client not initialized, skipping API call")
+            if not self.inference_server_client:
+                self.logger.warning(
+                    "Inference server client not initialized, skipping API call"
+                )
                 return RequestErrorRecord(
-                    error="Backend client not initialized",
+                    error="Inference server client not initialized",
                 )
 
             # retrieve the prompt from the dataset

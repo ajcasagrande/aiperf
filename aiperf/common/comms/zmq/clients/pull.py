@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
 import logging
+import os
 from collections.abc import Callable, Coroutine
 from typing import Any
 
@@ -13,7 +14,7 @@ from aiperf.common.comms.zmq.clients.base import BaseZMQClient
 from aiperf.common.enums import MessageType
 from aiperf.common.exceptions import AIPerfError
 from aiperf.common.hooks import aiperf_task, on_init
-from aiperf.common.messages import Message, MessageTypeAdapter
+from aiperf.common.messages import Message, MessageValidator
 from aiperf.common.utils import call_all_functions
 
 logger = logging.getLogger(__name__)
@@ -45,7 +46,9 @@ class ZMQPullClient(BaseZMQClient):
     @on_init
     async def _on_initialize(self) -> None:
         """Initialize the ZMQ Pull client."""
-        self.queue = asyncio.Queue(maxsize=100)
+        self.queue = asyncio.Queue(
+            maxsize=2 * (int(os.getenv("AIPERF_CONCURRENCY") or 100))
+        )
 
     @aiperf_task
     async def _pull_receiver(self) -> None:
@@ -91,7 +94,7 @@ class ZMQPullClient(BaseZMQClient):
 
                 # Parse JSON into a Message object
                 try:
-                    message = MessageTypeAdapter.validate_json(message_json)
+                    message = MessageValidator.validate_json(message_json)
                 except ValidationError as e:
                     logger.error(
                         "Error parsing pull message: %s %s %s",

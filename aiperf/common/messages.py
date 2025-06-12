@@ -356,7 +356,7 @@ Example:
 >>> json_string = message.model_dump_json()
 >>> print(json_string)
 {"state": "ready", "service_type": "test", "service_id": "service_1", "request_id": "request_1", "request_ns": 1716278400000000000, "message_type": "status"}
->>> deserialized_message = MessageTypeAdapter.validate_json(json_string)
+>>> deserialized_message = MessageValidator.validate_json(json_string)
 >>> print(deserialized_message)
 StatusMessage(
     message_type=MessageType.STATUS,
@@ -371,13 +371,14 @@ ready
 ```
 """
 
-# Create a TypeAdapter for JSON validation of messages
-MessageTypeAdapter = TypeAdapter(Message)
-"""TypeAdapter for JSON validation of messages.
+MessageValidator = TypeAdapter(Message)
+"""TypeAdapter for JSON validation of messages. This is used only
+for the :class:`Message` type because it is a union type and not an actual model.
+
 Example:
 ```python
 >>> json_string = '{"state": "ready", "service_type": "test", "service_id": "service_1", "request_id": "request_1", "request_ns": 1716278400000000000, "message_type": "status"}'
->>> message = MessageTypeAdapter.validate_json(json_string)
+>>> message = MessageValidator.validate_json(json_string)
 >>> print(message)
 StatusMessage(
     message_type=MessageType.STATUS,

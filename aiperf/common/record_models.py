@@ -8,59 +8,64 @@ from typing import Any, Generic
 
 from pydantic import BaseModel, Field
 
+from aiperf.common.enums import CaseInsensitiveStrEnum
 from aiperf.common.types import ResponseT
 
 ################################################################################
-# Backend Client Models
+# Inference Client Models
 ################################################################################
 
 
-class BaseBackendClientConfig(BaseModel):
-    """Base configuration options for all backend clients."""
+class BaseClientConfig(BaseModel):
+    """Base configuration options for all clients."""
 
     ...
 
 
-class GenericHTTPBackendClientConfig(BaseBackendClientConfig):
-    """Configuration options for a generic HTTP backend client."""
+class GenericHTTPClientConfig(BaseClientConfig):
+    """Configuration options for a generic HTTP inference client."""
 
     url: str = Field(
         default=f"http://localhost:{os.getenv('AIPERF_PORT', 8080)}",
-        description="The URL of the backend client.",
+        description="The URL of the inference client.",
     )
     protocol: str = Field(
-        default="http", description="The protocol to use for the backend client."
+        default="http", description="The protocol to use for the inference client."
     )
     ssl_options: dict[str, Any] | None = Field(
         default=None,
-        description="The SSL options to use for the backend client.",
+        description="The SSL options to use for the inference client.",
     )
     timeout_ms: int = Field(
         default=300000,
-        description="The timeout in milliseconds for the backend client.",
+        description="The timeout in milliseconds for the inference client.",
     )
     headers: dict[str, str] = Field(
         default_factory=dict,
-        description="The headers to use for the backend client.",
+        description="The headers to use for the inference client.",
     )
     api_key: str | None = Field(
         default=None,
-        description="The API key to use for the backend client.",
+        description="The API key to use for the inference client.",
     )
 
 
-class BackendClientResponse(BaseModel, Generic[ResponseT]):
-    """Response from a backend client."""
+################################################################################
+# Inference Client Response Models
+################################################################################
 
-    timestamp_ns: int = Field(
+
+class InferenceServerResponse(BaseModel):
+    """Response from a inference client."""
+
+    perf_ns: int = Field(
         ...,
-        description="The timestamp of the response in nanoseconds since the epoch.",
+        description="The timestamp of the response in nanoseconds (perf_counter_ns).",
     )
-    response: ResponseT | None = None
 
 
-class BackendClientErrorResponse(BackendClientResponse[None]):
-    """Error response from a backend client."""
+class InferenceServerErrorResponse(InferenceServerResponse):
+    """Error response from a inference client."""
 
     error: str = Field(
         ...,
@@ -68,16 +73,42 @@ class BackendClientErrorResponse(BackendClientResponse[None]):
     )
 
 
-class BackendClientErrorRecord(BaseModel):
-    """Error response from a backend client."""
+class SSEFieldType(CaseInsensitiveStrEnum):
+    """Field types in an SSE message."""
 
-    timestamp_ns: int = Field(
+    DATA = "data"
+    EVENT = "event"
+    ID = "id"
+    RETRY = "retry"
+    COMMENT = "comment"
+
+
+class SSEEventType(CaseInsensitiveStrEnum):
+    """Event types in an SSE message."""
+
+    ERROR = "error"
+    LLM_METRICS = "llm_metrics"
+
+
+class SSEField(BaseModel):
+    """Base model for a single field in an SSE message."""
+
+    name: SSEFieldType | str = Field(
         ...,
-        description="The timestamp of the response in nanoseconds since the epoch.",
+        description="The name of the field. e.g. 'data', 'event', 'id', 'retry', 'comment'.",
     )
-    error: str = Field(
-        ...,
-        description="The error message.",
+    value: str | None = Field(
+        default=None,
+        description="The value of the field.",
+    )
+
+
+class SSEMessage(InferenceServerResponse):
+    """Individual SSE message from an SSE stream. Delimited by \n\n."""
+
+    fields: list[SSEField] = Field(
+        default_factory=list,
+        description="The fields contained in the message.",
     )
 
 
@@ -146,11 +177,9 @@ class RequestErrorRecord(BaseRequestRecord):
 class RequestRecord(BaseRequestRecord, Generic[ResponseT]):
     """Record of a request."""
 
-    responses: list[BackendClientResponse[ResponseT] | BackendClientErrorResponse] = (
-        Field(
-            default_factory=list,
-            description="The raw responses received from the request.",
-        )
+    responses: list[InferenceServerResponse] = Field(
+        default_factory=list,
+        description="The raw responses received from the request.",
     )
     sequence_end: bool = Field(
         default=True, description="Whether the sequence has ended."
@@ -160,13 +189,13 @@ class RequestRecord(BaseRequestRecord, Generic[ResponseT]):
     @property
     def has_null_last_response(self) -> bool:
         """Whether the last response received was null."""
-        return len(self.responses) > 0 and self.responses[-1].response is None
+        return len(self.responses) > 0 and self.responses[-1] is None
 
     @property
     def has_error(self) -> bool:
         """Check if the request record has an error."""
         return any(
-            isinstance(response, BackendClientErrorResponse)
+            isinstance(response, InferenceServerErrorResponse)
             for response in self.responses
         )
 
@@ -181,9 +210,7 @@ class RequestRecord(BaseRequestRecord, Generic[ResponseT]):
         return not self.has_error and (
             0 <= self.start_perf_counter_ns < sys.maxsize
             and len(self.responses) > 0
-            and all(
-                0 < response.timestamp_ns < sys.maxsize for response in self.responses
-            )
+            and all(0 < response.perf_ns < sys.maxsize for response in self.responses)
         )
 
     @property
@@ -191,27 +218,27 @@ class RequestRecord(BaseRequestRecord, Generic[ResponseT]):
         """Get the time to the first response in nanoseconds."""
         if not self.valid:
             return None
-        return self.responses[0].timestamp_ns - self.start_perf_counter_ns
+        return self.responses[0].perf_ns - self.start_perf_counter_ns
 
     @property
     def time_to_second_response_ns(self) -> int | None:
         """Get the time to the second response in nanoseconds."""
         if not self.valid or len(self.responses) < 2:
             return None
-        return self.responses[1].timestamp_ns - self.responses[0].timestamp_ns
+        return self.responses[1].perf_ns - self.responses[0].perf_ns
 
     @property
     def time_to_last_response_ns(self) -> int | None:
         """Get the time to the last response in nanoseconds."""
         if not self.valid:
             return None
-        return self.responses[-1].timestamp_ns - self.start_perf_counter_ns
+        return self.responses[-1].perf_ns - self.start_perf_counter_ns
 
     @property
     def inter_token_latency_ns(self) -> float | None:
         """Get the interval between responses in nanoseconds."""
         if not self.valid:
             return None
-        return (self.responses[-1].timestamp_ns - self.responses[0].timestamp_ns) / (
+        return (self.responses[-1].perf_ns - self.responses[0].perf_ns) / (
             len(self.responses) - 1
         )
