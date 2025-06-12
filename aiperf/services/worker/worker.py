@@ -51,8 +51,8 @@ class Worker(BaseService):
         super().__init__(service_config=service_config, service_id=service_id)
         self.logger.debug("Initializing worker")
 
-        # Backend client will be initialized in _initialize
-        self.inference_server_client: InferenceClientProtocol | None = None
+        # Inference client will be initialized in _initialize
+        self.inference_client: InferenceClientProtocol | None = None
 
     @property
     def service_type(self) -> ServiceType:
@@ -85,7 +85,7 @@ class Worker(BaseService):
         )
 
         # Initialize the OpenAI client
-        self.inference_server_client = InferenceClientFactory.create_instance(
+        self.inference_client = InferenceClientFactory.create_instance(
             InferenceClientType.OPENAI, config=openai_client_config
         )
 
@@ -200,7 +200,7 @@ class Worker(BaseService):
         try:
             self.logger.debug("Calling backend API")
 
-            if not self.inference_server_client:
+            if not self.inference_client:
                 self.logger.warning(
                     "Inference server client not initialized, skipping API call"
                 )
@@ -227,12 +227,12 @@ class Worker(BaseService):
             # ]
 
             # Format payload for the API request
-            formatted_payload = await self.backend_client.format_payload(
+            formatted_payload = await self.inference_client.format_payload(
                 endpoint="v1/chat/completions", payload={"messages": messages}
             )
 
             # Send the request to the API
-            record = await self.backend_client.send_request(
+            record = await self.inference_client.send_request(
                 endpoint="v1/chat/completions", payload=formatted_payload
             )
 

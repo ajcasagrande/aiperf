@@ -284,10 +284,10 @@ class InferenceClientFactory(
         class OpenAIInferenceClient:
             pass  # Implement the InferenceClientProtocol
 
-        backend_client = InferenceClientFactory.create_instance(
+        inference_client = InferenceClientFactory.create_instance(
             InferenceClientType.OPENAI,
             config=OpenAIClientConfig(api_key="sk-1234567890"),
         )
-        backend_client.send_request(...)
+        inference_client.send_request(...)
     ```
     """
