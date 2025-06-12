@@ -10,6 +10,7 @@ from rich.logging import RichHandler
 from aiperf.common.bootstrap import bootstrap_and_run_service
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.services.system_controller.system_controller import SystemController
+from aiperf.ui.splash_screen import show_splash_screen
 
 # TODO: Each service may have to initialize logging from a common
 #  configuration due to running on separate processes
@@ -19,6 +20,8 @@ logger = logging.getLogger(__name__)
 
 def main() -> None:
     """Main entry point for the AIPerf system."""
+    import asyncio
+
     parser = ArgumentParser(description="AIPerf Benchmarking System")
     parser.add_argument("--config", type=str, help="Path to configuration file")
     parser.add_argument(
@@ -36,7 +39,19 @@ def main() -> None:
         help="Process manager backend to use "
         "(multiprocessing: 'process', or kubernetes: 'k8s')",
     )
+    parser.add_argument(
+        "--no-splash",
+        action="store_true",
+        help="Skip the splash screen on startup",
+    )
     args = parser.parse_args()
+
+    # Create console for output
+    console = Console()
+
+    # Show splash screen unless disabled
+    if not args.no_splash:
+        asyncio.run(show_splash_screen(console, duration=2.5))
 
     # Set logging level for the root logger (affects all loggers)
     logging.root.setLevel(getattr(logging, args.log_level))
@@ -45,7 +60,7 @@ def main() -> None:
     handler = RichHandler(
         rich_tracebacks=True,
         show_path=True,
-        console=Console(),
+        console=console,
         tracebacks_show_locals=True,
     )
     logging.root.addHandler(handler)
@@ -61,7 +76,6 @@ def main() -> None:
         # config.load_from_file(args.config)
 
     # Create and start the system controller
-
     logger.info("Starting AIPerf System")
     bootstrap_and_run_service(SystemController, service_config=config)
     logger.info("AIPerf System exited")
