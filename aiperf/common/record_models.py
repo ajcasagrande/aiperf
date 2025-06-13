@@ -4,12 +4,11 @@
 import os
 import sys
 import time
-from typing import Any, Generic
+from typing import Any
 
 from pydantic import BaseModel, Field, SerializeAsAny
 
 from aiperf.common.enums import CaseInsensitiveStrEnum
-from aiperf.common.types import ResponseT
 
 ################################################################################
 # Inference Client Models
@@ -64,10 +63,18 @@ class InferenceServerResponse(BaseModel):
     )
 
 
-class InferenceServerErrorResponse(InferenceServerResponse):
-    """Error response from a inference client."""
+class ErrorDetails(BaseModel):
+    """Details about an error."""
 
-    error: str = Field(
+    code: int | None = Field(
+        default=None,
+        description="The error code.",
+    )
+    type: str | None = Field(
+        default=None,
+        description="The error type.",
+    )
+    message: str = Field(
         ...,
         description="The error message.",
     )
@@ -153,33 +160,22 @@ class InferRequestOptions(BaseModel):
 # Worker Internal Models
 ################################################################################
 
-# TODO: Maybe a RecordType like a MessageType for discriminated unions?
 
-
-class BaseRequestRecord(BaseModel):
-    """Base record of a request."""
+class RequestRecord(BaseModel):
+    """Record of a request."""
 
     start_perf_ns: int = Field(
         default_factory=time.perf_counter_ns,
         description="The start time of the request in nanoseconds since the epoch.",
     )
-
-
-class RequestErrorRecord(BaseRequestRecord):
-    """Record of a request error."""
-
-    error: str = Field(
-        ...,
-        description="The error message.",
-    )
-
-
-class RequestRecord(BaseRequestRecord, Generic[ResponseT]):
-    """Record of a request."""
-
-    responses: SerializeAsAny[list[InferenceServerResponse]] = Field(
+    # Note: we need to use SerializeAsAny to allow for generic subclass support
+    responses: SerializeAsAny[list[InferenceServerResponse | SSEMessage]] = Field(
         default_factory=list,
         description="The raw responses received from the request.",
+    )
+    error: ErrorDetails | None = Field(
+        default=None,
+        description="The error details if the request failed.",
     )
     sequence_end: bool = Field(
         default=True, description="Whether the sequence has ended."
@@ -194,10 +190,7 @@ class RequestRecord(BaseRequestRecord, Generic[ResponseT]):
     @property
     def has_error(self) -> bool:
         """Check if the request record has an error."""
-        return any(
-            isinstance(response, InferenceServerErrorResponse)
-            for response in self.responses
-        )
+        return self.error is not None
 
     @property
     def valid(self) -> bool:

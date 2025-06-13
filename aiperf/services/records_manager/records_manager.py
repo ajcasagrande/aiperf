@@ -24,7 +24,7 @@ from aiperf.common.messages import (
     ProfileResultsMessage,
     ProfileStatsMessage,
 )
-from aiperf.common.record_models import RequestErrorRecord, RequestRecord
+from aiperf.common.record_models import RequestRecord
 from aiperf.common.service.base_component_service import BaseComponentService
 
 
@@ -42,7 +42,7 @@ class RecordsManager(BaseComponentService):
         self.logger.debug("Initializing records manager")
 
         self.records: list[RequestRecord] = []
-        self.error_records: list[RequestErrorRecord | RequestRecord] = []
+        self.error_records: list[RequestRecord] = []
 
         # Track per-worker statistics
         self.worker_request_counts: dict[str, int] = {}
@@ -111,30 +111,22 @@ class RecordsManager(BaseComponentService):
         if worker_id not in self.worker_error_counts:
             self.worker_error_counts[worker_id] = 0
 
-        if isinstance(record, RequestErrorRecord):
-            self.logger.warning(f"Received error inference results: {record}")
+        if record.has_error:
+            self.logger.warning("Received error inference results: %s", record)
             self.error_records.append(record)
             self.worker_error_counts[worker_id] += 1
 
-        elif isinstance(record, RequestRecord):
-            if record.valid:
-                self.logger.debug(
-                    "Received inference results: %f milliseconds. %f milliseconds.",
-                    record.time_to_first_response_ns / NANOS_PER_MILLIS,
-                    record.time_to_last_response_ns / NANOS_PER_MILLIS,
-                )
-                self.records.append(record)
-                self.worker_request_counts[worker_id] += 1
-
-            else:
-                self.logger.warning("Received invalid inference results: %s", record)
-                self.error_records.append(record)
-                self.worker_error_counts[worker_id] += 1
+        elif record.valid:
+            self.logger.debug(
+                "Received inference results: %f milliseconds. %f milliseconds.",
+                record.time_to_first_response_ns / NANOS_PER_MILLIS,
+                record.time_to_last_response_ns / NANOS_PER_MILLIS,
+            )
+            self.records.append(record)
+            self.worker_request_counts[worker_id] += 1
 
         else:
-            self.logger.warning(
-                f"Received unknown inference results type: {type(record)}"
-            )
+            self.logger.warning("Received invalid inference results: %s", record)
             self.error_records.append(record)
             self.worker_error_counts[worker_id] += 1
 
@@ -143,7 +135,7 @@ class RecordsManager(BaseComponentService):
             message=ProfileStatsMessage(
                 service_id=self.service_id,
                 error_count=len(self.error_records),
-                completed=len(self.records),
+                completed=len(self.records) + len(self.error_records),
                 worker_stats=self.worker_request_counts.copy(),
             ),
         )

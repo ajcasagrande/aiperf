@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, SerializeAsAny, TypeAdapter, model_serial
 
 from aiperf.common.data_exporter.record import Record
 from aiperf.common.enums import CommandType, MessageType, ServiceState, ServiceType
-from aiperf.common.record_models import RequestErrorRecord, RequestRecord
+from aiperf.common.record_models import RequestRecord
 
 ################################################################################
 # Abstract Base Message Models
@@ -271,7 +271,7 @@ class InferenceResultsMessage(BaseServiceMessage):
 
     message_type: Literal[MessageType.INFERENCE_RESULTS] = MessageType.INFERENCE_RESULTS
 
-    record: SerializeAsAny[RequestErrorRecord | RequestRecord] = Field(
+    record: SerializeAsAny[RequestRecord] = Field(
         ..., description="The inference results record"
     )
 

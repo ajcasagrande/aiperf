@@ -28,10 +28,7 @@ from aiperf.common.messages import (
     CreditReturnMessage,
     InferenceResultsMessage,
 )
-from aiperf.common.record_models import (
-    RequestErrorRecord,
-    RequestRecord,
-)
+from aiperf.common.record_models import ErrorDetails, RequestRecord
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.common.service.base_service import BaseService
 
@@ -160,7 +157,7 @@ class Worker(BaseService):
                 ),
             )
 
-    async def _call_backend_api(self) -> RequestErrorRecord | RequestRecord:
+    async def _call_backend_api(self) -> RequestRecord:
         """Make a call to the backend API."""
         try:
             self.logger.debug("Calling backend API")
@@ -169,8 +166,11 @@ class Worker(BaseService):
                 self.logger.warning(
                     "Inference server client not initialized, skipping API call"
                 )
-                return RequestErrorRecord(
-                    error="Inference server client not initialized",
+                return RequestRecord(
+                    error=ErrorDetails(
+                        type="Inference server client not initialized",
+                        message="Inference server client not initialized",
+                    ),
                 )
 
             # retrieve the prompt from the dataset
@@ -201,7 +201,7 @@ class Worker(BaseService):
                 endpoint="v1/chat/completions", payload=formatted_payload
             )
 
-            if isinstance(record, RequestRecord) and record.valid:
+            if record.valid:
                 self.logger.debug(
                     "Record: %s milliseconds. %s milliseconds.",
                     record.time_to_first_response_ns / NANOS_PER_MILLIS,
@@ -216,8 +216,11 @@ class Worker(BaseService):
             self.logger.error(
                 "Error calling inference server: %s %s", e.__class__.__name__, str(e)
             )
-            return RequestErrorRecord(
-                error=f"{e.__class__.__name__}: {e}",
+            return RequestRecord(
+                error=ErrorDetails(
+                    type=e.__class__.__name__,
+                    message=str(e),
+                ),
             )
 
 
