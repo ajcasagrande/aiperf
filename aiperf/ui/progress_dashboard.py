@@ -361,10 +361,14 @@ class SplitScreenDashboardMixin(ProfileProgressDashboardMixin, LogsDashboardMixi
     def __init__(self) -> None:
         super().__init__()
         self.layout: Layout | None = None
+        self._show_splash = True
+        self._splash_start_time: float | None = None
 
-    @on_start
-    async def setup_split_screen_layout(self) -> None:
-        """Set up the split screen layout."""
+    @on_init
+    def _on_init(self) -> None:
+        """Initialize the progress bar and splash screen."""
+        super()._on_init()  # Call parent's _on_init to create progress bar
+
         # Create main layout
         self.layout = Layout()
 
@@ -380,22 +384,98 @@ class SplitScreenDashboardMixin(ProfileProgressDashboardMixin, LogsDashboardMixi
             Layout(name="worker_stats", ratio=1),  # 33% for worker stats
         )
 
-        # Initialize with empty panels
-        self.layout["progress"].update(
-            Panel(Text("Initializing...", style="dim"), title="AIPerf Dashboard")
+        # Initialize with splash screen
+        self._splash_start_time = time.time()
+        self._show_splash = True
+        self._update_splash_screen()
+
+        # Initialize logs panel
+        self.layout["logs"].update(self._create_logs_panel())
+
+    @on_start
+    async def setup_split_screen_layout(self) -> None:
+        """Set up the split screen layout."""
+        # Start the live display with the splash screen
+        self.live.start()
+        self.live.update(self.layout)
+
+    def _update_splash_screen(self) -> None:
+        """Update the splash screen in the dashboard layout."""
+        if not self.layout:
+            return
+
+        # Create the main logo with gradient colors
+        logo_lines = """
+ █████  ██ ██████  ███████ ██████  ███████
+██   ██ ██ ██   ██ ██      ██   ██ ██
+███████ ██ ██████  █████   ██████  █████
+██   ██ ██ ██      ██      ██   ██ ██
+██   ██ ██ ██      ███████ ██   ██ ██
+        """.strip().split("\n")
+
+        # Create gradient colored logo
+        logo_text = Text()
+        colors = ["bright_green", "green", "cyan", "bright_cyan", "blue"]
+        for i, line in enumerate(logo_lines):
+            color = colors[i % len(colors)]
+            logo_text.append(line + "\n", style=color)
+
+        # Create subtitle with subtle animation
+        elapsed = time.time() - (self._splash_start_time or time.time())
+        subtitle_opacity = min(1.0, elapsed * 2)  # Fade in over 0.5 seconds
+        subtitle = Text(
+            "High-Performance AI Benchmarking System",
+            style="dim cyan" if subtitle_opacity < 1 else "cyan",
         )
+
+        # Create animated loading indicator
+        spinner = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+        spinner_char = spinner[int(elapsed * 10) % len(spinner)]
+        loading_text = Text(f"{spinner_char} Starting services...", style="dim white")
+
+        # Combine all elements with proper spacing
+        content = Text()
+        content.append(logo_text)
+        content.append("\n")
+        content.append(subtitle)
+        content.append("\n\n")
+        content.append(loading_text)
+
+        # Create panel with border and title
+        panel = Panel(
+            content,
+            border_style="bright_green",
+            padding=(1, 2),
+            title="[bold bright_green]NVIDIA AIPerf[/bold bright_green]",
+            title_align="center",
+        )
+
+        # Update both progress and worker stats sections with splash screen
+        self.layout["progress"].update(panel)
         self.layout["worker_stats"].update(
             Panel(
-                Text("Waiting for worker stats...", style="dim"),
+                Text("Initializing worker statistics...", style="dim"),
                 title="Worker Statistics",
+                border_style="blue",
             )
         )
-        self.layout["logs"].update(self._create_logs_panel())
 
     def _refresh_split_screen_dashboard(self) -> Layout:
         """Refresh the complete split screen dashboard."""
         if not self.layout:
             return Layout()
+
+        # Check if we should still show splash screen (3 seconds)
+        if self._show_splash and self._splash_start_time:
+            elapsed = time.time() - self._splash_start_time
+            if elapsed < 3.0:
+                self._update_splash_screen()
+                return self.layout
+            # Add a brief fade-out transition
+            if elapsed < 3.5:
+                self._update_splash_screen()  # Keep updating for smooth transition
+                return self.layout
+            self._show_splash = False
 
         # Update progress section
         if self.progress and self.task_id is not None:
@@ -422,7 +502,7 @@ class SplitScreenDashboardMixin(ProfileProgressDashboardMixin, LogsDashboardMixi
         if not self.progress:
             return
 
-        # Initialize start time and task on first update (same as before)
+        # Initialize start time and task on first update
         if self.start_perf_counter_ns is None or self.task_id is None:
             self.start_perf_counter_ns = message.sweep_start_ns
             self.total_requests = message.total
@@ -431,8 +511,10 @@ class SplitScreenDashboardMixin(ProfileProgressDashboardMixin, LogsDashboardMixi
                 total=message.total,
                 completed=message.completed,
             )
+            # Hide splash screen when we start getting progress updates
+            self._show_splash = False
 
-        # Calculate requests per second (same as before)
+        # Calculate requests per second
         elapsed_seconds = (
             (message.request_ns or time.perf_counter_ns()) - self.start_perf_counter_ns
         ) / NANOS_PER_SECOND
@@ -441,7 +523,7 @@ class SplitScreenDashboardMixin(ProfileProgressDashboardMixin, LogsDashboardMixi
             message.completed / elapsed_seconds if (elapsed_seconds or 0) > 0 else 0.0
         )
 
-        # Update the progress task (same as before)
+        # Update the progress task
         self.progress.update(
             self.task_id,
             completed=message.completed,
