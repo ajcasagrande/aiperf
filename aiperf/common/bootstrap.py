@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-import multiprocessing
 
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.service.base_service import BaseService
@@ -9,7 +8,6 @@ from aiperf.common.service.base_service import BaseService
 def bootstrap_and_run_service(
     service_class: type[BaseService],
     service_config: ServiceConfig | None = None,
-    log_queue: "multiprocessing.Queue | None" = None,
     **kwargs,
 ):
     """Bootstrap the service and run it.
@@ -21,16 +19,9 @@ def bootstrap_and_run_service(
         service_class: The service class of the service to run
         service_config: The service configuration to use, if not provided, the service
             configuration will be loaded from the config file
-        log_queue: Optional multiprocessing queue for child process logging
-
+        kwargs: Additional arguments to pass to the service constructor
     """
     import uvloop
-
-    # Set up child process logging if a log queue is provided
-    if log_queue is not None:
-        from aiperf.common.logging import setup_child_process_logging
-
-        setup_child_process_logging(log_queue)
 
     # Load the service configuration
     if service_config is None:

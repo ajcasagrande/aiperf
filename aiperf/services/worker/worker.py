@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
-import multiprocessing
 import os
 import sys
 
@@ -48,12 +47,8 @@ class Worker(BaseService):
         self,
         service_config: ServiceConfig,
         service_id: str | None = None,
-        log_queue: "multiprocessing.Queue | None" = None,
     ) -> None:
         super().__init__(service_config=service_config, service_id=service_id)
-        from aiperf.common.logging import setup_child_process_logging
-
-        setup_child_process_logging(log_queue)
 
         self.logger.info("Initializing worker")
 
@@ -234,13 +229,7 @@ class MultiWorkerProcess(BaseComponentService):
         self,
         service_config: ServiceConfig,
         service_id: str | None = None,
-        log_queue: "multiprocessing.Queue | None" = None,
     ):
-        from aiperf.common.logging import setup_child_process_logging
-
-        self.log_queue = log_queue
-        setup_child_process_logging(log_queue)
-
         super().__init__(service_config=service_config, service_id=service_id)
 
         self.logger.debug("Initializing worker process")
@@ -265,7 +254,6 @@ class MultiWorkerProcess(BaseComponentService):
             worker = Worker(
                 service_config=self.service_config,
                 service_id=f"{self.service_id}_{i}",
-                log_queue=self.log_queue,
             )
             self.workers.append(worker)
             self.tasks.append(asyncio.create_task(worker.run_forever()))

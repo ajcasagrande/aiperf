@@ -51,7 +51,6 @@ class WorkerManager(BaseComponentService):
         self,
         service_config: ServiceConfig,
         service_id: str | None = None,
-        log_queue: "multiprocessing.Queue | None" = None,
     ) -> None:
         super().__init__(service_config=service_config, service_id=service_id)
         self.logger.debug("Initializing worker manager")
@@ -144,15 +143,11 @@ class WorkerManager(BaseComponentService):
                 service_config=self.service_config, service_id=f"worker_{i}"
             )
             worker_id = f"worker_{i}"
-            # Get the global log queue for child process logging
-            from aiperf.common.logging import get_global_log_queue
-
-            log_queue = get_global_log_queue()
 
             process = Process(
                 target=bootstrap_and_run_service,
                 name=f"worker_{i}_process",
-                args=(MultiWorkerProcess, self.service_config, log_queue),
+                args=(MultiWorkerProcess, self.service_config),
                 kwargs={"service_id": f"worker_{i}"},
                 daemon=True,
             )

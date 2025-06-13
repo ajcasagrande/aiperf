@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
-import multiprocessing
 import os
 import signal
 import sys
@@ -107,7 +106,6 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
 
         self.service_manager: BaseServiceManager = None  # type: ignore - is set in _initialize
         self.ui: AIPerfUI = AIPerfUI()
-        self.log_queue: multiprocessing.Queue | None = None
         self.logger.debug("System Controller created")
 
     @property
@@ -138,15 +136,13 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         self.setup_signal_handlers(self._handle_signal)
         self.logger.debug("Setup signal handlers")
 
+        await self.ui.initialize()
         if not os.getenv("AIPERF_DISABLE_UI"):
-            await self.ui.initialize()
-            # Set up multiprocess logging infrastructure
-            # self.log_queue = self.ui.setup_multiprocess_logging()
             await self.ui.start()
 
         if self.service_config.service_run_type == ServiceRunType.MULTIPROCESSING:
             self.service_manager = MultiProcessServiceManager(
-                self.required_service_types, self.service_config, self.log_queue
+                self.required_service_types, self.service_config
             )
 
         elif self.service_config.service_run_type == ServiceRunType.KUBERNETES:
@@ -280,7 +276,9 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
     async def _cleanup(self) -> None:
         """Clean up system controller-specific components."""
         self.logger.debug("Cleaning up System Controller")
+
         await self.ui.stop()
+
         self._system_state = SystemState.SHUTDOWN
 
     async def start_profiling_all_services(self) -> None:

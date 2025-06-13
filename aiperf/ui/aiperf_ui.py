@@ -3,11 +3,29 @@
 
 import logging
 
+from aiperf.common.config.endpoint_config import EndPointConfig
+from aiperf.common.data_exporter.console_exporter import ConsoleExporter
 from aiperf.common.messages import ProfileResultsMessage
 from aiperf.ui.progress_dashboard import SplitScreenDashboardMixin
 
 
-class AIPerfUI(SplitScreenDashboardMixin):
+class ConsoleExporterMixin:
+    """Mixin for exporting console output."""
+
+    async def export_console_output(self, message: ProfileResultsMessage) -> None:
+        """Export the console output."""
+
+        # TODO: Make this configurable
+        console_exporter: ConsoleExporter = ConsoleExporter(
+            endpoint_config=EndPointConfig(
+                type="console",
+                streaming=True,
+            ),
+        )
+        console_exporter.export(message.records)
+
+
+class AIPerfUI(ConsoleExporterMixin, SplitScreenDashboardMixin):
     """
     AIPerfUI is a class that provides a UI for the AIPerf system.
     """
@@ -20,4 +38,5 @@ class AIPerfUI(SplitScreenDashboardMixin):
         self.logger = logging.getLogger(__name__)
         self.logger.info("Final results: %s", message.records)
         self.live.stop()
-        self.console_exporter.export(message.records)
+
+        await self.export_console_output(message)

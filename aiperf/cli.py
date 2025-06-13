@@ -12,9 +12,6 @@ from aiperf.common.bootstrap import bootstrap_and_run_service
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.services.system_controller.system_controller import SystemController
 
-# TODO: Each service may have to initialize logging from a common
-#  configuration due to running on separate processes
-
 logger = logging.getLogger(__name__)
 
 
@@ -23,13 +20,6 @@ def main() -> None:
 
     parser = ArgumentParser(description="AIPerf Benchmarking System")
     parser.add_argument("--config", type=str, help="Path to configuration file")
-    parser.add_argument(
-        "--log-level",
-        type=str,
-        default="INFO",
-        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-        help="Set the logging level",
-    )
     parser.add_argument(
         "--run-type",
         type=str,
@@ -41,9 +31,7 @@ def main() -> None:
     args = parser.parse_args()
 
     # Set logging level for the root logger (affects all loggers)
-    # logging.root.setLevel(getattr(logging, args.log_level))
     logging.root.setLevel(getattr(logging, os.getenv("AIPERF_LOG_LEVEL", "WARNING")))
-    # setup_child_process_logging(setup_global_log_queue())
 
     rich_handler = RichHandler(
         rich_tracebacks=True,
