@@ -7,7 +7,6 @@ import pandas as pd
 from aiperf.common.comms.client_enums import ClientType, PullClientType
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.constants import NANOS_PER_MILLIS
-from aiperf.common.data_exporter.record import Record
 from aiperf.common.enums import CommandType, MessageType, ServiceType, Topic
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
@@ -26,6 +25,7 @@ from aiperf.common.messages import (
 )
 from aiperf.common.record_models import RequestRecord
 from aiperf.common.service.base_component_service import BaseComponentService
+from aiperf.data_exporter.record import Record
 
 
 @ServiceFactory.register(ServiceType.RECORDS_MANAGER)

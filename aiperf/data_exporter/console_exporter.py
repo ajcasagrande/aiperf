@@ -5,10 +5,12 @@ from rich.console import Console
 from rich.table import Table
 
 from aiperf.common.config.endpoint_config import EndPointConfig
-from aiperf.common.data_exporter.record import Record
+from aiperf.common.enums import DataExporterType
+from aiperf.common.factories import DataExporterFactory
+from aiperf.data_exporter.record import Record
 
 
-# TODO: Possibly add a registry for exporters
+@DataExporterFactory.register(DataExporterType.CONSOLE)
 class ConsoleExporter:
     """A class that exports data to the console"""
 

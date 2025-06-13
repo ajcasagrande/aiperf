@@ -348,3 +348,34 @@ class OutputFormat(CaseInsensitiveStrEnum):
     OPENAI_RESPONSES = "openai_responses"
     TENSORRTLLM = "tensorrtllm"
     VLLM = "vllm"
+
+
+####################################################################################
+# Data Exporter Enums
+####################################################################################
+
+
+class DataExporterType(CaseInsensitiveStrEnum):
+    CONSOLE = "console"
+
+
+#################################################################################
+# Post Processor Enums
+################################################################################
+
+
+class PostProcessorType(CaseInsensitiveStrEnum):
+    METRIC_SUMMARY = "metric_summary"
+
+
+#################################################################################
+# Metric Enums
+################################################################################
+
+
+class MetricTimeType(Enum):
+    """Defines the time types for metrics."""
+
+    NANOSECONDS = 9
+    MILLISECONDS = 3
+    SECONDS = 0

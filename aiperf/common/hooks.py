@@ -24,6 +24,7 @@ import inspect
 import logging
 from collections.abc import Awaitable, Callable
 from enum import Enum
+from typing import ClassVar
 
 from aiperf.common.exceptions import AIPerfError, AIPerfMultiError, UnsupportedHookError
 
@@ -294,7 +295,7 @@ class HooksMixin:
     """
 
     # Class attributes that are set by the :func:`supports_hooks` decorator
-    supported_hooks: set[HookType] = set()
+    supported_hooks: ClassVar[set[HookType]] = set()
 
     def __init__(self):
         """

@@ -7,9 +7,9 @@ from typing import Annotated, Any, ClassVar, Literal
 
 from pydantic import BaseModel, Field, SerializeAsAny, TypeAdapter, model_serializer
 
-from aiperf.common.data_exporter.record import Record
 from aiperf.common.enums import CommandType, MessageType, ServiceState, ServiceType
 from aiperf.common.record_models import RequestRecord
+from aiperf.data_exporter.record import Record
 
 ################################################################################
 # Abstract Base Message Models
