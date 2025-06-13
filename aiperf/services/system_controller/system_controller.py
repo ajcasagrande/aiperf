@@ -357,10 +357,6 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             f"service: {service_type} with ID: {service_id}"
         )
 
-        # Update UI with service status
-        if not os.getenv("AIPERF_DISABLE_UI"):
-            self.ui.update_service_status(service_type, "registered")
-
         # Send configure command to the newly registered service
         try:
             await self.send_command_to_service(
@@ -372,8 +368,6 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             self.logger.error(
                 f"Failed to send configure command to {service_type} (ID: {service_id}): {e}"
             )
-            if not os.getenv("AIPERF_DISABLE_UI"):
-                self.ui.update_service_status(service_type, "error")
             raise ServiceConfigureError from e
 
         self.logger.debug(
@@ -443,16 +437,6 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             return
 
         service_info.state = message.state
-
-        # Update UI with service status
-        if not os.getenv("AIPERF_DISABLE_UI"):
-            if state == ServiceState.READY:
-                status = "running"
-            elif state == ServiceState.ERROR:
-                status = "error"
-            else:
-                status = "registered"
-            self.ui.update_service_status(service_type, status)
 
         self.logger.debug(f"Updated state for {service_id} to {state}")
 

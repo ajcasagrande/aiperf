@@ -38,11 +38,6 @@ def main() -> None:
         help="Process manager backend to use "
         "(multiprocessing: 'process', or kubernetes: 'k8s')",
     )
-    parser.add_argument(
-        "--no-splash",
-        action="store_true",
-        help="Skip the splash screen on startup",
-    )
     args = parser.parse_args()
 
     # Set logging level for the root logger (affects all loggers)
