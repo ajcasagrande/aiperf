@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
+import multiprocessing
 import os
 import signal
 import sys
@@ -106,6 +107,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
 
         self.service_manager: BaseServiceManager = None  # type: ignore - is set in _initialize
         self.ui: AIPerfUI = AIPerfUI()
+        self.log_queue: multiprocessing.Queue | None = None
         self.logger.debug("System Controller created")
 
     @property
@@ -138,11 +140,13 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
 
         if not os.getenv("AIPERF_DISABLE_UI"):
             await self.ui.initialize()
+            # Set up multiprocess logging infrastructure
+            self.log_queue = self.ui.setup_multiprocess_logging()
             await self.ui.start()
 
         if self.service_config.service_run_type == ServiceRunType.MULTIPROCESSING:
             self.service_manager = MultiProcessServiceManager(
-                self.required_service_types, self.service_config
+                self.required_service_types, self.service_config, self.log_queue
             )
 
         elif self.service_config.service_run_type == ServiceRunType.KUBERNETES:

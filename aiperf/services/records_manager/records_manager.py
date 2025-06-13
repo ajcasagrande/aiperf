@@ -127,7 +127,7 @@ class RecordsManager(BaseComponentService):
                 self.worker_request_counts[worker_id] += 1
 
             else:
-                self.logger.warning(f"Received invalid inference results: {record}")
+                self.logger.warning("Received invalid inference results: %s", record)
                 self.error_records.append(record)
                 self.worker_error_counts[worker_id] += 1
 

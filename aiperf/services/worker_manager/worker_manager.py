@@ -141,13 +141,15 @@ class WorkerManager(BaseComponentService):
                 service_config=self.service_config, service_id=f"worker_{i}"
             )
             worker_id = f"worker_{i}"
+            # Get the global log queue for child process logging
+            from aiperf.common.logging import get_global_log_queue
+
+            log_queue = get_global_log_queue()
+
             process = Process(
                 target=bootstrap_and_run_service,
                 name=f"worker_{i}_process",
-                args=(
-                    MultiWorkerProcess,
-                    self.service_config,
-                ),
+                args=(MultiWorkerProcess, self.service_config, log_queue),
                 kwargs={"service_id": f"worker_{i}"},
                 daemon=True,
             )
