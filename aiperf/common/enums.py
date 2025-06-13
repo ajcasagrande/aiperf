@@ -171,20 +171,11 @@ class MessageType(CaseInsensitiveStrEnum):
 
     # Profile run messages
 
-    PROFILE_BEGIN = "profile_begin"
-    """A message sent to indicate that a profile run has begun."""
-
-    PROFILE_CONFIGURE = "profile_configure"
-    """A message sent to configure a profile run."""
-
     PROFILE_PROGRESS = "profile_progress"
     """A message containing profile run progress."""
 
     PROFILE_STATS = "profile_stats"
     """A message containing profile run stats such as error rates, etc."""
-
-    PROFILE_END = "profile_end"
-    """A message sent to indicate that a profile run has ended."""
 
     PROFILE_RESULTS = "profile_results"
     """A message containing profile run results."""
@@ -201,12 +192,29 @@ class MessageType(CaseInsensitiveStrEnum):
 class CommandType(CaseInsensitiveStrEnum):
     """List of commands that the SystemController can send to component services."""
 
-    START = "start"
-    STOP = "stop"
-    PROFILE_BEGIN = "profile_begin"
-    PROFILE_END = "profile_end"
-    CONFIGURE = "configure"
+    PROFILE_CONFIGURE = "profile_configure"
+    """A command sent to configure a service in preparation for a profile run. This will
+    override the current configuration."""
+
+    PROFILE_START = "profile_start"
+    """A command sent to indicate that a service should begin profiling using the
+    current configuration."""
+
+    PROFILE_STOP = "profile_stop"
+    """A command sent to indicate that a service should stop doing profile related
+    work, as the profile run is complete."""
+
+    PROFILE_CANCEL = "profile_cancel"
+    """A command sent to cancel a profile run. This will stop the current profile run and
+    process the partial results."""
+
+    SHUTDOWN = "shutdown"
+    """A command sent to shutdown a service. This will stop the service gracefully
+    no matter what state it is in."""
+
     PROCESS_RECORDS = "process_records"
+    """A command sent to process records. This will process the records and return
+    the services to their pre-record processing state."""
 
 
 ################################################################################

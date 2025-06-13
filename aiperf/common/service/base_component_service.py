@@ -150,14 +150,14 @@ class BaseComponentService(BaseService):
             return  # Ignore commands meant for other services
 
         cmd = message.command
-        if cmd == CommandType.START:
+        if cmd == CommandType.PROFILE_START:
             await self.start()
 
-        elif cmd == CommandType.STOP:
+        elif cmd == CommandType.SHUTDOWN:
             self.logger.debug("%s received stop command", self.service_id)
             self.stop_event.set()
 
-        elif cmd == CommandType.CONFIGURE:
+        elif cmd == CommandType.PROFILE_CONFIGURE:
             await self.run_hooks(AIPerfHook.ON_CONFIGURE, message)
 
         elif cmd in self._command_callbacks:

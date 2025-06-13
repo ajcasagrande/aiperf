@@ -8,6 +8,7 @@ from typing import Any
 
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import (
+    CaseInsensitiveStrEnum,
     CommandType,
     ServiceRegistrationStatus,
     ServiceRunType,
@@ -28,7 +29,6 @@ from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
     on_cleanup,
     on_init,
-    on_start,
     on_stop,
 )
 from aiperf.common.messages import (
@@ -44,11 +44,42 @@ from aiperf.common.service.base_controller_service import BaseControllerService
 from aiperf.services.service_manager.base import BaseServiceManager
 from aiperf.services.service_manager.kubernetes import KubernetesServiceManager
 from aiperf.services.service_manager.multiprocess import MultiProcessServiceManager
+from aiperf.services.system_controller.system_mixins import SignalHandlerMixin
 from aiperf.ui import AIPerfUI
 
 
+class SystemState(CaseInsensitiveStrEnum):
+    """State of the system as a whole.
+
+    This is used to track the state of the system as a whole, and is used to
+    determine what actions to take when a signal is received.
+    """
+
+    INITIALIZING = "initializing"
+    """The system is initializing. This is the initial state."""
+
+    CONFIGURING = "configuring"
+    """The system is configuring services."""
+
+    READY = "ready"
+    """The system is ready to start profiling. This is a temporary state that should be
+    followed by PROFILING."""
+
+    PROFILING = "profiling"
+    """The system is running a profiling run."""
+
+    PROCESSING = "processing"
+    """The system is processing results."""
+
+    STOPPING = "stopping"
+    """The system is stopping."""
+
+    SHUTDOWN = "shutdown"
+    """The system is shutting down. This is the final state."""
+
+
 @ServiceFactory.register(ServiceType.SYSTEM_CONTROLLER)
-class SystemController(BaseControllerService):
+class SystemController(SignalHandlerMixin, BaseControllerService):
     """System Controller service.
 
     This service is responsible for managing the lifecycle of all other services.
@@ -61,6 +92,8 @@ class SystemController(BaseControllerService):
         super().__init__(service_config=service_config, service_id=service_id)
         self.logger.debug("Creating System Controller")
 
+        self._system_state: SystemState = SystemState.INITIALIZING
+
         # List of required service types, in no particular order
         self.required_service_types: list[ServiceType] = [
             ServiceType.DATASET_MANAGER,
@@ -70,7 +103,7 @@ class SystemController(BaseControllerService):
             ServiceType.POST_PROCESSOR_MANAGER,
         ]
 
-        self.service_manager: BaseServiceManager | None = None
+        self.service_manager: BaseServiceManager = None  # type: ignore - is set in _initialize
         self.ui: AIPerfUI = AIPerfUI()
         self.logger.debug("System Controller created")
 
@@ -88,6 +121,9 @@ class SystemController(BaseControllerService):
         - Subscribe to relevant messages
         """
         self.logger.debug("Initializing System Controller")
+
+        self.setup_signal_handlers(self._handle_signal)
+        self.logger.debug("Setup signal handlers")
 
         if not os.getenv("AIPERF_DISABLE_UI"):
             await self.ui.initialize()
@@ -125,12 +161,25 @@ class SystemController(BaseControllerService):
                 self.logger.error("Failed to subscribe to topic %s: %s", topic, e)
                 raise CommunicationSubscribeError from e
 
+        # TODO: HACK:
         # wait 1 second to ensure that the communication is initialized
         await asyncio.sleep(1)
 
-    @on_start
-    async def _start(self) -> None:
-        """Start the system controller and launch required services.
+        self._system_state = SystemState.CONFIGURING
+        await self._bootstrap_system()
+
+    async def _handle_signal(self, sig: int) -> None:
+        """Handle received signals by triggering graceful shutdown.
+
+        Args:
+            sig: The signal number received
+        """
+        self.logger.debug("Received signal %s, initiating graceful shutdown", sig)
+
+        self.stop_event.set()
+
+    async def _bootstrap_system(self) -> None:
+        """Bootstrap the system services.
 
         This method will:
         - Initialize all required services
@@ -141,7 +190,7 @@ class SystemController(BaseControllerService):
 
         # Start all required services
         try:
-            await self.service_manager.initialize_all_services()
+            await self.service_manager.run_all_services()
         except Exception as e:
             self.logger.error("Failed to initialize all services: %s", e)
             raise ServiceInitializationError from e
@@ -169,13 +218,9 @@ class SystemController(BaseControllerService):
         self.logger.debug("All required services registered successfully")
 
         self.logger.info("AIPerf System is READY")
-        # Wait for all required services to be started
-        await self.start_all_services()
-        try:
-            await self.service_manager.wait_for_all_services_start()
-        except Exception as e:
-            self.logger.error("Failed to wait for all services to start: %s", e)
-            raise ServiceInitializationError from e
+        self._system_state = SystemState.READY
+
+        await self.start_profiling_all_services()
 
         if self.stop_event.is_set():
             self.logger.debug("System Controller stopped before all services started")
@@ -194,14 +239,16 @@ class SystemController(BaseControllerService):
         self.logger.debug("Stopping System Controller")
         self.logger.info("AIPerf System is SHUTTING DOWN")
 
+        self._system_state = SystemState.STOPPING
+
         # Broadcast a stop command to all services
         await self.send_command_to_service(
             target_service_id=None,
-            command=CommandType.STOP,
+            command=CommandType.SHUTDOWN,
         )
 
         try:
-            await self.service_manager.stop_all_services()
+            await self.service_manager.shutdown_all_services()
         except Exception as e:
             self.logger.error("Failed to stop all services: %s", e)
             raise ServiceStopError from e
@@ -214,16 +261,19 @@ class SystemController(BaseControllerService):
         """Clean up system controller-specific components."""
         self.logger.debug("Cleaning up System Controller")
         await self.ui.stop()
+        self._system_state = SystemState.SHUTDOWN
 
-    async def start_all_services(self) -> None:
-        """Start all required services."""
+    async def start_profiling_all_services(self) -> None:
+        """Tell all services to start profiling."""
+        self._system_state = SystemState.PROFILING
+
         self.logger.debug("Starting services")
         for service_info in self.service_manager.service_id_map.values():
             if service_info.state == ServiceState.READY:
                 try:
                     await self.send_command_to_service(
                         target_service_id=service_info.service_id,
-                        command=CommandType.START,
+                        command=CommandType.PROFILE_START,
                     )
 
                 except Exception as e:
@@ -292,7 +342,7 @@ class SystemController(BaseControllerService):
         try:
             await self.send_command_to_service(
                 target_service_id=service_id,
-                command=CommandType.CONFIGURE,
+                command=CommandType.PROFILE_CONFIGURE,
                 data=None,
             )
         except Exception as e:

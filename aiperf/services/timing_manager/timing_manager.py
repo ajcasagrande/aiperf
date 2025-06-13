@@ -212,7 +212,9 @@ class TimingManager(BaseComponentService):
 
             await self.comms.publish(
                 topic=Topic.CREDITS_COMPLETE,
-                message=CreditsCompleteMessage(service_id=self.service_id),
+                message=CreditsCompleteMessage(
+                    service_id=self.service_id, cancelled=self.stop_event.is_set()
+                ),
             )
 
         self._credit_event.set()

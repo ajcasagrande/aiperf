@@ -3,7 +3,6 @@
 import asyncio
 import contextlib
 import logging
-import signal
 import uuid
 from abc import ABC
 
@@ -62,9 +61,6 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
         self.initialized_event = asyncio.Event()
 
         self._comms: BaseCommunication | None = None
-
-        # Set to store signal handler tasks to prevent them from being garbage collected
-        self._signal_tasks = set()
 
         try:
             import setproctitle
@@ -130,7 +126,6 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
 
         This method will:
         - Set the service to `ServiceState.INITIALIZING` state
-        - Set up signal handlers for graceful shutdown
         - Allow time for the event loop to start
         - Initialize communication
         - Call all registered `AIPerfHook.ON_INIT` hooks
@@ -138,8 +133,6 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
         - Set the initialized asyncio event
         """
         self._state = ServiceState.INITIALIZING
-        # Set up signal handlers for graceful shutdown
-        self._setup_signal_handlers()
         # Allow time for the event loop to start
         await asyncio.sleep(0.1)
 
@@ -353,36 +346,3 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
         - Call all registered AIPerfHook.ON_CONFIGURE hooks
         """
         await self.run_hooks(AIPerfHook.ON_CONFIGURE, message)
-
-    def _setup_signal_handlers(self) -> None:
-        """This method will set up signal handlers for the SIGTERM and SIGINT signals
-        in order to trigger a graceful shutdown of the service.
-        """
-        loop = asyncio.get_running_loop()
-
-        def signal_handler(sig: int) -> None:
-            # Create a task and store it so it doesn't get garbage collected
-            task = asyncio.create_task(self._handle_signal(sig))
-
-            # Store the task somewhere to prevent it from being garbage collected
-            # before it completes
-            self._signal_tasks.add(task)
-            task.add_done_callback(self._signal_tasks.discard)
-
-        for sig in (signal.SIGTERM, signal.SIGINT):
-            loop.add_signal_handler(sig, lambda s=sig: signal_handler(s))
-
-    async def _handle_signal(self, sig: int) -> None:
-        """Handle received signals by triggering graceful shutdown.
-
-        Args:
-            sig: The signal number received
-        """
-        signal_name = signal.Signals(sig).name
-        self.logger.debug(
-            "%s: Received signal %s, initiating graceful shutdown",
-            self.service_id,
-            signal_name,
-        )
-
-        self.stop_event.set()

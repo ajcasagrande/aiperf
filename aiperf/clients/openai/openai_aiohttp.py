@@ -328,16 +328,19 @@ class OpenAIInferenceClientAioHttp(OpenAIClientConfigMixin):
                         raw_message,
                         chunk_timestamp,
                     ) in OpenAIInferenceClientAioHttp._aiter_raw_sse_messages(response):
+                        # logger.debug("Received SSE message: '%s'", raw_message)
+
                         message = SSEMessage(perf_ns=chunk_timestamp)
                         for line in raw_message.split("\n"):
                             if not line:
                                 continue
-                            parts = line.strip().split(":", 1)
-
+                            # logger.debug("Processing SSE line: '%s'", line)
+                            parts = line.split(":", 1)
+                            # logger.debug("SSE parts: %s", parts)
                             if len(parts) < 2:
                                 # Fields without a colon have no value
                                 message.fields.append(
-                                    SSEField(name=parts[0], value=None)
+                                    SSEField(name=parts[0].strip(), value=None)
                                 )
                                 continue
 
@@ -348,9 +351,10 @@ class OpenAIInferenceClientAioHttp(OpenAIClientConfigMixin):
                                 field_name = SSEFieldType.COMMENT
 
                             message.fields.append(
-                                SSEField(name=field_name, value=value)
+                                SSEField(name=field_name.strip(), value=value.strip())
                             )
 
+                        # logger.debug("SSE message: %s", message)
                         record.responses.append(message)
 
         except Exception as e:
