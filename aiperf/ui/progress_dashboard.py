@@ -171,11 +171,11 @@ class ProfileProgressDashboardMixin(ConsoleUIMixin):
         dashboard_content.add_row("")  # Spacing
         dashboard_content.add_row(stats_table)
 
-        # Add worker stats if available
-        if self.worker_stats:
-            worker_stats_table = self._create_worker_stats_table()
-            dashboard_content.add_row("")  # Additional spacing
-            dashboard_content.add_row(worker_stats_table)
+        # # Add worker stats if available
+        # if self.worker_stats:
+        #     worker_stats_table = self._create_worker_stats_table()
+        #     dashboard_content.add_row("")  # Additional spacing
+        #     dashboard_content.add_row(worker_stats_table)
 
         return Panel(
             dashboard_content,
@@ -246,61 +246,61 @@ class ProfileProgressDashboardMixin(ConsoleUIMixin):
 
         self.live.update(self._refresh_progress_dashboard())
 
-    def _create_worker_stats_table(self) -> Table:
-        """Create a table showing per-worker statistics in a fluid grid layout."""
-        if not self.worker_stats:
-            worker_table = Table.grid(padding=(0, 1))
-            worker_table.add_column(style="dim white", no_wrap=True, width=12)
-            worker_table.add_column(style="white", justify="right")
-            worker_table.add_row("Workers:", "No data")
-            return worker_table
+    # def _create_worker_stats_table(self) -> Table:
+    #     """Create a table showing per-worker statistics in a fluid grid layout."""
+    #     if not self.worker_stats:
+    #         worker_table = Table.grid(padding=(0, 1))
+    #         worker_table.add_column(style="dim white", no_wrap=True, width=12)
+    #         worker_table.add_column(style="white", justify="right")
+    #         worker_table.add_row("Workers:", "No data")
+    #         return worker_table
 
-        # Sort workers by request count (descending)
-        sorted_workers = sorted(
-            self.worker_stats.items(), key=lambda x: x[1], reverse=True
-        )
+    #     # Sort workers by request count (descending)
+    #     sorted_workers = sorted(
+    #         self.worker_stats.items(), key=lambda x: x[1], reverse=True
+    #     )
 
-        # Calculate optimal number of columns based on console width
-        # Each worker entry needs about 12 characters (e.g., "W0: 1,234")
-        console_width = self.console.width if hasattr(self, "console") else 80
-        available_width = console_width - 20  # Account for panel padding and margins
-        entry_width = 12
-        max_cols = max(1, available_width // entry_width)
+    #     # Calculate optimal number of columns based on console width
+    #     # Each worker entry needs about 12 characters (e.g., "W0: 1,234")
+    #     console_width = self.console.width if hasattr(self, "console") else 80
+    #     available_width = console_width - 20  # Account for panel padding and margins
+    #     entry_width = 12
+    #     max_cols = max(1, available_width // entry_width)
 
-        # Limit columns to a reasonable number and worker count
-        num_workers = len(sorted_workers)
-        cols = min(max_cols, num_workers, 6)  # Cap at 6 columns for readability
+    #     # Limit columns to a reasonable number and worker count
+    #     num_workers = len(sorted_workers)
+    #     cols = min(max_cols, num_workers, 6)  # Cap at 6 columns for readability
 
-        # Create the grid table
-        worker_table = Table.grid(padding=(0, 1))
+    #     # Create the grid table
+    #     worker_table = Table.grid(padding=(0, 1))
 
-        # Add header row
-        worker_table.add_column(style="dim white", no_wrap=True, width=12)
-        worker_table.add_column(style="white", justify="left", no_wrap=True)
-        worker_table.add_row("Workers:", f"{num_workers} active")
+    #     # Add header row
+    #     worker_table.add_column(style="dim white", no_wrap=True, width=12)
+    #     worker_table.add_column(style="white", justify="left", no_wrap=True)
+    #     worker_table.add_row("Workers:", f"{num_workers} active")
 
-        # Add columns for the worker grid
-        grid_table = Table.grid(padding=(0, 2))  # More padding between columns
-        for _ in range(cols):
-            grid_table.add_column(
-                style="white", justify="left", no_wrap=True, min_width=entry_width
-            )
+    #     # Add columns for the worker grid
+    #     grid_table = Table.grid(padding=(0, 2))  # More padding between columns
+    #     for _ in range(cols):
+    #         grid_table.add_column(
+    #             style="white", justify="left", no_wrap=True, min_width=entry_width
+    #         )
 
-        # Add workers in rows, filling left to right
-        for i in range(0, num_workers, cols):
-            row_data = []
-            for j in range(cols):
-                if i + j < num_workers:
-                    worker_id, count = sorted_workers[i + j]
-                    # Clean up worker ID for display
-                    display_name = worker_id
-                    row_data.append(f"{display_name}: {count:,}")
-                else:
-                    row_data.append("")  # Empty cell for incomplete rows
-            grid_table.add_row(*row_data)
+    #     # Add workers in rows, filling left to right
+    #     for i in range(0, num_workers, cols):
+    #         row_data = []
+    #         for j in range(cols):
+    #             if i + j < num_workers:
+    #                 worker_id, count = sorted_workers[i + j]
+    #                 # Clean up worker ID for display
+    #                 display_name = worker_id
+    #                 row_data.append(f"{display_name}: {count:,}")
+    #             else:
+    #                 row_data.append("")  # Empty cell for incomplete rows
+    #         grid_table.add_row(*row_data)
 
-        # Combine header and grid
-        worker_table.add_row("", "")  # Empty row for spacing
-        worker_table.add_row("", grid_table)
+    #     # Combine header and grid
+    #     worker_table.add_row("", "")  # Empty row for spacing
+    #     worker_table.add_row("", grid_table)
 
-        return worker_table
+    #     return worker_table

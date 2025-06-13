@@ -11,7 +11,6 @@ from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import MessageType, ServiceState, ServiceType, Topic
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
-    aiperf_task,
     on_cleanup,
     on_configure,
     on_init,
@@ -101,14 +100,12 @@ class TimingManager(BaseComponentService):
         self.logger.debug("Cleaning up timing manager")
         # TODO: Implement timing manager cleanup
 
-    @aiperf_task
+    @on_start
     async def _issue_credit_drops(self) -> None:
         """Issue credit drops to workers."""
         self.logger.debug("Issuing credit drops to workers")
 
         # TODO: Actually implement real credit drop logic
-        await asyncio.sleep(3)
-
         await self.initialized_event.wait()
 
         self.start_perf_counter_ns = time.perf_counter_ns()
@@ -125,16 +122,7 @@ class TimingManager(BaseComponentService):
 
         while not self.stop_event.is_set():
             try:
-                async with self._credit_lock:
-                    # TODO: This could be optimized using a semaphore or a queue of some sort
-                    if self._credits_available <= 0:
-                        self.logger.debug("No credits available, skipping credit drop")
-                        credit_available = False
-                    else:
-                        self._credits_available -= 1
-                        credit_available = True
-
-                if not credit_available:
+                if not self._credits_available:
                     self.logger.debug("Waiting for credit event")
                     self._credit_event.clear()
                     await self._credit_event.wait()
@@ -145,16 +133,26 @@ class TimingManager(BaseComponentService):
                     f"Issuing credit drop {self._sent_credits + 1} of {self._total_credits}"
                 )
 
-                await self.comms.push(
-                    topic=Topic.CREDIT_DROP,
-                    message=CreditDropMessage(
-                        service_id=self.service_id,
-                        amount=1,
-                        credit_drop_ns=time.perf_counter_ns(),
-                    ),
-                )
-                self._sent_credits += 1
-                # await asyncio.sleep(0.001)
+                async def drop_task():
+                    await self.comms.push(
+                        topic=Topic.CREDIT_DROP,
+                        message=CreditDropMessage(
+                            service_id=self.service_id,
+                            amount=1,
+                            credit_drop_ns=time.perf_counter_ns(),
+                        ),
+                    )
+
+                tasks: list[asyncio.Task] = []
+                credits_left = self._total_credits - self._sent_credits
+                for _ in range(min(self._credits_available, credits_left)):
+                    task = asyncio.create_task(drop_task())
+                    self._sent_credits += 1
+                    self._credits_available -= 1
+                    tasks.append(task)
+
+                await asyncio.gather(*tasks)
+
                 if self._sent_credits >= self._total_credits:
                     self.logger.debug("All credits sent, stopping credit drop task")
                     break
@@ -211,7 +209,9 @@ class TimingManager(BaseComponentService):
 
             await self.comms.publish(
                 topic=Topic.CREDITS_COMPLETE,
-                message=CreditsCompleteMessage(service_id=self.service_id),
+                message=CreditsCompleteMessage(
+                    service_id=self.service_id, cancelled=self.stop_event.is_set()
+                ),
             )
 
         self._credit_event.set()
