@@ -351,7 +351,6 @@ class OpenAIClientAioHttp(OpenAIClientConfigMixin):
                                 SSEField(name=field_name.strip(), value=value.strip())
                             )
 
-                        logger.info("SSE message: %s", message)
                         record.responses.append(message)
 
         except Exception as e:

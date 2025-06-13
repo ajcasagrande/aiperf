@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 import logging
 import multiprocessing
+import os
 import queue
 
 # Global log queue for multiprocessing
@@ -47,7 +48,7 @@ def setup_child_process_logging(
 
     # Set up handler for child process
     handler = MultiProcessLogHandler(log_queue)
-    handler.setLevel(logging.DEBUG)
+    handler.setLevel(os.getenv("AIPERF_LOG_LEVEL", "WARNING"))
 
     # Add to root logger to capture all logs from this process
     root_logger = logging.getLogger()

@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
+import multiprocessing
 import os
 import sys
 
@@ -44,10 +45,17 @@ class Worker(BaseService):
     """
 
     def __init__(
-        self, service_config: ServiceConfig, service_id: str | None = None
+        self,
+        service_config: ServiceConfig,
+        service_id: str | None = None,
+        log_queue: "multiprocessing.Queue | None" = None,
     ) -> None:
         super().__init__(service_config=service_config, service_id=service_id)
-        self.logger.debug("Initializing worker")
+        from aiperf.common.logging import setup_child_process_logging
+
+        setup_child_process_logging(log_queue)
+
+        self.logger.info("Initializing worker")
 
         # Inference client will be initialized in _initialize
         self.inference_client: InferenceClientProtocol | None = None
@@ -119,7 +127,6 @@ class Worker(BaseService):
 
             async def run_task():
                 record = await self._call_backend_api()
-                self.logger.info(record)
                 try:
                     msg = InferenceResultsMessage(
                         service_id=self.service_id,
@@ -223,8 +230,19 @@ class Worker(BaseService):
 class MultiWorkerProcess(BaseComponentService):
     """MultiWorkerProcess is a process that runs multiple workers as concurrent tasks on the event loop."""
 
-    def __init__(self, service_config: ServiceConfig, service_id: str | None = None):
+    def __init__(
+        self,
+        service_config: ServiceConfig,
+        service_id: str | None = None,
+        log_queue: "multiprocessing.Queue | None" = None,
+    ):
+        from aiperf.common.logging import setup_child_process_logging
+
+        self.log_queue = log_queue
+        setup_child_process_logging(log_queue)
+
         super().__init__(service_config=service_config, service_id=service_id)
+
         self.logger.debug("Initializing worker process")
         self.workers: list[Worker] = []
         self.tasks: list[asyncio.Task] = []
@@ -247,6 +265,7 @@ class MultiWorkerProcess(BaseComponentService):
             worker = Worker(
                 service_config=self.service_config,
                 service_id=f"{self.service_id}_{i}",
+                log_queue=self.log_queue,
             )
             self.workers.append(worker)
             self.tasks.append(asyncio.create_task(worker.run_forever()))

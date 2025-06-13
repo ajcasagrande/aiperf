@@ -8,7 +8,7 @@ from zmq import SocketType
 
 from aiperf.common.comms.zmq.clients.base import BaseZMQClient
 from aiperf.common.exceptions import CommunicationPushError
-from aiperf.common.messages import InferenceResultsMessage, Message
+from aiperf.common.messages import Message
 
 logger = logging.getLogger(__name__)
 
@@ -47,8 +47,6 @@ class ZMQPushClient(BaseZMQClient):
         try:
             # Serialize data directly using Pydantic's built-in method
             data_json = message.model_dump_json()
-            if isinstance(message, InferenceResultsMessage):
-                logger.info(data_json)
 
             # Send data
             await self.socket.send_string(data_json)

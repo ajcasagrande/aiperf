@@ -48,7 +48,10 @@ class WorkerManager(BaseComponentService):
     """
 
     def __init__(
-        self, service_config: ServiceConfig, service_id: str | None = None
+        self,
+        service_config: ServiceConfig,
+        service_id: str | None = None,
+        log_queue: "multiprocessing.Queue | None" = None,
     ) -> None:
         super().__init__(service_config=service_config, service_id=service_id)
         self.logger.debug("Initializing worker manager")

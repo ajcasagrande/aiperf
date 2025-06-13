@@ -9,7 +9,7 @@ from aiperf.common.data_exporter.console_exporter import ConsoleExporter
 from aiperf.common.hooks import on_init, on_stop
 from aiperf.common.messages import ProfileResultsMessage
 from aiperf.ui.base_ui import ConsoleUIMixin
-from aiperf.ui.progress_dashboard import ProfileProgressDashboardMixin
+from aiperf.ui.progress_dashboard import SplitScreenDashboardMixin
 from aiperf.ui.splash_screen import show_splash_screen
 
 logger = logging.getLogger(__name__)
@@ -30,7 +30,7 @@ class FinalResultsDashboardMixin(ConsoleUIMixin):
         )
 
 
-class AIPerfUI(ProfileProgressDashboardMixin, FinalResultsDashboardMixin):
+class AIPerfUI(SplitScreenDashboardMixin, FinalResultsDashboardMixin):
     """
     AIPerfUI is a class that provides a UI for the AIPerf system.
     """
