@@ -85,7 +85,7 @@ class ZMQReqClient(BaseZMQClient):
         max_retries = 3
         for attempt in range(max_retries):
             try:
-                self._socket.setsockopt(zmq.RCVTIMEO, int(timeout * 1000))
+                # self._socket.setsockopt(zmq.RCVTIMEO, int(timeout * 1000))
                 # Send request
                 await self._socket.send_string(request_json)
 
@@ -93,7 +93,6 @@ class ZMQReqClient(BaseZMQClient):
                 response_json = await self._socket.recv_string()
                 response = MessageValidator.validate_json(response_json)
                 return response
-
             except zmq.ZMQError as e:
                 if "Operation cannot be accomplished in current state" in str(e):
                     logger.warning(

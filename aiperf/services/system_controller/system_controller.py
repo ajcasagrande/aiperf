@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
 import os
+import signal
 import sys
 import time
 from typing import Any
@@ -112,6 +113,16 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         """The type of service."""
         return ServiceType.SYSTEM_CONTROLLER
 
+    async def _forever_loop(self) -> None:
+        """Run the system controller in a loop until the stop event is set."""
+        try:
+            await super()._forever_loop()
+        except KeyboardInterrupt:
+            await self.send_command_to_service(
+                target_service_id=None,
+                command=CommandType.PROCESS_RECORDS,
+            )
+
     @on_init
     async def _initialize(self) -> None:
         """Initialize system controller-specific components.
@@ -175,8 +186,13 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             sig: The signal number received
         """
         self.logger.debug("Received signal %s, initiating graceful shutdown", sig)
-
-        self.stop_event.set()
+        if sig == signal.SIGINT:
+            await self.send_command_to_service(
+                target_service_id=None,
+                command=CommandType.PROCESS_RECORDS,
+            )
+        else:
+            self.stop_event.set()
 
     async def _bootstrap_system(self) -> None:
         """Bootstrap the system services.

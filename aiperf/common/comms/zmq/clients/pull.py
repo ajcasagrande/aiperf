@@ -7,14 +7,12 @@ from collections.abc import Callable, Coroutine
 from typing import Any
 
 import zmq.asyncio
-from pydantic import ValidationError
 from zmq import SocketType
 
 from aiperf.common.comms.zmq.clients.base import BaseZMQClient
 from aiperf.common.enums import MessageType
-from aiperf.common.exceptions import AIPerfError
 from aiperf.common.hooks import aiperf_task, on_init
-from aiperf.common.messages import InferenceResultsMessage, Message, MessageValidator
+from aiperf.common.messages import Message, MessageValidator
 from aiperf.common.utils import call_all_functions
 
 logger = logging.getLogger(__name__)
@@ -64,8 +62,7 @@ class ZMQPullClient(BaseZMQClient):
             try:
                 message_json = await self.socket.recv_string()
                 logger.debug("Received message from pull socket: %s", message_json)
-                await self.queue.put(message_json)
-                logger.debug("Put message into queue")
+                _ = asyncio.create_task(self._process_message(message_json))
 
             except zmq.Again:
                 await asyncio.sleep(0.1)
@@ -79,59 +76,20 @@ class ZMQPullClient(BaseZMQClient):
                 )
                 await asyncio.sleep(0.1)
 
-    @aiperf_task
-    async def _queue_drainer(self) -> None:
-        """Background task for draining the queue."""
+    async def _process_message(self, message_json: str) -> None:
+        """Process a message from the queue."""
+        message = MessageValidator.validate_json(message_json)
 
-        if not self.is_initialized:
-            await self.initialized_event.wait()
-
-        while not self.is_shutdown:
-            try:
-                # Receive data
-                message_json = await self.queue.get()
-                logger.debug("Drained message from queue: %s", message_json)
-
-                # Parse JSON into a Message object
-                try:
-                    message = MessageValidator.validate_json(message_json)
-                    if isinstance(message, InferenceResultsMessage):
-                        logger.info(message)
-                        logger.info(message_json)
-                except ValidationError as e:
-                    logger.error(
-                        "Error parsing pull message: %s %s %s",
-                        message_json,
-                        type(e).__name__,
-                        e,
-                    )
-                    continue
-
-                topic = message.message_type
-
-                # Call callbacks with Message object
-                if topic in self._pull_callbacks:
-                    _ = asyncio.create_task(
-                        call_all_functions(self._pull_callbacks[topic], message)
-                    )
-                else:
-                    logger.debug(
-                        "Pull message received on topic without callback %s", topic
-                    )
-
-            except asyncio.CancelledError:
-                break
-            except AIPerfError:
-                raise  # re-raise it up the stack
-            except zmq.Again:
-                await asyncio.sleep(0.1)
-            except Exception as e:
-                logger.error(
-                    "Exception receiving data from pull socket: %s %s",
-                    type(e).__name__,
-                    e,
-                )
-                await asyncio.sleep(0.1)
+        # Call callbacks with Message object
+        if message.message_type in self._pull_callbacks:
+            await call_all_functions(
+                self._pull_callbacks[message.message_type], message
+            )
+        else:
+            logger.debug(
+                "Pull message received on topic without callback %s",
+                message.message_type,
+            )
 
     async def register_pull_callback(
         self,
