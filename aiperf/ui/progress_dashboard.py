@@ -280,18 +280,11 @@ class ProfileProgressDashboardMixin(ConsoleUIMixin):
         dashboard_content.add_row("")  # Spacing
         dashboard_content.add_row(stats_table)
 
-        # Add worker stats if available
-        if self.worker_stats:
-            dashboard_content.add_row("")  # Additional spacing
-            dashboard_content.add_row(self._create_worker_stats_table())
-
         return Panel(
             dashboard_content,
             title="[bold blue]AIPerf Profile Dashboard",
             border_style="blue",
             padding=(1, 2),
-            width=self.console.width,
-            height=self.console.height,
             expand=True,
         )
 
@@ -559,11 +552,20 @@ class SplitScreenDashboardMixin(ProfileProgressDashboardMixin, LogsDashboardMixi
                     title="[bold cyan]Worker Statistics",
                     border_style="blue",
                     padding=(1, 2),
+                    expand=True,
                 )
             )
 
         # Update logs section
-        self.layout["logs"].update(self._create_logs_panel())
+        self.layout["logs"].update(
+            Panel(
+                self._create_logs_panel(),
+                title="[bold yellow]System Logs",
+                border_style="yellow",
+                padding=(1, 2),
+                expand=True,
+            )
+        )
 
         return self.layout
 
