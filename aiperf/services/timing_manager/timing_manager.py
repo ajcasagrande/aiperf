@@ -11,7 +11,6 @@ from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import MessageType, ServiceState, ServiceType, Topic
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
-    aiperf_task,
     on_cleanup,
     on_configure,
     on_init,
@@ -101,14 +100,12 @@ class TimingManager(BaseComponentService):
         self.logger.debug("Cleaning up timing manager")
         # TODO: Implement timing manager cleanup
 
-    @aiperf_task
+    @on_start
     async def _issue_credit_drops(self) -> None:
         """Issue credit drops to workers."""
         self.logger.debug("Issuing credit drops to workers")
 
         # TODO: Actually implement real credit drop logic
-        await asyncio.sleep(3)
-
         await self.initialized_event.wait()
 
         self.start_perf_counter_ns = time.perf_counter_ns()

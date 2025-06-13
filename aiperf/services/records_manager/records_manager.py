@@ -117,7 +117,6 @@ class RecordsManager(BaseComponentService):
             self.worker_error_counts[worker_id] += 1
 
         elif isinstance(record, RequestRecord):
-            self.logger.warning(f"Received request inference results: {record}")
             if record.valid:
                 self.logger.debug(
                     "Received inference results: %f milliseconds. %f milliseconds.",

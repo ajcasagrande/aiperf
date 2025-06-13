@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import logging
+import os
 import sys
 from argparse import ArgumentParser
 
@@ -48,7 +49,8 @@ def main() -> None:
     console = Console()
 
     # Set logging level for the root logger (affects all loggers)
-    logging.root.setLevel(getattr(logging, args.log_level))
+    # logging.root.setLevel(getattr(logging, args.log_level))
+    logging.root.setLevel(getattr(logging, os.getenv("AIPERF_LOG_LEVEL", "WARNING")))
 
     # Set up logging to use Rich
     handler = RichHandler(
