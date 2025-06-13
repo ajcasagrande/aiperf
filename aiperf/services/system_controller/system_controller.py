@@ -141,7 +141,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         if not os.getenv("AIPERF_DISABLE_UI"):
             await self.ui.initialize()
             # Set up multiprocess logging infrastructure
-            self.log_queue = self.ui.setup_multiprocess_logging()
+            # self.log_queue = self.ui.setup_multiprocess_logging()
             await self.ui.start()
 
         if self.service_config.service_run_type == ServiceRunType.MULTIPROCESSING:

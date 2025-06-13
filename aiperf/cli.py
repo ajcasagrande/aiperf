@@ -5,9 +5,11 @@ import os
 import sys
 from argparse import ArgumentParser
 
+from rich.console import Console
+from rich.logging import RichHandler
+
 from aiperf.common.bootstrap import bootstrap_and_run_service
 from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.logging import setup_child_process_logging, setup_global_log_queue
 from aiperf.services.system_controller.system_controller import SystemController
 
 # TODO: Each service may have to initialize logging from a common
@@ -46,7 +48,15 @@ def main() -> None:
     # Set logging level for the root logger (affects all loggers)
     # logging.root.setLevel(getattr(logging, args.log_level))
     logging.root.setLevel(getattr(logging, os.getenv("AIPERF_LOG_LEVEL", "WARNING")))
-    setup_child_process_logging(setup_global_log_queue())
+    # setup_child_process_logging(setup_global_log_queue())
+
+    rich_handler = RichHandler(
+        rich_tracebacks=True,
+        show_path=True,
+        console=Console(),
+        tracebacks_show_locals=True,
+    )
+    logging.root.addHandler(rich_handler)
 
     # Load configuration
     config = ServiceConfig(

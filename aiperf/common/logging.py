@@ -15,10 +15,11 @@ def setup_global_log_queue() -> multiprocessing.Queue:
     Returns:
         The global multiprocessing queue for logging.
     """
-    global _GLOBAL_LOG_QUEUE
-    if _GLOBAL_LOG_QUEUE is None:
-        _GLOBAL_LOG_QUEUE = multiprocessing.Queue(maxsize=1000)
-    return _GLOBAL_LOG_QUEUE
+    # global _GLOBAL_LOG_QUEUE
+    # # if _GLOBAL_LOG_QUEUE is None:
+    # #     _GLOBAL_LOG_QUEUE = multiprocessing.Queue(maxsize=1000)
+    # return _GLOBAL_LOG_QUEUE
+    return None
 
 
 def get_global_log_queue() -> "multiprocessing.Queue | None":
