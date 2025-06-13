@@ -186,6 +186,35 @@ class ProfileProgressDashboardMixin(ConsoleUIMixin):
             expand=True,
         )
 
+    def _create_worker_stats_table(self) -> Table:
+        """Create a professional worker statistics table."""
+        worker_table = Table(
+            title="[bold cyan]Worker Statistics",
+            title_style="cyan",
+            box=None,
+            padding=(0, 1),
+            show_header=True,
+            header_style="bold magenta",
+            border_style="blue",
+        )
+
+        # Add columns with appropriate styling
+        worker_table.add_column("Worker ID", style="cyan", justify="left")
+        worker_table.add_column("Requests", style="green", justify="right")
+        worker_table.add_column("Status", style="yellow", justify="center")
+
+        # Sort workers by ID for consistent display
+        for worker_id, requests in sorted(self.worker_stats.items()):
+            # Calculate status based on request activity
+            status = "●" if requests > 0 else "○"
+            status_style = "green" if requests > 0 else "dim"
+
+            worker_table.add_row(
+                f"Worker {worker_id}", f"{requests:,}", f"[{status_style}]{status}[/]"
+            )
+
+        return worker_table
+
     def _refresh_progress_dashboard(self) -> Panel:
         """Create the main dashboard layout."""
         # Create stats table
@@ -251,11 +280,10 @@ class ProfileProgressDashboardMixin(ConsoleUIMixin):
         dashboard_content.add_row("")  # Spacing
         dashboard_content.add_row(stats_table)
 
-        # # Add worker stats if available
-        # if self.worker_stats:
-        #     worker_stats_table = self._create_worker_stats_table()
-        #     dashboard_content.add_row("")  # Additional spacing
-        #     dashboard_content.add_row(worker_stats_table)
+        # Add worker stats if available
+        if self.worker_stats:
+            dashboard_content.add_row("")  # Additional spacing
+            dashboard_content.add_row(self._create_worker_stats_table())
 
         return Panel(
             dashboard_content,
@@ -326,34 +354,6 @@ class ProfileProgressDashboardMixin(ConsoleUIMixin):
 
         self.live.update(self._refresh_progress_dashboard())
 
-    # def _create_worker_stats_table(self) -> Table:
-    #     """Create a table showing per-worker statistics in a fluid grid layout."""
-    #     if not self.worker_stats:
-    #         worker_table = Table.grid(padding=(0, 1))
-    #         worker_table.add_column(style="dim white", no_wrap=True, width=12)
-    #         worker_table.add_column(style="white", justify="right")
-    #         worker_table.add_row("Workers:", "No data")
-    #         return worker_table
-
-    #     # Sort workers by request count (descending)
-    #     sorted_workers = sorted(
-    #         self.worker_stats.items(), key=lambda x: x[1], reverse=True
-    #     )
-
-    #     # Calculate optimal number of columns based on console width
-    #     # Each worker entry needs about 12 characters (e.g., "W0: 1,234")
-    #     console_width = self.console.width if hasattr(self, "console") else 80
-    #     available_width = console_width - 20  # Account for panel padding and margins
-    #     entry_width = 12
-    #     max_cols = max(1, available_width // entry_width)
-
-    #     # Limit columns to a reasonable number and worker count
-    #     num_workers = len(sorted_workers)
-    #     cols = min(max_cols, num_workers, 6)  # Cap at 6 columns for readability
-
-    #     # Create the grid table
-    #     worker_table = Table.grid(padding=(0, 1))
-
 
 class SplitScreenDashboardMixin(ProfileProgressDashboardMixin, LogsDashboardMixin):
     """Mixin that combines progress dashboard and logs in a split screen layout."""
@@ -368,15 +368,27 @@ class SplitScreenDashboardMixin(ProfileProgressDashboardMixin, LogsDashboardMixi
         # Create main layout
         self.layout = Layout()
 
-        # Split into top (progress) and bottom (logs) sections
+        # Split into top (progress + worker stats) and bottom (logs) sections
         self.layout.split_column(
-            Layout(name="progress", ratio=3),  # 75% for progress
+            Layout(name="top", ratio=3),  # 75% for top section
             Layout(name="logs", ratio=1),  # 25% for logs
+        )
+
+        # Split top section into progress and worker stats
+        self.layout["top"].split_row(
+            Layout(name="progress", ratio=2),  # 66% for progress
+            Layout(name="worker_stats", ratio=1),  # 33% for worker stats
         )
 
         # Initialize with empty panels
         self.layout["progress"].update(
             Panel(Text("Initializing...", style="dim"), title="AIPerf Dashboard")
+        )
+        self.layout["worker_stats"].update(
+            Panel(
+                Text("Waiting for worker stats...", style="dim"),
+                title="Worker Statistics",
+            )
         )
         self.layout["logs"].update(self._create_logs_panel())
 
@@ -388,6 +400,17 @@ class SplitScreenDashboardMixin(ProfileProgressDashboardMixin, LogsDashboardMixi
         # Update progress section
         if self.progress and self.task_id is not None:
             self.layout["progress"].update(self._refresh_progress_dashboard())
+
+        # Update worker stats section
+        if self.worker_stats:
+            self.layout["worker_stats"].update(
+                Panel(
+                    self._create_worker_stats_table(),
+                    title="[bold cyan]Worker Statistics",
+                    border_style="blue",
+                    padding=(1, 2),
+                )
+            )
 
         # Update logs section
         self.layout["logs"].update(self._create_logs_panel())
@@ -439,4 +462,5 @@ class SplitScreenDashboardMixin(ProfileProgressDashboardMixin, LogsDashboardMixi
             self.error_count / message.completed if message.completed > 0 else 0.0
         )
         self.total_completed = message.completed
+        self.worker_stats = message.worker_stats.copy()
         self.live.update(self._refresh_split_screen_dashboard())

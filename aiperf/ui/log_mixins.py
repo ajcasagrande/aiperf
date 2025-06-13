@@ -128,5 +128,5 @@ class LogsDashboardMixin(ConsoleUIMixin):
             title="[bold yellow]System Logs",
             border_style="yellow",
             padding=(0, 1),
-            height=20,  # Fixed height for logs section
+            height=50,  # Fixed height for logs section
         )
