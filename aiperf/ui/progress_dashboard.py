@@ -363,6 +363,33 @@ class SplitScreenDashboardMixin(ProfileProgressDashboardMixin, LogsDashboardMixi
         self.layout: Layout | None = None
         self._show_splash = True
         self._splash_start_time: float | None = None
+        self._service_status: dict[str, str] = {
+            "Dataset Manager": "initializing",
+            "Timing Manager": "initializing",
+            "Worker Manager": "initializing",
+            "Records Manager": "initializing",
+            "Post Processor": "initializing",
+        }
+        self._service_states = {
+            "initializing": ("yellow", "●", True),  # (color, symbol, blink)
+            "registered": ("green", "●", True),  # (color, symbol, blink)
+            "running": ("green", "●", False),  # (color, symbol, blink)
+            "error": ("red", "●", False),  # (color, symbol, blink)
+        }
+
+    def _get_status_indicator(self, status: str, elapsed: float) -> str:
+        """Get the animated status indicator for a service."""
+        if status not in self._service_states:
+            return "○"
+
+        color, symbol, should_blink = self._service_states[status]
+
+        if not should_blink:
+            return f"[{color}]{symbol}[/]"
+
+        # Blink every 0.5 seconds
+        opacity = "dim" if int(elapsed * 2) % 2 == 0 else ""
+        return f"[{color} {opacity}]{symbol}[/]"
 
     @on_init
     def _on_init(self) -> None:
@@ -399,6 +426,32 @@ class SplitScreenDashboardMixin(ProfileProgressDashboardMixin, LogsDashboardMixi
         self.live.start()
         self.live.update(self.layout)
 
+    def _create_service_status_table(self) -> Table:
+        """Create a professional service status table."""
+        service_table = Table(
+            title="[bold cyan]Service Status",
+            title_style="cyan",
+            box=None,
+            padding=(0, 1),
+            show_header=True,
+            header_style="bold magenta",
+            border_style="blue",
+        )
+
+        # Add columns with appropriate styling
+        service_table.add_column("Service", style="cyan", justify="left")
+        service_table.add_column("Status", style="yellow", justify="center")
+
+        # Get current time for animation
+        elapsed = time.time() - (self._splash_start_time or time.time())
+
+        # Sort services for consistent display
+        for service_name, status in sorted(self._service_status.items()):
+            status_indicator = self._get_status_indicator(status, elapsed)
+            service_table.add_row(service_name, status_indicator)
+
+        return service_table
+
     def _update_splash_screen(self) -> None:
         """Update the splash screen in the dashboard layout."""
         if not self.layout:
@@ -431,15 +484,23 @@ class SplitScreenDashboardMixin(ProfileProgressDashboardMixin, LogsDashboardMixi
         # Create animated loading indicator
         spinner = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
         spinner_char = spinner[int(elapsed * 10) % len(spinner)]
-        loading_text = Text(f"{spinner_char} Starting services...", style="dim white")
+        loading_text = Text(
+            f"{spinner_char} Initializing services...", style="dim white"
+        )
+
+        # Create service status table
+        service_table = self._create_service_status_table()
 
         # Combine all elements with proper spacing
-        content = Text()
-        content.append(logo_text)
-        content.append("\n")
-        content.append(subtitle)
-        content.append("\n\n")
-        content.append(loading_text)
+        content = Table.grid()
+        content.add_column()
+        content.add_row(logo_text)
+        content.add_row("")
+        content.add_row(subtitle)
+        content.add_row("")
+        content.add_row(loading_text)
+        content.add_row("")
+        content.add_row(service_table)
 
         # Create panel with border and title
         panel = Panel(
@@ -459,6 +520,15 @@ class SplitScreenDashboardMixin(ProfileProgressDashboardMixin, LogsDashboardMixi
                 border_style="blue",
             )
         )
+
+    def update_service_status(self, service_type: str, status: str) -> None:
+        """Update the status of a service in the splash screen."""
+        service_name = service_type.replace("_", " ").title()
+        if service_name in self._service_status:
+            self._service_status[service_name] = status
+            if self._show_splash:
+                self._update_splash_screen()
+                self.live.update(self.layout)
 
     def _refresh_split_screen_dashboard(self) -> Layout:
         """Refresh the complete split screen dashboard."""
