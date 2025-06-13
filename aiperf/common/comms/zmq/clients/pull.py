@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
 import logging
-import os
 from collections.abc import Callable, Coroutine
 from typing import Any
 
@@ -11,7 +10,7 @@ from zmq import SocketType
 
 from aiperf.common.comms.zmq.clients.base import BaseZMQClient
 from aiperf.common.enums import MessageType
-from aiperf.common.hooks import aiperf_task, on_init
+from aiperf.common.hooks import aiperf_task
 from aiperf.common.messages import Message, MessageValidator
 from aiperf.common.utils import call_all_functions
 
@@ -39,14 +38,6 @@ class ZMQPullClient(BaseZMQClient):
         self._pull_callbacks: dict[
             MessageType, list[Callable[[Message], Coroutine[Any, Any, None]]]
         ] = {}
-        self.queue: asyncio.Queue[str] | None = None
-
-    @on_init
-    async def _on_initialize(self) -> None:
-        """Initialize the ZMQ Pull client."""
-        self.queue = asyncio.Queue(
-            maxsize=2 * (int(os.getenv("AIPERF_CONCURRENCY") or 100))
-        )
 
     @aiperf_task
     async def _pull_receiver(self) -> None:
@@ -77,7 +68,7 @@ class ZMQPullClient(BaseZMQClient):
                 await asyncio.sleep(0.1)
 
     async def _process_message(self, message_json: str) -> None:
-        """Process a message from the queue."""
+        """Process a message from the pull socket."""
         message = MessageValidator.validate_json(message_json)
 
         # Call callbacks with Message object

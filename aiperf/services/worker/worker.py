@@ -14,13 +14,11 @@ from aiperf.common.comms.client_enums import (
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.constants import NANOS_PER_MILLIS
 from aiperf.common.enums import InferenceClientType, MessageType, ServiceType, Topic
-from aiperf.common.factories import InferenceClientFactory
+from aiperf.common.factories import InferenceClientFactory, ServiceFactory
 from aiperf.common.hooks import (
-    aiperf_task,
     on_cleanup,
     on_init,
     on_run,
-    on_start,
     on_stop,
 )
 from aiperf.common.interfaces import InferenceClientProtocol
@@ -38,6 +36,7 @@ from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.common.service.base_service import BaseService
 
 
+@ServiceFactory.register(ServiceType.WORKER)
 class Worker(BaseService):
     """Worker is primarily responsible for converting the data into the appropriate
     format for the interface being used by the server. Also responsible for managing
@@ -87,55 +86,20 @@ class Worker(BaseService):
         self.inference_client = InferenceClientFactory.create_instance(
             InferenceClientType.OPENAI, config=openai_client_config
         )
-
-        self.queue = asyncio.Queue(
-            maxsize=int(os.getenv("AIPERF_TASKS_PER_WORKER", 100))
-        )
         self.logger.debug("Inference server client initialized")
 
-    @on_run
-    async def _run(self) -> None:
-        """Automatically start the worker in the run method."""
-        await self.start()
-
-    @on_start
-    async def _start(self) -> None:
-        """Start the worker."""
-        # self.logger.debug("Starting worker")
-        # Pull credit drops
+    @on_init
+    async def _on_init(self) -> None:
+        """Initialize the worker."""
         await self.comms.register_pull_callback(
             message_type=MessageType.CREDIT_DROP,
             callback=self._credit_drop_handler,
         )
 
-    @on_stop
-    async def _stop(self) -> None:
-        """Stop the worker."""
-        # self.logger.debug("Stopping worker")
-
-    @on_cleanup
-    async def _cleanup(self) -> None:
-        """Clean up worker-specific components."""
-        # self.logger.debug("Cleaning up worker")
-
-    @aiperf_task
-    async def _queue_drainer(self) -> None:
-        """Background task for draining the queue."""
-        while not self.is_shutdown:
-            message = await self.queue.get()
-            self.logger.debug("Received message from queue: %s", message)
-            task = asyncio.create_task(self._process_credit_drop(message))
-            task.add_done_callback(self._queue_drainer_done_callback)
-
     async def _credit_drop_handler(self, message: CreditDropMessage) -> None:
         """Handle a credit drop message."""
         self.logger.debug("Received credit drop message: %s", message)
-        await self.queue.put(message)
-        self.logger.debug("Put message into queue")
-
-    def _queue_drainer_done_callback(self, task: asyncio.Task) -> None:
-        """Callback for the queue drainer task."""
-        self.logger.debug("Queue drainer task done: %s", task)
+        _ = asyncio.create_task(self._process_credit_drop(message))
 
     async def _process_credit_drop(self, message: CreditDropMessage) -> None:
         """Process a credit drop response.
@@ -255,6 +219,7 @@ class Worker(BaseService):
             )
 
 
+@ServiceFactory.register(ServiceType.MULTI_WORKER_PROCESS)
 class MultiWorkerProcess(BaseComponentService):
     """MultiWorkerProcess is a process that runs multiple workers as concurrent tasks on the event loop."""
 
