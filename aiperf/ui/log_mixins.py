@@ -9,7 +9,6 @@ import threading
 import time
 from collections import deque
 
-from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
@@ -85,7 +84,7 @@ class LogsDashboardMixin(ConsoleUIMixin):
                 logger.error(f"Error consuming logs: {e}")
                 await asyncio.sleep(1.0)
 
-    def _create_logs_panel(self) -> Panel:
+    def _create_logs_panel(self) -> Table:
         """Create the logs panel."""
         logs_table = Table.grid(expand=True)
         logs_table.add_column("Time", style="dim", width=12)
@@ -123,10 +122,4 @@ class LogsDashboardMixin(ConsoleUIMixin):
                 log_data["msg"][:80],  # Truncate long messages
             )
 
-        return Panel(
-            logs_table,
-            title="[bold yellow]System Logs",
-            border_style="yellow",
-            padding=(0, 1),
-            height=50,  # Fixed height for logs section
-        )
+        return logs_table
