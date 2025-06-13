@@ -69,6 +69,7 @@ args=(service_class, config, log_queue)
 - **Graceful degradation**: System continues working even if logging fails
 """
 
+import contextlib
 import logging
 import time
 
@@ -189,8 +190,6 @@ class ProfileProgressDashboardMixin(ConsoleUIMixin):
     def _create_worker_stats_table(self) -> Table:
         """Create a professional worker statistics table."""
         worker_table = Table(
-            title="[bold cyan]Worker Statistics",
-            title_style="cyan",
             box=None,
             padding=(0, 1),
             show_header=True,
@@ -199,18 +198,33 @@ class ProfileProgressDashboardMixin(ConsoleUIMixin):
         )
 
         # Add columns with appropriate styling
-        worker_table.add_column("Worker ID", style="cyan", justify="left")
+        worker_table.add_column("Worker", style="cyan", justify="left")
         worker_table.add_column("Requests", style="green", justify="right")
         worker_table.add_column("Status", style="yellow", justify="center")
 
-        # Sort workers by ID for consistent display
-        for worker_id, requests in sorted(self.worker_stats.items()):
-            # Calculate status based on request activity
-            status = "●" if requests > 0 else "○"
-            status_style = "green" if requests > 0 else "dim"
+        # Group workers by their main worker number
+        worker_groups: dict[str, dict[str, int]] = {}
+        for worker_id, requests in self.worker_stats.items():
+            # Parse worker ID (format: worker_X_Y where X is main worker, Y is sub-worker)
+            parts = worker_id.split("_")
+            if len(parts) >= 3:
+                main_worker = f"Worker {parts[1]}"
+                if main_worker not in worker_groups:
+                    worker_groups[main_worker] = {}
+                worker_groups[main_worker][worker_id] = requests
 
+        # Sort main workers by number
+        for main_worker in sorted(
+            worker_groups.keys(), key=lambda x: int(x.split()[1])
+        ):
+            # Calculate totals for this worker group
+            total_requests = sum(worker_groups[main_worker].values())
+            status = "●" if total_requests > 0 else "○"
+            status_style = "green" if total_requests > 0 else "dim"
+
+            # Add main worker row with aggregated values
             worker_table.add_row(
-                f"Worker {worker_id}", f"{requests:,}", f"[{status_style}]{status}[/]"
+                main_worker, f"{total_requests:,}", f"[{status_style}]{status}[/]"
             )
 
         return worker_table
@@ -345,6 +359,10 @@ class ProfileProgressDashboardMixin(ConsoleUIMixin):
         # Update worker statistics
         self.worker_stats = message.worker_stats.copy()
 
+        # Update worker errors if available in the message
+        if hasattr(message, "worker_errors"):
+            self._worker_errors = message.worker_errors.copy()
+
         self.live.update(self._refresh_progress_dashboard())
 
 
@@ -364,25 +382,35 @@ class SplitScreenDashboardMixin(ProfileProgressDashboardMixin, LogsDashboardMixi
             "Post Processor": "initializing",
         }
         self._service_states = {
-            "initializing": ("yellow", "●", True),  # (color, symbol, blink)
-            "registered": ("green", "●", True),  # (color, symbol, blink)
+            "initializing": (
+                "yellow",
+                "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏",
+                True,
+            ),  # (color, spinner_chars, blink)
+            "registered": (
+                "green",
+                "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏",
+                True,
+            ),  # (color, spinner_chars, blink)
             "running": ("green", "●", False),  # (color, symbol, blink)
             "error": ("red", "●", False),  # (color, symbol, blink)
         }
+        # Track errors per worker
+        self._worker_errors: dict[str, int] = {}
 
     def _get_status_indicator(self, status: str, elapsed: float) -> str:
         """Get the animated status indicator for a service."""
         if status not in self._service_states:
             return "○"
 
-        color, symbol, should_blink = self._service_states[status]
+        color, spinner_chars, should_blink = self._service_states[status]
 
         if not should_blink:
-            return f"[{color}]{symbol}[/]"
+            return f"[{color}]{spinner_chars}[/]"
 
-        # Blink every 0.5 seconds
-        opacity = "dim" if int(elapsed * 2) % 2 == 0 else ""
-        return f"[{color} {opacity}]{symbol}[/]"
+        # Animate spinner every 0.1 seconds
+        spinner_index = int(elapsed * 10) % len(spinner_chars)
+        return f"[{color}]{spinner_chars[spinner_index]}[/]"
 
     @on_init
     def _on_init(self) -> None:
@@ -398,19 +426,21 @@ class SplitScreenDashboardMixin(ProfileProgressDashboardMixin, LogsDashboardMixi
             Layout(name="logs", ratio=1),  # 25% for logs
         )
 
-        # Split top section into progress and worker stats
-        self.layout["top"].split_row(
-            Layout(name="progress", ratio=2),  # 66% for progress
-            Layout(name="worker_stats", ratio=1),  # 33% for worker stats
-        )
-
         # Initialize with splash screen
         self._splash_start_time = time.time()
         self._show_splash = True
         self._update_splash_screen()
 
         # Initialize logs panel
-        self.layout["logs"].update(self._create_logs_panel())
+        self.layout["logs"].update(
+            Panel(
+                self._create_logs_panel(),
+                title="[bold yellow]System Logs",
+                border_style="yellow",
+                padding=(1, 2),
+                expand=True,
+            )
+        )
 
     @on_start
     async def setup_split_screen_layout(self) -> None:
@@ -504,15 +534,8 @@ class SplitScreenDashboardMixin(ProfileProgressDashboardMixin, LogsDashboardMixi
             title_align="center",
         )
 
-        # Update both progress and worker stats sections with splash screen
-        self.layout["progress"].update(panel)
-        self.layout["worker_stats"].update(
-            Panel(
-                Text("Initializing worker statistics...", style="dim"),
-                title="Worker Statistics",
-                border_style="blue",
-            )
-        )
+        # Update top section with splash screen
+        self.layout["top"].update(panel)
 
     def update_service_status(self, service_type: str, status: str) -> None:
         """Update the status of a service in the splash screen."""
@@ -539,24 +562,37 @@ class SplitScreenDashboardMixin(ProfileProgressDashboardMixin, LogsDashboardMixi
                 self._update_splash_screen()  # Keep updating for smooth transition
                 return self.layout
             self._show_splash = False
-
-        # Update progress section
-        if self.progress and self.task_id is not None:
-            self.layout["progress"].update(self._refresh_progress_dashboard())
-
-        # Update worker stats section
-        if self.worker_stats:
-            self.layout["worker_stats"].update(
-                Panel(
-                    self._create_worker_stats_table(),
-                    title="[bold cyan]Worker Statistics",
-                    border_style="blue",
-                    padding=(1, 2),
-                    expand=True,
+            # Split the top section into progress and worker stats
+            with contextlib.suppress(Exception):
+                self.layout["top"].split_row(
+                    Layout(name="progress", ratio=2),  # 66% for progress
+                    Layout(name="worker_stats", ratio=1),  # 33% for worker stats
                 )
-            )
 
-        # Update logs section
+        # Only update sections if they exist
+        try:
+            if self.progress and self.task_id is not None:
+                self.layout["top"]["progress"].update(
+                    self._refresh_progress_dashboard()
+                )
+        except Exception:
+            pass
+
+        try:
+            if self.worker_stats:
+                self.layout["top"]["worker_stats"].update(
+                    Panel(
+                        self._create_worker_stats_table(),
+                        title="[bold cyan]Worker Statistics",
+                        border_style="blue",
+                        padding=(1, 2),
+                        expand=True,
+                    )
+                )
+        except Exception:
+            pass
+
+        # Always update logs section
         self.layout["logs"].update(
             Panel(
                 self._create_logs_panel(),
@@ -585,6 +621,12 @@ class SplitScreenDashboardMixin(ProfileProgressDashboardMixin, LogsDashboardMixi
             )
             # Hide splash screen when we start getting progress updates
             self._show_splash = False
+            # Ensure layout is split
+            with contextlib.suppress(Exception):
+                self.layout["top"].split_row(
+                    Layout(name="progress", ratio=2),  # 66% for progress
+                    Layout(name="worker_stats", ratio=1),  # 33% for worker stats
+                )
 
         # Calculate requests per second
         elapsed_seconds = (
@@ -617,4 +659,9 @@ class SplitScreenDashboardMixin(ProfileProgressDashboardMixin, LogsDashboardMixi
         )
         self.total_completed = message.completed
         self.worker_stats = message.worker_stats.copy()
+
+        # Update worker errors if available in the message
+        if hasattr(message, "worker_errors"):
+            self._worker_errors = message.worker_errors.copy()
+
         self.live.update(self._refresh_split_screen_dashboard())
