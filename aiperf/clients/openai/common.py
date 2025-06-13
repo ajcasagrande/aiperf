@@ -153,7 +153,7 @@ class OpenAIChatCompletionResponse(OpenAIBaseResponse):
 OpenAIClientConfigMixin = InferenceClientConfigMixin[OpenAIClientConfig]
 """Type alias for a inference client config mixin that supports OpenAI configuration."""
 
-OpenAIInferenceClientProtocol = InferenceClientProtocol[
+OpenAIClientProtocol = InferenceClientProtocol[
     OpenAIClientConfig, OpenAIBaseRequest, OpenAIBaseResponse
 ]
 """Type alias for a inference client protocol that supports OpenAI."""

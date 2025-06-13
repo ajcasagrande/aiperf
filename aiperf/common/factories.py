@@ -281,7 +281,7 @@ class InferenceClientFactory(
     ```python
         # Register a new inference client
         @InferenceClientFactory.register(InferenceClientType.OPENAI)
-        class OpenAIInferenceClient:
+        class OpenAIClient:
             pass  # Implement the InferenceClientProtocol
 
         inference_client = InferenceClientFactory.create_instance(

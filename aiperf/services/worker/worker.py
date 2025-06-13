@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
-import copy
 import os
 import sys
 
@@ -156,11 +155,11 @@ class Worker(BaseService):
 
             async def run_task():
                 record = await self._call_backend_api()
-
+                self.logger.info(record)
                 try:
                     msg = InferenceResultsMessage(
                         service_id=self.service_id,
-                        record=copy.deepcopy(record),
+                        record=record,
                     )
                     # self.logger.debug(f"Pushing request record: {msg}")
                     await self.comms.push(
@@ -243,13 +242,13 @@ class Worker(BaseService):
                     record.time_to_last_response_ns / NANOS_PER_MILLIS,
                 )
             else:
-                self.logger.warning("Backend API call returned invalid response")
+                self.logger.warning("Inference server call returned invalid response")
 
             return record
 
         except Exception as e:
             self.logger.error(
-                "Error calling backend API: %s %s", e.__class__.__name__, str(e)
+                "Error calling inference server: %s %s", e.__class__.__name__, str(e)
             )
             return RequestErrorRecord(
                 error=f"{e.__class__.__name__}: {e}",

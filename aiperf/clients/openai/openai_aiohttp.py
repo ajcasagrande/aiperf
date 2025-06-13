@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 
 
 @InferenceClientFactory.register(InferenceClientType.OPENAI, override_priority=200)
-class OpenAIInferenceClientAioHttp(OpenAIClientConfigMixin):
+class OpenAIClientAioHttp(OpenAIClientConfigMixin):
     """A high-performance inference client for communicating with OpenAI based REST APIs using aiohttp.
 
     This class is optimized for maximum performance and accurate timing measurements,
@@ -172,7 +172,7 @@ class OpenAIInferenceClientAioHttp(OpenAIClientConfigMixin):
     ) -> RequestRecord:
         """Send request to the specified endpoint with the given payload."""
         record: RequestRecord[Any] = RequestRecord(
-            start_perf_counter_ns=time.perf_counter_ns(),
+            start_perf_ns=time.perf_counter_ns(),
         )
 
         try:
@@ -209,21 +209,21 @@ class OpenAIInferenceClientAioHttp(OpenAIClientConfigMixin):
         self, payload: OpenAICompletionRequest
     ) -> RequestRecord[Any]:
         raise NotImplementedError(
-            "OpenAIInferenceClientAioHttp does not support completion requests"
+            "OpenAIClientAioHttp does not support completion requests"
         )
 
     async def send_embeddings_request(
         self, payload: OpenAIEmbeddingsRequest
     ) -> RequestRecord[Any]:
         raise NotImplementedError(
-            "OpenAIInferenceClientAioHttp does not support embeddings requests"
+            "OpenAIClientAioHttp does not support embeddings requests"
         )
 
     async def send_chat_responses_request(
         self, payload: OpenAIChatResponsesRequest
     ) -> RequestRecord[Any]:
         raise NotImplementedError(
-            "OpenAIInferenceClientAioHttp does not support chat responses requests"
+            "OpenAIClientAioHttp does not support chat responses requests"
         )
 
     async def send_chat_completion_request(
@@ -281,6 +281,9 @@ class OpenAIInferenceClientAioHttp(OpenAIClientConfigMixin):
                 ceil_threshold=300.0,  # 300 second ceil threshold
             )
 
+            record = RequestRecord(
+                start_perf_ns=timers.capture_timestamp(RequestTimerKind.REQUEST_START),
+            )
             # Make raw HTTP request with precise timing using aiohttp
             async with aiohttp.ClientSession(
                 connector=self.tcp_connector,
@@ -293,12 +296,6 @@ class OpenAIInferenceClientAioHttp(OpenAIClientConfigMixin):
                 connector_owner=False,
             ) as session:
                 # Create record and capture initial timestamp
-                record = RequestRecord(
-                    start_perf_counter_ns=timers.capture_timestamp(
-                        RequestTimerKind.REQUEST_START
-                    ),
-                )
-
                 timers.capture_timestamp(RequestTimerKind.SEND_START)
 
                 async with session.post(
@@ -327,7 +324,7 @@ class OpenAIInferenceClientAioHttp(OpenAIClientConfigMixin):
                     async for (
                         raw_message,
                         chunk_timestamp,
-                    ) in OpenAIInferenceClientAioHttp._aiter_raw_sse_messages(response):
+                    ) in OpenAIClientAioHttp._aiter_raw_sse_messages(response):
                         # logger.debug("Received SSE message: '%s'", raw_message)
 
                         message = SSEMessage(perf_ns=chunk_timestamp)
@@ -339,7 +336,7 @@ class OpenAIInferenceClientAioHttp(OpenAIClientConfigMixin):
                             # logger.debug("SSE parts: %s", parts)
                             if len(parts) < 2:
                                 # Fields without a colon have no value
-                                message.fields.append(
+                                message.packets.append(
                                     SSEField(name=parts[0].strip(), value=None)
                                 )
                                 continue
@@ -350,17 +347,17 @@ class OpenAIInferenceClientAioHttp(OpenAIClientConfigMixin):
                                 # Field name is empty, so this is a comment
                                 field_name = SSEFieldType.COMMENT
 
-                            message.fields.append(
+                            message.packets.append(
                                 SSEField(name=field_name.strip(), value=value.strip())
                             )
 
-                        # logger.debug("SSE message: %s", message)
+                        logger.info("SSE message: %s", message)
                         record.responses.append(message)
 
         except Exception as e:
             logger.error("Error in aiohttp request: %s", str(e))
             if record is None:
-                record = RequestRecord(start_perf_counter_ns=time.perf_counter_ns())
+                record = RequestRecord(start_perf_ns=time.perf_counter_ns())
             record.responses.append(
                 InferenceServerErrorResponse(
                     perf_ns=time.perf_counter_ns(),
@@ -395,7 +392,7 @@ class OpenAIInferenceClientAioHttp(OpenAIClientConfigMixin):
 
         # Ensure record is never None
         if record is None:
-            record = RequestRecord(start_perf_counter_ns=time.perf_counter_ns())
+            record = RequestRecord(start_perf_ns=time.perf_counter_ns())
 
         return record
 
@@ -440,7 +437,7 @@ class OpenAIInferenceClientAioHttp(OpenAIClientConfigMixin):
     ) -> InferenceServerResponse:
         """Parse response (not implemented for streaming responses)."""
         raise NotImplementedError(
-            "OpenAIInferenceClientAioHttp does not support parsing responses"
+            "OpenAIClientAioHttp does not support parsing responses"
         )
 
     async def __aenter__(self):

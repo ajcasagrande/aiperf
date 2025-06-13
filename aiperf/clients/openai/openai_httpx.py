@@ -40,7 +40,7 @@
 
 
 # @InferenceClientFactory.register(InferenceClientType.OPENAI, override_priority=100)
-# class OpenAIInferenceClientHttpx(OpenAIClientConfigMixin):
+# class OpenAIClientHttpx(OpenAIClientConfigMixin):
 #     """A high-performance inference client for communicating with OpenAI based REST APIs using httpx.
 
 #     This class is optimized for maximum performance, concurrent requests, and accurate timing measurements,
@@ -221,7 +221,7 @@
 #     ) -> RequestRecord:
 #         """Send request to the specified endpoint with the given payload."""
 #         record: RequestRecord[Any] = RequestRecord(
-#             start_perf_counter_ns=time.perf_counter_ns(),
+#             start_perf_ns=time.perf_counter_ns(),
 #         )
 
 #         try:
@@ -258,21 +258,21 @@
 #         self, payload: OpenAICompletionRequest
 #     ) -> RequestRecord[Any]:
 #         raise NotImplementedError(
-#             "OpenAIInferenceClientHttpx does not support completion requests"
+#             "OpenAIClientHttpx does not support completion requests"
 #         )
 
 #     async def send_embeddings_request(
 #         self, payload: OpenAIEmbeddingsRequest
 #     ) -> RequestRecord[Any]:
 #         raise NotImplementedError(
-#             "OpenAIInferenceClientHttpx does not support embeddings requests"
+#             "OpenAIClientHttpx does not support embeddings requests"
 #         )
 
 #     async def send_chat_responses_request(
 #         self, payload: OpenAIChatResponsesRequest
 #     ) -> RequestRecord[Any]:
 #         raise NotImplementedError(
-#             "OpenAIInferenceClientHttpx does not support chat responses requests"
+#             "OpenAIClientHttpx does not support chat responses requests"
 #         )
 
 #     async def send_chat_completion_request(
@@ -323,7 +323,7 @@
 
 #             # Create record and capture initial timestamp
 #             record = RequestRecord(
-#                 start_perf_counter_ns=timers.capture_timestamp(
+#                 start_perf_ns=timers.capture_timestamp(
 #                     RequestTimerKind.REQUEST_START
 #                 ),
 #             )
@@ -417,7 +417,7 @@
 #         except Exception as e:
 #             logger.error("Error in httpx request: %s", str(e))
 #             if record is None:
-#                 record = RequestRecord(start_perf_counter_ns=time.perf_counter_ns())
+#                 record = RequestRecord(start_perf_ns=time.perf_counter_ns())
 #             record.responses.append(
 #                 InferenceClientErrorResponse(
 #                     perf_ns=time.perf_counter_ns(),
@@ -452,7 +452,7 @@
 
 #         # Ensure record is never None
 #         if record is None:
-#             record = RequestRecord(start_perf_counter_ns=time.perf_counter_ns())
+#             record = RequestRecord(start_perf_ns=time.perf_counter_ns())
 
 #         return record
 
@@ -480,7 +480,7 @@
 #     ) -> InferenceClientResponse[OpenAIBaseResponse]:
 #         """Parse response (not implemented for streaming responses)."""
 #         raise NotImplementedError(
-#             "OpenAIInferenceClientHttpx does not support parsing responses"
+#             "OpenAIClientHttpx does not support parsing responses"
 #         )
 
 #     async def __aenter__(self):

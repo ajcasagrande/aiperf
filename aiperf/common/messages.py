@@ -5,7 +5,7 @@ import time
 import uuid
 from typing import Annotated, Any, ClassVar, Literal
 
-from pydantic import BaseModel, Field, TypeAdapter, model_serializer
+from pydantic import BaseModel, Field, SerializeAsAny, TypeAdapter, model_serializer
 
 from aiperf.common.data_exporter.record import Record
 from aiperf.common.enums import CommandType, MessageType, ServiceState, ServiceType
@@ -174,7 +174,7 @@ class CommandMessage(BaseServiceMessage):
         "If both `target_service_type` and `target_service_id` are None, the command is "
         "sent to all services.",
     )
-    data: BaseModel | None = Field(
+    data: SerializeAsAny[BaseModel | None] = Field(
         default=None,
         description="Data to send with the command",
     )
@@ -271,7 +271,7 @@ class InferenceResultsMessage(BaseServiceMessage):
 
     message_type: Literal[MessageType.INFERENCE_RESULTS] = MessageType.INFERENCE_RESULTS
 
-    record: RequestErrorRecord | RequestRecord = Field(
+    record: SerializeAsAny[RequestErrorRecord | RequestRecord] = Field(
         ..., description="The inference results record"
     )
 
@@ -281,7 +281,9 @@ class ProfileResultsMessage(BaseServiceMessage):
 
     message_type: Literal[MessageType.PROFILE_RESULTS] = MessageType.PROFILE_RESULTS
 
-    records: list[Record] = Field(..., description="The records of the profile results")
+    records: SerializeAsAny[list[Record]] = Field(
+        ..., description="The records of the profile results"
+    )
 
 
 class ProfileProgressMessage(BaseServiceMessage):

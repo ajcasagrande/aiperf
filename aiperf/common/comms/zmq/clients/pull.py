@@ -14,7 +14,7 @@ from aiperf.common.comms.zmq.clients.base import BaseZMQClient
 from aiperf.common.enums import MessageType
 from aiperf.common.exceptions import AIPerfError
 from aiperf.common.hooks import aiperf_task, on_init
-from aiperf.common.messages import Message, MessageValidator
+from aiperf.common.messages import InferenceResultsMessage, Message, MessageValidator
 from aiperf.common.utils import call_all_functions
 
 logger = logging.getLogger(__name__)
@@ -41,7 +41,7 @@ class ZMQPullClient(BaseZMQClient):
         self._pull_callbacks: dict[
             MessageType, list[Callable[[Message], Coroutine[Any, Any, None]]]
         ] = {}
-        self.queue = None
+        self.queue: asyncio.Queue[str] | None = None
 
     @on_init
     async def _on_initialize(self) -> None:
@@ -95,6 +95,9 @@ class ZMQPullClient(BaseZMQClient):
                 # Parse JSON into a Message object
                 try:
                     message = MessageValidator.validate_json(message_json)
+                    if isinstance(message, InferenceResultsMessage):
+                        logger.info(message)
+                        logger.info(message_json)
                 except ValidationError as e:
                     logger.error(
                         "Error parsing pull message: %s %s %s",
@@ -108,7 +111,9 @@ class ZMQPullClient(BaseZMQClient):
 
                 # Call callbacks with Message object
                 if topic in self._pull_callbacks:
-                    await call_all_functions(self._pull_callbacks[topic], message)
+                    _ = asyncio.create_task(
+                        call_all_functions(self._pull_callbacks[topic], message)
+                    )
                 else:
                     logger.debug(
                         "Pull message received on topic without callback %s", topic

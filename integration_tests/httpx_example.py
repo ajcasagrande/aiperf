@@ -4,7 +4,7 @@
 import asyncio
 import os
 
-from aiperf.backend.openai_client_httpx import OpenAIInferenceClientHttpx
+from aiperf.backend.openai_client_httpx import OpenAIClientHttpx
 from aiperf.backend.openai_common import (
     OpenAIChatCompletionRequest,
     OpenAIClientConfig,
@@ -28,7 +28,7 @@ async def main():
     )
 
     # Create the client
-    client = OpenAIInferenceClientHttpx(client_config)
+    client = OpenAIClientHttpx(client_config)
 
     print("✅ Client configured:")
     print(f"   • URL: {client_config.url}")
@@ -110,7 +110,7 @@ async def concurrent_example():
         max_tokens=50,
     )
 
-    client = OpenAIInferenceClientHttpx(client_config)
+    client = OpenAIClientHttpx(client_config)
 
     async def send_request(prompt: str, request_id: int):
         """Send a single request."""

@@ -6,8 +6,8 @@ import os
 import statistics
 import time
 
-from aiperf.backend.openai_client_aiohttp import OpenAIInferenceClientAioHttp
-from aiperf.backend.openai_client_httpx import OpenAIInferenceClientHttpx
+from aiperf.backend.openai_client_aiohttp import OpenAIClientAioHttp
+from aiperf.backend.openai_client_httpx import OpenAIClientHttpx
 from aiperf.backend.openai_common import (
     OpenAIChatCompletionRequest,
     OpenAIClientConfig,
@@ -220,7 +220,7 @@ async def main():
 
     # Test HTTPX implementation
     httpx_result = await test_client_performance(
-        OpenAIInferenceClientHttpx, "HTTPX (HTTP/2)", num_requests, concurrent_requests
+        OpenAIClientHttpx, "HTTPX (HTTP/2)", num_requests, concurrent_requests
     )
     if httpx_result:
         results.append(httpx_result)
@@ -230,7 +230,7 @@ async def main():
 
     # Test aiohttp implementation
     aiohttp_result = await test_client_performance(
-        OpenAIInferenceClientAioHttp, "aiohttp", num_requests, concurrent_requests
+        OpenAIClientAioHttp, "aiohttp", num_requests, concurrent_requests
     )
     if aiohttp_result:
         results.append(aiohttp_result)

@@ -27,7 +27,7 @@ A high-performance HTTP/2-enabled OpenAI inference client implementation using `
 
 ```python
 import asyncio
-from aiperf.backend.openai_client_httpx import OpenAIInferenceClientHttpx
+from aiperf.backend.openai_client_httpx import OpenAIClientHttpx
 from aiperf.backend.openai_common import OpenAIClientConfig, OpenAIChatCompletionRequest
 
 async def main():
@@ -40,7 +40,7 @@ async def main():
     )
 
     # Create the client
-    client = OpenAIInferenceClientHttpx(config)
+    client = OpenAIClientHttpx(config)
 
     # Create a request
     request = OpenAIChatCompletionRequest(
@@ -84,7 +84,7 @@ client = InferenceClientFactory.create_instance(
 
 ```python
 async def concurrent_example():
-    client = OpenAIInferenceClientHttpx(config)
+    client = OpenAIClientHttpx(config)
 
     async def send_request(prompt):
         request = OpenAIChatCompletionRequest(
@@ -176,7 +176,7 @@ client_httpx = InferenceClientFactory.create_instance(
 ### Architecture
 
 ```
-OpenAIInferenceClientHttpx
+OpenAIClientHttpx
 ├── _create_http_client()      # HTTP/2 client setup
 ├── _create_transport()        # SSL/TLS optimizations
 ├── send_chat_completion_request()  # Main request handler

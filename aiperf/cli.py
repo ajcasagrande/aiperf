@@ -10,7 +10,6 @@ from rich.logging import RichHandler
 from aiperf.common.bootstrap import bootstrap_and_run_service
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.services.system_controller.system_controller import SystemController
-from aiperf.ui.splash_screen import show_static_splash_screen
 
 # TODO: Each service may have to initialize logging from a common
 #  configuration due to running on separate processes
@@ -47,10 +46,6 @@ def main() -> None:
 
     # Create console for output
     console = Console()
-
-    # Show splash screen unless disabled
-    if not args.no_splash:
-        show_static_splash_screen(console)
 
     # Set logging level for the root logger (affects all loggers)
     logging.root.setLevel(getattr(logging, args.log_level))

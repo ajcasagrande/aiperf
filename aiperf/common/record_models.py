@@ -6,7 +6,7 @@ import sys
 import time
 from typing import Any, Generic
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, SerializeAsAny
 
 from aiperf.common.enums import CaseInsensitiveStrEnum
 from aiperf.common.types import ResponseT
@@ -106,9 +106,9 @@ class SSEField(BaseModel):
 class SSEMessage(InferenceServerResponse):
     """Individual SSE message from an SSE stream. Delimited by \n\n."""
 
-    fields: list[SSEField] = Field(
-        default_factory=list,
-        description="The fields contained in the message.",
+    # Note: "fields" is a restricted keyword in pydantic
+    packets: list[SSEField] = Field(
+        default_factory=list, description="The fields contained in the message."
     )
 
 
@@ -159,7 +159,7 @@ class InferRequestOptions(BaseModel):
 class BaseRequestRecord(BaseModel):
     """Base record of a request."""
 
-    start_perf_counter_ns: int = Field(
+    start_perf_ns: int = Field(
         default_factory=time.perf_counter_ns,
         description="The start time of the request in nanoseconds since the epoch.",
     )
@@ -177,7 +177,7 @@ class RequestErrorRecord(BaseRequestRecord):
 class RequestRecord(BaseRequestRecord, Generic[ResponseT]):
     """Record of a request."""
 
-    responses: list[InferenceServerResponse] = Field(
+    responses: SerializeAsAny[list[InferenceServerResponse]] = Field(
         default_factory=list,
         description="The raw responses received from the request.",
     )
@@ -208,7 +208,7 @@ class RequestRecord(BaseRequestRecord, Generic[ResponseT]):
             bool: True if the record is valid, False otherwise.
         """
         return not self.has_error and (
-            0 <= self.start_perf_counter_ns < sys.maxsize
+            0 <= self.start_perf_ns < sys.maxsize
             and len(self.responses) > 0
             and all(0 < response.perf_ns < sys.maxsize for response in self.responses)
         )
@@ -218,7 +218,7 @@ class RequestRecord(BaseRequestRecord, Generic[ResponseT]):
         """Get the time to the first response in nanoseconds."""
         if not self.valid:
             return None
-        return self.responses[0].perf_ns - self.start_perf_counter_ns
+        return self.responses[0].perf_ns - self.start_perf_ns
 
     @property
     def time_to_second_response_ns(self) -> int | None:
@@ -232,12 +232,12 @@ class RequestRecord(BaseRequestRecord, Generic[ResponseT]):
         """Get the time to the last response in nanoseconds."""
         if not self.valid:
             return None
-        return self.responses[-1].perf_ns - self.start_perf_counter_ns
+        return self.responses[-1].perf_ns - self.start_perf_ns
 
     @property
     def inter_token_latency_ns(self) -> float | None:
         """Get the interval between responses in nanoseconds."""
-        if not self.valid:
+        if not self.valid or len(self.responses) < 2:
             return None
         return (self.responses[-1].perf_ns - self.responses[0].perf_ns) / (
             len(self.responses) - 1

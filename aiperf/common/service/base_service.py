@@ -205,34 +205,31 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
         - Wait for the stop event to be set
         - Shuts down the service when the stop event is set
         """
-        while not self.stop_event.is_set():
+        try:
+            self.logger.debug("Service %s waiting for stop event", self.service_type)
+            # Wait forever for the stop event to be set
+            await self.stop_event.wait()
+
+        except (SystemExit, asyncio.CancelledError):
+            pass
+
+        except Exception:
+            self.logger.exception(
+                "Caught unexpected exception in service %s execution",
+                self.service_type,
+            )
+
+        finally:
+            # Shutdown the service
             try:
-                self.logger.debug(
-                    "Service %s waiting for stop event", self.service_type
-                )
-                # Wait forever for the stop event to be set
-                await self.stop_event.wait()
-
-            except (KeyboardInterrupt, SystemExit, asyncio.CancelledError):
-                # self.logger.debug("Service %s execution cancelled", self.service_type)
-                self.stop_event.set()
-
-            except Exception:
+                await self.stop()
+            except Exception as e:
                 self.logger.exception(
-                    "Caught unexpected exception in service %s execution",
-                    self.service_type,
+                    "Exception stopping service %s", self.service_type
                 )
-            finally:
-                # Shutdown the service
-                try:
-                    await self.stop()
-                except Exception as e:
-                    self.logger.exception(
-                        "Exception stopping service %s", self.service_type
-                    )
-                    raise ServiceStopError(
-                        "Exception stopping service %s", self.service_type
-                    ) from e
+                raise ServiceStopError(
+                    "Exception stopping service %s", self.service_type
+                ) from e
 
     async def start(self) -> None:
         """Start the service and its components. This method implements
@@ -295,8 +292,7 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
                 )
                 return
 
-            # ignore if we were unable to send the STOPPING state message
-            _ = await self.set_state(ServiceState.STOPPING)
+            self._state = ServiceState.STOPPING
 
             # Signal the run method to exit if it hasn't already
             if not self.stop_event.is_set():
