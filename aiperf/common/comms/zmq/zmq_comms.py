@@ -492,7 +492,6 @@ class ZMQCommunication(BaseCommunication):
         self,
         topic: Topic,
         message: Message,
-        timeout: float = 5.0,
     ) -> Message:
         """Request a message from a target. If the proper ZMQ client type is not
         found, it will be created.
@@ -500,7 +499,6 @@ class ZMQCommunication(BaseCommunication):
         Args:
             topic: The topic to request from
             message: The message to request
-            timeout: The timeout for the request
 
         Returns:
             The response from the target
@@ -526,9 +524,7 @@ class ZMQCommunication(BaseCommunication):
             await self.create_clients(client_type)
 
         try:
-            return await cast(ZMQReqClient, self.clients[client_type]).request(
-                message, timeout
-            )
+            return await cast(ZMQReqClient, self.clients[client_type]).request(message)
         except Exception as e:
             logger.error(f"Exception requesting from {topic}: {e}")
             raise CommunicationRequestError() from e

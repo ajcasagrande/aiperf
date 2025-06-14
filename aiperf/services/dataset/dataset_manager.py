@@ -20,7 +20,6 @@ from aiperf.common.messages import (
 )
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.common.tokenizer import Tokenizer
-from aiperf.services.dataset.generator.prompt import PromptGenerator
 
 
 @ServiceFactory.register(ServiceType.DATASET_MANAGER)
@@ -109,11 +108,12 @@ class DatasetManager(BaseComponentService):
                 # {"role": "system", "content": "You are a helpful assistant."},
                 {
                     "role": "user",
-                    "content": PromptGenerator.create_synthetic_prompt(
-                        tokenizer=self.tokenizer,
-                        prompt_tokens_mean=100,
-                        prompt_tokens_stddev=0,
-                    ),
+                    "content": "softly smiteth That from the cold stone sparks of fire do fly Whereat a waxen torch forthwith he lighteth Which must be lodestar to his lustful eye And to the flame thus speaks advisedly As from this cold flint I enforced this fire So Lucrece must I force to my desire Here pale with fear he doth premeditate The dangers of his loathsome enterprise And in his inward mind he doth debate What following sorrow may on this arise Then looking scorn",
+                    # "content": PromptGenerator.create_synthetic_prompt(
+                    #     tokenizer=self.tokenizer,
+                    #     prompt_tokens_mean=100,
+                    #     prompt_tokens_stddev=0,
+                    # ),
                 },
             ],
         )

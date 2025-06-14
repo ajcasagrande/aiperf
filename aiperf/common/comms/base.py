@@ -88,14 +88,12 @@ class BaseCommunication(ABC):
         self,
         topic: Topic,
         message: Message,
-        timeout: float = 5.0,
     ) -> Message:
         """Send a request and wait for a response.
 
         Args:
             topic: Topic to send request to
             message: Message to send
-            timeout: Timeout in seconds
 
         Returns:
             Response message if successful

@@ -35,19 +35,6 @@ class OutputConverterProtocol(Protocol, Generic[OutputT, ResponseT]):
 ################################################################################
 
 
-class InferenceClientConfigProtocol(Protocol, Generic[ConfigT]):
-    """Protocol for an inference server client configuration."""
-
-    def __init__(self, client_config: ConfigT) -> None:
-        """Create a new inference server client based on the provided configuration."""
-        ...
-
-    @property
-    def client_config(self) -> ConfigT:
-        """Get the client configuration."""
-        ...
-
-
 class InferenceClientProtocol(Protocol, Generic[ConfigT, RequestT, ResponseT]):
     """Protocol for an inference server client.
 
@@ -122,7 +109,7 @@ class InferenceClientProtocol(Protocol, Generic[ConfigT, RequestT, ResponseT]):
             :param records: The input data to be processed.
             :return: The processed data as a dictionary.
             """
-            pass
+            ...
 
 
 ################################################################################

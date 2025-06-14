@@ -55,7 +55,7 @@ class ZMQPullClient(BaseZMQClient):
                 _ = asyncio.create_task(self._process_message(message_json))
 
             except zmq.Again:
-                await asyncio.sleep(0.1)
+                pass
             except asyncio.CancelledError:
                 break
             except Exception as e:
