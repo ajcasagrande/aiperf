@@ -13,11 +13,6 @@ from aiperf.common.enums import (
     ServiceType,
 )
 from aiperf.common.exceptions import FactoryCreationError
-from aiperf.common.interfaces import (
-    InferenceClientProtocol,
-    InputConverterProtocol,
-    OutputConverterProtocol,
-)
 
 ClassEnumT = TypeVar("ClassEnumT", bound=CaseInsensitiveStrEnum)
 ClassProtocolT = TypeVar("ClassProtocolT", bound=Any)
@@ -201,7 +196,7 @@ class FactoryMixin(Generic[ClassEnumT, ClassProtocolT]):
 ################################################################################
 
 
-class InputConverterFactory(FactoryMixin[PromptSource, InputConverterProtocol]):
+class InputConverterFactory(FactoryMixin[PromptSource, "InputConverterProtocol"]):
     """Factory for registering and creating InputConverterProtocol instances based on the specified prompt source.
 
     Example:
@@ -220,7 +215,7 @@ class InputConverterFactory(FactoryMixin[PromptSource, InputConverterProtocol]):
     """
 
 
-class OutputConverterFactory(FactoryMixin[OutputFormat, OutputConverterProtocol]):
+class OutputConverterFactory(FactoryMixin[OutputFormat, "OutputConverterProtocol"]):
     """Factory for registering and creating OutputConverterProtocol instances based on the specified output format.
 
     Example:
@@ -282,7 +277,7 @@ class ServiceFactory(FactoryMixin[ServiceType, "BaseService"]):
 
 
 class InferenceClientFactory(
-    FactoryMixin[InferenceClientType, InferenceClientProtocol]
+    FactoryMixin[InferenceClientType, "InferenceClientProtocol"]
 ):
     """Factory for registering and creating InferenceClientProtocol instances based on the specified inference client type.
 

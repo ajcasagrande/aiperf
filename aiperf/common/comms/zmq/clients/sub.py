@@ -6,12 +6,11 @@ from collections.abc import Callable
 from typing import Any
 
 import zmq.asyncio
-from zmq import SocketType
 
 from aiperf.common.comms.zmq.clients.base import BaseZMQClient
 from aiperf.common.exceptions import CommunicationSubscribeError
 from aiperf.common.hooks import aiperf_task
-from aiperf.common.messages import Message, MessageValidator
+from aiperf.common.messages import Message
 from aiperf.common.utils import call_all_functions
 
 logger = logging.getLogger(__name__)
@@ -34,7 +33,7 @@ class ZMQSubClient(BaseZMQClient):
             bind (bool): Whether to bind or connect the socket.
             socket_ops (dict, optional): Additional socket options to set.
         """
-        super().__init__(context, SocketType.SUB, address, bind, socket_ops)
+        super().__init__(context, zmq.SocketType.SUB, address, bind, socket_ops)
         self._subscribers: dict[str, list[Callable[[Message], Any]]] = {}
 
     async def subscribe(self, topic: str, callback: Callable[[Message], Any]) -> None:
@@ -64,6 +63,23 @@ class ZMQSubClient(BaseZMQClient):
             logger.error("Exception subscribing to topic %s: %s", topic, e)
             raise CommunicationSubscribeError from e
 
+    async def _handle_message(self, topic_bytes: bytes, message_bytes: bytes) -> None:
+        """Handle a message from a subscribed topic."""
+        topic = topic_bytes.decode()
+        message_json = message_bytes.decode()
+        logger.debug(
+            "Client %s received message from topic: '%s', message: %s",
+            self.client_id,
+            topic,
+            message_json,
+        )
+
+        message = Message.from_json(message_json)
+
+        # Call callbacks with the parsed message object
+        if topic in self._subscribers:
+            await call_all_functions(self._subscribers[topic], message)
+
     @aiperf_task
     async def _sub_receiver(self) -> None:
         """Background task for receiving messages from subscribed topics.
@@ -71,34 +87,19 @@ class ZMQSubClient(BaseZMQClient):
         This method is a coroutine that will run indefinitely until the client is
         shutdown. It will wait for messages from the socket and handle them.
         """
+        if not self.is_initialized:
+            logger.debug("Sub client %s waiting for initialization", self.client_id)
+            await self.initialized_event.wait()
+            logger.debug("Sub client %s initialized", self.client_id)
+
         while not self.is_shutdown:
             try:
-                if not self.is_initialized:
-                    logger.debug(
-                        "Sub client %s waiting for initialization", self.client_id
-                    )
-                    await self.initialized_event.wait()
-                    logger.debug("Sub client %s initialized", self.client_id)
-
                 # Receive message
                 (
                     topic_bytes,
                     message_bytes,
                 ) = await self.socket.recv_multipart()
-                topic = topic_bytes.decode()
-                message_json = message_bytes.decode()
-                logger.debug(
-                    "Client %s received message from topic: '%s', message: %s",
-                    self.client_id,
-                    topic,
-                    message_json,
-                )
-
-                message = MessageValidator.validate_json(message_json)
-
-                # Call callbacks with the parsed message object
-                if topic in self._subscribers:
-                    await call_all_functions(self._subscribers[topic], message)
+                asyncio.create_task(self._handle_message(topic_bytes, message_bytes))
 
             except asyncio.CancelledError:
                 break

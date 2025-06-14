@@ -6,7 +6,6 @@ import logging
 import uuid
 
 import zmq.asyncio
-from zmq import SocketType
 
 from aiperf.common.exceptions import (
     AIPerfError,
@@ -35,7 +34,7 @@ class BaseZMQClient(AIPerfTaskMixin):
     def __init__(
         self,
         context: zmq.asyncio.Context,
-        socket_type: SocketType,
+        socket_type: zmq.SocketType,
         address: str,
         bind: bool,
         socket_ops: dict | None = None,
@@ -56,7 +55,7 @@ class BaseZMQClient(AIPerfTaskMixin):
         self.context: zmq.asyncio.Context = context
         self.address: str = address
         self.bind: bool = bind
-        self.socket_type: SocketType = socket_type
+        self.socket_type: zmq.SocketType = socket_type
         self._socket: zmq.asyncio.Socket | None = None
         self.socket_ops: dict = socket_ops or {}
         self.client_id: str = f"{self.socket_type.name}_client_{uuid.uuid4().hex[:8]}"
@@ -128,9 +127,18 @@ class BaseZMQClient(AIPerfTaskMixin):
                 )
                 self._socket.connect(self.address)
 
-            # Set safe timeouts for send and receive operations
-            self._socket.setsockopt(zmq.RCVTIMEO, 30 * 1000)
-            self._socket.setsockopt(zmq.SNDTIMEO, 30 * 1000)
+            # In BaseZMQClient.initialize()
+            # Reduce timeouts to more reasonable values
+            self._socket.setsockopt(zmq.RCVTIMEO, 5000)  # 5 seconds
+            self._socket.setsockopt(zmq.SNDTIMEO, 5000)  # 5 seconds
+
+            # Add performance-oriented socket options
+            self._socket.setsockopt(zmq.TCP_KEEPALIVE, 1)
+            self._socket.setsockopt(zmq.TCP_KEEPALIVE_IDLE, 60)
+            self._socket.setsockopt(zmq.TCP_KEEPALIVE_INTVL, 10)
+            self._socket.setsockopt(zmq.TCP_KEEPALIVE_CNT, 3)
+            self._socket.setsockopt(zmq.IMMEDIATE, 1)  # Don't queue messages
+            self._socket.setsockopt(zmq.LINGER, 0)  # Don't wait on close
 
             # Set additional socket options requested by the caller
             for key, val in self.socket_ops.items():

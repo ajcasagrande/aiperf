@@ -4,7 +4,6 @@
 import logging
 
 import zmq.asyncio
-from zmq import SocketType
 
 from aiperf.common.comms.zmq.clients.base import BaseZMQClient
 from aiperf.common.exceptions import CommunicationPushError
@@ -30,7 +29,7 @@ class ZMQPushClient(BaseZMQClient):
             bind (bool): Whether to bind or connect the socket.
             socket_ops (dict, optional): Additional socket options to set.
         """
-        super().__init__(context, SocketType.PUSH, address, bind, socket_ops)
+        super().__init__(context, zmq.SocketType.PUSH, address, bind, socket_ops)
 
     async def push(self, message: Message) -> None:
         """Push data to a target.

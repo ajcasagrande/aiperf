@@ -39,7 +39,7 @@ from aiperf.common.record_models import (
 logger = logging.getLogger(__name__)
 
 
-@InferenceClientFactory.register(InferenceClientType.OPENAI, override_priority=200)
+@InferenceClientFactory.register(InferenceClientType.OPENAI, override_priority=00)
 class OpenAIClientAioHttp(OpenAIClientConfigMixin):
     """A high-performance inference client for communicating with OpenAI based REST APIs using aiohttp.
 
@@ -390,6 +390,26 @@ class OpenAIClientAioHttp(OpenAIClientConfigMixin):
 
         return record
 
+    # @staticmethod
+    # async def _aiter_raw_sse_messages(
+    #     response: aiohttp.ClientResponse,
+    # ) -> typing.AsyncIterator[tuple[str, int]]:
+    #     """Efficiently iterate over raw SSE messages from aiohttp response.
+
+    #     Returns a tuple of the raw SSE message and the perf_counter_ns of the chunk.
+    #     """
+
+    #     while not response.content.at_eof():
+    #         chunk = await response.content.readuntil(b"\n\n")
+    #         chunk_ns = time.perf_counter_ns()
+    #         if chunk:
+    #             try:
+    #                 # Use the fastest available decoder
+    #                 yield chunk.decode("utf-8").strip(), chunk_ns
+    #             except UnicodeDecodeError:
+    #                 # Handle potential encoding issues gracefully
+    #                 yield chunk.decode("utf-8", errors="replace").strip(), chunk_ns
+
     @staticmethod
     async def _aiter_raw_sse_messages(
         response: aiohttp.ClientResponse,
@@ -399,16 +419,21 @@ class OpenAIClientAioHttp(OpenAIClientConfigMixin):
         Returns a tuple of the raw SSE message and the perf_counter_ns of the chunk.
         """
 
-        while not response.content.at_eof():
-            chunk = await response.content.readuntil(b"\n\n")
-            chunk_ns = time.perf_counter_ns()
-            if chunk:
-                try:
-                    # Use the fastest available decoder
-                    yield chunk.decode("utf-8").strip(), chunk_ns
-                except UnicodeDecodeError:
-                    # Handle potential encoding issues gracefully
-                    yield chunk.decode("utf-8", errors="replace").strip(), chunk_ns
+        if response.content.at_eof():
+            return
+
+        chunk = await response.content.readuntil(b"\n\n")
+        chunk_ns = time.perf_counter_ns()
+        if chunk:
+            try:
+                # Use the fastest available decoder
+                yield chunk.decode("utf-8").strip(), chunk_ns
+            except UnicodeDecodeError:
+                # Handle potential encoding issues gracefully
+                yield chunk.decode("utf-8", errors="replace").strip(), chunk_ns
+
+        async for chunk, chunk_ns in OpenAIClientAioHttp._aiter_sse_chunks(response):
+            yield chunk, chunk_ns
 
     @staticmethod
     async def _aiter_sse_chunks(

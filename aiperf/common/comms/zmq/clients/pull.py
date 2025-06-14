@@ -6,12 +6,11 @@ from collections.abc import Callable, Coroutine
 from typing import Any
 
 import zmq.asyncio
-from zmq import SocketType
 
 from aiperf.common.comms.zmq.clients.base import BaseZMQClient
 from aiperf.common.enums import MessageType
 from aiperf.common.hooks import aiperf_task
-from aiperf.common.messages import Message, MessageValidator
+from aiperf.common.messages import Message
 from aiperf.common.utils import call_all_functions
 
 logger = logging.getLogger(__name__)
@@ -34,7 +33,7 @@ class ZMQPullClient(BaseZMQClient):
             bind (bool): Whether to bind or connect the socket.
             socket_ops (dict, optional): Additional socket options to set.
         """
-        super().__init__(context, SocketType.PULL, address, bind, socket_ops)
+        super().__init__(context, zmq.SocketType.PULL, address, bind, socket_ops)
         self._pull_callbacks: dict[
             MessageType, list[Callable[[Message], Coroutine[Any, Any, None]]]
         ] = {}
@@ -69,7 +68,7 @@ class ZMQPullClient(BaseZMQClient):
 
     async def _process_message(self, message_json: str) -> None:
         """Process a message from the pull socket."""
-        message = MessageValidator.validate_json(message_json)
+        message = Message.from_json(message_json)
 
         # Call callbacks with Message object
         if message.message_type in self._pull_callbacks:

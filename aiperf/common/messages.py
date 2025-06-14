@@ -1,11 +1,19 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+import json
 import time
 import uuid
-from typing import Annotated, Any, ClassVar, Literal
+from typing import Any, ClassVar, Literal
 
-from pydantic import BaseModel, Field, SerializeAsAny, TypeAdapter, model_serializer
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SerializeAsAny,
+    model_serializer,
+)
+from typing_extensions import Unpack
 
 from aiperf.common.enums import CommandType, MessageType, ServiceState, ServiceType
 from aiperf.common.record_models import RequestRecord
@@ -30,8 +38,47 @@ def exclude_if_none(field_names: list[str]):
     return decorator
 
 
+class Message(BaseModel):
+    """Base class for optimized message handling"""
+
+    _message_type_lookup: ClassVar[dict[MessageType, type["Message"]]] = {}
+
+    def __init_subclass__(cls, **kwargs: Unpack[ConfigDict]):
+        super().__init_subclass__(**kwargs)
+        if hasattr(cls, "message_type"):
+            cls._message_type_lookup[cls.message_type] = cls
+
+    message_type: MessageType | Any = Field(
+        ...,
+        description="Type of the message",
+    )
+
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.from_json
+
+    @classmethod
+    def from_json(cls, json_str: str) -> "Message":
+        """Fast deserialization without full validation"""
+        data = json.loads(json_str)
+        message_type = data.get("message_type")
+        if not message_type:
+            raise ValueError("Missing message_type")
+
+        # Use cached message type lookup
+        message_class = cls._message_type_lookup[message_type]
+        if not message_class:
+            raise ValueError(f"Unknown message type: {message_type}")
+
+        return message_class(**data)
+
+    def to_json(self) -> str:
+        """Fast serialization without full validation"""
+        return json.dumps(self.__dict__)
+
+
 @exclude_if_none(["request_ns", "request_id"])
-class BaseMessage(BaseModel):
+class BaseMessage(Message):
     """Base message model with common fields for all messages.
 
     Each message model should inherit from this class, set the message_type field,
@@ -319,80 +366,3 @@ class ProfileStatsMessage(BaseServiceMessage):
         default_factory=dict,
         description="Per-worker request completion counts, keyed by worker service_id",
     )
-
-
-# Discriminated union type - only include message types that include a message_type field
-Message = Annotated[
-    HeartbeatMessage
-    | RegistrationMessage
-    | StatusMessage
-    | CommandMessage
-    | CreditDropMessage
-    | CreditReturnMessage
-    | ErrorMessage
-    | ConversationRequestMessage
-    | ConversationResponseMessage
-    | InferenceResultsMessage
-    | ProfileProgressMessage
-    | ProfileResultsMessage
-    | ProfileStatsMessage
-    | CreditsCompleteMessage,
-    Field(discriminator="message_type"),
-]
-"""Union of all message types. This is used as a type hint when a function
-accepts a message as an argument.
-
-The message type is determined by the discriminator field `message_type`. This is
-used by the Pydantic `discriminator` argument to determine the type of the
-message automatically when the message is deserialized from a JSON string.
-
-To serialize a message to a JSON string, use the `model_dump_json` method.
-To deserialize a message from a JSON string, use the `model_validate_json`
-method.
-
-Example:
-```python
->>> message = StatusMessage(
-...     service_id="service_1",
-...     request_id="request_1",
-...     request_ns=1716278400000000000,
-...     state=ServiceState.READY,
-...     service_type=ServiceType.TEST,
-... )
->>> json_string = message.model_dump_json()
->>> print(json_string)
-{"state": "ready", "service_type": "test", "service_id": "service_1", "request_id": "request_1", "request_ns": 1716278400000000000, "message_type": "status"}
->>> deserialized_message = MessageValidator.validate_json(json_string)
->>> print(deserialized_message)
-StatusMessage(
-    message_type=MessageType.STATUS,
-    state=ServiceState.READY,
-    service_type=ServiceType.TEST,
-    service_id="service_1",
-    request_id="request_1",
-    request_ns=1716278400000000000,
-)
->>> print(deserialized_message.state)
-ready
-```
-"""
-
-MessageValidator = TypeAdapter(Message)
-"""TypeAdapter for JSON validation of messages. This is used only
-for the :class:`Message` type because it is a union type and not an actual model.
-
-Example:
-```python
->>> json_string = '{"state": "ready", "service_type": "test", "service_id": "service_1", "request_id": "request_1", "request_ns": 1716278400000000000, "message_type": "status"}'
->>> message = MessageValidator.validate_json(json_string)
->>> print(message)
-StatusMessage(
-    message_type=MessageType.STATUS,
-    state=ServiceState.READY,
-    service_type=ServiceType.TEST,
-    service_id="service_1",
-    request_id="request_1",
-    request_ns=1716278400000000000,
-)
-```
-"""

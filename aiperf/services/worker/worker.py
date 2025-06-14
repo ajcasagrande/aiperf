@@ -4,7 +4,7 @@ import asyncio
 import os
 import sys
 
-from aiperf.clients.openai.common import OpenAIClientConfig
+from aiperf.clients.openai.common import OpenAIChatCompletionRequest, OpenAIClientConfig
 from aiperf.common.comms.client_enums import (
     ClientType,
     PullClientType,
@@ -23,7 +23,6 @@ from aiperf.common.hooks import (
 )
 from aiperf.common.interfaces import InferenceClientProtocol
 from aiperf.common.messages import (
-    ConversationRequestMessage,
     CreditDropMessage,
     CreditReturnMessage,
     InferenceResultsMessage,
@@ -173,14 +172,25 @@ class Worker(BaseService):
                     ),
                 )
 
-            # retrieve the prompt from the dataset
-            response = await self.comms.request(
-                topic=Topic.CONVERSATION_DATA,
-                message=ConversationRequestMessage(
-                    service_id=self.service_id, conversation_id="123"
-                ),
+            # # retrieve the prompt from the dataset
+            # response = await self.comms.request(
+            #     topic=Topic.CONVERSATION_DATA,
+            #     message=ConversationRequestMessage(
+            #         service_id=self.service_id, conversation_id="123"
+            #     ),
+            # )
+            messages = OpenAIChatCompletionRequest(
+                model="deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
+                messages=[
+                    {
+                        "role": "user",
+                        "content": "softly smiteth That from the cold stone sparks of fire do fly Whereat a waxen torch forthwith he lighteth Which must be lodestar to his lustful eye And to the flame thus speaks advisedly As from this cold flint I enforced this fire So Lucrece must I force to my desire Here pale with fear he doth premeditate The dangers of his loathsome enterprise And in his inward mind he doth debate What following sorrow may on this arise Then looking scorn",
+                    }
+                ],
+                max_tokens=100,
             )
-            messages = response.conversation_data
+
+            # response.conversation_data
 
             # Sample messages for the API call
             # messages = [
@@ -191,14 +201,14 @@ class Worker(BaseService):
             #     },
             # ]
 
-            # Format payload for the API request
-            formatted_payload = await self.inference_client.format_payload(
-                endpoint="v1/chat/completions", payload={"messages": messages}
-            )
+            # # Format payload for the API request
+            # formatted_payload = await self.inference_client.format_payload(
+            #     endpoint="v1/chat/completions", payload={"messages": response.conversation_data}
+            # )
 
             # Send the request to the API
             record = await self.inference_client.send_request(
-                endpoint="v1/chat/completions", payload=formatted_payload
+                endpoint="v1/chat/completions", payload=messages
             )
 
             if record.valid:

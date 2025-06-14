@@ -4,13 +4,11 @@ import logging
 import uuid
 
 import zmq.asyncio
-from zmq import SocketType
 
 from aiperf.common.comms.zmq.clients.base import BaseZMQClient
 from aiperf.common.exceptions import CommunicationRequestError
 from aiperf.common.messages import (
     Message,
-    MessageValidator,
 )
 
 logger = logging.getLogger(__name__)
@@ -33,7 +31,7 @@ class ZMQReqClient(BaseZMQClient):
             bind (bool): Whether to bind or connect the socket.
             socket_ops (dict, optional): Additional socket options to set.
         """
-        super().__init__(context, SocketType.DEALER, address, bind, socket_ops)
+        super().__init__(context, zmq.SocketType.DEALER, address, bind, socket_ops)
 
     async def _reset_socket(self) -> None:
         """Reset the socket to recover from inconsistent state.
@@ -91,7 +89,7 @@ class ZMQReqClient(BaseZMQClient):
 
                 # Wait for response with timeout
                 response_json = await self._socket.recv_string()
-                response = MessageValidator.validate_json(response_json)
+                response = Message.from_json(response_json)
                 return response
             except zmq.ZMQError as e:
                 if "Operation cannot be accomplished in current state" in str(e):

@@ -53,7 +53,9 @@ def main() -> None:
 
     # Create and start the system controller
     logger.info("Starting AIPerf System")
+
     bootstrap_and_run_service(SystemController, service_config=config)
+
     logger.info("AIPerf System exited")
 
 

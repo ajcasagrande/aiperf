@@ -48,7 +48,12 @@ class AioHttpClient:
         def socket_factory(addr_info):
             """Custom socket factory optimized for SSE streaming performance."""
             family, type_, proto, _, _ = addr_info
-            sock = socket.socket(family=family, type=type_, proto=proto)
+            sock = socket.socket(
+                family=socket.AF_INET,
+                type=socket.SOCK_STREAM,
+                proto=socket.IPPROTO_TCP,
+            )
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
 
             # Low-latency optimizations for streaming
             sock.setsockopt(
@@ -74,10 +79,10 @@ class AioHttpClient:
 
             # Buffer size optimizations for streaming
             sock.setsockopt(
-                socket.SOL_SOCKET, socket.SO_RCVBUF, 1024
+                socket.SOL_SOCKET, socket.SO_RCVBUF, 1024 * 1024 * 16
             )  # 87380)   # 85KB receive buffer
             sock.setsockopt(
-                socket.SOL_SOCKET, socket.SO_SNDBUF, 1024
+                socket.SOL_SOCKET, socket.SO_SNDBUF, 1024 * 1024 * 16
             )  # 65536)   # 64KB send buffer
 
             # Linux-specific TCP optimizations
@@ -130,16 +135,18 @@ class AioHttpClient:
 
         try:
             # Make raw HTTP request with precise timing using aiohttp
-            async with aiohttp.ClientSession(
-                connector=self.tcp_connector,
-                timeout=timeout,
-                headers={"User-Agent": "aiperf/1.0"},
-                skip_auto_headers=[
-                    "User-Agent",
-                    "Accept-Encoding",
-                ],  # Skip auto-headers for performance
-                connector_owner=False,
-            ) as session:
+            async with (
+                aiohttp.ClientSession(
+                    connector=self.tcp_connector,
+                    timeout=timeout,
+                    headers={"User-Agent": "aiperf/1.0"},
+                    skip_auto_headers=[
+                        "User-Agent",
+                        "Accept-Encoding",
+                    ],  # Skip auto-headers for performance
+                    connector_owner=False,  # Don't close the connector when the session is closed
+                ) as session
+            ):
                 # Create record and capture initial timestamp
                 timers.capture_timestamp(RequestTimerKind.SEND_START)
 

@@ -10,25 +10,25 @@
 
 # import httpx
 
-# from aiperf.backend.openai_common import (
-#     OpenAIClientConfig,
-#     OpenAIClientConfigMixin,
+# from aiperf.clients.openai.common import (
 #     OpenAIBaseRequest,
 #     OpenAIBaseResponse,
 #     OpenAIChatCompletionRequest,
 #     OpenAIChatResponsesRequest,
+#     OpenAIClientConfig,
+#     OpenAIClientConfigMixin,
 #     OpenAICompletionRequest,
 #     OpenAIEmbeddingsRequest,
 # )
-# from aiperf.common.timers import RequestTimerKind, RequestTimers
+# from aiperf.clients.timers import RequestTimerKind, RequestTimers
 # from aiperf.common.enums import (
 #     InferenceClientType,
 # )
 # from aiperf.common.exceptions import InvalidPayloadError
 # from aiperf.common.factories import InferenceClientFactory
 # from aiperf.common.record_models import (
-#     InferenceClientErrorResponse,
-#     InferenceClientResponse,
+#     ErrorDetails,
+#     InferenceServerResponse,
 #     RequestRecord,
 # )
 
@@ -39,7 +39,7 @@
 # logger = logging.getLogger(__name__)
 
 
-# @InferenceClientFactory.register(InferenceClientType.OPENAI, override_priority=100)
+# @InferenceClientFactory.register(InferenceClientType.OPENAI, override_priority=300)
 # class OpenAIClientHttpx(OpenAIClientConfigMixin):
 #     """A high-performance inference client for communicating with OpenAI based REST APIs using httpx.
 
@@ -323,9 +323,7 @@
 
 #             # Create record and capture initial timestamp
 #             record = RequestRecord(
-#                 start_perf_ns=timers.capture_timestamp(
-#                     RequestTimerKind.REQUEST_START
-#                 ),
+#                 start_perf_ns=timers.capture_timestamp(RequestTimerKind.REQUEST_START),
 #             )
 
 #             timers.capture_timestamp(RequestTimerKind.SEND_START)
@@ -416,13 +414,10 @@
 
 #         except Exception as e:
 #             logger.error("Error in httpx request: %s", str(e))
-#             if record is None:
-#                 record = RequestRecord(start_perf_ns=time.perf_counter_ns())
-#             record.responses.append(
-#                 InferenceClientErrorResponse(
-#                     perf_ns=time.perf_counter_ns(),
-#                     error=str(e),
-#                 )
+
+#             record.error = ErrorDetails(
+#                 type=e.__class__.__name__,
+#                 message=str(e),
 #             )
 
 #         finally:
@@ -477,7 +472,7 @@
 
 #     async def parse_response(
 #         self, response: OpenAIBaseResponse
-#     ) -> InferenceClientResponse[OpenAIBaseResponse]:
+#     ) -> InferenceServerResponse:
 #         """Parse response (not implemented for streaming responses)."""
 #         raise NotImplementedError(
 #             "OpenAIClientHttpx does not support parsing responses"

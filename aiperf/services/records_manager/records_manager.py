@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+import asyncio
 import sys
 
 import pandas as pd
@@ -100,6 +101,18 @@ class RecordsManager(BaseComponentService):
         self.logger.debug(f"Configuring records manager with message: {message}")
         # TODO: Implement records manager configuration
 
+    async def publish_profile_stats(self) -> None:
+        """Publish the profile stats."""
+        await self.comms.publish(
+            topic=Topic.PROFILE_STATS,
+            message=ProfileStatsMessage(
+                service_id=self.service_id,
+                error_count=len(self.error_records),
+                completed=len(self.records) + len(self.error_records),
+                worker_stats=self.worker_request_counts,
+            ),
+        )
+
     async def _on_inference_results(self, message: InferenceResultsMessage) -> None:
         """Handle a inference results message."""
         record = message.record
@@ -130,15 +143,7 @@ class RecordsManager(BaseComponentService):
             self.error_records.append(record)
             self.worker_error_counts[worker_id] += 1
 
-        await self.comms.publish(
-            topic=Topic.PROFILE_STATS,
-            message=ProfileStatsMessage(
-                service_id=self.service_id,
-                error_count=len(self.error_records),
-                completed=len(self.records) + len(self.error_records),
-                worker_stats=self.worker_request_counts.copy(),
-            ),
-        )
+        asyncio.create_task(self.publish_profile_stats())
 
     async def process_records(self, _: CommandMessage) -> None:
         """Process the records.

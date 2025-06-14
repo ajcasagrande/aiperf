@@ -6,13 +6,12 @@ from collections.abc import Callable, Coroutine
 from typing import Any
 
 import zmq.asyncio
-from zmq import SocketType
 
 from aiperf.common.comms.zmq.clients.base import BaseZMQClient
 from aiperf.common.enums import MessageType
 from aiperf.common.exceptions import CommunicationResponseError
 from aiperf.common.hooks import aiperf_task, on_cleanup
-from aiperf.common.messages import ErrorMessage, Message, MessageValidator
+from aiperf.common.messages import ErrorMessage, Message
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +33,7 @@ class ZMQRepClient(BaseZMQClient):
             bind (bool): Whether to bind or connect the socket.
             socket_ops (dict, optional): Additional socket options to set.
         """
-        super().__init__(context, SocketType.ROUTER, address, bind, socket_ops)
+        super().__init__(context, zmq.SocketType.ROUTER, address, bind, socket_ops)
 
         self._request_handlers: dict[
             MessageType,
@@ -87,7 +86,7 @@ class ZMQRepClient(BaseZMQClient):
     async def _handle_request(self, request_id: str, request_json: str) -> None:
         """Handle a request."""
         # Parse JSON to create RequestData object
-        request = MessageValidator.validate_json(request_json)
+        request = Message.from_json(request_json)
         message_type = request.message_type
 
         # Call the handler
@@ -132,6 +131,9 @@ class ZMQRepClient(BaseZMQClient):
 
             except asyncio.CancelledError:
                 break
+            except zmq.Again:
+                logger.warning("Timeout receiving request")
+                await asyncio.sleep(0.1)
             except Exception as e:
                 logger.error(f"Exception receiving request: {e}")
                 await asyncio.sleep(0.1)

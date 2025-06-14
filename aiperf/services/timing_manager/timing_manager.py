@@ -120,6 +120,8 @@ class TimingManager(BaseComponentService):
             ),
         )
 
+        time.sleep(1)
+
         while not self.stop_event.is_set():
             try:
                 if not self._credits_available:
