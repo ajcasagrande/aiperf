@@ -11,6 +11,7 @@ from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import MessageType, ServiceState, ServiceType, Topic
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
+    aiperf_task,
     on_cleanup,
     on_configure,
     on_init,
@@ -122,6 +123,8 @@ class TimingManager(BaseComponentService):
 
         time.sleep(1)
 
+        drop_at = time.time_ns() + 1_000_000_000
+
         while not self.stop_event.is_set():
             try:
                 if not self._credits_available:
@@ -141,7 +144,7 @@ class TimingManager(BaseComponentService):
                         message=CreditDropMessage(
                             service_id=self.service_id,
                             amount=1,
-                            credit_drop_ns=time.perf_counter_ns(),
+                            credit_drop_ns=drop_at,
                         ),
                     )
 
@@ -187,16 +190,6 @@ class TimingManager(BaseComponentService):
             * NANOS_PER_SECOND,
         )
 
-        await self.comms.publish(
-            topic=Topic.PROFILE_PROGRESS,
-            message=ProfileProgressMessage(
-                service_id=self.service_id,
-                sweep_start_ns=self.start_perf_counter_ns,
-                total=self._total_credits,
-                completed=self._completed_credits,
-            ),
-        )
-
         if self._completed_credits >= self._total_credits:
             self.logger.debug(
                 "All credits completed, stopping credit drop task after %.2f seconds (%.2f requests/s)",
@@ -217,6 +210,21 @@ class TimingManager(BaseComponentService):
             )
 
         self._credit_event.set()
+
+    @aiperf_task
+    async def _report_progress_task(self) -> None:
+        """Report the progress."""
+        while not self.stop_event.is_set():
+            await self.comms.publish(
+                topic=Topic.PROFILE_PROGRESS,
+                message=ProfileProgressMessage(
+                    service_id=self.service_id,
+                    sweep_start_ns=self.start_perf_counter_ns,
+                    total=self._total_credits,
+                    completed=self._completed_credits,
+                ),
+            )
+            await asyncio.sleep(1)
 
 
 def main() -> None:

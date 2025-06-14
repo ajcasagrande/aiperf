@@ -49,6 +49,12 @@ class CommunicationBackend(CaseInsensitiveStrEnum):
     ZMQ_TCP = "zmq_tcp"
     """ZeroMQ backend using TCP sockets."""
 
+    ZMQ_IPC = "zmq_ipc"
+    """ZeroMQ backend using IPC sockets."""
+
+    ZMQ_INPROC = "zmq_inproc"
+    """ZeroMQ backend using in-process communication."""
+
 
 class Topic(CaseInsensitiveStrEnum):
     """Communication topics for the main messaging bus.
@@ -357,6 +363,7 @@ class OutputFormat(CaseInsensitiveStrEnum):
 
 class DataExporterType(CaseInsensitiveStrEnum):
     CONSOLE = "console"
+    CONSOLE_ERROR = "console_error"
 
 
 #################################################################################

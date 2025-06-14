@@ -60,13 +60,11 @@ class ZMQReqClient(BaseZMQClient):
     async def request(
         self,
         request_data: Message,
-        timeout: float = 5.0,
     ) -> Message:
         """Send a request and wait for a response.
 
         Args:
             request_data: Request data (must be a RequestData instance)
-            timeout: Timeout in seconds
 
         Returns:
             ResponseData object
@@ -80,37 +78,15 @@ class ZMQReqClient(BaseZMQClient):
         # Serialize request
         request_json = request_data.model_dump_json()
 
-        max_retries = 3
-        for attempt in range(max_retries):
-            try:
-                # self._socket.setsockopt(zmq.RCVTIMEO, int(timeout * 1000))
-                # Send request
-                await self._socket.send_string(request_json)
+        try:
+            # Send request
+            await self._socket.send_string(request_json)
 
-                # Wait for response with timeout
-                response_json = await self._socket.recv_string()
-                response = Message.from_json(response_json)
-                return response
-            except zmq.ZMQError as e:
-                if "Operation cannot be accomplished in current state" in str(e):
-                    logger.warning(
-                        "REQ socket in inconsistent state (attempt %d/%d): %s",
-                        attempt + 1,
-                        max_retries,
-                        e,
-                    )
-                    if attempt < max_retries - 1:
-                        await self._reset_socket()
-                        continue
-                raise CommunicationRequestError(
-                    f"Exception sending request after {max_retries} attempts: {e.__class__.__name__} {e}"
-                ) from e
-            except Exception as e:
-                raise CommunicationRequestError(
-                    f"Exception sending request: {e.__class__.__name__} {e}"
-                ) from e
-
-        # This should not be reached due to the raise in the except block
-        raise CommunicationRequestError(
-            "Maximum retries exceeded without successful request"
-        )
+            # Wait for response with timeout
+            response_json = await self._socket.recv_string()
+            response = Message.from_json(response_json)
+            return response
+        except Exception as e:
+            raise CommunicationRequestError(
+                f"Exception sending request: {e.__class__.__name__} {e}"
+            ) from e

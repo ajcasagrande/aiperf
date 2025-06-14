@@ -1,9 +1,12 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
+import glob
 import logging
-import uuid
+import os
+from abc import ABC
 from collections.abc import Callable, Coroutine
+from pathlib import Path
 from typing import Any, cast
 
 import zmq.asyncio
@@ -38,13 +41,17 @@ from aiperf.common.exceptions import (
 )
 from aiperf.common.factories import CommunicationFactory
 from aiperf.common.messages import Message
-from aiperf.common.models import ZMQCommunicationConfig
+from aiperf.common.models import (
+    BaseZMQCommunicationConfig,
+    ZMQInprocConfig,
+    ZMQIPCConfig,
+    ZMQTCPTransportConfig,
+)
 
 logger = logging.getLogger(__name__)
 
 
-@CommunicationFactory.register(CommunicationBackend.ZMQ_TCP)
-class ZMQCommunication(BaseCommunication):
+class BaseZMQCommunication(BaseCommunication, ABC):
     """ZeroMQ-based implementation of the Communication interface.
 
     Uses ZeroMQ for publish/subscribe and request/reply patterns to
@@ -53,7 +60,7 @@ class ZMQCommunication(BaseCommunication):
 
     def __init__(
         self,
-        config: ZMQCommunicationConfig | None = None,
+        config: BaseZMQCommunicationConfig | None = None,
     ) -> None:
         """Initialize ZMQ communication.
 
@@ -62,19 +69,14 @@ class ZMQCommunication(BaseCommunication):
         """
         self.stop_event: asyncio.Event = asyncio.Event()
         self.initialized_event: asyncio.Event = asyncio.Event()
-        self.config = config or ZMQCommunicationConfig()
-
-        # Generate client_id if not provided
-        if not self.config.client_id:
-            self.config.client_id = f"client_{uuid.uuid4().hex[:8]}"
+        self.config = config or ZMQIPCConfig()
 
         self._context: zmq.asyncio.Context | None = None
         self.clients: dict[ClientType, ZMQClient] = {}
 
         logger.debug(
-            "ZMQ communication using protocol: %s with client ID: %s",
-            type(self.config.protocol_config).__name__,
-            self.config.client_id,
+            "ZMQ communication using protocol: %s",
+            type(self.config).__name__,
         )
 
     @property
@@ -115,7 +117,9 @@ class ZMQCommunication(BaseCommunication):
         if self.is_initialized:
             return
 
-        self._context = zmq.asyncio.Context()
+        self._context = zmq.asyncio.Context(
+            io_threads=max(2, (os.cpu_count() or 2) // 2)
+        )
         self.initialized_event.set()
 
     async def shutdown(self) -> None:
@@ -128,16 +132,12 @@ class ZMQCommunication(BaseCommunication):
             True if shutdown was successful, False otherwise
         """
         if self.is_shutdown:
-            # logger.debug("ZMQ communication already shutdown")
             return
 
         try:
             if not self.stop_event.is_set():
                 self.stop_event.set()
 
-            # logger.debug(
-            #     f"Shutting down ZMQ communication for client {self.config.client_id}"
-            # )
             await asyncio.gather(
                 *(client.shutdown() for client in self.clients.values())
             )
@@ -146,7 +146,6 @@ class ZMQCommunication(BaseCommunication):
                 self.context.term()
 
             self._context = None
-            # logger.debug("ZMQ communication shutdown successfully")
 
         except asyncio.CancelledError:
             pass
@@ -255,6 +254,7 @@ class ZMQCommunication(BaseCommunication):
                     self.context,
                     self.config.inference_push_pull_address,
                     bind=False,  # Workers are the pushers
+                    socket_ops={zmq.SNDHWM: 0},  # Unlimited send queue
                 )
 
             case PushClientType.CREDIT_DROP:
@@ -268,13 +268,6 @@ class ZMQCommunication(BaseCommunication):
                 return ZMQPushClient(
                     self.context,
                     self.config.credit_return_address,
-                    bind=False,
-                )
-
-            case PushClientType.RECORDS:
-                return ZMQPushClient(
-                    self.context,
-                    self.config.records_address,
                     bind=False,
                 )
 
@@ -301,6 +294,10 @@ class ZMQCommunication(BaseCommunication):
                     self.context,
                     self.config.inference_push_pull_address,
                     bind=True,  # Records manager is the pull
+                    socket_ops={
+                        zmq.RCVBUF: 1024 * 1024 * 32,  # 1GB OS buffer
+                        zmq.RCVHWM: 0,  # Unlimited ZMQ queue
+                    },
                 )
 
             case PullClientType.CREDIT_DROP:
@@ -492,7 +489,6 @@ class ZMQCommunication(BaseCommunication):
         self,
         topic: Topic,
         message: Message,
-        timeout: float = 5.0,
     ) -> Message:
         """Request a message from a target. If the proper ZMQ client type is not
         found, it will be created.
@@ -500,7 +496,6 @@ class ZMQCommunication(BaseCommunication):
         Args:
             topic: The topic to request from
             message: The message to request
-            timeout: The timeout for the request
 
         Returns:
             The response from the target
@@ -526,9 +521,7 @@ class ZMQCommunication(BaseCommunication):
             await self.create_clients(client_type)
 
         try:
-            return await cast(ZMQReqClient, self.clients[client_type]).request(
-                message, timeout
-            )
+            return await cast(ZMQReqClient, self.clients[client_type]).request(message)
         except Exception as e:
             logger.error(f"Exception requesting from {topic}: {e}")
             raise CommunicationRequestError() from e
@@ -567,40 +560,6 @@ class ZMQCommunication(BaseCommunication):
             )
         except Exception as e:
             logger.error(f"Exception registering request handler for {topic}: {e}")
-            raise CommunicationError() from e
-
-    async def respond(self, topic: Topic, response: Message) -> None:
-        """Respond to a request. If the proper ZMQ client type is not found, it
-        will be created.
-
-        Args:
-            topic: The topic to respond to
-            response: The response to send
-
-        Raises:
-            CommunicationRespondError: If there was an error responding to the
-                target
-            CommunicationNotInitializedError: If the communication channels are not
-                initialized
-            CommunicationShutdownError: If the communication channels are shutdown
-        """
-
-        self._ensure_initialized()
-
-        client_type = RepClientType.from_topic(topic)
-
-        if client_type not in self.clients:
-            logger.debug(
-                "Client type %r not found for rep topic %r, creating client",
-                client_type,
-                topic,
-            )
-            await self.create_clients(client_type)
-
-        try:
-            await cast(ZMQRepClient, self.clients[client_type]).respond(topic, response)
-        except Exception as e:
-            logger.error(f"Exception responding to {topic}: {e}")
             raise CommunicationError() from e
 
     async def push(self, topic: Topic, message: Message) -> None:
@@ -667,3 +626,86 @@ class ZMQCommunication(BaseCommunication):
         await cast(ZMQPullClient, self.clients[client_type]).register_pull_callback(
             message_type, callback
         )
+
+
+@CommunicationFactory.register(CommunicationBackend.ZMQ_TCP)
+class ZMQTCPCommunication(BaseZMQCommunication):
+    """ZeroMQ-based implementation of the Communication interface for TCP transport."""
+
+    def __init__(self, config: ZMQTCPTransportConfig | None = None) -> None:
+        """Initialize ZMQ TCP communication.
+
+        Args:
+            config: ZMQTCPTransportConfig object with configuration parameters
+        """
+        super().__init__(config or ZMQTCPTransportConfig())
+
+
+@CommunicationFactory.register(CommunicationBackend.ZMQ_IPC)
+class ZMQIPCCommunication(BaseZMQCommunication):
+    """ZeroMQ-based implementation of the Communication interface for IPC transport."""
+
+    def __init__(self, config: ZMQIPCConfig | None = None) -> None:
+        """Initialize ZMQ IPC communication.
+
+        Args:
+            config: ZMQIPCConfig object with configuration parameters
+        """
+        super().__init__(config or ZMQIPCConfig())
+
+    async def initialize(self) -> None:
+        """Initialize communication channels.
+
+        This method will create the IPC socket directory if needed.
+
+        Raises:
+            CommunicationNotInitializedError: If the communication channels are not
+                initialized
+            CommunicationShutdownError: If the communication channels are shutdown
+        """
+        await super().initialize()
+        self._setup_ipc_directory()
+
+    async def shutdown(self) -> None:
+        """Gracefully shutdown communication channels.
+
+        This method will wait for all clients to shutdown before shutting down
+        the context.
+
+        Raises:
+            CommunicationShutdownError: If the communication channels are shutdown
+        """
+        await super().shutdown()
+        self._cleanup_ipc_sockets()
+
+    def _setup_ipc_directory(self) -> None:
+        """Create IPC socket directory if using IPC transport."""
+        self._ipc_socket_dir = Path(self.config.path)
+        self._ipc_socket_dir.mkdir(parents=True, exist_ok=True)
+        logger.debug(f"Created IPC socket directory: {self._ipc_socket_dir}")
+
+    def _cleanup_ipc_sockets(self) -> None:
+        """Clean up IPC socket files."""
+        if self._ipc_socket_dir and self._ipc_socket_dir.exists():
+            # Remove all .ipc files in the directory
+            ipc_files = glob.glob(str(self._ipc_socket_dir / "*.ipc"))
+            for ipc_file in ipc_files:
+                try:
+                    if os.path.exists(ipc_file):
+                        os.unlink(ipc_file)
+                        logger.debug(f"Removed IPC socket file: {ipc_file}")
+                except OSError as e:
+                    logger.warning(f"Failed to remove IPC socket file {ipc_file}: {e}")
+
+
+@CommunicationFactory.register(CommunicationBackend.ZMQ_INPROC)
+class ZMQInprocCommunication(BaseZMQCommunication):
+    """ZeroMQ-based implementation of the Communication interface for in-process transport."""
+
+    def __init__(self, config: ZMQInprocConfig | None = None) -> None:
+        """Initialize ZMQ in-process communication.
+
+        Args:
+            config: ZMQInprocConfig object with configuration parameters
+        """
+        super().__init__(config or ZMQInprocConfig())

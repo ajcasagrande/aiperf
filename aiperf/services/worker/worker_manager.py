@@ -39,7 +39,7 @@ class WorkerProcess(BaseModel):
     )
 
 
-@ServiceFactory.register(ServiceType.WORKER_MANAGER)
+@ServiceFactory.register(ServiceType.WORKER_MANAGER, override_priority=1000)
 class WorkerManager(BaseComponentService):
     """
     The WorkerManager service is primary responsibility is to pull data from the dataset manager

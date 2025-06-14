@@ -5,6 +5,7 @@ import logging
 
 from aiperf.common.config.endpoint_config import EndPointConfig
 from aiperf.common.messages import ProfileResultsMessage
+from aiperf.data_exporter.console_error_exporter import ConsoleErrorExporter
 from aiperf.data_exporter.console_exporter import ConsoleExporter
 from aiperf.ui.progress_dashboard import SplitScreenDashboardMixin
 
@@ -15,14 +16,17 @@ class ConsoleExporterMixin:
     async def export_console_output(self, message: ProfileResultsMessage) -> None:
         """Export the console output."""
 
-        # TODO: Make this configurable
+        # TODO: Make this configurable, and it should be part of the generic exporting of results
         console_exporter: ConsoleExporter = ConsoleExporter(
             endpoint_config=EndPointConfig(
                 type="console",
                 streaming=True,
             ),
         )
-        console_exporter.export(message.records)
+        console_exporter.export(message)
+
+        console_error_exporter: ConsoleErrorExporter = ConsoleErrorExporter()
+        console_error_exporter.export(message)
 
 
 class AIPerfUI(ConsoleExporterMixin, SplitScreenDashboardMixin):
@@ -36,7 +40,7 @@ class AIPerfUI(ConsoleExporterMixin, SplitScreenDashboardMixin):
     async def process_final_results(self, message: ProfileResultsMessage) -> None:
         """Export the final results."""
         self.logger = logging.getLogger(__name__)
-        self.logger.info("Final results: %s", message.records)
+        self.logger.info("Final results: %s", message)
         self.live.stop()
 
         await self.export_console_output(message)

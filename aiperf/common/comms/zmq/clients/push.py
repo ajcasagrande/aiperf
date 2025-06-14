@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+import asyncio
 import logging
 
 import zmq.asyncio
@@ -50,6 +51,12 @@ class ZMQPushClient(BaseZMQClient):
             # Send data
             await self.socket.send_string(data_json)
             logger.debug("Pushed json data: %s", data_json)
+
+        except zmq.Again:
+            # Queue is full, yield control briefly and retry
+            await asyncio.sleep(0.1)
+            await self.push(message)
+
         except Exception as e:
             logger.error(f"Exception pushing data: {e} {type(e)}")
             raise CommunicationPushError from e

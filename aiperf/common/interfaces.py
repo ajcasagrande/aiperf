@@ -2,12 +2,12 @@
 #  SPDX-License-Identifier: Apache-2.0
 from typing import Generic, Protocol
 
+from aiperf.common.messages import ProfileResultsMessage
 from aiperf.common.record_models import (
     InferenceServerResponse,
     RequestRecord,
 )
 from aiperf.common.types import ConfigT, InputT, OutputT, RequestT, ResponseT
-from aiperf.data_exporter.record import Record
 
 ################################################################################
 # Converter Protocols
@@ -33,19 +33,6 @@ class OutputConverterProtocol(Protocol, Generic[OutputT, ResponseT]):
 ################################################################################
 # Inference Server Client Protocols
 ################################################################################
-
-
-class InferenceClientConfigProtocol(Protocol, Generic[ConfigT]):
-    """Protocol for an inference server client configuration."""
-
-    def __init__(self, client_config: ConfigT) -> None:
-        """Create a new inference server client based on the provided configuration."""
-        ...
-
-    @property
-    def client_config(self) -> ConfigT:
-        """Get the client configuration."""
-        ...
 
 
 class InferenceClientProtocol(Protocol, Generic[ConfigT, RequestT, ResponseT]):
@@ -79,7 +66,9 @@ class InferenceClientProtocol(Protocol, Generic[ConfigT, RequestT, ResponseT]):
         ...
 
     # TODO: the endpoint should be of type EndpointConfig
-    async def send_request(self, endpoint: str, payload: RequestT) -> RequestRecord:
+    async def send_request(
+        self, endpoint: str, payload: RequestT, delayed: bool = False
+    ) -> RequestRecord:
         """Send a request to the inference server.
 
         This method is used to send a request to the inference server.
@@ -87,7 +76,7 @@ class InferenceClientProtocol(Protocol, Generic[ConfigT, RequestT, ResponseT]):
         Args:
             endpoint: The endpoint to send the request to.
             payload: The payload to send to the inference server.
-
+            delayed: Whether the request is delayed.
         Returns:
             The raw response from the inference server.
         """
@@ -106,6 +95,10 @@ class InferenceClientProtocol(Protocol, Generic[ConfigT, RequestT, ResponseT]):
         """
         ...
 
+    async def cleanup(self) -> None:
+        """Cleanup the client."""
+        ...
+
     ################################################################################
     # Post Processor Protocol
     ################################################################################
@@ -122,7 +115,7 @@ class InferenceClientProtocol(Protocol, Generic[ConfigT, RequestT, ResponseT]):
             :param records: The input data to be processed.
             :return: The processed data as a dictionary.
             """
-            pass
+            ...
 
 
 ################################################################################
@@ -137,4 +130,4 @@ class DataExporterProtocol(Protocol):
     that takes a list of Record objects and handles exporting them appropriately.
     """
 
-    def export(self, records: list[Record]) -> None: ...
+    def export(self, message: ProfileResultsMessage) -> None: ...

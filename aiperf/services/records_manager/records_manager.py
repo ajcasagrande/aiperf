@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
 import sys
+from collections import deque
 
 import pandas as pd
 
@@ -11,6 +12,7 @@ from aiperf.common.constants import NANOS_PER_MILLIS
 from aiperf.common.enums import CommandType, MessageType, ServiceType, Topic
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
+    aiperf_task,
     on_cleanup,
     on_configure,
     on_init,
@@ -24,9 +26,13 @@ from aiperf.common.messages import (
     ProfileResultsMessage,
     ProfileStatsMessage,
 )
-from aiperf.common.record_models import RequestRecord
+from aiperf.common.record_models import (
+    ErrorDetails,
+    ErrorDetailsCount,
+    Record,
+    RequestRecord,
+)
 from aiperf.common.service.base_component_service import BaseComponentService
-from aiperf.data_exporter.record import Record
 
 
 @ServiceFactory.register(ServiceType.RECORDS_MANAGER)
@@ -42,8 +48,8 @@ class RecordsManager(BaseComponentService):
         super().__init__(service_config=service_config, service_id=service_id)
         self.logger.debug("Initializing records manager")
 
-        self.records: list[RequestRecord] = []
-        self.error_records: list[RequestRecord] = []
+        self.records: deque[RequestRecord] = deque()
+        self.error_records: deque[RequestRecord] = deque()
 
         # Track per-worker statistics
         self.worker_request_counts: dict[str, int] = {}
@@ -72,16 +78,16 @@ class RecordsManager(BaseComponentService):
             self.process_records,
         )
 
+        await self.comms.register_pull_callback(
+            message_type=MessageType.INFERENCE_RESULTS,
+            callback=self._on_inference_results,
+        )
+
     @on_start
     async def _start(self) -> None:
         """Start the records manager."""
         self.logger.debug("Starting records manager")
         # TODO: Implement records manager start
-        self.logger.debug("Pulling inference results")
-        await self.comms.register_pull_callback(
-            message_type=MessageType.INFERENCE_RESULTS,
-            callback=self._on_inference_results,
-        )
 
     @on_stop
     async def _stop(self) -> None:
@@ -101,6 +107,13 @@ class RecordsManager(BaseComponentService):
         self.logger.debug(f"Configuring records manager with message: {message}")
         # TODO: Implement records manager configuration
 
+    @aiperf_task
+    async def _report_records_task(self) -> None:
+        """Report the records."""
+        while not self.is_shutdown:
+            await self.publish_profile_stats()
+            await asyncio.sleep(1)
+
     async def publish_profile_stats(self) -> None:
         """Publish the profile stats."""
         await self.comms.publish(
@@ -109,11 +122,14 @@ class RecordsManager(BaseComponentService):
                 service_id=self.service_id,
                 error_count=len(self.error_records),
                 completed=len(self.records) + len(self.error_records),
-                worker_stats=self.worker_request_counts,
+                worker_completed=self.worker_request_counts,
+                worker_errors=self.worker_error_counts,
             ),
         )
 
-    async def _on_inference_results(self, message: InferenceResultsMessage) -> None:
+    async def _on_inference_results_internal(
+        self, message: InferenceResultsMessage
+    ) -> None:
         """Handle a inference results message."""
         record = message.record
         worker_id = message.service_id
@@ -143,14 +159,32 @@ class RecordsManager(BaseComponentService):
             self.error_records.append(record)
             self.worker_error_counts[worker_id] += 1
 
-        asyncio.create_task(self.publish_profile_stats())
+    async def _on_inference_results(self, message: InferenceResultsMessage) -> None:
+        """Handle a inference results message."""
+        _ = asyncio.create_task(self._on_inference_results_internal(message))
 
-    async def process_records(self, _: CommandMessage) -> None:
+    async def get_error_summary(self) -> list[ErrorDetailsCount]:
+        """Generate a summary of the error records."""
+        summary: dict[ErrorDetails, int] = {}
+        for record in self.error_records:
+            if record.error is None:
+                continue
+            if record.error not in summary:
+                summary[record.error] = 0
+            summary[record.error] += 1
+
+        return [
+            ErrorDetailsCount(error_details=error_details, count=count)
+            for error_details, count in summary.items()
+        ]
+
+    async def process_records(self, message: CommandMessage) -> None:
         """Process the records.
 
         This method is called when the records manager receives a command to process the records.
         """
         self.logger.debug("Processing records")
+        self.was_cancelled = message.data.cancelled if message.data else False
         # TODO: Implement records processing
         self.logger.info(
             "Processed %d successful records and %d error records",
@@ -172,7 +206,13 @@ class RecordsManager(BaseComponentService):
                 topic=Topic.PROFILE_RESULTS,
                 message=ProfileResultsMessage(
                     service_id=self.service_id,
+                    total=0,
+                    completed=0,
+                    # begin_ns=self.start_time_ns,
+                    # end_ns=self.end_time_ns,
                     records=[],
+                    errors_by_type=[],
+                    was_cancelled=self.was_cancelled,
                 ),
             )
 
@@ -245,7 +285,13 @@ class RecordsManager(BaseComponentService):
         # Create and return ProfileResultsMessage
         return ProfileResultsMessage(
             service_id=self.service_id,
+            total=len(self.records),
+            completed=len(self.records) + len(self.error_records),
+            # begin_ns=self.start_time_ns,
+            # end_ns=self.end_time_ns,
             records=[ttft_record, ttst_record, ttlt_record, itl_record],
+            errors_by_type=await self.get_error_summary(),
+            was_cancelled=self.was_cancelled,
         )
 
 

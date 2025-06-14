@@ -88,27 +88,15 @@ class BaseCommunication(ABC):
         self,
         topic: Topic,
         message: Message,
-        timeout: float = 5.0,
     ) -> Message:
         """Send a request and wait for a response.
 
         Args:
             topic: Topic to send request to
             message: Message to send
-            timeout: Timeout in seconds
 
         Returns:
             Response message if successful
-        """
-        pass
-
-    @abstractmethod
-    async def respond(self, topic: Topic, response: Message) -> None:
-        """Send a response to a request.
-
-        Args:
-            topic: Topic to send response to
-            response: Response message
         """
         pass
 

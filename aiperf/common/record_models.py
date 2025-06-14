@@ -7,8 +7,32 @@ import time
 from typing import Any
 
 from pydantic import BaseModel, Field, SerializeAsAny
+from pydantic.dataclasses import dataclass
 
 from aiperf.common.enums import CaseInsensitiveStrEnum
+
+
+# Temporary Record class to be used by the ConsoleExporter.
+# TODO: Remove once the actual Records classes are fully implemented.
+@dataclass
+class Record:
+    name: str
+    unit: str
+    avg: float | None = None
+    min: float | None = None
+    max: float | None = None
+    p1: float | None = None
+    p5: float | None = None
+    p25: float | None = None
+    p50: float | None = None
+    p75: float | None = None
+    p90: float | None = None
+    p95: float | None = None
+    p99: float | None = None
+    std: float | None = None
+    count: int | None = None
+    streaming_only: bool = False
+
 
 ################################################################################
 # Inference Client Models
@@ -63,6 +87,15 @@ class InferenceServerResponse(BaseModel):
     )
 
 
+class TextResponse(InferenceServerResponse):
+    """Response from a inference client."""
+
+    text: str = Field(
+        ...,
+        description="The text of the response.",
+    )
+
+
 class ErrorDetails(BaseModel):
     """Details about an error."""
 
@@ -77,6 +110,28 @@ class ErrorDetails(BaseModel):
     message: str = Field(
         ...,
         description="The error message.",
+    )
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, ErrorDetails):
+            return False
+        return (
+            self.code == other.code
+            and self.type == other.type
+            and self.message == other.message
+        )
+
+    def __hash__(self) -> int:
+        return hash((self.code, self.type, self.message))
+
+
+class ErrorDetailsCount(BaseModel):
+    """Count of error details."""
+
+    error_details: ErrorDetails
+    count: int = Field(
+        ...,
+        description="The count of the error details.",
     )
 
 
@@ -166,10 +221,25 @@ class RequestRecord(BaseModel):
 
     start_perf_ns: int = Field(
         default_factory=time.perf_counter_ns,
-        description="The start time of the request in nanoseconds since the epoch.",
+        description="The start time of the request in perf_counter_ns.",
+    )
+    end_perf_ns: int | None = Field(
+        default=None,
+        description="The end time of the request in perf_counter_ns.",
+    )
+    recv_start_perf_ns: int | None = Field(
+        default=None,
+        description="The start time of the response in perf_counter_ns.",
+    )
+
+    status: int | None = Field(
+        default=None,
+        description="The HTTPstatus code of the request.",
     )
     # Note: we need to use SerializeAsAny to allow for generic subclass support
-    responses: SerializeAsAny[list[InferenceServerResponse | SSEMessage]] = Field(
+    responses: SerializeAsAny[
+        list[InferenceServerResponse | SSEMessage | TextResponse]
+    ] = Field(
         default_factory=list,
         description="The raw responses received from the request.",
     )
@@ -211,13 +281,18 @@ class RequestRecord(BaseModel):
         """Get the time to the first response in nanoseconds."""
         if not self.valid:
             return None
-        return self.responses[0].perf_ns - self.start_perf_ns
+        return self.responses[0].perf_ns - self.recv_start_perf_ns
 
     @property
     def time_to_second_response_ns(self) -> int | None:
         """Get the time to the second response in nanoseconds."""
         if not self.valid or len(self.responses) < 2:
             return None
+        # first_data = 0
+        # while first_data < len(self.responses) - 1:
+        #     if self.responses[first_data].packets[-1].value == "[DONE]":
+        #         break
+        #     first_data += 1
         return self.responses[1].perf_ns - self.responses[0].perf_ns
 
     @property
@@ -225,16 +300,50 @@ class RequestRecord(BaseModel):
         """Get the time to the last response in nanoseconds."""
         if not self.valid:
             return None
-        return self.responses[-1].perf_ns - self.start_perf_ns
+        if self.end_perf_ns is None or self.start_perf_ns is None:
+            return None
+        return self.end_perf_ns - self.recv_start_perf_ns
 
     @property
     def inter_token_latency_ns(self) -> float | None:
         """Get the interval between responses in nanoseconds."""
         if not self.valid or len(self.responses) < 2:
             return None
+
+        if (
+            hasattr(self.responses[-1], "packets")
+            and self.responses[-1].packets[-1].value == "[DONE]"
+        ):
+            return (self.responses[-2].perf_ns - self.responses[0].perf_ns) / (
+                len(self.responses) - 2
+            )
+
         return (self.responses[-1].perf_ns - self.responses[0].perf_ns) / (
             len(self.responses) - 1
         )
+
+    def token_latency_ns(self, index: int) -> float | None:
+        """Get the latency of a token in nanoseconds."""
+        if not self.valid or len(self.responses) < 1:
+            return None
+        if index == 0:
+            return self.responses[0].perf_ns - self.recv_start_perf_ns
+        return self.responses[index].perf_ns - self.responses[index - 1].perf_ns
+
+    def time_string(self) -> str:
+        """Return a string representation of the request record."""
+        lt = [
+            # f"start_perf_ns={self.start_perf_ns / 1000000:.3f}ms",
+            f"recv_start_perf_ns={(self.recv_start_perf_ns - self.start_perf_ns) / 1000000:.3f}ms",
+            f"end_perf_ns={(self.end_perf_ns - self.start_perf_ns) / 1000000:.3f}ms",
+            f"recv_duration={(self.end_perf_ns - self.recv_start_perf_ns) / 1000000:.3f}ms",
+            f"duration={(self.end_perf_ns - self.start_perf_ns) / 1000000:.3f}ms",
+        ]
+        tt = [
+            f"{self.token_latency_ns(i) / 1000000:.3f}ms"
+            for i in range(len(self.responses))
+        ]
+        return f"RequestRecord({', '.join(lt)}, [{', '.join(tt)}])"
 
 
 class Transaction(BaseModel):
@@ -250,15 +359,15 @@ class Transaction(BaseModel):
     payload: Any = Field(description="The payload of the transaction")
 
 
-class Record(BaseModel):
-    """
-    Represents a record containing a request transaction and its associated response transactions.
-    Attributes:
-        request: The input transaction for the record.
-        responses A list of response transactions corresponding to the request.
-    """
+# class Record(BaseModel):
+#     """
+#     Represents a record containing a request transaction and its associated response transactions.
+#     Attributes:
+#         request: The input transaction for the record.
+#         responses A list of response transactions corresponding to the request.
+#     """
 
-    request: Transaction = Field(description="The request transaction for the record")
-    responses: list[Transaction] = Field(
-        description="A list of response transactions for the record",
-    )
+#     request: Transaction = Field(description="The request transaction for the record")
+#     responses: list[Transaction] = Field(
+#         description="A list of response transactions for the record",
+#     )

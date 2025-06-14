@@ -20,7 +20,6 @@ from aiperf.common.messages import (
 )
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.common.tokenizer import Tokenizer
-from aiperf.services.dataset.generator.prompt import PromptGenerator
 
 
 @ServiceFactory.register(ServiceType.DATASET_MANAGER)
@@ -109,11 +108,12 @@ class DatasetManager(BaseComponentService):
                 # {"role": "system", "content": "You are a helpful assistant."},
                 {
                     "role": "user",
-                    "content": PromptGenerator.create_synthetic_prompt(
-                        tokenizer=self.tokenizer,
-                        prompt_tokens_mean=100,
-                        prompt_tokens_stddev=0,
-                    ),
+                    "content": "IO Sir you say well and well you do conceive And since you do profess to be a suitor You must as we do gratify this gentleman To whom we all rest generally beholding TRANIO Sir I shall not be slack in sign whereof Please ye we may contrive this afternoon And quaff carouses to our mistress health And do as adversaries do in law Strive mightily but eat and drink as friends GRUMIO BIONDELLO O excellent motion Fellows lets be gone HORT",
+                    # "content": PromptGenerator.create_synthetic_prompt(
+                    #     tokenizer=self.tokenizer,
+                    #     prompt_tokens_mean=100,
+                    #     prompt_tokens_stddev=0,
+                    # ),
                 },
             ],
         )

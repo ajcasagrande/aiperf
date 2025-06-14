@@ -14,8 +14,7 @@ from aiperf.common.enums import ServiceState, ServiceType, Topic
 from aiperf.common.exceptions import CommunicationInitializationError
 from aiperf.common.messages import Message, StatusMessage
 from aiperf.common.models import (
-    ZMQCommunicationConfig,
-    ZMQTCPTransportConfig,
+    ZMQInprocConfig,
 )
 
 
@@ -26,9 +25,7 @@ class TestZMQCommunication:
     @pytest.fixture
     def mock_config(self):
         """Return a mock configuration for ZMQCommunication."""
-        return ZMQCommunicationConfig(
-            protocol_config=ZMQTCPTransportConfig(), client_id="test-client"
-        )
+        return ZMQInprocConfig(name="test-client")
 
     @pytest.fixture
     def zmq_communication(self, mock_config):

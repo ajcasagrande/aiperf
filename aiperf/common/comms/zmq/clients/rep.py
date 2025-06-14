@@ -117,7 +117,11 @@ class ZMQRepClient(BaseZMQClient):
         while not self.is_shutdown:
             try:
                 # Receive request
-                request_id, request_json = await self.socket.recv_multipart()
+                try:
+                    request_id, request_json = await self.socket.recv_multipart()
+                except zmq.Again:
+                    continue
+
                 self._response_futures[request_id] = asyncio.Future()
                 asyncio.create_task(self._handle_request(request_id, request_json))
                 response = await self._response_futures[request_id]  # type: ignore
@@ -131,9 +135,6 @@ class ZMQRepClient(BaseZMQClient):
 
             except asyncio.CancelledError:
                 break
-            except zmq.Again:
-                logger.warning("Timeout receiving request")
-                await asyncio.sleep(0.1)
             except Exception as e:
                 logger.error(f"Exception receiving request: {e}")
                 await asyncio.sleep(0.1)

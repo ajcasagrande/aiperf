@@ -145,6 +145,17 @@ class RequestTimers:
             raise ValueError(f"Invalid chunk index: {index}")
         return self.chunk_end_timestamps[index] - self.chunk_start_timestamps[index]
 
+    def chunk_latency(self, index: int) -> int:
+        """Get the latency of a chunk in nanoseconds."""
+        if not self.valid or index < 0 or index >= len(self.chunk_start_timestamps):
+            raise ValueError(f"Invalid chunk index: {index}")
+        if index == 0:
+            return (
+                self.chunk_start_timestamp(index)
+                - self.timestamps[RequestTimerKind.RECV_START]
+            )
+        return self.chunk_start_timestamp(index) - self.chunk_end_timestamp(index - 1)
+
     def duration(self, start: RequestTimerKind, end: RequestTimerKind) -> int | None:
         """Return the duration between start timestamp and end timestamp in nanoseconds.
 
@@ -164,3 +175,16 @@ class RequestTimers:
             return None
 
         return end_ts - start_ts
+
+    def __str__(self) -> str:
+        """Return a string representation of the timers."""
+        lt = [
+            f"{kind.name}: {self.get_timestamp(kind) / 1000000:.3f}ms"
+            for kind in RequestTimerKind
+            if self.get_timestamp(kind) is not None
+        ]
+        lt.extend(
+            f"chunk {i}: {self.chunk_latency(i) / 1000000:.3f}ms"
+            for i in range(self.chunk_count)
+        )
+        return ", ".join(lt)

@@ -51,11 +51,11 @@ class ZMQPullClient(BaseZMQClient):
         while not self.is_shutdown:
             try:
                 message_json = await self.socket.recv_string()
-                logger.debug("Received message from pull socket: %s", message_json)
+                # logger.debug("Received message from pull socket: %s", message_json)
                 _ = asyncio.create_task(self._process_message(message_json))
 
             except zmq.Again:
-                await asyncio.sleep(0.1)
+                pass
             except asyncio.CancelledError:
                 break
             except Exception as e:
@@ -72,8 +72,8 @@ class ZMQPullClient(BaseZMQClient):
 
         # Call callbacks with Message object
         if message.message_type in self._pull_callbacks:
-            await call_all_functions(
-                self._pull_callbacks[message.message_type], message
+            _ = asyncio.create_task(
+                call_all_functions(self._pull_callbacks[message.message_type], message)
             )
         else:
             logger.debug(
