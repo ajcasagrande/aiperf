@@ -8,9 +8,134 @@ from typing import Any
 
 import aiohttp
 
-from aiperf.common.record_models import SSEField, SSEFieldType, SSEMessage
+from aiperf.clients.http.sse_utils import parse_sse_message
+from aiperf.clients.timers import RequestTimerKind, RequestTimers
+from aiperf.common.record_models import (
+    ErrorDetails,
+    GenericHTTPClientConfig,
+    RequestRecord,
+    SSEMessage,
+    TextResponse,
+)
 
 logger = logging.getLogger(__name__)
+
+
+################################################################################
+# OpenAI Inference Client
+################################################################################
+
+logger = logging.getLogger(__name__)
+
+
+class AioHttpClientMixin:
+    """A high-performance inference client for communicating with OpenAI based REST APIs using aiohttp.
+
+    This class is optimized for maximum performance and accurate timing measurements,
+    making it ideal for benchmarking scenarios.
+    """
+
+    def __init__(self, client_config: GenericHTTPClientConfig) -> None:
+        self.client_config = client_config
+        self.tcp_connector = create_tcp_connector()
+        self.timeout = aiohttp.ClientTimeout(
+            total=self.client_config.timeout_ms / 1000.0,
+            connect=self.client_config.timeout_ms / 1000.0,
+            sock_connect=self.client_config.timeout_ms / 1000.0,
+            sock_read=self.client_config.timeout_ms / 1000.0,
+            ceil_threshold=self.client_config.timeout_ms / 1000.0,
+        )
+
+    async def cleanup(self) -> None:
+        """Cleanup the client."""
+        if self.tcp_connector:
+            await self.tcp_connector.close()
+            self.tcp_connector = None
+
+    async def request(
+        self,
+        url: str,
+        payload: str,
+        headers: dict[str, str],
+        delayed: bool = False,
+        **kwargs: dict[str, Any],
+    ) -> RequestRecord:
+        """Send a streaming or non-streaming request to the specified URL with the given payload and headers.
+
+        If the response is an SSE stream, the response will be parsed into a list of SSE messages.
+        Otherwise, the response will be parsed into a TextResponse object.
+        """
+
+        # Initialize RequestTimers for precise timing
+        timers = RequestTimers()
+        record: RequestRecord = RequestRecord(
+            start_perf_ns=time.perf_counter_ns(),
+            delayed=delayed,
+        )
+
+        try:
+            # Make raw HTTP request with precise timing using aiohttp
+            async with aiohttp.ClientSession(
+                connector=self.tcp_connector,
+                timeout=self.timeout,
+                headers=headers,
+                skip_auto_headers=[
+                    *list(headers.keys()),
+                    "User-Agent",
+                    "Accept-Encoding",
+                ],
+                connector_owner=False,
+            ) as session:
+                record.start_perf_ns = timers.capture_timestamp(
+                    RequestTimerKind.REQUEST_START
+                )
+                timers.capture_timestamp(RequestTimerKind.SEND_START)
+                async with session.post(
+                    url, data=payload, headers=headers, **kwargs
+                ) as response:
+                    timers.capture_timestamp(RequestTimerKind.SEND_END)
+                    # Check for HTTP errors
+                    if response.status != 200:
+                        error_text = await response.text()
+                        record.error = ErrorDetails(
+                            code=response.status,
+                            type=response.reason,
+                            message=error_text,
+                        )
+                        return record
+                    record.status = response.status
+                    record.recv_start_perf_ns = timers.capture_timestamp(
+                        RequestTimerKind.RECV_START
+                    )
+
+                    if response.content_type == "text/event-stream":
+                        # Parse SSE stream with optimal performance
+                        messages = await AioHttpSSEStreamReader(
+                            response
+                        ).read_complete_stream()
+                        record.responses.extend(messages)
+                    else:
+                        raw_response = await response.text()
+                        record.end_perf_ns = timers.capture_timestamp(
+                            RequestTimerKind.RECV_END
+                        )
+                        record.responses.append(
+                            TextResponse(
+                                perf_ns=record.end_perf_ns,
+                                text=raw_response,
+                            )
+                        )
+                    record.end_perf_ns = timers.capture_timestamp(
+                        RequestTimerKind.REQUEST_END
+                    )
+
+        except Exception as e:
+            record.end_perf_ns = timers.capture_timestamp(RequestTimerKind.REQUEST_END)
+            logger.error("Error in aiohttp request: %s", str(e))
+            record.error = ErrorDetails(type=e.__class__.__name__, message=str(e))
+
+        logger.error(record.time_string())
+        return record
 
 
 class AioHttpSSEStreamReader:
@@ -26,33 +151,9 @@ class AioHttpSSEStreamReader:
         """
         messages: list[SSEMessage] = []
 
-        # Parsing logic based on official HTML SSE Living Standard:
-        # https://html.spec.whatwg.org/multipage/server-sent-events.html#parsing-an-event-stream
-
         async for raw_message, first_byte_ns, _ in self.__aiter__():
-            # logger.error("Byte range: %.3f micros", (last_byte_ns - first_byte_ns) / 1000)
             # Parse the raw SSE message into a SSEMessage object
-            message = SSEMessage(perf_ns=first_byte_ns)
-            for line in raw_message.split("\n"):
-                if not line:
-                    continue
-
-                parts = line.split(":", 1)
-                if len(parts) < 2:
-                    # Fields without a colon have no value, so the whole line is the field name
-                    message.packets.append(SSEField(name=parts[0].strip(), value=None))
-                    continue
-
-                field_name, value = parts
-
-                if field_name == "":
-                    # Field name is empty, so this is a comment
-                    field_name = SSEFieldType.COMMENT
-
-                message.packets.append(
-                    SSEField(name=field_name.strip(), value=value.strip())
-                )
-
+            message = parse_sse_message(raw_message, first_byte_ns)
             messages.append(message)
 
         return messages
@@ -214,10 +315,10 @@ def create_tcp_connector(**kwargs) -> aiohttp.TCPConnector:
 
         # Buffer size optimizations for streaming
         sock.setsockopt(
-            socket.SOL_SOCKET, socket.SO_RCVBUF, 1024 * 16
+            socket.SOL_SOCKET, socket.SO_RCVBUF, 1024 * 85
         )  # 87380)   # 85KB receive buffer
         sock.setsockopt(
-            socket.SOL_SOCKET, socket.SO_SNDBUF, 1024 * 16
+            socket.SOL_SOCKET, socket.SO_SNDBUF, 1024 * 64
         )  # 65536)   # 64KB send buffer
 
         # Linux-specific TCP optimizations

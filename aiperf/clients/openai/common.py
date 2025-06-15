@@ -9,7 +9,6 @@ from openai.types.embedding import Embedding
 from openai.types.responses.response import Response
 from pydantic import BaseModel, Field
 
-from aiperf.clients.mixins import InferenceClientConfigMixin
 from aiperf.common.interfaces import InferenceClientProtocol
 from aiperf.common.record_models import (
     GenericHTTPClientConfig,
@@ -83,12 +82,22 @@ class OpenAIBaseRequest(BaseModel):
 class OpenAIChatCompletionRequest(OpenAIBaseRequest):
     """Request specific to an OpenAI chat completion."""
 
-    messages: list[Any]
-    max_tokens: int
+    messages: list[Any] = Field(
+        default_factory=list,
+        description="The messages to use for the OpenAI inference client.",
+    )
+    max_tokens: int = Field(
+        default=100,
+        description="The maximum number of tokens to use for the OpenAI inference client.",
+    )
+    stream: bool = Field(
+        default=True,  # TODO: default to True
+        description="Whether to stream the response.",
+    )
 
 
-class OpenAIChatResponsesRequest(OpenAIBaseRequest):
-    """Response specific to an OpenAI responses ."""
+class OpenAIResponsesRequest(OpenAIBaseRequest):
+    """Request specific to OpenAI Responses API."""
 
     input: str
     max_output_tokens: int
@@ -149,9 +158,6 @@ class OpenAIChatCompletionResponse(OpenAIBaseResponse):
 ################################################################################
 # OpenAI Inference Client Mixins / Protocols
 ################################################################################
-
-OpenAIClientConfigMixin = InferenceClientConfigMixin[OpenAIClientConfig]
-"""Type alias for a inference client config mixin that supports OpenAI configuration."""
 
 OpenAIClientProtocol = InferenceClientProtocol[
     OpenAIClientConfig, OpenAIBaseRequest, OpenAIBaseResponse

@@ -63,6 +63,15 @@ class InferenceServerResponse(BaseModel):
     )
 
 
+class TextResponse(InferenceServerResponse):
+    """Response from a inference client."""
+
+    text: str = Field(
+        ...,
+        description="The text of the response.",
+    )
+
+
 class ErrorDetails(BaseModel):
     """Details about an error."""
 
@@ -172,12 +181,19 @@ class RequestRecord(BaseModel):
         default=None,
         description="The end time of the request in perf_counter_ns.",
     )
+    recv_start_perf_ns: int | None = Field(
+        default=None,
+        description="The start time of the response in perf_counter_ns.",
+    )
+
     status: int | None = Field(
         default=None,
         description="The HTTPstatus code of the request.",
     )
     # Note: we need to use SerializeAsAny to allow for generic subclass support
-    responses: SerializeAsAny[list[InferenceServerResponse | SSEMessage]] = Field(
+    responses: SerializeAsAny[
+        list[InferenceServerResponse | SSEMessage | TextResponse]
+    ] = Field(
         default_factory=list,
         description="The raw responses received from the request.",
     )
@@ -219,7 +235,7 @@ class RequestRecord(BaseModel):
         """Get the time to the first response in nanoseconds."""
         if not self.valid:
             return None
-        return self.responses[0].perf_ns - self.start_perf_ns
+        return self.responses[0].perf_ns - self.recv_start_perf_ns
 
     @property
     def time_to_second_response_ns(self) -> int | None:
@@ -240,7 +256,7 @@ class RequestRecord(BaseModel):
             return None
         if self.end_perf_ns is None or self.start_perf_ns is None:
             return None
-        return self.end_perf_ns - self.start_perf_ns
+        return self.end_perf_ns - self.recv_start_perf_ns
 
     @property
     def inter_token_latency_ns(self) -> float | None:
@@ -259,6 +275,29 @@ class RequestRecord(BaseModel):
         return (self.responses[-1].perf_ns - self.responses[0].perf_ns) / (
             len(self.responses) - 1
         )
+
+    def token_latency_ns(self, index: int) -> float | None:
+        """Get the latency of a token in nanoseconds."""
+        if not self.valid or len(self.responses) < 1:
+            return None
+        if index == 0:
+            return self.responses[0].perf_ns - self.recv_start_perf_ns
+        return self.responses[index].perf_ns - self.responses[index - 1].perf_ns
+
+    def time_string(self) -> str:
+        """Return a string representation of the request record."""
+        lt = [
+            # f"start_perf_ns={self.start_perf_ns / 1000000:.3f}ms",
+            f"recv_start_perf_ns={(self.recv_start_perf_ns - self.start_perf_ns) / 1000000:.3f}ms",
+            f"end_perf_ns={(self.end_perf_ns - self.start_perf_ns) / 1000000:.3f}ms",
+            f"recv_duration={(self.end_perf_ns - self.recv_start_perf_ns) / 1000000:.3f}ms",
+            f"duration={(self.end_perf_ns - self.start_perf_ns) / 1000000:.3f}ms",
+        ]
+        tt = [
+            f"{self.token_latency_ns(i) / 1000000:.3f}ms"
+            for i in range(len(self.responses))
+        ]
+        return f"RequestRecord({', '.join(lt)}, [{', '.join(tt)}])"
 
 
 class Transaction(BaseModel):

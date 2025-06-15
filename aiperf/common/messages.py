@@ -8,12 +8,10 @@ from typing import Any, ClassVar, Literal
 
 from pydantic import (
     BaseModel,
-    ConfigDict,
     Field,
     SerializeAsAny,
     model_serializer,
 )
-from typing_extensions import Unpack
 
 from aiperf.common.enums import CommandType, MessageType, ServiceState, ServiceType
 from aiperf.common.record_models import RequestRecord
@@ -43,7 +41,7 @@ class Message(BaseModel):
 
     _message_type_lookup: ClassVar[dict[MessageType, type["Message"]]] = {}
 
-    def __init_subclass__(cls, **kwargs: Unpack[ConfigDict]):
+    def __init_subclass__(cls, **kwargs: dict[str, Any]):
         super().__init_subclass__(**kwargs)
         if hasattr(cls, "message_type"):
             cls._message_type_lookup[cls.message_type] = cls
