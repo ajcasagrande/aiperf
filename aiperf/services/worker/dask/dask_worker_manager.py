@@ -20,6 +20,7 @@ for dynamic worker scaling and efficient task distribution.
 """
 
 import asyncio
+import logging
 import multiprocessing
 import sys
 import time
@@ -31,6 +32,7 @@ from dask.distributed import (
     Client,
     LocalCluster,
 )
+from distributed import Status
 from distributed.comm.core import CommClosedError
 from pydantic import BaseModel, Field, field_validator
 
@@ -42,7 +44,6 @@ from aiperf.common.comms.client_enums import (
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import (
     CaseInsensitiveStrEnum,
-    MessageType,
     ServiceType,
 )
 from aiperf.common.exceptions import (
@@ -52,6 +53,7 @@ from aiperf.common.exceptions import (
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
     aiperf_task,
+    on_cleanup,
     on_configure,
     on_init,
     on_stop,
@@ -61,7 +63,7 @@ from aiperf.common.messages import (
     Message,
 )
 from aiperf.common.service.base_component_service import BaseComponentService
-from aiperf.services.worker import dask_worker
+from aiperf.services.worker.dask import dask_worker
 
 
 class WorkerState(CaseInsensitiveStrEnum):
@@ -99,13 +101,13 @@ class WorkerMetrics:
     """Metrics for a worker instance."""
 
     worker_id: str
-    state: WorkerState
+    state: Status
     cpu_usage: float
     memory_usage: float
     tasks_completed: int
     tasks_failed: int
     uptime: float
-    last_heartbeat: float
+    last_heartbeat_ns: int
 
 
 @dataclass
@@ -126,6 +128,10 @@ class DaskWorkerConfig(BaseModel):
     """Configuration for Dask worker deployment."""
 
     # Cluster configuration
+    cluster_host: str = Field(
+        default="0.0.0.0",
+        description="Host for the Dask cluster",
+    )
     scheduler_port: int = Field(
         default=8786,
         description="Port for the Dask scheduler",
@@ -292,10 +298,10 @@ class DaskWorkerManager(BaseComponentService):
 
         try:
             # Subscribe to credit drops
-            await self.comms.register_pull_callback(
-                message_type=MessageType.CREDIT_DROP,
-                callback=self._on_credit_drop,
-            )
+            # await self.comms.register_pull_callback(
+            #     message_type=MessageType.CREDIT_DROP,
+            #     callback=self._on_credit_drop,
+            # )
 
             await self._setup_directories()
             await self._initialize_cluster()
@@ -319,9 +325,9 @@ class DaskWorkerManager(BaseComponentService):
 
         self.logger.info("Dask worker manager stopped")
 
-        await self._cleanup()
+        # await self._cleanup()
 
-    # @on_cleanup
+    @on_cleanup
     async def _cleanup(self) -> None:
         """Clean up resources."""
         self.logger.info("Cleaning up Dask worker manager")
@@ -395,16 +401,8 @@ class DaskWorkerManager(BaseComponentService):
         """Initialize the Dask cluster."""
         self.logger.info("Initializing Dask cluster")
 
-        cluster_kwargs = {
-            "n_workers": 20,
-            "threads_per_worker": self.config.threads_per_worker,
-            "memory_limit": self.config.memory_limit,
-            "scheduler_port": self.config.scheduler_port,
-            "dashboard_address": f"0.0.0.0:{self.config.dashboard_port}",
-            "silence_logs": True,
-        }
-
         # Add optional directory configurations
+        cluster_kwargs = {}
         if self.config.worker_log_dir:
             cluster_kwargs["worker_options"] = {
                 "local_directory": str(self.config.temp_dir)
@@ -412,7 +410,20 @@ class DaskWorkerManager(BaseComponentService):
                 else None
             }
 
-        self.cluster = LocalCluster(asynchronous=True, **cluster_kwargs)
+        self.cluster = LocalCluster(
+            asynchronous=True,
+            host=self.config.cluster_host,
+            n_workers=self.config.initial_workers,
+            threads_per_worker=self.config.threads_per_worker,
+            memory_limit=self.config.memory_limit,
+            scheduler_port=self.config.scheduler_port,
+            dashboard_address=f"{self.config.cluster_host}:{self.config.dashboard_port}",
+            silence_logs=logging.WARN,
+            processes=True,
+            worker_class=dask_worker.DaskNanny,
+            # worker_class=dask_worker.DaskWorker,
+            **cluster_kwargs,
+        )
         if self.cluster and hasattr(self.cluster, "scheduler_address"):
             self.logger.info(
                 f"Dask cluster initialized with scheduler at: {self.cluster.scheduler_address}"
@@ -426,7 +437,16 @@ class DaskWorkerManager(BaseComponentService):
             raise ServiceInitializationError("Cluster not initialized")
 
         # Create client
-        self.client = await Client(self.cluster, asynchronous=True)
+        self.client = await Client(
+            address=self.cluster,
+            asynchronous=True,
+            set_as_default=True,
+            direct_to_workers=False,
+            connection_limit=50000,
+        )
+
+        for _ in range(self.config.initial_workers):
+            self.client.submit(dask_worker.health_check_task)
 
         # Wait for workers to be ready
         # await self._wait_for_workers(self.config.initial_workers, timeout=60)
@@ -443,21 +463,11 @@ class DaskWorkerManager(BaseComponentService):
             if self.pending_tasks:
                 self.client.cancel(list(self.pending_tasks.keys()))
 
-            # Close client (check if it's async)
-            try:
-                await self.client.close()
-            except TypeError:
-                # If close() is not async, call it synchronously
-                self.client.close()
+            await self.client.close()
             self.client = None
 
         if self.cluster:
-            # Close cluster (check if it's async)
-            try:
-                await self.cluster.close()
-            except TypeError:
-                # If close() is not async, call it synchronously
-                self.cluster.close()
+            await self.cluster.close()
             self.cluster = None
 
     async def _wait_for_workers(self, count: int, timeout: int = 60) -> None:
@@ -480,20 +490,21 @@ class DaskWorkerManager(BaseComponentService):
     async def _on_credit_drop(self, message: Message) -> None:
         """Handle incoming credit drops."""
         self.logger.debug("Received credit drop: %s", message)
+        if not isinstance(message, CreditDropMessage):
+            self.logger.warning("Invalid credit drop message format: %s", message)
+            return
+
+        if not self.client:
+            self.logger.warning("Dask client not available")
+            return
 
         try:
-            # Extract credit drop message with proper type checking
-            # Handle both CreditDropMessage and generic Message with credit payload
-            if isinstance(message, CreditDropMessage):
-                if self.client:
-                    self.client.submit(
-                        dask_worker.process_credit_task,
-                        message,
-                        priority=1,
-                    )
-                self.logger.debug("Credit queued: %s", message)
-            else:
-                self.logger.warning("Invalid credit drop message format: %s", message)
+            self.client.submit(
+                dask_worker.process_credit_task,
+                message,
+                priority=1,
+            )
+            self.logger.debug("Credit queued: %s", message)
 
         except Exception as e:
             self.logger.error("Error processing credit drop: %s", e)
@@ -556,7 +567,7 @@ class DaskWorkerManager(BaseComponentService):
         while not self.is_shutdown:
             try:
                 await self._collect_metrics()
-                await asyncio.sleep(self.config.heartbeat_interval)
+                await asyncio.sleep(5)
 
             except asyncio.CancelledError:
                 self.logger.info("Monitoring loop cancelled")
@@ -589,13 +600,15 @@ class DaskWorkerManager(BaseComponentService):
                         worker_id = result["worker_id"]
                         self.worker_metrics[worker_id] = WorkerMetrics(
                             worker_id=worker_id,
-                            state=WorkerState.RUNNING,
+                            state=result.get("status", Status.running),
                             cpu_usage=result.get("cpu_usage", 0.0),
                             memory_usage=result.get("memory_usage", 0.0),
-                            tasks_completed=0,  # Would need to track this separately
-                            tasks_failed=0,
-                            uptime=0.0,
-                            last_heartbeat=result.get("timestamp", time.time()),
+                            tasks_completed=result.get("completed_tasks", 0),
+                            tasks_failed=result.get("failed_tasks", 0),
+                            uptime=result.get("uptime", 0),
+                            last_heartbeat_ns=result.get(
+                                "timestamp_ns", time.time_ns()
+                            ),
                         )
                         self.logger.info(
                             f"Worker {worker_id} metrics: {self.worker_metrics[worker_id]}"

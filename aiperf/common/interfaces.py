@@ -66,7 +66,9 @@ class InferenceClientProtocol(Protocol, Generic[ConfigT, RequestT, ResponseT]):
         ...
 
     # TODO: the endpoint should be of type EndpointConfig
-    async def send_request(self, endpoint: str, payload: RequestT) -> RequestRecord:
+    async def send_request(
+        self, endpoint: str, payload: RequestT, delayed: bool = False
+    ) -> RequestRecord:
         """Send a request to the inference server.
 
         This method is used to send a request to the inference server.
@@ -74,7 +76,7 @@ class InferenceClientProtocol(Protocol, Generic[ConfigT, RequestT, ResponseT]):
         Args:
             endpoint: The endpoint to send the request to.
             payload: The payload to send to the inference server.
-
+            delayed: Whether the request is delayed.
         Returns:
             The raw response from the inference server.
         """
@@ -91,6 +93,10 @@ class InferenceClientProtocol(Protocol, Generic[ConfigT, RequestT, ResponseT]):
         Returns:
             The parsed response from the inference server.
         """
+        ...
+
+    async def cleanup(self) -> None:
+        """Cleanup the client."""
         ...
 
     ################################################################################

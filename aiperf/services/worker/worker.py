@@ -3,6 +3,7 @@
 import asyncio
 import os
 import sys
+import time
 
 from aiperf.clients.openai.common import OpenAIClientConfig
 from aiperf.common.comms.client_enums import (
@@ -86,15 +87,12 @@ class Worker(BaseService):
         self.inference_client = InferenceClientFactory.create_instance(
             InferenceClientType.OPENAI, config=openai_client_config
         )
-        self.logger.debug("Inference server client initialized")
 
-    @on_init
-    async def _on_init(self) -> None:
-        """Initialize the worker."""
         await self.comms.register_pull_callback(
             message_type=MessageType.CREDIT_DROP,
             callback=self._credit_drop_handler,
         )
+        self.logger.debug("Worker initialized")
 
     async def _credit_drop_handler(self, message: CreditDropMessage) -> None:
         """Handle a credit drop message."""
@@ -115,10 +113,12 @@ class Worker(BaseService):
             # Extract the credit drop message payload
 
             credit_amount = message.amount
-            self.logger.debug("Received %s credit(s)", credit_amount)
+            self.logger.debug(
+                "Received %s credit(s) for %s", credit_amount, message.credit_drop_ns
+            )
 
             async def run_task():
-                record = await self._call_backend_api()
+                record = await self._call_inference_api(message.credit_drop_ns)
                 try:
                     msg = InferenceResultsMessage(
                         service_id=self.service_id,
@@ -157,10 +157,12 @@ class Worker(BaseService):
                 ),
             )
 
-    async def _call_backend_api(self) -> RequestRecord:
-        """Make a call to the backend API."""
+    async def _call_inference_api(
+        self, credit_drop_ns: int | None = None
+    ) -> RequestRecord:
+        """Make a call to the inference API."""
         try:
-            self.logger.debug("Calling backend API")
+            self.logger.debug("Calling inference API")
 
             if not self.inference_client:
                 self.logger.warning(
@@ -208,9 +210,18 @@ class Worker(BaseService):
                 payload={"messages": response.conversation_data},
             )
 
+            delayed = False
+            if credit_drop_ns and credit_drop_ns > time.time_ns():
+                # self.logger.debug("Waiting for request timestamp to be reached")
+                await asyncio.sleep((credit_drop_ns - time.time_ns()) / 1e9)
+            elif credit_drop_ns and credit_drop_ns < time.time_ns():
+                delayed = True
+
             # Send the request to the API
             record = await self.inference_client.send_request(
-                endpoint="v1/chat/completions", payload=formatted_payload
+                endpoint="v1/chat/completions",
+                payload=formatted_payload,
+                delayed=delayed,
             )
 
             if record.valid:

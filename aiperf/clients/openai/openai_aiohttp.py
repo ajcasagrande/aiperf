@@ -51,6 +51,12 @@ class OpenAIClientAioHttp(OpenAIClientConfigMixin):
         super().__init__(client_config)
         self.tcp_connector = self._create_tcp_connector()
 
+    async def cleanup(self) -> None:
+        """Cleanup the client."""
+        if self.tcp_connector:
+            await self.tcp_connector.close()
+            self.tcp_connector = None
+
     def _create_tcp_connector(self) -> aiohttp.TCPConnector:
         """Create a new connector with the given configuration."""
 
@@ -168,11 +174,12 @@ class OpenAIClientAioHttp(OpenAIClientConfigMixin):
             raise ValueError(f"Invalid endpoint: {endpoint}")
 
     async def send_request(
-        self, endpoint: str, payload: OpenAIBaseRequest
+        self, endpoint: str, payload: OpenAIBaseRequest, delayed: bool = False
     ) -> RequestRecord:
         """Send request to the specified endpoint with the given payload."""
         record: RequestRecord = RequestRecord(
             start_perf_ns=time.perf_counter_ns(),
+            delayed=delayed,
         )
 
         try:

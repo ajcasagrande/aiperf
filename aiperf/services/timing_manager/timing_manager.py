@@ -122,6 +122,8 @@ class TimingManager(BaseComponentService):
 
         time.sleep(1)
 
+        drop_at = time.time_ns() + 1_000_000_000
+
         while not self.stop_event.is_set():
             try:
                 if not self._credits_available:
@@ -141,7 +143,7 @@ class TimingManager(BaseComponentService):
                         message=CreditDropMessage(
                             service_id=self.service_id,
                             amount=1,
-                            credit_drop_ns=time.perf_counter_ns(),
+                            credit_drop_ns=drop_at,
                         ),
                     )
 
