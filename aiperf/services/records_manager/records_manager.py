@@ -118,6 +118,12 @@ class RecordsManager(BaseComponentService):
         record = message.record
         worker_id = message.service_id
 
+        # self.logger.error(
+        #     "Received inference results from worker %s: %s",
+        #     worker_id,
+        #     record,
+        # )
+
         # Initialize worker counters if not seen before
         if worker_id not in self.worker_request_counts:
             self.worker_request_counts[worker_id] = 0

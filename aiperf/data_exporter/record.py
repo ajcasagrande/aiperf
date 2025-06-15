@@ -10,7 +10,7 @@ from dataclasses import dataclass
 class Record:
     name: str
     unit: str
-    avg: float
+    avg: float | None = None
     min: float | None = None
     max: float | None = None
     p1: float | None = None

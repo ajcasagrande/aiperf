@@ -166,7 +166,15 @@ class RequestRecord(BaseModel):
 
     start_perf_ns: int = Field(
         default_factory=time.perf_counter_ns,
-        description="The start time of the request in nanoseconds since the epoch.",
+        description="The start time of the request in perf_counter_ns.",
+    )
+    end_perf_ns: int | None = Field(
+        default=None,
+        description="The end time of the request in perf_counter_ns.",
+    )
+    status: int | None = Field(
+        default=None,
+        description="The HTTPstatus code of the request.",
     )
     # Note: we need to use SerializeAsAny to allow for generic subclass support
     responses: SerializeAsAny[list[InferenceServerResponse | SSEMessage]] = Field(
@@ -218,6 +226,11 @@ class RequestRecord(BaseModel):
         """Get the time to the second response in nanoseconds."""
         if not self.valid or len(self.responses) < 2:
             return None
+        # first_data = 0
+        # while first_data < len(self.responses) - 1:
+        #     if self.responses[first_data].packets[-1].value == "[DONE]":
+        #         break
+        #     first_data += 1
         return self.responses[1].perf_ns - self.responses[0].perf_ns
 
     @property
@@ -225,13 +238,24 @@ class RequestRecord(BaseModel):
         """Get the time to the last response in nanoseconds."""
         if not self.valid:
             return None
-        return self.responses[-1].perf_ns - self.start_perf_ns
+        if self.end_perf_ns is None or self.start_perf_ns is None:
+            return None
+        return self.end_perf_ns - self.start_perf_ns
 
     @property
     def inter_token_latency_ns(self) -> float | None:
         """Get the interval between responses in nanoseconds."""
         if not self.valid or len(self.responses) < 2:
             return None
+
+        if (
+            hasattr(self.responses[-1], "packets")
+            and self.responses[-1].packets[-1].value == "[DONE]"
+        ):
+            return (self.responses[-2].perf_ns - self.responses[0].perf_ns) / (
+                len(self.responses) - 2
+            )
+
         return (self.responses[-1].perf_ns - self.responses[0].perf_ns) / (
             len(self.responses) - 1
         )

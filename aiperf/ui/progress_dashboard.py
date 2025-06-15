@@ -111,7 +111,7 @@ class ProfileProgressDashboardMixin(ConsoleUIMixin):
             TimeElapsedColumn(),
             TimeRemainingColumn(),
             console=self.console,
-            expand=True,
+            expand=False,
         )
 
     def _refresh_progress_dashboard(self) -> Panel:
@@ -184,7 +184,7 @@ class ProfileProgressDashboardMixin(ConsoleUIMixin):
             title="[bold blue]AIPerf Profile Dashboard",
             border_style="blue",
             padding=(1, 2),
-            expand=True,
+            expand=False,
         )
 
     @on_stop
