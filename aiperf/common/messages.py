@@ -14,8 +14,7 @@ from pydantic import (
 )
 
 from aiperf.common.enums import CommandType, MessageType, ServiceState, ServiceType
-from aiperf.common.record_models import RequestRecord
-from aiperf.data_exporter.record import Record
+from aiperf.common.record_models import ErrorDetailsCount, Record, RequestRecord
 
 ################################################################################
 # Abstract Base Message Models
@@ -187,6 +186,15 @@ class HeartbeatMessage(BaseStatusMessage):
     state: ServiceState = ServiceState.RUNNING
 
 
+class ProcessRecordsCommandData(BaseModel):
+    """Data to send with the process records command."""
+
+    cancelled: bool = Field(
+        default=False,
+        description="Whether the profile run was cancelled",
+    )
+
+
 class CommandMessage(BaseServiceMessage):
     """Message containing command data.
     This message is sent by the system controller to a service to command it to do something.
@@ -219,7 +227,7 @@ class CommandMessage(BaseServiceMessage):
         "If both `target_service_type` and `target_service_id` are None, the command is "
         "sent to all services.",
     )
-    data: SerializeAsAny[BaseModel | None] = Field(
+    data: SerializeAsAny[ProcessRecordsCommandData | BaseModel | None] = Field(
         default=None,
         description="Data to send with the command",
     )
@@ -329,6 +337,27 @@ class ProfileResultsMessage(BaseServiceMessage):
     records: SerializeAsAny[list[Record]] = Field(
         ..., description="The records of the profile results"
     )
+    total: int = Field(
+        ..., description="The total number of inference requests to be made"
+    )
+    completed: int = Field(
+        ..., description="The number of inference requests completed"
+    )
+    # begin_ns: int = Field(
+    #     ..., description="The start time of the profile run in nanoseconds"
+    # )
+    # end_ns: int = Field(
+    #     ...,
+    #     description="The end time of the profile run in nanoseconds"
+    # )
+    was_cancelled: bool = Field(
+        default=False,
+        description="Whether the profile run was cancelled early",
+    )
+    errors_by_type: list[ErrorDetailsCount] = Field(
+        default_factory=list,
+        description="A list of the unique error details and their counts",
+    )
 
 
 class ProfileProgressMessage(BaseServiceMessage):
@@ -360,7 +389,11 @@ class ProfileStatsMessage(BaseServiceMessage):
 
     error_count: int = Field(default=0, description="The number of errors encountered")
     completed: int = Field(default=0, description="The number of requests completed")
-    worker_stats: dict[str, int] = Field(
+    worker_completed: dict[str, int] = Field(
         default_factory=dict,
         description="Per-worker request completion counts, keyed by worker service_id",
+    )
+    worker_errors: dict[str, int] = Field(
+        default_factory=dict,
+        description="Per-worker error counts, keyed by worker service_id",
     )

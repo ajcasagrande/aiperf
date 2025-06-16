@@ -2,12 +2,12 @@
 #  SPDX-License-Identifier: Apache-2.0
 from typing import Generic, Protocol
 
+from aiperf.common.messages import ProfileResultsMessage
 from aiperf.common.record_models import (
     InferenceServerResponse,
     RequestRecord,
 )
 from aiperf.common.types import ConfigT, InputT, OutputT, RequestT, ResponseT
-from aiperf.data_exporter.record import Record
 
 ################################################################################
 # Converter Protocols
@@ -130,4 +130,4 @@ class DataExporterProtocol(Protocol):
     that takes a list of Record objects and handles exporting them appropriately.
     """
 
-    def export(self, records: list[Record]) -> None: ...
+    def export(self, message: ProfileResultsMessage) -> None: ...

@@ -73,8 +73,9 @@ class Worker(BaseService):
         """Initialize worker-specific components."""
         self.logger.debug("Initializing worker")
 
-        # Get API key from environment variable or use a default for testing
-        api_key = os.environ.get("OPENAI_API_KEY", "sk-fakeai-1234567890abcdef")
+        # TODO: better way to get the API key
+        # Get API key from environment variable
+        api_key = os.environ.get("OPENAI_API_KEY", None)
 
         # Create OpenAI client configuration
         openai_client_config = OpenAIClientConfig(

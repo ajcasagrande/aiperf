@@ -7,7 +7,8 @@ from rich.table import Table
 from aiperf.common.config.endpoint_config import EndPointConfig
 from aiperf.common.enums import DataExporterType
 from aiperf.common.factories import DataExporterFactory
-from aiperf.data_exporter.record import Record
+from aiperf.common.messages import ProfileResultsMessage
+from aiperf.common.record_models import Record
 
 
 @DataExporterFactory.register(DataExporterType.CONSOLE)
@@ -23,14 +24,15 @@ class ConsoleExporter:
         self.endpoint_type = endpoint_config.type
         self.streaming = endpoint_config.streaming
 
-    def export(self, records: list[Record]) -> None:
+    def export(self, results: ProfileResultsMessage) -> None:
         table = Table(title=self._get_title())
         table.add_column("Metric", justify="right", style="cyan")
         for key in self.STAT_COLUMN_KEYS:
             table.add_column(key, justify="right", style="green")
-        self._construct_table(table, records)
+        self._construct_table(table, results.records)
 
         console = Console()
+        console.print("\n")
         console.print(table)
 
     def _construct_table(self, table: Table, records: list[Record]) -> None:

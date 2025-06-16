@@ -35,6 +35,7 @@ from aiperf.common.hooks import (
 from aiperf.common.messages import (
     CreditsCompleteMessage,
     HeartbeatMessage,
+    ProcessRecordsCommandData,
     ProfileResultsMessage,
     ProfileStatsMessage,
     RegistrationMessage,
@@ -121,6 +122,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             await self.send_command_to_service(
                 target_service_id=None,
                 command=CommandType.PROCESS_RECORDS,
+                data=ProcessRecordsCommandData(cancelled=True),
             )
 
     @on_init
@@ -190,6 +192,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             await self.send_command_to_service(
                 target_service_id=None,
                 command=CommandType.PROCESS_RECORDS,
+                data=ProcessRecordsCommandData(cancelled=True),
             )
         else:
             self.stop_event.set()
@@ -310,6 +313,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             await self.send_command_to_service(
                 target_service_id=None,
                 command=CommandType.PROCESS_RECORDS,
+                data=ProcessRecordsCommandData(cancelled=False),
             )
 
     async def _process_profile_results_message(

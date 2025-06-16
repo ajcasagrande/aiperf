@@ -134,7 +134,7 @@ class AioHttpClientMixin:
             logger.error("Error in aiohttp request: %s", str(e))
             record.error = ErrorDetails(type=e.__class__.__name__, message=str(e))
 
-        logger.error(record.time_string())
+        # logger.error(record.time_string())
         return record
 
 

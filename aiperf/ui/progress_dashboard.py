@@ -228,7 +228,7 @@ class ProfileProgressDashboardMixin(ConsoleUIMixin):
         )
 
         # Update the live display
-        self.live.update(self._refresh_progress_dashboard())
+        self.live.update(self._refresh_progress_dashboard(), refresh=True)
 
     def update_profile_stats(self, message: ProfileStatsMessage) -> None:
         """Update the profile stats."""
@@ -241,7 +241,7 @@ class ProfileProgressDashboardMixin(ConsoleUIMixin):
             self.error_count / self.total_completed if self.total_completed > 0 else 0.0
         )
 
-        self.live.update(self._refresh_progress_dashboard())
+        self.live.update(self._refresh_progress_dashboard(), refresh=True)
 
 
 class SplitScreenDashboardMixin(ProfileProgressDashboardMixin):
@@ -313,7 +313,7 @@ class SplitScreenDashboardMixin(ProfileProgressDashboardMixin):
         )
 
         # Update the live display with split screen layout
-        self.live.update(self._refresh_split_screen_dashboard())
+        self.live.update(self._refresh_split_screen_dashboard(), refresh=True)
 
     def update_profile_stats(self, message: ProfileStatsMessage) -> None:
         """Update the profile stats with split screen display."""
@@ -326,4 +326,4 @@ class SplitScreenDashboardMixin(ProfileProgressDashboardMixin):
         )
         self.total_completed = message.completed
 
-        self.live.update(self._refresh_split_screen_dashboard())
+        self.live.update(self._refresh_split_screen_dashboard(), refresh=True)

@@ -22,7 +22,7 @@ class ConsoleUIMixin(HooksMixin):
     def __init__(self) -> None:
         super().__init__()
         self.console = Console()
-        self.live: Live = Live(console=self.console)
+        self.live: Live = Live(console=self.console, auto_refresh=False)
 
     async def initialize(self) -> None:
         """Initialize the console UI."""

@@ -108,7 +108,7 @@ class DatasetManager(BaseComponentService):
                 # {"role": "system", "content": "You are a helpful assistant."},
                 {
                     "role": "user",
-                    "content": "softly smiteth That from the cold stone sparks of fire do fly Whereat a waxen torch forthwith he lighteth Which must be lodestar to his lustful eye And to the flame thus speaks advisedly As from this cold flint I enforced this fire So Lucrece must I force to my desire Here pale with fear he doth premeditate The dangers of his loathsome enterprise And in his inward mind he doth debate What following sorrow may on this arise Then looking scorn",
+                    "content": "IO Sir you say well and well you do conceive And since you do profess to be a suitor You must as we do gratify this gentleman To whom we all rest generally beholding TRANIO Sir I shall not be slack in sign whereof Please ye we may contrive this afternoon And quaff carouses to our mistress health And do as adversaries do in law Strive mightily but eat and drink as friends GRUMIO BIONDELLO O excellent motion Fellows lets be gone HORT",
                     # "content": PromptGenerator.create_synthetic_prompt(
                     #     tokenizer=self.tokenizer,
                     #     prompt_tokens_mean=100,

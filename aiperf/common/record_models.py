@@ -7,8 +7,32 @@ import time
 from typing import Any
 
 from pydantic import BaseModel, Field, SerializeAsAny
+from pydantic.dataclasses import dataclass
 
 from aiperf.common.enums import CaseInsensitiveStrEnum
+
+
+# Temporary Record class to be used by the ConsoleExporter.
+# TODO: Remove once the actual Records classes are fully implemented.
+@dataclass
+class Record:
+    name: str
+    unit: str
+    avg: float | None = None
+    min: float | None = None
+    max: float | None = None
+    p1: float | None = None
+    p5: float | None = None
+    p25: float | None = None
+    p50: float | None = None
+    p75: float | None = None
+    p90: float | None = None
+    p95: float | None = None
+    p99: float | None = None
+    std: float | None = None
+    count: int | None = None
+    streaming_only: bool = False
+
 
 ################################################################################
 # Inference Client Models
@@ -86,6 +110,28 @@ class ErrorDetails(BaseModel):
     message: str = Field(
         ...,
         description="The error message.",
+    )
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, ErrorDetails):
+            return False
+        return (
+            self.code == other.code
+            and self.type == other.type
+            and self.message == other.message
+        )
+
+    def __hash__(self) -> int:
+        return hash((self.code, self.type, self.message))
+
+
+class ErrorDetailsCount(BaseModel):
+    """Count of error details."""
+
+    error_details: ErrorDetails
+    count: int = Field(
+        ...,
+        description="The count of the error details.",
     )
 
 
@@ -313,15 +359,15 @@ class Transaction(BaseModel):
     payload: Any = Field(description="The payload of the transaction")
 
 
-class Record(BaseModel):
-    """
-    Represents a record containing a request transaction and its associated response transactions.
-    Attributes:
-        request: The input transaction for the record.
-        responses A list of response transactions corresponding to the request.
-    """
+# class Record(BaseModel):
+#     """
+#     Represents a record containing a request transaction and its associated response transactions.
+#     Attributes:
+#         request: The input transaction for the record.
+#         responses A list of response transactions corresponding to the request.
+#     """
 
-    request: Transaction = Field(description="The request transaction for the record")
-    responses: list[Transaction] = Field(
-        description="A list of response transactions for the record",
-    )
+#     request: Transaction = Field(description="The request transaction for the record")
+#     responses: list[Transaction] = Field(
+#         description="A list of response transactions for the record",
+#     )
