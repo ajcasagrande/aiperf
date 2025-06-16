@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 import pytest
 from pydantic import BaseModel, Field
 
-from aiperf.common.comms.zmq import ZMQCommunication
+from aiperf.common.comms.zmq import BaseZMQCommunication
 from aiperf.common.enums import MessageType, ServiceState, ServiceType, Topic
 from aiperf.common.messages import Message, StatusMessage
 
@@ -45,7 +45,7 @@ def mock_zmq_communication() -> MagicMock:
     Returns:
         A MagicMock configured to behave like ZMQCommunication
     """
-    mock_comm = MagicMock(spec=ZMQCommunication)
+    mock_comm = MagicMock(spec=BaseZMQCommunication)
 
     # Configure basic behavior
     mock_comm.initialize.return_value = None
@@ -97,11 +97,5 @@ def mock_zmq_communication() -> MagicMock:
         )
 
     mock_comm.request.side_effect = mock_request
-
-    async def mock_respond(target: str, response: Message) -> None:
-        """Mock implementation of respond that stores responses by target."""
-        mock_comm.mock_data.responses[target] = response
-
-    mock_comm.respond.side_effect = mock_respond
 
     return mock_comm

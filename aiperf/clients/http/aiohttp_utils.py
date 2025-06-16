@@ -25,8 +25,6 @@ logger = logging.getLogger(__name__)
 # OpenAI Inference Client
 ################################################################################
 
-logger = logging.getLogger(__name__)
-
 
 class AioHttpClientMixin:
     """A high-performance inference client for communicating with OpenAI based REST APIs using aiohttp.
@@ -134,7 +132,6 @@ class AioHttpClientMixin:
             logger.error("Error in aiohttp request: %s", str(e))
             record.error = ErrorDetails(type=e.__class__.__name__, message=str(e))
 
-        # logger.error(record.time_string())
         return record
 
 
@@ -157,58 +154,6 @@ class AioHttpSSEStreamReader:
             messages.append(message)
 
         return messages
-
-    # async def __aiter__(self, chunk_size: int = 1024 * 16) -> typing.AsyncIterator[tuple[str, int, int]]:
-    #     """Iterate over the SSE stream in a performant manner and return a tuple of the
-    #     raw SSE message, the perf_counter_ns of the first byte, and the perf_counter_ns of the last byte.
-    #     This provides the most accurate timing information possible without any delays due to the nature of
-    #     the aiohttp library. The first byte is read immediately to capture the timestamp of the first byte,
-    #     and the last byte is read after the rest of the chunk is read to capture the timestamp of the last byte.
-
-    #     Returns:
-    #         An async iterator of tuples of the raw SSE message, the perf_counter_ns of the first byte, and the perf_counter_ns of the last byte.
-    #     """
-
-    #     while not self.response.content.at_eof():
-    #         # Read the first byte of the SSE stream
-    #         chunk = await self.response.content.read(500)
-    #         chunk_ns_first_byte = time.perf_counter_ns()
-    #         if not chunk:
-    #             break
-    #         if not chunk.endswith(b"\n\n"):
-    #             logger.error("Chunk does not end with a blank line: %s", chunk)
-    #             break
-
-    #         try:
-    #             # Use the fastest available decoder
-    #             yield chunk.decode("utf-8").strip(), chunk_ns_first_byte, chunk_ns_first_byte
-    #         except UnicodeDecodeError:
-    #             # Handle potential encoding issues gracefully
-    #             yield chunk.decode("utf-8", errors="replace").strip(), chunk_ns_first_byte, chunk_ns_first_byte
-
-    # # # Read the rest of the SSE stream until the next blank line
-    # # if chunk_len > 0:
-    # #     chunk = b""
-    # #     while True:
-    # #         segment = await self.response.content.read(chunk_len)
-    # #         if not segment:
-    # #             break
-    # #         chunk += segment
-    # # else:
-    # # chunk = await self.response.content.readuntil(b"\n\n")
-    # chunk = await self.response.content.read(chunk_size)
-    # chunk_ns_last_byte = time.perf_counter_ns()
-
-    # if not chunk:
-    #     break
-    # chunk = chunk + chunk
-
-    # try:
-    #     # Use the fastest available decoder
-    #     yield chunk.decode("utf-8").strip(), chunk_ns_first_byte, chunk_ns_last_byte
-    # except UnicodeDecodeError:
-    #     # Handle potential encoding issues gracefully
-    #     yield chunk.decode("utf-8", errors="replace").strip(), chunk_ns_first_byte, chunk_ns_last_byte
 
     async def __aiter__(
         self, chunk_size: int = 8192
@@ -251,38 +196,6 @@ class AioHttpSSEStreamReader:
                     chunk_ns_first_byte,
                     chunk_ns_last_byte,
                 )
-
-    # async def __aiter__(self) -> typing.AsyncIterator[tuple[str, int]]:
-    #     """Iterate over the SSE stream in a performant manner and return a tuple of the
-    #     raw SSE message and the perf_counter_ns of the chunk. This provides the most
-    #     accurate timing information possible without any delays due to the nature of
-    #     the aiohttp library.
-
-    #     Returns:
-    #         An async iterator of tuples of the raw SSE message and the perf_counter_ns of the chunk.
-    #     """
-    #     while not self.response.content.at_eof():
-
-    #         # Wait for the next chunk to be available and immediately capture the timestamp.
-    #         # This will give us the most accurate timing information possible without any delays.
-    #         # due to the nature of the aiohttp library, this is the best we can do.
-    #         # await self.response.content._wait("read")
-    #         # chunk_ns = time.perf_counter_ns()
-
-    #         # In SSE streams, each message is delimited by a blank line (\n\n).
-    #         # Read the full raw SSE message.
-    #         chunk = await self.response.content.readuntil(b"\n\n")
-    #         chunk_ns = time.perf_counter_ns()
-
-    #         if not chunk:
-    #             break
-
-    #         try:
-    #             # Use the fastest available decoder
-    #             yield chunk.decode("utf-8").strip(), chunk_ns
-    #         except UnicodeDecodeError:
-    #             # Handle potential encoding issues gracefully
-    #             yield chunk.decode("utf-8", errors="replace").strip(), chunk_ns
 
 
 def create_tcp_connector(**kwargs) -> aiohttp.TCPConnector:

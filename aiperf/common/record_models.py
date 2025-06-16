@@ -97,7 +97,7 @@ class TextResponse(InferenceServerResponse):
 
 
 class ErrorDetails(BaseModel):
-    """Details about an error."""
+    """Encapsulates details about an error."""
 
     code: int | None = Field(
         default=None,
@@ -170,7 +170,9 @@ class SSEMessage(InferenceServerResponse):
 
     # Note: "fields" is a restricted keyword in pydantic
     packets: list[SSEField] = Field(
-        default_factory=list, description="The fields contained in the message."
+        default_factory=list,
+        description="The fields contained in the message.",
+        alias="fields",
     )
 
 

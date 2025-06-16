@@ -24,8 +24,8 @@ class ConsoleExporter:
         self.endpoint_type = endpoint_config.type
         self.streaming = endpoint_config.streaming
 
-    def export(self, results: ProfileResultsMessage) -> None:
-        table = Table(title=self._get_title())
+    def export(self, results: ProfileResultsMessage, width: int | None = None) -> None:
+        table = Table(title=self._get_title(), width=width)
         table.add_column("Metric", justify="right", style="cyan")
         for key in self.STAT_COLUMN_KEYS:
             table.add_column(key, justify="right", style="green")

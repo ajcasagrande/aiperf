@@ -1,12 +1,11 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-from unittest.mock import MagicMock
-
 import pytest
 
 from aiperf.common.config.endpoint_config import EndPointConfig
+from aiperf.common.messages import ProfileResultsMessage
+from aiperf.common.record_models import Record
 from aiperf.data_exporter import ConsoleExporter
-from aiperf.data_exporter.record import Record
 
 
 @pytest.fixture
@@ -15,57 +14,62 @@ def endpoint_config() -> EndPointConfig:
 
 
 @pytest.fixture
-def sample_records() -> list[Record]:
-    return [
-        Record(
-            name="Time to First Token",
-            unit="ms",
-            avg=120.5,
-            min=110.0,
-            max=130.0,
-            p99=128.0,
-            p90=125.0,
-            p75=122.0,
-        ),
-        Record(
-            name="Request Latency",
-            unit="ms",
-            avg=15.3,
-            min=12.1,
-            max=21.4,
-            p99=20.5,
-            p90=18.7,
-            p75=16.2,
-        ),
-        Record(
-            name="Inter Token Latency",
-            unit="ms",
-            avg=3.7,
-            min=2.9,
-            max=5.1,
-            p99=4.9,
-            p90=4.5,
-            p75=4.0,
-            streaming_only=True,
-        ),
-        Record(
-            name="Request Throughput",
-            unit="per sec",
-            avg=95.0,
-            min=None,
-            max=None,
-            p99=None,
-            p90=None,
-            p75=None,
-        ),
-    ]
+def sample_records() -> ProfileResultsMessage:
+    return ProfileResultsMessage(
+        records=[
+            Record(
+                name="Time to First Token",
+                unit="ms",
+                avg=120.5,
+                min=110.0,
+                max=130.0,
+                p99=128.0,
+                p90=125.0,
+                p75=122.0,
+            ),
+            Record(
+                name="Request Latency",
+                unit="ms",
+                avg=15.3,
+                min=12.1,
+                max=21.4,
+                p99=20.5,
+                p90=18.7,
+                p75=16.2,
+            ),
+            Record(
+                name="Inter Token Latency",
+                unit="ms",
+                avg=3.7,
+                min=2.9,
+                max=5.1,
+                p99=4.9,
+                p90=4.5,
+                p75=4.0,
+                streaming_only=True,
+            ),
+            Record(
+                name="Request Throughput",
+                unit="per sec",
+                avg=95.0,
+                min=None,
+                max=None,
+                p99=None,
+                p90=None,
+                p75=None,
+            ),
+        ],
+        service_id="test-service",
+        total=100,
+        completed=100,
+    )
 
 
 class TestConsoleExporter:
     def test_export_prints_expected_table(
         self, endpoint_config, sample_records, capsys
     ):
-        exporter = ConsoleExporter(endpoint_config, MagicMock(), MagicMock())
+        exporter = ConsoleExporter(endpoint_config)
         exporter.export(sample_records, width=100)  # fixed width for consistent output
         captured = capsys.readouterr()
         output = captured.out
@@ -92,7 +96,7 @@ class TestConsoleExporter:
         should_skip: bool,
     ):
         endpoint_config.streaming = enable_streaming
-        exporter = ConsoleExporter(endpoint_config, MagicMock(), MagicMock())
+        exporter = ConsoleExporter(endpoint_config)
         record = Record(
             name="Test Metric",
             unit="ms",
@@ -102,7 +106,7 @@ class TestConsoleExporter:
         assert exporter._should_skip(record) is should_skip
 
     def test_format_row_formats_values_correctly(self, endpoint_config: EndPointConfig):
-        exporter = ConsoleExporter(endpoint_config, MagicMock(), MagicMock())
+        exporter = ConsoleExporter(endpoint_config)
         record = Record(
             name="Request Latency",
             unit="ms",
@@ -117,12 +121,12 @@ class TestConsoleExporter:
         row = exporter._format_row(record)
         assert row[0] == "Request Latency (ms)"
         assert row[1] == "10.12"
-        assert row[2] == "N/A"
+        assert row[2] == "[dim]N/A[/dim]"
         assert row[3] == "20.00"
-        assert row[4] == "N/A"
+        assert row[4] == "[dim]N/A[/dim]"
         assert row[5] == "15.50"
         assert row[6] == "12.30"
 
     def test_get_title_returns_expected_string(self, endpoint_config: EndPointConfig):
-        exporter = ConsoleExporter(endpoint_config, MagicMock(), MagicMock())
+        exporter = ConsoleExporter(endpoint_config)
         assert exporter._get_title() == "NVIDIA AIPerf | LLM Metrics"

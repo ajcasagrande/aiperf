@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from aiperf.common.comms.client_enums import PubClientType, SubClientType
-from aiperf.common.comms.zmq import ZMQCommunication
+from aiperf.common.comms.zmq import BaseZMQCommunication
 from aiperf.common.enums import ServiceState, ServiceType, Topic
 from aiperf.common.exceptions import CommunicationInitializationError
 from aiperf.common.messages import Message, StatusMessage
@@ -33,7 +33,7 @@ class TestZMQCommunication:
         with patch("zmq.asyncio.Context", MagicMock()) as mock_context:
             # Set up the context mock to return properly
             mock_context.return_value = MagicMock()
-            comm = ZMQCommunication(config=mock_config)
+            comm = BaseZMQCommunication(config=mock_config)
             comm._context = mock_context
             return comm
 
