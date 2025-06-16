@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
-import logging
 from collections.abc import Callable, Coroutine
 from typing import Any
 
@@ -9,14 +8,11 @@ import zmq.asyncio
 
 from aiperf.common.comms.zmq.clients.base import BaseZMQClient
 from aiperf.common.enums import MessageType
-from aiperf.common.exceptions import CommunicationResponseError
 from aiperf.common.hooks import aiperf_task, on_cleanup
 from aiperf.common.models.messages import ErrorMessage, Message
 
-logger = logging.getLogger(__name__)
 
-
-class ZMQRepClient(BaseZMQClient):
+class ZMQRouterRepClient(BaseZMQClient):
     def __init__(
         self,
         context: zmq.asyncio.Context,
@@ -25,7 +21,7 @@ class ZMQRepClient(BaseZMQClient):
         socket_ops: dict | None = None,
     ) -> None:
         """
-        Initialize the ZMQ REP class.
+        Initialize the ZMQ Router (Rep) client class.
 
         Args:
             context (zmq.asyncio.Context): The ZMQ context.
@@ -45,29 +41,6 @@ class ZMQRepClient(BaseZMQClient):
     async def _cleanup(self) -> None:
         self._request_handlers.clear()
 
-    async def respond(self, response: Message) -> None:
-        """Send a response to a request.
-
-        Args:
-            response: Response message (must be a Message instance)
-
-        Raises:
-            CommunicationNotInitializedError: If the client is not initialized
-            CommunicationResponseError: If the response was not sent successfully
-        """
-        self._ensure_initialized()
-
-        try:
-            # Serialize response using Pydantic's built-in method
-            response_json = response.model_dump_json()
-
-            # Send response
-            await self.socket.send_string(response_json)
-
-        except Exception as e:
-            logger.error(f"Exception sending response: {e}")
-            raise CommunicationResponseError("Exception sending response") from e
-
     def register_request_handler(
         self,
         service_id: str,
@@ -86,7 +59,7 @@ class ZMQRepClient(BaseZMQClient):
     async def _handle_request(self, request_id: str, request_json: str) -> None:
         """Handle a request."""
         # Parse JSON to create RequestData object
-        request = Message.from_json(request_json)
+        request: Message = Message.from_json(request_json)
         message_type = request.message_type
 
         # Call the handler
@@ -96,7 +69,7 @@ class ZMQRepClient(BaseZMQClient):
             response = await handler(request)
 
         except Exception as e:
-            logger.error(f"Exception calling handler for {message_type}: {e}")
+            self.logger.error("Exception calling handler for %s: %s", message_type, e)
             response = ErrorMessage(
                 request_id=request.request_id,
                 error=str(e),
@@ -130,11 +103,11 @@ class ZMQRepClient(BaseZMQClient):
                         [request_id, response.model_dump_json().encode()]
                     )
                 else:
-                    logger.warning("No response for request %s", request_id)
+                    self.logger.warning("No response for request %s", request_id)
                     await self.socket.send_multipart([request_id, b"ERROR"])
 
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(f"Exception receiving request: {e}")
+                self.logger.error("Exception receiving request: %s", e)
                 await asyncio.sleep(0.1)

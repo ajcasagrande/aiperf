@@ -162,8 +162,9 @@ class ZMQIPCConfig(BaseZMQCommunicationConfig):
         return f"ipc://{self.path}/credit_return.ipc"
 
 
-class ZMQInprocConfig(BaseZMQCommunicationConfig):
-    """Configuration for in-process transport."""
+class ZMQInprocConfig(ZMQIPCConfig):
+    """Configuration for in-process transport. Note that communications between workers
+    is still done over IPC sockets."""
 
     name: str = Field(default="aiperf", description="Name for in-process sockets")
 
@@ -176,28 +177,3 @@ class ZMQInprocConfig(BaseZMQCommunicationConfig):
     def component_pub_sub_address(self) -> str:
         """Get the component pub/sub address based on protocol configuration."""
         return f"inproc://{self.name}_component_pub_sub"
-
-    @property
-    def inference_push_pull_address(self) -> str:
-        """Get the inference push/pull address based on protocol configuration."""
-        return f"inproc://{self.name}_inference_push_pull"
-
-    @property
-    def records_address(self) -> str:
-        """Get the records address based on protocol configuration."""
-        return f"inproc://{self.name}_records"
-
-    @property
-    def conversation_data_address(self) -> str:
-        """Get the conversation data address based on protocol configuration."""
-        return f"inproc://{self.name}_conversation_data"
-
-    @property
-    def credit_drop_address(self) -> str:
-        """Get the credit drop address based on protocol configuration."""
-        return f"inproc://{self.name}_credit_drop"
-
-    @property
-    def credit_return_address(self) -> str:
-        """Get the credit return address based on protocol configuration."""
-        return f"inproc://{self.name}_credit_return"

@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
+import errno
 import glob
 import logging
 import os
@@ -22,11 +23,11 @@ from aiperf.common.comms.client_enums import (
     SubClientType,
 )
 from aiperf.common.comms.zmq.clients import ZMQClient
+from aiperf.common.comms.zmq.clients.dealer_req import ZMQDealerReqClient
 from aiperf.common.comms.zmq.clients.pub import ZMQPubClient
 from aiperf.common.comms.zmq.clients.pull import ZMQPullClient
 from aiperf.common.comms.zmq.clients.push import ZMQPushClient
-from aiperf.common.comms.zmq.clients.rep import ZMQRepClient
-from aiperf.common.comms.zmq.clients.req import ZMQReqClient
+from aiperf.common.comms.zmq.clients.router_rep import ZMQRouterRepClient
 from aiperf.common.comms.zmq.clients.sub import ZMQSubClient
 from aiperf.common.config.zmq_config import (
     BaseZMQCommunicationConfig,
@@ -319,7 +320,7 @@ class BaseZMQCommunication(BaseCommunication, ABC):
                     f"Invalid client type: {client_type}"
                 )
 
-    def _create_req_client(self, client_type: ReqClientType) -> ZMQReqClient:
+    def _create_req_client(self, client_type: ReqClientType) -> ZMQDealerReqClient:
         """Create a ZMQ request client based on the client type.
 
         Args:
@@ -333,7 +334,7 @@ class BaseZMQCommunication(BaseCommunication, ABC):
         """
         match client_type:
             case ReqClientType.CONVERSATION_DATA:
-                return ZMQReqClient(
+                return ZMQDealerReqClient(
                     self.context,
                     self.config.conversation_data_address,
                     bind=False,  # Worker manager is the request
@@ -343,7 +344,7 @@ class BaseZMQCommunication(BaseCommunication, ABC):
                     f"Invalid client type: {client_type}"
                 )
 
-    def _create_rep_client(self, client_type: RepClientType) -> ZMQRepClient:
+    def _create_rep_client(self, client_type: RepClientType) -> ZMQRouterRepClient:
         """Create a ZMQ reply client based on the client type.
 
         Args:
@@ -357,7 +358,7 @@ class BaseZMQCommunication(BaseCommunication, ABC):
         """
         match client_type:
             case RepClientType.CONVERSATION_DATA:
-                return ZMQRepClient(
+                return ZMQRouterRepClient(
                     self.context,
                     self.config.conversation_data_address,
                     bind=True,  # Data manager is the reply
@@ -521,7 +522,9 @@ class BaseZMQCommunication(BaseCommunication, ABC):
             await self.create_clients(client_type)
 
         try:
-            return await cast(ZMQReqClient, self.clients[client_type]).request(message)
+            return await cast(ZMQDealerReqClient, self.clients[client_type]).request(
+                message
+            )
         except Exception as e:
             logger.error(f"Exception requesting from {topic}: {e}")
             raise CommunicationRequestError() from e
@@ -555,9 +558,9 @@ class BaseZMQCommunication(BaseCommunication, ABC):
             await self.create_clients(client_type)
 
         try:
-            cast(ZMQRepClient, self.clients[client_type]).register_request_handler(
-                service_id, message_type, handler
-            )
+            cast(
+                ZMQRouterRepClient, self.clients[client_type]
+            ).register_request_handler(service_id, message_type, handler)
         except Exception as e:
             logger.error(f"Exception registering request handler for {topic}: {e}")
             raise CommunicationError() from e
@@ -630,7 +633,7 @@ class BaseZMQCommunication(BaseCommunication, ABC):
 
 @CommunicationFactory.register(CommunicationBackend.ZMQ_TCP)
 class ZMQTCPCommunication(BaseZMQCommunication):
-    """ZeroMQ-based implementation of the Communication interface for TCP transport."""
+    """ZeroMQ-based implementation of the Communication interface using TCP transport."""
 
     def __init__(self, config: ZMQTCPTransportConfig | None = None) -> None:
         """Initialize ZMQ TCP communication.
@@ -643,7 +646,7 @@ class ZMQTCPCommunication(BaseZMQCommunication):
 
 @CommunicationFactory.register(CommunicationBackend.ZMQ_IPC)
 class ZMQIPCCommunication(BaseZMQCommunication):
-    """ZeroMQ-based implementation of the Communication interface for IPC transport."""
+    """ZeroMQ-based implementation of the Communication interface using IPC transport."""
 
     def __init__(self, config: ZMQIPCConfig | None = None) -> None:
         """Initialize ZMQ IPC communication.
@@ -695,12 +698,19 @@ class ZMQIPCCommunication(BaseZMQCommunication):
                         os.unlink(ipc_file)
                         logger.debug(f"Removed IPC socket file: {ipc_file}")
                 except OSError as e:
-                    logger.warning(f"Failed to remove IPC socket file {ipc_file}: {e}")
+                    if e.errno != errno.ENOENT:
+                        logger.warning(
+                            "Failed to remove IPC socket file %s: %s",
+                            ipc_file,
+                            e,
+                        )
 
 
 @CommunicationFactory.register(CommunicationBackend.ZMQ_INPROC)
-class ZMQInprocCommunication(BaseZMQCommunication):
-    """ZeroMQ-based implementation of the Communication interface for in-process transport."""
+class ZMQInprocCommunication(ZMQIPCCommunication):
+    """ZeroMQ-based implementation of the Communication interface using in-process
+    transport. Note that communications between workers is still done over IPC sockets,
+    which is why this class inherits from ZMQIPCCommunication."""
 
     def __init__(self, config: ZMQInprocConfig | None = None) -> None:
         """Initialize ZMQ in-process communication.

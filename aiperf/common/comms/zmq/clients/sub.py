@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
-import logging
 from collections.abc import Callable
 from typing import Any
 
@@ -12,8 +11,6 @@ from aiperf.common.exceptions import CommunicationSubscribeError
 from aiperf.common.hooks import aiperf_task
 from aiperf.common.models.messages import Message
 from aiperf.common.utils import call_all_functions
-
-logger = logging.getLogger(__name__)
 
 
 class ZMQSubClient(BaseZMQClient):
@@ -57,19 +54,20 @@ class ZMQSubClient(BaseZMQClient):
                 self._subscribers[topic] = []
             self._subscribers[topic].append(callback)
 
-            logger.debug("Subscribed to topic: %s, %s", topic, self._subscribers[topic])
+            self.logger.debug(
+                "Subscribed to topic: %s, %s", topic, self._subscribers[topic]
+            )
 
         except Exception as e:
-            logger.error("Exception subscribing to topic %s: %s", topic, e)
+            self.logger.error("Exception subscribing to topic %s: %s", topic, e)
             raise CommunicationSubscribeError from e
 
     async def _handle_message(self, topic_bytes: bytes, message_bytes: bytes) -> None:
         """Handle a message from a subscribed topic."""
         topic = topic_bytes.decode()
         message_json = message_bytes.decode()
-        logger.debug(
-            "Client %s received message from topic: '%s', message: %s",
-            self.client_id,
+        self.logger.debug(
+            "Received message from topic: '%s', message: %s",
             topic,
             message_json,
         )
@@ -88,9 +86,11 @@ class ZMQSubClient(BaseZMQClient):
         shutdown. It will wait for messages from the socket and handle them.
         """
         if not self.is_initialized:
-            logger.debug("Sub client %s waiting for initialization", self.client_id)
+            self.logger.debug(
+                "Sub client %s waiting for initialization", self.client_id
+            )
             await self.initialized_event.wait()
-            logger.debug("Sub client %s initialized", self.client_id)
+            self.logger.debug("Sub client %s initialized", self.client_id)
 
         while not self.is_shutdown:
             try:
@@ -105,13 +105,13 @@ class ZMQSubClient(BaseZMQClient):
                 break
             except zmq.Again:
                 # Handle ZMQ timeout or interruption
-                logger.debug(
+                self.logger.debug(
                     "ZMQ recv timeout due to no messages. trying again @ %s",
                     self.address,
                 )
                 await asyncio.sleep(0.001)
             except Exception as e:
-                logger.error(
+                self.logger.error(
                     "Exception receiving message from subscription: %s, %s",
                     e,
                     type(e),

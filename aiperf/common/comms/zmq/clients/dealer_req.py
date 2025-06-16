@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-import logging
 import uuid
 
 import zmq.asyncio
@@ -11,10 +10,8 @@ from aiperf.common.models.messages import (
     Message,
 )
 
-logger = logging.getLogger(__name__)
 
-
-class ZMQReqClient(BaseZMQClient):
+class ZMQDealerReqClient(BaseZMQClient):
     def __init__(
         self,
         context: zmq.asyncio.Context,
@@ -23,7 +20,7 @@ class ZMQReqClient(BaseZMQClient):
         socket_ops: dict | None = None,
     ) -> None:
         """
-        Initialize the ZMQ Req class.
+        Initialize the ZMQ Dealer (Req) client class.
 
         Args:
             context (zmq.asyncio.Context): The ZMQ context.
@@ -32,30 +29,6 @@ class ZMQReqClient(BaseZMQClient):
             socket_ops (dict, optional): Additional socket options to set.
         """
         super().__init__(context, zmq.SocketType.DEALER, address, bind, socket_ops)
-
-    async def _reset_socket(self) -> None:
-        """Reset the socket to recover from inconsistent state.
-
-        This is necessary when a REQ socket gets stuck after a failed request/response cycle.
-        """
-        logger.warning(
-            "Resetting REQ socket due to inconsistent state (%s)", self.client_id
-        )
-
-        if self._socket:
-            self._socket.close()
-
-        # Recreate socket
-        self._socket = self.context.socket(self.socket_type)
-
-        if self.bind:
-            self.socket.bind(self.address)
-        else:
-            self.socket.connect(self.address)
-
-        # Set additional socket options requested by the caller
-        for key, val in self.socket_ops.items():
-            self._socket.setsockopt(key, val)
 
     async def request(
         self,

@@ -28,15 +28,39 @@ def exclude_if_none(field_names: list[str]):
     field names that should be excluded if they are None.
     """
 
-    def decorator(model: type["BaseMessage"]) -> type["BaseMessage"]:
+    def decorator(model: type["Message"]) -> type["Message"]:
         model._exclude_if_none_fields.update(field_names)
         return model
 
     return decorator
 
 
+@exclude_if_none(["request_ns", "request_id"])
 class Message(BaseModel):
-    """Base class for optimized message handling"""
+    """Base message class for optimized message handling.
+
+    This class provides a base for all messages, including common fields like message_type,
+    request_ns, and request_id. It also supports optional field exclusion based on the
+    @exclude_if_none decorator.
+
+    Each message model should inherit from this class, set the message_type field,
+    and define its own additional fields.
+    Optionally, the @exclude_if_none decorator can be used to specify which fields
+    should be excluded from the serialized message if they are None.
+
+    Example:
+    ```python
+    @exclude_if_none(["some_field"])
+    class ExampleMessage(Message):
+        some_field: int | None = Field(default=None)
+        other_field: int = Field(default=1)
+    ```
+    """
+
+    _exclude_if_none_fields: ClassVar[set[str]] = set()
+    """Set of field names that should be excluded from the serialized message if they
+    are None. This is set by the @exclude_if_none decorator.
+    """
 
     _message_type_lookup: ClassVar[dict[MessageType, type["Message"]]] = {}
 
@@ -49,6 +73,29 @@ class Message(BaseModel):
         ...,
         description="Type of the message",
     )
+
+    request_ns: int | None = Field(
+        default=None,
+        description="Timestamp of the request",
+    )
+
+    request_id: str | None = Field(
+        default=None,
+        description="ID of the request",
+    )
+
+    @model_serializer
+    def _serialize_message(self) -> dict[str, Any]:
+        """Serialize the message to a dictionary.
+
+        This method overrides the default serializer to exclude fields that have a
+        value of None and have the EXCLUDE_IF_NONE json_schema_extra key set to True.
+        """
+        return {
+            k: v
+            for k, v in self
+            if not (k in self._exclude_if_none_fields and v is None)
+        }
 
     @classmethod
     def __get_validators__(cls):
@@ -74,55 +121,7 @@ class Message(BaseModel):
         return json.dumps(self.__dict__)
 
 
-@exclude_if_none(["request_ns", "request_id"])
-class BaseMessage(Message):
-    """Base message model with common fields for all messages.
-
-    Each message model should inherit from this class, set the message_type field,
-    and define its own additional fields.
-
-    Optionally, the @exclude_if_none decorator can be used to specify which fields
-    should be excluded from the serialized message if they are None.
-
-    Example:
-    ```python
-    @exclude_if_none(["some_field"])
-    class ExampleMessage(BaseMessage):
-        some_field: int | None = Field(default=None)
-        other_field: int = Field(default=1)
-    ```
-    """
-
-    _exclude_if_none_fields: ClassVar[set[str]] = set()
-    """Set of field names that should be excluded from the serialized message if they
-    are None. This is set by the @exclude_if_none decorator.
-    """
-
-    request_ns: int | None = Field(
-        default=None,
-        description="Timestamp of the request",
-    )
-
-    request_id: str | None = Field(
-        default=None,
-        description="ID of the request",
-    )
-
-    @model_serializer
-    def _serialize_message(self) -> dict[str, Any]:
-        """Serialize the message to a dictionary.
-
-        This method overrides the default serializer to exclude fields that have a
-        value of None and have the EXCLUDE_IF_NONE json_schema_extra key set to True.
-        """
-        return {
-            k: v
-            for k, v in self
-            if not (k in self._exclude_if_none_fields and v is None)
-        }
-
-
-class BaseServiceMessage(BaseMessage):
+class BaseServiceMessage(Message):
     """Base message that is sent from a service. Requires a service_id field to specify
     the service that sent the message."""
 
@@ -264,7 +263,7 @@ class CreditReturnMessage(BaseServiceMessage):
     )
 
 
-class ErrorMessage(BaseMessage):
+class ErrorMessage(Message):
     """Message containing error data."""
 
     message_type: Literal[MessageType.ERROR] = MessageType.ERROR
