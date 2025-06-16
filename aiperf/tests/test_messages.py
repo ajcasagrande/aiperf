@@ -5,11 +5,11 @@ import json
 from pydantic import Field
 
 from aiperf.common.enums import MessageType, ServiceState, ServiceType
-from aiperf.common.models.messages import BaseMessage, StatusMessage, exclude_if_none
+from aiperf.common.models.messages import Message, StatusMessage, exclude_if_none
 
 
 @exclude_if_none(["b"])
-class _TestMessage(BaseMessage):
+class _TestMessage(Message):
     a: int
     b: int | None = Field(default=None)
 
@@ -20,7 +20,7 @@ class _TestMessageSubclass(_TestMessage):
 
 
 def test_exclude_if_none():
-    message = _TestMessage(a=1, b=None)
+    message = _TestMessage(message_type=MessageType.UNKNOWN, a=1, b=None)
     assert message.model_dump() == {"a": 1}
     assert message.model_dump_json() == '{"a":1}'
 
@@ -49,7 +49,7 @@ def test_exclude_if_none_subclass():
 
 def test_exclude_if_none_decorator():
     @exclude_if_none(["some_field"])
-    class ExampleMessage(BaseMessage):
+    class ExampleMessage(Message):
         some_field: int | None = Field(default=None)
 
     message = ExampleMessage(some_field=None)
