@@ -19,14 +19,14 @@ from aiperf.common.hooks import (
     on_start,
     on_stop,
 )
-from aiperf.common.messages import (
+from aiperf.common.models.messages import (
     CommandMessage,
     InferenceResultsMessage,
     Message,
     ProfileResultsMessage,
     ProfileStatsMessage,
 )
-from aiperf.common.record_models import (
+from aiperf.common.models.record_models import (
     ErrorDetails,
     ErrorDetailsCount,
     Record,

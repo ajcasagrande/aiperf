@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ServiceType
-from aiperf.common.models import ServiceRunInfo
+from aiperf.common.models.service_models import ServiceRunInfo
 
 
 class BaseServiceManager(ABC):

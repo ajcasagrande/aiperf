@@ -2,8 +2,8 @@
 #  SPDX-License-Identifier: Apache-2.0
 import pandas as pd
 
-from aiperf.common.messages import ProfileResultsMessage
-from aiperf.common.record_models import RequestRecord
+from aiperf.common.models.messages import ProfileResultsMessage
+from aiperf.common.models.record_models import RequestRecord
 from aiperf.services.records_manager.records_manager import record_from_dataframe
 
 

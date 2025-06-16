@@ -24,14 +24,14 @@ from aiperf.common.enums import (
 )
 from aiperf.common.factories import CommunicationFactory, InferenceClientFactory
 from aiperf.common.interfaces import InferenceClientProtocol
-from aiperf.common.messages import (
+from aiperf.common.models import BaseZMQCommunicationConfig
+from aiperf.common.models.messages import (
     ConversationRequestMessage,
     CreditDropMessage,
     CreditReturnMessage,
     InferenceResultsMessage,
 )
-from aiperf.common.models import BaseZMQCommunicationConfig
-from aiperf.common.record_models import ErrorDetails, RequestRecord
+from aiperf.common.models.record_models import ErrorDetails, RequestRecord
 
 logger = logging.getLogger(__name__)
 

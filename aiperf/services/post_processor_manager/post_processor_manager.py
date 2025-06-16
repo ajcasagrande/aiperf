@@ -12,7 +12,7 @@ from aiperf.common.hooks import (
     on_start,
     on_stop,
 )
-from aiperf.common.messages import Message
+from aiperf.common.models.messages import Message
 from aiperf.common.service.base_component_service import BaseComponentService
 
 

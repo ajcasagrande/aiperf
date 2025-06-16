@@ -40,13 +40,13 @@ from aiperf.common.exceptions import (
     CommunicationSubscribeError,
 )
 from aiperf.common.factories import CommunicationFactory
-from aiperf.common.messages import Message
 from aiperf.common.models import (
     BaseZMQCommunicationConfig,
     ZMQInprocConfig,
     ZMQIPCConfig,
     ZMQTCPTransportConfig,
 )
+from aiperf.common.models.messages import Message
 
 logger = logging.getLogger(__name__)
 

@@ -32,7 +32,7 @@ from aiperf.common.hooks import (
     on_init,
     on_stop,
 )
-from aiperf.common.messages import (
+from aiperf.common.models.messages import (
     CreditsCompleteMessage,
     HeartbeatMessage,
     ProcessRecordsCommandData,
@@ -41,11 +41,13 @@ from aiperf.common.messages import (
     RegistrationMessage,
     StatusMessage,
 )
-from aiperf.common.models import ServiceRunInfo
+from aiperf.common.models.service_models import ServiceRunInfo
 from aiperf.common.service.base_controller_service import BaseControllerService
-from aiperf.services.service_manager.base import BaseServiceManager
-from aiperf.services.service_manager.kubernetes import KubernetesServiceManager
-from aiperf.services.service_manager.multiprocess import MultiProcessServiceManager
+from aiperf.services.service_manager import (
+    BaseServiceManager,
+    KubernetesServiceManager,
+    MultiProcessServiceManager,
+)
 from aiperf.services.system_controller.system_mixins import SignalHandlerMixin
 from aiperf.ui import AIPerfUI
 

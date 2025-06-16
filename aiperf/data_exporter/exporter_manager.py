@@ -3,7 +3,7 @@
 
 from aiperf.common.config.endpoint_config import EndPointConfig
 from aiperf.common.factories import DataExporterFactory
-from aiperf.common.messages import ProfileResultsMessage
+from aiperf.common.models.messages import ProfileResultsMessage
 
 
 class ExporterManager:

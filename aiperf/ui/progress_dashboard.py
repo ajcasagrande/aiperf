@@ -26,7 +26,7 @@ from aiperf.common.hooks import (
     on_start,
     on_stop,
 )
-from aiperf.common.messages import (
+from aiperf.common.models.messages import (
     ProfileProgressMessage,
     ProfileStatsMessage,
 )

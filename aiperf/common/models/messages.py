@@ -14,7 +14,7 @@ from pydantic import (
 )
 
 from aiperf.common.enums import CommandType, MessageType, ServiceState, ServiceType
-from aiperf.common.record_models import ErrorDetailsCount, Record, RequestRecord
+from aiperf.common.models.record_models import ErrorDetailsCount, Record, RequestRecord
 
 ################################################################################
 # Abstract Base Message Models

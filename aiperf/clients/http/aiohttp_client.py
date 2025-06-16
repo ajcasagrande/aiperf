@@ -10,7 +10,7 @@ import aiohttp
 
 from aiperf.clients.http.sse_utils import parse_sse_message
 from aiperf.clients.timers import RequestTimerKind, RequestTimers
-from aiperf.common.record_models import (
+from aiperf.common.models.record_models import (
     ErrorDetails,
     GenericHTTPClientConfig,
     RequestRecord,
@@ -155,9 +155,7 @@ class AioHttpSSEStreamReader:
 
         return messages
 
-    async def __aiter__(
-        self, chunk_size: int = 8192
-    ) -> typing.AsyncIterator[tuple[str, int, int]]:
+    async def __aiter__(self) -> typing.AsyncIterator[tuple[str, int, int]]:
         """Iterate over the SSE stream in a performant manner and return a tuple of the
         raw SSE message, the perf_counter_ns of the first byte, and the perf_counter_ns of the last byte.
         This provides the most accurate timing information possible without any delays due to the nature of

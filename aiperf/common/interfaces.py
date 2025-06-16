@@ -2,8 +2,8 @@
 #  SPDX-License-Identifier: Apache-2.0
 from typing import Generic, Protocol
 
-from aiperf.common.messages import ProfileResultsMessage
-from aiperf.common.record_models import (
+from aiperf.common.models.messages import ProfileResultsMessage
+from aiperf.common.models.record_models import (
     InferenceServerResponse,
     RequestRecord,
 )

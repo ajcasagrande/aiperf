@@ -12,10 +12,10 @@ from aiperf.common.comms.client_enums import PubClientType, SubClientType
 from aiperf.common.comms.zmq import BaseZMQCommunication
 from aiperf.common.enums import ServiceState, ServiceType, Topic
 from aiperf.common.exceptions import CommunicationInitializationError
-from aiperf.common.messages import Message, StatusMessage
 from aiperf.common.models import (
     ZMQInprocConfig,
 )
+from aiperf.common.models.messages import Message, StatusMessage
 
 
 @pytest.mark.asyncio

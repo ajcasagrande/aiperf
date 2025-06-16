@@ -8,7 +8,7 @@ import zmq.asyncio
 
 from aiperf.common.comms.zmq.clients.base import BaseZMQClient
 from aiperf.common.exceptions import CommunicationPushError
-from aiperf.common.messages import Message
+from aiperf.common.models.messages import Message
 
 logger = logging.getLogger(__name__)
 

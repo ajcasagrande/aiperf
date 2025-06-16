@@ -4,7 +4,7 @@
 
 from pydantic import BaseModel, Field
 
-from aiperf.common.record_models import Record, Transaction
+from aiperf.common.models.record_models import Record, Transaction
 
 
 class Records(BaseModel):

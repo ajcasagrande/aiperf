@@ -4,7 +4,7 @@
 import logging
 
 from aiperf.common.config.endpoint_config import EndPointConfig
-from aiperf.common.messages import ProfileResultsMessage
+from aiperf.common.models.messages import ProfileResultsMessage
 from aiperf.data_exporter.console_error_exporter import ConsoleErrorExporter
 from aiperf.data_exporter.console_exporter import ConsoleExporter
 from aiperf.ui.progress_dashboard import SplitScreenDashboardMixin

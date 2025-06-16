@@ -58,7 +58,7 @@ from aiperf.common.hooks import (
     on_init,
     on_stop,
 )
-from aiperf.common.messages import (
+from aiperf.common.models.messages import (
     CreditDropMessage,
     Message,
 )

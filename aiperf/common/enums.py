@@ -361,6 +361,9 @@ class OutputFormat(CaseInsensitiveStrEnum):
     OPENAI_EMBEDDINGS = "openai_embeddings"
     OPENAI_MULTIMODAL = "openai_multimodal"
     OPENAI_RESPONSES = "openai_responses"
+    HUGGINGFACE_GENERATE = "huggingface_generate"
+    HUGGINGFACE_RANKINGS = "huggingface_rankings"
+    RANKINGS = "rankings"
     TENSORRTLLM = "tensorrtllm"
     VLLM = "vllm"
 

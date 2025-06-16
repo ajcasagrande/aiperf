@@ -146,7 +146,7 @@ class SSEFieldType(CaseInsensitiveStrEnum):
 
 
 class SSEEventType(CaseInsensitiveStrEnum):
-    """Event types in an SSE message."""
+    """Event types in an SSE message. Many of these are custom and not defined by the SSE spec."""
 
     ERROR = "error"
     LLM_METRICS = "llm_metrics"
@@ -172,7 +172,6 @@ class SSEMessage(InferenceServerResponse):
     packets: list[SSEField] = Field(
         default_factory=list,
         description="The fields contained in the message.",
-        alias="fields",
     )
 
 
@@ -253,6 +252,8 @@ class RequestRecord(BaseModel):
         default=True, description="Whether the sequence has ended."
     )
     delayed: bool = Field(default=False, description="Whether the request was delayed.")
+
+    # TODO: Most of these properties will be removed once we have proper record handling.
 
     @property
     def has_null_last_response(self) -> bool:

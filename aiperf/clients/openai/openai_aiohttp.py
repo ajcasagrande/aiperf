@@ -6,7 +6,7 @@ import logging
 import time
 from typing import Any
 
-from aiperf.clients.http.aiohttp_utils import AioHttpClientMixin
+from aiperf.clients.http.aiohttp_client import AioHttpClientMixin
 from aiperf.clients.openai.common import (
     OpenAIBaseRequest,
     OpenAIChatCompletionRequest,
@@ -18,7 +18,7 @@ from aiperf.clients.openai.common import (
 from aiperf.common.enums import InferenceClientType
 from aiperf.common.exceptions import InvalidPayloadError
 from aiperf.common.factories import InferenceClientFactory
-from aiperf.common.record_models import (
+from aiperf.common.models.record_models import (
     ErrorDetails,
     RequestRecord,
 )
