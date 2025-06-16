@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 from pydantic import BaseModel, Field
 
+from aiperf.common.config.zmq_config import BaseZMQCommunicationConfig
 from aiperf.common.enums import CommunicationBackend, ServiceRunType
-from aiperf.common.models import BaseZMQCommunicationConfig
 
 
 class ServiceConfig(BaseModel):

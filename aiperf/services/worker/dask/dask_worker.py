@@ -15,6 +15,7 @@ from rich.logging import RichHandler
 
 from aiperf.clients.openai.common import OpenAIClientConfig
 from aiperf.common.comms.base import BaseCommunication
+from aiperf.common.config.zmq_config import BaseZMQCommunicationConfig
 from aiperf.common.constants import NANOS_PER_MILLIS
 from aiperf.common.enums import (
     CommunicationBackend,
@@ -24,7 +25,6 @@ from aiperf.common.enums import (
 )
 from aiperf.common.factories import CommunicationFactory, InferenceClientFactory
 from aiperf.common.interfaces import InferenceClientProtocol
-from aiperf.common.models import BaseZMQCommunicationConfig
 from aiperf.common.models.messages import (
     ConversationRequestMessage,
     CreditDropMessage,

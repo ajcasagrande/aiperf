@@ -28,6 +28,12 @@ from aiperf.common.comms.zmq.clients.push import ZMQPushClient
 from aiperf.common.comms.zmq.clients.rep import ZMQRepClient
 from aiperf.common.comms.zmq.clients.req import ZMQReqClient
 from aiperf.common.comms.zmq.clients.sub import ZMQSubClient
+from aiperf.common.config.zmq_config import (
+    BaseZMQCommunicationConfig,
+    ZMQInprocConfig,
+    ZMQIPCConfig,
+    ZMQTCPTransportConfig,
+)
 from aiperf.common.enums import CommunicationBackend, MessageType, Topic
 from aiperf.common.exceptions import (
     CommunicationClientCreationError,
@@ -40,12 +46,6 @@ from aiperf.common.exceptions import (
     CommunicationSubscribeError,
 )
 from aiperf.common.factories import CommunicationFactory
-from aiperf.common.models import (
-    BaseZMQCommunicationConfig,
-    ZMQInprocConfig,
-    ZMQIPCConfig,
-    ZMQTCPTransportConfig,
-)
 from aiperf.common.models.messages import Message
 
 logger = logging.getLogger(__name__)
