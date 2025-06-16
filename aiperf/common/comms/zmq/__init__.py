@@ -2,7 +2,15 @@
 # SPDX-License-Identifier: Apache-2.0
 
 __all__ = [
-    "ZMQCommunication",
+    "BaseZMQCommunication",
+    "ZMQTCPCommunication",
+    "ZMQIPCCommunication",
+    "ZMQInprocCommunication",
 ]
 
-from aiperf.common.comms.zmq.zmq_comms import ZMQCommunication
+from aiperf.common.comms.zmq.zmq_comms import (
+    BaseZMQCommunication,
+    ZMQInprocCommunication,
+    ZMQIPCCommunication,
+    ZMQTCPCommunication,
+)

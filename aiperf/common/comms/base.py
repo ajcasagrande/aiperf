@@ -101,16 +101,6 @@ class BaseCommunication(ABC):
         pass
 
     @abstractmethod
-    async def respond(self, topic: Topic, response: Message) -> None:
-        """Send a response to a request.
-
-        Args:
-            topic: Topic to send response to
-            response: Response message
-        """
-        pass
-
-    @abstractmethod
     async def push(self, topic: Topic, message: Message) -> None:
         """Push data to a target.
 

@@ -51,7 +51,13 @@ class ConsoleExporter:
         row = [f"{record.name} ({record.unit})"]
         for stat in self.STAT_COLUMN_KEYS:
             value = getattr(record, stat, None)
-            row.append(f"{value:.2f}" if value is not None else "N/A")
+            row.append(
+                f"{value:,.2f}"
+                if isinstance(value, float)
+                else f"{value:,}"
+                if isinstance(value, int)
+                else "[dim]N/A[/dim]"
+            )
         return row
 
     def _get_title(self) -> str:

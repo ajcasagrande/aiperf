@@ -30,7 +30,7 @@ from aiperf.common.messages import (
     CreditReturnMessage,
     InferenceResultsMessage,
 )
-from aiperf.common.models import ZMQCommunicationConfig
+from aiperf.common.models import BaseZMQCommunicationConfig
 from aiperf.common.record_models import ErrorDetails, RequestRecord
 
 logger = logging.getLogger(__name__)
@@ -108,7 +108,7 @@ class DaskWorker(Worker):
         )
 
         self.zmq_comms = CommunicationFactory.create_instance(
-            CommunicationBackend.ZMQ_TCP, config=ZMQCommunicationConfig()
+            CommunicationBackend.ZMQ_TCP, config=BaseZMQCommunicationConfig()
         )
         await self.zmq_comms.initialize()
 

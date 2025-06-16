@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
 import sys
+from collections import deque
 
 import pandas as pd
 
@@ -47,8 +48,8 @@ class RecordsManager(BaseComponentService):
         super().__init__(service_config=service_config, service_id=service_id)
         self.logger.debug("Initializing records manager")
 
-        self.records: list[RequestRecord] = []
-        self.error_records: list[RequestRecord] = []
+        self.records: deque[RequestRecord] = deque()
+        self.error_records: deque[RequestRecord] = deque()
 
         # Track per-worker statistics
         self.worker_request_counts: dict[str, int] = {}
@@ -126,7 +127,9 @@ class RecordsManager(BaseComponentService):
             ),
         )
 
-    async def _on_inference_results(self, message: InferenceResultsMessage) -> None:
+    async def _on_inference_results_internal(
+        self, message: InferenceResultsMessage
+    ) -> None:
         """Handle a inference results message."""
         record = message.record
         worker_id = message.service_id
@@ -155,6 +158,10 @@ class RecordsManager(BaseComponentService):
             self.logger.warning("Received invalid inference results: %s", record)
             self.error_records.append(record)
             self.worker_error_counts[worker_id] += 1
+
+    async def _on_inference_results(self, message: InferenceResultsMessage) -> None:
+        """Handle a inference results message."""
+        _ = asyncio.create_task(self._on_inference_results_internal(message))
 
     async def get_error_summary(self) -> list[ErrorDetailsCount]:
         """Generate a summary of the error records."""
