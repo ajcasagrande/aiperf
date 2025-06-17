@@ -41,7 +41,7 @@ from aiperf.common.comms.client_enums import (
     PullClientType,
     PushClientType,
 )
-from aiperf.common.config.service_config import ServiceConfig
+from aiperf.common.config import ServiceConfig
 from aiperf.common.enums import (
     CaseInsensitiveStrEnum,
     ServiceType,

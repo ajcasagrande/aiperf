@@ -3,7 +3,7 @@
 import sys
 
 from aiperf.common.comms.client_enums import ClientType, RepClientType
-from aiperf.common.config.service_config import ServiceConfig
+from aiperf.common.config import ServiceConfig
 from aiperf.common.enums import MessageType, ServiceType, Topic
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (

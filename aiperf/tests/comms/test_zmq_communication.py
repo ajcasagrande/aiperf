@@ -10,7 +10,7 @@ import pytest
 
 from aiperf.common.comms.client_enums import PubClientType, SubClientType
 from aiperf.common.comms.zmq import BaseZMQCommunication
-from aiperf.common.config.zmq_config import ZMQInprocConfig
+from aiperf.common.config import ZMQInprocConfig
 from aiperf.common.enums import ServiceState, ServiceType, Topic
 from aiperf.common.exceptions import CommunicationInitializationError
 from aiperf.common.models.messages import Message, StatusMessage

@@ -7,7 +7,7 @@ from collections import deque
 import pandas as pd
 
 from aiperf.common.comms.client_enums import ClientType, PullClientType
-from aiperf.common.config.service_config import ServiceConfig
+from aiperf.common.config import ServiceConfig
 from aiperf.common.constants import NANOS_PER_MILLIS
 from aiperf.common.enums import CommandType, MessageType, ServiceType, Topic
 from aiperf.common.factories import ServiceFactory

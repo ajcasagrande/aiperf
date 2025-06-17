@@ -7,8 +7,7 @@ from typing import Any
 
 from typing_extensions import Protocol
 
-from aiperf.common.config.config_defaults import OutputTokenDefaults
-from aiperf.common.config.user_config import UserConfig
+from aiperf.common.config import OutputTokenDefaults, UserConfig
 from aiperf.common.enums import ModelSelectionStrategy
 from aiperf.common.exceptions import AIPerfError
 from aiperf.common.models.data_models import DataRow, GenericDataset

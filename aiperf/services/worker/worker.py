@@ -12,8 +12,7 @@ from aiperf.common.comms.client_enums import (
     PushClientType,
     ReqClientType,
 )
-from aiperf.common.config.endpoint.endpoint_config import EndPointConfig
-from aiperf.common.config.service_config import ServiceConfig
+from aiperf.common.config import EndPointConfig, ServiceConfig
 from aiperf.common.constants import NANOS_PER_MILLIS
 from aiperf.common.enums import InferenceClientType, MessageType, ServiceType, Topic
 from aiperf.common.factories import InferenceClientFactory, ServiceFactory

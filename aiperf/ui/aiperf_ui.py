@@ -3,7 +3,7 @@
 
 import logging
 
-from aiperf.common.config.endpoint import EndPointConfig
+from aiperf.common.config import EndPointConfig
 from aiperf.common.models.messages import ProfileResultsMessage
 from aiperf.data_exporter.console_error_exporter import ConsoleErrorExporter
 from aiperf.data_exporter.console_exporter import ConsoleExporter

@@ -29,7 +29,7 @@ from aiperf.common.comms.zmq.clients.pull import ZMQPullClient
 from aiperf.common.comms.zmq.clients.push import ZMQPushClient
 from aiperf.common.comms.zmq.clients.router_rep import ZMQRouterRepClient
 from aiperf.common.comms.zmq.clients.sub import ZMQSubClient
-from aiperf.common.config.zmq_config import (
+from aiperf.common.config import (
     BaseZMQCommunicationConfig,
     ZMQInprocConfig,
     ZMQIPCConfig,

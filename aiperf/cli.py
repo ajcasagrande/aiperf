@@ -9,8 +9,7 @@ from rich.console import Console
 from rich.logging import RichHandler
 
 from aiperf.common.bootstrap import bootstrap_and_run_service
-from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.config.user_config import UserConfig
+from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.services.system_controller.system_controller import SystemController
 
 logger = logging.getLogger(__name__)

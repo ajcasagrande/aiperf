@@ -4,7 +4,7 @@ import asyncio
 from collections.abc import Awaitable, Callable
 
 from aiperf.common.comms.client_enums import ClientType, PubClientType, SubClientType
-from aiperf.common.config.service_config import ServiceConfig
+from aiperf.common.config import ServiceConfig
 from aiperf.common.enums import CommandType, ServiceState, Topic
 from aiperf.common.exceptions import (
     CommunicationSubscribeError,

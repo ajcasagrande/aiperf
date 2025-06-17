@@ -4,7 +4,7 @@
 from typing import Any
 
 from aiperf.clients.converters.base_converter import BaseRequestConverter
-from aiperf.common.config.config_defaults import InputDefaults, OutputTokenDefaults
+from aiperf.common.config import InputDefaults, OutputTokenDefaults
 from aiperf.common.enums import RequestPayloadType
 from aiperf.common.exceptions import AIPerfError
 from aiperf.common.factories import RequestConverterFactory

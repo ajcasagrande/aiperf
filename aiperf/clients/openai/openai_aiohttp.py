@@ -15,7 +15,7 @@ from aiperf.clients.openai.common import (
     OpenAIEmbeddingsRequest,
     OpenAIResponsesRequest,
 )
-from aiperf.common.config.endpoint.endpoint_config import EndPointConfig
+from aiperf.common.config import EndPointConfig
 from aiperf.common.enums import InferenceClientType
 from aiperf.common.exceptions import InvalidPayloadError
 from aiperf.common.factories import InferenceClientFactory

@@ -4,7 +4,7 @@
 import os
 import random
 
-from aiperf.common.config.service_config import ServiceConfig
+from aiperf.common.config import ServiceConfig
 from aiperf.common.service.base_service import BaseService
 
 
@@ -27,7 +27,7 @@ def bootstrap_and_run_service(
 
     # Load the service configuration
     if service_config is None:
-        from aiperf.common.config.loader import load_service_config
+        from aiperf.common.config import load_service_config
 
         service_config = load_service_config()
 

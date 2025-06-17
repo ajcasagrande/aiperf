@@ -6,7 +6,7 @@ from multiprocessing import Process
 from pydantic import BaseModel, ConfigDict, Field
 
 from aiperf.common.bootstrap import bootstrap_and_run_service
-from aiperf.common.config.service_config import ServiceConfig
+from aiperf.common.config import ServiceConfig
 from aiperf.common.constants import GRACEFUL_SHUTDOWN_TIMEOUT_SECONDS
 from aiperf.common.enums import ServiceRegistrationStatus, ServiceType
 from aiperf.common.factories import ServiceFactory

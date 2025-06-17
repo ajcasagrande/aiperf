@@ -6,7 +6,7 @@
 from typing import Any
 
 from aiperf.clients.converters.base_converter import BaseRequestConverter
-from aiperf.common.config.config_defaults import OutputTokenDefaults
+from aiperf.common.config import OutputTokenDefaults
 from aiperf.common.enums import RequestPayloadType
 from aiperf.common.factories import RequestConverterFactory
 from aiperf.common.models.data_models import GenericDataset

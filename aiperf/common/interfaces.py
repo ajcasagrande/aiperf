@@ -2,7 +2,7 @@
 #  SPDX-License-Identifier: Apache-2.0
 from typing import Generic, Protocol
 
-from aiperf.common.config.endpoint.endpoint_config import EndPointConfig
+from aiperf.common.config import EndPointConfig
 from aiperf.common.models.messages import ProfileResultsMessage
 from aiperf.common.models.record_models import (
     InferenceServerResponse,
