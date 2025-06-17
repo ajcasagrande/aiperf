@@ -50,8 +50,11 @@ class MultiProcessServiceManager(BaseServiceManager):
                 target=bootstrap_and_run_service,
                 name=f"{service_type}_process",
                 args=(service_class, self.config),
-                daemon=False,
+                daemon=True,
             )
+            if service_type == ServiceType.WORKER_MANAGER:
+                process.daemon = False  # Worker manager cannot be a daemon because it needs to be able to spawn worker processes
+
             process.start()
 
             self.logger.debug(
