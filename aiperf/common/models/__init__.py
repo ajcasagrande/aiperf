@@ -20,6 +20,7 @@ from aiperf.common.models.messages import (
     ProfileStatsMessage,
     RegistrationMessage,
     StatusMessage,
+    exclude_if_none,
 )
 from aiperf.common.models.record_models import (
     BaseClientConfig,
@@ -29,6 +30,7 @@ from aiperf.common.models.record_models import (
     InferenceServerResponse,
     Record,
     RequestRecord,
+    ResultsRecord,
     SSEField,
     SSEMessage,
     TextResponse,
@@ -37,6 +39,7 @@ from aiperf.common.models.record_models import (
 from aiperf.common.models.service_models import ServiceRunInfo
 
 __all__ = [
+    "exclude_if_none",
     "BaseClientConfig",
     "BaseServiceErrorMessage",
     "BaseServiceMessage",
@@ -61,6 +64,7 @@ __all__ = [
     "ProfileStatsMessage",
     "Record",
     "RegistrationMessage",
+    "ResultsRecord",
     "RequestRecord",
     "SSEField",
     "SSEMessage",

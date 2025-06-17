@@ -14,7 +14,11 @@ from pydantic import (
 )
 
 from aiperf.common.enums import CommandType, MessageType, ServiceState, ServiceType
-from aiperf.common.models.record_models import ErrorDetailsCount, Record, RequestRecord
+from aiperf.common.models.record_models import (
+    ErrorDetailsCount,
+    RequestRecord,
+    ResultsRecord,
+)
 
 ################################################################################
 # Abstract Base Message Models
@@ -332,7 +336,7 @@ class ProfileResultsMessage(BaseServiceMessage):
 
     message_type: Literal[MessageType.PROFILE_RESULTS] = MessageType.PROFILE_RESULTS
 
-    records: SerializeAsAny[list[Record]] = Field(
+    records: SerializeAsAny[list[ResultsRecord]] = Field(
         ..., description="The records of the profile results"
     )
     total: int = Field(

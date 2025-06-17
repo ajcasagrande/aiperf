@@ -7,7 +7,7 @@ from rich.table import Table
 from aiperf.common.config import EndPointConfig
 from aiperf.common.enums import DataExporterType
 from aiperf.common.factories import DataExporterFactory
-from aiperf.common.models import ProfileResultsMessage, Record
+from aiperf.common.models import ProfileResultsMessage, ResultsRecord
 
 
 @DataExporterFactory.register(DataExporterType.CONSOLE)
@@ -34,19 +34,19 @@ class ConsoleExporter:
         console.print("\n")
         console.print(table)
 
-    def _construct_table(self, table: Table, records: list[Record]) -> None:
+    def _construct_table(self, table: Table, records: list[ResultsRecord]) -> None:
         for record in records:
             if self._should_skip(record):
                 continue
             table.add_row(*self._format_row(record))
 
-    def _should_skip(self, record: Record) -> bool:
+    def _should_skip(self, record: ResultsRecord) -> bool:
         if self.endpoint_type == "embeddings":
             return False
 
         return record.streaming_only and not self.streaming
 
-    def _format_row(self, record: Record) -> list[str]:
+    def _format_row(self, record: ResultsRecord) -> list[str]:
         row = [f"{record.name} ({record.unit})"]
         for stat in self.STAT_COLUMN_KEYS:
             value = getattr(record, stat, None)

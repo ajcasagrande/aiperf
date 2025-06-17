@@ -12,7 +12,7 @@ from aiperf.common.comms.client_enums import PubClientType, SubClientType
 from aiperf.common.comms.zmq import BaseZMQCommunication
 from aiperf.common.config import ZMQInprocConfig
 from aiperf.common.enums import ServiceState, ServiceType, Topic
-from aiperf.common.exceptions import CommunicationInitializationError
+from aiperf.common.exceptions import CommunicationError, CommunicationErrorReason
 from aiperf.common.models import Message, StatusMessage
 
 
@@ -59,7 +59,9 @@ class TestZMQCommunication:
 
         # Create a mock implementation that raises an exception
         async def mock_init_with_error():
-            raise CommunicationInitializationError("Test connection error")
+            raise CommunicationError(
+                CommunicationErrorReason.INITIALIZATION_ERROR, "Test connection error"
+            )
 
         # Replace the original method and call to test error handling
         original_init = zmq_communication.initialize
@@ -67,7 +69,8 @@ class TestZMQCommunication:
 
         try:
             with pytest.raises(
-                CommunicationInitializationError, match="Test connection error"
+                CommunicationError,
+                match="Communication Error INITIALIZATION_ERROR: Test connection error",
             ):
                 await zmq_communication.initialize()
         finally:

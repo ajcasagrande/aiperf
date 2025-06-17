@@ -6,7 +6,7 @@
 ################################################################################
 
 
-from aiperf.common.enums import ServiceType
+from aiperf.common.enums import CaseInsensitiveStrEnum, ServiceType
 
 
 class AIPerfError(Exception):
@@ -29,58 +29,25 @@ class AIPerfMultiError(AIPerfError):
 ################################################################################
 
 
+class CommunicationErrorReason(CaseInsensitiveStrEnum):
+    CLIENT_NOT_FOUND = "client_not_found"
+    PUBLISH_ERROR = "publish_error"
+    SUBSCRIBE_ERROR = "subscribe_error"
+    REQUEST_ERROR = "request_error"
+    RESPONSE_ERROR = "response_error"
+    SHUTDOWN_ERROR = "shutdown_error"
+    INITIALIZATION_ERROR = "initialization_error"
+    CLEANUP_ERROR = "cleanup_error"
+    PUSH_ERROR = "push_error"
+    PULL_ERROR = "pull_error"
+
+
 class CommunicationError(AIPerfError):
     """Base class for all communication exceptions."""
 
-
-class CommunicationNotInitializedError(CommunicationError):
-    """Exception raised when communication channels are not initialized."""
-
-
-class CommunicationInitializationError(CommunicationError):
-    """Exception raised when communication channels fail to initialize."""
-
-
-class CommunicationPublishError(CommunicationError):
-    """Exception raised when communication channels fail to publish a message."""
-
-
-class CommunicationShutdownError(CommunicationError):
-    """Exception raised when communication channels fail to shutdown."""
-
-
-class CommunicationSubscribeError(CommunicationError):
-    """Exception raised when communication channels fail to subscribe to a topic."""
-
-
-class CommunicationPullError(CommunicationError):
-    """Exception raised when communication channels fail to pull a message from
-    a topic."""
-
-
-class CommunicationPushError(CommunicationError):
-    """Exception raised when communication channels fail to push a message to
-    a topic."""
-
-
-class CommunicationRequestError(CommunicationError):
-    """Exception raised when communication channels fail to send a request."""
-
-
-class CommunicationResponseError(CommunicationError):
-    """Exception raised when communication channels fail to receive a response."""
-
-
-class CommunicationClientCreationError(CommunicationError):
-    """Exception raised when communication channels fail to create a client."""
-
-
-class CommunicationClientNotFoundError(CommunicationError):
-    """Exception raised when a communication client is not found."""
-
-
-class CommunicationCreateError(CommunicationError):
-    """Exception raised when communication channels fail to create a client."""
+    def __init__(self, reason: CommunicationErrorReason, message: str) -> None:
+        super().__init__(f"Communication Error {reason.name}: {message}")
+        self.reason = reason
 
 
 ################################################################################
@@ -88,20 +55,18 @@ class CommunicationCreateError(CommunicationError):
 ################################################################################
 
 
+class ConfigErrorReason(CaseInsensitiveStrEnum):
+    LOAD_ERROR = "load_error"
+    PARSE_ERROR = "parse_error"
+    VALIDATION_ERROR = "validation_error"
+
+
 class ConfigError(AIPerfError):
     """Base class for all exceptions raised by configuration errors."""
 
-
-class ConfigLoadError(ConfigError):
-    """Exception raised for configuration load errors."""
-
-
-class ConfigParseError(ConfigError):
-    """Exception raised for configuration parse errors."""
-
-
-class ConfigValidationError(ConfigError):
-    """Exception raised for configuration validation errors."""
+    def __init__(self, reason: ConfigErrorReason, message: str) -> None:
+        super().__init__(f"Configuration Error {reason.name}: {message}")
+        self.reason = reason
 
 
 ################################################################################
@@ -109,16 +74,17 @@ class ConfigValidationError(ConfigError):
 ################################################################################
 
 
+class GeneratorErrorReason(CaseInsensitiveStrEnum):
+    INITIALIZATION_ERROR = "initialization_error"
+    CONFIGURATION_ERROR = "configuration_error"
+
+
 class GeneratorError(AIPerfError):
     """Base class for all exceptions raised by data generator modules."""
 
-
-class GeneratorInitializationError(GeneratorError):
-    """Exception raised for data generator initialization errors."""
-
-
-class GeneratorConfigurationError(GeneratorError):
-    """Exception raised for data generator configuration errors."""
+    def __init__(self, reason: GeneratorErrorReason, message: str) -> None:
+        super().__init__(f"Generator Error {reason.name}: {message}")
+        self.reason = reason
 
 
 ################################################################################
@@ -147,12 +113,17 @@ class ServiceError(AIPerfError):
 ################################################################################
 
 
+class TokenizerErrorReason(CaseInsensitiveStrEnum):
+    INITIALIZATION_ERROR = "initialization_error"
+    CONFIGURATION_ERROR = "configuration_error"
+
+
 class TokenizerError(AIPerfError):
     """Base class for tokenizer exceptions."""
 
-
-class TokenizerInitializationError(TokenizerError):
-    """Exception raised for errors during tokenizer initialization."""
+    def __init__(self, reason: TokenizerErrorReason, message: str) -> None:
+        super().__init__(f"Tokenizer Error {reason.name}: {message}")
+        self.reason = reason
 
 
 ################################################################################

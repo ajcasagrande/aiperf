@@ -7,7 +7,7 @@ from typing import Any
 import zmq.asyncio
 
 from aiperf.common.comms.zmq.clients.base import BaseZMQClient
-from aiperf.common.exceptions import CommunicationSubscribeError
+from aiperf.common.exceptions import CommunicationError, CommunicationErrorReason
 from aiperf.common.hooks import aiperf_task
 from aiperf.common.models import Message
 from aiperf.common.utils import call_all_functions
@@ -60,7 +60,10 @@ class ZMQSubClient(BaseZMQClient):
 
         except Exception as e:
             self.logger.error("Exception subscribing to topic %s: %s", topic, e)
-            raise CommunicationSubscribeError from e
+            raise CommunicationError(
+                CommunicationErrorReason.SUBSCRIBE_ERROR,
+                f"Failed to subscribe to topic {topic}: {e}",
+            ) from e
 
     async def _handle_message(self, topic_bytes: bytes, message_bytes: bytes) -> None:
         """Handle a message from a subscribed topic."""

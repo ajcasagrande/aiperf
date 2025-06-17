@@ -6,7 +6,7 @@ import logging
 import zmq.asyncio
 
 from aiperf.common.comms.zmq.clients.base import BaseZMQClient
-from aiperf.common.exceptions import CommunicationPublishError
+from aiperf.common.exceptions import CommunicationError, CommunicationErrorReason
 from aiperf.common.models import Message
 
 logger = logging.getLogger(__name__)
@@ -39,8 +39,8 @@ class ZMQPubClient(BaseZMQClient):
             message: Message to publish (must be a Pydantic model)
 
         Raises:
-            CommunicationNotInitializedError: If the client is not initialized
-            CommunicationPublishError: If the message was not published successfully
+            CommunicationError: If the client is not initialized
+                or the message was not published successfully
         """
         self._ensure_initialized()
 
@@ -53,6 +53,7 @@ class ZMQPubClient(BaseZMQClient):
 
         except Exception as e:
             logger.error("Exception publishing message to topic %s: %s", topic, e)
-            raise CommunicationPublishError(
-                "Failed to publish message to topic %s", topic
+            raise CommunicationError(
+                CommunicationErrorReason.PUBLISH_ERROR,
+                f"Failed to publish message to topic {topic}: {e}",
             ) from e

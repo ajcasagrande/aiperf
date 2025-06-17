@@ -7,7 +7,7 @@ import logging
 import zmq.asyncio
 
 from aiperf.common.comms.zmq.clients.base import BaseZMQClient
-from aiperf.common.exceptions import CommunicationPushError
+from aiperf.common.exceptions import CommunicationError, CommunicationErrorReason
 from aiperf.common.models import Message
 
 logger = logging.getLogger(__name__)
@@ -39,8 +39,8 @@ class ZMQPushClient(BaseZMQClient):
             message: Message to be sent must be a Message object
 
         Raises:
-            CommunicationNotInitializedError: If the client is not initialized
-            CommunicationPushError: If the data was not pushed successfully
+            CommunicationError: If the client is not initialized
+                or the data was not pushed successfully
         """
         self._ensure_initialized()
 
@@ -59,4 +59,6 @@ class ZMQPushClient(BaseZMQClient):
 
         except Exception as e:
             logger.error(f"Exception pushing data: {e} {type(e)}")
-            raise CommunicationPushError from e
+            raise CommunicationError(
+                CommunicationErrorReason.PUSH_ERROR, f"Failed to push data: {e}"
+            ) from e

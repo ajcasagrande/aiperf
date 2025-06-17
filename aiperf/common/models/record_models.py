@@ -15,7 +15,7 @@ from aiperf.common.enums import SSEFieldType
 # Temporary Record class to be used by the ConsoleExporter.
 # TODO: Remove once the actual Records classes are fully implemented.
 @dataclass
-class Record:
+class ResultsRecord:
     name: str
     unit: str
     avg: float | None = None
@@ -313,15 +313,15 @@ class Transaction(BaseModel):
     payload: Any = Field(description="The payload of the transaction")
 
 
-# class Record(BaseModel):
-#     """
-#     Represents a record containing a request transaction and its associated response transactions.
-#     Attributes:
-#         request: The input transaction for the record.
-#         responses A list of response transactions corresponding to the request.
-#     """
+class Record(BaseModel):
+    """
+    Represents a record containing a request transaction and its associated response transactions.
+    Attributes:
+        request: The input transaction for the record.
+        responses A list of response transactions corresponding to the request.
+    """
 
-#     request: Transaction = Field(description="The request transaction for the record")
-#     responses: list[Transaction] = Field(
-#         description="A list of response transactions for the record",
-#     )
+    request: Transaction = Field(description="The request transaction for the record")
+    responses: list[Transaction] = Field(
+        description="A list of response transactions for the record",
+    )

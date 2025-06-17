@@ -8,7 +8,7 @@ import numpy as np
 import soundfile as sf
 
 from aiperf.common.enums import AudioFormat
-from aiperf.common.exceptions import GeneratorConfigurationError
+from aiperf.common.exceptions import GeneratorError, GeneratorErrorReason
 
 # TODO: Needs ConfigAudio
 # from genai_perf.config.input.config_input import ConfigAudio
@@ -63,11 +63,12 @@ class AudioGenerator:
             A positive sample from the normal distribution
 
         Raises:
-            GeneratorConfigurationError: If mean is less than min_value
+            GeneratorError: If mean is less than min_value
         """
         if mean < min_value:
-            raise GeneratorConfigurationError(
-                f"Mean value ({mean}) must be greater than min_value ({min_value})"
+            raise GeneratorError(
+                GeneratorErrorReason.CONFIGURATION_ERROR,
+                f"Mean value ({mean}) must be greater than min_value ({min_value})",
             )
 
         while True:
@@ -85,16 +86,17 @@ class AudioGenerator:
             audio_format: Audio format
 
         Raises:
-            GeneratorConfigurationError: If sampling rate is not supported for the given format
+            GeneratorError: If sampling rate is not supported for the given format
         """
         if (
             audio_format == AudioFormat.MP3
             and sampling_rate not in MP3_SUPPORTED_SAMPLE_RATES
         ):
             supported_rates = sorted(MP3_SUPPORTED_SAMPLE_RATES)
-            raise GeneratorConfigurationError(
+            raise GeneratorError(
+                GeneratorErrorReason.CONFIGURATION_ERROR,
                 f"MP3 format only supports the following sample rates (in Hz): {supported_rates}. "
-                f"Got {sampling_rate} Hz. Please choose a supported rate from the list."
+                f"Got {sampling_rate} Hz. Please choose a supported rate from the list.",
             )
 
     @staticmethod
@@ -106,13 +108,14 @@ class AudioGenerator:
             bit_depth: Bit depth in bits
 
         Raises:
-            GeneratorConfigurationError: If bit depth is not supported
+            GeneratorError: If bit depth is not supported
         """
         if bit_depth not in SUPPORTED_BIT_DEPTHS:
             supported_depths = sorted(SUPPORTED_BIT_DEPTHS.keys())
-            raise GeneratorConfigurationError(
+            raise GeneratorError(
+                GeneratorErrorReason.CONFIGURATION_ERROR,
                 f"Unsupported bit depth: {bit_depth}. "
-                f"Supported bit depths are: {supported_depths}"
+                f"Supported bit depths are: {supported_depths}",
             )
 
     # TODO: uncomment when ConfigAudio is implemented
@@ -130,7 +133,7 @@ class AudioGenerator:
             Data URI containing base64-encoded audio data with format specification
 
         Raises:
-            GeneratorConfigurationError: If any of the following conditions are met:
+            GeneratorError: If any of the following conditions are met:
                 - audio_length_mean is less than 0.1 seconds
                 - channels is not 1 (mono) or 2 (stereo)
                 - sampling rate is not supported for MP3 format
@@ -138,8 +141,9 @@ class AudioGenerator:
                 - audio format is not supported (must be 'wav' or 'mp3')
         """
         if config.num_channels not in (1, 2):
-            raise GeneratorConfigurationError(
-                "Only mono (1) and stereo (2) channels are supported"
+            raise GeneratorError(
+                GeneratorErrorReason.CONFIGURATION_ERROR,
+                "Only mono (1) and stereo (2) channels are supported",
             )
 
         # Sample audio length (in seconds) using rejection sampling
@@ -186,9 +190,10 @@ class AudioGenerator:
         elif config.format == AudioFormat.WAV:
             _, subtype = SUPPORTED_BIT_DEPTHS[bit_depth]
         else:
-            raise GeneratorConfigurationError(
+            raise GeneratorError(
+                GeneratorErrorReason.CONFIGURATION_ERROR,
                 f"Unsupported audio format: {config.format.name}. "
-                f"Supported formats are: {AudioFormat.WAV.name}, {AudioFormat.MP3.name}"
+                f"Supported formats are: {AudioFormat.WAV.name}, {AudioFormat.MP3.name}",
             )
 
         sf.write(

@@ -18,9 +18,8 @@ from aiperf.common.enums import (
     Topic,
 )
 from aiperf.common.exceptions import (
-    CommunicationNotInitializedError,
-    CommunicationPublishError,
-    CommunicationSubscribeError,
+    CommunicationError,
+    CommunicationErrorReason,
     ConfigError,
 )
 from aiperf.common.factories import ServiceFactory
@@ -172,7 +171,10 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
                 await self.comms.subscribe(topic=topic, callback=callback)
             except Exception as e:
                 self.logger.error("Failed to subscribe to topic %s: %s", topic, e)
-                raise CommunicationSubscribeError from e
+                raise CommunicationError(
+                    CommunicationErrorReason.SUBSCRIBE_ERROR,
+                    f"Failed to subscribe to topic {topic}: {e}",
+                ) from e
 
         # TODO: HACK:
         # wait 1 second to ensure that the communication is initialized
@@ -454,12 +456,15 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             data: Optional data to send with the command.
 
         Raises:
-            CommunicationNotInitializedError if the communication is not initialized
-            CommunicationPublishError if the command was not sent successfully
+            CommunicationError: If the communication is not initialized
+                or the command was not sent successfully
         """
         if not self._comms:
             self.logger.error("Cannot send command: Communication is not initialized")
-            raise CommunicationNotInitializedError()
+            raise CommunicationError(
+                CommunicationErrorReason.INITIALIZATION_ERROR,
+                "Communication channels are not initialized",
+            )
 
         # Create command message using the helper method
         command_message = self.create_command_message(
@@ -477,7 +482,10 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             )
         except Exception as e:
             self.logger.error("Exception publishing command: %s", e)
-            raise CommunicationPublishError from e
+            raise CommunicationError(
+                CommunicationErrorReason.PUBLISH_ERROR,
+                f"Failed to publish command: {e}",
+            ) from e
 
 
 def main() -> None:

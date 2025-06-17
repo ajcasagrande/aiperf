@@ -5,7 +5,7 @@ import uuid
 import zmq.asyncio
 
 from aiperf.common.comms.zmq.clients.base import BaseZMQClient
-from aiperf.common.exceptions import CommunicationRequestError
+from aiperf.common.exceptions import CommunicationError, CommunicationErrorReason
 from aiperf.common.models import (
     Message,
 )
@@ -60,6 +60,7 @@ class ZMQDealerReqClient(BaseZMQClient):
             response = Message.from_json(response_json)
             return response
         except Exception as e:
-            raise CommunicationRequestError(
-                f"Exception sending request: {e.__class__.__name__} {e}"
+            raise CommunicationError(
+                CommunicationErrorReason.REQUEST_ERROR,
+                f"Exception sending request: {e.__class__.__name__} {e}",
             ) from e

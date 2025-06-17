@@ -10,9 +10,7 @@ import zmq.asyncio
 from aiperf.common.exceptions import (
     AIPerfError,
     CommunicationError,
-    CommunicationInitializationError,
-    CommunicationNotInitializedError,
-    CommunicationShutdownError,
+    CommunicationErrorReason,
 )
 from aiperf.common.hooks import AIPerfHook, AIPerfTaskMixin, supports_hooks
 
@@ -81,21 +79,27 @@ class BaseZMQClient(AIPerfTaskMixin):
         """Get the zmq socket for the client.
 
         Raises:
-            CommunicationNotInitializedError: If the client is not initialized
+            CommunicationError: If the client is not initialized
         """
         if not self._socket:
-            raise CommunicationNotInitializedError()
+            raise CommunicationError(
+                CommunicationErrorReason.INITIALIZATION_ERROR,
+                "Communication channels are not initialized",
+            )
         return self._socket
 
     def _ensure_initialized(self) -> None:
         """Ensure the communication channels are initialized and not shutdown.
 
         Raises:
-            CommunicationNotInitializedError: If the communication channels are not initialized.
-            CommunicationShutdownError: If the communication channels are shutdown.
+            CommunicationError: If the communication channels are not initialized
+                or shutdown
         """
         if not self.is_initialized:
-            raise CommunicationNotInitializedError()
+            raise CommunicationError(
+                CommunicationErrorReason.INITIALIZATION_ERROR,
+                "Communication channels are not initialized",
+            )
         if self.is_shutdown:
             raise asyncio.CancelledError()
 
@@ -158,7 +162,10 @@ class BaseZMQClient(AIPerfTaskMixin):
             raise  # re-raise it up the stack
         except Exception as e:
             self.logger.error("Exception initializing ZMQ socket: %s", e)
-            raise CommunicationInitializationError from e
+            raise CommunicationError(
+                CommunicationErrorReason.INITIALIZATION_ERROR,
+                f"Failed to initialize ZMQ socket: {e}",
+            ) from e
 
     async def shutdown(self) -> None:
         """Shutdown the communication.
@@ -188,7 +195,10 @@ class BaseZMQClient(AIPerfTaskMixin):
             self.logger.error(
                 "Exception shutting down ZMQ socket: %s (%s)", e, self.client_id
             )
-            raise CommunicationShutdownError("Failed to shutdown ZMQ socket") from e
+            raise CommunicationError(
+                CommunicationErrorReason.SHUTDOWN_ERROR,
+                f"Failed to shutdown ZMQ socket: {e}",
+            ) from e
 
         finally:
             self._socket = None
@@ -201,7 +211,10 @@ class BaseZMQClient(AIPerfTaskMixin):
                 self.logger.error(
                     "Exception cleaning up ZMQ socket: %s (%s)", e, self.client_id
                 )
-                raise CommunicationError("Failed to cleanup ZMQ socket") from e
+                raise CommunicationError(
+                    CommunicationErrorReason.CLEANUP_ERROR,
+                    f"Failed to cleanup ZMQ socket: {e}",
+                ) from e
 
             # Wait for all tasks to complete
             with contextlib.suppress(asyncio.CancelledError):

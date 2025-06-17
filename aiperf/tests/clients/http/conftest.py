@@ -7,7 +7,8 @@ from collections.abc import Generator
 
 import pytest
 
-from aiperf.common.models import SSEField, SSEFieldType
+from aiperf.common.enums import SSEFieldType
+from aiperf.common.models import SSEField
 
 
 @pytest.fixture(scope="session")

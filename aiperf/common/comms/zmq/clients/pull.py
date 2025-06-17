@@ -93,8 +93,7 @@ class ZMQPullClient(BaseZMQClient):
             callback: function to call when data is received.
 
         Raises:
-            CommunicationNotInitializedError: If the client is not initialized
-            CommunicationPullError: If an exception occurred registering the pull callback
+            CommunicationError: If the client is not initialized
         """
         self._ensure_initialized()
 
