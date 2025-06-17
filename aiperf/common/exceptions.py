@@ -6,6 +6,9 @@
 ################################################################################
 
 
+from aiperf.common.enums import ServiceType
+
+
 class AIPerfError(Exception):
     """Base class for all exceptions raised by AIPerf."""
 
@@ -126,48 +129,17 @@ class GeneratorConfigurationError(GeneratorError):
 class ServiceError(AIPerfError):
     """Base class for all exceptions raised by services."""
 
-    # TODO: possibly have the base exception class accept the service information
-    #       and add it to the pre-defined messages for each exception
-
-
-class ServiceInitializationError(ServiceError):
-    """Exception raised for service initialization errors."""
-
-
-class ServiceStartError(ServiceError):
-    """Exception raised for service start errors."""
-
-
-class ServiceStopError(ServiceError):
-    """Exception raised for service stop errors."""
-
-
-class ServiceCleanupError(ServiceError):
-    """Exception raised for service cleanup errors."""
-
-
-class ServiceMessageProcessingError(ServiceError):
-    """Exception raised for service message processing errors."""
-
-
-class ServiceRegistrationError(ServiceError):
-    """Exception raised for service registration errors."""
-
-
-class ServiceStatusError(ServiceError):
-    """Exception raised for service status errors."""
-
-
-class ServiceRunError(ServiceError):
-    """Exception raised for service run errors."""
-
-
-class ServiceConfigureError(ServiceError):
-    """Exception raised for service configure errors."""
-
-
-class ServiceHeartbeatError(ServiceError):
-    """Exception raised for service heartbeat errors."""
+    def __init__(
+        self,
+        message: str,
+        service_type: ServiceType,
+        service_id: str,
+    ) -> None:
+        super().__init__(
+            f"{message} for service of type {service_type} with id {service_id}"
+        )
+        self.service_type = service_type
+        self.service_id = service_id
 
 
 ################################################################################

@@ -46,10 +46,6 @@ from aiperf.common.enums import (
     CaseInsensitiveStrEnum,
     ServiceType,
 )
-from aiperf.common.exceptions import (
-    ServiceConfigureError,
-    ServiceInitializationError,
-)
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
     aiperf_task,
@@ -310,10 +306,7 @@ class DaskWorkerManager(BaseComponentService):
             await self._start_cluster()
 
         except Exception as e:
-            self.logger.error(f"Failed to initialize Dask worker manager: {e}")
-            raise ServiceInitializationError(
-                f"Dask worker manager initialization failed: {e}"
-            ) from e
+            raise self._service_error("Failed to initialize Dask worker manager") from e
 
     @on_stop
     async def _on_stop(self) -> None:
@@ -384,8 +377,7 @@ class DaskWorkerManager(BaseComponentService):
                 )
 
         except Exception as e:
-            self.logger.error(f"Failed to configure Dask worker manager: {e}")
-            raise ServiceConfigureError(f"Configuration failed: {e}") from e
+            raise self._service_error("Failed to configure Dask worker manager") from e
 
     async def _setup_directories(self) -> None:
         """Set up required directories."""
@@ -434,7 +426,7 @@ class DaskWorkerManager(BaseComponentService):
     async def _start_cluster(self) -> None:
         """Start the Dask cluster and client."""
         if not self.cluster:
-            raise ServiceInitializationError("Cluster not initialized")
+            raise self._service_error("Cluster not initialized")
 
         # Create client
         self.client = await Client(
@@ -476,7 +468,7 @@ class DaskWorkerManager(BaseComponentService):
 
         while time.time() - start_time < timeout:
             if not self.client:
-                raise ServiceInitializationError("Client not available")
+                raise self._service_error("Client not available")
 
             workers = self.client.scheduler_info()["workers"]
             if len(workers) >= count:
@@ -485,7 +477,7 @@ class DaskWorkerManager(BaseComponentService):
 
             await asyncio.sleep(1)
 
-        raise ServiceInitializationError(f"Timeout waiting for {count} workers")
+        raise self._service_error(f"Timeout waiting for {count} workers")
 
     async def _on_credit_drop(self, message: Message) -> None:
         """Handle incoming credit drops."""

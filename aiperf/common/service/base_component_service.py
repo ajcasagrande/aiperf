@@ -6,11 +6,6 @@ from collections.abc import Awaitable, Callable
 from aiperf.common.comms.client_enums import ClientType, PubClientType, SubClientType
 from aiperf.common.config import ServiceConfig
 from aiperf.common.enums import CommandType, ServiceState, Topic
-from aiperf.common.exceptions import (
-    CommunicationSubscribeError,
-    ServiceHeartbeatError,
-    ServiceRegistrationError,
-)
 from aiperf.common.hooks import AIPerfHook, aiperf_task, on_run, on_set_state
 from aiperf.common.models import (
     CommandMessage,
@@ -75,10 +70,7 @@ class BaseComponentService(BaseService):
                 self.process_command_message,
             )
         except Exception as e:
-            self.logger.error("Exception subscribing to command topic: %s", e)
-            raise CommunicationSubscribeError(
-                "Failed to subscribe to command topic"
-            ) from e
+            self._raise_service_error("Failed to subscribe to command topic", e)
 
         # TODO: Find a way to wait for the communication to be fully initialized
         # FIXME: This is a hack to ensure the communication is fully initialized
@@ -89,7 +81,7 @@ class BaseComponentService(BaseService):
             await self.register()
             await asyncio.sleep(0.5)
         except Exception as e:
-            raise ServiceRegistrationError() from e
+            self._raise_service_error("Failed to register service", e)
 
     @aiperf_task
     async def _heartbeat_task(self) -> None:
@@ -120,7 +112,7 @@ class BaseComponentService(BaseService):
                 message=heartbeat_message,
             )
         except Exception as e:
-            raise ServiceHeartbeatError from e
+            self._raise_service_error("Failed to send heartbeat", e)
 
     async def register(self) -> None:
         """Publish a registration request to the system controller.
@@ -139,7 +131,7 @@ class BaseComponentService(BaseService):
                 message=self.create_registration_message(),
             )
         except Exception as e:
-            raise ServiceRegistrationError() from e
+            self._raise_service_error("Failed to register service", e)
 
     async def process_command_message(self, message: CommandMessage) -> None:
         """Process a command message received from the controller.
