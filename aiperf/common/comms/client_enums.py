@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-from typing import Union
 
 from aiperf.common.enums import CaseInsensitiveStrEnum, MessageType, Topic
 from aiperf.common.exceptions import CommunicationClientNotFoundError
@@ -204,12 +203,12 @@ class RepClientType(CaseInsensitiveStrEnum):
                 )
 
 
-ClientType = Union[  # noqa: UP007
-    PubClientType,
-    SubClientType,
-    PushClientType,
-    PullClientType,
-    ReqClientType,
-    RepClientType,
-]
+ClientType = (
+    PubClientType
+    | SubClientType
+    | PushClientType
+    | PullClientType
+    | ReqClientType
+    | RepClientType
+)
 """Union of all client types."""

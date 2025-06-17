@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import inspect
+import random
 import traceback
 from collections.abc import Callable
 
@@ -65,3 +66,44 @@ async def call_all_functions(funcs: list[Callable], *args, **kwargs) -> None:
 
     if len(exceptions) > 0:
         raise AIPerfMultiError("Errors calling functions", exceptions)
+
+
+def sample_bounded_normal(
+    mean: float,
+    stddev: float,
+    lower: float = float("-inf"),
+    upper: float = float("inf"),
+) -> float:
+    """Sample a bounded normal float.
+
+    Args:
+        mean: The mean of the normal distribution.
+        stddev: The standard deviation of the normal distribution.
+        lower: The lower bound of the distribution.
+        upper: The upper bound of the distribution.
+
+    Returns:
+        A float sampled from the normal distribution, bounded by the lower and upper bounds.
+    """
+    n = random.gauss(mean, stddev)
+    return min(max(lower, n), upper)
+
+
+def sample_bounded_normal_int(
+    mean: float,
+    stddev: float,
+    lower: float = float("-inf"),
+    upper: float = float("inf"),
+) -> int:
+    """Sample a bounded normal integer.
+
+    Args:
+        mean: The mean of the normal distribution.
+        stddev: The standard deviation of the normal distribution.
+        lower: The lower bound of the distribution.
+        upper: The upper bound of the distribution.
+
+    Returns:
+        An integer sampled from the normal distribution, bounded by the lower and upper bounds.
+    """
+    return round(sample_bounded_normal(mean, stddev, lower, upper))

@@ -22,12 +22,12 @@ logger = logging.getLogger(__name__)
 
 
 ################################################################################
-# OpenAI Inference Client
+# AioHTTP Client
 ################################################################################
 
 
 class AioHttpClientMixin:
-    """A high-performance inference client for communicating with OpenAI based REST APIs using aiohttp.
+    """A high-performance HTTP client for communicating with HTTP based REST APIs using aiohttp.
 
     This class is optimized for maximum performance and accurate timing measurements,
     making it ideal for benchmarking scenarios.
@@ -56,7 +56,7 @@ class AioHttpClientMixin:
         payload: str,
         headers: dict[str, str],
         delayed: bool = False,
-        **kwargs: dict[str, Any],
+        **kwargs: Any,
     ) -> RequestRecord:
         """Send a streaming or non-streaming request to the specified URL with the given payload and headers.
 
@@ -120,6 +120,7 @@ class AioHttpClientMixin:
                         record.responses.append(
                             TextResponse(
                                 perf_ns=record.end_perf_ns,
+                                content_type=response.content_type,
                                 text=raw_response,
                             )
                         )
@@ -136,6 +137,12 @@ class AioHttpClientMixin:
 
 
 class AioHttpSSEStreamReader:
+    """A helper class for reading an SSE stream from an aiohttp.ClientResponse object.
+
+    This class is optimized for maximum performance and accurate timing measurements,
+    making it ideal for benchmarking scenarios.
+    """
+
     def __init__(self, response: aiohttp.ClientResponse):
         self.response = response
 
@@ -163,7 +170,8 @@ class AioHttpSSEStreamReader:
         and the last byte is read after the rest of the chunk is read to capture the timestamp of the last byte.
 
         Returns:
-            An async iterator of tuples of the raw SSE message, the perf_counter_ns of the first byte, and the perf_counter_ns of the last byte.
+            An async iterator of tuples of the raw SSE message, the perf_counter_ns of the first byte, and
+            the perf_counter_ns of the last byte.
         """
 
         while not self.response.content.at_eof():

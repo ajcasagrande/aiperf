@@ -146,7 +146,10 @@ class BaseComponentService(BaseService):
 
         This method will process the command message and execute the appropriate action.
         """
-        if message.target_service_id not in [None, self.service_id]:
+        if message.target_service_id not in [
+            None,
+            self.service_id,
+        ] and message.target_service_type not in [None, self.service_type]:
             return  # Ignore commands meant for other services
 
         cmd = message.command
@@ -171,7 +174,7 @@ class BaseComponentService(BaseService):
         cmd: CommandType,
         callback: Callable[[CommandMessage], Awaitable[None]],
     ) -> None:
-        """Register a callback for a command."""
+        """Register a single callback for a command."""
         self._command_callbacks[cmd] = callback
 
     @on_set_state

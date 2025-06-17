@@ -8,7 +8,7 @@ from aiperf.common.enums import (
     AudioFormat,
     ImageFormat,
     ModelSelectionStrategy,
-    OutputFormat,
+    RequestPayloadType,
 )
 
 
@@ -24,12 +24,12 @@ class UserDefaults:
 @dataclass(frozen=True)
 class EndPointDefaults:
     MODEL_SELECTION_STRATEGY = ModelSelectionStrategy.ROUND_ROBIN
-    BACKEND = OutputFormat.OPENAI_CHAT_COMPLETIONS
+    BACKEND = RequestPayloadType.OPENAI_CHAT_COMPLETIONS
     CUSTOM = ""
     TYPE = "kserve"
-    STREAMING = False
+    STREAMING = True
     SERVER_METRICS_URLS = ["http://localhost:8002/metrics"]
-    URL = "localhost:8001"
+    URL = "localhost:8080"
     GRPC_METHOD = ""
 
 

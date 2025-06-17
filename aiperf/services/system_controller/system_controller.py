@@ -122,6 +122,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             await super()._forever_loop()
         except KeyboardInterrupt:
             await self.send_command_to_service(
+                target_service_type=ServiceType.RECORDS_MANAGER,
                 target_service_id=None,
                 command=CommandType.PROCESS_RECORDS,
                 data=ProcessRecordsCommandData(cancelled=True),
@@ -193,6 +194,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         if sig == signal.SIGINT:
             await self.send_command_to_service(
                 target_service_id=None,
+                target_service_type=ServiceType.RECORDS_MANAGER,
                 command=CommandType.PROCESS_RECORDS,
                 data=ProcessRecordsCommandData(cancelled=True),
             )
@@ -314,6 +316,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         if message.completed >= self.ui.total_requests:
             await self.send_command_to_service(
                 target_service_id=None,
+                target_service_type=ServiceType.RECORDS_MANAGER,
                 command=CommandType.PROCESS_RECORDS,
                 data=ProcessRecordsCommandData(cancelled=False),
             )
@@ -449,11 +452,13 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         target_service_id: str | None,
         command: CommandType,
         data: Any | None = None,
+        target_service_type: ServiceType | None = None,
     ) -> None:
         """Send a command to a specific service.
 
         Args:
             target_service_id: ID of the target service, or None to send to all services
+            target_service_type: Type of the target service, or None to send to all services
             command: The command to send (from CommandType enum).
             data: Optional data to send with the command.
 
@@ -469,6 +474,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         command_message = self.create_command_message(
             command=command,
             target_service_id=target_service_id,
+            target_service_type=target_service_type,
             data=data,
         )
 

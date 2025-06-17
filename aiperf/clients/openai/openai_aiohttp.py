@@ -15,6 +15,7 @@ from aiperf.clients.openai.common import (
     OpenAIEmbeddingsRequest,
     OpenAIResponsesRequest,
 )
+from aiperf.common.config.endpoint.endpoint_config import EndPointConfig
 from aiperf.common.enums import InferenceClientType
 from aiperf.common.exceptions import InvalidPayloadError
 from aiperf.common.factories import InferenceClientFactory
@@ -116,7 +117,7 @@ class OpenAIClientAioHttp(ChatCompletionMixin):
         await super().cleanup()
 
     async def format_payload(
-        self, endpoint: str, payload: OpenAIBaseRequest | dict[str, Any]
+        self, endpoint: EndPointConfig, payload: OpenAIBaseRequest | dict[str, Any]
     ) -> OpenAIBaseRequest:
         """Format payload for the given endpoint."""
 
@@ -125,11 +126,11 @@ class OpenAIClientAioHttp(ChatCompletionMixin):
         return payload
 
     def _convert_dict_to_request(
-        self, endpoint: str, payload: dict[str, Any]
+        self, endpoint: EndPointConfig, payload: dict[str, Any]
     ) -> OpenAIBaseRequest:
         """Convert dictionary payload to proper OpenAI request object."""
 
-        if endpoint == "v1/chat/completions":
+        if endpoint.type == "v1/chat/completions":
             return OpenAIChatCompletionRequest(
                 messages=payload["messages"],
                 model=self.client_config.model,
@@ -137,7 +138,7 @@ class OpenAIClientAioHttp(ChatCompletionMixin):
                 kwargs=payload.get("kwargs", {}),
             )
 
-        elif endpoint == "v1/completions":
+        elif endpoint.type == "v1/completions":
             return OpenAICompletionRequest(
                 prompt=payload["prompt"],
                 model=self.client_config.model,
@@ -145,7 +146,7 @@ class OpenAIClientAioHttp(ChatCompletionMixin):
                 kwargs=payload.get("kwargs", {}),
             )
 
-        elif endpoint == "v1/embeddings":
+        elif endpoint.type == "v1/embeddings":
             return OpenAIEmbeddingsRequest(
                 input=payload["input"],
                 model=self.client_config.model,
@@ -155,7 +156,7 @@ class OpenAIClientAioHttp(ChatCompletionMixin):
                 kwargs=payload.get("kwargs", {}),
             )
 
-        elif endpoint == "v1/responses":
+        elif endpoint.type == "v1/responses":
             return OpenAIResponsesRequest(
                 input=payload["input"],
                 model=self.client_config.model,
@@ -167,7 +168,10 @@ class OpenAIClientAioHttp(ChatCompletionMixin):
             raise ValueError(f"Invalid endpoint: {endpoint}")
 
     async def send_request(
-        self, endpoint: str, payload: OpenAIBaseRequest, delayed: bool = False
+        self,
+        endpoint: EndPointConfig,
+        payload: OpenAIBaseRequest,
+        delayed: bool = False,
     ) -> RequestRecord:
         """Send request to the specified endpoint with the given payload."""
         record: RequestRecord | None = None

@@ -12,6 +12,7 @@ from aiperf.common.comms.client_enums import (
     PushClientType,
     ReqClientType,
 )
+from aiperf.common.config.endpoint.endpoint_config import EndPointConfig
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.constants import NANOS_PER_MILLIS
 from aiperf.common.enums import InferenceClientType, MessageType, ServiceType, Topic
@@ -207,7 +208,11 @@ class Worker(BaseService):
 
             # Format payload for the API request
             formatted_payload = await self.inference_client.format_payload(
-                endpoint="v1/chat/completions",
+                endpoint=EndPointConfig(
+                    type="v1/chat/completions",
+                    streaming=True,
+                    # model="deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
+                ),
                 payload={"messages": response.conversation_data},
             )
 
@@ -220,7 +225,11 @@ class Worker(BaseService):
 
             # Send the request to the API
             record = await self.inference_client.send_request(
-                endpoint="v1/chat/completions",
+                endpoint=EndPointConfig(
+                    type="v1/chat/completions",
+                    streaming=True,
+                    # model="deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
+                ),
                 payload=formatted_payload,
                 delayed=delayed,
             )

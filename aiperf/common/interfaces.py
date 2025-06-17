@@ -2,6 +2,7 @@
 #  SPDX-License-Identifier: Apache-2.0
 from typing import Generic, Protocol
 
+from aiperf.common.config.endpoint.endpoint_config import EndPointConfig
 from aiperf.common.models.messages import ProfileResultsMessage
 from aiperf.common.models.record_models import (
     InferenceServerResponse,
@@ -51,8 +52,9 @@ class InferenceClientProtocol(Protocol, Generic[ConfigT, RequestT, ResponseT]):
         """Get the client configuration."""
         ...
 
-    # TODO: the endpoint should be of type EndpointConfig
-    async def format_payload(self, endpoint: str, payload: RequestT) -> RequestT:
+    async def format_payload(
+        self, endpoint: EndPointConfig, payload: RequestT
+    ) -> RequestT:
         """Format the payload for the inference server.
 
         This method is used to format the payload for the inference server.
@@ -65,9 +67,8 @@ class InferenceClientProtocol(Protocol, Generic[ConfigT, RequestT, ResponseT]):
         """
         ...
 
-    # TODO: the endpoint should be of type EndpointConfig
     async def send_request(
-        self, endpoint: str, payload: RequestT, delayed: bool = False
+        self, endpoint: EndPointConfig, payload: RequestT, delayed: bool = False
     ) -> RequestRecord:
         """Send a request to the inference server.
 

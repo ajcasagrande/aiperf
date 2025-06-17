@@ -8,8 +8,8 @@ from aiperf.common.enums import (
     CaseInsensitiveStrEnum,
     CommunicationBackend,
     InferenceClientType,
-    OutputFormat,
     PromptSource,
+    RequestPayloadType,
     ServiceType,
 )
 from aiperf.common.exceptions import FactoryCreationError
@@ -215,7 +215,9 @@ class InputConverterFactory(FactoryMixin[PromptSource, "InputConverterProtocol"]
     """
 
 
-class OutputConverterFactory(FactoryMixin[OutputFormat, "OutputConverterProtocol"]):
+class OutputConverterFactory(
+    FactoryMixin[RequestPayloadType, "OutputConverterProtocol"]
+):
     """Factory for registering and creating OutputConverterProtocol instances based on the specified output format.
 
     Example:

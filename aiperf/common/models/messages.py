@@ -213,7 +213,6 @@ class CommandMessage(BaseServiceMessage):
         default=False,
         description="Whether a response is required for this command",
     )
-    # TODO: should we allow a service_type as well to send to all services of a given type?
     target_service_type: ServiceType | None = Field(
         default=None,
         description="Type of the service to send the command to. "

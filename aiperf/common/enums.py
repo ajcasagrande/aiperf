@@ -353,17 +353,30 @@ class ModelSelectionStrategy(CaseInsensitiveStrEnum):
     MODALITY_AWARE = "modality_aware"
 
 
-class OutputFormat(CaseInsensitiveStrEnum):
-    """Output format types."""
+class MeasurementMode(CaseInsensitiveStrEnum):
+    REQUEST_COUNT = "request_count"
+    INTERVAL = "interval"
+
+
+class RequestPayloadType(CaseInsensitiveStrEnum):
+    """Request payload types."""
 
     OPENAI_CHAT_COMPLETIONS = "openai_chat_completions"
     OPENAI_COMPLETIONS = "openai_completions"
     OPENAI_EMBEDDINGS = "openai_embeddings"
     OPENAI_MULTIMODAL = "openai_multimodal"
     OPENAI_RESPONSES = "openai_responses"
+
     HUGGINGFACE_GENERATE = "huggingface_generate"
     HUGGINGFACE_RANKINGS = "huggingface_rankings"
+
+    IMAGE_RETRIEVAL = "image_retrieval"
+    DYNAMIC_GRPC = "dynamic_grpc"
+    NVCLIP = "nvclip"
+
     RANKINGS = "rankings"
+    TEMPLATE = "template"
+
     TENSORRTLLM = "tensorrtllm"
     VLLM = "vllm"
 
