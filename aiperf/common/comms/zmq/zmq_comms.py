@@ -115,9 +115,8 @@ class BaseZMQCommunication(BaseCommunication, ABC):
         if self.is_initialized:
             return
 
-        self._context = zmq.asyncio.Context(
-            io_threads=max(2, (os.cpu_count() or 2) // 2)
-        )
+        # Increase the number of IO threads to 2
+        self._context = zmq.asyncio.Context(io_threads=2)
         self.initialized_event.set()
 
     async def shutdown(self) -> None:
@@ -147,8 +146,8 @@ class BaseZMQCommunication(BaseCommunication, ABC):
 
         except asyncio.CancelledError:
             pass
+
         except Exception as e:
-            logger.error(f"Exception shutting down ZMQ communication: {e}")
             raise CommunicationError(
                 CommunicationErrorReason.SHUTDOWN_ERROR,
                 "Failed to shutdown ZMQ communication",

@@ -53,12 +53,11 @@ class ZMQPushClient(BaseZMQClient):
             logger.debug("Pushed json data: %s", data_json)
 
         except zmq.Again:
-            # Queue is full, yield control briefly and retry
+            # Queue is full, yield control briefly and retry pushing the message.
             await asyncio.sleep(0.1)
             await self.push(message)
 
         except Exception as e:
-            logger.error(f"Exception pushing data: {e} {type(e)}")
             raise CommunicationError(
                 CommunicationErrorReason.PUSH_ERROR, f"Failed to push data: {e}"
             ) from e

@@ -138,10 +138,12 @@ class BaseComponentService(BaseService):
 
         This method will process the command message and execute the appropriate action.
         """
-        if message.target_service_id not in [
-            None,
-            self.service_id,
-        ] and message.target_service_type not in [None, self.service_type]:
+        if message.target_service_id and message.target_service_id != self.service_id:
+            return  # Ignore commands meant for other services
+        if (
+            message.target_service_type
+            and message.target_service_type != self.service_type
+        ):
             return  # Ignore commands meant for other services
 
         cmd = message.command
@@ -159,7 +161,7 @@ class BaseComponentService(BaseService):
             await self._command_callbacks[cmd](message)
 
         else:
-            self.logger.debug("%s received unknown command: %s", self.service_id, cmd)
+            self.logger.warning("%s received unknown command: %s", self.service_id, cmd)
 
     def register_command_callback(
         self,

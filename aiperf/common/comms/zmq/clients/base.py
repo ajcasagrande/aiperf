@@ -83,7 +83,7 @@ class BaseZMQClient(AIPerfTaskMixin):
         """
         if not self._socket:
             raise CommunicationError(
-                CommunicationErrorReason.INITIALIZATION_ERROR,
+                CommunicationErrorReason.NOT_INITIALIZED_ERROR,
                 "Communication channels are not initialized",
             )
         return self._socket
@@ -97,7 +97,7 @@ class BaseZMQClient(AIPerfTaskMixin):
         """
         if not self.is_initialized:
             raise CommunicationError(
-                CommunicationErrorReason.INITIALIZATION_ERROR,
+                CommunicationErrorReason.NOT_INITIALIZED_ERROR,
                 "Communication channels are not initialized",
             )
         if self.is_shutdown:
@@ -161,7 +161,6 @@ class BaseZMQClient(AIPerfTaskMixin):
         except AIPerfError:
             raise  # re-raise it up the stack
         except Exception as e:
-            self.logger.error("Exception initializing ZMQ socket: %s", e)
             raise CommunicationError(
                 CommunicationErrorReason.INITIALIZATION_ERROR,
                 f"Failed to initialize ZMQ socket: {e}",
@@ -206,6 +205,12 @@ class BaseZMQClient(AIPerfTaskMixin):
             try:
                 await self.run_hooks(AIPerfHook.ON_STOP)
                 await self.run_hooks(AIPerfHook.ON_CLEANUP)
+
+            except asyncio.CancelledError:
+                return
+
+            except AIPerfError:
+                raise  # re-raise it up the stack
 
             except Exception as e:
                 self.logger.error(

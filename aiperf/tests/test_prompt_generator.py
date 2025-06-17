@@ -5,7 +5,7 @@ from contextlib import nullcontext as does_not_raise
 
 import pytest
 
-from aiperf.common.exceptions import GeneratorConfigurationError
+from aiperf.common.exceptions import GeneratorError
 from aiperf.common.tokenizer import Tokenizer
 from aiperf.services.dataset.generator.prompt import PromptGenerator
 
@@ -40,8 +40,8 @@ class TestPromptGenerator:
         "test_num_tokens, context",
         [
             (12, does_not_raise()),
-            (9, pytest.raises(GeneratorConfigurationError)),
-            (16, pytest.raises(GeneratorConfigurationError)),
+            (9, pytest.raises(GeneratorError)),
+            (16, pytest.raises(GeneratorError)),
         ],
     )
     def test_generate_prompt_with_token_reuse(

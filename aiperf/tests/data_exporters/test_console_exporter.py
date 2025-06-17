@@ -3,7 +3,7 @@
 import pytest
 
 from aiperf.common.config import EndPointConfig
-from aiperf.common.models import ProfileResultsMessage, Record
+from aiperf.common.models import ProfileResultsMessage, ResultsRecord
 from aiperf.data_exporter import ConsoleExporter
 
 
@@ -16,7 +16,7 @@ def endpoint_config() -> EndPointConfig:
 def sample_records() -> ProfileResultsMessage:
     return ProfileResultsMessage(
         records=[
-            Record(
+            ResultsRecord(
                 name="Time to First Token",
                 unit="ms",
                 avg=120.5,
@@ -26,7 +26,7 @@ def sample_records() -> ProfileResultsMessage:
                 p90=125.0,
                 p75=122.0,
             ),
-            Record(
+            ResultsRecord(
                 name="Request Latency",
                 unit="ms",
                 avg=15.3,
@@ -36,7 +36,7 @@ def sample_records() -> ProfileResultsMessage:
                 p90=18.7,
                 p75=16.2,
             ),
-            Record(
+            ResultsRecord(
                 name="Inter Token Latency",
                 unit="ms",
                 avg=3.7,
@@ -47,7 +47,7 @@ def sample_records() -> ProfileResultsMessage:
                 p75=4.0,
                 streaming_only=True,
             ),
-            Record(
+            ResultsRecord(
                 name="Request Throughput",
                 unit="per sec",
                 avg=95.0,
@@ -96,7 +96,7 @@ class TestConsoleExporter:
     ):
         endpoint_config.streaming = enable_streaming
         exporter = ConsoleExporter(endpoint_config)
-        record = Record(
+        record = ResultsRecord(
             name="Test Metric",
             unit="ms",
             avg=1.0,
@@ -106,7 +106,7 @@ class TestConsoleExporter:
 
     def test_format_row_formats_values_correctly(self, endpoint_config: EndPointConfig):
         exporter = ConsoleExporter(endpoint_config)
-        record = Record(
+        record = ResultsRecord(
             name="Request Latency",
             unit="ms",
             avg=10.123,

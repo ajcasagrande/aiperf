@@ -41,9 +41,9 @@ class TimingManager(BaseComponentService):
         super().__init__(service_config=service_config, service_id=service_id)
         self._credit_lock = asyncio.Lock()
 
-        self._total_credits = int(os.getenv("AIPERF_TOTAL_REQUESTS", 100))
+        self._total_credits = int(os.getenv("AIPERF_TOTAL_REQUESTS", 25))
         self._credits_available = min(
-            self._total_credits, int(os.getenv("AIPERF_CONCURRENCY", 100))
+            self._total_credits, int(os.getenv("AIPERF_CONCURRENCY", 5))
         )
 
         self._sent_credits = 0

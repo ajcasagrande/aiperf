@@ -37,6 +37,7 @@ class CommunicationErrorReason(CaseInsensitiveStrEnum):
     RESPONSE_ERROR = "response_error"
     SHUTDOWN_ERROR = "shutdown_error"
     INITIALIZATION_ERROR = "initialization_error"
+    NOT_INITIALIZED_ERROR = "not_initialized_error"
     CLEANUP_ERROR = "cleanup_error"
     PUSH_ERROR = "push_error"
     PULL_ERROR = "pull_error"
@@ -77,6 +78,7 @@ class ConfigError(AIPerfError):
 class GeneratorErrorReason(CaseInsensitiveStrEnum):
     INITIALIZATION_ERROR = "initialization_error"
     CONFIGURATION_ERROR = "configuration_error"
+    PREFIX_PROMPTS_POOL_EMPTY = "prefix_prompts_pool_empty"
 
 
 class GeneratorError(AIPerfError):

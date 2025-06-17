@@ -67,7 +67,12 @@ class ZMQPullClient(BaseZMQClient):
                 await asyncio.sleep(0.1)
 
     async def _process_message(self, message_json: str) -> None:
-        """Process a message from the pull socket."""
+        """Process a message from the pull socket.
+
+        This method is called by the background task when a message is received from
+        the pull socket. It will deserialize the message and call the appropriate
+        callback function.
+        """
         message = Message.from_json(message_json)
 
         # Call callbacks with Message object
@@ -86,11 +91,13 @@ class ZMQPullClient(BaseZMQClient):
         message_type: MessageType,
         callback: Callable[[Message], Coroutine[Any, Any, None]],
     ) -> None:
-        """Register a ZMQ Pull data callback from a message type.
+        """Register a ZMQ Pull data callback for a given message type.
+
+        Note that more than one callback can be registered for a given message type.
 
         Args:
-            message_type:
-            callback: function to call when data is received.
+            message_type: The message type to register the callback for.
+            callback: The function to call when data is received.
 
         Raises:
             CommunicationError: If the client is not initialized

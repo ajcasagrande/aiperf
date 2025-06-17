@@ -32,11 +32,12 @@ class ZMQPubClient(BaseZMQClient):
         super().__init__(context, zmq.SocketType.PUB, address, bind, socket_ops)
 
     async def publish(self, topic: str, message: Message) -> None:
-        """Publish a message to a topic.
+        """Publish a message to a topic. Fairly straightforward, just dumps the message
+        and sends it over the socket.
 
         Args:
             topic: Topic to publish to
-            message: Message to publish (must be a Pydantic model)
+            message: Message to publish (must be a Message object)
 
         Raises:
             CommunicationError: If the client is not initialized
@@ -45,14 +46,12 @@ class ZMQPubClient(BaseZMQClient):
         self._ensure_initialized()
 
         try:
-            # Serialize message using Pydantic's built-in method
             message_json = message.model_dump_json()
 
             # Publish message
             await self.socket.send_multipart([topic.encode(), message_json.encode()])
 
         except Exception as e:
-            logger.error("Exception publishing message to topic %s: %s", topic, e)
             raise CommunicationError(
                 CommunicationErrorReason.PUBLISH_ERROR,
                 f"Failed to publish message to topic {topic}: {e}",

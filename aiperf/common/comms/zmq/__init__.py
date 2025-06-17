@@ -6,8 +6,24 @@ __all__ = [
     "ZMQTCPCommunication",
     "ZMQIPCCommunication",
     "ZMQInprocCommunication",
+    "ZMQClient",
+    "ZMQPubClient",
+    "ZMQSubClient",
+    "ZMQPullClient",
+    "ZMQPushClient",
+    "ZMQRouterRepClient",
+    "ZMQDealerReqClient",
 ]
 
+from aiperf.common.comms.zmq.clients import (
+    ZMQClient,
+    ZMQDealerReqClient,
+    ZMQPubClient,
+    ZMQPullClient,
+    ZMQPushClient,
+    ZMQRouterRepClient,
+    ZMQSubClient,
+)
 from aiperf.common.comms.zmq.zmq_comms import (
     BaseZMQCommunication,
     ZMQInprocCommunication,

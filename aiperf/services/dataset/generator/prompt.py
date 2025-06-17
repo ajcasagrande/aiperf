@@ -8,8 +8,8 @@ import random
 from concurrent.futures import ThreadPoolExecutor
 
 from aiperf.common.exceptions import (
-    GeneratorConfigurationError,
-    GeneratorInitializationError,
+    GeneratorError,
+    GeneratorErrorReason,
 )
 from aiperf.common.tokenizer import Tokenizer
 
@@ -119,7 +119,10 @@ class PromptGenerator:
             GeneratorInitializationError: If the tokenized corpus is not initialized
         """
         if not cls._tokenized_corpus:
-            raise GeneratorInitializationError("Tokenized corpus is not initialized.")
+            raise GeneratorError(
+                GeneratorErrorReason.INITIALIZATION_ERROR,
+                "Tokenized corpus is not initialized.",
+            )
         if num_tokens > cls._corpus_length:
             logger.warning(
                 f"Requested prompt length {num_tokens} is longer than the corpus. "
@@ -183,10 +186,11 @@ class PromptGenerator:
         size_to_use = block_size
         last_hash_length = num_tokens - ((len(prompt_hash_list) - 1) * block_size)
         if last_hash_length <= 0 or block_size < last_hash_length:
-            raise GeneratorConfigurationError(
+            raise GeneratorError(
+                GeneratorErrorReason.CONFIGURATION_ERROR,
                 f"Input_length: {num_tokens}, Hash_ids: {prompt_hash_list}, Block_size: {block_size} "
                 f"are not compatible. The final hash id length: {last_hash_length} must be greater "
-                f"than 0 and less than or equal to {block_size}."
+                f"than 0 and less than or equal to {block_size}.",
             )
         for index, hash_index in enumerate(prompt_hash_list):
             if index == len(prompt_hash_list) - 1:
@@ -235,7 +239,8 @@ class PromptGenerator:
             GeneratorInitializationError: If the prefix prompts pool is empty.
         """
         if not cls._prefix_prompts:
-            raise GeneratorInitializationError(
-                "Prefix prompts pool is empty. Call `create_prefix_prompts_pool` first."
+            raise GeneratorError(
+                GeneratorErrorReason.PREFIX_PROMPTS_POOL_EMPTY,
+                "Prefix prompts pool is empty. Call `create_prefix_prompts_pool` first.",
             )
         return random.choice(cls._prefix_prompts)

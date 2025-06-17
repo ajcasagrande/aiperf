@@ -37,7 +37,7 @@ class ZMQDealerReqClient(BaseZMQClient):
         """Send a request and wait for a response.
 
         Args:
-            request_data: Request data (must be a RequestData instance)
+            request_data: Request data (must be a Message object)
 
         Returns:
             ResponseData object
@@ -48,7 +48,6 @@ class ZMQDealerReqClient(BaseZMQClient):
         if not request_data.request_id:
             request_data.request_id = uuid.uuid4().hex
 
-        # Serialize request
         request_json = request_data.model_dump_json()
 
         try:
@@ -59,6 +58,7 @@ class ZMQDealerReqClient(BaseZMQClient):
             response_json = await self._socket.recv_string()
             response = Message.from_json(response_json)
             return response
+
         except Exception as e:
             raise CommunicationError(
                 CommunicationErrorReason.REQUEST_ERROR,

@@ -47,7 +47,11 @@ class ZMQRouterRepClient(BaseZMQClient):
         message_type: MessageType,
         handler: Callable[[Message], Coroutine[Any, Any, Message | None]],
     ) -> None:
-        """Register a request handler.
+        """Register a request handler. Anytime a request is received that matches the
+        message type, the handler will be called. The handler should return a response
+        message. If the handler returns None, the request will be ignored.
+
+        Note that there is a limit of 1 to 1 mapping between message type and handler.
 
         Args:
             service_id: The service ID to register the handler for
@@ -57,13 +61,16 @@ class ZMQRouterRepClient(BaseZMQClient):
         self._request_handlers[message_type] = (service_id, handler)
 
     async def _handle_request(self, request_id: str, request_json: str) -> None:
-        """Handle a request."""
-        # Parse JSON to create RequestData object
+        """Handle a request.
+
+        This method will:
+        - Parse the request JSON to create a RequestData object
+        - Call the handler for the message type
+        - Set the response future
+        """
         request: Message = Message.from_json(request_json)
         message_type = request.message_type
 
-        # Call the handler
-        _ = None
         try:
             _, handler = self._request_handlers[message_type]
             response = await handler(request)
@@ -78,11 +85,12 @@ class ZMQRouterRepClient(BaseZMQClient):
         self._response_futures[request_id].set_result(response)
 
     @aiperf_task
-    async def _rep_receiver(self) -> None:
+    async def _rep_router_receiver(self) -> None:
         """Background task for receiving requests and sending responses.
 
         This method is a coroutine that will run indefinitely until the client is
-        shutdown. It will wait for requests from the socket and send responses.
+        shutdown. It will wait for requests from the socket and send responses in
+        an asynchronous manner.
         """
         if not self.is_initialized:
             await self.initialized_event.wait()
@@ -93,16 +101,26 @@ class ZMQRouterRepClient(BaseZMQClient):
                 try:
                     request_id, request_json = await self.socket.recv_multipart()
                 except zmq.Again:
+                    # This means we timed out waiting for a request.
+                    # We can continue to the next iteration of the loop.
                     continue
 
+                # Create a new response future for this request that will be resolved
+                # when the handler returns a response.
                 self._response_futures[request_id] = asyncio.Future()
+
+                # Handle the request in a new task.
                 asyncio.create_task(self._handle_request(request_id, request_json))
-                response = await self._response_futures[request_id]  # type: ignore
+
+                # Wait for the response asynchronously.
+                response = await self._response_futures[request_id]
                 if response is not None:
+                    # Send the response back to the client.
                     await self.socket.send_multipart(
                         [request_id, response.model_dump_json().encode()]
                     )
                 else:
+                    # If the response is None, we send an error message back to the client.
                     self.logger.warning("No response for request %s", request_id)
                     await self.socket.send_multipart([request_id, b"ERROR"])
 

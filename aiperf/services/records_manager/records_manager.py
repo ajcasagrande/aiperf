@@ -27,8 +27,8 @@ from aiperf.common.models import (
     Message,
     ProfileResultsMessage,
     ProfileStatsMessage,
-    Record,
     RequestRecord,
+    ResultsRecord,
 )
 from aiperf.common.service.base_component_service import BaseComponentService
 
@@ -299,9 +299,9 @@ def record_from_dataframe(
     name: str,
     unit: str,
     streaming_only: bool,
-) -> Record:
+) -> ResultsRecord:
     """Create a Record from a DataFrame."""
-    return Record(
+    return ResultsRecord(
         name=name,
         unit=unit,
         avg=df[column_name].mean() / NANOS_PER_MILLIS,
