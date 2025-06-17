@@ -5,17 +5,25 @@ import random
 from abc import ABC, abstractmethod
 from typing import Any
 
-from aiperf.common.config.input.config_command import ConfigCommand
-from aiperf.common.config.input.config_defaults import OutputTokenDefaults
+from typing_extensions import Protocol
+
+from aiperf.common.config.config_defaults import OutputTokenDefaults
+from aiperf.common.config.user_config import UserConfig
 from aiperf.common.enums import ModelSelectionStrategy
 from aiperf.common.exceptions import AIPerfError
-from aiperf.common.inputs.retrievers.generic_dataset import DataRow, GenericDataset
+from aiperf.common.models.data_models import DataRow, GenericDataset
 from aiperf.common.tokenizer import Tokenizer
 from aiperf.common.utils import sample_bounded_normal
 
 
-class BaseConverter(ABC):
-    def __init__(self, config: ConfigCommand, tokenizer: Tokenizer | None = None):
+class RequestConverterProtocol(Protocol):
+    def check_config(self) -> None: ...
+
+    def convert(self, generic_dataset: GenericDataset) -> dict[Any, Any]: ...
+
+
+class BaseRequestConverter(ABC):
+    def __init__(self, config: UserConfig, tokenizer: Tokenizer | None = None):
         self.config = config
         self.tokenizer = tokenizer or Tokenizer()
 
@@ -40,6 +48,7 @@ class BaseConverter(ABC):
         """
         ...
 
+    # TODO: Multimodal support using the model_selection_strategy MODALITY_AWARE
     def _select_model_name(self, index: int, row: DataRow) -> str:
         if (
             self.config.endpoint.model_selection_strategy
@@ -65,7 +74,7 @@ class BaseConverter(ABC):
         """
         if "max_tokens" in optional_data:
             return optional_data["max_tokens"]
-        elif self.config.input.output_tokens.get_field("mean").is_set_by_user:
+        elif self.config.input.output_tokens.mean is not None:
             return int(
                 sample_bounded_normal(
                     mean=self.config.input.output_tokens.mean,

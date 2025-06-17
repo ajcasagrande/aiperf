@@ -328,3 +328,23 @@ class PostProcessorFactory(FactoryMixin["PostProcessorType", "PostProcessorProto
             PostProcessorType.METRIC_SUMMARY,
         )
     """
+
+
+class RequestConverterFactory(
+    FactoryMixin[RequestPayloadType, "RequestConverterProtocol"]
+):
+    """Factory for registering and creating RequestPayloadConverter instances based on the specified request payload type.
+
+    Example:
+    ```python
+        # Register a new request payload converter
+        @RequestConverterFactory.register(RequestPayloadType.OPENAI_CHAT_COMPLETIONS)
+        class OpenAIChatCompletionsRequestConverter(RequestConverterProtocol):
+            pass
+
+        # Create a new request payload converter instance
+        request_payload_converter = RequestConverterFactory.create_instance(
+            RequestPayloadType.OPENAI_CHAT_COMPLETIONS,
+        )
+    ```
+    """

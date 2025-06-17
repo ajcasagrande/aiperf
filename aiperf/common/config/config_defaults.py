@@ -7,6 +7,7 @@ from pathlib import Path
 from aiperf.common.enums import (
     AudioFormat,
     ImageFormat,
+    InferenceClientType,
     ModelSelectionStrategy,
     RequestPayloadType,
 )
@@ -26,7 +27,7 @@ class EndPointDefaults:
     MODEL_SELECTION_STRATEGY = ModelSelectionStrategy.ROUND_ROBIN
     BACKEND = RequestPayloadType.OPENAI_CHAT_COMPLETIONS
     CUSTOM = ""
-    TYPE = "kserve"
+    TYPE = InferenceClientType.OPENAI
     STREAMING = True
     SERVER_METRICS_URLS = ["http://localhost:8002/metrics"]
     URL = "localhost:8080"
@@ -112,3 +113,10 @@ class TokenizerDefaults:
     NAME = ""
     REVISION = "main"
     TRUST_REMOTE_CODE = False
+
+
+@dataclass(frozen=True)
+class OutputTokenDefaults:
+    MEAN = None
+    DETERMINISTIC = False
+    STDDEV = 0

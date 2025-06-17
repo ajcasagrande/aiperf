@@ -324,7 +324,7 @@ class ServiceRegistrationStatus(CaseInsensitiveStrEnum):
 
 
 class InferenceClientType(CaseInsensitiveStrEnum):
-    """Backend client types."""
+    """Inference client types."""
 
     GRPC = "grpc"
     HTTP = "http"
