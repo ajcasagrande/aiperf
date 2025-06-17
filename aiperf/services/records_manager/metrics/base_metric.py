@@ -12,7 +12,7 @@ from aiperf.services.records_manager.records import Record
 
 
 class BaseMetric(ABC):
-    "Base class for all metricss with automatic subclass registration."
+    "Base class for all metrics with automatic subclass registration."
 
     # Class attributes that subclasses must override
     tag: ClassVar[str] = ""

@@ -40,34 +40,6 @@ class EndpointInfo(BaseModel):
         default=RequestPayloadType.OPENAI_CHAT_COMPLETIONS,
         description="The type of request payload to use for the endpoint.",
     )
-    custom_url_path: str | None = Field(
-        default=None,
-        description="Custom URL path to use for the endpoint. If None, the URL path will be the same as the model's URL path.",
-    )
-    custom_url_params: dict[str, Any] | None = Field(
-        default=None,
-        description="Custom URL parameters to use for the endpoint. If None, the URL parameters will be the same as the model's URL parameters.",
-    )
-    custom_url_query_params: dict[str, Any] | None = Field(
-        default=None,
-        description="Custom URL query parameters to use for the endpoint. If None, the URL query parameters will be the same as the model's URL query parameters.",
-    )
-    custom_url_headers: dict[str, Any] | None = Field(
-        default=None,
-        description="Custom URL headers to use for the endpoint. If None, the URL headers will be the same as the model's URL headers.",
-    )
-    api_key: str | None = Field(
-        default=None,
-        description="API key to use for the endpoint. If None, the API key will be the same as the model's API key.",
-    )
-    ssl_options: dict[str, Any] | None = Field(
-        default=None,
-        description="SSL options to use for the endpoint. If None, the SSL options will be the same as the model's SSL options.",
-    )
-    timeout_ms: int | None = Field(
-        default=None,
-        description="Timeout to use for the endpoint. If None, the timeout will be the same as the model's timeout.",
-    )
     extra: dict[str, Any] | None = Field(
         default=None,
         description="Extra information to use for the endpoint. If None, the extra information will be the same as the model's extra information.",
@@ -81,11 +53,37 @@ class HttpEndpointInfo(EndpointInfo):
         default=None,
         description="URL to use for the endpoint. If None, the URL will be the same as the model's URL.",
     )
+    custom_url_path: str | None = Field(
+        default=None,
+        description="Custom URL path to use for the endpoint. If None, the URL path will be the same as the model's URL path.",
+    )
+    custom_url_params: dict[str, Any] | None = Field(
+        default=None,
+        description="Custom URL parameters to use for the endpoint. If None, the URL parameters will be the same as the model's URL parameters.",
+    )
+    custom_headers: dict[str, Any] | None = Field(
+        default=None,
+        description="Custom URL headers to use for the endpoint. If None, the URL headers will be the same as the model's URL headers.",
+    )
+    api_key: str | None = Field(
+        default=None,
+        description="API key to use for the endpoint. If None, the API key will be the same as the model's API key.",
+    )
+    ssl_options: dict[str, Any] | None = Field(
+        default=None,
+        description="SSL options to use for the endpoint. If None, the SSL options will be the same as the model's SSL options.",
+    )
 
 
 class ModelEndpointInfo(BaseModel):
     """Information about a model endpoint."""
 
-    models: list[ModelInfo]
-    endpoint: EndpointInfo
-    model_selection_strategy: ModelSelectionStrategy
+    models: list[ModelInfo] = Field(
+        description="The models to use for the endpoint.",
+    )
+    endpoint: EndpointInfo = Field(
+        description="The endpoint to use for the models.",
+    )
+    model_selection_strategy: ModelSelectionStrategy = Field(
+        description="The strategy to use for selecting the model to use for the endpoint.",
+    )

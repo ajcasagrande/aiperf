@@ -25,12 +25,12 @@ class EndPointConfig(BaseConfig):
         ),
     ] = EndPointDefaults.MODEL_SELECTION_STRATEGY
 
-    backend: Annotated[
+    request_payload_type: Annotated[
         RequestPayloadType,
         Field(
-            description="When benchmarking Triton, this is the backend of the model.",
+            description="The type of request payload to send to the model.",
         ),
-    ] = EndPointDefaults.BACKEND
+    ] = EndPointDefaults.REQUEST_PAYLOAD_TYPE
 
     custom: Annotated[
         str,

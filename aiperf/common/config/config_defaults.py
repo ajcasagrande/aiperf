@@ -25,7 +25,7 @@ class UserDefaults:
 @dataclass(frozen=True)
 class EndPointDefaults:
     MODEL_SELECTION_STRATEGY = ModelSelectionStrategy.ROUND_ROBIN
-    BACKEND = RequestPayloadType.OPENAI_CHAT_COMPLETIONS
+    REQUEST_PAYLOAD_TYPE = RequestPayloadType.OPENAI_CHAT_COMPLETIONS
     CUSTOM = ""
     TYPE = InferenceClientType.OPENAI
     STREAMING = True

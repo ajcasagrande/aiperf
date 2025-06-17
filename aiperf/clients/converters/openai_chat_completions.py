@@ -18,18 +18,18 @@ from aiperf.common.models import DataRow, GenericDataset
 class OpenAIChatCompletionsRequestConverter(BaseRequestConverter):
     def check_config(self) -> None:
         if (
-            self.config.endpoint.output_format
+            self.config.endpoint.request_payload_type
             == RequestPayloadType.OPENAI_CHAT_COMPLETIONS
-            or self.config.endpoint.output_format
+            or self.config.endpoint.request_payload_type
             == RequestPayloadType.OPENAI_MULTIMODAL
         ):
             if self.config.input.batch_size != InputDefaults.BATCH_SIZE:
                 raise AIPerfError(
-                    f"The --batch-size-text flag is not supported for {self.config.endpoint.output_format}."
+                    f"The --batch-size-text flag is not supported for {self.config.endpoint.request_payload_type}."
                 )
             if self.config.input.image.batch_size != InputDefaults.BATCH_SIZE:
                 raise AIPerfError(
-                    f"The --batch-size-image flag is not supported for {self.config.endpoint.output_format}."
+                    f"The --batch-size-image flag is not supported for {self.config.endpoint.request_payload_type}."
                 )
 
     def convert(
@@ -65,15 +65,18 @@ class OpenAIChatCompletionsRequestConverter(BaseRequestConverter):
     def _retrieve_content(self, row: DataRow) -> str | list[dict[Any, Any]]:
         content: str | list[dict[Any, Any]] = ""
         if (
-            self.config.endpoint.output_format
+            self.config.endpoint.request_payload_type
             == RequestPayloadType.OPENAI_CHAT_COMPLETIONS
         ):
             content = row.texts[0]
-        elif self.config.endpoint.output_format == RequestPayloadType.OPENAI_MULTIMODAL:
+        elif (
+            self.config.endpoint.request_payload_type
+            == RequestPayloadType.OPENAI_MULTIMODAL
+        ):
             content = self._add_multi_modal_content(row)
         else:
             raise AIPerfError(
-                f"Output format {self.config.endpoint.output_format} is not supported"
+                f"Output format {self.config.endpoint.request_payload_type} is not supported"
             )
         return content
 
