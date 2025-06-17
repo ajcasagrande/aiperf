@@ -9,7 +9,7 @@ from rich.console import Console
 from rich.logging import RichHandler
 
 from aiperf.common.bootstrap import bootstrap_and_run_service
-from aiperf.common.config import ServiceConfig, UserConfig
+from aiperf.common.config import ServiceConfig
 from aiperf.services.system_controller.system_controller import SystemController
 
 logger = logging.getLogger(__name__)
@@ -53,8 +53,6 @@ def main() -> None:
 
     # Create and start the system controller
     logger.info("Starting AIPerf System")
-
-    print(UserConfig().serialize_to_yaml())
 
     bootstrap_and_run_service(SystemController, service_config=config)
 

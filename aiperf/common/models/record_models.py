@@ -9,7 +9,7 @@ from typing import Any
 from pydantic import BaseModel, Field, SerializeAsAny
 from pydantic.dataclasses import dataclass
 
-from aiperf.common.enums import CaseInsensitiveStrEnum
+from aiperf.common.enums import SSEFieldType
 
 
 # Temporary Record class to be used by the ConsoleExporter.
@@ -139,23 +139,6 @@ class ErrorDetailsCount(BaseModel):
         ...,
         description="The count of the error details.",
     )
-
-
-class SSEFieldType(CaseInsensitiveStrEnum):
-    """Field types in an SSE message."""
-
-    DATA = "data"
-    EVENT = "event"
-    ID = "id"
-    RETRY = "retry"
-    COMMENT = "comment"
-
-
-class SSEEventType(CaseInsensitiveStrEnum):
-    """Event types in an SSE message. Many of these are custom and not defined by the SSE spec."""
-
-    ERROR = "error"
-    LLM_METRICS = "llm_metrics"
 
 
 class SSEField(BaseModel):
