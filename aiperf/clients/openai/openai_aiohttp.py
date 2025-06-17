@@ -19,7 +19,7 @@ from aiperf.common.config import EndPointConfig
 from aiperf.common.enums import InferenceClientType
 from aiperf.common.exceptions import InvalidPayloadError
 from aiperf.common.factories import InferenceClientFactory
-from aiperf.common.models.record_models import (
+from aiperf.common.models import (
     ErrorDetails,
     RequestRecord,
 )

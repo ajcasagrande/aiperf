@@ -10,7 +10,7 @@ from openai.types.responses.response import Response
 from pydantic import BaseModel, Field
 
 from aiperf.common.interfaces import InferenceClientProtocol
-from aiperf.common.models.record_models import (
+from aiperf.common.models import (
     GenericHTTPClientConfig,
 )
 

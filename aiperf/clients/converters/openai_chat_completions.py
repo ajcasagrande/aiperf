@@ -8,7 +8,7 @@ from aiperf.common.config import InputDefaults, OutputTokenDefaults
 from aiperf.common.enums import RequestPayloadType
 from aiperf.common.exceptions import AIPerfError
 from aiperf.common.factories import RequestConverterFactory
-from aiperf.common.models.data_models import DataRow, GenericDataset
+from aiperf.common.models import DataRow, GenericDataset
 
 # TODO: This file needs heavy cleanup and refactoring after bringing in from GAP
 

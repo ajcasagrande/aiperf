@@ -6,8 +6,7 @@ from rich.table import Table
 
 from aiperf.common.enums import DataExporterType
 from aiperf.common.factories import DataExporterFactory
-from aiperf.common.models.messages import ProfileResultsMessage
-from aiperf.common.models.record_models import ErrorDetailsCount
+from aiperf.common.models import ErrorDetailsCount, ProfileResultsMessage
 
 
 @DataExporterFactory.register(DataExporterType.CONSOLE_ERROR)

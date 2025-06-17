@@ -18,7 +18,7 @@ from aiperf.common.exceptions import (
 )
 from aiperf.common.factories import CommunicationFactory
 from aiperf.common.hooks import AIPerfHook, AIPerfTaskMixin, supports_hooks
-from aiperf.common.models.messages import Message
+from aiperf.common.models import Message
 from aiperf.common.service.base_service_interface import BaseServiceInterface
 
 

@@ -32,16 +32,16 @@ from aiperf.common.hooks import (
     on_init,
     on_stop,
 )
-from aiperf.common.models.messages import (
+from aiperf.common.models import (
     CreditsCompleteMessage,
     HeartbeatMessage,
     ProcessRecordsCommandData,
     ProfileResultsMessage,
     ProfileStatsMessage,
     RegistrationMessage,
+    ServiceRunInfo,
     StatusMessage,
 )
-from aiperf.common.models.service_models import ServiceRunInfo
 from aiperf.common.service.base_controller_service import BaseControllerService
 from aiperf.services.service_manager import (
     BaseServiceManager,

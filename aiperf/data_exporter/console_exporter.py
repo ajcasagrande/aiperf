@@ -7,8 +7,7 @@ from rich.table import Table
 from aiperf.common.config import EndPointConfig
 from aiperf.common.enums import DataExporterType
 from aiperf.common.factories import DataExporterFactory
-from aiperf.common.models.messages import ProfileResultsMessage
-from aiperf.common.models.record_models import Record
+from aiperf.common.models import ProfileResultsMessage, Record
 
 
 @DataExporterFactory.register(DataExporterType.CONSOLE)

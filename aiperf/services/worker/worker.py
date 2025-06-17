@@ -23,13 +23,14 @@ from aiperf.common.hooks import (
     on_stop,
 )
 from aiperf.common.interfaces import InferenceClientProtocol
-from aiperf.common.models.messages import (
+from aiperf.common.models import (
     ConversationRequestMessage,
     CreditDropMessage,
     CreditReturnMessage,
+    ErrorDetails,
     InferenceResultsMessage,
+    RequestRecord,
 )
-from aiperf.common.models.record_models import ErrorDetails, RequestRecord
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.common.service.base_service import BaseService
 

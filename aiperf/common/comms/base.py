@@ -7,7 +7,7 @@ from typing import Any
 
 from aiperf.common.comms.client_enums import ClientType
 from aiperf.common.enums import MessageType, Topic
-from aiperf.common.models.messages import Message
+from aiperf.common.models import Message
 
 logger = logging.getLogger(__name__)
 

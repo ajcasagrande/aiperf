@@ -5,7 +5,7 @@ import time
 import pytest
 
 from aiperf.clients.http.sse_utils import parse_sse_message
-from aiperf.common.models.record_models import SSEField, SSEFieldType, SSEMessage
+from aiperf.common.models import SSEField, SSEFieldType, SSEMessage
 
 
 class TestParseSSEMessage:

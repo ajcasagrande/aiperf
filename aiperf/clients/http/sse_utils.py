@@ -1,6 +1,6 @@
 #  SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #  SPDX-License-Identifier: Apache-2.0
-from aiperf.common.models.record_models import SSEField, SSEFieldType, SSEMessage
+from aiperf.common.models import SSEField, SSEFieldType, SSEMessage
 
 
 def parse_sse_message(raw_message: str, perf_ns: int) -> SSEMessage:

@@ -6,7 +6,7 @@ import zmq.asyncio
 
 from aiperf.common.comms.zmq.clients.base import BaseZMQClient
 from aiperf.common.exceptions import CommunicationRequestError
-from aiperf.common.models.messages import (
+from aiperf.common.models import (
     Message,
 )
 

@@ -10,7 +10,7 @@ import aiohttp
 
 from aiperf.clients.http.sse_utils import parse_sse_message
 from aiperf.clients.timers import RequestTimerKind, RequestTimers
-from aiperf.common.models.record_models import (
+from aiperf.common.models import (
     ErrorDetails,
     GenericHTTPClientConfig,
     RequestRecord,

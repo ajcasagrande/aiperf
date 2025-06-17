@@ -12,7 +12,7 @@ from aiperf.common.exceptions import (
     ServiceRegistrationError,
 )
 from aiperf.common.hooks import AIPerfHook, aiperf_task, on_run, on_set_state
-from aiperf.common.models.messages import (
+from aiperf.common.models import (
     CommandMessage,
     HeartbeatMessage,
     RegistrationMessage,

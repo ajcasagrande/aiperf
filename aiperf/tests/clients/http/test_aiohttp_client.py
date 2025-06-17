@@ -16,7 +16,7 @@ from aiperf.clients.http.aiohttp_client import (
     AioHttpSSEStreamReader,
     create_tcp_connector,
 )
-from aiperf.common.models.record_models import (
+from aiperf.common.models import (
     GenericHTTPClientConfig,
     RequestRecord,
     SSEMessage,

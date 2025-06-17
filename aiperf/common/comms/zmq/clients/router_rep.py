@@ -9,7 +9,7 @@ import zmq.asyncio
 from aiperf.common.comms.zmq.clients.base import BaseZMQClient
 from aiperf.common.enums import MessageType
 from aiperf.common.hooks import aiperf_task, on_cleanup
-from aiperf.common.models.messages import ErrorMessage, Message
+from aiperf.common.models import ErrorMessage, Message
 
 
 class ZMQRouterRepClient(BaseZMQClient):

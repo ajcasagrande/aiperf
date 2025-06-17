@@ -11,7 +11,7 @@ from aiperf.clients.http.aiohttp_client import (
     AioHttpClientMixin,
     AioHttpSSEStreamReader,
 )
-from aiperf.common.models.record_models import (
+from aiperf.common.models import (
     GenericHTTPClientConfig,
     SSEMessage,
 )

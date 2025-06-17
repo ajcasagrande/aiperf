@@ -3,9 +3,9 @@
 from typing import Generic, Protocol
 
 from aiperf.common.config import EndPointConfig
-from aiperf.common.models.messages import ProfileResultsMessage
-from aiperf.common.models.record_models import (
+from aiperf.common.models import (
     InferenceServerResponse,
+    ProfileResultsMessage,
     RequestRecord,
 )
 from aiperf.common.types import ConfigT, InputT, OutputT, RequestT, ResponseT

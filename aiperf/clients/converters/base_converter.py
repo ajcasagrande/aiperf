@@ -10,7 +10,7 @@ from typing_extensions import Protocol
 from aiperf.common.config import OutputTokenDefaults, UserConfig
 from aiperf.common.enums import ModelSelectionStrategy
 from aiperf.common.exceptions import AIPerfError
-from aiperf.common.models.data_models import DataRow, GenericDataset
+from aiperf.common.models import DataRow, GenericDataset
 from aiperf.common.tokenizer import Tokenizer
 from aiperf.common.utils import sample_bounded_normal
 

@@ -3,8 +3,7 @@
 import pytest
 
 from aiperf.common.config import EndPointConfig
-from aiperf.common.models.messages import ProfileResultsMessage
-from aiperf.common.models.record_models import Record
+from aiperf.common.models import ProfileResultsMessage, Record
 from aiperf.data_exporter import ConsoleExporter
 
 
