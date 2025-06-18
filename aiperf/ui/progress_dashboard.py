@@ -41,7 +41,7 @@ class ProgressDashboard(Container):
         text-align: center;
         text-style: bold;
         color: $text;
-        margin: 1 0;
+        margin: 0 0 1 0;
     }
 
     StatusIndicator {
@@ -117,14 +117,14 @@ class ProgressDashboard(Container):
                 "Request Rate",
                 lambda _, profile: profile.requests_per_second,
                 DashboardFormatter.format_rate,
-                StatusClassifier.get_rate_status,
+                show_dot=False,
             ),
             DashboardField(
                 "processed-rate-indicator",
                 "Processing Rate",
                 lambda _, profile: profile.processed_per_second,
                 DashboardFormatter.format_rate,
-                StatusClassifier.get_rate_status,
+                show_dot=False,
             ),
             DashboardField(
                 "elapsed-indicator",
@@ -189,7 +189,10 @@ class ProgressDashboard(Container):
 
                 # Update progress label
                 progress_label = self.query_one("#progress-label", Label)
-                progress_text = f"Processing: {self.progress_tracker.current_profile.requests_completed:,} / {self.progress_tracker.current_profile.total_expected_requests:,} requests"
+                progress_text = (
+                    f"Processing: {self.progress_tracker.current_profile.requests_completed:,} "
+                    f"/ {self.progress_tracker.current_profile.total_expected_requests:,} requests"
+                )
                 progress_label.update(progress_text)
 
             # Update all status indicators using field definitions

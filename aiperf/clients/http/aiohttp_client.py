@@ -92,6 +92,7 @@ class AioHttpClientMixin:
                     url, data=payload, headers=headers, **kwargs
                 ) as response:
                     timers.capture_timestamp(RequestTimerKind.SEND_END)
+                    record.status = response.status
                     # Check for HTTP errors
                     if response.status != 200:
                         error_text = await response.text()
@@ -101,7 +102,6 @@ class AioHttpClientMixin:
                             message=error_text,
                         )
                         return record
-                    record.status = response.status
                     record.recv_start_perf_ns = timers.capture_timestamp(
                         RequestTimerKind.RECV_START
                     )

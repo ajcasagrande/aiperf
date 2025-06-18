@@ -6,7 +6,7 @@ import asyncio
 import json
 import socket
 import time
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import aiohttp
 import pytest
@@ -33,12 +33,65 @@ def setup_mock_session_with_response(
 ) -> AsyncMock:
     """Helper function to set up a proper mock session with async context manager support."""
     mock_session = AsyncMock()
-    mock_session_class.return_value.__aenter__.return_value = mock_session
 
-    # Create a proper async context manager for post
+    # Create a factory function that accepts the ClientSession parameters and returns the context manager
+    def session_factory(*args, **kwargs):
+        mock_session_context = AsyncMock()
+        mock_session_context.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session_context.__aexit__ = AsyncMock(return_value=None)
+        return mock_session_context
+
+    # Set the session class to return our factory
+    mock_session_class.side_effect = session_factory
+
+    # Setup the post method context manager - make sure post() returns a context manager, not a coroutine
     mock_post_context = AsyncMock()
-    mock_post_context.__aenter__.return_value = mock_response
-    mock_session.post.return_value = mock_post_context
+    mock_post_context.__aenter__ = AsyncMock(return_value=mock_response)
+    mock_post_context.__aexit__ = AsyncMock(return_value=None)
+    mock_session.post = Mock(
+        return_value=mock_post_context
+    )  # Use Mock here, not AsyncMock
+
+    return mock_session
+
+
+def setup_mock_aiohttp_session(
+    mock_session_class: Mock, mock_response: Mock, methods: list[str] | None = None
+) -> AsyncMock:
+    """
+    Helper to set up aiohttp session mocks with proper async context manager support.
+
+    Args:
+        mock_session_class: The mocked aiohttp.ClientSession class
+        mock_response: The mock response object to return
+        methods: List of HTTP methods to mock (defaults to common ones)
+
+    Returns:
+        The mock session object
+    """
+    if methods is None:
+        methods = ["get", "post", "put", "patch", "delete", "head", "options"]
+
+    mock_session = AsyncMock()
+
+    # Create a factory function that accepts the ClientSession parameters and returns the context manager
+    def session_factory(*args, **kwargs):
+        mock_session_context = AsyncMock()
+        mock_session_context.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session_context.__aexit__ = AsyncMock(return_value=None)
+        return mock_session_context
+
+    # Set the session class to return our factory
+    mock_session_class.side_effect = session_factory
+
+    # Setup context managers for all HTTP methods
+    for method in methods:
+        mock_method_context = AsyncMock()
+        mock_method_context.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_method_context.__aexit__ = AsyncMock(return_value=None)
+        setattr(
+            mock_session, method, Mock(return_value=mock_method_context)
+        )  # Use Mock, not AsyncMock
 
     return mock_session
 
@@ -224,6 +277,7 @@ class TestAioHttpClientMixin:
             setup_mock_session_with_response(mock_session_class, mock_aiohttp_response)
 
             record = await aiohttp_client.request(url, payload, headers)
+            print(record)
 
             assert isinstance(record, RequestRecord)
             assert record.status == 200
@@ -256,9 +310,7 @@ class TestAioHttpClientMixin:
                 "aiperf.clients.http.aiohttp_client.AioHttpSSEStreamReader"
             ) as mock_reader_class,
         ):
-            mock_session = AsyncMock()
-            mock_session_class.return_value.__aenter__.return_value = mock_session
-            mock_session.post.return_value.__aenter__.return_value = mock_sse_response
+            _ = setup_mock_session_with_response(mock_session_class, mock_sse_response)
 
             mock_reader = Mock()
             mock_reader.read_complete_stream = AsyncMock(return_value=mock_messages)
@@ -303,7 +355,6 @@ class TestAioHttpClientMixin:
             record = await aiohttp_client.request("http://test.com", "{}", {})
 
             assert isinstance(record, RequestRecord)
-            assert record.status is None  # Not set for error responses
             assert record.error is not None
             assert record.error.code == status_code
             assert record.error.type == reason
@@ -314,7 +365,7 @@ class TestAioHttpClientMixin:
     @pytest.mark.parametrize(
         "exception_class,exception_message",
         [
-            (aiohttp.ClientTimeout, "Request timeout"),
+            (aiohttp.ClientConnectionError, "Request timeout"),
             (ConnectionError, "Network connection failed"),
             (ValueError, "Invalid value provided"),
         ],
@@ -346,7 +397,7 @@ class TestAioHttpClientMixin:
         with patch("aiohttp.ClientSession") as mock_session_class:
             os_error = OSError("Connection failed")
             connector_error = aiohttp.ClientConnectorError(
-                connection_key=None, os_error=os_error
+                connection_key=MagicMock(), os_error=os_error
             )
             mock_session_class.side_effect = connector_error
 
@@ -731,20 +782,21 @@ class TestCreateTcpConnector:
                     mock_socket.setsockopt.assert_any_call(*expected_call[0])
 
     @pytest.mark.parametrize(
-        "has_attribute,attribute_name,expected_value",
+        "has_attribute,attribute_name,tcp_option,expected_value",
         [
-            (True, "TCP_KEEPIDLE", 600),
-            (True, "TCP_KEEPINTVL", 60),
-            (True, "TCP_KEEPCNT", 3),
-            (True, "TCP_QUICKACK", 1),
-            (True, "TCP_USER_TIMEOUT", 30000),
-            (False, "TCP_KEEPIDLE", None),
+            (True, "TCP_KEEPIDLE", socket.TCP_KEEPIDLE, 600),
+            (True, "TCP_KEEPINTVL", socket.TCP_KEEPINTVL, 60),
+            (True, "TCP_KEEPCNT", socket.TCP_KEEPCNT, 3),
+            (True, "TCP_QUICKACK", socket.TCP_QUICKACK, 1),
+            (True, "TCP_USER_TIMEOUT", socket.TCP_USER_TIMEOUT, 30000),
+            (False, "TCP_KEEPIDLE", socket.TCP_KEEPIDLE, None),
         ],
     )
     def test_socket_factory_linux_specific_options(
         self,
         has_attribute: bool,
         attribute_name: str,
+        tcp_option: int,
         expected_value: int | None,
     ) -> None:
         """Test socket factory handles Linux-specific TCP options."""
@@ -774,7 +826,6 @@ class TestCreateTcpConnector:
                     with patch.object(
                         socket, attribute_name, expected_value, create=True
                     ):
-                        tcp_option = getattr(socket, attribute_name)
                         mock_socket.setsockopt.assert_any_call(
                             socket.SOL_TCP, tcp_option, expected_value
                         )

@@ -88,24 +88,7 @@ class StatusClassifier:
             return "status-idle"
         if error_rate == 0.0:
             return "error-none"
-        elif error_rate < 0.05:
-            return "error-low"
-        else:
-            return "error-high"
-
-    @staticmethod
-    def get_rate_status(rate: float | None) -> str:
-        """Get rate status class based on request rate."""
-        if rate is None:
-            return "status-idle"
-        if rate >= 100:
-            return "rate-high"
-        elif rate >= 10:
-            return "rate-medium"
-        elif rate > 0:
-            return "rate-low"
-        else:
-            return "status-idle"
+        return "error"
 
     @staticmethod
     def get_completion_status(is_complete: bool) -> str:
@@ -160,51 +143,6 @@ class StatusIndicator(Widget):
         margin: 0 1;
         padding: 0 1;
     }
-
-    .status-processing {
-        color: $warning;
-    }
-
-    .status-complete {
-        color: $success;
-    }
-
-    .status-idle {
-        color: $text-muted;
-    }
-
-    .error-none {
-        color: $success;
-    }
-
-    .error-low {
-        color: $warning;
-    }
-
-    .error-high {
-        color: $error;
-    }
-
-    .metric-label {
-        color: $text;
-        text-style: bold;
-    }
-
-    .metric-value {
-        color: $accent;
-    }
-
-    .rate-high {
-        color: $success;
-    }
-
-    .rate-medium {
-        color: $warning;
-    }
-
-    .rate-low {
-        color: $error;
-    }
     """
 
     def __init__(
@@ -231,15 +169,7 @@ class StatusIndicator(Widget):
                 text.append("● ", style="bold yellow")
             elif "complete" in self.status_class or "error-none" in self.status_class:
                 text.append("● ", style="bold green")
-            elif "error-low" in self.status_class:
-                text.append("● ", style="bold yellow")
-            elif "error-high" in self.status_class:
-                text.append("● ", style="bold red")
-            elif "rate-high" in self.status_class:
-                text.append("● ", style="bold green")
-            elif "rate-medium" in self.status_class:
-                text.append("● ", style="bold yellow")
-            elif "rate-low" in self.status_class:
+            elif "error" in self.status_class:
                 text.append("● ", style="bold red")
             else:
                 text.append("● ", style="bold blue")
@@ -253,16 +183,10 @@ class StatusIndicator(Widget):
                 text.append(self.value, style="bold green")
             elif "processing" in self.status_class:
                 text.append(self.value, style="bold yellow")
-            elif "error-high" in self.status_class:
+            elif "error" in self.status_class:
                 text.append(self.value, style="bold red")
-            elif "error-low" in self.status_class:
-                text.append(self.value, style="bold yellow")
-            elif "error-none" in self.status_class or "rate-high" in self.status_class:
+            elif "error-none" in self.status_class:
                 text.append(self.value, style="bold green")
-            elif "rate-medium" in self.status_class:
-                text.append(self.value, style="bold yellow")
-            elif "rate-low" in self.status_class:
-                text.append(self.value, style="bold red")
             else:
                 text.append(self.value, style="bold cyan")
         else:

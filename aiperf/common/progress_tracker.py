@@ -64,20 +64,22 @@ class ProgressTracker:
 
         profile.total_expected_requests = message.total
         profile.requests_completed = message.completed
-        profile.requests_per_second = (
-            message.completed
-            / (current_time_ns - profile.start_time_ns)
-            * NANOS_PER_SECOND
-        )
-        profile.elapsed_time = (
-            current_time_ns - profile.start_time_ns
-        ) / NANOS_PER_SECOND
-        profile.eta = (
-            (profile.total_expected_requests - profile.requests_completed)
-            / profile.requests_per_second
-            if profile.requests_per_second > 0
-            else None
-        )
+
+        if not profile.is_complete:
+            profile.requests_per_second = (
+                message.completed
+                / (current_time_ns - profile.start_time_ns)
+                * NANOS_PER_SECOND
+            )
+            profile.elapsed_time = (
+                current_time_ns - profile.start_time_ns
+            ) / NANOS_PER_SECOND
+            profile.eta = (
+                (profile.total_expected_requests - profile.requests_completed)
+                / profile.requests_per_second
+                if profile.requests_per_second > 0
+                else None
+            )
 
     def update_profile_stats(self, message: ProfileStatsMessage) -> None:
         if self.suite is None or self.suite.current_profile is None:
@@ -88,11 +90,7 @@ class ProgressTracker:
         profile.request_errors = message.error_count
         profile.successful_requests = message.completed - profile.request_errors
         profile.requests_processed = message.completed
-        profile.processed_per_second = (
-            message.completed
-            / (current_time_ns - profile.start_time_ns)
-            * NANOS_PER_SECOND
-        )
+
         profile.worker_completed = message.worker_completed
         profile.worker_errors = message.worker_errors
         if (
@@ -103,8 +101,14 @@ class ProgressTracker:
             profile.end_time_ns = current_time_ns
             profile.is_complete = True
 
+        if not profile.is_complete:
+            profile.processed_per_second = (
+                message.completed
+                / (current_time_ns - profile.start_time_ns)
+                * NANOS_PER_SECOND
+            )
+
     def update_profile_results(self, message: ProfileResultsMessage) -> None:
-        # TODO:
         if self.suite is None or self.suite.current_profile is None:
             return
 
