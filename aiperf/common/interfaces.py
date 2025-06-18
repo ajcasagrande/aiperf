@@ -109,7 +109,7 @@ class InferenceClientProtocol(Protocol, Generic[ConfigT, RequestT, ResponseT]):
         It requires an `process` method that takes a list of records and returns a result.
         """
 
-        def process(self, records: dict) -> dict:
+        async def process(self, records: dict) -> dict:
             """
             Execute the post-processing logic on the given records.
 
@@ -131,4 +131,4 @@ class DataExporterProtocol(Protocol):
     that takes a list of Record objects and handles exporting them appropriately.
     """
 
-    def export(self, message: ProfileResultsMessage) -> None: ...
+    async def export(self, message: ProfileResultsMessage) -> None: ...

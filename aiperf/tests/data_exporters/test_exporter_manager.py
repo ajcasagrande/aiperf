@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from aiperf.common.config import EndPointConfig
-from aiperf.common.models import Record
+from aiperf.common.models import ProfileResultsMessage, ResultsRecord
 from aiperf.data_exporter.exporter_manager import ExporterManager
 
 
@@ -17,11 +17,16 @@ def endpoint_config():
 
 @pytest.fixture
 def sample_records():
-    return [Record(name="Latency", unit="ms", avg=10.0)]
+    return ProfileResultsMessage(
+        records=[ResultsRecord(name="Latency", unit="ms", avg=10.0)],
+        service_id="test-service",
+        total=100,
+        completed=100,
+    )
 
 
 class TestExporterManager:
-    def test_export(self, endpoint_config, sample_records):
+    async def test_export(self, endpoint_config, sample_records):
         mock_exporter_instance = MagicMock()
         mock_exporter_class = MagicMock(return_value=mock_exporter_instance)
 
@@ -30,7 +35,7 @@ class TestExporterManager:
             return_value=[mock_exporter_class],
         ):
             manager = ExporterManager(endpoint_config)
-            manager.export(sample_records)
+            await manager.export(sample_records)
 
         mock_exporter_class.assert_called_once_with(endpoint_config)
         mock_exporter_instance.export.assert_called_once_with(sample_records)

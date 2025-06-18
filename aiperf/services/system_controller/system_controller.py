@@ -8,6 +8,7 @@ import time
 from typing import Any
 
 from aiperf.common.config import ServiceConfig
+from aiperf.common.config.endpoint.endpoint_config import EndPointConfig
 from aiperf.common.enums import (
     CaseInsensitiveStrEnum,
     CommandType,
@@ -40,6 +41,7 @@ from aiperf.common.models import (
     StatusMessage,
 )
 from aiperf.common.service.base_controller_service import BaseControllerService
+from aiperf.data_exporter.exporter_manager import ExporterManager
 from aiperf.services.service_manager import (
     BaseServiceManager,
     KubernetesServiceManager,
@@ -329,6 +331,11 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         """Process a profile results message."""
         self.logger.debug("Received profile results: %s", message)
         await self.ui.process_final_results(message)
+        await ExporterManager(
+            EndPointConfig(
+                streaming=True,
+            )
+        ).export(message)
         self.stop_event.set()
 
     async def _process_registration_message(self, message: RegistrationMessage) -> None:

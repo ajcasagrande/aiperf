@@ -13,7 +13,7 @@ from aiperf.common.models import ErrorDetailsCount, ProfileResultsMessage
 class ConsoleErrorExporter:
     """A class that exports error data to the console"""
 
-    def export(self, results: ProfileResultsMessage) -> None:
+    async def export(self, results: ProfileResultsMessage) -> None:
         console = Console()
 
         if len(results.errors_by_type) > 0:
