@@ -1,14 +1,13 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+import asyncio
 import uuid
 
 import zmq.asyncio
 
 from aiperf.common.comms.zmq.clients.base import BaseZMQClient
 from aiperf.common.exceptions import CommunicationError, CommunicationErrorReason
-from aiperf.common.models import (
-    Message,
-)
+from aiperf.common.models import Message
 
 
 class ZMQDealerReqClient(BaseZMQClient):
@@ -58,6 +57,9 @@ class ZMQDealerReqClient(BaseZMQClient):
             response_json = await self._socket.recv_string()
             response = Message.from_json(response_json)
             return response
+
+        except asyncio.CancelledError:
+            raise  # re-raise the cancelled error
 
         except Exception as e:
             raise CommunicationError(
