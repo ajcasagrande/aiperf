@@ -151,6 +151,7 @@ class BaseComponentService(BaseService):
 
         This method will process the command message and execute the appropriate action.
         """
+        self.logger.info("Processing command message: %s", message)
         if message.target_service_id and message.target_service_id != self.service_id:
             return  # Ignore commands meant for other services
         if (

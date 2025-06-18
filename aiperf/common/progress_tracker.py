@@ -95,6 +95,13 @@ class ProgressTracker:
         )
         profile.worker_completed = message.worker_completed
         profile.worker_errors = message.worker_errors
+        if (
+            profile.total_expected_requests is not None
+            and profile.requests_processed >= profile.total_expected_requests
+        ):
+            logger.info("Profile completed")
+            profile.end_time_ns = current_time_ns
+            profile.is_complete = True
 
     def update_profile_results(self, message: ProfileResultsMessage) -> None:
         # TODO:

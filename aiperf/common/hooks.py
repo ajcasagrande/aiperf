@@ -415,30 +415,9 @@ class AIPerfLifecycleMixin(HooksMixin):
         self.stop_requested: asyncio.Event = asyncio.Event()
         self.shutdown_event: asyncio.Event = asyncio.Event()
 
-    def is_running(self) -> bool:
-        """Check if the lifecycle is running. This is true if the lifecycle has been started,
-        but not stopped or shutdown."""
-        return (
-            self.start_event.is_set()
-            and not self.stop_requested.is_set()
-            and not self.shutdown_event.is_set()
-        )
-
     def is_initialized(self) -> bool:
         """Check if the lifecycle has been initialized."""
         return self.initialize_event.is_set()
-
-    def is_started(self) -> bool:
-        """Check if the lifecycle has been started."""
-        return self.start_event.is_set()
-
-    def is_stop_requested(self) -> bool:
-        """Check if a stop has been requested."""
-        return self.stop_requested.is_set()
-
-    def is_shutdown(self) -> bool:
-        """Check if the lifecycle is shutdown."""
-        return self.shutdown_event.is_set()
 
     async def _run_internal(self) -> None:
         """Run the internal lifecycle."""

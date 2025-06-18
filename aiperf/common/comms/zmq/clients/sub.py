@@ -102,6 +102,7 @@ class ZMQSubClient(BaseZMQClient):
                     topic_bytes,
                     message_bytes,
                 ) = await self.socket.recv_multipart()
+
                 asyncio.create_task(self._handle_message(topic_bytes, message_bytes))
 
             except asyncio.CancelledError:

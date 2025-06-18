@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
 import sys
+import time
 from collections import deque
 
 import pandas as pd
@@ -30,6 +31,7 @@ from aiperf.common.models import (
     RequestRecord,
     ResultsRecord,
 )
+from aiperf.common.models.messages import ProcessRecordsCommandData
 from aiperf.common.service.base_component_service import BaseComponentService
 
 
@@ -52,6 +54,9 @@ class RecordsManager(BaseComponentService):
         # Track per-worker statistics
         self.worker_request_counts: dict[str, int] = {}
         self.worker_error_counts: dict[str, int] = {}
+
+        self.start_time_ns: int | None = None
+        self.end_time_ns: int | None = None
 
     @property
     def service_type(self) -> ServiceType:
@@ -85,6 +90,7 @@ class RecordsManager(BaseComponentService):
     async def _start(self) -> None:
         """Start the records manager."""
         self.logger.debug("Starting records manager")
+        self.start_time_ns = time.time_ns()
         # TODO: Implement records manager start
 
     @on_stop
@@ -182,7 +188,12 @@ class RecordsManager(BaseComponentService):
         This method is called when the records manager receives a command to process the records.
         """
         self.logger.debug("Processing records")
-        self.was_cancelled = message.data.cancelled if message.data else False
+        self.was_cancelled = (
+            message.data.cancelled
+            if isinstance(message.data, ProcessRecordsCommandData)
+            else False
+        )
+        self.end_time_ns = time.time_ns()
         # TODO: Implement records processing
         self.logger.info(
             "Processed %d successful records and %d error records",
@@ -206,8 +217,8 @@ class RecordsManager(BaseComponentService):
                     service_id=self.service_id,
                     total=0,
                     completed=0,
-                    # begin_ns=self.start_time_ns,
-                    # end_ns=self.end_time_ns,
+                    start_ns=self.start_time_ns,
+                    end_ns=self.end_time_ns,
                     records=[],
                     errors_by_type=[],
                     was_cancelled=self.was_cancelled,
@@ -285,8 +296,8 @@ class RecordsManager(BaseComponentService):
             service_id=self.service_id,
             total=len(self.records),
             completed=len(self.records) + len(self.error_records),
-            # begin_ns=self.start_time_ns,
-            # end_ns=self.end_time_ns,
+            start_ns=self.start_time_ns,
+            end_ns=self.end_time_ns,
             records=[ttft_record, ttst_record, ttlt_record, itl_record],
             errors_by_type=await self.get_error_summary(),
             was_cancelled=self.was_cancelled,

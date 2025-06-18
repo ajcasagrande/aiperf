@@ -1,6 +1,5 @@
 #  SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #  SPDX-License-Identifier: Apache-2.0
-import sys
 
 from pydantic import BaseModel, Field, SerializeAsAny
 
@@ -93,10 +92,10 @@ class ProfileProgress(BaseModel):
         default_factory=list,
         description="A list of the unique error details and their counts",
     )
-
-    @property
-    def is_complete(self) -> bool:
-        return self.requests_completed >= (self.total_expected_requests or sys.maxsize)
+    is_complete: bool = Field(
+        default=False,
+        description="Whether the profile run is complete",
+    )
 
 
 class SweepProgress(BaseModel):

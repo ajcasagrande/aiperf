@@ -51,8 +51,8 @@ class BaseControllerService(BaseService):
         self,
         command: CommandType,
         target_service_id: str | None,
-        data: BaseModel | None = None,
         target_service_type: ServiceType | None = None,
+        data: BaseModel | None = None,
     ) -> CommandMessage:
         """Create a command message to be sent to a specific service.
 

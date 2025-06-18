@@ -272,7 +272,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         - Stop all running services
         """
         self.logger.debug("Stopping System Controller")
-        self.logger.info("AIPerf System is SHUTTING DOWN")
+        self.logger.info("AIPerf System is EXITING")
 
         self._system_state = SystemState.STOPPING
 
@@ -341,19 +341,20 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         self.logger.debug("Received profile stats: %s", message)
         self.progress_tracker.update_profile_stats(message)
 
+        if self.ui:
+            await self.ui.on_profile_stats_update()
+
         if (
             self.progress_tracker.current_profile
             and self.progress_tracker.current_profile.is_complete
         ):
+            self.logger.info("Profile completed, sending process records command")
             await self.send_command_to_service(
                 target_service_id=None,
                 target_service_type=ServiceType.RECORDS_MANAGER,
                 command=CommandType.PROCESS_RECORDS,
                 data=ProcessRecordsCommandData(cancelled=False),
             )
-
-        if self.ui:
-            await self.ui.on_profile_stats_update()
 
     async def _process_profile_progress_message(
         self, message: ProfileProgressMessage
@@ -372,11 +373,15 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         self.progress_tracker.update_profile_results(message)
         if self.ui:
             await self.ui.on_profile_results_update()
+
+        # Export the results
         await ExporterManager(
             EndPointConfig(
                 streaming=True,
             )
         ).export(message)
+
+        # Stop the system
         self.stop_event.set()
 
     async def _process_registration_message(self, message: RegistrationMessage) -> None:

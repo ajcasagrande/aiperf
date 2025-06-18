@@ -49,7 +49,7 @@ class Worker(BaseService):
     ) -> None:
         super().__init__(service_config=service_config, service_id=service_id)
 
-        self.logger.info("Initializing %s", self.service_id)
+        self.logger.debug("Initializing %s", self.service_id)
 
         # Inference client will be initialized in _initialize
         self.inference_client: InferenceClientProtocol | None = None
