@@ -184,7 +184,7 @@ class TestAioHttpSSEStreamReader:
     async def test_aiter_single_chunk(self, mock_response: Mock) -> None:
         """Test __aiter__ with single chunk."""
         # Mock content to simulate single SSE message
-        mock_response.content.at_eof.return_value = False
+        mock_response.content.at_eof.side_effect = [False, True]
         mock_response.content.read = AsyncMock(return_value=b"d")
         mock_response.content.readuntil = AsyncMock(return_value=b"ata: Hello\n\n")
 
