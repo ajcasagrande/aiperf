@@ -121,9 +121,7 @@ class TimingManager(BaseComponentService):
             ),
         )
 
-        time.sleep(1)
-
-        drop_at = time.time_ns() + 1_000_000_000
+        drop_at = time.time_ns() + 100_000
 
         while not self.stop_event.is_set():
             try:

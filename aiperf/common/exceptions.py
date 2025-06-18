@@ -94,18 +94,36 @@ class GeneratorError(AIPerfError):
 ################################################################################
 
 
+class ServiceErrorType(CaseInsensitiveStrEnum):
+    INITIALIZATION_ERROR = "initialization_error"
+    CONFIGURATION_ERROR = "configuration_error"
+    START_ERROR = "start_error"
+    SHUTDOWN_ERROR = "shutdown_error"
+    REGISTRATION_ERROR = "registration_error"
+    HEARTBEAT_ERROR = "heartbeat_error"
+    CLIENT_NOT_AVAILABLE = "client_not_available"
+    WORKER_TIMEOUT = "worker_timeout"
+    SEND_CONFIGURE_COMMAND_ERROR = "send_configure_command_error"
+    MISSING_REQUIRED_SERVICES = "missing_required_services"
+    INITIALIZE_SERVICES_ERROR = "initialize_services_error"
+    SUBSCRIBE_COMMAND_TOPIC_ERROR = "subscribe_command_topic_error"
+    REGISTER_SERVICE_ERROR = "register_service_error"
+
+
 class ServiceError(AIPerfError):
     """Base class for all exceptions raised by services."""
 
     def __init__(
         self,
+        reason: ServiceErrorType,
         message: str,
         service_type: ServiceType,
         service_id: str,
     ) -> None:
         super().__init__(
-            f"{message} for service of type {service_type} with id {service_id}"
+            f"Service Error {reason.name}: {message} for service of type {service_type} with id {service_id}"
         )
+        self.reason = reason
         self.service_type = service_type
         self.service_id = service_id
 

@@ -21,6 +21,7 @@ from aiperf.common.exceptions import (
     CommunicationError,
     CommunicationErrorReason,
     ConfigError,
+    ServiceErrorType,
 )
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
@@ -214,7 +215,10 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         try:
             await self.service_manager.run_all_services()
         except Exception as e:
-            raise self._service_error("Failed to initialize all services") from e
+            raise self._service_error(
+                ServiceErrorType.INITIALIZE_SERVICES_ERROR,
+                "Failed to initialize all services",
+            ) from e
 
         try:
             # Wait for all required services to be registered
@@ -230,7 +234,8 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
 
         except Exception as e:
             raise self._service_error(
-                "Not all required services registered within the timeout period"
+                ServiceErrorType.MISSING_REQUIRED_SERVICES,
+                "Not all required services registered within the timeout period",
             ) from e
 
         self.logger.debug("All required services registered successfully")
@@ -268,7 +273,10 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         try:
             await self.service_manager.shutdown_all_services()
         except Exception as e:
-            raise self._service_error("Failed to stop all services") from e
+            raise self._service_error(
+                ServiceErrorType.SHUTDOWN_ERROR,
+                "Failed to stop all services",
+            ) from e
 
         # TODO: This is a hack to give the services time to produce results
         # await asyncio.sleep(3)
@@ -367,7 +375,8 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             )
         except Exception as e:
             raise self._service_error(
-                f"Failed to send configure command to {service_type} (ID: {service_id})"
+                ServiceErrorType.SEND_CONFIGURE_COMMAND_ERROR,
+                f"Failed to send configure command to {service_type} (ID: {service_id})",
             ) from e
 
         self.logger.debug(

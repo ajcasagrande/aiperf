@@ -14,6 +14,7 @@ from aiperf.common.exceptions import (
     CommunicationError,
     CommunicationErrorReason,
     ServiceError,
+    ServiceErrorType,
 )
 from aiperf.common.factories import CommunicationFactory
 from aiperf.common.hooks import AIPerfHook, AIPerfTaskMixin, supports_hooks
@@ -109,8 +110,9 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
         """
         return self.stop_event.is_set()
 
-    def _service_error(self, message: str) -> ServiceError:
+    def _service_error(self, reason: ServiceErrorType, message: str) -> ServiceError:
         return ServiceError(
+            reason=reason,
             message=message,
             service_type=self.service_type,
             service_id=self.service_id,
@@ -199,7 +201,10 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
         except Exception as e:
             self.logger.exception("Service %s execution failed:", self.service_type)
             _ = await self.set_state(ServiceState.ERROR)
-            raise self._service_error("Service execution failed") from e
+            raise self._service_error(
+                ServiceErrorType.SHUTDOWN_ERROR,
+                "Service execution failed",
+            ) from e
 
         await self._forever_loop()
 
@@ -234,7 +239,10 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
                 try:
                     await self.stop()
                 except Exception as e:
-                    raise self._service_error("Exception stopping service") from e
+                    raise self._service_error(
+                        ServiceErrorType.SHUTDOWN_ERROR,
+                        "Exception stopping service",
+                    ) from e
 
     async def start(self) -> None:
         """Start the service and its components. This method implements
@@ -265,7 +273,10 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
 
         except Exception as e:
             self._state = ServiceState.ERROR
-            raise self._service_error("Failed to start service") from e
+            raise self._service_error(
+                ServiceErrorType.START_ERROR,
+                "Failed to start service",
+            ) from e
 
     async def stop(self) -> None:
         """Stop the service and clean up its components. This method implements
@@ -318,7 +329,10 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
 
         except Exception as e:
             self._state = ServiceState.ERROR
-            raise self._service_error("Failed to stop service") from e
+            raise self._service_error(
+                ServiceErrorType.SHUTDOWN_ERROR,
+                "Failed to stop service",
+            ) from e
 
     async def configure(self, message: Message) -> None:
         """Configure the service with the given configuration. This method implements
