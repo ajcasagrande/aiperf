@@ -15,6 +15,8 @@ def endpoint_config() -> EndPointConfig:
 @pytest.fixture
 def sample_records() -> ProfileResultsMessage:
     return ProfileResultsMessage(
+        start_ns=1000,
+        end_ns=2000,
         records=[
             ResultsRecord(
                 name="Time to First Token",

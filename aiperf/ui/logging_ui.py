@@ -1,0 +1,108 @@
+#  SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+#  SPDX-License-Identifier: Apache-2.0
+import contextlib
+import logging
+
+from textual.app import ComposeResult
+from textual.containers import Container
+from textual.widgets import RichLog
+
+
+class TextualLogHandler(logging.Handler):
+    """Custom logging handler that sends log messages to a Textual log widget."""
+
+    def __init__(self, log_widget: RichLog) -> None:
+        super().__init__()
+        self.log_widget = log_widget
+        # Set a more visually appealing format for the logs
+        formatter = logging.Formatter(
+            "[%(asctime)s] %(levelname)-8s %(name)s: %(message)s", datefmt="%H:%M:%S"
+        )
+        self.setFormatter(formatter)
+
+    def emit(self, record: logging.LogRecord) -> None:
+        """Emit a log record to the Textual log widget with color coding."""
+
+        # Silently ignore errors in log handling to avoid recursion
+        with contextlib.suppress(Exception):
+            if not self.log_widget.display:
+                return
+
+            # Add color coding based on log level
+            formatted_msg = self.format(record)
+
+            if record.levelno >= logging.ERROR:
+                # Red for errors
+                self.log_widget.write(f"[bold red]{formatted_msg}[/bold red]")
+            elif record.levelno >= logging.WARNING:
+                # Yellow for warnings
+                self.log_widget.write(f"[bold yellow]{formatted_msg}[/bold yellow]")
+            elif record.levelno >= logging.INFO:
+                # Cyan for info
+                self.log_widget.write(f"[bold cyan]{formatted_msg}[/bold cyan]")
+            else:
+                # Dim for debug
+                self.log_widget.write(f"[dim]{formatted_msg}[/dim]")
+
+
+class LogViewer(Container):
+    """Clean log viewer widget that displays application logs."""
+
+    DEFAULT_CSS = """
+    LogViewer {
+        border: solid $primary;
+        border-title-color: $primary;
+        border-title-background: $surface;
+        height: 8;
+        min-height: 8;
+    }
+
+    #log-content {
+        height: 100%;
+        scrollbar-gutter: stable;
+        padding: 0;
+    }
+    """
+
+    border_title = "Application Logs"
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.log_widget: RichLog | None = None
+        self.log_handler: TextualLogHandler | None = None
+
+    def compose(self) -> ComposeResult:
+        """Compose the clean log viewer layout."""
+        self.log_widget = RichLog(
+            highlight=True, markup=True, wrap=True, auto_scroll=True, id="log-content"
+        )
+        yield self.log_widget
+
+    def on_mount(self) -> None:
+        """Set up logging when the widget is mounted."""
+        if self.log_widget:
+            # Create and configure the log handler
+            self.log_handler = TextualLogHandler(self.log_widget)
+            self.log_handler.setLevel(logging.DEBUG)
+
+            # Add handler to the root logger to capture all logs
+            root_logger = logging.getLogger()
+            root_logger.addHandler(self.log_handler)
+
+            # Add a welcome message
+            if self.log_widget:
+                self.log_widget.write(
+                    "[bold green]AIPerf Log Viewer Initialized[/bold green]"
+                )
+
+    def on_unmount(self) -> None:
+        """Clean up logging when the widget is unmounted."""
+        if self.log_handler:
+            # Remove handler from loggers
+            root_logger = logging.getLogger()
+            root_logger.removeHandler(self.log_handler)
+
+            aiperf_logger = logging.getLogger("aiperf")
+            aiperf_logger.removeHandler(self.log_handler)
+
+            self.log_handler = None

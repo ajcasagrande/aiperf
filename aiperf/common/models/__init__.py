@@ -20,6 +20,7 @@ from aiperf.common.models.messages import (
     ProfileStatsMessage,
     RegistrationMessage,
     StatusMessage,
+    SweepProgressMessage,
     exclude_if_none,
 )
 from aiperf.common.models.record_models import (
@@ -69,6 +70,7 @@ __all__ = [
     "SSEField",
     "SSEMessage",
     "ServiceRunInfo",
+    "SweepProgressMessage",
     "StatusMessage",
     "TextResponse",
     "Transaction",

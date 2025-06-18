@@ -10,6 +10,7 @@ from typing import Any
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.endpoint.endpoint_config import EndPointConfig
 from aiperf.common.enums import (
+    BenchmarkSuiteType,
     CaseInsensitiveStrEnum,
     CommandType,
     ServiceRegistrationStatus,
@@ -21,7 +22,6 @@ from aiperf.common.enums import (
 from aiperf.common.exceptions import (
     CommunicationError,
     CommunicationErrorReason,
-    ConfigError,
     ServiceErrorType,
 )
 from aiperf.common.factories import ServiceFactory
@@ -40,6 +40,9 @@ from aiperf.common.models import (
     ServiceRunInfo,
     StatusMessage,
 )
+from aiperf.common.models.messages import ProfileProgressMessage
+from aiperf.common.models.progress import ProfileProgress, ProfileSuiteProgress
+from aiperf.common.progress_tracker import ProgressTracker
 from aiperf.common.service.base_controller_service import BaseControllerService
 from aiperf.data_exporter.exporter_manager import ExporterManager
 from aiperf.services.service_manager import (
@@ -48,7 +51,7 @@ from aiperf.services.service_manager import (
     MultiProcessServiceManager,
 )
 from aiperf.services.system_controller.system_mixins import SignalHandlerMixin
-from aiperf.ui import AIPerfUI
+from aiperf.ui.textual_ui import TextualUIMixin
 
 
 class SystemState(CaseInsensitiveStrEnum):
@@ -107,7 +110,11 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         ]
 
         self.service_manager: BaseServiceManager = None  # type: ignore - is set in _initialize
-        self.ui: AIPerfUI = AIPerfUI()
+        self.progress_tracker: ProgressTracker = ProgressTracker()
+        self.ui_enabled: bool = int(os.getenv("AIPERF_DISABLE_UI", 0)) != 1
+        self.ui: TextualUIMixin | None = (
+            TextualUIMixin(self.progress_tracker) if self.ui_enabled else None
+        )
         self.logger.debug("System Controller created")
 
     @property
@@ -140,9 +147,11 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         self.setup_signal_handlers(self._handle_signal)
         self.logger.debug("Setup signal handlers")
 
-        await self.ui.initialize()
-        if not os.getenv("AIPERF_DISABLE_UI"):
-            await self.ui.start()
+        if self.ui:
+            await self.ui.run_async()
+
+        # TODO: make this configurable
+        self.progress_tracker.configure(BenchmarkSuiteType.SINGLE_PROFILE)
 
         if self.service_config.service_run_type == ServiceRunType.MULTIPROCESSING:
             self.service_manager = MultiProcessServiceManager(
@@ -155,8 +164,9 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             )
 
         else:
-            raise ConfigError(
-                f"Unsupported service run type: {self.service_config.service_run_type}"
+            raise self._service_error(
+                ServiceErrorType.CONFIGURATION_ERROR,
+                f"Unsupported service run type: {self.service_config.service_run_type}",
             )
 
         # Subscribe to relevant messages
@@ -165,7 +175,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             (Topic.HEARTBEAT, self._process_heartbeat_message),
             (Topic.STATUS, self._process_status_message),
             (Topic.CREDITS_COMPLETE, self._process_credits_complete_message),
-            (Topic.PROFILE_PROGRESS, self.ui.update_profile_progress),
+            (Topic.PROFILE_PROGRESS, self._process_profile_progress_message),
             (Topic.PROFILE_STATS, self._process_profile_stats_message),
             (Topic.PROFILE_RESULTS, self._process_profile_results_message),
         ]
@@ -288,13 +298,26 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         """Clean up system controller-specific components."""
         self.logger.debug("Cleaning up System Controller")
 
-        await self.ui.stop()
+        if self.ui:
+            await self.ui.shutdown()
 
         self._system_state = SystemState.SHUTDOWN
 
     async def start_profiling_all_services(self) -> None:
         """Tell all services to start profiling."""
         self._system_state = SystemState.PROFILING
+
+        if self.progress_tracker.suite is None:
+            self.progress_tracker.suite = ProfileSuiteProgress(
+                suite_type=BenchmarkSuiteType.SINGLE_PROFILE,
+                start_time_ns=time.time_ns(),
+            )
+
+        self.progress_tracker.suite.current_profile = ProfileProgress(
+            profile_id=self.service_id,
+            start_time_ns=time.time_ns(),
+            total_expected_requests=0,
+        )
 
         self.logger.debug("Starting services")
         for service_info in self.service_manager.service_id_map.values():
@@ -316,8 +339,12 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
     ) -> None:
         """Process a profile stats message."""
         self.logger.debug("Received profile stats: %s", message)
-        self.ui.update_profile_stats(message)
-        if message.completed >= self.ui.total_requests:
+        self.progress_tracker.update_profile_stats(message)
+
+        if (
+            self.progress_tracker.current_profile
+            and self.progress_tracker.current_profile.is_complete
+        ):
             await self.send_command_to_service(
                 target_service_id=None,
                 target_service_type=ServiceType.RECORDS_MANAGER,
@@ -325,12 +352,26 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
                 data=ProcessRecordsCommandData(cancelled=False),
             )
 
+        if self.ui:
+            await self.ui.on_profile_stats_update()
+
+    async def _process_profile_progress_message(
+        self, message: ProfileProgressMessage
+    ) -> None:
+        """Process a profile progress message."""
+        self.logger.debug("Received profile progress: %s", message)
+        self.progress_tracker.update_profile_progress(message)
+        if self.ui:
+            await self.ui.on_profile_progress_update()
+
     async def _process_profile_results_message(
         self, message: ProfileResultsMessage
     ) -> None:
         """Process a profile results message."""
         self.logger.debug("Received profile results: %s", message)
-        await self.ui.process_final_results(message)
+        self.progress_tracker.update_profile_results(message)
+        if self.ui:
+            await self.ui.on_profile_results_update()
         await ExporterManager(
             EndPointConfig(
                 streaming=True,

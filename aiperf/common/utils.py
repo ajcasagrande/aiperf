@@ -5,7 +5,7 @@ import random
 import traceback
 from collections.abc import Callable
 
-from aiperf.common.exceptions import AIPerfMultiError
+from aiperf.common.exceptions import AIPerfError, AIPerfMultiError
 
 
 async def call_all_functions_self(
@@ -33,7 +33,9 @@ async def call_all_functions_self(
         except Exception as e:
             # TODO: error handling, logging
             traceback.print_exc()
-            exceptions.append(e)
+            exceptions.append(
+                AIPerfError(f"Error calling function {func.__name__}: {e}")
+            )
 
     if len(exceptions) > 0:
         raise AIPerfMultiError("Errors calling functions", exceptions)
@@ -62,7 +64,9 @@ async def call_all_functions(funcs: list[Callable], *args, **kwargs) -> None:
         except Exception as e:
             # TODO: error handling, logging
             traceback.print_exc()
-            exceptions.append(e)
+            exceptions.append(
+                AIPerfError(f"Error calling function {func.__name__}: {e}")
+            )
 
     if len(exceptions) > 0:
         raise AIPerfMultiError("Errors calling functions", exceptions)

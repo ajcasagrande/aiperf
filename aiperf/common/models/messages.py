@@ -13,7 +13,12 @@ from pydantic import (
     model_serializer,
 )
 
-from aiperf.common.enums import CommandType, MessageType, ServiceState, ServiceType
+from aiperf.common.enums import (
+    CommandType,
+    MessageType,
+    ServiceState,
+    ServiceType,
+)
 from aiperf.common.models.record_models import (
     ErrorDetailsCount,
     RequestRecord,
@@ -345,13 +350,12 @@ class ProfileResultsMessage(BaseServiceMessage):
     completed: int = Field(
         ..., description="The number of inference requests completed"
     )
-    # begin_ns: int = Field(
-    #     ..., description="The start time of the profile run in nanoseconds"
-    # )
-    # end_ns: int = Field(
-    #     ...,
-    #     description="The end time of the profile run in nanoseconds"
-    # )
+    start_ns: int = Field(
+        ..., description="The start time of the profile run in nanoseconds"
+    )
+    end_ns: int = Field(
+        ..., description="The end time of the profile run in nanoseconds"
+    )
     was_cancelled: bool = Field(
         default=False,
         description="Whether the profile run was cancelled early",
@@ -363,29 +367,45 @@ class ProfileResultsMessage(BaseServiceMessage):
 
 
 class ProfileProgressMessage(BaseServiceMessage):
-    """Message for profile progress."""
+    """Message for profile progress. Sent by the timing manager to the system controller to report the progress of the profile run."""
 
     message_type: Literal[MessageType.PROFILE_PROGRESS] = MessageType.PROFILE_PROGRESS
 
-    sweep_id: str | None = Field(
-        default=None, description="The ID of the current sweep"
+    profile_id: str | None = Field(
+        default=None, description="The ID of the current profile"
     )
-    sweep_start_ns: int = Field(
-        ..., description="The start time of the sweep in nanoseconds"
+    start_ns: int = Field(
+        ..., description="The start time of the profile run in nanoseconds"
     )
-    sweep_end_ns: int | None = Field(
-        default=None, description="The end time of the sweep in nanoseconds"
+    end_ns: int | None = Field(
+        default=None, description="The end time of the profile run in nanoseconds"
     )
     total: int = Field(
-        ..., description="The total number of inference requests to be made"
+        ..., description="The total number of inference requests to be mad (if known)"
     )
     completed: int = Field(
         ..., description="The number of inference requests completed"
     )
 
 
+class SweepProgressMessage(BaseServiceMessage):
+    """Message for sweep progress."""
+
+    # TODO: add profile information
+
+    message_type: Literal[MessageType.SWEEP_PROGRESS] = MessageType.SWEEP_PROGRESS
+
+    sweep_id: str = Field(..., description="The ID of the current sweep")
+    sweep_start_ns: int = Field(
+        ..., description="The start time of the sweep in nanoseconds"
+    )
+    sweep_end_ns: int | None = Field(
+        default=None, description="The end time of the sweep in nanoseconds"
+    )
+
+
 class ProfileStatsMessage(BaseServiceMessage):
-    """Message for profile stats."""
+    """Message for profile stats. Sent by the records manager to the system controller to report the stats of the profile run."""
 
     message_type: Literal[MessageType.PROFILE_STATS] = MessageType.PROFILE_STATS
 

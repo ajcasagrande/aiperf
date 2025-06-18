@@ -476,3 +476,50 @@ class SSEEventType(CaseInsensitiveStrEnum):
 
     ERROR = "error"
     LLM_METRICS = "llm_metrics"
+
+
+################################################################################
+# Progress Enums
+################################################################################
+
+
+class ProfileCompletionTrigger(CaseInsensitiveStrEnum):
+    """Determines how the profile completion is determined in order to know how to track the progress."""
+
+    UNKNOWN = "unknown"
+    TIME_BASED = "time_based"
+    REQUEST_BASED = "request_based"
+    STABILIZATION_BASED = "stabilization_based"
+
+
+class SweepCompletionTrigger(CaseInsensitiveStrEnum):
+    """Determines how the sweep completion is determined in order to know how to track the progress."""
+
+    UNKNOWN = "unknown"
+    COMPLETED_PROFILES = "completed_profiles"
+    STABILIZATION_BASED = "stabilization_based"
+
+
+class BenchmarkSuiteCompletionTrigger(CaseInsensitiveStrEnum):
+    """Determines how the suite completion is determined in order to know how to track the progress."""
+
+    UNKNOWN = "unknown"
+    COMPLETED_SWEEPS = "completed_sweeps"
+    COMPLETED_PROFILES = "completed_profiles"
+    STABILIZATION_BASED = "stabilization_based"
+
+
+class BenchmarkSuiteType(CaseInsensitiveStrEnum):
+    """Determines the type of suite to know how to track the progress."""
+
+    SINGLE_PROFILE = "single_profile"
+    """An suite with a single profile run."""
+
+    MULTI_PROFILE = "multi_profile"
+    """An suite with multiple profile runs. As opposed to a sweep, more than one parameter can be varied."""
+
+    SINGLE_SWEEP = "single_sweep"
+    """An suite with a single sweep over one or more varying parameters."""
+
+    MULTI_SWEEP = "multi_sweep"
+    """An suite with multiple sweep runs over multiple varying parameters."""

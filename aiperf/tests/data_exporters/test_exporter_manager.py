@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -18,6 +18,8 @@ def endpoint_config():
 @pytest.fixture
 def sample_records():
     return ProfileResultsMessage(
+        start_ns=1000,
+        end_ns=2000,
         records=[ResultsRecord(name="Latency", unit="ms", avg=10.0)],
         service_id="test-service",
         total=100,
@@ -27,7 +29,7 @@ def sample_records():
 
 class TestExporterManager:
     async def test_export(self, endpoint_config, sample_records):
-        mock_exporter_instance = MagicMock()
+        mock_exporter_instance = AsyncMock()
         mock_exporter_class = MagicMock(return_value=mock_exporter_instance)
 
         with patch(

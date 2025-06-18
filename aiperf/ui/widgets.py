@@ -1,0 +1,278 @@
+#  SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+#  SPDX-License-Identifier: Apache-2.0
+
+import logging
+from collections.abc import Callable
+from typing import Any
+
+from rich.text import Text
+from textual.widget import Widget
+
+from aiperf.common.models.progress import ProfileProgress
+from aiperf.common.progress_tracker import ProgressTracker
+
+logger = logging.getLogger(__name__)
+
+
+class DashboardFormatter:
+    """Utility class for formatting dashboard fields."""
+
+    @staticmethod
+    def format_duration(seconds: float | None) -> str:
+        """Format duration in seconds to human-readable format."""
+        if seconds is None:
+            return "--"
+
+        if seconds < 60:
+            return f"{seconds:.1f}s"
+
+        minutes = int(seconds // 60)
+        remaining_seconds = seconds % 60
+
+        if minutes < 60:
+            if remaining_seconds < 1:
+                return f"{minutes}m"
+            return f"{minutes}m {remaining_seconds:.0f}s"
+
+        hours = minutes // 60
+        minutes = minutes % 60
+
+        if hours < 24:
+            if minutes == 0:
+                return f"{hours}h"
+            return f"{hours}h {minutes}m"
+
+        days = hours // 24
+        hours = hours % 24
+
+        if hours == 0:
+            return f"{days}d"
+        return f"{days}d {hours}h"
+
+    @staticmethod
+    def format_count_with_total(count: int | None, total: int | None) -> str:
+        """Format count with total (e.g., '150 / 1,000')."""
+        if count is None or total is None:
+            return "--"
+        return f"{count:,} / {total:,}"
+
+    @staticmethod
+    def format_percentage(value: float | None) -> str:
+        """Format percentage (e.g., '15.2%')."""
+        if value is None:
+            return "--"
+        return f"{value:.1f}%"
+
+    @staticmethod
+    def format_rate(rate: float | None) -> str:
+        """Format request rate (e.g., '25.4 req/s')."""
+        return f"{rate:,.1f} req/s" if rate is not None and rate > 0 else "-- req/s"
+
+    @staticmethod
+    def format_error_stats(
+        error_count: int, total: int, error_rate: float | None
+    ) -> str:
+        """Format error statistics (e.g., '2 / 152 (1.3%)')."""
+        if None in (error_count, total, error_rate):
+            return "--"
+        return f"{error_count:,} / {total:,} ({error_rate:.1%})"
+
+
+class StatusClassifier:
+    """Utility class for determining status classes based on values."""
+
+    @staticmethod
+    def get_error_status(error_rate: float | None) -> str:
+        """Get error status class based on error rate."""
+        if error_rate is None:
+            return "status-idle"
+        if error_rate == 0.0:
+            return "error-none"
+        elif error_rate < 0.05:
+            return "error-low"
+        else:
+            return "error-high"
+
+    @staticmethod
+    def get_rate_status(rate: float | None) -> str:
+        """Get rate status class based on request rate."""
+        if rate is None:
+            return "status-idle"
+        if rate >= 100:
+            return "rate-high"
+        elif rate >= 10:
+            return "rate-medium"
+        elif rate > 0:
+            return "rate-low"
+        else:
+            return "status-idle"
+
+    @staticmethod
+    def get_completion_status(is_complete: bool) -> str:
+        """Get completion status class."""
+        if is_complete:
+            return "status-complete"
+        else:
+            return "status-processing"
+
+
+class DashboardField:
+    """Represents a dashboard field with its formatting and update logic."""
+
+    def __init__(
+        self,
+        field_id: str,
+        label: str,
+        value_getter: Callable[[ProgressTracker, ProfileProgress], Any],
+        formatter: Callable[[Any], str],
+        status_classifier: Callable[[Any], str] | None = None,
+        show_dot: bool = True,
+    ):
+        self.field_id = field_id
+        self.label = label
+        self.value_getter = value_getter
+        self.formatter = formatter
+        self.status_classifier = status_classifier
+        self.show_dot = show_dot
+
+    def update(
+        self, container: Widget, progress: ProgressTracker, profile: ProfileProgress
+    ) -> None:
+        """Update this field in the container."""
+        try:
+            widget = container.query_one(f"#{self.field_id}", StatusIndicator)
+            raw_value = self.value_getter(progress, profile)
+            formatted_value = self.formatter(raw_value)
+            status_class = (
+                self.status_classifier(raw_value) if self.status_classifier else ""
+            )
+            widget.update_value(formatted_value, status_class)
+        except Exception as e:
+            logger.error(f"Error updating {self.field_id}: {e}")
+
+
+class StatusIndicator(Widget):
+    """A custom widget to display status with colored indicators and rich formatting."""
+
+    DEFAULT_CSS = """
+    StatusIndicator {
+        height: 1;
+        margin: 0 1;
+        padding: 0 1;
+    }
+
+    .status-processing {
+        color: $warning;
+    }
+
+    .status-complete {
+        color: $success;
+    }
+
+    .status-idle {
+        color: $text-muted;
+    }
+
+    .error-none {
+        color: $success;
+    }
+
+    .error-low {
+        color: $warning;
+    }
+
+    .error-high {
+        color: $error;
+    }
+
+    .metric-label {
+        color: $text;
+        text-style: bold;
+    }
+
+    .metric-value {
+        color: $accent;
+    }
+
+    .rate-high {
+        color: $success;
+    }
+
+    .rate-medium {
+        color: $warning;
+    }
+
+    .rate-low {
+        color: $error;
+    }
+    """
+
+    def __init__(
+        self,
+        label: str,
+        value: str = "",
+        status_class: str = "",
+        show_dot: bool = True,
+        **kwargs,
+    ) -> None:
+        super().__init__(**kwargs)
+        self.label = label
+        self.value = value
+        self.status_class = status_class
+        self.show_dot = show_dot
+
+    def render(self) -> Text:
+        """Render the status indicator with rich formatting."""
+        text = Text()
+
+        # Add colored dot based on status
+        if self.show_dot and self.status_class:
+            if "processing" in self.status_class:
+                text.append("● ", style="bold yellow")
+            elif "complete" in self.status_class or "error-none" in self.status_class:
+                text.append("● ", style="bold green")
+            elif "error-low" in self.status_class:
+                text.append("● ", style="bold yellow")
+            elif "error-high" in self.status_class:
+                text.append("● ", style="bold red")
+            elif "rate-high" in self.status_class:
+                text.append("● ", style="bold green")
+            elif "rate-medium" in self.status_class:
+                text.append("● ", style="bold yellow")
+            elif "rate-low" in self.status_class:
+                text.append("● ", style="bold red")
+            else:
+                text.append("● ", style="bold blue")
+
+        # Add bold label
+        text.append(f"{self.label}: ", style="bold")
+
+        # Add value with appropriate styling
+        if self.status_class:
+            if "complete" in self.status_class:
+                text.append(self.value, style="bold green")
+            elif "processing" in self.status_class:
+                text.append(self.value, style="bold yellow")
+            elif "error-high" in self.status_class:
+                text.append(self.value, style="bold red")
+            elif "error-low" in self.status_class:
+                text.append(self.value, style="bold yellow")
+            elif "error-none" in self.status_class or "rate-high" in self.status_class:
+                text.append(self.value, style="bold green")
+            elif "rate-medium" in self.status_class:
+                text.append(self.value, style="bold yellow")
+            elif "rate-low" in self.status_class:
+                text.append(self.value, style="bold red")
+            else:
+                text.append(self.value, style="bold cyan")
+        else:
+            text.append(self.value, style="bold cyan")
+
+        return text
+
+    def update_value(self, value: str, status_class: str = "") -> None:
+        """Update the value and status class."""
+        self.value = value
+        if status_class:
+            self.status_class = status_class
+        self.refresh()

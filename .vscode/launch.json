@@ -7,7 +7,6 @@
             "cwd": "${workspaceFolder}",
             "module": "aiperf.cli",
             "args": [
-                ""
             ]
         },
         {

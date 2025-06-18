@@ -49,7 +49,7 @@ class TimingManager(BaseComponentService):
         self._sent_credits = 0
         self._completed_credits = 0
         self._credit_event = asyncio.Event()
-        self.start_perf_counter_ns = 0
+        self.start_time_ns = 0
         self.logger.debug("Initializing timing manager")
 
     @property
@@ -109,13 +109,13 @@ class TimingManager(BaseComponentService):
         # TODO: Actually implement real credit drop logic
         await self.initialized_event.wait()
 
-        self.start_perf_counter_ns = time.perf_counter_ns()
+        self.start_time_ns = time.time_ns()
 
         await self.comms.publish(
             topic=Topic.PROFILE_PROGRESS,
             message=ProfileProgressMessage(
                 service_id=self.service_id,
-                sweep_start_ns=self.start_perf_counter_ns,
+                start_ns=self.start_time_ns,
                 total=self._total_credits,
                 completed=self._completed_credits,
             ),
@@ -184,20 +184,16 @@ class TimingManager(BaseComponentService):
             self._completed_credits,
             self._total_credits,
             self._completed_credits
-            / (time.perf_counter_ns() - self.start_perf_counter_ns)
+            / (time.time_ns() - self.start_time_ns)
             * NANOS_PER_SECOND,
         )
 
         if self._completed_credits >= self._total_credits:
             self.logger.debug(
                 "All credits completed, stopping credit drop task after %.2f seconds (%.2f requests/s)",
-                (time.perf_counter_ns() - self.start_perf_counter_ns)
-                / NANOS_PER_SECOND,
+                (time.time_ns() - self.start_time_ns) / NANOS_PER_SECOND,
                 self._total_credits
-                / (
-                    (time.perf_counter_ns() - self.start_perf_counter_ns)
-                    / NANOS_PER_SECOND
-                ),
+                / ((time.time_ns() - self.start_time_ns) / NANOS_PER_SECOND),
             )
 
             await self.comms.publish(
@@ -217,7 +213,7 @@ class TimingManager(BaseComponentService):
                 topic=Topic.PROFILE_PROGRESS,
                 message=ProfileProgressMessage(
                     service_id=self.service_id,
-                    sweep_start_ns=self.start_perf_counter_ns,
+                    start_ns=self.start_time_ns,
                     total=self._total_credits,
                     completed=self._completed_credits,
                 ),

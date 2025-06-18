@@ -1,329 +1,202 @@
 #  SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #  SPDX-License-Identifier: Apache-2.0
-import contextlib
+
 import logging
-import time
+import sys
 
-from rich.layout import Layout
-from rich.panel import Panel
-from rich.progress import (
-    BarColumn,
-    MofNCompleteColumn,
-    Progress,
-    ProgressColumn,
-    SpinnerColumn,
-    TaskID,
-    TaskProgressColumn,
-    TimeElapsedColumn,
-    TimeRemainingColumn,
-)
-from rich.table import Table
-from rich.text import Text
+from textual.app import ComposeResult
+from textual.containers import Container, Vertical
+from textual.widgets import Label, ProgressBar
 
-from aiperf.common.constants import NANOS_PER_SECOND
-from aiperf.common.hooks import (
-    on_init,
-    on_start,
-    on_stop,
+from aiperf.common.progress_tracker import ProgressTracker
+from aiperf.ui.widgets import (
+    DashboardField,
+    DashboardFormatter,
+    StatusClassifier,
+    StatusIndicator,
 )
-from aiperf.common.models import (
-    ProfileProgressMessage,
-    ProfileStatsMessage,
-)
-from aiperf.ui.base_ui import ConsoleUIMixin
 
 logger = logging.getLogger(__name__)
 
 
-class RequestsPerSecondColumn(ProgressColumn):
-    """Custom column to display requests per second."""
+class ProgressDashboard(Container):
+    """Main progress dashboard widget with clean, simplified styling."""
 
-    def render(self, task) -> Text:
-        """Render the requests per second for a task."""
+    DEFAULT_CSS = """
+    ProgressDashboard {
+        border: solid $primary;
+        border-title-color: $primary;
+        border-title-background: $surface;
+    }
 
-        if task.finished:
-            # If the task is completed, use the req_per_second field (covers the whole profile)
-            text = (
-                f"{task.fields['req_per_second']:.1f} req/s"
-                if "req_per_second" in task.fields
-                else "-- req/s"
-            )
-        else:
-            # Otherwise, use the speed field (dynamic window over time)
-            text = "-- req/s" if task.speed is None else f"{task.speed:,.1f} req/s"
+    #progress-container {
+        height: auto;
+    }
 
-        return Text(text, style="progress.data.speed")
+    #metrics-grid {
+        height: auto;
+    }
 
+    #progress-label {
+        text-align: center;
+        text-style: bold;
+        color: $text;
+        margin: 1 0;
+    }
 
-class ProfileProgressDashboardMixin(ConsoleUIMixin):
-    """Mixin for updating the profile progress dashboard."""
+    StatusIndicator {
+        height: 1;
+        margin: 0 0 1 0;
+    }
+    """
 
-    def __init__(self) -> None:
+    border_title = "AIPerf Performance Dashboard"
+
+    def __init__(self, progress_tracker: ProgressTracker) -> None:
         super().__init__()
-        self.progress: Progress | None = None
-        self.task_id: TaskID | None = None
-        self.start_perf_counter_ns: int | None = None
+        self.progress_tracker = progress_tracker
 
-        self.error_count: int = 0
-        self.error_rate: float = 0.0
-        self.total_completed: int = 0
-        self.total_requests: int = 0
+        # Define all dashboard fields declaratively
+        self.fields = [
+            DashboardField(
+                "status-indicator",
+                "Status",
+                lambda _, profile: (profile.is_complete, profile.was_cancelled),
+                lambda data: "Complete"
+                if data[0]
+                else "Processing"
+                if not data[1]
+                else "Cancelled",
+                StatusClassifier.get_completion_status,
+            ),
+            DashboardField(
+                "progress-indicator",
+                "Progress",
+                lambda _, profile: (
+                    profile.requests_completed,
+                    profile.total_expected_requests,
+                ),
+                lambda data: DashboardFormatter.format_count_with_total(
+                    data[0], data[1]
+                ),
+                show_dot=False,
+            ),
+            DashboardField(
+                "completion-indicator",
+                "Completion",
+                lambda _, profile: (
+                    (
+                        profile.requests_completed
+                        / (profile.total_expected_requests or sys.maxsize)
+                        * 100
+                    )
+                    if profile.total_expected_requests is not None
+                    and profile.total_expected_requests > 0
+                    else 0
+                ),
+                DashboardFormatter.format_percentage,
+                show_dot=False,
+            ),
+            DashboardField(
+                "error-indicator",
+                "Errors",
+                lambda _, profile: (
+                    profile.request_errors,
+                    profile.requests_processed,
+                    (profile.request_errors / profile.requests_processed) * 100
+                    if profile.requests_processed > 0
+                    else 0.0,
+                ),
+                lambda data: DashboardFormatter.format_error_stats(
+                    data[0], data[1], data[2]
+                ),
+                lambda data: StatusClassifier.get_error_status(data[2]),
+            ),
+            DashboardField(
+                "request-rate-indicator",
+                "Request Rate",
+                lambda _, profile: profile.requests_per_second,
+                DashboardFormatter.format_rate,
+                StatusClassifier.get_rate_status,
+            ),
+            DashboardField(
+                "processed-rate-indicator",
+                "Processing Rate",
+                lambda _, profile: profile.processed_per_second,
+                DashboardFormatter.format_rate,
+                StatusClassifier.get_rate_status,
+            ),
+            DashboardField(
+                "elapsed-indicator",
+                "Elapsed",
+                lambda _, profile: profile.elapsed_time,
+                DashboardFormatter.format_duration,
+                show_dot=False,
+            ),
+            DashboardField(
+                "eta-indicator",
+                "ETA",
+                lambda _, profile: profile.eta,
+                lambda data: DashboardFormatter.format_duration(data) if data else "--",
+                show_dot=False,
+            ),
+        ]
 
-    def _format_duration(self, seconds: float) -> str:
-        """Format duration in seconds to human-readable format."""
-        if seconds < 60:
-            return f"{seconds:.1f}s"
+    def compose(self) -> ComposeResult:
+        """Compose the simplified dashboard layout."""
+        with Vertical(id="dashboard-content"):
+            # Progress Overview
+            with Container(id="progress-container"):
+                yield ProgressBar(total=100, show_eta=True, show_percentage=True)
+                yield Label("", id="progress-label")
 
-        minutes = int(seconds // 60)
-        remaining_seconds = seconds % 60
+            # Performance Metrics - Generated from field definitions
+            with Vertical(id="metrics-grid"):
+                for field in self.fields:
+                    yield StatusIndicator(
+                        field.label, id=field.field_id, show_dot=field.show_dot
+                    )
 
-        if minutes < 60:
-            if remaining_seconds < 1:
-                return f"{minutes}m"
-            return f"{minutes}m {remaining_seconds:.0f}s"
+    def on_mount(self) -> None:
+        """Initialize the dashboard when mounted."""
+        self.update_display()
 
-        hours = minutes // 60
-        minutes = minutes % 60
+    def update_display(self) -> None:
+        """Update all display elements using declarative field system."""
+        if not self.is_mounted:
+            return
 
-        if hours < 24:
-            if minutes == 0:
-                return f"{hours}h"
-            return f"{hours}h {minutes}m"
+        if not self.progress_tracker.current_profile:
+            return
 
-        days = hours // 24
-        hours = hours % 24
-
-        if hours == 0:
-            return f"{days}d"
-        return f"{days}d {hours}h"
-
-    @on_init
-    def _on_init(self) -> None:
-        """Create the progress bar."""
-        # Create progress bar with custom columns
-        self.progress = Progress(
-            SpinnerColumn(),
-            "[bold blue]{task.description}",
-            BarColumn(),
-            MofNCompleteColumn(),
-            TaskProgressColumn(),
-            RequestsPerSecondColumn(),
-            TimeElapsedColumn(),
-            TimeRemainingColumn(),
-            console=self.console,
-            expand=False,
-        )
-
-    def _refresh_progress_dashboard(self) -> Panel:
-        """Create the main dashboard layout."""
-        # Create stats table
-        stats_table = Table.grid(padding=1)
-        stats_table.add_column(style="cyan", no_wrap=True, min_width=12)
-        stats_table.add_column(style="white")
-
-        if self.task_id is not None and self.progress is not None:
-            task = self.progress.tasks[self.task_id]
-
-            # Calculate additional metrics
-            completion_pct = (
-                (task.completed / task.total * 100)
-                if task.total and task.total > 0 and task.completed is not None
-                else 0
-            )
-            elapsed_time = task.elapsed or 0
-
-            # Status with clean indicator
-            status_indicator = "●" if not task.finished else "✓"
-            status_text = "Processing" if not task.finished else "Complete"
-            status_style = "yellow" if not task.finished else "green"
-
-            stats_table.add_row(
-                "Status:", f"[{status_style}]{status_indicator}[/] {status_text}"
-            )
-            stats_table.add_row(
-                "Progress:", f"{task.completed:,} / {task.total:,} requests"
-            )
-            stats_table.add_row("Completion:", f"{completion_pct:.1f}%")
-
-            # Error styling based on rate
-            error_style = (
-                "green"
-                if self.error_rate == 0
-                else ("yellow" if self.error_rate < 0.05 else "red")
-            )
-            stats_table.add_row(
-                "Errors:",
-                f"[{error_style}]●[/] {self.error_count:,} / {self.total_completed:,} ({self.error_rate:.1%})",
-            )
-            stats_table.add_row(
-                "Rate:",
-                f"{task.speed:,.1f} req/s" if task.speed else "-- req/s",
-            )
-            stats_table.add_row("Elapsed:", self._format_duration(elapsed_time))
-
+        try:
+            # Update progress bar
             if (
-                task.speed
-                and task.speed > 0
-                and not task.finished
-                and task.total is not None
-                and task.completed is not None
+                self.progress_tracker.current_profile.total_expected_requests
+                is not None
+                and self.progress_tracker.current_profile.total_expected_requests > 0
             ):
-                remaining_requests = task.total - task.completed
-                eta_seconds = remaining_requests / task.speed
-                stats_table.add_row("ETA:", self._format_duration(eta_seconds))
+                progress_value = min(
+                    100,
+                    (
+                        self.progress_tracker.current_profile.requests_completed
+                        / self.progress_tracker.current_profile.total_expected_requests
+                    )
+                    * 100,
+                )
+                progress_bar = self.query_one(ProgressBar)
+                progress_bar.update(progress=progress_value)
 
-        # Combine progress bar and stats
-        dashboard_content = Table.grid()
-        dashboard_content.add_column()
-        dashboard_content.add_row(self.progress)
-        dashboard_content.add_row("")  # Spacing
-        dashboard_content.add_row(stats_table)
+                # Update progress label
+                progress_label = self.query_one("#progress-label", Label)
+                progress_text = f"Processing: {self.progress_tracker.current_profile.requests_completed:,} / {self.progress_tracker.current_profile.total_expected_requests:,} requests"
+                progress_label.update(progress_text)
 
-        return Panel(
-            dashboard_content,
-            title="[bold blue]AIPerf Profile Dashboard",
-            border_style="blue",
-            padding=(1, 2),
-            expand=False,
-        )
-
-    @on_stop
-    async def stop_profile_progress_dashboard(self) -> None:
-        """Stop the profile progress dashboard."""
-        self.progress = None
-        self.task_id = None
-
-    def update_profile_progress(self, message: ProfileProgressMessage) -> None:
-        """
-        Update the profile progress with rich dashboard display.
-        """
-        if not self.progress:
-            return
-
-        # Initialize start time and task on first update
-        if self.start_perf_counter_ns is None or self.task_id is None:
-            self.start_perf_counter_ns = message.sweep_start_ns
-            self.total_requests = message.total
-            self.task_id = self.progress.add_task(
-                "Processing Requests",
-                total=message.total,
-                completed=message.completed,
-            )
-
-        # Calculate requests per second
-        elapsed_seconds = (
-            (message.request_ns or time.time_ns()) - self.start_perf_counter_ns
-        ) / NANOS_PER_SECOND
-
-        req_per_second = (
-            message.completed / elapsed_seconds if (elapsed_seconds or 0) > 0 else 0.0
-        )
-
-        # Update the progress task
-        self.progress.update(
-            self.task_id,
-            completed=message.completed,
-            total=message.total,
-            req_per_second=req_per_second,
-        )
-
-        # Update the live display
-        self.live.update(self._refresh_progress_dashboard(), refresh=True)
-
-    def update_profile_stats(self, message: ProfileStatsMessage) -> None:
-        """Update the profile stats."""
-        if not self.progress:
-            return
-
-        self.error_count = message.error_count
-        self.total_completed = message.completed + message.error_count
-        self.error_rate = (
-            self.error_count / self.total_completed if self.total_completed > 0 else 0.0
-        )
-
-        self.live.update(self._refresh_progress_dashboard(), refresh=True)
-
-
-class SplitScreenDashboardMixin(ProfileProgressDashboardMixin):
-    """Mixin that combines multiple dashboards in a split screen layout."""
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.layout: Layout | None = None
-
-    @on_init
-    def _on_init(self) -> None:
-        """Initialize the progress bar and splash screen."""
-
-        # Create main layout
-        self.layout = Layout()
-
-        # Split into top (progress) section
-        self.layout.split_column(Layout(name="top", ratio=100))
-
-    @on_start
-    async def _on_start(self) -> None:
-        """Set up the split screen layout."""
-        self.live.start()
-
-    def _refresh_split_screen_dashboard(self) -> Layout:
-        """Refresh the complete split screen dashboard."""
-        if not self.layout:
-            return Layout()
-
-        with contextlib.suppress(Exception):
-            self.layout["top"].split_row(Layout(name="progress", ratio=100))
-            if self.progress and self.task_id is not None:
-                self.layout["top"]["progress"].update(
-                    self._refresh_progress_dashboard()
+            # Update all status indicators using field definitions
+            for field in self.fields:
+                field.update(
+                    self, self.progress_tracker, self.progress_tracker.current_profile
                 )
 
-        return self.layout
-
-    def update_profile_progress(self, message: ProfileProgressMessage) -> None:
-        """Update the profile progress with split screen display."""
-        if not self.progress:
-            return
-
-        # Initialize start time and task on first update
-        if self.start_perf_counter_ns is None or self.task_id is None:
-            self.start_perf_counter_ns = message.sweep_start_ns
-            self.total_requests = message.total
-            self.task_id = self.progress.add_task(
-                "Processing Requests",
-                total=message.total,
-                completed=message.completed,
-            )
-
-        # Calculate requests per second
-        elapsed_seconds = (
-            (message.request_ns or time.perf_counter_ns()) - self.start_perf_counter_ns
-        ) / NANOS_PER_SECOND
-
-        req_per_second = (
-            message.completed / elapsed_seconds if (elapsed_seconds or 0) > 0 else 0.0
-        )
-
-        # Update the progress task
-        self.progress.update(
-            self.task_id,
-            completed=message.completed,
-            total=message.total,
-            req_per_second=req_per_second,
-        )
-
-        # Update the live display with split screen layout
-        self.live.update(self._refresh_split_screen_dashboard(), refresh=True)
-
-    def update_profile_stats(self, message: ProfileStatsMessage) -> None:
-        """Update the profile stats with split screen display."""
-        if not self.progress:
-            return
-
-        self.error_count = message.error_count
-        self.error_rate = (
-            self.error_count / message.completed if message.completed > 0 else 0.0
-        )
-        self.total_completed = message.completed
-
-        self.live.update(self._refresh_split_screen_dashboard(), refresh=True)
+        except Exception as e:
+            logger.debug(f"Display update error: {e}")
