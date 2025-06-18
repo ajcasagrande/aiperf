@@ -132,7 +132,7 @@ def ssl_config() -> GenericHTTPClientConfig:
 @pytest.fixture
 async def aiohttp_client(
     http_client_config: GenericHTTPClientConfig,
-) -> AioHttpClientMixin:
+):
     """Fixture providing an AioHttpClientMixin instance."""
     client = AioHttpClientMixin(http_client_config)
     yield client
@@ -873,14 +873,12 @@ class TestIntegration:
 
         with patch("aiohttp.ClientSession") as mock_session_class:
             # Setup mock session and response
-            mock_session = AsyncMock()
             mock_response = Mock()
             mock_response.status = 200
             mock_response.content_type = "application/json"
             mock_response.text = AsyncMock(return_value=json.dumps(test_response))
 
-            mock_session_class.return_value.__aenter__.return_value = mock_session
-            mock_session.post.return_value.__aenter__.return_value = mock_response
+            setup_mock_session_with_response(mock_session_class, mock_response)
 
             # Create client and make request
             client = AioHttpClientMixin(http_client_config)
@@ -909,7 +907,6 @@ class TestIntegration:
         """Test end-to-end SSE request flow."""
         with patch("aiohttp.ClientSession") as mock_session_class:
             # Setup mock SSE response
-            mock_session = AsyncMock()
             mock_response = Mock()
             mock_response.status = 200
             mock_response.content_type = "text/event-stream"
@@ -917,15 +914,16 @@ class TestIntegration:
             # Mock content stream
             content_mock = Mock()
             content_mock.at_eof.side_effect = [False, False, True]
-            content_mock.read.side_effect = [b"d", b"d"]
-            content_mock.readuntil.side_effect = [
-                b"ata: Hello\nevent: message\n\n",
-                b"ata: World\n\n",
-            ]
+            content_mock.read = AsyncMock(side_effect=[b"d", b"d"])
+            content_mock.readuntil = AsyncMock(
+                side_effect=[
+                    b"ata: Hello\nevent: message\n\n",
+                    b"ata: World\n\n",
+                ]
+            )
             mock_response.content = content_mock
 
-            mock_session_class.return_value.__aenter__.return_value = mock_session
-            mock_session.post.return_value.__aenter__.return_value = mock_response
+            setup_mock_session_with_response(mock_session_class, mock_response)
 
             # Create client and make request
             client = AioHttpClientMixin(http_client_config)
@@ -955,14 +953,12 @@ class TestIntegration:
         num_requests = 5
 
         with patch("aiohttp.ClientSession") as mock_session_class:
-            mock_session = AsyncMock()
             mock_response = Mock()
             mock_response.status = 200
             mock_response.content_type = "application/json"
             mock_response.text = AsyncMock(return_value='{"success": true}')
 
-            mock_session_class.return_value.__aenter__.return_value = mock_session
-            mock_session.post.return_value.__aenter__.return_value = mock_response
+            setup_mock_session_with_response(mock_session_class, mock_response)
 
             client = AioHttpClientMixin(http_client_config)
             try:
@@ -1087,9 +1083,7 @@ class TestEdgeCases:
         mock_response.text = AsyncMock(return_value="")
 
         with patch("aiohttp.ClientSession") as mock_session_class:
-            mock_session = AsyncMock()
-            mock_session_class.return_value.__aenter__.return_value = mock_session
-            mock_session.post.return_value.__aenter__.return_value = mock_response
+            setup_mock_session_with_response(mock_session_class, mock_response)
 
             record = await aiohttp_client.request("http://test.com", "{}", {})
 
