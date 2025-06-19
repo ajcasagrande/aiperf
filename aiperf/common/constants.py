@@ -5,3 +5,15 @@ NANOS_PER_SECOND = 1_000_000_000
 NANOS_PER_MILLIS = 1_000_000
 
 GRACEFUL_SHUTDOWN_TIMEOUT_SECONDS = 5.0
+
+################################################################################
+# Environment Defaults
+################################################################################
+
+
+class EnvDefaults:
+    """Default values for the AIPerf environment variables."""
+
+    AIPERF_UVLOOP = 1
+    AIPERF_LOG_LEVEL = "INFO"
+    AIPERF_DISABLE_UI = 0

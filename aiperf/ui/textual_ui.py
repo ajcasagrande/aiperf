@@ -4,8 +4,9 @@
 import logging
 
 from textual.app import App, ComposeResult
-from textual.containers import Container, Vertical
-from textual.widgets import Footer, Header
+from textual.binding import Binding
+from textual.containers import Container, Grid, Vertical
+from textual.widgets import Button, Footer, Header, Label, Static
 
 from aiperf.common.hooks import (
     AIPerfLifecycleMixin,
@@ -43,12 +44,13 @@ class AIPerfTextualApp(App):
     }
 
     #dashboard-section {
-        height: 2fr;
+        height: 13;
+        min-height: 2;
     }
 
     #logs-section {
-        height: 1fr;
-        min-height: 8;
+        height: 100%;
+        margin: 0 0 13 0;
     }
     """
 
@@ -81,9 +83,14 @@ class AIPerfTextualApp(App):
         yield Footer()
 
     async def action_quit(self) -> None:
-        """Quit the application gracefully."""
+        """Show confirmation dialog as an overlay."""
+        if hasattr(self, "_quit_dialog") and self._quit_dialog.parent:
+            # Dialog already visible
+            return
 
-        self.exit()
+        self._quit_dialog = QuitConfirmationDialog()
+        self._quit_dialog.on_quit = self.exit
+        await self.mount(self._quit_dialog)
 
 
 class TextualUIMixin(AIPerfLifecycleMixin):
@@ -153,3 +160,66 @@ class TextualUIMixin(AIPerfLifecycleMixin):
 
         except Exception as e:
             logger.warning("Stats update error: %s", e)
+
+
+class QuitConfirmationDialog(Static):
+    """Overlay dialog to confirm quitting the application."""
+
+    DEFAULT_CSS = """
+    QuitConfirmationDialog {
+        dock: top;
+        layer: overlay;
+        align: center middle;
+    }
+
+    #dialog-box {
+        grid-size: 2;
+        grid-gutter: 1 2;
+        grid-rows: 1fr 3;
+        padding: 0 1;
+        width: 50;
+        height: 9;
+        border: thick $primary;
+        background: $surface;
+        margin: 1;
+    }
+
+    #question {
+        column-span: 2;
+        height: 1fr;
+        width: 1fr;
+        content-align: center middle;
+        text-style: bold;
+    }
+
+    QuitConfirmationDialog Button {
+        width: 100%;
+    }
+    """
+
+    BINDINGS = [
+        Binding("escape", "cancel", "Cancel"),
+    ]
+
+    def __init__(self):
+        super().__init__()
+        self.on_quit = None
+
+    def compose(self) -> ComposeResult:
+        """Compose the confirmation dialog."""
+        yield Grid(
+            Label("Are you sure you want to exit AIPerf?", id="question"),
+            Button("Yes, Exit", variant="error", id="quit"),
+            Button("Cancel", variant="primary", id="cancel"),
+            id="dialog-box",
+        )
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        """Handle button presses in the confirmation dialog."""
+        if event.button.id == "quit" and self.on_quit:
+            self.on_quit()
+        self.remove()
+
+    def action_cancel(self) -> None:
+        """Cancel the dialog with Escape key."""
+        self.remove()

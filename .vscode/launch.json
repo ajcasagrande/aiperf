@@ -7,7 +7,12 @@
             "cwd": "${workspaceFolder}",
             "module": "aiperf.cli",
             "args": [
-            ]
+            ],
+            "env": {
+                "AIPERF_UVLOOP": "1",
+                "AIPERF_LOG_LEVEL": "DEBUG",
+                "AIPERF_WORKERS": "1"
+            }
         },
         {
             "name": "pytest",

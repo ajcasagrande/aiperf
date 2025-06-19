@@ -9,6 +9,7 @@ from typing import Any
 
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.endpoint.endpoint_config import EndPointConfig
+from aiperf.common.constants import EnvDefaults
 from aiperf.common.enums import (
     BenchmarkSuiteType,
     CaseInsensitiveStrEnum,
@@ -111,7 +112,9 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
 
         self.service_manager: BaseServiceManager = None  # type: ignore - is set in _initialize
         self.progress_tracker: ProgressTracker = ProgressTracker()
-        self.ui_enabled: bool = int(os.getenv("AIPERF_DISABLE_UI", 0)) != 1
+        self.ui_enabled: bool = (
+            int(os.getenv("AIPERF_DISABLE_UI", EnvDefaults.AIPERF_DISABLE_UI)) != 1
+        )
         self.ui: TextualUIMixin | None = (
             TextualUIMixin(self.progress_tracker) if self.ui_enabled else None
         )

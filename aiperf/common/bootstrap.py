@@ -5,6 +5,7 @@ import os
 import random
 
 from aiperf.common.config import ServiceConfig
+from aiperf.common.constants import EnvDefaults
 from aiperf.common.service.base_service import BaseService
 
 
@@ -42,7 +43,7 @@ def bootstrap_and_run_service(
     # TODO: random seed configuration
     random.seed(0)
 
-    if os.environ.get("AIPERF_UVLOOP", "0") == "1":
+    if int(os.environ.get("AIPERF_UVLOOP", EnvDefaults.AIPERF_UVLOOP)) == 1:
         import uvloop
 
         uvloop.run(service.run_forever())

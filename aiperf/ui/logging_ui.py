@@ -11,6 +11,14 @@ from textual.widgets import RichLog
 class TextualLogHandler(logging.Handler):
     """Custom logging handler that sends log messages to a Textual log widget."""
 
+    # Map log levels to Rich formatting
+    LOG_LEVEL_STYLES = {
+        logging.ERROR: "bold red",
+        logging.WARNING: "bold yellow",
+        logging.INFO: "bold cyan",
+        logging.DEBUG: "dim",
+    }
+
     def __init__(self, log_widget: RichLog) -> None:
         super().__init__()
         self.log_widget = log_widget
@@ -28,21 +36,8 @@ class TextualLogHandler(logging.Handler):
             if not self.log_widget.display:
                 return
 
-            # Add color coding based on log level
-            formatted_msg = self.format(record)
-
-            if record.levelno >= logging.ERROR:
-                # Red for errors
-                self.log_widget.write(f"[bold red]{formatted_msg}[/bold red]")
-            elif record.levelno >= logging.WARNING:
-                # Yellow for warnings
-                self.log_widget.write(f"[bold yellow]{formatted_msg}[/bold yellow]")
-            elif record.levelno >= logging.INFO:
-                # Cyan for info
-                self.log_widget.write(f"[bold cyan]{formatted_msg}[/bold cyan]")
-            else:
-                # Dim for debug
-                self.log_widget.write(f"[dim]{formatted_msg}[/dim]")
+            style = self.LOG_LEVEL_STYLES.get(record.levelno, "dim")
+            self.log_widget.write(f"[{style}]{self.format(record)}[/{style}]")
 
 
 class LogViewer(Container):
@@ -53,14 +48,13 @@ class LogViewer(Container):
         border: solid $primary;
         border-title-color: $primary;
         border-title-background: $surface;
-        height: 8;
-        min-height: 8;
     }
 
     #log-content {
         height: 100%;
         scrollbar-gutter: stable;
         padding: 0;
+        margin: 0;
     }
     """
 

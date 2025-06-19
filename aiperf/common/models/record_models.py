@@ -164,6 +164,24 @@ class SSEMessage(InferenceServerResponse):
     )
 
 
+class SSEMessageStream(InferenceServerResponse):
+    """A stream of SSE messages from a complete inference API call."""
+
+    messages: list[SSEMessage] = Field(
+        default_factory=list,
+        description="All SSE messages received from the streaming response.",
+    )
+
+    def extract_data_content(self) -> list[str]:
+        """Extract the data content from the SSE messages."""
+        return [
+            packet.value
+            for message in self.messages
+            for packet in message.packets
+            if packet.name == SSEFieldType.DATA and packet.value is not None
+        ]
+
+
 ################################################################################
 # Worker Internal Models
 ################################################################################

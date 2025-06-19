@@ -10,6 +10,7 @@ from rich.logging import RichHandler
 
 from aiperf.common.bootstrap import bootstrap_and_run_service
 from aiperf.common.config import ServiceConfig
+from aiperf.common.constants import EnvDefaults
 from aiperf.services.system_controller.system_controller import SystemController
 
 logger = logging.getLogger(__name__)
@@ -31,7 +32,9 @@ def main() -> None:
     args = parser.parse_args()
 
     # Set logging level for the root logger (affects all loggers)
-    logging.root.setLevel(getattr(logging, os.getenv("AIPERF_LOG_LEVEL", "WARNING")))
+    logging.root.setLevel(
+        getattr(logging, os.getenv("AIPERF_LOG_LEVEL", EnvDefaults.AIPERF_LOG_LEVEL))
+    )
 
     rich_handler = RichHandler(
         rich_tracebacks=True,

@@ -167,7 +167,7 @@ class StatusIndicator(Widget):
         if self.show_dot and self.status_class:
             if "processing" in self.status_class:
                 text.append("● ", style="bold yellow")
-            elif "complete" in self.status_class or "error-none" in self.status_class:
+            elif self.status_class in ("complete", "error-none"):
                 text.append("● ", style="bold green")
             elif "error" in self.status_class:
                 text.append("● ", style="bold red")

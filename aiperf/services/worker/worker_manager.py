@@ -57,7 +57,7 @@ class WorkerManager(BaseComponentService):
         self.workers: dict[str, WorkerProcess] = {}
         # TODO: Need to implement some sort of max workers
         self.cpu_count = multiprocessing.cpu_count()
-        self.max_concurrency = int(os.environ.get("MAX_CONCURRENCY", 100))
+        self.max_concurrency = int(os.environ.get("AIPERF_CONCURRENCY", 100))
         self.worker_count = min(
             self.max_concurrency + 1,
             int(os.getenv("AIPERF_WORKERS", self.cpu_count - 1)),
