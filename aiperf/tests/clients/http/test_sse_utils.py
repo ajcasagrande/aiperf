@@ -20,7 +20,7 @@ class TestParseSSEMessage:
     @pytest.fixture
     def expected_empty_message(self, base_perf_ns: int) -> SSEMessage:
         """Fixture providing an empty SSE message structure."""
-        return SSEMessage(perf_ns=base_perf_ns, fields=[])
+        return SSEMessage(perf_ns=base_perf_ns, packets=[])
 
     @pytest.mark.parametrize(
         "raw_message",
@@ -327,9 +327,7 @@ retry: 5000"""
         result = parse_sse_message("data: test", perf_ns_value)
         assert result.perf_ns == perf_ns_value
 
-    # Performance and stress tests
-    @pytest.mark.performance
-    def test_parse_large_message_performance(self, base_perf_ns: int) -> None:
+    def test_parse_large_message(self, base_perf_ns: int) -> None:
         """Test parsing performance with large messages."""
         # Create a large SSE message with many fields
         large_data = "x" * 10000  # 10KB of data
@@ -345,8 +343,7 @@ retry: 5000"""
         assert len(result.packets) == 1
         assert result.packets[0].value == large_data
 
-    @pytest.mark.performance
-    def test_parse_many_packetsperformance(self, base_perf_ns: int) -> None:
+    def test_parse_many_packets(self, base_perf_ns: int) -> None:
         """Test parsing performance with many fields."""
         # Create message with 1000 fields
         lines = [f"data: field_{i}_data" for i in range(1000)]
