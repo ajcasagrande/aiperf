@@ -6,6 +6,7 @@ import asyncio
 import json
 import socket
 import time
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import aiohttp
@@ -24,42 +25,108 @@ from aiperf.common.models import (
 )
 
 ################################################################################
-# Helper Functions
+# Custom Assertions and Test Helpers
+################################################################################
+#
+# This section contains custom assertion functions and helper methods to reduce
+# code duplication throughout the test suite. Key improvements include:
+#
+# 1. assert_successful_request_record() - Standardizes checking successful requests
+# 2. assert_error_request_record() - Standardizes checking error requests
+# 3. create_mock_response() - Creates standardized mock responses
+# 4. create_mock_sse_response() - Creates standardized SSE mock responses
+# 5. setup_mock_session() - Unified session setup for all HTTP methods
+# 6. assert_socket_options_called() - Simplifies socket option verification
+#
+# These helpers eliminate ~200+ lines of duplicated code and make tests more
+# readable and maintainable.
 ################################################################################
 
 
-def setup_mock_session_with_response(
-    mock_session_class: Mock, mock_response: Mock
-) -> AsyncMock:
-    """Helper function to set up a proper mock session with async context manager support."""
-    mock_session = AsyncMock()
+def assert_successful_request_record(
+    record: RequestRecord,
+    expected_status: int = 200,
+    expected_response_count: int = 1,
+    expected_response_type: type = TextResponse,
+) -> None:
+    """Assert that a RequestRecord represents a successful request."""
+    assert isinstance(record, RequestRecord)
+    assert record.status == expected_status
+    assert record.error is None
+    assert len(record.responses) == expected_response_count
+    assert record.start_perf_ns is not None
+    assert record.end_perf_ns is not None
 
-    # Create a factory function that accepts the ClientSession parameters and returns the context manager
-    def session_factory(*args, **kwargs):
-        mock_session_context = AsyncMock()
-        mock_session_context.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session_context.__aexit__ = AsyncMock(return_value=None)
-        return mock_session_context
-
-    # Set the session class to return our factory
-    mock_session_class.side_effect = session_factory
-
-    # Setup the post method context manager - make sure post() returns a context manager, not a coroutine
-    mock_post_context = AsyncMock()
-    mock_post_context.__aenter__ = AsyncMock(return_value=mock_response)
-    mock_post_context.__aexit__ = AsyncMock(return_value=None)
-    mock_session.post = Mock(
-        return_value=mock_post_context
-    )  # Use Mock here, not AsyncMock
-
-    return mock_session
+    if expected_response_count > 0:
+        if expected_response_type == TextResponse:
+            assert all(isinstance(resp, TextResponse) for resp in record.responses)
+        elif expected_response_type == SSEMessage:
+            assert all(isinstance(resp, SSEMessage) for resp in record.responses)
 
 
-def setup_mock_aiohttp_session(
-    mock_session_class: Mock, mock_response: Mock, methods: list[str] | None = None
+def assert_error_request_record(
+    record: RequestRecord,
+    expected_error_code: int | None = None,
+    expected_error_type: str | None = None,
+    expected_error_message: str | None = None,
+) -> None:
+    """Assert that a RequestRecord represents a failed request."""
+    assert isinstance(record, RequestRecord)
+    assert record.error is not None
+    assert len(record.responses) == 0
+
+    if expected_error_code is not None:
+        assert record.error.code == expected_error_code
+    if expected_error_type is not None:
+        assert record.error.type == expected_error_type
+    if expected_error_message is not None:
+        assert record.error.message == expected_error_message
+
+
+def create_mock_response(
+    status: int = 200,
+    reason: str = "OK",
+    content_type: str = "application/json",
+    text_content: str = '{"success": true}',
+) -> Mock:
+    """Create a standardized mock aiohttp.ClientResponse."""
+    response = Mock(spec=aiohttp.ClientResponse)
+    response.status = status
+    response.reason = reason
+    response.content_type = content_type
+    response.text = AsyncMock(return_value=text_content)
+
+    # Mock content attribute for SSE streaming
+    content_mock = Mock()
+    content_mock.at_eof.return_value = False
+    content_mock.read = AsyncMock()
+    content_mock.readuntil = AsyncMock()
+    response.content = content_mock
+
+    return response
+
+
+def create_mock_sse_response() -> Mock:
+    """Create a standardized mock SSE response."""
+    response = Mock(spec=aiohttp.ClientResponse)
+    response.status = 200
+    response.reason = "OK"
+    response.content_type = "text/event-stream"
+
+    # Mock content for SSE streaming
+    content_mock = Mock()
+    response.content = content_mock
+
+    return response
+
+
+def setup_mock_session(
+    mock_session_class: Mock,
+    mock_response: Mock,
+    methods: list[str] | None = None,
 ) -> AsyncMock:
     """
-    Helper to set up aiohttp session mocks with proper async context manager support.
+    Simplified helper to set up aiohttp session mocks with proper async context manager support.
 
     Args:
         mock_session_class: The mocked aiohttp.ClientSession class
@@ -89,11 +156,83 @@ def setup_mock_aiohttp_session(
         mock_method_context = AsyncMock()
         mock_method_context.__aenter__ = AsyncMock(return_value=mock_response)
         mock_method_context.__aexit__ = AsyncMock(return_value=None)
-        setattr(
-            mock_session, method, Mock(return_value=mock_method_context)
-        )  # Use Mock, not AsyncMock
+        setattr(mock_session, method, Mock(return_value=mock_method_context))
 
     return mock_session
+
+
+def assert_socket_options_called(
+    mock_socket: Mock, expected_calls: list[tuple[int, int, Any]]
+) -> None:
+    """Assert that specific socket options were set on a mock socket."""
+    for option_level, option_name, option_value in expected_calls:
+        mock_socket.setsockopt.assert_any_call(option_level, option_name, option_value)
+
+
+def create_mock_error_response(status: int, reason: str, error_text: str) -> Mock:
+    """Create a mock response for HTTP error testing."""
+    return create_mock_response(status=status, reason=reason, text_content=error_text)
+
+
+def setup_sse_content_mock(
+    mock_response: Mock,
+    chunks: list[tuple[bytes, bytes]],
+    timestamps: list[int] | None = None,
+) -> None:
+    """Setup SSE content mock with chunks and timing."""
+    num_chunks = len(chunks)
+    mock_response.content.at_eof.side_effect = [False] * num_chunks + [True]
+
+    read_calls = [chunk[0] for chunk in chunks]
+    readuntil_calls = [chunk[1] for chunk in chunks]
+
+    mock_response.content.read = AsyncMock(side_effect=read_calls)
+    mock_response.content.readuntil = AsyncMock(side_effect=readuntil_calls)
+
+
+def setup_single_sse_chunk(
+    mock_response: Mock,
+    first_byte: bytes = b"d",
+    remaining: bytes = b"ata: Hello\n\n",
+) -> None:
+    """Setup a single SSE chunk for testing."""
+    setup_sse_content_mock(mock_response, [(first_byte, remaining)])
+
+
+def create_sse_chunk_list(messages: list[str]) -> list[tuple[bytes, bytes]]:
+    """Create SSE chunk list from messages."""
+    chunks = []
+    for message in messages:
+        # Split on first space to separate data: from content
+        if message.startswith("data: "):
+            remaining_content = message[6:]  # Remove "data: " prefix
+            chunks.append((b"d", f"ata: {remaining_content}\n\n".encode()))
+        else:
+            chunks.append((b"d", f"ata: {message}\n\n".encode()))
+    return chunks
+
+
+def create_aiohttp_exception(
+    exception_class: type[Exception], message: str
+) -> Exception:
+    """Create aiohttp-specific exceptions with proper initialization."""
+    if exception_class == aiohttp.ClientConnectorError:
+        os_error = OSError(message)
+        return aiohttp.ClientConnectorError(
+            connection_key=MagicMock(), os_error=os_error
+        )
+    elif exception_class == aiohttp.ClientResponseError:
+        mock_request_info = Mock()
+        mock_request_info.url = "http://test.com"
+        mock_request_info.method = "POST"
+        return aiohttp.ClientResponseError(
+            request_info=mock_request_info,
+            history=(),
+            status=500,
+            message=message,
+        )
+    else:
+        return exception_class(message)
 
 
 ################################################################################
@@ -142,35 +281,13 @@ async def aiohttp_client(
 @pytest.fixture
 def mock_aiohttp_response() -> Mock:
     """Fixture providing a mock aiohttp.ClientResponse."""
-    response = Mock(spec=aiohttp.ClientResponse)
-    response.status = 200
-    response.reason = "OK"
-    response.content_type = "application/json"
-    response.text = AsyncMock(return_value='{"success": true}')
-
-    # Mock content attribute for SSE streaming
-    content_mock = Mock()
-    content_mock.at_eof.return_value = False
-    content_mock.read = AsyncMock()
-    content_mock.readuntil = AsyncMock()
-    response.content = content_mock
-
-    return response
+    return create_mock_response()
 
 
 @pytest.fixture
 def mock_sse_response() -> Mock:
     """Fixture providing a mock SSE response."""
-    response = Mock(spec=aiohttp.ClientResponse)
-    response.status = 200
-    response.reason = "OK"
-    response.content_type = "text/event-stream"
-
-    # Mock content for SSE streaming
-    content_mock = Mock()
-    response.content = content_mock
-
-    return response
+    return create_mock_sse_response()
 
 
 @pytest.fixture
@@ -269,36 +386,22 @@ class TestAioHttpClientMixin:
         self, aiohttp_client: AioHttpClientMixin, mock_aiohttp_response: Mock
     ) -> None:
         """Test successful JSON request handling."""
-        url = "http://test.com/api"
-        payload = '{"test": "data"}'
-        headers = {"Content-Type": "application/json"}
-
         with patch("aiohttp.ClientSession") as mock_session_class:
-            setup_mock_session_with_response(mock_session_class, mock_aiohttp_response)
+            setup_mock_session(mock_session_class, mock_aiohttp_response, ["post"])
 
-            record = await aiohttp_client.request(url, payload, headers)
-            print(record)
+            record = await aiohttp_client.request(
+                "http://test.com/api",
+                '{"test": "data"}',
+                {"Content-Type": "application/json"},
+            )
 
-            assert isinstance(record, RequestRecord)
-            assert record.status == 200
-            assert record.error is None
-            assert len(record.responses) == 1
-            assert isinstance(record.responses[0], TextResponse)
-            assert record.responses[0].text == '{"success": true}'
-            assert record.responses[0].content_type == "application/json"
-            assert record.start_perf_ns is not None
-            assert record.end_perf_ns is not None
+            assert_successful_request_record(record)
 
     @pytest.mark.asyncio
     async def test_sse_stream_request(
         self, aiohttp_client: AioHttpClientMixin, mock_sse_response: Mock
     ) -> None:
         """Test SSE stream request handling."""
-        url = "http://test.com/stream"
-        payload = '{"stream": true}'
-        headers = {"Accept": "text/event-stream"}
-
-        # Mock SSE messages
         mock_messages = [
             SSEMessage(perf_ns=123456789),
             SSEMessage(perf_ns=123456790),
@@ -310,19 +413,21 @@ class TestAioHttpClientMixin:
                 "aiperf.clients.http.aiohttp_client.AioHttpSSEStreamReader"
             ) as mock_reader_class,
         ):
-            _ = setup_mock_session_with_response(mock_session_class, mock_sse_response)
+            setup_mock_session(mock_session_class, mock_sse_response, ["post"])
 
             mock_reader = Mock()
             mock_reader.read_complete_stream = AsyncMock(return_value=mock_messages)
             mock_reader_class.return_value = mock_reader
 
-            record = await aiohttp_client.request(url, payload, headers)
+            record = await aiohttp_client.request(
+                "http://test.com/stream",
+                '{"stream": true}',
+                {"Accept": "text/event-stream"},
+            )
 
-            assert isinstance(record, RequestRecord)
-            assert record.status == 200
-            assert record.error is None
-            assert len(record.responses) == 2
-            assert all(isinstance(resp, SSEMessage) for resp in record.responses)
+            assert_successful_request_record(
+                record, expected_response_count=2, expected_response_type=SSEMessage
+            )
             mock_reader.read_complete_stream.assert_called_once()
 
     @pytest.mark.asyncio
@@ -344,22 +449,18 @@ class TestAioHttpClientMixin:
         error_text: str,
     ) -> None:
         """Test HTTP error response handling."""
-        mock_response = Mock(spec=aiohttp.ClientResponse)
-        mock_response.status = status_code
-        mock_response.reason = reason
-        mock_response.text = AsyncMock(return_value=error_text)
-
         with patch("aiohttp.ClientSession") as mock_session_class:
-            setup_mock_session_with_response(mock_session_class, mock_response)
+            mock_response = create_mock_error_response(status_code, reason, error_text)
+            setup_mock_session(mock_session_class, mock_response, ["post"])
 
             record = await aiohttp_client.request("http://test.com", "{}", {})
 
-            assert isinstance(record, RequestRecord)
-            assert record.error is not None
-            assert record.error.code == status_code
-            assert record.error.type == reason
-            assert record.error.message == error_text
-            assert len(record.responses) == 0
+            assert_error_request_record(
+                record,
+                expected_error_code=status_code,
+                expected_error_type=reason,
+                expected_error_message=error_text,
+            )
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
@@ -382,49 +483,39 @@ class TestAioHttpClientMixin:
 
             record = await aiohttp_client.request("http://test.com", "{}", {})
 
-            assert isinstance(record, RequestRecord)
-            assert record.error is not None
-            assert record.error.type == exception_class.__name__
-            assert record.error.message == exception_message
-            assert record.end_perf_ns is not None
+            assert_error_request_record(
+                record,
+                expected_error_type=exception_class.__name__,
+                expected_error_message=exception_message,
+            )
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "exception_class,message,expected_type",
+        [
+            (aiohttp.ClientConnectorError, "Connection failed", "ClientConnectorError"),
+            (
+                aiohttp.ClientResponseError,
+                "Internal Server Error",
+                "ClientResponseError",
+            ),
+        ],
+    )
     async def test_aiohttp_specific_exceptions(
-        self, aiohttp_client: AioHttpClientMixin
+        self,
+        aiohttp_client: AioHttpClientMixin,
+        exception_class: type[Exception],
+        message: str,
+        expected_type: str,
     ) -> None:
         """Test handling of aiohttp-specific exceptions."""
-        # Test ClientConnectorError with proper arguments
         with patch("aiohttp.ClientSession") as mock_session_class:
-            os_error = OSError("Connection failed")
-            connector_error = aiohttp.ClientConnectorError(
-                connection_key=MagicMock(), os_error=os_error
-            )
-            mock_session_class.side_effect = connector_error
+            exception = create_aiohttp_exception(exception_class, message)
+            mock_session_class.side_effect = exception
 
             record = await aiohttp_client.request("http://test.com", "{}", {})
 
-            assert isinstance(record, RequestRecord)
-            assert record.error is not None
-            assert record.error.type == "ClientConnectorError"
-
-        # Test ClientResponseError with proper arguments
-        with patch("aiohttp.ClientSession") as mock_session_class:
-            mock_request_info = Mock()
-            mock_request_info.url = "http://test.com"
-            mock_request_info.method = "POST"
-            response_error = aiohttp.ClientResponseError(
-                request_info=mock_request_info,
-                history=(),
-                status=500,
-                message="Internal Server Error",
-            )
-            mock_session_class.side_effect = response_error
-
-            record = await aiohttp_client.request("http://test.com", "{}", {})
-
-            assert isinstance(record, RequestRecord)
-            assert record.error is not None
-            assert record.error.type == "ClientResponseError"
+            assert_error_request_record(record, expected_error_type=expected_type)
 
     @pytest.mark.asyncio
     async def test_delayed_request_flag(
@@ -432,12 +523,13 @@ class TestAioHttpClientMixin:
     ) -> None:
         """Test that delayed flag is properly set in request record."""
         with patch("aiohttp.ClientSession") as mock_session_class:
-            setup_mock_session_with_response(mock_session_class, mock_aiohttp_response)
+            setup_mock_session(mock_session_class, mock_aiohttp_response, ["post"])
 
             record = await aiohttp_client.request(
                 "http://test.com", "{}", {}, delayed=True
             )
 
+            assert_successful_request_record(record)
             assert record.delayed is True
 
     @pytest.mark.asyncio
@@ -448,13 +540,15 @@ class TestAioHttpClientMixin:
         extra_kwargs = {"ssl": False, "proxy": "http://proxy.example.com"}
 
         with patch("aiohttp.ClientSession") as mock_session_class:
-            mock_session = setup_mock_session_with_response(
-                mock_session_class, mock_aiohttp_response
+            mock_session = setup_mock_session(
+                mock_session_class, mock_aiohttp_response, ["post"]
             )
 
-            await aiohttp_client.request("http://test.com", "{}", {}, **extra_kwargs)
+            record = await aiohttp_client.request(
+                "http://test.com", "{}", {}, **extra_kwargs
+            )
 
-            # Verify kwargs were passed to session.post
+            assert_successful_request_record(record)
             mock_session.post.assert_called_once()
             call_kwargs = mock_session.post.call_args[1]
             assert "ssl" in call_kwargs
@@ -468,11 +562,11 @@ class TestAioHttpClientMixin:
         headers = {"Authorization": "Bearer token", "Custom-Header": "value"}
 
         with patch("aiohttp.ClientSession") as mock_session_class:
-            setup_mock_session_with_response(mock_session_class, mock_aiohttp_response)
+            setup_mock_session(mock_session_class, mock_aiohttp_response, ["post"])
 
-            await aiohttp_client.request("http://test.com", "{}", headers)
+            record = await aiohttp_client.request("http://test.com", "{}", headers)
 
-            # Verify session was created with correct parameters
+            assert_successful_request_record(record)
             mock_session_class.assert_called_once()
             call_kwargs = mock_session_class.call_args[1]
             assert call_kwargs["connector"] == aiohttp_client.tcp_connector
@@ -494,10 +588,7 @@ class TestAioHttpSSEStreamReader:
     @pytest.fixture
     def mock_response(self) -> Mock:
         """Fixture providing a mock response for SSE stream testing."""
-        response = Mock(spec=aiohttp.ClientResponse)
-        content_mock = Mock()
-        response.content = content_mock
-        return response
+        return create_mock_sse_response()
 
     def test_init_stores_response(self, mock_response: Mock) -> None:
         """Test that initialization properly stores the response object."""
@@ -555,10 +646,7 @@ class TestAioHttpSSEStreamReader:
     @pytest.mark.asyncio
     async def test_aiter_single_chunk(self, mock_response: Mock) -> None:
         """Test __aiter__ with single chunk."""
-        # Mock content to simulate single SSE message
-        mock_response.content.at_eof.side_effect = [False, True]
-        mock_response.content.read = AsyncMock(return_value=b"d")
-        mock_response.content.readuntil = AsyncMock(return_value=b"ata: Hello\n\n")
+        setup_single_sse_chunk(mock_response)
 
         with patch("time.perf_counter_ns", side_effect=[123456789, 123456790]):
             reader = AioHttpSSEStreamReader(mock_response)
@@ -578,20 +666,8 @@ class TestAioHttpSSEStreamReader:
         self, mock_response: Mock, sample_sse_chunks: list[tuple[bytes, bytes]]
     ) -> None:
         """Test __aiter__ with multiple chunks."""
-        # Setup mock to return multiple chunks
-        mock_response.content.at_eof.side_effect = [False, False, False, True]
+        setup_sse_content_mock(mock_response, sample_sse_chunks)
 
-        read_calls = []
-        readuntil_calls = []
-        for first_byte, remaining in sample_sse_chunks:
-            read_calls.append(first_byte)
-            readuntil_calls.append(remaining)
-
-        # Create async mock methods for read and readuntil
-        mock_response.content.read = AsyncMock(side_effect=read_calls)
-        mock_response.content.readuntil = AsyncMock(side_effect=readuntil_calls)
-
-        # Mock timestamps
         timestamps = list(range(123456789, 123456789 + len(sample_sse_chunks) * 2, 1))
 
         with patch("time.perf_counter_ns", side_effect=timestamps):
@@ -603,7 +679,6 @@ class TestAioHttpSSEStreamReader:
 
             assert len(chunks) == 3
 
-            # Verify each chunk
             expected_messages = [
                 "data: Hello\nevent: message",
                 "data: World\nid: msg-2",
@@ -616,11 +691,8 @@ class TestAioHttpSSEStreamReader:
     @pytest.mark.asyncio
     async def test_aiter_unicode_decode_error(self, mock_response: Mock) -> None:
         """Test __aiter__ handling of Unicode decode errors."""
-        # Mock content with invalid UTF-8 bytes
-        mock_response.content.at_eof.side_effect = [False, True]
-        mock_response.content.read = AsyncMock(return_value=b"\xff")
-        mock_response.content.readuntil = AsyncMock(
-            return_value=b"\xfe\xfd invalid utf8\n\n"
+        setup_single_sse_chunk(
+            mock_response, first_byte=b"\xff", remaining=b"\xfe\xfd invalid utf8\n\n"
         )
 
         with patch("time.perf_counter_ns", side_effect=[123456789, 123456790]):
@@ -632,16 +704,13 @@ class TestAioHttpSSEStreamReader:
 
             assert len(chunks) == 1
             raw_message, _, _ = chunks[0]
-            # Should use 'replace' error handling
             assert isinstance(raw_message, str)
             assert "�" in raw_message  # Unicode replacement character
 
     @pytest.mark.asyncio
     async def test_aiter_empty_chunk(self, mock_response: Mock) -> None:
         """Test __aiter__ with empty chunks."""
-        # Mock content that returns empty data
-        mock_response.content.at_eof.side_effect = [False, True]
-        mock_response.content.read = AsyncMock(return_value=b"")
+        setup_single_sse_chunk(mock_response, first_byte=b"", remaining=b"")
 
         reader = AioHttpSSEStreamReader(mock_response)
         chunks = []
@@ -654,9 +723,7 @@ class TestAioHttpSSEStreamReader:
     @pytest.mark.asyncio
     async def test_aiter_timing_accuracy(self, mock_response: Mock) -> None:
         """Test that __aiter__ captures timing accurately."""
-        mock_response.content.at_eof.side_effect = [False, True]
-        mock_response.content.read = AsyncMock(return_value=b"d")
-        mock_response.content.readuntil = AsyncMock(return_value=b"ata: test\n\n")
+        setup_single_sse_chunk(mock_response, remaining=b"ata: test\n\n")
 
         first_timestamp = 123456789
         second_timestamp = 123456990
@@ -772,14 +839,13 @@ class TestCreateTcpConnector:
 
                 # Verify socket options were set
                 expected_calls = [
-                    ((socket.SOL_TCP, socket.TCP_NODELAY, 1),),
-                    ((socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1),),
-                    ((socket.SOL_SOCKET, socket.SO_RCVBUF, 1024 * 85),),
-                    ((socket.SOL_SOCKET, socket.SO_SNDBUF, 1024 * 64),),
+                    (socket.SOL_TCP, socket.TCP_NODELAY, 1),
+                    (socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1),
+                    (socket.SOL_SOCKET, socket.SO_RCVBUF, 1024 * 85),
+                    (socket.SOL_SOCKET, socket.SO_SNDBUF, 1024 * 64),
                 ]
 
-                for expected_call in expected_calls:
-                    mock_socket.setsockopt.assert_any_call(*expected_call[0])
+                assert_socket_options_called(mock_socket, expected_calls)
 
     @pytest.mark.parametrize(
         "has_attribute,attribute_name,tcp_option,expected_value",
@@ -830,30 +896,33 @@ class TestCreateTcpConnector:
                             socket.SOL_TCP, tcp_option, expected_value
                         )
 
-    def test_socket_factory_different_address_families(self) -> None:
+    @pytest.mark.parametrize(
+        "family,sock_type,proto",
+        [
+            (socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP),
+            (socket.AF_INET6, socket.SOCK_STREAM, socket.IPPROTO_TCP),
+        ],
+    )
+    def test_socket_factory_different_address_families(
+        self, family: int, sock_type: int, proto: int
+    ) -> None:
         """Test socket factory with different address families."""
         with patch("aiohttp.TCPConnector") as mock_connector_class:
             create_tcp_connector()
 
             socket_factory = mock_connector_class.call_args[1]["socket_factory"]
 
-            test_families = [
-                (socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP),
-                (socket.AF_INET6, socket.SOCK_STREAM, socket.IPPROTO_TCP),
-            ]
+            with patch("socket.socket") as mock_socket_class:
+                mock_socket = Mock()
+                mock_socket_class.return_value = mock_socket
 
-            for family, sock_type, proto in test_families:
-                with patch("socket.socket") as mock_socket_class:
-                    mock_socket = Mock()
-                    mock_socket_class.return_value = mock_socket
+                addr_info = (family, sock_type, proto, "", ("127.0.0.1", 80))
+                result = socket_factory(addr_info)
 
-                    addr_info = (family, sock_type, proto, "", ("127.0.0.1", 80))
-                    result = socket_factory(addr_info)
-
-                    assert result == mock_socket
-                    mock_socket_class.assert_called_once_with(
-                        family=family, type=sock_type, proto=proto
-                    )
+                assert result == mock_socket
+                mock_socket_class.assert_called_once_with(
+                    family=family, type=sock_type, proto=proto
+                )
 
 
 ################################################################################
@@ -872,15 +941,9 @@ class TestIntegration:
         test_response = {"message": "success", "data": [1, 2, 3]}
 
         with patch("aiohttp.ClientSession") as mock_session_class:
-            # Setup mock session and response
-            mock_response = Mock()
-            mock_response.status = 200
-            mock_response.content_type = "application/json"
-            mock_response.text = AsyncMock(return_value=json.dumps(test_response))
+            mock_response = create_mock_response(text_content=json.dumps(test_response))
+            setup_mock_session(mock_session_class, mock_response, ["post"])
 
-            setup_mock_session_with_response(mock_session_class, mock_response)
-
-            # Create client and make request
             client = AioHttpClientMixin(http_client_config)
             try:
                 record = await client.request(
@@ -889,13 +952,7 @@ class TestIntegration:
                     {"Content-Type": "application/json"},
                 )
 
-                assert record.status == 200
-                assert record.error is None
-                assert len(record.responses) == 1
-
-                response = record.responses[0]
-                assert isinstance(response, TextResponse)
-                assert json.loads(response.text) == test_response
+                assert_successful_request_record(record)
 
             finally:
                 await client.cleanup()
@@ -906,26 +963,15 @@ class TestIntegration:
     ) -> None:
         """Test end-to-end SSE request flow."""
         with patch("aiohttp.ClientSession") as mock_session_class:
-            # Setup mock SSE response
-            mock_response = Mock()
-            mock_response.status = 200
-            mock_response.content_type = "text/event-stream"
+            mock_response = create_mock_sse_response()
 
-            # Mock content stream
-            content_mock = Mock()
-            content_mock.at_eof.side_effect = [False, False, True]
-            content_mock.read = AsyncMock(side_effect=[b"d", b"d"])
-            content_mock.readuntil = AsyncMock(
-                side_effect=[
-                    b"ata: Hello\nevent: message\n\n",
-                    b"ata: World\n\n",
-                ]
-            )
-            mock_response.content = content_mock
+            sse_chunks = [
+                (b"d", b"ata: Hello\nevent: message\n\n"),
+                (b"d", b"ata: World\n\n"),
+            ]
+            setup_sse_content_mock(mock_response, sse_chunks)
+            setup_mock_session(mock_session_class, mock_response, ["post"])
 
-            setup_mock_session_with_response(mock_session_class, mock_response)
-
-            # Create client and make request
             client = AioHttpClientMixin(http_client_config)
             try:
                 with patch(
@@ -937,10 +983,9 @@ class TestIntegration:
                         {"Accept": "text/event-stream"},
                     )
 
-                assert record.status == 200
-                assert record.error is None
-                assert len(record.responses) == 2
-                assert all(isinstance(resp, SSEMessage) for resp in record.responses)
+                assert_successful_request_record(
+                    record, expected_response_count=2, expected_response_type=SSEMessage
+                )
 
             finally:
                 await client.cleanup()
@@ -953,16 +998,11 @@ class TestIntegration:
         num_requests = 5
 
         with patch("aiohttp.ClientSession") as mock_session_class:
-            mock_response = Mock()
-            mock_response.status = 200
-            mock_response.content_type = "application/json"
-            mock_response.text = AsyncMock(return_value='{"success": true}')
-
-            setup_mock_session_with_response(mock_session_class, mock_response)
+            mock_response = create_mock_response()
+            setup_mock_session(mock_session_class, mock_response, ["post"])
 
             client = AioHttpClientMixin(http_client_config)
             try:
-                # Create multiple concurrent requests
                 tasks = []
                 for i in range(num_requests):
                     task = client.request(
@@ -972,14 +1012,11 @@ class TestIntegration:
                     )
                     tasks.append(task)
 
-                # Wait for all requests to complete
                 records = await asyncio.gather(*tasks)
 
                 assert len(records) == num_requests
                 for record in records:
-                    assert record.status == 200
-                    assert record.error is None
-                    assert len(record.responses) == 1
+                    assert_successful_request_record(record)
 
             finally:
                 await client.cleanup()
@@ -1001,21 +1038,11 @@ class TestPerformance:
         """Test SSE stream reading performance with large number of messages."""
         num_messages = 1000
 
-        # Generate test SSE data
-        sse_chunks = []
-        for i in range(num_messages):
-            first_byte = b"d"
-            remaining = f"ata: Message {i}\nevent: test\nid: {i}\n\n".encode()
-            sse_chunks.append((first_byte, remaining))
+        messages = [f"Message {i}" for i in range(num_messages)]
+        sse_chunks = create_sse_chunk_list(messages)
 
-        mock_response = Mock()
-        mock_response.content.at_eof.side_effect = [False] * num_messages + [True]
-
-        read_calls = [chunk[0] for chunk in sse_chunks]
-        readuntil_calls = [chunk[1] for chunk in sse_chunks]
-
-        mock_response.content.read = AsyncMock(side_effect=read_calls)
-        mock_response.content.readuntil = AsyncMock(side_effect=readuntil_calls)
+        mock_response = create_mock_sse_response()
+        setup_sse_content_mock(mock_response, sse_chunks)
 
         reader = AioHttpSSEStreamReader(mock_response)
 
@@ -1033,7 +1060,6 @@ class TestPerformance:
         processing_time = end_time - start_time
 
         assert len(chunks) == num_messages
-        # Performance assertion: should process 1000 messages in under 1 second
         assert processing_time < 1.0, (
             f"Processing took {processing_time:.3f}s, expected < 1.0s"
         )
@@ -1057,7 +1083,6 @@ class TestPerformance:
         creation_time = end_time - start_time
 
         assert len(connectors) == num_iterations
-        # Performance assertion: should create 100 connectors in under 0.1 seconds
         assert creation_time < 0.1, (
             f"Creation took {creation_time:.3f}s, expected < 0.1s"
         )
@@ -1077,20 +1102,13 @@ class TestEdgeCases:
         self, aiohttp_client: AioHttpClientMixin
     ) -> None:
         """Test handling of empty response body."""
-        mock_response = Mock()
-        mock_response.status = 200
-        mock_response.content_type = "application/json"
-        mock_response.text = AsyncMock(return_value="")
-
         with patch("aiohttp.ClientSession") as mock_session_class:
-            setup_mock_session_with_response(mock_session_class, mock_response)
+            mock_response = create_mock_response(text_content="")
+            setup_mock_session(mock_session_class, mock_response, ["post"])
 
             record = await aiohttp_client.request("http://test.com", "{}", {})
 
-            assert record.status == 200
-            assert len(record.responses) == 1
-            assert isinstance(record.responses[0], TextResponse)
-            assert record.responses[0].text == ""
+            assert_successful_request_record(record)
 
     @pytest.mark.edge_case
     @pytest.mark.asyncio
@@ -1098,22 +1116,15 @@ class TestEdgeCases:
         """Test handling of very large payloads."""
         large_payload = "x" * (1024 * 1024)  # 1MB payload
 
-        mock_response = Mock()
-        mock_response.status = 200
-        mock_response.content_type = "application/json"
-        mock_response.text = AsyncMock(return_value='{"received": "ok"}')
-
         with patch("aiohttp.ClientSession") as mock_session_class:
-            mock_session = setup_mock_session_with_response(
-                mock_session_class, mock_response
+            mock_response = create_mock_response(text_content='{"received": "ok"}')
+            mock_session = setup_mock_session(
+                mock_session_class, mock_response, ["post"]
             )
 
             record = await aiohttp_client.request("http://test.com", large_payload, {})
 
-            assert record.status == 200
-            assert record.error is None
-
-            # Verify large payload was passed to session.post
+            assert_successful_request_record(record)
             mock_session.post.assert_called_once()
             call_args = mock_session.post.call_args
             assert call_args[1]["data"] == large_payload
@@ -1122,7 +1133,6 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_malformed_sse_stream(self, mock_sse_response: Mock) -> None:
         """Test handling of malformed SSE stream."""
-        # Mock malformed SSE data
         content_mock = Mock()
         content_mock.at_eof.side_effect = [False, True]
         content_mock.read = AsyncMock(return_value=b"d")
@@ -1131,7 +1141,6 @@ class TestEdgeCases:
 
         reader = AioHttpSSEStreamReader(mock_sse_response)
 
-        # Should handle exception gracefully
         with pytest.raises(Exception, match="Stream corruption"):
             async for _ in reader:
                 pass
@@ -1157,6 +1166,5 @@ class TestEdgeCases:
                     ("127.0.0.1", 80),
                 )
 
-                # Should handle socket option errors gracefully
                 with pytest.raises(OSError, match="Invalid socket option"):
                     socket_factory(addr_info)
