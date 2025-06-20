@@ -163,6 +163,14 @@ class SSEMessage(InferenceServerResponse):
         description="The fields contained in the message.",
     )
 
+    def extract_data_content(self) -> list[str]:
+        """Extract the data content from the SSE message."""
+        return [
+            packet.value
+            for packet in self.packets
+            if packet.name == SSEFieldType.DATA and packet.value is not None
+        ]
+
 
 class SSEMessageStream(InferenceServerResponse):
     """A stream of SSE messages from a complete inference API call."""
@@ -173,12 +181,9 @@ class SSEMessageStream(InferenceServerResponse):
     )
 
     def extract_data_content(self) -> list[str]:
-        """Extract the data content from the SSE messages."""
+        """Extract the data content from all of the SSE messages."""
         return [
-            packet.value
-            for message in self.messages
-            for packet in message.packets
-            if packet.name == SSEFieldType.DATA and packet.value is not None
+            data for message in self.messages for data in message.extract_data_content()
         ]
 
 

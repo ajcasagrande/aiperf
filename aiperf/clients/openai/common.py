@@ -1,6 +1,7 @@
 #  SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #  SPDX-License-Identifier: Apache-2.0
 
+import os
 from typing import Any
 
 from openai.types.chat.chat_completion import ChatCompletion
@@ -35,7 +36,7 @@ class OpenAIClientConfig(GenericHTTPClientConfig):
         description="The endpoint to use for the OpenAI inference client.",
     )
     model: str = Field(
-        default="deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
+        default=os.getenv("AIPERF_MODEL", "deepseek-ai/DeepSeek-R1-Distill-Llama-8B"),
         description="The model to use for the OpenAI inference client.",
     )
     max_tokens: int = Field(

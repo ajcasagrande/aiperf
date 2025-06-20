@@ -4,7 +4,7 @@
 from typing import Any
 
 from aiperf.clients.converters.base_converter import BaseRequestConverter
-from aiperf.common.config import InputDefaults, OutputTokenDefaults
+from aiperf.common.config import OutputTokenDefaults
 from aiperf.common.enums import RequestPayloadType
 from aiperf.common.exceptions import AIPerfError
 from aiperf.common.factories import RequestConverterFactory
@@ -16,21 +16,22 @@ from aiperf.common.models import DataRow, GenericDataset
 @RequestConverterFactory.register(RequestPayloadType.OPENAI_CHAT_COMPLETIONS)
 @RequestConverterFactory.register(RequestPayloadType.OPENAI_MULTIMODAL)
 class OpenAIChatCompletionsRequestConverter(BaseRequestConverter):
-    def check_config(self) -> None:
-        if (
-            self.config.endpoint.request_payload_type
-            == RequestPayloadType.OPENAI_CHAT_COMPLETIONS
-            or self.config.endpoint.request_payload_type
-            == RequestPayloadType.OPENAI_MULTIMODAL
-        ):
-            if self.config.input.batch_size != InputDefaults.BATCH_SIZE:
-                raise AIPerfError(
-                    f"The --batch-size-text flag is not supported for {self.config.endpoint.request_payload_type}."
-                )
-            if self.config.input.image.batch_size != InputDefaults.BATCH_SIZE:
-                raise AIPerfError(
-                    f"The --batch-size-image flag is not supported for {self.config.endpoint.request_payload_type}."
-                )
+    # TODO: This should probably be handled in the config module
+    # def check_config(self) -> None:
+    #     if (
+    #         self.config.endpoint.request_payload_type
+    #         == RequestPayloadType.OPENAI_CHAT_COMPLETIONS
+    #         or self.config.endpoint.request_payload_type
+    #         == RequestPayloadType.OPENAI_MULTIMODAL
+    #     ):
+    #         if self.config.input.batch_size != InputDefaults.BATCH_SIZE:
+    #             raise AIPerfError(
+    #                 f"The --batch-size-text flag is not supported for {self.config.endpoint.request_payload_type}."
+    #             )
+    #         if self.config.input.image.batch_size != InputDefaults.BATCH_SIZE:
+    #             raise AIPerfError(
+    #                 f"The --batch-size-image flag is not supported for {self.config.endpoint.request_payload_type}."
+    #             )
 
     def convert(
         self,

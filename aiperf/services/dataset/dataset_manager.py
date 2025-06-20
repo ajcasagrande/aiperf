@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+import os
 import sys
 
 from aiperf.common.comms.client_enums import ClientType, RepClientType
@@ -58,7 +59,7 @@ class DatasetManager(BaseComponentService):
         self.logger.debug("Initializing dataset manager")
         # TODO: Implement dataset manager initialization
         self.tokenizer = Tokenizer.from_pretrained(
-            "deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
+            os.getenv("AIPERF_MODEL", "deepseek-ai/DeepSeek-R1-Distill-Llama-8B")
         )
         await self.comms.register_request_handler(
             service_id=self.service_id,

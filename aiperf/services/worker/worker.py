@@ -81,8 +81,10 @@ class Worker(BaseService):
         # Create OpenAI client configuration
         openai_client_config = OpenAIClientConfig(
             api_key=api_key,
-            url=f"http://127.0.0.1:{os.getenv('AIPERF_PORT', 8080)}",  # Default OpenAI inference server endpoint
-            model="deepseek-ai/DeepSeek-R1-Distill-Llama-8B",  # Default model
+            url=f"http://{os.getenv('AIPERF_HOST', '127.0.0.1')}:{os.getenv('AIPERF_PORT', 8080)}",  # Default OpenAI inference server endpoint
+            model=os.getenv(
+                "AIPERF_MODEL", "deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
+            ),  # Default model
         )
 
         # Initialize the OpenAI client

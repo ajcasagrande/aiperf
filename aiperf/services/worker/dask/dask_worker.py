@@ -101,9 +101,11 @@ class DaskWorker(Worker):
         self.inference_client = InferenceClientFactory.create_instance(
             InferenceClientType.OPENAI,
             config=OpenAIClientConfig(
-                url="http://127.0.0.1:8080",
+                url=f"http://{os.getenv('AIPERF_HOST', '127.0.0.1')}:{os.getenv('AIPERF_PORT', 8080)}",
                 api_key=os.getenv("OPENAI_API_KEY", "sk-fakeai-1234567890abcdef"),
-                model="deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
+                model=os.getenv(
+                    "AIPERF_MODEL", "deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
+                ),
                 max_tokens=100,
             ),
         )

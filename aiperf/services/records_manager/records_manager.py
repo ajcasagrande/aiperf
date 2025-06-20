@@ -312,22 +312,23 @@ def record_from_dataframe(
     streaming_only: bool,
 ) -> ResultsRecord:
     """Create a Record from a DataFrame."""
+    column = df[column_name]
     return ResultsRecord(
         name=name,
         unit=unit,
-        avg=df[column_name].mean() / NANOS_PER_MILLIS,
-        min=df[column_name].min() / NANOS_PER_MILLIS,
-        max=df[column_name].max() / NANOS_PER_MILLIS,
-        p1=df[column_name].quantile(0.01) / NANOS_PER_MILLIS,
-        p5=df[column_name].quantile(0.05) / NANOS_PER_MILLIS,
-        p25=df[column_name].quantile(0.25) / NANOS_PER_MILLIS,
-        p50=df[column_name].quantile(0.50) / NANOS_PER_MILLIS,
-        p75=df[column_name].quantile(0.75) / NANOS_PER_MILLIS,
-        p90=df[column_name].quantile(0.90) / NANOS_PER_MILLIS,
-        p95=df[column_name].quantile(0.95) / NANOS_PER_MILLIS,
-        p99=df[column_name].quantile(0.99) / NANOS_PER_MILLIS,
-        std=df[column_name].std() / NANOS_PER_MILLIS,
-        count=int(df[column_name].count()),
+        avg=column.mean() / NANOS_PER_MILLIS,
+        min=column.min() / NANOS_PER_MILLIS,
+        max=column.max() / NANOS_PER_MILLIS,
+        p1=column.quantile(0.01) / NANOS_PER_MILLIS,
+        p5=column.quantile(0.05) / NANOS_PER_MILLIS,
+        p25=column.quantile(0.25) / NANOS_PER_MILLIS,
+        p50=column.quantile(0.50) / NANOS_PER_MILLIS,
+        p75=column.quantile(0.75) / NANOS_PER_MILLIS,
+        p90=column.quantile(0.90) / NANOS_PER_MILLIS,
+        p95=column.quantile(0.95) / NANOS_PER_MILLIS,
+        p99=column.quantile(0.99) / NANOS_PER_MILLIS,
+        std=column.std() / NANOS_PER_MILLIS,
+        count=int(column.count()),
         streaming_only=streaming_only,
     )
 
