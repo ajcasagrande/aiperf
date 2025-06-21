@@ -34,7 +34,6 @@ class ServerConfig(BaseSettings):
     port: int = Field(
         default=ConfigDefaults.PORT,
         description="Port to run the server on",
-        validation_alias="SERVER_PORT",
     )
 
     TTFT_MS: float = Field(
@@ -50,11 +49,9 @@ class ServerConfig(BaseSettings):
     host: str = Field(
         default=ConfigDefaults.HOST,
         description="Host to bind the server to",
-        validation_alias="SERVER_HOST",
     )
 
     workers: int = Field(
         default=ConfigDefaults.WORKERS,
         description="Number of worker processes",
-        validation_alias="SERVER_WORKERS",
     )
