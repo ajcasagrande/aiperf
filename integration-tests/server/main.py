@@ -4,7 +4,7 @@
 
 import logging
 
-import click
+import typer
 import uvicorn
 from dotenv import load_dotenv
 
@@ -21,84 +21,84 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+app = typer.Typer()
 
-@click.command()
-@click.option(
-    "--port",
-    type=int,
-    default=None,
-    help=f"Port to run the server on (default: {ConfigDefaults.PORT}, env: SERVER_PORT)",
-)
-@click.option(
-    "--host",
-    type=str,
-    default=None,
-    help=f"Host to bind the server to (default: {ConfigDefaults.HOST}, env: SERVER_HOST)",
-)
-@click.option(
-    "--ttft",
-    "--time-to-first-token-ms",
-    type=float,
-    default=None,
-    help=f"Time to first token latency in milliseconds (default: {ConfigDefaults.TTFT_MS}, env: TTFT_MS)",
-)
-@click.option(
-    "--itl",
-    "--inter-token-latency-ms",
-    type=float,
-    default=None,
-    help=f"Inter-token latency in milliseconds (default: {ConfigDefaults.ITL_MS}, env: ITL_MS)",
-)
-@click.option(
-    "--workers",
-    type=int,
-    default=None,
-    help=f"Number of worker processes (default: {ConfigDefaults.WORKERS}, env: SERVER_WORKERS)",
-)
-@click.option(
-    "--log-level",
-    type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]),
-    default=ConfigDefaults.LOG_LEVEL,
-    help="Set the logging level",
-)
+
+def create_cli_from_config():
+    """Create CLI arguments dynamically from ServerConfig model."""
+
+    def cli_wrapper(**kwargs):
+        """Wrapper function that creates ServerConfig from CLI args."""
+
+        # Extract log_level separately since it's not part of ServerConfig
+        log_level = kwargs.pop("log_level", ConfigDefaults.LOG_LEVEL)
+
+        # Map CLI parameter names to ServerConfig field names
+        ttft = kwargs.pop("ttft", ConfigDefaults.TTFT_MS)
+        itl = kwargs.pop("itl", ConfigDefaults.ITL_MS)
+
+        # Set logging level
+        logging.root.setLevel(getattr(logging, log_level))
+
+        # Create server configuration from CLI arguments and environment variables
+        config = ServerConfig(TTFT_MS=ttft, ITL_MS=itl, **kwargs)
+
+        # Set the global server configuration
+        set_server_config(config)
+
+        logger.info("Starting AI Performance Integration Test Server")
+        logger.info(f"Server configuration: {config.model_dump()}")
+
+        # Start the server
+        uvicorn.run(
+            "server.app:app",
+            host=config.host,
+            port=config.port,
+            log_level=log_level.lower(),
+            access_log=log_level.lower() == "debug",
+            workers=config.workers,
+        )
+
+    return cli_wrapper
+
+
+@app.command()
 def main(
-    port: int | None,
-    host: str | None,
-    TTFT_MS: float | None,
-    ITL_MS: float | None,
-    workers: int | None,
-    log_level: str,
+    port: int = typer.Option(
+        ConfigDefaults.PORT, help="Port to run the server on (env: SERVER_PORT)"
+    ),
+    host: str = typer.Option(
+        ConfigDefaults.HOST, help="Host to bind the server to (env: SERVER_HOST)"
+    ),
+    ttft: float = typer.Option(
+        ConfigDefaults.TTFT_MS,
+        "--ttft",
+        "--time-to-first-token-ms",
+        help="Time to first token latency in milliseconds (env: TTFT_MS)",
+    ),
+    itl: float = typer.Option(
+        ConfigDefaults.ITL_MS,
+        "--itl",
+        "--inter-token-latency-ms",
+        help="Inter-token latency in milliseconds (env: ITL_MS)",
+    ),
+    workers: int = typer.Option(
+        ConfigDefaults.WORKERS, help="Number of worker processes (env: SERVER_WORKERS)"
+    ),
+    log_level: str = typer.Option(
+        ConfigDefaults.LOG_LEVEL, help="Set the logging level"
+    ),
 ):
     """Start the AI Performance Integration Test Server."""
-
-    # Set logging level
-    logging.root.setLevel(getattr(logging, log_level))
-
-    # Create server configuration from environment variables and CLI arguments
-    config = ServerConfig.from_cli_args(
+    create_cli_from_config()(
         port=port,
         host=host,
-        TTFT_MS=TTFT_MS,
-        ITL_MS=ITL_MS,
+        ttft=ttft,
+        itl=itl,
         workers=workers,
-    )
-
-    # Set the global server configuration
-    set_server_config(config)
-
-    logger.info("Starting AI Performance Integration Test Server")
-    logger.info(f"Server configuration: {config.model_dump()}")
-
-    # Start the server
-    uvicorn.run(
-        "server.app:app",
-        host=config.host,
-        port=config.port,
-        log_level=log_level.lower(),
-        access_log=log_level.lower() == "debug",
-        workers=config.workers,
+        log_level=log_level,
     )
 
 
 if __name__ == "__main__":
-    main()
+    app()
