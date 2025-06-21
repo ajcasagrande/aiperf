@@ -27,6 +27,10 @@ class BasePayloadParser(ABC):
 class BaseSSEPayloadParser(BasePayloadParser, ABC):
     """Base class for all SSE payload parsers."""
 
+    def parse_text_content(self, text_content: str) -> list[str]:
+        """Parse text content from a server response message into a list of strings to be tokenized."""
+        return [text_content]
+
     def parse_data_content(self, data_content: list[str]) -> list[str]:
         """Parse the data content from an SSE message into a list of strings to be tokenized."""
         return [

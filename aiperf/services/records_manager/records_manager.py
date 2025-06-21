@@ -26,13 +26,14 @@ from aiperf.common.models import (
     ErrorDetailsCount,
     InferenceResultsMessage,
     Message,
+    ProcessRecordsCommandData,
     ProfileResultsMessage,
     ProfileStatsMessage,
     RequestRecord,
     ResultsRecord,
 )
-from aiperf.common.models.messages import ProcessRecordsCommandData
-from aiperf.common.service.base_component_service import BaseComponentService
+from aiperf.common.service import BaseComponentService
+from aiperf.parsers import OpenAIResponseExtractor
 
 
 @ServiceFactory.register(ServiceType.RECORDS_MANAGER)
@@ -55,8 +56,10 @@ class RecordsManager(BaseComponentService):
         self.worker_request_counts: dict[str, int] = {}
         self.worker_error_counts: dict[str, int] = {}
 
-        self.start_time_ns: int | None = None
+        self.start_time_ns: int = time.time_ns()
         self.end_time_ns: int | None = None
+
+        self.extractor = OpenAIResponseExtractor()
 
     @property
     def service_type(self) -> ServiceType:
@@ -157,6 +160,20 @@ class RecordsManager(BaseComponentService):
             )
             self.records.append(record)
             self.worker_request_counts[worker_id] += 1
+
+            resp = self.extractor.extract_response_data(record)
+            tokens = []
+            for r in resp:
+                if r.parsed_text is not None:
+                    tokens.extend(r.parsed_text)
+            self.logger.warning(
+                "Received %d tokens, %d responses, %s",
+                len(tokens),
+                len(resp),
+                resp[0].metadata,
+                # "".join(tokens),
+            )
+            # TODO: need to tokenize the output
 
         else:
             self.logger.warning("Received invalid inference results: %s", record)
@@ -296,8 +313,8 @@ class RecordsManager(BaseComponentService):
             service_id=self.service_id,
             total=len(self.records),
             completed=len(self.records) + len(self.error_records),
-            start_ns=self.start_time_ns,
-            end_ns=self.end_time_ns,
+            start_ns=self.start_time_ns or time.time_ns(),
+            end_ns=self.end_time_ns or time.time_ns(),
             records=[ttft_record, ttst_record, ttlt_record, itl_record],
             errors_by_type=await self.get_error_summary(),
             was_cancelled=self.was_cancelled,

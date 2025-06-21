@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-import os
 import sys
 
 from aiperf.common.comms.client_enums import ClientType, RepClientType
@@ -57,10 +56,11 @@ class DatasetManager(BaseComponentService):
     async def _initialize(self) -> None:
         """Initialize dataset manager-specific components."""
         self.logger.debug("Initializing dataset manager")
-        # TODO: Implement dataset manager initialization
-        self.tokenizer = Tokenizer.from_pretrained(
-            os.getenv("AIPERF_MODEL", "deepseek-ai/DeepSeek-R1-Distill-Llama-8B")
-        )
+
+        # TODO: Re-enable tokenizer
+        # self.tokenizer = Tokenizer.from_pretrained(
+        #     os.getenv("AIPERF_MODEL", "deepseek-ai/DeepSeek-R1-Distill-Llama-8B")
+        # )
         await self.comms.register_request_handler(
             service_id=self.service_id,
             topic=Topic.CONVERSATION_DATA,
@@ -96,8 +96,10 @@ class DatasetManager(BaseComponentService):
         self, message: ConversationRequestMessage
     ) -> ConversationResponseMessage:
         """Handle a conversation request."""
-        if self.tokenizer is None:
-            raise ValueError("Tokenizer is not initialized")
+
+        # TODO: Re-enable tokenizer
+        # if self.tokenizer is None:
+        #     raise ValueError("Tokenizer is not initialized")
 
         self.logger.debug(f"Handling conversation request: {message}")
         # TODO: Implement conversation request handling

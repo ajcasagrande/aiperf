@@ -92,7 +92,7 @@ class OpenAIChatCompletionRequest(OpenAIBaseRequest):
         description="The maximum number of tokens to use for the OpenAI inference client.",
     )
     stream: bool = Field(
-        default=True,  # TODO: default to True
+        default=True,
         description="Whether to stream the response.",
     )
 

@@ -226,7 +226,7 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
                 await self.stop_event.wait()
 
             except (SystemExit, asyncio.CancelledError):
-                pass
+                self.stop_event.set()
 
             except Exception:
                 self.logger.exception(
