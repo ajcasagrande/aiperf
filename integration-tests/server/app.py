@@ -64,15 +64,15 @@ async def generate_streaming_response(
         tokens = tokens[: request.max_tokens]
 
         # Wait for time to first token with precise timing
-    if server_config.time_to_first_token_ms > 0:
-        target_time = start_time + (server_config.time_to_first_token_ms / 1000.0)
+    if server_config.TTFT_MS > 0:
+        target_time = start_time + (server_config.TTFT_MS / 1000.0)
         await asyncio.sleep(target_time - perf_counter())
 
     # Send tokens one by one
     for i, token in enumerate(tokens):
-        if i > 0 and server_config.inter_token_latency_ms > 0:
+        if i > 0 and server_config.ITL_MS > 0:
             start_time = perf_counter()
-            target_time = start_time + (server_config.inter_token_latency_ms / 1000.0)
+            target_time = start_time + (server_config.ITL_MS / 1000.0)
             await asyncio.sleep(target_time - perf_counter())
 
         # Create streaming response chunk
@@ -141,14 +141,12 @@ async def chat_completions(request: ChatCompletionRequest):
 
         start_time = perf_counter()
         # Wait for time to first token with precise timing
-        if server_config.time_to_first_token_ms > 0:
-            target_time = start_time + (server_config.time_to_first_token_ms / 1000.0)
+        if server_config.TTFT_MS > 0:
+            target_time = start_time + (server_config.TTFT_MS / 1000.0)
             await asyncio.sleep(target_time - perf_counter())
 
         # Simulate processing time for all tokens with precise timing
-        total_processing_time = (
-            (len(tokens) - 1) * server_config.inter_token_latency_ms / 1000.0
-        )
+        total_processing_time = (len(tokens) - 1) * server_config.ITL_MS / 1000.0
 
         if total_processing_time > 0:
             target_time = start_time + total_processing_time

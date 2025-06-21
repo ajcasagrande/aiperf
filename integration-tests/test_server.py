@@ -17,8 +17,8 @@ def test_config():
     return ServerConfig(
         port=8000,
         host="127.0.0.1",
-        time_to_first_token_ms=10.0,  # Fast for testing
-        inter_token_latency_ms=5.0,  # Fast for testing
+        TTFT_MS=10.0,  # Fast for testing
+        ITL_MS=5.0,  # Fast for testing
     )
 
 
@@ -127,8 +127,8 @@ async def test_server_startup():
     """Test that the server can start up properly."""
     config = ServerConfig(
         port=8001,  # Different port to avoid conflicts
-        time_to_first_token_ms=1.0,
-        inter_token_latency_ms=1.0,
+        TTFT_MS=1.0,
+        ITL_MS=1.0,
     )
 
     set_server_config(config)
@@ -136,8 +136,8 @@ async def test_server_startup():
     # Test that the app configuration was set
     from server.app import server_config as app_config
 
-    assert app_config.time_to_first_token_ms == 1.0
-    assert app_config.inter_token_latency_ms == 1.0
+    assert app_config.TTFT_MS == 1.0
+    assert app_config.ITL_MS == 1.0
 
 
 if __name__ == "__main__":

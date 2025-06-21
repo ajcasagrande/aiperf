@@ -47,8 +47,8 @@ integration-server \
 
 # With environment variables
 export SERVER_PORT=8080
-export TIME_TO_FIRST_TOKEN_MS=30
-export INTER_TOKEN_LATENCY_MS=10
+export TTFT_MS=30
+export ITL_MS=10
 integration-server
 ```
 
@@ -56,8 +56,8 @@ integration-server
 
 - `SERVER_PORT`: Port to run the server on (default: 8000)
 - `SERVER_HOST`: Host to bind to (default: 0.0.0.0)
-- `TIME_TO_FIRST_TOKEN_MS`: Time to first token latency in milliseconds (default: 100.0)
-- `INTER_TOKEN_LATENCY_MS`: Inter-token latency in milliseconds (default: 50.0)
+- `TTFT_MS`: Time to first token latency in milliseconds (default: 100.0)
+- `ITL_MS`: Inter-token latency in milliseconds (default: 50.0)
 
 ### API Usage
 
@@ -103,8 +103,8 @@ curl http://localhost:8000/health
 |-----------|----------|---------------------|---------|-------------|
 | Port | `--port` | `SERVER_PORT` | 8000 | Server port |
 | Host | `--host` | `SERVER_HOST` | 0.0.0.0 | Server host |
-| TTFT | `--time-to-first-token-ms` | `TIME_TO_FIRST_TOKEN_MS` | 100.0 | Time to first token (ms) |
-| ITL | `--inter-token-latency-ms` | `INTER_TOKEN_LATENCY_MS` | 50.0 | Inter-token latency (ms) |
+| TTFT | `--time-to-first-token-ms` | `TTFT_MS` | 100.0 | Time to first token (ms) |
+| ITL | `--inter-token-latency-ms` | `ITL_MS` | 50.0 | Inter-token latency (ms) |
 
 ## How It Works
 

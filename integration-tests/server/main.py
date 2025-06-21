@@ -9,7 +9,7 @@ import uvicorn
 from dotenv import load_dotenv
 
 from .app import set_server_config
-from .config import ServerConfig
+from .config import ConfigDefaults, ServerConfig
 
 # Load environment variables from .env file if it exists
 load_dotenv()
@@ -27,57 +27,59 @@ logger = logging.getLogger(__name__)
     "--port",
     type=int,
     default=None,
-    help="Port to run the server on (default: 8000, env: SERVER_PORT)",
+    help=f"Port to run the server on (default: {ConfigDefaults.PORT}, env: SERVER_PORT)",
 )
 @click.option(
     "--host",
     type=str,
     default=None,
-    help="Host to bind the server to (default: 0.0.0.0, env: SERVER_HOST)",
+    help=f"Host to bind the server to (default: {ConfigDefaults.HOST}, env: SERVER_HOST)",
 )
 @click.option(
+    "--ttft",
     "--time-to-first-token-ms",
     type=float,
     default=None,
-    help="Time to first token latency in milliseconds (default: 100.0, env: TIME_TO_FIRST_TOKEN_MS)",
+    help=f"Time to first token latency in milliseconds (default: {ConfigDefaults.TTFT_MS}, env: TTFT_MS)",
 )
 @click.option(
+    "--itl",
     "--inter-token-latency-ms",
     type=float,
     default=None,
-    help="Inter-token latency in milliseconds (default: 50.0, env: INTER_TOKEN_LATENCY_MS)",
+    help=f"Inter-token latency in milliseconds (default: {ConfigDefaults.ITL_MS}, env: ITL_MS)",
 )
 @click.option(
     "--workers",
     type=int,
     default=None,
-    help="Number of worker processes (default: 1, env: SERVER_WORKERS)",
+    help=f"Number of worker processes (default: {ConfigDefaults.WORKERS}, env: SERVER_WORKERS)",
 )
 @click.option(
     "--log-level",
     type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]),
-    default="INFO",
+    default=ConfigDefaults.LOG_LEVEL,
     help="Set the logging level",
 )
 def main(
     port: int | None,
     host: str | None,
-    time_to_first_token_ms: float | None,
-    inter_token_latency_ms: float | None,
+    TTFT_MS: float | None,
+    ITL_MS: float | None,
     workers: int | None,
     log_level: str,
 ):
     """Start the AI Performance Integration Test Server."""
 
     # Set logging level
-    logging.getLogger().setLevel(getattr(logging, log_level))
+    logging.root.setLevel(getattr(logging, log_level))
 
     # Create server configuration from environment variables and CLI arguments
-    config = ServerConfig.from_env_and_args(
+    config = ServerConfig.from_cli_args(
         port=port,
         host=host,
-        time_to_first_token_ms=time_to_first_token_ms,
-        inter_token_latency_ms=inter_token_latency_ms,
+        TTFT_MS=TTFT_MS,
+        ITL_MS=ITL_MS,
         workers=workers,
     )
 

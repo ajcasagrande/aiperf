@@ -7,15 +7,15 @@
 # Default configuration
 export SERVER_PORT=${SERVER_PORT:-8000}
 export SERVER_HOST=${SERVER_HOST:-"0.0.0.0"}
-export TIME_TO_FIRST_TOKEN_MS=${TIME_TO_FIRST_TOKEN_MS:-20.0}
-export INTER_TOKEN_LATENCY_MS=${INTER_TOKEN_LATENCY_MS:-5.0}
+export TTFT_MS=${TTFT_MS:-20.0}
+export ITL_MS=${ITL_MS:-5.0}
 
 echo "Starting AI Performance Integration Test Server..."
 echo "Configuration:"
 echo "  Port: $SERVER_PORT"
 echo "  Host: $SERVER_HOST"
-echo "  Time to First Token: ${TIME_TO_FIRST_TOKEN_MS}ms"
-echo "  Inter-token Latency: ${INTER_TOKEN_LATENCY_MS}ms"
+echo "  Time to First Token: ${TTFT_MS}ms"
+echo "  Inter-token Latency: ${ITL_MS}ms"
 echo ""
 
 # Activate virtual environment if it exists
@@ -28,6 +28,6 @@ fi
 integration-server \
     --port "$SERVER_PORT" \
     --host "$SERVER_HOST" \
-    --time-to-first-token-ms "$TIME_TO_FIRST_TOKEN_MS" \
-    --inter-token-latency-ms "$INTER_TOKEN_LATENCY_MS" \
+    --time-to-first-token-ms "$TTFT_MS" \
+    --inter-token-latency-ms "$ITL_MS" \
     --log-level ERROR

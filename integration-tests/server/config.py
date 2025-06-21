@@ -2,69 +2,69 @@
 #  SPDX-License-Identifier: Apache-2.0
 """Configuration management for the integration test server."""
 
-import os
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from pydantic import BaseModel, Field
+
+class ConfigDefaults:
+    """Centralized configuration defaults for the integration test server."""
+
+    # Server settings
+    PORT: int = 8000
+    HOST: str = "0.0.0.0"
+    WORKERS: int = 1
+
+    # Timing settings
+    TTFT_MS: float = 20.0
+    ITL_MS: float = 5.0
+
+    # Logging settings
+    LOG_LEVEL: str = "INFO"
 
 
-class ServerConfig(BaseModel):
-    """Server configuration with environment variable and CLI argument support."""
+class ServerConfig(BaseSettings):
+    """Server configuration with automatic environment variable support."""
 
-    port: int = Field(default=8000, description="Port to run the server on")
-
-    time_to_first_token_ms: float = Field(
-        default=20.0, description="Time to first token latency in milliseconds"
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=True,
     )
 
-    inter_token_latency_ms: float = Field(
-        default=5.0, description="Inter-token latency in milliseconds"
+    port: int = Field(
+        default=ConfigDefaults.PORT,
+        description="Port to run the server on",
+        validation_alias="SERVER_PORT",
     )
 
-    host: str = Field(default="0.0.0.0", description="Host to bind the server to")
+    TTFT_MS: float = Field(
+        default=ConfigDefaults.TTFT_MS,
+        description="Time to first token latency in milliseconds",
+    )
 
-    workers: int = Field(default=1, description="Number of worker processes")
+    ITL_MS: float = Field(
+        default=ConfigDefaults.ITL_MS, description="Inter-token latency in milliseconds"
+    )
+
+    host: str = Field(
+        default=ConfigDefaults.HOST,
+        description="Host to bind the server to",
+        validation_alias="SERVER_HOST",
+    )
+
+    workers: int = Field(
+        default=ConfigDefaults.WORKERS,
+        description="Number of worker processes",
+        validation_alias="SERVER_WORKERS",
+    )
 
     @classmethod
-    def from_env_and_args(
-        cls,
-        port: int | None = None,
-        time_to_first_token_ms: float | None = None,
-        inter_token_latency_ms: float | None = None,
-        host: str | None = None,
-        workers: int | None = None,
-    ) -> "ServerConfig":
-        """Create config from environment variables and command line arguments.
+    def from_cli_args(cls, **cli_args) -> "ServerConfig":
+        """Create config from CLI arguments, with automatic environment variable fallback.
 
-        Command line arguments take precedence over environment variables.
+        CLI arguments override environment variables which override defaults.
         """
-        # Get values from environment variables first
-        env_port = os.getenv("SERVER_PORT")
-        env_ttft = os.getenv("TIME_TO_FIRST_TOKEN_MS")
-        env_itl = os.getenv("INTER_TOKEN_LATENCY_MS")
-        env_host = os.getenv("SERVER_HOST")
-        env_workers = os.getenv("SERVER_WORKERS")
-
-        # Command line arguments override environment variables
-        final_port = port if port is not None else (int(env_port) if env_port else 8000)
-        final_ttft = (
-            time_to_first_token_ms
-            if time_to_first_token_ms is not None
-            else (float(env_ttft) if env_ttft else 20.0)
-        )
-        final_itl = (
-            inter_token_latency_ms
-            if inter_token_latency_ms is not None
-            else (float(env_itl) if env_itl else 5.0)
-        )
-        final_host = host if host is not None else (env_host if env_host else "0.0.0.0")
-        final_workers = (
-            workers if workers is not None else (int(env_workers) if env_workers else 1)
-        )
-
-        return cls(
-            port=final_port,
-            time_to_first_token_ms=final_ttft,
-            inter_token_latency_ms=final_itl,
-            host=final_host,
-            workers=final_workers,
-        )
+        # Filter out None values from CLI args and create the config
+        # BaseSettings will automatically handle environment variables
+        filtered_args = {k: v for k, v in cli_args.items() if v is not None}
+        return cls(**filtered_args)
