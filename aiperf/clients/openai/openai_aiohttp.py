@@ -42,17 +42,12 @@ class ChatCompletionMixin(AioHttpClientMixin):
     ) -> RequestRecord:
         """Send chat completion request using aiohttp."""
 
-        record: RequestRecord = RequestRecord(
-            start_perf_ns=time.perf_counter_ns(),
-            delayed=False,
-        )
-
         try:
             # Prepare request payload
             request_payload = {
-                "model": self.client_config.model,
+                "model": payload.model,
                 "messages": payload.messages,
-                "max_tokens": self.client_config.max_tokens,
+                "max_tokens": payload.max_tokens,
                 "stream": payload.stream,
             }
 
@@ -88,10 +83,16 @@ class ChatCompletionMixin(AioHttpClientMixin):
             record = await self.request(
                 url, json.dumps(request_payload), headers, delayed=False
             )
+            record.request = request_payload
 
         except Exception as e:
-            record.error = ErrorDetails(type=e.__class__.__name__, message=str(e))
-            record.end_perf_ns = time.perf_counter_ns()
+            record = RequestRecord(
+                request=request_payload,
+                start_perf_ns=time.perf_counter_ns(),
+                end_perf_ns=time.perf_counter_ns(),
+                delayed=False,
+                error=ErrorDetails(type=e.__class__.__name__, message=str(e)),
+            )
             logger.error(
                 "Error in chat completion request: %s %s",
                 e.__class__.__name__,
@@ -135,6 +136,7 @@ class OpenAIClientAioHttp(ChatCompletionMixin):
                 messages=payload["messages"],
                 model=self.client_config.model,
                 max_tokens=self.client_config.max_tokens,
+                stream=endpoint.streaming,
                 kwargs=payload.get("kwargs", {}),
             )
 
@@ -143,6 +145,7 @@ class OpenAIClientAioHttp(ChatCompletionMixin):
                 prompt=payload["prompt"],
                 model=self.client_config.model,
                 max_tokens=self.client_config.max_tokens,
+                stream=endpoint.streaming,
                 kwargs=payload.get("kwargs", {}),
             )
 
@@ -161,6 +164,7 @@ class OpenAIClientAioHttp(ChatCompletionMixin):
                 input=payload["input"],
                 model=self.client_config.model,
                 max_output_tokens=self.client_config.max_tokens,
+                stream=endpoint.streaming,
                 kwargs=payload.get("kwargs", {}),
             )
 

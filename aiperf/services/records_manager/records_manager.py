@@ -33,6 +33,7 @@ from aiperf.common.models import (
     ResultsRecord,
 )
 from aiperf.common.service import BaseComponentService
+from aiperf.common.tokenizer import Tokenizer
 from aiperf.parsers import OpenAIResponseExtractor
 
 
@@ -161,17 +162,25 @@ class RecordsManager(BaseComponentService):
             self.records.append(record)
             self.worker_request_counts[worker_id] += 1
 
+            tokenizer = Tokenizer.from_pretrained(record.request["model"])
+            total_tokens = 0
             resp = self.extractor.extract_response_data(record)
             tokens = []
             for r in resp:
                 if r.parsed_text is not None:
                     tokens.extend(r.parsed_text)
+            if tokens:
+                for t in tokens:
+                    try:
+                        total_tokens += len(tokenizer.encode(t))
+                    except Exception as e:
+                        self.logger.error("Error encoding token '%s': %s", t, e)
+                        continue
             self.logger.warning(
-                "Received %d tokens, %d responses, %s",
+                "Received %d tokens, %d responses, %d total tokens",
                 len(tokens),
                 len(resp),
-                resp[0].metadata,
-                # "".join(tokens),
+                total_tokens,
             )
             # TODO: need to tokenize the output
 

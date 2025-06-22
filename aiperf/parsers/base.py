@@ -17,8 +17,12 @@ class ResponseData(BaseModel):
 
     perf_ns: int = Field(description="The performance timestamp of the response.")
     raw_text: list[str] = Field(description="The raw text of the response.")
-    parsed_text: list[str] = Field(description="The parsed text of the response.")
-    metadata: dict[str, Any] = Field(description="The metadata of the response.")
+    parsed_text: list[str | None] = Field(
+        description="The parsed text of the response."
+    )
+    metadata: dict[str, Any] = Field(
+        default_factory=dict, description="The metadata of the response."
+    )
 
 
 class ResponseExtractor(ABC):

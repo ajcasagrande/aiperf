@@ -37,10 +37,10 @@ def main() -> None:
     )
 
     rich_handler = RichHandler(
-        rich_tracebacks=True,
+        rich_tracebacks=False,
         show_path=True,
         console=Console(),
-        tracebacks_show_locals=True,
+        tracebacks_show_locals=False,
     )
     logging.root.addHandler(rich_handler)
 

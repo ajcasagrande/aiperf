@@ -195,6 +195,10 @@ class SSEMessageStream(InferenceServerResponse):
 class RequestRecord(BaseModel):
     """Record of a request."""
 
+    request: Any = Field(
+        default=None,
+        description="The request payload.",
+    )
     start_perf_ns: int = Field(
         default_factory=time.perf_counter_ns,
         description="The start time of the request in perf_counter_ns.",

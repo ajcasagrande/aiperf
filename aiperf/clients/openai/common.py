@@ -102,6 +102,10 @@ class OpenAIResponsesRequest(OpenAIBaseRequest):
 
     input: str
     max_output_tokens: int
+    stream: bool = Field(
+        default=True,
+        description="Whether to stream the response.",
+    )
 
 
 class OpenAICompletionRequest(OpenAIBaseRequest):
@@ -109,6 +113,10 @@ class OpenAICompletionRequest(OpenAIBaseRequest):
 
     prompt: str
     max_tokens: int
+    stream: bool = Field(
+        default=True,
+        description="Whether to stream the response.",
+    )
 
 
 class OpenAIEmbeddingsRequest(OpenAIBaseRequest):

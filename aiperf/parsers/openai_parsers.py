@@ -55,7 +55,7 @@ class OpenAIResponseExtractor(ResponseExtractor):
         self, raw_text: str
     ) -> tuple[list[str] | None, dict[str, Any] | None]:
         """Parse the text of the response."""
-        if raw_text in ("[DONE]", ""):
+        if raw_text in ("", None, "[DONE]"):
             return None, {}
 
         js = load_json_str(raw_text)
@@ -78,17 +78,23 @@ class OpenAIResponseExtractor(ResponseExtractor):
         if "text" in choice:
             return [choice["text"]], metadata
         elif "delta" in choice:
-            if "content" in choice["delta"]:
+            if "content" in choice["delta"] and choice["delta"]["content"] not in (
+                None,
+                "",
+            ):
+                logger.warning("Parsing delta: %s", choice["delta"])
                 return [choice["delta"]["content"]], metadata
-            return None, metadata
+
         elif "message" in choice:
-            if choice["message"]["role"] == "assistant":
+            if choice["message"]["role"] == "assistant" and choice["message"][
+                "content"
+            ] not in (None, ""):
                 metadata["role"] = "assistant"
                 return [choice["message"]["content"]], metadata
-            else:
-                return None, metadata
+
         else:
             raise ValueError(f"Invalid OpenAI response: {js}")
+        return None, metadata
 
     def _parse_sse(
         self, raw_sse: list[str]
