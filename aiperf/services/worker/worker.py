@@ -15,7 +15,7 @@ from aiperf.common.comms.client_enums import (
     ReqClientType,
 )
 from aiperf.common.config import EndPointConfig, ServiceConfig
-from aiperf.common.constants import BYTES_PER_MB, NANOS_PER_MILLIS
+from aiperf.common.constants import BYTES_PER_MIB, NANOS_PER_MILLIS
 from aiperf.common.enums import InferenceClientType, MessageType, ServiceType, Topic
 from aiperf.common.factories import InferenceClientFactory, ServiceFactory
 from aiperf.common.hooks import (
@@ -278,8 +278,9 @@ class Worker(BaseService):
             topic=Topic.WORKER_HEALTH,
             message=WorkerHealthMessage(
                 service_id=self.service_id,
+                pid=self.process.pid,
                 cpu_usage=self.process.cpu_percent(),
-                memory_usage=self.process.memory_info().rss / BYTES_PER_MB,
+                memory_usage=self.process.memory_info().rss / BYTES_PER_MIB,
                 uptime=time.time() - self.begin_time,
                 completed_tasks=self.completed_tasks,
                 failed_tasks=self.failed_tasks,

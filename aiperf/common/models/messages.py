@@ -472,7 +472,10 @@ class WorkerHealthMessage(BaseServiceMessage):
     message_type: Literal[MessageType.WORKER_HEALTH] = MessageType.WORKER_HEALTH
 
     service_id: str = Field(..., description="The ID of the worker")
-
+    pid: int | None = Field(
+        default=None,
+        description="The PID of the worker",
+    )
     completed_tasks: int = Field(
         ..., description="The number of tasks that have been completed"
     )
@@ -482,7 +485,7 @@ class WorkerHealthMessage(BaseServiceMessage):
     )
     cpu_usage: float = Field(..., description="The current CPU usage of the worker")
     memory_usage: float = Field(
-        ..., description="The current memory usage of the worker in MB"
+        ..., description="The current memory usage of the worker in MiB"
     )
     uptime: float = Field(..., description="The uptime of the worker in seconds")
     timestamp_ns: int = Field(
