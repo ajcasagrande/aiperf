@@ -214,6 +214,14 @@ class RepClientType(CaseInsensitiveStrEnum):
                 )
 
 
+class ProxyClientType(CaseInsensitiveStrEnum):
+    """
+    Enum for specifying the client type for proxy services.
+    """
+
+    XPUB_XSUB = "xpub_xsub_proxy"
+
+
 ClientType = (
     PubClientType
     | SubClientType
@@ -221,5 +229,6 @@ ClientType = (
     | PullClientType
     | ReqClientType
     | RepClientType
+    | ProxyClientType
 )
 """Union of all client types."""

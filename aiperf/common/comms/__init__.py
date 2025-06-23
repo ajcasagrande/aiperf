@@ -7,9 +7,11 @@ __all__ = [
     "ZMQTCPCommunication",
     "ZMQIPCCommunication",
     "ZMQInprocCommunication",
+    "ZMQProxyService",
 ]
 
 from aiperf.common.comms.base import BaseCommunication
+from aiperf.common.comms.zmq.proxy_service import ZMQProxyService
 from aiperf.common.comms.zmq.zmq_comms import (
     BaseZMQCommunication,
     ZMQInprocCommunication,
