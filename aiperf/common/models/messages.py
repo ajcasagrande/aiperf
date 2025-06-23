@@ -16,6 +16,7 @@ from pydantic import (
 from aiperf.common.enums import (
     CommandType,
     MessageType,
+    NotificationType,
     ServiceState,
     ServiceType,
 )
@@ -282,6 +283,22 @@ class ErrorMessage(Message):
     )
 
 
+class NotificationMessage(BaseServiceMessage):
+    """Message containing a notification from a service. This is used to notify other services of events."""
+
+    message_type: Literal[MessageType.NOTIFICATION] = MessageType.NOTIFICATION
+
+    notification_type: NotificationType = Field(
+        ...,
+        description="The type of notification",
+    )
+
+    data: SerializeAsAny[BaseModel | None] = Field(
+        default=None,
+        description="Data to send with the notification",
+    )
+
+
 class BaseServiceErrorMessage(BaseServiceMessage):
     """Base message containing error data."""
 
@@ -418,4 +435,25 @@ class ProfileStatsMessage(BaseServiceMessage):
     worker_errors: dict[str, int] = Field(
         default_factory=dict,
         description="Per-worker error counts, keyed by worker service_id",
+    )
+
+
+class DatasetTimingRequest(BaseServiceMessage):
+    """Message for a dataset timing request."""
+
+    message_type: Literal[MessageType.DATASET_TIMING_REQUEST] = (
+        MessageType.DATASET_TIMING_REQUEST
+    )
+
+
+class DatasetTimingResponse(BaseServiceMessage):
+    """Message for a dataset timing response."""
+
+    message_type: Literal[MessageType.DATASET_TIMING_RESPONSE] = (
+        MessageType.DATASET_TIMING_RESPONSE
+    )
+
+    timing_data: list[tuple[int, str]] = Field(
+        ...,
+        description="The timing data of the dataset. Tuple of (timestamp, conversation_id)",
     )

@@ -8,7 +8,13 @@ import time
 from aiperf.common.comms.client_enums import ClientType, PullClientType, PushClientType
 from aiperf.common.config import ServiceConfig
 from aiperf.common.constants import NANOS_PER_SECOND
-from aiperf.common.enums import MessageType, ServiceState, ServiceType, Topic
+from aiperf.common.enums import (
+    MessageType,
+    NotificationType,
+    ServiceState,
+    ServiceType,
+    Topic,
+)
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
     aiperf_task,
@@ -22,9 +28,11 @@ from aiperf.common.models import (
     CreditDropMessage,
     CreditReturnMessage,
     CreditsCompleteMessage,
+    DatasetTimingRequest,
     Message,
     ProfileProgressMessage,
 )
+from aiperf.common.models.messages import NotificationMessage
 from aiperf.common.service.base_component_service import BaseComponentService
 
 
@@ -75,6 +83,10 @@ class TimingManager(BaseComponentService):
             message_type=MessageType.CREDIT_RETURN,
             callback=self._on_credit_return,
         )
+        await self.comms.subscribe(
+            topic=Topic.NOTIFICATION,
+            callback=self._on_notification,
+        )
 
     @on_configure
     async def _configure(self, message: Message) -> None:
@@ -100,6 +112,17 @@ class TimingManager(BaseComponentService):
         """Clean up timing manager-specific components."""
         self.logger.debug("Cleaning up timing manager")
         # TODO: Implement timing manager cleanup
+
+    async def _on_notification(self, message: NotificationMessage) -> None:
+        """Handle a notification message."""
+        self.logger.debug(f"Received notification: {message.notification_type}")
+        if message.notification_type == NotificationType.DATASET_CONFIGURED:
+            # TODO: Query for timing information from the dataset manager
+            await self.comms.request(
+                message=DatasetTimingRequest(
+                    service_id=self.service_id,
+                ),
+            )
 
     @on_start
     async def _issue_credit_drops(self) -> None:

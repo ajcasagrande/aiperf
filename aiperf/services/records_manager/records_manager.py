@@ -61,6 +61,7 @@ class RecordsManager(BaseComponentService):
         self.end_time_ns: int | None = None
 
         self.extractor = OpenAIResponseExtractor()
+        self.tokenizers: dict[str, Tokenizer] = {}
 
     @property
     def service_type(self) -> ServiceType:
@@ -74,6 +75,12 @@ class RecordsManager(BaseComponentService):
             *(super().required_clients or []),
             PullClientType.INFERENCE_RESULTS,
         ]
+
+    def get_tokenizer(self, model: str) -> Tokenizer:
+        """Get the tokenizer for a given model."""
+        if model not in self.tokenizers:
+            self.tokenizers[model] = Tokenizer.from_pretrained(model)
+        return self.tokenizers[model]
 
     @on_init
     async def _initialize(self) -> None:
@@ -162,7 +169,7 @@ class RecordsManager(BaseComponentService):
             self.records.append(record)
             self.worker_request_counts[worker_id] += 1
 
-            tokenizer = Tokenizer.from_pretrained(record.request["model"])
+            tokenizer = self.get_tokenizer(record.request["model"])
             total_tokens = 0
             resp = self.extractor.extract_response_data(record)
             tokens = []

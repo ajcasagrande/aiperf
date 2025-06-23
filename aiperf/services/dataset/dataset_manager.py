@@ -1,10 +1,11 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+import os
 import sys
 
 from aiperf.common.comms.client_enums import ClientType, RepClientType
 from aiperf.common.config import ServiceConfig
-from aiperf.common.enums import MessageType, ServiceType, Topic
+from aiperf.common.enums import MessageType, NotificationType, ServiceType, Topic
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
     on_cleanup,
@@ -16,7 +17,10 @@ from aiperf.common.hooks import (
 from aiperf.common.models import (
     ConversationRequestMessage,
     ConversationResponseMessage,
+    DatasetTimingRequest,
+    DatasetTimingResponse,
     Message,
+    NotificationMessage,
 )
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.common.tokenizer import Tokenizer
@@ -57,15 +61,15 @@ class DatasetManager(BaseComponentService):
         """Initialize dataset manager-specific components."""
         self.logger.debug("Initializing dataset manager")
 
-        # TODO: Re-enable tokenizer
-        # self.tokenizer = Tokenizer.from_pretrained(
-        #     os.getenv("AIPERF_MODEL", "deepseek-ai/DeepSeek-R1-Distill-Llama-8B")
-        # )
         await self.comms.register_request_handler(
             service_id=self.service_id,
-            topic=Topic.CONVERSATION_DATA,
             message_type=MessageType.CONVERSATION_REQUEST,
             handler=self._handle_conversation_request,
+        )
+        await self.comms.register_request_handler(
+            service_id=self.service_id,
+            message_type=MessageType.DATASET_TIMING_REQUEST,
+            handler=self._handle_dataset_timing_request,
         )
 
     @on_start
@@ -90,7 +94,20 @@ class DatasetManager(BaseComponentService):
     async def _configure(self, message: Message) -> None:
         """Configure the dataset manager."""
         self.logger.debug(f"Configuring dataset manager with message: {message}")
-        # TODO: Implement dataset manager configuration
+
+        self.tokenizer = Tokenizer.from_pretrained(
+            os.getenv("AIPERF_MODEL", "deepseek-ai/DeepSeek-R1-Distill-Llama-8B")
+        )
+
+        await self.comms.publish(
+            topic=Topic.NOTIFICATION,
+            message=NotificationMessage(
+                service_id=self.service_id,
+                message_type=MessageType.NOTIFICATION,
+                notification_type=NotificationType.DATASET_CONFIGURED,
+                data=None,
+            ),
+        )
 
     async def _handle_conversation_request(
         self, message: ConversationRequestMessage
@@ -118,6 +135,21 @@ class DatasetManager(BaseComponentService):
                     #     prompt_tokens_stddev=0,
                     # ),
                 },
+            ],
+        )
+
+    async def _handle_dataset_timing_request(
+        self, message: DatasetTimingRequest
+    ) -> DatasetTimingResponse:
+        """Handle a dataset timing request."""
+        self.logger.debug(f"Handling dataset timing request: {message}")
+        # TODO: Implement dataset timing request handling
+        return DatasetTimingResponse(
+            service_id=self.service_id,
+            request_id=message.request_id,
+            timing_data=[
+                (1719000000000, "123"),
+                (1719000000001, "456"),
             ],
         )
 

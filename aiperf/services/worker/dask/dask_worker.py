@@ -188,7 +188,6 @@ class DaskWorker(Worker):
             logger.debug("Calling inference API")
 
             response = await self.zmq_comms.request(
-                topic=Topic.CONVERSATION_DATA,
                 message=ConversationRequestMessage(
                     service_id=self.id, conversation_id="123"
                 ),

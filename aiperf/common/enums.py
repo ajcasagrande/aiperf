@@ -86,6 +86,7 @@ class Topic(CaseInsensitiveStrEnum):
     HEARTBEAT = "heartbeat"
     INFERENCE_RESULTS = "inference_results"
     CONVERSATION_DATA = "conversation_data"
+    NOTIFICATION = "notification"
 
 
 ################################################################################
@@ -198,6 +199,15 @@ class MessageType(CaseInsensitiveStrEnum):
     PROFILE_ERROR = "profile_error"
     """A message containing an error from a profile run."""
 
+    NOTIFICATION = "notification"
+    """A message containing a notification from a service. This is used to notify other services of events."""
+
+    DATASET_TIMING_REQUEST = "dataset_timing_request"
+    """A message sent by a service to request timing information from a dataset."""
+
+    DATASET_TIMING_RESPONSE = "dataset_timing_response"
+    """A message sent by a service to respond to a dataset timing request."""
+
 
 ################################################################################
 # Command Enums
@@ -230,6 +240,18 @@ class CommandType(CaseInsensitiveStrEnum):
     PROCESS_RECORDS = "process_records"
     """A command sent to process records. This will process the records and return
     the services to their pre-record processing state."""
+
+
+################################################################################
+# Notification Enums
+################################################################################
+
+
+class NotificationType(CaseInsensitiveStrEnum):
+    """Types of notifications that can be sent to other services."""
+
+    DATASET_CONFIGURED = "dataset_configured"
+    """A notification sent to notify other services that the dataset has been configured."""
 
 
 ################################################################################

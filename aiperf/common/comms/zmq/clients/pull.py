@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
 import logging
+import os
 from collections.abc import Callable, Coroutine
 from typing import Any
 
@@ -38,6 +39,11 @@ class ZMQPullClient(BaseZMQClient):
             MessageType, list[Callable[[Message], Coroutine[Any, Any, None]]]
         ] = {}
 
+        # TODO: make this configurable, especially on a per-client basis
+        self.semaphore = asyncio.Semaphore(
+            value=int(os.getenv("AIPERF_WORKER_CONCURRENT_REQUESTS", 100))
+        )
+
     @aiperf_task
     async def _pull_receiver(self) -> None:
         """Background task for receiving data from the pull socket.
@@ -50,11 +56,15 @@ class ZMQPullClient(BaseZMQClient):
 
         while not self.is_shutdown:
             try:
+                # acquire the semaphore to limit the number of concurrent requests
+                await self.semaphore.acquire()
                 message_json = await self.socket.recv_string()
                 # logger.debug("Received message from pull socket: %s", message_json)
                 _ = asyncio.create_task(self._process_message(message_json))
 
             except zmq.Again:
+                # TODO: Is this correct?
+                self.semaphore.release()
                 pass
             except asyncio.CancelledError:
                 break
@@ -77,14 +87,16 @@ class ZMQPullClient(BaseZMQClient):
 
         # Call callbacks with Message object
         if message.message_type in self._pull_callbacks:
-            _ = asyncio.create_task(
-                call_all_functions(self._pull_callbacks[message.message_type], message)
+            await call_all_functions(
+                self._pull_callbacks[message.message_type], message
             )
         else:
             logger.debug(
                 "Pull message received on topic without callback %s",
                 message.message_type,
             )
+        # release the semaphore to allow receiving more messages
+        self.semaphore.release()
 
     async def register_pull_callback(
         self,

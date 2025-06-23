@@ -76,14 +76,12 @@ class BaseComponentService(BaseService):
                 "Failed to subscribe to command topic",
             ) from e
 
-        # TODO: Find a way to wait for the communication to be fully initialized
-        # FIXME: This is a hack to ensure the communication is fully initialized
+        # TODO: HACK: Sleep for 1 second to allow the controller to register the service
         await asyncio.sleep(1)
 
         # Register the service
         try:
             await self.register()
-            await asyncio.sleep(0.5)
         except Exception as e:
             raise self._service_error(
                 ServiceErrorType.REGISTER_SERVICE_ERROR,

@@ -54,6 +54,11 @@ class Worker(BaseService):
         # Inference client will be initialized in _initialize
         self.inference_client: InferenceClientProtocol | None = None
 
+        self.endpoint_config = EndPointConfig(
+            type=os.getenv("AIPERF_ENDPOINT", "v1/chat/completions"),
+            streaming=os.getenv("AIPERF_STREAMING", "true").lower() == "true",
+        )
+
     @property
     def service_type(self) -> ServiceType:
         """The type of service."""
@@ -96,12 +101,37 @@ class Worker(BaseService):
             message_type=MessageType.CREDIT_DROP,
             callback=self._credit_drop_handler,
         )
+
         self.logger.debug("Worker initialized")
 
     async def _credit_drop_handler(self, message: CreditDropMessage) -> None:
         """Handle a credit drop message."""
         self.logger.debug("Received credit drop message: %s", message)
-        _ = asyncio.create_task(self._process_credit_drop(message))
+        await self._process_credit_drop(message)
+
+    async def _run_credit_task(self, credit_drop_ns: int | None = None) -> None:
+        """Run a credit task for a single credit."""
+
+        # Call the inference API
+        record = await self._call_inference_api(credit_drop_ns)
+        msg = InferenceResultsMessage(
+            service_id=self.service_id,
+            record=record,
+        )
+
+        # Push the record to the inference results topic
+        try:
+            await self.comms.push(
+                topic=Topic.INFERENCE_RESULTS,
+                message=msg,
+            )
+        except Exception as e:
+            # If we fail to push the record, log the error and continue
+            self.logger.error(
+                "Error pushing request record: %s: %s",
+                e.__class__.__name__,
+                e,
+            )
 
     async def _process_credit_drop(self, message: CreditDropMessage) -> None:
         """Process a credit drop response.
@@ -121,28 +151,11 @@ class Worker(BaseService):
                 "Received %s credit(s) for %s", credit_amount, message.credit_drop_ns
             )
 
-            async def run_task():
-                record = await self._call_inference_api(message.credit_drop_ns)
-                try:
-                    msg = InferenceResultsMessage(
-                        service_id=self.service_id,
-                        record=record,
-                    )
-                    # self.logger.debug(f"Pushing request record: {msg}")
-                    await self.comms.push(
-                        topic=Topic.INFERENCE_RESULTS,
-                        message=msg,
-                    )
-                except Exception as e:
-                    self.logger.error(
-                        "Error pushing request record: %s: %s",
-                        e.__class__.__name__,
-                        e,
-                    )
-
             # Make a call to OpenAI API for each credit concurrently
             for _ in range(credit_amount):
-                task = asyncio.create_task(run_task())
+                task = asyncio.create_task(
+                    self._run_credit_task(credit_drop_ns=message.credit_drop_ns)
+                )
                 tasks.append(task)
 
             await asyncio.gather(*tasks)
@@ -164,7 +177,7 @@ class Worker(BaseService):
     async def _call_inference_api(
         self, credit_drop_ns: int | None = None
     ) -> RequestRecord:
-        """Make a call to the inference API."""
+        """Make a single call to the inference API. Will return an error record if the call fails."""
         try:
             self.logger.debug("Calling inference API")
 
@@ -181,40 +194,14 @@ class Worker(BaseService):
 
             # retrieve the prompt from the dataset
             response = await self.comms.request(
-                topic=Topic.CONVERSATION_DATA,
                 message=ConversationRequestMessage(
                     service_id=self.service_id, conversation_id="123"
                 ),
             )
-            # messages = OpenAIChatCompletionRequest(
-            #     model="deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
-            #     messages=[
-            #         {
-            #             "role": "user",
-            #             "content": "softly smiteth That from the cold stone sparks of fire do fly Whereat a waxen torch forthwith he lighteth Which must be lodestar to his lustful eye And to the flame thus speaks advisedly As from this cold flint I enforced this fire So Lucrece must I force to my desire Here pale with fear he doth premeditate The dangers of his loathsome enterprise And in his inward mind he doth debate What following sorrow may on this arise Then looking scorn",
-            #         }
-            #     ],
-            #     max_tokens=100,
-            # )
-
-            # response.conversation_data
-
-            # Sample messages for the API call
-            # messages = [
-            #     {"role": "system", "content": "You are a helpful assistant."},
-            #     {
-            #         "role": "user",
-            #         "content": "Tell me about NVIDIA AI performance testing.",
-            #     },
-            # ]
 
             # Format payload for the API request
             formatted_payload = await self.inference_client.format_payload(
-                endpoint=EndPointConfig(
-                    type="v1/chat/completions",
-                    streaming=True,
-                    # model="deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
-                ),
+                endpoint=self.endpoint_config,
                 payload={"messages": response.conversation_data},
             )
 
@@ -227,11 +214,7 @@ class Worker(BaseService):
 
             # Send the request to the API
             record = await self.inference_client.send_request(
-                endpoint=EndPointConfig(
-                    type="v1/chat/completions",
-                    streaming=True,
-                    # model="deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
-                ),
+                endpoint=self.endpoint_config,
                 payload=formatted_payload,
                 delayed=delayed,
             )
@@ -239,8 +222,12 @@ class Worker(BaseService):
             if record.valid:
                 self.logger.debug(
                     "Record: %s milliseconds. %s milliseconds.",
-                    record.time_to_first_response_ns / NANOS_PER_MILLIS,
-                    record.time_to_last_response_ns / NANOS_PER_MILLIS,
+                    record.time_to_first_response_ns / NANOS_PER_MILLIS
+                    if record.time_to_first_response_ns
+                    else None,
+                    record.time_to_last_response_ns / NANOS_PER_MILLIS
+                    if record.time_to_last_response_ns
+                    else None,
                 )
             else:
                 self.logger.warning("Inference server call returned invalid response")
@@ -252,10 +239,7 @@ class Worker(BaseService):
                 "Error calling inference server: %s %s", e.__class__.__name__, str(e)
             )
             return RequestRecord(
-                error=ErrorDetails(
-                    type=e.__class__.__name__,
-                    message=str(e),
-                ),
+                error=ErrorDetails.from_exception(e),
             )
 
 

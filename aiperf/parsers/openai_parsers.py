@@ -4,14 +4,9 @@
 import logging
 from typing import Any
 
-from aiperf.common.models import RequestRecord
+from aiperf.common.models import RequestRecord, SSEMessage, TextResponse
 from aiperf.common.utils import load_json_str
-from aiperf.parsers.base import (
-    ResponseData,
-    ResponseExtractor,
-    SSEMessage,
-    TextResponse,
-)
+from aiperf.parsers.base import ResponseData, ResponseExtractor
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +77,7 @@ class OpenAIResponseExtractor(ResponseExtractor):
                 None,
                 "",
             ):
-                logger.warning("Parsing delta: %s", choice["delta"])
+                # logger.warning("Parsing delta: %s", choice["delta"])
                 return [choice["delta"]["content"]], metadata
 
         elif "message" in choice:

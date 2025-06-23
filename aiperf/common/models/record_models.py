@@ -130,6 +130,14 @@ class ErrorDetails(BaseModel):
         """Hash the error details by hashing the code, type, and message."""
         return hash((self.code, self.type, self.message))
 
+    @classmethod
+    def from_exception(cls, e: Exception) -> "ErrorDetails":
+        """Create an error details object from an exception."""
+        return cls(
+            type=e.__class__.__name__,
+            message=str(e),
+        )
+
 
 class ErrorDetailsCount(BaseModel):
     """Count of error details."""
@@ -262,19 +270,22 @@ class RequestRecord(BaseModel):
         """Get the time to the first response in nanoseconds."""
         if not self.valid:
             return None
-        return self.responses[0].perf_ns - self.recv_start_perf_ns
+        return (
+            self.responses[0].perf_ns - self.recv_start_perf_ns
+            if self.recv_start_perf_ns
+            else None
+        )
 
     @property
     def time_to_second_response_ns(self) -> int | None:
         """Get the time to the second response in nanoseconds."""
         if not self.valid or len(self.responses) < 2:
             return None
-        # first_data = 0
-        # while first_data < len(self.responses) - 1:
-        #     if self.responses[first_data].packets[-1].value == "[DONE]":
-        #         break
-        #     first_data += 1
-        return self.responses[1].perf_ns - self.responses[0].perf_ns
+        return (
+            self.responses[1].perf_ns - self.responses[0].perf_ns
+            if self.responses[1].perf_ns and self.responses[0].perf_ns
+            else None
+        )
 
     @property
     def time_to_last_response_ns(self) -> int | None:
@@ -283,7 +294,11 @@ class RequestRecord(BaseModel):
             return None
         if self.end_perf_ns is None or self.start_perf_ns is None:
             return None
-        return self.end_perf_ns - self.recv_start_perf_ns
+        return (
+            self.end_perf_ns - self.recv_start_perf_ns
+            if self.recv_start_perf_ns
+            else None
+        )
 
     @property
     def inter_token_latency_ns(self) -> float | None:
@@ -292,15 +307,21 @@ class RequestRecord(BaseModel):
             return None
 
         if (
-            hasattr(self.responses[-1], "packets")
+            isinstance(self.responses[-1], SSEMessage)
             and self.responses[-1].packets[-1].value == "[DONE]"
         ):
-            return (self.responses[-2].perf_ns - self.responses[0].perf_ns) / (
-                len(self.responses) - 2
+            return (
+                (self.responses[-2].perf_ns - self.responses[0].perf_ns)
+                / (len(self.responses) - 2)
+                if self.responses[-2].perf_ns and self.responses[0].perf_ns
+                else None
             )
 
-        return (self.responses[-1].perf_ns - self.responses[0].perf_ns) / (
-            len(self.responses) - 1
+        return (
+            (self.responses[-1].perf_ns - self.responses[0].perf_ns)
+            / (len(self.responses) - 1)
+            if self.responses[-1].perf_ns and self.responses[0].perf_ns
+            else None
         )
 
     def token_latency_ns(self, index: int) -> float | None:
@@ -308,17 +329,33 @@ class RequestRecord(BaseModel):
         if not self.valid or len(self.responses) < 1:
             return None
         if index == 0:
-            return self.responses[0].perf_ns - self.recv_start_perf_ns
-        return self.responses[index].perf_ns - self.responses[index - 1].perf_ns
+            return (
+                self.responses[0].perf_ns - self.recv_start_perf_ns
+                if self.recv_start_perf_ns
+                else None
+            )
+        return (
+            self.responses[index].perf_ns - self.responses[index - 1].perf_ns
+            if self.responses[index].perf_ns and self.responses[index - 1].perf_ns
+            else None
+        )
 
     def time_string(self) -> str:
         """Return a string representation of the request record."""
         lt = [
             # f"start_perf_ns={self.start_perf_ns / 1000000:.3f}ms",
-            f"recv_start_perf_ns={(self.recv_start_perf_ns - self.start_perf_ns) / 1000000:.3f}ms",
-            f"end_perf_ns={(self.end_perf_ns - self.start_perf_ns) / 1000000:.3f}ms",
-            f"recv_duration={(self.end_perf_ns - self.recv_start_perf_ns) / 1000000:.3f}ms",
-            f"duration={(self.end_perf_ns - self.start_perf_ns) / 1000000:.3f}ms",
+            f"recv_start_perf_ns={(self.recv_start_perf_ns - self.start_perf_ns) / 1000000:.3f}ms"
+            if self.recv_start_perf_ns
+            else None,
+            f"end_perf_ns={(self.end_perf_ns - self.start_perf_ns) / 1000000:.3f}ms"
+            if self.end_perf_ns
+            else None,
+            f"recv_duration={(self.end_perf_ns - self.recv_start_perf_ns) / 1000000:.3f}ms"
+            if self.end_perf_ns and self.recv_start_perf_ns
+            else None,
+            f"duration={(self.end_perf_ns - self.start_perf_ns) / 1000000:.3f}ms"
+            if self.end_perf_ns and self.start_perf_ns
+            else None,
         ]
         tt = [
             f"{self.token_latency_ns(i) / 1000000:.3f}ms"

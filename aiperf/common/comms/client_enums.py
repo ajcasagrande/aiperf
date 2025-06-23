@@ -13,6 +13,7 @@ class PubClientType(CaseInsensitiveStrEnum):
 
     CONTROLLER = "controller_pub"
     COMPONENT = "component_pub"
+    NOTIFICATION = "notification_pub"
 
     @classmethod
     def from_topic(cls, topic: Topic) -> "PubClientType":
@@ -38,10 +39,12 @@ class PubClientType(CaseInsensitiveStrEnum):
                 return cls.COMPONENT
             case Topic.COMMAND:
                 return cls.CONTROLLER
+            case Topic.NOTIFICATION:
+                return cls.NOTIFICATION
             case _:
                 raise CommunicationError(
                     CommunicationErrorReason.CLIENT_NOT_FOUND,
-                    f"No client type found for topic {topic}",
+                    f"No PubClientType found for topic {topic}",
                 )
 
 
@@ -53,6 +56,7 @@ class SubClientType(CaseInsensitiveStrEnum):
 
     CONTROLLER = "controller_sub"
     COMPONENT = "component_sub"
+    NOTIFICATION = "notification_sub"
 
     @classmethod
     def from_topic(cls, topic: Topic) -> "SubClientType":
@@ -78,10 +82,12 @@ class SubClientType(CaseInsensitiveStrEnum):
                 return cls.COMPONENT
             case Topic.COMMAND:
                 return cls.CONTROLLER
+            case Topic.NOTIFICATION:
+                return cls.NOTIFICATION
             case _:
                 raise CommunicationError(
                     CommunicationErrorReason.CLIENT_NOT_FOUND,
-                    f"No client type found for topic {topic}",
+                    f"No SubClientType found for topic {topic}",
                 )
 
 
@@ -115,7 +121,7 @@ class PushClientType(CaseInsensitiveStrEnum):
             case _:
                 raise CommunicationError(
                     CommunicationErrorReason.CLIENT_NOT_FOUND,
-                    f"No client type found for topic {topic}",
+                    f"No PushClientType found for topic {topic}",
                 )
 
 
@@ -149,7 +155,7 @@ class PullClientType(CaseInsensitiveStrEnum):
             case _:
                 raise CommunicationError(
                     CommunicationErrorReason.CLIENT_NOT_FOUND,
-                    f"No client type found for message type {message_type}",
+                    f"No PullClientType found for message type {message_type}",
                 )
 
 
@@ -162,50 +168,50 @@ class ReqClientType(CaseInsensitiveStrEnum):
     CONVERSATION_DATA = "conversation_data_req"
 
     @classmethod
-    def from_topic(cls, topic: Topic) -> "ReqClientType":
+    def from_message_type(cls, message_type: MessageType) -> "ReqClientType":
         """Determine the appropriate ClientType based on topic.
 
         Args:
-            topic: The topic to communicate on
+            message_type: The message type to communicate on
 
         Returns:
             The appropriate ClientType for the given topic
         """
-        match topic:
-            case Topic.CONVERSATION_DATA:
+        match message_type:
+            case MessageType.CONVERSATION_REQUEST | MessageType.DATASET_TIMING_REQUEST:
                 return cls.CONVERSATION_DATA
             case _:
                 raise CommunicationError(
                     CommunicationErrorReason.CLIENT_NOT_FOUND,
-                    f"No client type found for topic {topic}",
+                    f"No ReqClientType found for message type {message_type}",
                 )
 
 
 class RepClientType(CaseInsensitiveStrEnum):
     """
     Enum for specifying the client type for responding to messages. Includes a helper method
-    for retrieving the appropriate client type based on the topic.
+    for retrieving the appropriate client type based on the message type.
     """
 
     CONVERSATION_DATA = "conversation_data_rep"
 
     @classmethod
-    def from_topic(cls, topic: Topic) -> "RepClientType":
-        """Determine the appropriate ClientType based on topic.
+    def from_message_type(cls, message_type: MessageType) -> "RepClientType":
+        """Determine the appropriate ClientType based on message type.
 
         Args:
-            topic: The topic to communicate on
+            message_type: The message type to communicate on
 
         Returns:
             The appropriate ClientType for the given topic
         """
-        match topic:
-            case Topic.CONVERSATION_DATA:
+        match message_type:
+            case MessageType.CONVERSATION_REQUEST | MessageType.DATASET_TIMING_REQUEST:
                 return cls.CONVERSATION_DATA
             case _:
                 raise CommunicationError(
                     CommunicationErrorReason.CLIENT_NOT_FOUND,
-                    f"No client type found for topic {topic}",
+                    f"No RepClientType found for message type {message_type}",
                 )
 
 
