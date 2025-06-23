@@ -183,7 +183,7 @@ class RecordsManager(BaseComponentService):
                     except Exception as e:
                         self.logger.error("Error encoding token '%s': %s", t, e)
                         continue
-            self.logger.warning(
+            self.logger.debug(
                 "Received %d tokens, %d responses, %d total tokens",
                 len(tokens),
                 len(resp),

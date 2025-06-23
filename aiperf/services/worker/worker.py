@@ -15,7 +15,7 @@ from aiperf.common.comms.client_enums import (
     ReqClientType,
 )
 from aiperf.common.config import EndPointConfig, ServiceConfig
-from aiperf.common.constants import NANOS_PER_MILLIS
+from aiperf.common.constants import BYTES_PER_MB, NANOS_PER_MILLIS
 from aiperf.common.enums import InferenceClientType, MessageType, ServiceType, Topic
 from aiperf.common.factories import InferenceClientFactory, ServiceFactory
 from aiperf.common.hooks import (
@@ -274,16 +274,12 @@ class Worker(BaseService):
         """Report the health of the worker to the worker manager."""
 
         # Get process-specific CPU and memory usage
-        process_cpu_usage = self.process.cpu_percent()
-        # process_memory_info = self.process.memory_info()
-        process_memory_percent = self.process.memory_percent()
-
         await self.comms.publish(
             topic=Topic.WORKER_HEALTH,
             message=WorkerHealthMessage(
                 service_id=self.service_id,
-                cpu_usage=process_cpu_usage,
-                memory_usage=process_memory_percent,
+                cpu_usage=self.process.cpu_percent(),
+                memory_usage=self.process.memory_info().rss / BYTES_PER_MB,
                 uptime=time.time() - self.begin_time,
                 completed_tasks=self.completed_tasks,
                 failed_tasks=self.failed_tasks,
@@ -291,6 +287,9 @@ class Worker(BaseService):
                 timestamp_ns=time.time_ns(),
                 net_connections=len(self.process.net_connections("tcp4")),
                 open_files=len(self.process.open_files()),
+                cpu_num=self.process.cpu_num(),
+                io_counters=self.process.io_counters(),
+                cpu_times=self.process.cpu_times(),
             ),
         )
 

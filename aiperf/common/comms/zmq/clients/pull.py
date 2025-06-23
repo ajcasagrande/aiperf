@@ -41,7 +41,7 @@ class ZMQPullClient(BaseZMQClient):
 
         # TODO: make this configurable, especially on a per-client basis
         self.semaphore = asyncio.Semaphore(
-            value=int(os.getenv("AIPERF_WORKER_CONCURRENT_REQUESTS", 100))
+            value=int(os.getenv("AIPERF_WORKER_CONCURRENT_REQUESTS", 500))
         )
 
     @aiperf_task

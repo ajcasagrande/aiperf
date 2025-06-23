@@ -478,11 +478,11 @@ class WorkerHealthMessage(BaseServiceMessage):
     )
     failed_tasks: int = Field(..., description="The number of tasks that have failed")
     total_tasks: int = Field(
-        ..., description="The total number of tasks that have been attempted"
+        ..., description="The total number of tasks that have been attempted "
     )
     cpu_usage: float = Field(..., description="The current CPU usage of the worker")
     memory_usage: float = Field(
-        ..., description="The current memory usage of the worker"
+        ..., description="The current memory usage of the worker in MB"
     )
     uptime: float = Field(..., description="The uptime of the worker in seconds")
     timestamp_ns: int = Field(
@@ -496,3 +496,20 @@ class WorkerHealthMessage(BaseServiceMessage):
         default=None,
         description="The current number of open files",
     )
+    cpu_num: int | None = Field(
+        default=None,
+        description="The CPU number the worker is running on",
+    )
+    io_counters: tuple | None = Field(
+        default=None,
+        description="The current I/O counters of the worker",
+    )
+    cpu_times: tuple | None = Field(
+        default=None,
+        description="The current CPU times of the worker",
+    )
+
+    @property
+    def in_progress_tasks(self) -> int:
+        """The number of tasks that are in progress."""
+        return self.total_tasks - self.completed_tasks - self.failed_tasks
