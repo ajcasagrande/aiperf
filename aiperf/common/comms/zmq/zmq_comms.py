@@ -210,6 +210,14 @@ class BaseZMQCommunication(BaseCommunication, ABC):
                     self.config.component_pub_sub_address,
                     bind=False,
                 )
+
+            case PubClientType.WORKER:
+                return ZMQPubClient(
+                    self.context,
+                    self.config.worker_manager_pub_sub_address,
+                    bind=False,
+                )
+
             case _:
                 raise CommunicationError(
                     CommunicationErrorReason.CLIENT_NOT_FOUND,
@@ -248,6 +256,13 @@ class BaseZMQCommunication(BaseCommunication, ABC):
                     self.context,
                     self.config.component_pub_sub_address,
                     bind=False,
+                )
+
+            case SubClientType.WORKER_MANAGER:
+                return ZMQSubClient(
+                    self.context,
+                    self.config.worker_manager_pub_sub_address,
+                    bind=True,
                 )
 
             case _:

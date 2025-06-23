@@ -8,6 +8,17 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 
+class ConfigureMessage(BaseModel):
+    """Configuration for the server."""
+
+    ttft_ms: int | None = Field(
+        default=None, description="Time to first token in milliseconds"
+    )
+    itl_ms: int | None = Field(
+        default=None, description="Inter-token latency in milliseconds"
+    )
+
+
 class Role(str, Enum):
     """Message roles in chat completion."""
 

@@ -5,6 +5,8 @@ import os
 import sys
 import time
 
+import psutil
+
 from aiperf.clients.openai.common import OpenAIClientConfig
 from aiperf.common.comms.client_enums import (
     ClientType,
@@ -17,6 +19,7 @@ from aiperf.common.constants import NANOS_PER_MILLIS
 from aiperf.common.enums import InferenceClientType, MessageType, ServiceType, Topic
 from aiperf.common.factories import InferenceClientFactory, ServiceFactory
 from aiperf.common.hooks import (
+    aiperf_task,
     on_cleanup,
     on_init,
     on_run,
@@ -31,6 +34,7 @@ from aiperf.common.models import (
     InferenceResultsMessage,
     RequestRecord,
 )
+from aiperf.common.models.messages import WorkerHealthMessage
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.common.service.base_service import BaseService
 
@@ -58,6 +62,16 @@ class Worker(BaseService):
             type=os.getenv("AIPERF_ENDPOINT", "v1/chat/completions"),
             streaming=os.getenv("AIPERF_STREAMING", "true").lower() == "true",
         )
+
+        self.health_check_interval = int(os.getenv("AIPERF_HEALTH_CHECK_INTERVAL", 10))
+        self.begin_time = time.time()
+        self.completed_tasks = 0
+        self.failed_tasks = 0
+        self.total_tasks = 0
+
+        # Initialize process-specific CPU monitoring
+        self.process = psutil.Process()
+        self.process.cpu_percent()  # throw away the first result (will be 0)
 
     @property
     def service_type(self) -> ServiceType:
@@ -111,13 +125,17 @@ class Worker(BaseService):
 
     async def _run_credit_task(self, credit_drop_ns: int | None = None) -> None:
         """Run a credit task for a single credit."""
-
+        self.total_tasks += 1
         # Call the inference API
         record = await self._call_inference_api(credit_drop_ns)
         msg = InferenceResultsMessage(
             service_id=self.service_id,
             record=record,
         )
+        if record.valid:
+            self.completed_tasks += 1
+        else:
+            self.failed_tasks += 1
 
         # Push the record to the inference results topic
         try:
@@ -175,7 +193,7 @@ class Worker(BaseService):
             )
 
     async def _call_inference_api(
-        self, credit_drop_ns: int | None = None
+        self, credit_drop_ns: int | None = None, conversation_id: str | None = None
     ) -> RequestRecord:
         """Make a single call to the inference API. Will return an error record if the call fails."""
         try:
@@ -195,7 +213,7 @@ class Worker(BaseService):
             # retrieve the prompt from the dataset
             response = await self.comms.request(
                 message=ConversationRequestMessage(
-                    service_id=self.service_id, conversation_id="123"
+                    service_id=self.service_id, conversation_id=conversation_id
                 ),
             )
 
@@ -241,6 +259,40 @@ class Worker(BaseService):
             return RequestRecord(
                 error=ErrorDetails.from_exception(e),
             )
+
+    @aiperf_task
+    async def _health_check_task(self) -> None:
+        """Health check task."""
+        while not self.stop_event.is_set():
+            try:
+                await self._report_health()
+            except Exception as e:
+                self.logger.error("Error reporting health: %s", e)
+            await asyncio.sleep(self.health_check_interval)
+
+    async def _report_health(self) -> None:
+        """Report the health of the worker to the worker manager."""
+
+        # Get process-specific CPU and memory usage
+        process_cpu_usage = self.process.cpu_percent()
+        # process_memory_info = self.process.memory_info()
+        process_memory_percent = self.process.memory_percent()
+
+        await self.comms.publish(
+            topic=Topic.WORKER_HEALTH,
+            message=WorkerHealthMessage(
+                service_id=self.service_id,
+                cpu_usage=process_cpu_usage,
+                memory_usage=process_memory_percent,
+                uptime=time.time() - self.begin_time,
+                completed_tasks=self.completed_tasks,
+                failed_tasks=self.failed_tasks,
+                total_tasks=self.total_tasks,
+                timestamp_ns=time.time_ns(),
+                net_connections=len(self.process.net_connections("tcp4")),
+                open_files=len(self.process.open_files()),
+            ),
+        )
 
 
 @ServiceFactory.register(ServiceType.MULTI_WORKER_PROCESS)

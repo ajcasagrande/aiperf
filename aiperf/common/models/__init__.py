@@ -24,6 +24,7 @@ from aiperf.common.models.messages import (
     RegistrationMessage,
     StatusMessage,
     SweepProgressMessage,
+    WorkerHealthMessage,
     exclude_if_none,
 )
 from aiperf.common.models.record_models import (
@@ -80,4 +81,5 @@ __all__ = [
     "NotificationMessage",
     "DatasetTimingRequest",
     "DatasetTimingResponse",
+    "WorkerHealthMessage",
 ]

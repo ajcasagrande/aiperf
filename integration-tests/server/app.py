@@ -19,6 +19,7 @@ from .models import (
     ChatCompletionStreamChoice,
     ChatCompletionStreamResponse,
     ChatMessage,
+    ConfigureMessage,
     Role,
     Usage,
 )
@@ -28,7 +29,7 @@ from .tokenizer_service import tokenizer_service
 server_config: ServerConfig = ServerConfig()
 
 app = FastAPI(
-    title="AI Performance Integration Test Server",
+    title="AIPerf Integration Test Server",
     description="FastAPI server that echoes prompts token by token with configurable latencies",
     version="1.0.0",
 )
@@ -107,6 +108,16 @@ async def generate_streaming_response(
 
     yield f"data: {final_chunk.model_dump_json()}\n\n"
     yield "data: [DONE]\n\n"
+
+
+@app.post("/configure")
+async def configure(request: ConfigureMessage):
+    """Configure the server."""
+    if request.itl_ms is not None:
+        server_config.ITL_MS = request.itl_ms
+    if request.ttft_ms is not None:
+        server_config.TTFT_MS = request.ttft_ms
+    return {"status": "configured", "config": server_config.model_dump()}
 
 
 @app.post("/v1/chat/completions")
@@ -190,7 +201,7 @@ async def health_check():
 async def root():
     """Root endpoint with server information."""
     return {
-        "message": "AI Performance Integration Test Server",
+        "message": "AIPerf Integration Test Server",
         "version": "1.0.0",
         "endpoints": {
             "chat_completions": "/v1/chat/completions",

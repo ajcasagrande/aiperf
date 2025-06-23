@@ -14,6 +14,7 @@ class PubClientType(CaseInsensitiveStrEnum):
     CONTROLLER = "controller_pub"
     COMPONENT = "component_pub"
     NOTIFICATION = "notification_pub"
+    WORKER = "worker_pub"
 
     @classmethod
     def from_topic(cls, topic: Topic) -> "PubClientType":
@@ -41,6 +42,8 @@ class PubClientType(CaseInsensitiveStrEnum):
                 return cls.CONTROLLER
             case Topic.NOTIFICATION:
                 return cls.NOTIFICATION
+            case Topic.WORKER_HEALTH:
+                return cls.WORKER
             case _:
                 raise CommunicationError(
                     CommunicationErrorReason.CLIENT_NOT_FOUND,
@@ -57,6 +60,7 @@ class SubClientType(CaseInsensitiveStrEnum):
     CONTROLLER = "controller_sub"
     COMPONENT = "component_sub"
     NOTIFICATION = "notification_sub"
+    WORKER_MANAGER = "worker_manager_sub"
 
     @classmethod
     def from_topic(cls, topic: Topic) -> "SubClientType":
@@ -84,6 +88,8 @@ class SubClientType(CaseInsensitiveStrEnum):
                 return cls.CONTROLLER
             case Topic.NOTIFICATION:
                 return cls.NOTIFICATION
+            case Topic.WORKER_HEALTH:
+                return cls.WORKER_MANAGER
             case _:
                 raise CommunicationError(
                     CommunicationErrorReason.CLIENT_NOT_FOUND,

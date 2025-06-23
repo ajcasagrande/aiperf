@@ -173,7 +173,7 @@ class DaskWorker(Worker):
         """Process a credit drop task (runs on Dask worker)."""
         self.total_tasks += 1
 
-        result = await self._call_inference_api()
+        result = await self._call_inference_api(conversation_id=message.conversation_id)
         if result.valid:
             self.completed_tasks += 1
         else:
@@ -182,37 +182,18 @@ class DaskWorker(Worker):
         asyncio.create_task(self._push_result(result))
         asyncio.create_task(self._push_credit_return(message.amount))
 
-    async def _call_inference_api(self) -> RequestRecord:
+    async def _call_inference_api(
+        self, conversation_id: str | None = None
+    ) -> RequestRecord:
         """Make a call to the inference API."""
         try:
             logger.debug("Calling inference API")
 
             response = await self.zmq_comms.request(
                 message=ConversationRequestMessage(
-                    service_id=self.id, conversation_id="123"
+                    service_id=self.id, conversation_id=conversation_id
                 ),
             )
-            # messages = OpenAIChatCompletionRequest(
-            #     model="deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
-            #     messages=[
-            #         {
-            #             "role": "user",
-            #             "content": "softly smiteth That from the cold stone sparks of fire do fly Whereat a waxen torch forthwith he lighteth Which must be lodestar to his lustful eye And to the flame thus speaks advisedly As from this cold flint I enforced this fire So Lucrece must I force to my desire Here pale with fear he doth premeditate The dangers of his loathsome enterprise And in his inward mind he doth debate What following sorrow may on this arise Then looking scorn",
-            #         }
-            #     ],
-            #     max_tokens=100,
-            # )
-
-            # response.conversation_data
-
-            # Sample messages for the API call
-            # messages = [
-            #     {"role": "system", "content": "You are a helpful assistant."},
-            #     {
-            #         "role": "user",
-            #         "content": "Tell me about NVIDIA AI performance testing.",
-            #     },
-            # ]
 
             # Format payload for the API request
             formatted_payload = await self.inference_client.format_payload(

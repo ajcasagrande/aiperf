@@ -93,7 +93,7 @@ class DatasetManager(BaseComponentService):
     @on_configure
     async def _configure(self, message: Message) -> None:
         """Configure the dataset manager."""
-        self.logger.debug(f"Configuring dataset manager with message: {message}")
+        self.logger.info(f"Configuring dataset manager with message: {message}")
 
         self.tokenizer = Tokenizer.from_pretrained(
             os.getenv("AIPERF_MODEL", "deepseek-ai/DeepSeek-R1-Distill-Llama-8B")

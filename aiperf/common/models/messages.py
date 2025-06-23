@@ -253,6 +253,9 @@ class CreditDropMessage(BaseServiceMessage):
         ...,
         description="Amount of credits that have been dropped",
     )
+    conversation_id: str | None = Field(
+        default=None, description="The ID of the conversation, if applicable."
+    )
     credit_drop_ns: int = Field(
         default_factory=time.time_ns, description="Timestamp of the credit drop"
     )
@@ -327,7 +330,9 @@ class ConversationRequestMessage(BaseServiceMessage):
         MessageType.CONVERSATION_REQUEST
     )
 
-    conversation_id: str = Field(..., description="The ID of the conversation")
+    conversation_id: str | None = Field(
+        default=None, description="The ID of the conversation"
+    )
 
 
 class ConversationResponseMessage(BaseServiceMessage):
@@ -337,7 +342,9 @@ class ConversationResponseMessage(BaseServiceMessage):
         MessageType.CONVERSATION_RESPONSE
     )
 
-    conversation_id: str = Field(..., description="The ID of the conversation")
+    conversation_id: str | None = Field(
+        default=None, description="The ID of the conversation"
+    )
     conversation_data: list[dict[str, Any]] = Field(
         ..., description="The data of the conversation"
     )
@@ -456,4 +463,36 @@ class DatasetTimingResponse(BaseServiceMessage):
     timing_data: list[tuple[int, str]] = Field(
         ...,
         description="The timing data of the dataset. Tuple of (timestamp, conversation_id)",
+    )
+
+
+class WorkerHealthMessage(BaseServiceMessage):
+    """Message for a worker health check."""
+
+    message_type: Literal[MessageType.WORKER_HEALTH] = MessageType.WORKER_HEALTH
+
+    service_id: str = Field(..., description="The ID of the worker")
+
+    completed_tasks: int = Field(
+        ..., description="The number of tasks that have been completed"
+    )
+    failed_tasks: int = Field(..., description="The number of tasks that have failed")
+    total_tasks: int = Field(
+        ..., description="The total number of tasks that have been attempted"
+    )
+    cpu_usage: float = Field(..., description="The current CPU usage of the worker")
+    memory_usage: float = Field(
+        ..., description="The current memory usage of the worker"
+    )
+    uptime: float = Field(..., description="The uptime of the worker in seconds")
+    timestamp_ns: int = Field(
+        ..., description="The current timestamp of the health check"
+    )
+    net_connections: int | None = Field(
+        default=None,
+        description="The current number of network connections",
+    )
+    open_files: int | None = Field(
+        default=None,
+        description="The current number of open files",
     )

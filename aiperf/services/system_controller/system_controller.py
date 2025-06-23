@@ -398,7 +398,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         service_id = message.service_id
         service_type = message.service_type
 
-        self.logger.debug(
+        self.logger.warning(
             f"Processing registration from {service_type} with ID: {service_id}"
         )
 
@@ -417,7 +417,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         self.service_manager.service_map[service_type].append(service_info)
 
         is_required = service_type in self.required_service_types
-        self.logger.debug(
+        self.logger.warning(
             f"Registered {'required' if is_required else 'non-required'} "
             f"service: {service_type} with ID: {service_id}"
         )

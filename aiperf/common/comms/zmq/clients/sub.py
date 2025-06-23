@@ -107,17 +107,14 @@ class ZMQSubClient(BaseZMQClient):
 
             except asyncio.CancelledError:
                 break
+
             except zmq.Again:
-                # Handle ZMQ timeout or interruption
-                self.logger.debug(
-                    "ZMQ recv timeout due to no messages. trying again @ %s",
-                    self.address,
-                )
-                await asyncio.sleep(0.001)
+                pass
+
             except Exception as e:
                 self.logger.error(
                     "Exception receiving message from subscription: %s, %s",
                     e,
                     type(e),
                 )
-                await asyncio.sleep(0.1)
+                # await asyncio.sleep(0.1)

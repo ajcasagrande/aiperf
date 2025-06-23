@@ -51,6 +51,12 @@ class BaseZMQCommunicationConfig(BaseModel, ABC):
         """Get the credit return address based on protocol configuration."""
         ...
 
+    @property
+    @abstractmethod
+    def worker_manager_pub_sub_address(self) -> str:
+        """Get the worker manager pub/sub address based on protocol configuration."""
+        ...
+
 
 class ZMQTCPTransportConfig(BaseZMQCommunicationConfig):
     """Configuration for TCP transport."""
@@ -83,6 +89,9 @@ class ZMQTCPTransportConfig(BaseZMQCommunicationConfig):
     )
     credit_return_port: int = Field(
         default=5563, description="Port for credit return operations"
+    )
+    worker_manager_pub_sub_port: int = Field(
+        default=5564, description="Port for worker manager pub/sub messages"
     )
 
     @property
@@ -119,6 +128,11 @@ class ZMQTCPTransportConfig(BaseZMQCommunicationConfig):
     def credit_return_address(self) -> str:
         """Get the credit return address based on protocol configuration."""
         return f"tcp://{self.host}:{self.credit_return_port}"
+
+    @property
+    def worker_manager_pub_sub_address(self) -> str:
+        """Get the worker manager pub/sub address based on protocol configuration."""
+        return f"tcp://{self.host}:{self.worker_manager_pub_sub_port}"
 
 
 class ZMQIPCConfig(BaseZMQCommunicationConfig):
@@ -160,6 +174,11 @@ class ZMQIPCConfig(BaseZMQCommunicationConfig):
     def credit_return_address(self) -> str:
         """Get the credit return address based on protocol configuration."""
         return f"ipc://{self.path}/credit_return.ipc"
+
+    @property
+    def worker_manager_pub_sub_address(self) -> str:
+        """Get the worker manager pub/sub address based on protocol configuration."""
+        return f"ipc://{self.path}/worker_manager_pub_sub.ipc"
 
 
 class ZMQInprocConfig(ZMQIPCConfig):

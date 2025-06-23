@@ -87,6 +87,7 @@ class Topic(CaseInsensitiveStrEnum):
     INFERENCE_RESULTS = "inference_results"
     CONVERSATION_DATA = "conversation_data"
     NOTIFICATION = "notification"
+    WORKER_HEALTH = "worker_health"
 
 
 ################################################################################
@@ -207,6 +208,9 @@ class MessageType(CaseInsensitiveStrEnum):
 
     DATASET_TIMING_RESPONSE = "dataset_timing_response"
     """A message sent by a service to respond to a dataset timing request."""
+
+    WORKER_HEALTH = "worker_health"
+    """A message sent by a worker to the worker manager to report its health."""
 
 
 ################################################################################

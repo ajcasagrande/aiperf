@@ -133,8 +133,8 @@ class BaseZMQClient(AIPerfTaskMixin):
 
             # In BaseZMQClient.initialize()
             # Reduce timeouts to more reasonable values
-            self._socket.setsockopt(zmq.RCVTIMEO, 5000)  # 5 seconds
-            self._socket.setsockopt(zmq.SNDTIMEO, 5000)  # 5 seconds
+            self._socket.setsockopt(zmq.RCVTIMEO, 300000)  # 5 minutes
+            self._socket.setsockopt(zmq.SNDTIMEO, 300000)  # 5 minutes
 
             # Add performance-oriented socket options
             self._socket.setsockopt(zmq.TCP_KEEPALIVE, 1)

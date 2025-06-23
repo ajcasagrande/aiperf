@@ -77,7 +77,7 @@ class BaseComponentService(BaseService):
             ) from e
 
         # TODO: HACK: Sleep for 1 second to allow the controller to register the service
-        await asyncio.sleep(1)
+        await asyncio.sleep(0.1)
 
         # Register the service
         try:
@@ -149,7 +149,6 @@ class BaseComponentService(BaseService):
 
         This method will process the command message and execute the appropriate action.
         """
-        self.logger.info("Processing command message: %s", message)
         if message.target_service_id and message.target_service_id != self.service_id:
             return  # Ignore commands meant for other services
         if (
@@ -158,12 +157,13 @@ class BaseComponentService(BaseService):
         ):
             return  # Ignore commands meant for other services
 
+        self.logger.info("%s: Processing command message: %s", self.service_id, message)
         cmd = message.command
         if cmd == CommandType.PROFILE_START:
             await self.start()
 
         elif cmd == CommandType.SHUTDOWN:
-            self.logger.debug("%s received stop command", self.service_id)
+            self.logger.info("%s: Received stop command", self.service_id)
             self.stop_event.set()
 
         elif cmd == CommandType.PROFILE_CONFIGURE:
@@ -173,7 +173,9 @@ class BaseComponentService(BaseService):
             await self._command_callbacks[cmd](message)
 
         else:
-            self.logger.warning("%s received unknown command: %s", self.service_id, cmd)
+            self.logger.warning(
+                "%s: Received unknown command: %s", self.service_id, cmd
+            )
 
     def register_command_callback(
         self,

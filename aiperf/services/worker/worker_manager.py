@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from aiperf.common.bootstrap import bootstrap_and_run_service
 from aiperf.common.config import ServiceConfig
-from aiperf.common.enums import ServiceRunType, ServiceType
+from aiperf.common.enums import ServiceRunType, ServiceType, Topic
 from aiperf.common.exceptions import ConfigError
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
@@ -21,7 +21,7 @@ from aiperf.common.hooks import (
     on_start,
     on_stop,
 )
-from aiperf.common.models import Message
+from aiperf.common.models import Message, WorkerHealthMessage
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.services.worker import worker
 from aiperf.services.worker.worker import MultiWorkerProcess
@@ -55,6 +55,7 @@ class WorkerManager(BaseComponentService):
         super().__init__(service_config=service_config, service_id=service_id)
         self.logger.debug("Initializing worker manager")
         self.workers: dict[str, WorkerProcess] = {}
+        self.worker_health: dict[str, WorkerHealthMessage] = {}
         # TODO: Need to implement some sort of max workers
         self.cpu_count = multiprocessing.cpu_count()
         self.max_concurrency = int(os.environ.get("AIPERF_CONCURRENCY", 100))
@@ -78,6 +79,8 @@ class WorkerManager(BaseComponentService):
         """Initialize worker manager-specific components."""
         self.logger.debug("Initializing worker manager")
 
+        await self.comms.subscribe(Topic.WORKER_HEALTH, self._on_worker_health)
+
         # Spawn workers based on CPU count
         if self.service_config.service_run_type == ServiceRunType.MULTIPROCESSING:
             await self._spawn_multiprocessing_workers()
@@ -92,6 +95,11 @@ class WorkerManager(BaseComponentService):
             raise ConfigError(
                 f"Unsupported run type: {self.service_config.service_run_type}"
             )
+
+    async def _on_worker_health(self, message: WorkerHealthMessage) -> None:
+        """Handle a worker health message."""
+        self.logger.warning("Received worker health message: %s", message)
+        self.worker_health[message.service_id] = message
 
     @on_start
     async def _start(self) -> None:
