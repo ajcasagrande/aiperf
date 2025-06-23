@@ -5,6 +5,12 @@ from aiperf.ui.logging_ui import LogViewer, TextualLogHandler
 from aiperf.ui.progress_dashboard import ProgressDashboard
 from aiperf.ui.textual_ui import AIPerfTextualApp, TextualUIMixin
 from aiperf.ui.widgets import StatusIndicator
+from aiperf.ui.worker_dashboard import (
+    WorkerDashboard,
+    WorkerDashboardMixin,
+    WorkerHealthService,
+    WorkerStatusCard,
+)
 
 __all__ = [
     "AIPerfTextualApp",
@@ -13,4 +19,8 @@ __all__ = [
     "TextualLogHandler",
     "ProgressDashboard",
     "StatusIndicator",
+    "WorkerDashboard",
+    "WorkerDashboardMixin",
+    "WorkerStatusCard",
+    "WorkerHealthService",
 ]

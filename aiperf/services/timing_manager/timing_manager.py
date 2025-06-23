@@ -115,7 +115,7 @@ class TimingManager(BaseComponentService):
 
     async def _on_notification(self, message: NotificationMessage) -> None:
         """Handle a notification message."""
-        self.logger.debug(f"Received notification: {message.notification_type}")
+        self.logger.warning(f"TM: Received notification: {message.notification_type}")
         if message.notification_type == NotificationType.DATASET_CONFIGURED:
             # TODO: Query for timing information from the dataset manager
             await self.comms.request(

@@ -204,17 +204,10 @@ class BaseZMQCommunication(BaseCommunication, ABC):
                     bind=False,
                 )
 
-            case PubClientType.NOTIFICATION:
+            case PubClientType.NOTIFICATION | PubClientType.WORKER:
                 return ZMQPubClient(
                     self.context,
                     self.config.component_pub_sub_address,
-                    bind=False,
-                )
-
-            case PubClientType.WORKER:
-                return ZMQPubClient(
-                    self.context,
-                    self.config.worker_manager_pub_sub_address,
                     bind=False,
                 )
 
@@ -251,18 +244,11 @@ class BaseZMQCommunication(BaseCommunication, ABC):
                     bind=True,
                 )
 
-            case SubClientType.NOTIFICATION:
+            case SubClientType.NOTIFICATION | SubClientType.WORKER_MANAGER:
                 return ZMQSubClient(
                     self.context,
                     self.config.component_pub_sub_address,
                     bind=False,
-                )
-
-            case SubClientType.WORKER_MANAGER:
-                return ZMQSubClient(
-                    self.context,
-                    self.config.worker_manager_pub_sub_address,
-                    bind=True,
                 )
 
             case _:

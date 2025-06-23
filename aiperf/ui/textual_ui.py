@@ -2,11 +2,20 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 import logging
+from collections.abc import Callable
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, Grid, Vertical
-from textual.widgets import Button, Footer, Header, Label, Static
+from textual.widgets import (
+    Button,
+    Footer,
+    Header,
+    Label,
+    Static,
+    TabbedContent,
+    TabPane,
+)
 
 from aiperf.common.hooks import (
     AIPerfLifecycleMixin,
@@ -16,6 +25,7 @@ from aiperf.common.hooks import (
 from aiperf.common.progress_tracker import ProgressTracker
 from aiperf.ui.logging_ui import LogViewer
 from aiperf.ui.progress_dashboard import ProgressDashboard
+from aiperf.ui.worker_dashboard import WorkerDashboard
 
 logger = logging.getLogger(__name__)
 
@@ -44,19 +54,31 @@ class AIPerfTextualApp(App):
     }
 
     #dashboard-section {
-        height: 13;
-        min-height: 2;
+        height: 1fr;
+        min-height: 15;
     }
 
     #logs-section {
+        height: 2fr;
+    }
+
+    TabbedContent {
         height: 100%;
-        margin: 0 0 13 0;
+        width: 100%;
+    }
+
+    TabPane {
+        height: 100%;
+        width: 100%;
+        padding: 1;
     }
     """
 
     BINDINGS = [
         ("q", "quit", "Quit"),
         ("ctrl+c", "quit", "Quit"),
+        ("1", "switch_tab('performance')", "Performance"),
+        ("2", "switch_tab('workers')", "Workers"),
     ]
 
     def __init__(self, progress_tracker: ProgressTracker) -> None:
@@ -64,6 +86,7 @@ class AIPerfTextualApp(App):
         self.progress_tracker = progress_tracker
         self.dashboard: ProgressDashboard | None = None
         self.log_viewer: LogViewer | None = None
+        self.worker_dashboard: WorkerDashboard | None = None
         self.title = "AIPerf Performance Monitor"
         self.sub_title = "Real-time AI Performance Testing Dashboard"
 
@@ -73,14 +96,28 @@ class AIPerfTextualApp(App):
 
         with Vertical(id="main-container"):
             with Container(id="dashboard-section"):
-                self.dashboard = ProgressDashboard(self.progress_tracker)
-                yield self.dashboard
+                with TabbedContent(initial="performance"):
+                    with TabPane("Performance Dashboard", id="performance"):
+                        self.dashboard = ProgressDashboard(self.progress_tracker)
+                        yield self.dashboard
+
+                    with TabPane("Worker Status", id="workers"):
+                        self.worker_dashboard = WorkerDashboard()
+                        yield self.worker_dashboard
 
             with Container(id="logs-section"):
                 self.log_viewer = LogViewer()
                 yield self.log_viewer
 
         yield Footer()
+
+    async def action_switch_tab(self, tab_id: str) -> None:
+        """Switch to a specific tab."""
+        try:
+            tabbed_content = self.query_one(TabbedContent)
+            tabbed_content.active = tab_id
+        except Exception as e:
+            logger.error(f"Error switching to tab {tab_id}: {e}")
 
     async def action_quit(self) -> None:
         """Show confirmation dialog as an overlay."""
@@ -203,7 +240,7 @@ class QuitConfirmationDialog(Static):
 
     def __init__(self):
         super().__init__()
-        self.on_quit = None
+        self.on_quit: Callable[[], None] | None = None
 
     def compose(self) -> ComposeResult:
         """Compose the confirmation dialog."""
