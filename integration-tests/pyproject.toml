@@ -26,7 +26,7 @@ packages = ["server"]
 
 # CLI Entrypoint
 [project.scripts]
-aiperf-mock-server = "server.main:app"
+aiperf-mock-server = "mock_server.main:app"
 
 [project.optional-dependencies]
 dev = [

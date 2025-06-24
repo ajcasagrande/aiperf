@@ -6,13 +6,9 @@ import logging
 
 import typer
 import uvicorn
-from dotenv import load_dotenv
 
 from .app import set_server_config
-from .config import ConfigDefaults, ServerConfig
-
-# Load environment variables from .env file if it exists
-load_dotenv()
+from .config import ConfigDefaults, MockServerConfig
 
 # Configure logging
 logging.basicConfig(
@@ -27,10 +23,16 @@ app = typer.Typer()
 @app.command()
 def main(
     port: int = typer.Option(
-        ConfigDefaults.PORT, help="Port to run the server on (env: SERVER_PORT)"
+        ConfigDefaults.PORT,
+        "--port",
+        "-p",
+        help="Port to run the server on (env: SERVER_PORT)",
     ),
     host: str = typer.Option(
-        ConfigDefaults.HOST, help="Host to bind the server to (env: SERVER_HOST)"
+        ConfigDefaults.HOST,
+        "--host",
+        "-h",
+        help="Host to bind the server to (env: SERVER_HOST)",
     ),
     ttft: float = typer.Option(
         ConfigDefaults.TTFT_MS,
@@ -45,10 +47,15 @@ def main(
         help="Inter-token latency in milliseconds (env: ITL_MS)",
     ),
     workers: int = typer.Option(
-        ConfigDefaults.WORKERS, help="Number of worker processes (env: SERVER_WORKERS)"
+        ConfigDefaults.WORKERS,
+        "--workers",
+        "-w",
+        help="Number of worker processes (env: SERVER_WORKERS)",
     ),
     log_level: str = typer.Option(
-        ConfigDefaults.LOG_LEVEL, help="Set the logging level"
+        ConfigDefaults.LOG_LEVEL,
+        "--log-level",
+        help="Set the logging level",
     ),
 ):
     """Start the AI Performance Integration Test Server."""
@@ -57,11 +64,11 @@ def main(
     logging.root.setLevel(getattr(logging, log_level))
 
     # Create server configuration from CLI arguments and environment variables
-    config = ServerConfig(
+    config = MockServerConfig(
         port=port,
         host=host,
-        TTFT_MS=ttft,
-        ITL_MS=itl,
+        ttft_ms=ttft,
+        itl_ms=itl,
         workers=workers,
     )
 
@@ -73,7 +80,7 @@ def main(
 
     # Start the server
     uvicorn.run(
-        "server.app:app",
+        "mock_server.app:app",
         host=config.host,
         port=config.port,
         log_level=log_level.lower(),

@@ -7,18 +7,18 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
-from server.app import app, set_server_config
-from server.config import ServerConfig
+from mock_server.app import app, set_server_config
+from mock_server.config import MockServerConfig
 
 
 @pytest.fixture
 def test_config():
     """Test configuration with fast latencies."""
-    return ServerConfig(
+    return MockServerConfig(
         port=8000,
         host="127.0.0.1",
-        TTFT_MS=10.0,  # Fast for testing
-        ITL_MS=5.0,  # Fast for testing
+        ttft_ms=10.0,  # Fast for testing
+        itl_ms=5.0,  # Fast for testing
     )
 
 
@@ -125,19 +125,19 @@ def test_max_tokens_limit(client):
 @pytest.mark.asyncio
 async def test_server_startup():
     """Test that the server can start up properly."""
-    config = ServerConfig(
+    config = MockServerConfig(
         port=8001,  # Different port to avoid conflicts
-        TTFT_MS=1.0,
-        ITL_MS=1.0,
+        ttft_ms=1.0,
+        itl_ms=1.0,
     )
 
     set_server_config(config)
 
     # Test that the app configuration was set
-    from server.app import server_config as app_config
+    from mock_server.app import server_config as app_config
 
-    assert app_config.TTFT_MS == 1.0
-    assert app_config.ITL_MS == 1.0
+    assert app_config.ttft_ms == 1.0
+    assert app_config.itl_ms == 1.0
 
 
 if __name__ == "__main__":

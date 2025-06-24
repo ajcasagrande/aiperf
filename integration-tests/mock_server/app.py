@@ -11,7 +11,7 @@ from time import perf_counter
 from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
 
-from .config import ServerConfig
+from .config import MockServerConfig
 from .models import (
     ChatCompletionChoice,
     ChatCompletionRequest,
@@ -26,7 +26,7 @@ from .models import (
 from .tokenizer_service import tokenizer_service
 
 # Global server configuration
-server_config: ServerConfig = ServerConfig()
+server_config: MockServerConfig = MockServerConfig()
 
 app = FastAPI(
     title="AIPerf Integration Test Server",
@@ -35,7 +35,7 @@ app = FastAPI(
 )
 
 
-def set_server_config(config: ServerConfig) -> None:
+def set_server_config(config: MockServerConfig) -> None:
     """Set the global server configuration."""
     global server_config
     server_config = config
@@ -65,15 +65,15 @@ async def generate_streaming_response(
         tokens = tokens[: request.max_tokens]
 
         # Wait for time to first token with precise timing
-    if server_config.TTFT_MS > 0:
-        target_time = start_time + (server_config.TTFT_MS / 1000.0)
+    if server_config.ttft_ms > 0:
+        target_time = start_time + (server_config.ttft_ms / 1000.0)
         await asyncio.sleep(target_time - perf_counter())
 
     # Send tokens one by one
     for i, token in enumerate(tokens):
-        if i > 0 and server_config.ITL_MS > 0:
+        if i > 0 and server_config.itl_ms > 0:
             start_time = perf_counter()
-            target_time = start_time + (server_config.ITL_MS / 1000.0)
+            target_time = start_time + (server_config.itl_ms / 1000.0)
             await asyncio.sleep(target_time - perf_counter())
 
         # Create streaming response chunk
@@ -114,9 +114,9 @@ async def generate_streaming_response(
 async def configure(request: ConfigureMessage):
     """Configure the server."""
     if request.itl_ms is not None:
-        server_config.ITL_MS = request.itl_ms
+        server_config.itl_ms = request.itl_ms
     if request.ttft_ms is not None:
-        server_config.TTFT_MS = request.ttft_ms
+        server_config.ttft_ms = request.ttft_ms
     return {"status": "configured", "config": server_config.model_dump()}
 
 
@@ -152,12 +152,12 @@ async def chat_completions(request: ChatCompletionRequest):
 
         start_time = perf_counter()
         # Wait for time to first token with precise timing
-        if server_config.TTFT_MS > 0:
-            target_time = start_time + (server_config.TTFT_MS / 1000.0)
+        if server_config.ttft_ms > 0:
+            target_time = start_time + (server_config.ttft_ms / 1000.0)
             await asyncio.sleep(target_time - perf_counter())
 
         # Simulate processing time for all tokens with precise timing
-        total_processing_time = (len(tokens) - 1) * server_config.ITL_MS / 1000.0
+        total_processing_time = (len(tokens) - 1) * server_config.itl_ms / 1000.0
 
         if total_processing_time > 0:
             target_time = start_time + total_processing_time
@@ -206,6 +206,7 @@ async def root():
         "endpoints": {
             "chat_completions": "/v1/chat/completions",
             "health": "/health",
+            "configure": "/configure",
         },
         "config": server_config.model_dump(),
     }

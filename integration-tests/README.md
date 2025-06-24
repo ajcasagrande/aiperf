@@ -46,18 +46,20 @@ aiperf-mock-server \
   --host 127.0.0.1
 
 # With environment variables
-export SERVER_PORT=8080
-export TTFT_MS=30
-export ITL_MS=10
+export MOCK_SERVER_PORT=8080
+export MOCK_SERVER_TTFT_MS=30
+export MOCK_SERVER_ITL_MS=10
 aiperf-mock-server
 ```
 
 ### Environment Variables
 
-- `SERVER_PORT`: Port to run the server on (default: 8000)
-- `SERVER_HOST`: Host to bind to (default: 0.0.0.0)
-- `TTFT_MS`: Time to first token latency in milliseconds (default: 50.0)
-- `ITL_MS`: Inter-token latency in milliseconds (default: 10.0)
+- `MOCK_SERVER_PORT`: Port to run the server on (default: 8000)
+- `MOCK_SERVER_HOST`: Host to bind to (default: 0.0.0.0)
+- `MOCK_SERVER_TTFT_MS`: Time to first token latency in milliseconds (default: 50.0)
+- `MOCK_SERVER_ITL_MS`: Inter-token latency in milliseconds (default: 10.0)
+- `MOCK_SERVER_WORKERS`: Number of uvicorn worker processes (default: 1)
+
 
 ### API Usage
 
@@ -101,10 +103,11 @@ curl http://localhost:8000/health
 
 | Parameter | CLI Flag | Environment Variable | Default | Description |
 |-----------|----------|---------------------|---------|-------------|
-| Port | `--port` | `SERVER_PORT` | 8000 | Server port |
-| Host | `--host` | `SERVER_HOST` | 0.0.0.0 | Server host |
-| TTFT | `--time-to-first-token-ms` | `TTFT_MS` | 100.0 | Time to first token (ms) |
-| ITL | `--inter-token-latency-ms` | `ITL_MS` | 50.0 | Inter-token latency (ms) |
+| Port | `--port` | `MOCK_SERVER_PORT` | 8000 | Server port |
+| Host | `--host` | `MOCK_SERVER_HOST` | 0.0.0.0 | Server host |
+| TTFT | `--time-to-first-token-ms` | `MOCK_SERVER_TTFT_MS` | 100.0 | Time to first token (ms) |
+| ITL | `--inter-token-latency-ms` | `MOCK_SERVER_ITL_MS` | 50.0 | Inter-token latency (ms) |
+| Workers | `--workers` | `MOCK_SERVER_WORKERS` | 1 | Worker processes for uvicorn server |
 
 ## How It Works
 
@@ -121,13 +124,6 @@ curl http://localhost:8000/health
 ## Supported Models
 
 The server automatically loads tokenizers for any model supported by Hugging Face Transformers. If a tokenizer fails to load, it falls back to GPT-2.
-
-Common models:
-- `gpt-3.5-turbo` (uses GPT-2 tokenizer as fallback)
-- `gpt-4` (uses GPT-2 tokenizer as fallback)
-- `microsoft/DialoGPT-large`
-- `facebook/blenderbot-400M-distill`
-- Any HuggingFace model with a tokenizer
 
 ## Development
 

@@ -22,13 +22,12 @@ class ConfigDefaults:
     LOG_LEVEL: str = "INFO"
 
 
-class ServerConfig(BaseSettings):
+class MockServerConfig(BaseSettings):
     """Server configuration with automatic environment variable support."""
 
     model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        case_sensitive=True,
+        case_sensitive=False,
+        env_prefix="MOCK_SERVER_",
     )
 
     port: int = Field(
@@ -36,12 +35,12 @@ class ServerConfig(BaseSettings):
         description="Port to run the server on",
     )
 
-    TTFT_MS: float = Field(
+    ttft_ms: float = Field(
         default=ConfigDefaults.TTFT_MS,
         description="Time to first token latency in milliseconds",
     )
 
-    ITL_MS: float = Field(
+    itl_ms: float = Field(
         default=ConfigDefaults.ITL_MS,
         description="Inter-token latency in milliseconds",
     )
