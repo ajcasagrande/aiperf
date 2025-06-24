@@ -23,9 +23,12 @@ class KubernetesServiceManager(BaseServiceManager):
     """
 
     def __init__(
-        self, required_service_types: list[ServiceType], config: ServiceConfig
+        self,
+        pre_requisites: list[ServiceType],
+        required_service_types: list[ServiceType],
+        config: ServiceConfig,
     ):
-        super().__init__(required_service_types, config)
+        super().__init__(pre_requisites, required_service_types, config)
 
     async def run_all_services(self) -> None:
         """Initialize all required services as Kubernetes pods."""

@@ -32,18 +32,17 @@ class MultiProcessServiceManager(BaseServiceManager):
 
     def __init__(
         self,
+        pre_requisites: list[ServiceType],
         required_service_types: list[ServiceType],
         config: ServiceConfig,
     ):
-        super().__init__(required_service_types, config)
+        super().__init__(pre_requisites, required_service_types, config)
         self.multi_process_info: list[MultiProcessRunInfo] = []
 
-    async def run_all_services(self) -> None:
-        """Start all required services as multiprocessing processes."""
-        self.logger.debug("Starting all required services as multiprocessing processes")
-
+    async def _run_services(self, service_types: list[ServiceType]) -> None:
+        """Run a list of services as multiprocessing processes."""
         # Create and start all service processes
-        for service_type in self.required_service_types:
+        for service_type in service_types:
             service_class = ServiceFactory.get_class_from_type(service_type)
 
             process = Process(
@@ -67,8 +66,29 @@ class MultiProcessServiceManager(BaseServiceManager):
                 MultiProcessRunInfo(process=process, service_type=service_type)
             )
 
+            # TODO: HACK: This is a hack
             # Sleep to allow the service to register
             await asyncio.sleep(0.01)
+
+    async def run_all_services(self) -> None:
+        """Start all required services as multiprocessing processes."""
+        self.logger.debug("Starting all required services as multiprocessing processes")
+
+        try:
+            await self._run_services(self.pre_requisites)
+            # TODO: HACK: This is a hack to wait for pre-requisites to register before starting required services
+            await asyncio.sleep(
+                1
+            )  # Wait for pre-requisites to register before starting required services
+        except Exception as e:
+            self.logger.error("Error starting pre-requisites: %s", e)
+            raise e
+
+        try:
+            await self._run_services(self.required_service_types)
+        except Exception as e:
+            self.logger.error("Error starting services: %s", e)
+            raise e
 
     async def shutdown_all_services(self) -> None:
         """Stop all required services as multiprocessing processes."""

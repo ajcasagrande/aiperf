@@ -16,9 +16,13 @@ class BaseServiceManager(ABC):
     """
 
     def __init__(
-        self, required_service_types: list[ServiceType], config: ServiceConfig
+        self,
+        pre_requisites: list[ServiceType],
+        required_service_types: list[ServiceType],
+        config: ServiceConfig,
     ):
         self.logger = logging.getLogger(self.__class__.__name__)
+        self.pre_requisites = pre_requisites
         self.required_service_types = required_service_types
         self.config = config
 

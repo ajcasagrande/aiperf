@@ -2,12 +2,36 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from abc import ABC, abstractmethod
+from typing import ClassVar
 
 from pydantic import BaseModel, Field
 
 
+class BaseZMQProxyConfig(BaseModel, ABC):
+    """Configuration Protocol for ZMQ Proxy."""
+
+    @property
+    @abstractmethod
+    def frontend_address(self) -> str: ...
+
+    @property
+    @abstractmethod
+    def backend_address(self) -> str: ...
+
+    @property
+    @abstractmethod
+    def control_address(self) -> str | None: ...
+
+    @property
+    @abstractmethod
+    def capture_address(self) -> str | None: ...
+
+
 class BaseZMQCommunicationConfig(BaseModel, ABC):
     """Configuration for ZMQ communication."""
+
+    xpub_xsub_proxy_config: ClassVar[BaseZMQProxyConfig]
+    dealer_router_broker_config: ClassVar[BaseZMQProxyConfig]
 
     @property
     @abstractmethod
@@ -58,6 +82,84 @@ class BaseZMQCommunicationConfig(BaseModel, ABC):
         ...
 
 
+class ZMQTCPProxyConfig(BaseZMQProxyConfig):
+    """Configuration for TCP proxy."""
+
+    host: str = Field(
+        default="0.0.0.0",
+        description="Host address for TCP connections",
+    )
+    frontend_port: int = Field(
+        default=15555, description="Port for frontend address for proxy"
+    )
+    backend_port: int = Field(
+        default=15556, description="Port for backend address for proxy"
+    )
+    control_port: int | None = Field(
+        default=None, description="Port for control address for proxy"
+    )
+    capture_port: int | None = Field(
+        default=None, description="Port for capture address for proxy"
+    )
+
+    @property
+    def frontend_address(self) -> str:
+        """Get the frontend address based on protocol configuration."""
+        return f"tcp://{self.host}:{self.frontend_port}"
+
+    @property
+    def backend_address(self) -> str:
+        """Get the backend address based on protocol configuration."""
+        return f"tcp://{self.host}:{self.backend_port}"
+
+    @property
+    def control_address(self) -> str | None:
+        """Get the control address based on protocol configuration."""
+        return f"tcp://{self.host}:{self.control_port}" if self.control_port else None
+
+    @property
+    def capture_address(self) -> str | None:
+        """Get the capture address based on protocol configuration."""
+        return f"tcp://{self.host}:{self.capture_port}" if self.capture_port else None
+
+
+class ZMQIPCProxyConfig(BaseZMQProxyConfig):
+    """Configuration for IPC proxy."""
+
+    path: str = Field(default="/tmp/aiperf", description="Path for IPC sockets")
+    name: str = Field(default="proxy", description="Name for IPC sockets")
+    enable_control: bool = Field(default=False, description="Enable control socket")
+    enable_capture: bool = Field(default=False, description="Enable capture socket")
+
+    @property
+    def frontend_address(self) -> str:
+        """Get the frontend address based on protocol configuration."""
+        return f"ipc://{self.path}/{self.name}_frontend.ipc"
+
+    @property
+    def backend_address(self) -> str:
+        """Get the backend address based on protocol configuration."""
+        return f"ipc://{self.path}/{self.name}_backend.ipc"
+
+    @property
+    def control_address(self) -> str | None:
+        """Get the control address based on protocol configuration."""
+        return (
+            f"ipc://{self.path}/{self.name}_control.ipc"
+            if self.enable_control
+            else None
+        )
+
+    @property
+    def capture_address(self) -> str | None:
+        """Get the capture address based on protocol configuration."""
+        return (
+            f"ipc://{self.path}/{self.name}_capture.ipc"
+            if self.enable_capture
+            else None
+        )
+
+
 class ZMQTCPTransportConfig(BaseZMQCommunicationConfig):
     """Configuration for TCP transport."""
 
@@ -92,6 +194,14 @@ class ZMQTCPTransportConfig(BaseZMQCommunicationConfig):
     )
     worker_manager_pub_sub_port: int = Field(
         default=5564, description="Port for worker manager pub/sub messages"
+    )
+    dealer_router_broker_config: ZMQTCPProxyConfig = Field(
+        default=ZMQTCPProxyConfig(),
+        description="Configuration for the ZMQ Proxy. If provided, the proxy will be created and started.",
+    )
+    xpub_xsub_proxy_config: ZMQTCPProxyConfig = Field(
+        default=ZMQTCPProxyConfig(),
+        description="Configuration for the ZMQ Proxy. If provided, the proxy will be created and started.",
     )
 
     @property
@@ -139,6 +249,14 @@ class ZMQIPCConfig(BaseZMQCommunicationConfig):
     """Configuration for IPC transport."""
 
     path: str = Field(default="/tmp/aiperf", description="Path for IPC sockets")
+    dealer_router_broker_config: ZMQIPCProxyConfig = Field(
+        default=ZMQIPCProxyConfig(name="dealer_router_broker"),
+        description="Configuration for the ZMQ Dealer Router Broker. If provided, the broker will be created and started.",
+    )
+    xpub_xsub_proxy_config: ZMQIPCProxyConfig = Field(
+        default=ZMQIPCProxyConfig(name="xpub_xsub_proxy"),
+        description="Configuration for the ZMQ XPUB/XSUB Proxy. If provided, the proxy will be created and started.",
+    )
 
     @property
     def controller_pub_sub_address(self) -> str:

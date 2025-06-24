@@ -108,7 +108,7 @@ class Worker(BaseService):
 
         # Initialize the OpenAI client
         self.inference_client = InferenceClientFactory.create_instance(
-            InferenceClientType.OPENAI, config=openai_client_config
+            InferenceClientType.OPENAI, client_config=openai_client_config
         )
 
         await self.comms.register_pull_callback(

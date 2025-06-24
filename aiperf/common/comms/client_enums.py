@@ -11,6 +11,7 @@ class PubClientType(CaseInsensitiveStrEnum):
     for retrieving the appropriate client type based on the topic.
     """
 
+    XPUB_XSUB = "xpub_xsub_pub"
     CONTROLLER = "controller_pub"
     COMPONENT = "component_pub"
     NOTIFICATION = "notification_pub"
@@ -25,6 +26,8 @@ class PubClientType(CaseInsensitiveStrEnum):
         Returns:
             The appropriate ClientType for the given topic
         """
+        return cls.XPUB_XSUB
+        # TODO: Fix this when we have a better way to publish to the xpub_xsub topic
         match topic:
             case (
                 Topic.HEARTBEAT
@@ -54,6 +57,7 @@ class SubClientType(CaseInsensitiveStrEnum):
     for retrieving the appropriate client type based on the topic.
     """
 
+    XPUB_XSUB = "xpub_xsub_sub"
     CONTROLLER = "controller_sub"
     COMPONENT = "component_sub"
 
@@ -67,6 +71,8 @@ class SubClientType(CaseInsensitiveStrEnum):
         Returns:
             The appropriate ClientType for the given topic
         """
+        return cls.XPUB_XSUB
+        # TODO: Fix this when we have a better way to subscribe to the xpub_xsub topic
         match topic:
             case (
                 Topic.HEARTBEAT

@@ -11,6 +11,7 @@ from aiperf.common.enums import (
     PromptSource,
     RequestPayloadType,
     ServiceType,
+    ZMQBrokerType,
 )
 from aiperf.common.exceptions import FactoryCreationError
 
@@ -137,14 +138,12 @@ class FactoryMixin(Generic[ClassEnumT, ClassProtocolT]):
     def create_instance(
         cls,
         class_type: ClassEnumT | str,
-        config: Any | None = None,
         **kwargs: Any,
     ) -> ClassProtocolT:
         """Create a new class instance.
 
         Args:
             class_type: The type of class to create
-            config: The configuration for the class
             **kwargs: Additional arguments for the class
 
         Returns:
@@ -156,7 +155,7 @@ class FactoryMixin(Generic[ClassEnumT, ClassProtocolT]):
         if class_type not in cls._registry:
             raise FactoryCreationError(f"No implementation found for {class_type!r}.")
         try:
-            return cls._registry[class_type](config, **kwargs)
+            return cls._registry[class_type](**kwargs)
         except Exception as e:
             raise FactoryCreationError(
                 f"Error creating {class_type!r} instance: {e}"
@@ -346,5 +345,26 @@ class RequestConverterFactory(
         request_payload_converter = RequestConverterFactory.create_instance(
             RequestPayloadType.OPENAI_CHAT_COMPLETIONS,
         )
+    ```
+    """
+
+
+class ZMQBrokerFactory(FactoryMixin[ZMQBrokerType, "BaseZMQBroker"]):
+    """
+    A factory for creating ZMQ brokers.
+
+    Example:
+    ```python
+        # Register a new ZMQ broker type
+        @ZMQBrokerFactory.register(ZMQBrokerType.DEALER_ROUTER)
+        class DealerRouterBroker(BaseZMQBroker):
+            pass
+
+        # Create a new ZMQ broker instance
+        broker = ZMQBrokerFactory.create_instance(
+            ZMQBrokerType.DEALER_ROUTER,
+            config=ZMQTCPProxyConfig(host="localhost", frontend_port=5555, backend_port=5556),
+        )
+        broker.run()
     ```
     """

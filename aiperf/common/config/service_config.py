@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 from pydantic import BaseModel, Field
 
-from aiperf.common.config.zmq_config import BaseZMQCommunicationConfig
+from aiperf.common.config.zmq_config import BaseZMQCommunicationConfig, ZMQIPCConfig
 from aiperf.common.enums import CommunicationBackend, ServiceRunType
 
 
@@ -22,8 +22,8 @@ class ServiceConfig(BaseModel):
         default=CommunicationBackend.ZMQ_IPC,
         description="Communication backend to use",
     )
-    comm_config: BaseZMQCommunicationConfig | None = Field(
-        default=None,
+    comm_config: BaseZMQCommunicationConfig = Field(
+        default=ZMQIPCConfig(),
         description="Communication configuration",
     )
     heartbeat_timeout: float = Field(

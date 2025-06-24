@@ -320,6 +320,15 @@ class ServiceType(CaseInsensitiveStrEnum):
     MULTI_WORKER_PROCESS = "multi_worker_process"
     WORKER = "worker"
     TEST = "test_service"
+    ZMQ_DEALER_ROUTER_BROKER = "zmq_dealer_router_broker"
+    ZMQ_XPUB_XSUB_PROXY = "zmq_xpub_xsub_proxy"
+
+
+class ZMQBrokerType(CaseInsensitiveStrEnum):
+    """Types of ZMQ brokers."""
+
+    DEALER_ROUTER = "dealer_router"
+    XPUB_XSUB = "xpub_xsub"
 
 
 class ServiceRegistrationStatus(CaseInsensitiveStrEnum):

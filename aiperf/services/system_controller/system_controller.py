@@ -105,7 +105,15 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
 
         self._system_state: SystemState = SystemState.INITIALIZING
 
+        # List of pre-requisites for the system controller
+        # These are services that must be running before the system controller can start other services
+        self.pre_requisites: list[ServiceType] = [
+            ServiceType.ZMQ_DEALER_ROUTER_BROKER,
+            ServiceType.ZMQ_XPUB_XSUB_PROXY,
+        ]
+
         # List of required service types, in no particular order
+        # These are services that must be running before the system controller can start profiling
         self.required_service_types: list[ServiceType] = [
             ServiceType.DATASET_MANAGER,
             ServiceType.TIMING_MANAGER,
@@ -162,12 +170,16 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
 
         if self.service_config.service_run_type == ServiceRunType.MULTIPROCESSING:
             self.service_manager = MultiProcessServiceManager(
-                self.required_service_types, self.service_config
+                pre_requisites=self.pre_requisites,
+                required_service_types=self.required_service_types,
+                config=self.service_config,
             )
 
         elif self.service_config.service_run_type == ServiceRunType.KUBERNETES:
             self.service_manager = KubernetesServiceManager(
-                self.required_service_types, self.service_config
+                pre_requisites=self.pre_requisites,
+                required_service_types=self.required_service_types,
+                config=self.service_config,
             )
 
         else:
@@ -185,8 +197,6 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             (Topic.PROFILE_PROGRESS, self._process_profile_progress_message),
             (Topic.PROFILE_STATS, self._process_profile_stats_message),
             (Topic.PROFILE_RESULTS, self._process_profile_results_message),
-            (Topic.WORKER_HEALTH, self._process_worker_health_message),
-            (Topic.NOTIFICATION, self._process_notification_message),
         ]
         for topic, callback in subscribe_callbacks:
             try:

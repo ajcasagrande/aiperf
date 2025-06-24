@@ -204,13 +204,19 @@ class BaseZMQCommunication(BaseCommunication, ABC):
                     bind=False,
                 )
 
-            case PubClientType.NOTIFICATION | PubClientType.WORKER:
+            case PubClientType.NOTIFICATION:
                 return ZMQPubClient(
                     self.context,
                     self.config.component_pub_sub_address,
                     bind=False,
                 )
 
+            case PubClientType.XPUB_XSUB:
+                return ZMQPubClient(
+                    self.context,
+                    self.config.xpub_xsub_proxy_config.frontend_address,
+                    bind=False,
+                )
             case _:
                 raise CommunicationError(
                     CommunicationErrorReason.CLIENT_NOT_FOUND,
@@ -244,13 +250,12 @@ class BaseZMQCommunication(BaseCommunication, ABC):
                     bind=True,
                 )
 
-            case SubClientType.NOTIFICATION | SubClientType.WORKER_MANAGER:
+            case SubClientType.XPUB_XSUB:
                 return ZMQSubClient(
                     self.context,
-                    self.config.component_pub_sub_address,
+                    self.config.xpub_xsub_proxy_config.backend_address,
                     bind=False,
                 )
-
             case _:
                 raise CommunicationError(
                     CommunicationErrorReason.CLIENT_NOT_FOUND,
