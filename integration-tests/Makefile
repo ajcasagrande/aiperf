@@ -26,7 +26,7 @@
 SHELL := /bin/bash
 
 PROJECT_NAME ?= AIPerf Integration Tests
-x
+
 # The path to the virtual environment
 VENV_PATH ?= ../.venv
 # The python version to use

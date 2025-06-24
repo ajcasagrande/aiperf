@@ -98,7 +98,7 @@ class WorkerManager(BaseComponentService):
 
     async def _on_worker_health(self, message: WorkerHealthMessage) -> None:
         """Handle a worker health message."""
-        self.logger.warning("Received worker health message: %s", message)
+        self.logger.info("Received worker health message: %s", message)
         self.worker_health[message.service_id] = message
 
     @on_start
