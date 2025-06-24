@@ -36,10 +36,10 @@ pip install -e ".[dev]"
 
 ```bash
 # Basic usage
-integration-server
+aiperf-mock-server
 
 # Custom configuration
-integration-server \
+aiperf-mock-server \
   --port 8080 \
   --time-to-first-token-ms 30 \
   --inter-token-latency-ms 10 \
@@ -49,15 +49,15 @@ integration-server \
 export SERVER_PORT=8080
 export TTFT_MS=30
 export ITL_MS=10
-integration-server
+aiperf-mock-server
 ```
 
 ### Environment Variables
 
 - `SERVER_PORT`: Port to run the server on (default: 8000)
 - `SERVER_HOST`: Host to bind to (default: 0.0.0.0)
-- `TTFT_MS`: Time to first token latency in milliseconds (default: 100.0)
-- `ITL_MS`: Inter-token latency in milliseconds (default: 50.0)
+- `TTFT_MS`: Time to first token latency in milliseconds (default: 50.0)
+- `ITL_MS`: Inter-token latency in milliseconds (default: 10.0)
 
 ### API Usage
 
@@ -142,9 +142,9 @@ pytest
 ```
 server/
 ├── __init__.py          # Package initialization
-├── app.py              # FastAPI application
-├── config.py           # Configuration management
-├── main.py             # CLI entry point
-├── models.py           # Pydantic models
+├── app.py               # FastAPI application
+├── config.py            # Configuration management
+├── main.py              # CLI entry point
+├── models.py            # Pydantic models
 └── tokenizer_service.py # Tokenizer management
 ```

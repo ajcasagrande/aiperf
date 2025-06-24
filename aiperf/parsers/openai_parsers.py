@@ -77,7 +77,7 @@ class OpenAIResponseExtractor(ResponseExtractor):
                 None,
                 "",
             ):
-                # logger.warning("Parsing delta: %s", choice["delta"])
+                # logger.debug("Parsing delta: %s", choice["delta"])
                 return [choice["delta"]["content"]], metadata
 
         elif "message" in choice:
@@ -118,5 +118,5 @@ class OpenAIResponseExtractor(ResponseExtractor):
                     else:
                         if v not in all_metadata[k]:
                             all_metadata[k].append(v)
-        # logger.warning(f"All metadata: {all_metadata}")
+        # logger.debug(f"All metadata: {all_metadata}")
         return result, all_metadata

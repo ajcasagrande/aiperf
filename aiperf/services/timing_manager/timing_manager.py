@@ -36,7 +36,7 @@ from aiperf.common.models import (
     Message,
     ProfileProgressMessage,
 )
-from aiperf.common.models.messages import NotificationMessage
+from aiperf.common.models.messages import DatasetTimingResponse, NotificationMessage
 from aiperf.common.service.base_component_service import BaseComponentService
 
 
@@ -66,6 +66,8 @@ class TimingManager(BaseComponentService):
         self.credit_drop_client: PushClientInterface
         self.credit_return_client: PullClientInterface
         self.dataset_request_client: ReqClientInterface
+        self.dataset_timing_response: DatasetTimingResponse | None = None
+        self.dataset_ready: asyncio.Event = asyncio.Event()
 
     @property
     def service_type(self) -> ServiceType:
@@ -130,14 +132,19 @@ class TimingManager(BaseComponentService):
 
     async def _on_notification(self, message: NotificationMessage) -> None:
         """Handle a notification message."""
-        self.logger.warning(f"TM: Received notification: {message.notification_type}")
+        self.logger.info(f"TM: Received notification: {message.notification_type}")
         if message.notification_type == NotificationType.DATASET_CONFIGURED:
-            # TODO: Query for timing information from the dataset manager
-            await self.dataset_request_client.request(
+            self.logger.debug("TM: Requesting dataset timing information")
+            self.dataset_timing_response = await self.dataset_request_client.request(
                 message=DatasetTimingRequest(
                     service_id=self.service_id,
                 ),
             )
+            self.logger.debug(
+                "TM: Received dataset timing response: %s",
+                self.dataset_timing_response,
+            )
+            self.dataset_ready.set()
 
     @on_start
     async def _issue_credit_drops(self) -> None:
@@ -146,6 +153,10 @@ class TimingManager(BaseComponentService):
 
         # TODO: Actually implement real credit drop logic
         await self.initialized_event.wait()
+
+        self.logger.info("TM: Waiting for dataset to be ready")
+        await self.dataset_ready.wait()
+        self.logger.info("TM: Dataset is ready")
 
         self.start_time_ns = time.time_ns()
 
@@ -161,6 +172,7 @@ class TimingManager(BaseComponentService):
 
         drop_at = time.time_ns() + 100_000
 
+        self.logger.info("TM: Issuing credit drops")
         while not self.stop_event.is_set():
             try:
                 if not self._credits_available:

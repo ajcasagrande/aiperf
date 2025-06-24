@@ -53,7 +53,7 @@ class DatasetManager(BaseComponentService):
     @on_init
     async def _initialize(self) -> None:
         """Initialize dataset manager-specific components."""
-        self.logger.debug("Initializing dataset manager")
+        self.logger.info("Initializing dataset manager %s", self.service_id)
 
         if self.comms is None:
             raise AIPerfError("Communication is not initialized")
@@ -78,30 +78,34 @@ class DatasetManager(BaseComponentService):
             handler=self._handle_dataset_timing_request,
         )
 
-        self.logger.error("Dataset manager initialized")
+        self.logger.info("Dataset manager %s initialized", self.service_id)
 
     @on_start
     async def _start(self) -> None:
         """Start the dataset manager."""
-        self.logger.debug("Starting dataset manager")
+        self.logger.info("Starting dataset manager %s", self.service_id)
         # TODO: Implement dataset manager start
 
     @on_stop
     async def _stop(self) -> None:
         """Stop the dataset manager."""
-        self.logger.debug("Stopping dataset manager")
+        self.logger.debug("Stopping dataset manager %s", self.service_id)
         # TODO: Implement dataset manager stop
 
     @on_cleanup
     async def _cleanup(self) -> None:
         """Clean up dataset manager-specific components."""
-        self.logger.debug("Cleaning up dataset manager")
+        self.logger.debug("Cleaning up dataset manager %s", self.service_id)
         # TODO: Implement dataset manager cleanup
 
     @on_configure
     async def _configure(self, message: Message) -> None:
         """Configure the dataset manager."""
-        self.logger.info(f"Configuring dataset manager with message: {message}")
+        self.logger.info(
+            "Configuring dataset manager %s with message: %s",
+            self.service_id,
+            message,
+        )
 
         self.tokenizer = Tokenizer.from_pretrained(
             os.getenv("AIPERF_MODEL", "deepseek-ai/DeepSeek-R1-Distill-Llama-8B")
@@ -150,7 +154,10 @@ class DatasetManager(BaseComponentService):
         self, message: DatasetTimingRequest
     ) -> DatasetTimingResponse:
         """Handle a dataset timing request."""
-        self.logger.debug(f"Handling dataset timing request: {message}")
+        self.logger.info(
+            "Handling dataset timing request %s",
+            message,
+        )
         # TODO: Implement dataset timing request handling
         return DatasetTimingResponse(
             service_id=self.service_id,

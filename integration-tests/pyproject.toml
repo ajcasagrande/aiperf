@@ -4,9 +4,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "aiperf-integration-tests"
+name = "aiperf-mock-server"
 version = "0.1.0"
-description = "Integration tests FastAPI server for AI performance testing"
+description = "AIPerf FastAPI-based OpenAI mock server for AI performance testing"
 authors = []
 dependencies = [
     "fastapi>=0.104.1",
@@ -26,7 +26,7 @@ packages = ["server"]
 
 # CLI Entrypoint
 [project.scripts]
-integration-server = "server.main:app"
+aiperf-mock-server = "server.main:app"
 
 [project.optional-dependencies]
 dev = [

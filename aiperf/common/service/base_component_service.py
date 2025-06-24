@@ -62,19 +62,17 @@ class BaseComponentService(BaseService):
                 "Failed to subscribe to command topic",
             ) from e
 
-        # TODO: HACK: Sleep for 0.5 second to allow the controller to register the service
-        await asyncio.sleep(0.5)
+        # TODO: HACK: Sleep for 1 second to allow the controller to be ready to register the service
+        await asyncio.sleep(1)
 
         # Register the service
-        for _ in range(3):
-            try:
-                await self.register()
-                await asyncio.sleep(0.1)
-            except Exception as e:
-                raise self._service_error(
-                    ServiceErrorType.REGISTER_SERVICE_ERROR,
-                    "Failed to register service",
-                ) from e
+        try:
+            await self.register()
+        except Exception as e:
+            raise self._service_error(
+                ServiceErrorType.REGISTER_SERVICE_ERROR,
+                "Failed to register service",
+            ) from e
 
     @aiperf_task
     async def _heartbeat_task(self) -> None:
@@ -90,7 +88,7 @@ class BaseComponentService(BaseService):
             try:
                 await self.send_heartbeat()
             except Exception as e:
-                self.logger.warning("Exception sending heartbeat: %s", e)
+                self.logger.error("Exception sending heartbeat: %s", e)
                 # continue to keep sending heartbeats regardless of the error
 
         self.logger.debug("Heartbeat task stopped")
@@ -145,13 +143,15 @@ class BaseComponentService(BaseService):
         ):
             return  # Ignore commands meant for other services
 
-        self.logger.info("%s: Processing command message: %s", self.service_id, message)
+        self.logger.debug(
+            "%s: Processing command message: %s", self.service_id, message
+        )
         cmd = message.command
         if cmd == CommandType.PROFILE_START:
             await self.start()
 
         elif cmd == CommandType.SHUTDOWN:
-            self.logger.info("%s: Received stop command", self.service_id)
+            self.logger.debug("%s: Received stop command", self.service_id)
             self.stop_event.set()
 
         elif cmd == CommandType.PROFILE_CONFIGURE:

@@ -411,7 +411,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         service_id = message.service_id
         service_type = message.service_type
 
-        self.logger.warning(
+        self.logger.info(
             f"Processing registration from {service_type} with ID: {service_id}"
         )
 
@@ -430,9 +430,11 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         self.service_manager.service_map[service_type].append(service_info)
 
         is_required = service_type in self.required_service_types
-        self.logger.warning(
-            f"Registered {'required' if is_required else 'non-required'} "
-            f"service: {service_type} with ID: {service_id}"
+        self.logger.info(
+            "Registered %s service: %s with ID: %s",
+            "required" if is_required else "non-required",
+            service_type,
+            service_id,
         )
 
         # Send configure command to the newly registered service
@@ -449,7 +451,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             ) from e
 
         self.logger.debug(
-            f"Sent configure command to {service_type} (ID: {service_id})"
+            "Sent configure command to %s (ID: %s)", service_type, service_id
         )
 
     async def _process_heartbeat_message(self, message: HeartbeatMessage) -> None:
@@ -463,14 +465,16 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         service_type = message.service_type
         timestamp = message.request_ns
 
-        self.logger.debug(f"Received heartbeat from {service_type} (ID: {service_id})")
+        self.logger.debug(
+            "Received heartbeat from %s (ID: %s)", service_type, service_id
+        )
 
         # Update the last heartbeat timestamp if the component exists
         try:
             service_info = self.service_manager.service_id_map[service_id]
             service_info.last_seen = timestamp
             service_info.state = message.state
-            self.logger.debug(f"Updated heartbeat for {service_id} to {timestamp}")
+            self.logger.debug("Updated heartbeat for %s to %s", service_id, timestamp)
         except Exception:
             self.logger.warning(
                 f"Received heartbeat from unknown service: {service_id} ({service_type})"
@@ -522,7 +526,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         self, message: WorkerHealthMessage
     ) -> None:
         """Process a worker health message."""
-        self.logger.warning("SC: Received worker health message: %s", message)
+        self.logger.info("SC: Received worker health message: %s", message)
         # Re-publish the worker health message to the services that need it
         await self.pub_client.publish(
             topic=Topic.WORKER_HEALTH,
@@ -533,7 +537,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
 
     async def _process_notification_message(self, message: NotificationMessage) -> None:
         """Process a notification message."""
-        self.logger.warning("SC: Received notification message: %s", message)
+        self.logger.info("SC: Received notification message: %s", message)
         # Re-publish the notification message to the services that need it
         await self.pub_client.publish(
             topic=Topic.NOTIFICATION,

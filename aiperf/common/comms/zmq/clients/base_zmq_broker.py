@@ -54,7 +54,7 @@ class BaseZMQBroker(ABC):
         """
         self.logger = logging.getLogger(self.__class__.__name__)
         self.context = context
-        self.logger.info(
+        self.logger.debug(
             f"BROKER INIT - Frontend: {zmq_proxy_config.frontend_address} (ROUTER for DEALER clients), Backend: {zmq_proxy_config.backend_address} (DEALER for ROUTER services)"
         )
         self.frontend_address = zmq_proxy_config.frontend_address
@@ -79,7 +79,7 @@ class BaseZMQBroker(ABC):
 
         self.control_client = None
         if self.control_address:
-            self.logger.info(f"BROKER CONTROL - Address: {self.control_address}")
+            self.logger.debug(f"BROKER CONTROL - Address: {self.control_address}")
             self.control_client = BaseZMQClient(
                 self.context,
                 SocketType.REP,
@@ -90,7 +90,7 @@ class BaseZMQBroker(ABC):
 
         self.capture_client = None
         if self.capture_address:
-            self.logger.info(f"BROKER CAPTURE - Address: {self.capture_address}")
+            self.logger.debug(f"BROKER CAPTURE - Address: {self.capture_address}")
             self.capture_client = BaseZMQClient(
                 self.context,
                 SocketType.PUB,
@@ -115,16 +115,16 @@ class BaseZMQBroker(ABC):
     async def _initialize(self) -> None:
         """Initialize and start the BaseZMQBroker."""
         init_start = time.time()
-        self.logger.info("BROKER INITIALIZING SOCKETS...")
-        self.logger.info(
+        self.logger.debug("BROKER INITIALIZING SOCKETS...")
+        self.logger.debug(
             f"  Frontend ROUTER socket binding to: {self.frontend_address} (for DEALER clients)"
         )
-        self.logger.info(
-            f"  Backend DEALER socket binding to: {self.backend_address} (for ROUTER services)"
+        self.logger.debug(
+            f"  Backend socket binding to: {self.backend_address} (for ROUTER services)"
         )
         if hasattr(self.backend_socket, "broker_id"):
-            self.logger.info(
-                f"  Backend DEALER socket identity: {self.backend_socket.broker_id}"
+            self.logger.debug(
+                f"  Backend socket identity: {self.backend_socket.broker_id}"
             )
 
         try:
@@ -139,24 +139,24 @@ class BaseZMQBroker(ABC):
             )
 
             init_duration = time.time() - init_start
-            self.logger.info(
+            self.logger.debug(
                 f"BROKER SOCKETS INITIALIZED SUCCESSFULLY - Duration: {init_duration:.3f}s"
             )
-            self.logger.info(
+            self.logger.debug(
                 f"  Frontend ROUTER socket bound to: {self.frontend_address}"
             )
-            self.logger.info(
+            self.logger.debug(
                 f"  Backend DEALER socket bound to: {self.backend_address}"
             )
             if hasattr(self.backend_socket, "broker_id"):
-                self.logger.info(
+                self.logger.debug(
                     f"  Backend DEALER socket identity confirmed: {self.backend_socket.broker_id}"
                 )
 
             if self.control_client:
-                self.logger.info(f"  Control socket bound to: {self.control_address}")
+                self.logger.debug(f"  Control socket bound to: {self.control_address}")
             if self.capture_client:
-                self.logger.info(f"  Capture socket bound to: {self.capture_address}")
+                self.logger.debug(f"  Capture socket bound to: {self.capture_address}")
 
         except Exception as e:
             self.logger.error(f"BROKER SOCKET INITIALIZATION FAILED - Error: {e}")
@@ -165,7 +165,7 @@ class BaseZMQBroker(ABC):
     async def stop(self) -> None:
         """Shutdown the BaseZMQBroker."""
         stop_start = time.time()
-        self.logger.info("BROKER STOPPING...")
+        self.logger.debug("BROKER STOPPING...")
 
         try:
             await asyncio.gather(
@@ -182,7 +182,7 @@ class BaseZMQBroker(ABC):
             total_uptime = (
                 time.time() - self._broker_start_time if self._broker_start_time else 0
             )
-            self.logger.info(
+            self.logger.debug(
                 f"BROKER STOPPED - Stop Duration: {stop_duration:.3f}s, Total Uptime: {total_uptime:.3f}s"
             )
 
@@ -202,19 +202,19 @@ class BaseZMQBroker(ABC):
             await self._initialize()
 
             # Broker configuration: frontend=ROUTER (for DEALER clients), backend=DEALER (for ROUTER services)
-            self.logger.info("BROKER STARTING...")
-            self.logger.info(
+            self.logger.debug("BROKER STARTING...")
+            self.logger.debug(
                 f"  Frontend: ROUTER@{self.frontend_address} (receives from DEALER clients)"
             )
-            self.logger.info(
+            self.logger.debug(
                 f"  Backend: DEALER@{self.backend_address} (sends to ROUTER services)"
             )
             if self.capture_client:
-                self.logger.info(
+                self.logger.debug(
                     f"  Capture: PUB@{self.capture_address} (message monitoring)"
                 )
             if self.control_client:
-                self.logger.info(
+                self.logger.debug(
                     f"  Control: REP@{self.control_address} (proxy control)"
                 )
 
@@ -224,7 +224,7 @@ class BaseZMQBroker(ABC):
             monitor_task = None
             if self.capture_client:
                 monitor_task = asyncio.create_task(self._monitor_messages())
-                self.logger.info("BROKER MESSAGE MONITORING STARTED")
+                self.logger.debug("BROKER MESSAGE MONITORING STARTED")
 
             # Start the broker in a separate thread (blocking operation)
             await asyncio.to_thread(
@@ -261,7 +261,7 @@ class BaseZMQBroker(ABC):
         if not self.capture_client or not self.capture_address:
             return
 
-        self.logger.info(
+        self.logger.debug(
             f"BROKER MONITOR STARTING - Capture Address: {self.capture_address}"
         )
 
@@ -299,7 +299,7 @@ class BaseZMQBroker(ABC):
                             f"Frame[{i}]: {frame_size}b - {frame_preview!r}"
                         )
 
-                    self.logger.info(
+                    self.logger.debug(
                         f"BROKER CAPTURED MESSAGE #{message_count} - Total Size: {total_size}b, Frames: {len(frames)}"
                     )
 
@@ -345,7 +345,7 @@ class BaseZMQBroker(ABC):
                         else:
                             direction = f"COMPLEX ({len(frames)} frames)"
 
-                    self.logger.info(
+                    self.logger.debug(
                         f"BROKER CAPTURE ANALYSIS - Direction: {direction}, Sender: {sender_info}"
                     )
 
@@ -378,7 +378,7 @@ class BaseZMQBroker(ABC):
                             msg_id = message_data.get("request_id", "unknown")
                             service_id = message_data.get("service_id", "unknown")
 
-                            self.logger.info(
+                            self.logger.debug(
                                 f"BROKER CAPTURED PARSED - ID: {msg_id}, Type: {msg_type}, Service: {service_id}, Direction: {direction}"
                             )
 
@@ -415,7 +415,7 @@ class BaseZMQBroker(ABC):
                     continue
 
         except asyncio.CancelledError:
-            self.logger.info(
+            self.logger.debug(
                 f"BROKER MONITOR CANCELLED - Messages Captured: {message_count}"
             )
             raise
