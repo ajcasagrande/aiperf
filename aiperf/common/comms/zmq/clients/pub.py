@@ -5,6 +5,7 @@ import logging
 
 import zmq.asyncio
 
+from aiperf.common.comms.base import PubClientInterface
 from aiperf.common.comms.zmq.clients.base import BaseZMQClient
 from aiperf.common.exceptions import CommunicationError, CommunicationErrorReason
 from aiperf.common.models import Message
@@ -12,7 +13,7 @@ from aiperf.common.models import Message
 logger = logging.getLogger(__name__)
 
 
-class ZMQPubClient(BaseZMQClient):
+class ZMQPubClient(BaseZMQClient, PubClientInterface):
     def __init__(
         self,
         context: zmq.asyncio.Context,
@@ -43,7 +44,7 @@ class ZMQPubClient(BaseZMQClient):
             CommunicationError: If the client is not initialized
                 or the message was not published successfully
         """
-        self._ensure_initialized()
+        await self._ensure_initialized()
 
         try:
             message_json = message.model_dump_json()

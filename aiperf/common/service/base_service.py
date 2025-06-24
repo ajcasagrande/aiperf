@@ -6,7 +6,11 @@ import logging
 import uuid
 from abc import ABC
 
-from aiperf.common.comms.base import BaseCommunication
+from aiperf.common.comms.base import (
+    BaseCommunication,
+    PubClientInterface,
+    SubClientInterface,
+)
 from aiperf.common.config import ServiceConfig
 from aiperf.common.enums import ServiceState, ServiceType
 from aiperf.common.exceptions import (
@@ -60,7 +64,10 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
         self.stop_event = asyncio.Event()
         self.initialized_event = asyncio.Event()
 
-        self._comms: BaseCommunication | None = None
+        self._comms: BaseCommunication
+
+        self.pub_client: PubClientInterface
+        self.sub_client: SubClientInterface
 
         try:
             import setproctitle
@@ -155,15 +162,15 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
 
         await self._comms.initialize()
 
-        if len(self.required_clients) > 0:
-            # Create the communication clients ahead of time
-            self.logger.debug(
-                "%s: Creating communication clients (%s)",
-                self.service_type,
-                self.required_clients,
-            )
+        self.sub_client = await self._comms.create_sub_client(
+            address=self.service_config.comm_config.xpub_xsub_proxy_config.backend_address,
+        )
+        await self.sub_client.initialize()
 
-            await self._comms.create_clients(*self.required_clients)
+        self.pub_client = await self._comms.create_pub_client(
+            address=self.service_config.comm_config.xpub_xsub_proxy_config.frontend_address,
+        )
+        await self.pub_client.initialize()
 
         # Initialize any derived service components
         await self.run_hooks(AIPerfHook.ON_INIT)

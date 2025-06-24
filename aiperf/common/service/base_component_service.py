@@ -3,7 +3,6 @@
 import asyncio
 from collections.abc import Awaitable, Callable
 
-from aiperf.common.comms.client_enums import ClientType, PubClientType, SubClientType
 from aiperf.common.config import ServiceConfig
 from aiperf.common.enums import CommandType, ServiceState, Topic
 from aiperf.common.exceptions import ServiceErrorType
@@ -41,19 +40,6 @@ class BaseComponentService(BaseService):
             CommandType, Callable[[CommandMessage], Awaitable[None]]
         ] = {}
 
-    @property
-    def required_clients(self) -> list[ClientType]:
-        """The communication clients required by the service.
-
-        The component services subscribe to controller messages and publish
-        component messages.
-        """
-        return [
-            *(super().required_clients or []),
-            PubClientType.COMPONENT,
-            SubClientType.CONTROLLER,
-        ]
-
     @on_run
     async def _on_run(self) -> None:
         """Automatically subscribe to the command topic and register the service
@@ -66,7 +52,7 @@ class BaseComponentService(BaseService):
         """
         # Subscribe to the command topic
         try:
-            await self.comms.subscribe(
+            await self.sub_client.subscribe(
                 Topic.COMMAND,
                 self.process_command_message,
             )
@@ -76,17 +62,19 @@ class BaseComponentService(BaseService):
                 "Failed to subscribe to command topic",
             ) from e
 
-        # TODO: HACK: Sleep for 1 second to allow the controller to register the service
-        await asyncio.sleep(0.1)
+        # TODO: HACK: Sleep for 0.5 second to allow the controller to register the service
+        await asyncio.sleep(0.5)
 
         # Register the service
-        try:
-            await self.register()
-        except Exception as e:
-            raise self._service_error(
-                ServiceErrorType.REGISTER_SERVICE_ERROR,
-                "Failed to register service",
-            ) from e
+        for _ in range(3):
+            try:
+                await self.register()
+                await asyncio.sleep(0.1)
+            except Exception as e:
+                raise self._service_error(
+                    ServiceErrorType.REGISTER_SERVICE_ERROR,
+                    "Failed to register service",
+                ) from e
 
     @aiperf_task
     async def _heartbeat_task(self) -> None:
@@ -112,7 +100,7 @@ class BaseComponentService(BaseService):
         heartbeat_message = self.create_heartbeat_message()
         self.logger.debug("Sending heartbeat: %s", heartbeat_message)
         try:
-            await self.comms.publish(
+            await self.pub_client.publish(
                 topic=Topic.HEARTBEAT,
                 message=heartbeat_message,
             )
@@ -128,13 +116,13 @@ class BaseComponentService(BaseService):
         This method should be called after the service has been initialized and is
         ready to start processing messages.
         """
-        self.logger.debug(
+        self.logger.info(
             "Attempting to register service %s (%s) with system controller",
             self.service_type,
             self.service_id,
         )
         try:
-            await self.comms.publish(
+            await self.pub_client.publish(
                 topic=Topic.REGISTRATION,
                 message=self.create_registration_message(),
             )
@@ -192,8 +180,8 @@ class BaseComponentService(BaseService):
         This method will also publish the status message to the status topic if the
         communications are initialized.
         """
-        if self._comms and self._comms.is_initialized:
-            await self.comms.publish(
+        if self.pub_client and self.pub_client.is_initialized:
+            await self.pub_client.publish(
                 topic=Topic.STATUS,
                 message=self.create_status_message(state),
             )

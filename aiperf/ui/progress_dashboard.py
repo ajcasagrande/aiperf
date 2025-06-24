@@ -27,6 +27,11 @@ class ProgressDashboard(Container):
         border: solid $primary;
         border-title-color: $primary;
         border-title-background: $surface;
+        height: 100%;
+    }
+
+    #dashboard-content {
+        height: 100%;
     }
 
     #progress-container {
@@ -67,7 +72,7 @@ class ProgressDashboard(Container):
                 else "Processing"
                 if not data[1]
                 else "Cancelled",
-                StatusClassifier.get_completion_status,
+                lambda data: StatusClassifier.get_completion_status(data[0]),
             ),
             DashboardField(
                 "progress-indicator",
@@ -166,7 +171,29 @@ class ProgressDashboard(Container):
         if not self.is_mounted:
             return
 
+        # Show default content if no profile data is available
         if not self.progress_tracker.current_profile:
+            try:
+                # Update progress bar with default values
+                progress_bar = self.query_one(ProgressBar)
+                progress_bar.update(progress=0)
+
+                # Update progress label with default text
+                progress_label = self.query_one("#progress-label", Label)
+                progress_label.update("Waiting for performance data...")
+
+                # Update all status indicators with default values
+                for field in self.fields:
+                    try:
+                        widget = self.query_one(f"#{field.field_id}", StatusIndicator)
+                        widget.update_value("--", "status-idle")
+                    except Exception as e:
+                        logger.debug(
+                            f"Error updating {field.field_id} with default: {e}"
+                        )
+
+            except Exception as e:
+                logger.debug(f"Error updating display with defaults: {e}")
             return
 
         try:

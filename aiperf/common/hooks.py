@@ -22,6 +22,7 @@ import asyncio
 import contextlib
 import inspect
 import logging
+import traceback
 from collections.abc import Awaitable, Callable
 from enum import Enum
 from typing import ClassVar
@@ -137,6 +138,7 @@ class HookSystem:
                     e.__class__.__name__,
                     e,
                 )
+                logger.error(traceback.format_exc())
                 exceptions.append(
                     AIPerfError(
                         f"Error running hook {func.__qualname__}: {e.__class__.__name__} {e}"
@@ -144,7 +146,9 @@ class HookSystem:
                 )
 
         if exceptions:
-            raise AIPerfMultiError("Errors running hooks", exceptions)
+            raise AIPerfMultiError("Errors running hooks", exceptions) from exceptions[
+                0
+            ]
 
     async def run_hooks_async(self, hook_type: HookType, *args, **kwargs):
         """
@@ -171,7 +175,9 @@ class HookSystem:
 
             exceptions = [result for result in results if isinstance(result, Exception)]
             if exceptions:
-                raise AIPerfMultiError("Errors running hooks", exceptions)
+                raise AIPerfMultiError(
+                    "Errors running hooks", exceptions
+                ) from exceptions[0]
 
 
 ################################################################################

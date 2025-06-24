@@ -72,6 +72,26 @@ class AIPerfTextualApp(App):
         width: 100%;
         padding: 1;
     }
+
+    /* Ensure dashboard widgets inside tabs are properly sized */
+    TabPane > ProgressDashboard {
+        height: 100%;
+        width: 100%;
+    }
+
+    TabPane > WorkerDashboard {
+        height: 100%;
+        width: 100%;
+    }
+
+    /* Fix for content containers within tabs */
+    TabPane Container {
+        height: auto;
+    }
+
+    TabPane Vertical {
+        height: 100%;
+    }
     """
 
     BINDINGS = [
@@ -94,16 +114,18 @@ class AIPerfTextualApp(App):
         """Compose the clean application layout."""
         yield Header()
 
-        with Vertical(id="main-container"):
-            with Container(id="dashboard-section"):
-                with TabbedContent(initial="performance"):
-                    with TabPane("Performance Dashboard", id="performance"):
-                        self.dashboard = ProgressDashboard(self.progress_tracker)
-                        yield self.dashboard
+        with (
+            Vertical(id="main-container"),
+            Container(id="dashboard-section"),
+            TabbedContent(initial="performance"),
+        ):
+            with TabPane("Performance Dashboard", id="performance"):
+                self.dashboard = ProgressDashboard(self.progress_tracker)
+                yield self.dashboard
 
-                    with TabPane("Worker Status", id="workers"):
-                        self.worker_dashboard = WorkerDashboard()
-                        yield self.worker_dashboard
+            with TabPane("Worker Status", id="workers"):
+                self.worker_dashboard = WorkerDashboard()
+                yield self.worker_dashboard
 
             with Container(id="logs-section"):
                 self.log_viewer = LogViewer()

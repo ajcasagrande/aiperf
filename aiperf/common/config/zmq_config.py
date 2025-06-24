@@ -35,18 +35,6 @@ class BaseZMQCommunicationConfig(BaseModel, ABC):
 
     @property
     @abstractmethod
-    def controller_pub_sub_address(self) -> str:
-        """Get the controller pub/sub address based on protocol configuration."""
-        ...
-
-    @property
-    @abstractmethod
-    def component_pub_sub_address(self) -> str:
-        """Get the component pub/sub address based on protocol configuration."""
-        ...
-
-    @property
-    @abstractmethod
     def inference_push_pull_address(self) -> str:
         """Get the inference push/pull address based on protocol configuration."""
         ...
@@ -73,12 +61,6 @@ class BaseZMQCommunicationConfig(BaseModel, ABC):
     @abstractmethod
     def credit_return_address(self) -> str:
         """Get the credit return address based on protocol configuration."""
-        ...
-
-    @property
-    @abstractmethod
-    def worker_manager_pub_sub_address(self) -> str:
-        """Get the worker manager pub/sub address based on protocol configuration."""
         ...
 
 
@@ -167,20 +149,8 @@ class ZMQTCPTransportConfig(BaseZMQCommunicationConfig):
         default="0.0.0.0",
         description="Host address for TCP connections",
     )
-    controller_pub_sub_port: int = Field(
-        default=5555, description="Port for controller pub/sub messages"
-    )
-    component_pub_sub_port: int = Field(
-        default=5556, description="Port for component pub/sub messages"
-    )
     inference_push_pull_port: int = Field(
         default=5557, description="Port for inference push/pull messages"
-    )
-    req_rep_port: int = Field(
-        default=5558, description="Port for sending and receiving requests"
-    )
-    push_pull_port: int = Field(
-        default=5559, description="Port for pushing and pulling data"
     )
     records_port: int = Field(default=5560, description="Port for record data")
     conversation_data_port: int = Field(
@@ -192,9 +162,6 @@ class ZMQTCPTransportConfig(BaseZMQCommunicationConfig):
     credit_return_port: int = Field(
         default=5563, description="Port for credit return operations"
     )
-    worker_manager_pub_sub_port: int = Field(
-        default=5564, description="Port for worker manager pub/sub messages"
-    )
     dealer_router_broker_config: ZMQTCPProxyConfig = Field(
         default=ZMQTCPProxyConfig(),
         description="Configuration for the ZMQ Proxy. If provided, the proxy will be created and started.",
@@ -203,16 +170,6 @@ class ZMQTCPTransportConfig(BaseZMQCommunicationConfig):
         default=ZMQTCPProxyConfig(),
         description="Configuration for the ZMQ Proxy. If provided, the proxy will be created and started.",
     )
-
-    @property
-    def controller_pub_sub_address(self) -> str:
-        """Get the controller pub/sub address based on protocol configuration."""
-        return f"tcp://{self.host}:{self.controller_pub_sub_port}"
-
-    @property
-    def component_pub_sub_address(self) -> str:
-        """Get the component pub/sub address based on protocol configuration."""
-        return f"tcp://{self.host}:{self.component_pub_sub_port}"
 
     @property
     def inference_push_pull_address(self) -> str:
@@ -239,11 +196,6 @@ class ZMQTCPTransportConfig(BaseZMQCommunicationConfig):
         """Get the credit return address based on protocol configuration."""
         return f"tcp://{self.host}:{self.credit_return_port}"
 
-    @property
-    def worker_manager_pub_sub_address(self) -> str:
-        """Get the worker manager pub/sub address based on protocol configuration."""
-        return f"tcp://{self.host}:{self.worker_manager_pub_sub_port}"
-
 
 class ZMQIPCConfig(BaseZMQCommunicationConfig):
     """Configuration for IPC transport."""
@@ -257,16 +209,6 @@ class ZMQIPCConfig(BaseZMQCommunicationConfig):
         default=ZMQIPCProxyConfig(name="xpub_xsub_proxy"),
         description="Configuration for the ZMQ XPUB/XSUB Proxy. If provided, the proxy will be created and started.",
     )
-
-    @property
-    def controller_pub_sub_address(self) -> str:
-        """Get the controller pub/sub address based on protocol configuration."""
-        return f"ipc://{self.path}/controller_pub_sub.ipc"
-
-    @property
-    def component_pub_sub_address(self) -> str:
-        """Get the component pub/sub address based on protocol configuration."""
-        return f"ipc://{self.path}/component_pub_sub.ipc"
 
     @property
     def inference_push_pull_address(self) -> str:
@@ -292,25 +234,3 @@ class ZMQIPCConfig(BaseZMQCommunicationConfig):
     def credit_return_address(self) -> str:
         """Get the credit return address based on protocol configuration."""
         return f"ipc://{self.path}/credit_return.ipc"
-
-    @property
-    def worker_manager_pub_sub_address(self) -> str:
-        """Get the worker manager pub/sub address based on protocol configuration."""
-        return f"ipc://{self.path}/worker_manager_pub_sub.ipc"
-
-
-class ZMQInprocConfig(ZMQIPCConfig):
-    """Configuration for in-process transport. Note that communications between workers
-    is still done over IPC sockets."""
-
-    name: str = Field(default="aiperf", description="Name for in-process sockets")
-
-    @property
-    def controller_pub_sub_address(self) -> str:
-        """Get the controller pub/sub address based on protocol configuration."""
-        return f"inproc://{self.name}_controller_pub_sub"
-
-    @property
-    def component_pub_sub_address(self) -> str:
-        """Get the component pub/sub address based on protocol configuration."""
-        return f"inproc://{self.name}_component_pub_sub"

@@ -45,7 +45,7 @@ class WorkerDashboardService(BaseComponentService, WorkerDashboardMixin):
 
         # Subscribe to worker health messages
         try:
-            await self.comms.subscribe(
+            await self.sub_client.subscribe(
                 Topic.WORKER_HEALTH, self._on_worker_health_message
             )
             logger.debug("Subscribed to WORKER_HEALTH topic")

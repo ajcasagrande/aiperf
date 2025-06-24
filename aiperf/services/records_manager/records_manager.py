@@ -7,7 +7,7 @@ from collections import deque
 
 import pandas as pd
 
-from aiperf.common.comms.client_enums import ClientType, PullClientType
+from aiperf.common.comms.base import PullClientInterface
 from aiperf.common.config import ServiceConfig
 from aiperf.common.constants import NANOS_PER_MILLIS
 from aiperf.common.enums import CommandType, MessageType, ServiceType, Topic
@@ -52,7 +52,7 @@ class RecordsManager(BaseComponentService):
 
         self.records: deque[RequestRecord] = deque()
         self.error_records: deque[RequestRecord] = deque()
-
+        self.inference_results_client: PullClientInterface
         # Track per-worker statistics
         self.worker_request_counts: dict[str, int] = {}
         self.worker_error_counts: dict[str, int] = {}
@@ -68,14 +68,6 @@ class RecordsManager(BaseComponentService):
         """The type of service."""
         return ServiceType.RECORDS_MANAGER
 
-    @property
-    def required_clients(self) -> list[ClientType]:
-        """The required clients."""
-        return [
-            *(super().required_clients or []),
-            PullClientType.INFERENCE_RESULTS,
-        ]
-
     def get_tokenizer(self, model: str) -> Tokenizer:
         """Get the tokenizer for a given model."""
         if model not in self.tokenizers:
@@ -87,12 +79,18 @@ class RecordsManager(BaseComponentService):
         """Initialize records manager-specific components."""
         self.logger.debug("Initializing records manager")
         # TODO: Implement records manager initialization
+        self.inference_results_client = await self.comms.create_pull_client(
+            address=self.service_config.comm_config.inference_push_pull_address,
+            bind=True,
+        )
+        await self.inference_results_client.initialize()
+
         self.register_command_callback(
             CommandType.PROCESS_RECORDS,
             self.process_records,
         )
 
-        await self.comms.register_pull_callback(
+        await self.inference_results_client.register_pull_callback(
             message_type=MessageType.INFERENCE_RESULTS,
             callback=self._on_inference_results,
         )
@@ -131,7 +129,7 @@ class RecordsManager(BaseComponentService):
 
     async def publish_profile_stats(self) -> None:
         """Publish the profile stats."""
-        await self.comms.publish(
+        await self.pub_client.publish(
             topic=Topic.PROFILE_STATS,
             message=ProfileStatsMessage(
                 service_id=self.service_id,
@@ -163,8 +161,12 @@ class RecordsManager(BaseComponentService):
         elif record.valid:
             self.logger.debug(
                 "Received inference results: %f milliseconds. %f milliseconds.",
-                record.time_to_first_response_ns / NANOS_PER_MILLIS,
-                record.time_to_last_response_ns / NANOS_PER_MILLIS,
+                record.time_to_first_response_ns / NANOS_PER_MILLIS
+                if record.time_to_first_response_ns
+                else None,
+                record.time_to_last_response_ns / NANOS_PER_MILLIS
+                if record.time_to_last_response_ns
+                else None,
             )
             self.records.append(record)
             self.worker_request_counts[worker_id] += 1
@@ -238,13 +240,13 @@ class RecordsManager(BaseComponentService):
         self.logger.info("Profile results: %s", profile_results)
 
         if profile_results:
-            await self.comms.publish(
+            await self.pub_client.publish(
                 topic=Topic.PROFILE_RESULTS,
                 message=profile_results,
             )
         else:
             self.logger.error("No profile results to publish")
-            await self.comms.publish(
+            await self.pub_client.publish(
                 topic=Topic.PROFILE_RESULTS,
                 message=ProfileResultsMessage(
                     service_id=self.service_id,

@@ -80,7 +80,7 @@ class ChatCompletionMixin(AioHttpClientMixin):
             )
             url = f"{base_url.rstrip('/')}/{self.client_config.endpoint}"
 
-            record = await self.request(
+            record = await self.post_request(
                 url, json.dumps(request_payload), headers, delayed=False
             )
             record.request = request_payload

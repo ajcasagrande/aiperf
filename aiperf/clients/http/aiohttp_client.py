@@ -50,7 +50,7 @@ class AioHttpClientMixin:
             await self.tcp_connector.close()
             self.tcp_connector = None
 
-    async def request(
+    async def post_request(
         self,
         url: str,
         payload: str,
@@ -58,7 +58,7 @@ class AioHttpClientMixin:
         delayed: bool = False,
         **kwargs: Any,
     ) -> RequestRecord:
-        """Send a streaming or non-streaming request to the specified URL with the given payload and headers.
+        """Send a streaming or non-streaming POST request to the specified URL with the given payload and headers.
 
         If the response is an SSE stream, the response will be parsed into a list of SSE messages.
         Otherwise, the response will be parsed into a TextResponse object.

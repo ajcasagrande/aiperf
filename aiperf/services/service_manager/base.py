@@ -33,6 +33,11 @@ class BaseServiceManager(ABC):
         self.service_id_map: dict[str, ServiceRunInfo] = {}
 
     @abstractmethod
+    async def run_pre_requisites(self) -> None:
+        """Run all pre-requisite services."""
+        pass
+
+    @abstractmethod
     async def run_all_services(self) -> None:
         """Run all required services."""
         pass

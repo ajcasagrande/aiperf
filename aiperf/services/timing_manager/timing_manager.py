@@ -5,7 +5,11 @@ import os
 import sys
 import time
 
-from aiperf.common.comms.client_enums import ClientType, PullClientType, PushClientType
+from aiperf.common.comms.base import (
+    PullClientInterface,
+    PushClientInterface,
+    ReqClientInterface,
+)
 from aiperf.common.config import ServiceConfig
 from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import (
@@ -59,31 +63,42 @@ class TimingManager(BaseComponentService):
         self._credit_event = asyncio.Event()
         self.start_time_ns = 0
         self.logger.debug("Initializing timing manager")
+        self.credit_drop_client: PushClientInterface
+        self.credit_return_client: PullClientInterface
+        self.dataset_request_client: ReqClientInterface
 
     @property
     def service_type(self) -> ServiceType:
         """The type of service."""
         return ServiceType.TIMING_MANAGER
 
-    @property
-    def required_clients(self) -> list[ClientType]:
-        """The communication clients required by the service."""
-        return [
-            *(super().required_clients or []),
-            PullClientType.CREDIT_RETURN,
-            PushClientType.CREDIT_DROP,
-        ]
-
     @on_init
     async def _initialize(self) -> None:
         """Initialize timing manager-specific components."""
         self.logger.debug("Initializing timing manager")
-        # TODO: Implement timing manager initialization
-        await self.comms.register_pull_callback(
+
+        self.credit_drop_client = await self.comms.create_push_client(
+            address=self.service_config.comm_config.credit_drop_address,
+            bind=True,
+        )
+        await self.credit_drop_client.initialize()
+
+        self.credit_return_client = await self.comms.create_pull_client(
+            address=self.service_config.comm_config.credit_return_address,
+            bind=True,
+        )
+        await self.credit_return_client.initialize()
+
+        self.dataset_request_client = await self.comms.create_req_client(
+            address=self.service_config.comm_config.conversation_data_address,
+        )
+        await self.dataset_request_client.initialize()
+
+        await self.credit_return_client.register_pull_callback(
             message_type=MessageType.CREDIT_RETURN,
             callback=self._on_credit_return,
         )
-        await self.comms.subscribe(
+        await self.sub_client.subscribe(
             topic=Topic.NOTIFICATION,
             callback=self._on_notification,
         )
@@ -118,7 +133,7 @@ class TimingManager(BaseComponentService):
         self.logger.warning(f"TM: Received notification: {message.notification_type}")
         if message.notification_type == NotificationType.DATASET_CONFIGURED:
             # TODO: Query for timing information from the dataset manager
-            await self.comms.request(
+            await self.dataset_request_client.request(
                 message=DatasetTimingRequest(
                     service_id=self.service_id,
                 ),
@@ -134,7 +149,7 @@ class TimingManager(BaseComponentService):
 
         self.start_time_ns = time.time_ns()
 
-        await self.comms.publish(
+        await self.pub_client.publish(
             topic=Topic.PROFILE_PROGRESS,
             message=ProfileProgressMessage(
                 service_id=self.service_id,
@@ -160,8 +175,7 @@ class TimingManager(BaseComponentService):
                 )
 
                 async def drop_task():
-                    await self.comms.push(
-                        topic=Topic.CREDIT_DROP,
+                    await self.credit_drop_client.push(
                         message=CreditDropMessage(
                             service_id=self.service_id,
                             amount=1,
@@ -219,7 +233,7 @@ class TimingManager(BaseComponentService):
                 / ((time.time_ns() - self.start_time_ns) / NANOS_PER_SECOND),
             )
 
-            await self.comms.publish(
+            await self.pub_client.publish(
                 topic=Topic.CREDITS_COMPLETE,
                 message=CreditsCompleteMessage(
                     service_id=self.service_id, cancelled=self.stop_event.is_set()
@@ -232,7 +246,7 @@ class TimingManager(BaseComponentService):
     async def _report_progress_task(self) -> None:
         """Report the progress."""
         while not self.stop_event.is_set():
-            await self.comms.publish(
+            await self.pub_client.publish(
                 topic=Topic.PROFILE_PROGRESS,
                 message=ProfileProgressMessage(
                     service_id=self.service_id,

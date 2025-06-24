@@ -30,6 +30,14 @@ class KubernetesServiceManager(BaseServiceManager):
     ):
         super().__init__(pre_requisites, required_service_types, config)
 
+    async def run_pre_requisites(self) -> None:
+        """Run all pre-requisite services."""
+        self.logger.debug("Running all pre-requisite services")
+        # TODO: Implement Kubernetes
+        raise NotImplementedError(
+            "KubernetesServiceManager.run_pre_requisites not implemented"
+        )
+
     async def run_all_services(self) -> None:
         """Initialize all required services as Kubernetes pods."""
         self.logger.debug("Initializing all required services as Kubernetes pods")

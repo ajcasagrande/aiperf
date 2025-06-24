@@ -8,6 +8,7 @@ from typing import Any
 
 import zmq.asyncio
 
+from aiperf.common.comms.base import PullClientInterface
 from aiperf.common.comms.zmq.clients.base import BaseZMQClient
 from aiperf.common.enums import MessageType
 from aiperf.common.hooks import aiperf_task
@@ -17,7 +18,7 @@ from aiperf.common.utils import call_all_functions
 logger = logging.getLogger(__name__)
 
 
-class ZMQPullClient(BaseZMQClient):
+class ZMQPullClient(BaseZMQClient, PullClientInterface):
     def __init__(
         self,
         context: zmq.asyncio.Context,
@@ -114,7 +115,7 @@ class ZMQPullClient(BaseZMQClient):
         Raises:
             CommunicationError: If the client is not initialized
         """
-        self._ensure_initialized()
+        await self._ensure_initialized()
 
         # Register callback
         if message_type not in self._pull_callbacks:

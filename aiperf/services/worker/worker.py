@@ -8,11 +8,10 @@ import time
 import psutil
 
 from aiperf.clients.openai.common import OpenAIClientConfig
-from aiperf.common.comms.client_enums import (
-    ClientType,
-    PullClientType,
-    PushClientType,
-    ReqClientType,
+from aiperf.common.comms.base import (
+    PullClientInterface,
+    PushClientInterface,
+    ReqClientInterface,
 )
 from aiperf.common.config import EndPointConfig, ServiceConfig
 from aiperf.common.constants import BYTES_PER_MIB, NANOS_PER_MILLIS
@@ -28,6 +27,7 @@ from aiperf.common.hooks import (
 from aiperf.common.interfaces import InferenceClientProtocol
 from aiperf.common.models import (
     ConversationRequestMessage,
+    ConversationResponseMessage,
     CreditDropMessage,
     CreditReturnMessage,
     ErrorDetails,
@@ -73,20 +73,15 @@ class Worker(BaseService):
         self.process = psutil.Process()
         self.process.cpu_percent()  # throw away the first result (will be 0)
 
+        self.credit_drop_client: PullClientInterface
+        self.credit_return_client: PushClientInterface
+        self.inference_results_client: PushClientInterface
+        self.conversation_data_client: ReqClientInterface
+
     @property
     def service_type(self) -> ServiceType:
         """The type of service."""
         return ServiceType.WORKER
-
-    @property
-    def required_clients(self) -> list[ClientType]:
-        """The communication clients required by the service."""
-        return [
-            *(super().required_clients or []),
-            PullClientType.CREDIT_DROP,
-            PushClientType.CREDIT_RETURN,
-            ReqClientType.CONVERSATION_DATA,
-        ]
 
     @on_init
     async def _initialize(self) -> None:
@@ -111,7 +106,27 @@ class Worker(BaseService):
             InferenceClientType.OPENAI, client_config=openai_client_config
         )
 
-        await self.comms.register_pull_callback(
+        self.credit_drop_client = await self.comms.create_pull_client(
+            address=self.service_config.comm_config.credit_drop_address,
+        )
+        await self.credit_drop_client.initialize()
+
+        self.credit_return_client = await self.comms.create_push_client(
+            address=self.service_config.comm_config.credit_return_address,
+        )
+        await self.credit_return_client.initialize()
+
+        self.inference_results_client = await self.comms.create_push_client(
+            address=self.service_config.comm_config.inference_push_pull_address,
+        )
+        await self.inference_results_client.initialize()
+
+        self.conversation_data_client = await self.comms.create_req_client(
+            address=self.service_config.comm_config.conversation_data_address,
+        )
+        await self.conversation_data_client.initialize()
+
+        await self.credit_drop_client.register_pull_callback(
             message_type=MessageType.CREDIT_DROP,
             callback=self._credit_drop_handler,
         )
@@ -139,8 +154,7 @@ class Worker(BaseService):
 
         # Push the record to the inference results topic
         try:
-            await self.comms.push(
-                topic=Topic.INFERENCE_RESULTS,
+            await self.inference_results_client.push(
                 message=msg,
             )
         except Exception as e:
@@ -184,8 +198,7 @@ class Worker(BaseService):
         finally:
             # Always return the credits
             self.logger.debug("Returning credits, %s", credit_amount)
-            await self.comms.push(
-                topic=Topic.CREDIT_RETURN,
+            await self.credit_return_client.push(
                 message=CreditReturnMessage(
                     service_id=self.service_id,
                     amount=credit_amount,
@@ -211,10 +224,12 @@ class Worker(BaseService):
                 )
 
             # retrieve the prompt from the dataset
-            response = await self.comms.request(
-                message=ConversationRequestMessage(
-                    service_id=self.service_id, conversation_id=conversation_id
-                ),
+            response: ConversationResponseMessage = (
+                await self.conversation_data_client.request(
+                    message=ConversationRequestMessage(
+                        service_id=self.service_id, conversation_id=conversation_id
+                    ),
+                )
             )
 
             # Format payload for the API request
@@ -274,7 +289,7 @@ class Worker(BaseService):
         """Report the health of the worker to the worker manager."""
 
         # Get process-specific CPU and memory usage
-        await self.comms.publish(
+        await self.pub_client.publish(
             topic=Topic.WORKER_HEALTH,
             message=WorkerHealthMessage(
                 service_id=self.service_id,
@@ -315,11 +330,6 @@ class MultiWorkerProcess(BaseComponentService):
     def service_type(self) -> ServiceType:
         """The type of service."""
         return ServiceType.MULTI_WORKER_PROCESS
-
-    @property
-    def required_clients(self) -> list[ClientType]:
-        """The communication clients required by the service."""
-        return super().required_clients or []
 
     @on_run
     async def _run(self) -> None:

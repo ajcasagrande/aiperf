@@ -5,7 +5,6 @@ from abc import ABC
 
 import zmq.asyncio
 
-from aiperf.common.comms.client_enums import ClientType
 from aiperf.common.comms.zmq.clients.base_zmq_broker import BaseZMQBroker
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.config.zmq_config import BaseZMQProxyConfig
@@ -35,11 +34,6 @@ class BaseZMQProxyService(BaseComponentService, ABC):
             context=self._context,
             zmq_proxy_config=proxy_config,
         )
-
-    @property
-    def required_clients(self) -> list[ClientType]:
-        """The required clients for the service."""
-        return []
 
     @property
     def broker_type(self) -> ZMQBrokerType:

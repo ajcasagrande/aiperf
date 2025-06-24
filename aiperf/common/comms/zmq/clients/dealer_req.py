@@ -5,12 +5,13 @@ import uuid
 
 import zmq.asyncio
 
+from aiperf.common.comms.base import ReqClientInterface
 from aiperf.common.comms.zmq.clients.base import BaseZMQClient
 from aiperf.common.exceptions import CommunicationError, CommunicationErrorReason
 from aiperf.common.models import Message
 
 
-class ZMQDealerReqClient(BaseZMQClient):
+class ZMQDealerReqClient(BaseZMQClient, ReqClientInterface):
     def __init__(
         self,
         context: zmq.asyncio.Context,
@@ -31,7 +32,7 @@ class ZMQDealerReqClient(BaseZMQClient):
 
     async def request(
         self,
-        request_data: Message,
+        message: Message,
     ) -> Message:
         """Send a request and wait for a response.
 
@@ -41,13 +42,13 @@ class ZMQDealerReqClient(BaseZMQClient):
         Returns:
             ResponseData object
         """
-        self._ensure_initialized()
+        await self._ensure_initialized()
 
         # Generate request ID if not provided
-        if not request_data.request_id:
-            request_data.request_id = uuid.uuid4().hex
+        if not message.request_id:
+            message.request_id = uuid.uuid4().hex
 
-        request_json = request_data.model_dump_json()
+        request_json = message.model_dump_json()
 
         try:
             # Send request

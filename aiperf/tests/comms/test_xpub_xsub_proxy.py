@@ -7,9 +7,12 @@ import json
 import pytest
 import zmq.asyncio
 
-from aiperf.common.comms.zmq.clients.xpub_xsub_proxy import ZMQXPubXSubProxyClient
-from aiperf.common.comms.zmq.proxy_service import ZMQProxyService
-from aiperf.common.config.zmq_config import ZMQTCPTransportConfig
+from aiperf.common.comms.zmq.clients.xpub_xsub_broker import ZMQXPubXSubBroker
+from aiperf.common.config.zmq_config import (
+    ZMQTCPProxyConfig,
+    ZMQTCPTransportConfig,
+)
+from aiperf.services.proxies import XPubXSubProxyService
 
 
 class TestXPubXSubProxyClient:
@@ -25,45 +28,51 @@ class TestXPubXSubProxyClient:
     @pytest.fixture
     async def proxy_client(self, context):
         """Create and cleanup proxy client."""
-        client = ZMQXPubXSubProxyClient(
+        client = ZMQXPubXSubBroker(
             context=context,
-            frontend_address="tcp://127.0.0.1:15555",
-            backend_address="tcp://127.0.0.1:15556",
+            zmq_proxy_config=ZMQTCPProxyConfig(
+                host="127.0.0.1",
+                frontend_port=15555,
+                backend_port=15556,
+            ),
         )
-        await client.initialize()
+        await client.run()
         yield client
-        await client.shutdown()
+        await client.stop()
 
     async def test_proxy_initialization(self, context):
         """Test proxy client initialization."""
-        client = ZMQXPubXSubProxyClient(
+        client = ZMQXPubXSubBroker(
             context=context,
-            frontend_address="tcp://127.0.0.1:15557",
-            backend_address="tcp://127.0.0.1:15558",
+            zmq_proxy_config=ZMQTCPProxyConfig(
+                host="127.0.0.1",
+                frontend_port=15555,
+                backend_port=15556,
+            ),
         )
 
-        assert not client.is_initialized
-        await client.initialize()
-        assert client.is_initialized
-        assert not client.is_shutdown
+        assert not client.is_running()
+        await client.run()
+        assert client.is_running()
+        assert not client.is_shutdown()
 
-        await client.shutdown()
-        assert client.is_shutdown
+        await client.stop()
+        assert client.is_shutdown()
 
     async def test_proxy_addresses(self, proxy_client):
         """Test getting proxy addresses."""
-        assert proxy_client.get_frontend_address() == "tcp://127.0.0.1:15555"
-        assert proxy_client.get_backend_address() == "tcp://127.0.0.1:15556"
+        assert proxy_client.frontend_address == "tcp://127.0.0.1:15555"
+        assert proxy_client.backend_address == "tcp://127.0.0.1:15556"
 
     async def test_proxy_message_forwarding(self, context, proxy_client):
         """Test that the proxy forwards messages between publishers and subscribers."""
         # Create publisher socket
         pub_socket = context.socket(zmq.PUB)
-        pub_socket.connect(proxy_client.get_frontend_address())
+        pub_socket.connect(proxy_client.frontend_address)
 
         # Create subscriber socket
         sub_socket = context.socket(zmq.SUB)
-        sub_socket.connect(proxy_client.get_backend_address())
+        sub_socket.connect(proxy_client.backend_address)
         sub_socket.setsockopt(zmq.SUBSCRIBE, b"test_topic")
 
         # Give sockets time to connect
@@ -95,16 +104,16 @@ class TestXPubXSubProxyClient:
         """Test proxy with multiple publishers and subscribers."""
         # Create multiple publishers
         publishers = []
-        for i in range(2):
+        for _ in range(2):
             pub_socket = context.socket(zmq.PUB)
-            pub_socket.connect(proxy_client.get_frontend_address())
+            pub_socket.connect(proxy_client.frontend_address)
             publishers.append(pub_socket)
 
         # Create multiple subscribers
         subscribers = []
-        for i in range(2):
+        for _ in range(2):
             sub_socket = context.socket(zmq.SUB)
-            sub_socket.connect(proxy_client.get_backend_address())
+            sub_socket.connect(proxy_client.backend_address)
             sub_socket.setsockopt(zmq.SUBSCRIBE, b"topic")
             subscribers.append(sub_socket)
 
@@ -157,27 +166,27 @@ class TestZMQProxyService:
     @pytest.fixture
     async def proxy_service(self, config):
         """Create and cleanup proxy service."""
-        service = ZMQProxyService(config, proxy_name="test_proxy")
-        await service.initialize()
+        service = XPubXSubProxyService(config)
+        await service.run()
         yield service
-        await service.shutdown()
+        await service.stop()
 
     async def test_proxy_service_initialization(self, config):
         """Test proxy service initialization and shutdown."""
-        service = ZMQProxyService(config, proxy_name="test_proxy")
+        service = XPubXSubProxyService(config)
 
-        assert not service.is_initialized
-        await service.initialize()
-        assert service.is_initialized
+        assert not service.is_running
+        await service.run()
+        assert service.is_running
         assert not service.is_shutdown
 
-        await service.shutdown()
+        await service.stop()
         assert service.is_shutdown
 
     async def test_proxy_service_addresses(self, proxy_service):
         """Test proxy service address generation."""
-        pub_addr = proxy_service.get_publisher_address()
-        sub_addr = proxy_service.get_subscriber_address()
+        pub_addr = proxy_service.frontend_address
+        sub_addr = proxy_service.backend_address
 
         assert "tcp://127.0.0.1:" in pub_addr
         assert "tcp://127.0.0.1:" in sub_addr
@@ -205,10 +214,10 @@ class TestZMQProxyService:
         try:
             # Create publisher and subscriber
             pub_socket = context.socket(zmq.PUB)
-            pub_socket.connect(proxy_service.get_publisher_address())
+            pub_socket.connect(proxy_service.frontend_address)
 
             sub_socket = context.socket(zmq.SUB)
-            sub_socket.connect(proxy_service.get_subscriber_address())
+            sub_socket.connect(proxy_service.backend_address)
             sub_socket.setsockopt(zmq.SUBSCRIBE, b"integration_test")
 
             # Give sockets time to connect
@@ -248,24 +257,27 @@ async def test_proxy_topic_filtering():
 
     try:
         # Create proxy
-        proxy = ZMQXPubXSubProxyClient(
+        proxy = ZMQXPubXSubBroker(
             context=context,
-            frontend_address="tcp://127.0.0.1:17555",
-            backend_address="tcp://127.0.0.1:17556",
+            zmq_proxy_config=ZMQTCPProxyConfig(
+                host="127.0.0.1",
+                frontend_port=17555,
+                backend_port=17556,
+            ),
         )
-        await proxy.initialize()
+        await proxy.run()
 
         # Create publisher
         pub_socket = context.socket(zmq.PUB)
-        pub_socket.connect(proxy.get_frontend_address())
+        pub_socket.connect(proxy.frontend_address)
 
         # Create subscribers for different topics
         sub1 = context.socket(zmq.SUB)
-        sub1.connect(proxy.get_backend_address())
+        sub1.connect(proxy.backend_address)
         sub1.setsockopt(zmq.SUBSCRIBE, b"topic1")
 
         sub2 = context.socket(zmq.SUB)
-        sub2.connect(proxy.get_backend_address())
+        sub2.connect(proxy.backend_address)
         sub2.setsockopt(zmq.SUBSCRIBE, b"topic2")
 
         # Give sockets time to connect
@@ -300,5 +312,5 @@ async def test_proxy_topic_filtering():
         pub_socket.close()
         sub1.close()
         sub2.close()
-        await proxy.shutdown()
+        await proxy.stop()
         context.term()

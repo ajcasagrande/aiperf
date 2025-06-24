@@ -157,18 +157,22 @@ class WorkerStatusCard(Container):
 
     def check_stale(self, current_time: float, stale_threshold: float = 30.0) -> None:
         """Check if worker data is stale and update styling accordingly."""
-        if current_time - self.last_update_time > stale_threshold:
-            if self.is_mounted:
-                self.remove_class("worker-healthy", "worker-warning", "worker-error")
-                self.add_class("worker-stale")
-                try:
-                    self.query_one("#status", StatusIndicator).update_value(
-                        "Stale", "status-idle"
-                    )
-                except Exception as e:
-                    logger.error(
-                        f"Error updating stale status for worker {self.worker_id}: {e}"
-                    )
+        if (
+            current_time - self.last_update_time <= stale_threshold
+            or not self.is_mounted
+        ):
+            return
+
+        self.remove_class("worker-healthy", "worker-warning", "worker-error")
+        self.add_class("worker-stale")
+        try:
+            self.query_one("#status", StatusIndicator).update_value(
+                "Stale", "status-idle"
+            )
+        except Exception as e:
+            logger.error(
+                f"Error updating stale status for worker {self.worker_id}: {e}"
+            )
 
 
 class WorkerDashboard(Container):
@@ -221,8 +225,8 @@ class WorkerDashboard(Container):
                 )
                 yield StatusIndicator("Issues", "0", show_dot=False, id="issue-workers")
 
-            with ScrollableContainer(id="workers-scroll"):
-                with Horizontal(id="workers-grid"):
+            with ScrollableContainer(id="workers-scroll"):  # noqa: SIM117
+                with Horizontal(id="workers-grid"):  # noqa: SIM117
                     yield Label("No workers detected", id="no-workers-label")
 
     def update_worker_health(self, health_message: WorkerHealthMessage) -> None:
@@ -367,7 +371,7 @@ class WorkerDashboardMixin(AIPerfLifecycleMixin):
             "stale": 0,
         }
 
-        for worker_id, health_msg in self.worker_health_data.items():
+        for _, health_msg in self.worker_health_data.items():
             age = current_time - (health_msg.timestamp_ns / 1e9)
 
             if age > 30:  # Stale data (30 seconds)
@@ -409,7 +413,7 @@ class WorkerHealthService(BaseComponentService):
 
         # Subscribe to worker health messages
         try:
-            await self.comms.subscribe(
+            await self.sub_client.subscribe(
                 Topic.WORKER_HEALTH, self._on_worker_health_message
             )
             logger.debug("Subscribed to WORKER_HEALTH topic")

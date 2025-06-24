@@ -79,7 +79,7 @@ class MyService(BaseComponentService, WorkerDashboardMixin):
     @on_init
     async def _initialize(self):
         # Subscribe to worker health messages
-        await self.comms.subscribe(Topic.WORKER_HEALTH, self._on_worker_health)
+        await self.sub_client.subscribe(Topic.WORKER_HEALTH, self._on_worker_health)
 
     async def _on_worker_health(self, message: WorkerHealthMessage):
         # Update the dashboard

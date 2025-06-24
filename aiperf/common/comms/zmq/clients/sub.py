@@ -6,6 +6,7 @@ from typing import Any
 
 import zmq.asyncio
 
+from aiperf.common.comms.base import SubClientInterface
 from aiperf.common.comms.zmq.clients.base import BaseZMQClient
 from aiperf.common.exceptions import CommunicationError, CommunicationErrorReason
 from aiperf.common.hooks import aiperf_task
@@ -13,7 +14,7 @@ from aiperf.common.models import Message
 from aiperf.common.utils import call_all_functions
 
 
-class ZMQSubClient(BaseZMQClient):
+class ZMQSubClient(BaseZMQClient, SubClientInterface):
     def __init__(
         self,
         context: zmq.asyncio.Context,
@@ -43,7 +44,7 @@ class ZMQSubClient(BaseZMQClient):
         Raises:
             Exception if subscription was not successful, None otherwise
         """
-        self._ensure_initialized()
+        await self._ensure_initialized()
 
         try:
             # Subscribe to topic

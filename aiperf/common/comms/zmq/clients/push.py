@@ -6,6 +6,7 @@ import logging
 
 import zmq.asyncio
 
+from aiperf.common.comms.base import PushClientInterface
 from aiperf.common.comms.zmq.clients.base import BaseZMQClient
 from aiperf.common.exceptions import CommunicationError, CommunicationErrorReason
 from aiperf.common.models import Message
@@ -13,7 +14,7 @@ from aiperf.common.models import Message
 logger = logging.getLogger(__name__)
 
 
-class ZMQPushClient(BaseZMQClient):
+class ZMQPushClient(BaseZMQClient, PushClientInterface):
     def __init__(
         self,
         context: zmq.asyncio.Context,
@@ -42,7 +43,7 @@ class ZMQPushClient(BaseZMQClient):
             CommunicationError: If the client is not initialized
                 or the data was not pushed successfully
         """
-        self._ensure_initialized()
+        await self._ensure_initialized()
 
         try:
             # Serialize data directly using Pydantic's built-in method

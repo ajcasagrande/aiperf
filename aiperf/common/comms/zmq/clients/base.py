@@ -7,6 +7,7 @@ import uuid
 
 import zmq.asyncio
 
+from aiperf.common.comms.base import BaseCommunicationClient
 from aiperf.common.exceptions import (
     AIPerfError,
     CommunicationError,
@@ -21,7 +22,7 @@ from aiperf.common.hooks import AIPerfHook, AIPerfTaskMixin, supports_hooks
     AIPerfHook.ON_CLEANUP,
     AIPerfHook.AIPERF_TASK,
 )
-class BaseZMQClient(AIPerfTaskMixin):
+class BaseZMQClient(AIPerfTaskMixin, BaseCommunicationClient):
     """Base class for all ZMQ clients.
 
     This class provides a common interface for all ZMQ clients in the AIPerf
@@ -88,7 +89,7 @@ class BaseZMQClient(AIPerfTaskMixin):
             )
         return self._socket
 
-    def _ensure_initialized(self) -> None:
+    async def _ensure_initialized(self) -> None:
         """Ensure the communication channels are initialized and not shutdown.
 
         Raises:
@@ -96,12 +97,7 @@ class BaseZMQClient(AIPerfTaskMixin):
                 or shutdown
         """
         if not self.is_initialized:
-            raise CommunicationError(
-                CommunicationErrorReason.NOT_INITIALIZED_ERROR,
-                "Communication channels are not initialized",
-            )
-        if self.is_shutdown:
-            raise asyncio.CancelledError()
+            await self.initialize()
 
     async def initialize(self) -> None:
         """Initialize the communication.

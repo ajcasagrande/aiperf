@@ -79,7 +79,7 @@ class WorkerManager(BaseComponentService):
         """Initialize worker manager-specific components."""
         self.logger.debug("Initializing worker manager")
 
-        await self.comms.subscribe(Topic.WORKER_HEALTH, self._on_worker_health)
+        await self.sub_client.subscribe(Topic.WORKER_HEALTH, self._on_worker_health)
 
         # Spawn workers based on CPU count
         if self.service_config.service_run_type == ServiceRunType.MULTIPROCESSING:

@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-import asyncio
 import os
 import signal
 import sys
@@ -188,6 +187,8 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
                 f"Unsupported service run type: {self.service_config.service_run_type}",
             )
 
+        await self.service_manager.run_pre_requisites()
+
         # Subscribe to relevant messages
         subscribe_callbacks = [
             (Topic.REGISTRATION, self._process_registration_message),
@@ -200,17 +201,13 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         ]
         for topic, callback in subscribe_callbacks:
             try:
-                await self.comms.subscribe(topic=topic, callback=callback)
+                await self.sub_client.subscribe(topic=topic, callback=callback)
             except Exception as e:
                 self.logger.error("Failed to subscribe to topic %s: %s", topic, e)
                 raise CommunicationError(
                     CommunicationErrorReason.SUBSCRIBE_ERROR,
                     f"Failed to subscribe to topic {topic}: {e}",
                 ) from e
-
-        # TODO: HACK:
-        # wait 1 second to ensure that the communication is initialized
-        await asyncio.sleep(1)
 
         self._system_state = SystemState.CONFIGURING
         await self._bootstrap_system()
@@ -527,7 +524,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         """Process a worker health message."""
         self.logger.warning("SC: Received worker health message: %s", message)
         # Re-publish the worker health message to the services that need it
-        await self.comms.publish(
+        await self.pub_client.publish(
             topic=Topic.WORKER_HEALTH,
             message=message,
         )
@@ -538,7 +535,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         """Process a notification message."""
         self.logger.warning("SC: Received notification message: %s", message)
         # Re-publish the notification message to the services that need it
-        await self.comms.publish(
+        await self.pub_client.publish(
             topic=Topic.NOTIFICATION,
             message=message,
         )
@@ -579,7 +576,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
 
         # Publish command message
         try:
-            await self.comms.publish(
+            await self.pub_client.publish(
                 topic=Topic.COMMAND,
                 message=command_message,
             )

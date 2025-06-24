@@ -3,9 +3,10 @@
 import os
 import sys
 
-from aiperf.common.comms.client_enums import ClientType, RepClientType
+from aiperf.common.comms.base import RepClientInterface
 from aiperf.common.config import ServiceConfig
 from aiperf.common.enums import MessageType, NotificationType, ServiceType, Topic
+from aiperf.common.exceptions import AIPerfError
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
     on_cleanup,
@@ -42,35 +43,42 @@ class DatasetManager(BaseComponentService):
         super().__init__(service_config=service_config, service_id=service_id)
         self.logger.debug("Initializing dataset manager")
         self.tokenizer: Tokenizer | None = None
+        self.conversation_data_client: RepClientInterface
 
     @property
     def service_type(self) -> ServiceType:
         """The type of service."""
         return ServiceType.DATASET_MANAGER
 
-    @property
-    def required_clients(self) -> list[ClientType]:
-        """The communication clients required by the service."""
-        return [
-            *(super().required_clients or []),
-            RepClientType.CONVERSATION_DATA,
-        ]
-
     @on_init
     async def _initialize(self) -> None:
         """Initialize dataset manager-specific components."""
         self.logger.debug("Initializing dataset manager")
 
-        await self.comms.register_request_handler(
+        if self.comms is None:
+            raise AIPerfError("Communication is not initialized")
+
+        self.conversation_data_client = await self.comms.create_rep_client(
+            address=self.service_config.comm_config.conversation_data_address,
+            bind=True,
+        )
+        await self.conversation_data_client.initialize()
+
+        if self.conversation_data_client is None:
+            raise AIPerfError("Conversation data client is not initialized")
+
+        self.conversation_data_client.register_request_handler(
             service_id=self.service_id,
             message_type=MessageType.CONVERSATION_REQUEST,
             handler=self._handle_conversation_request,
         )
-        await self.comms.register_request_handler(
+        self.conversation_data_client.register_request_handler(
             service_id=self.service_id,
             message_type=MessageType.DATASET_TIMING_REQUEST,
             handler=self._handle_dataset_timing_request,
         )
+
+        self.logger.error("Dataset manager initialized")
 
     @on_start
     async def _start(self) -> None:
@@ -99,7 +107,7 @@ class DatasetManager(BaseComponentService):
             os.getenv("AIPERF_MODEL", "deepseek-ai/DeepSeek-R1-Distill-Llama-8B")
         )
 
-        await self.comms.publish(
+        await self.pub_client.publish(
             topic=Topic.NOTIFICATION,
             message=NotificationMessage(
                 service_id=self.service_id,
