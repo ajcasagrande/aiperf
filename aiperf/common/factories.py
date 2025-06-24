@@ -11,7 +11,7 @@ from aiperf.common.enums import (
     PromptSource,
     RequestPayloadType,
     ServiceType,
-    ZMQBrokerType,
+    ZMQProxyType,
 )
 from aiperf.common.exceptions import FactoryCreationError
 
@@ -349,22 +349,22 @@ class RequestConverterFactory(
     """
 
 
-class ZMQBrokerFactory(FactoryMixin[ZMQBrokerType, "BaseZMQBroker"]):
+class ZMQProxyFactory(FactoryMixin[ZMQProxyType, "BaseZMQProxy"]):
     """
-    A factory for creating ZMQ brokers.
+    A factory for creating ZMQ proxies.
 
     Example:
     ```python
-        # Register a new ZMQ broker type
-        @ZMQBrokerFactory.register(ZMQBrokerType.DEALER_ROUTER)
-        class DealerRouterBroker(BaseZMQBroker):
+        # Register a new ZMQ proxy type
+        @ZMQProxyFactory.register(ZMQProxyType.DEALER_ROUTER)
+        class DealerRouterProxy(BaseZMQProxy):
             pass
 
-        # Create a new ZMQ broker instance
-        broker = ZMQBrokerFactory.create_instance(
-            ZMQBrokerType.DEALER_ROUTER,
+        # Create a new ZMQ proxy instance
+        proxy = ZMQProxyFactory.create_instance(
+            ZMQProxyType.DEALER_ROUTER,
             config=ZMQTCPProxyConfig(host="localhost", frontend_port=5555, backend_port=5556),
         )
-        broker.run()
+        proxy.run()
     ```
     """

@@ -5,15 +5,15 @@ import zmq.asyncio
 from zmq import SocketType
 
 from aiperf.common.comms.zmq.clients.base import BaseZMQClient
-from aiperf.common.comms.zmq.clients.base_zmq_broker import BaseZMQBroker
+from aiperf.common.comms.zmq.clients.base_zmq_proxy import BaseZMQProxy
 from aiperf.common.config.zmq_config import BaseZMQProxyConfig
-from aiperf.common.enums import ZMQBrokerType
-from aiperf.common.factories import ZMQBrokerFactory
+from aiperf.common.enums import ZMQProxyType
+from aiperf.common.factories import ZMQProxyFactory
 
 
-class _BrokerFrontendRouterClient(BaseZMQClient):
+class _ProxyFrontendRouterClient(BaseZMQClient):
     """
-    A ROUTER socket for the broker's frontend.
+    A ROUTER socket for the proxy's frontend.
 
     This ROUTER socket receives messages from DEALER clients and forwards them
     through the proxy to ROUTER services. The ZMQ proxy handles the message
@@ -28,15 +28,15 @@ class _BrokerFrontendRouterClient(BaseZMQClient):
         socket_ops: dict | None = None,
     ) -> None:
         super().__init__(context, SocketType.ROUTER, address, bind, socket_ops)
-        self.logger.debug(f"BROKER FRONTEND ROUTER - Address: {address}, Bind: {bind}")
+        self.logger.debug(f"PROXY FRONTEND ROUTER - Address: {address}, Bind: {bind}")
 
     def send_message(self, message: str) -> None:
         self.socket.send_multipart([b"", message.encode()])
 
 
-class _BrokerBackendDealerClient(BaseZMQClient):
+class _ProxyBackendDealerClient(BaseZMQClient):
     """
-    A DEALER socket for the broker's backend.
+    A DEALER socket for the proxy's backend.
 
     This DEALER socket forwards messages from the proxy to ROUTER services.
     The ZMQ proxy handles the message routing automatically.
@@ -58,14 +58,14 @@ class _BrokerBackendDealerClient(BaseZMQClient):
 
         super().__init__(context, SocketType.DEALER, address, bind, socket_ops)
         self.logger.debug(
-            f"BROKER BACKEND DEALER - Address: {address}, Bind: {bind}, Identity: None (transparent for proxy)"
+            f"PROXY BACKEND DEALER - Address: {address}, Bind: {bind}, Identity: None (transparent for proxy)"
         )
 
 
-@ZMQBrokerFactory.register(ZMQBrokerType.DEALER_ROUTER)
-class ZMQDealerRouterBroker(BaseZMQBroker):
+@ZMQProxyFactory.register(ZMQProxyType.DEALER_ROUTER)
+class ZMQDealerRouterProxy(BaseZMQProxy):
     """
-    A ZMQ Dealer Router Broker class.
+    A ZMQ Dealer Router Proxy class.
 
     This class is responsible for creating the ZMQ proxy that forwards messages
     between DEALER clients and ROUTER services.
@@ -78,8 +78,8 @@ class ZMQDealerRouterBroker(BaseZMQBroker):
         socket_ops: dict | None = None,
     ) -> None:
         super().__init__(
-            frontend_socket_class=_BrokerFrontendRouterClient,
-            backend_socket_class=_BrokerBackendDealerClient,
+            frontend_socket_class=_ProxyFrontendRouterClient,
+            backend_socket_class=_ProxyBackendDealerClient,
             context=context,
             zmq_proxy_config=zmq_proxy_config,
             socket_ops=socket_ops,
@@ -90,7 +90,7 @@ class ZMQDealerRouterBroker(BaseZMQBroker):
         cls,
         config: BaseZMQProxyConfig | None,
         socket_ops: dict | None = None,
-    ) -> "ZMQDealerRouterBroker | None":
+    ) -> "ZMQDealerRouterProxy | None":
         if config is None:
             return None
         return cls(

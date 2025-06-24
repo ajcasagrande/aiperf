@@ -17,8 +17,8 @@ from aiperf.common.enums import (
 ################################################################################
 
 
-class BaseZMQDealerRouterBrokerConfig(BaseModel, ABC):
-    """Configuration Protocol for ZMQ Dealer Router Broker."""
+class BaseZMQDealerRouterProxyConfig(BaseModel, ABC):
+    """Configuration Protocol for ZMQ Dealer Router Proxy."""
 
     @property
     @abstractmethod
@@ -86,8 +86,8 @@ class BaseZMQTransportConfig(BaseModel, ABC):
 ################################################################################
 
 
-class ZMQTCPDealerRouterBrokerConfig(BaseZMQDealerRouterBrokerConfig):
-    """Configuration for ZMQ Dealer Router Broker."""
+class ZMQTCPDealerRouterProxyConfig(BaseZMQDealerRouterProxyConfig):
+    """Configuration for ZMQ Dealer Router Proxy."""
 
     host: str = Field(
         default="0.0.0.0",
@@ -160,13 +160,13 @@ class ZMQTCPTransportConfig(BaseZMQTransportConfig):
     credit_return_port: int = Field(
         default=5563, description="Port for credit return operations"
     )
-    dataset_broker_config: BaseZMQDealerRouterBrokerConfig = Field(
-        default=ZMQTCPDealerRouterBrokerConfig(),
-        description="Configuration for the ZMQ Dataset Broker. If provided, the broker will be created and started.",
+    dataset_proxy_config: BaseZMQDealerRouterProxyConfig = Field(
+        default=ZMQTCPDealerRouterProxyConfig(),
+        description="Configuration for the ZMQ Dataset Proxy. If provided, the proxy will be created and started.",
     )
-    credit_broker_config: BaseZMQDealerRouterBrokerConfig | None = Field(
+    credit_proxy_config: BaseZMQDealerRouterProxyConfig | None = Field(
         default=None,
-        description="Configuration for the ZMQ Credit Broker. If provided, the broker will be created and started.",
+        description="Configuration for the ZMQ Credit Proxy. If provided, the proxy will be created and started.",
     )
 
     @property

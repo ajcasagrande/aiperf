@@ -7,7 +7,7 @@ import json
 import pytest
 import zmq.asyncio
 
-from aiperf.common.comms.zmq.clients.xpub_xsub_broker import ZMQXPubXSubBroker
+from aiperf.common.comms.zmq.clients.xpub_xsub_proxy import ZMQXPubXSubProxy
 from aiperf.common.config.zmq_config import (
     ZMQTCPProxyConfig,
     ZMQTCPTransportConfig,
@@ -28,7 +28,7 @@ class TestXPubXSubProxyClient:
     @pytest.fixture
     async def proxy_client(self, context):
         """Create and cleanup proxy client."""
-        client = ZMQXPubXSubBroker(
+        client = ZMQXPubXSubProxy(
             context=context,
             zmq_proxy_config=ZMQTCPProxyConfig(
                 host="127.0.0.1",
@@ -42,7 +42,7 @@ class TestXPubXSubProxyClient:
 
     async def test_proxy_initialization(self, context):
         """Test proxy client initialization."""
-        client = ZMQXPubXSubBroker(
+        client = ZMQXPubXSubProxy(
             context=context,
             zmq_proxy_config=ZMQTCPProxyConfig(
                 host="127.0.0.1",
@@ -257,7 +257,7 @@ async def test_proxy_topic_filtering():
 
     try:
         # Create proxy
-        proxy = ZMQXPubXSubBroker(
+        proxy = ZMQXPubXSubProxy(
             context=context,
             zmq_proxy_config=ZMQTCPProxyConfig(
                 host="127.0.0.1",

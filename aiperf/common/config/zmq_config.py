@@ -31,7 +31,7 @@ class BaseZMQCommunicationConfig(BaseModel, ABC):
     """Configuration for ZMQ communication."""
 
     xpub_xsub_proxy_config: ClassVar[BaseZMQProxyConfig]
-    dealer_router_broker_config: ClassVar[BaseZMQProxyConfig]
+    dealer_router_proxy_config: ClassVar[BaseZMQProxyConfig]
 
     @property
     @abstractmethod
@@ -162,7 +162,7 @@ class ZMQTCPTransportConfig(BaseZMQCommunicationConfig):
     credit_return_port: int = Field(
         default=5563, description="Port for credit return operations"
     )
-    dealer_router_broker_config: ZMQTCPProxyConfig = Field(
+    dealer_router_proxy_config: ZMQTCPProxyConfig = Field(
         default=ZMQTCPProxyConfig(),
         description="Configuration for the ZMQ Proxy. If provided, the proxy will be created and started.",
     )
@@ -201,9 +201,9 @@ class ZMQIPCConfig(BaseZMQCommunicationConfig):
     """Configuration for IPC transport."""
 
     path: str = Field(default="/tmp/aiperf", description="Path for IPC sockets")
-    dealer_router_broker_config: ZMQIPCProxyConfig = Field(
-        default=ZMQIPCProxyConfig(name="dealer_router_broker"),
-        description="Configuration for the ZMQ Dealer Router Broker. If provided, the broker will be created and started.",
+    dealer_router_proxy_config: ZMQIPCProxyConfig = Field(
+        default=ZMQIPCProxyConfig(name="dealer_router_proxy"),
+        description="Configuration for the ZMQ Dealer Router Proxy. If provided, the proxy will be created and started.",
     )
     xpub_xsub_proxy_config: ZMQIPCProxyConfig = Field(
         default=ZMQIPCProxyConfig(name="xpub_xsub_proxy"),

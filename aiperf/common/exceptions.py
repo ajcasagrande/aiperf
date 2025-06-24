@@ -41,7 +41,7 @@ class CommunicationErrorReason(CaseInsensitiveStrEnum):
     CLEANUP_ERROR = "cleanup_error"
     PUSH_ERROR = "push_error"
     PULL_ERROR = "pull_error"
-    BROKER_ERROR = "broker_error"
+    PROXY_ERROR = "proxy_error"
 
 
 class CommunicationError(AIPerfError):

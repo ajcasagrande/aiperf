@@ -16,24 +16,24 @@ from aiperf.common.config.zmq_config import BaseZMQProxyConfig
 from aiperf.common.exceptions import CommunicationError, CommunicationErrorReason
 
 
-class BaseZMQBroker(ABC):
+class BaseZMQProxy(ABC):
     """
-    A Base ZMQ Broker class.
+    A Base ZMQ Proxy class.
 
-    This class is responsible for creating the ZMQ broker that forwards messages
+    This class is responsible for creating the ZMQ proxy that forwards messages
     between clients and services.
 
     **Connection Architecture:**
-    - Clients connect to frontend_address (broker's frontend socket)
-    - Services connect to backend_address (broker's backend socket)
-    - The broker forwards messages bidirectionally between the two sockets
+    - Clients connect to frontend_address (proxy's frontend socket)
+    - Services connect to backend_address (proxy's backend socket)
+    - The proxy forwards messages bidirectionally between the two sockets
 
     **Message Flow:**
-    Client -> frontend_address -> frontend_socket -> broker -> backend_socket -> backend_address -> Service
-    Service -> backend_address -> backend_socket -> broker -> frontend_socket -> frontend_address -> Client
+    Client -> frontend_address -> frontend_socket -> proxy -> backend_socket -> backend_address -> Service
+    Service -> backend_address -> backend_socket -> proxy -> frontend_socket -> frontend_address -> Client
 
-    The broker is started in a separate thread using asyncio.to_thread.
-    This is because the broker is a blocking operation and we want to avoid blocking the main thread.
+    The proxy is started in a separate thread using asyncio.to_thread.
+    This is because the proxy is a blocking operation and we want to avoid blocking the main thread.
     """
 
     def __init__(
@@ -45,7 +45,7 @@ class BaseZMQBroker(ABC):
         socket_ops: dict | None = None,
     ) -> None:
         """
-        Initialize the Base ZMQ Broker class.
+        Initialize the Base ZMQ Proxy class.
 
         Args:
             context (zmq.asyncio.Context): The ZMQ context.
@@ -55,7 +55,7 @@ class BaseZMQBroker(ABC):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.context = context
         self.logger.debug(
-            f"BROKER INIT - Frontend: {zmq_proxy_config.frontend_address} (ROUTER for DEALER clients), Backend: {zmq_proxy_config.backend_address} (DEALER for ROUTER services)"
+            f"PROXY INIT - Frontend: {zmq_proxy_config.frontend_address} (ROUTER for DEALER clients), Backend: {zmq_proxy_config.backend_address} (DEALER for ROUTER services)"
         )
         self.frontend_address = zmq_proxy_config.frontend_address
         self.backend_address = zmq_proxy_config.backend_address
@@ -63,7 +63,7 @@ class BaseZMQBroker(ABC):
         self.capture_address = zmq_proxy_config.capture_address
         self.socket_ops = socket_ops
 
-        # Broker sockets with clear frontend/backend naming
+        # Proxy sockets with clear frontend/backend naming
         self.backend_socket: BaseZMQClient = backend_socket_class(
             self.context,
             self.backend_address,
@@ -79,7 +79,7 @@ class BaseZMQBroker(ABC):
 
         self.control_client = None
         if self.control_address:
-            self.logger.debug(f"BROKER CONTROL - Address: {self.control_address}")
+            self.logger.debug(f"PROXY CONTROL - Address: {self.control_address}")
             self.control_client = BaseZMQClient(
                 self.context,
                 SocketType.REP,
@@ -90,7 +90,7 @@ class BaseZMQBroker(ABC):
 
         self.capture_client = None
         if self.capture_address:
-            self.logger.debug(f"BROKER CAPTURE - Address: {self.capture_address}")
+            self.logger.debug(f"PROXY CAPTURE - Address: {self.capture_address}")
             self.capture_client = BaseZMQClient(
                 self.context,
                 SocketType.PUB,
@@ -99,8 +99,8 @@ class BaseZMQBroker(ABC):
                 socket_ops=self.socket_ops,
             )
 
-        self.broker: zmq.asyncio.Socket | None = None
-        self._broker_start_time: float | None = None
+        self.proxy: zmq.asyncio.Socket | None = None
+        self._proxy_start_time: float | None = None
 
     @classmethod
     @abstractmethod
@@ -108,23 +108,23 @@ class BaseZMQBroker(ABC):
         cls,
         config: BaseZMQProxyConfig | None,
         socket_ops: dict | None = None,
-    ) -> "BaseZMQBroker | None":
-        """Create a BaseZMQBroker from a BaseZMQBrokerConfig, or None if not provided."""
+    ) -> "BaseZMQProxy | None":
+        """Create a BaseZMQProxy from a BaseZMQProxyConfig, or None if not provided."""
         ...
 
     async def _initialize(self) -> None:
-        """Initialize and start the BaseZMQBroker."""
+        """Initialize and start the BaseZMQProxy."""
         init_start = time.time()
-        self.logger.debug("BROKER INITIALIZING SOCKETS...")
+        self.logger.debug("PROXY INITIALIZING SOCKETS...")
         self.logger.debug(
             f"  Frontend ROUTER socket binding to: {self.frontend_address} (for DEALER clients)"
         )
         self.logger.debug(
             f"  Backend socket binding to: {self.backend_address} (for ROUTER services)"
         )
-        if hasattr(self.backend_socket, "broker_id"):
+        if hasattr(self.backend_socket, "proxy_id"):
             self.logger.debug(
-                f"  Backend socket identity: {self.backend_socket.broker_id}"
+                f"  Backend socket identity: {self.backend_socket.proxy_id}"
             )
 
         try:
@@ -140,7 +140,7 @@ class BaseZMQBroker(ABC):
 
             init_duration = time.time() - init_start
             self.logger.debug(
-                f"BROKER SOCKETS INITIALIZED SUCCESSFULLY - Duration: {init_duration:.3f}s"
+                f"PROXY SOCKETS INITIALIZED SUCCESSFULLY - Duration: {init_duration:.3f}s"
             )
             self.logger.debug(
                 f"  Frontend ROUTER socket bound to: {self.frontend_address}"
@@ -148,9 +148,9 @@ class BaseZMQBroker(ABC):
             self.logger.debug(
                 f"  Backend DEALER socket bound to: {self.backend_address}"
             )
-            if hasattr(self.backend_socket, "broker_id"):
+            if hasattr(self.backend_socket, "proxy_id"):
                 self.logger.debug(
-                    f"  Backend DEALER socket identity confirmed: {self.backend_socket.broker_id}"
+                    f"  Backend DEALER socket identity confirmed: {self.backend_socket.proxy_id}"
                 )
 
             if self.control_client:
@@ -159,13 +159,13 @@ class BaseZMQBroker(ABC):
                 self.logger.debug(f"  Capture socket bound to: {self.capture_address}")
 
         except Exception as e:
-            self.logger.error(f"BROKER SOCKET INITIALIZATION FAILED - Error: {e}")
+            self.logger.error(f"PROXY SOCKET INITIALIZATION FAILED - Error: {e}")
             raise
 
     async def stop(self) -> None:
-        """Shutdown the BaseZMQBroker."""
+        """Shutdown the BaseZMQProxy."""
         stop_start = time.time()
-        self.logger.debug("BROKER STOPPING...")
+        self.logger.debug("PROXY STOPPING...")
 
         try:
             await asyncio.gather(
@@ -180,29 +180,29 @@ class BaseZMQBroker(ABC):
 
             stop_duration = time.time() - stop_start
             total_uptime = (
-                time.time() - self._broker_start_time if self._broker_start_time else 0
+                time.time() - self._proxy_start_time if self._proxy_start_time else 0
             )
             self.logger.debug(
-                f"BROKER STOPPED - Stop Duration: {stop_duration:.3f}s, Total Uptime: {total_uptime:.3f}s"
+                f"PROXY STOPPED - Stop Duration: {stop_duration:.3f}s, Total Uptime: {total_uptime:.3f}s"
             )
 
         except Exception as e:
-            self.logger.error(f"BROKER STOP ERROR - {e}")
+            self.logger.error(f"PROXY STOP ERROR - {e}")
 
     async def run(self) -> None:
-        """Start the Base ZMQ Broker.
+        """Start the Base ZMQ Proxy.
 
-        This method starts the broker and waits for it to complete asynchronously.
-        The broker forwards messages between the frontend and backend sockets.
+        This method starts the proxy and waits for it to complete asynchronously.
+        The proxy forwards messages between the frontend and backend sockets.
 
         Raises:
-            CommunicationError: If the broker produces an error.
+            CommunicationError: If the proxy produces an error.
         """
         try:
             await self._initialize()
 
-            # Broker configuration: frontend=ROUTER (for DEALER clients), backend=DEALER (for ROUTER services)
-            self.logger.debug("BROKER STARTING...")
+            # Proxy configuration: frontend=ROUTER (for DEALER clients), backend=DEALER (for ROUTER services)
+            self.logger.debug("PROXY STARTING...")
             self.logger.debug(
                 f"  Frontend: ROUTER@{self.frontend_address} (receives from DEALER clients)"
             )
@@ -218,15 +218,15 @@ class BaseZMQBroker(ABC):
                     f"  Control: REP@{self.control_address} (proxy control)"
                 )
 
-            self._broker_start_time = time.time()
+            self._proxy_start_time = time.time()
 
             # Start message monitoring task if capture is enabled (optional)
             monitor_task = None
             if self.capture_client:
                 monitor_task = asyncio.create_task(self._monitor_messages())
-                self.logger.debug("BROKER MESSAGE MONITORING STARTED")
+                self.logger.debug("PROXY MESSAGE MONITORING STARTED")
 
-            # Start the broker in a separate thread (blocking operation)
+            # Start the proxy in a separate thread (blocking operation)
             await asyncio.to_thread(
                 zmq.proxy_steerable,
                 self.frontend_socket.socket,  # Frontend: ROUTER socket (DEALER clients connect here)
@@ -235,19 +235,19 @@ class BaseZMQBroker(ABC):
                 control=self.control_client.socket if self.control_client else None,
             )
 
-            # This should not be reached unless broker is terminated
-            self.logger.warning("BROKER TERMINATED UNEXPECTEDLY")
+            # This should not be reached unless proxy is terminated
+            self.logger.warning("PROXY TERMINATED UNEXPECTEDLY")
 
         except Exception as e:
-            broker_duration = (
-                time.time() - self._broker_start_time if self._broker_start_time else 0
+            proxy_duration = (
+                time.time() - self._proxy_start_time if self._proxy_start_time else 0
             )
             self.logger.error(
-                f"BROKER ERROR - Duration: {broker_duration:.3f}s, Error: {e}"
+                f"PROXY ERROR - Duration: {proxy_duration:.3f}s, Error: {e}"
             )
             raise CommunicationError(
-                CommunicationErrorReason.BROKER_ERROR,
-                f"Broker failed: {e}",
+                CommunicationErrorReason.PROXY_ERROR,
+                f"Proxy failed: {e}",
             ) from e
         finally:
             if monitor_task and not monitor_task.done():
@@ -257,12 +257,12 @@ class BaseZMQBroker(ABC):
             await self.stop()
 
     async def _monitor_messages(self) -> None:
-        """Monitor messages flowing through the broker via the capture socket."""
+        """Monitor messages flowing through the proxy via the capture socket."""
         if not self.capture_client or not self.capture_address:
             return
 
         self.logger.debug(
-            f"BROKER MONITOR STARTING - Capture Address: {self.capture_address}"
+            f"PROXY MONITOR STARTING - Capture Address: {self.capture_address}"
         )
 
         # Create a subscriber to monitor captured messages
@@ -300,7 +300,7 @@ class BaseZMQBroker(ABC):
                         )
 
                     self.logger.debug(
-                        f"BROKER CAPTURED MESSAGE #{message_count} - Total Size: {total_size}b, Frames: {len(frames)}"
+                        f"PROXY CAPTURED MESSAGE #{message_count} - Total Size: {total_size}b, Frames: {len(frames)}"
                     )
 
                     # Determine message direction and content
@@ -321,7 +321,7 @@ class BaseZMQBroker(ABC):
                                 if frames[i].startswith(b"{"):
                                     message_content = frames[i].decode("utf-8")
                                     self.logger.debug(
-                                        f"BROKER CAPTURE - Found JSON in frame {i}"
+                                        f"PROXY CAPTURE - Found JSON in frame {i}"
                                     )
                                     break
                             except UnicodeDecodeError:
@@ -346,26 +346,26 @@ class BaseZMQBroker(ABC):
                             direction = f"COMPLEX ({len(frames)} frames)"
 
                     self.logger.debug(
-                        f"BROKER CAPTURE ANALYSIS - Direction: {direction}, Sender: {sender_info}"
+                        f"PROXY CAPTURE ANALYSIS - Direction: {direction}, Sender: {sender_info}"
                     )
 
                     # Log detailed frame info at debug level with enhanced analysis
                     for _, info in enumerate(frame_info):
-                        self.logger.debug(f"BROKER CAPTURE - {info}")
+                        self.logger.debug(f"PROXY CAPTURE - {info}")
 
                     # Additional analysis for single frame messages (potential routing issues)
                     if len(frames) == 1:
                         self.logger.warning(
-                            "BROKER SINGLE FRAME DETECTED - This may indicate a routing problem"
+                            "PROXY SINGLE FRAME DETECTED - This may indicate a routing problem"
                         )
                         self.logger.warning(
-                            f"BROKER SINGLE FRAME CONTENT - {frames[0][:100]}..."
+                            f"PROXY SINGLE FRAME CONTENT - {frames[0][:100]}..."
                         )
 
                         # Check if this looks like a response that lost its routing envelope
                         if message_content and "response" in message_content:
                             self.logger.error(
-                                "BROKER RESPONSE ROUTING FAILURE - Response message has no routing envelope"
+                                "PROXY RESPONSE ROUTING FAILURE - Response message has no routing envelope"
                             )
 
                     # Try to extract and parse the actual message content
@@ -379,34 +379,34 @@ class BaseZMQBroker(ABC):
                             service_id = message_data.get("service_id", "unknown")
 
                             self.logger.debug(
-                                f"BROKER CAPTURED PARSED - ID: {msg_id}, Type: {msg_type}, Service: {service_id}, Direction: {direction}"
+                                f"PROXY CAPTURED PARSED - ID: {msg_id}, Type: {msg_type}, Service: {service_id}, Direction: {direction}"
                             )
 
                             # Special attention to conversation_response messages
                             if msg_type == "conversation_response":
                                 self.logger.warning(
-                                    f"BROKER CONVERSATION_RESPONSE DETECTED - ID: {msg_id}, Direction: {direction}, Service: {service_id}"
+                                    f"PROXY CONVERSATION_RESPONSE DETECTED - ID: {msg_id}, Direction: {direction}, Service: {service_id}"
                                 )
                                 self.logger.warning(
-                                    f"BROKER RESPONSE FRAMES - Count: {len(frames)}, Sizes: {[len(f) for f in frames]}"
+                                    f"PROXY RESPONSE FRAMES - Count: {len(frames)}, Sizes: {[len(f) for f in frames]}"
                                 )
 
                                 # If this is a single frame response, it means routing is broken
                                 if len(frames) == 1:
                                     self.logger.error(
-                                        "BROKER RESPONSE ROUTING BROKEN - Response should have routing envelope but only has 1 frame"
+                                        "PROXY RESPONSE ROUTING BROKEN - Response should have routing envelope but only has 1 frame"
                                     )
                                     self.logger.error(
-                                        "BROKER EXPECTED STRUCTURE - Should be [sender_id, response_json] but got single frame"
+                                        "PROXY EXPECTED STRUCTURE - Should be [sender_id, response_json] but got single frame"
                                     )
 
                         except Exception as parse_error:
                             self.logger.debug(
-                                f"BROKER CAPTURE PARSE ERROR - {parse_error}"
+                                f"PROXY CAPTURE PARSE ERROR - {parse_error}"
                             )
                             if message_content:
                                 self.logger.debug(
-                                    f"BROKER UNPARSABLE CONTENT - {message_content[:200]}..."
+                                    f"PROXY UNPARSABLE CONTENT - {message_content[:200]}..."
                                 )
 
                 except zmq.Again:
@@ -416,10 +416,10 @@ class BaseZMQBroker(ABC):
 
         except asyncio.CancelledError:
             self.logger.debug(
-                f"BROKER MONITOR CANCELLED - Messages Captured: {message_count}"
+                f"PROXY MONITOR CANCELLED - Messages Captured: {message_count}"
             )
             raise
         except Exception as e:
-            self.logger.error(f"BROKER MONITOR ERROR - {e}")
+            self.logger.error(f"PROXY MONITOR ERROR - {e}")
         finally:
             monitor_socket.close()

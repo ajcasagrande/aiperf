@@ -77,7 +77,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         # List of pre-requisites for the system controller
         # These are services that must be running before the system controller can start other services
         self.pre_requisites: list[ServiceType] = [
-            ServiceType.ZMQ_DEALER_ROUTER_BROKER,
+            ServiceType.ZMQ_DEALER_ROUTER_PROXY,
             ServiceType.ZMQ_XPUB_XSUB_PROXY,
         ]
 
