@@ -5,6 +5,7 @@ from aiperf.common.models.messages import (
     BaseServiceMessage,
     BaseStatusMessage,
     CommandMessage,
+    CommandResponseMessage,
     ConversationRequestMessage,
     ConversationResponseMessage,
     CreditDropMessage,
@@ -26,6 +27,12 @@ from aiperf.common.models.messages import (
     SweepProgressMessage,
     WorkerHealthMessage,
     exclude_if_none,
+)
+from aiperf.common.models.progress import (
+    ProfileProgress,
+    ProfileSuiteProgress,
+    SweepProgress,
+    SweepSuiteProgress,
 )
 from aiperf.common.models.record_models import (
     BaseClientConfig,
@@ -51,6 +58,7 @@ __all__ = [
     "BaseServiceMessage",
     "BaseStatusMessage",
     "CommandMessage",
+    "CommandResponseMessage",
     "ConversationRequestMessage",
     "ConversationResponseMessage",
     "CreditDropMessage",
@@ -65,9 +73,13 @@ __all__ = [
     "InferenceServerResponse",
     "Message",
     "ProcessRecordsCommandData",
+    "ProfileProgress",
     "ProfileProgressMessage",
     "ProfileResultsMessage",
+    "ProfileSuiteProgress",
     "ProfileStatsMessage",
+    "SweepProgress",
+    "SweepSuiteProgress",
     "Record",
     "RegistrationMessage",
     "ResultsRecord",
@@ -84,4 +96,5 @@ __all__ = [
     "DatasetTimingResponse",
     "WorkerHealthMessage",
     "ResponseData",
+    "ProfileResultsMessage",
 ]

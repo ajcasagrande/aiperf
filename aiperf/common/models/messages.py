@@ -14,6 +14,7 @@ from pydantic import (
 )
 
 from aiperf.common.enums import (
+    CommandResponseStatus,
     CommandType,
     MessageType,
     NotificationType,
@@ -21,6 +22,7 @@ from aiperf.common.enums import (
     ServiceType,
 )
 from aiperf.common.models.record_models import (
+    ErrorDetails,
     ErrorDetailsCount,
     RequestRecord,
     ResultsRecord,
@@ -192,8 +194,6 @@ class HeartbeatMessage(BaseStatusMessage):
 
     message_type: Literal[MessageType.HEARTBEAT] = MessageType.HEARTBEAT
 
-    state: ServiceState = ServiceState.RUNNING
-
 
 class ProcessRecordsCommandData(BaseModel):
     """Data to send with the process records command."""
@@ -238,6 +238,31 @@ class CommandMessage(BaseServiceMessage):
     data: SerializeAsAny[ProcessRecordsCommandData | BaseModel | None] = Field(
         default=None,
         description="Data to send with the command",
+    )
+
+
+class CommandResponseMessage(BaseServiceMessage):
+    """Message containing a command response.
+    This message is sent by a component service to the system controller to respond to a command.
+    """
+
+    message_type: Literal[MessageType.COMMAND_RESPONSE] = MessageType.COMMAND_RESPONSE
+
+    command: CommandType = Field(
+        ...,
+        description="Command type that is being responded to",
+    )
+    command_id: str = Field(
+        ..., description="The ID of the command that is being responded to"
+    )
+    status: CommandResponseStatus = Field(..., description="The status of the command")
+    data: SerializeAsAny[BaseModel | None] = Field(
+        default=None,
+        description="Data to send with the command response if the command succeeded",
+    )
+    error: ErrorDetails | None = Field(
+        default=None,
+        description="Error information if the command failed",
     )
 
 

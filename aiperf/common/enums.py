@@ -65,26 +65,26 @@ class CommunicationBackend(CaseInsensitiveStrEnum):
 class Topic(CaseInsensitiveStrEnum):
     """Communication topics for the main messaging bus.
     Right now, there is some overlap between Topic and MessageType.
-
-    NOTE: If you add a new topic, you must also add handlers for it in the
-    ClientType enums so the system knows what type of client to use for that topic.
     """
 
-    CREDIT_DROP = "credit_drop"
-    CREDIT_RETURN = "credit_return"
     CREDITS_COMPLETE = "credits_complete"
     PROFILE_PROGRESS = "profile_progress"
     PROFILE_STATS = "profile_stats"
     PROFILE_RESULTS = "profile_results"
     REGISTRATION = "registration"
     COMMAND = "command"
-    RESPONSE = "response"
+    COMMAND_RESPONSE = "command_response"
     STATUS = "status"
     HEARTBEAT = "heartbeat"
-    INFERENCE_RESULTS = "inference_results"
-    CONVERSATION_DATA = "conversation_data"
     NOTIFICATION = "notification"
     WORKER_HEALTH = "worker_health"
+
+
+class CommandResponseStatus(CaseInsensitiveStrEnum):
+    """Status of a command response."""
+
+    SUCCESS = "success"
+    FAILURE = "failure"
 
 
 ################################################################################
@@ -129,7 +129,7 @@ class MessageType(CaseInsensitiveStrEnum):
     """A message sent by the system controller to a component service to command it
     to do something."""
 
-    RESPONSE = "response"
+    COMMAND_RESPONSE = "command_response"
     """A message sent by a component service to the system controller to respond
     to a command."""
 
@@ -553,18 +553,69 @@ class SSEEventType(CaseInsensitiveStrEnum):
 class ProfileCompletionTrigger(CaseInsensitiveStrEnum):
     """Determines how the profile completion is determined in order to know how to track the progress."""
 
-    UNKNOWN = "unknown"
+    REQUEST_COUNT = "request_count"
+    """The profile will run for a fixed number of requests."""
+
     TIME_BASED = "time_based"
-    REQUEST_BASED = "request_based"
+    """The profile will run for a fixed amount of time."""
+
     STABILIZATION_BASED = "stabilization_based"
+    """The profile will run until the metrics stabilize. TDB"""
+
+    GOODPUT_THRESHOLD = "goodput_threshold"
+    """The profile will run until the goodput threshold is met. TDB"""
+
+    CUSTOM = "custom"  # TBD
+    """User defined trigger. TBD"""
 
 
 class SweepCompletionTrigger(CaseInsensitiveStrEnum):
     """Determines how the sweep completion is determined in order to know how to track the progress."""
 
-    UNKNOWN = "unknown"
     COMPLETED_PROFILES = "completed_profiles"
+    """The sweep will run until all profiles are completed."""
+
     STABILIZATION_BASED = "stabilization_based"
+    """The sweep will run until the metrics stabilize. TDB"""
+
+    GOODPUT_THRESHOLD = "goodput_threshold"
+    """The sweep will run until the goodput threshold is met. TDB"""
+
+    CUSTOM = "custom"  # TBD
+    """User defined trigger. TBD"""
+
+
+class SweepParamOrder(CaseInsensitiveStrEnum):
+    """Determines the order in which the sweep parameters are tested."""
+
+    ASCENDING = "ascending"
+    """The parameters are tested in ascending order."""
+
+    DESCENDING = "descending"
+    """The parameters are tested in descending order."""
+
+    RANDOM = "random"
+    """The parameters are tested in random order. TBD"""
+
+    CUSTOM = "custom"  # TBD
+    """User defined order. TBD"""
+
+
+class SweepMultiParamOrder(CaseInsensitiveStrEnum):
+    """Determines the order in which the sweep parameters are tested for a multi-parameter sweep.
+    This is only applicable for multi-parameter sweeps."""
+
+    DEPTH_FIRST = "depth_first"
+    """The parameters are tested in depth-first order."""
+
+    BREADTH_FIRST = "breadth_first"
+    """The parameters are tested in breadth-first order."""
+
+    RANDOM = "random"
+    """The parameters are tested in random order. TBD"""
+
+    CUSTOM = "custom"  # TBD
+    """User defined order. TBD"""
 
 
 class BenchmarkSuiteCompletionTrigger(CaseInsensitiveStrEnum):
@@ -574,6 +625,7 @@ class BenchmarkSuiteCompletionTrigger(CaseInsensitiveStrEnum):
     COMPLETED_SWEEPS = "completed_sweeps"
     COMPLETED_PROFILES = "completed_profiles"
     STABILIZATION_BASED = "stabilization_based"
+    CUSTOM = "custom"  # TBD
 
 
 class BenchmarkSuiteType(CaseInsensitiveStrEnum):

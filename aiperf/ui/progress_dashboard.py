@@ -2,10 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
-import sys
 
 from textual.app import ComposeResult
 from textual.containers import Container, Vertical
+from textual.css.query import NoMatches
 from textual.widgets import Label, ProgressBar
 
 from aiperf.common.progress_tracker import ProgressTracker
@@ -50,7 +50,7 @@ class ProgressDashboard(Container):
     }
 
     StatusIndicator {
-        height: 1;
+        height: auto;
         margin: 0 0 1 0;
     }
     """
@@ -90,11 +90,7 @@ class ProgressDashboard(Container):
                 "completion-indicator",
                 "Completion",
                 lambda _, profile: (
-                    (
-                        profile.requests_completed
-                        / (profile.total_expected_requests or sys.maxsize)
-                        * 100
-                    )
+                    (profile.requests_completed / profile.total_expected_requests * 100)
                     if profile.total_expected_requests is not None
                     and profile.total_expected_requests > 0
                     else 0
@@ -228,5 +224,10 @@ class ProgressDashboard(Container):
                     self, self.progress_tracker, self.progress_tracker.current_profile
                 )
 
+        except NoMatches:
+            pass
         except Exception as e:
-            logger.debug(f"Display update error: {e}")
+            logger.exception(f"Display update error: {e.__class__.__name__}: {e}")
+
+        # Force a refresh of the entire dashboard
+        self.refresh()

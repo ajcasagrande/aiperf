@@ -61,6 +61,7 @@ class ConfigErrorReason(CaseInsensitiveStrEnum):
     LOAD_ERROR = "load_error"
     PARSE_ERROR = "parse_error"
     VALIDATION_ERROR = "validation_error"
+    UNSUPPORTED_RUN_TYPE = "unsupported_run_type"
 
 
 class ConfigError(AIPerfError):
@@ -109,6 +110,7 @@ class ServiceErrorType(CaseInsensitiveStrEnum):
     INITIALIZE_SERVICES_ERROR = "initialize_services_error"
     SUBSCRIBE_COMMAND_TOPIC_ERROR = "subscribe_command_topic_error"
     REGISTER_SERVICE_ERROR = "register_service_error"
+    UNKNOWN_COMMAND = "unknown_command"
 
 
 class ServiceError(AIPerfError):

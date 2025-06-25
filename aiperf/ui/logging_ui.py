@@ -11,6 +11,15 @@ from textual.widgets import RichLog
 class TextualLogHandler(logging.Handler):
     """Custom logging handler that sends log messages to a Textual log widget."""
 
+    DEFAULT_CSS = """
+    TextualLogHandler {
+        border: solid $accent;
+        border-title-color: $accent;
+        border-title-background: $surface;
+        height: 100%;
+    }
+    """
+
     # Map log levels to Rich formatting
     LOG_LEVEL_STYLES = {
         logging.ERROR: "bold red",
@@ -27,6 +36,7 @@ class TextualLogHandler(logging.Handler):
             "[%(asctime)s] %(levelname)-8s %(name)s: %(message)s", datefmt="%H:%M:%S"
         )
         self.setFormatter(formatter)
+        self.border_title = "Application Logs"
 
     def emit(self, record: logging.LogRecord) -> None:
         """Emit a log record to the Textual log widget with color coding."""

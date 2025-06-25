@@ -12,7 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from aiperf.common.bootstrap import bootstrap_and_run_service
 from aiperf.common.config import ServiceConfig
 from aiperf.common.enums import ServiceRunType, ServiceType, Topic
-from aiperf.common.exceptions import ConfigError
+from aiperf.common.exceptions import ConfigError, ConfigErrorReason
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
     on_cleanup,
@@ -93,12 +93,13 @@ class WorkerManager(BaseComponentService):
                 f"Unsupported run type: {self.service_config.service_run_type}"
             )
             raise ConfigError(
-                f"Unsupported run type: {self.service_config.service_run_type}"
+                ConfigErrorReason.UNSUPPORTED_RUN_TYPE,
+                f"Unsupported run type: {self.service_config.service_run_type}",
             )
 
     async def _on_worker_health(self, message: WorkerHealthMessage) -> None:
         """Handle a worker health message."""
-        self.logger.info("Received worker health message: %s", message)
+        self.logger.debug("Received worker health message: %s", message)
         self.worker_health[message.service_id] = message
 
     @on_start

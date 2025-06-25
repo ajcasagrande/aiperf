@@ -4,11 +4,13 @@ import asyncio
 from collections.abc import Awaitable, Callable
 
 from aiperf.common.config import ServiceConfig
-from aiperf.common.enums import CommandType, ServiceState, Topic
+from aiperf.common.enums import CommandResponseStatus, CommandType, ServiceState, Topic
 from aiperf.common.exceptions import ServiceErrorType
 from aiperf.common.hooks import AIPerfHook, aiperf_task, on_run, on_set_state
 from aiperf.common.models import (
     CommandMessage,
+    CommandResponseMessage,
+    ErrorDetails,
     HeartbeatMessage,
     RegistrationMessage,
     StatusMessage,
@@ -147,22 +149,50 @@ class BaseComponentService(BaseService):
             "%s: Processing command message: %s", self.service_id, message
         )
         cmd = message.command
-        if cmd == CommandType.PROFILE_START:
-            await self.start()
+        response_data = None
+        try:
+            if cmd == CommandType.PROFILE_START:
+                response_data = await self.start()
 
-        elif cmd == CommandType.SHUTDOWN:
-            self.logger.debug("%s: Received stop command", self.service_id)
-            self.stop_event.set()
+            elif cmd == CommandType.SHUTDOWN:
+                self.logger.debug("%s: Received stop command", self.service_id)
+                self.stop_event.set()
 
-        elif cmd == CommandType.PROFILE_CONFIGURE:
-            await self.run_hooks(AIPerfHook.ON_CONFIGURE, message)
+            elif cmd == CommandType.PROFILE_CONFIGURE:
+                await self.run_hooks(AIPerfHook.ON_CONFIGURE, message)
 
-        elif cmd in self._command_callbacks:
-            await self._command_callbacks[cmd](message)
+            elif cmd in self._command_callbacks:
+                response_data = await self._command_callbacks[cmd](message)
 
-        else:
-            self.logger.warning(
-                "%s: Received unknown command: %s", self.service_id, cmd
+            else:
+                raise self._service_error(
+                    ServiceErrorType.UNKNOWN_COMMAND,
+                    f"Received unknown command: {cmd}",
+                )
+
+            # Publish the success response
+            await self.pub_client.publish(
+                topic=Topic.COMMAND_RESPONSE,
+                message=CommandResponseMessage(
+                    service_id=self.service_id,
+                    command=cmd,
+                    command_id=message.command_id,
+                    status=CommandResponseStatus.SUCCESS,
+                    data=response_data,
+                ),
+            )
+
+        except Exception as e:
+            # Publish the failure response
+            await self.pub_client.publish(
+                topic=Topic.COMMAND_RESPONSE,
+                message=CommandResponseMessage(
+                    service_id=self.service_id,
+                    command=cmd,
+                    command_id=message.command_id,
+                    status=CommandResponseStatus.FAILURE,
+                    error=ErrorDetails.from_exception(e),
+                ),
             )
 
     def register_command_callback(
@@ -191,6 +221,7 @@ class BaseComponentService(BaseService):
         return HeartbeatMessage(
             service_id=self.service_id,
             service_type=self.service_type,
+            state=self.state,
         )
 
     def create_registration_message(self) -> RegistrationMessage:

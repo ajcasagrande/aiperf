@@ -28,42 +28,43 @@ class WorkerStatusCard(Container):
         border: solid $accent;
         border-title-color: $accent;
         border-title-background: $surface;
-        height: 2;
+        height: auto;
+        min-height: 2;
         margin: 0 1 1 0;
         min-width: 50;
         max-width: 100;
-        layout: horizontal;
+        layout: vertical;
     }
 
     WorkerStatusCard StatusIndicator {
-        height: 1;
+        height: auto;
         margin: 0;
         padding: 0 1;
     }
 
     WorkerStatusCard ProgressBar {
-        height: 1;
+        height: auto;
         margin: 0 1;
     }
 
-    .worker-healthy {
-        border: solid green;
-        border-title-color: green;
+    .worker_healthy {
+        border: solid $success;
+        border-title-color: $success;
     }
 
-    .worker-warning {
-        border: solid yellow;
-        border-title-color: yellow;
+    .worker_warning {
+        border: solid $warning;
+        border-title-color: $warning;
     }
 
-    .worker-error {
-        border: solid red;
-        border-title-color: red;
+    .worker_error {
+        border: solid $error;
+        border-title-color: $error;
     }
 
-    .worker-stale {
-        border: solid dim;
-        border-title-color: dim;
+    .worker_stale {
+        border: solid $surface-darken-1;
+        border-title-color: $surface-darken-1;
     }
     """
 
@@ -104,23 +105,23 @@ class WorkerStatusCard(Container):
             if error_rate > 0.1:  # More than 10% error rate
                 status_text = "Error"
                 status_class = "error"
-                card_class = "worker-error"
+                card_class = "worker_error"
             elif health_message.cpu_usage > 90:  # High CPU usage
                 status_text = "High Load"
                 status_class = "status-processing"
-                card_class = "worker-warning"
+                card_class = "worker_warning"
             elif health_message.total_tasks == 0:  # No tasks processed
                 status_text = "Idle"
                 status_class = "status-idle"
-                card_class = "worker-healthy"
+                card_class = "worker_healthy"
             else:
                 status_text = "Healthy"
                 status_class = "status-complete"
-                card_class = "worker-healthy"
+                card_class = "worker_healthy"
 
             # Update CSS class
             self.remove_class(
-                "worker-healthy", "worker-warning", "worker-error", "worker-stale"
+                "worker_healthy", "worker_warning", "worker_error", "worker_stale"
             )
             self.add_class(card_class)
 
@@ -165,8 +166,8 @@ class WorkerStatusCard(Container):
         ):
             return
 
-        self.remove_class("worker-healthy", "worker-warning", "worker-error")
-        self.add_class("worker-stale")
+        self.remove_class("worker_healthy", "worker_warning", "worker_error")
+        self.add_class("worker_stale")
         try:
             self.query_one("#status", StatusIndicator).update_value(
                 "Stale", "status-idle"
@@ -272,7 +273,9 @@ class WorkerDashboard(Container):
             workers_grid.mount(worker_card)
 
         except Exception as e:
-            logger.error(f"Error adding worker card for {worker_id}: {e}")
+            logger.exception(
+                f"Error adding worker card for {worker_id}: {e.__class__.__name__}: {e}"
+            )
 
     def _update_summary(self) -> None:
         """Update the summary statistics."""

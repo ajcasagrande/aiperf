@@ -83,9 +83,10 @@ class AIPerfTextualApp(App):
         height: auto;
     }
 
-    TabbedContent ContentSwitcher{
+    TabbedContent ContentSwitcher {
         height: 1fr;
     }
+
     Placeholder {
         height: 1fr;
     }
@@ -193,9 +194,9 @@ class TextualUIMixin(AIPerfLifecycleMixin):
             return
 
         try:
-            profile = self.progress_tracker.current_profile
-            if profile is None:
-                return
+            # profile = self.progress_tracker.current_profile
+            # if profile is None:
+            #     return
             # Force refresh the display
             self.app.dashboard.update_display()
 
@@ -208,9 +209,9 @@ class TextualUIMixin(AIPerfLifecycleMixin):
             return
 
         try:
-            profile = self.progress_tracker.current_profile
-            if profile is None:
-                return
+            # profile = self.progress_tracker.current_profile
+            # if profile is None:
+            #     return
 
             # Force refresh the display
             self.app.dashboard.update_display()

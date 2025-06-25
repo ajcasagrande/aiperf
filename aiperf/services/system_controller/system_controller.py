@@ -16,6 +16,7 @@ from aiperf.common.config.endpoint.endpoint_config import EndPointConfig
 from aiperf.common.constants import EnvDefaults
 from aiperf.common.enums import (
     BenchmarkSuiteType,
+    CommandResponseStatus,
     CommandType,
     ServiceRegistrationStatus,
     ServiceRunType,
@@ -43,11 +44,11 @@ from aiperf.common.models import (
     StatusMessage,
 )
 from aiperf.common.models.messages import (
+    CommandResponseMessage,
     NotificationMessage,
     ProfileProgressMessage,
     WorkerHealthMessage,
 )
-from aiperf.common.models.progress import ProfileProgress, ProfileSuiteProgress
 from aiperf.common.progress_tracker import ProgressTracker
 from aiperf.common.service.base_controller_service import BaseControllerService
 from aiperf.common.service.base_service import BaseService
@@ -57,6 +58,7 @@ from aiperf.services.service_manager import (
     KubernetesServiceManager,
     MultiProcessServiceManager,
 )
+from aiperf.services.system_controller.profile_runner import ProfileRunner
 from aiperf.services.system_controller.system_mixins import SignalHandlerMixin
 from aiperf.ui.textual_ui import TextualUIMixin
 
@@ -76,13 +78,6 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         self.logger.debug("Creating System Controller")
 
         self._system_state: SystemState = SystemState.INITIALIZING
-
-        # # List of pre-requisites for the system controller
-        # # These are services that must be running before the system controller can start other services
-        # self.pre_requisites: list[ServiceType] = [
-        #     ServiceType.ZMQ_DEALER_ROUTER_PROXY,
-        #     ServiceType.ZMQ_XPUB_XSUB_PROXY,
-        # ]
 
         # List of required service types, in no particular order
         # These are services that must be running before the system controller can start profiling
@@ -106,6 +101,9 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         self.xpub_xsub_proxy: BaseZMQProxy
         self.xpub_xsub_proxy_task: asyncio.Task
 
+        self.dealer_router_proxy: BaseZMQProxy
+        self.dealer_router_proxy_task: asyncio.Task
+
         self.logger.debug("System Controller created")
 
     @property
@@ -118,6 +116,13 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         try:
             await super()._forever_loop()
         except KeyboardInterrupt:
+            if self.profile_runner.was_cancelled:
+                self.logger.error("Profile was cancelled, killing all services")
+                await self.kill()
+                return
+
+            await self.profile_runner.cancel_profile()
+
             await self.send_command_to_service(
                 target_service_type=ServiceType.RECORDS_MANAGER,
                 target_service_id=None,
@@ -155,6 +160,15 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         )
         self.xpub_xsub_proxy_task = asyncio.create_task(self.xpub_xsub_proxy.run())
 
+        self.dealer_router_proxy = ZMQProxyFactory.create_instance(
+            ZMQProxyType.DEALER_ROUTER,
+            context=self.zmq_context,
+            zmq_proxy_config=self.service_config.comm_config.dealer_router_proxy_config,
+        )
+        self.dealer_router_proxy_task = asyncio.create_task(
+            self.dealer_router_proxy.run()
+        )
+
     async def _post_initialize(self) -> None:
         """Post-initialize the system controller."""
 
@@ -190,6 +204,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             (Topic.PROFILE_RESULTS, self._process_profile_results_message),
             (Topic.WORKER_HEALTH, self._process_worker_health_message),
             (Topic.NOTIFICATION, self._process_notification_message),
+            (Topic.COMMAND_RESPONSE, self._process_command_response_message),
         ]
         for topic, callback in subscribe_callbacks:
             try:
@@ -212,12 +227,19 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         """
         self.logger.debug("Received signal %s, initiating graceful shutdown", sig)
         if sig == signal.SIGINT:
+            if self.profile_runner.was_cancelled:
+                self.logger.error("Profile was cancelled, killing all services")
+                await self.kill()
+                return
+
             await self.send_command_to_service(
                 target_service_id=None,
                 target_service_type=ServiceType.RECORDS_MANAGER,
                 command=CommandType.PROCESS_RECORDS,
                 data=ProcessRecordsCommandData(cancelled=True),
             )
+
+            await self.profile_runner.cancel_profile()
         else:
             self.stop_event.set()
 
@@ -317,36 +339,17 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             with contextlib.suppress(asyncio.CancelledError):
                 await self.xpub_xsub_proxy_task
 
+        if self.dealer_router_proxy_task:
+            await self.dealer_router_proxy.stop()
+            self.dealer_router_proxy_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self.dealer_router_proxy_task
+
     async def start_profiling_all_services(self) -> None:
         """Tell all services to start profiling."""
-        self._system_state = SystemState.PROFILING
 
-        if self.progress_tracker.suite is None:
-            self.progress_tracker.suite = ProfileSuiteProgress(
-                suite_type=BenchmarkSuiteType.SINGLE_PROFILE,
-                start_time_ns=time.time_ns(),
-            )
-
-        self.progress_tracker.suite.current_profile = ProfileProgress(
-            profile_id=self.service_id,
-            start_time_ns=time.time_ns(),
-            total_expected_requests=0,
-        )
-
-        self.logger.debug("Starting services")
-        for service_info in self.service_manager.service_id_map.values():
-            if service_info.state == ServiceState.READY:
-                try:
-                    await self.send_command_to_service(
-                        target_service_id=service_info.service_id,
-                        command=CommandType.PROFILE_START,
-                    )
-
-                except Exception as e:
-                    self.logger.warning("Failed to start service: %s", e)
-                    # Continue to the next service
-                    # TODO: should we have some sort of retries?
-                    continue
+        self.profile_runner = ProfileRunner(self)
+        await self.profile_runner.run()
 
     async def _process_profile_stats_message(
         self, message: ProfileStatsMessage
@@ -375,18 +378,18 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
     ) -> None:
         """Process a profile progress message."""
         self.logger.debug("Received profile progress: %s", message)
-        self.progress_tracker.update_profile_progress(message)
         if self.ui:
             await self.ui.on_profile_progress_update()
+        self.progress_tracker.update_profile_progress(message)
 
     async def _process_profile_results_message(
         self, message: ProfileResultsMessage
     ) -> None:
         """Process a profile results message."""
         self.logger.debug("Received profile results: %s", message)
-        self.progress_tracker.update_profile_results(message)
         if self.ui:
             await self.ui.on_profile_results_update()
+        self.progress_tracker.update_profile_results(message)
 
         # Export the results
         await ExporterManager(
@@ -395,8 +398,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             )
         ).export_all(message)
 
-        # Stop the system
-        self.stop_event.set()
+        await self.profile_runner.profile_completed()
 
     async def _process_registration_message(self, message: RegistrationMessage) -> None:
         """Process a registration message from a service. It will
@@ -524,13 +526,29 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         self, message: WorkerHealthMessage
     ) -> None:
         """Process a worker health message."""
-        self.logger.info("SC: Received worker health message: %s", message)
+        self.logger.debug("SC: Received worker health message: %s", message)
         if self.ui:
             await self.ui.on_worker_health_update(message)
 
     async def _process_notification_message(self, message: NotificationMessage) -> None:
         """Process a notification message."""
         self.logger.info("SC: Received notification message: %s", message)
+
+    async def _process_command_response_message(
+        self, message: CommandResponseMessage
+    ) -> None:
+        """Process a command response message."""
+        self.logger.debug("SC: Received command response message: %s", message)
+        if message.status == CommandResponseStatus.SUCCESS:
+            self.logger.debug(
+                "SC: Command %s succeeded with data: %s", message.command, message.data
+            )
+        else:
+            self.logger.error(
+                "SC: Command %s failed: %s", message.command, message.error
+            )
+            if message.error:
+                self.logger.error("SC: Error details: %s", message.error)
 
     async def send_command_to_service(
         self,
@@ -577,6 +595,16 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             raise CommunicationError(
                 CommunicationErrorReason.PUBLISH_ERROR,
                 f"Failed to publish command: {e}",
+            ) from e
+
+    async def kill(self):
+        """Kill the system controller."""
+        try:
+            await self.service_manager.kill_all_services()
+        except Exception as e:
+            raise self._service_error(
+                ServiceErrorType.SHUTDOWN_ERROR,
+                "Failed to stop all services",
             ) from e
 
 

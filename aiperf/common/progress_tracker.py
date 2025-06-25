@@ -6,15 +6,13 @@ import time
 from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import BenchmarkSuiteType
 from aiperf.common.models import (
-    ProfileProgressMessage,
-    ProfileStatsMessage,
-    SweepProgressMessage,
-)
-from aiperf.common.models.messages import ProfileResultsMessage
-from aiperf.common.models.progress import (
     ProfileProgress,
+    ProfileProgressMessage,
+    ProfileResultsMessage,
+    ProfileStatsMessage,
     ProfileSuiteProgress,
     SweepProgress,
+    SweepProgressMessage,
     SweepSuiteProgress,
 )
 
@@ -42,13 +40,34 @@ class ProgressTracker:
             BenchmarkSuiteType.SINGLE_PROFILE,
             BenchmarkSuiteType.MULTI_PROFILE,
         ]:
-            self.suite = ProfileSuiteProgress()
+            self.suite = ProfileSuiteProgress(
+                profiles=[
+                    ProfileProgress(
+                        profile_id="0",
+                        total_expected_requests=0,
+                    )
+                ],
+                total_profiles=1,
+            )
 
         elif suite_type in [
             BenchmarkSuiteType.SINGLE_SWEEP,
             BenchmarkSuiteType.MULTI_SWEEP,
         ]:
-            self.suite = SweepSuiteProgress()
+            self.suite = SweepSuiteProgress(
+                sweeps=[
+                    SweepProgress(
+                        sweep_id="0",
+                        profiles=[
+                            ProfileProgress(
+                                profile_id="0",
+                                total_expected_requests=0,
+                            )
+                        ],
+                    )
+                ],
+                total_sweeps=1,
+            )
 
     def update_profile_progress(self, message: ProfileProgressMessage) -> None:
         current_time_ns = time.time_ns()
