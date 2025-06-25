@@ -6,7 +6,7 @@ import time
 from collections.abc import Callable
 
 from textual.app import ComposeResult
-from textual.containers import Container, Horizontal, ScrollableContainer, Vertical
+from textual.containers import Container, Horizontal, ScrollableContainer
 from textual.widgets import Label
 
 from aiperf.common.config import ServiceConfig
@@ -27,10 +27,11 @@ class WorkerStatusCard(Container):
         border: solid $accent;
         border-title-color: $accent;
         border-title-background: $surface;
-        height: 12;
+        height: 2;
         margin: 0 1 1 0;
         min-width: 50;
-        max-width: 50;
+        max-width: 100;
+        layout: horizontal;
     }
 
     WorkerStatusCard StatusIndicator {
@@ -74,14 +75,13 @@ class WorkerStatusCard(Container):
 
     def compose(self) -> ComposeResult:
         """Compose the worker status card layout."""
-        with Vertical():
-            yield StatusIndicator("Status", "Unknown", show_dot=True, id="status")
-            yield StatusIndicator("Tasks", "0 / 0", show_dot=False, id="tasks")
-            yield StatusIndicator("CPU", "0.0%", show_dot=False, id="cpu")
-            yield StatusIndicator("Memory", "0.0 MiB", show_dot=False, id="memory")
-            yield StatusIndicator("Uptime", "--", show_dot=False, id="uptime")
-            yield StatusIndicator("PID", "--", show_dot=False, id="pid")
-            yield StatusIndicator("Errors", "0", show_dot=False, id="errors")
+        yield StatusIndicator("Status", "Unknown", show_dot=True, id="status")
+        yield StatusIndicator("Tasks", "0 / 0", show_dot=False, id="tasks")
+        yield StatusIndicator("CPU", "0.0%", show_dot=False, id="cpu")
+        yield StatusIndicator("Memory", "0.0 MiB", show_dot=False, id="memory")
+        yield StatusIndicator("Uptime", "--", show_dot=False, id="uptime")
+        yield StatusIndicator("PID", "--", show_dot=False, id="pid")
+        yield StatusIndicator("Errors", "0", show_dot=False, id="errors")
 
     def update_health(self, health_message: WorkerHealthMessage) -> None:
         """Update the worker health display."""
@@ -184,11 +184,13 @@ class WorkerDashboard(Container):
         border-title-color: $primary;
         border-title-background: $surface;
         height: 100%;
+        layout: vertical;
     }
 
     #worker-summary {
         height: 3;
         margin: 0 1 1 1;
+        layout: vertical;
     }
 
     #workers-scroll {
@@ -198,6 +200,7 @@ class WorkerDashboard(Container):
 
     #workers-grid {
         height: auto;
+        layout: vertical;
     }
     """
 
@@ -215,19 +218,19 @@ class WorkerDashboard(Container):
 
     def compose(self) -> ComposeResult:
         """Compose the worker dashboard layout."""
-        with Vertical():
-            with Container(id="worker-summary"):
-                yield StatusIndicator(
-                    "Total Workers", "0", show_dot=False, id="total-workers"
-                )
-                yield StatusIndicator(
-                    "Healthy", "0", show_dot=False, id="healthy-workers"
-                )
-                yield StatusIndicator("Issues", "0", show_dot=False, id="issue-workers")
+        yield Container(
+            StatusIndicator("Total Workers", "0", show_dot=False, id="total-workers"),
+            StatusIndicator("Healthy", "0", show_dot=False, id="healthy-workers"),
+            StatusIndicator("Issues", "0", show_dot=False, id="issue-workers"),
+            id="worker-summary",
+        )
 
-            with ScrollableContainer(id="workers-scroll"):  # noqa: SIM117
-                with Horizontal(id="workers-grid"):  # noqa: SIM117
-                    yield Label("No workers detected", id="no-workers-label")
+        yield ScrollableContainer(
+            Horizontal(
+                Label("No workers detected", id="no-workers-label"), id="workers-grid"
+            ),
+            id="workers-scroll",
+        )
 
     def update_worker_health(self, health_message: WorkerHealthMessage) -> None:
         """Update a specific worker's health status."""

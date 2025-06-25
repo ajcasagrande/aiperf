@@ -63,7 +63,9 @@ class Worker(BaseService):
             streaming=os.getenv("AIPERF_STREAMING", "true").lower() == "true",
         )
 
-        self.health_check_interval = int(os.getenv("AIPERF_HEALTH_CHECK_INTERVAL", 10))
+        self.health_check_interval = int(
+            os.getenv("AIPERF_WORKER_HEALTH_CHECK_INTERVAL", 1)
+        )
         self.begin_time = time.time()
         self.completed_tasks = 0
         self.failed_tasks = 0

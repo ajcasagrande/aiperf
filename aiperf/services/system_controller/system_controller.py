@@ -188,6 +188,8 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             (Topic.PROFILE_PROGRESS, self._process_profile_progress_message),
             (Topic.PROFILE_STATS, self._process_profile_stats_message),
             (Topic.PROFILE_RESULTS, self._process_profile_results_message),
+            (Topic.WORKER_HEALTH, self._process_worker_health_message),
+            (Topic.NOTIFICATION, self._process_notification_message),
         ]
         for topic, callback in subscribe_callbacks:
             try:
@@ -523,22 +525,12 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
     ) -> None:
         """Process a worker health message."""
         self.logger.info("SC: Received worker health message: %s", message)
-        # Re-publish the worker health message to the services that need it
-        await self.pub_client.publish(
-            topic=Topic.WORKER_HEALTH,
-            message=message,
-        )
         if self.ui:
             await self.ui.on_worker_health_update(message)
 
     async def _process_notification_message(self, message: NotificationMessage) -> None:
         """Process a notification message."""
         self.logger.info("SC: Received notification message: %s", message)
-        # Re-publish the notification message to the services that need it
-        await self.pub_client.publish(
-            topic=Topic.NOTIFICATION,
-            message=message,
-        )
 
     async def send_command_to_service(
         self,

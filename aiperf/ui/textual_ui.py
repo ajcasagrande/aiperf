@@ -22,6 +22,7 @@ from aiperf.common.hooks import (
     aiperf_task,
     on_stop,
 )
+from aiperf.common.models.messages import WorkerHealthMessage
 from aiperf.common.progress_tracker import ProgressTracker
 from aiperf.ui.logging_ui import LogViewer
 from aiperf.ui.progress_dashboard import ProgressDashboard
@@ -54,7 +55,7 @@ class AIPerfTextualApp(App):
     }
 
     #dashboard-section {
-        height: 1fr;
+        height: 3fr;
         min-height: 15;
     }
 
@@ -63,24 +64,24 @@ class AIPerfTextualApp(App):
     }
 
     TabbedContent {
-        height: 100%;
+        height: 1fr;
         width: 100%;
     }
 
     TabPane {
-        height: 100%;
+        height: 1fr;
         width: 100%;
         padding: 1;
     }
 
     /* Ensure dashboard widgets inside tabs are properly sized */
     TabPane > ProgressDashboard {
-        height: 100%;
+        height: 1fr;
         width: 100%;
     }
 
     TabPane > WorkerDashboard {
-        height: 100%;
+        height: 1fr;
         width: 100%;
     }
 
@@ -89,8 +90,15 @@ class AIPerfTextualApp(App):
         height: auto;
     }
 
+    TabbedContent ContentSwitcher{
+        height: 1fr;
+    }
+    Placeholder {
+        height: 1fr;
+    }
+
     TabPane Vertical {
-        height: 100%;
+        height: 1fr;
     }
     """
 
@@ -114,18 +122,16 @@ class AIPerfTextualApp(App):
         """Compose the clean application layout."""
         yield Header()
 
-        with (
-            Vertical(id="main-container"),
-            Container(id="dashboard-section"),
-            TabbedContent(initial="performance"),
-        ):
-            with TabPane("Performance Dashboard", id="performance"):
-                self.dashboard = ProgressDashboard(self.progress_tracker)
-                yield self.dashboard
+        with Vertical(id="main-container"):
+            with Container(id="dashboard-section"):
+                with TabbedContent(initial="performance"):
+                    with TabPane("Performance Dashboard", id="performance"):
+                        self.dashboard = ProgressDashboard(self.progress_tracker)
+                        yield self.dashboard
 
-            with TabPane("Worker Status", id="workers"):
-                self.worker_dashboard = WorkerDashboard()
-                yield self.worker_dashboard
+                    with TabPane("Worker Status", id="workers"):
+                        self.worker_dashboard = WorkerDashboard()
+                        yield self.worker_dashboard
 
             with Container(id="logs-section"):
                 self.log_viewer = LogViewer()
@@ -219,6 +225,17 @@ class TextualUIMixin(AIPerfLifecycleMixin):
 
         except Exception as e:
             logger.warning("Stats update error: %s", e)
+
+    async def on_worker_health_update(self, message: WorkerHealthMessage) -> None:
+        """Update the worker health with enhanced error tracking."""
+        if not self.app.worker_dashboard:
+            return
+
+        try:
+            self.app.worker_dashboard.update_worker_health(message)
+
+        except Exception as e:
+            logger.warning("Worker health update error: %s", e)
 
 
 class QuitConfirmationDialog(Static):
