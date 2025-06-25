@@ -9,8 +9,6 @@ from textual.binding import Binding
 from textual.containers import Container, Grid, Vertical
 from textual.widgets import (
     Button,
-    Footer,
-    Header,
     Label,
     Static,
     TabbedContent,
@@ -24,6 +22,7 @@ from aiperf.common.hooks import (
 )
 from aiperf.common.models.messages import WorkerHealthMessage
 from aiperf.common.progress_tracker import ProgressTracker
+from aiperf.ui.custom_header import Header
 from aiperf.ui.logging_ui import LogViewer
 from aiperf.ui.progress_dashboard import ProgressDashboard
 from aiperf.ui.worker_dashboard import WorkerDashboard
@@ -37,12 +36,6 @@ class AIPerfTextualApp(App):
     CSS = """
     Screen {
         background: $surface;
-    }
-
-    Header {
-        background: $primary;
-        color: $text;
-        text-style: bold;
     }
 
     Footer {
@@ -71,7 +64,7 @@ class AIPerfTextualApp(App):
     TabPane {
         height: 1fr;
         width: 100%;
-        padding: 1;
+        padding: 0;
     }
 
     /* Ensure dashboard widgets inside tabs are properly sized */
@@ -103,7 +96,6 @@ class AIPerfTextualApp(App):
     """
 
     BINDINGS = [
-        ("q", "quit", "Quit"),
         ("ctrl+c", "quit", "Quit"),
         ("1", "switch_tab('performance')", "Performance"),
         ("2", "switch_tab('workers')", "Workers"),
@@ -122,10 +114,10 @@ class AIPerfTextualApp(App):
         """Compose the clean application layout."""
         yield Header()
 
-        with Vertical(id="main-container"):
-            with Container(id="dashboard-section"):
-                with TabbedContent(initial="performance"):
-                    with TabPane("Performance Dashboard", id="performance"):
+        with Vertical(id="main-container"):  # noqa: SIM117
+            with Container(id="dashboard-section"):  # noqa: SIM117
+                with TabbedContent(initial="performance"):  # noqa: SIM117
+                    with TabPane("Performance Dashboard", id="performance"):  # noqa: SIM117
                         self.dashboard = ProgressDashboard(self.progress_tracker)
                         yield self.dashboard
 
@@ -137,7 +129,7 @@ class AIPerfTextualApp(App):
                 self.log_viewer = LogViewer()
                 yield self.log_viewer
 
-        yield Footer()
+        # yield Footer()
 
     async def action_switch_tab(self, tab_id: str) -> None:
         """Switch to a specific tab."""
