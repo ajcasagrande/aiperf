@@ -11,6 +11,7 @@ from aiperf.common.comms.zmq.clients.base import BaseZMQClient
 from aiperf.common.enums import MessageType
 from aiperf.common.hooks import aiperf_task, on_cleanup
 from aiperf.common.models import ErrorMessage, Message
+from aiperf.common.models.record_models import ErrorDetails
 
 
 class ZMQRouterRepClient(BaseZMQClient, RepClientInterface):
@@ -80,7 +81,7 @@ class ZMQRouterRepClient(BaseZMQClient, RepClientInterface):
             self.logger.error("Exception calling handler for %s: %s", message_type, e)
             response = ErrorMessage(
                 request_id=request.request_id,
-                error=str(e),
+                error=ErrorDetails.from_exception(e),
             )
 
         self._response_futures[request_id].set_result(response)

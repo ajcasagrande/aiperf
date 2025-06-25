@@ -172,7 +172,13 @@ class SSEMessage(InferenceServerResponse):
     )
 
     def extract_data_content(self) -> list[str]:
-        """Extract the data content from the SSE message."""
+        """Extract the data contents from the SSE message as a list of strings. Note that the SSE spec specifies
+        that each data content should be combined and delimited by a single \n. We have left
+        it as a list to allow the caller to decide how to handle the data.
+
+        Returns:
+            list[str]: A list of strings containing the data contents of the SSE message.
+        """
         return [
             packet.value
             for packet in self.packets
@@ -180,6 +186,7 @@ class SSEMessage(InferenceServerResponse):
         ]
 
 
+# TODO: I do not think this is being used currently.
 class SSEMessageStream(InferenceServerResponse):
     """A stream of SSE messages from a complete inference API call."""
 
@@ -201,7 +208,7 @@ class SSEMessageStream(InferenceServerResponse):
 
 
 class RequestRecord(BaseModel):
-    """Record of a request."""
+    """Record of a request with its associated responses."""
 
     request: Any = Field(
         default=None,
@@ -209,15 +216,15 @@ class RequestRecord(BaseModel):
     )
     start_perf_ns: int = Field(
         default_factory=time.perf_counter_ns,
-        description="The start time of the request in perf_counter_ns.",
+        description="The start time of the request in nanoseconds (perf_counter_ns).",
     )
     end_perf_ns: int | None = Field(
         default=None,
-        description="The end time of the request in perf_counter_ns.",
+        description="The end time of the request in nanoseconds (perf_counter_ns).",
     )
     recv_start_perf_ns: int | None = Field(
         default=None,
-        description="The start time of the response in perf_counter_ns.",
+        description="The start time of the response in nanoseconds (perf_counter_ns).",
     )
     status: int | None = Field(
         default=None,
@@ -234,17 +241,12 @@ class RequestRecord(BaseModel):
         default=None,
         description="The error details if the request failed.",
     )
-    sequence_end: bool = Field(
-        default=True, description="Whether the sequence has ended."
+    delayed: bool = Field(
+        default=False,
+        description="Whether the request was delayed from when it was expected to be sent.",
     )
-    delayed: bool = Field(default=False, description="Whether the request was delayed.")
 
     # TODO: Most of these properties will be removed once we have proper record handling.
-
-    @property
-    def has_null_last_response(self) -> bool:
-        """Whether the last response received was null."""
-        return len(self.responses) > 0 and self.responses[-1] is None
 
     @property
     def has_error(self) -> bool:
@@ -336,29 +338,6 @@ class RequestRecord(BaseModel):
             else None
         )
 
-    def time_string(self) -> str:
-        """Return a string representation of the request record."""
-        lt = [
-            # f"start_perf_ns={self.start_perf_ns / 1000000:.3f}ms",
-            f"recv_start_perf_ns={(self.recv_start_perf_ns - self.start_perf_ns) / 1000000:.3f}ms"
-            if self.recv_start_perf_ns
-            else None,
-            f"end_perf_ns={(self.end_perf_ns - self.start_perf_ns) / 1000000:.3f}ms"
-            if self.end_perf_ns
-            else None,
-            f"recv_duration={(self.end_perf_ns - self.recv_start_perf_ns) / 1000000:.3f}ms"
-            if self.end_perf_ns and self.recv_start_perf_ns
-            else None,
-            f"duration={(self.end_perf_ns - self.start_perf_ns) / 1000000:.3f}ms"
-            if self.end_perf_ns and self.start_perf_ns
-            else None,
-        ]
-        tt = [
-            f"{self.token_latency_ns(i) / 1000000:.3f}ms"
-            for i in range(len(self.responses))
-        ]
-        return f"RequestRecord({', '.join(lt)}, [{', '.join(tt)}])"
-
 
 class ResponseData(BaseModel):
     """Base class for all response data."""
@@ -367,6 +346,10 @@ class ResponseData(BaseModel):
     raw_text: list[str] = Field(description="The raw text of the response.")
     parsed_text: list[str | None] = Field(
         description="The parsed text of the response."
+    )
+    token_counts: list[int | None] = Field(
+        default=[],
+        description="The number of tokens in the response.",
     )
     metadata: dict[str, Any] = Field(
         default_factory=dict, description="The metadata of the response."

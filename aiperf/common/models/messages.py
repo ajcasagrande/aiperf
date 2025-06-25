@@ -305,10 +305,7 @@ class ErrorMessage(Message):
 
     message_type: Literal[MessageType.ERROR] = MessageType.ERROR
 
-    error: str | None = Field(
-        default=None,
-        description="Error information",
-    )
+    error: ErrorDetails = Field(..., description="Error information")
 
 
 class NotificationMessage(BaseServiceMessage):
@@ -332,10 +329,7 @@ class BaseServiceErrorMessage(BaseServiceMessage):
 
     message_type: Literal[MessageType.SERVICE_ERROR] = MessageType.SERVICE_ERROR
 
-    error: str | None = Field(
-        default=None,
-        description="Error information",
-    )
+    error: ErrorDetails = Field(..., description="Error information")
 
 
 class CreditsCompleteMessage(BaseServiceMessage):

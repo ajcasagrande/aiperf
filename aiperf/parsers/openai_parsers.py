@@ -5,44 +5,67 @@ import logging
 from typing import Any
 
 from aiperf.common.models import RequestRecord, ResponseData, SSEMessage, TextResponse
+from aiperf.common.models.record_models import InferenceServerResponse
+from aiperf.common.tokenizer import Tokenizer
 from aiperf.common.utils import load_json_str
 
 logger = logging.getLogger(__name__)
 
 
+# TODO: Factory support for different supported parsers/extractors
 class OpenAIResponseExtractor:
     """Extractor for OpenAI responses."""
 
-    async def extract_response_data(self, record: RequestRecord) -> list[ResponseData]:
+    async def _parse_text_response(self, response: TextResponse) -> ResponseData | None:
+        """Parse a TextResponse into a ResponseData object."""
+        raw = response.text
+        parsed, metadata = self._parse_text(raw)
+        if parsed is None:
+            return None
+
+        return ResponseData(
+            perf_ns=response.perf_ns,
+            raw_text=[raw],
+            parsed_text=parsed,
+            metadata=metadata or {},
+        )
+
+    async def _parse_sse_response(self, response: SSEMessage) -> ResponseData | None:
+        """Parse a SSEMessage into a ResponseData object."""
+        raw = response.extract_data_content()
+        parsed, metadata = self._parse_sse(raw)
+        if parsed is None:
+            return None
+
+        return ResponseData(
+            perf_ns=response.perf_ns,
+            raw_text=raw,
+            parsed_text=parsed,
+            metadata=metadata or {},
+        )
+
+    async def _parse_response(
+        self, response: InferenceServerResponse
+    ) -> ResponseData | None:
+        """Parse a response into a ResponseData object."""
+        if isinstance(response, TextResponse):
+            return await self._parse_text_response(response)
+        elif isinstance(response, SSEMessage):
+            return await self._parse_sse_response(response)
+
+    async def extract_response_data(
+        self, record: RequestRecord, tokenizer: Tokenizer | None
+    ) -> list[ResponseData]:
         """Extract the text from a server response message."""
         results = []
         for response in record.responses:
-            if isinstance(response, TextResponse):
-                raw = response.text
-                parsed, metadata = self._parse_text(raw)
-                if parsed is not None:
-                    results.append(
-                        ResponseData(
-                            perf_ns=response.perf_ns,
-                            raw_text=[raw],
-                            parsed_text=parsed,
-                            metadata=metadata or {},
-                        )
+            response_data = await self._parse_response(response)
+            if response_data is not None:
+                if tokenizer is not None:
+                    response_data.token_count = tokenizer.encode(
+                        response_data.parsed_text
                     )
-            elif isinstance(response, SSEMessage):
-                raw = response.extract_data_content()
-                parsed, metadata = self._parse_sse(raw)
-                if parsed is not None:
-                    results.append(
-                        ResponseData(
-                            perf_ns=response.perf_ns,
-                            raw_text=raw,
-                            parsed_text=parsed,
-                            metadata=metadata or {},
-                        )
-                    )
-            else:
-                raise ValueError(f"Unsupported response type: {type(response)}")
+                results.append(response_data)
         return results
 
     def _parse_text(
@@ -102,10 +125,10 @@ class OpenAIResponseExtractor:
                 continue
             result.extend(parsed)
 
-            # TODO: how to handle multiple metadata?
             if metadata is None:
                 continue
 
+            # TODO: right now we are merging metadata, not sure if correct approach
             for k, v in metadata.items():
                 if k not in all_metadata:
                     all_metadata[k] = v
