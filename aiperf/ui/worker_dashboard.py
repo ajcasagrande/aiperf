@@ -190,7 +190,7 @@ class WorkerDashboard(Container):
     #worker-summary {
         height: 3;
         margin: 0 1 1 1;
-        layout: vertical;
+        layout: horizontal;
     }
 
     #workers-scroll {
@@ -200,7 +200,7 @@ class WorkerDashboard(Container):
 
     #workers-grid {
         height: auto;
-        layout: vertical;
+        layout: horizontal;
     }
     """
 
