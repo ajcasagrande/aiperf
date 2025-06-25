@@ -271,8 +271,8 @@ class RequestRecord(BaseModel):
         if not self.valid:
             return None
         return (
-            self.responses[0].perf_ns - self.recv_start_perf_ns
-            if self.recv_start_perf_ns
+            self.responses[0].perf_ns - self.start_perf_ns
+            if self.start_perf_ns
             else None
         )
 
@@ -294,11 +294,7 @@ class RequestRecord(BaseModel):
             return None
         if self.end_perf_ns is None or self.start_perf_ns is None:
             return None
-        return (
-            self.end_perf_ns - self.recv_start_perf_ns
-            if self.recv_start_perf_ns
-            else None
-        )
+        return self.end_perf_ns - self.start_perf_ns if self.start_perf_ns else None
 
     @property
     def inter_token_latency_ns(self) -> float | None:
@@ -362,6 +358,19 @@ class RequestRecord(BaseModel):
             for i in range(len(self.responses))
         ]
         return f"RequestRecord({', '.join(lt)}, [{', '.join(tt)}])"
+
+
+class ResponseData(BaseModel):
+    """Base class for all response data."""
+
+    perf_ns: int = Field(description="The performance timestamp of the response.")
+    raw_text: list[str] = Field(description="The raw text of the response.")
+    parsed_text: list[str | None] = Field(
+        description="The parsed text of the response."
+    )
+    metadata: dict[str, Any] = Field(
+        default_factory=dict, description="The metadata of the response."
+    )
 
 
 class Transaction(BaseModel):

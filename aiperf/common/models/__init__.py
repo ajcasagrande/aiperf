@@ -35,6 +35,7 @@ from aiperf.common.models.record_models import (
     InferenceServerResponse,
     Record,
     RequestRecord,
+    ResponseData,
     ResultsRecord,
     SSEField,
     SSEMessage,
@@ -82,4 +83,5 @@ __all__ = [
     "DatasetTimingRequest",
     "DatasetTimingResponse",
     "WorkerHealthMessage",
+    "ResponseData",
 ]

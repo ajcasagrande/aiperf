@@ -62,6 +62,7 @@ class BaseZMQProxy(ABC):
         self.control_address = zmq_proxy_config.control_address
         self.capture_address = zmq_proxy_config.capture_address
         self.socket_ops = socket_ops
+        self.monitor_task: asyncio.Task | None = None
 
         # Proxy sockets with clear frontend/backend naming
         self.backend_socket: BaseZMQClient = backend_socket_class(
@@ -168,6 +169,11 @@ class BaseZMQProxy(ABC):
         self.logger.debug("PROXY STOPPING...")
 
         try:
+            if self.monitor_task and not self.monitor_task.done():
+                self.monitor_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await self.monitor_task
+
             await asyncio.gather(
                 self.backend_socket.shutdown(),
                 self.frontend_socket.shutdown(),
@@ -221,9 +227,9 @@ class BaseZMQProxy(ABC):
             self._proxy_start_time = time.time()
 
             # Start message monitoring task if capture is enabled (optional)
-            monitor_task = None
+            self.monitor_task = None
             if self.capture_client:
-                monitor_task = asyncio.create_task(self._monitor_messages())
+                self.monitor_task = asyncio.create_task(self._monitor_messages())
                 self.logger.debug("PROXY MESSAGE MONITORING STARTED")
 
             # Start the proxy in a separate thread (blocking operation)
@@ -249,12 +255,6 @@ class BaseZMQProxy(ABC):
                 CommunicationErrorReason.PROXY_ERROR,
                 f"Proxy failed: {e}",
             ) from e
-        finally:
-            if monitor_task and not monitor_task.done():
-                monitor_task.cancel()
-                with contextlib.suppress(asyncio.CancelledError):
-                    await monitor_task
-            await self.stop()
 
     async def _monitor_messages(self) -> None:
         """Monitor messages flowing through the proxy via the capture socket."""

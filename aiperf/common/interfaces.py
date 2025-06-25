@@ -7,6 +7,7 @@ from aiperf.common.models import (
     InferenceServerResponse,
     ProfileResultsMessage,
     RequestRecord,
+    ResponseData,
 )
 from aiperf.common.types import ConfigT, InputT, OutputT, RequestT, ResponseT
 
@@ -132,3 +133,16 @@ class DataExporterProtocol(Protocol):
     """
 
     async def export(self, message: ProfileResultsMessage) -> None: ...
+
+
+################################################################################
+# Response Extractor Protocol
+################################################################################
+
+
+class ResponseExtractor(Protocol):
+    """Base class for all response extractors."""
+
+    async def extract_response_data(self, record: RequestRecord) -> list[ResponseData]:
+        """Extract the text from a server response message."""
+        ...

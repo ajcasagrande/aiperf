@@ -4,17 +4,16 @@
 import logging
 from typing import Any
 
-from aiperf.common.models import RequestRecord, SSEMessage, TextResponse
+from aiperf.common.models import RequestRecord, ResponseData, SSEMessage, TextResponse
 from aiperf.common.utils import load_json_str
-from aiperf.parsers.base import ResponseData, ResponseExtractor
 
 logger = logging.getLogger(__name__)
 
 
-class OpenAIResponseExtractor(ResponseExtractor):
+class OpenAIResponseExtractor:
     """Extractor for OpenAI responses."""
 
-    def extract_response_data(self, record: RequestRecord) -> list[ResponseData]:
+    async def extract_response_data(self, record: RequestRecord) -> list[ResponseData]:
         """Extract the text from a server response message."""
         results = []
         for response in record.responses:

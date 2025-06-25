@@ -302,8 +302,6 @@ class Worker(BaseService):
                 total_tasks=self.total_tasks,
                 timestamp_ns=time.time_ns(),
                 net_connections=len(self.process.net_connections("tcp4")),
-                open_files=len(self.process.open_files()),
-                cpu_num=self.process.cpu_num(),
                 io_counters=self.process.io_counters(),
                 cpu_times=self.process.cpu_times(),
             ),

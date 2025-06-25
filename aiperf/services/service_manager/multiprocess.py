@@ -32,26 +32,11 @@ class MultiProcessServiceManager(BaseServiceManager):
 
     def __init__(
         self,
-        pre_requisites: list[ServiceType],
         required_service_types: list[ServiceType],
         config: ServiceConfig,
     ):
-        super().__init__(pre_requisites, required_service_types, config)
+        super().__init__(required_service_types, config)
         self.multi_process_info: list[MultiProcessRunInfo] = []
-
-    async def run_pre_requisites(self) -> None:
-        """Run all pre-requisite services."""
-        self.logger.debug(
-            "Starting all pre-requisite services as multiprocessing processes"
-        )
-
-        try:
-            await self._run_services(self.pre_requisites)
-            # TODO: HACK: This is a hack to wait for pre-requisites to register before starting required services
-            await asyncio.sleep(1)
-        except Exception as e:
-            self.logger.error("Error starting pre-requisites: %s", e)
-            raise e
 
     async def _run_services(self, service_types: list[ServiceType]) -> None:
         """Run a list of services as multiprocessing processes."""

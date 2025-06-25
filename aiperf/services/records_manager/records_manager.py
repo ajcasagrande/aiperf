@@ -143,7 +143,7 @@ class RecordsManager(BaseComponentService):
     async def _on_inference_results_internal(
         self, message: InferenceResultsMessage
     ) -> None:
-        """Handle a inference results message."""
+        """Handle an inference results message."""
         record = message.record
         worker_id = message.service_id
 
@@ -173,7 +173,7 @@ class RecordsManager(BaseComponentService):
 
             tokenizer = self.get_tokenizer(record.request["model"])
             total_tokens = 0
-            resp = self.extractor.extract_response_data(record)
+            resp = await self.extractor.extract_response_data(record)
             tokens = []
             for r in resp:
                 if r.parsed_text is not None:
@@ -199,7 +199,7 @@ class RecordsManager(BaseComponentService):
             self.worker_error_counts[worker_id] += 1
 
     async def _on_inference_results(self, message: InferenceResultsMessage) -> None:
-        """Handle a inference results message."""
+        """Handle an inference results message."""
         _ = asyncio.create_task(self._on_inference_results_internal(message))
 
     async def get_error_summary(self) -> list[ErrorDetailsCount]:

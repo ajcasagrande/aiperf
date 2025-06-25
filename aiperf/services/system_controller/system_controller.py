@@ -1,11 +1,16 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+import asyncio
+import contextlib
 import os
 import signal
 import sys
 import time
 from typing import Any
 
+import zmq.asyncio
+
+from aiperf.common.comms.zmq.clients.base_zmq_proxy import BaseZMQProxy
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.endpoint.endpoint_config import EndPointConfig
 from aiperf.common.constants import EnvDefaults
@@ -18,18 +23,15 @@ from aiperf.common.enums import (
     ServiceType,
     SystemState,
     Topic,
+    ZMQProxyType,
 )
 from aiperf.common.exceptions import (
     CommunicationError,
     CommunicationErrorReason,
     ServiceErrorType,
 )
-from aiperf.common.factories import ServiceFactory
-from aiperf.common.hooks import (
-    on_cleanup,
-    on_init,
-    on_stop,
-)
+from aiperf.common.factories import ServiceFactory, ZMQProxyFactory
+from aiperf.common.hooks import on_cleanup, on_stop
 from aiperf.common.models import (
     CreditsCompleteMessage,
     HeartbeatMessage,
@@ -48,6 +50,7 @@ from aiperf.common.models.messages import (
 from aiperf.common.models.progress import ProfileProgress, ProfileSuiteProgress
 from aiperf.common.progress_tracker import ProgressTracker
 from aiperf.common.service.base_controller_service import BaseControllerService
+from aiperf.common.service.base_service import BaseService
 from aiperf.data_exporter.exporter_manager import ExporterManager
 from aiperf.services.service_manager import (
     BaseServiceManager,
@@ -74,12 +77,12 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
 
         self._system_state: SystemState = SystemState.INITIALIZING
 
-        # List of pre-requisites for the system controller
-        # These are services that must be running before the system controller can start other services
-        self.pre_requisites: list[ServiceType] = [
-            ServiceType.ZMQ_DEALER_ROUTER_PROXY,
-            ServiceType.ZMQ_XPUB_XSUB_PROXY,
-        ]
+        # # List of pre-requisites for the system controller
+        # # These are services that must be running before the system controller can start other services
+        # self.pre_requisites: list[ServiceType] = [
+        #     ServiceType.ZMQ_DEALER_ROUTER_PROXY,
+        #     ServiceType.ZMQ_XPUB_XSUB_PROXY,
+        # ]
 
         # List of required service types, in no particular order
         # These are services that must be running before the system controller can start profiling
@@ -99,6 +102,10 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         self.ui: TextualUIMixin | None = (
             TextualUIMixin(self.progress_tracker) if self.ui_enabled else None
         )
+
+        self.xpub_xsub_proxy: BaseZMQProxy
+        self.xpub_xsub_proxy_task: asyncio.Task
+
         self.logger.debug("System Controller created")
 
     @property
@@ -118,8 +125,13 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
                 data=ProcessRecordsCommandData(cancelled=True),
             )
 
-    @on_init
-    async def _initialize(self) -> None:
+    async def initialize(self) -> None:
+        """Override the base initialize method to add pre-initialization steps."""
+        await self._pre_initialize()
+        await BaseService.initialize(self)
+        await self._post_initialize()
+
+    async def _pre_initialize(self) -> None:
         """Initialize system controller-specific components.
 
         This method will:
@@ -134,19 +146,29 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         if self.ui:
             await self.ui.run_async()
 
+        self.zmq_context = zmq.asyncio.Context.instance()
+
+        self.xpub_xsub_proxy = ZMQProxyFactory.create_instance(
+            ZMQProxyType.XPUB_XSUB,
+            context=self.zmq_context,
+            zmq_proxy_config=self.service_config.comm_config.xpub_xsub_proxy_config,
+        )
+        self.xpub_xsub_proxy_task = asyncio.create_task(self.xpub_xsub_proxy.run())
+
+    async def _post_initialize(self) -> None:
+        """Post-initialize the system controller."""
+
         # TODO: make this configurable
         self.progress_tracker.configure(BenchmarkSuiteType.SINGLE_PROFILE)
 
         if self.service_config.service_run_type == ServiceRunType.MULTIPROCESSING:
             self.service_manager = MultiProcessServiceManager(
-                pre_requisites=self.pre_requisites,
                 required_service_types=self.required_service_types,
                 config=self.service_config,
             )
 
         elif self.service_config.service_run_type == ServiceRunType.KUBERNETES:
             self.service_manager = KubernetesServiceManager(
-                pre_requisites=self.pre_requisites,
                 required_service_types=self.required_service_types,
                 config=self.service_config,
             )
@@ -156,8 +178,6 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
                 ServiceErrorType.CONFIGURATION_ERROR,
                 f"Unsupported service run type: {self.service_config.service_run_type}",
             )
-
-        await self.service_manager.run_pre_requisites()
 
         # Subscribe to relevant messages
         subscribe_callbacks = [
@@ -288,6 +308,12 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             await self.ui.shutdown()
 
         self._system_state = SystemState.SHUTDOWN
+
+        if self.xpub_xsub_proxy_task:
+            await self.xpub_xsub_proxy.stop()
+            self.xpub_xsub_proxy_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self.xpub_xsub_proxy_task
 
     async def start_profiling_all_services(self) -> None:
         """Tell all services to start profiling."""

@@ -17,12 +17,10 @@ class BaseServiceManager(ABC):
 
     def __init__(
         self,
-        pre_requisites: list[ServiceType],
         required_service_types: list[ServiceType],
         config: ServiceConfig,
     ):
         self.logger = logging.getLogger(self.__class__.__name__)
-        self.pre_requisites = pre_requisites
         self.required_service_types = required_service_types
         self.config = config
 
@@ -31,11 +29,6 @@ class BaseServiceManager(ABC):
 
         # Create service ID map for component lookups
         self.service_id_map: dict[str, ServiceRunInfo] = {}
-
-    @abstractmethod
-    async def run_pre_requisites(self) -> None:
-        """Run all pre-requisite services."""
-        pass
 
     @abstractmethod
     async def run_all_services(self) -> None:

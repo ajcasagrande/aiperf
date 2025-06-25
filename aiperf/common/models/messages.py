@@ -495,14 +495,6 @@ class WorkerHealthMessage(BaseServiceMessage):
         default=None,
         description="The current number of network connections",
     )
-    open_files: int | None = Field(
-        default=None,
-        description="The current number of open files",
-    )
-    cpu_num: int | None = Field(
-        default=None,
-        description="The CPU number the worker is running on",
-    )
     io_counters: tuple | None = Field(
         default=None,
         description="The current I/O counters of the worker",
