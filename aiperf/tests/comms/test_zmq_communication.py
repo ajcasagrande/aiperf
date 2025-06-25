@@ -8,9 +8,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from aiperf.common.comms.client_enums import PubClientType, SubClientType
 from aiperf.common.comms.zmq import BaseZMQCommunication
-from aiperf.common.config import ZMQInprocConfig
+from aiperf.common.config import ZMQIPCConfig
 from aiperf.common.enums import ServiceState, ServiceType, Topic
 from aiperf.common.exceptions import CommunicationError, CommunicationErrorReason
 from aiperf.common.models import Message, StatusMessage
@@ -23,7 +22,7 @@ class TestZMQCommunication:
     @pytest.fixture
     def mock_config(self):
         """Return a mock configuration for ZMQCommunication."""
-        return ZMQInprocConfig(name="test-client")
+        return ZMQIPCConfig()
 
     @pytest.fixture
     def zmq_communication(self, mock_config):
@@ -78,35 +77,6 @@ class TestZMQCommunication:
             zmq_communication.initialize = original_init
 
     @pytest.mark.asyncio
-    async def test_create_clients(self, zmq_communication):
-        """Test creating clients for different communication patterns."""
-        # Mock the client socket creation
-        mock_client = AsyncMock()
-
-        # Patch the specific client classes and ensure they return our mock
-        with (
-            patch(
-                "aiperf.common.comms.zmq.clients.ZMQPubClient",
-                return_value=mock_client,
-            ),
-            patch(
-                "aiperf.common.comms.zmq.clients.ZMQSubClient",
-                return_value=mock_client,
-            ),
-        ):
-            # Call create_clients
-            await zmq_communication.create_clients(
-                PubClientType.COMPONENT, SubClientType.COMPONENT
-            )
-
-            # Verify clients were added to the dictionary
-            assert PubClientType.COMPONENT in zmq_communication.clients
-            assert SubClientType.COMPONENT in zmq_communication.clients
-
-            # Verify initialize was called for each client
-            assert len(zmq_communication.clients) == 2
-
-    @pytest.mark.asyncio
     async def test_publish_message(self, zmq_communication, test_message):
         """Test publishing messages."""
         # Mock the socket publish method
@@ -114,7 +84,7 @@ class TestZMQCommunication:
         mock_client.publish.return_value = None
 
         # Set up the client in the clients dictionary
-        zmq_communication.clients = {PubClientType.COMPONENT: mock_client}
+        zmq_communication.clients = [mock_client]
         zmq_communication.initialized_event.set()
 
         # Publish a message
@@ -132,7 +102,7 @@ class TestZMQCommunication:
         mock_client.subscribe.return_value = None
 
         # Set up the client in the clients dictionary
-        zmq_communication.clients = {SubClientType.COMPONENT: mock_client}
+        zmq_communication.clients = [mock_client]
         zmq_communication.initialized_event.set()
 
         # Create a callback function
@@ -156,10 +126,7 @@ class TestZMQCommunication:
         mock_client2.shutdown.return_value = None
 
         # Set up clients
-        zmq_communication.clients = {
-            PubClientType.COMPONENT: mock_client1,
-            SubClientType.COMPONENT: mock_client2,
-        }
+        zmq_communication.clients = [mock_client1, mock_client2]
         zmq_communication.initialized_event.set()
         zmq_communication.stop_event.clear()
 

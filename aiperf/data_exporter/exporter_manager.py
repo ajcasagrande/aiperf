@@ -18,7 +18,7 @@ class ExporterManager:
         self.endpoint_config = endpoint_config
         self.exporter_classes = DataExporterFactory.get_all_classes()
 
-    async def export(self, results: ProfileResultsMessage) -> None:
+    async def export_all(self, results: ProfileResultsMessage) -> None:
         tasks: list[asyncio.Task] = []
         for exporter_class in self.exporter_classes:
             exporter = exporter_class(self.endpoint_config)

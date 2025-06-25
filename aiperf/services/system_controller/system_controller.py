@@ -393,7 +393,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             EndPointConfig(
                 streaming=True,
             )
-        ).export(message)
+        ).export_all(message)
 
         # Stop the system
         self.stop_event.set()

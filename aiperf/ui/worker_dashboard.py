@@ -7,6 +7,7 @@ from collections.abc import Callable
 
 from textual.app import ComposeResult
 from textual.containers import Container, Horizontal, ScrollableContainer
+from textual.css.query import NoMatches
 from textual.widgets import Label
 
 from aiperf.common.config import ServiceConfig
@@ -151,7 +152,8 @@ class WorkerStatusCard(Container):
             self.query_one("#errors", StatusIndicator).update_value(
                 str(health_message.failed_tasks)
             )
-
+        except NoMatches:
+            pass
         except Exception as e:
             logger.error(f"Error updating worker {self.worker_id} health: {e}")
 
@@ -169,6 +171,8 @@ class WorkerStatusCard(Container):
             self.query_one("#status", StatusIndicator).update_value(
                 "Stale", "status-idle"
             )
+        except NoMatches:
+            pass
         except Exception as e:
             logger.error(
                 f"Error updating stale status for worker {self.worker_id}: {e}"
@@ -314,9 +318,10 @@ class WorkerDashboard(Container):
             self.query_one("#issue-workers", StatusIndicator).update_value(
                 str(issue_count)
             )
-
+        except NoMatches:
+            pass
         except Exception as e:
-            logger.error(f"Error updating summary: {e}")
+            logger.error(f"Error updating summary: {e.__class__.__name__}: {e}")
 
     @aiperf_task
     async def _periodic_update_task(self) -> None:

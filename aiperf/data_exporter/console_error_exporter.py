@@ -4,6 +4,7 @@
 from rich.console import Console
 from rich.table import Table
 
+from aiperf.common.config import EndPointConfig
 from aiperf.common.enums import DataExporterType
 from aiperf.common.factories import DataExporterFactory
 from aiperf.common.models import ErrorDetailsCount, ProfileResultsMessage
@@ -12,6 +13,9 @@ from aiperf.common.models import ErrorDetailsCount, ProfileResultsMessage
 @DataExporterFactory.register(DataExporterType.CONSOLE_ERROR)
 class ConsoleErrorExporter:
     """A class that exports error data to the console"""
+
+    def __init__(self, endpoint_config: EndPointConfig):
+        self.endpoint_config = endpoint_config
 
     async def export(self, results: ProfileResultsMessage) -> None:
         console = Console()

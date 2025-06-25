@@ -28,7 +28,7 @@ def sample_records():
 
 
 class TestExporterManager:
-    async def test_export(self, endpoint_config, sample_records):
+    async def test_export_all(self, endpoint_config, sample_records):
         mock_exporter_instance = AsyncMock()
         mock_exporter_class = MagicMock(return_value=mock_exporter_instance)
 
@@ -37,7 +37,7 @@ class TestExporterManager:
             return_value=[mock_exporter_class],
         ):
             manager = ExporterManager(endpoint_config)
-            await manager.export(sample_records)
+            await manager.export_all(sample_records)
 
         mock_exporter_class.assert_called_once_with(endpoint_config)
         mock_exporter_instance.export.assert_called_once_with(sample_records)
