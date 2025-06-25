@@ -22,9 +22,9 @@ from aiperf.common.hooks import (
 )
 from aiperf.common.models.messages import WorkerHealthMessage
 from aiperf.common.progress_tracker import ProgressTracker
-from aiperf.ui.custom_header import Header
 from aiperf.ui.logging_ui import LogViewer
 from aiperf.ui.progress_dashboard import ProgressDashboard
+from aiperf.ui.widgets import Header
 from aiperf.ui.worker_dashboard import WorkerDashboard
 
 logger = logging.getLogger(__name__)
