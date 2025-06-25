@@ -114,7 +114,7 @@ class AIPerfTextualApp(App):
         """Compose the clean application layout."""
         yield Header()
 
-        with Vertical(id="main-container"):  # noqa: SIM117
+        with Vertical(id="main-container"):  # noqa: SIM117 - textual ui layout
             with Container(id="dashboard-section"):  # noqa: SIM117
                 with TabbedContent(initial="performance"):  # noqa: SIM117
                     with TabPane("Performance Dashboard", id="performance"):  # noqa: SIM117
