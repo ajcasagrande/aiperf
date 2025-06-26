@@ -208,7 +208,18 @@ class SSEMessageStream(InferenceServerResponse):
 
 
 class RequestRecord(BaseModel):
-    """Record of a request with its associated responses."""
+    """Record of a request with its associated responses.
+
+    Attributes:
+        request: The request payload.
+        start_perf_ns: The start time of the request in nanoseconds (perf_counter_ns).
+        end_perf_ns: The end time of the request in nanoseconds (perf_counter_ns).
+        recv_start_perf_ns: The start time of the response in nanoseconds (perf_counter_ns).
+        status: The HTTP status code of the request.
+        responses: The raw responses received from the request.
+        error: The error details if the request failed.
+        delayed: Whether the request was delayed from when it was expected to be sent.
+    """
 
     request: Any = Field(
         default=None,
@@ -224,11 +235,11 @@ class RequestRecord(BaseModel):
     )
     recv_start_perf_ns: int | None = Field(
         default=None,
-        description="The start time of the response in nanoseconds (perf_counter_ns).",
+        description="The start time of the streaming response in nanoseconds (perf_counter_ns).",
     )
     status: int | None = Field(
         default=None,
-        description="The HTTPstatus code of the request.",
+        description="The HTTPstatus code of the response.",
     )
     # Note: we need to use SerializeAsAny to allow for generic subclass support
     responses: SerializeAsAny[
@@ -347,9 +358,9 @@ class ResponseData(BaseModel):
     parsed_text: list[str | None] = Field(
         description="The parsed text of the response."
     )
-    token_counts: list[int | None] = Field(
-        default=[],
-        description="The number of tokens in the response.",
+    token_count: int | None = Field(
+        default=None,
+        description="The total number of tokens in the response from the parsed text.",
     )
     metadata: dict[str, Any] = Field(
         default_factory=dict, description="The metadata of the response."

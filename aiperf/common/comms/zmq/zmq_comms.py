@@ -290,8 +290,8 @@ class ZMQIPCCommunication(BaseZMQCommunication):
             CommunicationError: If the communication channels are not initialized
                 or shutdown
         """
-        await super().initialize()
         self._setup_ipc_directory()
+        await super().initialize()
 
     async def shutdown(self) -> None:
         """Gracefully shutdown communication channels.

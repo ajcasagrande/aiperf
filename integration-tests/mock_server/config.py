@@ -21,6 +21,9 @@ class ConfigDefaults:
     # Logging settings
     LOG_LEVEL: str = "INFO"
 
+    # Tokenizer settings
+    TOKENIZER_MODELS: list[str] = []
+
 
 class MockServerConfig(BaseSettings):
     """Server configuration with automatic environment variable support."""
@@ -53,4 +56,9 @@ class MockServerConfig(BaseSettings):
     workers: int = Field(
         default=ConfigDefaults.WORKERS,
         description="Number of worker processes",
+    )
+
+    tokenizer_models: list[str] = Field(
+        default=ConfigDefaults.TOKENIZER_MODELS,
+        description="List of tokenizer models to pre-load at startup",
     )

@@ -172,26 +172,13 @@ class RecordsManager(BaseComponentService):
             self.worker_request_counts[worker_id] += 1
 
             tokenizer = self.get_tokenizer(record.request["model"])
-            total_tokens = 0
-            resp = await self.extractor.extract_response_data(record)
-            tokens = []
-            for r in resp:
-                if r.parsed_text is not None:
-                    tokens.extend(r.parsed_text)
-            if tokens:
-                for t in tokens:
-                    try:
-                        total_tokens += len(tokenizer.encode(t))
-                    except Exception as e:
-                        self.logger.error("Error encoding token '%s': %s", t, e)
-                        continue
+            resp = await self.extractor.extract_response_data(record, tokenizer)
+            total_tokens = sum(r.token_count for r in resp if r.token_count is not None)
             self.logger.debug(
-                "Received %d tokens, %d responses, %d total tokens",
-                len(tokens),
+                "Received %d responses, %d total tokens",
                 len(resp),
                 total_tokens,
             )
-            # TODO: need to tokenize the output
 
         else:
             self.logger.warning("Received invalid inference results: %s", record)

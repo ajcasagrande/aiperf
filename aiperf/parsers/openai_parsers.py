@@ -62,8 +62,10 @@ class OpenAIResponseExtractor:
             response_data = await self._parse_response(response)
             if response_data is not None:
                 if tokenizer is not None:
-                    response_data.token_count = tokenizer.encode(
-                        response_data.parsed_text
+                    response_data.token_count = sum(
+                        len(tokenizer.encode(text))
+                        for text in response_data.parsed_text
+                        if text is not None
                     )
                 results.append(response_data)
         return results
