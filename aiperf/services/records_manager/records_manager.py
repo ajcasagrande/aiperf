@@ -253,7 +253,16 @@ class RecordsManager(BaseComponentService):
 
         if not self.records:
             self.logger.warning("No successful records to process")
-            return None
+            return ProfileResultsMessage(
+                service_id=self.service_id,
+                total=len(self.records),
+                completed=len(self.records) + len(self.error_records),
+                start_ns=self.start_time_ns or time.time_ns(),
+                end_ns=self.end_time_ns or time.time_ns(),
+                records=[],
+                errors_by_type=await self.get_error_summary(),
+                was_cancelled=self.was_cancelled,
+            )
 
         valid_records = [record for record in self.records if record.valid]
         # Extract time to first response values

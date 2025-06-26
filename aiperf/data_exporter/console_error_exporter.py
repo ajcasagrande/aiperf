@@ -45,11 +45,11 @@ class ConsoleErrorExporter:
         count = error_details_count.count
 
         return [
-            str(details.code) if details.code else "N/A",
-            str(details.type) if details.type else "N/A",
+            str(details.code) if details.code else "[dim]N/A[/dim]",
+            str(details.type) if details.type else "[dim]N/A[/dim]",
             str(details.message),
             f"{count:,}",
         ]
 
     def _get_title(self) -> str:
-        return "NVIDIA AIPerf | Error Summary"
+        return "[bold][red]NVIDIA AIPerf | Error Summary[/red][/bold]"

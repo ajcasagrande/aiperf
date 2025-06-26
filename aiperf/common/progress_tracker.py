@@ -86,17 +86,27 @@ class ProgressTracker:
 
         if not profile.is_complete:
             profile.requests_per_second = (
-                message.completed
-                / (current_time_ns - profile.start_time_ns)
-                * NANOS_PER_SECOND
+                (
+                    message.completed
+                    / (current_time_ns - profile.start_time_ns)
+                    * NANOS_PER_SECOND
+                )
+                if profile.start_time_ns - current_time_ns > 0
+                else None
             )
+
             profile.elapsed_time = (
                 current_time_ns - profile.start_time_ns
             ) / NANOS_PER_SECOND
+
             profile.eta = (
-                (profile.total_expected_requests - profile.requests_completed)
-                / profile.requests_per_second
-                if profile.requests_per_second > 0
+                (
+                    (profile.total_expected_requests - profile.requests_completed)
+                    / profile.requests_per_second
+                    if profile.requests_per_second > 0
+                    else None
+                )
+                if profile.requests_per_second is not None
                 else None
             )
 
