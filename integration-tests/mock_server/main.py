@@ -30,28 +30,6 @@ def main(
     1. CLI arguments
     2. Environment variables (prefixed with MOCK_SERVER_)
     3. Default values
-
-    Examples:
-        # Run with custom port
-        aiperf-mock-server --port 9000
-
-        # Enable access logs
-        aiperf-mock-server --access-logs
-
-        # Set logging level to DEBUG
-        aiperf-mock-server --log-level DEBUG
-
-        # Set number of workers
-        aiperf-mock-server --workers 4
-
-        # Load multiple tokenizer models
-        aiperf-mock-server --tokenizer-models gpt2 --tokenizer-models bert-base-uncased
-
-        # Set via environment variables
-        export MOCK_SERVER_PORT=9000
-        export MOCK_SERVER_LOG_LEVEL=DEBUG
-        export MOCK_SERVER_WORKERS=4
-        aiperf-mock-server
     """
 
     # Set logging level

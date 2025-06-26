@@ -12,7 +12,12 @@ from aiperf.common.enums import CaseInsensitiveStrEnum, ServiceType
 class AIPerfError(Exception):
     """Base class for all exceptions raised by AIPerf."""
 
+    def raw_str(self) -> str:
+        """Return the raw string representation of the exception."""
+        return super().__str__()
+
     def __str__(self) -> str:
+        """Return the string representation of the exception with the class name."""
         return f"{self.__class__.__name__}: {super().__str__()}"
 
 
@@ -20,7 +25,10 @@ class AIPerfMultiError(AIPerfError):
     """Exception raised when running multiple tasks and one or more fail."""
 
     def __init__(self, message: str, exceptions: list[Exception]) -> None:
-        super().__init__(f"{message}: {','.join([str(e) for e in exceptions])}")
+        err_strings = [
+            e.raw_str() if isinstance(e, AIPerfError) else str(e) for e in exceptions
+        ]
+        super().__init__(f"{message}: {','.join(err_strings)}")
         self.exceptions = exceptions
 
 

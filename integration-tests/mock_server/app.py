@@ -3,7 +3,9 @@
 """FastAPI server for integration testing with configurable latencies."""
 
 import asyncio
+import json
 import logging
+import os
 import time
 import uuid
 from collections.abc import AsyncGenerator
@@ -36,7 +38,8 @@ server_config: MockServerConfig = MockServerConfig()
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     """Initialize tokenizers and other startup tasks."""
-    print(server_config)
+    logger.info("Server configuration: %s", server_config.model_dump())
+
     if server_config.tokenizer_models:
         logger.info(f"Pre-loading tokenizer models: {server_config.tokenizer_models}")
         tokenizer_service.load_tokenizers(server_config.tokenizer_models)
@@ -57,6 +60,17 @@ def set_server_config(config: MockServerConfig) -> None:
     """Set the global server configuration."""
     global server_config
     server_config = config
+
+    # TODO: This is a hack to get the config into the environment variables
+    # in order to run multiple worker instances
+    os.environ["MOCK_SERVER_TOKENIZER_MODELS"] = json.dumps(config.tokenizer_models)
+    os.environ["MOCK_SERVER_TTFT"] = str(config.ttft)
+    os.environ["MOCK_SERVER_ITL"] = str(config.itl)
+    os.environ["MOCK_SERVER_LOG_LEVEL"] = config.log_level
+    os.environ["MOCK_SERVER_HOST"] = config.host
+    os.environ["MOCK_SERVER_PORT"] = str(config.port)
+    os.environ["MOCK_SERVER_WORKERS"] = str(config.workers)
+    os.environ["MOCK_SERVER_ACCESS_LOGS"] = str(config.access_logs)
 
 
 def extract_user_prompt(messages: list[ChatMessage]) -> str:
