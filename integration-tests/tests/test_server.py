@@ -17,8 +17,8 @@ def test_config():
     return MockServerConfig(
         port=8000,
         host="127.0.0.1",
-        ttft_ms=10.0,  # Fast for testing
-        itl_ms=5.0,  # Fast for testing
+        ttft=10.0,  # Fast for testing
+        itl=5.0,  # Fast for testing
     )
 
 
@@ -127,8 +127,8 @@ async def test_server_startup():
     """Test that the server can start up properly."""
     config = MockServerConfig(
         port=8001,  # Different port to avoid conflicts
-        ttft_ms=1.0,
-        itl_ms=1.0,
+        ttft=1.0,
+        itl=1.0,
     )
 
     set_server_config(config)
@@ -136,8 +136,8 @@ async def test_server_startup():
     # Test that the app configuration was set
     from mock_server.app import server_config as app_config
 
-    assert app_config.ttft_ms == 1.0
-    assert app_config.itl_ms == 1.0
+    assert app_config.ttft == 1.0
+    assert app_config.itl == 1.0
 
 
 if __name__ == "__main__":

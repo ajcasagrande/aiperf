@@ -47,8 +47,8 @@ aiperf-mock-server \
 
 # With environment variables
 export MOCK_SERVER_PORT=8080
-export MOCK_SERVER_TTFT_MS=30
-export MOCK_SERVER_ITL_MS=10
+export MOCK_SERVER_TTFT=30
+export MOCK_SERVER_ITL=10
 aiperf-mock-server
 ```
 
@@ -56,8 +56,8 @@ aiperf-mock-server
 
 - `MOCK_SERVER_PORT`: Port to run the server on (default: 8000)
 - `MOCK_SERVER_HOST`: Host to bind to (default: 0.0.0.0)
-- `MOCK_SERVER_TTFT_MS`: Time to first token latency in milliseconds (default: 50.0)
-- `MOCK_SERVER_ITL_MS`: Inter-token latency in milliseconds (default: 10.0)
+- `MOCK_SERVER_TTFT`: Time to first token latency in milliseconds (default: 50.0)
+- `MOCK_SERVER_ITL`: Inter-token latency in milliseconds (default: 10.0)
 - `MOCK_SERVER_WORKERS`: Number of uvicorn worker processes (default: 1)
 
 
@@ -105,8 +105,8 @@ curl http://localhost:8000/health
 |-----------|----------|---------------------|---------|-------------|
 | Port | `--port` | `MOCK_SERVER_PORT` | 8000 | Server port |
 | Host | `--host` | `MOCK_SERVER_HOST` | 0.0.0.0 | Server host |
-| TTFT | `--time-to-first-token-ms` | `MOCK_SERVER_TTFT_MS` | 100.0 | Time to first token (ms) |
-| ITL | `--inter-token-latency-ms` | `MOCK_SERVER_ITL_MS` | 50.0 | Inter-token latency (ms) |
+| TTFT | `--time-to-first-token-ms` | `MOCK_SERVER_TTFT` | 100.0 | Time to first token (ms) |
+| ITL | `--inter-token-latency-ms` | `MOCK_SERVER_ITL` | 50.0 | Inter-token latency (ms) |
 | Workers | `--workers` | `MOCK_SERVER_WORKERS` | 1 | Worker processes for uvicorn server |
 
 ## How It Works

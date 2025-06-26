@@ -268,7 +268,7 @@ class CommandResponseMessage(BaseServiceMessage):
 
 class CreditDropMessage(BaseServiceMessage):
     """Message indicating that a credit has been dropped.
-    This message is sent by the timing manager to a workers to indicate that credit(s)
+    This message is sent by the timing manager to workers to indicate that credit(s)
     have been dropped.
     """
 
@@ -442,8 +442,8 @@ class SweepProgressMessage(BaseServiceMessage):
     sweep_start_ns: int = Field(
         ..., description="The start time of the sweep in nanoseconds"
     )
-    sweep_end_ns: int | None = Field(
-        default=None, description="The end time of the sweep in nanoseconds"
+    end_ns: int | None = Field(
+        default=None, description="The end time of the profile run in nanoseconds"
     )
 
 
