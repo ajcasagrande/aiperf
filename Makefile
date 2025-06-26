@@ -154,6 +154,10 @@ first-time-setup: #? convenience command to setup the environment for the first 
 	@printf "$(bold)$(green)Installing project...$(reset)\n"
 	@PATH=$(UV_PATH):$(PATH) $(MAKE) --no-print-directory install
 
+	@# Install the mock server
+	@printf "$(bold)$(green)Installing mock server...$(reset)\n"
+	@$(MAKE) -C integration-tests --no-print-directory install
+
 	@# Install pre-commit hooks
 	@printf "$(bold)$(green)Installing pre-commit hooks...$(reset)\n"
 	$(activate_venv) && pre-commit install --install-hooks
