@@ -251,6 +251,7 @@ class CommunicationFactory(FactoryMixin[CommunicationBackend, "BaseCommunication
             config=ZMQTCPCommunicationConfig(
                 host="localhost", port=5555, timeout=10.0),
         )
+    ```
     """
 
 

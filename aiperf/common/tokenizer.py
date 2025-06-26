@@ -119,6 +119,7 @@ class Tokenizer:
             )
         return self._tokenizer.decode(token_ids, **{**self._decode_args, **kwargs})
 
+    @property
     def bos_token_id(self) -> int:
         """
         Return the beginning-of-sequence (BOS) token ID.

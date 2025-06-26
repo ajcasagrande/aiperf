@@ -81,6 +81,7 @@ class GeneratorErrorReason(CaseInsensitiveStrEnum):
     INITIALIZATION_ERROR = "initialization_error"
     CONFIGURATION_ERROR = "configuration_error"
     PREFIX_PROMPTS_POOL_EMPTY = "prefix_prompts_pool_empty"
+    NOT_INITIALIZED_ERROR = "not_initialized_error"
 
 
 class GeneratorError(AIPerfError):
@@ -111,6 +112,8 @@ class ServiceErrorType(CaseInsensitiveStrEnum):
     SUBSCRIBE_COMMAND_TOPIC_ERROR = "subscribe_command_topic_error"
     REGISTER_SERVICE_ERROR = "register_service_error"
     UNKNOWN_COMMAND = "unknown_command"
+    DATASET_EMPTY = "dataset_empty"
+    CONVERSATION_NOT_FOUND = "conversation_not_found"
 
 
 class ServiceError(AIPerfError):

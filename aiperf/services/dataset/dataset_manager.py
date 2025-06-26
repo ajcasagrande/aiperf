@@ -2,11 +2,22 @@
 # SPDX-License-Identifier: Apache-2.0
 import os
 import sys
+from pathlib import Path
+
+from pydantic import BaseModel, ConfigDict
 
 from aiperf.common.comms.base import RepClientInterface
 from aiperf.common.config import ServiceConfig
-from aiperf.common.enums import MessageType, NotificationType, ServiceType, Topic
-from aiperf.common.exceptions import AIPerfError
+from aiperf.common.dataset_models import Conversation
+from aiperf.common.enums import (
+    ComposerType,
+    CustomDatasetType,
+    MessageType,
+    NotificationType,
+    ServiceType,
+    Topic,
+)
+from aiperf.common.exceptions import AIPerfError, ServiceErrorType
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
     on_cleanup,
@@ -21,10 +32,27 @@ from aiperf.common.models import (
     DatasetTimingRequest,
     DatasetTimingResponse,
     Message,
-    NotificationMessage,
 )
+from aiperf.common.models.messages import NotificationMessage
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.common.tokenizer import Tokenizer
+from aiperf.services.dataset.composer import ComposerFactory
+from aiperf.services.dataset.config import DatasetConfig, PromptConfig
+
+
+################################################################################
+# TODO: Temporary (remove when command config is ready)
+class MockConfig(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    filename: str | None = None
+    tokenizer: Tokenizer | None = None
+    custom_dataset_type: CustomDatasetType | None = None
+    public_dataset: str | None = None
+    prompt: PromptConfig | None = None
+
+
+################################################################################
 
 
 @ServiceFactory.register(ServiceType.DATASET_MANAGER)
@@ -44,6 +72,7 @@ class DatasetManager(BaseComponentService):
         self.logger.debug("Initializing dataset manager")
         self.tokenizer: Tokenizer | None = None
         self.conversation_data_client: RepClientInterface
+        self.dataset: dict[str, Conversation] = {}  # session ID -> Conversation mapping
 
     @property
     def service_type(self) -> ServiceType:
@@ -106,10 +135,32 @@ class DatasetManager(BaseComponentService):
             self.service_id,
             message,
         )
-
-        self.tokenizer = Tokenizer.from_pretrained(
+        # TODO: remove this mock config
+        # mocks config inside the message
+        config = MockConfig()
+        config.filename = os.getenv("AIPERF_DATASET_FILENAME", "trace1.jsonl")
+        config.tokenizer = Tokenizer.from_pretrained(
             os.getenv("AIPERF_MODEL", "deepseek-ai/DeepSeek-R1-Distill-Llama-8B")
         )
+
+        if config.filename:
+            composer_type = ComposerType.CUSTOM
+            config.custom_dataset_type = CustomDatasetType.TRACE
+        else:
+            composer_type = ComposerType.SYNTHETIC
+            config.custom_dataset_type = CustomDatasetType.SINGLE_TURN  # ignored
+
+        # TODO: update once we integrate with command config
+        dataset_config = DatasetConfig(
+            filename=Path(config.filename) if config.filename else None,
+            tokenizer=config.tokenizer,
+            custom_dataset_type=config.custom_dataset_type,
+            prompt=PromptConfig(mean=10, stddev=2),
+        )
+
+        composer = ComposerFactory.create_instance(composer_type, config=dataset_config)
+        conversations = composer.create_dataset()
+        self.dataset = {conv.session_id: conv for conv in conversations}
 
         await self.pub_client.publish(
             topic=Topic.NOTIFICATION,
@@ -125,39 +176,33 @@ class DatasetManager(BaseComponentService):
         self, message: ConversationRequestMessage
     ) -> ConversationResponseMessage:
         """Handle a conversation request."""
+        self.logger.debug("Handling conversation request: %s", message)
 
-        # TODO: Re-enable tokenizer
-        # if self.tokenizer is None:
-        #     raise ValueError("Tokenizer is not initialized")
+        if not self.dataset:
+            raise self._service_error(
+                ServiceErrorType.DATASET_EMPTY,
+                "Dataset is empty and must be configured before handling requests.",
+            )
 
-        self.logger.debug(f"Handling conversation request: {message}")
-        # TODO: Implement conversation request handling
+        if message.conversation_id not in self.dataset:
+            raise self._service_error(
+                ServiceErrorType.CONVERSATION_NOT_FOUND,
+                f"Conversation {message.conversation_id} not found in dataset.",
+            )
+
+        conversation = self.dataset[message.conversation_id]
+        self.logger.debug("Sending conversation response: %s", conversation)
         return ConversationResponseMessage(
             service_id=self.service_id,
             request_id=message.request_id,
-            conversation_id=message.conversation_id,
-            conversation_data=[
-                # {"role": "system", "content": "You are a helpful assistant."},
-                {
-                    "role": "user",
-                    "content": "IO Sir you say well and well you do conceive And since you do profess to be a suitor You must as we do gratify this gentleman To whom we all rest generally beholding TRANIO Sir I shall not be slack in sign whereof Please ye we may contrive this afternoon And quaff carouses to our mistress health And do as adversaries do in law Strive mightily but eat and drink as friends GRUMIO BIONDELLO O excellent motion Fellows lets be gone HORT",
-                    # "content": PromptGenerator.create_synthetic_prompt(
-                    #     tokenizer=self.tokenizer,
-                    #     prompt_tokens_mean=100,
-                    #     prompt_tokens_stddev=0,
-                    # ),
-                },
-            ],
+            conversation=conversation,
         )
 
     async def _handle_dataset_timing_request(
         self, message: DatasetTimingRequest
     ) -> DatasetTimingResponse:
         """Handle a dataset timing request."""
-        self.logger.info(
-            "Handling dataset timing request %s",
-            message,
-        )
+        self.logger.debug("Handling dataset timing request: %s", message)
         # TODO: Implement dataset timing request handling
         return DatasetTimingResponse(
             service_id=self.service_id,
