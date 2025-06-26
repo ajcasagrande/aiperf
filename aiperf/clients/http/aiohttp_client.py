@@ -8,6 +8,7 @@ from typing import Any
 
 import aiohttp
 
+from aiperf.clients.http.defaults import AioHttpDefaults, SocketDefaults
 from aiperf.clients.timers import RequestTimerKind, RequestTimers
 from aiperf.common.enums import SSEFieldType
 from aiperf.common.models import (
@@ -241,56 +242,19 @@ def create_tcp_connector(**kwargs) -> aiohttp.TCPConnector:
         """Custom socket factory optimized for SSE streaming performance."""
         family, type_, proto, _, _ = addr_info
         sock = socket.socket(family=family, type=type_, proto=proto)
-
-        # Low-latency optimizations for streaming
-        sock.setsockopt(
-            socket.SOL_TCP, socket.TCP_NODELAY, 1
-        )  # Disable Nagle's algorithm
-
-        # Connection keepalive settings for long-lived SSE connections
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)  # Enable keepalive
-
-        # Fine-tune keepalive timing (Linux-specific)
-        if hasattr(socket, "TCP_KEEPIDLE"):
-            sock.setsockopt(
-                socket.SOL_TCP, socket.TCP_KEEPIDLE, 600
-            )  # Start keepalive after 10 min idle
-            sock.setsockopt(
-                socket.SOL_TCP, socket.TCP_KEEPINTVL, 60
-            )  # Keepalive interval: 60 seconds
-            sock.setsockopt(
-                socket.SOL_TCP, socket.TCP_KEEPCNT, 3
-            )  # 3 failed keepalive probes = dead
-
-        # Buffer size optimizations for streaming
-        sock.setsockopt(
-            socket.SOL_SOCKET, socket.SO_RCVBUF, 1024 * 85
-        )  # 87380)   # 85KB receive buffer
-        sock.setsockopt(
-            socket.SOL_SOCKET, socket.SO_SNDBUF, 1024 * 64
-        )  # 65536)   # 64KB send buffer
-
-        # Linux-specific TCP optimizations
-        if hasattr(socket, "TCP_QUICKACK"):
-            sock.setsockopt(socket.SOL_TCP, socket.TCP_QUICKACK, 1)  # Quick ACK mode
-
-        if hasattr(socket, "TCP_USER_TIMEOUT"):
-            sock.setsockopt(
-                socket.SOL_TCP, socket.TCP_USER_TIMEOUT, 30000
-            )  # 30 sec timeout
-
+        SocketDefaults.apply_to_socket(sock)
         return sock
 
     default_kwargs: dict[str, Any] = {
-        "limit": 2500,
-        "limit_per_host": 2500,
-        "ttl_dns_cache": 300,
-        "use_dns_cache": True,
-        "enable_cleanup_closed": False,
-        "force_close": False,
-        "keepalive_timeout": 300,
-        "happy_eyeballs_delay": None,
-        "family": socket.AF_INET,
+        "limit": AioHttpDefaults.LIMIT,
+        "limit_per_host": AioHttpDefaults.LIMIT_PER_HOST,
+        "ttl_dns_cache": AioHttpDefaults.TTL_DNS_CACHE,
+        "use_dns_cache": AioHttpDefaults.USE_DNS_CACHE,
+        "enable_cleanup_closed": AioHttpDefaults.ENABLE_CLEANUP_CLOSED,
+        "force_close": AioHttpDefaults.FORCE_CLOSE,
+        "keepalive_timeout": AioHttpDefaults.KEEPALIVE_TIMEOUT,
+        "happy_eyeballs_delay": AioHttpDefaults.HAPPY_EYEBALLS_DELAY,
+        "family": AioHttpDefaults.SOCKET_FAMILY,
         "socket_factory": socket_factory,
     }
 
