@@ -35,7 +35,7 @@ from aiperf.common.models import (
     InferenceResultsMessage,
     RequestRecord,
 )
-from aiperf.common.models.messages import WorkerHealthMessage
+from aiperf.common.models.messages import ErrorMessage, WorkerHealthMessage
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.common.service.base_service import BaseService
 
@@ -235,10 +235,24 @@ class Worker(BaseService):
                 )
             )
 
+            if isinstance(response, ErrorMessage):
+                return RequestRecord(
+                    error=response.error,
+                )
+
             # Format payload for the API request
             formatted_payload = await self.inference_client.format_payload(
                 endpoint=self.endpoint_config,
-                payload={"messages": response.conversation_data},
+                payload={
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": "\n".join(
+                                response.conversation.turns[0].text[0].content
+                            ),
+                        }
+                    ]
+                },
             )
 
             delayed = False

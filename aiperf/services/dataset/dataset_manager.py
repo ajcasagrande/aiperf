@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import os
+import random
 import sys
 from pathlib import Path
 
@@ -138,7 +139,7 @@ class DatasetManager(BaseComponentService):
         # TODO: remove this mock config
         # mocks config inside the message
         config = MockConfig()
-        config.filename = os.getenv("AIPERF_DATASET_FILENAME", "trace1.jsonl")
+        config.filename = os.getenv("AIPERF_DATASET_FILENAME", None)  # "trace1.jsonl"
         config.tokenizer = Tokenizer.from_pretrained(
             os.getenv("AIPERF_MODEL", "deepseek-ai/DeepSeek-R1-Distill-Llama-8B")
         )
@@ -184,17 +185,46 @@ class DatasetManager(BaseComponentService):
                 "Dataset is empty and must be configured before handling requests.",
             )
 
-        if message.conversation_id not in self.dataset:
-            raise self._service_error(
-                ServiceErrorType.CONVERSATION_NOT_FOUND,
-                f"Conversation {message.conversation_id} not found in dataset.",
+        if message.conversation_id is None:
+            return await self._return_any_conversation(
+                request_id=message.request_id,
+            )
+        else:
+            return await self._return_conversation_by_id(
+                request_id=message.request_id,
+                conversation_id=message.conversation_id,
             )
 
-        conversation = self.dataset[message.conversation_id]
+    async def _return_any_conversation(
+        self, request_id: str | None
+    ) -> ConversationResponseMessage:
+        """Return any conversation from the dataset based on the user specified method."""
+
+        # TODO: Implement the user specified method (random, round robin, etc.)
+        conversation = random.choice(list(self.dataset.values()))
+        self.logger.debug("Sending random conversation response: %s", conversation)
+        return ConversationResponseMessage(
+            service_id=self.service_id,
+            request_id=request_id,
+            conversation=conversation,
+        )
+
+    async def _return_conversation_by_id(
+        self, request_id: str | None, conversation_id: str
+    ) -> ConversationResponseMessage:
+        """Return a conversation if it exists, otherwise raise an error."""
+
+        if conversation_id not in self.dataset:
+            raise self._service_error(
+                ServiceErrorType.CONVERSATION_NOT_FOUND,
+                f"Conversation {conversation_id} not found in dataset.",
+            )
+
+        conversation = self.dataset[conversation_id]
         self.logger.debug("Sending conversation response: %s", conversation)
         return ConversationResponseMessage(
             service_id=self.service_id,
-            request_id=message.request_id,
+            request_id=request_id,
             conversation=conversation,
         )
 

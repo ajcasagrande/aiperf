@@ -312,6 +312,8 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             command=CommandType.SHUTDOWN,
         )
 
+        await asyncio.sleep(1)
+
         try:
             await self.service_manager.shutdown_all_services()
         except Exception as e:
