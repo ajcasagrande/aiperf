@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from aiperf.common.config import EndPointConfig
+from aiperf.common.config import EndPointConfig, OutputConfig, UserConfig
 from aiperf.common.models import ProfileResultsMessage, ResultsRecord
 from aiperf.data_exporter.exporter_manager import ExporterManager
 
@@ -16,7 +16,12 @@ def endpoint_config():
 
 
 @pytest.fixture
-def sample_records():
+def output_config(tmp_path):
+    return OutputConfig(artifact_directory=tmp_path)
+
+
+@pytest.fixture
+def sample_results():
     return ProfileResultsMessage(
         start_ns=1000,
         end_ns=2000,
@@ -27,8 +32,18 @@ def sample_records():
     )
 
 
+@pytest.fixture
+def mock_user_config(endpoint_config, output_config):
+    config = UserConfig()
+    config.endpoint = endpoint_config
+    config.output = output_config
+    return config
+
+
 class TestExporterManager:
-    async def test_export_all(self, endpoint_config, sample_records):
+    async def test_export_all(
+        self, mock_user_config: UserConfig, sample_results: ProfileResultsMessage
+    ):
         mock_exporter_instance = AsyncMock()
         mock_exporter_class = MagicMock(return_value=mock_exporter_instance)
 
@@ -36,8 +51,11 @@ class TestExporterManager:
             "aiperf.common.factories.DataExporterFactory.get_all_classes",
             return_value=[mock_exporter_class],
         ):
-            manager = ExporterManager(endpoint_config)
-            await manager.export_all(sample_records)
+            manager = ExporterManager(
+                results=sample_results,
+                input_config=mock_user_config,
+            )
+            await manager.export_all()
 
-        mock_exporter_class.assert_called_once_with(endpoint_config)
-        mock_exporter_instance.export.assert_called_once_with(sample_records)
+        mock_exporter_class.assert_called_once()
+        mock_exporter_instance.export.assert_called_once()
