@@ -12,6 +12,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from aiperf.clients.http.aiohttp_client import create_tcp_connector
+from aiperf.clients.http.defaults import SocketDefaults
 
 ################################################################################
 # Test create_tcp_connector
@@ -101,8 +102,8 @@ class TestCreateTcpConnector:
             expected_calls = [
                 (socket.SOL_TCP, socket.TCP_NODELAY, 1),
                 (socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1),
-                (socket.SOL_SOCKET, socket.SO_RCVBUF, 1024 * 85),
-                (socket.SOL_SOCKET, socket.SO_SNDBUF, 1024 * 64),
+                (socket.SOL_SOCKET, socket.SO_RCVBUF, SocketDefaults.SO_RCVBUF),
+                (socket.SOL_SOCKET, socket.SO_SNDBUF, SocketDefaults.SO_SNDBUF),
             ]
 
             for option_level, option_name, option_value in expected_calls:
@@ -113,11 +114,16 @@ class TestCreateTcpConnector:
     @pytest.mark.parametrize(
         "has_attribute,attribute_name,tcp_option,expected_value",
         [
-            (True, "TCP_KEEPIDLE", socket.TCP_KEEPIDLE, 600),
-            (True, "TCP_KEEPINTVL", socket.TCP_KEEPINTVL, 60),
-            (True, "TCP_KEEPCNT", socket.TCP_KEEPCNT, 3),
-            (True, "TCP_QUICKACK", socket.TCP_QUICKACK, 1),
-            (True, "TCP_USER_TIMEOUT", socket.TCP_USER_TIMEOUT, 30000),
+            (True, "TCP_KEEPIDLE", socket.TCP_KEEPIDLE, SocketDefaults.TCP_KEEPIDLE),
+            (True, "TCP_KEEPINTVL", socket.TCP_KEEPINTVL, SocketDefaults.TCP_KEEPINTVL),
+            (True, "TCP_KEEPCNT", socket.TCP_KEEPCNT, SocketDefaults.TCP_KEEPCNT),
+            (True, "TCP_QUICKACK", socket.TCP_QUICKACK, SocketDefaults.TCP_QUICKACK),
+            (
+                True,
+                "TCP_USER_TIMEOUT",
+                socket.TCP_USER_TIMEOUT,
+                SocketDefaults.TCP_USER_TIMEOUT,
+            ),
             (False, "TCP_KEEPIDLE", socket.TCP_KEEPIDLE, None),
         ],
     )
