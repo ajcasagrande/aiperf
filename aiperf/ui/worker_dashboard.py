@@ -79,9 +79,19 @@ class WorkerRow(Widget):
         self.health_message: WorkerHealthMessage | None = None
         self.last_update_time = time.time()
 
+    @staticmethod
+    def worker_name(worker_id: str) -> str:
+        """Get the worker name from the worker ID."""
+        ids = worker_id.split("_")
+        if ids[2] == "0":
+            return f"Worker {ids[1]}"
+        return f"Worker {ids[1]} (Sub {ids[2]})"
+
     def compose(self) -> ComposeResult:
         """Compose the worker row with name and metrics."""
-        yield Label(self.worker_id, classes="worker-name", id="worker-name")
+        yield Label(
+            self.worker_name(self.worker_id), classes="worker-name", id="worker-name"
+        )
         yield Label("Unknown", id="status")
         yield Label("0 / 0", id="tasks")
         yield Label("0.0%", id="cpu")
@@ -107,7 +117,7 @@ class WorkerRow(Widget):
             if error_rate > 0.1:  # More than 10% error rate
                 status_text = "Error"
                 status_class = "status-error"
-            elif health_message.cpu_usage > 90:  # High CPU usage
+            elif health_message.cpu_usage > 75:  # High CPU usage
                 status_text = "High Load"
                 status_class = "status-warning"
             elif health_message.total_tasks == 0:  # No tasks processed
@@ -188,8 +198,8 @@ class WorkerTable(Widget):
         grid-columns: 1fr 1fr 1fr 1fr 1fr;
         background: $surface-lighten-1;
         border-bottom: solid $primary;
-        padding: 0 1;
-        margin: 0 0 1 0;
+        padding: 0 0;
+        margin: 0 0 0 0;
     }
 
     #table-header Label {

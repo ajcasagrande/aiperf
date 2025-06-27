@@ -234,13 +234,18 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             sig: The signal number received
         """
         self.logger.debug("Received signal %s, initiating graceful shutdown", sig)
-        if sig == signal.SIGINT:
+        if sig == signal.SIGINT or sig == signal.SIGTERM:
             if self.profile_runner and self.profile_runner.is_complete:
                 self.stop_event.set()
                 return
 
             if self.profile_runner and self.profile_runner.was_cancelled:
                 self.logger.error("Profile was cancelled, killing all services")
+                await self.kill()
+                return
+
+            if self.pub_client.is_shutdown:
+                self.logger.error("Pub client is shutdown, killing all services")
                 await self.kill()
                 return
 
@@ -318,8 +323,12 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         """
         self.logger.debug("Stopping System Controller")
         self.logger.info("AIPerf System is EXITING")
+        # logging.root.setLevel(logging.DEBUG)
 
         self._system_state = SystemState.STOPPING
+
+        if self.ui:
+            await self.ui.shutdown()
 
         # Broadcast a stop command to all services
         await self.send_command_to_service(
@@ -337,19 +346,6 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
                 "Failed to stop all services",
             ) from e
 
-        # TODO: This is a hack to give the services time to produce results
-        # await asyncio.sleep(3)
-
-    @on_cleanup
-    async def _cleanup(self) -> None:
-        """Clean up system controller-specific components."""
-        self.logger.debug("Cleaning up System Controller")
-
-        if self.ui:
-            await self.ui.shutdown()
-
-        self._system_state = SystemState.SHUTDOWN
-
         if self.xpub_xsub_proxy_task:
             await self.xpub_xsub_proxy.stop()
             self.xpub_xsub_proxy_task.cancel()
@@ -361,6 +357,18 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             self.dealer_router_proxy_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await self.dealer_router_proxy_task
+
+        # TODO: This is a hack to give the services time to produce results
+        # await asyncio.sleep(3)
+
+    @on_cleanup
+    async def _cleanup(self) -> None:
+        """Clean up system controller-specific components."""
+        self.logger.debug("Cleaning up System Controller")
+
+        await self.kill()
+
+        self._system_state = SystemState.SHUTDOWN
 
     async def start_profiling_all_services(self) -> None:
         """Tell all services to start profiling."""
@@ -423,8 +431,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
                 "Failed to export results",
             ) from e
         finally:
-            if self.profile_runner:
-                await self.profile_runner.profile_completed()
+            self.stop_event.set()
 
     async def _process_registration_message(self, message: RegistrationMessage) -> None:
         """Process a registration message from a service. It will

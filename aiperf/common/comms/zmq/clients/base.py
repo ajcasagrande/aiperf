@@ -175,6 +175,14 @@ class BaseZMQClient(AIPerfTaskMixin, BaseCommunicationClient):
         if not self.stop_event.is_set():
             self.stop_event.set()
 
+        try:
+            await self.run_hooks(AIPerfHook.ON_STOP)
+        except Exception as e:
+            self.logger.error(
+                "Exception running ON_STOP hooks: %s (%s)", e, self.client_id
+            )
+            # continue
+
         # Cancel all registered tasks
         for task in self.registered_tasks.values():
             task.cancel()
@@ -196,8 +204,6 @@ class BaseZMQClient(AIPerfTaskMixin, BaseCommunicationClient):
             ) from e
 
         finally:
-            self._socket = None
-
             try:
                 await self.run_hooks(AIPerfHook.ON_STOP)
                 await self.run_hooks(AIPerfHook.ON_CLEANUP)
@@ -222,3 +228,4 @@ class BaseZMQClient(AIPerfTaskMixin, BaseCommunicationClient):
                 await asyncio.gather(*self.registered_tasks.values())
 
             self.registered_tasks.clear()
+            # self._socket = None

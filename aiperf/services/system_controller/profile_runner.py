@@ -90,7 +90,6 @@ class ProfileRunner:
 
         if self.tracker.suite is None or self.tracker.suite.next_profile() is None:
             self.logger.info("All profiles completed")
-            self.controller.stop_event.set()
             return
 
         self.logger.info("Starting next profile")
