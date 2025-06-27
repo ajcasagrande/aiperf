@@ -9,7 +9,7 @@ from aiperf.ui.worker_dashboard import (
     WorkerDashboard,
     WorkerDashboardMixin,
     WorkerHealthService,
-    WorkerStatusCard,
+    WorkerTable,
 )
 
 __all__ = [
@@ -21,6 +21,6 @@ __all__ = [
     "StatusIndicator",
     "WorkerDashboard",
     "WorkerDashboardMixin",
-    "WorkerStatusCard",
+    "WorkerTable",
     "WorkerHealthService",
 ]

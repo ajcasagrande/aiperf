@@ -83,6 +83,16 @@ class AIPerfTextualApp(App):
         height: auto;
     }
 
+    /* Specific fixes for WorkerDashboard scrolling */
+    TabPane > WorkerDashboard > #workers-scroll {
+        height: 1fr;
+        overflow-y: auto;
+    }
+
+    TabPane > WorkerDashboard > #workers-scroll > Vertical {
+        height: auto;
+    }
+
     TabbedContent ContentSwitcher {
         height: 1fr;
     }

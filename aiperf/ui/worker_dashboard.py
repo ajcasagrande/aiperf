@@ -6,8 +6,9 @@ import time
 from collections.abc import Callable
 
 from textual.app import ComposeResult
-from textual.containers import Container, Horizontal, ScrollableContainer
+from textual.containers import Container, ScrollableContainer, Vertical
 from textual.css.query import NoMatches
+from textual.widget import Widget
 from textual.widgets import Label
 
 from aiperf.common.config import ServiceConfig
@@ -15,75 +16,76 @@ from aiperf.common.enums import ServiceType, Topic
 from aiperf.common.hooks import AIPerfLifecycleMixin, aiperf_task, on_init
 from aiperf.common.models.messages import WorkerHealthMessage
 from aiperf.common.service.base_component_service import BaseComponentService
-from aiperf.ui.widgets import DashboardFormatter, StatusIndicator
+from aiperf.ui.widgets import StatusIndicator
 
 logger = logging.getLogger(__name__)
 
 
-class WorkerStatusCard(Container):
-    """Individual worker status card displaying health metrics."""
+class WorkerRow(Widget):
+    """A single row in the worker table showing worker name and metrics."""
 
     DEFAULT_CSS = """
-    WorkerStatusCard {
-        border: solid $accent;
-        border-title-color: $accent;
-        border-title-background: $surface;
-        height: auto;
-        min-height: 2;
-        margin: 0 1 1 0;
-        min-width: 50;
-        max-width: 100;
-        layout: vertical;
-    }
-
-    WorkerStatusCard StatusIndicator {
-        height: auto;
+    WorkerRow {
+        height: 1;
+        layout: grid;
+        grid-size: 5;
+        grid-columns: 1fr 1fr 1fr 1fr 1fr;
         margin: 0;
         padding: 0 1;
     }
 
-    WorkerStatusCard ProgressBar {
-        height: auto;
-        margin: 0 1;
+    WorkerRow:hover {
+        background: $surface-lighten-1;
     }
 
-    .worker_healthy {
-        border: solid $success;
-        border-title-color: $success;
+    WorkerRow > Label {
+        margin: 0;
+        padding: 0;
+        text-align: left;
+        overflow: hidden;
     }
 
-    .worker_warning {
-        border: solid $warning;
-        border-title-color: $warning;
+    .worker-name {
+        text-style: bold;
     }
 
-    .worker_error {
-        border: solid $error;
-        border-title-color: $error;
+    .status-healthy {
+        color: $success;
+        text-style: bold;
     }
 
-    .worker_stale {
-        border: solid $surface-darken-1;
-        border-title-color: $surface-darken-1;
+    .status-warning {
+        color: $warning;
+        text-style: bold;
+    }
+
+    .status-error {
+        color: $error;
+        text-style: bold;
+    }
+
+    .status-idle {
+        color: $text-muted;
+    }
+
+    .status-stale {
+        color: $surface-darken-1;
     }
     """
 
     def __init__(self, worker_id: str) -> None:
         super().__init__()
         self.worker_id = worker_id
-        self.border_title = f"Worker: {worker_id}"
         self.health_message: WorkerHealthMessage | None = None
         self.last_update_time = time.time()
 
     def compose(self) -> ComposeResult:
-        """Compose the worker status card layout."""
-        yield StatusIndicator("Status", "Unknown", show_dot=True, id="status")
-        yield StatusIndicator("Tasks", "0 / 0", show_dot=False, id="tasks")
-        yield StatusIndicator("CPU", "0.0%", show_dot=False, id="cpu")
-        yield StatusIndicator("Memory", "0.0 MiB", show_dot=False, id="memory")
-        yield StatusIndicator("Uptime", "--", show_dot=False, id="uptime")
-        yield StatusIndicator("PID", "--", show_dot=False, id="pid")
-        yield StatusIndicator("Errors", "0", show_dot=False, id="errors")
+        """Compose the worker row with name and metrics."""
+        yield Label(self.worker_id, classes="worker-name", id="worker-name")
+        yield Label("Unknown", id="status")
+        yield Label("0 / 0", id="tasks")
+        yield Label("0.0%", id="cpu")
+        yield Label("0.0 MB", id="memory")
 
     def update_health(self, health_message: WorkerHealthMessage) -> None:
         """Update the worker health display."""
@@ -104,55 +106,43 @@ class WorkerStatusCard(Container):
             # Determine overall status and styling
             if error_rate > 0.1:  # More than 10% error rate
                 status_text = "Error"
-                status_class = "error"
-                card_class = "worker_error"
+                status_class = "status-error"
             elif health_message.cpu_usage > 90:  # High CPU usage
                 status_text = "High Load"
-                status_class = "status-processing"
-                card_class = "worker_warning"
+                status_class = "status-warning"
             elif health_message.total_tasks == 0:  # No tasks processed
                 status_text = "Idle"
                 status_class = "status-idle"
-                card_class = "worker_healthy"
             else:
                 status_text = "Healthy"
-                status_class = "status-complete"
-                card_class = "worker_healthy"
+                status_class = "status-healthy"
 
-            # Update CSS class
-            self.remove_class(
-                "worker_healthy", "worker_warning", "worker_error", "worker_stale"
+            # Update labels
+            self.query_one("#status", Label).update(status_text)
+            self.query_one("#status", Label).remove_class(
+                "status-healthy",
+                "status-warning",
+                "status-error",
+                "status-idle",
+                "status-stale",
             )
-            self.add_class(card_class)
+            self.query_one("#status", Label).add_class(status_class)
 
-            # Update status indicators
-            self.query_one("#status", StatusIndicator).update_value(
-                status_text, status_class
-            )
-
-            self.query_one("#tasks", StatusIndicator).update_value(
+            self.query_one("#tasks", Label).update(
                 f"{health_message.completed_tasks} / {health_message.total_tasks}"
             )
 
-            self.query_one("#cpu", StatusIndicator).update_value(
-                f"{health_message.cpu_usage:.1f}%"
-            )
+            self.query_one("#cpu", Label).update(f"{health_message.cpu_usage:.1f}%")
 
-            self.query_one("#memory", StatusIndicator).update_value(
-                f"{health_message.memory_usage:.1f} MiB"
-            )
+            # Format memory in MB for cleaner display
+            memory_mb = health_message.memory_usage
+            if memory_mb >= 1024:
+                memory_display = f"{memory_mb / 1024:.1f} GB"
+            else:
+                memory_display = f"{memory_mb:.0f} MB"
 
-            self.query_one("#uptime", StatusIndicator).update_value(
-                DashboardFormatter.format_duration(health_message.uptime)
-            )
+            self.query_one("#memory", Label).update(memory_display)
 
-            self.query_one("#pid", StatusIndicator).update_value(
-                str(health_message.pid) if health_message.pid else "--"
-            )
-
-            self.query_one("#errors", StatusIndicator).update_value(
-                str(health_message.failed_tasks)
-            )
         except NoMatches:
             pass
         except Exception as e:
@@ -166,12 +156,12 @@ class WorkerStatusCard(Container):
         ):
             return
 
-        self.remove_class("worker_healthy", "worker_warning", "worker_error")
-        self.add_class("worker_stale")
         try:
-            self.query_one("#status", StatusIndicator).update_value(
-                "Stale", "status-idle"
+            self.query_one("#status", Label).update("Stale")
+            self.query_one("#status", Label).remove_class(
+                "status-healthy", "status-warning", "status-error", "status-idle"
             )
+            self.query_one("#status", Label).add_class("status-stale")
         except NoMatches:
             pass
         except Exception as e:
@@ -180,40 +170,141 @@ class WorkerStatusCard(Container):
             )
 
 
+class WorkerTable(Widget):
+    """Table widget for displaying worker information."""
+
+    DEFAULT_CSS = """
+    WorkerTable {
+        height: auto;
+        layout: vertical;
+        margin: 0;
+        min-height: 0;
+    }
+
+    #table-header {
+        height: 1;
+        layout: grid;
+        grid-size: 5;
+        grid-columns: 1fr 1fr 1fr 1fr 1fr;
+        background: $surface-lighten-1;
+        border-bottom: solid $primary;
+        padding: 0 1;
+        margin: 0 0 1 0;
+    }
+
+    #table-header Label {
+        text-style: bold;
+        text-align: left;
+        margin: 0;
+        padding: 0;
+    }
+
+    #table-body {
+        height: auto;
+        layout: vertical;
+        margin: 0;
+        min-height: 0;
+    }
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.worker_rows: dict[str, WorkerRow] = {}
+        self.pending_workers: list[str] = []
+
+    def compose(self) -> ComposeResult:
+        """Compose the table with header and body."""
+        yield Container(
+            Label("Worker ID"),
+            Label("Status"),
+            Label("Tasks"),
+            Label("CPU"),
+            Label("Memory"),
+            id="table-header",
+        )
+        yield Vertical(id="table-body")
+
+    def on_mount(self) -> None:
+        """Handle mounting and add any pending workers."""
+        # Add any workers that were queued before mounting
+        for worker_id in self.pending_workers:
+            self._mount_worker(worker_id)
+        self.pending_workers.clear()
+
+    def add_worker(self, worker_id: str) -> None:
+        """Add a new worker row to the table."""
+        if worker_id not in self.worker_rows:
+            worker_row = WorkerRow(worker_id)
+            self.worker_rows[worker_id] = worker_row
+
+            if self.is_mounted:
+                self._mount_worker(worker_id)
+            else:
+                # Queue for later mounting
+                self.pending_workers.append(worker_id)
+
+    def _mount_worker(self, worker_id: str) -> None:
+        """Mount a worker row to the table body."""
+        if worker_id in self.worker_rows:
+            try:
+                table_body = self.query_one("#table-body")
+                table_body.mount(self.worker_rows[worker_id])
+            except Exception as e:
+                logger.error(f"Error mounting worker {worker_id}: {e}")
+
+    def update_worker(
+        self, worker_id: str, health_message: WorkerHealthMessage
+    ) -> None:
+        """Update a worker's information."""
+        if worker_id not in self.worker_rows:
+            self.add_worker(worker_id)
+
+        self.worker_rows[worker_id].update_health(health_message)
+
+    def check_stale_workers(self, current_time: float) -> None:
+        """Check all workers for stale data."""
+        for worker_row in self.worker_rows.values():
+            worker_row.check_stale(current_time)
+
+
 class WorkerDashboard(Container):
-    """Dashboard displaying the status of all workers."""
+    """Dashboard displaying the status of all workers in a table format."""
 
     DEFAULT_CSS = """
     WorkerDashboard {
         border: solid $primary;
         border-title-color: $primary;
         border-title-background: $surface;
-        height: 100%;
+        height: 1fr;
         layout: vertical;
     }
 
     #worker-summary {
         height: 3;
-        margin: 0 1 1 1;
+        margin: 0;
         layout: horizontal;
     }
 
     #workers-scroll {
         height: 1fr;
-        margin: 0 1;
+        margin: 0;
+        scrollbar-gutter: stable;
+        overflow-y: auto;
+        max-height: 1fr;
     }
 
-    #workers-grid {
+    #workers-container {
         height: auto;
-        layout: horizontal;
+        layout: vertical;
+        min-height: 0;
     }
     """
 
-    border_title = "Worker Status Monitor"
+    border_title = "Worker Monitor"
 
     def __init__(self) -> None:
         super().__init__()
-        self.worker_cards: dict[str, WorkerStatusCard] = {}
+        self.worker_table: WorkerTable | None = None
         self.worker_health_data: dict[str, WorkerHealthMessage] = {}
         self.total_workers = 0
         self.healthy_workers = 0
@@ -222,17 +313,18 @@ class WorkerDashboard(Container):
         self.stale_workers = 0
 
     def compose(self) -> ComposeResult:
-        """Compose the worker dashboard layout."""
+        """Compose the simplified worker dashboard layout."""
         yield Container(
-            StatusIndicator("Total Workers", "0", show_dot=False, id="total-workers"),
+            StatusIndicator("Total", "0", show_dot=False, id="total-workers"),
             StatusIndicator("Healthy", "0", show_dot=False, id="healthy-workers"),
             StatusIndicator("Issues", "0", show_dot=False, id="issue-workers"),
             id="worker-summary",
         )
 
         yield ScrollableContainer(
-            Horizontal(
-                Label("No workers detected", id="no-workers-label"), id="workers-grid"
+            Vertical(
+                Label("No workers detected", id="no-workers-label"),
+                id="workers-container",
             ),
             id="workers-scroll",
         )
@@ -242,18 +334,17 @@ class WorkerDashboard(Container):
         worker_id = health_message.service_id
         self.worker_health_data[worker_id] = health_message
 
-        if worker_id not in self.worker_cards:
-            self._add_worker_card(worker_id)
+        if not self.worker_table:
+            self._initialize_table()
 
-        # Update the specific worker card
-        if worker_id in self.worker_cards:
-            self.worker_cards[worker_id].update_health(health_message)
+        if self.worker_table:
+            self.worker_table.update_worker(worker_id, health_message)
 
         # Update summary statistics
         self._update_summary()
 
-    def _add_worker_card(self, worker_id: str) -> None:
-        """Add a new worker card to the dashboard."""
+    def _initialize_table(self) -> None:
+        """Initialize the worker table."""
         if not self.is_mounted:
             return
 
@@ -265,16 +356,14 @@ class WorkerDashboard(Container):
             except Exception:
                 pass  # Label might not exist
 
-            # Create and add new worker card
-            worker_card = WorkerStatusCard(worker_id)
-            self.worker_cards[worker_id] = worker_card
-
-            workers_grid = self.query_one("#workers-grid")
-            workers_grid.mount(worker_card)
+            # Create and add worker table
+            self.worker_table = WorkerTable()
+            workers_container = self.query_one("#workers-container")
+            workers_container.mount(self.worker_table)
 
         except Exception as e:
             logger.exception(
-                f"Error adding worker card for {worker_id}: {e.__class__.__name__}: {e}"
+                f"Error initializing worker table: {e.__class__.__name__}: {e}"
             )
 
     def _update_summary(self) -> None:
@@ -284,27 +373,29 @@ class WorkerDashboard(Container):
 
         try:
             current_time = time.time()
-            self.total_workers = len(self.worker_cards)
+            self.total_workers = len(self.worker_health_data)
             self.healthy_workers = 0
             self.warning_workers = 0
             self.error_workers = 0
             self.stale_workers = 0
 
             # Check each worker and update stale status
-            for worker_card in self.worker_cards.values():
-                worker_card.check_stale(current_time)
+            if self.worker_table:
+                self.worker_table.check_stale_workers(current_time)
 
-                if worker_card.health_message:
-                    health = worker_card.health_message
-                    time_since_update = current_time - worker_card.last_update_time
+            for worker_id, health_message in self.worker_health_data.items():
+                if self.worker_table and worker_id in self.worker_table.worker_rows:
+                    worker_row = self.worker_table.worker_rows[worker_id]
+                    time_since_update = current_time - worker_row.last_update_time
 
                     if time_since_update > 30:  # Stale data
                         self.stale_workers += 1
                     elif (
-                        health.failed_tasks / max(health.total_tasks, 1) > 0.1
+                        health_message.failed_tasks / max(health_message.total_tasks, 1)
+                        > 0.1
                     ):  # High error rate
                         self.error_workers += 1
-                    elif health.cpu_usage > 90:  # High CPU
+                    elif health_message.cpu_usage > 90:  # High CPU
                         self.warning_workers += 1
                     else:
                         self.healthy_workers += 1
