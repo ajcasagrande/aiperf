@@ -14,10 +14,10 @@ from aiperf.common.models import (
     ErrorDetails,
     GenericHTTPClientConfig,
     RequestRecord,
+    SSEField,
     SSEMessage,
     TextResponse,
 )
-from aiperf.common.models.record_models import SSEField
 
 logger = logging.getLogger(__name__)
 
