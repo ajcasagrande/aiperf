@@ -396,18 +396,26 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         self, message: ProfileResultsMessage
     ) -> None:
         """Process a profile results message."""
-        self.logger.debug("Received profile results: %s", message)
-        if self.ui:
-            await self.ui.on_profile_results_update()
-        self.progress_tracker.update_profile_results(message)
+        try:
+            self.logger.debug("Received profile results: %s", message)
+            if self.ui:
+                await self.ui.on_profile_results_update()
+            self.progress_tracker.update_profile_results(message)
 
-        # Export the results
-        await ExporterManager(
-            results=message, input_config=self.user_config
-        ).export_all()
+            # Export the results
+            await ExporterManager(
+                results=message, input_config=self.user_config
+            ).export_all()
 
-        if self.profile_runner:
-            await self.profile_runner.profile_completed()
+        except Exception as e:
+            self.logger.error("Failed to export results: %s", e)
+            raise self._service_error(
+                ServiceErrorType.EXPORT_RESULTS_ERROR,
+                "Failed to export results",
+            ) from e
+        finally:
+            if self.profile_runner:
+                await self.profile_runner.profile_completed()
 
     async def _process_registration_message(self, message: RegistrationMessage) -> None:
         """Process a registration message from a service. It will

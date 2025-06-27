@@ -384,7 +384,8 @@ class ProfileResultsMessage(BaseServiceMessage):
         ..., description="The records of the profile results"
     )
     total: int = Field(
-        ..., description="The total number of inference requests to be made"
+        ...,
+        description="The total number of inference requests expected to be made (if known)",
     )
     completed: int = Field(
         ..., description="The number of inference requests completed"

@@ -122,6 +122,7 @@ class ServiceErrorType(CaseInsensitiveStrEnum):
     UNKNOWN_COMMAND = "unknown_command"
     DATASET_EMPTY = "dataset_empty"
     CONVERSATION_NOT_FOUND = "conversation_not_found"
+    EXPORT_RESULTS_ERROR = "export_results_error"
 
 
 class ServiceError(AIPerfError):
