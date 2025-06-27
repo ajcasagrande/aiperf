@@ -1,15 +1,68 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+import json
 import logging
 from typing import Any
 
+from openai.types.chat.chat_completion import ChatCompletion
+from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
+from openai.types.completion import Completion
+from openai.types.embedding import Embedding
+from openai.types.responses.response import Response as ResponsesModel
+from pydantic import BaseModel
+
+from aiperf.common.enums import CaseInsensitiveStrEnum
 from aiperf.common.models import RequestRecord, ResponseData, SSEMessage, TextResponse
 from aiperf.common.models.record_models import InferenceServerResponse
 from aiperf.common.tokenizer import Tokenizer
 from aiperf.common.utils import load_json_str
 
 logger = logging.getLogger(__name__)
+
+
+class OpenAIObject(CaseInsensitiveStrEnum):
+    """Types of OpenAI objects."""
+
+    CHAT_COMPLETION = "chat.completion"
+    CHAT_COMPLETION_CHUNK = "chat.completion.chunk"
+    COMPLETION = "completion"
+    EMBEDDING = "embedding"
+    RESPONSE = "response"
+
+    @classmethod
+    def parse(cls, text: str) -> BaseModel:
+        """Attempt to parse a string into an OpenAI object.
+
+        Raises:
+            ValueError: If the object is invalid.
+        """
+        try:
+            obj = load_json_str(text)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid OpenAI object: {text}") from e
+
+        obj_type = obj.get("object")
+        if obj_type is None:
+            raise ValueError(f"Invalid OpenAI object: {obj}")
+
+        if obj_type == cls.CHAT_COMPLETION:
+            model_class = ChatCompletion
+        elif obj_type == cls.CHAT_COMPLETION_CHUNK:
+            model_class = ChatCompletionChunk
+        elif obj_type == cls.COMPLETION:
+            model_class = Completion
+        elif obj_type == cls.EMBEDDING:
+            model_class = Embedding
+        elif obj_type == cls.RESPONSE:
+            model_class = ResponsesModel
+        else:
+            raise ValueError(f"Invalid OpenAI object type: {obj_type}")
+
+        try:
+            return model_class(**obj)
+        except Exception as e:
+            raise ValueError(f"Invalid OpenAI object: {text}") from e
 
 
 # TODO: Factory support for different supported parsers/extractors
@@ -19,29 +72,29 @@ class OpenAIResponseExtractor:
     async def _parse_text_response(self, response: TextResponse) -> ResponseData | None:
         """Parse a TextResponse into a ResponseData object."""
         raw = response.text
-        parsed, metadata = self._parse_text(raw)
+        parsed = self._parse_text(raw)
         if parsed is None:
             return None
 
         return ResponseData(
             perf_ns=response.perf_ns,
             raw_text=[raw],
-            parsed_text=parsed,
-            metadata=metadata or {},
+            parsed_text=[parsed],
+            metadata={},
         )
 
     async def _parse_sse_response(self, response: SSEMessage) -> ResponseData | None:
         """Parse a SSEMessage into a ResponseData object."""
         raw = response.extract_data_content()
-        parsed, metadata = self._parse_sse(raw)
-        if parsed is None:
+        parsed = self._parse_sse(raw)
+        if parsed is None or len(parsed) == 0:
             return None
 
         return ResponseData(
             perf_ns=response.perf_ns,
             raw_text=raw,
             parsed_text=parsed,
-            metadata=metadata or {},
+            metadata={},
         )
 
     async def _parse_response(
@@ -70,77 +123,42 @@ class OpenAIResponseExtractor:
                 results.append(response_data)
         return results
 
-    def _parse_text(
-        self, raw_text: str
-    ) -> tuple[list[str] | None, dict[str, Any] | None]:
+    def _parse_text(self, raw_text: str) -> Any | None:
         """Parse the text of the response."""
         if raw_text in ("", None, "[DONE]"):
-            return None, {}
+            return None
 
-        js = load_json_str(raw_text)
-        if "choices" not in js:
-            raise ValueError(f"Invalid OpenAI response: {js}")
+        obj = OpenAIObject.parse(raw_text)
 
-        # TODO: how to support multiple choices?
+        val = None
+        if isinstance(obj, ChatCompletion):
+            # TODO: how to support multiple choices?
+            val = obj.choices[0].message.content
 
-        metadata = {
-            "id": js["id"],
-            "model": js["model"],
-            "object": js["object"],
-        }
-        if "usage" in js:
-            metadata["usage"] = js["usage"]
+        elif isinstance(obj, ChatCompletionChunk):
+            # TODO: how to support multiple choices?
+            val = obj.choices[0].delta.content
 
-        # TODO: Parse based on the object type
+        elif isinstance(obj, Completion):
+            # TODO: how to support multiple choices?
+            val = obj.choices[0].text
 
-        choice = js["choices"][0]
-        if "text" in choice:
-            return [choice["text"]], metadata
-        elif "delta" in choice:
-            if "content" in choice["delta"] and choice["delta"]["content"] not in (
-                None,
-                "",
-            ):
-                # logger.debug("Parsing delta: %s", choice["delta"])
-                return [choice["delta"]["content"]], metadata
+        elif isinstance(obj, Embedding):
+            val = obj.embedding
 
-        elif "message" in choice:
-            if choice["message"]["role"] == "assistant" and choice["message"][
-                "content"
-            ] not in (None, ""):
-                metadata["role"] = "assistant"
-                return [choice["message"]["content"]], metadata
-
+        elif isinstance(obj, ResponsesModel):
+            val = obj.output_text
         else:
-            raise ValueError(f"Invalid OpenAI response: {js}")
-        return None, metadata
+            raise ValueError(f"Invalid OpenAI object: {raw_text}")
 
-    def _parse_sse(
-        self, raw_sse: list[str]
-    ) -> tuple[list[str] | None, dict[str, Any] | None]:
+        return val
+
+    def _parse_sse(self, raw_sse: list[str]) -> list[Any]:
         """Parse the SSE of the response."""
         result = []
-        all_metadata = {}
         for sse in raw_sse:
-            parsed, metadata = self._parse_text(sse)
+            parsed = self._parse_text(sse)
             if parsed is None:
                 continue
-            result.extend(parsed)
-
-            if metadata is None:
-                continue
-
-            # TODO: right now we are merging metadata, not sure if correct approach
-            for k, v in metadata.items():
-                if k not in all_metadata:
-                    all_metadata[k] = v
-                else:
-                    if not isinstance(all_metadata[k], list):
-                        if all_metadata[k] == v:
-                            continue
-                        all_metadata[k] = [all_metadata[k], v]
-                    else:
-                        if v not in all_metadata[k]:
-                            all_metadata[k].append(v)
-        # logger.debug(f"All metadata: {all_metadata}")
-        return result, all_metadata
+            result.append(parsed)
+        return result

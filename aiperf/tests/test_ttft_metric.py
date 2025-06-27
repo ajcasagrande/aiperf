@@ -3,7 +3,7 @@
 import pytest
 
 from aiperf.common.enums import MetricTimeType
-from aiperf.common.record_models import RequestRecord, SSEMessage
+from aiperf.common.models import RequestRecord, SSEMessage
 from aiperf.services.records_manager.metrics.types.ttft_metric import TTFTMetric
 
 

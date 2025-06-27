@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 import pytest
 
-from aiperf.common.record_models import RequestRecord, SSEMessage
+from aiperf.common.models import RequestRecord, SSEMessage
 from aiperf.services.records_manager.metrics.types.min_request_metric import (
     MinRequestMetric,
 )

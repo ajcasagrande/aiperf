@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-FROM python:3.12-slim AS base
+FROM python:3.10-slim AS base
 
 ENV USERNAME=appuser
 ENV APP_NAME=aiperf
@@ -60,7 +60,7 @@ FROM base AS final
 
 # Create virtual environment
 RUN mkdir /opt/$APP_NAME \
-    && uv venv /opt/$APP_NAME/venv --python 3.12 \
+    && uv venv /opt/$APP_NAME/venv --python 3.10 \
     && chown -R $USERNAME:$USERNAME /opt/$APP_NAME
 
 # Activate virtual environment

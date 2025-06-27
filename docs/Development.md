@@ -46,7 +46,7 @@ This command will:
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Create virtual environment
-uv venv --python 3.12
+uv venv --python 3.10
 
 # Activate virtual environment
 source .venv/bin/activate

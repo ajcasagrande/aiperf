@@ -243,6 +243,9 @@ class BaseZMQProxy(ABC):
 
             # This should not be reached unless proxy is terminated
             self.logger.warning("PROXY TERMINATED UNEXPECTEDLY")
+        except zmq.ContextTerminated:
+            self.logger.debug("PROXY TERMINATED BY CONTEXT")
+            return
 
         except Exception as e:
             proxy_duration = (

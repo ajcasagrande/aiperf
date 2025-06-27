@@ -8,7 +8,7 @@ from typing import Any, ClassVar
 
 from aiperf.common.enums import MetricTimeType
 from aiperf.common.exceptions import MetricTypeError
-from aiperf.common.record_models import RequestRecord
+from aiperf.common.models import RequestRecord
 
 
 class BaseMetric(ABC):
