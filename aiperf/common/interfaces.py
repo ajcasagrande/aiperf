@@ -96,8 +96,8 @@ class InferenceClientProtocol(Protocol, Generic[ConfigT, RequestT, ResponseT]):
         """
         ...
 
-    async def cleanup(self) -> None:
-        """Cleanup the client."""
+    async def close(self) -> None:
+        """Close the client."""
         ...
 
     ################################################################################

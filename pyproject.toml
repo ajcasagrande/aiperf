@@ -32,6 +32,8 @@ dependencies = [
   "aiofiles",
   "psutil~=7.0.0",
   "openai[aiohttp]~=1.92.2",
+  "dask[distributed]~=2025.5.1",
+  "bokeh~=3.7.3",
 ]
 readme = "README.md"
 requires-python = ">=3.10"

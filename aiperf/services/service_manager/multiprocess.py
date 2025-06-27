@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
 from multiprocessing import Process
+from multiprocessing.context import ForkProcess, SpawnProcess
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -18,7 +19,7 @@ class MultiProcessRunInfo(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    process: Process | None = Field(default=None)
+    process: Process | SpawnProcess | ForkProcess | None = Field(default=None)
     service_type: ServiceType = Field(
         ...,
         description="Type of service running in the process",
@@ -40,6 +41,8 @@ class MultiProcessServiceManager(BaseServiceManager):
 
     async def _run_services(self, service_types: list[ServiceType]) -> None:
         """Run a list of services as multiprocessing processes."""
+        # mp_ctx = multiprocessing.get_context("fork")
+
         # Create and start all service processes
         for service_type in service_types:
             service_class = ServiceFactory.get_class_from_type(service_type)

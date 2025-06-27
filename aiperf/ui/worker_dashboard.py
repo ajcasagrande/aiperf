@@ -82,10 +82,13 @@ class WorkerRow(Widget):
     @staticmethod
     def worker_name(worker_id: str) -> str:
         """Get the worker name from the worker ID."""
-        ids = worker_id.split("_")
-        if ids[2] == "0":
-            return f"Worker {ids[1]}"
-        return f"Worker {ids[1]} (Sub {ids[2]})"
+        try:
+            ids = worker_id.split("_")
+            if ids[2] == "0":
+                return f"Worker {ids[1]}"
+            return f"Worker {ids[1]} (Sub {ids[2]})"
+        except Exception:
+            return worker_id
 
     def compose(self) -> ComposeResult:
         """Compose the worker row with name and metrics."""

@@ -45,8 +45,8 @@ class AioHttpClientMixin:
             ceil_threshold=self.client_config.timeout_ms / 1000.0,
         )
 
-    async def cleanup(self) -> None:
-        """Cleanup the client."""
+    async def close(self) -> None:
+        """Close the client."""
         if self.tcp_connector:
             await self.tcp_connector.close()
             self.tcp_connector = None

@@ -156,9 +156,6 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         self.setup_signal_handlers(self._handle_signal)
         self.logger.debug("Setup signal handlers")
 
-        if self.ui:
-            await self.ui.run_async()
-
         self.zmq_context = zmq.asyncio.Context.instance()
 
         self.xpub_xsub_proxy = ZMQProxyFactory.create_instance(
@@ -176,6 +173,9 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         self.dealer_router_proxy_task = asyncio.create_task(
             self.dealer_router_proxy.run()
         )
+
+        if self.ui:
+            await self.ui.run_async()
 
     async def _post_initialize(self) -> None:
         """Post-initialize the system controller."""

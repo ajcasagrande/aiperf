@@ -113,9 +113,9 @@ class OpenAIClientAioHttp(ChatCompletionMixin):
     def __init__(self, client_config: OpenAIClientConfig) -> None:
         super().__init__(client_config)
 
-    async def cleanup(self) -> None:
-        """Cleanup the client."""
-        await super().cleanup()
+    async def close(self) -> None:
+        """Close the client."""
+        await super().close()
 
     async def format_payload(
         self, endpoint: EndPointConfig, payload: OpenAIBaseRequest | dict[str, Any]

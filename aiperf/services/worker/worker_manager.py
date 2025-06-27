@@ -39,7 +39,7 @@ class WorkerProcess(BaseModel):
     )
 
 
-@ServiceFactory.register(ServiceType.WORKER_MANAGER, override_priority=1000)
+@ServiceFactory.register(ServiceType.WORKER_MANAGER, override_priority=100)
 class WorkerManager(BaseComponentService):
     """
     The WorkerManager service is primary responsibility is to pull data from the dataset manager
@@ -147,13 +147,15 @@ class WorkerManager(BaseComponentService):
         """Spawn worker processes using multiprocessing."""
         self.logger.debug(f"Spawning {self.worker_count} worker processes")
 
+        mp_ctx = multiprocessing.get_context("fork")
+
         for i in range(self.worker_count):
             multi_worker_process = worker.MultiWorkerProcess(
                 service_config=self.service_config, service_id=f"worker_{i}"
             )
             worker_id = f"worker_{i}"
 
-            process = Process(
+            process = mp_ctx.Process(
                 target=bootstrap_and_run_service,
                 name=f"worker_{i}_process",
                 args=(MultiWorkerProcess, self.service_config),

@@ -172,6 +172,8 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
         )
         await self.pub_client.initialize()
 
+        await asyncio.sleep(1)
+
         # Initialize any derived service components
         await self.run_hooks(AIPerfHook.ON_INIT)
         await self.set_state(ServiceState.READY)

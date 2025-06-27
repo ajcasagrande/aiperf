@@ -6,7 +6,7 @@ from collections.abc import Awaitable, Callable
 from aiperf.common.config import ServiceConfig
 from aiperf.common.enums import CommandResponseStatus, CommandType, ServiceState, Topic
 from aiperf.common.exceptions import ServiceErrorType
-from aiperf.common.hooks import AIPerfHook, aiperf_task, on_run, on_set_state
+from aiperf.common.hooks import AIPerfHook, aiperf_task, on_init, on_set_state
 from aiperf.common.models import (
     CommandMessage,
     CommandResponseMessage,
@@ -42,8 +42,8 @@ class BaseComponentService(BaseService):
             CommandType, Callable[[CommandMessage], Awaitable[None]]
         ] = {}
 
-    @on_run
-    async def _on_run(self) -> None:
+    @on_init
+    async def _on_init1(self) -> None:
         """Automatically subscribe to the command topic and register the service
         with the system controller when the run hook is called.
 
@@ -210,7 +210,11 @@ class BaseComponentService(BaseService):
         This method will also publish the status message to the status topic if the
         communications are initialized.
         """
-        if self.pub_client and self.pub_client.is_initialized:
+        if (
+            self.pub_client
+            and self.pub_client.is_initialized
+            and not self.pub_client.stop_event.is_set()
+        ):
             await self.pub_client.publish(
                 topic=Topic.STATUS,
                 message=self.create_status_message(state),
