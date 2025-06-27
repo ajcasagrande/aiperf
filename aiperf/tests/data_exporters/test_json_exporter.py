@@ -15,7 +15,7 @@ from aiperf.data_exporter.record import Record
 
 class TestJsonExporter:
     @pytest.fixture
-    def sample_records(self):
+    def sample_results(self):
         return [
             Record(
                 name="Test Metric",
@@ -41,14 +41,14 @@ class TestJsonExporter:
         return UserConfig()
 
     def test_json_exporter_creates_expected_json(
-        self, sample_records, mock_user_config
+        self, sample_results, mock_user_config
     ):
         with tempfile.TemporaryDirectory() as temp_dir:
             output_dir = Path(temp_dir)
             mock_user_config.output.artifact_directory = output_dir
 
             exporter_config = ExporterConfig(
-                records=sample_records,
+                results=sample_results,
                 input_config=mock_user_config,
             )
 

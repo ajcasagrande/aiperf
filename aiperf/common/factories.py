@@ -308,7 +308,7 @@ class DataExporterFactory(FactoryMixin["DataExporterType", "DataExporterProtocol
         for exporter_class in DataExporterFactory.get_all_classes():
             exporter = exporter_class(endpoint_config)
 
-            exporter.export(records)
+            exporter.export()
     ```
     """
 

@@ -5,7 +5,6 @@ from typing import Generic, Protocol
 from aiperf.common.config import EndPointConfig
 from aiperf.common.models import (
     InferenceServerResponse,
-    ProfileResultsMessage,
     RequestRecord,
     ResponseData,
 )
@@ -132,7 +131,9 @@ class DataExporterProtocol(Protocol):
     that takes a list of Record objects and handles exporting them appropriately.
     """
 
-    async def export(self, message: ProfileResultsMessage) -> None: ...
+    async def export(self) -> None:
+        """Export the data."""
+        ...
 
 
 ################################################################################

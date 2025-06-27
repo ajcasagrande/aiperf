@@ -4,34 +4,34 @@
 from rich.console import Console
 from rich.table import Table
 
-from aiperf.common.config import EndPointConfig
 from aiperf.common.enums import DataExporterType
 from aiperf.common.factories import DataExporterFactory
-from aiperf.common.models import ErrorDetailsCount, ProfileResultsMessage
+from aiperf.common.models import ErrorDetailsCount
+from aiperf.data_exporter.exporter_config import ExporterConfig
 
 
 @DataExporterFactory.register(DataExporterType.CONSOLE_ERROR)
 class ConsoleErrorExporter:
     """A class that exports error data to the console"""
 
-    def __init__(self, endpoint_config: EndPointConfig):
-        self.endpoint_config = endpoint_config
+    def __init__(self, exporter_config: ExporterConfig):
+        self._results = exporter_config.results
 
-    async def export(self, results: ProfileResultsMessage) -> None:
+    async def export(self, width: int | None = None) -> None:
         console = Console()
 
-        if len(results.errors_by_type) > 0:
-            table = Table(title=self._get_title())
+        if len(self._results.errors_by_type) > 0:
+            table = Table(title=self._get_title(), width=width)
             table.add_column("Code", justify="right", style="yellow")
             table.add_column("Type", justify="right", style="yellow")
             table.add_column("Message", justify="left", style="yellow")
             table.add_column("Count", justify="right", style="yellow")
-            self._construct_table(table, results.errors_by_type)
+            self._construct_table(table, self._results.errors_by_type)
 
             console.print("\n")
             console.print(table)
 
-        if results.was_cancelled:
+        if self._results.was_cancelled:
             console.print("[red][bold]Profile run was cancelled early[/bold][/red]")
 
     def _construct_table(

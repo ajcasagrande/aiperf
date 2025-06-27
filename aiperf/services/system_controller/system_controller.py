@@ -12,7 +12,6 @@ import zmq.asyncio
 
 from aiperf.common.comms.zmq.clients.base_zmq_proxy import BaseZMQProxy
 from aiperf.common.config import ServiceConfig
-from aiperf.common.config.endpoint.endpoint_config import EndPointConfig
 from aiperf.common.config.user_config import UserConfig
 from aiperf.common.constants import EnvDefaults
 from aiperf.common.enums import (
@@ -404,10 +403,8 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
 
         # Export the results
         await ExporterManager(
-            EndPointConfig(
-                streaming=True,
-            )
-        ).export_all(message)
+            results=message, input_config=self.user_config
+        ).export_all()
 
         if self.profile_runner:
             await self.profile_runner.profile_completed()
