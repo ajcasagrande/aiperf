@@ -152,13 +152,19 @@ class AIPerfTextualApp(App):
 
     async def action_quit(self) -> None:
         """Show confirmation dialog as an overlay."""
-        if hasattr(self, "_quit_dialog") and self._quit_dialog.parent:
-            # Dialog already visible
-            return
+        self.exit(return_code=0)
+        raise KeyboardInterrupt()
+        # if hasattr(self, "_quit_dialog") and self._quit_dialog.parent:
+        #     # Dialog already visible
+        #     return
 
-        self._quit_dialog = QuitConfirmationDialog()
-        self._quit_dialog.on_quit = self.exit
-        await self.mount(self._quit_dialog)
+        # def _on_quit() -> None:
+        #     self.exit(return_code=0)
+        #     raise KeyboardInterrupt()
+
+        # self._quit_dialog = QuitConfirmationDialog()
+        # self._quit_dialog.on_quit = _on_quit
+        # await self.mount(self._quit_dialog)
 
 
 class TextualUIMixin(AIPerfLifecycleMixin):

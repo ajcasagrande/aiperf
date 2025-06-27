@@ -65,26 +65,26 @@ class BaseZMQProxy(ABC):
         self.monitor_task: asyncio.Task | None = None
 
         # Proxy sockets with clear frontend/backend naming
-        self.backend_socket: BaseZMQClient = backend_socket_class(
-            self.context,
-            self.backend_address,
+        self.backend_socket = backend_socket_class(
+            context=self.context,
+            address=self.backend_address,
             bind=True,
             socket_ops=self.socket_ops,
-        )
-        self.frontend_socket: BaseZMQClient = frontend_socket_class(
-            self.context,
-            self.frontend_address,
+        )  # type: ignore - child classes porovide the socket_type
+        self.frontend_socket = frontend_socket_class(
+            context=self.context,
+            address=self.frontend_address,
             bind=True,
             socket_ops=self.socket_ops,
-        )
+        )  # type: ignore - child classes porovide the socket_type
 
         self.control_client = None
         if self.control_address:
             self.logger.debug(f"PROXY CONTROL - Address: {self.control_address}")
             self.control_client = BaseZMQClient(
-                self.context,
-                SocketType.REP,
-                self.control_address,
+                context=self.context,
+                socket_type=SocketType.REP,
+                address=self.control_address,
                 bind=True,
                 socket_ops=self.socket_ops,
             )
@@ -93,9 +93,9 @@ class BaseZMQProxy(ABC):
         if self.capture_address:
             self.logger.debug(f"PROXY CAPTURE - Address: {self.capture_address}")
             self.capture_client = BaseZMQClient(
-                self.context,
-                SocketType.PUB,
-                self.capture_address,
+                context=self.context,
+                socket_type=SocketType.PUB,
+                address=self.capture_address,
                 bind=True,
                 socket_ops=self.socket_ops,
             )

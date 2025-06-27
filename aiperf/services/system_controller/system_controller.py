@@ -119,23 +119,24 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
 
     async def _forever_loop(self) -> None:
         """Run the system controller in a loop until the stop event is set."""
-        try:
-            await super()._forever_loop()
-        except KeyboardInterrupt:
-            if self.profile_runner and self.profile_runner.was_cancelled:
-                self.logger.error("Profile was cancelled, killing all services")
-                await self.kill()
-                return
+        await super()._forever_loop()
+        # try:
 
-            if self.profile_runner:
-                await self.profile_runner.cancel_profile()
+        # except KeyboardInterrupt:
+        #     if self.profile_runner and self.profile_runner.was_cancelled:
+        #         self.logger.error("Profile was cancelled, killing all services")
+        #         await self.kill()
+        #         return
 
-            await self.send_command_to_service(
-                target_service_type=ServiceType.RECORDS_MANAGER,
-                target_service_id=None,
-                command=CommandType.PROCESS_RECORDS,
-                data=ProcessRecordsCommandData(cancelled=True),
-            )
+        #     if self.profile_runner:
+        #         await self.profile_runner.cancel_profile()
+
+        #     await self.send_command_to_service(
+        #         target_service_type=ServiceType.RECORDS_MANAGER,
+        #         target_service_id=None,
+        #         command=CommandType.PROCESS_RECORDS,
+        #         data=ProcessRecordsCommandData(cancelled=True),
+        #     )
 
     async def initialize(self) -> None:
         """Override the base initialize method to add pre-initialization steps."""
@@ -234,6 +235,10 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         """
         self.logger.debug("Received signal %s, initiating graceful shutdown", sig)
         if sig == signal.SIGINT:
+            if self.profile_runner and self.profile_runner.is_complete:
+                self.stop_event.set()
+                return
+
             if self.profile_runner and self.profile_runner.was_cancelled:
                 self.logger.error("Profile was cancelled, killing all services")
                 await self.kill()
@@ -248,6 +253,8 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
 
             if self.profile_runner:
                 await self.profile_runner.cancel_profile()
+
+            self.stop_event.set()
         else:
             self.stop_event.set()
 
@@ -382,6 +389,8 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
                 command=CommandType.PROCESS_RECORDS,
                 data=ProcessRecordsCommandData(cancelled=False),
             )
+            if self.profile_runner:
+                await self.profile_runner.profile_completed()
 
     async def _process_profile_progress_message(
         self, message: ProfileProgressMessage

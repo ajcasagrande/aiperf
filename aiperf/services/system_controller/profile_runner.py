@@ -68,6 +68,13 @@ class ProfileRunner:
                     # TODO: should we have some sort of retries?
                     continue
 
+    @property
+    def is_complete(self) -> bool:
+        return (
+            self.tracker.current_profile is not None
+            and self.tracker.current_profile.is_complete
+        )
+
     async def profile_completed(self) -> None:
         if self.tracker.current_profile is None:
             self.logger.error("No current profile to complete")
