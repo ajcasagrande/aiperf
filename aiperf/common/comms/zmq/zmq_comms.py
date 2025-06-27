@@ -279,6 +279,7 @@ class ZMQIPCCommunication(BaseZMQCommunication):
             config: ZMQIPCConfig object with configuration parameters
         """
         super().__init__(config or ZMQIPCConfig())
+        self._setup_ipc_directory()
 
     async def initialize(self) -> None:
         """Initialize communication channels.
@@ -289,7 +290,6 @@ class ZMQIPCCommunication(BaseZMQCommunication):
             CommunicationError: If the communication channels are not initialized
                 or shutdown
         """
-        self._setup_ipc_directory()
         await super().initialize()
 
     async def shutdown(self) -> None:
