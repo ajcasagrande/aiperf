@@ -64,6 +64,8 @@ class RecordsManager(BaseComponentService):
         self.tokenizers: dict[str, Tokenizer] = {}
         self.user_config: UserConfig | None = None
 
+        self.incoming_records: asyncio.Queue[InferenceResultsMessage] = asyncio.Queue()
+
     @property
     def service_type(self) -> ServiceType:
         """The type of service."""
@@ -130,6 +132,27 @@ class RecordsManager(BaseComponentService):
             await self.publish_profile_stats()
             await asyncio.sleep(1)
 
+    @aiperf_task
+    async def _process_records_task(self) -> None:
+        """Process the records."""
+        while not self.stop_event.is_set():
+            try:
+                # Blocking wait for the next message
+                message = await self.incoming_records.get()
+                await self._on_inference_results_internal(message)
+                self.incoming_records.task_done()
+
+                # Drain the rest of the queue, non-blocking
+                while not self.incoming_records.empty():
+                    message = self.incoming_records.get_nowait()
+                    await self._on_inference_results_internal(message)
+                    self.incoming_records.task_done()
+
+            except asyncio.CancelledError:
+                break
+
+        await self.incoming_records.join()
+
     async def publish_profile_stats(self) -> None:
         """Publish the profile stats."""
         await self.pub_client.publish(
@@ -190,7 +213,8 @@ class RecordsManager(BaseComponentService):
 
     async def _on_inference_results(self, message: InferenceResultsMessage) -> None:
         """Handle an inference results message."""
-        _ = asyncio.create_task(self._on_inference_results_internal(message))
+        # _ = asyncio.create_task(self._on_inference_results_internal(message))
+        self.incoming_records.put_nowait(message)
 
     async def get_error_summary(self) -> list[ErrorDetailsCount]:
         """Generate a summary of the error records."""

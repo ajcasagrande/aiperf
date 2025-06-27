@@ -106,8 +106,7 @@ class BaseZMQCommunication(BaseCommunication, ABC):
         if self.is_initialized:
             return
 
-        # Increase the number of IO threads to 2
-        self._context = zmq.asyncio.Context(io_threads=2)
+        self._context = zmq.asyncio.Context.instance()
         self.initialized_event.set()
 
     async def shutdown(self) -> None:
@@ -128,7 +127,7 @@ class BaseZMQCommunication(BaseCommunication, ABC):
 
             await asyncio.gather(*(client.shutdown() for client in self.clients))
 
-            if self.context:
+            if self.context and not self.context.closed:
                 self.context.term()
 
             self._context = None
