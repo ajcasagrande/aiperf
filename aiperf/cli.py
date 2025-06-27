@@ -6,7 +6,6 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Annotated
 
 import cyclopts
 from pydantic import BaseModel, Field
@@ -15,6 +14,7 @@ from rich.logging import RichHandler
 
 from aiperf.common.bootstrap import bootstrap_and_run_service
 from aiperf.common.config import ServiceConfig
+from aiperf.common.config.user_config import UserConfig
 from aiperf.common.constants import EnvDefaults
 from aiperf.common.enums import ServiceRunType
 from aiperf.services.system_controller.system_controller import SystemController
@@ -32,6 +32,10 @@ class CLIConfig(BaseModel):
     run_type: ServiceRunType = Field(
         default=ServiceRunType.MULTIPROCESSING,
         description="Process manager backend to use (multiprocessing: 'process', or kubernetes: 'k8s')",
+    )
+    user_config: UserConfig = Field(
+        default=UserConfig(),
+        description="User configuration",
     )
 
 
@@ -58,12 +62,9 @@ def _setup_logging() -> None:
 
 @app.default
 def main(
-    config: Annotated[
-        Path | None, cyclopts.Parameter(help="Path to configuration file")
-    ] = None,
-    run_type: Annotated[
-        ServiceRunType, cyclopts.Parameter(help="Process manager backend to use")
-    ] = ServiceRunType.MULTIPROCESSING,
+    config: Path | None = None,
+    run_type: ServiceRunType = ServiceRunType.MULTIPROCESSING,
+    user_config: UserConfig | None = None,
 ) -> None:
     """Main entry point for the AIPerf system."""
 
@@ -71,7 +72,11 @@ def main(
     _setup_logging()
 
     # Create CLI config
-    cli_config = CLIConfig(config=config, run_type=run_type)
+    cli_config = CLIConfig(
+        config=config,
+        run_type=run_type,
+        user_config=user_config or UserConfig(),
+    )
 
     # Load configuration
     service_config = ServiceConfig(
@@ -86,7 +91,11 @@ def main(
     # Create and start the system controller
     logger.info("Starting AIPerf System")
 
-    bootstrap_and_run_service(SystemController, service_config=service_config)
+    bootstrap_and_run_service(
+        SystemController,
+        service_config=service_config,
+        user_config=cli_config.user_config,
+    )
 
     logger.info("AIPerf System exited")
 

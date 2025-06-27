@@ -247,11 +247,9 @@ class Worker(BaseService):
                     "messages": [
                         {
                             "role": "user",
-                            "content": "\n".join(
-                                response.conversation.turns[0].text[0].content
-                            ),
-                        }
-                    ]
+                            "content": "IO Sir you say well and well you do conceive And since you do profess to be a suitor You must as we do gratify this gentleman To whom we all rest generally beholding TRANIO Sir I shall not be slack in sign whereof Please ye we may contrive this afternoon And quaff carouses to our mistress health And do as adversaries do in law Strive mightily but eat and drink as friends GRUMIO BIONDELLO O excellent motion Fellows lets be gone HORT",
+                        },
+                    ],
                 },
             )
 

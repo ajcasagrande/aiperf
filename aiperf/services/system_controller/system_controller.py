@@ -13,6 +13,7 @@ import zmq.asyncio
 from aiperf.common.comms.zmq.clients.base_zmq_proxy import BaseZMQProxy
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.endpoint.endpoint_config import EndPointConfig
+from aiperf.common.config.user_config import UserConfig
 from aiperf.common.constants import EnvDefaults
 from aiperf.common.enums import (
     BenchmarkSuiteType,
@@ -72,12 +73,16 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
     """
 
     def __init__(
-        self, service_config: ServiceConfig, service_id: str | None = None
+        self,
+        service_config: ServiceConfig,
+        user_config: UserConfig,
+        service_id: str | None = None,
     ) -> None:
         super().__init__(service_config=service_config, service_id=service_id)
         self.logger.debug("Creating System Controller")
 
         self._system_state: SystemState = SystemState.INITIALIZING
+        self.user_config = user_config
 
         # List of required service types, in no particular order
         # These are services that must be running before the system controller can start profiling
@@ -104,6 +109,8 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         self.dealer_router_proxy: BaseZMQProxy
         self.dealer_router_proxy_task: asyncio.Task
 
+        self.profile_runner: ProfileRunner | None = None
+
         self.logger.debug("System Controller created")
 
     @property
@@ -116,12 +123,13 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         try:
             await super()._forever_loop()
         except KeyboardInterrupt:
-            if self.profile_runner.was_cancelled:
+            if self.profile_runner and self.profile_runner.was_cancelled:
                 self.logger.error("Profile was cancelled, killing all services")
                 await self.kill()
                 return
 
-            await self.profile_runner.cancel_profile()
+            if self.profile_runner:
+                await self.profile_runner.cancel_profile()
 
             await self.send_command_to_service(
                 target_service_type=ServiceType.RECORDS_MANAGER,
@@ -227,7 +235,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         """
         self.logger.debug("Received signal %s, initiating graceful shutdown", sig)
         if sig == signal.SIGINT:
-            if self.profile_runner.was_cancelled:
+            if self.profile_runner and self.profile_runner.was_cancelled:
                 self.logger.error("Profile was cancelled, killing all services")
                 await self.kill()
                 return
@@ -239,7 +247,8 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
                 data=ProcessRecordsCommandData(cancelled=True),
             )
 
-            await self.profile_runner.cancel_profile()
+            if self.profile_runner:
+                await self.profile_runner.cancel_profile()
         else:
             self.stop_event.set()
 
@@ -400,7 +409,8 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             )
         ).export_all(message)
 
-        await self.profile_runner.profile_completed()
+        if self.profile_runner:
+            await self.profile_runner.profile_completed()
 
     async def _process_registration_message(self, message: RegistrationMessage) -> None:
         """Process a registration message from a service. It will
@@ -444,7 +454,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             await self.send_command_to_service(
                 target_service_id=service_id,
                 command=CommandType.PROFILE_CONFIGURE,
-                data=None,
+                data=self.user_config,
             )
         except Exception as e:
             raise self._service_error(

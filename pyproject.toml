@@ -37,7 +37,7 @@ packages = [{ include = "aiperf" }]
 
 # CLI Entrypoint
 [project.scripts]
-aiperf = "aiperf.cli:main"
+aiperf = "aiperf.cli:app"
 
 [project.optional-dependencies]
 dev = [

@@ -1,5 +1,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+from typing import Annotated
+
+import cyclopts
 from pydantic import BaseModel, Field
 
 from aiperf.common.config.zmq_config import BaseZMQCommunicationConfig, ZMQIPCConfig
@@ -14,10 +17,15 @@ class ServiceConfig(BaseModel):
 
     # TODO: this needs to be cleaned up and finalized
 
-    service_run_type: ServiceRunType = Field(
-        default=ServiceRunType.MULTIPROCESSING,
-        description="Type of service run (MULTIPROCESSING, KUBERNETES)",
-    )
+    service_run_type: Annotated[
+        ServiceRunType,
+        Field(
+            description="Type of service run (MULTIPROCESSING, KUBERNETES)",
+        ),
+        cyclopts.Parameter(
+            name=("--run-type"),
+        ),
+    ] = ServiceRunType.MULTIPROCESSING
     comm_backend: CommunicationBackend = Field(
         default=CommunicationBackend.ZMQ_IPC,
         description="Communication backend to use",

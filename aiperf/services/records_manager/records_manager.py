@@ -9,6 +9,7 @@ import pandas as pd
 
 from aiperf.common.comms.base import PullClientInterface
 from aiperf.common.config import ServiceConfig
+from aiperf.common.config.user_config import UserConfig
 from aiperf.common.constants import NANOS_PER_MILLIS
 from aiperf.common.enums import CommandType, MessageType, ServiceType, Topic
 from aiperf.common.factories import ServiceFactory
@@ -25,7 +26,6 @@ from aiperf.common.models import (
     ErrorDetails,
     ErrorDetailsCount,
     InferenceResultsMessage,
-    Message,
     ProcessRecordsCommandData,
     ProfileResultsMessage,
     ProfileStatsMessage,
@@ -62,6 +62,7 @@ class RecordsManager(BaseComponentService):
 
         self.extractor = OpenAIResponseExtractor()
         self.tokenizers: dict[str, Tokenizer] = {}
+        self.user_config: UserConfig | None = None
 
     @property
     def service_type(self) -> ServiceType:
@@ -115,10 +116,12 @@ class RecordsManager(BaseComponentService):
         # TODO: Implement records manager cleanup
 
     @on_configure
-    async def _configure(self, message: Message) -> None:
+    async def _configure(self, message: CommandMessage) -> None:
         """Configure the records manager."""
-        self.logger.debug(f"Configuring records manager with message: {message}")
-        # TODO: Implement records manager configuration
+        self.logger.debug("Configuring records manager with message: %s", message)
+        self.user_config = (
+            message.data if isinstance(message.data, UserConfig) else None
+        )
 
     @aiperf_task
     async def _report_records_task(self) -> None:
@@ -174,7 +177,7 @@ class RecordsManager(BaseComponentService):
             tokenizer = self.get_tokenizer(record.request["model"])
             resp = await self.extractor.extract_response_data(record, tokenizer)
             total_tokens = sum(r.token_count for r in resp if r.token_count is not None)
-            self.logger.debug(
+            self.logger.info(
                 "Received %d responses, %d total tokens",
                 len(resp),
                 total_tokens,
