@@ -4,6 +4,7 @@
 import logging
 from datetime import datetime
 
+import aiofiles
 from pydantic import BaseModel
 
 from aiperf.common.config import UserConfig
@@ -39,7 +40,7 @@ class JsonExporter:
         self._output_directory = exporter_config.input_config.output.artifact_directory
         self._input_config = exporter_config.input_config
 
-    def export(self) -> None:
+    async def export(self) -> None:
         filename = self._output_directory / "profile_export_aiperf.json"
         self._output_directory.mkdir(parents=True, exist_ok=True)
 
@@ -65,5 +66,5 @@ class JsonExporter:
 
         logger.debug("Exporting data to JSON file: %s", export_data)
         export_data_json = export_data.model_dump_json(indent=2)
-        with open(filename, "w") as f:
-            f.write(export_data_json)
+        async with aiofiles.open(filename, "w") as f:
+            await f.write(export_data_json)
