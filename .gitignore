@@ -10,4 +10,5 @@ htmlcov/
 .env
 .env.*
 *.log
-
+artifacts/
+dist/

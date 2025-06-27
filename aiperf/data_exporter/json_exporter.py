@@ -65,6 +65,6 @@ class JsonExporter:
         )
 
         logger.debug("Exporting data to JSON file: %s", export_data)
-        export_data_json = export_data.model_dump_json(indent=2)
+        export_data_json = export_data.model_dump_json(indent=2, exclude_unset=True)
         async with aiofiles.open(filename, "w") as f:
             await f.write(export_data_json)
