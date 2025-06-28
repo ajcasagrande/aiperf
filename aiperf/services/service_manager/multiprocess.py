@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
+import multiprocessing
 from multiprocessing import Process
 from multiprocessing.context import ForkProcess, SpawnProcess
 
@@ -35,9 +36,11 @@ class MultiProcessServiceManager(BaseServiceManager):
         self,
         required_service_types: list[ServiceType],
         config: ServiceConfig,
+        log_queue: "multiprocessing.Queue | None" = None,
     ):
         super().__init__(required_service_types, config)
         self.multi_process_info: list[MultiProcessRunInfo] = []
+        self.log_queue = log_queue
 
     async def _run_services(self, service_types: list[ServiceType]) -> None:
         """Run a list of services as multiprocessing processes."""
@@ -50,7 +53,7 @@ class MultiProcessServiceManager(BaseServiceManager):
             process = Process(
                 target=bootstrap_and_run_service,
                 name=f"{service_type}_process",
-                args=(service_class, self.config),
+                args=(service_class, self.config, self.log_queue),
                 daemon=True,
             )
             if service_type == ServiceType.WORKER_MANAGER:

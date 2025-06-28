@@ -68,15 +68,19 @@ def main(
 ) -> None:
     """Main entry point for the AIPerf system."""
 
-    # Setup logging
-    _setup_logging()
-
     # Create CLI config
     cli_config = CLIConfig(
         config=config,
         run_type=run_type,
         user_config=user_config or UserConfig(),
     )
+
+    if os.getenv("AIPERF_DISABLE_UI", EnvDefaults.AIPERF_DISABLE_UI) == "1":
+        _setup_logging()
+    else:
+        from aiperf.common.logging import setup_global_log_queue
+
+        setup_global_log_queue()
 
     # Load configuration
     service_config = ServiceConfig(

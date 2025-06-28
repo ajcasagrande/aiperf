@@ -60,7 +60,7 @@ from aiperf.services.service_manager import (
 )
 from aiperf.services.system_controller.profile_runner import ProfileRunner
 from aiperf.services.system_controller.system_mixins import SignalHandlerMixin
-from aiperf.ui.textual_ui import TextualUIMixin
+from aiperf.ui.aiperf_ui import AIPerfUI
 
 
 @ServiceFactory.register(ServiceType.SYSTEM_CONTROLLER)
@@ -98,8 +98,8 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         self.ui_enabled: bool = (
             int(os.getenv("AIPERF_DISABLE_UI", EnvDefaults.AIPERF_DISABLE_UI)) != 1
         )
-        self.ui: TextualUIMixin | None = (
-            TextualUIMixin(self.progress_tracker) if self.ui_enabled else None
+        self.ui: AIPerfUI | None = (
+            AIPerfUI(self.progress_tracker) if self.ui_enabled else None
         )
 
         self.xpub_xsub_proxy: BaseZMQProxy
