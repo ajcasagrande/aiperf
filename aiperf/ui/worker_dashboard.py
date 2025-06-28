@@ -99,6 +99,7 @@ class WorkerRow(Widget):
         yield Label("0 / 0", id="tasks")
         yield Label("0.0%", id="cpu")
         yield Label("0.0 MB", id="memory")
+        yield Label("0", id="connections")
 
     def update_health(self, health_message: WorkerHealthMessage) -> None:
         """Update the worker health display."""
@@ -155,6 +156,10 @@ class WorkerRow(Widget):
                 memory_display = f"{memory_mb:.0f} MB"
 
             self.query_one("#memory", Label).update(memory_display)
+
+            self.query_one("#connections", Label).update(
+                f"{health_message.net_connections}"
+            )
 
         except NoMatches:
             pass
@@ -233,6 +238,7 @@ class WorkerTable(Widget):
             Label("Tasks"),
             Label("CPU"),
             Label("Memory"),
+            Label("Connections"),
             id="table-header",
         )
         yield Vertical(id="table-body")

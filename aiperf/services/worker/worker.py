@@ -38,7 +38,7 @@ class Worker(BaseService, UniversalWorker):
         self,
         service_config: ServiceConfig,
         user_config: UserConfig,
-        service_id: str | None = None,
+        service_id: str,
     ) -> None:
         super().__init__(
             service_config=service_config,
