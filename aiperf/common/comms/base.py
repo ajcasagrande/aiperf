@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Coroutine
 from typing import Any, TypeVar
 
-from aiperf.common.enums import MessageType
+from aiperf.common.enums import CaseInsensitiveStrEnum, MessageType
 from aiperf.common.models import Message
 
 logger = logging.getLogger(__name__)
@@ -17,6 +17,16 @@ logger = logging.getLogger(__name__)
 
 MessageT = TypeVar("MessageT", bound=Message)
 MessageOutputT = TypeVar("MessageOutputT", bound=Message)
+
+
+class ClientAddressType(CaseInsensitiveStrEnum):
+    SERVICE_PUB_SUB_FRONTEND = "service_pub_sub_frontend"
+    SERVICE_PUB_SUB_BACKEND = "service_pub_sub_backend"
+    CREDIT_DROP_PUSH_PULL = "credit_drop_push_pull"
+    CREDIT_RETURN_PUSH_PULL = "credit_return_push_pull"
+    INFERENCE_RESULTS_PUSH_PULL = "inference_results_push_pull"
+    DEALER_ROUTER_FRONTEND = "dealer_router_frontend"
+    DEALER_ROUTER_BACKEND = "dealer_router_backend"
 
 
 class BaseCommunicationClient(ABC):
@@ -172,12 +182,15 @@ class BaseCommunication(ABC):
 
     @abstractmethod
     def create_pub_client(
-        self, address: str, bind: bool = False, socket_ops: dict | None = None
+        self,
+        address_type: ClientAddressType,
+        bind: bool = False,
+        socket_ops: dict | None = None,
     ) -> PubClient:
         """Create a publish client.
 
         Args:
-            address: The address to bind or connect to.
+            address_type: The type of address to use when looking up in the communication config.
             bind: Whether to bind or connect the socket.
             socket_ops: Additional socket options to set.
         """
@@ -185,12 +198,15 @@ class BaseCommunication(ABC):
 
     @abstractmethod
     def create_sub_client(
-        self, address: str, bind: bool = False, socket_ops: dict | None = None
+        self,
+        address_type: ClientAddressType,
+        bind: bool = False,
+        socket_ops: dict | None = None,
     ) -> SubClient:
         """Create a subscribe client.
 
         Args:
-            address: The address to bind or connect to.
+            address_type: The type of address to use when looking up in the communication config.
             bind: Whether to bind or connect the socket.
             socket_ops: Additional socket options to set.
         """
@@ -198,12 +214,15 @@ class BaseCommunication(ABC):
 
     @abstractmethod
     def create_push_client(
-        self, address: str, bind: bool = False, socket_ops: dict | None = None
+        self,
+        address_type: ClientAddressType,
+        bind: bool = False,
+        socket_ops: dict | None = None,
     ) -> PushClient:
         """Create a push client.
 
         Args:
-            address: The address to bind or connect to.
+            address_type: The type of address to use when looking up in the communication config.
             bind: Whether to bind or connect the socket.
             socket_ops: Additional socket options to set.
         """
@@ -211,12 +230,15 @@ class BaseCommunication(ABC):
 
     @abstractmethod
     def create_pull_client(
-        self, address: str, bind: bool = False, socket_ops: dict | None = None
+        self,
+        address_type: ClientAddressType,
+        bind: bool = False,
+        socket_ops: dict | None = None,
     ) -> PullClient:
         """Create a pull client.
 
         Args:
-            address: The address to bind or connect to.
+            address_type: The type of address to use when looking up in the communication config.
             bind: Whether to bind or connect the socket.
             socket_ops: Additional socket options to set.
         """
@@ -224,12 +246,15 @@ class BaseCommunication(ABC):
 
     @abstractmethod
     def create_req_client(
-        self, address: str, bind: bool = False, socket_ops: dict | None = None
+        self,
+        address_type: ClientAddressType,
+        bind: bool = False,
+        socket_ops: dict | None = None,
     ) -> ReqClient:
         """Create a request client.
 
         Args:
-            address: The address to bind or connect to.
+            address_type: The type of address to use when looking up in the communication config.
             bind: Whether to bind or connect the socket.
             socket_ops: Additional socket options to set.
         """
@@ -237,12 +262,15 @@ class BaseCommunication(ABC):
 
     @abstractmethod
     def create_rep_client(
-        self, address: str, bind: bool = False, socket_ops: dict | None = None
+        self,
+        address_type: ClientAddressType,
+        bind: bool = False,
+        socket_ops: dict | None = None,
     ) -> RepClient:
         """Create a reply client.
 
         Args:
-            address: The address to bind or connect to.
+            address_type: The type of address to use when looking up in the communication config.
             bind: Whether to bind or connect the socket.
             socket_ops: Additional socket options to set.
         """

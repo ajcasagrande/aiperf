@@ -117,7 +117,6 @@ class ServiceErrorType(CaseInsensitiveStrEnum):
     SEND_CONFIGURE_COMMAND_ERROR = "send_configure_command_error"
     MISSING_REQUIRED_SERVICES = "missing_required_services"
     INITIALIZE_SERVICES_ERROR = "initialize_services_error"
-    SUBSCRIBE_COMMAND_TOPIC_ERROR = "subscribe_command_topic_error"
     REGISTER_SERVICE_ERROR = "register_service_error"
     UNKNOWN_COMMAND = "unknown_command"
     DATASET_EMPTY = "dataset_empty"

@@ -8,15 +8,11 @@ from abc import ABC
 
 from aiperf.common.comms.base import (
     BaseCommunication,
-    PubClient,
-    SubClient,
 )
 from aiperf.common.config import ServiceConfig
 from aiperf.common.enums import ServiceState, ServiceType
 from aiperf.common.exceptions import (
     AIPerfError,
-    CommunicationError,
-    CommunicationErrorReason,
     ServiceError,
     ServiceErrorType,
 )
@@ -69,10 +65,17 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
         self.stop_event = asyncio.Event()
         self.initialized_event = asyncio.Event()
 
-        self._comms: BaseCommunication
+        self.comms: BaseCommunication = CommunicationFactory.create_instance(
+            self.service_config.comm_backend,
+            config=self.service_config.comm_config,
+        )
+        self.sub_client = self.comms.create_sub_client(
+            address=self.service_config.comm_config.xpub_xsub_proxy_config.backend_address,
+        )
 
-        self.pub_client: PubClient
-        self.sub_client: SubClient
+        self.pub_client = self.comms.create_pub_client(
+            address=self.service_config.comm_config.xpub_xsub_proxy_config.frontend_address,
+        )
 
         try:
             import setproctitle
@@ -84,20 +87,6 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
 
         super().__init__()
         self.logger.debug("__init__ finished for %s", self.__class__.__name__)
-
-    @property
-    def comms(self) -> BaseCommunication:
-        """
-        Get the communication object for the service.
-        Raises:
-            CommunicationError: If the communication is not initialized
-        """
-        if not self._comms:
-            raise CommunicationError(
-                CommunicationErrorReason.INITIALIZATION_ERROR,
-                "Communication channels are not initialized",
-            )
-        return self._comms
 
     @property
     def state(self) -> ServiceState:
@@ -159,23 +148,7 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
         # Allow time for the event loop to start
         await asyncio.sleep(0.1)
 
-        # Initialize communication
-        self._comms = CommunicationFactory.create_instance(
-            self.service_config.comm_backend,
-            config=self.service_config.comm_config,
-        )
-
-        await self._comms.initialize()
-
-        self.sub_client = await self._comms.create_sub_client(
-            address=self.service_config.comm_config.xpub_xsub_proxy_config.backend_address,
-        )
-        await self.sub_client.initialize()
-
-        self.pub_client = await self._comms.create_pub_client(
-            address=self.service_config.comm_config.xpub_xsub_proxy_config.frontend_address,
-        )
-        await self.pub_client.initialize()
+        await self.comms.initialize()
 
         await asyncio.sleep(1)
 

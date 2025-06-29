@@ -6,6 +6,8 @@ from typing import ClassVar
 
 from pydantic import BaseModel, Field
 
+from aiperf.common.comms.base import ClientAddressType
+
 
 class BaseZMQProxyConfig(BaseModel, ABC):
     """Configuration Protocol for ZMQ Proxy."""
@@ -31,24 +33,13 @@ class BaseZMQCommunicationConfig(BaseModel, ABC):
     """Configuration for ZMQ communication."""
 
     xpub_xsub_proxy_config: ClassVar[BaseZMQProxyConfig]
+
     dealer_router_proxy_config: ClassVar[BaseZMQProxyConfig]
 
     @property
     @abstractmethod
     def inference_push_pull_address(self) -> str:
         """Get the inference push/pull address based on protocol configuration."""
-        ...
-
-    @property
-    @abstractmethod
-    def records_address(self) -> str:
-        """Get the records address based on protocol configuration."""
-        ...
-
-    @property
-    @abstractmethod
-    def conversation_data_address(self) -> str:
-        """Get the conversation data address based on protocol configuration."""
         ...
 
     @property
@@ -62,6 +53,26 @@ class BaseZMQCommunicationConfig(BaseModel, ABC):
     def credit_return_address(self) -> str:
         """Get the credit return address based on protocol configuration."""
         ...
+
+    def get_address(self, address_type: ClientAddressType) -> str:
+        """Get the actual address based on the address type."""
+        match address_type:
+            case ClientAddressType.SERVICE_PUB_SUB_FRONTEND:
+                return self.xpub_xsub_proxy_config.frontend_address
+            case ClientAddressType.SERVICE_PUB_SUB_BACKEND:
+                return self.xpub_xsub_proxy_config.backend_address
+            case ClientAddressType.DEALER_ROUTER_FRONTEND:
+                return self.dealer_router_proxy_config.frontend_address
+            case ClientAddressType.DEALER_ROUTER_BACKEND:
+                return self.dealer_router_proxy_config.backend_address
+            case ClientAddressType.CREDIT_DROP_PUSH_PULL:
+                return self.credit_drop_address
+            case ClientAddressType.CREDIT_RETURN_PUSH_PULL:
+                return self.credit_return_address
+            case ClientAddressType.INFERENCE_RESULTS_PUSH_PULL:
+                return self.inference_push_pull_address
+            case _:
+                raise ValueError(f"Invalid address type: {address_type}")
 
 
 class ZMQTCPProxyConfig(BaseZMQProxyConfig):
@@ -152,10 +163,6 @@ class ZMQTCPTransportConfig(BaseZMQCommunicationConfig):
     inference_push_pull_port: int = Field(
         default=5557, description="Port for inference push/pull messages"
     )
-    records_port: int = Field(default=5560, description="Port for record data")
-    conversation_data_port: int = Field(
-        default=5561, description="Port for conversation data"
-    )
     credit_drop_port: int = Field(
         default=5562, description="Port for credit drop operations"
     )
@@ -175,16 +182,6 @@ class ZMQTCPTransportConfig(BaseZMQCommunicationConfig):
     def inference_push_pull_address(self) -> str:
         """Get the inference push/pull address based on protocol configuration."""
         return f"tcp://{self.host}:{self.inference_push_pull_port}"
-
-    @property
-    def records_address(self) -> str:
-        """Get the records address based on protocol configuration."""
-        return f"tcp://{self.host}:{self.records_port}"
-
-    @property
-    def conversation_data_address(self) -> str:
-        """Get the conversation data address based on protocol configuration."""
-        return f"tcp://{self.host}:{self.conversation_data_port}"
 
     @property
     def credit_drop_address(self) -> str:
@@ -214,16 +211,6 @@ class ZMQIPCConfig(BaseZMQCommunicationConfig):
     def inference_push_pull_address(self) -> str:
         """Get the inference push/pull address based on protocol configuration."""
         return f"ipc://{self.path}/inference_push_pull.ipc"
-
-    @property
-    def records_address(self) -> str:
-        """Get the records address based on protocol configuration."""
-        return f"ipc://{self.path}/records.ipc"
-
-    @property
-    def conversation_data_address(self) -> str:
-        """Get the conversation data address based on protocol configuration."""
-        return f"ipc://{self.path}/conversation_data.ipc"
 
     @property
     def credit_drop_address(self) -> str:

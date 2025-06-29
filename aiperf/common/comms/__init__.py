@@ -6,9 +6,10 @@ __all__ = [
     "BaseZMQCommunication",
     "ZMQTCPCommunication",
     "ZMQIPCCommunication",
+    "ClientAddressType",
 ]
 
-from aiperf.common.comms.base import BaseCommunication
+from aiperf.common.comms.base import BaseCommunication, ClientAddressType
 from aiperf.common.comms.zmq.zmq_comms import (
     BaseZMQCommunication,
     ZMQIPCCommunication,

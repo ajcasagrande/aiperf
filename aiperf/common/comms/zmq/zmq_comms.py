@@ -10,7 +10,7 @@ from pathlib import Path
 
 import zmq.asyncio
 
-from aiperf.common.comms.base import BaseCommunication
+from aiperf.common.comms.base import BaseCommunication, ClientAddressType
 from aiperf.common.comms.zmq.clients import BaseZMQClient
 from aiperf.common.comms.zmq.clients.dealer_req import ZMQDealerReqClient
 from aiperf.common.comms.zmq.clients.pub import ZMQPubClient
@@ -155,91 +155,116 @@ class BaseZMQCommunication(BaseCommunication, ABC):
             self._context = None
 
     def create_pub_client(
-        self, address: str, bind: bool = False, socket_ops: dict | None = None
+        self,
+        address_type: ClientAddressType,
+        bind: bool = False,
+        socket_ops: dict | None = None,
     ) -> ZMQPubClient:
         """Create a publish client.
 
         Args:
-            address: The address to bind or connect to.
+            address_type: The type of address to use when looking up in the communication config.
             bind: Whether to bind or connect the socket.
             socket_ops: Additional socket options to set.
         """
 
-        pub_client = ZMQPubClient(self.context, address, bind, socket_ops)
+        client_address = self.config.get_address(address_type)
+        pub_client = ZMQPubClient(self.context, client_address, bind, socket_ops)
         self.clients.append(pub_client)
         return pub_client
 
     def create_sub_client(
-        self, address: str, bind: bool = False, socket_ops: dict | None = None
+        self,
+        address_type: ClientAddressType,
+        bind: bool = False,
+        socket_ops: dict | None = None,
     ) -> ZMQSubClient:
         """Create a subscribe client.
 
         Args:
-            address: The address to bind or connect to.
+            address_type: The type of address to use when looking up in the communication config.
             bind: Whether to bind or connect the socket.
             socket_ops: Additional socket options to set.
         """
 
-        sub_client = ZMQSubClient(self.context, address, bind, socket_ops)
+        client_address = self.config.get_address(address_type)
+        sub_client = ZMQSubClient(self.context, client_address, bind, socket_ops)
         self.clients.append(sub_client)
         return sub_client
 
     def create_push_client(
-        self, address: str, bind: bool = False, socket_ops: dict | None = None
+        self,
+        address_type: ClientAddressType,
+        bind: bool = False,
+        socket_ops: dict | None = None,
     ) -> ZMQPushClient:
         """Create a push client.
 
         Args:
-            address: The address to bind or connect to.
+            address_type: The type of address to use when looking up in the communication config.
             bind: Whether to bind or connect the socket.
             socket_ops: Additional socket options to set.
         """
 
-        push_client = ZMQPushClient(self.context, address, bind, socket_ops)
+        client_address = self.config.get_address(address_type)
+        push_client = ZMQPushClient(self.context, client_address, bind, socket_ops)
         self.clients.append(push_client)
         return push_client
 
     def create_pull_client(
-        self, address: str, bind: bool = False, socket_ops: dict | None = None
+        self,
+        address_type: ClientAddressType,
+        bind: bool = False,
+        socket_ops: dict | None = None,
     ) -> ZMQPullClient:
         """Create a pull client.
 
         Args:
-            address: The address to bind or connect to.
+            address_type: The type of address to use when looking up in the communication config.
             bind: Whether to bind or connect the socket.
             socket_ops: Additional socket options to set.
         """
 
-        pull_client = ZMQPullClient(self.context, address, bind, socket_ops)
+        client_address = self.config.get_address(address_type)
+        pull_client = ZMQPullClient(self.context, client_address, bind, socket_ops)
         self.clients.append(pull_client)
         return pull_client
 
     def create_req_client(
-        self, address: str, bind: bool = False, socket_ops: dict | None = None
+        self,
+        address_type: ClientAddressType,
+        bind: bool = False,
+        socket_ops: dict | None = None,
     ) -> ZMQDealerReqClient:
         """Create a request DEALER client.
 
         Args:
-            address: The address to bind or connect to.
+            address_type: The type of address to use when looking up in the communication config.
             bind: Whether to bind or connect the socket.
             socket_ops: Additional socket options to set.
         """
 
-        req_client = ZMQDealerReqClient(self.context, address, bind, socket_ops)
+        client_address = self.config.get_address(address_type)
+        req_client = ZMQDealerReqClient(self.context, client_address, bind, socket_ops)
         self.clients.append(req_client)
         return req_client
 
     def create_rep_client(
-        self, address: str, bind: bool = False, socket_ops: dict | None = None
+        self,
+        address_type: ClientAddressType,
+        bind: bool = False,
+        socket_ops: dict | None = None,
     ) -> ZMQRouterRepClient:
         """Create a reply ROUTER client.
 
         Args:
-            address: The address to bind or connect to.
+            address_type: The type of address to use when looking up in the communication config.
             bind: Whether to bind or connect the socket.
             socket_ops: Additional socket options to set.
         """
-        rep_client = ZMQRouterRepClient(self.context, address, bind, socket_ops)
+
+        client_address = self.config.get_address(address_type)
+        rep_client = ZMQRouterRepClient(self.context, client_address, bind, socket_ops)
         self.clients.append(rep_client)
         return rep_client
 
