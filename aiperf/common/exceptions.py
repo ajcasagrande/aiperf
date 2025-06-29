@@ -122,6 +122,7 @@ class ServiceErrorType(CaseInsensitiveStrEnum):
     DATASET_EMPTY = "dataset_empty"
     CONVERSATION_NOT_FOUND = "conversation_not_found"
     EXPORT_RESULTS_ERROR = "export_results_error"
+    SERVICE_REGISTRATION_TIMEOUT = "service_registration_timeout"
 
 
 class ServiceError(AIPerfError):

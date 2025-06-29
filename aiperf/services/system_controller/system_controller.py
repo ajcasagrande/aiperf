@@ -60,6 +60,7 @@ from aiperf.services.service_manager import (
     MultiProcessServiceManager,
 )
 from aiperf.services.system_controller.profile_runner import ProfileRunner
+from aiperf.services.system_controller.progress_logger import SimpleProgressLogger
 from aiperf.services.system_controller.system_mixins import SignalHandlerMixin
 from aiperf.ui.aiperf_ui import AIPerfUI
 
@@ -102,6 +103,9 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         )
         self.ui: AIPerfUI | None = (
             AIPerfUI(self.progress_tracker) if self.ui_enabled else None
+        )
+        self.progress_logger: SimpleProgressLogger | None = (
+            SimpleProgressLogger(self.progress_tracker) if not self.ui_enabled else None
         )
 
         self.xpub_xsub_proxy: BaseZMQProxy
@@ -392,6 +396,8 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
 
         if self.ui:
             await self.ui.on_profile_stats_update()
+        if self.progress_logger:
+            await self.progress_logger.update_stats()
 
         if (
             self.progress_tracker.current_profile
@@ -412,9 +418,11 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
     ) -> None:
         """Process a profile progress message."""
         self.logger.debug("Received profile progress: %s", message)
+        self.progress_tracker.update_profile_progress(message)
         if self.ui:
             await self.ui.on_profile_progress_update()
-        self.progress_tracker.update_profile_progress(message)
+        if self.progress_logger:
+            await self.progress_logger.update_progress()
 
     async def _process_profile_results_message(
         self, message: ProfileResultsMessage
@@ -422,9 +430,11 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         """Process a profile results message."""
         try:
             self.logger.debug("Received profile results: %s", message)
+            self.progress_tracker.update_profile_results(message)
             if self.ui:
                 await self.ui.on_profile_results_update()
-            self.progress_tracker.update_profile_results(message)
+            if self.progress_logger:
+                await self.progress_logger.update_results()
 
             # Export the results
             await ExporterManager(

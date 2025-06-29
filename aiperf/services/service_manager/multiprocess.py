@@ -11,6 +11,7 @@ from aiperf.common.bootstrap import bootstrap_and_run_service
 from aiperf.common.config import ServiceConfig
 from aiperf.common.constants import GRACEFUL_SHUTDOWN_TIMEOUT_SECONDS
 from aiperf.common.enums import ServiceRegistrationStatus, ServiceType
+from aiperf.common.exceptions import ServiceError, ServiceErrorType
 from aiperf.common.factories import ServiceFactory
 from aiperf.services.service_manager.base import BaseServiceManager
 
@@ -129,6 +130,8 @@ class MultiProcessServiceManager(BaseServiceManager):
         # TODO: Can this be done better by using asyncio.Event()?
 
         async def _wait_for_registration():
+            required_types_set = set(typ for typ, _ in required_types)
+
             while not stop_event.is_set():
                 # Get all registered service types from the id map
                 registered_types = {
@@ -139,7 +142,7 @@ class MultiProcessServiceManager(BaseServiceManager):
                 }
 
                 # Check if all required types are registered
-                if required_types.issubset(registered_types):
+                if required_types_set.issubset(registered_types):
                     return
 
                 # Wait a bit before checking again
@@ -147,19 +150,27 @@ class MultiProcessServiceManager(BaseServiceManager):
 
         try:
             await asyncio.wait_for(_wait_for_registration(), timeout=timeout_seconds)
-        except asyncio.TimeoutError:
+        except asyncio.TimeoutError as e:
             # Log which services didn't register in time
-            registered_types = {
+            registered_types_set = set(
                 service_info.service_type
                 for service_info in self.service_id_map.values()
                 if service_info.registration_status
                 == ServiceRegistrationStatus.REGISTERED
-            }
+            )
 
-            for service_type in required_types - registered_types:
-                self.logger.warning(
-                    f"Service {service_type} failed to register within timeout"
-                )
+            for service_type, _ in required_types:
+                if service_type not in registered_types_set:
+                    self.logger.error(
+                        f"Service {service_type} failed to register within timeout"
+                    )
+
+            raise ServiceError(
+                ServiceErrorType.SERVICE_REGISTRATION_TIMEOUT,
+                "Some services failed to register within timeout",
+                ServiceType.SYSTEM_CONTROLLER,
+                "system_controller",  # TODO: Get the service ID from the system controller
+            ) from e
 
     async def _wait_for_process(self, info: MultiProcessRunInfo) -> None:
         """Wait for a process to terminate with timeout handling."""
