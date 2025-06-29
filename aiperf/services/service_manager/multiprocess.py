@@ -34,7 +34,7 @@ class MultiProcessServiceManager(BaseServiceManager):
 
     def __init__(
         self,
-        required_service_types: list[ServiceType],
+        required_service_types: list[tuple[ServiceType, int]],
         config: ServiceConfig,
         log_queue: "multiprocessing.Queue | None" = None,
     ):
@@ -42,34 +42,35 @@ class MultiProcessServiceManager(BaseServiceManager):
         self.multi_process_info: list[MultiProcessRunInfo] = []
         self.log_queue = log_queue
 
-    async def _run_services(self, service_types: list[ServiceType]) -> None:
+    async def _run_services(self, service_types: list[tuple[ServiceType, int]]) -> None:
         """Run a list of services as multiprocessing processes."""
         # mp_ctx = multiprocessing.get_context("fork")
 
         # Create and start all service processes
         for service_type in service_types:
-            service_class = ServiceFactory.get_class_from_type(service_type)
+            service_class = ServiceFactory.get_class_from_type(service_type[0])
 
-            process = Process(
-                target=bootstrap_and_run_service,
-                name=f"{service_type}_process",
-                args=(service_class, self.config, self.log_queue),
-                daemon=True,
-            )
-            if service_type == ServiceType.WORKER_MANAGER:
-                process.daemon = False  # Worker manager cannot be a daemon because it needs to be able to spawn worker processes
+            for _ in range(service_type[1]):
+                process = Process(
+                    target=bootstrap_and_run_service,
+                    name=f"{service_type[0]}_process",
+                    args=(service_class, self.config, self.log_queue),
+                    daemon=True,
+                )
+                if service_type[0] == ServiceType.WORKER_MANAGER:
+                    process.daemon = False  # Worker manager cannot be a daemon because it needs to be able to spawn worker processes
 
-            process.start()
+                process.start()
 
-            self.logger.debug(
-                "Service %s started as process (pid: %d)",
-                service_type,
-                process.pid,
-            )
+                self.logger.debug(
+                    "Service %s started as process (pid: %d)",
+                    service_type[0],
+                    process.pid,
+                )
 
-            self.multi_process_info.append(
-                MultiProcessRunInfo(process=process, service_type=service_type)
-            )
+                self.multi_process_info.append(
+                    MultiProcessRunInfo(process=process, service_type=service_type[0])
+                )
 
             # TODO: HACK: This is a hack
             # Sleep to allow the service to register

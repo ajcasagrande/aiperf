@@ -6,6 +6,7 @@ import sys
 import time
 
 from aiperf.common.comms.base import (
+    ClientAddressType,
     PullClient,
     PushClient,
     ReqClient,
@@ -67,14 +68,14 @@ class TimingManager(BaseComponentService):
         self.dataset_ready: asyncio.Event = asyncio.Event()
 
         self.dataset_request_client: ReqClient = self.comms.create_req_client(
-            address=self.service_config.comm_config.conversation_data_address,
+            ClientAddressType.DEALER_ROUTER_REQ_REP_FRONTEND,
         )
         self.credit_drop_client: PushClient = self.comms.create_push_client(
-            address=self.service_config.comm_config.credit_drop_address,
+            ClientAddressType.CREDIT_DROP_PUSH_PULL,
             bind=True,
         )
         self.credit_return_client: PullClient = self.comms.create_pull_client(
-            address=self.service_config.comm_config.credit_return_address,
+            ClientAddressType.CREDIT_RETURN_PUSH_PULL,
             bind=True,
         )
 

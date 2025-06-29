@@ -6,70 +6,36 @@ import queue
 import time
 from collections import deque
 
-from rich.console import Console
-from rich.live import Live
 from rich.table import Table
 from rich.text import Text
 
 from aiperf.common.hooks import (
     AIPerfLifecycleMixin,
     aiperf_auto_task,
-    on_cleanup,
     on_init,
-    on_start,
 )
-from aiperf.common.logging import MultiProcessLogHandler, setup_global_log_queue
+from aiperf.common.logging import get_global_log_queue
 
 logger = logging.getLogger(__name__)
 
 
-class ConsoleUIMixin(AIPerfLifecycleMixin):
-    """Mixin for updating the console UI."""
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.console = Console()
-        self.live: Live = Live(console=self.console)
-
-    @on_start
-    async def _start_live(self) -> None:
-        """Start the live console UI."""
-        self.live.start()
-
-    @on_cleanup
-    async def _cleanup_live(self) -> None:
-        """Cleanup the live console UI."""
-        self.live.stop()
-
-
-class LogsDashboardMixin(ConsoleUIMixin):
+class LogsDashboardMixin(AIPerfLifecycleMixin):
     """Mixin for capturing and displaying logs from multiple processes."""
 
     def __init__(self) -> None:
         super().__init__()
         self.log_queue: multiprocessing.Queue | None = None
         self.log_records: deque[dict] = deque(maxlen=100)  # Keep last 100 logs
-        self.log_handler: MultiProcessLogHandler | None = None
 
     @on_init
-    def setup_multiprocess_logging(self) -> multiprocessing.Queue:
+    def setup_multiprocess_logging(self) -> None:
         """Set up multiprocessing logging infrastructure.
 
         Returns:
             The multiprocessing queue that child processes should use for logging.
         """
         # Set up global log queue
-        self.log_queue = setup_global_log_queue()
-
-        # Set up handler for current process
-        self.log_handler = MultiProcessLogHandler(self.log_queue)
-        self.log_handler.setLevel(logging.DEBUG)
-
-        # Add to root logger to capture all logs
-        root_logger = logging.getLogger()
-        root_logger.addHandler(self.log_handler)
-
-        return self.log_queue
+        self.log_queue = get_global_log_queue()
 
     @aiperf_auto_task(interval=0.1)
     async def _consume_logs(self) -> None:
@@ -99,7 +65,9 @@ class LogsDashboardMixin(ConsoleUIMixin):
 
         for log_data in recent_logs:
             # Format timestamp
-            timestamp = time.strftime("%H:%M:%S", time.localtime(log_data["created"]))
+            timestamp = time.strftime(
+                "%H:%M:%S.%f", time.localtime(log_data["created"])
+            )[:-3]
 
             # Get process info
             process_name = log_data.get("process_name", "main")
@@ -120,7 +88,7 @@ class LogsDashboardMixin(ConsoleUIMixin):
                 process_info[:15],  # Truncate long process names
                 Text(log_data["levelname"], style=level_style),
                 log_data["name"][:20],  # Truncate long logger names
-                log_data["msg"][:80],  # Truncate long messages
+                log_data["msg"][:200],  # Truncate long messages
             )
 
         return logs_table

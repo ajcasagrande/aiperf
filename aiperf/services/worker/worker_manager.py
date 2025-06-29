@@ -4,6 +4,7 @@ import asyncio
 import multiprocessing
 import os
 import sys
+import uuid
 from multiprocessing import Process
 from typing import Any
 
@@ -157,17 +158,17 @@ class WorkerManager(BaseComponentService):
 
         log_queue = get_global_log_queue()
 
-        for i in range(self.worker_count):
+        for _ in range(self.worker_count):
+            worker_id = f"worker_{uuid.uuid4().hex[:8]}"
             multi_worker_process = worker.MultiWorkerProcess(
-                service_config=self.service_config, service_id=f"worker_{i}"
+                service_config=self.service_config, service_id=worker_id
             )
-            worker_id = f"worker_{i}"
 
             process = Process(
                 target=bootstrap_and_run_service,
-                name=f"worker_{i}_process",
+                name=f"{worker_id}_process",
                 args=(MultiWorkerProcess, self.service_config, log_queue),
-                kwargs={"service_id": f"worker_{i}"},
+                kwargs={"service_id": worker_id},
                 daemon=True,
             )
             process.start()

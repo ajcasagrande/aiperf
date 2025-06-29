@@ -103,6 +103,8 @@ class BaseZMQClient(AIPerfTaskMixin, BaseCommunicationClient):
         """
         if not self.is_initialized:
             await self.initialize()
+        if self.is_shutdown:
+            raise asyncio.CancelledError()
 
     async def initialize(self) -> None:
         """Initialize the communication.

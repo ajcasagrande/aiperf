@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Coroutine
 from typing import Any, TypeVar
 
-from aiperf.common.enums import CaseInsensitiveStrEnum, MessageType
+from aiperf.common.enums import ClientAddressType, MessageType
 from aiperf.common.models import Message
 
 logger = logging.getLogger(__name__)
@@ -17,16 +17,6 @@ logger = logging.getLogger(__name__)
 
 MessageT = TypeVar("MessageT", bound=Message)
 MessageOutputT = TypeVar("MessageOutputT", bound=Message)
-
-
-class ClientAddressType(CaseInsensitiveStrEnum):
-    SERVICE_PUB_SUB_FRONTEND = "service_pub_sub_frontend"
-    SERVICE_PUB_SUB_BACKEND = "service_pub_sub_backend"
-    CREDIT_DROP_PUSH_PULL = "credit_drop_push_pull"
-    CREDIT_RETURN_PUSH_PULL = "credit_return_push_pull"
-    INFERENCE_RESULTS_PUSH_PULL = "inference_results_push_pull"
-    DEALER_ROUTER_FRONTEND = "dealer_router_frontend"
-    DEALER_ROUTER_BACKEND = "dealer_router_backend"
 
 
 class BaseCommunicationClient(ABC):

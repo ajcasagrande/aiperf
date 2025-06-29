@@ -10,9 +10,12 @@
             "args": [
             ],
             "env": {
-                "AIPERF_UVLOOP": "1",
+                "AIPERF_UVLOOP": "0",
                 "AIPERF_LOG_LEVEL": "DEBUG",
-                "AIPERF_WORKERS": "1"
+                "AIPERF_WORKERS": "1",
+                "AIPERF_CONCURRENCY": "100",
+                "AIPERF_TOTAL_REQUESTS": "1000",
+                "AIPERF_DISABLE_UI": "1"
             }
         },
         {

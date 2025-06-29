@@ -5,6 +5,8 @@ import multiprocessing
 import os
 import queue
 
+from aiperf.common.config.service_config import ServiceConfig
+
 # Global log queue for multiprocessing
 _GLOBAL_LOG_QUEUE: "multiprocessing.Queue | None" = None
 
@@ -32,6 +34,8 @@ def get_global_log_queue() -> "multiprocessing.Queue | None":
 
 def setup_child_process_logging(
     log_queue: "multiprocessing.Queue | None" = None,
+    service_id: str | None = None,
+    service_config: "ServiceConfig | None" = None,
 ) -> None:
     """Set up logging for a child process to send logs to the main process.
 
@@ -39,6 +43,8 @@ def setup_child_process_logging(
 
     Args:
         log_queue: The multiprocessing queue to send logs to. If None, tries to get the global queue.
+        service_id: The ID of the service to log under. If None, logs will be under the process name.
+        service_config: The service configuration to log under. If None, logs will be under the process name.
     """
     if log_queue is None:
         log_queue = get_global_log_queue()
@@ -46,27 +52,46 @@ def setup_child_process_logging(
     if log_queue is None:
         return
 
-    # Set up handler for child process
-    handler = MultiProcessLogHandler(log_queue)
-    handler.setLevel(os.getenv("AIPERF_LOG_LEVEL", "WARNING"))
-
     # Add to root logger to capture all logs from this process
     root_logger = logging.getLogger()
 
-    # Remove existing handlers to avoid duplicate logs
+    # Remove all existing handlers to avoid duplicate logs
     for existing_handler in root_logger.handlers[:]:
-        if isinstance(existing_handler, MultiProcessLogHandler):
-            root_logger.removeHandler(existing_handler)
+        root_logger.removeHandler(existing_handler)
 
-    root_logger.addHandler(handler)
+    # Set up handler for child process
+    queue_handler = MultiProcessLogHandler(log_queue, service_id)
+    queue_handler.setLevel(os.getenv("AIPERF_LOG_LEVEL", "INFO"))
+
+    # Set up handler for child process
+    file_handler = logging.FileHandler(f"artifacts/aiperf-{service_id}.log")
+    file_handler.setLevel(os.getenv("AIPERF_LOG_LEVEL", "INFO"))
+
+    root_logger.addHandler(queue_handler)
+    root_logger.addHandler(file_handler)
+
+
+class FileLogHandler(logging.FileHandler):
+    """Custom logging handler that writes logs to a file."""
+
+    def __init__(self, log_file: str, service_id: str | None = None) -> None:
+        super().__init__(log_file)
+        self.service_id = service_id
+
+    def emit(self, record: logging.LogRecord) -> None:
+        """Emit a log record to the file."""
+        super().emit(record)
 
 
 class MultiProcessLogHandler(logging.Handler):
     """Custom logging handler that forwards log records to a multiprocessing queue."""
 
-    def __init__(self, log_queue: multiprocessing.Queue) -> None:
+    def __init__(
+        self, log_queue: multiprocessing.Queue, service_id: str | None = None
+    ) -> None:
         super().__init__()
         self.log_queue = log_queue
+        self.service_id = service_id
 
     def emit(self, record: logging.LogRecord) -> None:
         """Emit a log record to the queue."""
@@ -80,6 +105,7 @@ class MultiProcessLogHandler(logging.Handler):
                 "created": record.created,
                 "process_name": multiprocessing.current_process().name,
                 "process_id": multiprocessing.current_process().pid,
+                "service_id": self.service_id,
             }
             self.log_queue.put_nowait(log_data)
         except queue.Full:

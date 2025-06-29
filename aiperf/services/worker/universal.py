@@ -11,6 +11,7 @@ import psutil
 from aiperf.clients.openai.common import OpenAIClientConfig
 from aiperf.common.comms.base import (
     BaseCommunication,
+    ClientAddressType,
     PubClient,
     PullClient,
     PushClient,
@@ -19,7 +20,7 @@ from aiperf.common.comms.base import (
 from aiperf.common.config import EndPointConfig, ServiceConfig, UserConfig
 from aiperf.common.constants import BYTES_PER_MIB, NANOS_PER_MILLIS
 from aiperf.common.enums import InferenceClientType, MessageType
-from aiperf.common.factories import InferenceClientFactory
+from aiperf.common.factories import CommunicationFactory, InferenceClientFactory
 from aiperf.common.interfaces import InferenceClientProtocol
 from aiperf.common.models import (
     ConversationRequestMessage,
@@ -75,7 +76,12 @@ class UniversalWorker:
         self.process = psutil.Process()
         self.process.cpu_percent()  # throw away the first result (will be 0)
 
-        self.zmq_comms: BaseCommunication | None = None
+        self.zmq_comms: BaseCommunication = CommunicationFactory.create_instance(
+            self.service_config.comm_backend,
+            config=self.service_config.comm_config,
+        )
+
+        self.logger.debug("ZMQ comms initialized")
 
         self.credit_drop_client: PullClient
         self.credit_return_client: PushClient
@@ -86,10 +92,26 @@ class UniversalWorker:
         self.stop_event: asyncio.Event = asyncio.Event()
         self.health_task: asyncio.Task | None = None
 
+        self.credit_drop_client = self.zmq_comms.create_pull_client(
+            ClientAddressType.CREDIT_DROP_PUSH_PULL,
+        )
+        self.credit_return_client = self.zmq_comms.create_push_client(
+            ClientAddressType.CREDIT_RETURN_PUSH_PULL,
+        )
+        self.inference_results_client = self.zmq_comms.create_push_client(
+            ClientAddressType.INFERENCE_RESULTS_PUSH_PULL,
+        )
+        self.conversation_data_client = self.zmq_comms.create_req_client(
+            ClientAddressType.DEALER_ROUTER_REQ_REP_FRONTEND,
+        )
+        self.pub_client = self.zmq_comms.create_pub_client(
+            ClientAddressType.SERVICE_PUB_SUB_FRONTEND,
+        )
+
     async def do_initialize(self, zmq_comms: BaseCommunication) -> None:
         """Initialize worker-specific components."""
         self.logger.debug("Initializing worker")
-        self.zmq_comms = zmq_comms
+        await self.zmq_comms.initialize()
 
         # TODO: better way to get the API key
         # Get API key from environment variable
@@ -109,34 +131,8 @@ class UniversalWorker:
             InferenceClientType.OPENAI, client_config=openai_client_config
         )
 
-        self.credit_drop_client = await self.zmq_comms.create_pull_client(
-            address=self.service_config.comm_config.credit_drop_address,
-        )
-        await self.credit_drop_client.initialize()
-
-        self.credit_return_client = await self.zmq_comms.create_push_client(
-            address=self.service_config.comm_config.credit_return_address,
-        )
-        await self.credit_return_client.initialize()
-
-        self.inference_results_client = await self.zmq_comms.create_push_client(
-            address=self.service_config.comm_config.inference_push_pull_address,
-        )
-        await self.inference_results_client.initialize()
-
-        self.conversation_data_client = await self.zmq_comms.create_req_client(
-            address=self.service_config.comm_config.conversation_data_address,
-        )
-        await self.conversation_data_client.initialize()
-
-        self.pub_client = await self.zmq_comms.create_pub_client(
-            address=self.service_config.comm_config.xpub_xsub_proxy_config.frontend_address,
-        )
-        await self.pub_client.initialize()
-
         await self.credit_drop_client.register_pull_callback(
-            message_type=MessageType.CREDIT_DROP,
-            callback=self._credit_drop_handler,
+            MessageType.CREDIT_DROP, self._credit_drop_handler
         )
 
         self.health_task = asyncio.create_task(self._health_check_task())
@@ -236,11 +232,12 @@ class UniversalWorker:
             # retrieve the prompt from the dataset
             response: ConversationResponseMessage = (
                 await self.conversation_data_client.request(
-                    message=ConversationRequestMessage(
+                    ConversationRequestMessage(
                         service_id=self.service_id, conversation_id=conversation_id
                     ),
                 )
             )
+            self.logger.debug("Received response message: %s", response)
 
             if isinstance(response, ErrorMessage):
                 return RequestRecord(

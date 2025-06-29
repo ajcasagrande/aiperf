@@ -75,7 +75,7 @@ def main(
         user_config=user_config or UserConfig(),
     )
 
-    if os.getenv("AIPERF_DISABLE_UI", EnvDefaults.AIPERF_DISABLE_UI) == "1":
+    if os.getenv("AIPERF_DISABLE_UI", EnvDefaults.AIPERF_DISABLE_UI).lower() == "true":
         _setup_logging()
     else:
         from aiperf.common.logging import setup_global_log_queue

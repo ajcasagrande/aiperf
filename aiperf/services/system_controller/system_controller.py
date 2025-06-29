@@ -33,6 +33,7 @@ from aiperf.common.exceptions import (
 )
 from aiperf.common.factories import ServiceFactory, ZMQProxyFactory
 from aiperf.common.hooks import on_cleanup, on_stop
+from aiperf.common.logging import get_global_log_queue
 from aiperf.common.models import (
     CreditsCompleteMessage,
     HeartbeatMessage,
@@ -85,18 +86,19 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
 
         # List of required service types, in no particular order
         # These are services that must be running before the system controller can start profiling
-        self.required_service_types: list[ServiceType] = [
-            ServiceType.DATASET_MANAGER,
-            ServiceType.TIMING_MANAGER,
-            ServiceType.WORKER_MANAGER,
-            ServiceType.RECORDS_MANAGER,
-            ServiceType.POST_PROCESSOR_MANAGER,
+        self.required_service_types: list[tuple[ServiceType, int]] = [
+            (ServiceType.DATASET_MANAGER, 1),
+            (ServiceType.TIMING_MANAGER, 1),
+            (ServiceType.WORKER_MANAGER, 1),
+            (ServiceType.RECORDS_MANAGER, 1),
+            (ServiceType.POST_PROCESSOR_MANAGER, 1),
         ]
 
         self.service_manager: BaseServiceManager = None  # type: ignore - is set in _initialize
         self.progress_tracker: ProgressTracker = ProgressTracker()
         self.ui_enabled: bool = (
-            int(os.getenv("AIPERF_DISABLE_UI", EnvDefaults.AIPERF_DISABLE_UI)) != 1
+            os.getenv("AIPERF_DISABLE_UI", EnvDefaults.AIPERF_DISABLE_UI).lower()
+            != "true"
         )
         self.ui: AIPerfUI | None = (
             AIPerfUI(self.progress_tracker) if self.ui_enabled else None
@@ -151,6 +153,9 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         - Initialize the service manager
         - Subscribe to relevant messages
         """
+        if self.ui:
+            await self.ui.run_async()
+
         self.logger.debug("Initializing System Controller")
 
         self.setup_signal_handlers(self._handle_signal)
@@ -174,9 +179,6 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             self.dealer_router_proxy.run()
         )
 
-        if self.ui:
-            await self.ui.run_async()
-
     async def _post_initialize(self) -> None:
         """Post-initialize the system controller."""
 
@@ -187,6 +189,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             self.service_manager = MultiProcessServiceManager(
                 required_service_types=self.required_service_types,
                 config=self.service_config,
+                log_queue=get_global_log_queue(),
             )
 
         elif self.service_config.service_run_type == ServiceRunType.KUBERNETES:
@@ -449,7 +452,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         service_type = message.service_type
 
         self.logger.info(
-            f"Processing registration from {service_type} with ID: {service_id}"
+            "Processing registration from %s with ID: %s", service_type, service_id
         )
 
         service_info = ServiceRunInfo(
@@ -547,7 +550,9 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         # Update the component state if the component exists
         if service_id not in self.service_manager.service_id_map:
             self.logger.debug(
-                f"Received status update from un-registered service: {service_id} ({service_type})"
+                "Received status update from un-registered service: %s (%s)",
+                service_id,
+                service_type,
             )
             return
 
@@ -606,24 +611,23 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             CommunicationError: If the communication is not initialized
                 or the command was not sent successfully
         """
-        if not self._comms:
+        if not self.comms:
             self.logger.error("Cannot send command: Communication is not initialized")
             raise CommunicationError(
                 CommunicationErrorReason.INITIALIZATION_ERROR,
                 "Communication channels are not initialized",
             )
 
-        # Create command message using the helper method
-        command_message = self.create_command_message(
-            command=command,
-            target_service_id=target_service_id,
-            target_service_type=target_service_type,
-            data=data,
-        )
-
         # Publish command message
         try:
-            await self.pub_client.publish(message=command_message)
+            await self.pub_client.publish(
+                self.create_command_message(
+                    command=command,
+                    target_service_id=target_service_id,
+                    target_service_type=target_service_type,
+                    data=data,
+                )
+            )
         except Exception as e:
             self.logger.error("Exception publishing command: %s", e)
             raise CommunicationError(

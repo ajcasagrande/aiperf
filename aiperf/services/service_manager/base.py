@@ -17,7 +17,7 @@ class BaseServiceManager(ABC):
 
     def __init__(
         self,
-        required_service_types: list[ServiceType],
+        required_service_types: list[tuple[ServiceType, int]],
         config: ServiceConfig,
     ):
         self.logger = logging.getLogger(self.__class__.__name__)

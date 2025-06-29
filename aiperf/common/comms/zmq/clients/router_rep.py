@@ -101,7 +101,12 @@ class ZMQRouterRepClient(BaseZMQClient, RepClient):
             try:
                 # Receive request
                 try:
-                    request_id, request_json = await self.socket.recv_multipart()
+                    data = await self.socket.recv_multipart()
+                    self.logger.debug("Received request: %s", data)
+                    if len(data) < 2:
+                        self.logger.error("Invalid request data: %s", data)
+                        continue
+                    request_id, request_json = data[-2], data[-1]
                 except zmq.Again:
                     # This means we timed out waiting for a request.
                     # We can continue to the next iteration of the loop.
@@ -118,9 +123,14 @@ class ZMQRouterRepClient(BaseZMQClient, RepClient):
                 response = await self._response_futures[request_id]
                 if response is not None:
                     # Send the response back to the client.
-                    await self.socket.send_multipart(
-                        [request_id, response.model_dump_json().encode()]
-                    )
+                    if len(data) > 2:
+                        await self.socket.send_multipart(
+                            [*data[:-1], response.model_dump_json().encode()]
+                        )
+                    else:
+                        await self.socket.send_multipart(
+                            [request_id, response.model_dump_json().encode()]
+                        )
                 else:
                     # If the response is None, we send an error message back to the client.
                     self.logger.warning("No response for request %s", request_id)
@@ -128,6 +138,6 @@ class ZMQRouterRepClient(BaseZMQClient, RepClient):
 
             except asyncio.CancelledError:
                 break
-            except Exception as e:
-                self.logger.error("Exception receiving request: %s", e)
+            except Exception:
+                self.logger.exception("Exception receiving request")
                 await asyncio.sleep(0.1)

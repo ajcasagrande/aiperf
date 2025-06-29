@@ -3,7 +3,6 @@
 
 import multiprocessing
 import os
-import random
 
 from aiperf.common.config import ServiceConfig
 from aiperf.common.constants import EnvDefaults
@@ -44,13 +43,13 @@ def bootstrap_and_run_service(
     # yappi.start()
 
     # TODO: random seed configuration
-    random.seed(0)
+    # random.seed(0)
 
     # Set up child process logging if a log queue is provided
     if log_queue is not None:
         from aiperf.common.logging import setup_child_process_logging
 
-        setup_child_process_logging(log_queue)
+        setup_child_process_logging(log_queue, service.service_id)
 
     if int(os.environ.get("AIPERF_UVLOOP", EnvDefaults.AIPERF_UVLOOP)) == 1:
         import uvloop

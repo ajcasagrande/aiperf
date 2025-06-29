@@ -17,4 +17,4 @@ class EnvDefaults:
 
     AIPERF_UVLOOP = 1
     AIPERF_LOG_LEVEL = "INFO"
-    AIPERF_DISABLE_UI = 0
+    AIPERF_DISABLE_UI = "false"

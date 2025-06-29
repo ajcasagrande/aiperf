@@ -326,6 +326,29 @@ class ServiceType(CaseInsensitiveStrEnum):
     ZMQ_XPUB_XSUB_PROXY = "zmq_xpub_xsub_proxy"
 
 
+class ClientAddressType(CaseInsensitiveStrEnum):
+    SERVICE_PUB_SUB_FRONTEND = "service_pub_sub_frontend"
+    """Frontend address for service pub/sub proxy (for sending messages)."""
+
+    SERVICE_PUB_SUB_BACKEND = "service_pub_sub_backend"
+    """Backend address for service pub/sub proxy (for receiving messages)."""
+
+    CREDIT_DROP_PUSH_PULL = "credit_drop_push_pull"
+    """Push/pull address for credit drop messages."""
+
+    CREDIT_RETURN_PUSH_PULL = "credit_return_push_pull"
+    """Push/pull address for credit return messages."""
+
+    INFERENCE_RESULTS_PUSH_PULL = "inference_results_push_pull"
+    """Push/pull address for inference results messages."""
+
+    DEALER_ROUTER_REQ_REP_FRONTEND = "dealer_router_req_rep_frontend"
+    """Frontend address for dealer/router req/rep proxy (for sending messages)."""
+
+    DEALER_ROUTER_REQ_REP_BACKEND = "dealer_router_req_rep_backend"
+    """Backend address for dealer/router req/rep proxy (for receiving messages)."""
+
+
 class ZMQProxyType(CaseInsensitiveStrEnum):
     """Types of ZMQ proxys."""
 

@@ -58,6 +58,9 @@ class ZMQPushClient(BaseZMQClient, PushClient):
             await asyncio.sleep(0.1)
             await self.push(message)
 
+        except (asyncio.CancelledError, zmq.ContextTerminated):
+            return
+
         except Exception as e:
             raise CommunicationError(
                 CommunicationErrorReason.PUSH_ERROR, f"Failed to push data: {e}"

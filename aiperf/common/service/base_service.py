@@ -6,11 +6,9 @@ import logging
 import uuid
 from abc import ABC
 
-from aiperf.common.comms.base import (
-    BaseCommunication,
-)
+from aiperf.common.comms.base import BaseCommunication
 from aiperf.common.config import ServiceConfig
-from aiperf.common.enums import ServiceState, ServiceType
+from aiperf.common.enums import ClientAddressType, ServiceState, ServiceType
 from aiperf.common.exceptions import (
     AIPerfError,
     ServiceError,
@@ -70,11 +68,10 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
             config=self.service_config.comm_config,
         )
         self.sub_client = self.comms.create_sub_client(
-            address=self.service_config.comm_config.xpub_xsub_proxy_config.backend_address,
+            ClientAddressType.SERVICE_PUB_SUB_BACKEND
         )
-
         self.pub_client = self.comms.create_pub_client(
-            address=self.service_config.comm_config.xpub_xsub_proxy_config.frontend_address,
+            ClientAddressType.SERVICE_PUB_SUB_FRONTEND
         )
 
         try:
@@ -296,8 +293,8 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
                 await self.run_hooks(AIPerfHook.ON_STOP)
 
             # Shutdown communication component
-            if self._comms and not self._comms.is_shutdown:
-                await self._comms.shutdown()
+            if self.comms and not self.comms.is_shutdown:
+                await self.comms.shutdown()
 
             # Custom cleanup logic implemented by derived classes
             with contextlib.suppress(asyncio.CancelledError):

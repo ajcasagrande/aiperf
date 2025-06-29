@@ -10,7 +10,7 @@ from aiperf.common.comms.base import (
     SubClient,
 )
 from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.enums import MessageType, ServiceType
+from aiperf.common.enums import ClientAddressType, MessageType, ServiceType
 from aiperf.common.factories import CommunicationFactory
 from aiperf.common.hooks import (
     AIPerfLifecycleMixin,
@@ -36,10 +36,10 @@ class AIPerfServiceMixin(AIPerfLifecycleMixin):
             config=self.service_config.comm_config,
         )
         self.sub_client: SubClient = self.comms.create_sub_client(
-            address=self.service_config.comm_config.xpub_xsub_proxy_config.backend_address,
+            ClientAddressType.SERVICE_PUB_SUB_BACKEND,
         )
         self.pub_client: PubClient = self.comms.create_pub_client(
-            address=self.service_config.comm_config.xpub_xsub_proxy_config.frontend_address,
+            ClientAddressType.SERVICE_PUB_SUB_FRONTEND,
         )
 
     @on_init

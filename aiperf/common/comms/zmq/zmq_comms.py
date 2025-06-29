@@ -54,7 +54,7 @@ class BaseZMQCommunication(BaseCommunication, ABC):
         self.initialized_event: asyncio.Event = asyncio.Event()
         self.config = config or ZMQIPCConfig()
 
-        self._context: zmq.asyncio.Context | None = None
+        self.context = zmq.asyncio.Context.instance()
         self.clients: list[BaseZMQClient] = []
 
         # TODO: Look into using this for determining bind vs connect
@@ -64,20 +64,6 @@ class BaseZMQCommunication(BaseCommunication, ABC):
             "ZMQ communication using protocol: %s",
             type(self.config).__name__,
         )
-
-    @property
-    def context(self) -> zmq.asyncio.Context:
-        """Get the ZeroMQ context.
-
-        Returns:
-            ZeroMQ context
-        """
-        if not self._context:
-            raise CommunicationError(
-                CommunicationErrorReason.INITIALIZATION_ERROR,
-                "Communication channels are not initialized",
-            )
-        return self._context
 
     @property
     def is_initialized(self) -> bool:
@@ -106,7 +92,6 @@ class BaseZMQCommunication(BaseCommunication, ABC):
         if self.is_initialized:
             return
 
-        self._context = zmq.asyncio.Context.instance()
         await asyncio.gather(
             *(
                 client.initialize()
@@ -136,11 +121,6 @@ class BaseZMQCommunication(BaseCommunication, ABC):
                 *(client.shutdown() for client in self.clients if client.is_initialized)
             )
 
-            if self.context and not self.context.closed:
-                self.context.term()
-
-            self._context = None
-
         except asyncio.CancelledError:
             pass
 
@@ -152,7 +132,6 @@ class BaseZMQCommunication(BaseCommunication, ABC):
 
         finally:
             self.clients.clear()
-            self._context = None
 
     def create_pub_client(
         self,

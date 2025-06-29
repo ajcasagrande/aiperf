@@ -145,7 +145,7 @@ class HookSystem:
                 else:
                     await asyncio.to_thread(func, *args, **kwargs)
             except Exception as e:
-                logger.exception("Error running hook %s", func.__qualname__)
+                logger.exception("Error running hook %s: %s", func.__qualname__, e)
                 exceptions.append(
                     AIPerfError(
                         f"Error running hook {func.__qualname__}: {e.__class__.__name__} {e}"

@@ -60,15 +60,16 @@ class ZMQPullClient(BaseZMQClient, PullClient):
                 # acquire the semaphore to limit the number of concurrent requests
                 await self.semaphore.acquire()
                 message_json = await self.socket.recv_string()
-                # logger.debug("Received message from pull socket: %s", message_json)
+                logger.debug("Received message from pull socket: %s", message_json)
                 _ = asyncio.create_task(self._process_message(message_json))
 
             except zmq.Again:
                 # TODO: Is this correct?
                 self.semaphore.release()
                 pass
-            except asyncio.CancelledError:
+            except (asyncio.CancelledError, zmq.ContextTerminated):
                 break
+
             except Exception as e:
                 logger.error(
                     "Exception receiving data from pull socket: %s %s",
@@ -92,7 +93,7 @@ class ZMQPullClient(BaseZMQClient, PullClient):
                 self._pull_callbacks[message.message_type], message
             )
         else:
-            logger.debug(
+            logger.warning(
                 "Pull message received for message type %s without callback",
                 message.message_type,
             )

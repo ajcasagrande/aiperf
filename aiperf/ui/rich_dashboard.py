@@ -4,10 +4,9 @@
 import logging
 import time
 from collections import deque
-from datetime import datetime
 
 from rich.align import Align
-from rich.console import Console
+from rich.console import Console, Group
 from rich.layout import Layout
 from rich.live import Live
 from rich.panel import Panel
@@ -25,6 +24,12 @@ from rich.progress import (
 from rich.table import Table
 from rich.text import Text
 
+from aiperf.common.hooks import (
+    AIPerfLifecycleMixin,
+    aiperf_auto_task,
+    on_start,
+    on_stop,
+)
 from aiperf.common.models.messages import WorkerHealthMessage
 from aiperf.common.progress_tracker import ProgressTracker
 from aiperf.ui.logs_mixin import LogsDashboardMixin
@@ -61,7 +66,7 @@ class RichLogHandler(logging.Handler):
             pass
 
 
-class AIPerfRichDashboard(LogsDashboardMixin):
+class AIPerfRichDashboard(LogsDashboardMixin, AIPerfLifecycleMixin):
     """Main AIPerf Rich Dashboard with live updates and clean interface."""
 
     def __init__(self, progress_tracker: ProgressTracker) -> None:
@@ -108,14 +113,14 @@ class AIPerfRichDashboard(LogsDashboardMixin):
 
     def _get_header_panel(self) -> Panel:
         """Create the header panel with title and status."""
-        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        # current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         title = Text("AIPerf Performance Dashboard", style="bold blue")
-        subtitle = Text(
-            f"Real-time AI Performance Testing • {current_time}", style="dim"
-        )
+        # subtitle = Text(
+        #     f"Real-time AI Performance Testing • {current_time}", style="dim"
+        # )
 
-        header_content = Align.center(Text.assemble(title, "\n", subtitle))
+        header_content = Align.center(Text.assemble(title))
 
         return Panel(header_content, style="blue", border_style="bright_blue")
 
@@ -143,7 +148,7 @@ class AIPerfRichDashboard(LogsDashboardMixin):
             )
 
         # Create metrics table
-        metrics_table = Table.grid(padding=1)
+        metrics_table = Table.grid(padding=0)
         metrics_table.add_column(style="bold cyan", justify="right")
         metrics_table.add_column(style="bold white")
 
@@ -192,8 +197,6 @@ class AIPerfRichDashboard(LogsDashboardMixin):
         )
 
         # Combine progress bar and metrics
-        from rich.console import Group
-
         content = Group(self.main_progress, "", metrics_table)
 
         return Panel(content, title="[bold]Profile Status[/bold]", border_style="green")
@@ -209,8 +212,8 @@ class AIPerfRichDashboard(LogsDashboardMixin):
             )
 
         # Create workers table
-        workers_table = Table(show_header=True, header_style="bold magenta")
-        workers_table.add_column("Worker", style="cyan", width=15)
+        workers_table = Table.grid(padding=0)
+        workers_table.add_column("Worker", style="cyan", width=20)
         workers_table.add_column("Status", width=12)
         workers_table.add_column("Tasks", width=12, justify="right")
         workers_table.add_column("CPU", width=8, justify="right")
@@ -226,9 +229,9 @@ class AIPerfRichDashboard(LogsDashboardMixin):
         idle_count = 0
         stale_count = 0
 
-        for worker_id, health in sorted(self.worker_health.items()):
-            worker_name = self._get_worker_name(worker_id)
-            last_seen = self.worker_last_seen.get(worker_id, current_time)
+        for service_id, health in sorted(self.worker_health.items()):
+            worker_name = service_id
+            last_seen = self.worker_last_seen.get(service_id, current_time)
 
             # Determine status
             if current_time - last_seen > 30:  # 30 seconds
@@ -263,7 +266,7 @@ class AIPerfRichDashboard(LogsDashboardMixin):
 
             workers_table.add_row(
                 worker_name,
-                str(status),
+                status,
                 f"{health.completed_tasks} / {health.total_tasks}",
                 f"{health.cpu_usage:.1f}%",
                 memory_display,
@@ -284,24 +287,26 @@ class AIPerfRichDashboard(LogsDashboardMixin):
             Text(f"{stale_count} stale", style="dim white"),
         )
 
-        from rich.console import Group
-
         content = Group(summary_text, "", workers_table)
 
         return Panel(content, title="[bold]Worker Status[/bold]", border_style="blue")
 
     def _get_logs_panel(self) -> Panel:
         """Create the logs panel with recent log entries."""
-        if not self.log_records:
-            content = Text("No logs available", style="dim")
-        else:
-            # Show last 10 logs
-            recent_logs = list(self.log_records)[-10:]
-            content = Text("\n".join([str(log) for log in recent_logs]))
-        content = Text("No logs available", style="dim")
         return Panel(
-            content, title="[bold]System Logs[/bold]", border_style="yellow", height=12
+            self._create_logs_panel(),
+            title="[bold]System Logs[/bold]",
+            border_style="yellow",
+            height=12,
         )
+
+    @aiperf_auto_task(interval=0.1)
+    async def _update_logs(self) -> None:
+        """Update the dashboard display."""
+        if not self.running:
+            return
+
+        self.refresh_logs()
 
     def update_display(self) -> None:
         """Update the dashboard display."""
@@ -310,30 +315,47 @@ class AIPerfRichDashboard(LogsDashboardMixin):
 
         try:
             self.layout["header"].update(self._get_header_panel())
-            self.layout["progress"].update(self._get_progress_panel())
-            self.layout["workers"].update(self._get_workers_panel())
-            self.layout["logs"].update(self._get_logs_panel())
+            self.refresh_progress()
+            self.refresh_logs()
+            self.refresh_workers()
         except Exception as e:
             logger.error(f"Error updating dashboard display: {e}")
 
+    def refresh_progress(self) -> None:
+        """Refresh the progress panel."""
+        self.layout["progress"].update(self._get_progress_panel())
+
+    def refresh_workers(self) -> None:
+        """Refresh the workers panel."""
+        self.layout["workers"].update(self._get_workers_panel())
+
+    def refresh_logs(self) -> None:
+        """Refresh the logs panel."""
+        self.layout["logs"].update(self._get_logs_panel())
+
     def update_worker_health(self, health_message: WorkerHealthMessage) -> None:
         """Update worker health information."""
-        print(f"Updating worker health for {health_message}")
+        # print(f"Updating worker health for {health_message}")
         self.worker_health[health_message.service_id] = health_message
         self.worker_last_seen[health_message.service_id] = time.time()
 
-    def start(self) -> None:
+    @on_start
+    async def _start(self) -> None:
         """Start the live dashboard."""
         self.running = True
         self.live = Live(
-            self.layout, console=self.console, refresh_per_second=2, screen=True
+            self.layout,
+            console=self.console,
+            # refresh_per_second=4,
+            screen=False,
         )
         self.live.start()
 
         # Initial update
         self.update_display()
 
-    def stop(self) -> None:
+    @on_stop
+    async def _stop(self) -> None:
         """Stop the live dashboard."""
         self.running = False
         if self.live:
@@ -341,21 +363,7 @@ class AIPerfRichDashboard(LogsDashboardMixin):
 
         # Remove log handler
         root_logger = logging.getLogger()
-        if self.log_handler in root_logger.handlers:
-            root_logger.removeHandler(self.log_handler)
-
-    @staticmethod
-    def _get_worker_name(worker_id: str) -> str:
-        """Get a friendly worker name from worker ID."""
-        try:
-            parts = worker_id.split("_")
-            if len(parts) >= 3 and parts[2] == "0":
-                return f"Worker {parts[1]}"
-            elif len(parts) >= 3:
-                return f"Worker {parts[1]}.{parts[2]}"
-            return worker_id
-        except Exception:
-            return worker_id
+        logging.basicConfig(level=root_logger.level)
 
     @staticmethod
     def _format_duration(seconds: float | None) -> str:

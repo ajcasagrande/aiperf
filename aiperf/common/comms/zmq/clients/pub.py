@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+import asyncio
 import logging
 
 import zmq.asyncio
@@ -52,6 +53,9 @@ class ZMQPubClient(BaseZMQClient, PubClient):
             await self.socket.send_multipart(
                 [message.message_type.encode(), message_json.encode()]
             )
+
+        except (asyncio.CancelledError, zmq.ContextTerminated):
+            return
 
         except Exception as e:
             raise CommunicationError(

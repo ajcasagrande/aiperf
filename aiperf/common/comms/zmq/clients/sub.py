@@ -112,7 +112,7 @@ class ZMQSubClient(BaseZMQClient, SubClient):
 
                 asyncio.create_task(self._handle_message(topic_bytes, message_bytes))
 
-            except asyncio.CancelledError:
+            except (asyncio.CancelledError, zmq.ContextTerminated):
                 break
 
             except zmq.Again:

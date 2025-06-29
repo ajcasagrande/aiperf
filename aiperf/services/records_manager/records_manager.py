@@ -7,7 +7,7 @@ from collections import deque
 
 import pandas as pd
 
-from aiperf.common.comms.base import PullClient
+from aiperf.common.comms.base import ClientAddressType, PullClient
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
 from aiperf.common.constants import NANOS_PER_MILLIS
@@ -66,7 +66,7 @@ class RecordsManager(BaseComponentService):
         self.incoming_records: asyncio.Queue[InferenceResultsMessage] = asyncio.Queue()
 
         self.inference_results_client: PullClient = self.comms.create_pull_client(
-            address=self.service_config.comm_config.inference_push_pull_address,
+            ClientAddressType.INFERENCE_RESULTS_PUSH_PULL,
             bind=True,
         )
 

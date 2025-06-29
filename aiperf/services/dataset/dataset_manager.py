@@ -7,7 +7,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
-from aiperf.common.comms.base import RepClient
+from aiperf.common.comms.base import ClientAddressType, RepClient
 from aiperf.common.config import ServiceConfig
 from aiperf.common.dataset_models import Conversation
 from aiperf.common.enums import (
@@ -73,8 +73,7 @@ class DatasetManager(BaseComponentService):
         self.tokenizer: Tokenizer | None = None
         self.dataset: dict[str, Conversation] = {}  # session ID -> Conversation mapping
         self.conversation_data_client: RepClient = self.comms.create_rep_client(
-            address=self.service_config.comm_config.conversation_data_address,
-            bind=True,
+            ClientAddressType.DEALER_ROUTER_REQ_REP_BACKEND
         )
 
     @property

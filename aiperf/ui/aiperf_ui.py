@@ -21,31 +21,31 @@ class AIPerfUI(AIPerfLifecycleMixin):
     @on_start
     async def _on_start(self) -> None:
         """Start the UI."""
-        self.dashboard.start()
+        await self.dashboard.run_async()
 
     @on_stop
     async def _on_stop(self) -> None:
         """Stop the UI."""
-        self.dashboard.stop()
+        await self.dashboard.shutdown()
 
-    async def on_profile_results_update(self) -> None:
-        """Process the final results."""
-        logger.info("Performance testing completed successfully!")
-        if self.dashboard.running:
-            self.dashboard.update_display()
+    # async def on_profile_results_update(self) -> None:
+    #     """Process the final results."""
+    #     logger.info("Performance testing completed successfully!")
+    #     if self.dashboard.running:
+    #         self.dashboard.refresh_progress()
 
     async def on_profile_progress_update(self) -> None:
         """Update progress display."""
         if self.dashboard.running:
-            self.dashboard.update_display()
+            self.dashboard.refresh_progress()
 
     async def on_profile_stats_update(self) -> None:
         """Update statistics display."""
         if self.dashboard.running:
-            self.dashboard.update_display()
+            self.dashboard.refresh_progress()
 
     async def on_worker_health_update(self, message: WorkerHealthMessage) -> None:
         """Update worker health information."""
         self.dashboard.update_worker_health(message)
         if self.dashboard.running:
-            self.dashboard.update_display()
+            self.dashboard.refresh_workers()

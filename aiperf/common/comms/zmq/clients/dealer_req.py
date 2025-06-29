@@ -49,6 +49,7 @@ class ZMQDealerReqClient(BaseZMQClient, ReqClient):
             message.request_id = uuid.uuid4().hex
 
         request_json = message.model_dump_json()
+        self.logger.debug("Sending request: %s", request_json)
 
         try:
             # Send request
@@ -56,10 +57,11 @@ class ZMQDealerReqClient(BaseZMQClient, ReqClient):
 
             # Wait for response with timeout
             response_json = await self._socket.recv_string()
+            self.logger.debug("Received response: %s", response_json)
             response = Message.from_json(response_json)
             return response
 
-        except asyncio.CancelledError:
+        except (asyncio.CancelledError, zmq.ContextTerminated):
             raise  # re-raise the cancelled error
 
         except Exception as e:

@@ -6,7 +6,7 @@ from typing import ClassVar
 
 from pydantic import BaseModel, Field
 
-from aiperf.common.comms.base import ClientAddressType
+from aiperf.common.enums import ClientAddressType
 
 
 class BaseZMQProxyConfig(BaseModel, ABC):
@@ -61,9 +61,9 @@ class BaseZMQCommunicationConfig(BaseModel, ABC):
                 return self.xpub_xsub_proxy_config.frontend_address
             case ClientAddressType.SERVICE_PUB_SUB_BACKEND:
                 return self.xpub_xsub_proxy_config.backend_address
-            case ClientAddressType.DEALER_ROUTER_FRONTEND:
+            case ClientAddressType.DEALER_ROUTER_REQ_REP_FRONTEND:
                 return self.dealer_router_proxy_config.frontend_address
-            case ClientAddressType.DEALER_ROUTER_BACKEND:
+            case ClientAddressType.DEALER_ROUTER_REQ_REP_BACKEND:
                 return self.dealer_router_proxy_config.backend_address
             case ClientAddressType.CREDIT_DROP_PUSH_PULL:
                 return self.credit_drop_address
