@@ -78,9 +78,35 @@ def main(
     if os.getenv("AIPERF_DISABLE_UI", EnvDefaults.AIPERF_DISABLE_UI).lower() == "true":
         _setup_logging()
     else:
-        from aiperf.common.logging import setup_global_log_queue
+        from aiperf.common.logging import MultiProcessLogHandler, setup_global_log_queue
 
-        setup_global_log_queue()
+        # Set up the global log queue
+        log_queue = setup_global_log_queue()
+
+        # Set up main process logging to also send to the queue
+        root_logger = logging.getLogger()
+        root_logger.setLevel(
+            getattr(
+                logging, os.getenv("AIPERF_LOG_LEVEL", EnvDefaults.AIPERF_LOG_LEVEL)
+            )
+        )
+
+        # Add the multiprocess handler to capture main process logs
+        queue_handler = MultiProcessLogHandler(log_queue, "system_controller")
+        queue_handler.setLevel(os.getenv("AIPERF_LOG_LEVEL", "INFO"))
+        root_logger.addHandler(queue_handler)
+
+        # # Also add a console handler for immediate visibility
+        # rich_handler = RichHandler(
+        #     rich_tracebacks=True,
+        #     show_path=True,
+        #     console=Console(),
+        #     tracebacks_show_locals=False,
+        #     log_time_format="%H:%M:%S.%f",
+        #     omit_repeated_times=False,
+        # )
+        # rich_handler.setLevel(os.getenv("AIPERF_LOG_LEVEL", "INFO"))
+        # root_logger.addHandler(rich_handler)
 
     # Load configuration
     service_config = ServiceConfig(

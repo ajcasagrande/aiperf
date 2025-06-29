@@ -55,6 +55,9 @@ def setup_child_process_logging(
     # Add to root logger to capture all logs from this process
     root_logger = logging.getLogger()
 
+    # Set the root logger level to ensure logs are passed to handlers
+    root_logger.setLevel(os.getenv("AIPERF_LOG_LEVEL", "INFO"))
+
     # Remove all existing handlers to avoid duplicate logs
     for existing_handler in root_logger.handlers[:]:
         root_logger.removeHandler(existing_handler)

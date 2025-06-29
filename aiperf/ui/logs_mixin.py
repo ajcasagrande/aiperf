@@ -3,8 +3,8 @@
 import logging
 import multiprocessing
 import queue
-import time
 from collections import deque
+from datetime import datetime
 
 from rich.table import Table
 from rich.text import Text
@@ -36,6 +36,9 @@ class LogsDashboardMixin(AIPerfLifecycleMixin):
         """
         # Set up global log queue
         self.log_queue = get_global_log_queue()
+        logger.info(
+            f"LogsDashboardMixin initialized with log_queue: {self.log_queue is not None}"
+        )
 
     @aiperf_auto_task(interval=0.1)
     async def _consume_logs(self) -> None:
@@ -53,26 +56,26 @@ class LogsDashboardMixin(AIPerfLifecycleMixin):
 
     def _create_logs_panel(self) -> Table:
         """Create the logs panel."""
-        logs_table = Table.grid(expand=True)
-        logs_table.add_column("Time", style="dim", width=12)
-        logs_table.add_column("Process", style="cyan", width=15)
-        logs_table.add_column("Level", style="bold", width=8)
-        logs_table.add_column("Logger", style="blue", width=20)
-        logs_table.add_column("Message", style="white")
+        logs_table = Table.grid(expand=False, padding=(0, 1, 0, 0))
+        logs_table.add_column("Time", style="dim", width=16, justify="left")
+        # logs_table.add_column("Process", style="cyan", width=18)
+        logs_table.add_column("Logger", style="blue", width=25, justify="left")
+        logs_table.add_column("Level", style="bold", width=8, justify="left")
+        logs_table.add_column("Message", style="white", justify="left")
 
         # Show recent logs (most recent first)
         recent_logs = list(self.log_records)[-10:]  # Show last 10 logs
 
         for log_data in recent_logs:
             # Format timestamp
-            timestamp = time.strftime(
-                "%H:%M:%S.%f", time.localtime(log_data["created"])
-            )[:-3]
+            timestamp = datetime.fromtimestamp(log_data["created"]).strftime(
+                "%H:%M:%S.%f"
+            )
 
             # Get process info
-            process_name = log_data.get("process_name", "main")
-            process_id = log_data.get("process_id", 0)
-            process_info = f"{process_name}:{process_id}"
+            # process_name = log_data.get("process_name", "main")
+            # process_id = log_data.get("process_id", 0)
+            # process_info = f"{process_name}"
 
             # Color code log levels
             level_style = {
@@ -85,10 +88,10 @@ class LogsDashboardMixin(AIPerfLifecycleMixin):
 
             logs_table.add_row(
                 timestamp,
-                process_info[:15],  # Truncate long process names
+                log_data["name"][:24],  # Truncate long logger names
+                # process_info[:17],  # Truncate long process names
                 Text(log_data["levelname"], style=level_style),
-                log_data["name"][:20],  # Truncate long logger names
-                log_data["msg"][:200],  # Truncate long messages
+                log_data["msg"][:400],  # Truncate long messages
             )
 
         return logs_table

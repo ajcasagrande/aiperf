@@ -24,8 +24,7 @@ from aiperf.common.hooks import (
 )
 from aiperf.common.models import Message, WorkerHealthMessage
 from aiperf.common.service.base_component_service import BaseComponentService
-from aiperf.services.worker import worker
-from aiperf.services.worker.worker import MultiWorkerProcess
+from aiperf.services.worker.worker import Worker
 
 
 class WorkerProcessInfo(BaseModel):
@@ -35,9 +34,7 @@ class WorkerProcessInfo(BaseModel):
 
     worker_id: str = Field(..., description="ID of the worker process")
     process: Any = Field(None, description="Process object or task")
-    multi_worker_process: MultiWorkerProcess = Field(
-        ..., description="Multi worker process object"
-    )
+    worker: Worker = Field(..., description="Worker object")
 
 
 @ServiceFactory.register(ServiceType.WORKER_MANAGER, override_priority=100)
@@ -160,14 +157,12 @@ class WorkerManager(BaseComponentService):
 
         for _ in range(self.worker_count):
             worker_id = f"worker_{uuid.uuid4().hex[:8]}"
-            multi_worker_process = worker.MultiWorkerProcess(
-                service_config=self.service_config, service_id=worker_id
-            )
+            worker = Worker(service_config=self.service_config, service_id=worker_id)
 
             process = Process(
                 target=bootstrap_and_run_service,
                 name=f"{worker_id}_process",
-                args=(MultiWorkerProcess, self.service_config, log_queue),
+                args=(Worker, self.service_config, log_queue),
                 kwargs={"service_id": worker_id},
                 daemon=True,
             )
@@ -176,7 +171,7 @@ class WorkerManager(BaseComponentService):
             self.workers[worker_id] = WorkerProcessInfo(
                 worker_id=worker_id,
                 process=process,
-                multi_worker_process=multi_worker_process,
+                worker=worker,
             )
             self.logger.debug(
                 f"Started worker process {worker_id} (pid: {process.pid})"
@@ -189,8 +184,8 @@ class WorkerManager(BaseComponentService):
         # First terminate all processes
         for worker_id, worker_info in self.workers.items():
             self.logger.debug(f"Stopping worker process {worker_id} {worker_info}")
-            multi_worker_process = worker_info.multi_worker_process
-            multi_worker_process.stop_event.set()
+            worker = worker_info.worker
+            worker.stop_event.set()
             process = worker_info.process
             if process and process.is_alive():
                 self.logger.debug(

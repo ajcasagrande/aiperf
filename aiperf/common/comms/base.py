@@ -38,7 +38,8 @@ class PushClient(BaseCommunicationClient):
 
     @abstractmethod
     async def push(self, message: Message) -> None:
-        """Push data to a target.
+        """Push data to a target. The message will be routed automatically
+        based on the message type.
 
         Args:
             message_type: MessageType to push to
@@ -56,7 +57,8 @@ class PullClient(BaseCommunicationClient):
         message_type: MessageType,
         callback: Callable[[MessageT], Coroutine[Any, Any, None]],
     ) -> None:
-        """Register a callback for a pull client.
+        """Register a callback for a pull client. The callback will be called when
+        a message is received for the given message type.
 
         Args:
             message_type: The message type to register the callback for
@@ -74,7 +76,8 @@ class ReqClient(BaseCommunicationClient):
         self,
         message: MessageT,
     ) -> MessageOutputT:
-        """Send a request and wait for a response.
+        """Send a request and wait for a response. The message will be routed automatically
+        based on the message type.
 
         Args:
             message: Message to send (will be routed based on the message type)
@@ -95,7 +98,8 @@ class RepClient(BaseCommunicationClient):
         message_type: MessageType,
         handler: Callable[[MessageT], Coroutine[Any, Any, MessageOutputT | None]],
     ) -> None:
-        """Register a request handler for a message type.
+        """Register a request handler for a message type. The handler will be called when
+        a request is received for the given message type.
 
         Args:
             service_id: The service ID to register the handler for
@@ -114,12 +118,8 @@ class SubClient(BaseCommunicationClient):
         message_type: MessageType,
         callback: Callable[[MessageT], Coroutine[Any, Any, None]],
     ) -> None:
-        """Subscribe to a specific message type.
-
-        Args:
-            message_type: MessageType to subscribe to
-            callback: Function to call when a message is received
-        """
+        """Subscribe to a specific message type. The callback will be called when
+        a message is received for the given message type."""
         pass
 
 
@@ -128,7 +128,7 @@ class PubClient(BaseCommunicationClient):
 
     @abstractmethod
     async def publish(self, message: Message) -> None:
-        """Publish a message to a specific message type."""
+        """Publish a message. The message will be routed automatically based on the message type."""
         pass
 
 
