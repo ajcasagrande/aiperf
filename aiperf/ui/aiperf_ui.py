@@ -49,3 +49,9 @@ class AIPerfUI(AIPerfLifecycleMixin):
         self.dashboard.update_worker_health(message)
         if self.dashboard.running:
             self.dashboard.refresh_workers()
+
+    async def on_profile_results_update(self) -> None:
+        """Process the final results."""
+        logger.info("Performance testing completed successfully!")
+        # if self.dashboard.running:
+        #     self.dashboard.refresh_progress()
