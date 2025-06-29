@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from pydantic import BaseModel
 
-from aiperf.common.enums import ServiceType, Topic
+from aiperf.common.enums import MessageType, ServiceType
 from aiperf.common.service.base_service import BaseService
 from aiperf.services.service_manager.multiprocess import MultiProcessServiceManager
 from aiperf.services.system_controller.system_controller import SystemController
@@ -52,11 +52,15 @@ class TestSystemController(BaseTestControllerService):
         await async_fixture(initialized_service)
 
         # A SystemController should subscribe to registration, status, and heartbeat topics
-        expected_topics = [Topic.REGISTRATION, Topic.STATUS, Topic.HEARTBEAT]
+        expected_topics = [
+            MessageType.REGISTRATION,
+            MessageType.STATUS,
+            MessageType.HEARTBEAT,
+        ]
 
-        for topic in expected_topics:
-            assert topic in mock_communication.mock_data.subscriptions
-            assert callable(mock_communication.mock_data.subscriptions[topic])
+        for message_type in expected_topics:
+            assert message_type in mock_communication.mock_data.subscriptions
+            assert callable(mock_communication.mock_data.subscriptions[message_type])
 
     @pytest.fixture(autouse=True)
     def service_manager_with_multiprocess(

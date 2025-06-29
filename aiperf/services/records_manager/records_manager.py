@@ -7,11 +7,11 @@ from collections import deque
 
 import pandas as pd
 
-from aiperf.common.comms.base import PullClientInterface
+from aiperf.common.comms.base import PullClient
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
 from aiperf.common.constants import NANOS_PER_MILLIS
-from aiperf.common.enums import CommandType, MessageType, ServiceType, Topic
+from aiperf.common.enums import CommandType, MessageType, ServiceType
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
     aiperf_task,
@@ -52,7 +52,6 @@ class RecordsManager(BaseComponentService):
 
         self.records: deque[RequestRecord] = deque()
         self.error_records: deque[RequestRecord] = deque()
-        self.inference_results_client: PullClientInterface
         # Track per-worker statistics
         self.worker_request_counts: dict[str, int] = {}
         self.worker_error_counts: dict[str, int] = {}
@@ -65,6 +64,11 @@ class RecordsManager(BaseComponentService):
         self.user_config: UserConfig | None = None
 
         self.incoming_records: asyncio.Queue[InferenceResultsMessage] = asyncio.Queue()
+
+        self.inference_results_client: PullClient = self.comms.create_pull_client(
+            address=self.service_config.comm_config.inference_push_pull_address,
+            bind=True,
+        )
 
     @property
     def service_type(self) -> ServiceType:
@@ -82,11 +86,6 @@ class RecordsManager(BaseComponentService):
         """Initialize records manager-specific components."""
         self.logger.debug("Initializing records manager")
         # TODO: Implement records manager initialization
-        self.inference_results_client = await self.comms.create_pull_client(
-            address=self.service_config.comm_config.inference_push_pull_address,
-            bind=True,
-        )
-        await self.inference_results_client.initialize()
 
         self.register_command_callback(
             CommandType.PROCESS_RECORDS,
@@ -156,8 +155,7 @@ class RecordsManager(BaseComponentService):
     async def publish_profile_stats(self) -> None:
         """Publish the profile stats."""
         await self.pub_client.publish(
-            topic=Topic.PROFILE_STATS,
-            message=ProfileStatsMessage(
+            ProfileStatsMessage(
                 service_id=self.service_id,
                 error_count=len(self.error_records),
                 completed=len(self.records) + len(self.error_records),
@@ -255,14 +253,12 @@ class RecordsManager(BaseComponentService):
 
         if profile_results:
             await self.pub_client.publish(
-                topic=Topic.PROFILE_RESULTS,
-                message=profile_results,
+                profile_results,
             )
         else:
             self.logger.error("No profile results to publish")
             await self.pub_client.publish(
-                topic=Topic.PROFILE_RESULTS,
-                message=ProfileResultsMessage(
+                ProfileResultsMessage(
                     service_id=self.service_id,
                     total=0,
                     completed=0,

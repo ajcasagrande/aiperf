@@ -8,8 +8,8 @@ from abc import ABC
 
 from aiperf.common.comms.base import (
     BaseCommunication,
-    PubClientInterface,
-    SubClientInterface,
+    PubClient,
+    SubClient,
 )
 from aiperf.common.config import ServiceConfig
 from aiperf.common.enums import ServiceState, ServiceType
@@ -71,8 +71,8 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
 
         self._comms: BaseCommunication
 
-        self.pub_client: PubClientInterface
-        self.sub_client: SubClientInterface
+        self.pub_client: PubClient
+        self.sub_client: SubClient
 
         try:
             import setproctitle

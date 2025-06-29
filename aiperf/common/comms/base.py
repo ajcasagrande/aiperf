@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Coroutine
 from typing import Any, TypeVar
 
-from aiperf.common.enums import MessageType, Topic
+from aiperf.common.enums import MessageType
 from aiperf.common.models import Message
 
 logger = logging.getLogger(__name__)
@@ -33,7 +33,7 @@ class BaseCommunicationClient(ABC):
         pass
 
 
-class PushClientInterface(BaseCommunicationClient):
+class PushClient(BaseCommunicationClient):
     """Interface for push clients."""
 
     @abstractmethod
@@ -41,13 +41,13 @@ class PushClientInterface(BaseCommunicationClient):
         """Push data to a target.
 
         Args:
-            topic: Topic to push to
+            message_type: MessageType to push to
             message: Message to be pushed
         """
         pass
 
 
-class PullClientInterface(BaseCommunicationClient):
+class PullClient(BaseCommunicationClient):
     """Interface for pull clients."""
 
     @abstractmethod
@@ -65,7 +65,7 @@ class PullClientInterface(BaseCommunicationClient):
         pass
 
 
-class ReqClientInterface(BaseCommunicationClient):
+class ReqClient(BaseCommunicationClient):
     """Interface for request clients."""
 
     # TODO: Should this accept a target service type for routing?
@@ -85,7 +85,7 @@ class ReqClientInterface(BaseCommunicationClient):
         pass
 
 
-class RepClientInterface(BaseCommunicationClient):
+class RepClient(BaseCommunicationClient):
     """Interface for reply clients."""
 
     @abstractmethod
@@ -105,30 +105,30 @@ class RepClientInterface(BaseCommunicationClient):
         pass
 
 
-class SubClientInterface(BaseCommunicationClient):
+class SubClient(BaseCommunicationClient):
     """Interface for subscribe clients."""
 
     @abstractmethod
     async def subscribe(
         self,
-        topic: Topic,
+        message_type: MessageType,
         callback: Callable[[MessageT], Coroutine[Any, Any, None]],
     ) -> None:
-        """Subscribe to a topic.
+        """Subscribe to a specific message type.
 
         Args:
-            topic: Topic to subscribe to
+            message_type: MessageType to subscribe to
             callback: Function to call when a message is received
         """
         pass
 
 
-class PubClientInterface(BaseCommunicationClient):
+class PubClient(BaseCommunicationClient):
     """Interface for publish clients."""
 
     @abstractmethod
-    async def publish(self, topic: Topic, message: Message) -> None:
-        """Publish a message to a topic."""
+    async def publish(self, message: Message) -> None:
+        """Publish a message to a specific message type."""
         pass
 
 
@@ -171,9 +171,9 @@ class BaseCommunication(ABC):
         pass
 
     @abstractmethod
-    async def create_pub_client(
+    def create_pub_client(
         self, address: str, bind: bool = False, socket_ops: dict | None = None
-    ) -> PubClientInterface:
+    ) -> PubClient:
         """Create a publish client.
 
         Args:
@@ -184,9 +184,9 @@ class BaseCommunication(ABC):
         pass
 
     @abstractmethod
-    async def create_sub_client(
+    def create_sub_client(
         self, address: str, bind: bool = False, socket_ops: dict | None = None
-    ) -> SubClientInterface:
+    ) -> SubClient:
         """Create a subscribe client.
 
         Args:
@@ -197,9 +197,9 @@ class BaseCommunication(ABC):
         pass
 
     @abstractmethod
-    async def create_push_client(
+    def create_push_client(
         self, address: str, bind: bool = False, socket_ops: dict | None = None
-    ) -> PushClientInterface:
+    ) -> PushClient:
         """Create a push client.
 
         Args:
@@ -210,9 +210,9 @@ class BaseCommunication(ABC):
         pass
 
     @abstractmethod
-    async def create_pull_client(
+    def create_pull_client(
         self, address: str, bind: bool = False, socket_ops: dict | None = None
-    ) -> PullClientInterface:
+    ) -> PullClient:
         """Create a pull client.
 
         Args:
@@ -223,9 +223,9 @@ class BaseCommunication(ABC):
         pass
 
     @abstractmethod
-    async def create_req_client(
+    def create_req_client(
         self, address: str, bind: bool = False, socket_ops: dict | None = None
-    ) -> ReqClientInterface:
+    ) -> ReqClient:
         """Create a request client.
 
         Args:
@@ -236,9 +236,9 @@ class BaseCommunication(ABC):
         pass
 
     @abstractmethod
-    async def create_rep_client(
+    def create_rep_client(
         self, address: str, bind: bool = False, socket_ops: dict | None = None
-    ) -> RepClientInterface:
+    ) -> RepClient:
         """Create a reply client.
 
         Args:

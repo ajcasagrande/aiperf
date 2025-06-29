@@ -107,6 +107,13 @@ class BaseZMQCommunication(BaseCommunication, ABC):
             return
 
         self._context = zmq.asyncio.Context.instance()
+        await asyncio.gather(
+            *(
+                client.initialize()
+                for client in self.clients
+                if not client.is_initialized
+            )
+        )
         self.initialized_event.set()
 
     async def shutdown(self) -> None:
@@ -125,7 +132,9 @@ class BaseZMQCommunication(BaseCommunication, ABC):
             if not self.stop_event.is_set():
                 self.stop_event.set()
 
-            await asyncio.gather(*(client.shutdown() for client in self.clients))
+            await asyncio.gather(
+                *(client.shutdown() for client in self.clients if client.is_initialized)
+            )
 
             if self.context and not self.context.closed:
                 self.context.term()
@@ -145,20 +154,7 @@ class BaseZMQCommunication(BaseCommunication, ABC):
             self.clients.clear()
             self._context = None
 
-    async def _ensure_initialized(self) -> None:
-        """Ensure the communication channels are initialized.
-
-        Raises:
-            CommunicationError: If the communication channels are not initialized
-                or shutdown
-            asyncio.CancelledError: If the communication channels are shutdown
-        """
-        if not self.is_initialized:
-            await self.initialize()
-        if self.is_shutdown:
-            raise asyncio.CancelledError()
-
-    async def create_pub_client(
+    def create_pub_client(
         self, address: str, bind: bool = False, socket_ops: dict | None = None
     ) -> ZMQPubClient:
         """Create a publish client.
@@ -168,13 +164,12 @@ class BaseZMQCommunication(BaseCommunication, ABC):
             bind: Whether to bind or connect the socket.
             socket_ops: Additional socket options to set.
         """
-        await self._ensure_initialized()
 
         pub_client = ZMQPubClient(self.context, address, bind, socket_ops)
         self.clients.append(pub_client)
         return pub_client
 
-    async def create_sub_client(
+    def create_sub_client(
         self, address: str, bind: bool = False, socket_ops: dict | None = None
     ) -> ZMQSubClient:
         """Create a subscribe client.
@@ -184,13 +179,12 @@ class BaseZMQCommunication(BaseCommunication, ABC):
             bind: Whether to bind or connect the socket.
             socket_ops: Additional socket options to set.
         """
-        await self._ensure_initialized()
 
         sub_client = ZMQSubClient(self.context, address, bind, socket_ops)
         self.clients.append(sub_client)
         return sub_client
 
-    async def create_push_client(
+    def create_push_client(
         self, address: str, bind: bool = False, socket_ops: dict | None = None
     ) -> ZMQPushClient:
         """Create a push client.
@@ -200,13 +194,12 @@ class BaseZMQCommunication(BaseCommunication, ABC):
             bind: Whether to bind or connect the socket.
             socket_ops: Additional socket options to set.
         """
-        await self._ensure_initialized()
 
         push_client = ZMQPushClient(self.context, address, bind, socket_ops)
         self.clients.append(push_client)
         return push_client
 
-    async def create_pull_client(
+    def create_pull_client(
         self, address: str, bind: bool = False, socket_ops: dict | None = None
     ) -> ZMQPullClient:
         """Create a pull client.
@@ -216,13 +209,12 @@ class BaseZMQCommunication(BaseCommunication, ABC):
             bind: Whether to bind or connect the socket.
             socket_ops: Additional socket options to set.
         """
-        await self._ensure_initialized()
 
         pull_client = ZMQPullClient(self.context, address, bind, socket_ops)
         self.clients.append(pull_client)
         return pull_client
 
-    async def create_req_client(
+    def create_req_client(
         self, address: str, bind: bool = False, socket_ops: dict | None = None
     ) -> ZMQDealerReqClient:
         """Create a request DEALER client.
@@ -232,13 +224,12 @@ class BaseZMQCommunication(BaseCommunication, ABC):
             bind: Whether to bind or connect the socket.
             socket_ops: Additional socket options to set.
         """
-        await self._ensure_initialized()
 
         req_client = ZMQDealerReqClient(self.context, address, bind, socket_ops)
         self.clients.append(req_client)
         return req_client
 
-    async def create_rep_client(
+    def create_rep_client(
         self, address: str, bind: bool = False, socket_ops: dict | None = None
     ) -> ZMQRouterRepClient:
         """Create a reply ROUTER client.
@@ -248,8 +239,6 @@ class BaseZMQCommunication(BaseCommunication, ABC):
             bind: Whether to bind or connect the socket.
             socket_ops: Additional socket options to set.
         """
-        await self._ensure_initialized()
-
         rep_client = ZMQRouterRepClient(self.context, address, bind, socket_ops)
         self.clients.append(rep_client)
         return rep_client

@@ -6,7 +6,7 @@ from typing import Any
 
 import zmq.asyncio
 
-from aiperf.common.comms.base import SubClientInterface
+from aiperf.common.comms.base import SubClient
 from aiperf.common.comms.zmq.clients.base import BaseZMQClient
 from aiperf.common.exceptions import CommunicationError, CommunicationErrorReason
 from aiperf.common.hooks import aiperf_task
@@ -14,7 +14,7 @@ from aiperf.common.models import Message
 from aiperf.common.utils import call_all_functions
 
 
-class ZMQSubClient(BaseZMQClient, SubClientInterface):
+class ZMQSubClient(BaseZMQClient, SubClient):
     def __init__(
         self,
         context: zmq.asyncio.Context,
@@ -34,11 +34,13 @@ class ZMQSubClient(BaseZMQClient, SubClientInterface):
         super().__init__(context, zmq.SocketType.SUB, address, bind, socket_ops)
         self._subscribers: dict[str, list[Callable[[Message], Any]]] = {}
 
-    async def subscribe(self, topic: str, callback: Callable[[Message], Any]) -> None:
-        """Subscribe to a topic.
+    async def subscribe(
+        self, message_type: str, callback: Callable[[Message], Any]
+    ) -> None:
+        """Subscribe to a message_type.
 
         Args:
-            topic: Topic to subscribe to
+            message_type: MessageType to subscribe to
             callback: Function to call when a message is received (receives Message object)
 
         Raises:
@@ -47,40 +49,44 @@ class ZMQSubClient(BaseZMQClient, SubClientInterface):
         await self._ensure_initialized()
 
         try:
-            # Subscribe to topic
-            self.socket.subscribe(topic.encode())
+            # Subscribe to message_type
+            self.socket.subscribe(message_type.encode())
 
             # Register callback
-            if topic not in self._subscribers:
-                self._subscribers[topic] = []
-            self._subscribers[topic].append(callback)
+            if message_type not in self._subscribers:
+                self._subscribers[message_type] = []
+            self._subscribers[message_type].append(callback)
 
             self.logger.debug(
-                "Subscribed to topic: %s, %s", topic, self._subscribers[topic]
+                "Subscribed to message_type: %s, %s",
+                message_type,
+                self._subscribers[message_type],
             )
 
         except Exception as e:
-            self.logger.error("Exception subscribing to topic %s: %s", topic, e)
+            self.logger.error(
+                "Exception subscribing to message_type %s: %s", message_type, e
+            )
             raise CommunicationError(
                 CommunicationErrorReason.SUBSCRIBE_ERROR,
-                f"Failed to subscribe to topic {topic}: {e}",
+                f"Failed to subscribe to message_type {message_type}: {e}",
             ) from e
 
     async def _handle_message(self, topic_bytes: bytes, message_bytes: bytes) -> None:
-        """Handle a message from a subscribed topic."""
-        topic = topic_bytes.decode()
+        """Handle a message from a subscribed message_type."""
+        message_type = topic_bytes.decode()
         message_json = message_bytes.decode()
         self.logger.debug(
-            "Received message from topic: '%s', message: %s",
-            topic,
+            "Received message from message_type: '%s', message: %s",
+            message_type,
             message_json,
         )
 
         message = Message.from_json(message_json)
 
         # Call callbacks with the parsed message object
-        if topic in self._subscribers:
-            await call_all_functions(self._subscribers[topic], message)
+        if message_type in self._subscribers:
+            await call_all_functions(self._subscribers[message_type], message)
 
     @aiperf_task
     async def _sub_receiver(self) -> None:

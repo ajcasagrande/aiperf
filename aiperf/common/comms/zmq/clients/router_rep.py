@@ -6,7 +6,7 @@ from typing import Any
 
 import zmq.asyncio
 
-from aiperf.common.comms.base import RepClientInterface
+from aiperf.common.comms.base import RepClient
 from aiperf.common.comms.zmq.clients.base import BaseZMQClient
 from aiperf.common.enums import MessageType
 from aiperf.common.hooks import aiperf_task, on_cleanup
@@ -14,7 +14,7 @@ from aiperf.common.models import ErrorMessage, Message
 from aiperf.common.models.record_models import ErrorDetails
 
 
-class ZMQRouterRepClient(BaseZMQClient, RepClientInterface):
+class ZMQRouterRepClient(BaseZMQClient, RepClient):
     def __init__(
         self,
         context: zmq.asyncio.Context,

@@ -10,7 +10,7 @@ import pytest
 
 from aiperf.common.comms.zmq import BaseZMQCommunication
 from aiperf.common.config import ZMQIPCConfig
-from aiperf.common.enums import ServiceState, ServiceType, Topic
+from aiperf.common.enums import MessageType, ServiceState, ServiceType
 from aiperf.common.exceptions import CommunicationError, CommunicationErrorReason
 from aiperf.common.models import Message, StatusMessage
 
@@ -88,15 +88,15 @@ class TestZMQCommunication:
         zmq_communication.initialized_event.set()
 
         # Publish a message
-        result = await zmq_communication.publish(Topic.STATUS, test_message)
+        result = await zmq_communication.publish(MessageType.STATUS, test_message)
 
         # Verify the message was published
         assert result is None
-        mock_client.publish.assert_called_once_with(Topic.STATUS, test_message)
+        mock_client.publish.assert_called_once_with(MessageType.STATUS, test_message)
 
     @pytest.mark.asyncio
     async def test_subscribe_to_topic(self, zmq_communication):
-        """Test subscribing to a topic."""
+        """Test subscribing to a message_type."""
         # Mock the client socket
         mock_client = AsyncMock()
         mock_client.subscribe.return_value = None
@@ -109,12 +109,12 @@ class TestZMQCommunication:
         async def callback(message: Message):
             pass
 
-        # Subscribe to a topic
-        result = await zmq_communication.subscribe(Topic.STATUS, callback)
+        # Subscribe to a message_type
+        result = await zmq_communication.subscribe(MessageType.STATUS, callback)
 
         # Verify subscription was set up
         assert result is None
-        mock_client.subscribe.assert_called_once_with(Topic.STATUS, callback)
+        mock_client.subscribe.assert_called_once_with(MessageType.STATUS, callback)
 
     @pytest.mark.asyncio
     async def test_shutdown(self, zmq_communication):

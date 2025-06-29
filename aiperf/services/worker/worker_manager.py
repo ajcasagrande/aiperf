@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from aiperf.common.bootstrap import bootstrap_and_run_service
 from aiperf.common.config import ServiceConfig
-from aiperf.common.enums import ServiceRunType, ServiceType, Topic
+from aiperf.common.enums import MessageType, ServiceRunType, ServiceType
 from aiperf.common.exceptions import ConfigError, ConfigErrorReason
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
@@ -80,7 +80,9 @@ class WorkerManager(BaseComponentService):
         """Initialize worker manager-specific components."""
         self.logger.debug("Initializing worker manager")
 
-        await self.sub_client.subscribe(Topic.WORKER_HEALTH, self._on_worker_health)
+        await self.sub_client.subscribe(
+            MessageType.WORKER_HEALTH, self._on_worker_health
+        )
 
         # Spawn workers based on CPU count
         if self.service_config.service_run_type == ServiceRunType.MULTIPROCESSING:

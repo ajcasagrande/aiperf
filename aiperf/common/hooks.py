@@ -22,19 +22,11 @@ import asyncio
 import contextlib
 import inspect
 import logging
-import uuid
 from collections.abc import Awaitable, Callable
 from typing import ClassVar
 
-from aiperf.common.comms.base import (
-    BaseCommunication,
-    PubClientInterface,
-    SubClientInterface,
-)
-from aiperf.common.config import ServiceConfig
-from aiperf.common.enums import CaseInsensitiveStrEnum, ServiceType
+from aiperf.common.enums import CaseInsensitiveStrEnum
 from aiperf.common.exceptions import AIPerfError, AIPerfMultiError, UnsupportedHookError
-from aiperf.common.factories import CommunicationFactory
 from aiperf.common.models import Message
 
 ################################################################################
@@ -663,44 +655,3 @@ class AIPerfProfileMixin(HooksMixin):
     async def wait_for_profile_stopped(self):
         """Wait for the profile to stop."""
         await self.profile_stopped_event.wait()
-
-
-class AIPerfServiceMixin(AIPerfLifecycleMixin):
-    service_type: ClassVar[ServiceType]
-
-    def __init__(self, service_config: ServiceConfig, service_id: str | None = None):
-        super().__init__()
-        self.service_config = service_config
-        self.service_id = service_id or f"{self.service_type}_{uuid.uuid4().hex[:8]}"
-        self.logger = logging.getLogger(self.service_id)
-        self.logger.debug(
-            f"Initializing {self.service_type} service (id: {self.service_id})"
-        )
-        self.comms: BaseCommunication = CommunicationFactory.create_instance(
-            self.service_config.comm_backend,
-            config=self.service_config.comm_config,
-        )
-        self.sub_client: SubClientInterface | None = None
-        self.pub_client: PubClientInterface | None = None
-
-    @on_init
-    async def initialize(self):
-        """Initialize the service."""
-        await self.comms.initialize()
-
-        self.sub_client = await self.comms.create_sub_client(
-            address=self.service_config.comm_config.xpub_xsub_proxy_config.backend_address,
-        )
-        await self.sub_client.initialize()
-        self.pub_client = await self.comms.create_pub_client(
-            address=self.service_config.comm_config.xpub_xsub_proxy_config.frontend_address,
-        )
-        await self.pub_client.initialize()
-
-
-class AIPerfComponentServiceMixin(AIPerfProfileMixin, AIPerfServiceMixin):
-    """Mixin to add component service support to a class. It abstracts away the details of the
-    :class:`AIPerfComponentService` and provides a simple interface for registering and running components."""
-
-    def __init__(self, service_config: ServiceConfig, service_id: str | None = None):
-        super().__init__(service_config, service_id)

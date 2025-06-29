@@ -85,11 +85,11 @@
 
 #         # Receive message on subscriber
 #         try:
-#             topic, message_data = await asyncio.wait_for(
+#             message_type, message_data = await asyncio.wait_for(
 #                 sub_socket.recv_multipart(), timeout=2.0
 #             )
 
-#             assert topic == b"test_topic"
+#             assert message_type == b"test_topic"
 #             received_data = json.loads(message_data.decode())
 #             assert received_data == test_message
 
@@ -114,7 +114,7 @@
 #         for _ in range(2):
 #             sub_socket = context.socket(zmq.SUB)
 #             sub_socket.connect(proxy_client.backend_address)
-#             sub_socket.setsockopt(zmq.SUBSCRIBE, b"topic")
+#             sub_socket.setsockopt(zmq.SUBSCRIBE, b"message_type")
 #             subscribers.append(sub_socket)
 
 #         # Give sockets time to connect
@@ -125,7 +125,7 @@
 #         for i, pub_socket in enumerate(publishers):
 #             test_message = {"publisher": i, "data": f"message_{i}"}
 #             message_json = json.dumps(test_message)
-#             await pub_socket.send_multipart([b"topic", message_json.encode()])
+#             await pub_socket.send_multipart([b"message_type", message_json.encode()])
 #             messages.append(test_message)
 
 #         # Receive messages on both subscribers
@@ -133,7 +133,7 @@
 #         for sub_socket in subscribers:
 #             for _ in range(2):  # Expect 2 messages per subscriber
 #                 try:
-#                     topic, message_data = await asyncio.wait_for(
+#                     message_type, message_data = await asyncio.wait_for(
 #                         sub_socket.recv_multipart(), timeout=2.0
 #                     )
 #                     received_data = json.loads(message_data.decode())
@@ -232,11 +232,11 @@
 
 #             # Receive and verify message
 #             try:
-#                 topic, message_data = await asyncio.wait_for(
+#                 message_type, message_data = await asyncio.wait_for(
 #                     sub_socket.recv_multipart(), timeout=2.0
 #                 )
 
-#                 assert topic == b"integration_test"
+#                 assert message_type == b"integration_test"
 #                 received_data = json.loads(message_data.decode())
 #                 assert received_data == test_data
 
@@ -252,7 +252,7 @@
 
 # @pytest.mark.asyncio
 # async def test_proxy_topic_filtering():
-#     """Test that the proxy correctly filters messages by topic."""
+#     """Test that the proxy correctly filters messages by message_type."""
 #     context = zmq.asyncio.Context()
 
 #     try:
@@ -290,16 +290,16 @@
 
 #         # Subscriber 1 should only receive topic1 message
 #         try:
-#             topic, message = await asyncio.wait_for(sub1.recv_multipart(), timeout=1.0)
-#             assert topic == b"topic1"
+#             message_type, message = await asyncio.wait_for(sub1.recv_multipart(), timeout=1.0)
+#             assert message_type == b"topic1"
 #             assert message == b"message_for_topic1"
 #         except asyncio.TimeoutError:
 #             pytest.fail("Subscriber 1 did not receive topic1 message")
 
 #         # Subscriber 2 should only receive topic2 message
 #         try:
-#             topic, message = await asyncio.wait_for(sub2.recv_multipart(), timeout=1.0)
-#             assert topic == b"topic2"
+#             message_type, message = await asyncio.wait_for(sub2.recv_multipart(), timeout=1.0)
+#             assert message_type == b"topic2"
 #             assert message == b"message_for_topic2"
 #         except asyncio.TimeoutError:
 #             pytest.fail("Subscriber 2 did not receive topic2 message")

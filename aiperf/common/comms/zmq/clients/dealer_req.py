@@ -5,13 +5,13 @@ import uuid
 
 import zmq.asyncio
 
-from aiperf.common.comms.base import ReqClientInterface
+from aiperf.common.comms.base import ReqClient
 from aiperf.common.comms.zmq.clients.base import BaseZMQClient
 from aiperf.common.exceptions import CommunicationError, CommunicationErrorReason
 from aiperf.common.models import Message
 
 
-class ZMQDealerReqClient(BaseZMQClient, ReqClientInterface):
+class ZMQDealerReqClient(BaseZMQClient, ReqClient):
     def __init__(
         self,
         context: zmq.asyncio.Context,

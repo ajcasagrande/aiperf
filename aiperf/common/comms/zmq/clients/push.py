@@ -6,7 +6,7 @@ import logging
 
 import zmq.asyncio
 
-from aiperf.common.comms.base import PushClientInterface
+from aiperf.common.comms.base import PushClient
 from aiperf.common.comms.zmq.clients.base import BaseZMQClient
 from aiperf.common.exceptions import CommunicationError, CommunicationErrorReason
 from aiperf.common.models import Message
@@ -14,7 +14,7 @@ from aiperf.common.models import Message
 logger = logging.getLogger(__name__)
 
 
-class ZMQPushClient(BaseZMQClient, PushClientInterface):
+class ZMQPushClient(BaseZMQClient, PushClient):
     def __init__(
         self,
         context: zmq.asyncio.Context,

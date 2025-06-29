@@ -11,14 +11,14 @@ import psutil
 from aiperf.clients.openai.common import OpenAIClientConfig
 from aiperf.common.comms.base import (
     BaseCommunication,
-    PubClientInterface,
-    PullClientInterface,
-    PushClientInterface,
-    ReqClientInterface,
+    PubClient,
+    PullClient,
+    PushClient,
+    ReqClient,
 )
 from aiperf.common.config import EndPointConfig, ServiceConfig, UserConfig
 from aiperf.common.constants import BYTES_PER_MIB, NANOS_PER_MILLIS
-from aiperf.common.enums import InferenceClientType, MessageType, Topic
+from aiperf.common.enums import InferenceClientType, MessageType
 from aiperf.common.factories import InferenceClientFactory
 from aiperf.common.interfaces import InferenceClientProtocol
 from aiperf.common.models import (
@@ -77,11 +77,11 @@ class UniversalWorker:
 
         self.zmq_comms: BaseCommunication | None = None
 
-        self.credit_drop_client: PullClientInterface
-        self.credit_return_client: PushClientInterface
-        self.inference_results_client: PushClientInterface
-        self.conversation_data_client: ReqClientInterface
-        self.pub_client: PubClientInterface
+        self.credit_drop_client: PullClient
+        self.credit_return_client: PushClient
+        self.inference_results_client: PushClient
+        self.conversation_data_client: ReqClient
+        self.pub_client: PubClient
 
         self.stop_event: asyncio.Event = asyncio.Event()
         self.health_task: asyncio.Task | None = None
@@ -162,7 +162,7 @@ class UniversalWorker:
         else:
             self.failed_tasks += 1
 
-        # Push the record to the inference results topic
+        # Push the record to the inference results message_type
         try:
             await self.inference_results_client.push(
                 message=msg,
@@ -312,11 +312,8 @@ class UniversalWorker:
         """Task to report the health of the worker to the worker manager."""
         while not self.stop_event.is_set():
             try:
-                message = self._health_check()
-                await self.pub_client.publish(
-                    topic=Topic.WORKER_HEALTH,
-                    message=message,
-                )
+                health_message = self._health_check()
+                await self.pub_client.publish(health_message)
             except Exception as e:
                 self.logger.error("Error reporting health: %s", e)
             await asyncio.sleep(self.health_check_interval)

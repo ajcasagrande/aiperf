@@ -8,7 +8,7 @@ from typing import Any
 
 import zmq.asyncio
 
-from aiperf.common.comms.base import PullClientInterface
+from aiperf.common.comms.base import PullClient
 from aiperf.common.comms.zmq.clients.base import BaseZMQClient
 from aiperf.common.enums import MessageType
 from aiperf.common.hooks import aiperf_task
@@ -18,7 +18,7 @@ from aiperf.common.utils import call_all_functions
 logger = logging.getLogger(__name__)
 
 
-class ZMQPullClient(BaseZMQClient, PullClientInterface):
+class ZMQPullClient(BaseZMQClient, PullClient):
     def __init__(
         self,
         context: zmq.asyncio.Context,
@@ -93,7 +93,7 @@ class ZMQPullClient(BaseZMQClient, PullClientInterface):
             )
         else:
             logger.debug(
-                "Pull message received on topic without callback %s",
+                "Pull message received for message type %s without callback",
                 message.message_type,
             )
         # release the semaphore to allow receiving more messages

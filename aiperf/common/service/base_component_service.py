@@ -4,7 +4,12 @@ import asyncio
 from collections.abc import Awaitable, Callable
 
 from aiperf.common.config import ServiceConfig
-from aiperf.common.enums import CommandResponseStatus, CommandType, ServiceState, Topic
+from aiperf.common.enums import (
+    CommandResponseStatus,
+    CommandType,
+    MessageType,
+    ServiceState,
+)
 from aiperf.common.exceptions import ServiceErrorType
 from aiperf.common.hooks import AIPerfHook, aiperf_task, on_init, on_set_state
 from aiperf.common.models import (
@@ -25,7 +30,7 @@ class BaseComponentService(BaseService):
     framework such as the Timing Manager, Dataset Manager, etc.
 
     It extends the BaseService by:
-    - Subscribing to the command topic
+    - Subscribing to the command message_type
     - Processing command messages
     - Sending registration requests to the system controller
     - Sending heartbeat notifications to the system controller
@@ -44,24 +49,24 @@ class BaseComponentService(BaseService):
 
     @on_init
     async def _on_init1(self) -> None:
-        """Automatically subscribe to the command topic and register the service
+        """Automatically subscribe to the command message_type and register the service
         with the system controller when the run hook is called.
 
         This method will:
-        - Subscribe to the command topic
+        - Subscribe to the command message_type
         - Wait for the communication to be fully initialized
         - Register the service with the system controller
         """
-        # Subscribe to the command topic
+        # Subscribe to the command message_type
         try:
             await self.sub_client.subscribe(
-                Topic.COMMAND,
+                MessageType.COMMAND,
                 self.process_command_message,
             )
         except Exception as e:
             raise self._service_error(
                 ServiceErrorType.INITIALIZATION_ERROR,
-                "Failed to subscribe to command topic",
+                "Failed to subscribe to command message_type",
             ) from e
 
         # TODO: HACK: Sleep for 1 second to allow the controller to be ready to register the service
@@ -101,7 +106,6 @@ class BaseComponentService(BaseService):
         self.logger.debug("Sending heartbeat: %s", heartbeat_message)
         try:
             await self.pub_client.publish(
-                topic=Topic.HEARTBEAT,
                 message=heartbeat_message,
             )
         except Exception as e:
@@ -123,7 +127,6 @@ class BaseComponentService(BaseService):
         )
         try:
             await self.pub_client.publish(
-                topic=Topic.REGISTRATION,
                 message=self.create_registration_message(),
             )
         except Exception as e:
@@ -172,8 +175,7 @@ class BaseComponentService(BaseService):
 
             # Publish the success response
             await self.pub_client.publish(
-                topic=Topic.COMMAND_RESPONSE,
-                message=CommandResponseMessage(
+                CommandResponseMessage(
                     service_id=self.service_id,
                     command=cmd,
                     command_id=message.command_id,
@@ -185,8 +187,7 @@ class BaseComponentService(BaseService):
         except Exception as e:
             # Publish the failure response
             await self.pub_client.publish(
-                topic=Topic.COMMAND_RESPONSE,
-                message=CommandResponseMessage(
+                CommandResponseMessage(
                     service_id=self.service_id,
                     command=cmd,
                     command_id=message.command_id,
@@ -207,7 +208,7 @@ class BaseComponentService(BaseService):
     async def _on_set_state(self, state: ServiceState) -> None:
         """Action to take when the service state is set.
 
-        This method will also publish the status message to the status topic if the
+        This method will also publish the status message to the status message_type if the
         communications are initialized.
         """
         if (
@@ -216,8 +217,7 @@ class BaseComponentService(BaseService):
             and not self.pub_client.stop_event.is_set()
         ):
             await self.pub_client.publish(
-                topic=Topic.STATUS,
-                message=self.create_status_message(state),
+                self.create_status_message(state),
             )
 
     def create_heartbeat_message(self) -> HeartbeatMessage:

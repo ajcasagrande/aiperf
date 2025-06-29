@@ -62,24 +62,6 @@ class CommunicationBackend(CaseInsensitiveStrEnum):
     """ZeroMQ backend using IPC sockets."""
 
 
-class Topic(CaseInsensitiveStrEnum):
-    """Communication topics for the main messaging bus.
-    Right now, there is some overlap between Topic and MessageType.
-    """
-
-    CREDITS_COMPLETE = "credits_complete"
-    PROFILE_PROGRESS = "profile_progress"
-    PROFILE_STATS = "profile_stats"
-    PROFILE_RESULTS = "profile_results"
-    REGISTRATION = "registration"
-    COMMAND = "command"
-    COMMAND_RESPONSE = "command_response"
-    STATUS = "status"
-    HEARTBEAT = "heartbeat"
-    NOTIFICATION = "notification"
-    WORKER_HEALTH = "worker_health"
-
-
 class CommandResponseStatus(CaseInsensitiveStrEnum):
     """Status of a command response."""
 

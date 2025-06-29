@@ -7,7 +7,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
-from aiperf.common.comms.base import RepClientInterface
+from aiperf.common.comms.base import RepClient
 from aiperf.common.config import ServiceConfig
 from aiperf.common.dataset_models import Conversation
 from aiperf.common.enums import (
@@ -16,7 +16,6 @@ from aiperf.common.enums import (
     MessageType,
     NotificationType,
     ServiceType,
-    Topic,
 )
 from aiperf.common.exceptions import AIPerfError, ServiceErrorType
 from aiperf.common.factories import ServiceFactory
@@ -72,8 +71,11 @@ class DatasetManager(BaseComponentService):
         super().__init__(service_config=service_config, service_id=service_id)
         self.logger.debug("Initializing dataset manager")
         self.tokenizer: Tokenizer | None = None
-        self.conversation_data_client: RepClientInterface
         self.dataset: dict[str, Conversation] = {}  # session ID -> Conversation mapping
+        self.conversation_data_client: RepClient = self.comms.create_rep_client(
+            address=self.service_config.comm_config.conversation_data_address,
+            bind=True,
+        )
 
     @property
     def service_type(self) -> ServiceType:
@@ -87,15 +89,6 @@ class DatasetManager(BaseComponentService):
 
         if self.comms is None:
             raise AIPerfError("Communication is not initialized")
-
-        self.conversation_data_client = await self.comms.create_rep_client(
-            address=self.service_config.comm_config.conversation_data_address,
-            bind=True,
-        )
-        await self.conversation_data_client.initialize()
-
-        if self.conversation_data_client is None:
-            raise AIPerfError("Conversation data client is not initialized")
 
         self.conversation_data_client.register_request_handler(
             service_id=self.service_id,
@@ -164,8 +157,7 @@ class DatasetManager(BaseComponentService):
         self.dataset = {conv.session_id: conv for conv in conversations}
 
         await self.pub_client.publish(
-            topic=Topic.NOTIFICATION,
-            message=NotificationMessage(
+            NotificationMessage(
                 service_id=self.service_id,
                 message_type=MessageType.NOTIFICATION,
                 notification_type=NotificationType.DATASET_CONFIGURED,

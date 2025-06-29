@@ -9,19 +9,21 @@ import pytest
 from pydantic import BaseModel, Field
 
 from aiperf.common.comms.zmq import BaseZMQCommunication
-from aiperf.common.enums import MessageType, ServiceState, ServiceType, Topic
+from aiperf.common.enums import MessageType, ServiceState, ServiceType
 from aiperf.common.models import Message, StatusMessage
 
 
 class MockCommunicationData(BaseModel):
     """Data structure to hold state information for mock communication objects."""
 
-    published_messages: dict[Topic, list[Message]] = Field(default_factory=dict)
+    published_messages: dict[MessageType, list[Message]] = Field(default_factory=dict)
     subscriptions: dict[str, Callable[[Message], Coroutine[Any, Any, None]]] = Field(
         default_factory=dict
     )
-    pull_callbacks: dict[Topic, Callable[[Message], None]] = Field(default_factory=dict)
-    push_messages: dict[Topic, Message] = Field(default_factory=dict)
+    pull_callbacks: dict[MessageType, Callable[[Message], None]] = Field(
+        default_factory=dict
+    )
+    push_messages: dict[MessageType, Message] = Field(default_factory=dict)
     requests: dict[str, Message] = Field(default_factory=dict)
     responses: dict[str, Message] = Field(default_factory=dict)
 
@@ -53,34 +55,34 @@ def mock_zmq_communication() -> MagicMock:
 
     mock_comm.mock_data = MockCommunicationData()
 
-    async def mock_publish(topic: Topic, message: Message) -> None:
-        """Mock implementation of publish that stores messages by topic."""
-        if topic not in mock_comm.mock_data.published_messages:
-            mock_comm.mock_data.published_messages[topic] = []
+    async def mock_publish(message_type: MessageType, message: Message) -> None:
+        """Mock implementation of publish that stores messages by message_type."""
+        if message_type not in mock_comm.mock_data.published_messages:
+            mock_comm.mock_data.published_messages[message_type] = []
 
-        mock_comm.mock_data.published_messages[topic].append(message)
+        mock_comm.mock_data.published_messages[message_type].append(message)
 
     mock_comm.publish.side_effect = mock_publish
 
     async def mock_subscribe(
-        topic: str, callback: Callable[[Message], Coroutine[Any, Any, None]]
+        message_type: str, callback: Callable[[Message], Coroutine[Any, Any, None]]
     ) -> None:
-        """Mock implementation of subscribe that stores callbacks by topic."""
-        mock_comm.mock_data.subscriptions[topic] = callback
+        """Mock implementation of subscribe that stores callbacks by message_type."""
+        mock_comm.mock_data.subscriptions[message_type] = callback
 
     mock_comm.subscribe.side_effect = mock_subscribe
 
     async def mock_pull(
         message_type: MessageType, callback: Callable[[Message], None]
     ) -> None:
-        """Mock implementation of pull that stores callbacks by topic."""
+        """Mock implementation of pull that stores callbacks by message_type."""
         mock_comm.mock_data.pull_callbacks[message_type] = callback
 
     mock_comm.register_pull_callback.side_effect = mock_pull
 
-    async def mock_push(topic: Topic, message: Message) -> None:
-        """Mock implementation of push that stores messages by topic."""
-        mock_comm.mock_data.push_messages[topic] = message
+    async def mock_push(message_type: MessageType, message: Message) -> None:
+        """Mock implementation of push that stores messages by message_type."""
+        mock_comm.mock_data.push_messages[message_type] = message
 
     mock_comm.push.side_effect = mock_push
 

@@ -21,7 +21,7 @@
 # from aiperf.common.config import EndPointConfig, UserConfig, load_service_config
 # from aiperf.common.config.service_config import ServiceConfig
 # from aiperf.common.constants import BYTES_PER_MIB, NANOS_PER_MILLIS
-# from aiperf.common.enums import InferenceClientType, Topic
+# from aiperf.common.enums import InferenceClientType, MessageType
 # from aiperf.common.factories import CommunicationFactory, InferenceClientFactory
 # from aiperf.common.interfaces import InferenceClientProtocol
 # from aiperf.common.models import CreditDropMessage
@@ -432,8 +432,7 @@
 #         while not worker.stop_event.is_set():
 #             message = worker._health_check()
 #             await worker.pub_client.publish(
-#                 topic=Topic.WORKER_HEALTH,
-#                 message=message,
+#                 message,
 #             )
 #             await asyncio.sleep(worker.health_check_interval)
 #         return None

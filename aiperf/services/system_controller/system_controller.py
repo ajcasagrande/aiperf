@@ -18,12 +18,12 @@ from aiperf.common.enums import (
     BenchmarkSuiteType,
     CommandResponseStatus,
     CommandType,
+    MessageType,
     ServiceRegistrationStatus,
     ServiceRunType,
     ServiceState,
     ServiceType,
     SystemState,
-    Topic,
     ZMQProxyType,
 )
 from aiperf.common.exceptions import (
@@ -203,25 +203,29 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
 
         # Subscribe to relevant messages
         subscribe_callbacks = [
-            (Topic.REGISTRATION, self._process_registration_message),
-            (Topic.HEARTBEAT, self._process_heartbeat_message),
-            (Topic.STATUS, self._process_status_message),
-            (Topic.CREDITS_COMPLETE, self._process_credits_complete_message),
-            (Topic.PROFILE_PROGRESS, self._process_profile_progress_message),
-            (Topic.PROFILE_STATS, self._process_profile_stats_message),
-            (Topic.PROFILE_RESULTS, self._process_profile_results_message),
-            (Topic.WORKER_HEALTH, self._process_worker_health_message),
-            (Topic.NOTIFICATION, self._process_notification_message),
-            (Topic.COMMAND_RESPONSE, self._process_command_response_message),
+            (MessageType.REGISTRATION, self._process_registration_message),
+            (MessageType.HEARTBEAT, self._process_heartbeat_message),
+            (MessageType.STATUS, self._process_status_message),
+            (MessageType.CREDITS_COMPLETE, self._process_credits_complete_message),
+            (MessageType.PROFILE_PROGRESS, self._process_profile_progress_message),
+            (MessageType.PROFILE_STATS, self._process_profile_stats_message),
+            (MessageType.PROFILE_RESULTS, self._process_profile_results_message),
+            (MessageType.WORKER_HEALTH, self._process_worker_health_message),
+            (MessageType.NOTIFICATION, self._process_notification_message),
+            (MessageType.COMMAND_RESPONSE, self._process_command_response_message),
         ]
-        for topic, callback in subscribe_callbacks:
+        for message_type, callback in subscribe_callbacks:
             try:
-                await self.sub_client.subscribe(topic=topic, callback=callback)
+                await self.sub_client.subscribe(
+                    message_type=message_type, callback=callback
+                )
             except Exception as e:
-                self.logger.error("Failed to subscribe to topic %s: %s", topic, e)
+                self.logger.error(
+                    "Failed to subscribe to message_type %s: %s", message_type, e
+                )
                 raise CommunicationError(
                     CommunicationErrorReason.SUBSCRIBE_ERROR,
-                    f"Failed to subscribe to topic {topic}: {e}",
+                    f"Failed to subscribe to message_type {message_type}: {e}",
                 ) from e
 
         self._system_state = SystemState.CONFIGURING
@@ -619,10 +623,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
 
         # Publish command message
         try:
-            await self.pub_client.publish(
-                topic=Topic.COMMAND,
-                message=command_message,
-            )
+            await self.pub_client.publish(message=command_message)
         except Exception as e:
             self.logger.error("Exception publishing command: %s", e)
             raise CommunicationError(

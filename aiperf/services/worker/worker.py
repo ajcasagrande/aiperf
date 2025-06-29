@@ -8,7 +8,7 @@ from typing import cast
 
 from aiperf.common.comms.base import BaseCommunication
 from aiperf.common.config import ServiceConfig, UserConfig
-from aiperf.common.enums import ServiceType, Topic
+from aiperf.common.enums import ServiceType
 from aiperf.common.factories import (
     CommunicationFactory,
     ServiceFactory,
@@ -72,11 +72,8 @@ class Worker(BaseComponentService, UniversalWorker):
         """Health check task."""
         while not self.stop_event.is_set():
             try:
-                message = self._health_check()
-                await self.pub_client.publish(
-                    topic=Topic.WORKER_HEALTH,
-                    message=message,
-                )
+                health_message = self._health_check()
+                await self.pub_client.publish(health_message)
             except Exception as e:
                 self.logger.error("Error reporting health: %s", e)
             await asyncio.sleep(self.health_check_interval)
