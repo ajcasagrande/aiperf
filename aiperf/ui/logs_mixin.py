@@ -1,10 +1,8 @@
 #  SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #  SPDX-License-Identifier: Apache-2.0
-import asyncio
 import logging
 import multiprocessing
 import queue
-import threading
 import time
 from collections import deque
 
@@ -14,20 +12,18 @@ from rich.table import Table
 from rich.text import Text
 
 from aiperf.common.hooks import (
-    AIPerfHook,
-    HooksMixin,
-    aiperf_task,
+    AIPerfLifecycleMixin,
+    aiperf_auto_task,
+    on_cleanup,
     on_init,
-    on_stop,
-    supports_hooks,
+    on_start,
 )
 from aiperf.common.logging import MultiProcessLogHandler, setup_global_log_queue
 
 logger = logging.getLogger(__name__)
 
 
-@supports_hooks(AIPerfHook.ON_INIT, AIPerfHook.ON_START, AIPerfHook.ON_STOP)
-class ConsoleUIMixin(HooksMixin):
+class ConsoleUIMixin(AIPerfLifecycleMixin):
     """Mixin for updating the console UI."""
 
     def __init__(self) -> None:
@@ -35,18 +31,14 @@ class ConsoleUIMixin(HooksMixin):
         self.console = Console()
         self.live: Live = Live(console=self.console)
 
-    async def initialize(self) -> None:
-        """Initialize the console UI."""
-        await self.run_hooks_async(AIPerfHook.ON_INIT)
-
-    async def start(self) -> None:
-        """Start the console UI."""
+    @on_start
+    async def _start_live(self) -> None:
+        """Start the live console UI."""
         self.live.start()
-        await self.run_hooks_async(AIPerfHook.ON_START)
 
-    async def stop(self) -> None:
-        """Stop the console UI."""
-        await self.run_hooks_async(AIPerfHook.ON_STOP)
+    @on_cleanup
+    async def _cleanup_live(self) -> None:
+        """Cleanup the live console UI."""
         self.live.stop()
 
 
@@ -58,7 +50,6 @@ class LogsDashboardMixin(ConsoleUIMixin):
         self.log_queue: multiprocessing.Queue | None = None
         self.log_records: deque[dict] = deque(maxlen=100)  # Keep last 100 logs
         self.log_handler: MultiProcessLogHandler | None = None
-        self._stop_log_consumer = threading.Event()
 
     @on_init
     def setup_multiprocess_logging(self) -> multiprocessing.Queue:
@@ -80,31 +71,19 @@ class LogsDashboardMixin(ConsoleUIMixin):
 
         return self.log_queue
 
-    @on_stop
-    async def stop_log_consumer(self) -> None:
-        """Stop the log consumer task."""
-        self._stop_log_consumer.set()
-
-    @aiperf_task
+    @aiperf_auto_task(interval=0.1)
     async def _consume_logs(self) -> None:
         """Consume log records from the queue in a background task."""
-        while not self._stop_log_consumer.is_set():
+        if self.log_queue is None:
+            return
+
+        # Use get_nowait to avoid blocking
+        while True:
             try:
-                # Use get_nowait to avoid blocking
-                if self.log_queue is not None:
-                    while True:
-                        try:
-                            log_data = self.log_queue.get_nowait()
-                            self.log_records.append(log_data)
-                        except queue.Empty:
-                            break
-
-                # Sleep briefly to prevent busy waiting
-                await asyncio.sleep(0.1)
-
-            except Exception as e:
-                logger.error(f"Error consuming logs: {e}")
-                await asyncio.sleep(1.0)
+                log_data = self.log_queue.get_nowait()
+                self.log_records.append(log_data)
+            except queue.Empty:
+                break
 
     def _create_logs_panel(self) -> Table:
         """Create the logs panel."""

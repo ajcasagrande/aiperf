@@ -467,7 +467,7 @@ class AIPerfTaskMixin(HooksMixin):
     @on_init
     async def _start_tasks(self):
         """Start all the registered tasks."""
-        for hook in self.get_hooks(AIPerfHook.AIPERF_TASK):
+        for hook in self.get_hooks(AIPerfTaskHook.AIPERF_TASK):
             self.registered_tasks[hook.__name__] = asyncio.create_task(hook())
 
     @on_stop

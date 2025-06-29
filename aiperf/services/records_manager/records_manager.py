@@ -200,7 +200,7 @@ class RecordsManager(BaseComponentService):
             tokenizer = self.get_tokenizer(record.request["model"])
             resp = await self.extractor.extract_response_data(record, tokenizer)
             total_tokens = sum(r.token_count for r in resp if r.token_count is not None)
-            self.logger.info(
+            self.logger.debug(
                 "Received %d responses, %d total tokens",
                 len(resp),
                 total_tokens,

@@ -27,10 +27,10 @@ from aiperf.services.worker import worker
 from aiperf.services.worker.worker import MultiWorkerProcess
 
 
-class WorkerProcess(BaseModel):
+class WorkerProcessInfo(BaseModel):
     """Information about a worker process."""
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="allow")
 
     worker_id: str = Field(..., description="ID of the worker process")
     process: Any = Field(None, description="Process object or task")
@@ -55,7 +55,7 @@ class WorkerManager(BaseComponentService):
     ) -> None:
         super().__init__(service_config=service_config, service_id=service_id)
         self.logger.debug("Initializing worker manager")
-        self.workers: dict[str, WorkerProcess] = {}
+        self.workers: dict[str, WorkerProcessInfo] = {}
         self.worker_health: dict[str, WorkerHealthMessage] = {}
         # TODO: Need to implement some sort of max workers
         self.cpu_count = multiprocessing.cpu_count()
@@ -148,7 +148,7 @@ class WorkerManager(BaseComponentService):
         """Spawn worker processes using multiprocessing."""
         self.logger.debug(f"Spawning {self.worker_count} worker processes")
 
-        mp_ctx = multiprocessing.get_context("fork")
+        # mp_ctx = multiprocessing.get_context("fork")
 
         # Get the global log queue for child process logging
         from aiperf.common.logging import get_global_log_queue
@@ -161,7 +161,7 @@ class WorkerManager(BaseComponentService):
             )
             worker_id = f"worker_{i}"
 
-            process = mp_ctx.Process(
+            process = Process(
                 target=bootstrap_and_run_service,
                 name=f"worker_{i}_process",
                 args=(MultiWorkerProcess, self.service_config, log_queue),
@@ -170,7 +170,7 @@ class WorkerManager(BaseComponentService):
             )
             process.start()
 
-            self.workers[worker_id] = WorkerProcess(
+            self.workers[worker_id] = WorkerProcessInfo(
                 worker_id=worker_id,
                 process=process,
                 multi_worker_process=multi_worker_process,

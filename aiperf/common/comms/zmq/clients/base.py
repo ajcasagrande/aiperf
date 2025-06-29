@@ -13,14 +13,19 @@ from aiperf.common.exceptions import (
     CommunicationError,
     CommunicationErrorReason,
 )
-from aiperf.common.hooks import AIPerfHook, AIPerfTaskMixin, supports_hooks
+from aiperf.common.hooks import (
+    AIPerfHook,
+    AIPerfTaskHook,
+    AIPerfTaskMixin,
+    supports_hooks,
+)
 
 
 @supports_hooks(
     AIPerfHook.ON_INIT,
     AIPerfHook.ON_STOP,
     AIPerfHook.ON_CLEANUP,
-    AIPerfHook.AIPERF_TASK,
+    AIPerfTaskHook.AIPERF_TASK,
 )
 class BaseZMQClient(AIPerfTaskMixin, BaseCommunicationClient):
     """Base class for all ZMQ clients.
@@ -184,7 +189,7 @@ class BaseZMQClient(AIPerfTaskMixin, BaseCommunicationClient):
             # continue
 
         # Cancel all registered tasks
-        for task in self.registered_tasks.values():
+        for task in self.registered_tasks:
             task.cancel()
 
         try:
@@ -225,7 +230,7 @@ class BaseZMQClient(AIPerfTaskMixin, BaseCommunicationClient):
 
             # Wait for all tasks to complete
             with contextlib.suppress(asyncio.CancelledError):
-                await asyncio.gather(*self.registered_tasks.values())
+                await asyncio.gather(*self.registered_tasks)
 
             self.registered_tasks.clear()
             # self._socket = None

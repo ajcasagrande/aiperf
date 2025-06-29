@@ -22,18 +22,27 @@ import asyncio
 import contextlib
 import inspect
 import logging
+import uuid
 from collections.abc import Awaitable, Callable
-from enum import Enum
 from typing import ClassVar
 
+from aiperf.common.comms.base import (
+    BaseCommunication,
+    PubClientInterface,
+    SubClientInterface,
+)
+from aiperf.common.config import ServiceConfig
+from aiperf.common.enums import CaseInsensitiveStrEnum, ServiceType
 from aiperf.common.exceptions import AIPerfError, AIPerfMultiError, UnsupportedHookError
+from aiperf.common.factories import CommunicationFactory
+from aiperf.common.models import Message
 
 ################################################################################
 # Hook Types
 ################################################################################
 
 
-class AIPerfHook(Enum):
+class AIPerfHook(CaseInsensitiveStrEnum):
     """Enum for the various AIPerf hooks.
 
     Note: If you add a new hook, you must also add it to the @supports_hooks
@@ -43,17 +52,26 @@ class AIPerfHook(Enum):
     ON_INIT = "__aiperf_on_init__"
     ON_RUN = "__aiperf_on_run__"
     ON_CONFIGURE = "__aiperf_on_configure__"
+    ON_PROFILE_CONFIGURE = "__aiperf_on_profile_configure__"
+    ON_PROFILE_START = "__aiperf_on_profile_start__"
+    ON_PROFILE_STOP = "__aiperf_on_profile_stop__"
     ON_START = "__aiperf_on_start__"
     ON_STOP = "__aiperf_on_stop__"
     ON_CLEANUP = "__aiperf_on_cleanup__"
 
     ON_SET_STATE = "__aiperf_on_set_state__"
 
+
+class AIPerfTaskHook(CaseInsensitiveStrEnum):
+    """Enum for the various AIPerf task hooks."""
+
     AIPERF_TASK = "__aiperf_task__"
+    AIPERF_AUTO_TASK = "__aiperf_auto_task__"
+    AIPERF_AUTO_TASK_INTERVAL = "__aiperf_auto_task_interval__"
 
 
-HookType = AIPerfHook | str
-"""Type alias for valid hook types. This is a union of the AIPerfHook enum and any user-defined custom strings."""
+HookType = AIPerfHook | AIPerfTaskHook | str
+"""Type alias for valid hook types. This is a union of the AIPerfHook enum, the AIPerfTaskHook enum, and any user-defined custom strings."""
 
 
 AIPERF_HOOK_TYPE = "__aiperf_hook_type__"
@@ -95,7 +113,9 @@ class HookSystem:
             func: The function to register.
         """
         if hook_type not in self.supported_hooks:
-            raise UnsupportedHookError(f"Hook {hook_type} is not supported by class.")
+            raise UnsupportedHookError(
+                f"Hook {hook_type} is not supported by class for func {func.__qualname__}."
+            )
 
         self._hooks.setdefault(hook_type, []).append(func)
 
@@ -121,7 +141,9 @@ class HookSystem:
             **kwargs: The keyword arguments to pass to the hooks.
         """
         if hook_type not in self.supported_hooks:
-            raise UnsupportedHookError(f"Hook {hook_type} is not supported by class.")
+            raise UnsupportedHookError(
+                f"Hook {hook_type} is not supported by class for {self.__qualname__}."
+            )
 
         exceptions: list[Exception] = []
         for func in self.get_hooks(hook_type):
@@ -152,7 +174,9 @@ class HookSystem:
             **kwargs: The keyword arguments to pass to the hooks.
         """
         if hook_type not in self.supported_hooks:
-            raise UnsupportedHookError(f"Hook {hook_type} is not supported by class.")
+            raise UnsupportedHookError(
+                f"Hook {hook_type} is not supported by class for {self.__qualname__}."
+            )
 
         coroutines: list[Awaitable] = []
         for func in self.get_hooks(hook_type):
@@ -271,11 +295,48 @@ def on_set_state(
     return hook_decorator(AIPerfHook.ON_SET_STATE, func)
 
 
-def aiperf_task(func: Callable) -> Callable:
+def on_profile_configure(func: Callable) -> Callable:
+    """Decorator to specify that the function should be called during the service profile configuration.
+    See :func:`aiperf.common.hooks.hook_decorator`."""
+    return hook_decorator(AIPerfHook.ON_PROFILE_CONFIGURE, func)
+
+
+def on_profile_start(func: Callable) -> Callable:
+    """Decorator to specify that the function should be called during the service profile start.
+    See :func:`aiperf.common.hooks.hook_decorator`."""
+    return hook_decorator(AIPerfHook.ON_PROFILE_START, func)
+
+
+def on_profile_stop(func: Callable) -> Callable:
+    """Decorator to specify that the function should be called during the service profile stop.
+    See :func:`aiperf.common.hooks.hook_decorator`."""
+    return hook_decorator(AIPerfHook.ON_PROFILE_STOP, func)
+
+
+def aiperf_task(
+    func: Callable,
+) -> Callable:
     """Decorator to indicate that the function is a task function. It will be started
     and stopped automatically by the base class lifecycle.
-    See :func:`aiperf.common.hooks.hook_decorator`."""
-    return hook_decorator(AIPerfHook.AIPERF_TASK, func)
+    See :func:`aiperf.common.hooks.hook_decorator`.
+    """
+    return hook_decorator(AIPerfTaskHook.AIPERF_TASK, func)
+
+
+def aiperf_auto_task(interval: float) -> Callable[[Callable], Callable]:
+    """Decorator to indicate that the function is a task function. It will be started
+    and stopped automatically by the base class lifecycle.
+    See :func:`aiperf.common.hooks.hook_decorator`.
+
+    Args:
+        interval: The interval in seconds to sleep between runs.
+    """
+
+    def decorator(func: Callable) -> Callable:
+        setattr(func, AIPerfTaskHook.AIPERF_AUTO_TASK_INTERVAL, interval)
+        return hook_decorator(AIPerfTaskHook.AIPERF_AUTO_TASK, func)
+
+    return decorator
 
 
 ################################################################################
@@ -339,7 +400,11 @@ class HooksMixin:
 
 
 @supports_hooks(
-    AIPerfHook.AIPERF_TASK, AIPerfHook.ON_INIT, AIPerfHook.ON_START, AIPerfHook.ON_STOP
+    AIPerfTaskHook.AIPERF_TASK,
+    AIPerfTaskHook.AIPERF_AUTO_TASK,
+    AIPerfHook.ON_INIT,
+    AIPerfHook.ON_START,
+    AIPerfHook.ON_STOP,
 )
 class AIPerfTaskMixin(HooksMixin):
     """Mixin to add task support to a class. It abstracts away the details of the
@@ -353,7 +418,7 @@ class AIPerfTaskMixin(HooksMixin):
 
     def __init__(self):
         super().__init__()
-        self.registered_tasks: dict[str, asyncio.Task] = {}
+        self.registered_tasks: list[asyncio.Task] = []
 
     async def start(self) -> None:
         """Start the task."""
@@ -370,26 +435,27 @@ class AIPerfTaskMixin(HooksMixin):
     @on_init
     async def _start_tasks(self):
         """Start all the registered tasks in the background."""
-        for hook in self.get_hooks(AIPerfHook.AIPERF_TASK):
+        for hook in self.get_hooks(AIPerfTaskHook.AIPERF_TASK):
             if inspect.iscoroutinefunction(hook):
                 task = asyncio.create_task(hook())
             else:
                 task = asyncio.create_task(asyncio.to_thread(hook))
-            self.registered_tasks[hook.__name__] = task
+            self.registered_tasks.append(task)
 
     @on_stop
     async def _stop_tasks(self):
         """Stop all the background tasks. This will wait for all the tasks to complete."""
-        for task in self.registered_tasks.values():
+        for task in self.registered_tasks:
             task.cancel()
 
         # Wait for all tasks to complete
         with contextlib.suppress(asyncio.CancelledError):
-            await asyncio.gather(*self.registered_tasks.values())
+            await asyncio.gather(*self.registered_tasks)
 
 
 @supports_hooks(
-    AIPerfHook.AIPERF_TASK,
+    AIPerfTaskHook.AIPERF_TASK,
+    AIPerfTaskHook.AIPERF_AUTO_TASK,
     AIPerfHook.ON_INIT,
     AIPerfHook.ON_START,
     AIPerfHook.ON_STOP,
@@ -398,31 +464,31 @@ class AIPerfTaskMixin(HooksMixin):
 class AIPerfLifecycleMixin(HooksMixin):
     """Mixin to add task support to a class. It abstracts away the details of the
     :class:`AIPerfTask` and provides a simple interface for registering and running tasks.
-    It hooks into the :meth:`HooksMixin.on_init` and :meth:`HooksMixin.on_stop` hooks to
+    It hooks into the :meth:`HooksMixin.on_start` and :meth:`HooksMixin.on_stop` hooks to
     start and stop the tasks.
     """
 
     def __init__(self):
         super().__init__()
-        self.registered_tasks: dict[str, asyncio.Task] = {}
-        self.initialize_event: asyncio.Event = asyncio.Event()
-        self.start_event: asyncio.Event = asyncio.Event()
+        self.registered_tasks: list[asyncio.Task] = []
+        self.initialized_event: asyncio.Event = asyncio.Event()
+        self.started_event: asyncio.Event = asyncio.Event()
         self.stop_requested: asyncio.Event = asyncio.Event()
         self.shutdown_event: asyncio.Event = asyncio.Event()
 
     def is_initialized(self) -> bool:
         """Check if the lifecycle has been initialized."""
-        return self.initialize_event.is_set()
+        return self.initialized_event.is_set()
 
-    async def _run_internal(self) -> None:
+    async def _run_lifecycle(self) -> None:
         """Run the internal lifecycle."""
         # Run all the initialization hooks and set the initialize_event
         await self.run_hooks(AIPerfHook.ON_INIT)
-        self.initialize_event.set()
+        self.initialized_event.set()
 
         # Run all the start hooks and set the start_event
-        await self.run_hooks(AIPerfHook.ON_START)
-        self.start_event.set()
+        await self.run_hooks_async(AIPerfHook.ON_START)
+        self.started_event.set()
 
         while not self.stop_requested.is_set() and not self.shutdown_event.is_set():
             try:
@@ -431,19 +497,50 @@ class AIPerfLifecycleMixin(HooksMixin):
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error("Unhandled exception in lifecycle: %s", e)
+                logger.exception("Unhandled exception in lifecycle: %s", e)
                 continue
 
-        # Run all the stop hooks
-        await self.run_hooks(AIPerfHook.ON_STOP)
+        try:
+            # Run all the stop hooks
+            await self.run_hooks_async(AIPerfHook.ON_STOP)
+        except Exception as e:
+            logger.exception("Unhandled exception in lifecycle: %s", e)
 
-        # Run all the cleanup hooks and set the shutdown_event
-        await self.run_hooks(AIPerfHook.ON_CLEANUP)
-        self.shutdown_event.set()
+        try:
+            # Run all the cleanup hooks and set the shutdown_event
+            await self.run_hooks(AIPerfHook.ON_CLEANUP)
+        except Exception as e:
+            logger.exception("Unhandled exception in lifecycle: %s", e)
+        finally:
+            self.shutdown_event.set()
 
     async def run_async(self) -> None:
-        """Start any lifecycle tasks. Will call the :meth:`HooksMixin.on_start` hooks."""
-        asyncio.create_task(self._run_internal())
+        """Start the lifecycle in the background. Will call the :meth:`HooksMixin.on_init` hooks,
+        followed by the :meth:`HooksMixin.on_start` hooks. Will return immediately."""
+        asyncio.create_task(self._run_lifecycle())
+
+    async def run_and_wait_for_start(self) -> None:
+        """Start the lifecycle in the background and wait until the lifecycle is initialized and started.
+        Will call the :meth:`HooksMixin.on_init` hooks, followed by the :meth:`HooksMixin.on_start` hooks."""
+        asyncio.create_task(self._run_lifecycle())
+
+        await self.initialized_event.wait()
+        await self.started_event.wait()
+
+    async def wait_for_initialize(self) -> None:
+        """Wait for the lifecycle to be initialized. Will wait until the :meth:`HooksMixin.on_init` hooks have been called.
+        Will return immediately if the lifecycle is already initialized."""
+        await self.initialized_event.wait()
+
+    async def wait_for_start(self) -> None:
+        """Wait for the lifecycle to be started. Will wait until the :meth:`HooksMixin.on_start` hooks have been called.
+        Will return immediately if the lifecycle is already started."""
+        await self.started_event.wait()
+
+    async def wait_for_shutdown(self) -> None:
+        """Wait for the lifecycle to be shutdown. Will wait until the :meth:`HooksMixin.on_stop` hooks have been called.
+        Will return immediately if the lifecycle is already shutdown."""
+        await self.shutdown_event.wait()
 
     async def shutdown(self) -> None:
         """Shutdown the lifecycle. Will call the :meth:`HooksMixin.on_stop` hooks,
@@ -453,24 +550,157 @@ class AIPerfLifecycleMixin(HooksMixin):
     @on_start
     async def _start_tasks(self):
         """Start all the registered tasks in the background."""
-        for hook in self.get_hooks(AIPerfHook.AIPERF_TASK):
+
+        # Start all the non-auto tasks
+        for hook in self.get_hooks(AIPerfTaskHook.AIPERF_TASK):
             if inspect.iscoroutinefunction(hook):
                 task = asyncio.create_task(hook())
             else:
                 task = asyncio.create_task(asyncio.to_thread(hook))
-            self.registered_tasks[hook.__name__] = task
+            self.registered_tasks.append(task)
+
+        # Start all the auto tasks
+        for hook in self.get_hooks(AIPerfTaskHook.AIPERF_AUTO_TASK):
+            interval = getattr(hook, AIPerfTaskHook.AIPERF_AUTO_TASK_INTERVAL, None)
+            task = asyncio.create_task(self._task_wrapper(hook, interval))
+            self.registered_tasks.append(task)
 
     @on_stop
     async def _stop_tasks(self):
         """Stop all the background tasks. This will wait for all the tasks to complete."""
-        for task in self.registered_tasks.values():
+        for task in self.registered_tasks:
             task.cancel()
 
         # Wait for all tasks to complete
         with contextlib.suppress(asyncio.CancelledError):
-            await asyncio.gather(*self.registered_tasks.values())
+            await asyncio.gather(*self.registered_tasks)
 
     @on_cleanup
     async def _cleanup_tasks(self):
         """Clear the registered tasks."""
         self.registered_tasks.clear()
+
+    async def _task_wrapper(
+        self, func: Callable, interval: float | None = None
+    ) -> None:
+        """Wrapper to run a task in a loop until the stop_requested event is set."""
+        while not self.stop_requested.is_set():
+            try:
+                if inspect.iscoroutinefunction(func):
+                    await func()
+                else:
+                    await asyncio.to_thread(func)
+            except asyncio.CancelledError:
+                break
+            except Exception:
+                logger.exception("Unhandled exception in task: %s", func.__name__)
+
+            if interval is None:
+                break
+            await asyncio.sleep(interval)
+
+
+@supports_hooks(
+    AIPerfHook.ON_PROFILE_CONFIGURE,
+    AIPerfHook.ON_PROFILE_START,
+    AIPerfHook.ON_PROFILE_STOP,
+)
+class AIPerfProfileMixin(HooksMixin):
+    """Mixin to add profile support to a class. It abstracts away the details of the
+    :class:`AIPerfProfile` and provides a simple interface for registering and running profiles."""
+
+    def __init__(self):
+        super().__init__()
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.profile_started_event: asyncio.Event = asyncio.Event()
+        self.profile_stopped_event: asyncio.Event = asyncio.Event()
+        self.request_profile_stop_event: asyncio.Event = asyncio.Event()
+        self.profile_configured_event: asyncio.Event = asyncio.Event()
+
+    async def configure_profile(self, message: Message):
+        """Configure the profile."""
+        await self.run_hooks(AIPerfHook.ON_PROFILE_CONFIGURE, message)
+        self.profile_configured_event.set()
+
+    async def run_profile(self):
+        """Run the profile."""
+        # Run all the start hooks and set the start_event
+        await self.run_hooks_async(AIPerfHook.ON_PROFILE_START)
+        self.profile_started_event.set()
+
+        while not self.request_profile_stop_event.is_set():
+            try:
+                # Wait forever until the stop_requested event is set
+                await self.request_profile_stop_event.wait()
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                self.logger.exception(
+                    "Unhandled exception in while profile is running: %s", e
+                )
+                continue
+
+        try:
+            # Run all the stop hooks
+            await self.run_hooks_async(AIPerfHook.ON_PROFILE_STOP)
+        except Exception as e:
+            self.logger.exception(
+                "Unhandled exception in while profile is running: %s", e
+            )
+
+    async def stop_profile(self):
+        """Request the profile to stop."""
+        self.request_profile_stop_event.set()
+
+    async def wait_for_profile_configured(self):
+        """Wait for the profile to be configured."""
+        await self.profile_configured_event.wait()
+
+    async def wait_for_profile_started(self):
+        """Wait for the profile to start."""
+        await self.profile_started_event.wait()
+
+    async def wait_for_profile_stopped(self):
+        """Wait for the profile to stop."""
+        await self.profile_stopped_event.wait()
+
+
+class AIPerfServiceMixin(AIPerfLifecycleMixin):
+    service_type: ClassVar[ServiceType]
+
+    def __init__(self, service_config: ServiceConfig, service_id: str | None = None):
+        super().__init__()
+        self.service_config = service_config
+        self.service_id = service_id or f"{self.service_type}_{uuid.uuid4().hex[:8]}"
+        self.logger = logging.getLogger(self.service_id)
+        self.logger.debug(
+            f"Initializing {self.service_type} service (id: {self.service_id})"
+        )
+        self.comms: BaseCommunication = CommunicationFactory.create_instance(
+            self.service_config.comm_backend,
+            config=self.service_config.comm_config,
+        )
+        self.sub_client: SubClientInterface | None = None
+        self.pub_client: PubClientInterface | None = None
+
+    @on_init
+    async def initialize(self):
+        """Initialize the service."""
+        await self.comms.initialize()
+
+        self.sub_client = await self.comms.create_sub_client(
+            address=self.service_config.comm_config.xpub_xsub_proxy_config.backend_address,
+        )
+        await self.sub_client.initialize()
+        self.pub_client = await self.comms.create_pub_client(
+            address=self.service_config.comm_config.xpub_xsub_proxy_config.frontend_address,
+        )
+        await self.pub_client.initialize()
+
+
+class AIPerfComponentServiceMixin(AIPerfProfileMixin, AIPerfServiceMixin):
+    """Mixin to add component service support to a class. It abstracts away the details of the
+    :class:`AIPerfComponentService` and provides a simple interface for registering and running components."""
+
+    def __init__(self, service_config: ServiceConfig, service_id: str | None = None):
+        super().__init__(service_config, service_id)

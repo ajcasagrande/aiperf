@@ -4,6 +4,7 @@
 import asyncio
 import os
 import sys
+from typing import cast
 
 from aiperf.common.comms.base import BaseCommunication
 from aiperf.common.config import ServiceConfig, UserConfig
@@ -23,12 +24,11 @@ from aiperf.common.models.messages import (
     CommandMessage,
 )
 from aiperf.common.service.base_component_service import BaseComponentService
-from aiperf.common.service.base_service import BaseService
 from aiperf.services.worker.universal import UniversalWorker
 
 
 @ServiceFactory.register(ServiceType.WORKER)
-class Worker(BaseService, UniversalWorker):
+class Worker(BaseComponentService, UniversalWorker):
     """Worker is primarily responsible for converting the data into the appropriate
     format for the interface being used by the server. Also responsible for managing
     the conversation between turns.
@@ -99,6 +99,7 @@ class MultiWorkerProcess(BaseComponentService):
         self.worker_count = int(os.getenv("AIPERF_TASKS_PER_WORKER", 1))
         self.user_config: UserConfig | None = None
         self.next_worker_id = 0
+        self.worker: UniversalWorker
 
     @property
     def service_type(self) -> ServiceType:
@@ -108,28 +109,17 @@ class MultiWorkerProcess(BaseComponentService):
     @on_configure
     async def _configure(self, message: CommandMessage) -> None:
         self.logger.debug("Configuring multi-worker process %s", self.service_id)
-        self.user_config = message.data
-        self.logger.info("%s: Creating %s workers", self.service_id, self.worker_count)
-        for _ in range(self.worker_count):
-            self.spawn_worker()
-
-    def spawn_worker(self) -> None:
-        worker = Worker(
+        self.worker = UniversalWorker(
             service_config=self.service_config,
-            user_config=self.user_config,
-            service_id=f"{self.service_id}_{self.next_worker_id}",
+            user_config=cast(UserConfig, message.data),
+            service_id=f"{self.service_id}",
         )
-        self.next_worker_id += 1
-        self.workers.append(worker)
-        self.tasks.append(asyncio.create_task(worker.run_forever()))
+        await self.worker.do_initialize(zmq_comms=self.comms)
 
     @on_stop
     async def _stop(self) -> None:
         self.logger.debug("Stopping multi-worker process %s", self.service_id)
-        for task in self.tasks:
-            task.cancel()
-        for worker in self.workers:
-            worker.stop_event.set()
+        await self.worker.do_shutdown()
 
     @on_cleanup
     async def _cleanup(self) -> None:

@@ -65,6 +65,7 @@ class AIPerfRichDashboard(LogsDashboardMixin):
     """Main AIPerf Rich Dashboard with live updates and clean interface."""
 
     def __init__(self, progress_tracker: ProgressTracker) -> None:
+        super().__init__()
         self.console = Console()
         self.progress_tracker = progress_tracker
         self.worker_health: dict[str, WorkerHealthMessage] = {}

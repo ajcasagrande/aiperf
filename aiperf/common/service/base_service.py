@@ -21,7 +21,12 @@ from aiperf.common.exceptions import (
     ServiceErrorType,
 )
 from aiperf.common.factories import CommunicationFactory
-from aiperf.common.hooks import AIPerfHook, AIPerfTaskMixin, supports_hooks
+from aiperf.common.hooks import (
+    AIPerfHook,
+    AIPerfTaskHook,
+    AIPerfTaskMixin,
+    supports_hooks,
+)
 from aiperf.common.models import Message
 from aiperf.common.service.base_service_interface import BaseServiceInterface
 
@@ -34,7 +39,7 @@ from aiperf.common.service.base_service_interface import BaseServiceInterface
     AIPerfHook.ON_STOP,
     AIPerfHook.ON_CLEANUP,
     AIPerfHook.ON_SET_STATE,
-    AIPerfHook.AIPERF_TASK,
+    AIPerfTaskHook.AIPERF_TASK,
 )
 class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
     """Base class for all AIPerf services, providing common functionality for
