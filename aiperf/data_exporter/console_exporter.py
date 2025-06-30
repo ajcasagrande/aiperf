@@ -45,7 +45,7 @@ class ConsoleExporter:
         return record.streaming_only and not self._streaming
 
     def _format_row(self, record: MetricResult) -> list[str]:
-        row = [f"{record.tag} ({record.unit})"]
+        row = [f"{record.header} ({record.unit})"]
         for stat in self.STAT_COLUMN_KEYS:
             value = getattr(record, stat, None)
             row.append(

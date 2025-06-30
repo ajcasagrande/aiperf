@@ -206,9 +206,10 @@ class RequestRecord(BaseModel):
 
     Attributes:
         request: The request payload.
-        start_perf_ns: The start time of the request in nanoseconds (perf_counter_ns).
-        end_perf_ns: The end time of the request in nanoseconds (perf_counter_ns).
-        recv_start_perf_ns: The start time of the response in nanoseconds (perf_counter_ns).
+        timestamp_ns: The wall clock timestamp of the request in nanoseconds. DO NOT USE FOR LATENCY CALCULATIONS. (time.time_ns).
+        start_perf_ns: The start reference time of the request in nanoseconds used for latency calculations (perf_counter_ns).
+        end_perf_ns: The end reference time of the request in nanoseconds (perf_counter_ns).
+        recv_start_perf_ns: The start reference time of the response in nanoseconds used for latency calculations (perf_counter_ns).
         status: The HTTP status code of the request.
         responses: The raw responses received from the request.
         error: The error details if the request failed.
@@ -219,9 +220,13 @@ class RequestRecord(BaseModel):
         default=None,
         description="The raw request payload.",
     )
+    timestamp_ns: int = Field(
+        default_factory=time.time_ns,
+        description="The wall clock timestamp of the request in nanoseconds. DO NOT USE FOR LATENCY CALCULATIONS. (time.time_ns).",
+    )
     start_perf_ns: int = Field(
         default_factory=time.perf_counter_ns,
-        description="The start time of the request in nanoseconds (perf_counter_ns).",
+        description="The start reference time of the request in nanoseconds used for latency calculations (perf_counter_ns).",
     )
     end_perf_ns: int | None = Field(
         default=None,
@@ -385,6 +390,11 @@ class ParsedResponseRecord(BaseModel):
     def start_perf_ns(self) -> int:
         """Get the start time of the request in nanoseconds (perf_counter_ns)."""
         return self.request.start_perf_ns
+
+    @cached_property
+    def timestamp_ns(self) -> int:
+        """Get the wall clock timestamp of the request in nanoseconds. DO NOT USE FOR LATENCY CALCULATIONS. (time.time_ns)."""
+        return self.request.timestamp_ns
 
     # TODO: How do we differentiate the end of the request vs the time of the last response?
     #       Which one should we use for the latency metrics?

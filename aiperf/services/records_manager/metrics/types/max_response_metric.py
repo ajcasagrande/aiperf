@@ -29,8 +29,11 @@ class MaxResponseMetric(BaseMetric):
 
         """
         self._check_record(record)
-        if record.responses[-1].perf_ns > self.metric:
-            self.metric = record.responses[-1].perf_ns
+        # compute the total time of the request and add the wall clock timestamp
+        # to get wall clock time of the last response
+        val = record.responses[-1].perf_ns - record.start_perf_ns + record.timestamp_ns
+        if val > self.metric:
+            self.metric = val
 
     def values(self) -> float:
         """
