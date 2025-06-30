@@ -11,7 +11,7 @@ from aiperf.common.enums import (
     ProfileCompletionTrigger,
     SweepCompletionTrigger,
 )
-from aiperf.common.models.record_models import ErrorDetailsCount, ResultsRecord
+from aiperf.common.models.record_models import ErrorDetailsCount, MetricResult
 
 ################################################################################
 # Progress Models
@@ -88,7 +88,7 @@ class ProfileProgress(BaseModel):
         default=None,
         description="The estimated time remaining for the profile run in seconds",
     )
-    records: SerializeAsAny[list[ResultsRecord]] = Field(
+    records: SerializeAsAny[list[MetricResult]] = Field(
         default_factory=list, description="The records of the profile results"
     )
     errors_by_type: list[ErrorDetailsCount] = Field(

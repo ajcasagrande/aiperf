@@ -14,47 +14,29 @@ from aiperf.common.enums import SSEFieldType
 
 # Temporary Record class to be used by the ConsoleExporter.
 # TODO: Remove once the actual Records classes are fully implemented.
-class ResultsRecord(BaseModel):
-    name: str = Field(description="The name of the metric")
-    unit: str = Field(description="The unit of the metric")
-    avg: float | None = Field(
-        default=None, description="The average value of the metric"
+class MetricResult(BaseModel):
+    """The result values of a single metric."""
+
+    tag: str = Field(description="The unique identifier of the metric")
+    unit: str = Field(description="The unit of the metric, e.g. 'ms'")
+    header: str = Field(
+        description="The user friendly name of the metric (e.g. 'Inter Token Latency')"
     )
-    min: float | None = Field(
-        default=None, description="The minimum value of the metric"
-    )
-    max: float | None = Field(
-        default=None, description="The maximum value of the metric"
-    )
-    p1: float | None = Field(
-        default=None, description="The 1st percentile value of the metric"
-    )
-    p5: float | None = Field(
-        default=None, description="The 5th percentile value of the metric"
-    )
-    p25: float | None = Field(
-        default=None, description="The 25th percentile value of the metric"
-    )
-    p50: float | None = Field(
-        default=None, description="The 50th percentile value of the metric"
-    )
-    p75: float | None = Field(
-        default=None, description="The 75th percentile value of the metric"
-    )
-    p90: float | None = Field(
-        default=None, description="The 90th percentile value of the metric"
-    )
-    p95: float | None = Field(
-        default=None, description="The 95th percentile value of the metric"
-    )
-    p99: float | None = Field(
-        default=None, description="The 99th percentile value of the metric"
-    )
-    std: float | None = Field(
-        default=None, description="The standard deviation of the metric"
-    )
+    avg: float | None = None
+    min: float | None = None
+    max: float | None = None
+    p1: float | None = None
+    p5: float | None = None
+    p25: float | None = None
+    p50: float | None = None
+    p75: float | None = None
+    p90: float | None = None
+    p95: float | None = None
+    p99: float | None = None
+    std: float | None = None
     count: int | None = Field(
-        default=None, description="The amount of records used to calculate the metric"
+        default=None,
+        description="The total number of records used to calculate the metric",
     )
     streaming_only: bool = Field(
         default=False,

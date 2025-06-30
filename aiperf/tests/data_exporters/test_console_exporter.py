@@ -3,7 +3,7 @@
 import pytest
 
 from aiperf.common.config import EndPointConfig, UserConfig
-from aiperf.common.models import ProfileResultsMessage, ResultsRecord
+from aiperf.common.models import MetricResult, ProfileResultsMessage
 from aiperf.data_exporter import ConsoleExporter
 from aiperf.data_exporter.exporter_config import ExporterConfig
 
@@ -19,8 +19,8 @@ def sample_results() -> ProfileResultsMessage:
         start_ns=1000,
         end_ns=2000,
         records=[
-            ResultsRecord(
-                name="Time to First Token",
+            MetricResult(
+                tag="Time to First Token",
                 unit="ms",
                 avg=120.5,
                 min=110.0,
@@ -29,8 +29,8 @@ def sample_results() -> ProfileResultsMessage:
                 p90=125.0,
                 p75=122.0,
             ),
-            ResultsRecord(
-                name="Request Latency",
+            MetricResult(
+                tag="Request Latency",
                 unit="ms",
                 avg=15.3,
                 min=12.1,
@@ -39,8 +39,8 @@ def sample_results() -> ProfileResultsMessage:
                 p90=18.7,
                 p75=16.2,
             ),
-            ResultsRecord(
-                name="Inter Token Latency",
+            MetricResult(
+                tag="Inter Token Latency",
                 unit="ms",
                 avg=3.7,
                 min=2.9,
@@ -50,8 +50,8 @@ def sample_results() -> ProfileResultsMessage:
                 p75=4.0,
                 streaming_only=True,
             ),
-            ResultsRecord(
-                name="Request Throughput",
+            MetricResult(
+                tag="Request Throughput",
                 unit="per sec",
                 avg=95.0,
                 min=None,
@@ -114,8 +114,8 @@ class TestConsoleExporter:
             input_config=input_config,
         )
         exporter = ConsoleExporter(config)
-        record = ResultsRecord(
-            name="Test Metric",
+        record = MetricResult(
+            tag="Test Metric",
             unit="ms",
             avg=1.0,
             streaming_only=is_streaming_only_metric,
@@ -126,8 +126,8 @@ class TestConsoleExporter:
         self, mock_exporter_config: ExporterConfig
     ):
         exporter = ConsoleExporter(mock_exporter_config)
-        record = ResultsRecord(
-            name="Request Latency",
+        record = MetricResult(
+            tag="Request Latency",
             unit="ms",
             avg=10.123,
             min=None,

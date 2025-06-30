@@ -6,7 +6,7 @@ from rich.table import Table
 
 from aiperf.common.enums import DataExporterType
 from aiperf.common.factories import DataExporterFactory
-from aiperf.common.models import ResultsRecord
+from aiperf.common.models import MetricResult
 from aiperf.data_exporter.exporter_config import ExporterConfig
 
 
@@ -32,20 +32,20 @@ class ConsoleExporter:
         console.print("\n")
         console.print(table)
 
-    def _construct_table(self, table: Table, records: list[ResultsRecord]) -> None:
+    def _construct_table(self, table: Table, records: list[MetricResult]) -> None:
         for record in records:
             if self._should_skip(record):
                 continue
             table.add_row(*self._format_row(record))
 
-    def _should_skip(self, record: ResultsRecord) -> bool:
+    def _should_skip(self, record: MetricResult) -> bool:
         if self._endpoint_type == "embeddings":
             return False
 
         return record.streaming_only and not self._streaming
 
-    def _format_row(self, record: ResultsRecord) -> list[str]:
-        row = [f"{record.name} ({record.unit})"]
+    def _format_row(self, record: MetricResult) -> list[str]:
+        row = [f"{record.tag} ({record.unit})"]
         for stat in self.STAT_COLUMN_KEYS:
             value = getattr(record, stat, None)
             row.append(

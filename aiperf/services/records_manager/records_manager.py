@@ -28,10 +28,10 @@ from aiperf.common.models import (
     ErrorDetails,
     ErrorDetailsCount,
     InferenceResultsMessage,
+    MetricResult,
     ProcessRecordsCommandData,
     ProfileResultsMessage,
     ProfileStatsMessage,
-    ResultsRecord,
 )
 from aiperf.common.models.messages import ParsedInferenceResultsMessage
 from aiperf.common.models.record_models import ParsedResponseRecord
@@ -391,11 +391,11 @@ def record_from_dataframe(
     name: str,
     unit: str,
     streaming_only: bool,
-) -> ResultsRecord:
+) -> MetricResult:
     """Create a Record from a DataFrame."""
     column = df[column_name]
-    return ResultsRecord(
-        name=name,
+    return MetricResult(
+        tag=name,
         unit=unit,
         avg=column.mean() / NANOS_PER_MILLIS,
         min=column.min() / NANOS_PER_MILLIS,

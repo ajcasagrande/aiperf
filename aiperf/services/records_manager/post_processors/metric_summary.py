@@ -8,7 +8,7 @@ import pandas as pd
 from aiperf.common.constants import NANOS_PER_MILLIS
 from aiperf.common.enums import MetricType, PostProcessorType
 from aiperf.common.factories import PostProcessorFactory
-from aiperf.common.models.record_models import ParsedResponseRecord, ResultsRecord
+from aiperf.common.models.record_models import MetricResult, ParsedResponseRecord
 from aiperf.services.records_manager.metrics.base_metric import BaseMetric
 
 logger = logging.getLogger(__name__)
@@ -68,13 +68,13 @@ class MetricSummary:
                     record=record, metrics={m.tag: m for m in self._metrics}
                 )
 
-    def get_metrics_summary(self) -> list[ResultsRecord]:
+    def get_metrics_summary(self) -> list[MetricResult]:
         metrics_summary = []
 
         df = pd.DataFrame({metric.tag: metric.values() for metric in self._metrics})
 
         for metric in self._metrics:
-            res: ResultsRecord = record_from_dataframe(df, metric)
+            res: MetricResult = record_from_dataframe(df, metric)
             metrics_summary.append(res)
         return metrics_summary
 
@@ -82,11 +82,11 @@ class MetricSummary:
 def record_from_dataframe(
     df: pd.DataFrame,
     metric: BaseMetric,
-) -> ResultsRecord:
+) -> MetricResult:
     """Create a Record from a DataFrame."""
     column = df[metric.tag]
-    return ResultsRecord(
-        name=metric.tag,
+    return MetricResult(
+        tag=metric.tag,
         unit=metric.unit.name,
         avg=column.mean() / NANOS_PER_MILLIS,
         min=column.min() / NANOS_PER_MILLIS,

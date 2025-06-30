@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from aiperf.common.config import EndPointConfig, OutputConfig, UserConfig
-from aiperf.common.models import ProfileResultsMessage, ResultsRecord
+from aiperf.common.models import MetricResult, ProfileResultsMessage
 from aiperf.data_exporter.exporter_manager import ExporterManager
 
 
@@ -25,7 +25,7 @@ def sample_results():
     return ProfileResultsMessage(
         start_ns=1000,
         end_ns=2000,
-        records=[ResultsRecord(name="Latency", unit="ms", avg=10.0)],
+        records=[MetricResult(tag="Latency", unit="ms", avg=10.0)],
         service_id="test-service",
         total=100,
         completed=100,

@@ -11,7 +11,7 @@ from aiperf.common.config import UserConfig
 from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import DataExporterType
 from aiperf.common.factories import DataExporterFactory
-from aiperf.common.models.record_models import ErrorDetailsCount, ResultsRecord
+from aiperf.common.models.record_models import ErrorDetailsCount, MetricResult
 from aiperf.data_exporter.exporter_config import ExporterConfig
 
 
@@ -19,7 +19,7 @@ class JsonExportData(BaseModel):
     """Data to be exported to a JSON file."""
 
     input_config: UserConfig | None = None
-    records: dict[str, ResultsRecord] | None = None
+    records: dict[str, MetricResult] | None = None
     was_cancelled: bool | None = None
     errors_by_type: list[ErrorDetailsCount] | None = None
     start_time: datetime | None = None
@@ -57,7 +57,7 @@ class JsonExporter:
 
         export_data = JsonExportData(
             input_config=self._input_config,
-            records={record.name: record for record in self._results.records},
+            records={record.tag: record for record in self._results.records},
             was_cancelled=self._results.was_cancelled,
             errors_by_type=self._results.errors_by_type,
             start_time=start_time,

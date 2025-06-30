@@ -25,9 +25,9 @@ from aiperf.common.enums import (
 from aiperf.common.models.record_models import (
     ErrorDetails,
     ErrorDetailsCount,
+    MetricResult,
     ParsedResponseRecord,
     RequestRecord,
-    ResultsRecord,
 )
 from aiperf.common.utils import load_json_str
 
@@ -394,7 +394,7 @@ class ProfileResultsMessage(BaseServiceMessage):
 
     message_type: Literal[MessageType.PROFILE_RESULTS] = MessageType.PROFILE_RESULTS
 
-    records: SerializeAsAny[list[ResultsRecord]] = Field(
+    records: SerializeAsAny[list[MetricResult]] = Field(
         ..., description="The records of the profile results"
     )
     total: int = Field(
