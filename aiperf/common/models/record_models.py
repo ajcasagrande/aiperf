@@ -7,7 +7,7 @@ import time
 from functools import cached_property
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, SerializeAsAny
+from pydantic import BaseModel, Field, SerializeAsAny
 
 from aiperf.common.enums import SSEFieldType
 
@@ -347,8 +347,6 @@ class RequestRecord(BaseModel):
 class ResponseData(BaseModel):
     """Base class for all response data."""
 
-    model_config = ConfigDict(frozen=True)
-
     perf_ns: int = Field(description="The performance timestamp of the response.")
     raw_text: list[str] = Field(description="The raw text of the response.")
     parsed_text: list[str | None] = Field(
@@ -365,8 +363,6 @@ class ResponseData(BaseModel):
 
 class ParsedResponseRecord(BaseModel):
     """Record of a request and its associated responses, already parsed and ready for metrics."""
-
-    model_config = ConfigDict(frozen=True)
 
     worker_id: str = Field(
         description="The ID of the worker that processed the request."

@@ -127,7 +127,6 @@ class PostProcessorManager(BaseComponentService):
                         worker_id=message.service_id,
                         request=message.record,
                         responses=[],
-                        token_count=None,
                     ),
                 )
             )
@@ -135,12 +134,6 @@ class PostProcessorManager(BaseComponentService):
         elif message.record.valid:
             tokenizer = await self.get_tokenizer(message.record.request["model"])
             resp = await self.extractor.extract_response_data(message.record, tokenizer)
-            token_count = sum(r.token_count for r in resp if r.token_count is not None)
-            self.logger.debug(
-                "Received %d responses, %d total tokens",
-                len(resp),
-                token_count,
-            )
 
             result = ParsedInferenceResultsMessage(
                 service_id=self.service_id,
@@ -148,8 +141,12 @@ class PostProcessorManager(BaseComponentService):
                     worker_id=message.service_id,
                     request=message.record,
                     responses=resp,
-                    token_count=token_count if token_count > 0 else None,
                 ),
+            )
+            self.logger.debug(
+                "Received %d responses, %d total tokens",
+                len(resp),
+                result.record.token_count,
             )
             await self.response_results_client.push(result)
         else:
@@ -168,7 +165,6 @@ class PostProcessorManager(BaseComponentService):
                         worker_id=message.service_id,
                         request=message.record,
                         responses=[],
-                        token_count=None,
                     ),
                 )
             )

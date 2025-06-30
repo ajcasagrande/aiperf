@@ -6,14 +6,10 @@ import sys
 import time
 from collections import deque
 
-import pandas as pd
-
 from aiperf.common.comms.base import ClientAddressType, PullClient
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
-from aiperf.common.constants import NANOS_PER_MILLIS
 from aiperf.common.enums import CommandType, MessageType, ServiceType
-from aiperf.common.exceptions import ServiceErrorType
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
     aiperf_task,
@@ -28,7 +24,6 @@ from aiperf.common.models import (
     ErrorDetails,
     ErrorDetailsCount,
     InferenceResultsMessage,
-    MetricResult,
     ProcessRecordsCommandData,
     ProfileResultsMessage,
     ProfileStatsMessage,
@@ -111,7 +106,7 @@ class RecordsManager(BaseComponentService):
         # )
 
         await self.response_results_client.register_pull_callback(
-            message_type=MessageType.POST_PROCESS_RESULTS,
+            message_type=MessageType.PARSED_INFERENCE_RESULTS,
             callback=self._on_post_process_results,
             max_concurrency=1000000,
         )
@@ -142,11 +137,11 @@ class RecordsManager(BaseComponentService):
         self.user_config = (
             message.data if isinstance(message.data, UserConfig) else None
         )
-        if self.user_config is None:
-            raise self._service_error(
-                ServiceErrorType.CONFIGURATION_ERROR,
-                "User config is required for records manager",
-            )
+        # if self.user_config is None:
+        #     raise self._service_error(
+        #         ServiceErrorType.CONFIGURATION_ERROR,
+        #         "User config is required for records manager",
+        #     )
 
         self.get_tokenizer(
             os.getenv("AIPERF_MODEL", "deepseek-ai/DeepSeek-R1-Distill-Llama-8B")
@@ -203,62 +198,6 @@ class RecordsManager(BaseComponentService):
             ),
         )
 
-    # async def _on_inference_results_internal(
-    #     self, message: InferenceResultsMessage
-    # ) -> None:
-    #     """Handle an inference results message."""
-    #     record = message.record
-    #     worker_id = message.service_id
-
-    #     # Initialize worker counters if not seen before
-    #     if worker_id not in self.worker_request_counts:
-    #         self.worker_request_counts[worker_id] = 0
-    #     if worker_id not in self.worker_error_counts:
-    #         self.worker_error_counts[worker_id] = 0
-
-    #     if record.has_error:
-    #         self.logger.warning("Received error inference results: %s", record)
-    #         self.error_records.append(record)
-    #         self.worker_error_counts[worker_id] += 1
-
-    #     elif record.valid:
-    #         self.logger.debug(
-    #             "Received inference results: %f milliseconds. %f milliseconds.",
-    #             record.time_to_first_response_ns / NANOS_PER_MILLIS
-    #             if record.time_to_first_response_ns
-    #             else None,
-    #             record.time_to_last_response_ns / NANOS_PER_MILLIS
-    #             if record.time_to_last_response_ns
-    #             else None,
-    #         )
-    #         self.worker_request_counts[worker_id] += 1
-
-    #         # await self.post_process_results_client.request_async(
-    #         #     message, self._on_post_process_results
-    #         # )
-
-    #         tokenizer = self.get_tokenizer(record.request["model"])
-    #         resp = await self.extractor.extract_response_data(record, tokenizer)
-    #         total_tokens = sum(r.token_count for r in resp if r.token_count is not None)
-    #         self.records.append(ResponseRecord(
-    #             request=record,
-    #             responses=resp,
-    #             token_count=total_tokens if total_tokens > 0 else None,
-    #         ))
-
-    #         # self.logger.debug(
-    #         #     "Received %d responses, %d total tokens",
-    #         #     len(resp),
-    #         #     total_tokens,
-    #         # )
-
-    #     else:
-    #         self.logger.warning("Received invalid inference results: %s", record)
-    #         self.error_records.append(record)
-    #         self.worker_error_counts[worker_id] += 1
-
-    #     self.incoming_records.task_done()
-
     async def _on_post_process_results(
         self, message: ParsedInferenceResultsMessage
     ) -> None:
@@ -299,11 +238,11 @@ class RecordsManager(BaseComponentService):
         """Generate a summary of the error records."""
         summary: dict[ErrorDetails, int] = {}
         for record in self.error_records:
-            if not record.has_error:
+            if record.request.error is None:
                 continue
-            if record.error.type not in summary:
-                summary[record.error.type] = 0
-            summary[record.error] += 1
+            if record.request.error not in summary:
+                summary[record.request.error] = 0
+            summary[record.request.error] += 1
 
         return [
             ErrorDetailsCount(error_details=error_details, count=count)
@@ -368,6 +307,7 @@ class RecordsManager(BaseComponentService):
                 was_cancelled=self.was_cancelled,
             )
 
+        self.logger.info("Token counts: %s", [r.token_count for r in self.records])
         metric_summary = MetricSummary()
         metric_summary.process(list(self.records))
         metrics_summary = metric_summary.get_metrics_summary()
@@ -383,35 +323,6 @@ class RecordsManager(BaseComponentService):
             errors_by_type=await self.get_error_summary(),
             was_cancelled=self.was_cancelled,
         )
-
-
-def record_from_dataframe(
-    df: pd.DataFrame,
-    column_name: str,
-    name: str,
-    unit: str,
-    streaming_only: bool,
-) -> MetricResult:
-    """Create a Record from a DataFrame."""
-    column = df[column_name]
-    return MetricResult(
-        tag=name,
-        unit=unit,
-        avg=column.mean() / NANOS_PER_MILLIS,
-        min=column.min() / NANOS_PER_MILLIS,
-        max=column.max() / NANOS_PER_MILLIS,
-        p1=column.quantile(0.01) / NANOS_PER_MILLIS,
-        p5=column.quantile(0.05) / NANOS_PER_MILLIS,
-        p25=column.quantile(0.25) / NANOS_PER_MILLIS,
-        p50=column.quantile(0.50) / NANOS_PER_MILLIS,
-        p75=column.quantile(0.75) / NANOS_PER_MILLIS,
-        p90=column.quantile(0.90) / NANOS_PER_MILLIS,
-        p95=column.quantile(0.95) / NANOS_PER_MILLIS,
-        p99=column.quantile(0.99) / NANOS_PER_MILLIS,
-        std=column.std() / NANOS_PER_MILLIS,
-        count=int(column.count()),
-        streaming_only=streaming_only,
-    )
 
 
 def main() -> None:

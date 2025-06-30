@@ -27,9 +27,11 @@ class MetricSummary:
 
         # computed_metrics = {token_count: [sdsdsd]}
         self._metrics = []
-        # for metric_cls in BaseMetric.get_all().values():
+        for metric_cls in BaseMetric.get_all().values():
+            self._metrics.append(metric_cls())
+
         #     if metric_cls.tag in computed_metrics:
-        #         c
+        #         c``
 
         #     for tag in metric_cls.required_metrics_tags:
         #         if tag not in computed_metrics:
@@ -87,6 +89,7 @@ def record_from_dataframe(
     column = df[metric.tag]
     return MetricResult(
         tag=metric.tag,
+        header=metric.header,
         unit=metric.unit.name,
         avg=column.mean() / NANOS_PER_MILLIS,
         min=column.min() / NANOS_PER_MILLIS,

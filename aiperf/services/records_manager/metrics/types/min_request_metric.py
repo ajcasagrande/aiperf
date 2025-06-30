@@ -43,6 +43,5 @@ class MinRequestMetric(BaseMetric):
         Checks if the record is valid for calculations.
 
         """
-        print(f"Checking record: {record}")
         if not record or not record.start_perf_ns:
             raise ValueError("Record must have a valid request with a timestamp.")
