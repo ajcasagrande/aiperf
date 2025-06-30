@@ -52,8 +52,6 @@ class MetricResult(BaseModel):
 class BaseClientConfig(BaseModel):
     """Base configuration options for all clients."""
 
-    ...
-
 
 class GenericHTTPClientConfig(BaseClientConfig):
     """Configuration options for a generic HTTP inference client."""

@@ -24,9 +24,9 @@ class EndPointConfig(BaseConfig):
             \nround_robin: nth prompt in the list gets assigned to n-mod len(models). \
             \nrandom: assignment is uniformly random",
         ),
-        cyclopts.Parameter(
-            name=("--model-selection-strategy"),
-        ),
+        # cyclopts.Parameter(
+        #     name=("--model-selection-strategy"),
+        # ),
     ] = EndPointDefaults.MODEL_SELECTION_STRATEGY
 
     request_payload_type: Annotated[

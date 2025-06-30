@@ -107,7 +107,7 @@ class RecordsManager(BaseComponentService):
 
         await self.response_results_client.register_pull_callback(
             message_type=MessageType.PARSED_INFERENCE_RESULTS,
-            callback=self._on_post_process_results,
+            callback=self._on_parsed_inference_results,
             max_concurrency=1000000,
         )
 
@@ -165,27 +165,6 @@ class RecordsManager(BaseComponentService):
             await self.publish_profile_stats()
             await asyncio.sleep(1)
 
-    @aiperf_task
-    async def _process_records_task(self) -> None:
-        """Process the records."""
-        while not self.stop_event.is_set():
-            try:
-                # Blocking wait for the next message
-                message = await self.incoming_records.get()
-                # self._cpu_executor.submit(self._on_inference_results_internal, message)
-                await self._on_inference_results_internal(message)
-
-                # Drain the rest of the queue, non-blocking
-                while not self.incoming_records.empty():
-                    message = self.incoming_records.get_nowait()
-                    # self._cpu_executor.submit(self._on_inference_results_internal, message)
-                    await self._on_inference_results_internal(message)
-
-            except asyncio.CancelledError:
-                break
-
-        await self.incoming_records.join()
-
     async def publish_profile_stats(self) -> None:
         """Publish the profile stats."""
         await self.pub_client.publish(
@@ -198,11 +177,11 @@ class RecordsManager(BaseComponentService):
             ),
         )
 
-    async def _on_post_process_results(
+    async def _on_parsed_inference_results(
         self, message: ParsedInferenceResultsMessage
     ) -> None:
-        """Handle a post process results message."""
-        self.logger.debug("Received post process results: %s", message)
+        """Handle a parsed inference results message."""
+        self.logger.debug("Received parsed inference results: %s", message)
 
         worker_id = message.record.worker_id
         if worker_id not in self.worker_success_counts:
@@ -211,28 +190,22 @@ class RecordsManager(BaseComponentService):
             self.worker_error_counts[worker_id] = 0
 
         if message.record.request.has_error:
-            self.logger.warning("Received error post process results: %s", message)
-            # TODO: Re-enable this
+            self.logger.warning("Received error inference results: %s", message)
+            # TODO: we do not want to keep all the data forever
             self.error_records.append(message.record)
             self.worker_error_counts[worker_id] += 1
             self.error_records_count += 1
         elif message.record.request.valid:
-            # TODO: Re-enable this
+            # TODO: we do not want to keep all the data forever
             self.records.append(message.record)
             self.worker_success_counts[worker_id] += 1
             self.records_count += 1
         else:
-            self.logger.warning("Received invalid post process results: %s", message)
-            # TODO: Re-enable this
-            # self.error_records.append(message.record)
+            self.logger.warning("Received invalid inference results: %s", message)
+            # TODO: we do not want to keep all the data forever
+            self.error_records.append(message.record)
             self.worker_error_counts[worker_id] += 1
             self.error_records_count += 1
-
-    async def _on_inference_results(self, message: InferenceResultsMessage) -> None:
-        """Handle an inference results message."""
-        # _ = asyncio.create_task(self._on_inference_results_internal(message))
-        self.incoming_records.put_nowait(message)
-        # self.logger.info("Incoming records QQ size: %d", self.incoming_records._unfinished_tasks)
 
     async def get_error_summary(self) -> list[ErrorDetailsCount]:
         """Generate a summary of the error records."""

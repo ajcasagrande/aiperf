@@ -5,8 +5,9 @@ from typing import Annotated
 
 import cyclopts
 from pydantic import BeforeValidator, Field
+from pydantic_settings import BaseSettings
 
-from aiperf.common.config.base_config import ADD_TO_TEMPLATE, BaseConfig
+from aiperf.common.config.base_config import ADD_TO_TEMPLATE
 from aiperf.common.config.config_defaults import UserDefaults
 from aiperf.common.config.config_validators import (
     parse_str_or_list,
@@ -17,10 +18,16 @@ from aiperf.common.config.output.output_config import OutputConfig
 from aiperf.common.config.tokenizer.tokenizer_config import TokenizerConfig
 
 
-class UserConfig(BaseConfig):
+class UserConfig(BaseSettings):
     """
     A configuration class for defining top-level user settings.
     """
+
+    # model_config = SettingsConfigDict(
+    #     env_prefix="AIPERF_",
+    #     env_file=".env",
+    #     env_file_encoding="utf-8",
+    # )
 
     model_names: Annotated[
         list[str],

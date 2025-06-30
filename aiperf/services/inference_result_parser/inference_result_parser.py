@@ -27,17 +27,17 @@ from aiperf.common.tokenizer import Tokenizer
 from aiperf.parsers.openai_parsers import OpenAIResponseExtractor
 
 
-@ServiceFactory.register(ServiceType.POST_PROCESSOR_MANAGER)
-class PostProcessorManager(BaseComponentService):
-    """PostProcessorManager is primarily responsible for iterating over the
-    records to generate metrics and other conclusions from the records.
+@ServiceFactory.register(ServiceType.INFERENCE_RESULT_PARSER)
+class InferenceResultParser(BaseComponentService):
+    """InferenceResultParser is responsible for parsing the inference results
+    and pushing them to the RecordsManager.
     """
 
     def __init__(
         self, service_config: ServiceConfig, service_id: str | None = None
     ) -> None:
         super().__init__(service_config=service_config, service_id=service_id)
-        self.logger.debug("Initializing post processor manager")
+        self.logger.debug("Initializing inference result parser")
         self.inference_results_client: PullClient = self.comms.create_pull_client(
             ClientAddressType.PUSH_PULL_BACKEND,
         )
@@ -52,13 +52,13 @@ class PostProcessorManager(BaseComponentService):
     @property
     def service_type(self) -> ServiceType:
         """The type of service."""
-        return ServiceType.POST_PROCESSOR_MANAGER
+        return ServiceType.INFERENCE_RESULT_PARSER
 
     @on_init
     async def _initialize(self) -> None:
-        """Initialize post processor manager-specific components."""
-        self.logger.debug("Initializing post processor manager")
-        # TODO: Implement post processor manager initialization
+        """Initialize inference result parser-specific components."""
+        self.logger.debug("Initializing inference result parser")
+        # TODO: Implement inference result parser initialization
         # self.incoming_records_client.register_request_handler(
         #     service_id=self.service_id,
         #     message_type=MessageType.INFERENCE_RESULTS,
@@ -72,21 +72,21 @@ class PostProcessorManager(BaseComponentService):
 
     @on_start
     async def _start(self) -> None:
-        """Start the post processor manager."""
-        self.logger.debug("Starting post processor manager")
-        # TODO: Implement post processor manager start
+        """Start the inference result parser."""
+        self.logger.debug("Starting inference result parser")
+        # TODO: Implement inference result parser start
 
     @on_stop
     async def _stop(self) -> None:
-        """Stop the post processor manager."""
-        self.logger.debug("Stopping post processor manager")
-        # TODO: Implement post processor manager stop
+        """Stop the inference result parser."""
+        self.logger.debug("Stopping inference result parser")
+        # TODO: Implement inference result parser stop
 
     @on_cleanup
     async def _cleanup(self) -> None:
-        """Clean up post processor manager-specific components."""
-        self.logger.debug("Cleaning up post processor manager")
-        # TODO: Implement post processor manager cleanup
+        """Clean up inference result parser-specific components."""
+        self.logger.debug("Cleaning up inference result parser")
+        # TODO: Implement inference result parser cleanup
 
     async def get_tokenizer(self, model: str) -> Tokenizer:
         """Get the tokenizer for a given model."""
@@ -97,8 +97,10 @@ class PostProcessorManager(BaseComponentService):
 
     @on_configure
     async def _configure(self, message: CommandMessage) -> None:
-        """Configure the post processor manager."""
-        self.logger.debug(f"Configuring post processor manager with message: {message}")
+        """Configure the inference result parser."""
+        self.logger.debug(
+            f"Configuring inference result parser with message: {message}"
+        )
         self.user_config = (
             message.data if isinstance(message.data, UserConfig) else None
         )
@@ -171,11 +173,11 @@ class PostProcessorManager(BaseComponentService):
 
 
 def main() -> None:
-    """Main entry point for the post processor manager."""
+    """Main entry point for the inference result parser."""
 
     from aiperf.common.bootstrap import bootstrap_and_run_service
 
-    bootstrap_and_run_service(PostProcessorManager)
+    bootstrap_and_run_service(InferenceResultParser)
 
 
 if __name__ == "__main__":

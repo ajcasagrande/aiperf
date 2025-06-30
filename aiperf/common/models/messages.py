@@ -284,8 +284,9 @@ class CreditDropMessage(BaseServiceMessage):
     conversation_id: str | None = Field(
         default=None, description="The ID of the conversation, if applicable."
     )
-    credit_drop_ns: int = Field(
-        default_factory=time.time_ns, description="Timestamp of the credit drop"
+    credit_drop_ns: int | None = Field(
+        default=None,
+        description="Timestamp of the credit drop, if applicable. None means send ASAP.",
     )
 
 

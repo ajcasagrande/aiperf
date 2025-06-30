@@ -92,7 +92,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             (ServiceType.TIMING_MANAGER, 1),
             (ServiceType.WORKER_MANAGER, 1),
             (ServiceType.RECORDS_MANAGER, 1),
-            (ServiceType.POST_PROCESSOR_MANAGER, 4),
+            (ServiceType.INFERENCE_RESULT_PARSER, 4),
         ]
 
         self.service_manager: BaseServiceManager = None  # type: ignore - is set in _initialize

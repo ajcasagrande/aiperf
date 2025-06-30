@@ -320,7 +320,7 @@ class ServiceType(CaseInsensitiveStrEnum):
     DATASET_MANAGER = "dataset_manager"
     TIMING_MANAGER = "timing_manager"
     RECORDS_MANAGER = "records_manager"
-    POST_PROCESSOR_MANAGER = "post_processor_manager"
+    INFERENCE_RESULT_PARSER = "post_processor_manager"
     WORKER_MANAGER = "worker_manager"
     MULTI_WORKER_PROCESS = "multi_worker_process"
     WORKER = "worker"

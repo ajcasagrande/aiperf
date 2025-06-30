@@ -60,6 +60,16 @@ def _setup_logging() -> None:
     logging.root.addHandler(rich_handler)
 
 
+# @app.command("profile")
+# def profile(
+#     config: Path | None = None,
+#     run_type: ServiceRunType = ServiceRunType.MULTIPROCESSING,
+#     user_config: UserConfig | None = None,
+# ) -> None:
+#     """Profile the AIPerf system."""
+#     pass
+
+
 @app.default
 def main(
     config: Path | None = None,
