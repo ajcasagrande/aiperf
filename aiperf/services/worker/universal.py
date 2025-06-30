@@ -99,7 +99,7 @@ class UniversalWorker:
             ClientAddressType.CREDIT_RETURN_PUSH_PULL,
         )
         self.inference_results_client = self.zmq_comms.create_push_client(
-            ClientAddressType.INFERENCE_RESULTS_PUSH_PULL,
+            ClientAddressType.PUSH_PULL_FRONTEND,
         )
         self.conversation_data_client = self.zmq_comms.create_req_client(
             ClientAddressType.DEALER_ROUTER_REQ_REP_FRONTEND,

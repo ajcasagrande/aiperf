@@ -148,7 +148,7 @@ class AIPerfRichDashboard(LogsDashboardMixin, AIPerfLifecycleMixin):
             )
 
         # Create metrics table
-        metrics_table = Table.grid(padding=0)
+        metrics_table = Table.grid(padding=(0, 1, 0, 0))
         metrics_table.add_column(style="bold cyan", justify="right")
         metrics_table.add_column(style="bold white")
 
@@ -212,7 +212,7 @@ class AIPerfRichDashboard(LogsDashboardMixin, AIPerfLifecycleMixin):
             )
 
         # Create workers table
-        workers_table = Table.grid(padding=0)
+        workers_table = Table.grid(padding=(0, 1, 0, 0))
         workers_table.add_column("Worker", style="cyan", width=20)
         workers_table.add_column("Status", width=12)
         workers_table.add_column("Tasks", width=12, justify="right")
@@ -347,7 +347,7 @@ class AIPerfRichDashboard(LogsDashboardMixin, AIPerfLifecycleMixin):
             self.layout,
             console=self.console,
             # refresh_per_second=4,
-            screen=False,
+            screen=True,
         )
         self.live.start()
 

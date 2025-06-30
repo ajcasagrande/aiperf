@@ -56,6 +56,7 @@ class PullClient(BaseCommunicationClient):
         self,
         message_type: MessageType,
         callback: Callable[[MessageT], Coroutine[Any, Any, None]],
+        max_concurrency: int | None = None,
     ) -> None:
         """Register a callback for a pull client. The callback will be called when
         a message is received for the given message type.
@@ -63,6 +64,7 @@ class PullClient(BaseCommunicationClient):
         Args:
             message_type: The message type to register the callback for
             callback: The callback to register
+            max_concurrency: The maximum number of concurrent requests to allow.
         """
         pass
 
@@ -75,15 +77,32 @@ class ReqClient(BaseCommunicationClient):
     async def request(
         self,
         message: MessageT,
+        timeout: float = 10,
     ) -> MessageOutputT:
         """Send a request and wait for a response. The message will be routed automatically
         based on the message type.
 
         Args:
             message: Message to send (will be routed based on the message type)
+            timeout: Timeout in seconds for the request.
 
         Returns:
             Response message if successful
+        """
+        pass
+
+    @abstractmethod
+    async def request_async(
+        self,
+        message: MessageT,
+        callback: Callable[[MessageOutputT], Coroutine[Any, Any, None]],
+    ) -> None:
+        """Send a request and be notified when the response is received. The message will be routed automatically
+        based on the message type.
+
+        Args:
+            message: Message to send (will be routed based on the message type)
+            callback: Callback to be called when the response is received
         """
         pass
 

@@ -52,7 +52,7 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
         )
         self.service_config = service_config
 
-        self.logger = logging.getLogger(self.service_type)
+        self.logger = logging.getLogger(self.service_id)
         self.logger.debug(
             f"Initializing {self.service_type} service (id: {self.service_id})"
         )

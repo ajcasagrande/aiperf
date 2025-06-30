@@ -168,6 +168,9 @@ class MessageType(CaseInsensitiveStrEnum):
     INFERENCE_RESULTS = "inference_results"
     """A message containing inference results from a worker."""
 
+    POST_PROCESS_RESULTS = "post_process_results"
+    """A message containing post process results from a post processor."""
+
     # Sweep run messages
 
     SWEEP_CONFIGURE = "sweep_configure"
@@ -342,11 +345,23 @@ class ClientAddressType(CaseInsensitiveStrEnum):
     INFERENCE_RESULTS_PUSH_PULL = "inference_results_push_pull"
     """Push/pull address for inference results messages."""
 
+    POST_PROCESS_INCOMING_PUSH_PULL = "post_process_incoming_push_pull"
+    """Push/pull address for post-process incoming messages."""
+
+    POST_PROCESS_OUTGOING_PUSH_PULL = "post_process_outgoing_push_pull"
+    """Push/pull address for post-process outgoing messages."""
+
     DEALER_ROUTER_REQ_REP_FRONTEND = "dealer_router_req_rep_frontend"
     """Frontend address for dealer/router req/rep proxy (for sending messages)."""
 
     DEALER_ROUTER_REQ_REP_BACKEND = "dealer_router_req_rep_backend"
     """Backend address for dealer/router req/rep proxy (for receiving messages)."""
+
+    PUSH_PULL_FRONTEND = "push_pull_frontend"
+    """Frontend address for push/pull proxy (for sending messages)."""
+
+    PUSH_PULL_BACKEND = "push_pull_backend"
+    """Backend address for push/pull proxy (for receiving messages)."""
 
 
 class ZMQProxyType(CaseInsensitiveStrEnum):
@@ -354,6 +369,7 @@ class ZMQProxyType(CaseInsensitiveStrEnum):
 
     DEALER_ROUTER = "dealer_router"
     XPUB_XSUB = "xpub_xsub"
+    PUSH_PULL = "push_pull"
 
 
 class ServiceRegistrationStatus(CaseInsensitiveStrEnum):

@@ -113,14 +113,16 @@ class OpenAIResponseExtractor:
         results = []
         for response in record.responses:
             response_data = await self._parse_response(response)
-            if response_data is not None:
-                if tokenizer is not None:
-                    response_data.token_count = sum(
-                        len(tokenizer.encode(text))
-                        for text in response_data.parsed_text
-                        if text is not None
-                    )
-                results.append(response_data)
+            if response_data is None:
+                continue
+
+            if tokenizer is not None:
+                response_data.token_count = sum(
+                    len(tokenizer.encode(text))
+                    for text in response_data.parsed_text
+                    if text is not None
+                )
+            results.append(response_data)
         return results
 
     def _parse_text(self, raw_text: str) -> Any | None:

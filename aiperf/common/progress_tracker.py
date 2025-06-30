@@ -84,14 +84,14 @@ class ProgressTracker:
         profile.total_expected_requests = message.total
         profile.requests_completed = message.completed
 
-        if not profile.is_complete:
+        if message.completed < profile.total_expected_requests:
             profile.requests_per_second = (
                 (
                     message.completed
                     / (current_time_ns - profile.start_time_ns)
                     * NANOS_PER_SECOND
                 )
-                if profile.start_time_ns - current_time_ns > 0
+                if current_time_ns > profile.start_time_ns
                 else None
             )
 

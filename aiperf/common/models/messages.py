@@ -1,11 +1,11 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-import json
 import time
 import uuid
 from typing import Any, ClassVar, Literal
 
+import orjson
 from pydantic import (
     BaseModel,
     Field,
@@ -26,8 +26,10 @@ from aiperf.common.models.record_models import (
     ErrorDetails,
     ErrorDetailsCount,
     RequestRecord,
+    ResponseRecord,
     ResultsRecord,
 )
+from aiperf.common.utils import load_json_str
 
 ################################################################################
 # Abstract Base Message Models
@@ -117,7 +119,7 @@ class Message(BaseModel):
     @classmethod
     def from_json(cls, json_str: str) -> "Message":
         """Fast deserialization without full validation"""
-        data = json.loads(json_str)
+        data = load_json_str(json_str)
         message_type = data.get("message_type")
         if not message_type:
             raise ValueError("Missing message_type")
@@ -131,7 +133,7 @@ class Message(BaseModel):
 
     def to_json(self) -> str:
         """Fast serialization without full validation"""
-        return json.dumps(self.__dict__)
+        return orjson.dumps(self.__dict__).decode("utf-8")
 
 
 class BaseServiceMessage(Message):
@@ -372,6 +374,18 @@ class InferenceResultsMessage(BaseServiceMessage):
 
     record: SerializeAsAny[RequestRecord] = Field(
         ..., description="The inference results record"
+    )
+
+
+class PostProcessResultsMessage(BaseServiceMessage):
+    """Message for a post process results."""
+
+    message_type: Literal[MessageType.POST_PROCESS_RESULTS] = (
+        MessageType.POST_PROCESS_RESULTS
+    )
+
+    record: SerializeAsAny[ResponseRecord] = Field(
+        ..., description="The post process results record"
     )
 
 

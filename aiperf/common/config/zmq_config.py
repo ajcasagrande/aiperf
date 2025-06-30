@@ -36,6 +36,8 @@ class BaseZMQCommunicationConfig(BaseModel, ABC):
 
     dealer_router_proxy_config: ClassVar[BaseZMQProxyConfig]
 
+    push_pull_proxy_config: ClassVar[BaseZMQProxyConfig]
+
     @property
     @abstractmethod
     def inference_push_pull_address(self) -> str:
@@ -71,6 +73,10 @@ class BaseZMQCommunicationConfig(BaseModel, ABC):
                 return self.credit_return_address
             case ClientAddressType.INFERENCE_RESULTS_PUSH_PULL:
                 return self.inference_push_pull_address
+            case ClientAddressType.PUSH_PULL_FRONTEND:
+                return self.push_pull_proxy_config.frontend_address
+            case ClientAddressType.PUSH_PULL_BACKEND:
+                return self.push_pull_proxy_config.backend_address
             case _:
                 raise ValueError(f"Invalid address type: {address_type}")
 
@@ -170,12 +176,22 @@ class ZMQTCPTransportConfig(BaseZMQCommunicationConfig):
         default=5563, description="Port for credit return operations"
     )
     dealer_router_proxy_config: ZMQTCPProxyConfig = Field(
-        default=ZMQTCPProxyConfig(),
+        default=ZMQTCPProxyConfig(
+            host="0.0.0.0", frontend_port=5661, backend_port=5662
+        ),
         description="Configuration for the ZMQ Proxy. If provided, the proxy will be created and started.",
     )
     xpub_xsub_proxy_config: ZMQTCPProxyConfig = Field(
-        default=ZMQTCPProxyConfig(),
+        default=ZMQTCPProxyConfig(
+            host="0.0.0.0", frontend_port=5663, backend_port=5664
+        ),
         description="Configuration for the ZMQ Proxy. If provided, the proxy will be created and started.",
+    )
+    push_pull_proxy_config: ZMQTCPProxyConfig = Field(
+        default=ZMQTCPProxyConfig(
+            host="0.0.0.0", frontend_port=5665, backend_port=5666
+        ),
+        description="Configuration for the ZMQ Push/Pull Proxy. If provided, the proxy will be created and started.",
     )
 
     @property
@@ -205,6 +221,10 @@ class ZMQIPCConfig(BaseZMQCommunicationConfig):
     xpub_xsub_proxy_config: ZMQIPCProxyConfig = Field(
         default=ZMQIPCProxyConfig(name="xpub_xsub_proxy"),
         description="Configuration for the ZMQ XPUB/XSUB Proxy. If provided, the proxy will be created and started.",
+    )
+    push_pull_proxy_config: ZMQIPCProxyConfig = Field(
+        default=ZMQIPCProxyConfig(name="push_pull_proxy"),
+        description="Configuration for the ZMQ Push/Pull Proxy. If provided, the proxy will be created and started.",
     )
 
     @property

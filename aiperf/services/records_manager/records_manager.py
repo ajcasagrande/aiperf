@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
+import os
 import sys
 import time
 from collections import deque
@@ -12,6 +13,7 @@ from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
 from aiperf.common.constants import NANOS_PER_MILLIS
 from aiperf.common.enums import CommandType, MessageType, ServiceType
+from aiperf.common.exceptions import ServiceErrorType
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
     aiperf_task,
@@ -29,9 +31,10 @@ from aiperf.common.models import (
     ProcessRecordsCommandData,
     ProfileResultsMessage,
     ProfileStatsMessage,
-    RequestRecord,
     ResultsRecord,
 )
+from aiperf.common.models.messages import PostProcessResultsMessage
+from aiperf.common.models.record_models import ResponseRecord
 from aiperf.common.service import BaseComponentService
 from aiperf.common.tokenizer import Tokenizer
 from aiperf.parsers import OpenAIResponseExtractor
@@ -50,10 +53,12 @@ class RecordsManager(BaseComponentService):
         super().__init__(service_config=service_config, service_id=service_id)
         self.logger.debug("Initializing records manager")
 
-        self.records: deque[RequestRecord] = deque()
-        self.error_records: deque[RequestRecord] = deque()
+        self.records: deque[ResponseRecord] = deque()
+        self.error_records: deque[ResponseRecord] = deque()
+        self.error_records_count: int = 0
+        self.records_count: int = 0
         # Track per-worker statistics
-        self.worker_request_counts: dict[str, int] = {}
+        self.worker_success_counts: dict[str, int] = {}
         self.worker_error_counts: dict[str, int] = {}
 
         self.start_time_ns: int = time.time_ns()
@@ -65,10 +70,16 @@ class RecordsManager(BaseComponentService):
 
         self.incoming_records: asyncio.Queue[InferenceResultsMessage] = asyncio.Queue()
 
-        self.inference_results_client: PullClient = self.comms.create_pull_client(
+        # self.inference_results_client: PullClient = self.comms.create_pull_client(
+        #     ClientAddressType.PUSH_PULL_BACKEND,
+        # )
+        self.response_results_client: PullClient = self.comms.create_pull_client(
             ClientAddressType.INFERENCE_RESULTS_PUSH_PULL,
             bind=True,
         )
+        # self.post_process_results_client: ReqClient = self.comms.create_req_client(
+        #     ClientAddressType.DEALER_ROUTER_REQ_REP_FRONTEND,
+        # )
 
     @property
     def service_type(self) -> ServiceType:
@@ -92,9 +103,16 @@ class RecordsManager(BaseComponentService):
             self.process_records,
         )
 
-        await self.inference_results_client.register_pull_callback(
-            message_type=MessageType.INFERENCE_RESULTS,
-            callback=self._on_inference_results,
+        # await self.inference_results_client.register_pull_callback(
+        #     message_type=MessageType.INFERENCE_RESULTS,
+        #     callback=self._on_inference_results,
+        #     max_concurrency=1000000,
+        # )
+
+        await self.response_results_client.register_pull_callback(
+            message_type=MessageType.POST_PROCESS_RESULTS,
+            callback=self._on_post_process_results,
+            max_concurrency=1000000,
         )
 
     @on_start
@@ -123,6 +141,26 @@ class RecordsManager(BaseComponentService):
         self.user_config = (
             message.data if isinstance(message.data, UserConfig) else None
         )
+        if self.user_config is None:
+            raise self._service_error(
+                ServiceErrorType.CONFIGURATION_ERROR,
+                "User config is required for records manager",
+            )
+
+        self.get_tokenizer(
+            os.getenv("AIPERF_MODEL", "deepseek-ai/DeepSeek-R1-Distill-Llama-8B")
+        )
+
+        if self.user_config:
+            await asyncio.gather(
+                *[
+                    asyncio.to_thread(self.get_tokenizer, model)
+                    for model in self.user_config.model_names
+                ]
+            )
+            self.logger.info(
+                "Initialized tokenizers for %d models", len(self.tokenizers)
+            )
 
     @aiperf_task
     async def _report_records_task(self) -> None:
@@ -138,14 +176,14 @@ class RecordsManager(BaseComponentService):
             try:
                 # Blocking wait for the next message
                 message = await self.incoming_records.get()
+                # self._cpu_executor.submit(self._on_inference_results_internal, message)
                 await self._on_inference_results_internal(message)
-                self.incoming_records.task_done()
 
                 # Drain the rest of the queue, non-blocking
                 while not self.incoming_records.empty():
                     message = self.incoming_records.get_nowait()
+                    # self._cpu_executor.submit(self._on_inference_results_internal, message)
                     await self._on_inference_results_internal(message)
-                    self.incoming_records.task_done()
 
             except asyncio.CancelledError:
                 break
@@ -157,62 +195,104 @@ class RecordsManager(BaseComponentService):
         await self.pub_client.publish(
             ProfileStatsMessage(
                 service_id=self.service_id,
-                error_count=len(self.error_records),
-                completed=len(self.records) + len(self.error_records),
-                worker_completed=self.worker_request_counts,
+                error_count=self.error_records_count,
+                completed=self.records_count,
+                worker_completed=self.worker_success_counts,
                 worker_errors=self.worker_error_counts,
             ),
         )
 
-    async def _on_inference_results_internal(
-        self, message: InferenceResultsMessage
-    ) -> None:
-        """Handle an inference results message."""
-        record = message.record
-        worker_id = message.service_id
+    # async def _on_inference_results_internal(
+    #     self, message: InferenceResultsMessage
+    # ) -> None:
+    #     """Handle an inference results message."""
+    #     record = message.record
+    #     worker_id = message.service_id
 
-        # Initialize worker counters if not seen before
-        if worker_id not in self.worker_request_counts:
-            self.worker_request_counts[worker_id] = 0
+    #     # Initialize worker counters if not seen before
+    #     if worker_id not in self.worker_request_counts:
+    #         self.worker_request_counts[worker_id] = 0
+    #     if worker_id not in self.worker_error_counts:
+    #         self.worker_error_counts[worker_id] = 0
+
+    #     if record.has_error:
+    #         self.logger.warning("Received error inference results: %s", record)
+    #         self.error_records.append(record)
+    #         self.worker_error_counts[worker_id] += 1
+
+    #     elif record.valid:
+    #         self.logger.debug(
+    #             "Received inference results: %f milliseconds. %f milliseconds.",
+    #             record.time_to_first_response_ns / NANOS_PER_MILLIS
+    #             if record.time_to_first_response_ns
+    #             else None,
+    #             record.time_to_last_response_ns / NANOS_PER_MILLIS
+    #             if record.time_to_last_response_ns
+    #             else None,
+    #         )
+    #         self.worker_request_counts[worker_id] += 1
+
+    #         # await self.post_process_results_client.request_async(
+    #         #     message, self._on_post_process_results
+    #         # )
+
+    #         tokenizer = self.get_tokenizer(record.request["model"])
+    #         resp = await self.extractor.extract_response_data(record, tokenizer)
+    #         total_tokens = sum(r.token_count for r in resp if r.token_count is not None)
+    #         self.records.append(ResponseRecord(
+    #             request=record,
+    #             responses=resp,
+    #             token_count=total_tokens if total_tokens > 0 else None,
+    #         ))
+
+    #         # self.logger.debug(
+    #         #     "Received %d responses, %d total tokens",
+    #         #     len(resp),
+    #         #     total_tokens,
+    #         # )
+
+    #     else:
+    #         self.logger.warning("Received invalid inference results: %s", record)
+    #         self.error_records.append(record)
+    #         self.worker_error_counts[worker_id] += 1
+
+    #     self.incoming_records.task_done()
+
+    async def _on_post_process_results(
+        self, message: PostProcessResultsMessage
+    ) -> None:
+        """Handle a post process results message."""
+        self.logger.debug("Received post process results: %s", message)
+
+        worker_id = message.record.worker_id
+        if worker_id not in self.worker_success_counts:
+            self.worker_success_counts[worker_id] = 0
         if worker_id not in self.worker_error_counts:
             self.worker_error_counts[worker_id] = 0
 
-        if record.has_error:
-            self.logger.warning("Received error inference results: %s", record)
-            self.error_records.append(record)
+        if message.record.request.has_error:
+            self.logger.warning("Received error post process results: %s", message)
+            # TODO: Re-enable this
+            # self.error_records.append(message.record)
             self.worker_error_counts[worker_id] += 1
-
-        elif record.valid:
-            self.logger.debug(
-                "Received inference results: %f milliseconds. %f milliseconds.",
-                record.time_to_first_response_ns / NANOS_PER_MILLIS
-                if record.time_to_first_response_ns
-                else None,
-                record.time_to_last_response_ns / NANOS_PER_MILLIS
-                if record.time_to_last_response_ns
-                else None,
-            )
-            self.records.append(record)
-            self.worker_request_counts[worker_id] += 1
-
-            tokenizer = self.get_tokenizer(record.request["model"])
-            resp = await self.extractor.extract_response_data(record, tokenizer)
-            total_tokens = sum(r.token_count for r in resp if r.token_count is not None)
-            self.logger.debug(
-                "Received %d responses, %d total tokens",
-                len(resp),
-                total_tokens,
-            )
-
+            self.error_records_count += 1
+        elif message.record.request.valid:
+            # TODO: Re-enable this
+            # self.records.append(message.record)
+            self.worker_success_counts[worker_id] += 1
+            self.records_count += 1
         else:
-            self.logger.warning("Received invalid inference results: %s", record)
-            self.error_records.append(record)
+            self.logger.warning("Received invalid post process results: %s", message)
+            # TODO: Re-enable this
+            # self.error_records.append(message.record)
             self.worker_error_counts[worker_id] += 1
+            self.error_records_count += 1
 
     async def _on_inference_results(self, message: InferenceResultsMessage) -> None:
         """Handle an inference results message."""
         # _ = asyncio.create_task(self._on_inference_results_internal(message))
         self.incoming_records.put_nowait(message)
+        # self.logger.info("Incoming records QQ size: %d", self.incoming_records._unfinished_tasks)
 
     async def get_error_summary(self) -> list[ErrorDetailsCount]:
         """Generate a summary of the error records."""
@@ -287,19 +367,19 @@ class RecordsManager(BaseComponentService):
                 was_cancelled=self.was_cancelled,
             )
 
-        valid_records = [record for record in self.records if record.valid]
+        valid_records = [record for record in self.records]
         # Extract time to first response values
         time_to_first_token_values = [
-            record.time_to_first_response_ns for record in valid_records
+            record.request.time_to_first_response_ns for record in valid_records
         ]
         time_to_second_token_values = [
-            record.time_to_second_response_ns for record in valid_records
+            record.request.time_to_second_response_ns for record in valid_records
         ]
         time_to_last_token_values = [
-            record.time_to_last_response_ns for record in valid_records
+            record.request.time_to_last_response_ns for record in valid_records
         ]
         inter_token_latency_values = [
-            record.inter_token_latency_ns for record in valid_records
+            record.request.inter_token_latency_ns for record in valid_records
         ]
 
         # Create single DataFrame with all metrics

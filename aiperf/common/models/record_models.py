@@ -378,6 +378,20 @@ class ResponseData(BaseModel):
     )
 
 
+class ResponseRecord(BaseModel):
+    """Record of a response with its associated request."""
+
+    worker_id: str = Field(
+        description="The ID of the worker that processed the request."
+    )
+    request: RequestRecord = Field(description="The original request record")
+    responses: list[ResponseData] = Field(description="The parsed response data.")
+    token_count: int | None = Field(
+        default=None,
+        description="The total number of tokens across all responses.",
+    )
+
+
 class Transaction(BaseModel):
     """
     Represents a request/response with a timestamp and associated payload.

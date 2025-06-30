@@ -92,7 +92,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             (ServiceType.TIMING_MANAGER, 1),
             (ServiceType.WORKER_MANAGER, 1),
             (ServiceType.RECORDS_MANAGER, 1),
-            (ServiceType.POST_PROCESSOR_MANAGER, 1),
+            (ServiceType.POST_PROCESSOR_MANAGER, 4),
         ]
 
         self.service_manager: BaseServiceManager = None  # type: ignore - is set in _initialize
@@ -113,6 +113,9 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
 
         self.dealer_router_proxy: BaseZMQProxy
         self.dealer_router_proxy_task: asyncio.Task
+
+        self.push_pull_proxy: BaseZMQProxy
+        self.push_pull_proxy_task: asyncio.Task
 
         self.profile_runner: ProfileRunner | None = None
 
@@ -182,6 +185,13 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         self.dealer_router_proxy_task = asyncio.create_task(
             self.dealer_router_proxy.run()
         )
+
+        self.push_pull_proxy = ZMQProxyFactory.create_instance(
+            ZMQProxyType.PUSH_PULL,
+            context=self.zmq_context,
+            zmq_proxy_config=self.service_config.comm_config.push_pull_proxy_config,
+        )
+        self.push_pull_proxy_task = asyncio.create_task(self.push_pull_proxy.run())
 
     async def _post_initialize(self) -> None:
         """Post-initialize the system controller."""
@@ -369,6 +379,12 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             with contextlib.suppress(asyncio.CancelledError):
                 await self.dealer_router_proxy_task
 
+        if self.push_pull_proxy_task:
+            await self.push_pull_proxy.stop()
+            self.push_pull_proxy_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self.push_pull_proxy_task
+
         # TODO: This is a hack to give the services time to produce results
         # await asyncio.sleep(3)
 
@@ -433,6 +449,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             self.progress_tracker.update_profile_results(message)
             if self.ui:
                 await self.ui.on_profile_results_update()
+                await self.ui.shutdown()
             if self.progress_logger:
                 await self.progress_logger.update_results()
 

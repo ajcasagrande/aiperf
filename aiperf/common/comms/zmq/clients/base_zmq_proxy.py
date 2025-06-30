@@ -70,13 +70,13 @@ class BaseZMQProxy(ABC):
             address=self.backend_address,
             bind=True,
             socket_ops=self.socket_ops,
-        )  # type: ignore - child classes porovide the socket_type
+        )  # type: ignore - child classes provide the socket_type
         self.frontend_socket = frontend_socket_class(
             context=self.context,
             address=self.frontend_address,
             bind=True,
             socket_ops=self.socket_ops,
-        )  # type: ignore - child classes porovide the socket_type
+        )  # type: ignore - child classes provide the socket_type
 
         self.control_client = None
         if self.control_address:
