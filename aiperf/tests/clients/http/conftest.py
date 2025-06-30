@@ -10,7 +10,7 @@ import pytest
 from aiperf.clients.http.aiohttp_client import AioHttpClientMixin, create_tcp_connector
 from aiperf.common.models import (
     GenericHTTPClientConfig,
-    RequestRecord,
+    ParsedResponseRecord,
     SSEMessage,
     TextResponse,
 )
@@ -196,13 +196,13 @@ def create_mock_error_response(status: int, reason: str, error_text: str) -> Moc
 
 
 def assert_successful_request_record(
-    record: RequestRecord,
+    record: ParsedResponseRecord,
     expected_status: int = 200,
     expected_response_count: int = 1,
     expected_response_type: type = TextResponse,
 ) -> None:
     """Assert that a RequestRecord represents a successful request."""
-    assert isinstance(record, RequestRecord)
+    assert isinstance(record, ParsedResponseRecord)
     assert record.status == expected_status
     assert record.error is None
     assert len(record.responses) == expected_response_count
@@ -217,13 +217,13 @@ def assert_successful_request_record(
 
 
 def assert_error_request_record(
-    record: RequestRecord,
+    record: ParsedResponseRecord,
     expected_error_code: int | None = None,
     expected_error_type: str | None = None,
     expected_error_message: str | None = None,
 ) -> None:
     """Assert that a RequestRecord represents a failed request."""
-    assert isinstance(record, RequestRecord)
+    assert isinstance(record, ParsedResponseRecord)
     assert record.error is not None
     assert len(record.responses) == 0
 

@@ -19,9 +19,9 @@ from aiperf.common.hooks import (
 from aiperf.common.models.messages import (
     CommandMessage,
     InferenceResultsMessage,
-    PostProcessResultsMessage,
+    ParsedInferenceResultsMessage,
 )
-from aiperf.common.models.record_models import ErrorDetails, ResponseRecord
+from aiperf.common.models.record_models import ErrorDetails, ParsedResponseRecord
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.common.tokenizer import Tokenizer
 from aiperf.parsers.openai_parsers import OpenAIResponseExtractor
@@ -121,9 +121,9 @@ class PostProcessorManager(BaseComponentService):
 
         if message.record.has_error:
             await self.response_results_client.push(
-                PostProcessResultsMessage(
+                ParsedInferenceResultsMessage(
                     service_id=self.service_id,
-                    record=ResponseRecord(
+                    record=ParsedResponseRecord(
                         worker_id=message.service_id,
                         request=message.record,
                         responses=[],
@@ -142,9 +142,9 @@ class PostProcessorManager(BaseComponentService):
                 token_count,
             )
 
-            result = PostProcessResultsMessage(
+            result = ParsedInferenceResultsMessage(
                 service_id=self.service_id,
-                record=ResponseRecord(
+                record=ParsedResponseRecord(
                     worker_id=message.service_id,
                     request=message.record,
                     responses=resp,
@@ -162,9 +162,9 @@ class PostProcessorManager(BaseComponentService):
                 type="InvalidInferenceResults",
             )
             await self.response_results_client.push(
-                PostProcessResultsMessage(
+                ParsedInferenceResultsMessage(
                     service_id=self.service_id,
-                    record=ResponseRecord(
+                    record=ParsedResponseRecord(
                         worker_id=message.service_id,
                         request=message.record,
                         responses=[],

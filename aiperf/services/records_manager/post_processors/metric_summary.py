@@ -3,8 +3,12 @@
 
 import logging
 
+import pandas as pd
+
+from aiperf.common.constants import NANOS_PER_MILLIS
 from aiperf.common.enums import MetricType, PostProcessorType
 from aiperf.common.factories import PostProcessorFactory
+from aiperf.common.models.record_models import ParsedResponseRecord, ResultsRecord
 from aiperf.services.records_manager.metrics.base_metric import BaseMetric
 
 logger = logging.getLogger(__name__)
@@ -21,11 +25,19 @@ class MetricSummary:
         self.logger = logging.getLogger(__name__)
         self.logger.debug("Initializing MetricSummary post-processor")
 
+        # computed_metrics = {token_count: [sdsdsd]}
         self._metrics = []
-        for metric_cls in BaseMetric.get_all().values():
-            self._metrics.append(metric_cls())
+        # for metric_cls in BaseMetric.get_all().values():
+        #     if metric_cls.tag in computed_metrics:
+        #         c
 
-    def process(self, records: list) -> None:
+        #     for tag in metric_cls.required_metrics_tags:
+        #         if tag not in computed_metrics:
+        #             # compute the metric
+        #             computed_metrics[tag] = metric_cls.compute(records)
+        #     self._metrics.append(metric_cls())
+
+    def process(self, records: list[ParsedResponseRecord]) -> None:
         """
         Process the records to generate a summary of metrics.
 
@@ -56,9 +68,38 @@ class MetricSummary:
                     record=record, metrics={m.tag: m for m in self._metrics}
                 )
 
-    def get_metrics_summary(self) -> dict:
-        metrics_summary = {}
-        for metric in self._metrics:
-            metrics_summary[metric.tag] = metric.values()
+    def get_metrics_summary(self) -> list[ResultsRecord]:
+        metrics_summary = []
 
+        df = pd.DataFrame({metric.tag: metric.values() for metric in self._metrics})
+
+        for metric in self._metrics:
+            res: ResultsRecord = record_from_dataframe(df, metric)
+            metrics_summary.append(res)
         return metrics_summary
+
+
+def record_from_dataframe(
+    df: pd.DataFrame,
+    metric: BaseMetric,
+) -> ResultsRecord:
+    """Create a Record from a DataFrame."""
+    column = df[metric.tag]
+    return ResultsRecord(
+        name=metric.tag,
+        unit=metric.unit.name,
+        avg=column.mean() / NANOS_PER_MILLIS,
+        min=column.min() / NANOS_PER_MILLIS,
+        max=column.max() / NANOS_PER_MILLIS,
+        p1=column.quantile(0.01) / NANOS_PER_MILLIS,
+        p5=column.quantile(0.05) / NANOS_PER_MILLIS,
+        p25=column.quantile(0.25) / NANOS_PER_MILLIS,
+        p50=column.quantile(0.50) / NANOS_PER_MILLIS,
+        p75=column.quantile(0.75) / NANOS_PER_MILLIS,
+        p90=column.quantile(0.90) / NANOS_PER_MILLIS,
+        p95=column.quantile(0.95) / NANOS_PER_MILLIS,
+        p99=column.quantile(0.99) / NANOS_PER_MILLIS,
+        std=column.std() / NANOS_PER_MILLIS,
+        count=int(column.count()),
+        streaming_only=metric.streaming_only,
+    )

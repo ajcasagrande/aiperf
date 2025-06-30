@@ -13,7 +13,7 @@ from aiperf.common.enums import SSEFieldType
 from aiperf.common.models import (
     ErrorDetails,
     GenericHTTPClientConfig,
-    RequestRecord,
+    ParsedResponseRecord,
     SSEField,
     SSEMessage,
     TextResponse,
@@ -58,14 +58,14 @@ class AioHttpClientMixin:
         headers: dict[str, str],
         delayed: bool = False,
         **kwargs: Any,
-    ) -> RequestRecord:
+    ) -> ParsedResponseRecord:
         """Send a streaming or non-streaming POST request to the specified URL with the given payload and headers.
 
         If the response is an SSE stream, the response will be parsed into a list of SSE messages.
         Otherwise, the response will be parsed into a TextResponse object.
         """
 
-        record: RequestRecord = RequestRecord(
+        record: ParsedResponseRecord = ParsedResponseRecord(
             start_perf_ns=time.perf_counter_ns(),
             delayed=delayed,
         )

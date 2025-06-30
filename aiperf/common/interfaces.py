@@ -5,7 +5,7 @@ from typing import Generic, Protocol
 from aiperf.common.config import EndPointConfig
 from aiperf.common.models import (
     InferenceServerResponse,
-    RequestRecord,
+    ParsedResponseRecord,
     ResponseData,
 )
 from aiperf.common.types import ConfigT, InputT, OutputT, RequestT, ResponseT
@@ -69,7 +69,7 @@ class InferenceClientProtocol(Protocol, Generic[ConfigT, RequestT, ResponseT]):
 
     async def send_request(
         self, endpoint: EndPointConfig, payload: RequestT, delayed: bool = False
-    ) -> RequestRecord:
+    ) -> ParsedResponseRecord:
         """Send a request to the inference server.
 
         This method is used to send a request to the inference server.
@@ -144,6 +144,8 @@ class DataExporterProtocol(Protocol):
 class ResponseExtractor(Protocol):
     """Base class for all response extractors."""
 
-    async def extract_response_data(self, record: RequestRecord) -> list[ResponseData]:
+    async def extract_response_data(
+        self, record: ParsedResponseRecord
+    ) -> list[ResponseData]:
         """Extract the text from a server response message."""
         ...

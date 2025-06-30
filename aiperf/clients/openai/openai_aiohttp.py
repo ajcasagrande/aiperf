@@ -21,7 +21,7 @@ from aiperf.common.exceptions import InvalidPayloadError
 from aiperf.common.factories import InferenceClientFactory
 from aiperf.common.models import (
     ErrorDetails,
-    RequestRecord,
+    ParsedResponseRecord,
 )
 
 ################################################################################
@@ -39,7 +39,7 @@ class ChatCompletionMixin(AioHttpClientMixin):
 
     async def send_chat_completion_request(
         self, payload: OpenAIChatCompletionRequest
-    ) -> RequestRecord:
+    ) -> ParsedResponseRecord:
         """Send chat completion request using aiohttp."""
 
         try:
@@ -86,7 +86,7 @@ class ChatCompletionMixin(AioHttpClientMixin):
             record.request = request_payload
 
         except Exception as e:
-            record = RequestRecord(
+            record = ParsedResponseRecord(
                 request=request_payload,
                 start_perf_ns=time.perf_counter_ns(),
                 end_perf_ns=time.perf_counter_ns(),
@@ -176,9 +176,9 @@ class OpenAIClientAioHttp(ChatCompletionMixin):
         endpoint: EndPointConfig,
         payload: OpenAIBaseRequest,
         delayed: bool = False,
-    ) -> RequestRecord:
+    ) -> ParsedResponseRecord:
         """Send request to the specified endpoint with the given payload."""
-        record: RequestRecord | None = None
+        record: ParsedResponseRecord | None = None
         start_perf_ns = time.perf_counter_ns()
 
         try:
@@ -198,7 +198,7 @@ class OpenAIClientAioHttp(ChatCompletionMixin):
                 raise InvalidPayloadError(f"Invalid payload: {payload}")
 
         except Exception as e:
-            record = RequestRecord(
+            record = ParsedResponseRecord(
                 start_perf_ns=start_perf_ns,
                 delayed=delayed,
                 error=ErrorDetails(
@@ -211,21 +211,21 @@ class OpenAIClientAioHttp(ChatCompletionMixin):
 
     async def send_completion_request(
         self, payload: OpenAICompletionRequest
-    ) -> RequestRecord:
+    ) -> ParsedResponseRecord:
         raise NotImplementedError(
             "OpenAIClientAioHttp does not support completion requests"
         )
 
     async def send_embeddings_request(
         self, payload: OpenAIEmbeddingsRequest
-    ) -> RequestRecord:
+    ) -> ParsedResponseRecord:
         raise NotImplementedError(
             "OpenAIClientAioHttp does not support embeddings requests"
         )
 
     async def send_chat_responses_request(
         self, payload: OpenAIResponsesRequest
-    ) -> RequestRecord:
+    ) -> ParsedResponseRecord:
         raise NotImplementedError(
             "OpenAIClientAioHttp does not support chat responses requests"
         )

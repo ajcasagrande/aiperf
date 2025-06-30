@@ -13,8 +13,12 @@ from openai.types.responses.response import Response as ResponsesModel
 from pydantic import BaseModel
 
 from aiperf.common.enums import CaseInsensitiveStrEnum
-from aiperf.common.models import RequestRecord, ResponseData, SSEMessage, TextResponse
-from aiperf.common.models.record_models import InferenceServerResponse
+from aiperf.common.models import (
+    ResponseData,
+    SSEMessage,
+    TextResponse,
+)
+from aiperf.common.models.record_models import InferenceServerResponse, RequestRecord
 from aiperf.common.tokenizer import Tokenizer
 from aiperf.common.utils import load_json_str
 

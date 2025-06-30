@@ -33,11 +33,12 @@ from aiperf.common.models import (
     ProfileStatsMessage,
     ResultsRecord,
 )
-from aiperf.common.models.messages import PostProcessResultsMessage
-from aiperf.common.models.record_models import ResponseRecord
+from aiperf.common.models.messages import ParsedInferenceResultsMessage
+from aiperf.common.models.record_models import ParsedResponseRecord
 from aiperf.common.service import BaseComponentService
 from aiperf.common.tokenizer import Tokenizer
 from aiperf.parsers import OpenAIResponseExtractor
+from aiperf.services.records_manager.post_processors.metric_summary import MetricSummary
 
 
 @ServiceFactory.register(ServiceType.RECORDS_MANAGER)
@@ -53,8 +54,8 @@ class RecordsManager(BaseComponentService):
         super().__init__(service_config=service_config, service_id=service_id)
         self.logger.debug("Initializing records manager")
 
-        self.records: deque[ResponseRecord] = deque()
-        self.error_records: deque[ResponseRecord] = deque()
+        self.records: deque[ParsedResponseRecord] = deque()
+        self.error_records: deque[ParsedResponseRecord] = deque()
         self.error_records_count: int = 0
         self.records_count: int = 0
         # Track per-worker statistics
@@ -259,7 +260,7 @@ class RecordsManager(BaseComponentService):
     #     self.incoming_records.task_done()
 
     async def _on_post_process_results(
-        self, message: PostProcessResultsMessage
+        self, message: ParsedInferenceResultsMessage
     ) -> None:
         """Handle a post process results message."""
         self.logger.debug("Received post process results: %s", message)
@@ -273,12 +274,12 @@ class RecordsManager(BaseComponentService):
         if message.record.request.has_error:
             self.logger.warning("Received error post process results: %s", message)
             # TODO: Re-enable this
-            # self.error_records.append(message.record)
+            self.error_records.append(message.record)
             self.worker_error_counts[worker_id] += 1
             self.error_records_count += 1
         elif message.record.request.valid:
             # TODO: Re-enable this
-            # self.records.append(message.record)
+            self.records.append(message.record)
             self.worker_success_counts[worker_id] += 1
             self.records_count += 1
         else:
@@ -298,10 +299,10 @@ class RecordsManager(BaseComponentService):
         """Generate a summary of the error records."""
         summary: dict[ErrorDetails, int] = {}
         for record in self.error_records:
-            if record.error is None:
+            if not record.has_error:
                 continue
-            if record.error not in summary:
-                summary[record.error] = 0
+            if record.error.type not in summary:
+                summary[record.error.type] = 0
             summary[record.error] += 1
 
         return [
@@ -367,63 +368,9 @@ class RecordsManager(BaseComponentService):
                 was_cancelled=self.was_cancelled,
             )
 
-        valid_records = [record for record in self.records]
-        # Extract time to first response values
-        time_to_first_token_values = [
-            record.request.time_to_first_response_ns for record in valid_records
-        ]
-        time_to_second_token_values = [
-            record.request.time_to_second_response_ns for record in valid_records
-        ]
-        time_to_last_token_values = [
-            record.request.time_to_last_response_ns for record in valid_records
-        ]
-        inter_token_latency_values = [
-            record.request.inter_token_latency_ns for record in valid_records
-        ]
-
-        # Create single DataFrame with all metrics
-        metrics_df = pd.DataFrame(
-            {
-                "ttft_ns": time_to_first_token_values,
-                "ttst_ns": time_to_second_token_values,
-                "ttlt_ns": time_to_last_token_values,
-                "itl_ns": inter_token_latency_values,
-            }
-        )
-
-        # Create Record objects (converting from ns to ms)
-        ttft_record = record_from_dataframe(
-            df=metrics_df,
-            column_name="ttft_ns",
-            name="Time to First Token",
-            unit="ms",
-            streaming_only=True,
-        )
-
-        ttst_record = record_from_dataframe(
-            df=metrics_df,
-            column_name="ttst_ns",
-            name="Time to Second Token",
-            unit="ms",
-            streaming_only=True,
-        )
-
-        ttlt_record = record_from_dataframe(
-            df=metrics_df,
-            column_name="ttlt_ns",
-            name="Time to Last Token",
-            unit="ms",
-            streaming_only=False,
-        )
-
-        itl_record = record_from_dataframe(
-            df=metrics_df,
-            column_name="itl_ns",
-            name="Inter Token Latency",
-            unit="ms",
-            streaming_only=True,
-        )
+        metric_summary = MetricSummary()
+        metric_summary.process(list(self.records))
+        metrics_summary = metric_summary.get_metrics_summary()
 
         # Create and return ProfileResultsMessage
         return ProfileResultsMessage(
@@ -432,7 +379,7 @@ class RecordsManager(BaseComponentService):
             completed=len(self.records) + len(self.error_records),
             start_ns=self.start_time_ns or time.time_ns(),
             end_ns=self.end_time_ns or time.time_ns(),
-            records=[ttft_record, ttst_record, ttlt_record, itl_record],
+            records=metrics_summary,
             errors_by_type=await self.get_error_summary(),
             was_cancelled=self.was_cancelled,
         )

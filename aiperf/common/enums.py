@@ -168,8 +168,8 @@ class MessageType(CaseInsensitiveStrEnum):
     INFERENCE_RESULTS = "inference_results"
     """A message containing inference results from a worker."""
 
-    POST_PROCESS_RESULTS = "post_process_results"
-    """A message containing post process results from a post processor."""
+    PARSED_INFERENCE_RESULTS = "parsed_inference_results"
+    """A message containing parsed inference results from a post processor."""
 
     # Sweep run messages
 

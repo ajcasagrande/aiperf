@@ -4,9 +4,10 @@
 import os
 import sys
 import time
+from functools import cached_property
 from typing import Any
 
-from pydantic import BaseModel, Field, SerializeAsAny
+from pydantic import BaseModel, ConfigDict, Field, SerializeAsAny
 
 from aiperf.common.enums import SSEFieldType
 
@@ -234,7 +235,7 @@ class RequestRecord(BaseModel):
 
     request: Any = Field(
         default=None,
-        description="The request payload.",
+        description="The raw request payload.",
     )
     start_perf_ns: int = Field(
         default_factory=time.perf_counter_ns,
@@ -268,7 +269,7 @@ class RequestRecord(BaseModel):
         description="Whether the request was delayed from when it was expected to be sent.",
     )
 
-    # TODO: Most of these properties will be removed once we have proper record handling.
+    # TODO: Most of these properties will be removed once we have proper record handling and metrics.
 
     @property
     def has_error(self) -> bool:
@@ -364,6 +365,8 @@ class RequestRecord(BaseModel):
 class ResponseData(BaseModel):
     """Base class for all response data."""
 
+    model_config = ConfigDict(frozen=True)
+
     perf_ns: int = Field(description="The performance timestamp of the response.")
     raw_text: list[str] = Field(description="The raw text of the response.")
     parsed_text: list[str | None] = Field(
@@ -378,18 +381,73 @@ class ResponseData(BaseModel):
     )
 
 
-class ResponseRecord(BaseModel):
-    """Record of a response with its associated request."""
+class ParsedResponseRecord(BaseModel):
+    """Record of a request and its associated responses, already parsed and ready for metrics."""
+
+    model_config = ConfigDict(frozen=True)
 
     worker_id: str = Field(
         description="The ID of the worker that processed the request."
     )
     request: RequestRecord = Field(description="The original request record")
     responses: list[ResponseData] = Field(description="The parsed response data.")
-    token_count: int | None = Field(
-        default=None,
-        description="The total number of tokens across all responses.",
-    )
+
+    @cached_property
+    def token_count(self) -> int | None:
+        """Get the total number of tokens across all responses, if applicable."""
+        if not self.valid:
+            return None
+        return sum(
+            response.token_count
+            for response in self.responses
+            if response.token_count is not None
+        )
+
+    @cached_property
+    def start_perf_ns(self) -> int:
+        """Get the start time of the request in nanoseconds (perf_counter_ns)."""
+        return self.request.start_perf_ns
+
+    # TODO: How do we differentiate the end of the request vs the time of the last response?
+    #       Which one should we use for the latency metrics?
+    @cached_property
+    def end_perf_ns(self) -> int:
+        """Get the end time of the request in nanoseconds (perf_counter_ns).
+        If request.end_perf_ns is not set, use the time of the last response.
+        If there are no responses, use sys.maxsize.
+        """
+        return (
+            self.request.end_perf_ns
+            if self.request.end_perf_ns
+            else self.responses[-1].perf_ns
+            if self.responses
+            else sys.maxsize
+        )
+
+    @cached_property
+    def has_error(self) -> bool:
+        """Check if the response record has an error."""
+        return self.request.has_error
+
+    @cached_property
+    def valid(self) -> bool:
+        """Check if the response record is valid.
+
+        Checks:
+        - Request has no errors
+        - Has at least one response
+        - Start time is before the end time
+        - Response timestamps are within valid ranges
+
+        Returns:
+            bool: True if the record is valid, False otherwise.
+        """
+        return (
+            not self.has_error
+            and len(self.responses) > 0
+            and 0 <= self.start_perf_ns < self.end_perf_ns < sys.maxsize
+            and all(0 < response.perf_ns < sys.maxsize for response in self.responses)
+        )
 
 
 class Transaction(BaseModel):

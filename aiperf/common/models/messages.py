@@ -25,8 +25,8 @@ from aiperf.common.enums import (
 from aiperf.common.models.record_models import (
     ErrorDetails,
     ErrorDetailsCount,
+    ParsedResponseRecord,
     RequestRecord,
-    ResponseRecord,
     ResultsRecord,
 )
 from aiperf.common.utils import load_json_str
@@ -377,14 +377,14 @@ class InferenceResultsMessage(BaseServiceMessage):
     )
 
 
-class PostProcessResultsMessage(BaseServiceMessage):
-    """Message for a post process results."""
+class ParsedInferenceResultsMessage(BaseServiceMessage):
+    """Message for a parsed inference results."""
 
-    message_type: Literal[MessageType.POST_PROCESS_RESULTS] = (
-        MessageType.POST_PROCESS_RESULTS
+    message_type: Literal[MessageType.PARSED_INFERENCE_RESULTS] = (
+        MessageType.PARSED_INFERENCE_RESULTS
     )
 
-    record: SerializeAsAny[ResponseRecord] = Field(
+    record: SerializeAsAny[ParsedResponseRecord] = Field(
         ..., description="The post process results record"
     )
 

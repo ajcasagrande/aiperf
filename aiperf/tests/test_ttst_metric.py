@@ -2,14 +2,14 @@
 # SPDX-License-Identifier: Apache-2.0
 import pytest
 
-from aiperf.common.models import RequestRecord, SSEMessage
+from aiperf.common.models import ParsedResponseRecord, SSEMessage
 from aiperf.services.records_manager.metrics.types.ttst_metric import TTSTMetric
 
 
 def test_ttst_metric_update_value_and_values():
     metric = TTSTMetric()
     metric.metric = []
-    record = RequestRecord(
+    record = ParsedResponseRecord(
         start_perf_ns=100,
         responses=[SSEMessage(perf_ns=150), SSEMessage(perf_ns=180)],
     )
@@ -22,15 +22,15 @@ def test_ttst_metric_add_multiple_records():
     metric = TTSTMetric()
     metric.metric = []
     records = [
-        RequestRecord(
+        ParsedResponseRecord(
             start_perf_ns=10,
             responses=[SSEMessage(perf_ns=15), SSEMessage(perf_ns=20)],
         ),
-        RequestRecord(
+        ParsedResponseRecord(
             start_perf_ns=20,
             responses=[SSEMessage(perf_ns=25), SSEMessage(perf_ns=35)],
         ),
-        RequestRecord(
+        ParsedResponseRecord(
             start_perf_ns=30,
             responses=[SSEMessage(perf_ns=40), SSEMessage(perf_ns=50)],
         ),
@@ -43,7 +43,7 @@ def test_ttst_metric_add_multiple_records():
 def test_ttst_metric_with_one_response_raises():
     metric = TTSTMetric()
     metric.metric = []
-    record = RequestRecord(
+    record = ParsedResponseRecord(
         start_perf_ns=15,
         responses=[SSEMessage(perf_ns=15)],
     )
@@ -62,7 +62,7 @@ def test_ttst_metric_with_no_request_raises():
 def test_ttst_metric_response_timestamp_order_raises():
     metric = TTSTMetric()
     metric.metric = []
-    record = RequestRecord(
+    record = ParsedResponseRecord(
         start_perf_ns=100,
         responses=[SSEMessage(perf_ns=150), SSEMessage(perf_ns=140)],
     )
