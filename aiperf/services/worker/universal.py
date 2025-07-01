@@ -12,21 +12,19 @@ from aiperf.clients.openai.common import OpenAIClientConfig
 from aiperf.common.comms.base import (
     BaseCommunication,
     ClientAddressType,
-    PubClient,
-    PullClient,
-    PushClient,
-    ReqClient,
 )
 from aiperf.common.config import EndPointConfig, ServiceConfig, UserConfig
-from aiperf.common.constants import BYTES_PER_MIB, NANOS_PER_MILLIS
+from aiperf.common.constants import BYTES_PER_MIB, NANOS_PER_MILLIS, NANOS_PER_SECOND
 from aiperf.common.enums import InferenceClientType, MessageType
 from aiperf.common.factories import CommunicationFactory, InferenceClientFactory
 from aiperf.common.interfaces import InferenceClientProtocol
 from aiperf.common.messages import (
     ConversationRequestMessage,
     ConversationResponseMessage,
+    CPUTimes,
     CreditDropMessage,
     CreditReturnMessage,
+    CtxSwitches,
     ErrorDetails,
     ErrorMessage,
     InferenceResultsMessage,
@@ -74,21 +72,13 @@ class UniversalWorker:
         self.process = psutil.Process()
         self.process.cpu_percent()  # throw away the first result (will be 0)
 
+        self.stop_event: asyncio.Event = asyncio.Event()
+        self.health_task: asyncio.Task | None = None
+
         self.zmq_comms: BaseCommunication = CommunicationFactory.create_instance(
             self.service_config.comm_backend,
             config=self.service_config.comm_config,
         )
-
-        self.logger.debug("ZMQ comms initialized")
-
-        self.credit_drop_client: PullClient
-        self.credit_return_client: PushClient
-        self.inference_results_client: PushClient
-        self.conversation_data_client: ReqClient
-        self.pub_client: PubClient
-
-        self.stop_event: asyncio.Event = asyncio.Event()
-        self.health_task: asyncio.Task | None = None
 
         self.credit_drop_client = self.zmq_comms.create_pull_client(
             ClientAddressType.CREDIT_DROP_PUSH_PULL,
@@ -100,22 +90,20 @@ class UniversalWorker:
             ClientAddressType.PUSH_PULL_FRONTEND,
         )
         self.conversation_data_client = self.zmq_comms.create_req_client(
-            ClientAddressType.DEALER_ROUTER_REQ_REP_FRONTEND,
+            ClientAddressType.DEALER_ROUTER_FRONTEND,
         )
         self.pub_client = self.zmq_comms.create_pub_client(
             ClientAddressType.SERVICE_PUB_SUB_FRONTEND,
         )
 
-    async def do_initialize(self, zmq_comms: BaseCommunication) -> None:
+    async def do_initialize(self) -> None:
         """Initialize worker-specific components."""
         self.logger.debug("Initializing worker")
         await self.zmq_comms.initialize()
 
         # TODO: better way to get the API key
-        # Get API key from environment variable
         api_key = os.environ.get("OPENAI_API_KEY", None)
 
-        # Create OpenAI client configuration
         openai_client_config = OpenAIClientConfig(
             api_key=api_key,
             url=f"http://{os.getenv('AIPERF_HOST', '127.0.0.1')}:{os.getenv('AIPERF_PORT', 8080)}",  # Default OpenAI inference server endpoint
@@ -124,7 +112,6 @@ class UniversalWorker:
             ),  # Default model
         )
 
-        # Initialize the OpenAI client
         self.inference_client = InferenceClientFactory.create_instance(
             InferenceClientType.OPENAI, client_config=openai_client_config
         )
@@ -257,8 +244,9 @@ class UniversalWorker:
 
             delayed = False
             if credit_drop_ns and credit_drop_ns > time.time_ns():
-                # self.logger.debug("Waiting for request timestamp to be reached")
-                await asyncio.sleep((credit_drop_ns - time.time_ns()) / 1e9)
+                await asyncio.sleep(
+                    (credit_drop_ns - time.time_ns()) / NANOS_PER_SECOND
+                )
             elif credit_drop_ns and credit_drop_ns < time.time_ns():
                 delayed = True
 
@@ -302,6 +290,7 @@ class UniversalWorker:
             await self.inference_client.close()
         if self.health_task:
             self.health_task.cancel()
+            # await asyncio.wait_for(self.health_task, timeout=1.0)
 
     async def _health_check_task(self) -> None:
         """Task to report the health of the worker to the worker manager."""
@@ -316,6 +305,17 @@ class UniversalWorker:
     def _health_check(self) -> WorkerHealthMessage:
         """Report the health of the worker to the worker manager."""
 
+        # self.logger.info(
+        #     [
+        #         f"{conn.laddr.ip}:{conn.laddr.port} -> {conn.raddr.ip}:{conn.raddr.port} {conn.status}"
+        #         for conn in self.process.net_connections("tcp4")
+        #     ]
+        # )
+        # self.logger.info(
+        #     self.process.num_ctx_switches(),
+        #     self.process.num_threads(),
+        # )
+
         # Get process-specific CPU and memory usage
         message = WorkerHealthMessage(
             service_id=self.service_id,
@@ -329,6 +329,8 @@ class UniversalWorker:
             timestamp_ns=time.time_ns(),
             net_connections=len(self.process.net_connections("tcp4")),
             io_counters=self.process.io_counters(),
-            cpu_times=self.process.cpu_times(),
+            cpu_times=CPUTimes(*self.process.cpu_times()[:2]),
+            num_ctx_switches=CtxSwitches(*self.process.num_ctx_switches()),
+            num_threads=self.process.num_threads(),
         )
         return message

@@ -9,7 +9,7 @@ import zmq.asyncio
 from aiperf.common.comms.base import SubClient
 from aiperf.common.comms.zmq.clients.base import BaseZMQClient
 from aiperf.common.exceptions import CommunicationError, CommunicationErrorReason
-from aiperf.common.hooks import aiperf_task
+from aiperf.common.hooks import aiperf_task, on_stop
 from aiperf.common.messages import Message
 from aiperf.common.utils import call_all_functions
 
@@ -33,6 +33,7 @@ class ZMQSubClient(BaseZMQClient, SubClient):
         """
         super().__init__(context, zmq.SocketType.SUB, address, bind, socket_ops)
         self._subscribers: dict[str, list[Callable[[Message], Any]]] = {}
+        self.tasks: set[asyncio.Task] = set()
 
     async def subscribe(
         self, message_type: str, callback: Callable[[Message], Any]
@@ -88,6 +89,17 @@ class ZMQSubClient(BaseZMQClient, SubClient):
         if message_type in self._subscribers:
             await call_all_functions(self._subscribers[message_type], message)
 
+    @on_stop
+    async def _stop_remaining_tasks(self) -> None:
+        """Wait for all tasks to complete."""
+        for task in list(self.tasks):
+            if not task.done():
+                task.cancel()
+
+        # with contextlib.suppress(asyncio.CancelledError):
+        #     await asyncio.wait_for(asyncio.gather(*self.tasks), timeout=1.0)
+        self.tasks.clear()
+
     @aiperf_task
     async def _sub_receiver(self) -> None:
         """Background task for receiving messages from subscribed topics.
@@ -110,7 +122,11 @@ class ZMQSubClient(BaseZMQClient, SubClient):
                     message_bytes,
                 ) = await self.socket.recv_multipart()
 
-                asyncio.create_task(self._handle_message(topic_bytes, message_bytes))
+                task = asyncio.create_task(
+                    self._handle_message(topic_bytes, message_bytes)
+                )
+                self.tasks.add(task)
+                task.add_done_callback(self.tasks.discard)
 
             except (asyncio.CancelledError, zmq.ContextTerminated):
                 break

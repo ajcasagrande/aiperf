@@ -322,7 +322,6 @@ class ServiceType(CaseInsensitiveStrEnum):
     RECORDS_MANAGER = "records_manager"
     INFERENCE_RESULT_PARSER = "inference_result_parser"
     WORKER_MANAGER = "worker_manager"
-    MULTI_WORKER_PROCESS = "multi_worker_process"
     WORKER = "worker"
     TEST = "test_service"
 
@@ -349,10 +348,10 @@ class ClientAddressType(CaseInsensitiveStrEnum):
     POST_PROCESS_OUTGOING_PUSH_PULL = "post_process_outgoing_push_pull"
     """Push/pull address for post-process outgoing messages."""
 
-    DEALER_ROUTER_REQ_REP_FRONTEND = "dealer_router_req_rep_frontend"
+    DEALER_ROUTER_FRONTEND = "DEALER_ROUTER_frontend"
     """Frontend address for dealer/router req/rep proxy (for sending messages)."""
 
-    DEALER_ROUTER_REQ_REP_BACKEND = "dealer_router_req_rep_backend"
+    DEALER_ROUTER_BACKEND = "DEALER_ROUTER_backend"
     """Backend address for dealer/router req/rep proxy (for receiving messages)."""
 
     PUSH_PULL_FRONTEND = "push_pull_frontend"

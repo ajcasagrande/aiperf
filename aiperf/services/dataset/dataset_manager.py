@@ -73,7 +73,7 @@ class DatasetManager(BaseComponentService):
         self.tokenizer: Tokenizer | None = None
         self.dataset: dict[str, Conversation] = {}  # session ID -> Conversation mapping
         self.conversation_data_client: RepClient = self.comms.create_rep_client(
-            ClientAddressType.DEALER_ROUTER_REQ_REP_BACKEND
+            ClientAddressType.DEALER_ROUTER_BACKEND
         )
 
     @property

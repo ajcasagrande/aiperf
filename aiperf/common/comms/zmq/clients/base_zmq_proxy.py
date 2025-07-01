@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import asyncio
-import contextlib
 import logging
 import time
 from abc import ABC, abstractmethod
@@ -171,8 +170,8 @@ class BaseZMQProxy(ABC):
         try:
             if self.monitor_task and not self.monitor_task.done():
                 self.monitor_task.cancel()
-                with contextlib.suppress(asyncio.CancelledError):
-                    await self.monitor_task
+                # with contextlib.suppress(asyncio.CancelledError):
+                #     await asyncio.wait_for(self.monitor_task, timeout=1.0)
 
             await asyncio.gather(
                 self.backend_socket.shutdown(),

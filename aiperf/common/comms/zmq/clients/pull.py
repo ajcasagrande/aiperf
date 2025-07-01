@@ -11,7 +11,7 @@ import zmq.asyncio
 from aiperf.common.comms.base import PullClient
 from aiperf.common.comms.zmq.clients.base import BaseZMQClient
 from aiperf.common.enums import MessageType
-from aiperf.common.hooks import aiperf_task
+from aiperf.common.hooks import aiperf_task, on_stop
 from aiperf.common.messages import Message
 from aiperf.common.utils import call_all_functions
 
@@ -41,6 +41,7 @@ class ZMQPullClient(BaseZMQClient, PullClient):
         self._pull_callbacks: dict[
             MessageType, list[Callable[[Message], Coroutine[Any, Any, None]]]
         ] = {}
+        self.tasks: set[asyncio.Task] = set()
 
         if max_concurrency is not None:
             self.semaphore = asyncio.Semaphore(value=max_concurrency)
@@ -68,7 +69,9 @@ class ZMQPullClient(BaseZMQClient, PullClient):
 
                 message_json = await self.socket.recv_string()
                 logger.debug("Received message from pull socket: %s", message_json)
-                _ = asyncio.create_task(self._process_message(message_json))
+                task = asyncio.create_task(self._process_message(message_json))
+                self.tasks.add(task)
+                task.add_done_callback(self.tasks.discard)
 
             except zmq.Again:
                 self.semaphore.release()
@@ -85,6 +88,17 @@ class ZMQPullClient(BaseZMQClient, PullClient):
                 )
                 self.semaphore.release()
                 await asyncio.sleep(0.1)
+
+    @on_stop
+    async def _stop(self) -> None:
+        """Wait for all tasks to complete."""
+        for task in list(self.tasks):
+            if not task.done():
+                task.cancel()
+
+        # with contextlib.suppress(asyncio.CancelledError):
+        #     await asyncio.wait_for(asyncio.gather(*self.tasks), timeout=1.0)
+        self.tasks.clear()
 
     async def _process_message(self, message_json: str) -> None:
         """Process a message from the pull socket.

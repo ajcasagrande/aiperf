@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
-import contextlib
 import logging
 import uuid
 
@@ -194,45 +193,48 @@ class BaseZMQClient(AIPerfTaskMixin, BaseCommunicationClient):
         for task in self.registered_tasks:
             task.cancel()
 
+        # with contextlib.suppress(asyncio.CancelledError):
+        #     await asyncio.wait_for(asyncio.gather(*self.registered_tasks), timeout=1.0)
+
         try:
-            if self._socket:
-                self._socket.close()
-                # self.logger.debug(
-                #     "ZMQ %s socket closed (%s)", self.socket_type_name, self.client_id
-                # )
+            await self.run_hooks(AIPerfHook.ON_STOP)
+            await self.run_hooks(AIPerfHook.ON_CLEANUP)
+
+        except asyncio.CancelledError:
+            return
+
+        except AIPerfError:
+            raise  # re-raise it up the stack
 
         except Exception as e:
             self.logger.error(
-                "Exception shutting down ZMQ socket: %s (%s)", e, self.client_id
+                "Exception cleaning up ZMQ socket: %s (%s)", e, self.client_id
             )
             raise CommunicationError(
-                CommunicationErrorReason.SHUTDOWN_ERROR,
-                f"Failed to shutdown ZMQ socket: {e}",
+                CommunicationErrorReason.CLEANUP_ERROR,
+                f"Failed to cleanup ZMQ socket: {e}",
             ) from e
 
         finally:
             try:
-                await self.run_hooks(AIPerfHook.ON_STOP)
-                await self.run_hooks(AIPerfHook.ON_CLEANUP)
-
-            except asyncio.CancelledError:
-                return
-
-            except AIPerfError:
-                raise  # re-raise it up the stack
+                if self._socket:
+                    self._socket.close()
+                    # self.logger.debug(
+                    #     "ZMQ %s socket closed (%s)", self.socket_type_name, self.client_id
+                    # )
 
             except Exception as e:
                 self.logger.error(
-                    "Exception cleaning up ZMQ socket: %s (%s)", e, self.client_id
+                    "Exception shutting down ZMQ socket: %s (%s)", e, self.client_id
                 )
                 raise CommunicationError(
-                    CommunicationErrorReason.CLEANUP_ERROR,
-                    f"Failed to cleanup ZMQ socket: {e}",
+                    CommunicationErrorReason.SHUTDOWN_ERROR,
+                    f"Failed to shutdown ZMQ socket: {e}",
                 ) from e
 
-            # Wait for all tasks to complete
-            with contextlib.suppress(asyncio.CancelledError):
-                await asyncio.gather(*self.registered_tasks)
+            # # Wait for all tasks to complete
+            # with contextlib.suppress(asyncio.CancelledError):
+            #     await asyncio.wait_for(asyncio.gather(*self.registered_tasks), timeout=1.0)
 
             self.registered_tasks.clear()
             # self._socket = None

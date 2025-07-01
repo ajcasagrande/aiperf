@@ -3,6 +3,7 @@
 
 import time
 import uuid
+from collections import namedtuple
 from typing import Any, ClassVar, Literal
 
 import orjson
@@ -497,6 +498,13 @@ class DatasetTimingResponse(BaseServiceMessage):
     )
 
 
+IOCounters = namedtuple(
+    "IOCounters", ["read_count", "write_count", "read_bytes", "write_bytes"]
+)
+CPUTimes = namedtuple("CPUTimes", ["user", "system"])
+CtxSwitches = namedtuple("CtxSwitches", ["voluntary", "involuntary"])
+
+
 class WorkerHealthMessage(BaseServiceMessage):
     """Message for a worker health check."""
 
@@ -528,11 +536,19 @@ class WorkerHealthMessage(BaseServiceMessage):
     )
     io_counters: tuple | None = Field(
         default=None,
-        description="The current I/O counters of the worker",
+        description="The current I/O counters of the worker (read_count, write_count, read_bytes, write_bytes)",
     )
-    cpu_times: tuple | None = Field(
+    cpu_times: CPUTimes | None = Field(
         default=None,
-        description="The current CPU times of the worker",
+        description="The current CPU times of the worker (user, system)",
+    )
+    num_ctx_switches: CtxSwitches | None = Field(
+        default=None,
+        description="The current number of context switches (voluntary, involuntary)",
+    )
+    num_threads: int | None = Field(
+        default=None,
+        description="The current number of threads",
     )
 
     @property

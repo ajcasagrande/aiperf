@@ -6,6 +6,7 @@ from aiperf.common.config import EndPointConfig
 from aiperf.common.record_models import (
     InferenceServerResponse,
     ParsedResponseRecord,
+    RequestRecord,
     ResponseData,
 )
 from aiperf.common.types import ConfigT, InputT, OutputT, RequestT, ResponseT
@@ -69,7 +70,7 @@ class InferenceClientProtocol(Protocol, Generic[ConfigT, RequestT, ResponseT]):
 
     async def send_request(
         self, endpoint: EndPointConfig, payload: RequestT, delayed: bool = False
-    ) -> ParsedResponseRecord:
+    ) -> RequestRecord:
         """Send a request to the inference server.
 
         This method is used to send a request to the inference server.

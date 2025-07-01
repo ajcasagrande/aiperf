@@ -1,8 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-import asyncio
-import os
 import sys
 from typing import cast
 
@@ -89,11 +87,7 @@ class Worker(BaseComponentService):
         super().__init__(service_config=service_config, service_id=service_id)
 
         self.logger.debug("Initializing worker process")
-        self.workers: list[Worker] = []
-        self.tasks: list[asyncio.Task] = []
-        self.worker_count = int(os.getenv("AIPERF_TASKS_PER_WORKER", 1))
         self.user_config: UserConfig | None = None
-        self.next_worker_id = 0
         self.worker: UniversalWorker
 
     @property
@@ -109,7 +103,7 @@ class Worker(BaseComponentService):
             user_config=cast(UserConfig, message.data),
             service_id=f"{self.service_id}",
         )
-        await self.worker.do_initialize(zmq_comms=self.comms)
+        await self.worker.do_initialize()
 
     @on_stop
     async def _stop(self) -> None:
@@ -119,7 +113,6 @@ class Worker(BaseComponentService):
     @on_cleanup
     async def _cleanup(self) -> None:
         self.logger.debug("Cleaning up worker process %s", self.service_id)
-        await asyncio.gather(*self.tasks)
 
 
 def main() -> None:

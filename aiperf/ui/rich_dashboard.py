@@ -31,7 +31,7 @@ from aiperf.common.hooks import (
 )
 from aiperf.common.messages import WorkerHealthMessage
 from aiperf.common.progress_tracker import ProgressTracker
-from aiperf.common.utils import format_duration
+from aiperf.common.utils import format_bytes, format_duration
 from aiperf.ui.logs_mixin import LogsDashboardMixin
 
 logger = logging.getLogger(__name__)
@@ -278,8 +278,8 @@ class WorkerStatusElement(DashboardElement):
         workers_table = Table.grid(padding=(0, 1, 0, 0))
         workers_table.add_column("Worker ID", style="cyan", width=20)
         workers_table.add_column("Status", width=12)
-        workers_table.add_column("Active", min_width=10, justify="right")
-        workers_table.add_column("Done", min_width=10, justify="right")
+        workers_table.add_column("Completed", min_width=10, justify="right")
+        workers_table.add_column("Total", min_width=10, justify="right")
         workers_table.add_column("CPU", min_width=8, justify="right")
         workers_table.add_column("Memory", min_width=10, justify="right")
         workers_table.add_column("Net Conn", min_width=10, justify="right")
@@ -334,11 +334,12 @@ class WorkerStatusElement(DashboardElement):
             workers_table.add_row(
                 worker_name,
                 status,
-                f"{health.in_progress_tasks:,}",
                 f"{health.completed_tasks:,}",
+                f"{health.total_tasks:,}",
                 f"{health.cpu_usage:.1f}%",
                 memory_display,
-                str(health.net_connections),
+                f"{format_bytes(health.io_counters[4])} / {format_bytes(health.io_counters[5])}",
+                # f"{health.cpu_times.user:.1f} / {health.cpu_times.system:.1f}",
             )
 
         # Create summary

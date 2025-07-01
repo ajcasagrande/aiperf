@@ -10,7 +10,7 @@ import zmq.asyncio
 from aiperf.common.comms.base import ReqClient
 from aiperf.common.comms.zmq.clients.base import BaseZMQClient
 from aiperf.common.exceptions import CommunicationError, CommunicationErrorReason
-from aiperf.common.hooks import aiperf_task
+from aiperf.common.hooks import aiperf_task, on_stop
 from aiperf.common.messages import Message
 
 
@@ -36,6 +36,7 @@ class ZMQDealerReqClient(BaseZMQClient, ReqClient):
         self.request_callbacks: dict[
             str, Callable[[Message], Coroutine[Any, Any, None]]
         ] = {}
+        self.tasks: set[asyncio.Task] = set()
 
     @aiperf_task
     async def _request_async_task(self) -> None:
@@ -49,7 +50,9 @@ class ZMQDealerReqClient(BaseZMQClient, ReqClient):
                 # Call the callback if it exists
                 if response_message.request_id in self.request_callbacks:
                     callback = self.request_callbacks.pop(response_message.request_id)
-                    asyncio.create_task(callback(response_message))
+                    task = asyncio.create_task(callback(response_message))
+                    self.tasks.add(task)
+                    task.add_done_callback(self.tasks.discard)
 
             except (asyncio.CancelledError, zmq.ContextTerminated):
                 raise  # re-raise the cancelled error
@@ -59,6 +62,17 @@ class ZMQDealerReqClient(BaseZMQClient, ReqClient):
                     CommunicationErrorReason.RESPONSE_ERROR,
                     f"Exception receiving responses: {e.__class__.__name__} {e}",
                 ) from e
+
+    @on_stop
+    async def _stop_remaining_tasks(self) -> None:
+        """Wait for all tasks to complete."""
+        for task in list(self.tasks):
+            if not task.done():
+                task.cancel()
+
+        # with contextlib.suppress(asyncio.CancelledError):
+        #     await asyncio.wait_for(asyncio.gather(*self.tasks), timeout=1.0)
+        self.tasks.clear()
 
     async def request_async(
         self,

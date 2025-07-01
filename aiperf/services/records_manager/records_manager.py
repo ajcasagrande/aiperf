@@ -69,7 +69,7 @@ class RecordsManager(BaseComponentService):
             bind=True,
         )
         # self.post_process_results_client: ReqClient = self.comms.create_req_client(
-        #     ClientAddressType.DEALER_ROUTER_REQ_REP_FRONTEND,
+        #     ClientAddressType.DEALER_ROUTER_FRONTEND,
         # )
 
     @property

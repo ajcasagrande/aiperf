@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
-import contextlib
 import os
 import signal
 import sys
@@ -90,7 +89,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             (ServiceType.TIMING_MANAGER, 1),
             (ServiceType.WORKER_MANAGER, 1),
             (ServiceType.RECORDS_MANAGER, 1),
-            (ServiceType.INFERENCE_RESULT_PARSER, 4),
+            (ServiceType.INFERENCE_RESULT_PARSER, 12),
         ]
 
         self.service_manager: BaseServiceManager = None  # type: ignore - is set in _initialize
@@ -376,23 +375,24 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
                 "Failed to stop all services",
             ) from e
 
+        tasks = []
         if self.xpub_xsub_proxy_task:
             await self.xpub_xsub_proxy.stop()
             self.xpub_xsub_proxy_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await self.xpub_xsub_proxy_task
+            tasks.append(self.xpub_xsub_proxy_task)
 
         if self.dealer_router_proxy_task:
             await self.dealer_router_proxy.stop()
             self.dealer_router_proxy_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await self.dealer_router_proxy_task
+            tasks.append(self.dealer_router_proxy_task)
 
         if self.push_pull_proxy_task:
             await self.push_pull_proxy.stop()
             self.push_pull_proxy_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await self.push_pull_proxy_task
+            tasks.append(self.push_pull_proxy_task)
+
+        # with contextlib.suppress(asyncio.CancelledError):
+        #     await asyncio.wait_for(asyncio.gather(*tasks), timeout=1.0)
 
         # TODO: This is a hack to give the services time to produce results
         # await asyncio.sleep(3)

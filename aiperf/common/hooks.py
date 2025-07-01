@@ -19,7 +19,6 @@ classes with existing hooks will inherit the hooks from the base classes as well
 """
 
 import asyncio
-import contextlib
 import inspect
 import logging
 from collections.abc import Awaitable, Callable
@@ -440,9 +439,9 @@ class AIPerfTaskMixin(HooksMixin):
         for task in self.registered_tasks:
             task.cancel()
 
-        # Wait for all tasks to complete
-        with contextlib.suppress(asyncio.CancelledError):
-            await asyncio.gather(*self.registered_tasks)
+        # # Wait for all tasks to complete
+        # with contextlib.suppress(asyncio.CancelledError):
+        #     await asyncio.wait_for(asyncio.gather(*self.registered_tasks), timeout=1.0)
 
 
 @supports_hooks(
@@ -467,6 +466,7 @@ class AIPerfLifecycleMixin(HooksMixin):
         self.started_event: asyncio.Event = asyncio.Event()
         self.stop_requested: asyncio.Event = asyncio.Event()
         self.shutdown_event: asyncio.Event = asyncio.Event()
+        self.lifecycle_task: asyncio.Task | None = None
 
     def is_initialized(self) -> bool:
         """Check if the lifecycle has been initialized."""
@@ -509,12 +509,12 @@ class AIPerfLifecycleMixin(HooksMixin):
     async def run_async(self) -> None:
         """Start the lifecycle in the background. Will call the :meth:`HooksMixin.on_init` hooks,
         followed by the :meth:`HooksMixin.on_start` hooks. Will return immediately."""
-        asyncio.create_task(self._run_lifecycle())
+        self.lifecycle_task = asyncio.create_task(self._run_lifecycle())
 
     async def run_and_wait_for_start(self) -> None:
         """Start the lifecycle in the background and wait until the lifecycle is initialized and started.
         Will call the :meth:`HooksMixin.on_init` hooks, followed by the :meth:`HooksMixin.on_start` hooks."""
-        asyncio.create_task(self._run_lifecycle())
+        self.lifecycle_task = asyncio.create_task(self._run_lifecycle())
 
         await self.initialized_event.wait()
         await self.started_event.wait()
@@ -563,14 +563,24 @@ class AIPerfLifecycleMixin(HooksMixin):
         for task in self.registered_tasks:
             task.cancel()
 
-        # Wait for all tasks to complete
-        with contextlib.suppress(asyncio.CancelledError):
-            await asyncio.gather(*self.registered_tasks)
+        # # Wait for all tasks to complete
+        # with contextlib.suppress(asyncio.CancelledError):
+        #     await asyncio.wait_for(asyncio.gather(*self.registered_tasks), timeout=1.0)
 
-    @on_cleanup
-    async def _cleanup_tasks(self):
-        """Clear the registered tasks."""
-        self.registered_tasks.clear()
+    @on_stop
+    async def _stop_lifecycle(self):
+        """Stop the lifecycle."""
+        # NOTE: This appears to cause a deadlock
+        # if (
+        #     self.lifecycle_task
+        #     and not self.lifecycle_task.done()
+        #     and not self.lifecycle_task.cancelled()
+        #     and self.lifecycle_task != asyncio.current_task()
+        # ):
+        #     self.lifecycle_task.cancel()
+
+        # with contextlib.suppress(asyncio.CancelledError):
+        #     await asyncio.wait_for(self.lifecycle_task, timeout=1.0)
 
     async def _task_wrapper(
         self, func: Callable, interval: float | None = None
