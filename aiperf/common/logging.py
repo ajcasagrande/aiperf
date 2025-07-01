@@ -68,23 +68,16 @@ def setup_child_process_logging(
     root_logger.addHandler(queue_handler)
 
     # Enable file logging for services
-    file_handler = logging.FileHandler(f"artifacts/logs/aiperf-{service_id}.log")
-    Path("artifacts/logs").mkdir(parents=True, exist_ok=True)
+    # TODO: Use config to determine if file logging is enabled and the folder path.
+    log_folder = Path("artifacts/logs")
+    log_folder.mkdir(parents=True, exist_ok=True)
+    file_handler = logging.FileHandler(log_folder / f"aiperf-{service_id}.log")
     file_handler.setLevel(level)
+    file_handler.formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
     root_logger.addHandler(file_handler)
-
-
-# TODO: Do we need this class? Not sure if it adds anything of value over the built-in FileHandler.
-class FileLogHandler(logging.FileHandler):
-    """Custom logging handler that writes logs to a file."""
-
-    def __init__(self, log_file: str, service_id: str | None = None) -> None:
-        super().__init__(log_file)
-        self.service_id = service_id
-
-    def emit(self, record: logging.LogRecord) -> None:
-        """Emit a log record to the file."""
-        super().emit(record)
 
 
 class MultiProcessLogHandler(logging.Handler):

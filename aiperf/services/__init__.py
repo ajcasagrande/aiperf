@@ -11,19 +11,11 @@ __all__ = [
     "Worker",
     # "DaskWorkerManager",
     # "DaskWorker",
-    "BaseZMQProxyService",
-    "DealerRouterProxyService",
-    "XPubXSubProxyService",
 ]
 
 # This will ensure that the services are registered with the ServiceFactory
 from aiperf.services.dataset import DatasetManager
 from aiperf.services.inference_result_parser import InferenceResultParser
-from aiperf.services.proxies import (
-    BaseZMQProxyService,
-    DealerRouterProxyService,
-    XPubXSubProxyService,
-)
 from aiperf.services.records_manager import RecordsManager
 from aiperf.services.system_controller import SystemController
 from aiperf.services.timing_manager import TimingManager
