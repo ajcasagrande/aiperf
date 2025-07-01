@@ -135,3 +135,6 @@ class ServiceDefaults:
     HEARTBEAT_INTERVAL = 10.0
     MIN_WORKERS = None
     MAX_WORKERS = None
+    LOG_LEVEL = "INFO"
+    DISABLE_UI = False
+    ENABLE_UVLOOP = True

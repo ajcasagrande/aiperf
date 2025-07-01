@@ -21,7 +21,7 @@ from aiperf.common.comms.zmq.clients.sub import ZMQSubClient
 from aiperf.common.config import (
     BaseZMQCommunicationConfig,
     ZMQIPCConfig,
-    ZMQTCPTransportConfig,
+    ZMQTCPConfig,
 )
 from aiperf.common.enums import CommunicationBackend, ServiceType
 from aiperf.common.exceptions import (
@@ -252,13 +252,13 @@ class BaseZMQCommunication(BaseCommunication, ABC):
 class ZMQTCPCommunication(BaseZMQCommunication):
     """ZeroMQ-based implementation of the Communication interface using TCP transport."""
 
-    def __init__(self, config: ZMQTCPTransportConfig | None = None) -> None:
+    def __init__(self, config: ZMQTCPConfig | None = None) -> None:
         """Initialize ZMQ TCP communication.
 
         Args:
             config: ZMQTCPTransportConfig object with configuration parameters
         """
-        super().__init__(config or ZMQTCPTransportConfig())
+        super().__init__(config or ZMQTCPConfig())
 
 
 @CommunicationFactory.register(CommunicationBackend.ZMQ_IPC)

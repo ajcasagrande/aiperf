@@ -3,7 +3,6 @@
 """Main CLI entry point for the AIPerf system."""
 
 import logging
-import os
 import sys
 from pathlib import Path
 
@@ -14,9 +13,8 @@ from rich.logging import RichHandler
 
 from aiperf.common.bootstrap import bootstrap_and_run_service
 from aiperf.common.config import ServiceConfig
+from aiperf.common.config.config_defaults import ServiceDefaults
 from aiperf.common.config.user_config import UserConfig
-from aiperf.common.constants import EnvDefaults
-from aiperf.common.enums import ServiceRunType
 from aiperf.common.logging import setup_child_process_logging
 from aiperf.services.system_controller.system_controller import SystemController
 
@@ -30,12 +28,12 @@ class CLIConfig(BaseModel):
         default=None,
         description="Path to configuration file",
     )
-    run_type: ServiceRunType = Field(
-        default=ServiceRunType.MULTIPROCESSING,
-        description="Process manager backend to use (multiprocessing: 'process', or kubernetes: 'k8s')",
+    service_config: ServiceConfig | None = Field(
+        default=None,
+        description="Service configuration",
     )
-    user_config: UserConfig = Field(
-        default=UserConfig(),
+    user_config: UserConfig | None = Field(
+        default=None,
         description="User configuration",
     )
 
@@ -43,12 +41,15 @@ class CLIConfig(BaseModel):
 app = cyclopts.App(name="aiperf", help="AIPerf Benchmarking System")
 
 
-def _setup_logging() -> None:
+def _setup_logging(service_config: ServiceConfig | None = None) -> None:
     """Set up rich logging with appropriate configuration."""
     # Set logging level for the root logger (affects all loggers)
-    logging.root.setLevel(
-        getattr(logging, os.getenv("AIPERF_LOG_LEVEL", EnvDefaults.AIPERF_LOG_LEVEL))
+    level = (
+        service_config.log_level.upper()
+        if service_config
+        else ServiceDefaults.LOG_LEVEL.upper()
     )
+    logging.root.setLevel(level)
 
     rich_handler = RichHandler(
         rich_tracebacks=True,
@@ -74,7 +75,7 @@ def _setup_logging() -> None:
 @app.default
 def main(
     config: Path | None = None,
-    run_type: ServiceRunType = ServiceRunType.MULTIPROCESSING,
+    service_config: ServiceConfig | None = None,
     user_config: UserConfig | None = None,
 ) -> None:
     """Main entry point for the AIPerf system."""
@@ -82,19 +83,29 @@ def main(
     # Create CLI config
     cli_config = CLIConfig(
         config=config,
-        run_type=run_type,
+        service_config=service_config or ServiceConfig(),
         user_config=user_config or UserConfig(),
     )
 
-    if os.getenv("AIPERF_DISABLE_UI", EnvDefaults.AIPERF_DISABLE_UI).lower() == "true":
-        _setup_logging()
+    disable_ui = (
+        cli_config.service_config.disable_ui
+        if cli_config.service_config
+        else ServiceDefaults.DISABLE_UI
+    )
+
+    if disable_ui:
+        _setup_logging(cli_config.service_config)
     else:
         from aiperf.common.logging import setup_global_log_queue
 
         # Set up the global log queue
         log_queue = setup_global_log_queue()
 
-        setup_child_process_logging(log_queue, "system_controller")
+        setup_child_process_logging(
+            log_queue,
+            "system_controller",
+            cli_config.service_config,
+        )
 
         # # Set up main process logging to also send to the queue
         # root_logger = logging.getLogger()
@@ -122,10 +133,6 @@ def main(
         # root_logger.addHandler(rich_handler)
 
     # Load configuration
-    service_config = ServiceConfig(
-        service_run_type=cli_config.run_type,
-    )
-
     if cli_config.config:
         # In a real implementation, this would load from the specified file
         logger.debug("Loading configuration from %s", cli_config.config)
@@ -136,7 +143,7 @@ def main(
 
     bootstrap_and_run_service(
         SystemController,
-        service_config=service_config,
+        service_config=cli_config.service_config,
         user_config=cli_config.user_config,
     )
 

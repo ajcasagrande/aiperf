@@ -154,7 +154,7 @@ class BaseStatusMessage(BaseServiceMessage):
 
     # override request_ns to be auto-filled if not provided
     request_ns: int | None = Field(
-        default=time.time_ns(),
+        default_factory=time.time_ns,
         description="Timestamp of the request",
     )
     state: ServiceState = Field(
@@ -499,9 +499,22 @@ class DatasetTimingResponse(BaseServiceMessage):
 
 
 IOCounters = namedtuple(
-    "IOCounters", ["read_count", "write_count", "read_bytes", "write_bytes"]
+    "IOCounters",
+    [
+        "read_count",  # system calls io read
+        "write_count",  # system calls io write
+        "read_bytes",  # bytes read (disk io)
+        "write_bytes",  # bytes written (disk io)
+        "read_chars",  # io read bytes (system calls)
+        "write_chars",  # io write bytes (system calls)
+    ],
 )
-CPUTimes = namedtuple("CPUTimes", ["user", "system"])
+
+CPUTimes = namedtuple(
+    "CPUTimes",
+    ["user", "system", "iowait"],
+)
+
 CtxSwitches = namedtuple("CtxSwitches", ["voluntary", "involuntary"])
 
 
@@ -509,6 +522,12 @@ class WorkerHealthMessage(BaseServiceMessage):
     """Message for a worker health check."""
 
     message_type: Literal[MessageType.WORKER_HEALTH] = MessageType.WORKER_HEALTH
+
+    # override request_ns to be auto-filled if not provided
+    request_ns: int = Field(  # type: ignore
+        default_factory=time.time_ns,
+        description="Timestamp of the request",
+    )
 
     service_id: str = Field(..., description="The ID of the worker")
     pid: int | None = Field(
@@ -534,15 +553,15 @@ class WorkerHealthMessage(BaseServiceMessage):
         default=None,
         description="The current number of network connections",
     )
-    io_counters: tuple | None = Field(
+    io_counters: IOCounters | tuple | None = Field(
         default=None,
-        description="The current I/O counters of the worker (read_count, write_count, read_bytes, write_bytes)",
+        description="The current I/O counters of the worker (read_count, write_count, read_bytes, write_bytes, read_chars, write_chars)",
     )
-    cpu_times: CPUTimes | None = Field(
+    cpu_times: CPUTimes | tuple | None = Field(
         default=None,
-        description="The current CPU times of the worker (user, system)",
+        description="The current CPU times of the worker (user, system, iowait)",
     )
-    num_ctx_switches: CtxSwitches | None = Field(
+    num_ctx_switches: CtxSwitches | tuple | None = Field(
         default=None,
         description="The current number of context switches (voluntary, involuntary)",
     )

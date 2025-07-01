@@ -2,10 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 import logging
 import multiprocessing
-import os
 import queue
 from pathlib import Path
 
+from aiperf.common.config.config_defaults import ServiceDefaults
 from aiperf.common.config.service_config import ServiceConfig
 
 # Global log queue for multiprocessing
@@ -54,7 +54,11 @@ def setup_child_process_logging(
         return
 
     root_logger = logging.getLogger()
-    level = os.getenv("AIPERF_LOG_LEVEL", "INFO")
+    level = (
+        service_config.log_level.upper()
+        if service_config
+        else ServiceDefaults.LOG_LEVEL.upper()
+    )
     # Set the root logger level to ensure logs are passed to handlers
     root_logger.setLevel(level)
 

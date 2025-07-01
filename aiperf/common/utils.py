@@ -173,8 +173,11 @@ def format_duration(seconds: float | None, none_str: str = "--") -> str:
     return f"{days}d {hours}h"
 
 
-def format_bytes(bytes: int) -> str:
+def format_bytes(bytes: int | None, none_str: str = "--") -> str:
     """Format bytes to human-readable format."""
+    if bytes is None:
+        return none_str
+
     if bytes < 1024:
         return f"{bytes} B"
     if bytes / 1024 < 100:

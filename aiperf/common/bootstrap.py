@@ -4,10 +4,8 @@
 import asyncio
 import contextlib
 import multiprocessing
-import os
 
 from aiperf.common.config import ServiceConfig
-from aiperf.common.constants import EnvDefaults
 from aiperf.common.service.base_service import BaseService
 
 
@@ -23,11 +21,13 @@ def bootstrap_and_run_service(
     create an instance of the service, and run it.
 
     Args:
-        service_class: The service class of the service to run
-        service_config: The service configuration to use, if not provided, the service
-            configuration will be loaded from the config file
-        log_queue: Optional multiprocessing queue for child process logging
-
+        service_class: The python class of the service to run. This should be a subclass of
+            BaseService. This should be a type and not an instance.
+        service_config: The service configuration to use. If not provided, the service
+            configuration will be loaded from the environment variables.
+        log_queue: Optional multiprocessing queue for child process logging. If provided,
+            the child process logging will be set up.
+        kwargs: Additional keyword arguments to pass to the service constructor.
     """
 
     # Load the service configuration
@@ -40,6 +40,7 @@ def bootstrap_and_run_service(
     service = service_class(service_config=service_config, **kwargs)
 
     # # Profile with yappi
+    # TODO: Add yappi profiling support via ServiceConfig
     # import yappi
     # yappi.set_clock_type("wall")  # Use wall time for async code
     # yappi.start()
@@ -51,10 +52,10 @@ def bootstrap_and_run_service(
     if log_queue is not None:
         from aiperf.common.logging import setup_child_process_logging
 
-        setup_child_process_logging(log_queue, service.service_id)
+        setup_child_process_logging(log_queue, service.service_id, service_config)
 
     with contextlib.suppress(asyncio.CancelledError):
-        if int(os.environ.get("AIPERF_UVLOOP", EnvDefaults.AIPERF_UVLOOP)) == 1:
+        if service_config.enable_uvloop:
             import uvloop
 
             uvloop.run(service.run_forever())

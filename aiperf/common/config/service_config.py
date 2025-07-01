@@ -1,13 +1,17 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-from typing import Annotated
+from typing import Annotated, Any, Literal
 
 import cyclopts
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from aiperf.common.config.config_defaults import ServiceDefaults
-from aiperf.common.config.zmq_config import BaseZMQCommunicationConfig
+from aiperf.common.config.zmq_config import (
+    BaseZMQCommunicationConfig,
+    ZMQIPCConfig,
+    ZMQTCPConfig,
+)
 from aiperf.common.enums import CommunicationBackend, ServiceRunType
 
 
@@ -18,7 +22,20 @@ class ServiceConfig(BaseSettings):
         env_prefix="AIPERF_",
         env_file=".env",
         env_file_encoding="utf-8",
+        extra="allow",
     )
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+
+        # Initialize the comm_config if it is not provided, based on the comm_backend.
+        if self.comm_config is None:
+            if self.comm_backend == CommunicationBackend.ZMQ_IPC:
+                self.comm_config = ZMQIPCConfig()
+            elif self.comm_backend == CommunicationBackend.ZMQ_TCP:
+                self.comm_config = ZMQTCPConfig()
+            else:
+                raise ValueError(f"Invalid communication backend: {self.comm_backend}")
 
     service_run_type: Annotated[
         ServiceRunType,
@@ -111,3 +128,33 @@ class ServiceConfig(BaseSettings):
             name=("--max-workers"),
         ),
     ] = ServiceDefaults.MAX_WORKERS
+
+    log_level: Annotated[
+        Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        Field(
+            description="Logging level",
+        ),
+        cyclopts.Parameter(
+            name=("--log-level"),
+        ),
+    ] = ServiceDefaults.LOG_LEVEL
+
+    disable_ui: Annotated[
+        bool,
+        Field(
+            description="Disable the UI",
+        ),
+        cyclopts.Parameter(
+            name=("--disable-ui"),
+        ),
+    ] = ServiceDefaults.DISABLE_UI
+
+    enable_uvloop: Annotated[
+        bool,
+        Field(
+            description="Enable the use of uvloop instead of the default asyncio event loop",
+        ),
+        cyclopts.Parameter(
+            name=("--enable-uvloop"),
+        ),
+    ] = ServiceDefaults.ENABLE_UVLOOP

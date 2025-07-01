@@ -158,7 +158,7 @@ class ZMQIPCProxyConfig(BaseZMQProxyConfig):
         )
 
 
-class ZMQTCPTransportConfig(BaseZMQCommunicationConfig):
+class ZMQTCPConfig(BaseZMQCommunicationConfig):
     """Configuration for TCP transport."""
 
     host: str = Field(

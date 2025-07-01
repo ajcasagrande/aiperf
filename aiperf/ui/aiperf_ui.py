@@ -8,7 +8,6 @@ from aiperf.common.progress_tracker import ProgressTracker
 from aiperf.ui.rich_dashboard import (
     AIPerfRichDashboard,
     ProfileProgressElement,
-    RecordProgressElement,
     WorkerStatusElement,
 )
 
@@ -41,7 +40,7 @@ class AIPerfUI(AIPerfLifecycleMixin):
     async def on_profile_stats_update(self) -> None:
         """Update statistics display."""
         if self.dashboard.running:
-            self.dashboard.refresh_element(RecordProgressElement.key)
+            self.dashboard.refresh_element(ProfileProgressElement.key)
 
     async def on_worker_health_update(self, message: WorkerHealthMessage) -> None:
         """Update worker health information."""

@@ -48,17 +48,9 @@ class LogsDashboardMixin(AIPerfLifecycleMixin):
         self.log_records: deque[dict] = deque(maxlen=self.MAX_LOG_RECORDS)
 
     @on_init
-    def setup_multiprocess_logging(self) -> None:
-        """Set up multiprocessing logging infrastructure.
-
-        Returns:
-            The multiprocessing queue that child processes should use for logging.
-        """
-        # Set up global log queue
+    def _init_log_queue(self) -> None:
+        """Retrieve the global log queue."""
         self.log_queue = get_global_log_queue()
-        logger.info(
-            f"LogsDashboardMixin initialized with log_queue: {self.log_queue is not None}"
-        )
 
     @aiperf_auto_task(interval=LOG_REFRESH_INTERVAL)
     async def _consume_logs(self) -> None:
@@ -73,7 +65,7 @@ class LogsDashboardMixin(AIPerfLifecycleMixin):
     def _create_logs_table(self) -> Table:
         """Create the logs panel."""
         logs_table = Table.grid(expand=False, padding=(0, 1, 0, 0))
-        logs_table.add_column("Time", style="dim", width=16, justify="left")
+        logs_table.add_column("Time", style="dim", width=15, justify="left")
         logs_table.add_column(
             "Logger",
             style="blue",

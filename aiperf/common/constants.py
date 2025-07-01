@@ -12,15 +12,3 @@ TASK_CANCEL_TIMEOUT_SHORT = 2.0
 
 TASK_CANCEL_TIMEOUT_LONG = 5.0
 """Maximum time to wait for complex tasks to complete when cancelling them (like parent tasks)."""
-
-################################################################################
-# Environment Defaults
-################################################################################
-
-
-class EnvDefaults:
-    """Default values for the AIPerf environment variables."""
-
-    AIPERF_UVLOOP = 1
-    AIPERF_LOG_LEVEL = "INFO"
-    AIPERF_DISABLE_UI = "false"

@@ -329,7 +329,9 @@ class UniversalWorker:
             timestamp_ns=time.time_ns(),
             net_connections=len(self.process.net_connections("tcp4")),
             io_counters=self.process.io_counters(),
-            cpu_times=CPUTimes(*self.process.cpu_times()[:2]),
+            cpu_times=CPUTimes(
+                *self.process.cpu_times()[:2], self.process.cpu_times()[4]
+            ),
             num_ctx_switches=CtxSwitches(*self.process.num_ctx_switches()),
             num_threads=self.process.num_threads(),
         )

@@ -7,19 +7,22 @@ from abc import ABC, abstractmethod
 from typing import ClassVar
 
 from rich.align import Align, AlignMethod
-from rich.color import Color
 from rich.console import Console, Group, RenderableType
 from rich.layout import Layout
 from rich.live import Live
 from rich.panel import Panel
 from rich.progress import (
     BarColumn,
+    MofNCompleteColumn,
     Progress,
     SpinnerColumn,
     TaskID,
+    TaskProgressColumn,
     TextColumn,
+    TimeElapsedColumn,
+    TimeRemainingColumn,
 )
-from rich.style import Style, StyleType
+from rich.style import StyleType
 from rich.table import Table
 from rich.text import Text
 
@@ -77,111 +80,36 @@ class HeaderElement(DashboardElement):
         return Align.center(Text("NVIDIA AIPerf Dashboard", style="bold bright_green"))
 
 
-class RecordProgressElement(DashboardElement):
-    """Record progress element for the dashboard."""
-
-    key = "record_progress"
-    title = Text("Record Processing", style="bold")
-    border_style = Style(color=Color.from_rgb(0, 128, 128))
-
-    def __init__(self, progress_tracker: ProgressTracker) -> None:
-        super().__init__()
-        self.progress_tracker = progress_tracker
-        self.progress_task_id: TaskID | None = None
-        self.progress_bar = Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            # TaskProgressColumn(),
-            # MofNCompleteColumn(),
-            # TimeElapsedColumn(),
-            # TimeRemainingColumn(),
-            expand=True,
-        )
-
-    def get_content(self) -> RenderableType:
-        """Create the progress panel with performance metrics."""
-
-        if not self.progress_tracker.current_profile:
-            return Align.center(
-                Text("Waiting for performance data...", style="dim yellow"),
-                vertical="middle",
-            )
-
-        profile = self.progress_tracker.current_profile
-
-        # Update progress task
-        if self.progress_task_id is None and profile.total_expected_requests:
-            self.progress_task_id = self.progress_bar.add_task(
-                "Processing records...", total=profile.total_expected_requests
-            )
-        elif self.progress_task_id is not None:
-            self.progress_bar.update(
-                self.progress_task_id, completed=profile.requests_processed or 0
-            )
-
-        progress_table = Table.grid(padding=(0, 1, 0, 0))
-        progress_table.add_column(style="bold cyan", justify="right")
-        progress_table.add_column(style="bold white")
-
-        if profile.is_complete:
-            status = Text("Complete", style="bold green")
-        elif profile.was_cancelled:
-            status = Text("Cancelled", style="bold red")
-        else:
-            status = Text("Processing", style="bold yellow")
-
-        error_rate = 0.0
-        if profile.requests_processed and profile.requests_processed > 0:
-            error_rate = (
-                (profile.request_errors or 0) / profile.requests_processed * 100
-            )
-
-        error_color = (
-            "green" if error_rate == 0 else "red" if error_rate > 10 else "yellow"
-        )
-
-        progress_table.add_row("Status:", status)
-        progress_table.add_row(
-            "Progress:",
-            f"{profile.requests_processed or 0:,} / {profile.total_expected_requests or 0:,} records",
-        )
-        progress_table.add_row(
-            "Completion:",
-            f"{(profile.requests_processed or 0) / (profile.total_expected_requests or 1) * 100:.1f}%",
-        )
-        progress_table.add_row(
-            "Errors:",
-            f"[{error_color}]{profile.request_errors or 0:,} / {profile.requests_processed or 0:,} ({error_rate:.1f}%)[/{error_color}]",
-        )
-        progress_table.add_row(
-            "Processing Rate:", f"{profile.processed_per_second or 0:.1f} req/s"
-        )
-        progress_table.add_row("Elapsed:", format_duration(profile.elapsed_time))
-        progress_table.add_row("ETA:", format_duration(profile.eta))
-
-        return Group(self.progress_bar, progress_table)
-
-
 class ProfileProgressElement(DashboardElement):
     """Profile progress element for the dashboard."""
 
     key = "profile_progress"
     title = Text("Profile Progress", style="bold")
-    border_style = Style(color=Color.from_rgb(0, 128, 128))
+    border_style = "cyan"
 
     def __init__(self, progress_tracker: ProgressTracker) -> None:
         super().__init__()
         self.progress_tracker = progress_tracker
         self.progress_task_id: TaskID | None = None
+        self.records_task_id: TaskID | None = None
         self.progress_bar = Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
             BarColumn(),
-            # TaskProgressColumn(),
-            # MofNCompleteColumn(),
-            # TimeElapsedColumn(),
-            # TimeRemainingColumn(),
+            TaskProgressColumn(),
+            MofNCompleteColumn(),
+            TimeElapsedColumn(),
+            TimeRemainingColumn(),
+            expand=True,
+        )
+        self.records_progress_bar = Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            MofNCompleteColumn(),
+            TimeElapsedColumn(),
+            TimeRemainingColumn(),
             expand=True,
         )
 
@@ -199,13 +127,23 @@ class ProfileProgressElement(DashboardElement):
         # Update progress task
         if self.progress_task_id is None and profile.total_expected_requests:
             self.progress_task_id = self.progress_bar.add_task(
-                "Processing requests...", total=profile.total_expected_requests
+                "Executing requests...", total=profile.total_expected_requests
             )
         elif self.progress_task_id is not None:
             self.progress_bar.update(
                 self.progress_task_id, completed=profile.requests_completed or 0
             )
 
+        # Update records progress task
+        if self.records_task_id is None and profile.total_expected_requests:
+            self.records_task_id = self.records_progress_bar.add_task(
+                "Processing results...", total=profile.total_expected_requests
+            )
+        elif self.records_task_id is not None:
+            self.records_progress_bar.update(
+                self.records_task_id, completed=profile.requests_processed or 0
+            )
+
         progress_table = Table.grid(padding=(0, 1, 0, 0))
         progress_table.add_column(style="bold cyan", justify="right")
         progress_table.add_column(style="bold white")
@@ -230,11 +168,8 @@ class ProfileProgressElement(DashboardElement):
         progress_table.add_row("Status:", status)
         progress_table.add_row(
             "Progress:",
-            f"{profile.requests_completed or 0:,} / {profile.total_expected_requests or 0:,} requests",
-        )
-        progress_table.add_row(
-            "Completion:",
-            f"{(profile.requests_completed or 0) / (profile.total_expected_requests or 1) * 100:.1f}%",
+            f"{profile.requests_completed or 0:,} / {profile.total_expected_requests or 0:,} requests "
+            f"({(profile.requests_completed or 0) / (profile.total_expected_requests or 1) * 100:.1f}%)",
         )
         progress_table.add_row(
             "Errors:",
@@ -247,9 +182,10 @@ class ProfileProgressElement(DashboardElement):
             "Processing Rate:", f"{profile.processed_per_second or 0:.1f} req/s"
         )
         progress_table.add_row("Elapsed:", format_duration(profile.elapsed_time))
-        progress_table.add_row("ETA:", format_duration(profile.eta))
+        progress_table.add_row("Request ETA:", format_duration(profile.eta))
+        progress_table.add_row("Results ETA:", format_duration(profile.processing_eta))
 
-        return Group(self.progress_bar, progress_table)
+        return Group(self.progress_bar, self.records_progress_bar, progress_table)
 
 
 class WorkerStatusElement(DashboardElement):
@@ -275,14 +211,15 @@ class WorkerStatusElement(DashboardElement):
                 Text("No worker data available", style="dim yellow"), vertical="middle"
             )
 
-        workers_table = Table.grid(padding=(0, 1, 0, 0))
-        workers_table.add_column("Worker ID", style="cyan", width=20)
-        workers_table.add_column("Status", width=12)
-        workers_table.add_column("Completed", min_width=10, justify="right")
-        workers_table.add_column("Total", min_width=10, justify="right")
-        workers_table.add_column("CPU", min_width=8, justify="right")
-        workers_table.add_column("Memory", min_width=10, justify="right")
-        workers_table.add_column("Net Conn", min_width=10, justify="right")
+        workers_table = Table.grid(padding=(0, 2, 0, 0))
+        workers_table.add_column("Worker ID", style="cyan", width=15)
+        workers_table.add_column("Status", width=9)
+        workers_table.add_column("Tasks", min_width=6, justify="right")
+        workers_table.add_column("Completed", min_width=6, justify="right")
+        workers_table.add_column("CPU", min_width=5, justify="right")
+        workers_table.add_column("Memory", min_width=6, justify="right")
+        workers_table.add_column("Read", min_width=8, justify="right")
+        workers_table.add_column("Write", min_width=8, justify="right")
 
         workers_table.add_row(
             *[column.header for column in workers_table.columns], style="bold"
@@ -334,12 +271,12 @@ class WorkerStatusElement(DashboardElement):
             workers_table.add_row(
                 worker_name,
                 status,
+                f"{health.in_progress_tasks:,}",
                 f"{health.completed_tasks:,}",
-                f"{health.total_tasks:,}",
                 f"{health.cpu_usage:.1f}%",
                 memory_display,
-                f"{format_bytes(health.io_counters[4])} / {format_bytes(health.io_counters[5])}",
-                # f"{health.cpu_times.user:.1f} / {health.cpu_times.system:.1f}",
+                f"{format_bytes(health.io_counters.read_chars)}",
+                f"{format_bytes(health.io_counters.write_chars)}",
             )
 
         # Create summary
@@ -372,7 +309,6 @@ class AIPerfRichDashboard(LogsDashboardMixin, AIPerfLifecycleMixin):
         self.elements: dict[str, DashboardElement] = {
             HeaderElement.key: HeaderElement(),
             ProfileProgressElement.key: ProfileProgressElement(self.progress_tracker),
-            RecordProgressElement.key: RecordProgressElement(self.progress_tracker),
             WorkerStatusElement.key: WorkerStatusElement(
                 self.worker_health, self.worker_last_seen
             ),
@@ -396,7 +332,6 @@ class AIPerfRichDashboard(LogsDashboardMixin, AIPerfLifecycleMixin):
 
         layout["left"].split_column(
             Layout(name=ProfileProgressElement.key),
-            Layout(name=RecordProgressElement.key, ratio=1),
         )
 
         layout["right"].split_row(Layout(name=WorkerStatusElement.key, ratio=1))

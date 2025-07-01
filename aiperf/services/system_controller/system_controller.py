@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
-import os
 import signal
 import sys
 import time
@@ -12,7 +11,7 @@ import zmq.asyncio
 from aiperf.common.comms.zmq.clients.base_zmq_proxy import BaseZMQProxy
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
-from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT, EnvDefaults
+from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
 from aiperf.common.enums import (
     BenchmarkSuiteType,
     CommandResponseStatus,
@@ -94,10 +93,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
 
         self.service_manager: BaseServiceManager = None  # type: ignore - is set in _initialize
         self.progress_tracker: ProgressTracker = ProgressTracker()
-        self.ui_enabled: bool = (
-            os.getenv("AIPERF_DISABLE_UI", EnvDefaults.AIPERF_DISABLE_UI).lower()
-            != "true"
-        )
+        self.ui_enabled: bool = not self.service_config.disable_ui
         self.ui: AIPerfUI | None = (
             AIPerfUI(self.progress_tracker) if self.ui_enabled else None
         )
