@@ -12,7 +12,7 @@ import zmq.asyncio
 from aiperf.common.comms.zmq.clients.base_zmq_proxy import BaseZMQProxy
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
-from aiperf.common.constants import EnvDefaults
+from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT, EnvDefaults
 from aiperf.common.enums import (
     BenchmarkSuiteType,
     CommandResponseStatus,
@@ -391,8 +391,10 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             self.push_pull_proxy_task.cancel()
             tasks.append(self.push_pull_proxy_task)
 
-        # with contextlib.suppress(asyncio.CancelledError):
-        #     await asyncio.wait_for(asyncio.gather(*tasks), timeout=1.0)
+        await asyncio.wait_for(
+            asyncio.gather(*tasks),
+            timeout=TASK_CANCEL_TIMEOUT_SHORT,
+        )
 
         # TODO: This is a hack to give the services time to produce results
         # await asyncio.sleep(3)

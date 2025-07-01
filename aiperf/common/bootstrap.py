@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+import asyncio
+import contextlib
 import multiprocessing
 import os
 
@@ -51,14 +53,13 @@ def bootstrap_and_run_service(
 
         setup_child_process_logging(log_queue, service.service_id)
 
-    if int(os.environ.get("AIPERF_UVLOOP", EnvDefaults.AIPERF_UVLOOP)) == 1:
-        import uvloop
+    with contextlib.suppress(asyncio.CancelledError):
+        if int(os.environ.get("AIPERF_UVLOOP", EnvDefaults.AIPERF_UVLOOP)) == 1:
+            import uvloop
 
-        uvloop.run(service.run_forever())
-    else:
-        import asyncio
-
-        asyncio.run(service.run_forever())
+            uvloop.run(service.run_forever())
+        else:
+            asyncio.run(service.run_forever())
 
     # yappi.stop()
 

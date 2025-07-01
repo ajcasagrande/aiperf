@@ -8,6 +8,7 @@ import zmq.asyncio
 
 from aiperf.common.comms.base import SubClient
 from aiperf.common.comms.zmq.clients.base import BaseZMQClient
+from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
 from aiperf.common.exceptions import CommunicationError, CommunicationErrorReason
 from aiperf.common.hooks import aiperf_task, on_stop
 from aiperf.common.messages import Message
@@ -96,8 +97,10 @@ class ZMQSubClient(BaseZMQClient, SubClient):
             if not task.done():
                 task.cancel()
 
-        # with contextlib.suppress(asyncio.CancelledError):
-        #     await asyncio.wait_for(asyncio.gather(*self.tasks), timeout=1.0)
+        await asyncio.wait_for(
+            asyncio.gather(*self.tasks),
+            timeout=TASK_CANCEL_TIMEOUT_SHORT,
+        )
         self.tasks.clear()
 
     @aiperf_task

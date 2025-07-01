@@ -7,6 +7,12 @@ BYTES_PER_MIB = 1024 * 1024
 
 GRACEFUL_SHUTDOWN_TIMEOUT_SECONDS = 5.0
 
+TASK_CANCEL_TIMEOUT_SHORT = 2.0
+"""Maximum time to wait for simple tasks to complete when cancelling them."""
+
+TASK_CANCEL_TIMEOUT_LONG = 5.0
+"""Maximum time to wait for complex tasks to complete when cancelling them (like parent tasks)."""
+
 ################################################################################
 # Environment Defaults
 ################################################################################

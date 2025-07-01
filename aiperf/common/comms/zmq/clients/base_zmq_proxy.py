@@ -170,17 +170,19 @@ class BaseZMQProxy(ABC):
         try:
             if self.monitor_task and not self.monitor_task.done():
                 self.monitor_task.cancel()
-                # with contextlib.suppress(asyncio.CancelledError):
-                #     await asyncio.wait_for(self.monitor_task, timeout=1.0)
+                await asyncio.wait_for(self.monitor_task, timeout=1.0)
 
-            await asyncio.gather(
-                self.backend_socket.shutdown(),
-                self.frontend_socket.shutdown(),
-                *[
-                    client.shutdown()
-                    for client in [self.control_client, self.capture_client]
-                    if client
-                ],
+            await asyncio.wait_for(
+                asyncio.gather(
+                    self.backend_socket.shutdown(),
+                    self.frontend_socket.shutdown(),
+                    *[
+                        client.shutdown()
+                        for client in [self.control_client, self.capture_client]
+                        if client
+                    ],
+                ),
+                timeout=1.0,
             )
 
             stop_duration = time.time() - stop_start

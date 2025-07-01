@@ -476,9 +476,7 @@ class AIPerfTaskMixin(HooksMixin):
         for task in self.registered_tasks.values():
             task.cancel()
 
-        # Wait for all tasks to complete
-        with contextlib.suppress(asyncio.CancelledError):
-            await asyncio.gather(*self.registered_tasks.values())
+        await asyncio.gather(*self.registered_tasks.values())
 ```
 
 ### Best Practices for `@aiperf_task`

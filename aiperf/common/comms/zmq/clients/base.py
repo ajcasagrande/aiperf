@@ -7,6 +7,7 @@ import uuid
 import zmq.asyncio
 
 from aiperf.common.comms.base import BaseCommunicationClient
+from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
 from aiperf.common.exceptions import (
     AIPerfError,
     CommunicationError,
@@ -187,21 +188,34 @@ class BaseZMQClient(AIPerfTaskMixin, BaseCommunicationClient):
             self.logger.error(
                 "Exception running ON_STOP hooks: %s (%s)", e, self.client_id
             )
-            # continue
 
         # Cancel all registered tasks
         for task in self.registered_tasks:
             task.cancel()
 
-        # with contextlib.suppress(asyncio.CancelledError):
-        #     await asyncio.wait_for(asyncio.gather(*self.registered_tasks), timeout=1.0)
+        # Wait for all tasks to complete
+        await asyncio.wait_for(
+            asyncio.gather(*self.registered_tasks),
+            timeout=TASK_CANCEL_TIMEOUT_SHORT,
+        )
+        self.registered_tasks.clear()
 
+        # Run the ON_STOP and ON_CLEANUP hooks
         try:
-            await self.run_hooks(AIPerfHook.ON_STOP)
-            await self.run_hooks(AIPerfHook.ON_CLEANUP)
+            cancelled_error = None
+            try:
+                await self.run_hooks(AIPerfHook.ON_STOP)
+            except asyncio.CancelledError as e:
+                cancelled_error = e
 
-        except asyncio.CancelledError:
-            return
+            try:
+                await self.run_hooks(AIPerfHook.ON_CLEANUP)
+            except asyncio.CancelledError as e:
+                cancelled_error = e
+
+            # Re-raise the cancelled error if it was raised during the stop hooks
+            if cancelled_error:
+                raise cancelled_error
 
         except AIPerfError:
             raise  # re-raise it up the stack
@@ -210,10 +224,6 @@ class BaseZMQClient(AIPerfTaskMixin, BaseCommunicationClient):
             self.logger.error(
                 "Exception cleaning up ZMQ socket: %s (%s)", e, self.client_id
             )
-            raise CommunicationError(
-                CommunicationErrorReason.CLEANUP_ERROR,
-                f"Failed to cleanup ZMQ socket: {e}",
-            ) from e
 
         finally:
             try:
@@ -227,14 +237,5 @@ class BaseZMQClient(AIPerfTaskMixin, BaseCommunicationClient):
                 self.logger.error(
                     "Exception shutting down ZMQ socket: %s (%s)", e, self.client_id
                 )
-                raise CommunicationError(
-                    CommunicationErrorReason.SHUTDOWN_ERROR,
-                    f"Failed to shutdown ZMQ socket: {e}",
-                ) from e
 
-            # # Wait for all tasks to complete
-            # with contextlib.suppress(asyncio.CancelledError):
-            #     await asyncio.wait_for(asyncio.gather(*self.registered_tasks), timeout=1.0)
-
-            self.registered_tasks.clear()
-            # self._socket = None
+            self._socket = None

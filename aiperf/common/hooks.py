@@ -439,9 +439,8 @@ class AIPerfTaskMixin(HooksMixin):
         for task in self.registered_tasks:
             task.cancel()
 
-        # # Wait for all tasks to complete
-        # with contextlib.suppress(asyncio.CancelledError):
-        #     await asyncio.wait_for(asyncio.gather(*self.registered_tasks), timeout=1.0)
+        # Wait for all tasks to complete
+        await asyncio.wait_for(asyncio.gather(*self.registered_tasks), timeout=1.0)
 
 
 @supports_hooks(
@@ -563,9 +562,8 @@ class AIPerfLifecycleMixin(HooksMixin):
         for task in self.registered_tasks:
             task.cancel()
 
-        # # Wait for all tasks to complete
-        # with contextlib.suppress(asyncio.CancelledError):
-        #     await asyncio.wait_for(asyncio.gather(*self.registered_tasks), timeout=1.0)
+        # Wait for all tasks to complete
+        await asyncio.wait_for(asyncio.gather(*self.registered_tasks), timeout=1.0)
 
     @on_stop
     async def _stop_lifecycle(self):
@@ -578,8 +576,6 @@ class AIPerfLifecycleMixin(HooksMixin):
         #     and self.lifecycle_task != asyncio.current_task()
         # ):
         #     self.lifecycle_task.cancel()
-
-        # with contextlib.suppress(asyncio.CancelledError):
         #     await asyncio.wait_for(self.lifecycle_task, timeout=1.0)
 
     async def _task_wrapper(

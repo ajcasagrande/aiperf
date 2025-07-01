@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
-import contextlib
 import logging
 import uuid
 from abc import ABC
@@ -288,17 +287,25 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
             if not self.stop_event.is_set():
                 self.stop_event.set()
 
+            cancelled_error = None
             # Custom stop logic implemented by derived classes
-            with contextlib.suppress(asyncio.CancelledError):
+            try:
                 await self.run_hooks(AIPerfHook.ON_STOP)
+            except asyncio.CancelledError as e:
+                cancelled_error = e
 
             # Shutdown communication component
             if self.comms and not self.comms.is_shutdown:
-                await self.comms.shutdown()
+                try:
+                    await self.comms.shutdown()
+                except asyncio.CancelledError as e:
+                    cancelled_error = e
 
             # Custom cleanup logic implemented by derived classes
-            with contextlib.suppress(asyncio.CancelledError):
+            try:
                 await self.run_hooks(AIPerfHook.ON_CLEANUP)
+            except asyncio.CancelledError as e:
+                cancelled_error = e
 
             # Set the state to STOPPED. Communications are shutdown, so we don't need to
             # publish a status message
@@ -310,6 +317,10 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
                 self.logger.debug(
                     "Service %s (id: %s) stopped", self.service_type, self.service_id
                 )
+
+            # Re-raise the cancelled error if it was raised during the stop hooks
+            if cancelled_error:
+                raise cancelled_error
 
         except Exception as e:
             self._state = ServiceState.ERROR
