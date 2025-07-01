@@ -148,7 +148,10 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         #     )
 
     async def initialize(self) -> None:
-        """Override the base initialize method to add pre-initialization steps."""
+        """Override the base initialize method to add pre-initialization and
+        post-initialization steps. This allows us to run the UI and progress
+        logger before the system is fully initialized.
+        """
         await self._pre_initialize()
         await BaseService.initialize(self)
         await self._post_initialize()

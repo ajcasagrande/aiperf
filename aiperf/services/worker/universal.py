@@ -29,7 +29,7 @@ from aiperf.common.models import (
     CreditReturnMessage,
     ErrorDetails,
     InferenceResultsMessage,
-    ParsedResponseRecord,
+    RequestRecord,
 )
 from aiperf.common.models.messages import (
     ErrorMessage,
@@ -213,7 +213,7 @@ class UniversalWorker:
 
     async def _call_inference_api(
         self, credit_drop_ns: int | None = None, conversation_id: str | None = None
-    ) -> ParsedResponseRecord:
+    ) -> RequestRecord:
         """Make a single call to the inference API. Will return an error record if the call fails."""
         try:
             self.logger.debug("Calling inference API")
@@ -222,7 +222,7 @@ class UniversalWorker:
                 self.logger.warning(
                     "Inference server client not initialized, skipping API call"
                 )
-                return ParsedResponseRecord(
+                return RequestRecord(
                     error=ErrorDetails(
                         type="Inference server client not initialized",
                         message="Inference server client not initialized",
@@ -240,7 +240,7 @@ class UniversalWorker:
             self.logger.debug("Received response message: %s", response)
 
             if isinstance(response, ErrorMessage):
-                return ParsedResponseRecord(
+                return RequestRecord(
                     error=response.error,
                 )
 
@@ -290,7 +290,7 @@ class UniversalWorker:
             self.logger.error(
                 "Error calling inference server: %s %s", e.__class__.__name__, str(e)
             )
-            return ParsedResponseRecord(
+            return RequestRecord(
                 error=ErrorDetails.from_exception(e),
             )
 

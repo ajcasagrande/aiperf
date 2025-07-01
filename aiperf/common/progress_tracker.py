@@ -137,6 +137,18 @@ class ProgressTracker:
                 * NANOS_PER_SECOND
             )
 
+            profile.processing_eta = (
+                (
+                    (profile.total_expected_requests - profile.requests_processed)
+                    / profile.processed_per_second
+                    if profile.processed_per_second > 0
+                    and profile.total_expected_requests
+                    else None
+                )
+                if profile.processed_per_second is not None
+                else None
+            )
+
     def update_profile_results(self, message: ProfileResultsMessage) -> None:
         if self.suite is None or self.suite.current_profile is None:
             return

@@ -88,6 +88,10 @@ class ProfileProgress(BaseModel):
         default=None,
         description="The estimated time remaining for the profile run in seconds",
     )
+    processing_eta: float | None = Field(
+        default=None,
+        description="The estimated time remaining for processing the records in seconds",
+    )
     records: SerializeAsAny[list[MetricResult]] = Field(
         default_factory=list, description="The records of the profile results"
     )

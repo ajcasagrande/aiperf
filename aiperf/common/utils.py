@@ -139,3 +139,35 @@ def load_json_str(json_str: str, func: Callable = lambda x: x) -> dict[str, Any]
         snippet = json_str[:200] + ("..." if len(json_str) > 200 else "")
         logger.error("Failed to parse JSON string: '%s'", snippet)
         raise
+
+
+def format_duration(seconds: float | None, none_str: str = "--") -> str:
+    """Format duration in seconds to human-readable format."""
+    if seconds is None:
+        return none_str
+
+    if seconds < 60:
+        return f"{seconds:.1f}s"
+
+    minutes = int(seconds // 60)
+    remaining_seconds = seconds % 60
+
+    if minutes < 60:
+        if remaining_seconds < 1:
+            return f"{minutes}m"
+        return f"{minutes}m {remaining_seconds:.0f}s"
+
+    hours = minutes // 60
+    minutes = minutes % 60
+
+    if hours < 24:
+        if minutes == 0:
+            return f"{hours}h"
+        return f"{hours}h {minutes}m"
+
+    days = hours // 24
+    hours = hours % 24
+
+    if hours == 0:
+        return f"{days}d"
+    return f"{days}d {hours}h"

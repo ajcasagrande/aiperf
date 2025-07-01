@@ -3,26 +3,23 @@
 
 import logging
 import time
-from collections import deque
+from abc import ABC, abstractmethod
+from typing import ClassVar
 
-from rich.align import Align
+from rich.align import Align, AlignMethod
 from rich.color import Color
-from rich.console import Console, Group
+from rich.console import Console, Group, RenderableType
 from rich.layout import Layout
 from rich.live import Live
 from rich.panel import Panel
 from rich.progress import (
     BarColumn,
-    MofNCompleteColumn,
     Progress,
     SpinnerColumn,
     TaskID,
-    TaskProgressColumn,
     TextColumn,
-    TimeElapsedColumn,
-    TimeRemainingColumn,
 )
-from rich.style import Style
+from rich.style import Style, StyleType
 from rich.table import Table
 from rich.text import Text
 
@@ -34,38 +31,331 @@ from aiperf.common.hooks import (
 )
 from aiperf.common.models.messages import WorkerHealthMessage
 from aiperf.common.progress_tracker import ProgressTracker
+from aiperf.common.utils import format_duration
 from aiperf.ui.logs_mixin import LogsDashboardMixin
 
 logger = logging.getLogger(__name__)
 
 
-class RichLogHandler(logging.Handler):
-    """Custom logging handler that captures logs for the Rich dashboard."""
+class DashboardElement(ABC):
+    """Base class for dashboard elements."""
 
-    def __init__(self, max_logs: int = 500) -> None:
-        super().__init__()
-        self.logs: deque[str] = deque(maxlen=max_logs)
-        self.formatter = logging.Formatter(
-            "[%(asctime)s] %(levelname)-8s %(name)s: %(message)s", datefmt="%H:%M:%S"
+    key: ClassVar[str]
+    title: ClassVar[Text | str | None] = None
+    border_style: ClassVar[StyleType | None] = None
+    title_align: ClassVar[AlignMethod] = "center"
+    height: ClassVar[int | None] = None
+    width: ClassVar[int | None] = None
+    expand: ClassVar[bool] = True
+
+    @abstractmethod
+    def get_content(self) -> RenderableType:
+        """Get the content for the dashboard element."""
+        raise NotImplementedError("Subclasses must implement get_content")
+
+    def get_panel(self) -> Panel:
+        """Get the panel for the dashboard element."""
+        return Panel(
+            self.get_content(),
+            title=self.title,
+            border_style=self.border_style if self.border_style else "none",
+            title_align=self.title_align,
+            height=self.height,
+            width=self.width,
+            expand=self.expand,
         )
 
-    def emit(self, record: logging.LogRecord) -> None:
-        """Emit a log record to the internal log storage."""
-        try:
-            msg = self.format(record)
-            level_colors = {
-                "ERROR": "bold red",
-                "WARNING": "bold yellow",
-                "INFO": "bold cyan",
-                "DEBUG": "dim white",
-            }
-            level = record.levelname
-            color = level_colors.get(level, "white")
-            formatted_msg = f"[{color}]{msg}[/{color}]"
-            self.logs.append(formatted_msg)
-        except Exception:
-            # Silently ignore errors in log handling to avoid recursion
-            pass
+
+class HeaderElement(DashboardElement):
+    """Header element for the dashboard."""
+
+    key = "header"
+    border_style = "bright_green"
+
+    def get_content(self) -> RenderableType:
+        """Get the content for the header element."""
+        return Align.center(Text("NVIDIA AIPerf Dashboard", style="bold bright_green"))
+
+
+class RecordProgressElement(DashboardElement):
+    """Record progress element for the dashboard."""
+
+    key = "record_progress"
+    title = Text("Record Processing", style="bold")
+    border_style = Style(color=Color.from_rgb(0, 128, 128))
+
+    def __init__(self, progress_tracker: ProgressTracker) -> None:
+        super().__init__()
+        self.progress_tracker = progress_tracker
+        self.progress_task_id: TaskID | None = None
+        self.progress_bar = Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            # TaskProgressColumn(),
+            # MofNCompleteColumn(),
+            # TimeElapsedColumn(),
+            # TimeRemainingColumn(),
+            expand=True,
+        )
+
+    def get_content(self) -> RenderableType:
+        """Create the progress panel with performance metrics."""
+
+        if not self.progress_tracker.current_profile:
+            return Align.center(
+                Text("Waiting for performance data...", style="dim yellow"),
+                vertical="middle",
+            )
+
+        profile = self.progress_tracker.current_profile
+
+        # Update progress task
+        if self.progress_task_id is None and profile.total_expected_requests:
+            self.progress_task_id = self.progress_bar.add_task(
+                "Processing records...", total=profile.total_expected_requests
+            )
+        elif self.progress_task_id is not None:
+            self.progress_bar.update(
+                self.progress_task_id, completed=profile.requests_processed or 0
+            )
+
+        progress_table = Table.grid(padding=(0, 1, 0, 0))
+        progress_table.add_column(style="bold cyan", justify="right")
+        progress_table.add_column(style="bold white")
+
+        if profile.is_complete:
+            status = Text("Complete", style="bold green")
+        elif profile.was_cancelled:
+            status = Text("Cancelled", style="bold red")
+        else:
+            status = Text("Processing", style="bold yellow")
+
+        error_rate = 0.0
+        if profile.requests_processed and profile.requests_processed > 0:
+            error_rate = (
+                (profile.request_errors or 0) / profile.requests_processed * 100
+            )
+
+        error_color = (
+            "green" if error_rate == 0 else "red" if error_rate > 10 else "yellow"
+        )
+
+        progress_table.add_row("Status:", status)
+        progress_table.add_row(
+            "Progress:",
+            f"{profile.requests_processed or 0:,} / {profile.total_expected_requests or 0:,} records",
+        )
+        progress_table.add_row(
+            "Completion:",
+            f"{(profile.requests_processed or 0) / (profile.total_expected_requests or 1) * 100:.1f}%",
+        )
+        progress_table.add_row(
+            "Errors:",
+            f"[{error_color}]{profile.request_errors or 0:,} / {profile.requests_processed or 0:,} ({error_rate:.1f}%)[/{error_color}]",
+        )
+        progress_table.add_row(
+            "Processing Rate:", f"{profile.processed_per_second or 0:.1f} req/s"
+        )
+        progress_table.add_row("Elapsed:", format_duration(profile.elapsed_time))
+        progress_table.add_row("ETA:", format_duration(profile.eta))
+
+        return Group(self.progress_bar, progress_table)
+
+
+class ProfileProgressElement(DashboardElement):
+    """Profile progress element for the dashboard."""
+
+    key = "profile_progress"
+    title = Text("Profile Progress", style="bold")
+    border_style = Style(color=Color.from_rgb(0, 128, 128))
+
+    def __init__(self, progress_tracker: ProgressTracker) -> None:
+        super().__init__()
+        self.progress_tracker = progress_tracker
+        self.progress_task_id: TaskID | None = None
+        self.progress_bar = Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            # TaskProgressColumn(),
+            # MofNCompleteColumn(),
+            # TimeElapsedColumn(),
+            # TimeRemainingColumn(),
+            expand=True,
+        )
+
+    def get_content(self) -> RenderableType:
+        """Create the progress panel with performance metrics."""
+
+        if not self.progress_tracker.current_profile:
+            return Align.center(
+                Text("Waiting for performance data...", style="dim yellow"),
+                vertical="middle",
+            )
+
+        profile = self.progress_tracker.current_profile
+
+        # Update progress task
+        if self.progress_task_id is None and profile.total_expected_requests:
+            self.progress_task_id = self.progress_bar.add_task(
+                "Processing requests...", total=profile.total_expected_requests
+            )
+        elif self.progress_task_id is not None:
+            self.progress_bar.update(
+                self.progress_task_id, completed=profile.requests_completed or 0
+            )
+
+        progress_table = Table.grid(padding=(0, 1, 0, 0))
+        progress_table.add_column(style="bold cyan", justify="right")
+        progress_table.add_column(style="bold white")
+
+        if profile.is_complete:
+            status = Text("Complete", style="bold green")
+        elif profile.was_cancelled:
+            status = Text("Cancelled", style="bold red")
+        else:
+            status = Text("Processing", style="bold yellow")
+
+        error_rate = 0.0
+        if profile.requests_processed and profile.requests_processed > 0:
+            error_rate = (
+                (profile.request_errors or 0) / profile.requests_processed * 100
+            )
+
+        error_color = (
+            "green" if error_rate == 0 else "red" if error_rate > 10 else "yellow"
+        )
+
+        progress_table.add_row("Status:", status)
+        progress_table.add_row(
+            "Progress:",
+            f"{profile.requests_completed or 0:,} / {profile.total_expected_requests or 0:,} requests",
+        )
+        progress_table.add_row(
+            "Completion:",
+            f"{(profile.requests_completed or 0) / (profile.total_expected_requests or 1) * 100:.1f}%",
+        )
+        progress_table.add_row(
+            "Errors:",
+            f"[{error_color}]{profile.request_errors or 0:,} / {profile.requests_processed or 0:,} ({error_rate:.1f}%)[/{error_color}]",
+        )
+        progress_table.add_row(
+            "Request Rate:", f"{profile.requests_per_second or 0:.1f} req/s"
+        )
+        progress_table.add_row(
+            "Processing Rate:", f"{profile.processed_per_second or 0:.1f} req/s"
+        )
+        progress_table.add_row("Elapsed:", format_duration(profile.elapsed_time))
+        progress_table.add_row("ETA:", format_duration(profile.eta))
+
+        return Group(self.progress_bar, progress_table)
+
+
+class WorkerStatusElement(DashboardElement):
+    """Worker status element for the dashboard."""
+
+    key = "worker_status"
+    title = Text("Worker Status", style="bold")
+    border_style = "blue"
+
+    def __init__(
+        self,
+        worker_health: dict[str, WorkerHealthMessage],
+        worker_last_seen: dict[str, float],
+    ) -> None:
+        super().__init__()
+        self.worker_health = worker_health
+        self.worker_last_seen = worker_last_seen
+
+    def get_content(self) -> RenderableType:
+        """Get the content for the worker status element."""
+        if not self.worker_health:
+            return Align.center(
+                Text("No worker data available", style="dim yellow"), vertical="middle"
+            )
+
+        workers_table = Table.grid(padding=(0, 1, 0, 0))
+        workers_table.add_column("Worker ID", style="cyan", width=20)
+        workers_table.add_column("Status", width=12)
+        workers_table.add_column("Active", min_width=10, justify="right")
+        workers_table.add_column("Done", min_width=10, justify="right")
+        workers_table.add_column("CPU", min_width=8, justify="right")
+        workers_table.add_column("Memory", min_width=10, justify="right")
+        workers_table.add_column("Net Conn", min_width=10, justify="right")
+
+        workers_table.add_row(
+            *[column.header for column in workers_table.columns], style="bold"
+        )
+
+        current_time = time.time()
+
+        # Summary counters
+        healthy_count = 0
+        warning_count = 0
+        error_count = 0
+        idle_count = 0
+        stale_count = 0
+
+        for service_id, health in sorted(self.worker_health.items()):
+            worker_name = service_id
+            last_seen = self.worker_last_seen.get(service_id, current_time)
+
+            # Determine status
+            if current_time - last_seen > 30:  # 30 seconds
+                status = Text("Stale", style="dim white")
+                stale_count += 1
+            else:
+                error_rate = (
+                    health.failed_tasks / health.total_tasks
+                    if health.total_tasks > 0
+                    else 0
+                )
+
+                if error_rate > 0.1:  # More than 10% error rate
+                    status = Text("Error", style="bold red")
+                    error_count += 1
+                elif health.cpu_usage > 75:  # High CPU usage
+                    status = Text("High Load", style="bold yellow")
+                    warning_count += 1
+                elif health.total_tasks == 0:  # No tasks processed
+                    status = Text("Idle", style="dim")
+                    idle_count += 1
+                else:
+                    status = Text("Healthy", style="bold green")
+                    healthy_count += 1
+
+            memory_mb = health.memory_usage
+            if memory_mb >= 1024:
+                memory_display = f"{memory_mb / 1024:.1f} GB"
+            else:
+                memory_display = f"{memory_mb:.0f} MB"
+
+            workers_table.add_row(
+                worker_name,
+                status,
+                f"{health.in_progress_tasks:,}",
+                f"{health.completed_tasks:,}",
+                f"{health.cpu_usage:.1f}%",
+                memory_display,
+                str(health.net_connections),
+            )
+
+        # Create summary
+        summary_text = Text.assemble(
+            Text("Summary: ", style="bold"),
+            Text(f"{healthy_count} healthy", style="green"),
+            Text(" • "),
+            Text(f"{warning_count} high load", style="yellow"),
+            Text(" • "),
+            Text(f"{error_count} errors", style="red"),
+            Text(" • "),
+            Text(f"{idle_count} idle", style="dim"),
+            Text(" • "),
+            Text(f"{stale_count} stale", style="dim white"),
+        )
+
+        return Group(summary_text, workers_table)
 
 
 class AIPerfRichDashboard(LogsDashboardMixin, AIPerfLifecycleMixin):
@@ -78,20 +368,15 @@ class AIPerfRichDashboard(LogsDashboardMixin, AIPerfLifecycleMixin):
         self.worker_health: dict[str, WorkerHealthMessage] = {}
         self.worker_last_seen: dict[str, float] = {}
 
-        # Progress tracking
-        self.main_progress = Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            TaskProgressColumn(),
-            MofNCompleteColumn(),
-            TimeElapsedColumn(),
-            TimeRemainingColumn(),
-            console=self.console,
-            expand=True,
-        )
+        self.elements: dict[str, DashboardElement] = {
+            HeaderElement.key: HeaderElement(),
+            ProfileProgressElement.key: ProfileProgressElement(self.progress_tracker),
+            RecordProgressElement.key: RecordProgressElement(self.progress_tracker),
+            WorkerStatusElement.key: WorkerStatusElement(
+                self.worker_health, self.worker_last_seen
+            ),
+        }
 
-        self.progress_task_id: TaskID | None = None
         self.layout = self._create_layout()
         self.live: Live | None = None
         self.running = False
@@ -100,197 +385,22 @@ class AIPerfRichDashboard(LogsDashboardMixin, AIPerfLifecycleMixin):
         """Create the main layout for the dashboard."""
         layout = Layout()
 
-        # Split into header and body
-        layout.split_column(Layout(name="header", size=3), Layout(name="body"))
-
-        # Split body into main content and logs
-        layout["body"].split_column(
-            Layout(name="main", ratio=2), Layout(name="logs", size=12)
+        layout.split_column(
+            Layout(name=HeaderElement.key, size=3),
+            Layout(name="body", ratio=2),
+            Layout(name="logs", size=12),
         )
 
-        # Split main into progress and workers
-        layout["main"].split_row(Layout(name="progress"), Layout(name="workers"))
+        layout["body"].split_row(Layout(name="left"), Layout(name="right", ratio=1))
+
+        layout["left"].split_column(
+            Layout(name=ProfileProgressElement.key),
+            Layout(name=RecordProgressElement.key, ratio=1),
+        )
+
+        layout["right"].split_row(Layout(name=WorkerStatusElement.key, ratio=1))
 
         return layout
-
-    def _get_header_panel(self) -> Panel:
-        """Create the header panel with title and status."""
-        title = Text("NVIDIA AIPerf Dashboard", style="bold bright_green")
-        header_content = Align.center(Text.assemble(title))
-        return Panel(header_content, style="bright_green", border_style="bright_green")
-
-    def _get_progress_panel(self) -> Panel:
-        """Create the progress panel with performance metrics."""
-        if not self.progress_tracker.current_profile:
-            content = Align.center(
-                Text("Waiting for performance data...", style="dim yellow"),
-                vertical="middle",
-            )
-        else:
-            profile = self.progress_tracker.current_profile
-
-            # Update progress task
-            if self.progress_task_id is None and profile.total_expected_requests:
-                self.progress_task_id = self.main_progress.add_task(
-                    "Processing requests...", total=profile.total_expected_requests
-                )
-            elif self.progress_task_id is not None:
-                self.main_progress.update(
-                    self.progress_task_id, completed=profile.requests_completed or 0
-                )
-
-            # Create metrics table
-            metrics_table = Table.grid(padding=(0, 1, 0, 0))
-            metrics_table.add_column(style="bold cyan", justify="right")
-            metrics_table.add_column(style="bold white")
-
-            # Status
-            if profile.is_complete:
-                status = Text("Complete", style="bold green")
-            elif profile.was_cancelled:
-                status = Text("Cancelled", style="bold red")
-            else:
-                status = Text("Processing", style="bold yellow")
-
-            # Error rate
-            error_rate = 0.0
-            if profile.requests_processed and profile.requests_processed > 0:
-                error_rate = (
-                    (profile.request_errors or 0) / profile.requests_processed * 100
-                )
-
-            error_color = (
-                "green" if error_rate == 0 else "red" if error_rate > 10 else "yellow"
-            )
-
-            # Add metrics rows
-            metrics_table.add_row("Status:", str(status))
-            metrics_table.add_row(
-                "Progress:",
-                f"{profile.requests_completed or 0:,} / {profile.total_expected_requests or 0:,} requests",
-            )
-            metrics_table.add_row(
-                "Completion:",
-                f"{(profile.requests_completed or 0) / (profile.total_expected_requests or 1) * 100:.1f}%",
-            )
-            metrics_table.add_row(
-                "Errors:",
-                f"[{error_color}]{profile.request_errors or 0:,} / {profile.requests_processed or 0:,} ({error_rate:.1f}%)[/{error_color}]",
-            )
-            metrics_table.add_row(
-                "Request Rate:", f"{profile.requests_per_second or 0:.1f} req/s"
-            )
-            metrics_table.add_row(
-                "Processing Rate:", f"{profile.processed_per_second or 0:.1f} req/s"
-            )
-            metrics_table.add_row(
-                "Elapsed:", self._format_duration(profile.elapsed_time)
-            )
-            metrics_table.add_row(
-                "ETA:", self._format_duration(profile.eta) if profile.eta else "--"
-            )
-
-            # Combine progress bar and metrics
-            content = Group(self.main_progress, "", metrics_table)
-
-        return Panel(
-            content,
-            title="[bold]Profile Status[/bold]",
-            border_style=Style(color=Color.from_rgb(0, 128, 128)),
-            title_align="left",
-        )
-
-    def _get_workers_panel(self) -> Panel:
-        """Create the workers panel with worker health information."""
-        if not self.worker_health:
-            content = Align.center(
-                Text("No worker data available", style="dim yellow"), vertical="middle"
-            )
-        else:
-            # Create workers table
-            workers_table = Table.grid(padding=(0, 1, 0, 0))
-            workers_table.add_column("Worker", style="cyan", width=20)
-            workers_table.add_column("Status", width=12)
-            workers_table.add_column("Tasks", width=12, justify="right")
-            workers_table.add_column("CPU", width=8, justify="right")
-            workers_table.add_column("Memory", width=10, justify="right")
-            workers_table.add_column("Connections", width=10, justify="right")
-
-            current_time = time.time()
-
-            # Summary counters
-            healthy_count = 0
-            warning_count = 0
-            error_count = 0
-            idle_count = 0
-            stale_count = 0
-
-            for service_id, health in sorted(self.worker_health.items()):
-                worker_name = service_id
-                last_seen = self.worker_last_seen.get(service_id, current_time)
-
-                # Determine status
-                if current_time - last_seen > 30:  # 30 seconds
-                    status = Text("Stale", style="dim white")
-                    stale_count += 1
-                else:
-                    error_rate = (
-                        health.failed_tasks / health.total_tasks
-                        if health.total_tasks > 0
-                        else 0
-                    )
-
-                    if error_rate > 0.1:  # More than 10% error rate
-                        status = Text("Error", style="bold red")
-                        error_count += 1
-                    elif health.cpu_usage > 75:  # High CPU usage
-                        status = Text("High Load", style="bold yellow")
-                        warning_count += 1
-                    elif health.total_tasks == 0:  # No tasks processed
-                        status = Text("Idle", style="dim")
-                        idle_count += 1
-                    else:
-                        status = Text("Healthy", style="bold green")
-                        healthy_count += 1
-
-                # Format memory
-                memory_mb = health.memory_usage
-                if memory_mb >= 1024:
-                    memory_display = f"{memory_mb / 1024:.1f} GB"
-                else:
-                    memory_display = f"{memory_mb:.0f} MB"
-
-                workers_table.add_row(
-                    worker_name,
-                    status,
-                    f"{health.completed_tasks} / {health.total_tasks}",
-                    f"{health.cpu_usage:.1f}%",
-                    memory_display,
-                    str(health.net_connections),
-                )
-
-            # Create summary
-            summary_text = Text.assemble(
-                Text("Summary: ", style="bold"),
-                Text(f"{healthy_count} healthy", style="green"),
-                Text(" • "),
-                Text(f"{warning_count} high load", style="yellow"),
-                Text(" • "),
-                Text(f"{error_count} errors", style="red"),
-                Text(" • "),
-                Text(f"{idle_count} idle", style="dim"),
-                Text(" • "),
-                Text(f"{stale_count} stale", style="dim white"),
-            )
-
-            content = Group(summary_text, "", workers_table)
-
-        return Panel(
-            content,
-            title="[bold]Worker Status[/bold]",
-            border_style="blue",
-            title_align="left",
-        )
 
     def _get_logs_panel(self) -> Panel:
         """Create the logs panel with recent log entries."""
@@ -308,7 +418,7 @@ class AIPerfRichDashboard(LogsDashboardMixin, AIPerfLifecycleMixin):
         if not self.running:
             return
 
-        self.refresh_logs()
+        self.layout["logs"].update(self._get_logs_panel())
 
     def update_display(self) -> None:
         """Update the dashboard display."""
@@ -316,28 +426,17 @@ class AIPerfRichDashboard(LogsDashboardMixin, AIPerfLifecycleMixin):
             return
 
         try:
-            self.layout["header"].update(self._get_header_panel())
-            self.refresh_progress()
-            self.refresh_logs()
-            self.refresh_workers()
+            for element in self.elements.values():
+                self.layout[element.key].update(element.get_panel())
         except Exception as e:
             logger.error(f"Error updating dashboard display: {e}")
 
-    def refresh_progress(self) -> None:
-        """Refresh the progress panel."""
-        self.layout["progress"].update(self._get_progress_panel())
-
-    def refresh_workers(self) -> None:
-        """Refresh the workers panel."""
-        self.layout["workers"].update(self._get_workers_panel())
-
-    def refresh_logs(self) -> None:
-        """Refresh the logs panel."""
-        self.layout["logs"].update(self._get_logs_panel())
+    def refresh_element(self, element_key: str) -> None:
+        """Refresh the specified element."""
+        self.layout[element_key].update(self.elements[element_key].get_panel())
 
     def update_worker_health(self, health_message: WorkerHealthMessage) -> None:
         """Update worker health information."""
-        # print(f"Updating worker health for {health_message}")
         self.worker_health[health_message.service_id] = health_message
         self.worker_last_seen[health_message.service_id] = time.time()
 
@@ -365,35 +464,3 @@ class AIPerfRichDashboard(LogsDashboardMixin, AIPerfLifecycleMixin):
             self.live.stop()
             if self.final_renderable:
                 self.console.print(self.final_renderable)
-
-    @staticmethod
-    def _format_duration(seconds: float | None) -> str:
-        """Format duration in seconds to human-readable format."""
-        if seconds is None:
-            return "--"
-
-        if seconds < 60:
-            return f"{seconds:.1f}s"
-
-        minutes = int(seconds // 60)
-        remaining_seconds = seconds % 60
-
-        if minutes < 60:
-            if remaining_seconds < 1:
-                return f"{minutes}m"
-            return f"{minutes}m {remaining_seconds:.0f}s"
-
-        hours = minutes // 60
-        minutes = minutes % 60
-
-        if hours < 24:
-            if minutes == 0:
-                return f"{hours}h"
-            return f"{hours}h {minutes}m"
-
-        days = hours // 24
-        hours = hours % 24
-
-        if hours == 0:
-            return f"{days}d"
-        return f"{days}d {hours}h"

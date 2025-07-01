@@ -43,6 +43,7 @@ from aiperf.common.models.record_models import (
     MetricResult,
     ParsedResponseRecord,
     Record,
+    RequestRecord,
     ResponseData,
     SSEField,
     SSEMessage,
@@ -97,4 +98,5 @@ __all__ = [
     "WorkerHealthMessage",
     "ResponseData",
     "ProfileResultsMessage",
+    "RequestRecord",
 ]
