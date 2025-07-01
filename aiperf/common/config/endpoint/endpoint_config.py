@@ -9,7 +9,7 @@ from pydantic import BeforeValidator, Field
 from aiperf.common.config.base_config import BaseConfig
 from aiperf.common.config.config_defaults import EndPointDefaults
 from aiperf.common.config.config_validators import parse_str_or_list
-from aiperf.common.enums import ModelSelectionStrategy, RequestPayloadType
+from aiperf.common.enums import ModelSelectionStrategy
 
 
 class EndPointConfig(BaseConfig):
@@ -29,15 +29,15 @@ class EndPointConfig(BaseConfig):
         ),
     ] = EndPointDefaults.MODEL_SELECTION_STRATEGY
 
-    request_payload_type: Annotated[
-        RequestPayloadType,
-        Field(
-            description="The type of request payload to send to the model.",
-        ),
-        cyclopts.Parameter(
-            name=("--request-payload-type"),
-        ),
-    ] = EndPointDefaults.REQUEST_PAYLOAD_TYPE
+    # request_payload_type: Annotated[
+    #     RequestPayloadType,
+    #     Field(
+    #         description="The type of request payload to send to the model.",
+    #     ),
+    #     cyclopts.Parameter(
+    #         name=("--request-payload-type"),
+    #     ),
+    # ] = EndPointDefaults.REQUEST_PAYLOAD_TYPE
 
     custom: Annotated[
         str,

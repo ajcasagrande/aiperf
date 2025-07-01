@@ -152,6 +152,7 @@ class TimingManager(BaseComponentService):
         #         credit_drop_ns=time.time_ns(),
         #     ),
         # )
+
         pass
 
     async def _on_credit_return(self, message: CreditReturnMessage) -> None:
