@@ -350,14 +350,22 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
 
         if self.ui:
             await self.ui.shutdown()
+            await self.ui.wait_for_shutdown()
+
+        # TODO: This is a hack to force printing results again
+        # Process records command
+        await self.send_command_to_service(
+            target_service_id=None,
+            target_service_type=ServiceType.RECORDS_MANAGER,
+            command=CommandType.PROCESS_RECORDS,
+            data=ProcessRecordsCommandData(cancelled=False),
+        )
 
         # Broadcast a stop command to all services
         await self.send_command_to_service(
             target_service_id=None,
             command=CommandType.SHUTDOWN,
         )
-
-        await asyncio.sleep(1)
 
         try:
             await self.service_manager.shutdown_all_services()
@@ -392,6 +400,10 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
     async def _cleanup(self) -> None:
         """Clean up system controller-specific components."""
         self.logger.debug("Cleaning up System Controller")
+
+        if self.ui:
+            await self.ui.shutdown()
+            await self.ui.wait_for_shutdown()
 
         await self.kill()
 

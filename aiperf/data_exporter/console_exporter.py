@@ -31,6 +31,7 @@ class ConsoleExporter:
         console = Console()
         console.print("\n")
         console.print(table)
+        console.file.flush()
 
     def _construct_table(self, table: Table, records: list[MetricResult]) -> None:
         for record in records:

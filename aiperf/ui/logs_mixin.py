@@ -54,7 +54,7 @@ class LogsDashboardMixin(AIPerfLifecycleMixin):
             except queue.Empty:
                 break
 
-    def _create_logs_panel(self) -> Table:
+    def _create_logs_table(self) -> Table:
         """Create the logs panel."""
         logs_table = Table.grid(expand=False, padding=(0, 1, 0, 0))
         logs_table.add_column("Time", style="dim", width=16, justify="left")

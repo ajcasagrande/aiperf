@@ -6,6 +6,7 @@ import time
 from collections import deque
 
 from rich.align import Align
+from rich.color import Color
 from rich.console import Console, Group
 from rich.layout import Layout
 from rich.live import Live
@@ -21,6 +22,7 @@ from rich.progress import (
     TimeElapsedColumn,
     TimeRemainingColumn,
 )
+from rich.style import Style
 from rich.table import Table
 from rich.text import Text
 
@@ -113,16 +115,9 @@ class AIPerfRichDashboard(LogsDashboardMixin, AIPerfLifecycleMixin):
 
     def _get_header_panel(self) -> Panel:
         """Create the header panel with title and status."""
-        # current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-        title = Text("AIPerf Performance Dashboard", style="bold blue")
-        # subtitle = Text(
-        #     f"Real-time AI Performance Testing • {current_time}", style="dim"
-        # )
-
+        title = Text("NVIDIA AIPerf Dashboard", style="bold bright_green")
         header_content = Align.center(Text.assemble(title))
-
-        return Panel(header_content, style="blue", border_style="bright_blue")
+        return Panel(header_content, style="bright_green", border_style="bright_green")
 
     def _get_progress_panel(self) -> Panel:
         """Create the progress panel with performance metrics."""
@@ -131,75 +126,79 @@ class AIPerfRichDashboard(LogsDashboardMixin, AIPerfLifecycleMixin):
                 Text("Waiting for performance data...", style="dim yellow"),
                 vertical="middle",
             )
-            return Panel(
-                content, title="[bold]Profile Status[/bold]", border_style="green"
-            )
-
-        profile = self.progress_tracker.current_profile
-
-        # Update progress task
-        if self.progress_task_id is None and profile.total_expected_requests:
-            self.progress_task_id = self.main_progress.add_task(
-                "Processing requests...", total=profile.total_expected_requests
-            )
-        elif self.progress_task_id is not None:
-            self.main_progress.update(
-                self.progress_task_id, completed=profile.requests_completed or 0
-            )
-
-        # Create metrics table
-        metrics_table = Table.grid(padding=(0, 1, 0, 0))
-        metrics_table.add_column(style="bold cyan", justify="right")
-        metrics_table.add_column(style="bold white")
-
-        # Status
-        if profile.is_complete:
-            status = Text("Complete", style="bold green")
-        elif profile.was_cancelled:
-            status = Text("Cancelled", style="bold red")
         else:
-            status = Text("Processing", style="bold yellow")
+            profile = self.progress_tracker.current_profile
 
-        # Error rate
-        error_rate = 0.0
-        if profile.requests_processed and profile.requests_processed > 0:
-            error_rate = (
-                (profile.request_errors or 0) / profile.requests_processed * 100
+            # Update progress task
+            if self.progress_task_id is None and profile.total_expected_requests:
+                self.progress_task_id = self.main_progress.add_task(
+                    "Processing requests...", total=profile.total_expected_requests
+                )
+            elif self.progress_task_id is not None:
+                self.main_progress.update(
+                    self.progress_task_id, completed=profile.requests_completed or 0
+                )
+
+            # Create metrics table
+            metrics_table = Table.grid(padding=(0, 1, 0, 0))
+            metrics_table.add_column(style="bold cyan", justify="right")
+            metrics_table.add_column(style="bold white")
+
+            # Status
+            if profile.is_complete:
+                status = Text("Complete", style="bold green")
+            elif profile.was_cancelled:
+                status = Text("Cancelled", style="bold red")
+            else:
+                status = Text("Processing", style="bold yellow")
+
+            # Error rate
+            error_rate = 0.0
+            if profile.requests_processed and profile.requests_processed > 0:
+                error_rate = (
+                    (profile.request_errors or 0) / profile.requests_processed * 100
+                )
+
+            error_color = (
+                "green" if error_rate == 0 else "red" if error_rate > 10 else "yellow"
             )
 
-        error_color = (
-            "green" if error_rate == 0 else "red" if error_rate > 10 else "yellow"
-        )
+            # Add metrics rows
+            metrics_table.add_row("Status:", str(status))
+            metrics_table.add_row(
+                "Progress:",
+                f"{profile.requests_completed or 0:,} / {profile.total_expected_requests or 0:,} requests",
+            )
+            metrics_table.add_row(
+                "Completion:",
+                f"{(profile.requests_completed or 0) / (profile.total_expected_requests or 1) * 100:.1f}%",
+            )
+            metrics_table.add_row(
+                "Errors:",
+                f"[{error_color}]{profile.request_errors or 0:,} / {profile.requests_processed or 0:,} ({error_rate:.1f}%)[/{error_color}]",
+            )
+            metrics_table.add_row(
+                "Request Rate:", f"{profile.requests_per_second or 0:.1f} req/s"
+            )
+            metrics_table.add_row(
+                "Processing Rate:", f"{profile.processed_per_second or 0:.1f} req/s"
+            )
+            metrics_table.add_row(
+                "Elapsed:", self._format_duration(profile.elapsed_time)
+            )
+            metrics_table.add_row(
+                "ETA:", self._format_duration(profile.eta) if profile.eta else "--"
+            )
 
-        # Add metrics rows
-        metrics_table.add_row("Status:", str(status))
-        metrics_table.add_row(
-            "Progress:",
-            f"{profile.requests_completed or 0:,} / {profile.total_expected_requests or 0:,} requests",
-        )
-        metrics_table.add_row(
-            "Completion:",
-            f"{(profile.requests_completed or 0) / (profile.total_expected_requests or 1) * 100:.1f}%",
-        )
-        metrics_table.add_row(
-            "Errors:",
-            f"[{error_color}]{profile.request_errors or 0:,} / {profile.requests_processed or 0:,} ({error_rate:.1f}%)[/{error_color}]",
-        )
-        metrics_table.add_row(
-            "Request Rate:", f"{profile.requests_per_second or 0:.1f} req/s"
-        )
-        metrics_table.add_row(
-            "Processing Rate:", f"{profile.processed_per_second or 0:.1f} req/s"
-        )
-        metrics_table.add_row("Elapsed:", self._format_duration(profile.elapsed_time))
-        metrics_table.add_row(
-            "ETA:", self._format_duration(profile.eta) if profile.eta else "--"
-        )
+            # Combine progress bar and metrics
+            content = Group(self.main_progress, "", metrics_table)
 
-        # Combine progress bar and metrics
-        content = Group(self.main_progress, "", metrics_table)
-
-        return Panel(content, title="[bold]Profile Status[/bold]", border_style="green")
+        return Panel(
+            content,
+            title="[bold]Profile Status[/bold]",
+            border_style=Style(color=Color.from_rgb(0, 128, 128)),
+            title_align="left",
+        )
 
     def _get_workers_panel(self) -> Panel:
         """Create the workers panel with worker health information."""
@@ -207,97 +206,100 @@ class AIPerfRichDashboard(LogsDashboardMixin, AIPerfLifecycleMixin):
             content = Align.center(
                 Text("No worker data available", style="dim yellow"), vertical="middle"
             )
-            return Panel(
-                content, title="[bold]Worker Status[/bold]", border_style="blue"
-            )
+        else:
+            # Create workers table
+            workers_table = Table.grid(padding=(0, 1, 0, 0))
+            workers_table.add_column("Worker", style="cyan", width=20)
+            workers_table.add_column("Status", width=12)
+            workers_table.add_column("Tasks", width=12, justify="right")
+            workers_table.add_column("CPU", width=8, justify="right")
+            workers_table.add_column("Memory", width=10, justify="right")
+            workers_table.add_column("Connections", width=10, justify="right")
 
-        # Create workers table
-        workers_table = Table.grid(padding=(0, 1, 0, 0))
-        workers_table.add_column("Worker", style="cyan", width=20)
-        workers_table.add_column("Status", width=12)
-        workers_table.add_column("Tasks", width=12, justify="right")
-        workers_table.add_column("CPU", width=8, justify="right")
-        workers_table.add_column("Memory", width=10, justify="right")
-        workers_table.add_column("Connections", width=10, justify="right")
+            current_time = time.time()
 
-        current_time = time.time()
+            # Summary counters
+            healthy_count = 0
+            warning_count = 0
+            error_count = 0
+            idle_count = 0
+            stale_count = 0
 
-        # Summary counters
-        healthy_count = 0
-        warning_count = 0
-        error_count = 0
-        idle_count = 0
-        stale_count = 0
+            for service_id, health in sorted(self.worker_health.items()):
+                worker_name = service_id
+                last_seen = self.worker_last_seen.get(service_id, current_time)
 
-        for service_id, health in sorted(self.worker_health.items()):
-            worker_name = service_id
-            last_seen = self.worker_last_seen.get(service_id, current_time)
+                # Determine status
+                if current_time - last_seen > 30:  # 30 seconds
+                    status = Text("Stale", style="dim white")
+                    stale_count += 1
+                else:
+                    error_rate = (
+                        health.failed_tasks / health.total_tasks
+                        if health.total_tasks > 0
+                        else 0
+                    )
 
-            # Determine status
-            if current_time - last_seen > 30:  # 30 seconds
-                status = Text("Stale", style="dim white")
-                stale_count += 1
-            else:
-                error_rate = (
-                    health.failed_tasks / health.total_tasks
-                    if health.total_tasks > 0
-                    else 0
+                    if error_rate > 0.1:  # More than 10% error rate
+                        status = Text("Error", style="bold red")
+                        error_count += 1
+                    elif health.cpu_usage > 75:  # High CPU usage
+                        status = Text("High Load", style="bold yellow")
+                        warning_count += 1
+                    elif health.total_tasks == 0:  # No tasks processed
+                        status = Text("Idle", style="dim")
+                        idle_count += 1
+                    else:
+                        status = Text("Healthy", style="bold green")
+                        healthy_count += 1
+
+                # Format memory
+                memory_mb = health.memory_usage
+                if memory_mb >= 1024:
+                    memory_display = f"{memory_mb / 1024:.1f} GB"
+                else:
+                    memory_display = f"{memory_mb:.0f} MB"
+
+                workers_table.add_row(
+                    worker_name,
+                    status,
+                    f"{health.completed_tasks} / {health.total_tasks}",
+                    f"{health.cpu_usage:.1f}%",
+                    memory_display,
+                    str(health.net_connections),
                 )
 
-                if error_rate > 0.1:  # More than 10% error rate
-                    status = Text("Error", style="bold red")
-                    error_count += 1
-                elif health.cpu_usage > 75:  # High CPU usage
-                    status = Text("High Load", style="bold yellow")
-                    warning_count += 1
-                elif health.total_tasks == 0:  # No tasks processed
-                    status = Text("Idle", style="dim")
-                    idle_count += 1
-                else:
-                    status = Text("Healthy", style="bold green")
-                    healthy_count += 1
-
-            # Format memory
-            memory_mb = health.memory_usage
-            if memory_mb >= 1024:
-                memory_display = f"{memory_mb / 1024:.1f} GB"
-            else:
-                memory_display = f"{memory_mb:.0f} MB"
-
-            workers_table.add_row(
-                worker_name,
-                status,
-                f"{health.completed_tasks} / {health.total_tasks}",
-                f"{health.cpu_usage:.1f}%",
-                memory_display,
-                str(health.net_connections),
+            # Create summary
+            summary_text = Text.assemble(
+                Text("Summary: ", style="bold"),
+                Text(f"{healthy_count} healthy", style="green"),
+                Text(" • "),
+                Text(f"{warning_count} high load", style="yellow"),
+                Text(" • "),
+                Text(f"{error_count} errors", style="red"),
+                Text(" • "),
+                Text(f"{idle_count} idle", style="dim"),
+                Text(" • "),
+                Text(f"{stale_count} stale", style="dim white"),
             )
 
-        # Create summary
-        summary_text = Text.assemble(
-            Text("Summary: ", style="bold"),
-            Text(f"{healthy_count} healthy", style="green"),
-            Text(" • "),
-            Text(f"{warning_count} high load", style="yellow"),
-            Text(" • "),
-            Text(f"{error_count} errors", style="red"),
-            Text(" • "),
-            Text(f"{idle_count} idle", style="dim"),
-            Text(" • "),
-            Text(f"{stale_count} stale", style="dim white"),
+            content = Group(summary_text, "", workers_table)
+
+        return Panel(
+            content,
+            title="[bold]Worker Status[/bold]",
+            border_style="blue",
+            title_align="left",
         )
-
-        content = Group(summary_text, "", workers_table)
-
-        return Panel(content, title="[bold]Worker Status[/bold]", border_style="blue")
 
     def _get_logs_panel(self) -> Panel:
         """Create the logs panel with recent log entries."""
         return Panel(
-            self._create_logs_panel(),
+            self._create_logs_table(),
             title="[bold]System Logs[/bold]",
             border_style="yellow",
             height=12,
+            title_align="left",
         )
 
     @aiperf_auto_task(interval=0.1)
@@ -346,24 +348,23 @@ class AIPerfRichDashboard(LogsDashboardMixin, AIPerfLifecycleMixin):
         self.live = Live(
             self.layout,
             console=self.console,
-            # refresh_per_second=4,
+            refresh_per_second=4,
             screen=True,
         )
         self.live.start()
-
-        # Initial update
         self.update_display()
 
     @on_stop
     async def _stop(self) -> None:
         """Stop the live dashboard."""
         self.running = False
-        if self.live:
-            self.live.stop()
 
-        # Remove log handler
-        root_logger = logging.getLogger()
-        logging.basicConfig(level=root_logger.level)
+        if self.live:
+            # Store final state before stopping, then print it to persist it.
+            self.final_renderable = self.live.renderable
+            self.live.stop()
+            if self.final_renderable:
+                self.console.print(self.final_renderable)
 
     @staticmethod
     def _format_duration(seconds: float | None) -> str:
