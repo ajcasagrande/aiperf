@@ -68,8 +68,7 @@ class ZMQDealerReqClient(BaseZMQClient, ReqClient):
     async def _stop_remaining_tasks(self) -> None:
         """Wait for all tasks to complete."""
         for task in list(self.tasks):
-            if not task.done():
-                task.cancel()
+            task.cancel()
 
         await asyncio.wait_for(
             asyncio.gather(*self.tasks), timeout=TASK_CANCEL_TIMEOUT_SHORT

@@ -409,7 +409,7 @@ class AIPerfTaskMixin(HooksMixin):
 
     def __init__(self):
         super().__init__()
-        self.registered_tasks: list[asyncio.Task] = []
+        self.registered_tasks: set[asyncio.Task] = set()
 
     async def start(self) -> None:
         """Start the task."""
@@ -431,16 +431,19 @@ class AIPerfTaskMixin(HooksMixin):
                 task = asyncio.create_task(hook())
             else:
                 task = asyncio.create_task(asyncio.to_thread(hook))
-            self.registered_tasks.append(task)
+            self.registered_tasks.add(task)
+            task.add_done_callback(self.registered_tasks.discard)
 
     @on_stop
     async def _stop_tasks(self):
         """Stop all the background tasks. This will wait for all the tasks to complete."""
-        for task in self.registered_tasks:
-            task.cancel()
+        for task in list(self.registered_tasks):
+            if not task.done():
+                task.cancel()
 
         # Wait for all tasks to complete
         await asyncio.wait_for(asyncio.gather(*self.registered_tasks), timeout=1.0)
+        self.registered_tasks.clear()
 
 
 @supports_hooks(
