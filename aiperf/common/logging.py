@@ -4,6 +4,7 @@ import logging
 import multiprocessing
 import os
 import queue
+from pathlib import Path
 
 from aiperf.common.config.service_config import ServiceConfig
 
@@ -52,11 +53,10 @@ def setup_child_process_logging(
     if log_queue is None:
         return
 
-    # Add to root logger to capture all logs from this process
     root_logger = logging.getLogger()
-
+    level = os.getenv("AIPERF_LOG_LEVEL", "INFO")
     # Set the root logger level to ensure logs are passed to handlers
-    root_logger.setLevel(os.getenv("AIPERF_LOG_LEVEL", "INFO"))
+    root_logger.setLevel(level)
 
     # Remove all existing handlers to avoid duplicate logs
     for existing_handler in root_logger.handlers[:]:
@@ -64,16 +64,17 @@ def setup_child_process_logging(
 
     # Set up handler for child process
     queue_handler = MultiProcessLogHandler(log_queue, service_id)
-    queue_handler.setLevel(os.getenv("AIPERF_LOG_LEVEL", "INFO"))
-
-    # Set up handler for child process
-    file_handler = logging.FileHandler(f"artifacts/aiperf-{service_id}.log")
-    file_handler.setLevel(os.getenv("AIPERF_LOG_LEVEL", "INFO"))
-
+    queue_handler.setLevel(level)
     root_logger.addHandler(queue_handler)
+
+    # Enable file logging for services
+    file_handler = logging.FileHandler(f"artifacts/logs/aiperf-{service_id}.log")
+    Path("artifacts/logs").mkdir(parents=True, exist_ok=True)
+    file_handler.setLevel(level)
     root_logger.addHandler(file_handler)
 
 
+# TODO: Do we need this class? Not sure if it adds anything of value over the built-in FileHandler.
 class FileLogHandler(logging.FileHandler):
     """Custom logging handler that writes logs to a file."""
 

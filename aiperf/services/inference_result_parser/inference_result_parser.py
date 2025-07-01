@@ -24,7 +24,9 @@ from aiperf.common.models.messages import (
 from aiperf.common.models.record_models import ErrorDetails, ParsedResponseRecord
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.common.tokenizer import Tokenizer
-from aiperf.parsers.openai_parsers import OpenAIResponseExtractor
+from aiperf.services.inference_result_parser.openai_parsers import (
+    OpenAIResponseExtractor,
+)
 
 
 @ServiceFactory.register(ServiceType.INFERENCE_RESULT_PARSER)
@@ -58,15 +60,11 @@ class InferenceResultParser(BaseComponentService):
     async def _initialize(self) -> None:
         """Initialize inference result parser-specific components."""
         self.logger.debug("Initializing inference result parser")
-        # TODO: Implement inference result parser initialization
-        # self.incoming_records_client.register_request_handler(
-        #     service_id=self.service_id,
-        #     message_type=MessageType.INFERENCE_RESULTS,
-        #     handler=self._on_inference_results,
-        # )
+
         await self.inference_results_client.register_pull_callback(
             message_type=MessageType.INFERENCE_RESULTS,
             callback=self._on_inference_results,
+            # TODO: Support for unbounded concurrency in the future by setting to None or 0?
             max_concurrency=1000000,
         )
 
@@ -105,11 +103,14 @@ class InferenceResultParser(BaseComponentService):
             message.data if isinstance(message.data, UserConfig) else None
         )
 
+        # TODO: This is a hack to get the tokenizer for the default model.
+        # We should remove this once we have a better way to get the tokenizer from the user config.
         await self.get_tokenizer(
             os.getenv("AIPERF_MODEL", "deepseek-ai/DeepSeek-R1-Distill-Llama-8B")
         )
 
         if self.user_config:
+            # TODO: Does this code actually work as intended? Maybe refactor this to use a loop.
             await asyncio.gather(
                 *[self.get_tokenizer(model) for model in self.user_config.model_names]
             )

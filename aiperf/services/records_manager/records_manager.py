@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
-import os
 import sys
 import time
 from collections import deque
@@ -31,8 +30,6 @@ from aiperf.common.models import (
 from aiperf.common.models.messages import ParsedInferenceResultsMessage
 from aiperf.common.models.record_models import ParsedResponseRecord
 from aiperf.common.service import BaseComponentService
-from aiperf.common.tokenizer import Tokenizer
-from aiperf.parsers import OpenAIResponseExtractor
 from aiperf.services.records_manager.post_processors.metric_summary import MetricSummary
 
 
@@ -60,8 +57,6 @@ class RecordsManager(BaseComponentService):
         self.start_time_ns: int = time.time_ns()
         self.end_time_ns: int | None = None
 
-        self.extractor = OpenAIResponseExtractor()
-        self.tokenizers: dict[str, Tokenizer] = {}
         self.user_config: UserConfig | None = None
 
         self.incoming_records: asyncio.Queue[InferenceResultsMessage] = asyncio.Queue()
@@ -81,12 +76,6 @@ class RecordsManager(BaseComponentService):
     def service_type(self) -> ServiceType:
         """The type of service."""
         return ServiceType.RECORDS_MANAGER
-
-    def get_tokenizer(self, model: str) -> Tokenizer:
-        """Get the tokenizer for a given model."""
-        if model not in self.tokenizers:
-            self.tokenizers[model] = Tokenizer.from_pretrained(model)
-        return self.tokenizers[model]
 
     @on_init
     async def _initialize(self) -> None:
@@ -137,26 +126,6 @@ class RecordsManager(BaseComponentService):
         self.user_config = (
             message.data if isinstance(message.data, UserConfig) else None
         )
-        # if self.user_config is None:
-        #     raise self._service_error(
-        #         ServiceErrorType.CONFIGURATION_ERROR,
-        #         "User config is required for records manager",
-        #     )
-
-        self.get_tokenizer(
-            os.getenv("AIPERF_MODEL", "deepseek-ai/DeepSeek-R1-Distill-Llama-8B")
-        )
-
-        if self.user_config:
-            await asyncio.gather(
-                *[
-                    asyncio.to_thread(self.get_tokenizer, model)
-                    for model in self.user_config.model_names
-                ]
-            )
-            self.logger.info(
-                "Initialized tokenizers for %d models", len(self.tokenizers)
-            )
 
     @aiperf_task
     async def _report_records_task(self) -> None:

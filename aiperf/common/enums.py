@@ -320,13 +320,11 @@ class ServiceType(CaseInsensitiveStrEnum):
     DATASET_MANAGER = "dataset_manager"
     TIMING_MANAGER = "timing_manager"
     RECORDS_MANAGER = "records_manager"
-    INFERENCE_RESULT_PARSER = "post_processor_manager"
+    INFERENCE_RESULT_PARSER = "inference_result_parser"
     WORKER_MANAGER = "worker_manager"
     MULTI_WORKER_PROCESS = "multi_worker_process"
     WORKER = "worker"
     TEST = "test_service"
-    ZMQ_DEALER_ROUTER_PROXY = "zmq_dealer_router_proxy"
-    ZMQ_XPUB_XSUB_PROXY = "zmq_xpub_xsub_proxy"
 
 
 class ClientAddressType(CaseInsensitiveStrEnum):

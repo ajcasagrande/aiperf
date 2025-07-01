@@ -46,25 +46,24 @@ class OpenAIObject(CaseInsensitiveStrEnum):
         except json.JSONDecodeError as e:
             raise ValueError(f"Invalid OpenAI object: {text}") from e
 
+        # Mapping of OpenAI object types to their corresponding Pydantic models.
+        _object_mapping: dict[str, type[BaseModel]] = {
+            cls.CHAT_COMPLETION: ChatCompletion,
+            cls.CHAT_COMPLETION_CHUNK: ChatCompletionChunk,
+            cls.COMPLETION: Completion,
+            cls.EMBEDDING: Embedding,
+            cls.RESPONSE: ResponsesModel,
+        }
+
         obj_type = obj.get("object")
         if obj_type is None:
             raise ValueError(f"Invalid OpenAI object: {obj}")
 
-        if obj_type == cls.CHAT_COMPLETION:
-            model_class = ChatCompletion
-        elif obj_type == cls.CHAT_COMPLETION_CHUNK:
-            model_class = ChatCompletionChunk
-        elif obj_type == cls.COMPLETION:
-            model_class = Completion
-        elif obj_type == cls.EMBEDDING:
-            model_class = Embedding
-        elif obj_type == cls.RESPONSE:
-            model_class = ResponsesModel
-        else:
+        if obj_type not in _object_mapping:
             raise ValueError(f"Invalid OpenAI object type: {obj_type}")
 
         try:
-            return model_class(**obj)
+            return _object_mapping[obj_type](**obj)
         except Exception as e:
             raise ValueError(f"Invalid OpenAI object: {text}") from e
 
@@ -73,7 +72,7 @@ class OpenAIObject(CaseInsensitiveStrEnum):
 class OpenAIResponseExtractor:
     """Extractor for OpenAI responses."""
 
-    async def _parse_text_response(self, response: TextResponse) -> ResponseData | None:
+    def _parse_text_response(self, response: TextResponse) -> ResponseData | None:
         """Parse a TextResponse into a ResponseData object."""
         raw = response.text
         parsed = self._parse_text(raw)
@@ -87,7 +86,7 @@ class OpenAIResponseExtractor:
             metadata={},
         )
 
-    async def _parse_sse_response(self, response: SSEMessage) -> ResponseData | None:
+    def _parse_sse_response(self, response: SSEMessage) -> ResponseData | None:
         """Parse a SSEMessage into a ResponseData object."""
         raw = response.extract_data_content()
         parsed = self._parse_sse(raw)
@@ -101,14 +100,12 @@ class OpenAIResponseExtractor:
             metadata={},
         )
 
-    async def _parse_response(
-        self, response: InferenceServerResponse
-    ) -> ResponseData | None:
+    def _parse_response(self, response: InferenceServerResponse) -> ResponseData | None:
         """Parse a response into a ResponseData object."""
         if isinstance(response, TextResponse):
-            return await self._parse_text_response(response)
+            return self._parse_text_response(response)
         elif isinstance(response, SSEMessage):
-            return await self._parse_sse_response(response)
+            return self._parse_sse_response(response)
 
     async def extract_response_data(
         self, record: RequestRecord, tokenizer: Tokenizer | None
@@ -116,7 +113,7 @@ class OpenAIResponseExtractor:
         """Extract the text from a server response message."""
         results = []
         for response in record.responses:
-            response_data = await self._parse_response(response)
+            response_data = self._parse_response(response)
             if response_data is None:
                 continue
 
