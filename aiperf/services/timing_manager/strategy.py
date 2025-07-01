@@ -105,6 +105,8 @@ class TimingManager(BaseService):
             task = asyncio.create_task(self._credit_issuing_strategy.start())
             self.tasks.add(task)
             task.add_done_callback(self.tasks.discard)
+
+            # wait until the credit issuing strategy is done
             await task
 
     async def _on_credit_return(self, message: CreditReturnMessage) -> None:
@@ -115,7 +117,6 @@ class TimingManager(BaseService):
             )
             self.tasks.add(task)
             task.add_done_callback(self.tasks.discard)
-            await task
 
     async def drop_credit(
         self,
