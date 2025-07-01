@@ -32,10 +32,9 @@ class BaseZMQProxyConfig(BaseModel, ABC):
 class BaseZMQCommunicationConfig(BaseModel, ABC):
     """Configuration for ZMQ communication."""
 
+    # Proxy config options to be overridden by subclasses
     xpub_xsub_proxy_config: ClassVar[BaseZMQProxyConfig]
-
     dealer_router_proxy_config: ClassVar[BaseZMQProxyConfig]
-
     push_pull_proxy_config: ClassVar[BaseZMQProxyConfig]
 
     @property
@@ -175,23 +174,26 @@ class ZMQTCPTransportConfig(BaseZMQCommunicationConfig):
     credit_return_port: int = Field(
         default=5563, description="Port for credit return operations"
     )
-    dealer_router_proxy_config: ZMQTCPProxyConfig = Field(
+    dealer_router_proxy_config: ZMQTCPProxyConfig = Field(  # type: ignore
         default=ZMQTCPProxyConfig(
-            host="0.0.0.0", frontend_port=5661, backend_port=5662
+            frontend_port=5661,
+            backend_port=5662,
         ),
         description="Configuration for the ZMQ Proxy. If provided, the proxy will be created and started.",
     )
-    xpub_xsub_proxy_config: ZMQTCPProxyConfig = Field(
+    xpub_xsub_proxy_config: ZMQTCPProxyConfig = Field(  # type: ignore
         default=ZMQTCPProxyConfig(
-            host="0.0.0.0", frontend_port=5663, backend_port=5664
+            frontend_port=5663,
+            backend_port=5664,
         ),
         description="Configuration for the ZMQ Proxy. If provided, the proxy will be created and started.",
     )
-    push_pull_proxy_config: ZMQTCPProxyConfig = Field(
+    push_pull_proxy_config: ZMQTCPProxyConfig = Field(  # type: ignore
         default=ZMQTCPProxyConfig(
-            host="0.0.0.0", frontend_port=5665, backend_port=5666
+            frontend_port=5665,
+            backend_port=5666,
         ),
-        description="Configuration for the ZMQ Push/Pull Proxy. If provided, the proxy will be created and started.",
+        description="Configuration for the ZMQ Proxy. If provided, the proxy will be created and started.",
     )
 
     @property
@@ -214,15 +216,15 @@ class ZMQIPCConfig(BaseZMQCommunicationConfig):
     """Configuration for IPC transport."""
 
     path: str = Field(default="/tmp/aiperf", description="Path for IPC sockets")
-    dealer_router_proxy_config: ZMQIPCProxyConfig = Field(
+    dealer_router_proxy_config: ZMQIPCProxyConfig = Field(  # type: ignore
         default=ZMQIPCProxyConfig(name="dealer_router_proxy"),
         description="Configuration for the ZMQ Dealer Router Proxy. If provided, the proxy will be created and started.",
     )
-    xpub_xsub_proxy_config: ZMQIPCProxyConfig = Field(
+    xpub_xsub_proxy_config: ZMQIPCProxyConfig = Field(  # type: ignore
         default=ZMQIPCProxyConfig(name="xpub_xsub_proxy"),
         description="Configuration for the ZMQ XPUB/XSUB Proxy. If provided, the proxy will be created and started.",
     )
-    push_pull_proxy_config: ZMQIPCProxyConfig = Field(
+    push_pull_proxy_config: ZMQIPCProxyConfig = Field(  # type: ignore
         default=ZMQIPCProxyConfig(name="push_pull_proxy"),
         description="Configuration for the ZMQ Push/Pull Proxy. If provided, the proxy will be created and started.",
     )

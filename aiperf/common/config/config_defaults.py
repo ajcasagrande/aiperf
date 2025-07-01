@@ -1,15 +1,17 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
+#  SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+#  SPDX-License-Identifier: Apache-2.0
 
 from dataclasses import dataclass
 from pathlib import Path
 
 from aiperf.common.enums import (
     AudioFormat,
+    CommunicationBackend,
     ImageFormat,
     InferenceClientType,
     ModelSelectionStrategy,
     RequestPayloadType,
+    ServiceRunType,
 )
 
 
@@ -25,7 +27,7 @@ class UserDefaults:
 @dataclass(frozen=True)
 class EndPointDefaults:
     MODEL_SELECTION_STRATEGY = ModelSelectionStrategy.ROUND_ROBIN
-    REQUEST_PAYLOAD_TYPE = RequestPayloadType.OPENAI_CHAT_COMPLETIONS
+    BACKEND = RequestPayloadType.OPENAI_CHAT_COMPLETIONS
     CUSTOM = ""
     TYPE = InferenceClientType.OPENAI
     STREAMING = True
@@ -120,3 +122,16 @@ class OutputTokenDefaults:
     MEAN = None
     DETERMINISTIC = False
     STDDEV = 0
+
+
+@dataclass(frozen=True)
+class ServiceDefaults:
+    SERVICE_RUN_TYPE = ServiceRunType.MULTIPROCESSING
+    COMM_BACKEND = CommunicationBackend.ZMQ_IPC
+    COMM_CONFIG = None
+    HEARTBEAT_TIMEOUT = 60.0
+    REGISTRATION_TIMEOUT = 60.0
+    COMMAND_TIMEOUT = 10.0
+    HEARTBEAT_INTERVAL = 10.0
+    MIN_WORKERS = None
+    MAX_WORKERS = None

@@ -1,9 +1,8 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
+#  SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+#  SPDX-License-Identifier: Apache-2.0
 
 from typing import Annotated
 
-import cyclopts
 from pydantic import BeforeValidator, Field
 
 from aiperf.common.config.base_config import BaseConfig
@@ -23,9 +22,6 @@ class AudioLengthConfig(BaseConfig):
             ge=0,
             description="The mean length of the audio in seconds.",
         ),
-        cyclopts.Parameter(
-            name=("--audio-length-mean"),
-        ),
     ] = AudioDefaults.LENGTH_MEAN
 
     stddev: Annotated[
@@ -33,9 +29,6 @@ class AudioLengthConfig(BaseConfig):
         Field(
             ge=0,
             description="The standard deviation of the length of the audio in seconds.",
-        ),
-        cyclopts.Parameter(
-            name=("--audio-length-stddev"),
         ),
     ] = AudioDefaults.LENGTH_STDDEV
 
@@ -52,9 +45,6 @@ class AudioConfig(BaseConfig):
             description="The batch size of audio requests GenAI-Perf should send.\
             \nThis is currently supported with the OpenAI `multimodal` endpoint type",
         ),
-        cyclopts.Parameter(
-            name=("--audio-batch-size"),
-        ),
     ] = AudioDefaults.BATCH_SIZE
 
     length: AudioLengthConfig = AudioLengthConfig()
@@ -63,9 +53,6 @@ class AudioConfig(BaseConfig):
         AudioFormat,
         Field(
             description="The format of the audio files (wav or mp3).",
-        ),
-        cyclopts.Parameter(
-            name=("--audio-format"),
         ),
     ] = AudioDefaults.FORMAT
 
@@ -76,9 +63,6 @@ class AudioConfig(BaseConfig):
             description="A list of audio bit depths to randomly select from in bits.",
         ),
         BeforeValidator(parse_str_or_list_of_positive_values),
-        cyclopts.Parameter(
-            name=("--audio-depths"),
-        ),
     ] = AudioDefaults.DEPTHS
 
     sample_rates: Annotated[
@@ -88,9 +72,6 @@ class AudioConfig(BaseConfig):
             description="A list of audio sample rates to randomly select from in kHz.",
         ),
         BeforeValidator(parse_str_or_list_of_positive_values),
-        cyclopts.Parameter(
-            name=("--audio-sample-rates"),
-        ),
     ] = AudioDefaults.SAMPLE_RATES
 
     num_channels: Annotated[
@@ -99,8 +80,5 @@ class AudioConfig(BaseConfig):
             ge=1,
             le=2,
             description="The number of audio channels to use for the audio data generation.",
-        ),
-        cyclopts.Parameter(
-            name=("--audio-num-channels"),
         ),
     ] = AudioDefaults.NUM_CHANNELS

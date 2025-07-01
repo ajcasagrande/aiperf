@@ -7,14 +7,14 @@ __all__ = [
     "ImageConfig",
     "ImageHeightConfig",
     "ImageWidthConfig",
-    "PromptConfig",
-    "SessionsConfig",
-    "SessionTurnDelayConfig",
-    "SessionTurnsConfig",
     "InputConfig",
     "InputTokensConfig",
     "OutputTokensConfig",
     "PrefixPromptConfig",
+    "PromptConfig",
+    "SessionTurnDelayConfig",
+    "SessionTurnsConfig",
+    "SessionsConfig",
 ]
 
 from aiperf.common.config.input.audio_config import (
