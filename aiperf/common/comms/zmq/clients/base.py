@@ -1,27 +1,33 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
-import contextlib
 import logging
 import uuid
 
 import zmq.asyncio
 
+from aiperf.common.comms.base import BaseCommunicationClient
+from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
 from aiperf.common.exceptions import (
     AIPerfError,
     CommunicationError,
     CommunicationErrorReason,
 )
-from aiperf.common.hooks import AIPerfHook, AIPerfTaskMixin, supports_hooks
+from aiperf.common.hooks import (
+    AIPerfHook,
+    AIPerfTaskHook,
+    AIPerfTaskMixin,
+    supports_hooks,
+)
 
 
 @supports_hooks(
     AIPerfHook.ON_INIT,
     AIPerfHook.ON_STOP,
     AIPerfHook.ON_CLEANUP,
-    AIPerfHook.AIPERF_TASK,
+    AIPerfTaskHook.AIPERF_TASK,
 )
-class BaseZMQClient(AIPerfTaskMixin):
+class BaseZMQClient(AIPerfTaskMixin, BaseCommunicationClient):
     """Base class for all ZMQ clients.
 
     This class provides a common interface for all ZMQ clients in the AIPerf
@@ -88,7 +94,7 @@ class BaseZMQClient(AIPerfTaskMixin):
             )
         return self._socket
 
-    def _ensure_initialized(self) -> None:
+    async def _ensure_initialized(self) -> None:
         """Ensure the communication channels are initialized and not shutdown.
 
         Raises:
@@ -96,10 +102,7 @@ class BaseZMQClient(AIPerfTaskMixin):
                 or shutdown
         """
         if not self.is_initialized:
-            raise CommunicationError(
-                CommunicationErrorReason.NOT_INITIALIZED_ERROR,
-                "Communication channels are not initialized",
-            )
+            await self.initialize()
         if self.is_shutdown:
             raise asyncio.CancelledError()
 
@@ -131,11 +134,10 @@ class BaseZMQClient(AIPerfTaskMixin):
                 )
                 self._socket.connect(self.address)
 
-            # TODO: Make these easier to configure by an end user
-
-            # Use reasonable timeouts
-            self._socket.setsockopt(zmq.RCVTIMEO, 30000)  # 30 seconds
-            self._socket.setsockopt(zmq.SNDTIMEO, 30000)  # 30 seconds
+            # In BaseZMQClient.initialize()
+            # Reduce timeouts to more reasonable values
+            self._socket.setsockopt(zmq.RCVTIMEO, 300000)  # 5 minutes
+            self._socket.setsockopt(zmq.SNDTIMEO, 300000)  # 5 minutes
 
             # Add performance-oriented socket options
             self._socket.setsockopt(zmq.TCP_KEEPALIVE, 1)
@@ -180,50 +182,60 @@ class BaseZMQClient(AIPerfTaskMixin):
         if not self.stop_event.is_set():
             self.stop_event.set()
 
+        try:
+            await self.run_hooks(AIPerfHook.ON_STOP)
+        except Exception as e:
+            self.logger.error(
+                "Exception running ON_STOP hooks: %s (%s)", e, self.client_id
+            )
+
         # Cancel all registered tasks
-        for task in self.registered_tasks.values():
+        for task in self.registered_tasks:
             task.cancel()
 
+        # Wait for all tasks to complete
+        await asyncio.wait_for(
+            asyncio.gather(*self.registered_tasks),
+            timeout=TASK_CANCEL_TIMEOUT_SHORT,
+        )
+        self.registered_tasks.clear()
+
+        # Run the ON_STOP and ON_CLEANUP hooks
         try:
-            if self._socket:
-                self._socket.close()
-                self.logger.debug(
-                    "ZMQ %s socket closed (%s)", self.socket_type_name, self.client_id
-                )
+            cancelled_error = None
+            try:
+                await self.run_hooks(AIPerfHook.ON_STOP)
+            except asyncio.CancelledError as e:
+                cancelled_error = e
+
+            try:
+                await self.run_hooks(AIPerfHook.ON_CLEANUP)
+            except asyncio.CancelledError as e:
+                cancelled_error = e
+
+            # Re-raise the cancelled error if it was raised during the stop hooks
+            if cancelled_error:
+                raise cancelled_error
+
+        except AIPerfError:
+            raise  # re-raise it up the stack
 
         except Exception as e:
             self.logger.error(
-                "Exception shutting down ZMQ socket: %s (%s)", e, self.client_id
+                "Exception cleaning up ZMQ socket: %s (%s)", e, self.client_id
             )
-            raise CommunicationError(
-                CommunicationErrorReason.SHUTDOWN_ERROR,
-                f"Failed to shutdown ZMQ socket: {e}",
-            ) from e
 
         finally:
-            self._socket = None
-
             try:
-                await self.run_hooks(AIPerfHook.ON_STOP)
-                await self.run_hooks(AIPerfHook.ON_CLEANUP)
-
-            except asyncio.CancelledError:
-                return
-
-            except AIPerfError:
-                raise  # re-raise it up the stack
+                if self._socket:
+                    self._socket.close()
+                    # self.logger.debug(
+                    #     "ZMQ %s socket closed (%s)", self.socket_type_name, self.client_id
+                    # )
 
             except Exception as e:
                 self.logger.error(
-                    "Exception cleaning up ZMQ socket: %s (%s)", e, self.client_id
+                    "Exception shutting down ZMQ socket: %s (%s)", e, self.client_id
                 )
-                raise CommunicationError(
-                    CommunicationErrorReason.CLEANUP_ERROR,
-                    f"Failed to cleanup ZMQ socket: {e}",
-                ) from e
 
-            # Wait for all tasks to complete
-            with contextlib.suppress(asyncio.CancelledError):
-                await asyncio.gather(*self.registered_tasks.values())
-
-            self.registered_tasks.clear()
+            self._socket = None

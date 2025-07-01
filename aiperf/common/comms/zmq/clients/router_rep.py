@@ -6,13 +6,16 @@ from typing import Any
 
 import zmq.asyncio
 
+from aiperf.common.comms.base import RepClient
 from aiperf.common.comms.zmq.clients.base import BaseZMQClient
+from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
 from aiperf.common.enums import MessageType
-from aiperf.common.hooks import aiperf_task, on_cleanup
+from aiperf.common.hooks import aiperf_task, on_cleanup, on_stop
 from aiperf.common.messages import ErrorMessage, Message
+from aiperf.common.record_models import ErrorDetails
 
 
-class ZMQRouterRepClient(BaseZMQClient):
+class ZMQRouterRepClient(BaseZMQClient, RepClient):
     def __init__(
         self,
         context: zmq.asyncio.Context,
@@ -36,6 +39,7 @@ class ZMQRouterRepClient(BaseZMQClient):
             tuple[str, Callable[[Message], Coroutine[Any, Any, Message | None]]],
         ] = {}
         self._response_futures: dict[str, asyncio.Future[Message | None]] = {}
+        self.tasks: set[asyncio.Task] = set()
 
     @on_cleanup
     async def _cleanup(self) -> None:
@@ -79,10 +83,23 @@ class ZMQRouterRepClient(BaseZMQClient):
             self.logger.error("Exception calling handler for %s: %s", message_type, e)
             response = ErrorMessage(
                 request_id=request.request_id,
-                error=str(e),
+                error=ErrorDetails.from_exception(e),
             )
 
         self._response_futures[request_id].set_result(response)
+
+    @on_stop
+    async def _stop_remaining_tasks(self) -> None:
+        """Wait for all tasks to complete."""
+        for task in list(self.tasks):
+            if not task.done():
+                task.cancel()
+
+        await asyncio.wait_for(
+            asyncio.gather(*self.tasks),
+            timeout=TASK_CANCEL_TIMEOUT_SHORT,
+        )
+        self.tasks.clear()
 
     @aiperf_task
     async def _rep_router_receiver(self) -> None:
@@ -99,7 +116,12 @@ class ZMQRouterRepClient(BaseZMQClient):
             try:
                 # Receive request
                 try:
-                    request_id, request_json = await self.socket.recv_multipart()
+                    data = await self.socket.recv_multipart()
+                    self.logger.debug("Received request: %s", data)
+                    if len(data) < 2:
+                        self.logger.error("Invalid request data: %s", data)
+                        continue
+                    request_id, request_json = data[-2], data[-1]
                 except zmq.Again:
                     # This means we timed out waiting for a request.
                     # We can continue to the next iteration of the loop.
@@ -110,15 +132,24 @@ class ZMQRouterRepClient(BaseZMQClient):
                 self._response_futures[request_id] = asyncio.Future()
 
                 # Handle the request in a new task.
-                asyncio.create_task(self._handle_request(request_id, request_json))
+                task = asyncio.create_task(
+                    self._handle_request(request_id, request_json)
+                )
+                self.tasks.add(task)
+                task.add_done_callback(self.tasks.discard)
 
                 # Wait for the response asynchronously.
                 response = await self._response_futures[request_id]
                 if response is not None:
                     # Send the response back to the client.
-                    await self.socket.send_multipart(
-                        [request_id, response.model_dump_json().encode()]
-                    )
+                    if len(data) > 2:
+                        await self.socket.send_multipart(
+                            [*data[:-1], response.model_dump_json().encode()]
+                        )
+                    else:
+                        await self.socket.send_multipart(
+                            [request_id, response.model_dump_json().encode()]
+                        )
                 else:
                     # If the response is None, we send an error message back to the client.
                     self.logger.warning("No response for request %s", request_id)
@@ -126,6 +157,6 @@ class ZMQRouterRepClient(BaseZMQClient):
 
             except asyncio.CancelledError:
                 break
-            except Exception as e:
-                self.logger.error("Exception receiving request: %s", e)
+            except Exception:
+                self.logger.exception("Exception receiving request")
                 await asyncio.sleep(0.1)

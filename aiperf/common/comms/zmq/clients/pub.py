@@ -1,10 +1,12 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+import asyncio
 import logging
 
 import zmq.asyncio
 
+from aiperf.common.comms.base import PubClient
 from aiperf.common.comms.zmq.clients.base import BaseZMQClient
 from aiperf.common.exceptions import CommunicationError, CommunicationErrorReason
 from aiperf.common.messages import Message
@@ -12,7 +14,7 @@ from aiperf.common.messages import Message
 logger = logging.getLogger(__name__)
 
 
-class ZMQPubClient(BaseZMQClient):
+class ZMQPubClient(BaseZMQClient, PubClient):
     def __init__(
         self,
         context: zmq.asyncio.Context,
@@ -31,28 +33,32 @@ class ZMQPubClient(BaseZMQClient):
         """
         super().__init__(context, zmq.SocketType.PUB, address, bind, socket_ops)
 
-    async def publish(self, topic: str, message: Message) -> None:
-        """Publish a message to a topic. Fairly straightforward, just dumps the message
+    async def publish(self, message: Message) -> None:
+        """Publish a message. Fairly straightforward, just dumps the message
         and sends it over the socket.
 
         Args:
-            topic: Topic to publish to
             message: Message to publish (must be a Message object)
 
         Raises:
             CommunicationError: If the client is not initialized
                 or the message was not published successfully
         """
-        self._ensure_initialized()
+        await self._ensure_initialized()
 
         try:
             message_json = message.model_dump_json()
 
             # Publish message
-            await self.socket.send_multipart([topic.encode(), message_json.encode()])
+            await self.socket.send_multipart(
+                [message.message_type.encode(), message_json.encode()]
+            )
+
+        except (asyncio.CancelledError, zmq.ContextTerminated):
+            return
 
         except Exception as e:
             raise CommunicationError(
                 CommunicationErrorReason.PUBLISH_ERROR,
-                f"Failed to publish message to topic {topic}: {e}",
+                f"Failed to publish message {message.message_type}: {e}",
             ) from e

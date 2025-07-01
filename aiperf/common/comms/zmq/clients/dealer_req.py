@@ -1,15 +1,21 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+import asyncio
 import uuid
+from collections.abc import Callable, Coroutine
+from typing import Any
 
 import zmq.asyncio
 
+from aiperf.common.comms.base import ReqClient
 from aiperf.common.comms.zmq.clients.base import BaseZMQClient
+from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
 from aiperf.common.exceptions import CommunicationError, CommunicationErrorReason
+from aiperf.common.hooks import aiperf_task, on_stop
 from aiperf.common.messages import Message
 
 
-class ZMQDealerReqClient(BaseZMQClient):
+class ZMQDealerReqClient(BaseZMQClient, ReqClient):
     def __init__(
         self,
         context: zmq.asyncio.Context,
@@ -28,37 +34,83 @@ class ZMQDealerReqClient(BaseZMQClient):
         """
         super().__init__(context, zmq.SocketType.DEALER, address, bind, socket_ops)
 
-    async def request(
+        self.request_callbacks: dict[
+            str, Callable[[Message], Coroutine[Any, Any, None]]
+        ] = {}
+        self.tasks: set[asyncio.Task] = set()
+
+    @aiperf_task
+    async def _request_async_task(self) -> None:
+        """Task to handle incoming requests."""
+        while not self.stop_event.is_set():
+            try:
+                message = await self._socket.recv_string()
+                self.logger.debug("Received response: %s", message)
+                response_message = Message.from_json(message)
+
+                # Call the callback if it exists
+                if response_message.request_id in self.request_callbacks:
+                    callback = self.request_callbacks.pop(response_message.request_id)
+                    task = asyncio.create_task(callback(response_message))
+                    self.tasks.add(task)
+                    task.add_done_callback(self.tasks.discard)
+
+            except (asyncio.CancelledError, zmq.ContextTerminated):
+                raise  # re-raise the cancelled error
+
+            except Exception as e:
+                raise CommunicationError(
+                    CommunicationErrorReason.RESPONSE_ERROR,
+                    f"Exception receiving responses: {e.__class__.__name__} {e}",
+                ) from e
+
+    @on_stop
+    async def _stop_remaining_tasks(self) -> None:
+        """Wait for all tasks to complete."""
+        for task in list(self.tasks):
+            task.cancel()
+
+        await asyncio.wait_for(
+            asyncio.gather(*self.tasks), timeout=TASK_CANCEL_TIMEOUT_SHORT
+        )
+        self.tasks.clear()
+
+    async def request_async(
         self,
-        request_data: Message,
-    ) -> Message:
-        """Send a request and wait for a response.
-
-        Args:
-            request_data: Request data (must be a Message object)
-
-        Returns:
-            ResponseData object
-        """
-        self._ensure_initialized()
+        message: Message,
+        callback: Callable[[Message], Coroutine[Any, Any, None]],
+    ) -> None:
+        """Send a request and be notified when the response is received."""
+        await self._ensure_initialized()
 
         # Generate request ID if not provided
-        if not request_data.request_id:
-            request_data.request_id = uuid.uuid4().hex
+        if not message.request_id:
+            message.request_id = uuid.uuid4().hex
 
-        request_json = request_data.model_dump_json()
+        self.request_callbacks[message.request_id] = callback
+
+        request_json = message.model_dump_json()
+        self.logger.debug("Sending request: %s", request_json)
 
         try:
-            # Send request
             await self._socket.send_string(request_json)
-
-            # Wait for response with timeout
-            response_json = await self._socket.recv_string()
-            response = Message.from_json(response_json)
-            return response
 
         except Exception as e:
             raise CommunicationError(
                 CommunicationErrorReason.REQUEST_ERROR,
                 f"Exception sending request: {e.__class__.__name__} {e}",
             ) from e
+
+    async def request(
+        self,
+        message: Message,
+        timeout: float = 10,
+    ) -> Message:
+        """Send a request and wait for a response."""
+        future = asyncio.Future[Message]()
+
+        async def callback(x: Message) -> None:
+            future.set_result(x)
+
+        await self.request_async(message, callback)
+        return await asyncio.wait_for(future, timeout=timeout)

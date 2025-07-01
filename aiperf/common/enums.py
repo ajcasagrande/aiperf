@@ -372,6 +372,54 @@ class ServiceRegistrationStatus(CaseInsensitiveStrEnum):
 
 
 ################################################################################
+# ZMQ Enums
+################################################################################
+
+
+class ClientAddressType(CaseInsensitiveStrEnum):
+    SERVICE_PUB_SUB_FRONTEND = "service_pub_sub_frontend"
+    """Frontend address for service pub/sub proxy (for sending messages)."""
+
+    SERVICE_PUB_SUB_BACKEND = "service_pub_sub_backend"
+    """Backend address for service pub/sub proxy (for receiving messages)."""
+
+    CREDIT_DROP_PUSH_PULL = "credit_drop_push_pull"
+    """Push/pull address for credit drop messages."""
+
+    CREDIT_RETURN_PUSH_PULL = "credit_return_push_pull"
+    """Push/pull address for credit return messages."""
+
+    INFERENCE_RESULTS_PUSH_PULL = "inference_results_push_pull"
+    """Push/pull address for inference results messages."""
+
+    POST_PROCESS_INCOMING_PUSH_PULL = "post_process_incoming_push_pull"
+    """Push/pull address for post-process incoming messages."""
+
+    POST_PROCESS_OUTGOING_PUSH_PULL = "post_process_outgoing_push_pull"
+    """Push/pull address for post-process outgoing messages."""
+
+    DEALER_ROUTER_FRONTEND = "DEALER_ROUTER_frontend"
+    """Frontend address for dealer/router req/rep proxy (for sending messages)."""
+
+    DEALER_ROUTER_BACKEND = "DEALER_ROUTER_backend"
+    """Backend address for dealer/router req/rep proxy (for receiving messages)."""
+
+    PUSH_PULL_FRONTEND = "push_pull_frontend"
+    """Frontend address for push/pull proxy (for sending messages)."""
+
+    PUSH_PULL_BACKEND = "push_pull_backend"
+    """Backend address for push/pull proxy (for receiving messages)."""
+
+
+class ZMQProxyType(CaseInsensitiveStrEnum):
+    """Types of ZMQ proxys."""
+
+    DEALER_ROUTER = "dealer_router"
+    XPUB_XSUB = "xpub_xsub"
+    PUSH_PULL = "push_pull"
+
+
+################################################################################
 # System State Enums
 ################################################################################
 

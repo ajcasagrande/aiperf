@@ -13,11 +13,13 @@ description = "AIPerf is a package for performance testing of AI models"
 authors = []
 dependencies = [
   "aiohttp==3.12.13",
+  "cyclopts>=3.0.0",
   "numpy==2.2.6",
   "openai[aiohttp]~=1.92.2",
   "orjson==3.10.18",
   "pandas==2.3.0",
   "pillow==11.1.0",
+  "pydantic-settings>=2.9.1",
   "pydantic==2.11.4",
   "pyzmq==26.4.0",
   "rich==14.0.0",
@@ -27,7 +29,6 @@ dependencies = [
   "tqdm>=4.67.1",
   "transformers>=4.52.0",
   "uvloop==0.21.0",
-  "cyclopts>=3.0.0",
 ]
 readme = "README.md"
 requires-python = ">=3.10"

@@ -19,12 +19,13 @@ classes with existing hooks will inherit the hooks from the base classes as well
 """
 
 import asyncio
-import contextlib
 import inspect
 import logging
 from collections.abc import Awaitable, Callable
-from enum import Enum
+from typing import ClassVar
 
+from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
+from aiperf.common.enums import CaseInsensitiveStrEnum
 from aiperf.common.exceptions import AIPerfError, AIPerfMultiError, UnsupportedHookError
 
 ################################################################################
@@ -32,7 +33,7 @@ from aiperf.common.exceptions import AIPerfError, AIPerfMultiError, UnsupportedH
 ################################################################################
 
 
-class AIPerfHook(Enum):
+class AIPerfHook(CaseInsensitiveStrEnum):
     """Enum for the various AIPerf hooks.
 
     Note: If you add a new hook, you must also add it to the @supports_hooks
@@ -48,11 +49,15 @@ class AIPerfHook(Enum):
 
     ON_SET_STATE = "__aiperf_on_set_state__"
 
+
+class AIPerfTaskHook(CaseInsensitiveStrEnum):
+    """Enum for the various AIPerf task hooks."""
+
     AIPERF_TASK = "__aiperf_task__"
 
 
-HookType = AIPerfHook | str
-"""Type alias for valid hook types. This is a union of the AIPerfHook enum and any user-defined custom strings."""
+HookType = AIPerfHook | AIPerfTaskHook | str
+"""Type alias for valid hook types. This is a union of the AIPerfHook enum, the AIPerfTaskHook enum, and any user-defined custom strings."""
 
 
 AIPERF_HOOK_TYPE = "__aiperf_hook_type__"
@@ -94,7 +99,9 @@ class HookSystem:
             func: The function to register.
         """
         if hook_type not in self.supported_hooks:
-            raise UnsupportedHookError(f"Hook {hook_type} is not supported by class.")
+            raise UnsupportedHookError(
+                f"Hook {hook_type} is not supported by class for func {func.__qualname__}."
+            )
 
         self._hooks.setdefault(hook_type, []).append(func)
 
@@ -120,7 +127,9 @@ class HookSystem:
             **kwargs: The keyword arguments to pass to the hooks.
         """
         if hook_type not in self.supported_hooks:
-            raise UnsupportedHookError(f"Hook {hook_type} is not supported by class.")
+            raise UnsupportedHookError(
+                f"Hook {hook_type} is not supported by class for {self.__qualname__}."
+            )
 
         exceptions: list[Exception] = []
         for func in self.get_hooks(hook_type):
@@ -130,7 +139,7 @@ class HookSystem:
                 else:
                     await asyncio.to_thread(func, *args, **kwargs)
             except Exception as e:
-                logger.exception("Error running hook %s", func.__qualname__)
+                logger.exception("Error running hook %s: %s", func.__qualname__, e)
                 exceptions.append(
                     AIPerfError(
                         f"Error running hook {func.__qualname__}: {e.__class__.__name__} {e}"
@@ -151,7 +160,9 @@ class HookSystem:
             **kwargs: The keyword arguments to pass to the hooks.
         """
         if hook_type not in self.supported_hooks:
-            raise UnsupportedHookError(f"Hook {hook_type} is not supported by class.")
+            raise UnsupportedHookError(
+                f"Hook {hook_type} is not supported by class for {self.__qualname__}."
+            )
 
         coroutines: list[Awaitable] = []
         for func in self.get_hooks(hook_type):
@@ -270,11 +281,14 @@ def on_set_state(
     return hook_decorator(AIPerfHook.ON_SET_STATE, func)
 
 
-def aiperf_task(func: Callable) -> Callable:
+def aiperf_task(
+    func: Callable,
+) -> Callable:
     """Decorator to indicate that the function is a task function. It will be started
     and stopped automatically by the base class lifecycle.
-    See :func:`aiperf.common.hooks.hook_decorator`."""
-    return hook_decorator(AIPerfHook.AIPERF_TASK, func)
+    See :func:`aiperf.common.hooks.hook_decorator`.
+    """
+    return hook_decorator(AIPerfTaskHook.AIPERF_TASK, func)
 
 
 ################################################################################
@@ -289,7 +303,7 @@ class HooksMixin:
     """
 
     # Class attributes that are set by the :func:`supports_hooks` decorator
-    supported_hooks: set[HookType] = set()
+    supported_hooks: ClassVar[set[HookType]] = set()
 
     def __init__(self):
         """
@@ -337,7 +351,13 @@ class HooksMixin:
         return self._hook_system.get_hooks(hook_type)
 
 
-@supports_hooks(AIPerfHook.AIPERF_TASK, AIPerfHook.ON_INIT, AIPerfHook.ON_STOP)
+@supports_hooks(
+    AIPerfTaskHook.AIPERF_TASK,
+    AIPerfTaskHook.AIPERF_AUTO_TASK,
+    AIPerfHook.ON_INIT,
+    AIPerfHook.ON_START,
+    AIPerfHook.ON_STOP,
+)
 class AIPerfTaskMixin(HooksMixin):
     """Mixin to add task support to a class. It abstracts away the details of the
     :class:`AIPerfTask` and provides a simple interface for registering and running tasks.
@@ -350,24 +370,40 @@ class AIPerfTaskMixin(HooksMixin):
 
     def __init__(self):
         super().__init__()
-        self.registered_tasks: dict[str, asyncio.Task] = {}
+        self.registered_tasks: set[asyncio.Task] = set()
+
+    async def start(self) -> None:
+        """Start the task."""
+        await self.run_hooks(AIPerfHook.ON_START)
+
+    async def stop(self) -> None:
+        """Stop the task."""
+        await self.run_hooks(AIPerfHook.ON_STOP)
+
+    async def initialize(self) -> None:
+        """Initialize the task."""
+        await self.run_hooks(AIPerfHook.ON_INIT)
 
     @on_init
     async def _start_tasks(self):
         """Start all the registered tasks in the background."""
-        for hook in self.get_hooks(AIPerfHook.AIPERF_TASK):
+        for hook in self.get_hooks(AIPerfTaskHook.AIPERF_TASK):
             if inspect.iscoroutinefunction(hook):
                 task = asyncio.create_task(hook())
             else:
                 task = asyncio.create_task(asyncio.to_thread(hook))
-            self.registered_tasks[hook.__name__] = task
+            self.registered_tasks.add(task)
+            task.add_done_callback(self.registered_tasks.discard)
 
     @on_stop
     async def _stop_tasks(self):
         """Stop all the background tasks. This will wait for all the tasks to complete."""
-        for task in self.registered_tasks.values():
-            task.cancel()
+        for task in list(self.registered_tasks):
+            if not task.done():
+                task.cancel()
 
         # Wait for all tasks to complete
-        with contextlib.suppress(asyncio.CancelledError):
-            await asyncio.gather(*self.registered_tasks.values())
+        await asyncio.wait_for(
+            asyncio.gather(*self.registered_tasks), timeout=TASK_CANCEL_TIMEOUT_SHORT
+        )
+        self.registered_tasks.clear()

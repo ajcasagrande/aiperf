@@ -2,41 +2,45 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from abc import ABC, abstractmethod
+from typing import ClassVar
 
 from pydantic import BaseModel, Field
+
+from aiperf.common.enums import ClientAddressType
+
+
+class BaseZMQProxyConfig(BaseModel, ABC):
+    """Configuration Protocol for ZMQ Proxy."""
+
+    @property
+    @abstractmethod
+    def frontend_address(self) -> str: ...
+
+    @property
+    @abstractmethod
+    def backend_address(self) -> str: ...
+
+    @property
+    @abstractmethod
+    def control_address(self) -> str | None: ...
+
+    @property
+    @abstractmethod
+    def capture_address(self) -> str | None: ...
 
 
 class BaseZMQCommunicationConfig(BaseModel, ABC):
     """Configuration for ZMQ communication."""
 
-    @property
-    @abstractmethod
-    def controller_pub_sub_address(self) -> str:
-        """Get the controller pub/sub address based on protocol configuration."""
-        ...
-
-    @property
-    @abstractmethod
-    def component_pub_sub_address(self) -> str:
-        """Get the component pub/sub address based on protocol configuration."""
-        ...
+    # Proxy config options to be overridden by subclasses
+    xpub_xsub_proxy_config: ClassVar[BaseZMQProxyConfig]
+    dealer_router_proxy_config: ClassVar[BaseZMQProxyConfig]
+    push_pull_proxy_config: ClassVar[BaseZMQProxyConfig]
 
     @property
     @abstractmethod
     def inference_push_pull_address(self) -> str:
         """Get the inference push/pull address based on protocol configuration."""
-        ...
-
-    @property
-    @abstractmethod
-    def records_address(self) -> str:
-        """Get the records address based on protocol configuration."""
-        ...
-
-    @property
-    @abstractmethod
-    def conversation_data_address(self) -> str:
-        """Get the conversation data address based on protocol configuration."""
         ...
 
     @property
@@ -51,32 +55,118 @@ class BaseZMQCommunicationConfig(BaseModel, ABC):
         """Get the credit return address based on protocol configuration."""
         ...
 
+    def get_address(self, address_type: ClientAddressType) -> str:
+        """Get the actual address based on the address type."""
+        match address_type:
+            case ClientAddressType.SERVICE_PUB_SUB_FRONTEND:
+                return self.xpub_xsub_proxy_config.frontend_address
+            case ClientAddressType.SERVICE_PUB_SUB_BACKEND:
+                return self.xpub_xsub_proxy_config.backend_address
+            case ClientAddressType.DEALER_ROUTER_FRONTEND:
+                return self.dealer_router_proxy_config.frontend_address
+            case ClientAddressType.DEALER_ROUTER_BACKEND:
+                return self.dealer_router_proxy_config.backend_address
+            case ClientAddressType.CREDIT_DROP_PUSH_PULL:
+                return self.credit_drop_address
+            case ClientAddressType.CREDIT_RETURN_PUSH_PULL:
+                return self.credit_return_address
+            case ClientAddressType.INFERENCE_RESULTS_PUSH_PULL:
+                return self.inference_push_pull_address
+            case ClientAddressType.PUSH_PULL_FRONTEND:
+                return self.push_pull_proxy_config.frontend_address
+            case ClientAddressType.PUSH_PULL_BACKEND:
+                return self.push_pull_proxy_config.backend_address
+            case _:
+                raise ValueError(f"Invalid address type: {address_type}")
 
-class ZMQTCPTransportConfig(BaseZMQCommunicationConfig):
+
+class ZMQTCPProxyConfig(BaseZMQProxyConfig):
+    """Configuration for TCP proxy."""
+
+    host: str = Field(
+        default="0.0.0.0",
+        description="Host address for TCP connections",
+    )
+    frontend_port: int = Field(
+        default=15555, description="Port for frontend address for proxy"
+    )
+    backend_port: int = Field(
+        default=15556, description="Port for backend address for proxy"
+    )
+    control_port: int | None = Field(
+        default=None, description="Port for control address for proxy"
+    )
+    capture_port: int | None = Field(
+        default=None, description="Port for capture address for proxy"
+    )
+
+    @property
+    def frontend_address(self) -> str:
+        """Get the frontend address based on protocol configuration."""
+        return f"tcp://{self.host}:{self.frontend_port}"
+
+    @property
+    def backend_address(self) -> str:
+        """Get the backend address based on protocol configuration."""
+        return f"tcp://{self.host}:{self.backend_port}"
+
+    @property
+    def control_address(self) -> str | None:
+        """Get the control address based on protocol configuration."""
+        return f"tcp://{self.host}:{self.control_port}" if self.control_port else None
+
+    @property
+    def capture_address(self) -> str | None:
+        """Get the capture address based on protocol configuration."""
+        return f"tcp://{self.host}:{self.capture_port}" if self.capture_port else None
+
+
+class ZMQIPCProxyConfig(BaseZMQProxyConfig):
+    """Configuration for IPC proxy."""
+
+    path: str = Field(default="/tmp/aiperf", description="Path for IPC sockets")
+    name: str = Field(default="proxy", description="Name for IPC sockets")
+    enable_control: bool = Field(default=False, description="Enable control socket")
+    enable_capture: bool = Field(default=False, description="Enable capture socket")
+
+    @property
+    def frontend_address(self) -> str:
+        """Get the frontend address based on protocol configuration."""
+        return f"ipc://{self.path}/{self.name}_frontend.ipc"
+
+    @property
+    def backend_address(self) -> str:
+        """Get the backend address based on protocol configuration."""
+        return f"ipc://{self.path}/{self.name}_backend.ipc"
+
+    @property
+    def control_address(self) -> str | None:
+        """Get the control address based on protocol configuration."""
+        return (
+            f"ipc://{self.path}/{self.name}_control.ipc"
+            if self.enable_control
+            else None
+        )
+
+    @property
+    def capture_address(self) -> str | None:
+        """Get the capture address based on protocol configuration."""
+        return (
+            f"ipc://{self.path}/{self.name}_capture.ipc"
+            if self.enable_capture
+            else None
+        )
+
+
+class ZMQTCPConfig(BaseZMQCommunicationConfig):
     """Configuration for TCP transport."""
 
     host: str = Field(
         default="0.0.0.0",
         description="Host address for TCP connections",
     )
-    controller_pub_sub_port: int = Field(
-        default=5555, description="Port for controller pub/sub messages"
-    )
-    component_pub_sub_port: int = Field(
-        default=5556, description="Port for component pub/sub messages"
-    )
     inference_push_pull_port: int = Field(
         default=5557, description="Port for inference push/pull messages"
-    )
-    req_rep_port: int = Field(
-        default=5558, description="Port for sending and receiving requests"
-    )
-    push_pull_port: int = Field(
-        default=5559, description="Port for pushing and pulling data"
-    )
-    records_port: int = Field(default=5560, description="Port for record data")
-    conversation_data_port: int = Field(
-        default=5561, description="Port for conversation data"
     )
     credit_drop_port: int = Field(
         default=5562, description="Port for credit drop operations"
@@ -84,31 +174,32 @@ class ZMQTCPTransportConfig(BaseZMQCommunicationConfig):
     credit_return_port: int = Field(
         default=5563, description="Port for credit return operations"
     )
-
-    @property
-    def controller_pub_sub_address(self) -> str:
-        """Get the controller pub/sub address based on protocol configuration."""
-        return f"tcp://{self.host}:{self.controller_pub_sub_port}"
-
-    @property
-    def component_pub_sub_address(self) -> str:
-        """Get the component pub/sub address based on protocol configuration."""
-        return f"tcp://{self.host}:{self.component_pub_sub_port}"
+    dealer_router_proxy_config: ZMQTCPProxyConfig = Field(  # type: ignore
+        default=ZMQTCPProxyConfig(
+            frontend_port=5661,
+            backend_port=5662,
+        ),
+        description="Configuration for the ZMQ Proxy. If provided, the proxy will be created and started.",
+    )
+    xpub_xsub_proxy_config: ZMQTCPProxyConfig = Field(  # type: ignore
+        default=ZMQTCPProxyConfig(
+            frontend_port=5663,
+            backend_port=5664,
+        ),
+        description="Configuration for the ZMQ Proxy. If provided, the proxy will be created and started.",
+    )
+    push_pull_proxy_config: ZMQTCPProxyConfig = Field(  # type: ignore
+        default=ZMQTCPProxyConfig(
+            frontend_port=5665,
+            backend_port=5666,
+        ),
+        description="Configuration for the ZMQ Proxy. If provided, the proxy will be created and started.",
+    )
 
     @property
     def inference_push_pull_address(self) -> str:
         """Get the inference push/pull address based on protocol configuration."""
         return f"tcp://{self.host}:{self.inference_push_pull_port}"
-
-    @property
-    def records_address(self) -> str:
-        """Get the records address based on protocol configuration."""
-        return f"tcp://{self.host}:{self.records_port}"
-
-    @property
-    def conversation_data_address(self) -> str:
-        """Get the conversation data address based on protocol configuration."""
-        return f"tcp://{self.host}:{self.conversation_data_port}"
 
     @property
     def credit_drop_address(self) -> str:
@@ -125,31 +216,23 @@ class ZMQIPCConfig(BaseZMQCommunicationConfig):
     """Configuration for IPC transport."""
 
     path: str = Field(default="/tmp/aiperf", description="Path for IPC sockets")
-
-    @property
-    def controller_pub_sub_address(self) -> str:
-        """Get the controller pub/sub address based on protocol configuration."""
-        return f"ipc://{self.path}/controller_pub_sub.ipc"
-
-    @property
-    def component_pub_sub_address(self) -> str:
-        """Get the component pub/sub address based on protocol configuration."""
-        return f"ipc://{self.path}/component_pub_sub.ipc"
+    dealer_router_proxy_config: ZMQIPCProxyConfig = Field(  # type: ignore
+        default=ZMQIPCProxyConfig(name="dealer_router_proxy"),
+        description="Configuration for the ZMQ Dealer Router Proxy. If provided, the proxy will be created and started.",
+    )
+    xpub_xsub_proxy_config: ZMQIPCProxyConfig = Field(  # type: ignore
+        default=ZMQIPCProxyConfig(name="xpub_xsub_proxy"),
+        description="Configuration for the ZMQ XPUB/XSUB Proxy. If provided, the proxy will be created and started.",
+    )
+    push_pull_proxy_config: ZMQIPCProxyConfig = Field(  # type: ignore
+        default=ZMQIPCProxyConfig(name="push_pull_proxy"),
+        description="Configuration for the ZMQ Push/Pull Proxy. If provided, the proxy will be created and started.",
+    )
 
     @property
     def inference_push_pull_address(self) -> str:
         """Get the inference push/pull address based on protocol configuration."""
         return f"ipc://{self.path}/inference_push_pull.ipc"
-
-    @property
-    def records_address(self) -> str:
-        """Get the records address based on protocol configuration."""
-        return f"ipc://{self.path}/records.ipc"
-
-    @property
-    def conversation_data_address(self) -> str:
-        """Get the conversation data address based on protocol configuration."""
-        return f"ipc://{self.path}/conversation_data.ipc"
 
     @property
     def credit_drop_address(self) -> str:

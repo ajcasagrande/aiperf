@@ -1,33 +1,17 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-
 import logging
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, Generic, TypeVar
+from typing import Any, Generic, TypeVar
 
-from aiperf.common.enums import CaseInsensitiveStrEnum
+from aiperf.common.enums import (
+    CaseInsensitiveStrEnum,
+    ZMQProxyType,
+)
 from aiperf.common.exceptions import FactoryCreationError
-
-if TYPE_CHECKING:
-    from aiperf.common.comms.base import (
-        BaseCommunication,  # noqa: F401 - for type checking
-    )
-    from aiperf.common.enums import (
-        CommunicationBackend,  # noqa: F401 - for type checking
-        PostProcessorType,  # noqa: F401 - for type checking
-        ServiceType,  # noqa: F401 - for type checking
-    )
-    from aiperf.common.interfaces import (
-        DataExporterProtocol,  # noqa: F401 - for type checking
-        PostProcessorProtocol,  # noqa: F401 - for type checking
-    )
-    from aiperf.common.service.base_service import (
-        BaseService,  # noqa: F401 - for type checking
-    )
 
 ClassEnumT = TypeVar("ClassEnumT", bound=CaseInsensitiveStrEnum)
 ClassProtocolT = TypeVar("ClassProtocolT", bound=Any)
-
 
 ################################################################################
 # Generic Base Factory Mixin
@@ -279,4 +263,25 @@ class PostProcessorFactory(FactoryMixin["PostProcessorType", "PostProcessorProto
         post_processor = PostProcessorFactory.create_instance(
             PostProcessorType.METRIC_SUMMARY,
         )
+    """
+
+
+class ZMQProxyFactory(FactoryMixin[ZMQProxyType, "BaseZMQProxy"]):
+    """
+    A factory for creating ZMQ proxies.
+
+    Example:
+    ```python
+        # Register a new ZMQ proxy type
+        @ZMQProxyFactory.register(ZMQProxyType.DEALER_ROUTER)
+        class DealerRouterProxy(BaseZMQProxy):
+            pass
+
+        # Create a new ZMQ proxy instance
+        proxy = ZMQProxyFactory.create_instance(
+            ZMQProxyType.DEALER_ROUTER,
+            config=ZMQTCPProxyConfig(host="localhost", frontend_port=5555, backend_port=5556),
+        )
+        proxy.run()
+    ```
     """
