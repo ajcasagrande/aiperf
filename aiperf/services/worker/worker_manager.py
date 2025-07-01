@@ -22,7 +22,7 @@ from aiperf.common.hooks import (
     on_start,
     on_stop,
 )
-from aiperf.common.models import Message, WorkerHealthMessage
+from aiperf.common.messages import Message, WorkerHealthMessage
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.services.worker.worker import Worker
 

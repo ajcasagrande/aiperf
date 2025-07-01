@@ -8,8 +8,8 @@ from unittest.mock import Mock
 import pytest
 
 from aiperf.common.enums import BenchmarkSuiteType
-from aiperf.common.models import ProfileProgressMessage, ProfileStatsMessage
-from aiperf.common.models.progress import ProfileProgress, ProfileSuiteProgress
+from aiperf.common.messages import ProfileProgressMessage, ProfileStatsMessage
+from aiperf.common.progress_models import ProfileProgress, ProfileSuiteProgress
 from aiperf.common.progress_tracker import ProgressTracker
 from aiperf.ui.logging_ui import TextualLogHandler
 from aiperf.ui.widgets import DashboardFormatter, StatusClassifier

@@ -22,17 +22,15 @@ from aiperf.common.constants import BYTES_PER_MIB, NANOS_PER_MILLIS
 from aiperf.common.enums import InferenceClientType, MessageType
 from aiperf.common.factories import CommunicationFactory, InferenceClientFactory
 from aiperf.common.interfaces import InferenceClientProtocol
-from aiperf.common.models import (
+from aiperf.common.messages import (
     ConversationRequestMessage,
     ConversationResponseMessage,
     CreditDropMessage,
     CreditReturnMessage,
     ErrorDetails,
+    ErrorMessage,
     InferenceResultsMessage,
     RequestRecord,
-)
-from aiperf.common.models.messages import (
-    ErrorMessage,
     WorkerHealthMessage,
 )
 

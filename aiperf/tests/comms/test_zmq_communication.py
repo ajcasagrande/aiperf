@@ -12,7 +12,7 @@ from aiperf.common.comms.zmq import BaseZMQCommunication
 from aiperf.common.config import ZMQIPCConfig
 from aiperf.common.enums import MessageType, ServiceState, ServiceType
 from aiperf.common.exceptions import CommunicationError, CommunicationErrorReason
-from aiperf.common.models import Message, StatusMessage
+from aiperf.common.messages import Message, StatusMessage
 
 
 @pytest.mark.asyncio

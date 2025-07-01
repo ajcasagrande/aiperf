@@ -24,22 +24,20 @@ from aiperf.common.messages import (
 from aiperf.common.record_models import ErrorDetails, ParsedResponseRecord
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.common.tokenizer import Tokenizer
-from aiperf.services.inference_result_parser.openai_parsers import (
-    OpenAIResponseExtractor,
-)
+from aiperf.parsers.openai_parsers import OpenAIResponseExtractor
 
 
 @ServiceFactory.register(ServiceType.INFERENCE_RESULT_PARSER)
-class InferenceResultParser(BaseComponentService):
-    """InferenceResultParser is responsible for parsing the inference results
-    and pushing them to the RecordsManager.
+class PostProcessorManager(BaseComponentService):
+    """PostProcessorManager is primarily responsible for iterating over the
+    records to generate metrics and other conclusions from the records.
     """
 
     def __init__(
         self, service_config: ServiceConfig, service_id: str | None = None
     ) -> None:
         super().__init__(service_config=service_config, service_id=service_id)
-        self.logger.debug("Initializing inference result parser")
+        self.logger.debug("Initializing post processor manager")
         self.inference_results_client: PullClient = self.comms.create_pull_client(
             ClientAddressType.PUSH_PULL_BACKEND,
         )
@@ -58,33 +56,37 @@ class InferenceResultParser(BaseComponentService):
 
     @on_init
     async def _initialize(self) -> None:
-        """Initialize inference result parser-specific components."""
-        self.logger.debug("Initializing inference result parser")
-
+        """Initialize post processor manager-specific components."""
+        self.logger.debug("Initializing post processor manager")
+        # TODO: Implement post processor manager initialization
+        # self.incoming_records_client.register_request_handler(
+        #     service_id=self.service_id,
+        #     message_type=MessageType.INFERENCE_RESULTS,
+        #     handler=self._on_inference_results,
+        # )
         await self.inference_results_client.register_pull_callback(
             message_type=MessageType.INFERENCE_RESULTS,
             callback=self._on_inference_results,
-            # TODO: Support for unbounded concurrency in the future by setting to None or 0?
             max_concurrency=1000000,
         )
 
     @on_start
     async def _start(self) -> None:
-        """Start the inference result parser."""
-        self.logger.debug("Starting inference result parser")
-        # TODO: Implement inference result parser start
+        """Start the post processor manager."""
+        self.logger.debug("Starting post processor manager")
+        # TODO: Implement post processor manager start
 
     @on_stop
     async def _stop(self) -> None:
-        """Stop the inference result parser."""
-        self.logger.debug("Stopping inference result parser")
-        # TODO: Implement inference result parser stop
+        """Stop the post processor manager."""
+        self.logger.debug("Stopping post processor manager")
+        # TODO: Implement post processor manager stop
 
     @on_cleanup
     async def _cleanup(self) -> None:
-        """Clean up inference result parser-specific components."""
-        self.logger.debug("Cleaning up inference result parser")
-        # TODO: Implement inference result parser cleanup
+        """Clean up post processor manager-specific components."""
+        self.logger.debug("Cleaning up post processor manager")
+        # TODO: Implement post processor manager cleanup
 
     async def get_tokenizer(self, model: str) -> Tokenizer:
         """Get the tokenizer for a given model."""
@@ -95,22 +97,17 @@ class InferenceResultParser(BaseComponentService):
 
     @on_configure
     async def _configure(self, message: CommandMessage) -> None:
-        """Configure the inference result parser."""
-        self.logger.debug(
-            f"Configuring inference result parser with message: {message}"
-        )
+        """Configure the post processor manager."""
+        self.logger.debug(f"Configuring post processor manager with message: {message}")
         self.user_config = (
             message.data if isinstance(message.data, UserConfig) else None
         )
 
-        # TODO: This is a hack to get the tokenizer for the default model.
-        # We should remove this once we have a better way to get the tokenizer from the user config.
         await self.get_tokenizer(
             os.getenv("AIPERF_MODEL", "deepseek-ai/DeepSeek-R1-Distill-Llama-8B")
         )
 
         if self.user_config:
-            # TODO: Does this code actually work as intended? Maybe refactor this to use a loop.
             await asyncio.gather(
                 *[self.get_tokenizer(model) for model in self.user_config.model_names]
             )
@@ -174,11 +171,11 @@ class InferenceResultParser(BaseComponentService):
 
 
 def main() -> None:
-    """Main entry point for the inference result parser."""
+    """Main entry point for the post processor manager."""
 
     from aiperf.common.bootstrap import bootstrap_and_run_service
 
-    bootstrap_and_run_service(InferenceResultParser)
+    bootstrap_and_run_service(PostProcessorManager)
 
 
 if __name__ == "__main__":

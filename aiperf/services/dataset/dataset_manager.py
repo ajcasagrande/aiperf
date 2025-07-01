@@ -26,14 +26,14 @@ from aiperf.common.hooks import (
     on_start,
     on_stop,
 )
-from aiperf.common.models import (
+from aiperf.common.messages import (
     ConversationRequestMessage,
     ConversationResponseMessage,
     DatasetTimingRequest,
     DatasetTimingResponse,
     Message,
+    NotificationMessage,
 )
-from aiperf.common.models.messages import NotificationMessage
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.common.tokenizer import Tokenizer
 from aiperf.services.dataset.composer import ComposerFactory

@@ -10,14 +10,14 @@ import aiohttp
 
 from aiperf.clients.http.defaults import AioHttpDefaults, SocketDefaults
 from aiperf.common.enums import SSEFieldType
-from aiperf.common.models import (
+from aiperf.common.record_models import (
     ErrorDetails,
     GenericHTTPClientConfig,
+    RequestRecord,
     SSEField,
     SSEMessage,
     TextResponse,
 )
-from aiperf.common.models.record_models import RequestRecord
 
 logger = logging.getLogger(__name__)
 

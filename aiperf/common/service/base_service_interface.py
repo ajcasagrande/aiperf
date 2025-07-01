@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 
 from aiperf.common.enums import ServiceState, ServiceType
-from aiperf.common.models import Message
+from aiperf.common.messages import Message
 
 
 class BaseServiceInterface(ABC):

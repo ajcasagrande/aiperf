@@ -21,7 +21,7 @@ from aiperf.common.hooks import (
     AIPerfTaskMixin,
     supports_hooks,
 )
-from aiperf.common.models import Message
+from aiperf.common.messages import Message
 from aiperf.common.service.base_service_interface import BaseServiceInterface
 
 

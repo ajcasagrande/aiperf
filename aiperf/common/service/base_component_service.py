@@ -12,7 +12,7 @@ from aiperf.common.enums import (
 )
 from aiperf.common.exceptions import ServiceErrorType
 from aiperf.common.hooks import AIPerfHook, aiperf_task, on_init, on_set_state
-from aiperf.common.models import (
+from aiperf.common.messages import (
     CommandMessage,
     CommandResponseMessage,
     ErrorDetails,

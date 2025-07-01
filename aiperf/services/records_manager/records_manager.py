@@ -18,17 +18,17 @@ from aiperf.common.hooks import (
     on_start,
     on_stop,
 )
-from aiperf.common.models import (
+from aiperf.common.messages import (
     CommandMessage,
     ErrorDetails,
     ErrorDetailsCount,
     InferenceResultsMessage,
+    ParsedInferenceResultsMessage,
     ProcessRecordsCommandData,
     ProfileResultsMessage,
     ProfileStatsMessage,
 )
-from aiperf.common.models.messages import ParsedInferenceResultsMessage
-from aiperf.common.models.record_models import ParsedResponseRecord
+from aiperf.common.record_models import ParsedResponseRecord
 from aiperf.common.service import BaseComponentService
 from aiperf.services.records_manager.post_processors.metric_summary import MetricSummary
 

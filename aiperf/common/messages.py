@@ -22,7 +22,7 @@ from aiperf.common.enums import (
     ServiceState,
     ServiceType,
 )
-from aiperf.common.models.record_models import (
+from aiperf.common.record_models import (
     ErrorDetails,
     ErrorDetailsCount,
     MetricResult,

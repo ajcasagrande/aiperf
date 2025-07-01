@@ -3,7 +3,7 @@
 from typing import Generic, Protocol
 
 from aiperf.common.config import EndPointConfig
-from aiperf.common.models import (
+from aiperf.common.record_models import (
     InferenceServerResponse,
     ParsedResponseRecord,
     ResponseData,

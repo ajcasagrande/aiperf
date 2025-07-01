@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from aiperf.common.config import ServiceConfig
 from aiperf.common.enums import CommandType, ServiceType
 from aiperf.common.hooks import on_run
-from aiperf.common.models import CommandMessage
+from aiperf.common.messages import CommandMessage
 from aiperf.common.service.base_service import BaseService
 
 

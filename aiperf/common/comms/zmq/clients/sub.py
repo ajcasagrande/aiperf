@@ -10,7 +10,7 @@ from aiperf.common.comms.base import SubClient
 from aiperf.common.comms.zmq.clients.base import BaseZMQClient
 from aiperf.common.exceptions import CommunicationError, CommunicationErrorReason
 from aiperf.common.hooks import aiperf_task
-from aiperf.common.models import Message
+from aiperf.common.messages import Message
 from aiperf.common.utils import call_all_functions
 
 

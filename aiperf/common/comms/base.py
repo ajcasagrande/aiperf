@@ -6,7 +6,7 @@ from collections.abc import Callable, Coroutine
 from typing import Any, TypeVar
 
 from aiperf.common.enums import ClientAddressType, MessageType
-from aiperf.common.models import Message
+from aiperf.common.messages import Message
 
 logger = logging.getLogger(__name__)
 

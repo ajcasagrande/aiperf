@@ -16,7 +16,7 @@ from aiperf.common.hooks import (
     on_configure,
     on_stop,
 )
-from aiperf.common.models.messages import (
+from aiperf.common.messages import (
     CommandMessage,
 )
 from aiperf.common.service.base_component_service import BaseComponentService

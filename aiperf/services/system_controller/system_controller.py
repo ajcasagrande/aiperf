@@ -34,22 +34,20 @@ from aiperf.common.exceptions import (
 from aiperf.common.factories import ServiceFactory, ZMQProxyFactory
 from aiperf.common.hooks import on_cleanup, on_stop
 from aiperf.common.logging import get_global_log_queue
-from aiperf.common.models import (
+from aiperf.common.messages import (
+    CommandResponseMessage,
     CreditsCompleteMessage,
     HeartbeatMessage,
+    NotificationMessage,
     ProcessRecordsCommandData,
+    ProfileProgressMessage,
     ProfileResultsMessage,
     ProfileStatsMessage,
     RegistrationMessage,
-    ServiceRunInfo,
     StatusMessage,
-)
-from aiperf.common.models.messages import (
-    CommandResponseMessage,
-    NotificationMessage,
-    ProfileProgressMessage,
     WorkerHealthMessage,
 )
+from aiperf.common.models import ServiceRunInfo
 from aiperf.common.progress_tracker import ProgressTracker
 from aiperf.common.service.base_controller_service import BaseControllerService
 from aiperf.common.service.base_service import BaseService

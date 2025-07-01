@@ -8,7 +8,7 @@ import aiohttp
 import pytest
 
 from aiperf.clients.http.aiohttp_client import AioHttpClientMixin, create_tcp_connector
-from aiperf.common.models import (
+from aiperf.common.record_models import (
     GenericHTTPClientConfig,
     ParsedResponseRecord,
     SSEMessage,

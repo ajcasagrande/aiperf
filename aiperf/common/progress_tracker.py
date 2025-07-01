@@ -5,14 +5,16 @@ import time
 
 from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import BenchmarkSuiteType
-from aiperf.common.models import (
-    ProfileProgress,
+from aiperf.common.messages import (
     ProfileProgressMessage,
     ProfileResultsMessage,
     ProfileStatsMessage,
+    SweepProgressMessage,
+)
+from aiperf.common.progress_models import (
+    ProfileProgress,
     ProfileSuiteProgress,
     SweepProgress,
-    SweepProgressMessage,
     SweepSuiteProgress,
 )
 

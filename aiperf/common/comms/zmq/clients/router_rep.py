@@ -10,8 +10,8 @@ from aiperf.common.comms.base import RepClient
 from aiperf.common.comms.zmq.clients.base import BaseZMQClient
 from aiperf.common.enums import MessageType
 from aiperf.common.hooks import aiperf_task, on_cleanup
-from aiperf.common.models import ErrorMessage, Message
-from aiperf.common.models.record_models import ErrorDetails
+from aiperf.common.messages import ErrorMessage, Message
+from aiperf.common.record_models import ErrorDetails
 
 
 class ZMQRouterRepClient(BaseZMQClient, RepClient):

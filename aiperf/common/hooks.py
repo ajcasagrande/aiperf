@@ -27,7 +27,7 @@ from typing import ClassVar
 
 from aiperf.common.enums import CaseInsensitiveStrEnum
 from aiperf.common.exceptions import AIPerfError, AIPerfMultiError, UnsupportedHookError
-from aiperf.common.models import Message
+from aiperf.common.messages import Message
 
 ################################################################################
 # Hook Types

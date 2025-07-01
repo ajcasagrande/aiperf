@@ -12,7 +12,7 @@ import pytest
 from aiperf.clients.http.aiohttp_client import (
     AioHttpClientMixin,
 )
-from aiperf.common.models import (
+from aiperf.common.record_models import (
     GenericHTTPClientConfig,
     SSEMessage,
 )

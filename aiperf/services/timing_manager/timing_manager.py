@@ -28,15 +28,16 @@ from aiperf.common.hooks import (
     on_start,
     on_stop,
 )
-from aiperf.common.models import (
+from aiperf.common.messages import (
     CreditDropMessage,
     CreditReturnMessage,
     CreditsCompleteMessage,
     DatasetTimingRequest,
+    DatasetTimingResponse,
     Message,
+    NotificationMessage,
     ProfileProgressMessage,
 )
-from aiperf.common.models.messages import DatasetTimingResponse, NotificationMessage
 from aiperf.common.service.base_component_service import BaseComponentService
 
 

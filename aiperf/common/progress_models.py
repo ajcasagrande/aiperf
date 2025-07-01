@@ -11,7 +11,7 @@ from aiperf.common.enums import (
     ProfileCompletionTrigger,
     SweepCompletionTrigger,
 )
-from aiperf.common.models.record_models import ErrorDetailsCount, MetricResult
+from aiperf.common.record_models import ErrorDetailsCount, MetricResult
 
 ################################################################################
 # Progress Models
