@@ -47,10 +47,10 @@ from aiperf.common.messages import (
     StatusMessage,
     WorkerHealthMessage,
 )
-from aiperf.common.models import ServiceRunInfo
 from aiperf.common.progress_tracker import ProgressTracker
 from aiperf.common.service.base_controller_service import BaseControllerService
 from aiperf.common.service.base_service import BaseService
+from aiperf.common.service_models import ServiceRunInfo
 from aiperf.data_exporter.exporter_manager import ExporterManager
 from aiperf.services.service_manager import (
     BaseServiceManager,
