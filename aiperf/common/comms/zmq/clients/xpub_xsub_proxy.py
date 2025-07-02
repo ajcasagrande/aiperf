@@ -13,7 +13,7 @@ from aiperf.common.factories import ZMQProxyFactory
 
 class _ProxyFrontendXSubClient(BaseZMQClient):
     """
-    A XSUB socket for the proxy's frontend.
+    An XSUB socket for the proxy's frontend.
 
     This XSUB socket receives messages from PUB clients and forwards them
     through the proxy to XPUB services. The ZMQ proxy handles the message
@@ -28,12 +28,12 @@ class _ProxyFrontendXSubClient(BaseZMQClient):
         socket_ops: dict | None = None,
     ) -> None:
         super().__init__(context, SocketType.XSUB, address, bind, socket_ops)
-        self.logger.debug(f"PROXY FRONTEND XSUB - Address: {address}, Bind: {bind}")
+        self.logger.debug("Proxy frontend XSUB - Address: %s, Bind: %s", address, bind)
 
 
 class _ProxyBackendXPubClient(BaseZMQClient):
     """
-    A XPUB socket for the proxy's backend.
+    An XPUB socket for the proxy's backend.
 
     This XPUB socket forwards messages from the proxy to SUB services.
     The ZMQ proxy handles the message routing automatically.
@@ -47,16 +47,16 @@ class _ProxyBackendXPubClient(BaseZMQClient):
         socket_ops: dict | None = None,
     ) -> None:
         super().__init__(context, SocketType.XPUB, address, bind, socket_ops)
-        self.logger.debug(f"PROXY BACKEND XPUB - Address: {address}, Bind: {bind}")
+        self.logger.debug("Proxy backend XPUB - Address: %s, Bind: %s", address, bind)
 
 
 @ZMQProxyFactory.register(ZMQProxyType.XPUB_XSUB)
 class ZMQXPubXSubProxy(BaseZMQProxy):
     """
-    A ZMQ PubSub Proxy class.
+    A ZMQ XPUB/XSUB Proxy class.
 
     This class is responsible for creating the ZMQ proxy that forwards messages
-    between PUB clients and SUB services.
+    between XPUB clients and XSUB services.
     """
 
     def __init__(

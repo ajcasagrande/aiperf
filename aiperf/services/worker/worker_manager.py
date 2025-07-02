@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from aiperf.common.bootstrap import bootstrap_and_run_service
 from aiperf.common.config import ServiceConfig
+from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
 from aiperf.common.enums import MessageType, ServiceRunType, ServiceType
 from aiperf.common.exceptions import ConfigError, ConfigErrorReason
 from aiperf.common.factories import ServiceFactory
@@ -208,7 +209,9 @@ class WorkerManager(BaseComponentService):
         """Wait for a process to terminate with timeout handling."""
         try:
             await asyncio.wait_for(
-                asyncio.to_thread(process.join, timeout=1.0),  # Add timeout to join
+                asyncio.to_thread(
+                    process.join, timeout=TASK_CANCEL_TIMEOUT_SHORT
+                ),  # Add timeout to join
                 timeout=5.0,  # Overall timeout
             )
             self.logger.debug(

@@ -72,6 +72,9 @@ class ZMQRouterRepClient(BaseZMQClient, RepClient):
         - Call the handler for the message type
         - Set the response future
         """
+
+        self.logger.error("Received request: %s", request_json)
+
         request: Message = Message.from_json(request_json)
         message_type = request.message_type
 

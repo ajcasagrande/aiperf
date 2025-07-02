@@ -28,10 +28,9 @@ class _ProxyFrontendRouterClient(BaseZMQClient):
         socket_ops: dict | None = None,
     ) -> None:
         super().__init__(context, SocketType.ROUTER, address, bind, socket_ops)
-        self.logger.debug(f"PROXY FRONTEND ROUTER - Address: {address}, Bind: {bind}")
-
-    # def send_message(self, message: str) -> None:
-    #     self.socket.send_multipart([b"", message.encode()])
+        self.logger.debug(
+            "Proxy frontend ROUTER - Address: %s, Bind: %s", address, bind
+        )
 
 
 class _ProxyBackendDealerClient(BaseZMQClient):
@@ -58,7 +57,9 @@ class _ProxyBackendDealerClient(BaseZMQClient):
 
         super().__init__(context, SocketType.DEALER, address, bind, socket_ops)
         self.logger.debug(
-            f"PROXY BACKEND DEALER - Address: {address}, Bind: {bind}, Identity: None (transparent for proxy)"
+            "Proxy backend DEALER - Address: %s, Bind: %s, Identity: None (transparent for proxy)",
+            address,
+            bind,
         )
 
 

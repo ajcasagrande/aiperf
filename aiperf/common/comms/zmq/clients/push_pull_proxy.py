@@ -10,7 +10,7 @@ from aiperf.common.factories import ZMQProxyFactory
 
 
 class _ProxyFrontendPullClient(BaseZMQClient):
-    """PULL socket for the proxy's frontend - receives from workers."""
+    """PULL socket for the proxy's frontend - receives messages from PUSH clients."""
 
     def __init__(
         self,
@@ -20,11 +20,11 @@ class _ProxyFrontendPullClient(BaseZMQClient):
         socket_ops: dict | None = None,
     ):
         super().__init__(context, zmq.SocketType.PULL, address, bind, socket_ops)
-        self.logger.debug(f"PROXY FRONTEND PULL - Address: {address}, Bind: {bind}")
+        self.logger.debug("Proxy frontend PULL - Address: %s, Bind: %s", address, bind)
 
 
 class _ProxyBackendPushClient(BaseZMQClient):
-    """PUSH socket for the proxy's backend - sends to RecordsManagers."""
+    """PUSH socket for the proxy's backend - forwards messages to PULL clients."""
 
     def __init__(
         self,
@@ -34,7 +34,7 @@ class _ProxyBackendPushClient(BaseZMQClient):
         socket_ops: dict | None = None,
     ):
         super().__init__(context, zmq.SocketType.PUSH, address, bind, socket_ops)
-        self.logger.debug(f"PROXY BACKEND PUSH - Address: {address}, Bind: {bind}")
+        self.logger.debug("Proxy backend PUSH - Address: %s, Bind: %s", address, bind)
 
 
 @ZMQProxyFactory.register(ZMQProxyType.PUSH_PULL)

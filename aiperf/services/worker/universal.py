@@ -290,7 +290,7 @@ class UniversalWorker:
             await self.inference_client.close()
         if self.health_task:
             self.health_task.cancel()
-            # await asyncio.wait_for(self.health_task, timeout=1.0)
+            # await asyncio.wait_for(self.health_task, timeout=TASK_CANCEL_TIMEOUT_SHORT)
 
     async def _health_check_task(self) -> None:
         """Task to report the health of the worker to the worker manager."""

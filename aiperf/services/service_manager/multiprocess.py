@@ -9,7 +9,10 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from aiperf.common.bootstrap import bootstrap_and_run_service
 from aiperf.common.config import ServiceConfig
-from aiperf.common.constants import GRACEFUL_SHUTDOWN_TIMEOUT_SECONDS
+from aiperf.common.constants import (
+    GRACEFUL_SHUTDOWN_TIMEOUT_SECONDS,
+    TASK_CANCEL_TIMEOUT_SHORT,
+)
 from aiperf.common.enums import ServiceRegistrationStatus, ServiceType
 from aiperf.common.exceptions import ServiceError, ServiceErrorType
 from aiperf.common.factories import ServiceFactory
@@ -184,7 +187,7 @@ class MultiProcessServiceManager(BaseServiceManager):
             info.process.terminate()
             await asyncio.wait_for(
                 asyncio.to_thread(
-                    info.process.join, timeout=1.0
+                    info.process.join, timeout=TASK_CANCEL_TIMEOUT_SHORT
                 ),  # Add timeout to join
                 timeout=GRACEFUL_SHUTDOWN_TIMEOUT_SECONDS,  # Overall timeout
             )

@@ -24,6 +24,7 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import ClassVar
 
+from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
 from aiperf.common.enums import CaseInsensitiveStrEnum
 from aiperf.common.exceptions import AIPerfError, AIPerfMultiError, UnsupportedHookError
 from aiperf.common.messages import Message
@@ -442,7 +443,9 @@ class AIPerfTaskMixin(HooksMixin):
                 task.cancel()
 
         # Wait for all tasks to complete
-        await asyncio.wait_for(asyncio.gather(*self.registered_tasks), timeout=1.0)
+        await asyncio.wait_for(
+            asyncio.gather(*self.registered_tasks), timeout=TASK_CANCEL_TIMEOUT_SHORT
+        )
         self.registered_tasks.clear()
 
 
@@ -566,7 +569,9 @@ class AIPerfLifecycleMixin(HooksMixin):
             task.cancel()
 
         # Wait for all tasks to complete
-        await asyncio.wait_for(asyncio.gather(*self.registered_tasks), timeout=1.0)
+        await asyncio.wait_for(
+            asyncio.gather(*self.registered_tasks), timeout=TASK_CANCEL_TIMEOUT_SHORT
+        )
 
     @on_stop
     async def _stop_lifecycle(self):
@@ -579,7 +584,7 @@ class AIPerfLifecycleMixin(HooksMixin):
         #     and self.lifecycle_task != asyncio.current_task()
         # ):
         #     self.lifecycle_task.cancel()
-        #     await asyncio.wait_for(self.lifecycle_task, timeout=1.0)
+        #     await asyncio.wait_for(self.lifecycle_task, timeout=TASK_CANCEL_TIMEOUT_SHORT)
 
     async def _task_wrapper(
         self, func: Callable, interval: float | None = None

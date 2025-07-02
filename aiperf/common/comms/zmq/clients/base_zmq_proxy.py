@@ -12,6 +12,7 @@ from zmq import SocketType
 
 from aiperf.common.comms.zmq.clients.base import BaseZMQClient
 from aiperf.common.config.zmq_config import BaseZMQProxyConfig
+from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
 from aiperf.common.exceptions import CommunicationError, CommunicationErrorReason
 
 
@@ -170,7 +171,9 @@ class BaseZMQProxy(ABC):
         try:
             if self.monitor_task and not self.monitor_task.done():
                 self.monitor_task.cancel()
-                await asyncio.wait_for(self.monitor_task, timeout=1.0)
+                await asyncio.wait_for(
+                    self.monitor_task, timeout=TASK_CANCEL_TIMEOUT_SHORT
+                )
 
             await asyncio.wait_for(
                 asyncio.gather(
@@ -182,7 +185,7 @@ class BaseZMQProxy(ABC):
                         if client
                     ],
                 ),
-                timeout=1.0,
+                timeout=TASK_CANCEL_TIMEOUT_SHORT,
             )
 
             stop_duration = time.time() - stop_start
