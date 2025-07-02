@@ -3,8 +3,8 @@
 
 import asyncio
 import logging
-import time
 from abc import ABC, abstractmethod
+from contextlib import suppress
 
 import zmq
 import zmq.asyncio
@@ -12,6 +12,7 @@ from zmq import SocketType
 
 from aiperf.common.comms.zmq.clients.base import BaseZMQClient
 from aiperf.common.config.zmq_config import BaseZMQProxyConfig
+from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
 from aiperf.common.exceptions import CommunicationError, CommunicationErrorReason
 
 
@@ -54,7 +55,9 @@ class BaseZMQProxy(ABC):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.context = context
         self.logger.debug(
-            f"PROXY INIT - Frontend: {zmq_proxy_config.frontend_address} (ROUTER for DEALER clients), Backend: {zmq_proxy_config.backend_address} (DEALER for ROUTER services)"
+            "Proxy Initializing - Frontend: %s, Backend: %s",
+            zmq_proxy_config.frontend_address,
+            zmq_proxy_config.backend_address,
         )
         self.frontend_address = zmq_proxy_config.frontend_address
         self.backend_address = zmq_proxy_config.backend_address
@@ -63,7 +66,6 @@ class BaseZMQProxy(ABC):
         self.socket_ops = socket_ops
         self.monitor_task: asyncio.Task | None = None
 
-        # Proxy sockets with clear frontend/backend naming
         self.backend_socket = backend_socket_class(
             context=self.context,
             address=self.backend_address,
@@ -79,7 +81,7 @@ class BaseZMQProxy(ABC):
 
         self.control_client = None
         if self.control_address:
-            self.logger.debug(f"PROXY CONTROL - Address: {self.control_address}")
+            self.logger.debug("Proxy Control - Address: %s", self.control_address)
             self.control_client = BaseZMQClient(
                 context=self.context,
                 socket_type=SocketType.REP,
@@ -90,7 +92,7 @@ class BaseZMQProxy(ABC):
 
         self.capture_client = None
         if self.capture_address:
-            self.logger.debug(f"PROXY CAPTURE - Address: {self.capture_address}")
+            self.logger.debug("Proxy Capture - Address: %s", self.capture_address)
             self.capture_client = BaseZMQClient(
                 context=self.context,
                 socket_type=SocketType.PUB,
@@ -100,7 +102,6 @@ class BaseZMQProxy(ABC):
             )
 
         self.proxy: zmq.asyncio.Socket | None = None
-        self._proxy_start_time: float | None = None
 
     @classmethod
     @abstractmethod
@@ -114,17 +115,23 @@ class BaseZMQProxy(ABC):
 
     async def _initialize(self) -> None:
         """Initialize and start the BaseZMQProxy."""
-        init_start = time.time()
-        self.logger.debug("PROXY INITIALIZING SOCKETS...")
+        self.logger.debug("Proxy Initializing Sockets...")
         self.logger.debug(
-            f"  Frontend ROUTER socket binding to: {self.frontend_address} (for DEALER clients)"
+            "Frontend %s socket binding to: %s (for %s clients)",
+            self.frontend_socket.socket_type.name,
+            self.frontend_address,
+            self.backend_socket.socket_type.name,
         )
         self.logger.debug(
-            f"  Backend socket binding to: {self.backend_address} (for ROUTER services)"
+            "Backend %s socket binding to: %s (for %s services)",
+            self.backend_socket.socket_type.name,
+            self.backend_address,
+            self.frontend_socket.socket_type.name,
         )
         if hasattr(self.backend_socket, "proxy_id"):
             self.logger.debug(
-                f"  Backend socket identity: {self.backend_socket.proxy_id}"
+                "Backend socket identity: %s",
+                self.backend_socket.proxy_id,
             )
 
         try:
@@ -138,39 +145,28 @@ class BaseZMQProxy(ABC):
                 ],
             )
 
-            init_duration = time.time() - init_start
-            self.logger.debug(
-                f"PROXY SOCKETS INITIALIZED SUCCESSFULLY - Duration: {init_duration:.3f}s"
-            )
-            self.logger.debug(
-                f"  Frontend ROUTER socket bound to: {self.frontend_address}"
-            )
-            self.logger.debug(
-                f"  Backend DEALER socket bound to: {self.backend_address}"
-            )
-            if hasattr(self.backend_socket, "proxy_id"):
-                self.logger.debug(
-                    f"  Backend DEALER socket identity confirmed: {self.backend_socket.proxy_id}"
-                )
+            self.logger.debug("Proxy Sockets Initialized Successfully")
 
             if self.control_client:
-                self.logger.debug(f"  Control socket bound to: {self.control_address}")
+                self.logger.debug("Control socket bound to: %s", self.control_address)
             if self.capture_client:
-                self.logger.debug(f"  Capture socket bound to: {self.capture_address}")
+                self.logger.debug("Capture socket bound to: %s", self.capture_address)
 
         except Exception as e:
-            self.logger.error(f"PROXY SOCKET INITIALIZATION FAILED - Error: {e}")
+            self.logger.error(f"Proxy Socket Initialization Failed {e}")
             raise
 
     async def stop(self) -> None:
         """Shutdown the BaseZMQProxy."""
-        stop_start = time.time()
-        self.logger.debug("PROXY STOPPING...")
+        self.logger.debug("Proxy Stopping...")
 
         try:
             if self.monitor_task and not self.monitor_task.done():
                 self.monitor_task.cancel()
-                await asyncio.wait_for(self.monitor_task, timeout=1.0)
+                with suppress(asyncio.TimeoutError):
+                    await asyncio.wait_for(
+                        self.monitor_task, timeout=TASK_CANCEL_TIMEOUT_SHORT
+                    )
 
             await asyncio.wait_for(
                 asyncio.gather(
@@ -182,19 +178,11 @@ class BaseZMQProxy(ABC):
                         if client
                     ],
                 ),
-                timeout=1.0,
-            )
-
-            stop_duration = time.time() - stop_start
-            total_uptime = (
-                time.time() - self._proxy_start_time if self._proxy_start_time else 0
-            )
-            self.logger.debug(
-                f"PROXY STOPPED - Stop Duration: {stop_duration:.3f}s, Total Uptime: {total_uptime:.3f}s"
+                timeout=TASK_CANCEL_TIMEOUT_SHORT,
             )
 
         except Exception as e:
-            self.logger.error(f"PROXY STOP ERROR - {e}")
+            self.logger.error(f"Proxy Stop Error {e}")
 
     async def run(self) -> None:
         """Start the Base ZMQ Proxy.
@@ -208,53 +196,26 @@ class BaseZMQProxy(ABC):
         try:
             await self._initialize()
 
-            # Proxy configuration: frontend=ROUTER (for DEALER clients), backend=DEALER (for ROUTER services)
-            self.logger.debug("PROXY STARTING...")
-            self.logger.debug(
-                f"  Frontend: ROUTER@{self.frontend_address} (receives from DEALER clients)"
-            )
-            self.logger.debug(
-                f"  Backend: DEALER@{self.backend_address} (sends to ROUTER services)"
-            )
-            if self.capture_client:
-                self.logger.debug(
-                    f"  Capture: PUB@{self.capture_address} (message monitoring)"
-                )
-            if self.control_client:
-                self.logger.debug(
-                    f"  Control: REP@{self.control_address} (proxy control)"
-                )
+            self.logger.debug("Proxy Starting...")
 
-            self._proxy_start_time = time.time()
-
-            # Start message monitoring task if capture is enabled (optional)
-            self.monitor_task = None
             if self.capture_client:
                 self.monitor_task = asyncio.create_task(self._monitor_messages())
-                self.logger.debug("PROXY MESSAGE MONITORING STARTED")
+                self.logger.debug("Proxy Message Monitoring Started")
 
-            # Start the proxy in a separate thread (blocking operation)
             await asyncio.to_thread(
                 zmq.proxy_steerable,
-                self.frontend_socket.socket,  # Frontend: ROUTER socket (DEALER clients connect here)
-                self.backend_socket.socket,  # Backend: DEALER socket (ROUTER services connect here)
+                self.frontend_socket.socket,
+                self.backend_socket.socket,
                 capture=self.capture_client.socket if self.capture_client else None,
                 control=self.control_client.socket if self.control_client else None,
             )
 
-            # This should not be reached unless proxy is terminated
-            self.logger.warning("PROXY TERMINATED UNEXPECTEDLY")
         except zmq.ContextTerminated:
-            self.logger.debug("PROXY TERMINATED BY CONTEXT")
-            return
+            self.logger.debug("Proxy Terminated by Context")
+            raise
 
         except Exception as e:
-            proxy_duration = (
-                time.time() - self._proxy_start_time if self._proxy_start_time else 0
-            )
-            self.logger.error(
-                f"PROXY ERROR - Duration: {proxy_duration:.3f}s, Error: {e}"
-            )
+            self.logger.error(f"Proxy Error: {e}")
             raise CommunicationError(
                 CommunicationErrorReason.PROXY_ERROR,
                 f"Proxy failed: {e}",
@@ -263,167 +224,26 @@ class BaseZMQProxy(ABC):
     async def _monitor_messages(self) -> None:
         """Monitor messages flowing through the proxy via the capture socket."""
         if not self.capture_client or not self.capture_address:
-            return
+            raise CommunicationError(
+                CommunicationErrorReason.PROXY_ERROR,
+                "Proxy Monitor Not Enabled",
+            )
 
         self.logger.debug(
-            f"PROXY MONITOR STARTING - Capture Address: {self.capture_address}"
+            "Proxy Monitor Starting - Capture Address: %s",
+            self.capture_address,
         )
 
-        # Create a subscriber to monitor captured messages
-        monitor_socket = self.context.socket(SocketType.SUB)
-        monitor_socket.connect(self.capture_address)
-        monitor_socket.setsockopt(zmq.SUBSCRIBE, b"")  # Subscribe to all messages
-
-        message_count = 0
+        capture_socket = self.context.socket(SocketType.SUB)
+        capture_socket.connect(self.capture_address)
+        capture_socket.setsockopt(zmq.SUBSCRIBE, b"")  # Subscribe to all messages
 
         try:
             while True:
-                try:
-                    # Receive captured message (this will be multipart)
-                    frames = await monitor_socket.recv_multipart(zmq.NOBLOCK)
-                    message_count += 1
-
-                    frame_info = []
-                    total_size = 0
-
-                    # Enhanced frame analysis
-                    for i, frame in enumerate(frames):
-                        frame_size = len(frame)
-                        total_size += frame_size
-                        # Try to decode as string for logging (first 100 chars)
-                        try:
-                            frame_preview = frame.decode("utf-8")[:100]
-                            if len(frame_preview) < len(frame.decode("utf-8")):
-                                frame_preview += "..."
-                        except UnicodeDecodeError:
-                            # Show hex representation for binary frames
-                            frame_preview = f"<binary:{frame_size}bytes:0x{frame[:20].hex()}{'...' if frame_size > 20 else ''}>"
-
-                        frame_info.append(
-                            f"Frame[{i}]: {frame_size}b - {frame_preview!r}"
-                        )
-
-                    self.logger.debug(
-                        f"PROXY CAPTURED MESSAGE #{message_count} - Total Size: {total_size}b, Frames: {len(frames)}"
-                    )
-
-                    # Determine message direction and content
-                    direction = "UNKNOWN"
-                    message_content = None
-                    sender_info = "unknown"
-
-                    if len(frames) >= 1:
-                        # First frame should be sender/destination identity
-                        identity_frame = frames[0] if frames else b""
-                        sender_info = (
-                            f"0x{identity_frame.hex()}" if identity_frame else "empty"
-                        )
-
-                        # Try to find the JSON message content
-                        for i in range(len(frames)):
-                            try:
-                                if frames[i].startswith(b"{"):
-                                    message_content = frames[i].decode("utf-8")
-                                    self.logger.debug(
-                                        f"PROXY CAPTURE - Found JSON in frame {i}"
-                                    )
-                                    break
-                            except UnicodeDecodeError:
-                                continue
-
-                        # Determine direction based on frame structure and content
-                        if len(frames) == 1:
-                            # Single frame - this is unusual, might be a response not properly routed
-                            if message_content:
-                                direction = (
-                                    "SINGLE FRAME (possibly broken response routing)"
-                                )
-                            else:
-                                direction = "SINGLE FRAME (non-JSON)"
-                        elif len(frames) == 2:
-                            # Simple case: [identity, message] - likely frontend->backend (DEALER->ROUTER)
-                            direction = "FRONTEND->BACKEND (DEALER to ROUTER)"
-                        elif len(frames) == 3:
-                            # Three frames: complex routing scenario
-                            direction = f"MULTI-HOP (3 frames) - Frame0: 0x{frames[0].hex()[:10]}..., Frame1: 0x{frames[1].hex()[:10]}..."
-                        else:
-                            direction = f"COMPLEX ({len(frames)} frames)"
-
-                    self.logger.debug(
-                        f"PROXY CAPTURE ANALYSIS - Direction: {direction}, Sender: {sender_info}"
-                    )
-
-                    # Log detailed frame info at debug level with enhanced analysis
-                    for _, info in enumerate(frame_info):
-                        self.logger.debug(f"PROXY CAPTURE - {info}")
-
-                    # Additional analysis for single frame messages (potential routing issues)
-                    if len(frames) == 1:
-                        self.logger.warning(
-                            "PROXY SINGLE FRAME DETECTED - This may indicate a routing problem"
-                        )
-                        self.logger.warning(
-                            f"PROXY SINGLE FRAME CONTENT - {frames[0][:100]}..."
-                        )
-
-                        # Check if this looks like a response that lost its routing envelope
-                        if message_content and "response" in message_content:
-                            self.logger.error(
-                                "PROXY RESPONSE ROUTING FAILURE - Response message has no routing envelope"
-                            )
-
-                    # Try to extract and parse the actual message content
-                    if message_content:
-                        try:
-                            import json
-
-                            message_data = json.loads(message_content)
-                            msg_type = message_data.get("message_type", "unknown")
-                            msg_id = message_data.get("request_id", "unknown")
-                            service_id = message_data.get("service_id", "unknown")
-
-                            self.logger.debug(
-                                f"PROXY CAPTURED PARSED - ID: {msg_id}, Type: {msg_type}, Service: {service_id}, Direction: {direction}"
-                            )
-
-                            # Special attention to conversation_response messages
-                            if msg_type == "conversation_response":
-                                self.logger.warning(
-                                    f"PROXY CONVERSATION_RESPONSE DETECTED - ID: {msg_id}, Direction: {direction}, Service: {service_id}"
-                                )
-                                self.logger.warning(
-                                    f"PROXY RESPONSE FRAMES - Count: {len(frames)}, Sizes: {[len(f) for f in frames]}"
-                                )
-
-                                # If this is a single frame response, it means routing is broken
-                                if len(frames) == 1:
-                                    self.logger.error(
-                                        "PROXY RESPONSE ROUTING BROKEN - Response should have routing envelope but only has 1 frame"
-                                    )
-                                    self.logger.error(
-                                        "PROXY EXPECTED STRUCTURE - Should be [sender_id, response_json] but got single frame"
-                                    )
-
-                        except Exception as parse_error:
-                            self.logger.debug(
-                                f"PROXY CAPTURE PARSE ERROR - {parse_error}"
-                            )
-                            if message_content:
-                                self.logger.debug(
-                                    f"PROXY UNPARSABLE CONTENT - {message_content[:200]}..."
-                                )
-
-                except zmq.Again:
-                    # No message available, short sleep and continue
-                    await asyncio.sleep(0.001)
-                    continue
-
-        except asyncio.CancelledError:
-            self.logger.debug(
-                f"PROXY MONITOR CANCELLED - Messages Captured: {message_count}"
-            )
-            raise
+                message = capture_socket.recv()
+                self.logger.debug("Proxy Monitor Received Message: %s", message)
         except Exception as e:
-            self.logger.error(f"PROXY MONITOR ERROR - {e}")
+            self.logger.error("Proxy Monitor Error - %s", e)
+            raise
         finally:
-            monitor_socket.close()
+            capture_socket.close()

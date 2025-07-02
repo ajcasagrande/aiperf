@@ -11,11 +11,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from aiperf.common.config import ServiceConfig, UserConfig
+from aiperf.common.config import ServiceConfig
 from aiperf.common.enums import CommunicationBackend, ServiceRunType, ServiceState
 from aiperf.common.service.base_service import BaseService
-from aiperf.services import SystemController
-from aiperf.tests.utils.async_test_utils import async_fixture, async_noop
+from aiperf.tests.utils.async_test_utils import async_fixture
+
+real_sleep = (
+    asyncio.sleep
+)  # save the real sleep so we can use it in the no_sleep fixture
 
 
 class BaseTestService(ABC):
@@ -34,7 +37,13 @@ class BaseTestService(ABC):
 
         This ensures tests don't need to wait for real sleep calls.
         """
-        monkeypatch.setattr(asyncio, "sleep", async_noop)
+
+        async def fast_sleep(*args, **kwargs):
+            await real_sleep(
+                0
+            )  # relinquish time slice to other tasks to avoid blocking the event loop
+
+        monkeypatch.setattr(asyncio, "sleep", fast_sleep)
 
     @pytest.fixture(autouse=True)
     def patch_communication_factory(
@@ -75,15 +84,10 @@ class BaseTestService(ABC):
         )
 
     @pytest.fixture
-    def user_config(self) -> UserConfig:
-        return UserConfig()
-
-    @pytest.fixture
     async def uninitialized_service(
         self,
         service_class: type[BaseService],
         service_config: ServiceConfig,
-        user_config: UserConfig,
     ) -> AsyncGenerator[BaseService, None]:
         """
         Create an uninitialized instance of the service under test.
@@ -102,16 +106,14 @@ class BaseTestService(ABC):
         ```
         """
         # Patch the heartbeat task otherwise it will run forever
-        with patch(
-            "aiperf.common.service.base_component_service.BaseComponentService._heartbeat_task",
-            lambda: None,
+        with (
+            patch(
+                "aiperf.common.service.base_component_service.BaseComponentService._heartbeat_task",
+                lambda: None,
+            ),
+            patch("aiperf.common.hooks.AIPerfTaskMixin._start_tasks", lambda: None),
         ):
-            if service_class is SystemController:
-                service = service_class(
-                    service_config=service_config, user_config=user_config
-                )
-            else:
-                service = service_class(service_config=service_config)
+            service = service_class(service_config=service_config)
             yield service
 
     @pytest.fixture

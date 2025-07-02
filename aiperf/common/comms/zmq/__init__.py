@@ -15,9 +15,11 @@ __all__ = [
     "ZMQDealerRouterProxy",
     "ZMQXPubXSubProxy",
     "ZMQPushPullProxy",
+    "BaseZMQProxy",
 ]
 
 from aiperf.common.comms.zmq.clients import (
+    BaseZMQProxy,
     ZMQClient,
     ZMQDealerReqClient,
     ZMQDealerRouterProxy,

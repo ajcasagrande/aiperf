@@ -1,16 +1,23 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-from aiperf.common.enums import CaseInsensitiveStrEnum, ServiceType
 
 ################################################################################
 # Base Exceptions
 ################################################################################
 
 
+from aiperf.common.enums import CaseInsensitiveStrEnum, ServiceType
+
+
 class AIPerfError(Exception):
     """Base class for all exceptions raised by AIPerf."""
 
+    def raw_str(self) -> str:
+        """Return the raw string representation of the exception."""
+        return super().__str__()
+
     def __str__(self) -> str:
+        """Return the string representation of the exception with the class name."""
         return f"{self.__class__.__name__}: {super().__str__()}"
 
 
@@ -18,7 +25,10 @@ class AIPerfMultiError(AIPerfError):
     """Exception raised when running multiple tasks and one or more fail."""
 
     def __init__(self, message: str, exceptions: list[Exception]) -> None:
-        super().__init__(f"{message}: {','.join([str(e) for e in exceptions])}")
+        err_strings = [
+            e.raw_str() if isinstance(e, AIPerfError) else str(e) for e in exceptions
+        ]
+        super().__init__(f"{message}: {','.join(err_strings)}")
         self.exceptions = exceptions
 
 
@@ -39,6 +49,7 @@ class CommunicationErrorReason(CaseInsensitiveStrEnum):
     CLEANUP_ERROR = "cleanup_error"
     PUSH_ERROR = "push_error"
     PULL_ERROR = "pull_error"
+    PROXY_ERROR = "proxy_error"
 
 
 class CommunicationError(AIPerfError):
@@ -54,20 +65,19 @@ class CommunicationError(AIPerfError):
 ################################################################################
 
 
+class ConfigErrorReason(CaseInsensitiveStrEnum):
+    LOAD_ERROR = "load_error"
+    PARSE_ERROR = "parse_error"
+    VALIDATION_ERROR = "validation_error"
+    UNSUPPORTED_RUN_TYPE = "unsupported_run_type"
+
+
 class ConfigError(AIPerfError):
     """Base class for all exceptions raised by configuration errors."""
 
-
-class ConfigLoadError(ConfigError):
-    """Exception raised for configuration load errors."""
-
-
-class ConfigParseError(ConfigError):
-    """Exception raised for configuration parse errors."""
-
-
-class ConfigValidationError(ConfigError):
-    """Exception raised for configuration validation errors."""
+    def __init__(self, reason: ConfigErrorReason, message: str) -> None:
+        super().__init__(f"Configuration Error {reason.name}: {message}")
+        self.reason = reason
 
 
 ################################################################################
@@ -75,16 +85,19 @@ class ConfigValidationError(ConfigError):
 ################################################################################
 
 
+class GeneratorErrorReason(CaseInsensitiveStrEnum):
+    INITIALIZATION_ERROR = "initialization_error"
+    CONFIGURATION_ERROR = "configuration_error"
+    PREFIX_PROMPTS_POOL_EMPTY = "prefix_prompts_pool_empty"
+    NOT_INITIALIZED_ERROR = "not_initialized_error"
+
+
 class GeneratorError(AIPerfError):
     """Base class for all exceptions raised by data generator modules."""
 
-
-class GeneratorInitializationError(GeneratorError):
-    """Exception raised for data generator initialization errors."""
-
-
-class GeneratorConfigurationError(GeneratorError):
-    """Exception raised for data generator configuration errors."""
+    def __init__(self, reason: GeneratorErrorReason, message: str) -> None:
+        super().__init__(f"Generator Error {reason.name}: {message}")
+        self.reason = reason
 
 
 ################################################################################
@@ -92,18 +105,40 @@ class GeneratorConfigurationError(GeneratorError):
 ################################################################################
 
 
+class ServiceErrorType(CaseInsensitiveStrEnum):
+    INITIALIZATION_ERROR = "initialization_error"
+    CONFIGURATION_ERROR = "configuration_error"
+    START_ERROR = "start_error"
+    SHUTDOWN_ERROR = "shutdown_error"
+    REGISTRATION_ERROR = "registration_error"
+    HEARTBEAT_ERROR = "heartbeat_error"
+    CLIENT_NOT_AVAILABLE = "client_not_available"
+    WORKER_TIMEOUT = "worker_timeout"
+    SEND_CONFIGURE_COMMAND_ERROR = "send_configure_command_error"
+    MISSING_REQUIRED_SERVICES = "missing_required_services"
+    INITIALIZE_SERVICES_ERROR = "initialize_services_error"
+    REGISTER_SERVICE_ERROR = "register_service_error"
+    UNKNOWN_COMMAND = "unknown_command"
+    DATASET_EMPTY = "dataset_empty"
+    CONVERSATION_NOT_FOUND = "conversation_not_found"
+    EXPORT_RESULTS_ERROR = "export_results_error"
+    SERVICE_REGISTRATION_TIMEOUT = "service_registration_timeout"
+
+
 class ServiceError(AIPerfError):
     """Base class for all exceptions raised by services."""
 
     def __init__(
         self,
+        reason: ServiceErrorType,
         message: str,
         service_type: ServiceType,
         service_id: str,
     ) -> None:
         super().__init__(
-            f"{message} for service of type {service_type} with id {service_id}"
+            f"Service Error {reason.name}: {message} for service of type {service_type} with id {service_id}"
         )
+        self.reason = reason
         self.service_type = service_type
         self.service_id = service_id
 
@@ -119,6 +154,10 @@ class TokenizerError(AIPerfError):
 
 class TokenizerInitializationError(TokenizerError):
     """Exception raised for errors during tokenizer initialization."""
+
+
+class TokenizerNotInitializedError(TokenizerError):
+    """Exception raised when the tokenizer is not initialized."""
 
 
 ################################################################################
