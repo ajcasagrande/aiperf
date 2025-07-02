@@ -340,7 +340,7 @@ class ClientAddressType(CaseInsensitiveStrEnum):
     """Push/pull address for credit return messages."""
 
     INFERENCE_RESULTS_PUSH_PULL = "inference_results_push_pull"
-    """Push/pull address for inference results messages."""
+    """Push/pull address for inference results messages fr."""
 
     POST_PROCESS_INCOMING_PUSH_PULL = "post_process_incoming_push_pull"
     """Push/pull address for post-process incoming messages."""

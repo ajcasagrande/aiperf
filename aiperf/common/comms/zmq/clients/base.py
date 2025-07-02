@@ -4,10 +4,16 @@ import asyncio
 import logging
 import uuid
 
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+from abc import ABC, abstractmethod
+from collections.abc import Callable, Coroutine
+from typing import Any, TypeVar
+
 import zmq.asyncio
 
-from aiperf.common.comms.base import BaseCommunicationClient
 from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
+from aiperf.common.enums import MessageType
 from aiperf.common.exceptions import (
     AIPerfError,
     CommunicationError,
@@ -19,6 +25,154 @@ from aiperf.common.hooks import (
     AIPerfTaskMixin,
     supports_hooks,
 )
+from aiperf.common.messages import Message
+
+logger = logging.getLogger(__name__)
+
+
+################################################################################
+# Base ZMQ Client Interfaces
+################################################################################
+
+MessageT = TypeVar("MessageT", bound=Message)
+MessageOutputT = TypeVar("MessageOutputT", bound=Message)
+
+
+class BaseCommunicationClient(ABC):
+    """Base class for specifying the base communication client for AIPerf components."""
+
+    @abstractmethod
+    async def initialize(self) -> None:
+        """Initialize communication channels."""
+        pass
+
+    @abstractmethod
+    async def shutdown(self) -> None:
+        """Shutdown communication channels."""
+        pass
+
+
+class PushClient(BaseCommunicationClient):
+    """Interface for push clients."""
+
+    @abstractmethod
+    async def push(self, message: Message) -> None:
+        """Push data to a target. The message will be routed automatically
+        based on the message type.
+
+        Args:
+            message_type: MessageType to push to
+            message: Message to be pushed
+        """
+        pass
+
+
+class PullClient(BaseCommunicationClient):
+    """Interface for pull clients."""
+
+    @abstractmethod
+    async def register_pull_callback(
+        self,
+        message_type: MessageType,
+        callback: Callable[[MessageT], Coroutine[Any, Any, None]],
+        max_concurrency: int | None = None,
+    ) -> None:
+        """Register a callback for a pull client. The callback will be called when
+        a message is received for the given message type.
+
+        Args:
+            message_type: The message type to register the callback for
+            callback: The callback to register
+            max_concurrency: The maximum number of concurrent requests to allow.
+        """
+        pass
+
+
+class ReqClient(BaseCommunicationClient):
+    """Interface for request clients."""
+
+    # TODO: Should this accept a target service type for routing?
+    @abstractmethod
+    async def request(
+        self,
+        message: MessageT,
+        timeout: float = 10,
+    ) -> MessageOutputT:
+        """Send a request and wait for a response. The message will be routed automatically
+        based on the message type.
+
+        Args:
+            message: Message to send (will be routed based on the message type)
+            timeout: Timeout in seconds for the request.
+
+        Returns:
+            Response message if successful
+        """
+        pass
+
+    @abstractmethod
+    async def request_async(
+        self,
+        message: MessageT,
+        callback: Callable[[MessageOutputT], Coroutine[Any, Any, None]],
+    ) -> None:
+        """Send a request and be notified when the response is received. The message will be routed automatically
+        based on the message type.
+
+        Args:
+            message: Message to send (will be routed based on the message type)
+            callback: Callback to be called when the response is received
+        """
+        pass
+
+
+class RepClient(BaseCommunicationClient):
+    """Interface for reply clients."""
+
+    @abstractmethod
+    def register_request_handler(
+        self,
+        service_id: str,
+        message_type: MessageType,
+        handler: Callable[[MessageT], Coroutine[Any, Any, MessageOutputT | None]],
+    ) -> None:
+        """Register a request handler for a message type. The handler will be called when
+        a request is received for the given message type.
+
+        Args:
+            service_id: The service ID to register the handler for
+            message_type: The message type to register the handler for
+            handler: The handler to register
+        """
+        pass
+
+
+class SubClient(BaseCommunicationClient):
+    """Interface for subscribe clients."""
+
+    @abstractmethod
+    async def subscribe(
+        self,
+        message_type: MessageType,
+        callback: Callable[[MessageT], Coroutine[Any, Any, None]],
+    ) -> None:
+        """Subscribe to a specific message type. The callback will be called when
+        a message is received for the given message type."""
+        pass
+
+
+class PubClient(BaseCommunicationClient):
+    """Interface for publish clients."""
+
+    @abstractmethod
+    async def publish(self, message: Message) -> None:
+        """Publish a message. The message will be routed automatically based on the message type."""
+        pass
+
+
+################################################################################
+# Base ZMQ Client Class
+################################################################################
 
 
 @supports_hooks(
@@ -28,10 +182,10 @@ from aiperf.common.hooks import (
     AIPerfTaskHook.AIPERF_TASK,
 )
 class BaseZMQClient(AIPerfTaskMixin, BaseCommunicationClient):
-    """Base class for all ZMQ clients.
+    """Base class for all ZMQ clients. It can be used as-is to create a new ZMQ client,
+    or it can be subclassed to create specific ZMQ client functionality.
 
-    This class provides a common interface for all ZMQ clients in the AIPerf
-    framework. It inherits from the :class:`AIPerfTaskMixin`, allowing derived
+    It inherits from the :class:`AIPerfTaskMixin`, allowing derived
     classes to implement specific hooks.
     """
 
