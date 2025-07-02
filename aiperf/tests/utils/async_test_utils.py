@@ -7,6 +7,7 @@ Utilities for testing asynchronous code.
 import contextlib
 from collections.abc import AsyncIterator
 from typing import Any, TypeVar, cast
+from unittest.mock import MagicMock
 
 T = TypeVar("T")
 
@@ -43,3 +44,13 @@ async def async_fixture(fixture: T) -> T:
 
     # Otherwise return the fixture as is
     return fixture
+
+
+class AwaitableMock:
+    def __init__(self):
+        self.cancel = MagicMock()
+        self.done = MagicMock(return_value=False)
+        self.cancelled = MagicMock(return_value=False)
+
+    def __await__(self):
+        return iter([None])

@@ -186,6 +186,18 @@ class FactoryMixin(Generic[ClassEnumT, ClassProtocolT]):
         """
         return list(cls._registry.values())
 
+    @classmethod
+    def is_registered(cls, class_type: ClassEnumT | str) -> bool:
+        """Check if a class type is registered.
+
+        Args:
+            class_type: The class type to check
+
+        Returns:
+            True if the class type is registered, False otherwise
+        """
+        return class_type in cls._registry
+
 
 ################################################################################
 # Built-in Factories
@@ -273,13 +285,13 @@ class ZMQProxyFactory(FactoryMixin[ZMQProxyType, "BaseZMQProxy"]):
     Example:
     ```python
         # Register a new ZMQ proxy type
-        @ZMQProxyFactory.register(ZMQProxyType.ROUTER_DEALER)
-        class RouterDealerProxy(BaseZMQProxy):
+        @ZMQProxyFactory.register(ZMQProxyType.DEALER_ROUTER)
+        class DealerRouterProxy(BaseZMQProxy):
             pass
 
         # Create a new ZMQ proxy instance
         proxy = ZMQProxyFactory.create_instance(
-            ZMQProxyType.ROUTER_DEALER,
+            ZMQProxyType.DEALER_ROUTER,
             config=ZMQTCPProxyConfig(host="localhost", frontend_port=5555, backend_port=5556),
         )
         proxy.run()

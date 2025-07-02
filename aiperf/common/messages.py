@@ -478,3 +478,9 @@ class DatasetTimingResponse(BaseServiceMessage):
         ...,
         description="The timing data of the dataset. Tuple of (timestamp, conversation_id)",
     )
+
+
+class TestMessage(Message):
+    """Message for testing."""
+
+    message_type: Literal[MessageType.TEST] = MessageType.TEST

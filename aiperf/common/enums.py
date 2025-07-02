@@ -239,6 +239,11 @@ class MessageType(CaseInsensitiveStrEnum):
     WORKER_HEALTH = "worker_health"
     """A message sent by a worker to the worker manager to report its health."""
 
+    # Test message
+
+    TEST = "test"
+    """A message for testing."""
+
 
 ################################################################################
 # Command Enums
@@ -398,10 +403,10 @@ class ClientAddressType(CaseInsensitiveStrEnum):
     POST_PROCESS_OUTGOING_PUSH_PULL = "post_process_outgoing_push_pull"
     """Push/pull address for post-process outgoing messages."""
 
-    ROUTER_DEALER_FRONTEND = "router_dealer_frontend"
+    DEALER_ROUTER_FRONTEND = "dealer_router_frontend"
     """Frontend address for dealer/router req/rep proxy (for sending messages)."""
 
-    ROUTER_DEALER_BACKEND = "router_dealer_backend"
+    DEALER_ROUTER_BACKEND = "dealer_router_backend"
     """Backend address for dealer/router req/rep proxy (for receiving messages)."""
 
     PUSH_PULL_FRONTEND = "push_pull_frontend"
@@ -414,7 +419,7 @@ class ClientAddressType(CaseInsensitiveStrEnum):
 class ZMQProxyType(CaseInsensitiveStrEnum):
     """Types of ZMQ proxys."""
 
-    ROUTER_DEALER = "router_dealer"
+    DEALER_ROUTER = "dealer_router"
     XPUB_XSUB = "xpub_xsub"
     PUSH_PULL = "push_pull"
 

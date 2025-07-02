@@ -19,7 +19,7 @@ from aiperf.common.utils import call_all_functions
 logger = logging.getLogger(__name__)
 
 
-class ZMQPullClient(BaseZMQClient, PullClient):
+class ZMQPullClient(PullClient, BaseZMQClient):
     """
     ZMQ PULL socket client for receiving work from PUSH sockets.
 

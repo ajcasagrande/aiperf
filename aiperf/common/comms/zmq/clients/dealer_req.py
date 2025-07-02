@@ -124,7 +124,7 @@ class ZMQDealerReqClient(BaseZMQClient, ReqClient):
     async def request(
         self,
         message: Message,
-        timeout: float = 10,
+        timeout: float = 10.0,
     ) -> Message:
         """Send a request and wait for a response."""
         future = asyncio.Future[Message]()

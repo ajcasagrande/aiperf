@@ -8,7 +8,7 @@ from typing import Any
 
 import zmq.asyncio
 
-from aiperf.common.comms.zmq.clients.base_zmq_proxy import BaseZMQProxy
+from aiperf.common.comms.zmq.clients.zmq_proxy_base import BaseZMQProxy
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
 from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
@@ -85,8 +85,8 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         self.xpub_xsub_proxy: BaseZMQProxy
         self.xpub_xsub_proxy_task: asyncio.Task
 
-        self.router_dealer_proxy: BaseZMQProxy
-        self.router_dealer_proxy_task: asyncio.Task
+        self.dealer_router_proxy: BaseZMQProxy
+        self.dealer_router_proxy_task: asyncio.Task
 
         self.push_pull_proxy: BaseZMQProxy
         self.push_pull_proxy_task: asyncio.Task
@@ -128,13 +128,13 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         )
         self.xpub_xsub_proxy_task = asyncio.create_task(self.xpub_xsub_proxy.run())
 
-        self.router_dealer_proxy = ZMQProxyFactory.create_instance(
-            ZMQProxyType.ROUTER_DEALER,
+        self.dealer_router_proxy = ZMQProxyFactory.create_instance(
+            ZMQProxyType.DEALER_ROUTER,
             context=self.zmq_context,
-            zmq_proxy_config=self.service_config.comm_config.router_dealer_proxy_config,
+            zmq_proxy_config=self.service_config.comm_config.dealer_router_proxy_config,
         )
-        self.router_dealer_proxy_task = asyncio.create_task(
-            self.router_dealer_proxy.run()
+        self.dealer_router_proxy_task = asyncio.create_task(
+            self.dealer_router_proxy.run()
         )
 
         self.push_pull_proxy = ZMQProxyFactory.create_instance(
@@ -306,10 +306,10 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             self.xpub_xsub_proxy_task.cancel()
             tasks.append(self.xpub_xsub_proxy_task)
 
-        if self.router_dealer_proxy_task:
-            await self.router_dealer_proxy.stop()
-            self.router_dealer_proxy_task.cancel()
-            tasks.append(self.router_dealer_proxy_task)
+        if self.dealer_router_proxy_task:
+            await self.dealer_router_proxy.stop()
+            self.dealer_router_proxy_task.cancel()
+            tasks.append(self.dealer_router_proxy_task)
 
         if self.push_pull_proxy_task:
             await self.push_pull_proxy.stop()

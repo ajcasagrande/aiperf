@@ -75,8 +75,8 @@ class DatasetManager(BaseComponentService):
         self.logger.debug("Initializing dataset manager")
         self.tokenizer: Tokenizer | None = None
         self.dataset: dict[str, Conversation] = {}  # session ID -> Conversation mapping
-        self.router_dealer_client: RepClient = self.comms.create_rep_client(
-            ClientAddressType.ROUTER_DEALER_BACKEND
+        self.dealer_router_client: RepClient = self.comms.create_rep_client(
+            ClientAddressType.DEALER_ROUTER_BACKEND
         )
         self.dataset_configured = asyncio.Event()
 
@@ -93,12 +93,12 @@ class DatasetManager(BaseComponentService):
         if self.comms is None:
             raise AIPerfError("Communication is not initialized")
 
-        self.router_dealer_client.register_request_handler(
+        self.dealer_router_client.register_request_handler(
             service_id=self.service_id,
             message_type=MessageType.CONVERSATION_REQUEST,
             handler=self._handle_conversation_request,
         )
-        self.router_dealer_client.register_request_handler(
+        self.dealer_router_client.register_request_handler(
             service_id=self.service_id,
             message_type=MessageType.DATASET_TIMING_REQUEST,
             handler=self._handle_dataset_timing_request,

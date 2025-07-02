@@ -50,6 +50,7 @@ class CommunicationErrorReason(CaseInsensitiveStrEnum):
     PUSH_ERROR = "push_error"
     PULL_ERROR = "pull_error"
     PROXY_ERROR = "proxy_error"
+    SOCKET_ERROR = "socket_error"
 
 
 class CommunicationError(AIPerfError):

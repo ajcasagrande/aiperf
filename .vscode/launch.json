@@ -1,12 +1,23 @@
 {
     "configurations": [
+
         {
             "name": "aiperf",
             "type": "debugpy",
             "request": "launch",
             "cwd": "${workspaceFolder}",
             "module": "aiperf.cli",
-            "args": []
+            "args": [
+            ],
+            "env": {
+                "AIPERF_ENABLE_UVLOOP": "True",
+                "AIPERF_LOG_LEVEL": "DEBUG",
+                "AIPERF_MAX_WORKERS": "1",
+                "AIPERF_MIN_WORKERS": "1",
+                "AIPERF_CONCURRENCY": "1",
+                "AIPERF_TOTAL_REQUESTS": "10000",
+                "AIPERF_DISABLE_UI": "False"
+            }
         },
         {
             "name": "pytest",

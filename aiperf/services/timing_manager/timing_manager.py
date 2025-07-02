@@ -60,7 +60,7 @@ class TimingManager(BaseComponentService):
         self.tasks: set[asyncio.Task] = set()
 
         self.dataset_request_client: ReqClient = self.comms.create_req_client(
-            ClientAddressType.ROUTER_DEALER_FRONTEND,
+            ClientAddressType.DEALER_ROUTER_FRONTEND,
         )
         self.credit_drop_client: PushClient = self.comms.create_push_client(
             ClientAddressType.CREDIT_DROP_PUSH_PULL,

@@ -19,6 +19,7 @@ classes with existing hooks will inherit the hooks from the base classes as well
 """
 
 import asyncio
+import contextlib
 import inspect
 import logging
 from collections.abc import Awaitable, Callable
@@ -403,7 +404,9 @@ class AIPerfTaskMixin(HooksMixin):
                 task.cancel()
 
         # Wait for all tasks to complete
-        await asyncio.wait_for(
-            asyncio.gather(*self.registered_tasks), timeout=TASK_CANCEL_TIMEOUT_SHORT
-        )
+        with contextlib.suppress(asyncio.TimeoutError):
+            await asyncio.wait_for(
+                asyncio.gather(*self.registered_tasks),
+                timeout=TASK_CANCEL_TIMEOUT_SHORT,
+            )
         self.registered_tasks.clear()

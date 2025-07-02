@@ -34,7 +34,7 @@ class BaseZMQCommunicationConfig(BaseModel, ABC):
 
     # Proxy config options to be overridden by subclasses
     xpub_xsub_proxy_config: ClassVar[BaseZMQProxyConfig]
-    router_dealer_proxy_config: ClassVar[BaseZMQProxyConfig]
+    dealer_router_proxy_config: ClassVar[BaseZMQProxyConfig]
     push_pull_proxy_config: ClassVar[BaseZMQProxyConfig]
 
     @property
@@ -62,10 +62,10 @@ class BaseZMQCommunicationConfig(BaseModel, ABC):
                 return self.xpub_xsub_proxy_config.frontend_address
             case ClientAddressType.SERVICE_PUB_SUB_BACKEND:
                 return self.xpub_xsub_proxy_config.backend_address
-            case ClientAddressType.ROUTER_DEALER_FRONTEND:
-                return self.router_dealer_proxy_config.frontend_address
-            case ClientAddressType.ROUTER_DEALER_BACKEND:
-                return self.router_dealer_proxy_config.backend_address
+            case ClientAddressType.DEALER_ROUTER_FRONTEND:
+                return self.dealer_router_proxy_config.frontend_address
+            case ClientAddressType.DEALER_ROUTER_BACKEND:
+                return self.dealer_router_proxy_config.backend_address
             case ClientAddressType.CREDIT_DROP_PUSH_PULL:
                 return self.credit_drop_address
             case ClientAddressType.CREDIT_RETURN_PUSH_PULL:
@@ -174,7 +174,7 @@ class ZMQTCPConfig(BaseZMQCommunicationConfig):
     credit_return_port: int = Field(
         default=5563, description="Port for credit return operations"
     )
-    router_dealer_proxy_config: ZMQTCPProxyConfig = Field(  # type: ignore
+    dealer_router_proxy_config: ZMQTCPProxyConfig = Field(  # type: ignore
         default=ZMQTCPProxyConfig(
             frontend_port=5661,
             backend_port=5662,
@@ -216,8 +216,8 @@ class ZMQIPCConfig(BaseZMQCommunicationConfig):
     """Configuration for IPC transport."""
 
     path: str = Field(default="/tmp/aiperf", description="Path for IPC sockets")
-    router_dealer_proxy_config: ZMQIPCProxyConfig = Field(  # type: ignore
-        default=ZMQIPCProxyConfig(name="router_dealer_proxy"),
+    dealer_router_proxy_config: ZMQIPCProxyConfig = Field(  # type: ignore
+        default=ZMQIPCProxyConfig(name="dealer_router_proxy"),
         description="Configuration for the ZMQ Dealer Router Proxy. If provided, the proxy will be created and started.",
     )
     xpub_xsub_proxy_config: ZMQIPCProxyConfig = Field(  # type: ignore
