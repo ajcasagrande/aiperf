@@ -12,7 +12,7 @@ from aiperf.common.record_models import ParsedResponseRecord
 
 
 class BaseMetric(ABC):
-    """Base class for all metrics with automatic subclass registration."""
+    "Base class for all metrics with automatic subclass registration."
 
     # Class attributes that subclasses must override
     tag: ClassVar[str] = ""
@@ -20,6 +20,8 @@ class BaseMetric(ABC):
     larger_is_better: ClassVar[bool] = True
     header: ClassVar[str] = ""
     streaming_only: ClassVar[bool] = False
+
+    required_metrics_tags: ClassVar[list[str]] = ["token_count"]
 
     metric_interfaces: dict[str, type["BaseMetric"]] = {}
 

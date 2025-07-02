@@ -3,5 +3,4 @@
 
 __all__ = ["SystemController"]
 
-
 from aiperf.services.system_controller.system_controller import SystemController

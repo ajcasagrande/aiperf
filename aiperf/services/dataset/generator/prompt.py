@@ -8,8 +8,8 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from aiperf.common.exceptions import (
-    GeneratorConfigurationError,
-    GeneratorInitializationError,
+    GeneratorError,
+    GeneratorErrorReason,
 )
 from aiperf.common.tokenizer import Tokenizer
 from aiperf.services.dataset import utils
@@ -85,7 +85,10 @@ class PromptGenerator(BaseGenerator):
     def _create_prefix_prompt_pool(self) -> None:
         """Generate a pool of prefix prompts to sample from."""
         if self._tokenized_corpus is None:
-            raise GeneratorInitializationError("Tokenized corpus is not initialized.")
+            raise GeneratorError(
+                GeneratorErrorReason.NOT_INITIALIZED_ERROR,
+                "Tokenized corpus is not initialized.",
+            )
 
         self._prefix_prompts = [
             self._generate_prompt(self.config.prefix_prompt.length)
@@ -158,10 +161,11 @@ class PromptGenerator(BaseGenerator):
         # Sanity check the final block size
         final_block_size = num_tokens - ((len(hash_ids) - 1) * block_size)
         if final_block_size <= 0 or block_size < final_block_size:
-            raise GeneratorConfigurationError(
+            raise GeneratorError(
+                GeneratorErrorReason.CONFIGURATION_ERROR,
                 f"Input length: {num_tokens}, Hash IDs: {hash_ids}, Block size: {block_size} "
                 f"are not compatible. The final hash block size: {final_block_size} must be "
-                f"greater than 0 and less than or equal to {block_size}."
+                f"greater than 0 and less than or equal to {block_size}.",
             )
 
         for index, hash_id in enumerate(hash_ids):
@@ -196,7 +200,10 @@ class PromptGenerator(BaseGenerator):
             GeneratorInitializationError: If the tokenized corpus is not initialized
         """
         if not self._tokenized_corpus:
-            raise GeneratorInitializationError("Tokenized corpus is not initialized.")
+            raise GeneratorError(
+                GeneratorErrorReason.NOT_INITIALIZED_ERROR,
+                "Tokenized corpus is not initialized.",
+            )
         if num_tokens > self._corpus_size:
             logger.warning(
                 f"Requested prompt length {num_tokens} is longer than the corpus. "
@@ -224,8 +231,9 @@ class PromptGenerator(BaseGenerator):
             GeneratorInitializationError: If the prefix prompts pool is empty.
         """
         if not self._prefix_prompts:
-            raise GeneratorInitializationError(
+            raise GeneratorError(
+                GeneratorErrorReason.PREFIX_PROMPTS_POOL_EMPTY,
                 "Attempted to sample a prefix prompt but the prefix prompts pool is empty. "
-                "Please ensure that the prefix prompts pool is initialized."
+                "Please ensure that the prefix prompts pool is initialized.",
             )
         return random.choice(self._prefix_prompts)

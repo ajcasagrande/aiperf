@@ -4,18 +4,13 @@
 import asyncio
 import time
 from collections import defaultdict
-from collections.abc import Coroutine
-from typing import Any
 
-from aiperf.common.enums import Topic
-from aiperf.common.messages import (
-    CreditDropMessage,
-    DatasetTimingRequest,
-    DatasetTimingResponse,
+from aiperf.common.constants import NANOS_PER_SECOND
+from aiperf.common.messages import DatasetTimingRequest, DatasetTimingResponse
+from aiperf.services.timing_manager.credit_issuing_strategy import (
+    CreditIssuingStrategy,
 )
-
-# from aiperf.services.timing_manager import CreditDropInfo
-from aiperf.services.timing_manager.credit_issuing_strategy import CreditIssuingStrategy
+from aiperf.services.timing_manager.timing_manager import CreditManagerProtocol
 
 
 class FixedScheduleStrategy(CreditIssuingStrategy):
@@ -23,8 +18,8 @@ class FixedScheduleStrategy(CreditIssuingStrategy):
     Class for fixed schedule credit issuing strategy.
     """
 
-    def __init__(self, config, credit_drop_function):
-        super().__init__(config, credit_drop_function)
+    def __init__(self, config, credit_manager: CreditManagerProtocol):
+        super().__init__(config, credit_manager)
 
         self._schedule: list[tuple[int, str]] = []
 
@@ -59,7 +54,7 @@ class FixedScheduleStrategy(CreditIssuingStrategy):
                 break
 
             wait_duration_ns = max(0, start_time_ns + unique_timestamp - time.time_ns())
-            wait_duration_sec = wait_duration_ns / 1_000_000_000
+            wait_duration_sec = wait_duration_ns / NANOS_PER_SECOND
 
             if wait_duration_sec > 0:
                 await asyncio.sleep(wait_duration_sec)
@@ -68,25 +63,11 @@ class FixedScheduleStrategy(CreditIssuingStrategy):
                 self.logger.info("Stop event detected, ending credit drops")
                 break
 
-            tasks: set[Coroutine[Any, Any, None]] = set()
-
             for _, conversation_id in timestamp_groups[unique_timestamp]:
-                # credit_drop_info = CreditDropInfo()
-                # credit_drop_info.conversation_id = conversation_id
-                # credit_drop_info.credit_drop_ns = time.time_ns()
-
-                task = asyncio.create_task(
-                    self.comms.push(
-                        topic=Topic.CREDIT_DROP,
-                        message=CreditDropMessage(
-                            service_id=self.service_id,
-                            amount=1,
-                            conversation_id=conversation_id,
-                            credit_drop_ns=time.time_ns(),
-                        ),
-                    )
+                await self.drop_credit(
+                    amount=1,
+                    conversation_id=conversation_id,
+                    credit_drop_ns=None,
                 )
-                tasks.add(task)
-                task.add_done_callback(tasks.discard)
 
         self.logger.info("Completed all scheduled credit drops")
