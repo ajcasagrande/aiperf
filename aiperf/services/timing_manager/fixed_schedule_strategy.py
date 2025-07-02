@@ -6,7 +6,7 @@ import time
 from collections import defaultdict
 
 from aiperf.common.constants import NANOS_PER_SECOND
-from aiperf.common.messages import DatasetTimingRequest, DatasetTimingResponse
+from aiperf.common.messages import DatasetTimingResponse
 from aiperf.services.timing_manager.credit_issuing_strategy import (
     CreditIssuingStrategy,
     CreditManagerProtocol,
@@ -24,9 +24,7 @@ class FixedScheduleStrategy(CreditIssuingStrategy):
         self._schedule: list[tuple[int, str]] = []
 
     async def initialize(self) -> None:
-        await self.comms.register(
-            message_type=DatasetTimingRequest, callback=self._get_dataset_timing
-        )
+        pass
 
     async def _get_dataset_timing(self, message: DatasetTimingResponse) -> None:
         self._schedule = message.timing_data

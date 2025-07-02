@@ -273,13 +273,13 @@ class ZMQProxyFactory(FactoryMixin[ZMQProxyType, "BaseZMQProxy"]):
     Example:
     ```python
         # Register a new ZMQ proxy type
-        @ZMQProxyFactory.register(ZMQProxyType.DEALER_ROUTER)
-        class DealerRouterProxy(BaseZMQProxy):
+        @ZMQProxyFactory.register(ZMQProxyType.ROUTER_DEALER)
+        class RouterDealerProxy(BaseZMQProxy):
             pass
 
         # Create a new ZMQ proxy instance
         proxy = ZMQProxyFactory.create_instance(
-            ZMQProxyType.DEALER_ROUTER,
+            ZMQProxyType.ROUTER_DEALER,
             config=ZMQTCPProxyConfig(host="localhost", frontend_port=5555, backend_port=5556),
         )
         proxy.run()

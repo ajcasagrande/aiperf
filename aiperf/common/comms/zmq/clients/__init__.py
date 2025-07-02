@@ -10,7 +10,7 @@ __all__ = [
     "ZMQRouterRepClient",
     "ZMQDealerReqClient",
     "ZMQSubClient",
-    "ZMQDealerRouterProxy",
+    "ZMQRouterDealerProxy",
     "ZMQXPubXSubProxy",
     "ZMQPushPullProxy",
     "BaseZMQProxy",
@@ -25,8 +25,8 @@ from aiperf.common.comms.zmq.clients.push import ZMQPushClient
 from aiperf.common.comms.zmq.clients.router_rep import ZMQRouterRepClient
 from aiperf.common.comms.zmq.clients.sub import ZMQSubClient
 from aiperf.common.comms.zmq.clients.zmq_proxies import (
-    ZMQDealerRouterProxy,
     ZMQPushPullProxy,
+    ZMQRouterDealerProxy,
     ZMQXPubXSubProxy,
 )
 

@@ -398,10 +398,10 @@ class ClientAddressType(CaseInsensitiveStrEnum):
     POST_PROCESS_OUTGOING_PUSH_PULL = "post_process_outgoing_push_pull"
     """Push/pull address for post-process outgoing messages."""
 
-    DEALER_ROUTER_FRONTEND = "DEALER_ROUTER_frontend"
+    ROUTER_DEALER_FRONTEND = "router_dealer_frontend"
     """Frontend address for dealer/router req/rep proxy (for sending messages)."""
 
-    DEALER_ROUTER_BACKEND = "DEALER_ROUTER_backend"
+    ROUTER_DEALER_BACKEND = "router_dealer_backend"
     """Backend address for dealer/router req/rep proxy (for receiving messages)."""
 
     PUSH_PULL_FRONTEND = "push_pull_frontend"
@@ -414,7 +414,7 @@ class ClientAddressType(CaseInsensitiveStrEnum):
 class ZMQProxyType(CaseInsensitiveStrEnum):
     """Types of ZMQ proxys."""
 
-    DEALER_ROUTER = "dealer_router"
+    ROUTER_DEALER = "router_dealer"
     XPUB_XSUB = "xpub_xsub"
     PUSH_PULL = "push_pull"
 
