@@ -148,30 +148,16 @@ class ServiceError(AIPerfError):
 ################################################################################
 
 
-class TokenizerErrorReason(CaseInsensitiveStrEnum):
-    INITIALIZATION_ERROR = "initialization_error"
-    CONFIGURATION_ERROR = "configuration_error"
-
-
 class TokenizerError(AIPerfError):
     """Base class for tokenizer exceptions."""
 
-    def __init__(self, reason: TokenizerErrorReason, message: str) -> None:
-        super().__init__(f"Tokenizer Error {reason.name}: {message}")
-        self.reason = reason
+
+class TokenizerInitializationError(TokenizerError):
+    """Exception raised for errors during tokenizer initialization."""
 
 
-################################################################################
-# Inference Client Exceptions
-################################################################################
-
-
-class InferenceClientError(AIPerfError):
-    """Exception raised when a inference client encounters an error."""
-
-
-class InvalidPayloadError(InferenceClientError):
-    """Exception raised when a inference client receives an invalid payload."""
+class TokenizerNotInitializedError(TokenizerError):
+    """Exception raised when the tokenizer is not initialized."""
 
 
 ################################################################################

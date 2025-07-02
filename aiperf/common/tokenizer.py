@@ -9,7 +9,10 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from transformers import BatchEncoding
 
-from aiperf.common.exceptions import TokenizerError, TokenizerErrorReason
+from aiperf.common.exceptions import (
+    TokenizerInitializationError,
+    TokenizerNotInitializedError,
+)
 
 # Silence tokenizer warning on import and first use
 with (
@@ -55,10 +58,7 @@ class Tokenizer:
                 name, trust_remote_code=trust_remote_code, revision=revision
             )
         except Exception as e:
-            raise TokenizerError(
-                TokenizerErrorReason.INITIALIZATION_ERROR,
-                f"Failed to initialize tokenizer: {e}",
-            ) from e
+            raise TokenizerInitializationError(e) from e
         return tokenizer_cls
 
     def __call__(self, text, **kwargs) -> "BatchEncoding":
@@ -73,10 +73,7 @@ class Tokenizer:
             A BatchEncoding object containing the tokenized output.
         """
         if self._tokenizer is None:
-            raise TokenizerError(
-                TokenizerErrorReason.INITIALIZATION_ERROR,
-                "Tokenizer is not initialized.",
-            )
+            raise TokenizerNotInitializedError("Tokenizer is not initialized.")
         return self._tokenizer(text, **{**self._call_args, **kwargs})
 
     def encode(self, text, **kwargs) -> list[int]:
@@ -93,10 +90,7 @@ class Tokenizer:
             A list of token IDs.
         """
         if self._tokenizer is None:
-            raise TokenizerError(
-                TokenizerErrorReason.INITIALIZATION_ERROR,
-                "Tokenizer is not initialized.",
-            )
+            raise TokenizerNotInitializedError("Tokenizer is not initialized.")
         return self._tokenizer.encode(text, **{**self._encode_args, **kwargs})
 
     def decode(self, token_ids, **kwargs) -> str:
@@ -113,10 +107,7 @@ class Tokenizer:
             The decoded string.
         """
         if self._tokenizer is None:
-            raise TokenizerError(
-                TokenizerErrorReason.INITIALIZATION_ERROR,
-                "Tokenizer is not initialized.",
-            )
+            raise TokenizerNotInitializedError("Tokenizer is not initialized.")
         return self._tokenizer.decode(token_ids, **{**self._decode_args, **kwargs})
 
     @property
@@ -125,10 +116,7 @@ class Tokenizer:
         Return the beginning-of-sequence (BOS) token ID.
         """
         if self._tokenizer is None:
-            raise TokenizerError(
-                TokenizerErrorReason.INITIALIZATION_ERROR,
-                "Tokenizer is not initialized.",
-            )
+            raise TokenizerNotInitializedError("Tokenizer is not initialized.")
         return self._tokenizer.bos_token_id
 
     def __repr__(self) -> str:
