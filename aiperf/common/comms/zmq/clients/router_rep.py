@@ -16,6 +16,33 @@ from aiperf.common.record_models import ErrorDetails
 
 
 class ZMQRouterRepClient(BaseZMQClient, RepClient):
+    """
+    ZMQ ROUTER socket client for handling requests from DEALER clients.
+
+    The ROUTER socket receives requests from DEALER clients and sends responses
+    back to the originating client using routing envelopes.
+
+    ASCII Diagram:
+    ┌──────────────┐                    ┌──────────────┐
+    │    DEALER    │───── Request ─────>│              │
+    │   (Client)   │<──── Response ─────│              │
+    └──────────────┘                    │              │
+    ┌──────────────┐                    │    ROUTER    │
+    │    DEALER    │───── Request ─────>│  (Service)   │
+    │   (Client)   │<──── Response ─────│              │
+    └──────────────┘                    │              │
+    ┌──────────────┐                    │              │
+    │    DEALER    │───── Request ─────>│              │
+    │   (Client)   │<──── Response ─────│              │
+    └──────────────┘                    └──────────────┘
+
+    Usage Pattern:
+    - ROUTER handles requests from multiple DEALER clients
+    - Maintains routing envelopes to send responses back
+    - Many-to-one request handling pattern
+    - Supports concurrent request processing
+    """
+
     def __init__(
         self,
         context: zmq.asyncio.Context,

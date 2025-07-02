@@ -15,6 +15,34 @@ logger = logging.getLogger(__name__)
 
 
 class ZMQPushClient(BaseZMQClient, PushClient):
+    """
+    ZMQ PUSH socket client for sending work to PULL sockets.
+
+    The PUSH socket sends messages to PULL sockets in a pipeline pattern,
+    distributing work fairly among available PULL workers.
+
+    ASCII Diagram:
+    ┌─────────────┐      ┌─────────────┐      ┌─────────────┐
+    │    PUSH     │      │    PULL     │      │    PULL     │
+    │ (Producer)  │      │ (Worker 1)  │      │ (Worker 2)  │
+    │             │      └─────────────┘      └─────────────┘
+    │   Tasks:    │             ▲                     ▲
+    │   - Task A  │─────────────┘                     │
+    │   - Task B  │───────────────────────────────────┘
+    │   - Task C  │─────────────┐
+    │   - Task D  │             ▼
+    └─────────────┘      ┌─────────────┐
+                         │    PULL     │
+                         │ (Worker 3)  │
+                         └─────────────┘
+
+    Usage Pattern:
+    - Round-robin distribution of work tasks (One-to-Many)
+    - Each message delivered to exactly one worker
+    - Pipeline pattern for distributed processing
+    - Automatic load balancing across available workers
+    """
+
     def __init__(
         self,
         context: zmq.asyncio.Context,
@@ -23,7 +51,7 @@ class ZMQPushClient(BaseZMQClient, PushClient):
         socket_ops: dict | None = None,
     ) -> None:
         """
-        Initialize the ZMQ Pusher class.
+        Initialize the ZMQ Push client class.
 
         Args:
             context (zmq.asyncio.Context): The ZMQ context.

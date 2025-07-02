@@ -16,6 +16,26 @@ from aiperf.common.messages import Message
 
 
 class ZMQDealerReqClient(BaseZMQClient, ReqClient):
+    """
+    ZMQ DEALER socket client for asynchronous request-response communication.
+
+    The DEALER socket connects to ROUTER sockets and can send requests asynchronously,
+    receiving responses through callbacks or awaitable futures.
+
+    ASCII Diagram:
+    ┌──────────────┐                    ┌──────────────┐
+    │    DEALER    │<──── Request ─────>│    ROUTER    │
+    │   (Client)   │                    │  (Service)   │
+    │              │<─── Response ─────>│              │
+    └──────────────┘                    └──────────────┘
+
+    Usage Pattern:
+    - DEALER can connect to multiple ROUTER services
+    - Requests are load-balanced across available ROUTER services
+    - Responses are routed back to the originating DEALER
+    - Supports asynchronous request-response with callbacks
+    """
+
     def __init__(
         self,
         context: zmq.asyncio.Context,

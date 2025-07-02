@@ -23,7 +23,7 @@ from aiperf.common.config import (
     ZMQIPCConfig,
     ZMQTCPConfig,
 )
-from aiperf.common.enums import CommunicationBackend, ServiceType
+from aiperf.common.enums import CommunicationBackend
 from aiperf.common.exceptions import (
     CommunicationError,
     CommunicationErrorReason,
@@ -43,22 +43,13 @@ class BaseZMQCommunication(BaseCommunication, ABC):
     def __init__(
         self,
         config: BaseZMQCommunicationConfig | None = None,
-        parent_service_type: ServiceType | None = None,
     ) -> None:
-        """Initialize ZMQ communication.
-
-        Args:
-            config: ZMQCommunicationConfig object with configuration parameters
-        """
         self.stop_event: asyncio.Event = asyncio.Event()
         self.initialized_event: asyncio.Event = asyncio.Event()
         self.config = config or ZMQIPCConfig()
 
         self.context = zmq.asyncio.Context.instance()
         self.clients: list[BaseZMQClient] = []
-
-        # TODO: Look into using this for determining bind vs connect
-        self.parent_service_type: ServiceType | None = parent_service_type
 
         logger.debug(
             "ZMQ communication using protocol: %s",
@@ -67,28 +58,16 @@ class BaseZMQCommunication(BaseCommunication, ABC):
 
     @property
     def is_initialized(self) -> bool:
-        """Check if communication channels are initialized.
-
-        Returns:
-            True if communication channels are initialized, False otherwise
-        """
+        """Check if communication channels are initialized."""
         return self.initialized_event.is_set()
 
     @property
     def is_shutdown(self) -> bool:
-        """Check if communication channels are shutdown.
-
-        Returns:
-            True if communication channels are shutdown, False otherwise
-        """
+        """Check if communication channels are shutdown."""
         return self.stop_event.is_set()
 
     async def initialize(self) -> None:
-        """Initialize communication channels.
-
-        Returns:
-            True if initialization was successful, False otherwise
-        """
+        """Initialize communication channels."""
         if self.is_initialized:
             return
 

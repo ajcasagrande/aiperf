@@ -16,6 +16,39 @@ from aiperf.common.utils import call_all_functions
 
 
 class ZMQSubClient(BaseZMQClient, SubClient):
+    """
+    ZMQ SUB socket client for subscribing to messages from PUB sockets.
+    One-to-Many or Many-to-One communication pattern.
+
+    ASCII Diagram:
+    ┌──────────────┐    ┌──────────────┐
+    │     PUB      │───>│              │
+    │ (Publisher)  │    │              │
+    └──────────────┘    │     SUB      │
+    ┌──────────────┐    │ (Subscriber) │
+    │     PUB      │───>│              │
+    │ (Publisher)  │    │              │
+    └──────────────┘    └──────────────┘
+    OR
+    ┌──────────────┐    ┌──────────────┐
+    │              │───>│     SUB      │
+    │              │    │ (Subscriber) │
+    │     PUB      │    └──────────────┘
+    │ (Publisher)  │    ┌──────────────┐
+    │              │───>│     SUB      │
+    │              │    │ (Subscriber) │
+    └──────────────┘    └──────────────┘
+
+
+    Usage Pattern:
+    - Single SUB socket subscribes to multiple PUB publishers (One-to-Many)
+    OR
+    - Multiple SUB sockets subscribe to a single PUB publisher (Many-to-One)
+
+    - Subscribes to specific message topics/types
+    - Receives all messages matching subscriptions
+    """
+
     def __init__(
         self,
         context: zmq.asyncio.Context,
@@ -143,4 +176,3 @@ class ZMQSubClient(BaseZMQClient, SubClient):
                     e,
                     type(e),
                 )
-                # await asyncio.sleep(0.1)

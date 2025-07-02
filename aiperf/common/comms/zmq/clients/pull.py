@@ -20,6 +20,34 @@ logger = logging.getLogger(__name__)
 
 
 class ZMQPullClient(BaseZMQClient, PullClient):
+    """
+    ZMQ PULL socket client for receiving work from PUSH sockets.
+
+    The PULL socket receives messages from PUSH sockets in a pipeline pattern,
+    distributing work fairly among multiple PULL workers.
+
+    ASCII Diagram:
+    ┌─────────────┐      ┌─────────────┐      ┌─────────────┐
+    │    PUSH     │      │    PULL     │      │    PULL     │
+    │ (Producer)  │      │ (Worker 1)  │      │ (Worker 2)  │
+    │             │      └─────────────┘      └─────────────┘
+    │   Tasks:    │             ▲                     ▲
+    │   - Task A  │─────────────┘                     │
+    │   - Task B  │───────────────────────────────────┘
+    │   - Task C  │─────────────┐
+    │   - Task D  │             ▼
+    └─────────────┘      ┌─────────────┐
+                         │    PULL     │
+                         │ (Worker N)  │
+                         └─────────────┘
+
+    Usage Pattern:
+    - PULL receives work from multiple PUSH producers
+    - Work is fairly distributed among PULL workers
+    - Pipeline pattern for distributed processing
+    - Each message is delivered to exactly one PULL socket
+    """
+
     def __init__(
         self,
         context: zmq.asyncio.Context,

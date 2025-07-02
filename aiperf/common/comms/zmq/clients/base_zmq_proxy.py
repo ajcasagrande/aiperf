@@ -20,20 +20,14 @@ class BaseZMQProxy(ABC):
     """
     A Base ZMQ Proxy class.
 
-    This class is responsible for creating the ZMQ proxy that forwards messages
-    between clients and services.
-
-    **Connection Architecture:**
-    - Clients connect to frontend_address (proxy's frontend socket)
-    - Services connect to backend_address (proxy's backend socket)
-    - The proxy forwards messages bidirectionally between the two sockets
-
-    **Message Flow:**
-    Client -> frontend_address -> frontend_socket -> proxy -> backend_socket -> backend_address -> Service
-    Service -> backend_address -> backend_socket -> proxy -> frontend_socket -> frontend_address -> Client
-
-    The proxy is started in a separate thread using asyncio.to_thread.
-    This is because the proxy is a blocking operation and we want to avoid blocking the main thread.
+    - Frontend and backend sockets forward messages bidirectionally
+        - Frontend and Backend sockets both BIND
+        - Clients and Services both CONNECT to proxy
+    - Client Side: Multiple clients connect to `frontend_address`
+    - Service Side: Multiple services connect to `backend_address`
+    - Control: Optional REP socket for proxy commands (start/stop/pause) - not implemented yet
+    - Monitoring: Optional PUB socket that broadcasts copies of all forwarded messages - not implemented yet
+    - Proxy runs in separate thread to avoid blocking main event loop
     """
 
     def __init__(

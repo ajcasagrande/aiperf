@@ -15,6 +15,38 @@ logger = logging.getLogger(__name__)
 
 
 class ZMQPubClient(BaseZMQClient, PubClient):
+    """
+    The PUB socket broadcasts messages to all connected SUB sockets that have
+    subscribed to the message topic/type.
+
+    ASCII Diagram:
+    ┌──────────────┐    ┌──────────────┐
+    │     PUB      │───>│              │
+    │ (Publisher)  │    │              │
+    └──────────────┘    │     SUB      │
+    ┌──────────────┐    │ (Subscriber) │
+    │     PUB      │───>│              │
+    │ (Publisher)  │    │              │
+    └──────────────┘    └──────────────┘
+    OR
+    ┌──────────────┐    ┌──────────────┐
+    │              │───>│     SUB      │
+    │              │    │ (Subscriber) │
+    │     PUB      │    └──────────────┘
+    │ (Publisher)  │    ┌──────────────┐
+    │              │───>│     SUB      │
+    │              │    │ (Subscriber) │
+    └──────────────┘    └──────────────┘
+
+    Usage Pattern:
+    - Single PUB socket broadcasts messages to all subscribers (One-to-Many)
+    OR
+    - Multiple PUB sockets broadcast messages to a single SUB socket (Many-to-One)
+
+    - SUB sockets filter messages by topic/message_type
+    - Fire-and-forget messaging (no acknowledgments)
+    """
+
     def __init__(
         self,
         context: zmq.asyncio.Context,
@@ -23,7 +55,7 @@ class ZMQPubClient(BaseZMQClient, PubClient):
         socket_ops: dict | None = None,
     ) -> None:
         """
-        Initialize the ZMQ Publisher class.
+        Initialize the ZMQ Publisher client class.
 
         Args:
             context (zmq.asyncio.Context): The ZMQ context.

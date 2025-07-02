@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
+import contextlib
 import logging
 import uuid
 
@@ -134,12 +135,11 @@ class BaseZMQClient(AIPerfTaskMixin, BaseCommunicationClient):
                 )
                 self._socket.connect(self.address)
 
-            # In BaseZMQClient.initialize()
-            # Reduce timeouts to more reasonable values
+            # Set default timeouts
             self._socket.setsockopt(zmq.RCVTIMEO, 300000)  # 5 minutes
             self._socket.setsockopt(zmq.SNDTIMEO, 300000)  # 5 minutes
 
-            # Add performance-oriented socket options
+            # Set performance-oriented socket options
             self._socket.setsockopt(zmq.TCP_KEEPALIVE, 1)
             self._socket.setsockopt(zmq.TCP_KEEPALIVE_IDLE, 60)
             self._socket.setsockopt(zmq.TCP_KEEPALIVE_INTVL, 10)
@@ -194,28 +194,17 @@ class BaseZMQClient(AIPerfTaskMixin, BaseCommunicationClient):
             task.cancel()
 
         # Wait for all tasks to complete
-        await asyncio.wait_for(
-            asyncio.gather(*self.registered_tasks),
-            timeout=TASK_CANCEL_TIMEOUT_SHORT,
-        )
+        with contextlib.suppress(asyncio.TimeoutError):
+            await asyncio.wait_for(
+                asyncio.gather(*self.registered_tasks),
+                timeout=TASK_CANCEL_TIMEOUT_SHORT,
+            )
         self.registered_tasks.clear()
 
         # Run the ON_STOP and ON_CLEANUP hooks
         try:
-            cancelled_error = None
-            try:
-                await self.run_hooks(AIPerfHook.ON_STOP)
-            except asyncio.CancelledError as e:
-                cancelled_error = e
-
-            try:
-                await self.run_hooks(AIPerfHook.ON_CLEANUP)
-            except asyncio.CancelledError as e:
-                cancelled_error = e
-
-            # Re-raise the cancelled error if it was raised during the stop hooks
-            if cancelled_error:
-                raise cancelled_error
+            await self.run_hooks(AIPerfHook.ON_STOP)
+            await self.run_hooks(AIPerfHook.ON_CLEANUP)
 
         except AIPerfError:
             raise  # re-raise it up the stack
