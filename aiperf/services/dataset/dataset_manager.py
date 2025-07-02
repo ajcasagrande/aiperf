@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+import asyncio
 import os
 import random
 import sys
@@ -39,6 +40,8 @@ from aiperf.common.tokenizer import Tokenizer
 from aiperf.services.dataset.composer import ComposerFactory
 from aiperf.services.dataset.config import DatasetConfig, PromptConfig
 
+DATASET_CONFIGURATION_TIMEOUT = 30.0
+
 
 ################################################################################
 # TODO: Temporary (remove when command config is ready)
@@ -72,9 +75,10 @@ class DatasetManager(BaseComponentService):
         self.logger.debug("Initializing dataset manager")
         self.tokenizer: Tokenizer | None = None
         self.dataset: dict[str, Conversation] = {}  # session ID -> Conversation mapping
-        self.conversation_data_client: RepClient = self.comms.create_rep_client(
+        self.dealer_router_client: RepClient = self.comms.create_rep_client(
             ClientAddressType.DEALER_ROUTER_BACKEND
         )
+        self.dataset_configured = asyncio.Event()
 
     @property
     def service_type(self) -> ServiceType:
@@ -89,12 +93,12 @@ class DatasetManager(BaseComponentService):
         if self.comms is None:
             raise AIPerfError("Communication is not initialized")
 
-        self.conversation_data_client.register_request_handler(
+        self.dealer_router_client.register_request_handler(
             service_id=self.service_id,
             message_type=MessageType.CONVERSATION_REQUEST,
             handler=self._handle_conversation_request,
         )
-        self.conversation_data_client.register_request_handler(
+        self.dealer_router_client.register_request_handler(
             service_id=self.service_id,
             message_type=MessageType.DATASET_TIMING_REQUEST,
             handler=self._handle_dataset_timing_request,
@@ -123,6 +127,7 @@ class DatasetManager(BaseComponentService):
     @on_configure
     async def _configure(self, message: Message) -> None:
         """Configure the dataset manager."""
+        self.dataset_configured.clear()
         self.logger.info(
             "Configuring dataset manager %s with message: %s",
             self.service_id,
@@ -155,6 +160,7 @@ class DatasetManager(BaseComponentService):
         conversations = composer.create_dataset()
         self.dataset = {conv.session_id: conv for conv in conversations}
 
+        self.dataset_configured.set()
         await self.pub_client.publish(
             NotificationMessage(
                 service_id=self.service_id,
@@ -169,6 +175,12 @@ class DatasetManager(BaseComponentService):
     ) -> ConversationResponseMessage:
         """Handle a conversation request."""
         self.logger.debug("Handling conversation request: %s", message)
+
+        # Wait for the dataset to be configured if it is not already
+        if not self.dataset_configured.is_set():
+            await asyncio.wait_for(
+                self.dataset_configured.wait(), timeout=DATASET_CONFIGURATION_TIMEOUT
+            )
 
         if not self.dataset:
             raise self._service_error(

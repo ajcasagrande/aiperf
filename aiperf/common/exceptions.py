@@ -161,6 +161,19 @@ class TokenizerNotInitializedError(TokenizerError):
 
 
 ################################################################################
+# Inference Client Exceptions
+################################################################################
+
+
+class InferenceClientError(AIPerfError):
+    """Exception raised when a inference client encounters an error."""
+
+
+class InvalidPayloadError(InferenceClientError):
+    """Exception raised when a inference client receives an invalid payload."""
+
+
+################################################################################
 # Hook Exceptions
 ################################################################################
 

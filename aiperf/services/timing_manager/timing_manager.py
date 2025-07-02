@@ -102,7 +102,7 @@ class TimingManager(BaseComponentService):
     @on_configure
     async def _configure(self, message: Message) -> None:
         """Configure the timing manager."""
-        self.logger.debug(f"Configuring timing manager with message: {message}")
+        self.logger.debug("Configuring timing manager with message: %s", message)
         # TODO: Implement timing manager configuration
 
     @on_start
@@ -126,7 +126,7 @@ class TimingManager(BaseComponentService):
 
     async def _on_notification(self, message: NotificationMessage) -> None:
         """Handle a notification message."""
-        self.logger.info(f"TM: Received notification: {message.notification_type}")
+        self.logger.info("TM: Received notification: %s", message.notification_type)
         if message.notification_type == NotificationType.DATASET_CONFIGURED:
             self.logger.debug("TM: Requesting dataset timing information")
             self.dataset_timing_response = await self.dataset_request_client.request(
@@ -176,7 +176,9 @@ class TimingManager(BaseComponentService):
                     continue
 
                 self.logger.debug(
-                    f"Issuing credit drop {self._sent_credits + 1} of {self._total_credits}"
+                    "Issuing credit drop %s of %s",
+                    self._sent_credits + 1,
+                    self._total_credits,
                 )
 
                 async def drop_task():
@@ -206,7 +208,7 @@ class TimingManager(BaseComponentService):
                 self.logger.debug("Credit drop task cancelled")
                 break
             except Exception as e:
-                self.logger.error(f"Exception issuing credit drop: {e}")
+                self.logger.error("Exception issuing credit drop: %s", e)
                 await asyncio.sleep(0.1)
 
     async def _on_credit_return(self, message: CreditReturnMessage) -> None:
@@ -215,7 +217,7 @@ class TimingManager(BaseComponentService):
         Args:
             message: The credit return message received from the pull request
         """
-        self.logger.debug(f"Processing credit return: {message}")
+        self.logger.debug("Processing credit return: %s", message)
         async with self._credit_lock:
             self._credits_available += message.amount
             self._completed_credits += message.amount

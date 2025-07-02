@@ -79,7 +79,7 @@ def setup_child_process_logging(
     file_handler.setLevel(level)
     file_handler.formatter = logging.Formatter(
         "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S.%f",
+        datefmt="%Y-%m-%d %H:%M:%S",
     )
     root_logger.addHandler(file_handler)
 

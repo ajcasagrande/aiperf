@@ -135,6 +135,7 @@ class ZMQSubClient(BaseZMQClient, SubClient):
                 break
 
             except zmq.Again:
+                await asyncio.sleep(0)  # Yield to other tasks
                 pass
 
             except Exception as e:

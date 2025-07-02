@@ -76,6 +76,7 @@ class ZMQPullClient(BaseZMQClient, PullClient):
 
             except zmq.Again:
                 self.semaphore.release()
+                await asyncio.sleep(0)  # Yield to other tasks
                 continue
 
             except (asyncio.CancelledError, zmq.ContextTerminated):
