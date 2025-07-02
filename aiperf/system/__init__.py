@@ -4,5 +4,5 @@
 __all__ = ["ProfileRunner", "SystemController"]
 
 
-from aiperf.services.system_controller.profile_runner import ProfileRunner
-from aiperf.services.system_controller.system_controller import SystemController
+from aiperf.services.system.profile_runner import ProfileRunner
+from aiperf.services.system.system_controller import SystemController

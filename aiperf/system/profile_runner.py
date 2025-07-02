@@ -15,7 +15,7 @@ from aiperf.common.enums import (
 from aiperf.common.progress_models import ProfileProgress, ProfileSuiteProgress
 
 if TYPE_CHECKING:
-    from aiperf.services.system_controller.system_controller import SystemController
+    from aiperf.services.system.system_controller import SystemController
 
 
 class ProfileRunner:

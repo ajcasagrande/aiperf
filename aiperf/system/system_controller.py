@@ -55,9 +55,9 @@ from aiperf.services.service_manager import (
     KubernetesServiceManager,
     MultiProcessServiceManager,
 )
-from aiperf.services.system_controller.profile_runner import ProfileRunner
-from aiperf.services.system_controller.progress_logger import SimpleProgressLogger
-from aiperf.services.system_controller.system_mixins import SignalHandlerMixin
+from aiperf.services.system.profile_runner import ProfileRunner
+from aiperf.services.system.progress_logger import SimpleProgressLogger
+from aiperf.services.system.system_mixins import SignalHandlerMixin
 from aiperf.ui.aiperf_ui import AIPerfUI
 
 

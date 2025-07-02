@@ -16,7 +16,7 @@ from aiperf.common.config import ServiceConfig
 from aiperf.common.config.config_defaults import ServiceDefaults
 from aiperf.common.config.user_config import UserConfig
 from aiperf.common.logging import setup_child_process_logging
-from aiperf.services.system_controller.system_controller import SystemController
+from aiperf.services.system.system_controller import SystemController
 
 logger = logging.getLogger(__name__)
 
