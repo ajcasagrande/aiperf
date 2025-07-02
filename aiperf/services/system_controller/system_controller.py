@@ -30,7 +30,6 @@ from aiperf.common.exceptions import (
 )
 from aiperf.common.factories import ServiceFactory, ZMQProxyFactory
 from aiperf.common.hooks import on_cleanup, on_stop
-from aiperf.common.logging import get_global_log_queue
 from aiperf.common.messages import (
     CommandResponseMessage,
     CreditsCompleteMessage,
@@ -40,7 +39,6 @@ from aiperf.common.messages import (
     RegistrationMessage,
     StatusMessage,
 )
-from aiperf.common.progress_tracker import ProgressTracker
 from aiperf.common.service.base_controller_service import BaseControllerService
 from aiperf.common.service.base_service import BaseService
 from aiperf.common.service_models import ServiceRunInfo
@@ -49,9 +47,7 @@ from aiperf.services.service_manager import (
     KubernetesServiceManager,
     MultiProcessServiceManager,
 )
-from aiperf.services.system_controller.progress_logger import SimpleProgressLogger
 from aiperf.services.system_controller.system_mixins import SignalHandlerMixin
-from aiperf.ui.aiperf_ui import AIPerfUI
 
 
 @ServiceFactory.register(ServiceType.SYSTEM_CONTROLLER)
@@ -85,14 +81,6 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         ]
 
         self.service_manager: BaseServiceManager = None  # type: ignore - is set in _initialize
-        self.progress_tracker: ProgressTracker = ProgressTracker()
-        self.ui_enabled: bool = not self.service_config.disable_ui
-        self.ui: AIPerfUI | None = (
-            AIPerfUI(self.progress_tracker) if self.ui_enabled else None
-        )
-        self.progress_logger: SimpleProgressLogger | None = (
-            SimpleProgressLogger(self.progress_tracker) if not self.ui_enabled else None
-        )
 
         self.xpub_xsub_proxy: BaseZMQProxy
         self.xpub_xsub_proxy_task: asyncio.Task
@@ -126,9 +114,6 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         - Initialize the service manager
         - Subscribe to relevant messages
         """
-        if self.ui:
-            await self.ui.run_async()
-
         self.logger.debug("Initializing System Controller")
 
         self.setup_signal_handlers(self._handle_signal)
@@ -166,7 +151,6 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             self.service_manager = MultiProcessServiceManager(
                 required_service_types=self.required_service_types,
                 config=self.service_config,
-                log_queue=get_global_log_queue(),
             )
 
         elif self.service_config.service_run_type == ServiceRunType.KUBERNETES:
@@ -187,10 +171,6 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             (MessageType.HEARTBEAT, self._process_heartbeat_message),
             (MessageType.STATUS, self._process_status_message),
             (MessageType.CREDITS_COMPLETE, self._process_credits_complete_message),
-            (MessageType.PROFILE_PROGRESS, self._process_profile_progress_message),
-            (MessageType.PROFILE_STATS, self._process_profile_stats_message),
-            (MessageType.PROFILE_RESULTS, self._process_profile_results_message),
-            (MessageType.WORKER_HEALTH, self._process_worker_health_message),
             (MessageType.NOTIFICATION, self._process_notification_message),
             (MessageType.COMMAND_RESPONSE, self._process_command_response_message),
         ]
@@ -296,10 +276,6 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         # logging.root.setLevel(logging.DEBUG)
 
         self._system_state = SystemState.STOPPING
-
-        if self.ui:
-            await self.ui.shutdown()
-            await self.ui.wait_for_shutdown()
 
         # TODO: This is a hack to force printing results again
         # Process records command

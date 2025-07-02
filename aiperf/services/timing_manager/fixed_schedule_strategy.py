@@ -9,8 +9,8 @@ from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.messages import DatasetTimingRequest, DatasetTimingResponse
 from aiperf.services.timing_manager.credit_issuing_strategy import (
     CreditIssuingStrategy,
+    CreditManagerProtocol,
 )
-from aiperf.services.timing_manager.timing_manager import CreditManagerProtocol
 
 
 class FixedScheduleStrategy(CreditIssuingStrategy):
