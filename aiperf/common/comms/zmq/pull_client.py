@@ -162,9 +162,6 @@ class ZMQPullClient(BaseZMQClient, AsyncTaskManagerMixin):
         """
         await self._ensure_initialized()
 
-        if max_concurrency is not None:
-            self.semaphore = asyncio.Semaphore(value=max_concurrency)
-
         # Register callback
         if message_type not in self._pull_callbacks:
             self._pull_callbacks[message_type] = callback
@@ -172,3 +169,6 @@ class ZMQPullClient(BaseZMQClient, AsyncTaskManagerMixin):
             raise ValueError(
                 f"Callback already registered for message type {message_type}"
             )
+
+        if max_concurrency is not None:
+            self.semaphore = asyncio.Semaphore(value=max_concurrency)

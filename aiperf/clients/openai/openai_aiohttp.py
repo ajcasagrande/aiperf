@@ -15,15 +15,14 @@ from aiperf.clients.openai.common import (
     OpenAIEmbeddingsRequest,
     OpenAIResponsesRequest,
 )
-from aiperf.common.config import EndPointConfig
 from aiperf.common.enums import InferenceClientType
 from aiperf.common.exceptions import InvalidPayloadError
 from aiperf.common.factories import InferenceClientFactory
 from aiperf.common.record_models import (
     ErrorDetails,
-    ParsedResponseRecord,
     RequestRecord,
 )
+from aiperf.common.types import ModelEndpointInfo
 
 ################################################################################
 # OpenAI Inference Client
@@ -37,10 +36,11 @@ class ChatCompletionMixin(AioHttpClientMixin):
 
     def __init__(self, client_config: OpenAIClientConfig) -> None:
         super().__init__(client_config)
+        self.client_config: OpenAIClientConfig = client_config
 
     async def send_chat_completion_request(
-        self, payload: OpenAIChatCompletionRequest
-    ) -> ParsedResponseRecord:
+        self, model_endpoint: ModelEndpointInfo, payload: OpenAIChatCompletionRequest
+    ) -> RequestRecord:
         """Send chat completion request using aiohttp."""
 
         try:
@@ -79,7 +79,7 @@ class ChatCompletionMixin(AioHttpClientMixin):
                 if not self.client_config.base_url.startswith(("http://", "https://"))
                 else self.client_config.base_url
             )
-            url = f"{base_url.rstrip('/')}/{self.client_config.endpoint}"
+            url = f"{base_url.rstrip('/')}/{self.model_endpoint.endpoint.type}"
 
             record = await self.post_request(
                 url, json.dumps(request_payload), headers, delayed=False
@@ -103,7 +103,7 @@ class ChatCompletionMixin(AioHttpClientMixin):
         return record
 
 
-@InferenceClientFactory.register(InferenceClientType.OPENAI, override_priority=00)
+@InferenceClientFactory.register(InferenceClientType.OPENAI)
 class OpenAIClientAioHttp(ChatCompletionMixin):
     """A high-performance inference client for communicating with OpenAI based REST APIs using aiohttp.
 
@@ -119,87 +119,91 @@ class OpenAIClientAioHttp(ChatCompletionMixin):
         await super().close()
 
     async def format_payload(
-        self, endpoint: EndPointConfig, payload: OpenAIBaseRequest | dict[str, Any]
+        self,
+        model_endpoint: ModelEndpointInfo,
+        payload: OpenAIBaseRequest | dict[str, Any],
     ) -> OpenAIBaseRequest:
         """Format payload for the given endpoint."""
 
         if isinstance(payload, dict):
-            return self._convert_dict_to_request(endpoint, payload)
+            return self._convert_dict_to_request(model_endpoint, payload)
         return payload
 
     def _convert_dict_to_request(
-        self, endpoint: EndPointConfig, payload: dict[str, Any]
+        self, model_endpoint: ModelEndpointInfo, payload: dict[str, Any]
     ) -> OpenAIBaseRequest:
         """Convert dictionary payload to proper OpenAI request object."""
 
-        if endpoint.type == "v1/chat/completions":
+        if model_endpoint.endpoint.type == "v1/chat/completions":
             return OpenAIChatCompletionRequest(
                 messages=payload["messages"],
-                model=self.client_config.model,
+                model=model_endpoint.models[0].name,
                 max_tokens=self.client_config.max_tokens,
-                stream=endpoint.streaming,
+                stream=model_endpoint.endpoint.streaming,
                 kwargs=payload.get("kwargs", {}),
             )
 
-        elif endpoint.type == "v1/completions":
+        elif model_endpoint.endpoint.type == "v1/completions":
             return OpenAICompletionRequest(
                 prompt=payload["prompt"],
                 model=self.client_config.model,
                 max_tokens=self.client_config.max_tokens,
-                stream=endpoint.streaming,
+                stream=model_endpoint.endpoint.streaming,
                 kwargs=payload.get("kwargs", {}),
             )
 
-        elif endpoint.type == "v1/embeddings":
+        elif model_endpoint.endpoint.type == "v1/embeddings":
             return OpenAIEmbeddingsRequest(
                 input=payload["input"],
-                model=self.client_config.model,
+                model=model_endpoint.models[0].name,
                 dimensions=payload["dimensions"],
                 encoding_format=payload["encoding_format"],
                 user=payload["user"],
                 kwargs=payload.get("kwargs", {}),
             )
 
-        elif endpoint.type == "v1/responses":
+        elif model_endpoint.endpoint.type == "v1/responses":
             return OpenAIResponsesRequest(
                 input=payload["input"],
-                model=self.client_config.model,
-                max_output_tokens=self.client_config.max_tokens,
-                stream=endpoint.streaming,
+                model=model_endpoint.models[0].name,
+                max_output_tokens=model_endpoint.max_output_tokens,
+                stream=model_endpoint.endpoint.streaming,
                 kwargs=payload.get("kwargs", {}),
             )
 
         else:
-            raise ValueError(f"Invalid endpoint: {endpoint}")
+            raise ValueError(f"Invalid endpoint: {model_endpoint.endpoint.type}")
 
     async def send_request(
         self,
-        endpoint: EndPointConfig,
+        model_endpoint: ModelEndpointInfo,
         payload: OpenAIBaseRequest,
         delayed: bool = False,
-    ) -> ParsedResponseRecord:
+    ) -> RequestRecord:
         """Send request to the specified endpoint with the given payload."""
-        record: ParsedResponseRecord | None = None
+        record: RequestRecord | None = None
         start_perf_ns = time.perf_counter_ns()
 
         try:
             if isinstance(payload, OpenAIChatCompletionRequest):
-                record = await self.send_chat_completion_request(payload)
+                record = await self.send_chat_completion_request(
+                    model_endpoint, payload
+                )
 
             elif isinstance(payload, OpenAICompletionRequest):
-                record = await self.send_completion_request(payload)
+                record = await self.send_completion_request(model_endpoint, payload)
 
             elif isinstance(payload, OpenAIEmbeddingsRequest):
-                record = await self.send_embeddings_request(payload)
+                record = await self.send_embeddings_request(model_endpoint, payload)
 
             elif isinstance(payload, OpenAIResponsesRequest):
-                record = await self.send_chat_responses_request(payload)
+                record = await self.send_chat_responses_request(model_endpoint, payload)
 
             else:
                 raise InvalidPayloadError(f"Invalid payload: {payload}")
 
         except Exception as e:
-            record = ParsedResponseRecord(
+            record = RequestRecord(
                 start_perf_ns=start_perf_ns,
                 delayed=delayed,
                 error=ErrorDetails(
@@ -211,22 +215,22 @@ class OpenAIClientAioHttp(ChatCompletionMixin):
         return record
 
     async def send_completion_request(
-        self, payload: OpenAICompletionRequest
-    ) -> ParsedResponseRecord:
+        self, model_endpoint: ModelEndpointInfo, payload: OpenAICompletionRequest
+    ) -> RequestRecord:
         raise NotImplementedError(
             "OpenAIClientAioHttp does not support completion requests"
         )
 
     async def send_embeddings_request(
-        self, payload: OpenAIEmbeddingsRequest
-    ) -> ParsedResponseRecord:
+        self, model_endpoint: ModelEndpointInfo, payload: OpenAIEmbeddingsRequest
+    ) -> RequestRecord:
         raise NotImplementedError(
             "OpenAIClientAioHttp does not support embeddings requests"
         )
 
     async def send_chat_responses_request(
-        self, payload: OpenAIResponsesRequest
-    ) -> ParsedResponseRecord:
+        self, model_endpoint: ModelEndpointInfo, payload: OpenAIResponsesRequest
+    ) -> RequestRecord:
         raise NotImplementedError(
             "OpenAIClientAioHttp does not support chat responses requests"
         )

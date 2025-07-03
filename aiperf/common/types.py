@@ -38,7 +38,7 @@ class ModelInfo(BaseModel):
 class EndpointInfo(BaseModel):
     """Information about an endpoint."""
 
-    request_payload_type: RequestPayloadType = Field(
+    type: RequestPayloadType = Field(
         default=RequestPayloadType.OPENAI_CHAT_COMPLETIONS,
         description="The type of request payload to use for the endpoint.",
     )
@@ -49,6 +49,10 @@ class EndpointInfo(BaseModel):
     extra: dict[str, Any] | BaseModel | None = Field(
         default=None,
         description="Extra information to send with the inference request.",
+    )
+    streaming: bool = Field(
+        default=False,
+        description="Whether the endpoint supports streaming.",
     )
 
 

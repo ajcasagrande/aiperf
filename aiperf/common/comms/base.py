@@ -84,9 +84,9 @@ class RequestClientProtocol(CommunicationClientProtocol):
 
     async def request(
         self,
-        message: MessageT,
+        message: MessageT,  # type: ignore[type-arg]
         timeout: float = DEFAULT_COMMS_REQUEST_TIMEOUT,
-    ) -> MessageOutputT:
+    ) -> MessageOutputT:  # type: ignore[type-arg]
         """Send a request and wait for a response. The message will be routed automatically
         based on the message type.
 
@@ -277,6 +277,8 @@ def _create_specific_client(
     return _create_client
 
 
+# Create a method for creating each client type on the CommunicationProtocol class,
+# such as create_push_client, create_pull_client, etc.
 for (
     protocol_class,
     client_type,

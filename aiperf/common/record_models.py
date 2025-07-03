@@ -10,7 +10,6 @@ from typing import Any
 from pydantic import BaseModel, Field, SerializeAsAny
 
 from aiperf.common.enums import SSEFieldType
-from aiperf.common.types import ModelEndpointInfo
 
 
 # Temporary Record class to be used by the ConsoleExporter.
@@ -54,7 +53,7 @@ class BaseClientConfig(BaseModel):
     """Base configuration options for all clients."""
 
 
-class GenericHTTPClientConfig(BaseClientConfig, ModelEndpointInfo):
+class GenericHTTPClientConfig(BaseClientConfig):
     """Configuration options for a generic HTTP inference client."""
 
     api_key: str | None = Field(
