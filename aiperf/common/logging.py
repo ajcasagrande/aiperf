@@ -5,6 +5,8 @@ import multiprocessing
 import queue
 from pathlib import Path
 
+from rich.logging import RichHandler
+
 from aiperf.common.config.config_defaults import ServiceDefaults
 from aiperf.common.config.service_config import ServiceConfig
 
@@ -84,7 +86,7 @@ def setup_child_process_logging(
     root_logger.addHandler(file_handler)
 
 
-class MultiProcessLogHandler(logging.Handler):
+class MultiProcessLogHandler(RichHandler):
     """Custom logging handler that forwards log records to a multiprocessing queue."""
 
     def __init__(

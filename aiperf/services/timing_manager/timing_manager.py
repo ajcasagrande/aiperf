@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import sys
+import time
 
 from aiperf.common.comms.base import (
     CommunicationClientAddressType,
@@ -67,6 +68,7 @@ class TimingManager(BaseComponentService, AsyncTaskManagerMixin):
             bind=True,
         )
 
+        self.start_time_ns = time.time_ns()
         self._credit_issuing_strategy: CreditIssuingStrategy | None = None
 
     @property
@@ -142,13 +144,15 @@ class TimingManager(BaseComponentService, AsyncTaskManagerMixin):
         if self._credit_issuing_strategy:
             await self._credit_issuing_strategy.on_credit_return(message)
 
-    async def publish_progress(self, total: int, completed: int) -> None:
+    async def publish_progress(
+        self, start_time_ns: int, total: int, completed: int
+    ) -> None:
         """Publish the progress message."""
         self.execute_async(
             self.pub_client.publish(
                 ProfileProgressMessage(
                     service_id=self.service_id,
-                    start_ns=self.start_time_ns,
+                    start_ns=start_time_ns,
                     total=total,
                     completed=completed,
                 )

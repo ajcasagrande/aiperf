@@ -7,7 +7,6 @@ import uuid
 
 import zmq.asyncio
 
-from aiperf.common.comms.base import CommunicationClientProtocol
 from aiperf.common.comms.zmq.zmq_defaults import ZMQSocketDefaults
 from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
 from aiperf.common.exceptions import (
@@ -33,7 +32,7 @@ from aiperf.common.hooks import (
     AIPerfHook.ON_CLEANUP,
     AIPerfTaskHook.AIPERF_TASK,
 )
-class BaseZMQClient(AIPerfTaskMixin, CommunicationClientProtocol):
+class BaseZMQClient(AIPerfTaskMixin):
     """Base class for all ZMQ clients. It can be used as-is to create a new ZMQ client,
     or it can be subclassed to create specific ZMQ client functionality.
 

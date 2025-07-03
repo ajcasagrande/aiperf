@@ -11,6 +11,7 @@ class AsyncTaskManagerMixin:
     """Mixin to manage a set of async tasks."""
 
     def __init__(self):
+        super().__init__()
         self.tasks = set()
 
     def execute_async(self, coro: Coroutine) -> asyncio.Task:

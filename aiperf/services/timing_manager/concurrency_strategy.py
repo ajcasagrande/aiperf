@@ -51,11 +51,13 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AIPerfLifecycleMixin):
         """Issue credit drops to workers."""
         self.logger.debug("Issuing credit drops to workers")
 
+        await asyncio.sleep(3)
+
         self.start_time_ns = time.time_ns()
 
         self.execute_async(
             self.credit_manager.publish_progress(
-                self._total_credits, self._completed_credits
+                self.start_time_ns, self._total_credits, self._completed_credits
             )
         )
 
@@ -134,6 +136,6 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AIPerfLifecycleMixin):
         """Report the progress."""
         self.execute_async(
             self.credit_manager.publish_progress(
-                self._total_credits, self._completed_credits
+                self.start_time_ns, self._total_credits, self._completed_credits
             )
         )

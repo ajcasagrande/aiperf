@@ -26,7 +26,9 @@ class CreditManagerProtocol(Protocol):
         """Drop a credit."""
         ...
 
-    async def publish_progress(self, total: int, completed: int) -> None:
+    async def publish_progress(
+        self, start_time_ns: int, total: int, completed: int
+    ) -> None:
         """Publish the progress message."""
         ...
 
