@@ -8,6 +8,7 @@ import time
 from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.hooks import AIPerfLifecycleMixin, aiperf_auto_task
 from aiperf.common.messages import CreditReturnMessage
+from aiperf.services.timing_manager.config import TimingManagerConfig
 from aiperf.services.timing_manager.credit_issuing_strategy import (
     CreditIssuingStrategy,
     CreditManagerProtocol,
@@ -19,8 +20,10 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AIPerfLifecycleMixin):
     Class for concurrency credit issuing strategy.
     """
 
-    def __init__(self, config, credit_manager: CreditManagerProtocol):
-        super().__init__(config, credit_manager)
+    def __init__(
+        self, config: TimingManagerConfig, credit_manager: CreditManagerProtocol
+    ):
+        super().__init__(config=config, credit_manager=credit_manager)
         self._credit_lock = asyncio.Lock()
 
         self._total_credits = int(os.getenv("AIPERF_TOTAL_REQUESTS", 1000))
@@ -56,8 +59,6 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AIPerfLifecycleMixin):
             )
         )
 
-        drop_at = time.time_ns() + 100_000
-
         self.logger.info("TM: Issuing credit drops")
         while True:
             try:
@@ -78,7 +79,10 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AIPerfLifecycleMixin):
                 for _ in range(min(self._credits_available, credits_left)):
                     self.execute_async(
                         self.credit_manager.drop_credit(
-                            amount=1, conversation_id=None, credit_drop_ns=drop_at
+                            # TODO: Do we need to pass conversation_id?
+                            amount=1,
+                            conversation_id=None,
+                            credit_drop_ns=None,
                         )
                     )
                     self._sent_credits += 1

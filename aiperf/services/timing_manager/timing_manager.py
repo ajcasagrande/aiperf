@@ -17,7 +17,6 @@ from aiperf.common.enums import (
 from aiperf.common.exceptions import InvalidStateError
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
-    on_cleanup,
     on_configure,
     on_init,
     on_start,
@@ -26,8 +25,10 @@ from aiperf.common.hooks import (
 from aiperf.common.messages import (
     CommandMessage,
     CreditDropMessage,
+    CreditsCompleteMessage,
     DatasetTimingRequest,
     DatasetTimingResponse,
+    ProfileProgressMessage,
 )
 from aiperf.common.mixins import AsyncTaskManagerMixin
 from aiperf.common.service.base_component_service import BaseComponentService
@@ -119,14 +120,15 @@ class TimingManager(BaseComponentService, AsyncTaskManagerMixin):
         elif config.timing_mode == TimingMode.RATE:
             self._credit_issuing_strategy = RateStrategy(config, self)
 
-        assert isinstance(self._credit_issuing_strategy, CreditIssuingStrategy)
+        if not self._credit_issuing_strategy:
+            raise InvalidStateError("No credit issuing strategy configured")
+
         await self._credit_issuing_strategy.initialize()
 
     @on_start
     async def _start(self) -> None:
         """Start the timing manager and issue credit drops according to the configured strategy."""
         self.logger.debug("Starting timing manager")
-        # TODO: If not configured raise an exception
 
         if not self._credit_issuing_strategy:
             raise InvalidStateError("No credit issuing strategy configured")
@@ -141,10 +143,26 @@ class TimingManager(BaseComponentService, AsyncTaskManagerMixin):
             await self._credit_issuing_strategy.stop()
         await self.cancel_all_tasks()
 
-    @on_cleanup
-    async def _cleanup(self) -> None:
-        """Clean up timing manager-specific components."""
-        self.logger.debug("Cleaning up timing manager")
+    async def publish_progress(self, total: int, completed: int) -> None:
+        """Publish the progress message."""
+        self.execute_async(
+            self.pub_client.publish(
+                ProfileProgressMessage(
+                    service_id=self.service_id,
+                    start_ns=self.start_time_ns,
+                    total=total,
+                    completed=completed,
+                )
+            )
+        )
+
+    async def publish_credits_complete(self, cancelled: bool) -> None:
+        """Publish the credits complete message."""
+        self.execute_async(
+            self.pub_client.publish(
+                CreditsCompleteMessage(service_id=self.service_id, cancelled=cancelled)
+            )
+        )
 
     async def drop_credit(
         self,
