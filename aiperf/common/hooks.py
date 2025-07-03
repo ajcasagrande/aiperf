@@ -24,10 +24,10 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import ClassVar
 
-from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
 from aiperf.common.enums import CaseInsensitiveStrEnum
 from aiperf.common.exceptions import AIPerfError, AIPerfMultiError, UnsupportedHookError
 from aiperf.common.messages import Message
+from aiperf.common.mixins import AsyncTaskManagerMixin
 
 ################################################################################
 # Hook Types
@@ -398,7 +398,7 @@ class HooksMixin:
     AIPerfHook.ON_START,
     AIPerfHook.ON_STOP,
 )
-class AIPerfTaskMixin(HooksMixin):
+class AIPerfTaskMixin(HooksMixin, AsyncTaskManagerMixin):
     """Mixin to add task support to a class. It abstracts away the details of the
     :class:`AIPerfTask` and provides a simple interface for registering and running tasks.
     It hooks into the :meth:`HooksMixin.on_init` and :meth:`HooksMixin.on_stop` hooks to
@@ -410,7 +410,10 @@ class AIPerfTaskMixin(HooksMixin):
 
     def __init__(self):
         super().__init__()
-        self.registered_tasks: set[asyncio.Task] = set()
+
+    async def initialize(self) -> None:
+        """Initialize the task."""
+        await self.run_hooks(AIPerfHook.ON_INIT)
 
     async def start(self) -> None:
         """Start the task."""
@@ -420,33 +423,19 @@ class AIPerfTaskMixin(HooksMixin):
         """Stop the task."""
         await self.run_hooks(AIPerfHook.ON_STOP)
 
-    async def initialize(self) -> None:
-        """Initialize the task."""
-        await self.run_hooks(AIPerfHook.ON_INIT)
-
     @on_init
     async def _start_tasks(self):
         """Start all the registered tasks in the background."""
         for hook in self.get_hooks(AIPerfTaskHook.AIPERF_TASK):
             if inspect.iscoroutinefunction(hook):
-                task = asyncio.create_task(hook())
+                self.execute_async(hook())
             else:
-                task = asyncio.create_task(asyncio.to_thread(hook))
-            self.registered_tasks.add(task)
-            task.add_done_callback(self.registered_tasks.discard)
+                self.execute_async(asyncio.to_thread(hook))
 
     @on_stop
     async def _stop_tasks(self):
         """Stop all the background tasks. This will wait for all the tasks to complete."""
-        for task in list(self.registered_tasks):
-            if not task.done():
-                task.cancel()
-
-        # Wait for all tasks to complete
-        await asyncio.wait_for(
-            asyncio.gather(*self.registered_tasks), timeout=TASK_CANCEL_TIMEOUT_SHORT
-        )
-        self.registered_tasks.clear()
+        await self.cancel_all_tasks()
 
 
 @supports_hooks(
@@ -457,7 +446,7 @@ class AIPerfTaskMixin(HooksMixin):
     AIPerfHook.ON_STOP,
     AIPerfHook.ON_CLEANUP,
 )
-class AIPerfLifecycleMixin(HooksMixin):
+class AIPerfLifecycleMixin(HooksMixin, AsyncTaskManagerMixin):
     """Mixin to add task support to a class. It abstracts away the details of the
     :class:`AIPerfTask` and provides a simple interface for registering and running tasks.
     It hooks into the :meth:`HooksMixin.on_start` and :meth:`HooksMixin.on_stop` hooks to
@@ -467,7 +456,6 @@ class AIPerfLifecycleMixin(HooksMixin):
     def __init__(self):
         super().__init__()
         self.logger = logging.getLogger(__class__.__name__)
-        self.registered_tasks: list[asyncio.Task] = []
         self.initialized_event: asyncio.Event = asyncio.Event()
         self.started_event: asyncio.Event = asyncio.Event()
         self.stop_requested: asyncio.Event = asyncio.Event()
@@ -552,27 +540,19 @@ class AIPerfLifecycleMixin(HooksMixin):
         # Start all the non-auto tasks
         for hook in self.get_hooks(AIPerfTaskHook.AIPERF_TASK):
             if inspect.iscoroutinefunction(hook):
-                task = asyncio.create_task(hook())
+                self.execute_async(hook())
             else:
-                task = asyncio.create_task(asyncio.to_thread(hook))
-            self.registered_tasks.append(task)
+                self.execute_async(asyncio.to_thread(hook))
 
         # Start all the auto tasks
         for hook in self.get_hooks(AIPerfTaskHook.AIPERF_AUTO_TASK):
             interval = getattr(hook, AIPerfTaskHook.AIPERF_AUTO_TASK_INTERVAL, None)
-            task = asyncio.create_task(self._task_wrapper(hook, interval))
-            self.registered_tasks.append(task)
+            self.execute_async(self._task_wrapper(hook, interval))
 
     @on_stop
     async def _stop_tasks(self):
         """Stop all the background tasks. This will wait for all the tasks to complete."""
-        for task in self.registered_tasks:
-            task.cancel()
-
-        # Wait for all tasks to complete
-        await asyncio.wait_for(
-            asyncio.gather(*self.registered_tasks), timeout=TASK_CANCEL_TIMEOUT_SHORT
-        )
+        await self.cancel_all_tasks()
 
     @on_stop
     async def _stop_lifecycle(self):

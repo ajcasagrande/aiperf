@@ -77,6 +77,7 @@ class FactoryMixin(Generic[ClassEnumT, ClassProtocolT]):
     def __init_subclass__(cls) -> None:
         cls._registry = {}
         cls._override_priorities = {}
+        cls.logger = logging.getLogger(cls.__name__)
         super().__init_subclass__()
 
     @classmethod
@@ -98,7 +99,6 @@ class FactoryMixin(Generic[ClassEnumT, ClassProtocolT]):
         def decorator(class_cls: type[ClassProtocolT]) -> type[ClassProtocolT]:
             existing_priority = cls._override_priorities.get(class_type, -1)
             if class_type in cls._registry and existing_priority >= override_priority:
-                # TODO: Will logging be initialized before this method is called?
                 cls.logger.warning(
                     "%r class %s already registered with same or higher priority "
                     "(%s). The new registration of class %s with priority "
