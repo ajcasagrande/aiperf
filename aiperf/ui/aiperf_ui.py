@@ -4,7 +4,7 @@ import logging
 
 from aiperf.common.hooks import AIPerfLifecycleMixin, on_start, on_stop
 from aiperf.common.messages import WorkerHealthMessage
-from aiperf.common.progress_tracker import ProgressTracker
+from aiperf.progress.progress_tracker import ProgressTracker
 from aiperf.ui.rich_dashboard import (
     AIPerfRichDashboard,
     ProfileProgressElement,

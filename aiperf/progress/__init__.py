@@ -2,10 +2,10 @@
 #  SPDX-License-Identifier: Apache-2.0
 from aiperf.progress.progress_logger import SimpleProgressLogger
 from aiperf.progress.progress_models import (
+    ProcessingStatsMessage,
     ProfileProgress,
     ProfileProgressMessage,
     ProfileResultsMessage,
-    ProfileStatsMessage,
     ProfileSuiteProgress,
     SweepProgress,
     SweepProgressMessage,
@@ -22,6 +22,6 @@ __all__ = [
     "SweepProgress",
     "SweepProgressMessage",
     "SweepSuiteProgress",
-    "ProfileStatsMessage",
+    "ProcessingStatsMessage",
     "ProfileResultsMessage",
 ]

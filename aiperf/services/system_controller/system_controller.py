@@ -34,25 +34,27 @@ from aiperf.common.messages import (
     HeartbeatMessage,
     NotificationMessage,
     ProcessRecordsCommandData,
-    ProfileProgressMessage,
-    ProfileResultsMessage,
-    ProfileStatsMessage,
     RegistrationMessage,
     StatusMessage,
     WorkerHealthMessage,
 )
-from aiperf.common.progress_tracker import ProgressTracker
 from aiperf.common.service.base_controller_service import BaseControllerService
 from aiperf.common.service.base_service import BaseService
 from aiperf.common.service_models import ServiceRunInfo
 from aiperf.data_exporter.exporter_manager import ExporterManager
+from aiperf.progress.progress_logger import SimpleProgressLogger
+from aiperf.progress.progress_models import (
+    ProcessingStatsMessage,
+    ProfileProgressMessage,
+    ProfileResultsMessage,
+)
+from aiperf.progress.progress_tracker import ProgressTracker
 from aiperf.services.service_manager import (
     BaseServiceManager,
     KubernetesServiceManager,
     MultiProcessServiceManager,
 )
 from aiperf.services.system_controller.profile_runner import ProfileRunner
-from aiperf.services.system_controller.progress_logger import SimpleProgressLogger
 from aiperf.services.system_controller.system_mixins import SignalHandlerMixin
 from aiperf.ui.aiperf_ui import AIPerfUI
 
@@ -198,7 +200,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             (MessageType.STATUS, self._process_status_message),
             (MessageType.CREDITS_COMPLETE, self._process_credits_complete_message),
             (MessageType.PROFILE_PROGRESS, self._process_profile_progress_message),
-            (MessageType.PROFILE_STATS, self._process_profile_stats_message),
+            (MessageType.PROCESSING_STATS, self._process_processing_stats_message),
             (MessageType.PROFILE_RESULTS, self._process_profile_results_message),
             (MessageType.WORKER_HEALTH, self._process_worker_health_message),
             (MessageType.NOTIFICATION, self._process_notification_message),
@@ -387,8 +389,8 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         self.profile_runner = ProfileRunner(self)
         await self.profile_runner.run()
 
-    async def _process_profile_stats_message(
-        self, message: ProfileStatsMessage
+    async def _process_processing_stats_message(
+        self, message: ProcessingStatsMessage
     ) -> None:
         """Process a profile stats message."""
         self.logger.debug("Received profile stats: %s", message)

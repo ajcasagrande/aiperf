@@ -5,16 +5,14 @@ import time
 
 from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import BenchmarkSuiteType
-from aiperf.progress import (
+from aiperf.progress.progress_models import (
+    ProcessingStatsMessage,
+    ProfileProgress,
     ProfileProgressMessage,
     ProfileResultsMessage,
-    ProfileStatsMessage,
-    SweepProgressMessage,
-)
-from aiperf.progress.progress_models import (
-    ProfileProgress,
     ProfileSuiteProgress,
     SweepProgress,
+    SweepProgressMessage,
     SweepSuiteProgress,
 )
 
@@ -112,7 +110,7 @@ class ProgressTracker:
                 else None
             )
 
-    def update_profile_stats(self, message: ProfileStatsMessage) -> None:
+    def update_profile_stats(self, message: ProcessingStatsMessage) -> None:
         if self.suite is None or self.suite.current_profile is None:
             return
 

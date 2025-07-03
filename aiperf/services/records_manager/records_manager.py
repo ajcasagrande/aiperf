@@ -22,18 +22,17 @@ from aiperf.common.hooks import (
 )
 from aiperf.common.messages import (
     CommandMessage,
-    ErrorDetailsCount,
     InferenceResultsMessage,
     ParsedInferenceResultsMessage,
     ProcessRecordsCommandData,
-    ProfileResultsMessage,
-    ProfileStatsMessage,
 )
 from aiperf.common.record_models import (
     ErrorDetails,
+    ErrorDetailsCount,
     ParsedResponseRecord,
 )
 from aiperf.common.service import BaseComponentService
+from aiperf.progress import ProcessingStatsMessage, ProfileResultsMessage
 from aiperf.services.records_manager.post_processors.metric_summary import MetricSummary
 
 
@@ -149,7 +148,7 @@ class RecordsManager(BaseComponentService):
     async def publish_profile_stats(self) -> None:
         """Publish the profile stats."""
         await self.pub_client.publish(
-            ProfileStatsMessage(
+            ProcessingStatsMessage(
                 service_id=self.service_id,
                 error_count=self.error_records_count,
                 completed=self.records_count,

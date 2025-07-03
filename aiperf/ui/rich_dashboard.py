@@ -33,8 +33,8 @@ from aiperf.common.hooks import (
     on_stop,
 )
 from aiperf.common.messages import WorkerHealthMessage
-from aiperf.common.progress_tracker import ProgressTracker
 from aiperf.common.utils import format_bytes, format_duration
+from aiperf.progress.progress_tracker import ProgressTracker
 from aiperf.ui.logs_mixin import LogsDashboardMixin
 
 logger = logging.getLogger(__name__)
