@@ -29,7 +29,7 @@ class ProfileRunner:
     ):
         self.controller = controller
         self.tracker = self.controller.progress_tracker
-        self.logger = logging.getLogger(__name__)
+        self.logger = logging.getLogger(__class__.__name__)
         self.was_cancelled = False
 
     async def run(self):

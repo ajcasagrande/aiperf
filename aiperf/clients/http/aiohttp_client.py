@@ -19,9 +19,6 @@ from aiperf.common.record_models import (
     TextResponse,
 )
 
-logger = logging.getLogger(__name__)
-
-
 ################################################################################
 # AioHTTP Client
 ################################################################################
@@ -35,6 +32,7 @@ class AioHttpClientMixin:
     """
 
     def __init__(self, client_config: GenericHTTPClientConfig) -> None:
+        self.logger = logging.getLogger(__class__.__name__)
         self.client_config = client_config
         self.tcp_connector = create_tcp_connector()
         self.timeout = aiohttp.ClientTimeout(
@@ -120,7 +118,7 @@ class AioHttpClientMixin:
 
         except Exception as e:
             record.end_perf_ns = time.perf_counter_ns()
-            logger.error("Error in aiohttp request: %s", str(e))
+            self.logger.error("Error in aiohttp request: %s", str(e))
             record.error = ErrorDetails(type=e.__class__.__name__, message=str(e))
 
         return record

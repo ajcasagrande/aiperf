@@ -16,7 +16,7 @@ from aiperf.services.dataset.generator import (
 class BaseDatasetComposer(ABC):
     def __init__(self, config: DatasetConfig):
         self.config = config
-        self.logger = logging.getLogger(__name__)
+        self.logger = logging.getLogger(self.__class__.__name__)
 
         self.prompt_generator = PromptGenerator(config.prompt, config.tokenizer)
         self.image_generator = ImageGenerator(config.image)

@@ -46,7 +46,7 @@ class CreditIssuingStrategy(AsyncTaskManagerMixin, ABC):
         self, config: TimingManagerConfig, credit_manager: CreditManagerProtocol
     ):
         super().__init__()
-        self.logger = logging.getLogger(__name__)
+        self.logger = logging.getLogger(__class__.__name__)
         self.config = config
         self.credit_manager = credit_manager
 

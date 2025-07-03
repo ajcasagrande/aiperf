@@ -26,9 +26,6 @@ class JsonExportData(BaseModel):
     end_time: datetime | None = None
 
 
-logger = logging.getLogger(__name__)
-
-
 @DataExporterFactory.register(DataExporterType.JSON)
 class JsonExporter:
     """
@@ -36,6 +33,8 @@ class JsonExporter:
     """
 
     def __init__(self, exporter_config: ExporterConfig) -> None:
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger.debug("Initializing JsonExporter with config: %s", exporter_config)
         self._results = exporter_config.results
         self._output_directory = exporter_config.input_config.output.artifact_directory
         self._input_config = exporter_config.input_config
@@ -64,7 +63,7 @@ class JsonExporter:
             end_time=end_time,
         )
 
-        logger.debug("Exporting data to JSON file: %s", export_data)
+        self.logger.debug("Exporting data to JSON file: %s", export_data)
         export_data_json = export_data.model_dump_json(indent=2, exclude_unset=True)
         async with aiofiles.open(filename, "w") as f:
             await f.write(export_data_json)

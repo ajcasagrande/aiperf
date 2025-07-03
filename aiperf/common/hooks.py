@@ -74,8 +74,6 @@ AIPERF_HOOK_TYPE = "__aiperf_hook_type__"
 # Hook System
 ################################################################################
 
-logger = logging.getLogger(__name__)
-
 
 class HookSystem:
     """
@@ -93,7 +91,7 @@ class HookSystem:
         Args:
             supported_hooks: The hook types that the class supports.
         """
-
+        self.logger = logging.getLogger(__class__.__name__)
         self.supported_hooks: set[HookType] = supported_hooks
         self._hooks: dict[HookType, list[Callable]] = {}
 
@@ -145,7 +143,7 @@ class HookSystem:
                 else:
                     await asyncio.to_thread(func, *args, **kwargs)
             except Exception as e:
-                logger.exception("Error running hook %s: %s", func.__qualname__, e)
+                self.logger.exception("Error running hook %s: %s", func.__qualname__, e)
                 exceptions.append(
                     AIPerfError(
                         f"Error running hook {func.__qualname__}: {e.__class__.__name__} {e}"
@@ -468,6 +466,7 @@ class AIPerfLifecycleMixin(HooksMixin):
 
     def __init__(self):
         super().__init__()
+        self.logger = logging.getLogger(__class__.__name__)
         self.registered_tasks: list[asyncio.Task] = []
         self.initialized_event: asyncio.Event = asyncio.Event()
         self.started_event: asyncio.Event = asyncio.Event()
@@ -496,20 +495,20 @@ class AIPerfLifecycleMixin(HooksMixin):
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.exception("Unhandled exception in lifecycle: %s", e)
+                self.logger.exception("Unhandled exception in lifecycle: %s", e)
                 continue
 
         try:
             # Run all the stop hooks
             await self.run_hooks_async(AIPerfHook.ON_STOP)
         except Exception as e:
-            logger.exception("Unhandled exception in lifecycle: %s", e)
+            self.logger.exception("Unhandled exception in lifecycle: %s", e)
 
         try:
             # Run all the cleanup hooks and set the shutdown_event
             await self.run_hooks(AIPerfHook.ON_CLEANUP)
         except Exception as e:
-            logger.exception("Unhandled exception in lifecycle: %s", e)
+            self.logger.exception("Unhandled exception in lifecycle: %s", e)
         finally:
             self.shutdown_event.set()
 
@@ -601,7 +600,7 @@ class AIPerfLifecycleMixin(HooksMixin):
             except asyncio.CancelledError:
                 break
             except Exception:
-                logger.exception("Unhandled exception in task: %s", func.__name__)
+                self.logger.exception("Unhandled exception in task: %s", func.__name__)
 
             if interval is None:
                 break
@@ -619,7 +618,7 @@ class AIPerfProfileMixin(HooksMixin):
 
     def __init__(self):
         super().__init__()
-        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger = logging.getLogger(__class__.__name__)
         self.profile_started_event: asyncio.Event = asyncio.Event()
         self.profile_stopped_event: asyncio.Event = asyncio.Event()
         self.request_profile_stop_event: asyncio.Event = asyncio.Event()

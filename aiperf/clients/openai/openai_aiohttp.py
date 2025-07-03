@@ -108,6 +108,7 @@ class OpenAIClientAioHttp(ChatCompletionMixin):
 
     def __init__(self, client_config: OpenAIClientConfig) -> None:
         super().__init__(client_config)
+        self.logger = logging.getLogger(__class__.__name__)
 
     async def close(self) -> None:
         """Close the client."""

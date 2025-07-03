@@ -13,8 +13,6 @@ from aiperf.common.exceptions import AIPerfError, AIPerfMultiError
 
 logger = logging.getLogger(__name__)
 
-logger = logging.getLogger(__name__)
-
 
 async def call_all_functions_self(
     self_: object, funcs: list[Callable], *args, **kwargs
@@ -193,25 +191,3 @@ def format_bytes(bytes: int | None, none_str: str = "--") -> str:
     if bytes / 1024 / 1024 / 1024 < 100:
         return f"{bytes / 1024 / 1024 / 1024:.1f} GB"
     return f"{bytes / 1024 / 1024 / 1024:.0f} GB"
-
-
-def load_json_str(json_str: str, func: Callable = lambda x: x) -> dict[str, Any]:
-    """
-    Deserializes JSON encoded string into Python object.
-
-    Args:
-      - json_str: string
-          JSON encoded string
-      - func: callable
-          A function that takes deserialized JSON object. This can be used to
-          run validation checks on the object. Defaults to identity function.
-    """
-    try:
-        # Note: orjson may not parse JSON the same way as Python's standard json library,
-        # notably being stricter on UTF-8 conformance.
-        # Refer to https://github.com/ijl/orjson?tab=readme-ov-file#str for details.
-        return func(orjson.loads(json_str))
-    except orjson.JSONDecodeError:
-        snippet = json_str[:200] + ("..." if len(json_str) > 200 else "")
-        logger.error("Failed to parse JSON string: '%s'", snippet)
-        raise

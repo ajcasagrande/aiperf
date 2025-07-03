@@ -61,6 +61,20 @@ def _setup_logging(service_config: ServiceConfig | None = None) -> None:
     )
     logging.root.addHandler(rich_handler)
 
+    # Enable file logging for services
+    # TODO: Use config to determine if file logging is enabled and the folder path.
+    log_folder = Path("artifacts/logs")
+    log_folder.mkdir(parents=True, exist_ok=True)
+    file_handler = logging.FileHandler(log_folder / "aiperf.log")
+    file_handler.setLevel(level)
+    file_handler.formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+    logging.root.addHandler(file_handler)
+
+    logger.debug("Logging initialized with level: %s", level)
+
 
 # @app.command("profile")
 # def profile(

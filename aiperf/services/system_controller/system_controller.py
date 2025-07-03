@@ -39,7 +39,6 @@ from aiperf.common.messages import (
     WorkerHealthMessage,
 )
 from aiperf.common.service.base_controller_service import BaseControllerService
-from aiperf.common.service.base_service import BaseService
 from aiperf.common.service_models import ServiceRunInfo
 from aiperf.data_exporter.exporter_manager import ExporterManager
 from aiperf.progress.progress_logger import SimpleProgressLogger
@@ -124,7 +123,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         logger before the system is fully initialized.
         """
         await self._pre_initialize()
-        await BaseService.initialize(self)
+        await BaseControllerService.initialize(self)
         await self._post_initialize()
 
     async def _pre_initialize(self) -> None:
@@ -219,6 +218,9 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
                 raise CommunicationError(
                     f"Failed to subscribe to message_type {message_type}: {e}",
                 ) from e
+
+        # TODO: HACK: Wait for the subscriptions to be established
+        await asyncio.sleep(1)
 
         self._system_state = SystemState.CONFIGURING
         await self._bootstrap_system()
