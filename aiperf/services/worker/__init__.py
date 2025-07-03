@@ -7,12 +7,10 @@
 #     DaskWorker,
 #     DaskWorkerManager,
 # )
-from aiperf.services.worker.universal import UniversalWorker
 from aiperf.services.worker.worker import Worker
 from aiperf.services.worker.worker_manager import WorkerManager
 
 __all__ = [
     "Worker",
     "WorkerManager",
-    "UniversalWorker",
 ]  # , "DaskWorker", "DaskWorkerManager", "DaskNanny", "DaskPreload", "UniversalWorker"]

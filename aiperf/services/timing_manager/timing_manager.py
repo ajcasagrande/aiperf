@@ -2,18 +2,16 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import asyncio
+import contextlib
 import os
 import sys
+import time
 from dataclasses import dataclass
 
 from aiperf.common.comms.base import (
-    ClientAddressType,
     CommunicationClientAddressType,
-    PullClient,
     PullClientProtocol,
-    PushClient,
     PushClientProtocol,
-    ReqClient,
     RequestClientProtocol,
 )
 from aiperf.common.config import ServiceConfig
@@ -42,6 +40,7 @@ from aiperf.common.messages import (
     NotificationMessage,
     ProfileProgressMessage,
 )
+from aiperf.common.mixins import AsyncTaskManagerMixin
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.services.timing_manager.concurrency_strategy import ConcurrencyStrategy
 from aiperf.services.timing_manager.config import TimingManagerConfig, TimingMode
@@ -58,7 +57,7 @@ class CreditDropInfo:
 
 
 @ServiceFactory.register(ServiceType.TIMING_MANAGER)
-class TimingManager(BaseComponentService):
+class TimingManager(BaseComponentService, AsyncTaskManagerMixin):
     """
     The TimingManager service is responsible to generate the schedule and issuing
     timing credits for requests.
@@ -84,22 +83,6 @@ class TimingManager(BaseComponentService):
         self.dataset_timing_response: DatasetTimingResponse | None = None
         self.dataset_ready: asyncio.Event = asyncio.Event()
 
-        self.dataset_request_client: ReqClient = self.comms.create_req_client(
-            ClientAddressType.DEALER_ROUTER_FRONTEND,
-        )
-        self.credit_drop_client: PushClient = self.comms.create_push_client(
-            ClientAddressType.CREDIT_DROP_PUSH_PULL,
-            bind=True,
-        )
-        self.credit_return_client: PullClient = self.comms.create_pull_client(
-            ClientAddressType.CREDIT_RETURN_PUSH_PULL,
-            bind=True,
-        )
-
-        self._credit_issuing_strategy: CreditIssuingStrategy | None = None
-
-        self.tasks: set[asyncio.Task] = set()
-
         self.dataset_request_client: RequestClientProtocol = (
             self.comms.create_request_client(
                 CommunicationClientAddressType.DATASET_MANAGER_PROXY_FRONTEND,
@@ -113,6 +96,8 @@ class TimingManager(BaseComponentService):
             CommunicationClientAddressType.CREDIT_RETURN,
             bind=True,
         )
+
+        self._credit_issuing_strategy: CreditIssuingStrategy | None = None
 
     @property
     def service_type(self) -> ServiceType:

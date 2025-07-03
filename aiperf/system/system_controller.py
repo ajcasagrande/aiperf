@@ -4,11 +4,11 @@ import asyncio
 import signal
 import sys
 import time
+from typing import Any
 
 import zmq.asyncio
-from pydantic import BaseModel
 
-from aiperf.common.comms.zmq.zmq_proxy_base import BaseZMQProxy, ZMQProxyFactory
+from aiperf.common.comms.zmq.clients.base_zmq_proxy import BaseZMQProxy
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
 from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
@@ -24,8 +24,12 @@ from aiperf.common.enums import (
     SystemState,
     ZMQProxyType,
 )
-from aiperf.common.exceptions import CommunicationError, NotInitializedError
-from aiperf.common.factories import ServiceFactory
+from aiperf.common.exceptions import (
+    CommunicationError,
+    CommunicationErrorReason,
+    ServiceErrorType,
+)
+from aiperf.common.factories import ServiceFactory, ZMQProxyFactory
 from aiperf.common.hooks import on_cleanup, on_stop
 from aiperf.common.logging import get_global_log_queue
 from aiperf.common.messages import (
@@ -51,9 +55,9 @@ from aiperf.services.service_manager import (
     KubernetesServiceManager,
     MultiProcessServiceManager,
 )
-from aiperf.services.system_controller.profile_runner import ProfileRunner
-from aiperf.services.system_controller.progress_logger import SimpleProgressLogger
-from aiperf.services.system_controller.system_mixins import SignalHandlerMixin
+from aiperf.services.system.profile_runner import ProfileRunner
+from aiperf.services.system.progress_logger import SimpleProgressLogger
+from aiperf.services.system.system_mixins import SignalHandlerMixin
 from aiperf.ui.aiperf_ui import AIPerfUI
 
 
@@ -88,16 +92,6 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         ]
 
         self.service_manager: BaseServiceManager = None  # type: ignore - is set in _initialize
-
-        self.event_bus_proxy: BaseZMQProxy | None = None
-        self.event_bus_proxy_task: asyncio.Task | None = None
-
-        self.dataset_manager_proxy: BaseZMQProxy | None = None
-        self.dataset_manager_proxy_task: asyncio.Task | None = None
-
-        self.raw_inference_proxy: BaseZMQProxy | None = None
-        self.raw_inference_proxy_task: asyncio.Task | None = None
-
         self.progress_tracker: ProgressTracker = ProgressTracker()
         self.ui_enabled: bool = not self.service_config.disable_ui
         self.ui: AIPerfUI | None = (
@@ -107,6 +101,15 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             SimpleProgressLogger(self.progress_tracker) if not self.ui_enabled else None
         )
 
+        self.xpub_xsub_proxy: BaseZMQProxy
+        self.xpub_xsub_proxy_task: asyncio.Task
+
+        self.dealer_router_proxy: BaseZMQProxy
+        self.dealer_router_proxy_task: asyncio.Task
+
+        self.push_pull_proxy: BaseZMQProxy
+        self.push_pull_proxy_task: asyncio.Task
+
         self.profile_runner: ProfileRunner | None = None
 
         self.logger.debug("System Controller created")
@@ -115,6 +118,27 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
     def service_type(self) -> ServiceType:
         """The type of service."""
         return ServiceType.SYSTEM_CONTROLLER
+
+    async def _forever_loop(self) -> None:
+        """Run the system controller in a loop until the stop event is set."""
+        await super()._forever_loop()
+        # try:
+
+        # except KeyboardInterrupt:
+        #     if self.profile_runner and self.profile_runner.was_cancelled:
+        #         self.logger.error("Profile was cancelled, killing all services")
+        #         await self.kill()
+        #         return
+
+        #     if self.profile_runner:
+        #         await self.profile_runner.cancel_profile()
+
+        #     await self.send_command_to_service(
+        #         target_service_type=ServiceType.RECORDS_MANAGER,
+        #         target_service_id=None,
+        #         command=CommandType.PROCESS_RECORDS,
+        #         data=ProcessRecordsCommandData(cancelled=True),
+        #     )
 
     async def initialize(self) -> None:
         """Override the base initialize method to add pre-initialization and
@@ -142,30 +166,28 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
 
         self.zmq_context = zmq.asyncio.Context.instance()
 
-        self.event_bus_proxy = ZMQProxyFactory.create_instance(
+        self.xpub_xsub_proxy = ZMQProxyFactory.create_instance(
             ZMQProxyType.XPUB_XSUB,
             context=self.zmq_context,
-            zmq_proxy_config=self.service_config.comm_config.event_bus_proxy_config,
+            zmq_proxy_config=self.service_config.comm_config.xpub_xsub_proxy_config,
         )
-        self.event_bus_proxy_task = asyncio.create_task(self.event_bus_proxy.run())
+        self.xpub_xsub_proxy_task = asyncio.create_task(self.xpub_xsub_proxy.run())
 
-        self.dataset_manager_proxy = ZMQProxyFactory.create_instance(
+        self.dealer_router_proxy = ZMQProxyFactory.create_instance(
             ZMQProxyType.DEALER_ROUTER,
             context=self.zmq_context,
-            zmq_proxy_config=self.service_config.comm_config.dataset_manager_proxy_config,
+            zmq_proxy_config=self.service_config.comm_config.dealer_router_proxy_config,
         )
-        self.dataset_manager_proxy_task = asyncio.create_task(
-            self.dataset_manager_proxy.run()
+        self.dealer_router_proxy_task = asyncio.create_task(
+            self.dealer_router_proxy.run()
         )
 
-        self.raw_inference_proxy = ZMQProxyFactory.create_instance(
+        self.push_pull_proxy = ZMQProxyFactory.create_instance(
             ZMQProxyType.PUSH_PULL,
             context=self.zmq_context,
-            zmq_proxy_config=self.service_config.comm_config.raw_inference_proxy_config,
+            zmq_proxy_config=self.service_config.comm_config.push_pull_proxy_config,
         )
-        self.raw_inference_proxy_task = asyncio.create_task(
-            self.raw_inference_proxy.run()
-        )
+        self.push_pull_proxy_task = asyncio.create_task(self.push_pull_proxy.run())
 
     async def _post_initialize(self) -> None:
         """Post-initialize the system controller."""
@@ -188,6 +210,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
 
         else:
             raise self._service_error(
+                ServiceErrorType.CONFIGURATION_ERROR,
                 f"Unsupported service run type: {self.service_config.service_run_type}",
             )
 
@@ -214,6 +237,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
                     "Failed to subscribe to message_type %s: %s", message_type, e
                 )
                 raise CommunicationError(
+                    CommunicationErrorReason.SUBSCRIBE_ERROR,
                     f"Failed to subscribe to message_type {message_type}: {e}",
                 ) from e
 
@@ -271,6 +295,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             await self.service_manager.run_all_services()
         except Exception as e:
             raise self._service_error(
+                ServiceErrorType.INITIALIZE_SERVICES_ERROR,
                 "Failed to initialize all services",
             ) from e
 
@@ -288,6 +313,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
 
         except Exception as e:
             raise self._service_error(
+                ServiceErrorType.MISSING_REQUIRED_SERVICES,
                 "Not all required services registered within the timeout period",
             ) from e
 
@@ -341,24 +367,25 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             await self.service_manager.shutdown_all_services()
         except Exception as e:
             raise self._service_error(
+                ServiceErrorType.SHUTDOWN_ERROR,
                 "Failed to stop all services",
             ) from e
 
         tasks = []
-        if self.event_bus_proxy_task:
-            await self.event_bus_proxy.stop()
-            self.event_bus_proxy_task.cancel()
-            tasks.append(self.event_bus_proxy_task)
+        if self.xpub_xsub_proxy_task:
+            await self.xpub_xsub_proxy.stop()
+            self.xpub_xsub_proxy_task.cancel()
+            tasks.append(self.xpub_xsub_proxy_task)
 
-        if self.dataset_manager_proxy_task:
-            await self.dataset_manager_proxy.stop()
-            self.dataset_manager_proxy_task.cancel()
-            tasks.append(self.dataset_manager_proxy_task)
+        if self.dealer_router_proxy_task:
+            await self.dealer_router_proxy.stop()
+            self.dealer_router_proxy_task.cancel()
+            tasks.append(self.dealer_router_proxy_task)
 
-        if self.raw_inference_proxy_task:
-            await self.raw_inference_proxy.stop()
-            self.raw_inference_proxy_task.cancel()
-            tasks.append(self.raw_inference_proxy_task)
+        if self.push_pull_proxy_task:
+            await self.push_pull_proxy.stop()
+            self.push_pull_proxy_task.cancel()
+            tasks.append(self.push_pull_proxy_task)
 
         await asyncio.wait_for(
             asyncio.gather(*tasks),
@@ -445,6 +472,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         except Exception as e:
             self.logger.error("Failed to export results: %s", e)
             raise self._service_error(
+                ServiceErrorType.EXPORT_RESULTS_ERROR,
                 "Failed to export results",
             ) from e
         finally:
@@ -496,6 +524,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             )
         except Exception as e:
             raise self._service_error(
+                ServiceErrorType.SEND_CONFIGURE_COMMAND_ERROR,
                 f"Failed to send configure command to {service_type} (ID: {service_id})",
             ) from e
 
@@ -605,7 +634,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         self,
         target_service_id: str | None,
         command: CommandType,
-        data: BaseModel | None = None,
+        data: Any | None = None,
         target_service_type: ServiceType | None = None,
     ) -> None:
         """Send a command to a specific service.
@@ -622,7 +651,8 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         """
         if not self.comms:
             self.logger.error("Cannot send command: Communication is not initialized")
-            raise NotInitializedError(
+            raise CommunicationError(
+                CommunicationErrorReason.INITIALIZATION_ERROR,
                 "Communication channels are not initialized",
             )
 
@@ -639,6 +669,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         except Exception as e:
             self.logger.error("Exception publishing command: %s", e)
             raise CommunicationError(
+                CommunicationErrorReason.PUBLISH_ERROR,
                 f"Failed to publish command: {e}",
             ) from e
 
@@ -647,7 +678,10 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         try:
             await self.service_manager.kill_all_services()
         except Exception as e:
-            raise self._service_error("Failed to stop all services") from e
+            raise self._service_error(
+                ServiceErrorType.SHUTDOWN_ERROR,
+                "Failed to stop all services",
+            ) from e
 
 
 def main() -> None:
