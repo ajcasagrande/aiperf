@@ -15,7 +15,7 @@
                 "AIPERF_MAX_WORKERS": "1",
                 "AIPERF_MIN_WORKERS": "1",
                 "AIPERF_CONCURRENCY": "1",
-                "AIPERF_TOTAL_REQUESTS": "10",
+                "AIPERF_TOTAL_REQUESTS": "10000",
                 "AIPERF_DISABLE_UI": "False"
             }
         },
