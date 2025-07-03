@@ -6,11 +6,13 @@ from pydantic import BaseModel, Field
 
 from aiperf.common.enums import Modality, ModelSelectionStrategy, RequestPayloadType
 
-ConfigT = TypeVar("ConfigT", bound=Any)
+ConfigT = TypeVar("ConfigT", bound=Any, covariant=True)
 RequestT = TypeVar("RequestT", bound=Any)
-ResponseT = TypeVar("ResponseT", bound=Any)
+ResponseT = TypeVar("ResponseT", bound=Any, covariant=True)
+RawResponseT = TypeVar("RawResponseT", bound=Any, contravariant=True)
 InputT = TypeVar("InputT", bound=Any)
 OutputT = TypeVar("OutputT", bound=Any)
+RawRequestT = TypeVar("RawRequestT", bound=Any, contravariant=True)
 
 
 class ModelInfo(BaseModel):
@@ -40,22 +42,22 @@ class EndpointInfo(BaseModel):
         default=RequestPayloadType.OPENAI_CHAT_COMPLETIONS,
         description="The type of request payload to use for the endpoint.",
     )
-    extra: dict[str, Any] | None = Field(
+    custom_endpoint: str | None = Field(
         default=None,
-        description="Extra information to use for the endpoint. If None, the extra information will be the same as the model's extra information.",
+        description="Custom endpoint to use for the models. If None, the endpoint will be the same as the model's endpoint.",
+    )
+    extra: dict[str, Any] | BaseModel | None = Field(
+        default=None,
+        description="Extra information to send with the inference request.",
     )
 
 
 class HttpEndpointInfo(EndpointInfo):
     """Information about an HTTP endpoint."""
 
-    url: str | None = Field(
+    base_url: str | None = Field(
         default=None,
         description="URL to use for the endpoint. If None, the URL will be the same as the model's URL.",
-    )
-    custom_url_path: str | None = Field(
-        default=None,
-        description="Custom URL path to use for the endpoint. If None, the URL path will be the same as the model's URL path.",
     )
     custom_url_params: dict[str, Any] | None = Field(
         default=None,

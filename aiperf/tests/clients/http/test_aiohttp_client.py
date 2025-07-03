@@ -64,7 +64,9 @@ class TestAioHttpClientMixin:
     )
     def test_timeout_conversion(self, timeout_ms: int, expected_seconds: float) -> None:
         """Test that timeout milliseconds are correctly converted to seconds."""
-        config = GenericHTTPClientConfig(url="http://test.com", timeout_ms=timeout_ms)
+        config = GenericHTTPClientConfig(
+            base_url="http://test.com", timeout_ms=timeout_ms
+        )
 
         with patch("aiperf.clients.http.aiohttp_client.create_tcp_connector"):
             client = AioHttpClientMixin(config)

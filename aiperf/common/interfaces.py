@@ -2,14 +2,20 @@
 # SPDX-License-Identifier: Apache-2.0
 from typing import Generic, Protocol
 
-from aiperf.common.config import EndPointConfig
+from aiperf.common.dataset_models import Turn
 from aiperf.common.record_models import (
-    InferenceServerResponse,
     ParsedResponseRecord,
     RequestRecord,
     ResponseData,
 )
-from aiperf.common.types import ConfigT, InputT, OutputT, RequestT, ResponseT
+from aiperf.common.types import (
+    ConfigT,
+    InputT,
+    ModelEndpointInfo,
+    OutputT,
+    RequestT,
+    ResponseT,
+)
 
 ################################################################################
 # Converter Protocols
@@ -53,30 +59,28 @@ class InferenceClientProtocol(Protocol, Generic[ConfigT, RequestT, ResponseT]):
         """Get the client configuration."""
         ...
 
+    async def initialize(self) -> None:
+        """Initialize the inference server client in an asynchronous context."""
+        ...
+
     async def format_payload(
-        self, endpoint: EndPointConfig, payload: RequestT
+        self, model_endpoint: ModelEndpointInfo, payload: Turn
     ) -> RequestT:
-        """Format the payload for the inference server.
-
-        This method is used to format the payload for the inference server.
-
-        Args:
-            payload: The payload to format.
-
-        Returns:
-            The formatted payload.
-        """
+        """Format the payload for the inference server."""
         ...
 
     async def send_request(
-        self, endpoint: EndPointConfig, payload: RequestT, delayed: bool = False
+        self,
+        model_endpoint: ModelEndpointInfo,
+        payload: RequestT,
+        delayed: bool = False,
     ) -> RequestRecord:
         """Send a request to the inference server.
 
         This method is used to send a request to the inference server.
 
         Args:
-            endpoint: The endpoint to send the request to.
+            model_endpoint: The endpoint to send the request to.
             payload: The payload to send to the inference server.
             delayed: Whether the request is delayed.
         Returns:
@@ -84,40 +88,28 @@ class InferenceClientProtocol(Protocol, Generic[ConfigT, RequestT, ResponseT]):
         """
         ...
 
-    async def parse_response(self, response: ResponseT) -> InferenceServerResponse:
-        """Parse the response from the inference server.
-
-        This method is used to parse the response from the inference server.
-
-        Args:
-            response: The raw response from the inference server.
-
-        Returns:
-            The parsed response from the inference server.
-        """
-        ...
-
     async def close(self) -> None:
         """Close the client."""
         ...
 
-    ################################################################################
-    # Post Processor Protocol
-    ################################################################################
-    class PostProcessorProtocol(Protocol):
-        """
-        PostProcessorProtocol is a protocol that defines the API for post-processors.
-        It requires an `process` method that takes a list of records and returns a result.
-        """
 
-        async def process(self, records: dict) -> dict:
-            """
-            Execute the post-processing logic on the given records.
+################################################################################
+# Post Processor Protocol
+################################################################################
+class PostProcessorProtocol(Protocol):
+    """
+    PostProcessorProtocol is a protocol that defines the API for post-processors.
+    It requires an `process` method that takes a list of records and returns a result.
+    """
 
-            :param records: The input data to be processed.
-            :return: The processed data as a dictionary.
-            """
-            ...
+    async def process(self, records: dict) -> dict:
+        """
+        Execute the post-processing logic on the given records.
+
+        :param records: The input data to be processed.
+        :return: The processed data as a dictionary.
+        """
+        ...
 
 
 ################################################################################

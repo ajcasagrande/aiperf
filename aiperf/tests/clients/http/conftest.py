@@ -64,7 +64,7 @@ def edge_case_inputs() -> dict[str, str]:
 def http_client_config() -> GenericHTTPClientConfig:
     """Fixture providing a standard HTTP client configuration."""
     return GenericHTTPClientConfig(
-        url="http://localhost:8080",
+        base_url="http://localhost:8080",
         timeout_ms=30000,
         headers={"Content-Type": "application/json"},
         api_key="test-api-key",

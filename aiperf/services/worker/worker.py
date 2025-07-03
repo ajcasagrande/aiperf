@@ -20,57 +20,6 @@ from aiperf.common.messages import (
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.services.worker.universal import UniversalWorker
 
-# # @ServiceFactory.register(ServiceType.WORKER)
-# class Worker(BaseComponentService, UniversalWorker):
-#     """Worker is primarily responsible for converting the data into the appropriate
-#     format for the interface being used by the server. Also responsible for managing
-#     the conversation between turns.
-#     """
-
-#     def __init__(
-#         self,
-#         service_config: ServiceConfig,
-#         user_config: UserConfig,
-#         service_id: str,
-#     ) -> None:
-#         super().__init__(
-#             service_config=service_config,
-#             service_id=service_id,
-#         )
-#         UniversalWorker.__init__(
-#             self,
-#             service_config=service_config,
-#             user_config=user_config,
-#             service_id=service_id,
-#         )
-#         self._zmq_comms: BaseCommunication | None = None
-
-#     @property
-#     def service_type(self) -> ServiceType:
-#         """The type of service."""
-#         return ServiceType.WORKER
-
-#     @on_init
-#     async def _initialize(self) -> None:
-#         """Initialize worker-specific components."""
-#         self._zmq_comms = CommunicationFactory.create_instance(
-#             self.service_config.comm_backend,
-#             config=self.service_config.comm_config,
-#         )
-#         await self._zmq_comms.initialize()
-#         await UniversalWorker.do_initialize(self, zmq_comms=self._zmq_comms)
-
-#     @aiperf_task
-#     async def _health_check_task(self) -> None:
-#         """Health check task."""
-#         while not self.stop_event.is_set():
-#             try:
-#                 health_message = self._health_check()
-#                 await self.pub_client.publish(health_message)
-#             except Exception as e:
-#                 self.logger.error("Error reporting health: %s", e)
-#             await asyncio.sleep(self.health_check_interval)
-
 
 @ServiceFactory.register(ServiceType.WORKER)
 class Worker(BaseComponentService):

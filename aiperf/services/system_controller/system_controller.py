@@ -101,14 +101,14 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             SimpleProgressLogger(self.progress_tracker) if not self.ui_enabled else None
         )
 
-        self.xpub_xsub_proxy: BaseZMQProxy
-        self.xpub_xsub_proxy_task: asyncio.Task
+        self.event_bus_proxy: BaseZMQProxy | None = None
+        self.event_bus_proxy_task: asyncio.Task | None = None
 
-        self.dealer_router_proxy: BaseZMQProxy
-        self.dealer_router_proxy_task: asyncio.Task
+        self.dataset_manager_proxy: BaseZMQProxy | None = None
+        self.dataset_manager_proxy_task: asyncio.Task | None = None
 
-        self.push_pull_proxy: BaseZMQProxy
-        self.push_pull_proxy_task: asyncio.Task
+        self.raw_inference_proxy: BaseZMQProxy | None = None
+        self.raw_inference_proxy_task: asyncio.Task | None = None
 
         self.profile_runner: ProfileRunner | None = None
 
@@ -118,27 +118,6 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
     def service_type(self) -> ServiceType:
         """The type of service."""
         return ServiceType.SYSTEM_CONTROLLER
-
-    async def _forever_loop(self) -> None:
-        """Run the system controller in a loop until the stop event is set."""
-        await super()._forever_loop()
-        # try:
-
-        # except KeyboardInterrupt:
-        #     if self.profile_runner and self.profile_runner.was_cancelled:
-        #         self.logger.error("Profile was cancelled, killing all services")
-        #         await self.kill()
-        #         return
-
-        #     if self.profile_runner:
-        #         await self.profile_runner.cancel_profile()
-
-        #     await self.send_command_to_service(
-        #         target_service_type=ServiceType.RECORDS_MANAGER,
-        #         target_service_id=None,
-        #         command=CommandType.PROCESS_RECORDS,
-        #         data=ProcessRecordsCommandData(cancelled=True),
-        #     )
 
     async def initialize(self) -> None:
         """Override the base initialize method to add pre-initialization and
@@ -166,28 +145,30 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
 
         self.zmq_context = zmq.asyncio.Context.instance()
 
-        self.xpub_xsub_proxy = ZMQProxyFactory.create_instance(
+        self.event_bus_proxy = ZMQProxyFactory.create_instance(
             ZMQProxyType.XPUB_XSUB,
             context=self.zmq_context,
             zmq_proxy_config=self.service_config.comm_config.xpub_xsub_proxy_config,
         )
-        self.xpub_xsub_proxy_task = asyncio.create_task(self.xpub_xsub_proxy.run())
+        self.event_bus_proxy_task = asyncio.create_task(self.event_bus_proxy.run())
 
-        self.dealer_router_proxy = ZMQProxyFactory.create_instance(
+        self.dataset_manager_proxy = ZMQProxyFactory.create_instance(
             ZMQProxyType.DEALER_ROUTER,
             context=self.zmq_context,
             zmq_proxy_config=self.service_config.comm_config.dealer_router_proxy_config,
         )
-        self.dealer_router_proxy_task = asyncio.create_task(
-            self.dealer_router_proxy.run()
+        self.dataset_manager_proxy_task = asyncio.create_task(
+            self.dataset_manager_proxy.run()
         )
 
-        self.push_pull_proxy = ZMQProxyFactory.create_instance(
+        self.raw_inference_proxy = ZMQProxyFactory.create_instance(
             ZMQProxyType.PUSH_PULL,
             context=self.zmq_context,
             zmq_proxy_config=self.service_config.comm_config.push_pull_proxy_config,
         )
-        self.push_pull_proxy_task = asyncio.create_task(self.push_pull_proxy.run())
+        self.raw_inference_proxy_task = asyncio.create_task(
+            self.raw_inference_proxy.run()
+        )
 
     async def _post_initialize(self) -> None:
         """Post-initialize the system controller."""
@@ -372,20 +353,20 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             ) from e
 
         tasks = []
-        if self.xpub_xsub_proxy_task:
-            await self.xpub_xsub_proxy.stop()
-            self.xpub_xsub_proxy_task.cancel()
-            tasks.append(self.xpub_xsub_proxy_task)
+        if self.event_bus_proxy_task:
+            await self.event_bus_proxy.stop()
+            self.event_bus_proxy_task.cancel()
+            tasks.append(self.event_bus_proxy_task)
 
-        if self.dealer_router_proxy_task:
-            await self.dealer_router_proxy.stop()
-            self.dealer_router_proxy_task.cancel()
-            tasks.append(self.dealer_router_proxy_task)
+        if self.dataset_manager_proxy_task:
+            await self.dataset_manager_proxy.stop()
+            self.dataset_manager_proxy_task.cancel()
+            tasks.append(self.dataset_manager_proxy_task)
 
-        if self.push_pull_proxy_task:
-            await self.push_pull_proxy.stop()
-            self.push_pull_proxy_task.cancel()
-            tasks.append(self.push_pull_proxy_task)
+        if self.raw_inference_proxy_task:
+            await self.raw_inference_proxy.stop()
+            self.raw_inference_proxy_task.cancel()
+            tasks.append(self.raw_inference_proxy_task)
 
         await asyncio.wait_for(
             asyncio.gather(*tasks),

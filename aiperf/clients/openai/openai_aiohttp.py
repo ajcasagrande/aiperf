@@ -22,6 +22,7 @@ from aiperf.common.factories import InferenceClientFactory
 from aiperf.common.record_models import (
     ErrorDetails,
     ParsedResponseRecord,
+    RequestRecord,
 )
 
 ################################################################################
@@ -74,9 +75,9 @@ class ChatCompletionMixin(AioHttpClientMixin):
 
             # Construct full URL
             base_url = (
-                f"https://{self.client_config.url}"
-                if not self.client_config.url.startswith(("http://", "https://"))
-                else self.client_config.url
+                f"https://{self.client_config.base_url}"
+                if not self.client_config.base_url.startswith(("http://", "https://"))
+                else self.client_config.base_url
             )
             url = f"{base_url.rstrip('/')}/{self.client_config.endpoint}"
 
@@ -86,7 +87,7 @@ class ChatCompletionMixin(AioHttpClientMixin):
             record.request = request_payload
 
         except Exception as e:
-            record = ParsedResponseRecord(
+            record = RequestRecord(
                 request=request_payload,
                 start_perf_ns=time.perf_counter_ns(),
                 end_perf_ns=time.perf_counter_ns(),

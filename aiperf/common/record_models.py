@@ -10,6 +10,7 @@ from typing import Any
 from pydantic import BaseModel, Field, SerializeAsAny
 
 from aiperf.common.enums import SSEFieldType
+from aiperf.common.types import ModelEndpointInfo
 
 
 # Temporary Record class to be used by the ConsoleExporter.
@@ -53,11 +54,15 @@ class BaseClientConfig(BaseModel):
     """Base configuration options for all clients."""
 
 
-class GenericHTTPClientConfig(BaseClientConfig):
+class GenericHTTPClientConfig(BaseClientConfig, ModelEndpointInfo):
     """Configuration options for a generic HTTP inference client."""
 
-    url: str = Field(
-        default=f"http://localhost:{os.getenv('AIPERF_PORT', 8080)}",
+    api_key: str | None = Field(
+        default=None,
+        description="The API key to use for the inference client.",
+    )
+    base_url: str = Field(
+        default=f"http://{os.getenv('AIPERF_HOST', 'localhost')}:{os.getenv('AIPERF_PORT', 8080)}",
         description="The URL of the inference client.",
     )
     protocol: str = Field(
@@ -74,10 +79,6 @@ class GenericHTTPClientConfig(BaseClientConfig):
     headers: dict[str, str] = Field(
         default_factory=dict,
         description="The headers to use for the inference client.",
-    )
-    api_key: str | None = Field(
-        default=None,
-        description="The API key to use for the inference client.",
     )
 
 
