@@ -1,10 +1,10 @@
-#  SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-#  SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 import logging
 
 from tqdm import tqdm
 
-from aiperf.common.progress_tracker import ProgressTracker
+from aiperf.progress.progress_tracker import ProgressTracker
 
 
 class SimpleProgressLogger:
@@ -13,8 +13,8 @@ class SimpleProgressLogger:
     def __init__(self, progress_tracker: ProgressTracker):
         self.logger = logging.getLogger(__name__)
         self.progress_tracker = progress_tracker
-        self.tqdm_progress: tqdm | None = None
-        self.tqdm_stats: tqdm | None = None
+        self.tqdm_requests: tqdm | None = None
+        self.tqdm_records: tqdm | None = None
 
     async def update_progress(self):
         """Log a progress update."""
@@ -28,23 +28,22 @@ class SimpleProgressLogger:
         #     cur_profile.total_expected_requests,
         # )
 
-        if self.tqdm_progress is None:
-            self.tqdm_progress = tqdm(
+        if self.tqdm_requests is None:
+            self.tqdm_requests = tqdm(
                 total=cur_profile.total_expected_requests,
                 desc="Requests Completed",
                 colour="green",
             )
-        if self.tqdm_progress is not None:
-            self.tqdm_progress.n = cur_profile.requests_completed
-            self.tqdm_progress.refresh()
+        if self.tqdm_requests is not None:
+            self.tqdm_requests.n = cur_profile.requests_completed
+            self.tqdm_requests.refresh()
 
         if (
             cur_profile.requests_completed == cur_profile.total_expected_requests
-            and self.tqdm_progress is not None
+            and self.tqdm_requests is not None
         ):
-            # self.logger.info("Closing TQDM. Requests Completed: %d / %d", cur_profile.requests_completed, cur_profile.total_expected_requests)
-            self.tqdm_progress.close()
-            self.tqdm_progress = None
+            self.tqdm_requests.close()
+            self.tqdm_requests = None
 
     async def update_stats(self):
         """Log a stats update."""
@@ -58,35 +57,34 @@ class SimpleProgressLogger:
         #     cur_profile.total_expected_requests,
         # )
 
-        if self.tqdm_stats is None:
-            self.tqdm_stats = tqdm(
+        if self.tqdm_records is None:
+            self.tqdm_records = tqdm(
                 total=cur_profile.total_expected_requests,
                 desc=" Records Processed",
                 colour="blue",
             )
-        if self.tqdm_stats is not None:
-            self.tqdm_stats.n = cur_profile.requests_processed
-            self.tqdm_stats.refresh()
+        if self.tqdm_records is not None:
+            self.tqdm_records.n = cur_profile.requests_processed
+            self.tqdm_records.refresh()
 
         if (
             cur_profile.requests_processed == cur_profile.total_expected_requests
-            and self.tqdm_stats is not None
+            and self.tqdm_records is not None
         ):
             self.logger.info(
                 "Closing TQDM. Records Processed: %d / %d",
                 cur_profile.requests_processed,
                 cur_profile.total_expected_requests,
             )
-            self.tqdm_stats.close()
-            self.tqdm_stats = None
+            self.tqdm_records.close()
+            self.tqdm_records = None
 
     async def update_results(self):
         """Log a results update."""
-        # self.logger.info(message)
-        if self.tqdm_progress is not None:
-            self.tqdm_progress.close()
-            self.tqdm_progress = None
+        if self.tqdm_requests is not None:
+            self.tqdm_requests.close()
+            self.tqdm_requests = None
 
-        if self.tqdm_stats is not None:
-            self.tqdm_stats.close()
-            self.tqdm_stats = None
+        if self.tqdm_records is not None:
+            self.tqdm_records.close()
+            self.tqdm_records = None

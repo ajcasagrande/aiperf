@@ -28,10 +28,10 @@ from aiperf.common.messages import (
     CreditsCompleteMessage,
     DatasetTimingRequest,
     DatasetTimingResponse,
-    ProfileProgressMessage,
 )
 from aiperf.common.mixins import AsyncTaskManagerMixin
 from aiperf.common.service.base_component_service import BaseComponentService
+from aiperf.progress import ProfileProgressMessage
 from aiperf.services.timing_manager.concurrency_strategy import ConcurrencyStrategy
 from aiperf.services.timing_manager.config import TimingManagerConfig, TimingMode
 from aiperf.services.timing_manager.credit_issuing_strategy import CreditIssuingStrategy

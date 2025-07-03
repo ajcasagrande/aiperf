@@ -12,7 +12,7 @@ from aiperf.common.enums import (
     ServiceState,
     SystemState,
 )
-from aiperf.common.progress_models import ProfileProgress, ProfileSuiteProgress
+from aiperf.progress.progress_models import ProfileProgress, ProfileSuiteProgress
 
 if TYPE_CHECKING:
     from aiperf.services.system_controller.system_controller import SystemController

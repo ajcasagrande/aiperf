@@ -11,6 +11,12 @@ from aiperf.services.timing_manager.config import TimingManagerConfig
 
 
 class CreditManagerProtocol(Protocol):
+    """Defines the interface for a CreditManager.
+
+    This is used to allow the credit issuing strategy to interact with the TimingManager
+    in a decoupled way.
+    """
+
     async def drop_credit(
         self,
         amount: int = 1,
