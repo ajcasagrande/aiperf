@@ -1,5 +1,5 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
+#  SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+#  SPDX-License-Identifier: Apache-2.0
 from aiperf.common.enums import MetricTimeType, MetricType
 from aiperf.common.record_models import ParsedResponseRecord
 from aiperf.services.records_manager.metrics.base_metric import BaseMetric
@@ -29,8 +29,8 @@ class MinRequestMetric(BaseMetric):
 
         """
         self._check_record(record)
-        if record.timestamp_ns < self.metric:
-            self.metric = record.timestamp_ns
+        if record.start_perf_ns < self.metric:
+            self.metric = record.start_perf_ns
 
     def values(self) -> float:
         """
@@ -43,5 +43,5 @@ class MinRequestMetric(BaseMetric):
         Checks if the record is valid for calculations.
 
         """
-        if not record or not record.timestamp_ns:
+        if not record or not record.start_perf_ns:
             raise ValueError("Record must have a valid request with a timestamp.")
