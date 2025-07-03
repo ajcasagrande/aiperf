@@ -36,8 +36,7 @@ def create_proxy_socket_class(
             context: zmq.asyncio.Context,
             address: str,
             socket_ops: dict | None = None,
-            proxy_uuid: str
-            | None = None,  # allow passing a custom UUID for tracing purposes
+            proxy_uuid: str | None = None,
         ):
             """Initialize the ZMQ Proxy socket class."""
 
@@ -45,13 +44,15 @@ def create_proxy_socket_class(
                 context,
                 socket_type,
                 address,
+                end_type=end_type,
                 socket_ops=socket_ops,
                 proxy_uuid=proxy_uuid,
-                end_type=end_type,
             )
 
+    # Dynamically set the class name and qualname based on the socket and end type
     ProxySocket.__name__ = class_name
     ProxySocket.__qualname__ = class_name
+    ProxySocket.__doc__ = f"A ZMQ Proxy {end_type.name} socket implementation."
     return ProxySocket
 
 

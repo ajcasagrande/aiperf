@@ -40,8 +40,7 @@ class ProxySocketClient(BaseZMQClient):
         address: str,
         end_type: ProxyEndType,
         socket_ops: dict | None = None,
-        proxy_uuid: str
-        | None = None,  # allow passing a custom UUID for tracing purposes
+        proxy_uuid: str | None = None,
     ) -> None:
         self.client_id = f"proxy_{end_type}_{socket_type.name.lower()}_{proxy_uuid or uuid.uuid4().hex[:8]}"
         super().__init__(
@@ -134,22 +133,24 @@ class BaseZMQProxy(ABC):
 
         if self.control_address:
             self.logger.debug("Proxy Control - Address: %s", self.control_address)
-            self.control_client = BaseZMQClient(
+            self.control_client = ProxySocketClient(
                 context=self.context,
                 socket_type=SocketType.REP,
                 address=self.control_address,
-                bind=True,
                 socket_ops=self.socket_ops,
+                end_type=ProxyEndType.Control,
+                proxy_uuid=self.proxy_uuid,
             )
 
         if self.capture_address:
             self.logger.debug("Proxy Capture - Address: %s", self.capture_address)
-            self.capture_client = BaseZMQClient(
+            self.capture_client = ProxySocketClient(
                 context=self.context,
                 socket_type=SocketType.PUB,
                 address=self.capture_address,
-                bind=True,
                 socket_ops=self.socket_ops,
+                end_type=ProxyEndType.Capture,
+                proxy_uuid=self.proxy_uuid,
             )
 
     @classmethod
