@@ -10,7 +10,11 @@ from pathlib import Path
 
 import zmq.asyncio
 
-from aiperf.common.comms.base import CommunicationClientFactory, CommunicationProtocol
+from aiperf.common.comms.base import (
+    CommunicationClientFactory,
+    CommunicationClientProtocol,
+    CommunicationProtocol,
+)
 from aiperf.common.comms.zmq.zmq_base_client import BaseZMQClient
 from aiperf.common.config import BaseZMQCommunicationConfig
 from aiperf.common.config.zmq_config import ZMQIPCConfig, ZMQTCPConfig
@@ -109,7 +113,7 @@ class BaseZMQCommunication(CommunicationProtocol, ABC):
         address: CommunicationClientAddressType | str,
         bind: bool = False,
         socket_ops: dict | None = None,
-    ) -> BaseZMQClient:
+    ) -> CommunicationClientProtocol:
         """Create a communication client for a given client type and address.
 
         Args:
