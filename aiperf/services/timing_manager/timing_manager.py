@@ -25,6 +25,7 @@ from aiperf.common.hooks import (
 from aiperf.common.messages import (
     CommandMessage,
     CreditDropMessage,
+    CreditReturnMessage,
     CreditsCompleteMessage,
     DatasetTimingRequest,
     DatasetTimingResponse,
@@ -82,14 +83,6 @@ class TimingManager(BaseComponentService, AsyncTaskManagerMixin):
             message_type=MessageType.CREDIT_RETURN,
             callback=self._on_credit_return,
         )
-        await self.sub_client.subscribe(
-            message_type=MessageType.NOTIFICATION,
-            callback=self._on_notification,
-        )
-        await self.credit_return_client.register_pull_callback(
-            message_type=MessageType.CREDIT_RETURN,
-            callback=self._on_credit_return,
-        )
 
     @on_configure
     async def _configure(self, message: CommandMessage) -> None:
@@ -142,6 +135,12 @@ class TimingManager(BaseComponentService, AsyncTaskManagerMixin):
         if self._credit_issuing_strategy:
             await self._credit_issuing_strategy.stop()
         await self.cancel_all_tasks()
+
+    async def _on_credit_return(self, message: CreditReturnMessage) -> None:
+        """Handle the credit return message."""
+        self.logger.debug("Timing manager received credit return message: %s", message)
+        if self._credit_issuing_strategy:
+            await self._credit_issuing_strategy.on_credit_return(message)
 
     async def publish_progress(self, total: int, completed: int) -> None:
         """Publish the progress message."""

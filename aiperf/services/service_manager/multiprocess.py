@@ -80,7 +80,7 @@ class MultiProcessServiceManager(BaseServiceManager):
 
             # TODO: HACK: This is a hack
             # Sleep to allow the service to register
-            await asyncio.sleep(0.01)
+            await asyncio.sleep(1)
 
     async def run_all_services(self) -> None:
         """Start all required services as multiprocessing processes."""

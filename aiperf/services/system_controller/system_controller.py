@@ -86,7 +86,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             (ServiceType.TIMING_MANAGER, 1),
             (ServiceType.WORKER_MANAGER, 1),
             (ServiceType.RECORDS_MANAGER, 1),
-            (ServiceType.INFERENCE_RESULT_PARSER, 12),
+            (ServiceType.INFERENCE_RESULT_PARSER, 4),
         ]
 
         self.service_manager: BaseServiceManager = None  # type: ignore - is set in _initialize
@@ -168,6 +168,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         self.raw_inference_proxy_task = asyncio.create_task(
             self.raw_inference_proxy.run()
         )
+        await asyncio.sleep(1)
 
     async def _post_initialize(self) -> None:
         """Post-initialize the system controller."""

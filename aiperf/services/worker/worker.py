@@ -5,7 +5,6 @@ import asyncio
 import os
 import sys
 import time
-from typing import cast
 
 import psutil
 
@@ -31,7 +30,6 @@ from aiperf.common.enums import (
     RequestPayloadType,
     ServiceType,
 )
-from aiperf.common.exceptions import ConfigurationError
 from aiperf.common.factories import (
     CommunicationFactory,
     InferenceClientFactory,
@@ -115,7 +113,7 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin):
             )
         )
         self.conversation_data_client: RequestClientProtocol = (
-            self.comms.create_req_client(
+            self.comms.create_request_client(
                 CommunicationClientAddressType.DATASET_MANAGER_PROXY_FRONTEND,
             )
         )
@@ -143,10 +141,10 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin):
     @on_configure
     async def _configure(self, message: CommandMessage) -> None:
         self.logger.debug("Configuring worker process %s", self.service_id)
-        if not isinstance(message.data, UserConfig):
-            raise ConfigurationError("Invalid user config")
+        # if not isinstance(message.data, UserConfig):
+        #     raise ConfigurationError("Invalid user config")
 
-        self.user_config = cast(UserConfig, message.data)
+        # self.user_config = cast(UserConfig, message.data)
 
         # TODO: better way to get the API key
         api_key = os.environ.get("OPENAI_API_KEY", None)
@@ -325,7 +323,7 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin):
         """Task to report the health of the worker to the worker manager."""
         while not self.stop_event.is_set():
             try:
-                health_message = self._create_health_message()
+                health_message = self.create_health_message()
                 await self.pub_client.publish(health_message)
             except Exception as e:
                 self.logger.error("Error reporting health: %s", e)

@@ -3,14 +3,13 @@
 import time
 import uuid
 from collections import namedtuple
-from typing import Any, ClassVar, Literal, TypeVar
+from typing import Any, ClassVar, Literal
 
 import orjson
 from pydantic import (
     BaseModel,
     Field,
     SerializeAsAny,
-    model_serializer,
 )
 
 from aiperf.common.dataset_models import Conversation
@@ -22,6 +21,7 @@ from aiperf.common.enums import (
     ServiceState,
     ServiceType,
 )
+from aiperf.common.pydantic_utils import ExcludeIfNoneMixin, exclude_if_none
 from aiperf.common.record_models import (
     ErrorDetails,
     ParsedResponseRecord,
@@ -33,25 +33,9 @@ from aiperf.common.utils import load_json_str
 # Abstract Base Message Models
 ################################################################################
 
-BaseModelT = TypeVar("BaseModelT", bound=BaseModel)
-
-
-def exclude_if_none(field_names: list[str]):
-    """Decorator to set the _exclude_if_none_fields class attribute to the set of
-    field names that should be excluded if they are None.
-    """
-
-    def decorator(model: type[BaseModelT]) -> type[BaseModelT]:
-        if not hasattr(model, "_exclude_if_none_fields"):
-            model._exclude_if_none_fields = set()
-        model._exclude_if_none_fields.update(field_names)
-        return model
-
-    return decorator
-
 
 @exclude_if_none(["request_ns", "request_id"])
-class Message(BaseModel):
+class Message(ExcludeIfNoneMixin):
     """Base message class for optimized message handling.
 
     This class provides a base for all messages, including common fields like message_type,
@@ -98,19 +82,6 @@ class Message(BaseModel):
         default=None,
         description="ID of the request",
     )
-
-    @model_serializer
-    def _serialize_message(self) -> dict[str, Any]:
-        """Serialize the message to a dictionary.
-
-        This method overrides the default serializer to exclude fields that with a
-        value of None and were marked with the @exclude_if_none decorator.
-        """
-        return {
-            k: v
-            for k, v in self
-            if not (k in self._exclude_if_none_fields and v is None)
-        }
 
     @classmethod
     def __get_validators__(cls):

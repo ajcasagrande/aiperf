@@ -3,7 +3,7 @@
 
 from pydantic import BaseModel, Field
 
-from aiperf.common.messages import exclude_if_none
+from aiperf.common.pydantic_utils import exclude_if_none
 
 
 @exclude_if_none(["role"])

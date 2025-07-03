@@ -3,16 +3,11 @@
 
 from aiperf.clients.openai.common import (
     OpenAIBaseRequest,
-    OpenAIBaseResponse,
     OpenAIChatCompletionRequest,
-    OpenAIChatCompletionResponse,
-    OpenAIChatResponsesResponse,
     OpenAIClientConfig,
     OpenAIClientProtocol,
     OpenAICompletionRequest,
-    OpenAICompletionResponse,
     OpenAIEmbeddingsRequest,
-    OpenAIEmbeddingsResponse,
     OpenAIResponsesRequest,
 )
 from aiperf.clients.openai.openai_aiohttp import (
@@ -23,16 +18,11 @@ from aiperf.clients.openai.openai_aiohttp import (
 __all__ = [
     "ChatCompletionMixin",
     "OpenAIBaseRequest",
-    "OpenAIBaseResponse",
     "OpenAIChatCompletionRequest",
-    "OpenAIChatCompletionResponse",
-    "OpenAIChatResponsesResponse",
     "OpenAIClientAioHttp",
     "OpenAIClientConfig",
     "OpenAIClientProtocol",
     "OpenAICompletionRequest",
-    "OpenAICompletionResponse",
     "OpenAIEmbeddingsRequest",
-    "OpenAIEmbeddingsResponse",
     "OpenAIResponsesRequest",
 ]
