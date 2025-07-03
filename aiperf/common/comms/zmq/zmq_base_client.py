@@ -77,6 +77,11 @@ class BaseZMQClient(AIPerfTaskMixin, CommunicationClientProtocol):
         return self.initialized_event.is_set()
 
     @property
+    def stop_requested(self) -> bool:
+        """Check if the client has been requested to stop."""
+        return self.stop_event.is_set()
+
+    @property
     def socket_type_name(self) -> str:
         """Get the name of the socket type."""
         return self.socket_type.name
@@ -103,7 +108,7 @@ class BaseZMQClient(AIPerfTaskMixin, CommunicationClientProtocol):
         """
         if not self.is_initialized:
             await self.initialize()
-        if self.stop_event.is_set():
+        if self.stop_requested:
             raise asyncio.CancelledError()
 
     async def initialize(self) -> None:
@@ -180,11 +185,10 @@ class BaseZMQClient(AIPerfTaskMixin, CommunicationClientProtocol):
         - Close the zmq socket
         - Run the AIPerfHook.ON_CLEANUP hooks
         """
-        if self.stop_event.is_set():
+        if self.stop_requested:
             return
 
-        if not self.stop_event.is_set():
-            self.stop_event.set()
+        self.stop_event.set()
 
         try:
             await self.run_hooks(AIPerfHook.ON_STOP)
