@@ -123,7 +123,7 @@ class BaseZMQCommunication(CommunicationProtocol, ABC):
         return CommunicationClientFactory.create_instance(
             client_type,
             context=self.context,
-            address=address,
+            address=self.get_address(address),
             bind=bind,
             socket_ops=socket_ops,
         )
@@ -152,8 +152,9 @@ class ZMQIPCCommunication(BaseZMQCommunication):
         Args:
             config: ZMQIPCConfig object with configuration parameters
         """
-        self._setup_ipc_directory()
         super().__init__(config or ZMQIPCConfig())
+        # call after super init so that way self.config is set
+        self._setup_ipc_directory()
 
     async def initialize(self) -> None:
         """Initialize communication channels.

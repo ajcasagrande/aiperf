@@ -68,6 +68,7 @@ class ZMQSubClient(BaseZMQClient, AsyncTaskManagerMixin):
             socket_ops (dict, optional): Additional socket options to set.
         """
         super().__init__(context, zmq.SocketType.SUB, address, bind, socket_ops)
+        AsyncTaskManagerMixin.__init__(self)
         self._subscribers: dict[MessageType | str, list[Callable[[Message], Any]]] = {}
 
     @on_stop

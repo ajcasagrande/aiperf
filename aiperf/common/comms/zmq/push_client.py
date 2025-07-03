@@ -6,7 +6,7 @@ import logging
 
 import zmq.asyncio
 
-from aiperf.common.comms.base import CommunicationClientFactory, PushClientProtocol
+from aiperf.common.comms.base import CommunicationClientFactory
 from aiperf.common.comms.zmq.zmq_base_client import BaseZMQClient
 from aiperf.common.enums import CommunicationClientType
 from aiperf.common.exceptions import CommunicationError, CommunicationErrorReason
@@ -20,7 +20,7 @@ MAX_PUSH_RETRIES = 2
 
 
 @CommunicationClientFactory.register(CommunicationClientType.PUSH)
-class ZMQPushClient(BaseZMQClient, PushClientProtocol, AsyncTaskManagerMixin):
+class ZMQPushClient(BaseZMQClient, AsyncTaskManagerMixin):
     """
     ZMQ PUSH socket client for sending work to PULL sockets.
 

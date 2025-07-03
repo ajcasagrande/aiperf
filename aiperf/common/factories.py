@@ -202,6 +202,18 @@ class FactoryMixin(Generic[ClassEnumT, ClassProtocolT]):
         """
         return list(cls._registry.values())
 
+    @classmethod
+    def get_all_class_types(cls) -> list[ClassEnumT | str]:
+        """Get all registered class types."""
+        return list(cls._registry.keys())
+
+    @classmethod
+    def get_all_classes_and_types(
+        cls,
+    ) -> list[tuple[type[ClassProtocolT], ClassEnumT | str]]:
+        """Get all registered classes and their corresponding class types."""
+        return [(cls, class_type) for class_type, cls in cls._registry.items()]
+
 
 ################################################################################
 # Built-in Factories
