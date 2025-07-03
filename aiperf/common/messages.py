@@ -3,7 +3,7 @@
 import time
 import uuid
 from collections import namedtuple
-from typing import Any, ClassVar, Literal
+from typing import Any, ClassVar, Literal, TypeVar
 
 import orjson
 from pydantic import (
@@ -33,7 +33,7 @@ from aiperf.common.utils import load_json_str
 # Abstract Base Message Models
 ################################################################################
 
-EXCLUDE_IF_NONE = "__exclude_if_none__"
+BaseModelT = TypeVar("BaseModelT", bound=BaseModel)
 
 
 def exclude_if_none(field_names: list[str]):
@@ -41,7 +41,9 @@ def exclude_if_none(field_names: list[str]):
     field names that should be excluded if they are None.
     """
 
-    def decorator(model: type["Message"]) -> type["Message"]:
+    def decorator(model: type[BaseModelT]) -> type[BaseModelT]:
+        if not hasattr(model, "_exclude_if_none_fields"):
+            model._exclude_if_none_fields = set()
         model._exclude_if_none_fields.update(field_names)
         return model
 
@@ -101,8 +103,8 @@ class Message(BaseModel):
     def _serialize_message(self) -> dict[str, Any]:
         """Serialize the message to a dictionary.
 
-        This method overrides the default serializer to exclude fields that have a
-        value of None and have the EXCLUDE_IF_NONE json_schema_extra key set to True.
+        This method overrides the default serializer to exclude fields that with a
+        value of None and were marked with the @exclude_if_none decorator.
         """
         return {
             k: v

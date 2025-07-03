@@ -286,7 +286,7 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin):
             # Format payload for the API request
             formatted_payload = await self.inference_client.format_payload(
                 model_endpoint=self.model_endpoint,
-                payload=response.conversation.turns[0],  # todo: handle multiple turns
+                turn=response.conversation.turns[0],  # todo: handle multiple turns
                 # payload={
                 #     "messages": [
                 #         {

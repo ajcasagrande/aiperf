@@ -46,7 +46,7 @@ class EndpointInfo(BaseModel):
         default=None,
         description="Custom endpoint to use for the models. If None, the endpoint will be the same as the model's endpoint.",
     )
-    extra: dict[str, Any] | BaseModel | None = Field(
+    extra: dict[str, Any] | None = Field(
         default=None,
         description="Extra information to send with the inference request.",
     )

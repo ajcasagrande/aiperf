@@ -66,9 +66,9 @@ class InferenceClientProtocol(Protocol, Generic[ConfigT, RequestT, ResponseT]):
         ...
 
     async def format_payload(
-        self, model_endpoint: ModelEndpointInfo, payload: Turn
+        self, model_endpoint: ModelEndpointInfo, turn: Turn
     ) -> RequestT:
-        """Format the payload for the inference server."""
+        """Format the turn for the inference server."""
         ...
 
     async def send_request(
@@ -142,20 +142,5 @@ class ResponseExtractor(Protocol):
     async def extract_response_data(
         self, record: ParsedResponseRecord
     ) -> list[ResponseData]:
-        """Extract the text from a server response message."""
-        ...
-
-
-################################################################################
-# Response Extractor Protocol
-################################################################################
-
-
-class ResponseExtractor(Protocol):
-    """Base class for all response extractors."""
-
-    async def extract_response_data(
-        self, record: "ParsedResponseRecord"
-    ) -> list["ResponseData"]:
         """Extract the text from a server response message."""
         ...

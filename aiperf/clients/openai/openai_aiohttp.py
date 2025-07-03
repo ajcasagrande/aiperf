@@ -4,7 +4,6 @@
 import json
 import logging
 import time
-from typing import Any
 
 from aiperf.clients.http.aiohttp_client import AioHttpClientMixin
 from aiperf.clients.openai.common import (
@@ -15,6 +14,7 @@ from aiperf.clients.openai.common import (
     OpenAIEmbeddingsRequest,
     OpenAIResponsesRequest,
 )
+from aiperf.common.dataset_models import Turn
 from aiperf.common.enums import InferenceClientType
 from aiperf.common.exceptions import InvalidPayloadError
 from aiperf.common.factories import InferenceClientFactory
@@ -45,12 +45,7 @@ class ChatCompletionMixin(AioHttpClientMixin):
 
         try:
             # Prepare request payload
-            request_payload = {
-                "model": payload.model,
-                "messages": payload.messages,
-                "max_tokens": payload.max_tokens,
-                "stream": payload.stream,
-            }
+            request_payload = payload.model_dump()
 
             # Add optional parameters if configured
             if self.client_config.stop:
@@ -121,55 +116,55 @@ class OpenAIClientAioHttp(ChatCompletionMixin):
     async def format_payload(
         self,
         model_endpoint: ModelEndpointInfo,
-        payload: OpenAIBaseRequest | dict[str, Any],
+        turn: Turn,
     ) -> OpenAIBaseRequest:
         """Format payload for the given endpoint."""
 
-        if isinstance(payload, dict):
-            return self._convert_dict_to_request(model_endpoint, payload)
-        return payload
-
-    def _convert_dict_to_request(
-        self, model_endpoint: ModelEndpointInfo, payload: dict[str, Any]
-    ) -> OpenAIBaseRequest:
-        """Convert dictionary payload to proper OpenAI request object."""
-
         if model_endpoint.endpoint.type == "v1/chat/completions":
+            messages = [
+                {
+                    "role": text.role or "user",
+                    "name": text.name,
+                    "content": text.content,
+                }
+                for text in turn.text
+            ]
+
             return OpenAIChatCompletionRequest(
-                messages=payload["messages"],
+                messages=messages,
                 model=model_endpoint.models[0].name,
                 max_tokens=self.client_config.max_tokens,
                 stream=model_endpoint.endpoint.streaming,
-                kwargs=payload.get("kwargs", {}),
+                **model_endpoint.endpoint.extra,
             )
 
-        elif model_endpoint.endpoint.type == "v1/completions":
-            return OpenAICompletionRequest(
-                prompt=payload["prompt"],
-                model=self.client_config.model,
-                max_tokens=self.client_config.max_tokens,
-                stream=model_endpoint.endpoint.streaming,
-                kwargs=payload.get("kwargs", {}),
-            )
+        # elif model_endpoint.endpoint.type == "v1/completions":
+        #     return OpenAICompletionRequest(
+        #         prompt=payload["prompt"],
+        #         model=self.client_config.model,
+        #         max_tokens=self.client_config.max_tokens,
+        #         stream=model_endpoint.endpoint.streaming,
+        #         **model_endpoint.endpoint.extra,
+        #     )
 
-        elif model_endpoint.endpoint.type == "v1/embeddings":
-            return OpenAIEmbeddingsRequest(
-                input=payload["input"],
-                model=model_endpoint.models[0].name,
-                dimensions=payload["dimensions"],
-                encoding_format=payload["encoding_format"],
-                user=payload["user"],
-                kwargs=payload.get("kwargs", {}),
-            )
+        # elif model_endpoint.endpoint.type == "v1/embeddings":
+        #     return OpenAIEmbeddingsRequest(
+        #         input=payload["input"],
+        #         model=model_endpoint.models[0].name,
+        #         dimensions=payload["dimensions"],
+        #         encoding_format=payload["encoding_format"],
+        #         user=payload["user"],
+        #         **model_endpoint.endpoint.extra,
+        #     )
 
-        elif model_endpoint.endpoint.type == "v1/responses":
-            return OpenAIResponsesRequest(
-                input=payload["input"],
-                model=model_endpoint.models[0].name,
-                max_output_tokens=model_endpoint.max_output_tokens,
-                stream=model_endpoint.endpoint.streaming,
-                kwargs=payload.get("kwargs", {}),
-            )
+        # elif model_endpoint.endpoint.type == "v1/responses":
+        #     return OpenAIResponsesRequest(
+        #         input=payload["input"],
+        #         model=model_endpoint.models[0].name,
+        #         max_output_tokens=model_endpoint.max_output_tokens,
+        #         stream=model_endpoint.endpoint.streaming,
+        #         **model_endpoint.endpoint.extra,
+        #     )
 
         else:
             raise ValueError(f"Invalid endpoint: {model_endpoint.endpoint.type}")
