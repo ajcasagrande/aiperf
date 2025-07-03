@@ -13,9 +13,14 @@ from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
 from aiperf.common.exceptions import (
     AIPerfError,
     CommunicationError,
-    CommunicationErrorReason,
+    InitializationError,
 )
-from aiperf.common.hooks import AIPerfHook, AIPerfTaskMixin, supports_hooks
+from aiperf.common.hooks import (
+    AIPerfHook,
+    AIPerfTaskHook,
+    AIPerfTaskMixin,
+    supports_hooks,
+)
 
 ################################################################################
 # Base ZMQ Client Class
@@ -26,7 +31,7 @@ from aiperf.common.hooks import AIPerfHook, AIPerfTaskMixin, supports_hooks
     AIPerfHook.ON_INIT,
     AIPerfHook.ON_STOP,
     AIPerfHook.ON_CLEANUP,
-    AIPerfHook.AIPERF_TASK,
+    AIPerfTaskHook.AIPERF_TASK,
 )
 class BaseZMQClient(AIPerfTaskMixin, CommunicationClientProtocol):
     """Base class for all ZMQ clients. It can be used as-is to create a new ZMQ client,
@@ -85,7 +90,6 @@ class BaseZMQClient(AIPerfTaskMixin, CommunicationClientProtocol):
         """
         if not self._socket:
             raise CommunicationError(
-                CommunicationErrorReason.NOT_INITIALIZED_ERROR,
                 "Communication channels are not initialized",
             )
         return self._socket
@@ -165,8 +169,7 @@ class BaseZMQClient(AIPerfTaskMixin, CommunicationClientProtocol):
         except AIPerfError:
             raise  # re-raise it up the stack
         except Exception as e:
-            raise CommunicationError(
-                CommunicationErrorReason.INITIALIZATION_ERROR,
+            raise InitializationError(
                 f"Failed to initialize ZMQ socket: {e}",
             ) from e
 

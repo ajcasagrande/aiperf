@@ -14,7 +14,7 @@ from aiperf.common.comms.zmq.zmq_base_client import BaseZMQClient
 from aiperf.common.config.zmq_config import BaseZMQProxyConfig
 from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
 from aiperf.common.enums import ZMQProxyType
-from aiperf.common.exceptions import CommunicationError, CommunicationErrorReason
+from aiperf.common.exceptions import ProxyError
 from aiperf.common.factories import FactoryMixin
 
 
@@ -197,7 +197,7 @@ class BaseZMQProxy(ABC):
         The proxy forwards messages between the frontend and backend sockets.
 
         Raises:
-            CommunicationError: If the proxy produces an error.
+            ProxyError: If the proxy produces an error.
         """
         try:
             await self._initialize()
@@ -224,18 +224,12 @@ class BaseZMQProxy(ABC):
 
         except Exception as e:
             self.logger.error("Proxy Error: %s", e)
-            raise CommunicationError(
-                CommunicationErrorReason.PROXY_ERROR,
-                f"Proxy failed: {e}",
-            ) from e
+            raise ProxyError(f"Proxy failed: {e}") from e
 
     async def _monitor_messages(self) -> None:
         """Monitor messages flowing through the proxy via the capture socket."""
         if not self.capture_client or not self.capture_address:
-            raise CommunicationError(
-                CommunicationErrorReason.PROXY_ERROR,
-                "Proxy Monitor Not Enabled",
-            )
+            raise ProxyError("Proxy Monitor Not Enabled")
 
         self.logger.debug(
             "Proxy Monitor Starting - Capture Address: %s",
@@ -258,21 +252,4 @@ class BaseZMQProxy(ABC):
 
 
 class ZMQProxyFactory(FactoryMixin[ZMQProxyType, BaseZMQProxy]):
-    """
-    A factory for creating ZMQ proxies.
-
-    Example:
-    ```python
-        # Register a new ZMQ proxy type
-        @ZMQProxyFactory.register(ZMQProxyType.DEALER_ROUTER)
-        class DealerRouterProxy(BaseZMQProxy):
-            pass
-
-        # Create a new ZMQ proxy instance
-        proxy = ZMQProxyFactory.create_instance(
-            ZMQProxyType.DEALER_ROUTER,
-            config=ZMQTCPProxyConfig(host="localhost", frontend_port=5555, backend_port=5556),
-        )
-        proxy.run()
-    ```
-    """
+    """A factory for creating ZMQ proxies. see :class:`FactoryMixin` for more details."""

@@ -4,11 +4,10 @@ import asyncio
 import signal
 import sys
 import time
-from typing import Any
 
 import zmq.asyncio
+from pydantic import BaseModel
 
-from aiperf.common.comms.zmq.clients.base_zmq_proxy import BaseZMQProxy
 from aiperf.common.comms.zmq.zmq_proxy_base import BaseZMQProxy, ZMQProxyFactory
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
@@ -25,12 +24,8 @@ from aiperf.common.enums import (
     SystemState,
     ZMQProxyType,
 )
-from aiperf.common.exceptions import (
-    CommunicationError,
-    CommunicationErrorReason,
-    ServiceErrorType,
-)
-from aiperf.common.factories import ServiceFactory, ZMQProxyFactory
+from aiperf.common.exceptions import CommunicationError, NotInitializedError
+from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import on_cleanup, on_stop
 from aiperf.common.logging import get_global_log_queue
 from aiperf.common.messages import (
@@ -219,7 +214,6 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
                     "Failed to subscribe to message_type %s: %s", message_type, e
                 )
                 raise CommunicationError(
-                    CommunicationErrorReason.SUBSCRIBE_ERROR,
                     f"Failed to subscribe to message_type {message_type}: {e}",
                 ) from e
 
@@ -451,7 +445,6 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         except Exception as e:
             self.logger.error("Failed to export results: %s", e)
             raise self._service_error(
-                ServiceErrorType.EXPORT_RESULTS_ERROR,
                 "Failed to export results",
             ) from e
         finally:
@@ -612,7 +605,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         self,
         target_service_id: str | None,
         command: CommandType,
-        data: Any | None = None,
+        data: BaseModel | None = None,
         target_service_type: ServiceType | None = None,
     ) -> None:
         """Send a command to a specific service.
@@ -629,8 +622,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         """
         if not self.comms:
             self.logger.error("Cannot send command: Communication is not initialized")
-            raise CommunicationError(
-                CommunicationErrorReason.INITIALIZATION_ERROR,
+            raise NotInitializedError(
                 "Communication channels are not initialized",
             )
 
@@ -647,18 +639,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         except Exception as e:
             self.logger.error("Exception publishing command: %s", e)
             raise CommunicationError(
-                CommunicationErrorReason.PUBLISH_ERROR,
                 f"Failed to publish command: {e}",
-            ) from e
-
-    async def kill(self):
-        """Kill the system controller."""
-        try:
-            await self.service_manager.kill_all_services()
-        except Exception as e:
-            raise self._service_error(
-                ServiceErrorType.SHUTDOWN_ERROR,
-                "Failed to stop all services",
             ) from e
 
     async def kill(self):

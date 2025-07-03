@@ -5,9 +5,11 @@ import sys
 import time
 from collections import deque
 
-from aiperf.common.comms.base import ClientAddressType, PullClientProtocol
+from aiperf.common.comms.base import (
+    CommunicationClientAddressType,
+    PullClientProtocol,
+)
 from aiperf.common.config import ServiceConfig, UserConfig
-from aiperf.common.config.user_config import UserConfig
 from aiperf.common.enums import CommandType, MessageType, ServiceType
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
@@ -20,7 +22,6 @@ from aiperf.common.hooks import (
 )
 from aiperf.common.messages import (
     CommandMessage,
-    ErrorDetails,
     ErrorDetailsCount,
     InferenceResultsMessage,
     ParsedInferenceResultsMessage,
@@ -30,11 +31,9 @@ from aiperf.common.messages import (
 )
 from aiperf.common.record_models import (
     ErrorDetails,
-    ErrorDetailsCount,
     ParsedResponseRecord,
 )
 from aiperf.common.service import BaseComponentService
-from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.services.records_manager.post_processors.metric_summary import MetricSummary
 
 
@@ -83,7 +82,7 @@ class RecordsManager(BaseComponentService):
 
         self.response_results_client: PullClientProtocol = (
             self.comms.create_pull_client(
-                ClientAddressType.INFERENCE_RESULTS_PUSH_PULL,
+                CommunicationClientAddressType.RECORDS,
                 bind=True,
             )
         )

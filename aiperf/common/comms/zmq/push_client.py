@@ -9,7 +9,7 @@ import zmq.asyncio
 from aiperf.common.comms.base import CommunicationClientFactory
 from aiperf.common.comms.zmq.zmq_base_client import BaseZMQClient
 from aiperf.common.enums import CommunicationClientType
-from aiperf.common.exceptions import CommunicationError, CommunicationErrorReason
+from aiperf.common.exceptions import CommunicationError
 from aiperf.common.messages import Message
 from aiperf.common.mixins import AsyncTaskManagerMixin
 
@@ -87,7 +87,6 @@ class ZMQPushClient(BaseZMQClient, AsyncTaskManagerMixin):
         except zmq.Again as e:
             if retry_count >= max_retries:
                 raise CommunicationError(
-                    CommunicationErrorReason.PUSH_ERROR,
                     f"Failed to push data after {retry_count} retries: {e}",
                 ) from e
 

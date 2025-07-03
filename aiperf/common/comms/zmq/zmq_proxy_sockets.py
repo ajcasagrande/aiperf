@@ -1,8 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Self
-
 import zmq.asyncio
 from zmq import SocketType
 
@@ -92,7 +90,7 @@ def define_proxy_class(
             cls,
             config: BaseZMQProxyConfig | None,
             socket_ops: dict | None = None,
-        ) -> Self | None:
+        ) -> "ZMQProxy | None":
             if config is None:
                 return None
             return cls(

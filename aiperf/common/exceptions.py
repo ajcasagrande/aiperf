@@ -1,12 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-################################################################################
-# Base Exceptions
-################################################################################
-
-
-from aiperf.common.enums import CaseInsensitiveStrEnum, ServiceType
+from aiperf.common.enums import ServiceType
 
 
 class AIPerfError(Exception):
@@ -32,137 +27,56 @@ class AIPerfMultiError(AIPerfError):
         self.exceptions = exceptions
 
 
-################################################################################
-# Communication Exceptions
-################################################################################
-
-
-class CommunicationErrorReason(CaseInsensitiveStrEnum):
-    CLIENT_NOT_FOUND = "client_not_found"
-    PUBLISH_ERROR = "publish_error"
-    SUBSCRIBE_ERROR = "subscribe_error"
-    REQUEST_ERROR = "request_error"
-    RESPONSE_ERROR = "response_error"
-    SHUTDOWN_ERROR = "shutdown_error"
-    INITIALIZATION_ERROR = "initialization_error"
-    NOT_INITIALIZED_ERROR = "not_initialized_error"
-    CLEANUP_ERROR = "cleanup_error"
-    PUSH_ERROR = "push_error"
-    PULL_ERROR = "pull_error"
-    PROXY_ERROR = "proxy_error"
-
-
-class CommunicationError(AIPerfError):
-    """Base class for all communication exceptions."""
-
-    def __init__(self, reason: CommunicationErrorReason, message: str) -> None:
-        super().__init__(f"Communication Error {reason.name}: {message}")
-        self.reason = reason
-
-
-################################################################################
-# Configuration Exceptions
-################################################################################
-
-
-class ConfigErrorReason(CaseInsensitiveStrEnum):
-    LOAD_ERROR = "load_error"
-    PARSE_ERROR = "parse_error"
-    VALIDATION_ERROR = "validation_error"
-    UNSUPPORTED_RUN_TYPE = "unsupported_run_type"
-
-
-class ConfigError(AIPerfError):
-    """Base class for all exceptions raised by configuration errors."""
-
-    def __init__(self, reason: ConfigErrorReason, message: str) -> None:
-        super().__init__(f"Configuration Error {reason.name}: {message}")
-        self.reason = reason
-
-
-################################################################################
-# Dataset Generator Exceptions
-################################################################################
-
-
-class GeneratorErrorReason(CaseInsensitiveStrEnum):
-    INITIALIZATION_ERROR = "initialization_error"
-    CONFIGURATION_ERROR = "configuration_error"
-    PREFIX_PROMPTS_POOL_EMPTY = "prefix_prompts_pool_empty"
-    NOT_INITIALIZED_ERROR = "not_initialized_error"
-
-
-class GeneratorError(AIPerfError):
-    """Base class for all exceptions raised by data generator modules."""
-
-    def __init__(self, reason: GeneratorErrorReason, message: str) -> None:
-        super().__init__(f"Generator Error {reason.name}: {message}")
-        self.reason = reason
-
-
-################################################################################
-# Service Exceptions
-################################################################################
-
-
-class ServiceErrorType(CaseInsensitiveStrEnum):
-    INITIALIZATION_ERROR = "initialization_error"
-    CONFIGURATION_ERROR = "configuration_error"
-    START_ERROR = "start_error"
-    SHUTDOWN_ERROR = "shutdown_error"
-    REGISTRATION_ERROR = "registration_error"
-    HEARTBEAT_ERROR = "heartbeat_error"
-    CLIENT_NOT_AVAILABLE = "client_not_available"
-    WORKER_TIMEOUT = "worker_timeout"
-    SEND_CONFIGURE_COMMAND_ERROR = "send_configure_command_error"
-    MISSING_REQUIRED_SERVICES = "missing_required_services"
-    INITIALIZE_SERVICES_ERROR = "initialize_services_error"
-    REGISTER_SERVICE_ERROR = "register_service_error"
-    UNKNOWN_COMMAND = "unknown_command"
-    DATASET_EMPTY = "dataset_empty"
-    CONVERSATION_NOT_FOUND = "conversation_not_found"
-    EXPORT_RESULTS_ERROR = "export_results_error"
-    SERVICE_REGISTRATION_TIMEOUT = "service_registration_timeout"
-
-
 class ServiceError(AIPerfError):
-    """Base class for all exceptions raised by services."""
+    """Generic service error."""
 
     def __init__(
         self,
-        reason: ServiceErrorType,
         message: str,
         service_type: ServiceType,
         service_id: str,
     ) -> None:
         super().__init__(
-            f"Service Error {reason.name}: {message} for service of type {service_type} with id {service_id}"
+            f"{message} for service of type {service_type} with id {service_id}"
         )
-        self.reason = reason
         self.service_type = service_type
         self.service_id = service_id
 
 
-################################################################################
-# Tokenizer Exceptions
-################################################################################
+class InitializationError(AIPerfError):
+    """Exception raised when something fails to initialize."""
 
 
-class TokenizerError(AIPerfError):
-    """Base class for tokenizer exceptions."""
+class ConfigurationError(AIPerfError):
+    """Exception raised when something fails to configure, or there is a configuration error."""
 
 
-class TokenizerInitializationError(TokenizerError):
-    """Exception raised for errors during tokenizer initialization."""
+class NotInitializedError(AIPerfError):
+    """Exception raised when something that should be initialized is not."""
 
 
-class TokenizerNotInitializedError(TokenizerError):
-    """Exception raised when the tokenizer is not initialized."""
+class InvalidStateError(AIPerfError):
+    """Exception raised when something is in an invalid state."""
 
 
-################################################################################
-# Inference Client Exceptions
-################################################################################
+class ValidationError(AIPerfError):
+    """Exception raised when something fails validation."""
+
+
+class NotFoundError(AIPerfError):
+    """Exception raised when something is not found or not available."""
+
+
+class CommunicationError(AIPerfError):
+    """Generic communication error."""
+
+
+class DatasetError(AIPerfError):
+    """Generic dataset error."""
+
+
+class DatasetGeneratorError(AIPerfError):
+    """Generic dataset generator error."""
 
 
 class InferenceClientError(AIPerfError):
@@ -173,28 +87,21 @@ class InvalidPayloadError(InferenceClientError):
     """Exception raised when a inference client receives an invalid payload."""
 
 
-################################################################################
-# Hook Exceptions
-################################################################################
-
-
 class UnsupportedHookError(AIPerfError):
     """Exception raised when a hook is defined on a class that does not support it."""
-
-
-################################################################################
-# Factory Exceptions
-################################################################################
 
 
 class FactoryCreationError(AIPerfError):
     """Exception raised when a factory encounters an error while creating a class."""
 
 
-################################################################################
-# Metric Exceptions
-################################################################################
-
-
 class MetricTypeError(AIPerfError):
     """Exception raised when a metric type encounters an error while creating a class."""
+
+
+class ShutdownError(AIPerfError):
+    """Exception raised when a service encounters an error while shutting down."""
+
+
+class ProxyError(AIPerfError):
+    """Exception raised when a proxy encounters an error."""
