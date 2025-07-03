@@ -7,15 +7,36 @@ from typing import Any
 
 import zmq.asyncio
 
-from aiperf.common.comms.base import ReqClient
-from aiperf.common.comms.zmq.clients.base import BaseZMQClient
-from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
+from aiperf.common.comms.base import CommunicationClientFactory
+from aiperf.common.comms.zmq.zmq_base_client import BaseZMQClient
+from aiperf.common.constants import DEFAULT_COMMS_REQUEST_TIMEOUT
+from aiperf.common.enums import CommunicationClientType
 from aiperf.common.exceptions import CommunicationError, CommunicationErrorReason
 from aiperf.common.hooks import aiperf_task, on_stop
 from aiperf.common.messages import Message
+from aiperf.common.mixins import AsyncTaskManagerMixin
 
 
-class ZMQDealerReqClient(BaseZMQClient, ReqClient):
+@CommunicationClientFactory.register(CommunicationClientType.REQUEST)
+class ZMQDealerRequestClient(BaseZMQClient, AsyncTaskManagerMixin):
+    """
+    ZMQ DEALER socket client for asynchronous request-response communication.
+
+    The DEALER socket connects to ROUTER sockets and can send requests asynchronously,
+    receiving responses through callbacks or awaitable futures.
+
+    ASCII Diagram:
+    ┌──────────────┐                    ┌──────────────┐
+    │    DEALER    │<──── Request ─────>│    ROUTER    │
+    │   (Client)   │                    │  (Service)   │
+    │              │<─── Response ─────>│              │
+    └──────────────┘                    └──────────────┘
+
+    Usage Pattern:
+    - DEALER Clients send requests to ROUTER Services
+    - Responses are routed back to the originating DEALER
+    """
+
     def __init__(
         self,
         context: zmq.asyncio.Context,
@@ -37,7 +58,6 @@ class ZMQDealerReqClient(BaseZMQClient, ReqClient):
         self.request_callbacks: dict[
             str, Callable[[Message], Coroutine[Any, Any, None]]
         ] = {}
-        self.tasks: set[asyncio.Task] = set()
 
     @aiperf_task
     async def _request_async_task(self) -> None:
@@ -51,9 +71,7 @@ class ZMQDealerReqClient(BaseZMQClient, ReqClient):
                 # Call the callback if it exists
                 if response_message.request_id in self.request_callbacks:
                     callback = self.request_callbacks.pop(response_message.request_id)
-                    task = asyncio.create_task(callback(response_message))
-                    self.tasks.add(task)
-                    task.add_done_callback(self.tasks.discard)
+                    self.execute_async(callback(response_message))
 
             except (asyncio.CancelledError, zmq.ContextTerminated):
                 raise  # re-raise the cancelled error
@@ -67,13 +85,7 @@ class ZMQDealerReqClient(BaseZMQClient, ReqClient):
     @on_stop
     async def _stop_remaining_tasks(self) -> None:
         """Wait for all tasks to complete."""
-        for task in list(self.tasks):
-            task.cancel()
-
-        await asyncio.wait_for(
-            asyncio.gather(*self.tasks), timeout=TASK_CANCEL_TIMEOUT_SHORT
-        )
-        self.tasks.clear()
+        await self.cancel_all_tasks()
 
     async def request_async(
         self,
@@ -83,9 +95,14 @@ class ZMQDealerReqClient(BaseZMQClient, ReqClient):
         """Send a request and be notified when the response is received."""
         await self._ensure_initialized()
 
-        # Generate request ID if not provided
+        if not isinstance(message, Message):
+            raise TypeError(
+                f"message must be an instance of Message, got {type(message).__name__}"
+            )
+
+        # Generate request ID if not provided so that responses can be matched
         if not message.request_id:
-            message.request_id = uuid.uuid4().hex
+            message.request_id = str(uuid.uuid4())
 
         self.request_callbacks[message.request_id] = callback
 
@@ -104,13 +121,25 @@ class ZMQDealerReqClient(BaseZMQClient, ReqClient):
     async def request(
         self,
         message: Message,
-        timeout: float = 10,
+        timeout: float = DEFAULT_COMMS_REQUEST_TIMEOUT,
     ) -> Message:
-        """Send a request and wait for a response."""
+        """Send a request and wait for a response up to timeout seconds.
+
+        Args:
+            message (Message): The request message to send.
+            timeout (float): Maximum time to wait for a response in seconds.
+
+        Returns:
+            Message: The response message received.
+
+        Raises:
+            CommunicationError: if the request fails, or
+            asyncio.TimeoutError: if the response is not received in time.
+        """
         future = asyncio.Future[Message]()
 
-        async def callback(x: Message) -> None:
-            future.set_result(x)
+        async def callback(response_message: Message) -> None:
+            future.set_result(response_message)
 
         await self.request_async(message, callback)
         return await asyncio.wait_for(future, timeout=timeout)

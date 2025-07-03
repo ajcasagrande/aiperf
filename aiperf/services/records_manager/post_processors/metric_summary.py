@@ -25,19 +25,9 @@ class MetricSummary:
         self.logger = logging.getLogger(__name__)
         self.logger.debug("Initializing MetricSummary post-processor")
 
-        # computed_metrics = {token_count: [sdsdsd]}
         self._metrics = []
         for metric_cls in BaseMetric.get_all().values():
             self._metrics.append(metric_cls())
-
-        #     if metric_cls.tag in computed_metrics:
-        #         c``
-
-        #     for tag in metric_cls.required_metrics_tags:
-        #         if tag not in computed_metrics:
-        #             # compute the metric
-        #             computed_metrics[tag] = metric_cls.compute(records)
-        #     self._metrics.append(metric_cls())
 
     def process(self, records: list[ParsedResponseRecord]) -> None:
         """
@@ -67,7 +57,9 @@ class MetricSummary:
                 metric.update_value(metrics={m.tag: m for m in self._metrics})
             elif metric.type == MetricType.METRIC_OF_BOTH:
                 metric.update_value(
-                    record=record, metrics={m.tag: m for m in self._metrics}
+                    # TODO: Where does this `record` value come from? Is this wrong?
+                    record=record,
+                    metrics={m.tag: m for m in self._metrics},
                 )
 
     def get_metrics_summary(self) -> list[MetricResult]:

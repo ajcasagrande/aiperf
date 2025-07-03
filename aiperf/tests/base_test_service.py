@@ -11,9 +11,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from aiperf.common.config import ServiceConfig
+from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.enums import CommunicationBackend, ServiceRunType, ServiceState
 from aiperf.common.service.base_service import BaseService
+from aiperf.services import SystemController
 from aiperf.tests.utils.async_test_utils import async_fixture
 
 real_sleep = (
@@ -84,10 +85,15 @@ class BaseTestService(ABC):
         )
 
     @pytest.fixture
+    def user_config(self) -> UserConfig:
+        return UserConfig()
+
+    @pytest.fixture
     async def uninitialized_service(
         self,
         service_class: type[BaseService],
         service_config: ServiceConfig,
+        user_config: UserConfig,
     ) -> AsyncGenerator[BaseService, None]:
         """
         Create an uninitialized instance of the service under test.
@@ -113,7 +119,12 @@ class BaseTestService(ABC):
             ),
             patch("aiperf.common.hooks.AIPerfTaskMixin._start_tasks", lambda: None),
         ):
-            service = service_class(service_config=service_config)
+            if service_class is SystemController:
+                service = service_class(
+                    service_config=service_config, user_config=user_config
+                )
+            else:
+                service = service_class(service_config=service_config)
             yield service
 
     @pytest.fixture

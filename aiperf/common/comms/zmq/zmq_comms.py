@@ -10,30 +10,22 @@ from pathlib import Path
 
 import zmq.asyncio
 
-from aiperf.common.comms.base import BaseCommunication, ClientAddressType
-from aiperf.common.comms.zmq.clients import BaseZMQClient
-from aiperf.common.comms.zmq.clients.dealer_req import ZMQDealerReqClient
-from aiperf.common.comms.zmq.clients.pub import ZMQPubClient
-from aiperf.common.comms.zmq.clients.pull import ZMQPullClient
-from aiperf.common.comms.zmq.clients.push import ZMQPushClient
-from aiperf.common.comms.zmq.clients.router_rep import ZMQRouterRepClient
-from aiperf.common.comms.zmq.clients.sub import ZMQSubClient
-from aiperf.common.config import (
-    BaseZMQCommunicationConfig,
-    ZMQIPCConfig,
-    ZMQTCPConfig,
+from aiperf.common.comms.base import CommunicationClientFactory, CommunicationProtocol
+from aiperf.common.comms.zmq.zmq_base_client import BaseZMQClient
+from aiperf.common.config import BaseZMQCommunicationConfig
+from aiperf.common.config.zmq_config import ZMQIPCConfig, ZMQTCPConfig
+from aiperf.common.enums import (
+    CommunicationBackend,
+    CommunicationClientAddressType,
+    CommunicationClientType,
 )
-from aiperf.common.enums import CommunicationBackend, ServiceType
-from aiperf.common.exceptions import (
-    CommunicationError,
-    CommunicationErrorReason,
-)
+from aiperf.common.exceptions import CommunicationError, CommunicationErrorReason
 from aiperf.common.factories import CommunicationFactory
 
 logger = logging.getLogger(__name__)
 
 
-class BaseZMQCommunication(BaseCommunication, ABC):
+class BaseZMQCommunication(CommunicationProtocol, ABC):
     """ZeroMQ-based implementation of the Communication interface.
 
     Uses ZeroMQ for publish/subscribe and request/reply patterns to
@@ -42,23 +34,14 @@ class BaseZMQCommunication(BaseCommunication, ABC):
 
     def __init__(
         self,
-        config: BaseZMQCommunicationConfig | None = None,
-        parent_service_type: ServiceType | None = None,
+        config: BaseZMQCommunicationConfig,
     ) -> None:
-        """Initialize ZMQ communication.
-
-        Args:
-            config: ZMQCommunicationConfig object with configuration parameters
-        """
         self.stop_event: asyncio.Event = asyncio.Event()
         self.initialized_event: asyncio.Event = asyncio.Event()
-        self.config = config or ZMQIPCConfig()
+        self.config = config
 
         self.context = zmq.asyncio.Context.instance()
         self.clients: list[BaseZMQClient] = []
-
-        # TODO: Look into using this for determining bind vs connect
-        self.parent_service_type: ServiceType | None = parent_service_type
 
         logger.debug(
             "ZMQ communication using protocol: %s",
@@ -67,28 +50,17 @@ class BaseZMQCommunication(BaseCommunication, ABC):
 
     @property
     def is_initialized(self) -> bool:
-        """Check if communication channels are initialized.
-
-        Returns:
-            True if communication channels are initialized, False otherwise
-        """
+        """Check if communication channels are initialized."""
         return self.initialized_event.is_set()
 
-    @property
-    def is_shutdown(self) -> bool:
-        """Check if communication channels are shutdown.
-
-        Returns:
-            True if communication channels are shutdown, False otherwise
-        """
-        return self.stop_event.is_set()
+    def get_address(self, address_type: CommunicationClientAddressType | str) -> str:
+        """Get the actual address based on the address type from the config."""
+        if isinstance(address_type, CommunicationClientAddressType):
+            return self.config.get_address(address_type)
+        return address_type
 
     async def initialize(self) -> None:
-        """Initialize communication channels.
-
-        Returns:
-            True if initialization was successful, False otherwise
-        """
+        """Initialize communication channels."""
         if self.is_initialized:
             return
 
@@ -110,7 +82,7 @@ class BaseZMQCommunication(BaseCommunication, ABC):
         Returns:
             True if shutdown was successful, False otherwise
         """
-        if self.is_shutdown:
+        if self.stop_event.is_set():
             return
 
         try:
@@ -133,119 +105,28 @@ class BaseZMQCommunication(BaseCommunication, ABC):
         finally:
             self.clients.clear()
 
-    def create_pub_client(
+    def create_client(
         self,
-        address_type: ClientAddressType,
+        client_type: CommunicationClientType,
+        address: CommunicationClientAddressType | str,
         bind: bool = False,
         socket_ops: dict | None = None,
-    ) -> ZMQPubClient:
-        """Create a publish client.
+    ) -> BaseZMQClient:
+        """Create a communication client for a given client type and address.
 
         Args:
-            address_type: The type of address to use when looking up in the communication config.
+            client_type: The type of client to create.
+            address: The type of address to use when looking up in the communication config, or the address itself.
             bind: Whether to bind or connect the socket.
             socket_ops: Additional socket options to set.
         """
-
-        client_address = self.config.get_address(address_type)
-        pub_client = ZMQPubClient(self.context, client_address, bind, socket_ops)
-        self.clients.append(pub_client)
-        return pub_client
-
-    def create_sub_client(
-        self,
-        address_type: ClientAddressType,
-        bind: bool = False,
-        socket_ops: dict | None = None,
-    ) -> ZMQSubClient:
-        """Create a subscribe client.
-
-        Args:
-            address_type: The type of address to use when looking up in the communication config.
-            bind: Whether to bind or connect the socket.
-            socket_ops: Additional socket options to set.
-        """
-
-        client_address = self.config.get_address(address_type)
-        sub_client = ZMQSubClient(self.context, client_address, bind, socket_ops)
-        self.clients.append(sub_client)
-        return sub_client
-
-    def create_push_client(
-        self,
-        address_type: ClientAddressType,
-        bind: bool = False,
-        socket_ops: dict | None = None,
-    ) -> ZMQPushClient:
-        """Create a push client.
-
-        Args:
-            address_type: The type of address to use when looking up in the communication config.
-            bind: Whether to bind or connect the socket.
-            socket_ops: Additional socket options to set.
-        """
-
-        client_address = self.config.get_address(address_type)
-        push_client = ZMQPushClient(self.context, client_address, bind, socket_ops)
-        self.clients.append(push_client)
-        return push_client
-
-    def create_pull_client(
-        self,
-        address_type: ClientAddressType,
-        bind: bool = False,
-        socket_ops: dict | None = None,
-    ) -> ZMQPullClient:
-        """Create a pull client.
-
-        Args:
-            address_type: The type of address to use when looking up in the communication config.
-            bind: Whether to bind or connect the socket.
-            socket_ops: Additional socket options to set.
-        """
-
-        client_address = self.config.get_address(address_type)
-        pull_client = ZMQPullClient(self.context, client_address, bind, socket_ops)
-        self.clients.append(pull_client)
-        return pull_client
-
-    def create_req_client(
-        self,
-        address_type: ClientAddressType,
-        bind: bool = False,
-        socket_ops: dict | None = None,
-    ) -> ZMQDealerReqClient:
-        """Create a request DEALER client.
-
-        Args:
-            address_type: The type of address to use when looking up in the communication config.
-            bind: Whether to bind or connect the socket.
-            socket_ops: Additional socket options to set.
-        """
-
-        client_address = self.config.get_address(address_type)
-        req_client = ZMQDealerReqClient(self.context, client_address, bind, socket_ops)
-        self.clients.append(req_client)
-        return req_client
-
-    def create_rep_client(
-        self,
-        address_type: ClientAddressType,
-        bind: bool = False,
-        socket_ops: dict | None = None,
-    ) -> ZMQRouterRepClient:
-        """Create a reply ROUTER client.
-
-        Args:
-            address_type: The type of address to use when looking up in the communication config.
-            bind: Whether to bind or connect the socket.
-            socket_ops: Additional socket options to set.
-        """
-
-        client_address = self.config.get_address(address_type)
-        rep_client = ZMQRouterRepClient(self.context, client_address, bind, socket_ops)
-        self.clients.append(rep_client)
-        return rep_client
+        return CommunicationClientFactory.create_instance(
+            client_type,
+            context=self.context,
+            address=self.get_address(address),
+            bind=bind,
+            socket_ops=socket_ops,
+        )
 
 
 @CommunicationFactory.register(CommunicationBackend.ZMQ_TCP)
@@ -272,6 +153,7 @@ class ZMQIPCCommunication(BaseZMQCommunication):
             config: ZMQIPCConfig object with configuration parameters
         """
         super().__init__(config or ZMQIPCConfig())
+        # call after super init so that way self.config is set
         self._setup_ipc_directory()
 
     async def initialize(self) -> None:

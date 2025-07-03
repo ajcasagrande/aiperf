@@ -6,7 +6,7 @@ from typing import ClassVar
 
 from pydantic import BaseModel, Field
 
-from aiperf.common.enums import ClientAddressType
+from aiperf.common.enums import CommunicationClientAddressType
 
 
 class BaseZMQProxyConfig(BaseModel, ABC):
@@ -14,68 +14,69 @@ class BaseZMQProxyConfig(BaseModel, ABC):
 
     @property
     @abstractmethod
-    def frontend_address(self) -> str: ...
+    def frontend_address(self) -> str:
+        """Get the frontend address based on protocol configuration."""
 
     @property
     @abstractmethod
-    def backend_address(self) -> str: ...
+    def backend_address(self) -> str:
+        """Get the backend address based on protocol configuration."""
 
     @property
     @abstractmethod
-    def control_address(self) -> str | None: ...
+    def control_address(self) -> str | None:
+        """Get the control address based on protocol configuration."""
 
     @property
     @abstractmethod
-    def capture_address(self) -> str | None: ...
+    def capture_address(self) -> str | None:
+        """Get the capture address based on protocol configuration."""
 
 
 class BaseZMQCommunicationConfig(BaseModel, ABC):
     """Configuration for ZMQ communication."""
 
     # Proxy config options to be overridden by subclasses
-    xpub_xsub_proxy_config: ClassVar[BaseZMQProxyConfig]
-    dealer_router_proxy_config: ClassVar[BaseZMQProxyConfig]
-    push_pull_proxy_config: ClassVar[BaseZMQProxyConfig]
+    event_bus_proxy_config: ClassVar[BaseZMQProxyConfig]
+    dataset_manager_proxy_config: ClassVar[BaseZMQProxyConfig]
+    raw_inference_proxy_config: ClassVar[BaseZMQProxyConfig]
 
     @property
     @abstractmethod
-    def inference_push_pull_address(self) -> str:
+    def records_push_pull_address(self) -> str:
         """Get the inference push/pull address based on protocol configuration."""
-        ...
 
     @property
     @abstractmethod
     def credit_drop_address(self) -> str:
         """Get the credit drop address based on protocol configuration."""
-        ...
 
     @property
     @abstractmethod
     def credit_return_address(self) -> str:
         """Get the credit return address based on protocol configuration."""
-        ...
 
-    def get_address(self, address_type: ClientAddressType) -> str:
+    def get_address(self, address_type: CommunicationClientAddressType) -> str:
         """Get the actual address based on the address type."""
         match address_type:
-            case ClientAddressType.SERVICE_PUB_SUB_FRONTEND:
-                return self.xpub_xsub_proxy_config.frontend_address
-            case ClientAddressType.SERVICE_PUB_SUB_BACKEND:
-                return self.xpub_xsub_proxy_config.backend_address
-            case ClientAddressType.DEALER_ROUTER_FRONTEND:
-                return self.dealer_router_proxy_config.frontend_address
-            case ClientAddressType.DEALER_ROUTER_BACKEND:
-                return self.dealer_router_proxy_config.backend_address
-            case ClientAddressType.CREDIT_DROP_PUSH_PULL:
+            case CommunicationClientAddressType.EVENT_BUS_PROXY_FRONTEND:
+                return self.event_bus_proxy_config.frontend_address
+            case CommunicationClientAddressType.EVENT_BUS_PROXY_BACKEND:
+                return self.event_bus_proxy_config.backend_address
+            case CommunicationClientAddressType.DATASET_MANAGER_PROXY_FRONTEND:
+                return self.dataset_manager_proxy_config.frontend_address
+            case CommunicationClientAddressType.DATASET_MANAGER_PROXY_BACKEND:
+                return self.dataset_manager_proxy_config.backend_address
+            case CommunicationClientAddressType.CREDIT_DROP:
                 return self.credit_drop_address
-            case ClientAddressType.CREDIT_RETURN_PUSH_PULL:
+            case CommunicationClientAddressType.CREDIT_RETURN:
                 return self.credit_return_address
-            case ClientAddressType.INFERENCE_RESULTS_PUSH_PULL:
-                return self.inference_push_pull_address
-            case ClientAddressType.PUSH_PULL_FRONTEND:
-                return self.push_pull_proxy_config.frontend_address
-            case ClientAddressType.PUSH_PULL_BACKEND:
-                return self.push_pull_proxy_config.backend_address
+            case CommunicationClientAddressType.RECORDS:
+                return self.records_push_pull_address
+            case CommunicationClientAddressType.RAW_INFERENCE_PROXY_FRONTEND:
+                return self.raw_inference_proxy_config.frontend_address
+            case CommunicationClientAddressType.RAW_INFERENCE_PROXY_BACKEND:
+                return self.raw_inference_proxy_config.backend_address
             case _:
                 raise ValueError(f"Invalid address type: {address_type}")
 
@@ -165,7 +166,7 @@ class ZMQTCPConfig(BaseZMQCommunicationConfig):
         default="0.0.0.0",
         description="Host address for TCP connections",
     )
-    inference_push_pull_port: int = Field(
+    records_push_pull_port: int = Field(
         default=5557, description="Port for inference push/pull messages"
     )
     credit_drop_port: int = Field(
@@ -174,21 +175,21 @@ class ZMQTCPConfig(BaseZMQCommunicationConfig):
     credit_return_port: int = Field(
         default=5563, description="Port for credit return operations"
     )
-    dealer_router_proxy_config: ZMQTCPProxyConfig = Field(  # type: ignore
+    dataset_manager_proxy_config: ZMQTCPProxyConfig = Field(  # type: ignore
         default=ZMQTCPProxyConfig(
             frontend_port=5661,
             backend_port=5662,
         ),
         description="Configuration for the ZMQ Proxy. If provided, the proxy will be created and started.",
     )
-    xpub_xsub_proxy_config: ZMQTCPProxyConfig = Field(  # type: ignore
+    event_bus_proxy_config: ZMQTCPProxyConfig = Field(  # type: ignore
         default=ZMQTCPProxyConfig(
             frontend_port=5663,
             backend_port=5664,
         ),
         description="Configuration for the ZMQ Proxy. If provided, the proxy will be created and started.",
     )
-    push_pull_proxy_config: ZMQTCPProxyConfig = Field(  # type: ignore
+    raw_inference_proxy_config: ZMQTCPProxyConfig = Field(  # type: ignore
         default=ZMQTCPProxyConfig(
             frontend_port=5665,
             backend_port=5666,
@@ -197,9 +198,9 @@ class ZMQTCPConfig(BaseZMQCommunicationConfig):
     )
 
     @property
-    def inference_push_pull_address(self) -> str:
-        """Get the inference push/pull address based on protocol configuration."""
-        return f"tcp://{self.host}:{self.inference_push_pull_port}"
+    def records_push_pull_address(self) -> str:
+        """Get the records push/pull address based on protocol configuration."""
+        return f"tcp://{self.host}:{self.records_push_pull_port}"
 
     @property
     def credit_drop_address(self) -> str:
@@ -216,23 +217,23 @@ class ZMQIPCConfig(BaseZMQCommunicationConfig):
     """Configuration for IPC transport."""
 
     path: str = Field(default="/tmp/aiperf", description="Path for IPC sockets")
-    dealer_router_proxy_config: ZMQIPCProxyConfig = Field(  # type: ignore
-        default=ZMQIPCProxyConfig(name="dealer_router_proxy"),
+    dataset_manager_proxy_config: ZMQIPCProxyConfig = Field(  # type: ignore
+        default=ZMQIPCProxyConfig(name="dataset_manager_proxy"),
         description="Configuration for the ZMQ Dealer Router Proxy. If provided, the proxy will be created and started.",
     )
-    xpub_xsub_proxy_config: ZMQIPCProxyConfig = Field(  # type: ignore
-        default=ZMQIPCProxyConfig(name="xpub_xsub_proxy"),
+    event_bus_proxy_config: ZMQIPCProxyConfig = Field(  # type: ignore
+        default=ZMQIPCProxyConfig(name="event_bus_proxy"),
         description="Configuration for the ZMQ XPUB/XSUB Proxy. If provided, the proxy will be created and started.",
     )
-    push_pull_proxy_config: ZMQIPCProxyConfig = Field(  # type: ignore
-        default=ZMQIPCProxyConfig(name="push_pull_proxy"),
+    raw_inference_proxy_config: ZMQIPCProxyConfig = Field(  # type: ignore
+        default=ZMQIPCProxyConfig(name="raw_inference_proxy"),
         description="Configuration for the ZMQ Push/Pull Proxy. If provided, the proxy will be created and started.",
     )
 
     @property
-    def inference_push_pull_address(self) -> str:
-        """Get the inference push/pull address based on protocol configuration."""
-        return f"ipc://{self.path}/inference_push_pull.ipc"
+    def records_push_pull_address(self) -> str:
+        """Get the records push/pull address based on protocol configuration."""
+        return f"ipc://{self.path}/records_push_pull.ipc"
 
     @property
     def credit_drop_address(self) -> str:

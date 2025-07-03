@@ -5,8 +5,8 @@ import sys
 import time
 from collections import deque
 
-from aiperf.common.comms.base import ClientAddressType, PullClient
-from aiperf.common.config import ServiceConfig
+from aiperf.common.comms.base import ClientAddressType, PullClientProtocol
+from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.config.user_config import UserConfig
 from aiperf.common.enums import CommandType, MessageType, ServiceType
 from aiperf.common.factories import ServiceFactory
@@ -28,8 +28,13 @@ from aiperf.common.messages import (
     ProfileResultsMessage,
     ProfileStatsMessage,
 )
-from aiperf.common.record_models import ParsedResponseRecord
+from aiperf.common.record_models import (
+    ErrorDetails,
+    ErrorDetailsCount,
+    ParsedResponseRecord,
+)
 from aiperf.common.service import BaseComponentService
+from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.services.records_manager.post_processors.metric_summary import MetricSummary
 
 
@@ -45,6 +50,21 @@ class RecordsManager(BaseComponentService):
     ) -> None:
         super().__init__(service_config=service_config, service_id=service_id)
         self.logger.debug("Initializing records manager")
+        self.user_config: UserConfig | None = None
+        self.configured_event = asyncio.Event()
+
+        # TODO: we do not want to keep all the data forever
+        self.records: deque[ParsedResponseRecord] = deque()
+        self.error_records: deque[ParsedResponseRecord] = deque()
+
+        self.error_records_count: int = 0
+        self.records_count: int = 0
+        # Track per-worker statistics
+        self.worker_success_counts: dict[str, int] = {}
+        self.worker_error_counts: dict[str, int] = {}
+
+        self.start_time_ns: int = time.time_ns()
+        self.end_time_ns: int | None = None
 
         self.records: deque[ParsedResponseRecord] = deque()
         self.error_records: deque[ParsedResponseRecord] = deque()
@@ -61,16 +81,12 @@ class RecordsManager(BaseComponentService):
 
         self.incoming_records: asyncio.Queue[InferenceResultsMessage] = asyncio.Queue()
 
-        # self.inference_results_client: PullClient = self.comms.create_pull_client(
-        #     ClientAddressType.PUSH_PULL_BACKEND,
-        # )
-        self.response_results_client: PullClient = self.comms.create_pull_client(
-            ClientAddressType.INFERENCE_RESULTS_PUSH_PULL,
-            bind=True,
+        self.response_results_client: PullClientProtocol = (
+            self.comms.create_pull_client(
+                ClientAddressType.INFERENCE_RESULTS_PUSH_PULL,
+                bind=True,
+            )
         )
-        # self.post_process_results_client: ReqClient = self.comms.create_req_client(
-        #     ClientAddressType.DEALER_ROUTER_FRONTEND,
-        # )
 
     @property
     def service_type(self) -> ServiceType:
@@ -81,18 +97,15 @@ class RecordsManager(BaseComponentService):
     async def _initialize(self) -> None:
         """Initialize records manager-specific components."""
         self.logger.debug("Initializing records manager")
-        # TODO: Implement records manager initialization
-
         self.register_command_callback(
             CommandType.PROCESS_RECORDS,
             self.process_records,
         )
 
-        # await self.inference_results_client.register_pull_callback(
-        #     message_type=MessageType.INFERENCE_RESULTS,
-        #     callback=self._on_inference_results,
-        #     max_concurrency=1000000,
-        # )
+        self.register_command_callback(
+            CommandType.PROCESS_RECORDS,
+            self.process_records,
+        )
 
         await self.response_results_client.register_pull_callback(
             message_type=MessageType.PARSED_INFERENCE_RESULTS,
@@ -130,7 +143,7 @@ class RecordsManager(BaseComponentService):
     @aiperf_task
     async def _report_records_task(self) -> None:
         """Report the records."""
-        while not self.is_shutdown:
+        while not self.stop_event.is_set():
             await self.publish_profile_stats()
             await asyncio.sleep(1)
 

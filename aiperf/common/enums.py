@@ -69,6 +69,57 @@ class CommandResponseStatus(CaseInsensitiveStrEnum):
     FAILURE = "failure"
 
 
+class CommunicationClientType(CaseInsensitiveStrEnum):
+    """Enum for specifying the communication client type for communication clients."""
+
+    PUB = "pub"
+    SUB = "sub"
+    PUSH = "push"
+    PULL = "pull"
+    REQUEST = "request"
+    REPLY = "reply"
+
+
+class CommunicationClientAddressType(CaseInsensitiveStrEnum):
+    """Enum for specifying the address type for communication clients.
+    This is used to lookup the address in the communication config."""
+
+    EVENT_BUS_PROXY_FRONTEND = "event_bus_proxy_frontend"
+    """Frontend address for services to publish messages to."""
+
+    EVENT_BUS_PROXY_BACKEND = "event_bus_proxy_backend"
+    """Backend address for services to subscribe to messages."""
+
+    CREDIT_DROP = "credit_drop"
+    """Address to send CreditDrop messages from the TimingManager to the Worker."""
+
+    CREDIT_RETURN = "credit_return"
+    """Address to send CreditReturn messages from the Worker to the TimingManager."""
+
+    RECORDS = "records"
+    """Address to send parsed records from InferenceParser to RecordManager."""
+
+    DATASET_MANAGER_PROXY_FRONTEND = "dataset_manager_proxy_frontend"
+    """Frontend address for sending requests to the DatasetManager."""
+
+    DATASET_MANAGER_PROXY_BACKEND = "dataset_manager_proxy_backend"
+    """Backend address for the DatasetManager to receive requests from clients."""
+
+    RAW_INFERENCE_PROXY_FRONTEND = "raw_inference_proxy_frontend"
+    """Frontend address for sending raw inference messages to the InferenceParser from Workers."""
+
+    RAW_INFERENCE_PROXY_BACKEND = "raw_inference_proxy_backend"
+    """Backend address for the InferenceParser to receive raw inference messages from Workers."""
+
+
+class ZMQProxyType(CaseInsensitiveStrEnum):
+    """Types of ZMQ proxys."""
+
+    DEALER_ROUTER = "dealer_router"
+    XPUB_XSUB = "xpub_xsub"
+    PUSH_PULL = "push_pull"
+
+
 ################################################################################
 # Dataset Enums
 ################################################################################
@@ -324,49 +375,6 @@ class ServiceType(CaseInsensitiveStrEnum):
     WORKER_MANAGER = "worker_manager"
     WORKER = "worker"
     TEST = "test_service"
-
-
-class ClientAddressType(CaseInsensitiveStrEnum):
-    SERVICE_PUB_SUB_FRONTEND = "service_pub_sub_frontend"
-    """Frontend address for service pub/sub proxy (for sending messages)."""
-
-    SERVICE_PUB_SUB_BACKEND = "service_pub_sub_backend"
-    """Backend address for service pub/sub proxy (for receiving messages)."""
-
-    CREDIT_DROP_PUSH_PULL = "credit_drop_push_pull"
-    """Push/pull address for credit drop messages."""
-
-    CREDIT_RETURN_PUSH_PULL = "credit_return_push_pull"
-    """Push/pull address for credit return messages."""
-
-    INFERENCE_RESULTS_PUSH_PULL = "inference_results_push_pull"
-    """Push/pull address for inference results messages fr."""
-
-    POST_PROCESS_INCOMING_PUSH_PULL = "post_process_incoming_push_pull"
-    """Push/pull address for post-process incoming messages."""
-
-    POST_PROCESS_OUTGOING_PUSH_PULL = "post_process_outgoing_push_pull"
-    """Push/pull address for post-process outgoing messages."""
-
-    DEALER_ROUTER_FRONTEND = "DEALER_ROUTER_frontend"
-    """Frontend address for dealer/router req/rep proxy (for sending messages)."""
-
-    DEALER_ROUTER_BACKEND = "DEALER_ROUTER_backend"
-    """Backend address for dealer/router req/rep proxy (for receiving messages)."""
-
-    PUSH_PULL_FRONTEND = "push_pull_frontend"
-    """Frontend address for push/pull proxy (for sending messages)."""
-
-    PUSH_PULL_BACKEND = "push_pull_backend"
-    """Backend address for push/pull proxy (for receiving messages)."""
-
-
-class ZMQProxyType(CaseInsensitiveStrEnum):
-    """Types of ZMQ proxys."""
-
-    DEALER_ROUTER = "dealer_router"
-    XPUB_XSUB = "xpub_xsub"
-    PUSH_PULL = "push_pull"
 
 
 class ServiceRegistrationStatus(CaseInsensitiveStrEnum):

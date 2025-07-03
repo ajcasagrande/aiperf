@@ -107,31 +107,6 @@ def main(
             cli_config.service_config,
         )
 
-        # # Set up main process logging to also send to the queue
-        # root_logger = logging.getLogger()
-        # root_logger.setLevel(
-        #     getattr(
-        #         logging, os.getenv("AIPERF_LOG_LEVEL", EnvDefaults.AIPERF_LOG_LEVEL)
-        #     )
-        # )
-
-        # # Add the multiprocess handler to capture main process logs
-        # queue_handler = MultiProcessLogHandler(log_queue, "system_controller")
-        # queue_handler.setLevel(os.getenv("AIPERF_LOG_LEVEL", "INFO"))
-        # root_logger.addHandler(queue_handler)
-
-        # # Also add a console handler for immediate visibility
-        # rich_handler = RichHandler(
-        #     rich_tracebacks=True,
-        #     show_path=True,
-        #     console=Console(),
-        #     tracebacks_show_locals=False,
-        #     log_time_format="%H:%M:%S.%f",
-        #     omit_repeated_times=False,
-        # )
-        # rich_handler.setLevel(os.getenv("AIPERF_LOG_LEVEL", "INFO"))
-        # root_logger.addHandler(rich_handler)
-
     # Load configuration
     if cli_config.config:
         # In a real implementation, this would load from the specified file

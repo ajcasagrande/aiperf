@@ -14,7 +14,7 @@ from aiperf.common.constants import (
     TASK_CANCEL_TIMEOUT_SHORT,
 )
 from aiperf.common.enums import ServiceRegistrationStatus, ServiceType
-from aiperf.common.exceptions import ServiceError, ServiceErrorType
+from aiperf.common.exceptions import ServiceError
 from aiperf.common.factories import ServiceFactory
 from aiperf.services.service_manager.base import BaseServiceManager
 
@@ -48,7 +48,6 @@ class MultiProcessServiceManager(BaseServiceManager):
 
     async def _run_services(self, service_types: list[tuple[ServiceType, int]]) -> None:
         """Run a list of services as multiprocessing processes."""
-        # mp_ctx = multiprocessing.get_context("fork")
 
         # Create and start all service processes
         for service_type in service_types:
@@ -172,7 +171,6 @@ class MultiProcessServiceManager(BaseServiceManager):
                     )
 
             raise ServiceError(
-                ServiceErrorType.SERVICE_REGISTRATION_TIMEOUT,
                 "Some services failed to register within timeout",
                 ServiceType.SYSTEM_CONTROLLER,
                 "system_controller",  # TODO: Get the service ID from the system controller

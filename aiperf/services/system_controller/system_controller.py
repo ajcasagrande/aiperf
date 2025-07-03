@@ -9,6 +9,7 @@ from typing import Any
 import zmq.asyncio
 
 from aiperf.common.comms.zmq.clients.base_zmq_proxy import BaseZMQProxy
+from aiperf.common.comms.zmq.zmq_proxy_base import BaseZMQProxy, ZMQProxyFactory
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
 from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
@@ -92,14 +93,6 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         ]
 
         self.service_manager: BaseServiceManager = None  # type: ignore - is set in _initialize
-        self.progress_tracker: ProgressTracker = ProgressTracker()
-        self.ui_enabled: bool = not self.service_config.disable_ui
-        self.ui: AIPerfUI | None = (
-            AIPerfUI(self.progress_tracker) if self.ui_enabled else None
-        )
-        self.progress_logger: SimpleProgressLogger | None = (
-            SimpleProgressLogger(self.progress_tracker) if not self.ui_enabled else None
-        )
 
         self.event_bus_proxy: BaseZMQProxy | None = None
         self.event_bus_proxy_task: asyncio.Task | None = None
@@ -109,6 +102,15 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
 
         self.raw_inference_proxy: BaseZMQProxy | None = None
         self.raw_inference_proxy_task: asyncio.Task | None = None
+
+        self.progress_tracker: ProgressTracker = ProgressTracker()
+        self.ui_enabled: bool = not self.service_config.disable_ui
+        self.ui: AIPerfUI | None = (
+            AIPerfUI(self.progress_tracker) if self.ui_enabled else None
+        )
+        self.progress_logger: SimpleProgressLogger | None = (
+            SimpleProgressLogger(self.progress_tracker) if not self.ui_enabled else None
+        )
 
         self.profile_runner: ProfileRunner | None = None
 
@@ -148,14 +150,14 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         self.event_bus_proxy = ZMQProxyFactory.create_instance(
             ZMQProxyType.XPUB_XSUB,
             context=self.zmq_context,
-            zmq_proxy_config=self.service_config.comm_config.xpub_xsub_proxy_config,
+            zmq_proxy_config=self.service_config.comm_config.event_bus_proxy_config,
         )
         self.event_bus_proxy_task = asyncio.create_task(self.event_bus_proxy.run())
 
         self.dataset_manager_proxy = ZMQProxyFactory.create_instance(
             ZMQProxyType.DEALER_ROUTER,
             context=self.zmq_context,
-            zmq_proxy_config=self.service_config.comm_config.dealer_router_proxy_config,
+            zmq_proxy_config=self.service_config.comm_config.dataset_manager_proxy_config,
         )
         self.dataset_manager_proxy_task = asyncio.create_task(
             self.dataset_manager_proxy.run()
@@ -164,7 +166,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         self.raw_inference_proxy = ZMQProxyFactory.create_instance(
             ZMQProxyType.PUSH_PULL,
             context=self.zmq_context,
-            zmq_proxy_config=self.service_config.comm_config.push_pull_proxy_config,
+            zmq_proxy_config=self.service_config.comm_config.raw_inference_proxy_config,
         )
         self.raw_inference_proxy_task = asyncio.create_task(
             self.raw_inference_proxy.run()
@@ -191,7 +193,6 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
 
         else:
             raise self._service_error(
-                ServiceErrorType.CONFIGURATION_ERROR,
                 f"Unsupported service run type: {self.service_config.service_run_type}",
             )
 
@@ -276,7 +277,6 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             await self.service_manager.run_all_services()
         except Exception as e:
             raise self._service_error(
-                ServiceErrorType.INITIALIZE_SERVICES_ERROR,
                 "Failed to initialize all services",
             ) from e
 
@@ -294,7 +294,6 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
 
         except Exception as e:
             raise self._service_error(
-                ServiceErrorType.MISSING_REQUIRED_SERVICES,
                 "Not all required services registered within the timeout period",
             ) from e
 
@@ -348,7 +347,6 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             await self.service_manager.shutdown_all_services()
         except Exception as e:
             raise self._service_error(
-                ServiceErrorType.SHUTDOWN_ERROR,
                 "Failed to stop all services",
             ) from e
 
@@ -505,7 +503,6 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             )
         except Exception as e:
             raise self._service_error(
-                ServiceErrorType.SEND_CONFIGURE_COMMAND_ERROR,
                 f"Failed to send configure command to {service_type} (ID: {service_id})",
             ) from e
 
@@ -663,6 +660,13 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
                 ServiceErrorType.SHUTDOWN_ERROR,
                 "Failed to stop all services",
             ) from e
+
+    async def kill(self):
+        """Kill the system controller."""
+        try:
+            await self.service_manager.kill_all_services()
+        except Exception as e:
+            raise self._service_error("Failed to stop all services") from e
 
 
 def main() -> None:

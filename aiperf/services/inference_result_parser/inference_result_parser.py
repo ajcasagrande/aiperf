@@ -4,10 +4,10 @@ import asyncio
 import os
 import sys
 
-from aiperf.common.comms.base import PullClient, PushClient
+from aiperf.common.comms.base import PullClientProtocol, PushClientProtocol
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
-from aiperf.common.enums import ClientAddressType, MessageType, ServiceType
+from aiperf.common.enums import CommunicationClientAddressType, MessageType, ServiceType
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
     on_cleanup,
@@ -40,11 +40,15 @@ class InferenceResultParser(BaseComponentService):
     ) -> None:
         super().__init__(service_config=service_config, service_id=service_id)
         self.logger.debug("Initializing inference result parser")
-        self.inference_results_client: PullClient = self.comms.create_pull_client(
-            ClientAddressType.PUSH_PULL_BACKEND,
+        self.inference_results_client: PullClientProtocol = (
+            self.comms.create_pull_client(
+                CommunicationClientAddressType.RAW_INFERENCE_PROXY_BACKEND,
+            )
         )
-        self.response_results_client: PushClient = self.comms.create_push_client(
-            ClientAddressType.INFERENCE_RESULTS_PUSH_PULL,
+        self.response_results_client: PushClientProtocol = (
+            self.comms.create_push_client(
+                CommunicationClientAddressType.RECORDS,
+            )
         )
         self.tokenizers: dict[str, Tokenizer] = {}
         self.user_config: UserConfig | None = None

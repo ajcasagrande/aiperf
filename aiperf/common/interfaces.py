@@ -1,7 +1,9 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-from typing import Generic, Protocol
+from typing import TYPE_CHECKING, Generic, Protocol
 
+if TYPE_CHECKING:
+    from aiperf.common.record_models import ParsedResponseRecord, ResponseData
 from aiperf.common.dataset_models import Turn
 from aiperf.common.record_models import (
     ParsedResponseRecord,
@@ -140,5 +142,20 @@ class ResponseExtractor(Protocol):
     async def extract_response_data(
         self, record: ParsedResponseRecord
     ) -> list[ResponseData]:
+        """Extract the text from a server response message."""
+        ...
+
+
+################################################################################
+# Response Extractor Protocol
+################################################################################
+
+
+class ResponseExtractor(Protocol):
+    """Base class for all response extractors."""
+
+    async def extract_response_data(
+        self, record: "ParsedResponseRecord"
+    ) -> list["ResponseData"]:
         """Extract the text from a server response message."""
         ...

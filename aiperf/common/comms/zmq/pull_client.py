@@ -8,18 +8,46 @@ from typing import Any
 
 import zmq.asyncio
 
-from aiperf.common.comms.base import PullClient
-from aiperf.common.comms.zmq.clients.base import BaseZMQClient
-from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
-from aiperf.common.enums import MessageType
+from aiperf.common.comms.base import CommunicationClientFactory
+from aiperf.common.comms.zmq.zmq_base_client import BaseZMQClient
+from aiperf.common.enums import CommunicationClientType, MessageType
 from aiperf.common.hooks import aiperf_task, on_stop
 from aiperf.common.messages import Message
-from aiperf.common.utils import call_all_functions
+from aiperf.common.mixins import AsyncTaskManagerMixin
 
 logger = logging.getLogger(__name__)
 
 
-class ZMQPullClient(BaseZMQClient, PullClient):
+@CommunicationClientFactory.register(CommunicationClientType.PULL)
+class ZMQPullClient(BaseZMQClient, AsyncTaskManagerMixin):
+    """
+    ZMQ PULL socket client for receiving work from PUSH sockets.
+
+    The PULL socket receives messages from PUSH sockets in a pipeline pattern,
+    distributing work fairly among multiple PULL workers.
+
+    ASCII Diagram:
+    ┌─────────────┐      ┌─────────────┐      ┌─────────────┐
+    │    PUSH     │      │    PULL     │      │    PULL     │
+    │ (Producer)  │      │ (Worker 1)  │      │ (Worker 2)  │
+    │             │      └─────────────┘      └─────────────┘
+    │   Tasks:    │             ▲                     ▲
+    │   - Task A  │─────────────┘                     │
+    │   - Task B  │───────────────────────────────────┘
+    │   - Task C  │─────────────┐
+    │   - Task D  │             ▼
+    └─────────────┘      ┌─────────────┐
+                         │    PULL     │
+                         │ (Worker N)  │
+                         └─────────────┘
+
+    Usage Pattern:
+    - PULL receives work from multiple PUSH producers
+    - Work is fairly distributed among PULL workers
+    - Pipeline pattern for distributed processing
+    - Each message is delivered to exactly one PULL socket
+    """
+
     def __init__(
         self,
         context: zmq.asyncio.Context,
@@ -40,9 +68,8 @@ class ZMQPullClient(BaseZMQClient, PullClient):
         """
         super().__init__(context, zmq.SocketType.PULL, address, bind, socket_ops)
         self._pull_callbacks: dict[
-            MessageType, list[Callable[[Message], Coroutine[Any, Any, None]]]
+            MessageType, Callable[[Message], Coroutine[Any, Any, None]]
         ] = {}
-        self.tasks: set[asyncio.Task] = set()
 
         if max_concurrency is not None:
             self.semaphore = asyncio.Semaphore(value=max_concurrency)
@@ -70,16 +97,15 @@ class ZMQPullClient(BaseZMQClient, PullClient):
 
                 message_json = await self.socket.recv_string()
                 logger.debug("Received message from pull socket: %s", message_json)
-                task = asyncio.create_task(self._process_message(message_json))
-                self.tasks.add(task)
-                task.add_done_callback(self.tasks.discard)
+                self.execute_async(self._process_message(message_json))
 
             except zmq.Again:
-                self.semaphore.release()
-                await asyncio.sleep(0)  # Yield to other tasks
+                self.semaphore.release()  # release the semaphore as it was not used
+                await asyncio.sleep(0)  # allow other tasks to run
                 continue
 
             except (asyncio.CancelledError, zmq.ContextTerminated):
+                self.semaphore.release()  # release the semaphore as it was not used
                 break
 
             except Exception as e:
@@ -88,21 +114,12 @@ class ZMQPullClient(BaseZMQClient, PullClient):
                     type(e).__name__,
                     e,
                 )
-                self.semaphore.release()
                 await asyncio.sleep(0.1)
 
     @on_stop
     async def _stop(self) -> None:
         """Wait for all tasks to complete."""
-        for task in list(self.tasks):
-            if not task.done():
-                task.cancel()
-
-        await asyncio.wait_for(
-            asyncio.gather(*self.tasks),
-            timeout=TASK_CANCEL_TIMEOUT_SHORT,
-        )
-        self.tasks.clear()
+        await self.cancel_all_tasks()
 
     async def _process_message(self, message_json: str) -> None:
         """Process a message from the pull socket.
@@ -111,21 +128,20 @@ class ZMQPullClient(BaseZMQClient, PullClient):
         the pull socket. It will deserialize the message and call the appropriate
         callback function.
         """
-        message = Message.from_json(message_json)
+        try:
+            message = Message.from_json(message_json)
 
-        # Call callbacks with Message object
-        if message.message_type in self._pull_callbacks:
-            await call_all_functions(
-                self._pull_callbacks[message.message_type], message
-            )
-        else:
-            logger.warning(
-                "Pull message received for message type %s without callback",
-                message.message_type,
-            )
-
-        # release the semaphore to allow receiving more messages
-        self.semaphore.release()
+            # Call callbacks with Message object
+            if message.message_type in self._pull_callbacks:
+                await self._pull_callbacks[message.message_type](message)
+            else:
+                logger.warning(
+                    "Pull message received for message type %s without callback",
+                    message.message_type,
+                )
+        finally:
+            # always release the semaphore to allow receiving more messages
+            self.semaphore.release()
 
     async def register_pull_callback(
         self,
@@ -135,7 +151,7 @@ class ZMQPullClient(BaseZMQClient, PullClient):
     ) -> None:
         """Register a ZMQ Pull data callback for a given message type.
 
-        Note that more than one callback can be registered for a given message type.
+        Note that only one callback can be registered for a given message type.
 
         Args:
             message_type: The message type to register the callback for.
@@ -151,5 +167,8 @@ class ZMQPullClient(BaseZMQClient, PullClient):
 
         # Register callback
         if message_type not in self._pull_callbacks:
-            self._pull_callbacks[message_type] = []
-        self._pull_callbacks[message_type].append(callback)
+            self._pull_callbacks[message_type] = callback
+        else:
+            raise ValueError(
+                f"Callback already registered for message type {message_type}"
+            )

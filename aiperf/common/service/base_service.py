@@ -5,13 +5,15 @@ import logging
 import uuid
 from abc import ABC
 
-from aiperf.common.comms.base import BaseCommunication
+from aiperf.common.comms.base import (
+    CommunicationClientAddressType,
+    CommunicationProtocol,
+)
 from aiperf.common.config import ServiceConfig
-from aiperf.common.enums import ClientAddressType, ServiceState, ServiceType
+from aiperf.common.enums import ServiceState, ServiceType
 from aiperf.common.exceptions import (
     AIPerfError,
     ServiceError,
-    ServiceErrorType,
 )
 from aiperf.common.factories import CommunicationFactory
 from aiperf.common.hooks import (
@@ -44,7 +46,7 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
     """
 
     def __init__(
-        self, service_config: ServiceConfig, service_id: str | None = None
+        self, service_config: ServiceConfig, service_id: str | None = None, **kwargs
     ) -> None:
         self.service_id: str = (
             service_id or f"{self.service_type}_{uuid.uuid4().hex[:8]}"
@@ -62,15 +64,15 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
         self.stop_event = asyncio.Event()
         self.initialized_event = asyncio.Event()
 
-        self.comms: BaseCommunication = CommunicationFactory.create_instance(
+        self.comms: CommunicationProtocol = CommunicationFactory.create_instance(
             self.service_config.comm_backend,
             config=self.service_config.comm_config,
         )
         self.sub_client = self.comms.create_sub_client(
-            ClientAddressType.SERVICE_PUB_SUB_BACKEND
+            CommunicationClientAddressType.EVENT_BUS_PROXY_BACKEND
         )
         self.pub_client = self.comms.create_pub_client(
-            ClientAddressType.SERVICE_PUB_SUB_FRONTEND
+            CommunicationClientAddressType.EVENT_BUS_PROXY_FRONTEND
         )
 
         try:
@@ -98,18 +100,8 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
         """
         return self.initialized_event.is_set()
 
-    @property
-    def is_shutdown(self) -> bool:
-        """Check if service is shutdown.
-
-        Returns:
-            True if service is shutdown, False otherwise
-        """
-        return self.stop_event.is_set()
-
-    def _service_error(self, reason: ServiceErrorType, message: str) -> ServiceError:
+    def _service_error(self, message: str) -> ServiceError:
         return ServiceError(
-            reason=reason,
             message=message,
             service_type=self.service_type,
             service_id=self.service_id,
@@ -184,10 +176,7 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
         except Exception as e:
             self.logger.exception("Service %s execution failed:", self.service_type)
             _ = await self.set_state(ServiceState.ERROR)
-            raise self._service_error(
-                ServiceErrorType.SHUTDOWN_ERROR,
-                "Service execution failed",
-            ) from e
+            raise self._service_error("Service execution failed") from e
 
         await self._forever_loop()
 
@@ -200,7 +189,7 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
         - Wait for the stop event to be set
         - Shuts down the service when the stop event is set
         """
-        while not self.is_shutdown:
+        while not self.stop_event.is_set():
             try:
                 self.logger.debug(
                     "Service %s waiting for stop event", self.service_type
@@ -223,7 +212,6 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
                     await self.stop()
                 except Exception as e:
                     raise self._service_error(
-                        ServiceErrorType.SHUTDOWN_ERROR,
                         "Exception stopping service",
                     ) from e
 
@@ -256,7 +244,6 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
         except Exception as e:
             self._state = ServiceState.ERROR
             raise self._service_error(
-                ServiceErrorType.START_ERROR,
                 "Failed to start service",
             ) from e
 
@@ -294,7 +281,7 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
                 cancelled_error = e
 
             # Shutdown communication component
-            if self.comms and not self.comms.is_shutdown:
+            if self.comms and not self.comms.stop_requested:
                 try:
                     await self.comms.shutdown()
                 except asyncio.CancelledError as e:
@@ -324,7 +311,6 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
         except Exception as e:
             self._state = ServiceState.ERROR
             raise self._service_error(
-                ServiceErrorType.SHUTDOWN_ERROR,
                 "Failed to stop service",
             ) from e
 

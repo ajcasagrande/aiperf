@@ -6,16 +6,51 @@ from typing import Any
 
 import zmq.asyncio
 
-from aiperf.common.comms.base import SubClient
-from aiperf.common.comms.zmq.clients.base import BaseZMQClient
-from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
+from aiperf.common.comms.base import CommunicationClientFactory
+from aiperf.common.comms.zmq.zmq_base_client import BaseZMQClient
+from aiperf.common.enums import CommunicationClientType, MessageType
 from aiperf.common.exceptions import CommunicationError, CommunicationErrorReason
 from aiperf.common.hooks import aiperf_task, on_stop
 from aiperf.common.messages import Message
+from aiperf.common.mixins import AsyncTaskManagerMixin
 from aiperf.common.utils import call_all_functions
 
 
-class ZMQSubClient(BaseZMQClient, SubClient):
+@CommunicationClientFactory.register(CommunicationClientType.SUB)
+class ZMQSubClient(BaseZMQClient, AsyncTaskManagerMixin):
+    """
+    ZMQ SUB socket client for subscribing to messages from PUB sockets.
+    One-to-Many or Many-to-One communication pattern.
+
+    ASCII Diagram:
+    ┌──────────────┐    ┌──────────────┐
+    │     PUB      │───>│              │
+    │ (Publisher)  │    │              │
+    └──────────────┘    │     SUB      │
+    ┌──────────────┐    │ (Subscriber) │
+    │     PUB      │───>│              │
+    │ (Publisher)  │    │              │
+    └──────────────┘    └──────────────┘
+    OR
+    ┌──────────────┐    ┌──────────────┐
+    │              │───>│     SUB      │
+    │              │    │ (Subscriber) │
+    │     PUB      │    └──────────────┘
+    │ (Publisher)  │    ┌──────────────┐
+    │              │───>│     SUB      │
+    │              │    │ (Subscriber) │
+    └──────────────┘    └──────────────┘
+
+
+    Usage Pattern:
+    - Single SUB socket subscribes to multiple PUB publishers (One-to-Many)
+    OR
+    - Multiple SUB sockets subscribe to a single PUB publisher (Many-to-One)
+
+    - Subscribes to specific message topics/types
+    - Receives all messages matching subscriptions
+    """
+
     def __init__(
         self,
         context: zmq.asyncio.Context,
@@ -33,11 +68,15 @@ class ZMQSubClient(BaseZMQClient, SubClient):
             socket_ops (dict, optional): Additional socket options to set.
         """
         super().__init__(context, zmq.SocketType.SUB, address, bind, socket_ops)
-        self._subscribers: dict[str, list[Callable[[Message], Any]]] = {}
-        self.tasks: set[asyncio.Task] = set()
+        AsyncTaskManagerMixin.__init__(self)
+        self._subscribers: dict[MessageType | str, list[Callable[[Message], Any]]] = {}
+
+    @on_stop
+    async def _on_stop(self) -> None:
+        await self.cancel_all_tasks()
 
     async def subscribe(
-        self, message_type: str, callback: Callable[[Message], Any]
+        self, message_type: MessageType, callback: Callable[[Message], Any]
     ) -> None:
         """Subscribe to a message_type.
 
@@ -90,19 +129,6 @@ class ZMQSubClient(BaseZMQClient, SubClient):
         if message_type in self._subscribers:
             await call_all_functions(self._subscribers[message_type], message)
 
-    @on_stop
-    async def _stop_remaining_tasks(self) -> None:
-        """Wait for all tasks to complete."""
-        for task in list(self.tasks):
-            if not task.done():
-                task.cancel()
-
-        await asyncio.wait_for(
-            asyncio.gather(*self.tasks),
-            timeout=TASK_CANCEL_TIMEOUT_SHORT,
-        )
-        self.tasks.clear()
-
     @aiperf_task
     async def _sub_receiver(self) -> None:
         """Background task for receiving messages from subscribed topics.
@@ -117,25 +143,19 @@ class ZMQSubClient(BaseZMQClient, SubClient):
             await self.initialized_event.wait()
             self.logger.debug("Sub client %s initialized", self.client_id)
 
-        while not self.is_shutdown:
+        while not self.stop_event.is_set():
             try:
-                # Receive message
                 (
                     topic_bytes,
                     message_bytes,
                 ) = await self.socket.recv_multipart()
 
-                task = asyncio.create_task(
-                    self._handle_message(topic_bytes, message_bytes)
-                )
-                self.tasks.add(task)
-                task.add_done_callback(self.tasks.discard)
+                self.execute_async(self._handle_message(topic_bytes, message_bytes))
 
             except (asyncio.CancelledError, zmq.ContextTerminated):
                 break
 
             except zmq.Again:
-                await asyncio.sleep(0)  # Yield to other tasks
                 pass
 
             except Exception as e:
@@ -144,4 +164,4 @@ class ZMQSubClient(BaseZMQClient, SubClient):
                     e,
                     type(e),
                 )
-                # await asyncio.sleep(0.1)
+                await asyncio.sleep(0.1)

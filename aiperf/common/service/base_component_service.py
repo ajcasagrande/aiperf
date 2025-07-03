@@ -10,7 +10,6 @@ from aiperf.common.enums import (
     MessageType,
     ServiceState,
 )
-from aiperf.common.exceptions import ServiceErrorType
 from aiperf.common.hooks import AIPerfHook, aiperf_task, on_init, on_set_state
 from aiperf.common.messages import (
     CommandMessage,
@@ -64,10 +63,7 @@ class BaseComponentService(BaseService):
                 self.process_command_message,
             )
         except Exception as e:
-            raise self._service_error(
-                ServiceErrorType.INITIALIZATION_ERROR,
-                "Failed to subscribe to command message_type",
-            ) from e
+            raise self._service_error("Failed to subscribe to command topic") from e
 
         # TODO: HACK: Sleep for 1 second to allow the controller to be ready to register the service
         await asyncio.sleep(1)
@@ -76,10 +72,7 @@ class BaseComponentService(BaseService):
         try:
             await self.register()
         except Exception as e:
-            raise self._service_error(
-                ServiceErrorType.REGISTER_SERVICE_ERROR,
-                "Failed to register service",
-            ) from e
+            raise self._service_error("Failed to register service") from e
 
     @aiperf_task
     async def _heartbeat_task(self) -> None:
@@ -109,10 +102,7 @@ class BaseComponentService(BaseService):
                 message=heartbeat_message,
             )
         except Exception as e:
-            raise self._service_error(
-                ServiceErrorType.HEARTBEAT_ERROR,
-                "Failed to send heartbeat",
-            ) from e
+            raise self._service_error("Failed to send heartbeat") from e
 
     async def register(self) -> None:
         """Publish a registration request to the system controller.
@@ -130,10 +120,7 @@ class BaseComponentService(BaseService):
                 message=self.create_registration_message(),
             )
         except Exception as e:
-            raise self._service_error(
-                ServiceErrorType.REGISTER_SERVICE_ERROR,
-                "Failed to register service",
-            ) from e
+            raise self._service_error("Failed to register service") from e
 
     async def process_command_message(self, message: CommandMessage) -> None:
         """Process a command message received from the controller.
@@ -169,7 +156,6 @@ class BaseComponentService(BaseService):
 
             else:
                 raise self._service_error(
-                    ServiceErrorType.UNKNOWN_COMMAND,
                     f"Received unknown command: {cmd}",
                 )
 

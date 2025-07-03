@@ -8,7 +8,10 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
-from aiperf.common.comms.base import ClientAddressType, RepClient
+from aiperf.common.comms import ReplyClientProtocol
+from aiperf.common.comms.base import (
+    CommunicationClientAddressType,
+)
 from aiperf.common.config import ServiceConfig
 from aiperf.common.dataset_models import Conversation
 from aiperf.common.enums import (
@@ -18,7 +21,7 @@ from aiperf.common.enums import (
     NotificationType,
     ServiceType,
 )
-from aiperf.common.exceptions import AIPerfError, ServiceErrorType
+from aiperf.common.exceptions import AIPerfError
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
     on_cleanup,
@@ -75,8 +78,8 @@ class DatasetManager(BaseComponentService):
         self.logger.debug("Initializing dataset manager")
         self.tokenizer: Tokenizer | None = None
         self.dataset: dict[str, Conversation] = {}  # session ID -> Conversation mapping
-        self.dealer_router_client: RepClient = self.comms.create_rep_client(
-            ClientAddressType.DEALER_ROUTER_BACKEND
+        self.dealer_router_client: ReplyClientProtocol = self.comms.create_reply_client(
+            CommunicationClientAddressType.DATASET_MANAGER_PROXY_BACKEND
         )
         self.dataset_configured = asyncio.Event()
 
@@ -184,21 +187,20 @@ class DatasetManager(BaseComponentService):
 
         if not self.dataset:
             raise self._service_error(
-                ServiceErrorType.DATASET_EMPTY,
                 "Dataset is empty and must be configured before handling requests.",
             )
 
         if message.conversation_id is None:
-            return await self._return_any_conversation(
+            return self._return_any_conversation(
                 request_id=message.request_id,
             )
         else:
-            return await self._return_conversation_by_id(
+            return self._return_conversation_by_id(
                 request_id=message.request_id,
                 conversation_id=message.conversation_id,
             )
 
-    async def _return_any_conversation(
+    def _return_any_conversation(
         self, request_id: str | None
     ) -> ConversationResponseMessage:
         """Return any conversation from the dataset based on the user specified method."""
@@ -212,14 +214,13 @@ class DatasetManager(BaseComponentService):
             conversation=conversation,
         )
 
-    async def _return_conversation_by_id(
+    def _return_conversation_by_id(
         self, request_id: str | None, conversation_id: str
     ) -> ConversationResponseMessage:
         """Return a conversation if it exists, otherwise raise an error."""
 
         if conversation_id not in self.dataset:
             raise self._service_error(
-                ServiceErrorType.CONVERSATION_NOT_FOUND,
                 f"Conversation {conversation_id} not found in dataset.",
             )
 
@@ -236,14 +237,20 @@ class DatasetManager(BaseComponentService):
     ) -> DatasetTimingResponse:
         """Handle a dataset timing request."""
         self.logger.debug("Handling dataset timing request: %s", message)
-        # TODO: Implement dataset timing request handling
+        if not self.dataset:
+            raise self._service_error(
+                "Dataset is empty and must be configured before handling timing requests.",
+            )
+
+        timing_dataset = []
+        for conversation_id, conversation in self.dataset.items():
+            for turn in conversation.turns:
+                timing_dataset.append((turn.timestamp, conversation_id))
+
         return DatasetTimingResponse(
             service_id=self.service_id,
             request_id=message.request_id,
-            timing_data=[
-                (1719000000000, "123"),
-                (1719000000001, "456"),
-            ],
+            timing_data=timing_dataset,
         )
 
 

@@ -12,3 +12,6 @@ TASK_CANCEL_TIMEOUT_SHORT = 2.0
 
 TASK_CANCEL_TIMEOUT_LONG = 5.0
 """Maximum time to wait for complex tasks to complete when cancelling them (like parent tasks)."""
+
+DEFAULT_COMMS_REQUEST_TIMEOUT = 10.0
+"""Default timeout for requests from req_clients to rep_clients in seconds."""
