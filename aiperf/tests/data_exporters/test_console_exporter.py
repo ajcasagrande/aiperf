@@ -3,10 +3,10 @@
 import pytest
 
 from aiperf.common.config import EndPointConfig, UserConfig
-from aiperf.common.messages import ProfileResultsMessage
 from aiperf.common.record_models import MetricResult
 from aiperf.data_exporter import ConsoleExporter
 from aiperf.data_exporter.exporter_config import ExporterConfig
+from aiperf.progress import ProfileResultsMessage
 
 
 @pytest.fixture
@@ -22,6 +22,7 @@ def sample_results() -> ProfileResultsMessage:
         records=[
             MetricResult(
                 tag="Time to First Token",
+                header="Time to First Token",
                 unit="ms",
                 avg=120.5,
                 min=110.0,
@@ -32,6 +33,7 @@ def sample_results() -> ProfileResultsMessage:
             ),
             MetricResult(
                 tag="Request Latency",
+                header="Request Latency",
                 unit="ms",
                 avg=15.3,
                 min=12.1,
@@ -42,6 +44,7 @@ def sample_results() -> ProfileResultsMessage:
             ),
             MetricResult(
                 tag="Inter Token Latency",
+                header="Inter Token Latency",
                 unit="ms",
                 avg=3.7,
                 min=2.9,
@@ -53,6 +56,7 @@ def sample_results() -> ProfileResultsMessage:
             ),
             MetricResult(
                 tag="Request Throughput",
+                header="Request Throughput",
                 unit="per sec",
                 avg=95.0,
                 min=None,
@@ -117,6 +121,7 @@ class TestConsoleExporter:
         exporter = ConsoleExporter(config)
         record = MetricResult(
             tag="Test Metric",
+            header="Test Metric",
             unit="ms",
             avg=1.0,
             streaming_only=is_streaming_only_metric,
@@ -129,6 +134,7 @@ class TestConsoleExporter:
         exporter = ConsoleExporter(mock_exporter_config)
         record = MetricResult(
             tag="Request Latency",
+            header="Request Latency",
             unit="ms",
             avg=10.123,
             min=None,

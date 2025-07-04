@@ -8,39 +8,48 @@ from pathlib import Path
 import pytest
 
 from aiperf.common.config.user_config import UserConfig
+from aiperf.common.record_models import MetricResult
 from aiperf.data_exporter.exporter_config import ExporterConfig
 from aiperf.data_exporter.json_exporter import JsonExporter
-from aiperf.data_exporter.record import Record
+from aiperf.progress import ProfileResultsMessage
 
 
 class TestJsonExporter:
     @pytest.fixture
     def sample_results(self):
-        return [
-            Record(
-                name="Test Metric",
-                unit="ms",
-                avg=123.0,
-                min=100.0,
-                max=150.0,
-                p1=101.0,
-                p5=105.0,
-                p25=110.0,
-                p50=120.0,
-                p75=130.0,
-                p90=140.0,
-                p95=None,
-                p99=149.0,
-                std=10.0,
-                streaming_only=False,
-            )
-        ]
+        return ProfileResultsMessage(
+            service_id="test-service",
+            start_ns=1000,
+            end_ns=2000,
+            total=1,
+            completed=1,
+            records=[
+                MetricResult(
+                    tag="Test Metric",
+                    header="Test Header",
+                    unit="ms",
+                    avg=123.0,
+                    min=100.0,
+                    max=150.0,
+                    p1=101.0,
+                    p5=105.0,
+                    p25=110.0,
+                    p50=120.0,
+                    p75=130.0,
+                    p90=140.0,
+                    p95=None,
+                    p99=149.0,
+                    std=10.0,
+                    streaming_only=False,
+                )
+            ],
+        )
 
     @pytest.fixture
     def mock_user_config(self):
         return UserConfig()
 
-    def test_json_exporter_creates_expected_json(
+    async def test_json_exporter_creates_expected_json(
         self, sample_results, mock_user_config
     ):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -53,7 +62,7 @@ class TestJsonExporter:
             )
 
             exporter = JsonExporter(exporter_config)
-            exporter.export()
+            await exporter.export()
 
             expected_file = output_dir / "profile_export_aiperf.json"
             assert expected_file.exists()
