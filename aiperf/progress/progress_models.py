@@ -7,13 +7,107 @@ from typing import Literal
 from pydantic import BaseModel, Field, SerializeAsAny
 
 from aiperf.common.enums import (
-    BenchmarkSuiteCompletionTrigger,
-    BenchmarkSuiteType,
-    ProfileCompletionTrigger,
-    SweepCompletionTrigger,
+    CaseInsensitiveStrEnum,
 )
 from aiperf.common.messages import BaseServiceMessage, MessageType
 from aiperf.common.record_models import ErrorDetailsCount, MetricResult
+
+
+class ProfileCompletionTrigger(CaseInsensitiveStrEnum):
+    """Determines how the profile completion is determined in order to know how to track the progress."""
+
+    REQUEST_COUNT = "request_count"
+    """The profile will run for a fixed number of requests."""
+
+    TIME_BASED = "time_based"
+    """The profile will run for a fixed amount of time."""
+
+    STABILIZATION_BASED = "stabilization_based"
+    """The profile will run until the metrics stabilize. TDB"""
+
+    GOODPUT_THRESHOLD = "goodput_threshold"
+    """The profile will run until the goodput threshold is met. TDB"""
+
+    CUSTOM = "custom"
+    """User defined trigger. TBD"""
+
+
+class SweepCompletionTrigger(CaseInsensitiveStrEnum):
+    """Determines how the sweep completion is determined in order to know how to track the progress."""
+
+    COMPLETED_PROFILES = "completed_profiles"
+    """The sweep will run until all profiles are completed."""
+
+    STABILIZATION_BASED = "stabilization_based"
+    """The sweep will run until the metrics stabilize. TDB"""
+
+    GOODPUT_THRESHOLD = "goodput_threshold"
+    """The sweep will run until the goodput threshold is met. TDB"""
+
+    CUSTOM = "custom"
+    """User defined trigger. TBD"""
+
+
+class SweepParamOrder(CaseInsensitiveStrEnum):
+    """Determines the order in which the sweep parameters are tested."""
+
+    ASCENDING = "ascending"
+    """The parameters are tested in ascending order."""
+
+    DESCENDING = "descending"
+    """The parameters are tested in descending order."""
+
+    RANDOM = "random"
+    """The parameters are tested in random order. TBD"""
+
+    CUSTOM = "custom"
+    """User defined order. TBD"""
+
+
+class SweepMultiParamOrder(CaseInsensitiveStrEnum):
+    """Determines the order in which the sweep parameters are tested for a multi-parameter sweep.
+    This is only applicable for multi-parameter sweeps."""
+
+    DEPTH_FIRST = "depth_first"
+    """The parameters are tested in depth-first order."""
+
+    BREADTH_FIRST = "breadth_first"
+    """The parameters are tested in breadth-first order."""
+
+    RANDOM = "random"
+    """The parameters are tested in random order. TBD"""
+
+    CUSTOM = "custom"
+    """User defined order. TBD"""
+
+
+class BenchmarkSuiteCompletionTrigger(CaseInsensitiveStrEnum):
+    """Determines how the suite completion is determined in order to know how to track the progress."""
+
+    UNKNOWN = "unknown"
+    COMPLETED_SWEEPS = "completed_sweeps"
+    COMPLETED_PROFILES = "completed_profiles"
+    STABILIZATION_BASED = "stabilization_based"
+    CUSTOM = "custom"  # TBD
+
+
+class BenchmarkSuiteType(CaseInsensitiveStrEnum):
+    """Determines the type of suite to know how to track the progress."""
+
+    SINGLE_PROFILE = "single_profile"
+    """An suite with a single profile run."""
+
+    MULTI_PROFILE = "multi_profile"
+    """An suite with multiple profile runs. As opposed to a sweep, more than one parameter can be varied. TBD"""
+
+    SINGLE_SWEEP = "single_sweep"
+    """An suite with a single sweep over one or more varying parameters. TBD"""
+
+    MULTI_SWEEP = "multi_sweep"
+    """An suite with multiple sweep runs over multiple varying parameters. TBD"""
+
+    CUSTOM = "custom"
+    """User defined suite type. TBD"""
 
 
 class ProfileProgress(BaseModel):
@@ -141,12 +235,15 @@ class SweepProgress(BaseModel):
         return self.profiles[self.current_profile_idx]
 
     def next_profile(self) -> ProfileProgress | None:
-        if self.current_profile_idx is None or self.current_profile_idx >= len(
-            self.profiles
-        ):
+        if self.current_profile_idx is None:
+            self.current_profile_idx = 0
+        else:
+            self.current_profile_idx += 1
+
+        if self.current_profile_idx >= len(self.profiles):
             return None
-        self.current_profile_idx += 1
-        return self.profiles[self.current_profile_idx - 1]
+
+        return self.profiles[self.current_profile_idx]
 
 
 class BenchmarkSuiteProgress(BaseModel, ABC):
@@ -253,23 +350,16 @@ class SweepSuiteProgress(BenchmarkSuiteProgress):
                 return None
             return next_sweep.next_profile()
 
-        # TODO: Double check this logic
-
+        # Try to get the next profile in the current sweep
         next_profile = self.current_sweep.next_profile()
         if next_profile is not None:
             return next_profile
+
+        # If no more profiles in current sweep, move to next sweep
         next_sweep = self.next_sweep()
         if next_sweep is None:
             return None
         return next_sweep.next_profile()
-
-        if (
-            self.current_sweep.current_profile_idx
-            >= len(self.current_sweep.profiles) - 1
-        ):
-            return self.next_sweep()
-
-        return self.current_sweep.profiles[self.current_sweep.current_profile_idx + 1]
 
     def next_sweep(self) -> SweepProgress | None:
         """Get the next sweep to run.

@@ -11,7 +11,7 @@ class SimpleProgressLogger:
     """Simple logger for progress updates. It will use tqdm to show a progress bar."""
 
     def __init__(self, progress_tracker: ProgressTracker):
-        self.logger = logging.getLogger(__name__)
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.progress_tracker = progress_tracker
         self.tqdm_requests: tqdm | None = None
         self.tqdm_records: tqdm | None = None
@@ -22,24 +22,32 @@ class SimpleProgressLogger:
         if cur_profile is None:
             return
 
-        # self.logger.info(
-        #     "Requests Completed: %d / %d",
-        #     cur_profile.requests_completed,
-        #     cur_profile.total_expected_requests,
-        # )
+        # Handle case where total_expected_requests might be None
+        total_requests = cur_profile.total_expected_requests or 0
+        completed_requests = cur_profile.requests_completed
 
-        if self.tqdm_requests is None:
+        self.logger.debug(
+            "Requests Completed: %d / %d",
+            completed_requests,
+            total_requests,
+        )
+
+        # Only create tqdm if we have a valid total > 0
+        if self.tqdm_requests is None and total_requests > 0:
             self.tqdm_requests = tqdm(
-                total=cur_profile.total_expected_requests,
+                total=total_requests,
                 desc="Requests Completed",
                 colour="green",
             )
+
         if self.tqdm_requests is not None:
-            self.tqdm_requests.n = cur_profile.requests_completed
+            self.tqdm_requests.n = completed_requests
             self.tqdm_requests.refresh()
 
+        # Close tqdm when completed
         if (
-            cur_profile.requests_completed == cur_profile.total_expected_requests
+            total_requests > 0
+            and completed_requests >= total_requests
             and self.tqdm_requests is not None
         ):
             self.tqdm_requests.close()
@@ -51,30 +59,38 @@ class SimpleProgressLogger:
         if cur_profile is None:
             return
 
-        # self.logger.info(
-        #     "Records Processed: %d / %d",
-        #     cur_profile.requests_processed,
-        #     cur_profile.total_expected_requests,
-        # )
+        # Handle case where total_expected_requests might be None
+        total_requests = cur_profile.total_expected_requests or 0
+        processed_requests = cur_profile.requests_processed
 
-        if self.tqdm_records is None:
+        self.logger.debug(
+            "Records Processed: %d / %d",
+            processed_requests,
+            total_requests,
+        )
+
+        # Only create tqdm if we have a valid total > 0
+        if self.tqdm_records is None and total_requests > 0:
             self.tqdm_records = tqdm(
-                total=cur_profile.total_expected_requests,
+                total=total_requests,
                 desc=" Records Processed",
                 colour="blue",
             )
+
         if self.tqdm_records is not None:
-            self.tqdm_records.n = cur_profile.requests_processed
+            self.tqdm_records.n = processed_requests
             self.tqdm_records.refresh()
 
+        # Close tqdm when completed
         if (
-            cur_profile.requests_processed == cur_profile.total_expected_requests
+            total_requests > 0
+            and processed_requests >= total_requests
             and self.tqdm_records is not None
         ):
-            self.logger.info(
+            self.logger.debug(
                 "Closing TQDM. Records Processed: %d / %d",
-                cur_profile.requests_processed,
-                cur_profile.total_expected_requests,
+                processed_requests,
+                total_requests,
             )
             self.tqdm_records.close()
             self.tqdm_records = None

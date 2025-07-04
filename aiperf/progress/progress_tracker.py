@@ -4,8 +4,8 @@ import logging
 import time
 
 from aiperf.common.constants import NANOS_PER_SECOND
-from aiperf.common.enums import BenchmarkSuiteType
 from aiperf.progress.progress_models import (
+    BenchmarkSuiteType,
     ProcessingStatsMessage,
     ProfileProgress,
     ProfileProgressMessage,
@@ -16,11 +16,10 @@ from aiperf.progress.progress_models import (
     SweepSuiteProgress,
 )
 
-logger = logging.getLogger(__name__)
-
 
 class ProgressTracker:
     def __init__(self):
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.suite: ProfileSuiteProgress | SweepSuiteProgress | None = None
 
     @property
@@ -77,9 +76,11 @@ class ProgressTracker:
         profile = self.suite.current_profile
 
         if profile.start_time_ns is None:
-            profile.start_time_ns = current_time_ns
+            profile.start_time_ns = message.start_ns
             profile.total_expected_requests = message.total
-            logger.info(f"Starting performance test: {message.total:,} total requests")
+            self.logger.info(
+                f"Starting performance test: {message.total:,} total requests"
+            )
 
         profile.total_expected_requests = message.total
         profile.requests_completed = message.completed
@@ -103,14 +104,14 @@ class ProgressTracker:
                 (
                     (profile.total_expected_requests - profile.requests_completed)
                     / profile.requests_per_second
-                    if profile.requests_per_second > 0
+                    if profile.requests_per_second and profile.requests_per_second > 0
                     else None
                 )
                 if profile.requests_per_second is not None
                 else None
             )
 
-    def update_profile_stats(self, message: ProcessingStatsMessage) -> None:
+    def update_processing_stats(self, message: ProcessingStatsMessage) -> None:
         if self.suite is None or self.suite.current_profile is None:
             return
 
@@ -126,22 +127,28 @@ class ProgressTracker:
             profile.total_expected_requests is not None
             and profile.requests_processed >= profile.total_expected_requests
         ):
-            logger.info("Profile completed")
+            self.logger.info("Profile completed")
             profile.end_time_ns = current_time_ns
             profile.is_complete = True
 
         if not profile.is_complete:
             profile.processed_per_second = (
-                message.completed
-                / (current_time_ns - profile.start_time_ns)
-                * NANOS_PER_SECOND
+                (
+                    message.completed
+                    / (current_time_ns - profile.start_time_ns)
+                    * NANOS_PER_SECOND
+                )
+                if profile.start_time_ns is not None
+                and current_time_ns > profile.start_time_ns
+                else None
             )
 
             profile.processing_eta = (
                 (
                     (profile.total_expected_requests - profile.requests_processed)
                     / profile.processed_per_second
-                    if profile.processed_per_second > 0
+                    if profile.processed_per_second
+                    and profile.processed_per_second > 0
                     and profile.total_expected_requests
                     else None
                 )
@@ -156,15 +163,26 @@ class ProgressTracker:
         profile = self.suite.current_profile
         profile.end_time_ns = message.end_ns
         profile.was_cancelled = message.was_cancelled
-        profile.elapsed_time = (
-            profile.end_time_ns - profile.start_time_ns
-        ) / NANOS_PER_SECOND
+        if profile.start_time_ns is not None and profile.end_time_ns is not None:
+            profile.elapsed_time = (
+                profile.end_time_ns - profile.start_time_ns
+            ) / NANOS_PER_SECOND
         profile.eta = None
         profile.requests_per_second = 0
         profile.records = message.records
         profile.errors_by_type = message.errors_by_type
 
     def update_sweep_progress(self, message: SweepProgressMessage) -> None:
-        # TODO:
+        """Update sweep progress with the provided message."""
         if self.suite is None or self.suite.current_sweep is None:
             return
+
+        current_sweep = self.suite.current_sweep
+
+        if current_sweep.start_time_ns is None:
+            current_sweep.start_time_ns = message.sweep_start_ns
+            self.logger.info(f"Starting sweep: {current_sweep.sweep_id}")
+
+        if message.end_ns is not None:
+            current_sweep.end_time_ns = message.end_ns
+            self.logger.info(f"Completed sweep: {current_sweep.sweep_id}")

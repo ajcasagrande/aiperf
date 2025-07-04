@@ -397,7 +397,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
     ) -> None:
         """Process a profile stats message."""
         self.logger.debug("Received profile stats: %s", message)
-        self.progress_tracker.update_profile_stats(message)
+        self.progress_tracker.update_processing_stats(message)
 
         if self.ui:
             await self.ui.on_profile_stats_update()
