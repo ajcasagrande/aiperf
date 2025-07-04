@@ -86,7 +86,7 @@ pre-commit install --install-hooks
 
 Press `Ctrl-C` to stop the process normally.
 
-> Note: Press `Ctrl-Z` followed by `disown`, then `pkill -9 aiperf` if the process gets "stuck".
+> NOTE: Press `Ctrl-Z` followed by `disown`, then `pkill -9 aiperf` if the process gets "stuck".
 
 Each process is named after the service_id. To see the running processes, run:
 ```bash

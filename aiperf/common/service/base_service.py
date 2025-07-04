@@ -107,7 +107,7 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
             service_id=self.service_id,
         )
 
-    # Note: Not using as a setter so it can be overridden by derived classes and still
+    # NOTE: Not using as a setter so it can be overridden by derived classes and still
     # be async
     async def set_state(self, state: ServiceState) -> None:
         """Set the state of the service. This method implements

@@ -78,15 +78,19 @@ class ZMQPubClient(BaseZMQClient):
         try:
             message_json = message.model_dump_json()
 
-            # Publish message
+            # Publish message based on the message type
             await self.socket.send_multipart(
                 [message.message_type.encode(), message_json.encode()]
             )
 
         except (asyncio.CancelledError, zmq.ContextTerminated):
+            self.logger.debug(
+                "ZMQ PUB client %s was cancelled or context terminated",
+                self.client_id,
+            )
             return
 
         except Exception as e:
             raise CommunicationError(
-                f"Failed to publish message {message.message_type}: {e}",
+                f"Failed to publish message: {message}: {e}",
             ) from e

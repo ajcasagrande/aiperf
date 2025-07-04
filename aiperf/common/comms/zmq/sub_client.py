@@ -79,12 +79,12 @@ class ZMQSubClient(BaseZMQClient, AsyncTaskManagerMixin):
         await self.cancel_all_tasks()
 
     async def subscribe(
-        self, message_type: MessageType, callback: Callable[[Message], Any]
+        self, message_type: MessageType | str, callback: Callable[[Message], Any]
     ) -> None:
         """Subscribe to a message_type.
 
         Args:
-            message_type: MessageType to subscribe to
+            message_type: MessageType or str to subscribe to
             callback: Function to call when a message is received (receives Message object)
 
         Raises:
@@ -93,12 +93,11 @@ class ZMQSubClient(BaseZMQClient, AsyncTaskManagerMixin):
         await self._ensure_initialized()
 
         try:
-            # Subscribe to message_type
-            self.socket.subscribe(message_type.encode())
-
-            # Register callback
             if message_type not in self._subscribers:
                 self._subscribers[message_type] = []
+                # Only subscribe to message_type once per client
+                self.socket.subscribe(message_type.encode())
+
             self._subscribers[message_type].append(callback)
 
             self.logger.debug(
@@ -114,6 +113,43 @@ class ZMQSubClient(BaseZMQClient, AsyncTaskManagerMixin):
             raise CommunicationError(
                 f"Failed to subscribe to message_type {message_type}: {e}",
             ) from e
+
+    async def unsubscribe(
+        self,
+        message_type: MessageType | str,
+        callback: Callable[[Message], Any] | None = None,
+    ) -> None:
+        """Remove a callback for a specified message_type. If no callbacks are left, unsubscribe from the message_type.
+
+        Args:
+            message_type: MessageType or str to unsubscribe from
+            callback: Function to remove from the subscription. If None, all callbacks for the message_type will be removed.
+        """
+        if message_type not in self._subscribers:
+            self.logger.warning(
+                "Message type %s not subscribed to, skipping unsubscribe",
+                message_type,
+            )
+            return
+
+        await self._ensure_initialized()
+
+        if callback:
+            self._subscribers[message_type].remove(callback)
+        else:
+            self._subscribers[message_type] = []
+
+        if not self._subscribers[message_type]:
+            try:
+                self.socket.unsubscribe(message_type.encode())
+                self._subscribers.pop(message_type)
+            except Exception as e:
+                self.logger.error(
+                    "Exception unsubscribing from message_type %s: %s", message_type, e
+                )
+                raise CommunicationError(
+                    f"Failed to unsubscribe from message_type {message_type}: {e}",
+                ) from e
 
     async def _handle_message(self, topic_bytes: bytes, message_bytes: bytes) -> None:
         """Handle a message from a subscribed message_type."""

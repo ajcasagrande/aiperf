@@ -7,15 +7,18 @@ from typing import TYPE_CHECKING
 
 from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import (
-    BenchmarkSuiteType,
     CommandType,
     ServiceState,
     SystemState,
 )
-from aiperf.progress.progress_models import ProfileProgress, ProfileSuiteProgress
+from aiperf.progress.progress_models import (
+    BenchmarkSuiteType,
+    ProfileProgress,
+    ProfileSuiteProgress,
+)
 
 if TYPE_CHECKING:
-    from aiperf.services.system_controller.system_controller import SystemController
+    from aiperf.services.system.system_controller import SystemController
 
 
 class ProfileRunner:

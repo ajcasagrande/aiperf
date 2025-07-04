@@ -348,7 +348,7 @@ class AIPerfRichDashboard(LogsDashboardMixin, AIPerfLifecycleMixin):
             title_align="left",
         )
 
-    @aiperf_auto_task(interval=0.1)
+    @aiperf_auto_task(interval_sec=0.1)
     async def _update_logs(self) -> None:
         """Update the dashboard display."""
         if not self.running:

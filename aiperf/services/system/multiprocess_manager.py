@@ -16,7 +16,7 @@ from aiperf.common.constants import (
 from aiperf.common.enums import ServiceRegistrationStatus, ServiceType
 from aiperf.common.exceptions import ServiceError
 from aiperf.common.factories import ServiceFactory
-from aiperf.services.service_manager.base import BaseServiceManager
+from aiperf.services.system.base_service_manager import BaseServiceManager
 
 
 class MultiProcessRunInfo(BaseModel):
@@ -138,12 +138,15 @@ class MultiProcessServiceManager(BaseServiceManager):
             required_types_set = set(typ for typ, _ in required_types)
 
             while not stop_event.is_set():
-                # Get all registered service types from the id map
+                # Get all registered service types using the service registry
+                registered_services = (
+                    self.service_registry.get_services_by_registration_status(
+                        ServiceRegistrationStatus.REGISTERED
+                    )
+                )
                 registered_types = {
                     service_info.service_type
-                    for service_info in self.service_id_map.values()
-                    if service_info.registration_status
-                    == ServiceRegistrationStatus.REGISTERED
+                    for service_info in registered_services.values()
                 }
 
                 # Check if all required types are registered
@@ -157,12 +160,15 @@ class MultiProcessServiceManager(BaseServiceManager):
             await asyncio.wait_for(_wait_for_registration(), timeout=timeout_seconds)
         except asyncio.TimeoutError as e:
             # Log which services didn't register in time
-            registered_types_set = set(
-                service_info.service_type
-                for service_info in self.service_id_map.values()
-                if service_info.registration_status
-                == ServiceRegistrationStatus.REGISTERED
+            registered_services = (
+                self.service_registry.get_services_by_registration_status(
+                    ServiceRegistrationStatus.REGISTERED
+                )
             )
+            registered_types_set = {
+                service_info.service_type
+                for service_info in registered_services.values()
+            }
 
             for service_type, _ in required_types:
                 if service_type not in registered_types_set:

@@ -138,11 +138,24 @@ class SubClientProtocol(CommunicationClientProtocol):
 
     async def subscribe(
         self,
-        message_type: MessageType,
+        message_type: MessageType | str,
         callback: Callable[[MessageT], Coroutine[Any, Any, None]],
     ) -> None:
         """Subscribe to a specific message type. The callback will be called when
         a message is received for the given message type."""
+        ...
+
+    async def unsubscribe(
+        self,
+        message_type: MessageType | str,
+        callback: Callable[[MessageT], Coroutine[Any, Any, None]] | None = None,
+    ) -> None:
+        """Unsubscribe from a specific message type. If no callbacks are left, unsubscribe from the socket.
+
+        Args:
+            message_type: MessageType or str to unsubscribe from
+            callback: Function to remove from the subscription. If None, all callbacks for the message_type will be removed.
+        """
         ...
 
 
@@ -274,7 +287,7 @@ def _create_specific_client(
     return _create_client
 
 
-# Create a method for creating each client type on the CommunicationProtocol class,
+# Dynamically create a method for creating each specific client type on the CommunicationProtocol class,
 # such as create_push_client, create_pull_client, etc.
 for (
     protocol_class,

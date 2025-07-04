@@ -111,7 +111,7 @@ class MyHookService(HooksMixin):
 
     async def initialize(self):
         """Runs all of the registered ON_INIT hooks"""
-        # Note: Using run_hooks without the _async will run them serially
+        # NOTE: Using run_hooks without the _async will run them serially
         await self.run_hooks(AIPerfHook.ON_INIT)
 
     async def cleanup(self):

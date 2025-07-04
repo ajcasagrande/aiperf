@@ -10,13 +10,12 @@ import zmq.asyncio
 from aiperf.common.comms.base import CommunicationClientFactory
 from aiperf.common.comms.zmq.zmq_base_client import BaseZMQClient
 from aiperf.common.enums import CommunicationClientType, MessageType
-from aiperf.common.hooks import aiperf_task, on_stop
+from aiperf.common.hooks import aiperf_task
 from aiperf.common.messages import Message
-from aiperf.common.mixins import AsyncTaskManagerMixin
 
 
 @CommunicationClientFactory.register(CommunicationClientType.PULL)
-class ZMQPullClient(BaseZMQClient, AsyncTaskManagerMixin):
+class ZMQPullClient(BaseZMQClient):
     """
     ZMQ PULL socket client for receiving work from PUSH sockets.
 
@@ -85,10 +84,7 @@ class ZMQPullClient(BaseZMQClient, AsyncTaskManagerMixin):
         This method is a coroutine that will run indefinitely until the client is
         shutdown. It will wait for messages from the socket and handle them.
         """
-        if not self.is_initialized:
-            await self.initialized_event.wait()
-
-        while not self.stop_event.is_set():
+        while not self.stop_requested:
             try:
                 # acquire the semaphore to limit the number of concurrent requests
                 # NOTE: This MUST be done BEFORE calling recv_string() to allow the zmq push/pull
@@ -115,11 +111,6 @@ class ZMQPullClient(BaseZMQClient, AsyncTaskManagerMixin):
                     e,
                 )
                 await asyncio.sleep(0.1)
-
-    @on_stop
-    async def _stop(self) -> None:
-        """Wait for all tasks to complete."""
-        await self.cancel_all_tasks()
 
     async def _process_message(self, message_json: str) -> None:
         """Process a message from the pull socket.

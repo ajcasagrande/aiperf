@@ -7,6 +7,7 @@ from abc import ABC, abstractmethod
 from aiperf.common.config import ServiceConfig
 from aiperf.common.enums import ServiceType
 from aiperf.common.service_models import ServiceRunInfo
+from aiperf.services.service_registry import ServiceRegistry
 
 
 class BaseServiceManager(ABC):
@@ -24,11 +25,27 @@ class BaseServiceManager(ABC):
         self.required_service_types = required_service_types
         self.config = config
 
-        # Maps to track service information
-        self.service_map: dict[ServiceType, list[ServiceRunInfo]] = {}
+        # Centralized service registry
+        self.service_registry = ServiceRegistry()
 
-        # Create service ID map for component lookups
-        self.service_id_map: dict[str, ServiceRunInfo] = {}
+    @property
+    def service_map(self) -> dict[ServiceType, list[ServiceRunInfo]]:
+        """Legacy compatibility: get services organized by type as lists."""
+        result = {}
+        for service_type in self.service_registry.get_all_service_types():
+            services = self.service_registry.get_services_by_type(service_type)
+            result[service_type] = list(services.values())
+        return result
+
+    @property
+    def service_id_map(self) -> dict[str, ServiceRunInfo]:
+        """Legacy compatibility: get all services by ID."""
+        result = {}
+        for service_id in self.service_registry.get_all_service_ids():
+            service_info = self.service_registry.get_service(service_id)
+            if service_info is not None:
+                result[service_id] = service_info
+        return result
 
     @abstractmethod
     async def run_all_services(self) -> None:
@@ -47,7 +64,7 @@ class BaseServiceManager(ABC):
 
     @abstractmethod
     async def wait_for_all_services_registration(
-        self, stop_event: asyncio.Event, timeout_seconds: int = 30
+        self, cancel_event: asyncio.Event, timeout_seconds: int = 30
     ) -> None:
         """Wait for all required services to be registered."""
         pass

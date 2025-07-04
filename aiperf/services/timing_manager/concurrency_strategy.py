@@ -131,7 +131,7 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AIPerfLifecycleMixin):
 
         self._credit_event.set()
 
-    @aiperf_auto_task(interval=1)
+    @aiperf_auto_task(interval_sec=1)
     async def _report_progress_task(self) -> None:
         """Report the progress."""
         self.execute_async(

@@ -6,15 +6,15 @@ import signal
 from collections.abc import Callable, Coroutine
 from typing import Any
 
+from aiperf.common.mixins import AsyncTaskManagerMixin
 
-class SignalHandlerMixin:
+
+class SignalHandlerMixin(AsyncTaskManagerMixin):
     """Mixin for services that need to handle system signals."""
 
     def __init__(self, *args, **kwargs) -> None:
-        # Set to store signal handler tasks to prevent them from being garbage collected
-        self._signal_tasks = set()
-        self.logger = logging.getLogger(__name__)
         super().__init__(*args, **kwargs)
+        self.logger = logging.getLogger(self.__class__.__name__)
 
     def setup_signal_handlers(
         self, callback: Callable[[int], Coroutine[Any, Any, None]]
@@ -28,13 +28,8 @@ class SignalHandlerMixin:
         loop = asyncio.get_running_loop()
 
         def signal_handler(sig: int) -> None:
-            # Create a task and store it so it doesn't get garbage collected
-            task = asyncio.create_task(callback(sig))
-
-            # Store the task somewhere to prevent it from being garbage collected
-            # before it completes
-            self._signal_tasks.add(task)
-            task.add_done_callback(self._signal_tasks.discard)
+            self.logger.info("Received signal %s", sig)
+            self.execute_async(callback(sig))
 
         for sig in (signal.SIGTERM, signal.SIGINT):
             loop.add_signal_handler(sig, lambda s=sig: signal_handler(s))

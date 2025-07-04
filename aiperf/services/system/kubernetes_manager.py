@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 from aiperf.common.config import ServiceConfig
 from aiperf.common.enums import ServiceType
-from aiperf.services.service_manager.base import BaseServiceManager
+from aiperf.services.system.base_service_manager import BaseServiceManager
 
 
 class ServiceKubernetesRunInfo(BaseModel):

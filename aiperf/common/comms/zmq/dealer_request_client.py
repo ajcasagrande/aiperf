@@ -12,13 +12,12 @@ from aiperf.common.comms.zmq.zmq_base_client import BaseZMQClient
 from aiperf.common.constants import DEFAULT_COMMS_REQUEST_TIMEOUT
 from aiperf.common.enums import CommunicationClientType
 from aiperf.common.exceptions import CommunicationError
-from aiperf.common.hooks import aiperf_task, on_stop
+from aiperf.common.hooks import aiperf_task
 from aiperf.common.messages import Message
-from aiperf.common.mixins import AsyncTaskManagerMixin
 
 
 @CommunicationClientFactory.register(CommunicationClientType.REQUEST)
-class ZMQDealerRequestClient(BaseZMQClient, AsyncTaskManagerMixin):
+class ZMQDealerRequestClient(BaseZMQClient):
     """
     ZMQ DEALER socket client for asynchronous request-response communication.
 
@@ -65,9 +64,9 @@ class ZMQDealerRequestClient(BaseZMQClient, AsyncTaskManagerMixin):
     @aiperf_task
     async def _request_async_task(self) -> None:
         """Task to handle incoming requests."""
-        while not self.stop_event.is_set():
+        while not self.cancel:
             try:
-                message = await self._socket.recv_string()
+                message = await self.socket.recv_string()
                 self.logger.debug("Received response: %s", message)
                 response_message = Message.from_json(message)
 
@@ -84,11 +83,6 @@ class ZMQDealerRequestClient(BaseZMQClient, AsyncTaskManagerMixin):
                     f"Exception receiving responses: {e.__class__.__name__} {e}",
                 ) from e
 
-    @on_stop
-    async def _stop_remaining_tasks(self) -> None:
-        """Wait for all tasks to complete."""
-        await self.cancel_all_tasks()
-
     async def request_async(
         self,
         message: Message,
@@ -96,11 +90,6 @@ class ZMQDealerRequestClient(BaseZMQClient, AsyncTaskManagerMixin):
     ) -> None:
         """Send a request and be notified when the response is received."""
         await self._ensure_initialized()
-
-        if not isinstance(message, Message):
-            raise TypeError(
-                f"message must be an instance of Message, got {type(message).__name__}"
-            )
 
         # Generate request ID if not provided so that responses can be matched
         if not message.request_id:

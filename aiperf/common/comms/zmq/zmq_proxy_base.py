@@ -241,7 +241,7 @@ class BaseZMQProxy(ABC):
         except Exception as e:
             self.logger.error("Proxy Stop Error: %s", e)
 
-    async def run(self) -> None:
+    async def start(self) -> None:
         """Start the Base ZMQ Proxy.
 
         This method starts the proxy and waits for it to complete asynchronously.

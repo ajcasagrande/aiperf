@@ -400,7 +400,7 @@ retry: 5000"""
         self, line_ending: str, base_perf_ns: int
     ) -> None:
         """Test parsing with different line ending styles."""
-        # Note: The current implementation splits on "\n" only
+        # NOTE: The current implementation splits on "\n" only
         # This test documents the current behavior
         lines = ["data: line1", "data: line2", "data: line3"]
         raw_message = line_ending.join(lines)

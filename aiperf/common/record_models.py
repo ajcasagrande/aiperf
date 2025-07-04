@@ -173,7 +173,7 @@ class SSEField(BaseModel):
 class SSEMessage(InferenceServerResponse):
     """Individual SSE message from an SSE stream. Delimited by \n\n."""
 
-    # Note: "fields" is a restricted keyword in pydantic
+    # NOTE: "fields" is a restricted keyword in pydantic
     packets: list[SSEField] = Field(
         default_factory=list,
         description="The fields contained in the message.",
@@ -238,7 +238,7 @@ class RequestRecord(BaseModel):
         default=None,
         description="The HTTP status code of the response.",
     )
-    # Note: we need to use SerializeAsAny to allow for generic subclass support
+    # NOTE: we need to use SerializeAsAny to allow for generic subclass support
     responses: SerializeAsAny[
         list[InferenceServerResponse | SSEMessage | TextResponse]
     ] = Field(
