@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-import asyncio
 from collections.abc import Callable
 from typing import Any
 
@@ -10,14 +9,13 @@ from aiperf.common.comms.base import CommunicationClientFactory
 from aiperf.common.comms.zmq.zmq_base_client import BaseZMQClient
 from aiperf.common.enums import CommunicationClientType, MessageType
 from aiperf.common.exceptions import CommunicationError
-from aiperf.common.hooks import aiperf_task, on_stop
+from aiperf.common.hooks import aiperf_task_loop
 from aiperf.common.messages import Message
-from aiperf.common.mixins import AsyncTaskManagerMixin
 from aiperf.common.utils import call_all_functions
 
 
 @CommunicationClientFactory.register(CommunicationClientType.SUB)
-class ZMQSubClient(BaseZMQClient, AsyncTaskManagerMixin):
+class ZMQSubClient(BaseZMQClient):
     """
     ZMQ SUB socket client for subscribing to messages from PUB sockets.
     One-to-Many or Many-to-One communication pattern.
@@ -73,10 +71,6 @@ class ZMQSubClient(BaseZMQClient, AsyncTaskManagerMixin):
         super().__init__(context, zmq.SocketType.SUB, address, bind, socket_ops)
 
         self._subscribers: dict[MessageType | str, list[Callable[[Message], Any]]] = {}
-
-    @on_stop
-    async def _on_stop(self) -> None:
-        await self.cancel_all_tasks()
 
     async def subscribe(
         self, message_type: MessageType | str, callback: Callable[[Message], Any]
@@ -167,39 +161,21 @@ class ZMQSubClient(BaseZMQClient, AsyncTaskManagerMixin):
         if message_type in self._subscribers:
             await call_all_functions(self._subscribers[message_type], message)
 
-    @aiperf_task
-    async def _sub_receiver(self) -> None:
+    @aiperf_task_loop
+    async def _sub_receiver_loop(self) -> None:
         """Background task for receiving messages from subscribed topics.
 
         This method is a coroutine that will run indefinitely until the client is
         shutdown. It will wait for messages from the socket and handle them.
         """
-        if not self.is_initialized:
-            self.logger.debug(
-                "Sub client %s waiting for initialization", self.client_id
-            )
-            await self.initialized_event.wait()
-            self.logger.debug("Sub client %s initialized", self.client_id)
+        try:
+            (
+                topic_bytes,
+                message_bytes,
+            ) = await self.socket.recv_multipart()
 
-        while not self.stop_event.is_set():
-            try:
-                (
-                    topic_bytes,
-                    message_bytes,
-                ) = await self.socket.recv_multipart()
-
-                self.execute_async(self._handle_message(topic_bytes, message_bytes))
-
-            except (asyncio.CancelledError, zmq.ContextTerminated):
-                break
-
-            except zmq.Again:
-                pass
-
-            except Exception as e:
-                self.logger.error(
-                    "Exception receiving message from subscription: %s, %s",
-                    e,
-                    type(e),
-                )
-                await asyncio.sleep(0.1)
+            self.execute_async(self._handle_message(topic_bytes, message_bytes))
+        except zmq.Again:
+            # This means we timed out waiting for a message.
+            # We can continue to the next iteration of the loop.
+            return

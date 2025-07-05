@@ -10,7 +10,8 @@ import psutil
 
 from aiperf.clients.openai.common import OpenAIClientConfig
 from aiperf.common.comms.base import (
-    CommunicationClientProtocol,
+    CommunicationFactory,
+    CommunicationProtocol,
     PubClientProtocol,
     PullClientProtocol,
     PushClientProtocol,
@@ -30,11 +31,7 @@ from aiperf.common.enums import (
     RequestPayloadType,
     ServiceType,
 )
-from aiperf.common.factories import (
-    CommunicationFactory,
-    InferenceClientFactory,
-    ServiceFactory,
-)
+from aiperf.common.factories import InferenceClientFactory, ServiceFactory
 from aiperf.common.hooks import (
     aiperf_task,
     on_configure,
@@ -96,7 +93,7 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin):
         self.stop_event: asyncio.Event = asyncio.Event()
         self.health_task: asyncio.Task | None = None
 
-        self.comms: CommunicationClientProtocol = CommunicationFactory.create_instance(
+        self.comms: CommunicationProtocol = CommunicationFactory.create_instance(
             self.service_config.comm_backend,
             config=self.service_config.comm_config,
         )
@@ -174,48 +171,31 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin):
         )
 
     async def _process_credit_drop(self, message: CreditDropMessage) -> None:
-        """Process a credit drop message.
-
-        Args:
-            message: The message received from the credit drop
-        """
+        """Process an incoming credit drop message."""
 
         # NOTE: This function MUST NOT return until the credit drop is processed,
         #       that way the max concurrency is respected via the semaphore
+        self.logger.debug(
+            "Received credit drop for (timestamp: %s, conversation_id: %s)",
+            message.credit_drop_ns,
+            message.conversation_id,
+        )
 
-        self.logger.debug("Processing credit drop: %s", message)
-
-        credit_amount = 0
-        tasks: list[asyncio.Task] = []
         try:
-            credit_amount = message.amount
-            self.logger.debug(
-                "Received %s credit(s) for %s", credit_amount, message.credit_drop_ns
+            await self._execute_single_credit(
+                credit_drop_ns=message.credit_drop_ns,
+                conversation_id=message.conversation_id,
             )
-
-            # Make a call to the inference server for each credit concurrently, and then wait
-            # for all the tasks to complete
-            for _ in range(credit_amount):
-                task = asyncio.create_task(
-                    self._execute_single_credit(
-                        credit_drop_ns=message.credit_drop_ns,
-                        conversation_id=message.conversation_id,
-                    )
-                )
-                tasks.append(task)
-
-            await asyncio.gather(*tasks)
 
         except Exception as e:
             self.logger.error("Error processing credit drop: %s", e)
 
         finally:
-            # Always return the credits
-            self.logger.debug("Returning credits, %s", credit_amount)
+            # Always return the credit
+            self.logger.debug("Returning credit")
             await self.credit_return_client.push(
                 message=CreditReturnMessage(
                     service_id=self.service_id,
-                    amount=credit_amount,
                 ),
             )
 
@@ -224,6 +204,7 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin):
     ) -> None:
         """Run a credit task for a single credit."""
         self.total_tasks += 1
+
         # Call the inference API
         record = await self._call_inference_api(
             credit_drop_ns=credit_drop_ns, conversation_id=conversation_id
@@ -232,6 +213,7 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin):
             service_id=self.service_id,
             record=record,
         )
+
         if record.valid:
             self.completed_tasks += 1
         else:

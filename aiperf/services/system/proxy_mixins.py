@@ -20,7 +20,8 @@ from aiperf.common.comms.zmq.zmq_proxy_base import (
 from aiperf.common.config import ServiceConfig, load_service_config
 from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
 from aiperf.common.enums import ZMQProxyType
-from aiperf.common.hooks import AIPerfLifecycleMixin, on_post_stop, on_pre_init
+from aiperf.common.hooks import on_post_stop, on_pre_init
+from aiperf.common.lifecycle_mixins import AIPerfLifecycleMixin
 
 
 class ZMQProxyManagerMixin(AIPerfLifecycleMixin):

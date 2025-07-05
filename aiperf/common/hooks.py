@@ -23,7 +23,6 @@ import inspect
 import logging
 from collections.abc import Awaitable, Callable
 from typing import ClassVar
-from warnings import deprecated
 
 from aiperf.common.enums import CaseInsensitiveStrEnum
 from aiperf.common.exceptions import (
@@ -77,8 +76,9 @@ class AIPerfTaskHook(CaseInsensitiveStrEnum):
     """Enum for the various AIPerf task hooks."""
 
     AIPERF_TASK = "__aiperf_task__"
-    AIPERF_AUTO_TASK = "__aiperf_auto_task__"
-    AIPERF_AUTO_TASK_INTERVAL_SEC = "__aiperf_auto_task_interval_sec__"
+    AIPERF_INTERVAL_TASK = "__aiperf_interval_task__"
+    AIPERF_INTERVAL_TASK_INTERVAL_SEC = "__aiperf_interval_task_interval_sec__"
+    AIPERF_TASK_LOOP = "__aiperf_task_loop__"
 
 
 HookType = AIPerfHook | AIPerfTaskHook | str
@@ -379,9 +379,9 @@ def aiperf_task(func: Callable) -> Callable:
     return hook_decorator(AIPerfTaskHook.AIPERF_TASK, func)
 
 
-def aiperf_auto_task(interval_sec: float) -> Callable[[Callable], Callable]:
-    """Decorator to indicate that the function is a task function. It will be started
-    and stopped automatically by the base class lifecycle.
+def aiperf_interval_task(interval_sec: float) -> Callable[[Callable], Callable]:
+    """Decorator to indicate that the function is a task function that will run at a
+    fixed interval. It will be started and stopped automatically by the base class lifecycle.
     See :func:`aiperf.common.hooks.hook_decorator`.
 
     Args:
@@ -389,10 +389,18 @@ def aiperf_auto_task(interval_sec: float) -> Callable[[Callable], Callable]:
     """
 
     def decorator(func: Callable) -> Callable:
-        setattr(func, AIPerfTaskHook.AIPERF_AUTO_TASK_INTERVAL_SEC, interval_sec)
-        return hook_decorator(AIPerfTaskHook.AIPERF_AUTO_TASK, func)
+        setattr(func, AIPerfTaskHook.AIPERF_INTERVAL_TASK_INTERVAL_SEC, interval_sec)
+        return hook_decorator(AIPerfTaskHook.AIPERF_INTERVAL_TASK, func)
 
     return decorator
+
+
+def aiperf_task_loop(func: Callable) -> Callable:
+    """Decorator to indicate that the function is a task function that should be wrapped
+    in a run loop. The loop will be started and stopped automatically by the base class lifecycle.
+    See :func:`aiperf.common.hooks.hook_decorator`.
+    """
+    return hook_decorator(AIPerfTaskHook.AIPERF_TASK_LOOP, func)
 
 
 ################################################################################
@@ -409,7 +417,8 @@ class HooksMixin:
     # Class attributes that are set by the :func:`supports_hooks` decorator
     supported_hooks: ClassVar[set[HookType]] = set()
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         """
         Initialize the hook system and register all functions that are decorated with a hook decorator.
         """
@@ -457,10 +466,6 @@ class HooksMixin:
         return self._hook_system.get_hooks(hook_type)
 
 
-@deprecated(
-    "AIPerfTaskMixin is deprecated and will be removed in a future release. "
-    "Use AIPerfLifecycleMixin instead, which provides a more comprehensive lifecycle management.",
-)
 @supports_hooks(
     AIPerfTaskHook.AIPERF_TASK,
     AIPerfHook.ON_INIT,
@@ -477,8 +482,8 @@ class AIPerfTaskMixin(HooksMixin, AsyncTaskManagerMixin):
     # TODO: Once we create a Mixin for `self.stop_event`, we can avoid
     # having the user to call `while not self.stop_event.is_set()`
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
     async def initialize(self) -> None:
         """Initialize the task."""
@@ -516,8 +521,8 @@ class AIPerfProfileMixin(HooksMixin):
     """Mixin to add profile support to a class. It abstracts away the details of the
     :class:`AIPerfProfile` and provides a simple interface for registering and running profiles."""
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.logger = logging.getLogger(__class__.__name__)
         self.profile_started_event: asyncio.Event = asyncio.Event()
         self.profile_stopped_event: asyncio.Event = asyncio.Event()

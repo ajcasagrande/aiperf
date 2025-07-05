@@ -9,10 +9,10 @@ from rich.table import Table
 from rich.text import Text
 
 from aiperf.common.hooks import (
-    AIPerfLifecycleMixin,
-    aiperf_auto_task,
+    aiperf_interval_task,
     on_init,
 )
+from aiperf.common.lifecycle_mixins import AIPerfLifecycleMixin
 from aiperf.common.logging import get_global_log_queue
 
 logger = logging.getLogger(__name__)
@@ -52,7 +52,7 @@ class LogsDashboardMixin(AIPerfLifecycleMixin):
         """Retrieve the global log queue."""
         self.log_queue = get_global_log_queue()
 
-    @aiperf_auto_task(interval_sec=LOG_REFRESH_INTERVAL)
+    @aiperf_interval_task(interval_sec=LOG_REFRESH_INTERVAL)
     async def _consume_logs(self) -> None:
         """Consume log records from the queue in a background task."""
         if self.log_queue is None:

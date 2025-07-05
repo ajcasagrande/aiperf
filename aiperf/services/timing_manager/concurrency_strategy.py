@@ -6,7 +6,8 @@ import os
 import time
 
 from aiperf.common.constants import NANOS_PER_SECOND
-from aiperf.common.hooks import AIPerfLifecycleMixin, aiperf_auto_task
+from aiperf.common.hooks import aiperf_interval_task, on_start
+from aiperf.common.lifecycle_mixins import AIPerfLifecycleMixin
 from aiperf.common.messages import CreditReturnMessage
 from aiperf.services.timing_manager.config import TimingManagerConfig
 from aiperf.services.timing_manager.credit_issuing_strategy import (
@@ -15,7 +16,7 @@ from aiperf.services.timing_manager.credit_issuing_strategy import (
 )
 
 
-class ConcurrencyStrategy(CreditIssuingStrategy, AIPerfLifecycleMixin):
+class ConcurrencyStrategy(AIPerfLifecycleMixin, CreditIssuingStrategy):
     """
     Class for concurrency credit issuing strategy.
     """
@@ -36,22 +37,13 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AIPerfLifecycleMixin):
         self._credit_event = asyncio.Event()
         self.start_time_ns = time.time_ns()
 
-    async def initialize(self) -> None:
-        pass
-
-    async def start(self) -> None:
-        await self.run_and_wait_for_start()
+    @on_start
+    async def _on_start(self) -> None:
         self.execute_async(self._issue_credit_drops())
-
-    async def stop(self) -> None:
-        await super().stop()
-        await self.shutdown()
 
     async def _issue_credit_drops(self) -> None:
         """Issue credit drops to workers."""
         self.logger.debug("Issuing credit drops to workers")
-
-        await asyncio.sleep(3)
 
         self.start_time_ns = time.time_ns()
 
@@ -82,7 +74,6 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AIPerfLifecycleMixin):
                     self.execute_async(
                         self.credit_manager.drop_credit(
                             # TODO: Do we need to pass conversation_id?
-                            amount=1,
                             conversation_id=None,
                             credit_drop_ns=None,
                         )
@@ -131,7 +122,7 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AIPerfLifecycleMixin):
 
         self._credit_event.set()
 
-    @aiperf_auto_task(interval_sec=1)
+    @aiperf_interval_task(interval_sec=1)
     async def _report_progress_task(self) -> None:
         """Report the progress."""
         self.execute_async(

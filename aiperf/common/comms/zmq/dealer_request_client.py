@@ -12,7 +12,7 @@ from aiperf.common.comms.zmq.zmq_base_client import BaseZMQClient
 from aiperf.common.constants import DEFAULT_COMMS_REQUEST_TIMEOUT
 from aiperf.common.enums import CommunicationClientType
 from aiperf.common.exceptions import CommunicationError
-from aiperf.common.hooks import aiperf_task
+from aiperf.common.hooks import aiperf_task_loop
 from aiperf.common.messages import Message
 
 
@@ -61,27 +61,18 @@ class ZMQDealerRequestClient(BaseZMQClient):
             str, Callable[[Message], Coroutine[Any, Any, None]]
         ] = {}
 
-    @aiperf_task
-    async def _request_async_task(self) -> None:
-        """Task to handle incoming requests."""
-        while not self.cancel:
-            try:
-                message = await self.socket.recv_string()
-                self.logger.debug("Received response: %s", message)
-                response_message = Message.from_json(message)
+    @aiperf_task_loop
+    async def _request_loop(self) -> None:
+        """Loop to handle incoming requests."""
 
-                # Call the callback if it exists
-                if response_message.request_id in self.request_callbacks:
-                    callback = self.request_callbacks.pop(response_message.request_id)
-                    self.execute_async(callback(response_message))
+        message = await self.socket.recv_string()
+        self.logger.debug("Received response: %s", message)
+        response_message = Message.from_json(message)
 
-            except (asyncio.CancelledError, zmq.ContextTerminated):
-                raise  # re-raise the cancelled error
-
-            except Exception as e:
-                raise CommunicationError(
-                    f"Exception receiving responses: {e.__class__.__name__} {e}",
-                ) from e
+        # Call the callback if it exists
+        if response_message.request_id in self.request_callbacks:
+            callback = self.request_callbacks.pop(response_message.request_id)
+            self.execute_async(callback(response_message))
 
     async def request_async(
         self,
@@ -101,7 +92,7 @@ class ZMQDealerRequestClient(BaseZMQClient):
         self.logger.debug("Sending request: %s", request_json)
 
         try:
-            await self._socket.send_string(request_json)
+            await self.socket.send_string(request_json)
 
         except Exception as e:
             raise CommunicationError(

@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 import logging
 
-from aiperf.common.hooks import AIPerfLifecycleMixin, on_start, on_stop
+from aiperf.common.hooks import on_start, on_stop
+from aiperf.common.lifecycle_mixins import AIPerfLifecycleMixin
 from aiperf.common.messages import WorkerHealthMessage
 from aiperf.progress.progress_tracker import ProgressTracker
 from aiperf.ui.rich_dashboard import (

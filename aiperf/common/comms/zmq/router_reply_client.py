@@ -9,7 +9,7 @@ import zmq.asyncio
 from aiperf.common.comms.base import CommunicationClientFactory
 from aiperf.common.comms.zmq.zmq_base_client import BaseZMQClient
 from aiperf.common.enums import CommunicationClientType, MessageType
-from aiperf.common.hooks import aiperf_task, on_cleanup, on_stop
+from aiperf.common.hooks import aiperf_task_loop, on_cleanup
 from aiperf.common.messages import ErrorMessage, Message
 from aiperf.common.mixins import AsyncTaskManagerMixin
 from aiperf.common.record_models import ErrorDetails
@@ -69,11 +69,9 @@ class ZMQRouterReplyClient(BaseZMQClient, AsyncTaskManagerMixin):
             MessageType,
             tuple[str, Callable[[Message], Coroutine[Any, Any, Message | None]]],
         ] = {}
-        self._response_futures: dict[tuple[bytes], asyncio.Future[Message | None]] = {}
-
-    @on_stop
-    async def _on_stop(self) -> None:
-        await self.cancel_all_tasks()
+        self._response_futures: dict[
+            tuple[bytes, ...], asyncio.Future[Message | None]
+        ] = {}
 
     @on_cleanup
     async def _cleanup(self) -> None:
@@ -104,7 +102,7 @@ class ZMQRouterReplyClient(BaseZMQClient, AsyncTaskManagerMixin):
         self._request_handlers[message_type] = (service_id, handler)
 
     async def _handle_request(
-        self, routing_envelope: tuple[bytes], request: Message
+        self, routing_envelope: tuple[bytes, ...], request: Message
     ) -> None:
         """Handle a request.
 
@@ -129,7 +127,7 @@ class ZMQRouterReplyClient(BaseZMQClient, AsyncTaskManagerMixin):
         self._response_futures[routing_envelope].set_result(response)
 
     async def _wait_for_response(
-        self, request_id: str, routing_envelope: tuple[bytes]
+        self, request_id: str, routing_envelope: tuple[bytes, ...]
     ) -> None:
         """Wait for a response to a request.
 
@@ -154,7 +152,7 @@ class ZMQRouterReplyClient(BaseZMQClient, AsyncTaskManagerMixin):
             [*routing_envelope, response.model_dump_json().encode()]
         )
 
-    @aiperf_task
+    @aiperf_task_loop
     async def _rep_router_receiver(self) -> None:
         """Background task for receiving requests and sending responses.
 
@@ -162,40 +160,29 @@ class ZMQRouterReplyClient(BaseZMQClient, AsyncTaskManagerMixin):
         shutdown. It will wait for requests from the socket and send responses in
         an asynchronous manner.
         """
-        if not self.is_initialized:
-            await self.initialized_event.wait()
+        # Receive request
+        try:
+            data = await self.socket.recv_multipart()
+            self.logger.debug("Received request: %s", data)
+            if len(data) < 2:
+                self.logger.error("Invalid request data: %s", data)
+                return
+            request = Message.from_json(data[-1].decode("utf-8"))
+            routing_envelope: tuple[bytes, ...] = tuple(data[:-1])
+        except zmq.Again:
+            # This means we timed out waiting for a request.
+            # We can continue to the next iteration of the loop.
+            return
 
-        while not self.stop_event.is_set():
-            try:
-                # Receive request
-                try:
-                    data = await self.socket.recv_multipart()
-                    self.logger.debug("Received request: %s", data)
-                    if len(data) < 2:
-                        self.logger.error("Invalid request data: %s", data)
-                        continue
-                    request = Message.from_json(data[-1])
-                    routing_envelope: tuple[bytes] = tuple(data[:-1])
-                except zmq.Again:
-                    # This means we timed out waiting for a request.
-                    # We can continue to the next iteration of the loop.
-                    continue
+        # Create a new response future for this request that will be resolved
+        # when the handler returns a response.
+        self._response_futures[routing_envelope] = asyncio.Future[Message | None]()
 
-                # Create a new response future for this request that will be resolved
-                # when the handler returns a response.
-                self._response_futures[routing_envelope] = asyncio.Future()
+        # Handle the request in a new task.
+        self.execute_async(self._handle_request(routing_envelope, request))
 
-                # Handle the request in a new task.
-                self.execute_async(self._handle_request(routing_envelope, request))
-
-                # TODO: Can we handle the waiting for responses on a separate task, or will this fail?
-                if request.request_id:
-                    self.execute_async(
-                        self._wait_for_response(request.request_id, routing_envelope)
-                    )
-
-            except asyncio.CancelledError:
-                break
-            except Exception:
-                self.logger.exception("Exception receiving request")
-                await asyncio.sleep(0.1)
+        # TODO: Is it ok that we handle waiting for responses on a separate task, or will this fail?
+        if request.request_id:
+            self.execute_async(
+                self._wait_for_response(request.request_id, routing_envelope)
+            )

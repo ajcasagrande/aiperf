@@ -169,7 +169,6 @@ class TimingManager(BaseComponentService, AsyncTaskManagerMixin):
 
     async def drop_credit(
         self,
-        amount: int = 1,
         conversation_id: str | None = None,
         credit_drop_ns: int | None = None,
     ) -> None:
@@ -178,7 +177,6 @@ class TimingManager(BaseComponentService, AsyncTaskManagerMixin):
             self.credit_drop_client.push(
                 message=CreditDropMessage(
                     service_id=self.service_id,
-                    amount=amount,
                     credit_drop_ns=credit_drop_ns,
                     conversation_id=conversation_id,
                 ),

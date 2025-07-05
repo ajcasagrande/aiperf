@@ -102,7 +102,5 @@ class OpenAIEmbeddingsRequest(OpenAIBaseRequest):
 # OpenAI Inference Client Mixins / Protocols
 ################################################################################
 
-OpenAIClientProtocol = InferenceClientProtocol[
-    OpenAIClientConfig, OpenAIBaseRequest, BaseModel
-]
+OpenAIClientProtocol = InferenceClientProtocol[OpenAIClientConfig, OpenAIBaseRequest]
 """Type alias for a inference client protocol that supports OpenAI."""

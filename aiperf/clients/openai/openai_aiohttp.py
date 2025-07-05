@@ -18,6 +18,7 @@ from aiperf.common.dataset_models import Turn
 from aiperf.common.enums import InferenceClientType
 from aiperf.common.exceptions import InvalidPayloadError
 from aiperf.common.factories import InferenceClientFactory
+from aiperf.common.interfaces import InferenceClientProtocol
 from aiperf.common.record_models import (
     ErrorDetails,
     RequestRecord,
@@ -36,7 +37,12 @@ class ChatCompletionMixin(AioHttpClientMixin):
 
     def __init__(self, client_config: OpenAIClientConfig) -> None:
         super().__init__(client_config)
-        self.client_config: OpenAIClientConfig = client_config
+        self._client_config: OpenAIClientConfig = client_config
+
+    @property
+    def client_config(self) -> OpenAIClientConfig:
+        """Get the client configuration."""
+        return self._client_config
 
     async def send_chat_completion_request(
         self, model_endpoint: ModelEndpointInfo, payload: OpenAIChatCompletionRequest
@@ -99,7 +105,9 @@ class ChatCompletionMixin(AioHttpClientMixin):
 
 
 @InferenceClientFactory.register(InferenceClientType.OPENAI)
-class OpenAIClientAioHttp(ChatCompletionMixin):
+class OpenAIClientAioHttp(
+    ChatCompletionMixin, InferenceClientProtocol[OpenAIClientConfig, OpenAIBaseRequest]
+):
     """A high-performance inference client for communicating with OpenAI based REST APIs using aiohttp.
 
     This class is optimized for maximum performance and accurate timing measurements,
@@ -110,9 +118,18 @@ class OpenAIClientAioHttp(ChatCompletionMixin):
         super().__init__(client_config)
         self.logger = logging.getLogger(__class__.__name__)
 
+    @property
+    def client_config(self) -> OpenAIClientConfig:
+        """Get the client configuration."""
+        return self._client_config
+
     async def close(self) -> None:
         """Close the client."""
         await super().close()
+
+    async def initialize(self) -> None:
+        """Initialize the client."""
+        pass
 
     async def format_payload(
         self,

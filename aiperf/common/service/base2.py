@@ -5,7 +5,7 @@ import uuid
 from typing import ClassVar
 
 from aiperf.common.comms.base import (
-    BaseCommunication,
+    CommunicationProtocol,
     PubClient,
     SubClient,
 )
@@ -31,7 +31,7 @@ class AIPerfServiceMixin(AIPerfLifecycleMixin):
         self.logger.debug(
             f"Initializing {self.service_type} service (id: {self.service_id})"
         )
-        self.comms: BaseCommunication = CommunicationFactory.create_instance(
+        self.comms: CommunicationProtocol = CommunicationFactory.create_instance(
             self.service_config.comm_backend,
             config=self.service_config.comm_config,
         )

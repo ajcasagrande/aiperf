@@ -1,19 +1,14 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-from typing import TYPE_CHECKING, Generic, Protocol
+from typing import Generic, Protocol, runtime_checkable
 
-if TYPE_CHECKING:
-    from aiperf.common.record_models import ParsedResponseRecord, ResponseData
-from aiperf.common.dataset_models import Turn
 from aiperf.common.record_models import (
     ParsedResponseRecord,
-    RequestRecord,
     ResponseData,
 )
 from aiperf.common.types import (
     ConfigT,
     InputT,
-    ModelEndpointInfo,
     OutputT,
     RequestT,
     ResponseT,
@@ -24,6 +19,7 @@ from aiperf.common.types import (
 ################################################################################
 
 
+@runtime_checkable
 class InputConverterProtocol(Protocol, Generic[InputT, RequestT]):
     """Protocol for an input converter."""
 
@@ -32,6 +28,7 @@ class InputConverterProtocol(Protocol, Generic[InputT, RequestT]):
         ...
 
 
+@runtime_checkable
 class OutputConverterProtocol(Protocol, Generic[OutputT, ResponseT]):
     """Protocol for an output converter."""
 
@@ -45,59 +42,63 @@ class OutputConverterProtocol(Protocol, Generic[OutputT, ResponseT]):
 ################################################################################
 
 
-class InferenceClientProtocol(Protocol, Generic[ConfigT, RequestT, ResponseT]):
+@runtime_checkable
+class InferenceClientProtocol(Protocol, Generic[ConfigT, RequestT]):
     """Protocol for an inference server client.
 
     This protocol defines the methods that must be implemented by any inference server client
     implementation that is compatible with the AIPerf framework.
     """
 
-    def __init__(self, client_config: ConfigT) -> None:
-        """Create a new inference server client based on the provided configuration."""
-        ...
+    # def __init__(self, client_config: ConfigT) -> None:
+    #     """Create a new inference server client based on the provided configuration."""
+    #     ...
 
-    @property
-    def client_config(self) -> ConfigT:
-        """Get the client configuration."""
-        ...
+    # @property
+    # def client_config(self) -> ConfigT:
+    #     """Get the client configuration."""
+    #     ...
 
-    async def initialize(self) -> None:
-        """Initialize the inference server client in an asynchronous context."""
-        ...
+    # async def initialize(self) -> None:
+    #     """Initialize the inference server client in an asynchronous context."""
+    #     ...
 
-    async def format_payload(
-        self, model_endpoint: ModelEndpointInfo, turn: Turn
-    ) -> RequestT:
-        """Format the turn for the inference server."""
-        ...
+    # async def format_payload(
+    #     self, model_endpoint: ModelEndpointInfo, turn: Turn
+    # ) -> RequestT:
+    #     """Format the turn for the inference server."""
+    #     ...
 
-    async def send_request(
-        self,
-        model_endpoint: ModelEndpointInfo,
-        payload: RequestT,
-        delayed: bool = False,
-    ) -> RequestRecord:
-        """Send a request to the inference server.
+    # async def send_request(
+    #     self,
+    #     model_endpoint: ModelEndpointInfo,
+    #     payload: RequestT,
+    #     delayed: bool = False,
+    # ) -> RequestRecord:
+    #     """Send a request to the inference server.
 
-        This method is used to send a request to the inference server.
+    #     This method is used to send a request to the inference server.
 
-        Args:
-            model_endpoint: The endpoint to send the request to.
-            payload: The payload to send to the inference server.
-            delayed: Whether the request is delayed.
-        Returns:
-            The raw response from the inference server.
-        """
-        ...
+    #     Args:
+    #         model_endpoint: The endpoint to send the request to.
+    #         payload: The payload to send to the inference server.
+    #         delayed: Whether the request is delayed.
+    #     Returns:
+    #         The raw response from the inference server.
+    #     """
+    #     ...
 
-    async def close(self) -> None:
-        """Close the client."""
-        ...
+    # async def close(self) -> None:
+    #     """Close the client."""
+    #     ...
 
 
 ################################################################################
 # Post Processor Protocol
 ################################################################################
+
+
+@runtime_checkable
 class PostProcessorProtocol(Protocol):
     """
     PostProcessorProtocol is a protocol that defines the API for post-processors.
@@ -119,6 +120,7 @@ class PostProcessorProtocol(Protocol):
 ################################################################################
 
 
+@runtime_checkable
 class DataExporterProtocol(Protocol):
     """
     Protocol for data exporters.
@@ -136,11 +138,35 @@ class DataExporterProtocol(Protocol):
 ################################################################################
 
 
-class ResponseExtractor(Protocol):
+@runtime_checkable
+class ResponseExtractorProtocol(Protocol):
     """Base class for all response extractors."""
 
     async def extract_response_data(
         self, record: ParsedResponseRecord
     ) -> list[ResponseData]:
         """Extract the text from a server response message."""
+        ...
+
+
+################################################################################
+# Service Protocol
+################################################################################
+
+
+@runtime_checkable
+class BaseServiceProtocol(Protocol):
+    """Base protocol for all services."""
+
+
+@runtime_checkable
+class ProxyProtocol(Protocol):
+    """Base protocol for all proxies."""
+
+    async def start(self) -> None:
+        """Start the proxy."""
+        ...
+
+    async def stop(self) -> None:
+        """Stop the proxy."""
         ...

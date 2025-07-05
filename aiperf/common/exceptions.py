@@ -91,6 +91,10 @@ class UnsupportedHookError(AIPerfError):
     """Exception raised when a hook is defined on a class that does not support it."""
 
 
+class FactoryRegistrationError(AIPerfError):
+    """Exception raised when a factory encounters an error while registering a class."""
+
+
 class FactoryCreationError(AIPerfError):
     """Exception raised when a factory encounters an error while creating a class."""
 

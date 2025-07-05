@@ -248,10 +248,6 @@ class CreditDropMessage(BaseServiceMessage):
 
     message_type: Literal[MessageType.CREDIT_DROP] = MessageType.CREDIT_DROP
 
-    amount: int = Field(
-        ...,
-        description="Amount of credits that have been dropped",
-    )
     conversation_id: str | None = Field(
         default=None, description="The ID of the conversation, if applicable."
     )
@@ -268,11 +264,6 @@ class CreditReturnMessage(BaseServiceMessage):
     """
 
     message_type: Literal[MessageType.CREDIT_RETURN] = MessageType.CREDIT_RETURN
-
-    amount: int = Field(
-        ...,
-        description="Amount of credits being returned",
-    )
 
 
 class CreditsCompleteMessage(BaseServiceMessage):

@@ -2,18 +2,28 @@
 # SPDX-License-Identifier: Apache-2.0
 import logging
 from collections.abc import Callable
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, TypeVar, get_args, get_origin
 
 from aiperf.common.enums import (
     CaseInsensitiveStrEnum,
-    CommunicationBackend,
+    DataExporterType,
     InferenceClientType,
+    PostProcessorType,
     PromptSource,
     RequestPayloadType,
     ServiceType,
     ZMQProxyType,
 )
-from aiperf.common.exceptions import FactoryCreationError
+from aiperf.common.exceptions import FactoryCreationError, FactoryRegistrationError
+from aiperf.common.interfaces import (
+    BaseServiceProtocol,
+    DataExporterProtocol,
+    InferenceClientProtocol,
+    InputConverterProtocol,
+    OutputConverterProtocol,
+    PostProcessorProtocol,
+    ProxyProtocol,
+)
 
 ClassEnumT = TypeVar("ClassEnumT", bound=CaseInsensitiveStrEnum)
 ClassProtocolT = TypeVar("ClassProtocolT", bound=Any)
@@ -73,12 +83,25 @@ class FactoryMixin(Generic[ClassEnumT, ClassProtocolT]):
 
     _registry: dict[ClassEnumT | str, type[ClassProtocolT]]
     _override_priorities: dict[ClassEnumT | str, int]
+    _protocol_type: type[ClassProtocolT]
 
-    def __init_subclass__(cls) -> None:
+    def __init_subclass__(cls, **kwargs) -> None:
         cls._registry = {}
         cls._override_priorities = {}
         cls.logger = logging.getLogger(cls.__name__)
-        super().__init_subclass__()
+
+        # Extract the protocol type from the generic parameters. Need to use __orig_bases__ because
+        # __bases__ does not provide the generic parameters.
+        if hasattr(cls, "__orig_bases__"):
+            for base in cls.__orig_bases__:  # type: ignore[attr-defined]
+                if get_origin(base) is FactoryMixin:
+                    args = get_args(base)
+                    if len(args) >= 2:
+                        # The second argument is the protocol type.
+                        cls._protocol_type = args[1]
+                        break
+
+        super().__init_subclass__(**kwargs)
 
     @classmethod
     def register(
@@ -97,6 +120,16 @@ class FactoryMixin(Generic[ClassEnumT, ClassProtocolT]):
         """
 
         def decorator(class_cls: type[ClassProtocolT]) -> type[ClassProtocolT]:
+            try:
+                if not issubclass(class_cls, cls._protocol_type):
+                    raise FactoryRegistrationError(
+                        f"Class {class_cls.__name__} does not implement the expected protocol {cls._protocol_type}."
+                    )
+            except TypeError as e:
+                raise FactoryRegistrationError(
+                    f"Class {class_cls.__name__} does not implement the expected protocol {cls._protocol_type}."
+                ) from e
+
             existing_priority = cls._override_priorities.get(class_type, -1)
             if class_type in cls._registry and existing_priority >= override_priority:
                 cls.logger.warning(
@@ -128,6 +161,7 @@ class FactoryMixin(Generic[ClassEnumT, ClassProtocolT]):
                     cls._registry[class_type].__name__,
                     existing_priority,
                 )
+
             cls._registry[class_type] = class_cls
             cls._override_priorities[class_type] = override_priority
             return class_cls
@@ -207,7 +241,7 @@ class FactoryMixin(Generic[ClassEnumT, ClassProtocolT]):
 ################################################################################
 
 
-class InputConverterFactory(FactoryMixin[PromptSource, "InputConverterProtocol"]):
+class InputConverterFactory(FactoryMixin[PromptSource, InputConverterProtocol]):
     """Factory for registering and creating InputConverterProtocol instances based on the specified prompt source.
 
     Example:
@@ -226,9 +260,7 @@ class InputConverterFactory(FactoryMixin[PromptSource, "InputConverterProtocol"]
     """
 
 
-class OutputConverterFactory(
-    FactoryMixin[RequestPayloadType, "OutputConverterProtocol"]
-):
+class OutputConverterFactory(FactoryMixin[RequestPayloadType, OutputConverterProtocol]):
     """Factory for registering and creating OutputConverterProtocol instances based on the specified output format.
 
     Example:
@@ -247,27 +279,7 @@ class OutputConverterFactory(
     """
 
 
-class CommunicationFactory(FactoryMixin[CommunicationBackend, "BaseCommunication"]):
-    """Factory for registering and creating BaseCommunication instances based on the specified communication backend.
-
-    Example:
-    ```python
-        # Register a new communication backend
-        @CommunicationFactory.register(CommunicationBackend.ZMQ_TCP)
-        class ZMQCommunication(BaseCommunication):
-            pass
-
-        # Create a new communication instance
-        communication = CommunicationFactory.create_instance(
-            CommunicationBackend.ZMQ_TCP,
-            config=ZMQTCPCommunicationConfig(
-                host="localhost", port=5555, timeout=10.0),
-        )
-    ```
-    """
-
-
-class ServiceFactory(FactoryMixin[ServiceType, "BaseService"]):
+class ServiceFactory(FactoryMixin[ServiceType, BaseServiceProtocol]):
     """Factory for registering and creating BaseService instances based on the specified service type.
 
     Example:
@@ -291,7 +303,7 @@ class ServiceFactory(FactoryMixin[ServiceType, "BaseService"]):
 
 
 class InferenceClientFactory(
-    FactoryMixin[InferenceClientType, "InferenceClientProtocol"]
+    FactoryMixin[InferenceClientType, InferenceClientProtocol]
 ):
     """Factory for registering and creating InferenceClientProtocol instances based on the specified inference client type.
 
@@ -311,7 +323,7 @@ class InferenceClientFactory(
     """
 
 
-class DataExporterFactory(FactoryMixin["DataExporterType", "DataExporterProtocol"]):
+class DataExporterFactory(FactoryMixin[DataExporterType, DataExporterProtocol]):
     """Factory for registering and creating DataExporterInterface instances.
 
     Example:
@@ -325,7 +337,7 @@ class DataExporterFactory(FactoryMixin["DataExporterType", "DataExporterProtocol
     """
 
 
-class PostProcessorFactory(FactoryMixin["PostProcessorType", "PostProcessorProtocol"]):
+class PostProcessorFactory(FactoryMixin[PostProcessorType, PostProcessorProtocol]):
     """Factory for registering and creating PostProcessor instances based on the specified post-processor type.
 
     Example:
@@ -342,27 +354,27 @@ class PostProcessorFactory(FactoryMixin["PostProcessorType", "PostProcessorProto
     """
 
 
-class RequestConverterFactory(
-    FactoryMixin[RequestPayloadType, "RequestConverterProtocol"]
-):
-    """Factory for registering and creating RequestPayloadConverter instances based on the specified request payload type.
+# class RequestConverterFactory(
+#     FactoryMixin[RequestPayloadType, RequestConverterProtocol]
+# ):
+#     """Factory for registering and creating RequestPayloadConverter instances based on the specified request payload type.
 
-    Example:
-    ```python
-        # Register a new request payload converter
-        @RequestConverterFactory.register(RequestPayloadType.OPENAI_CHAT_COMPLETIONS)
-        class OpenAIChatCompletionsRequestConverter(RequestConverterProtocol):
-            pass
+#     Example:
+#     ```python
+#         # Register a new request payload converter
+#         @RequestConverterFactory.register(RequestPayloadType.OPENAI_CHAT_COMPLETIONS)
+#         class OpenAIChatCompletionsRequestConverter(RequestConverterProtocol):
+#             pass
 
-        # Create a new request payload converter instance
-        request_payload_converter = RequestConverterFactory.create_instance(
-            RequestPayloadType.OPENAI_CHAT_COMPLETIONS,
-        )
-    ```
-    """
+#         # Create a new request payload converter instance
+#         request_payload_converter = RequestConverterFactory.create_instance(
+#             RequestPayloadType.OPENAI_CHAT_COMPLETIONS,
+#         )
+#     ```
+#     """
 
 
-class ZMQProxyFactory(FactoryMixin[ZMQProxyType, "BaseZMQProxy"]):
+class ZMQProxyFactory(FactoryMixin[ZMQProxyType, ProxyProtocol]):
     """
     A factory for creating ZMQ proxies.
 

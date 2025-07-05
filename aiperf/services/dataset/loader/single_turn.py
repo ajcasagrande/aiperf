@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+from aiperf.common.dataset_models import Conversation
 from aiperf.common.enums import CustomDatasetType
 from aiperf.services.dataset.loader.factory import CustomDatasetFactory
 from aiperf.services.dataset.loader.models import CustomData
@@ -38,4 +39,9 @@ class SingleTurnDatasetLoader:
         self.filename = filename
 
     def load_dataset(self) -> dict[str, list[CustomData]]:
+        raise NotImplementedError
+
+    def convert_to_conversations(
+        self, custom_data: dict[str, list[CustomData]]
+    ) -> list[Conversation]:
         raise NotImplementedError

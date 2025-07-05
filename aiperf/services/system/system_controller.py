@@ -60,7 +60,7 @@ from aiperf.ui.aiperf_ui import AIPerfUI
 
 @ServiceFactory.register(ServiceType.SYSTEM_CONTROLLER)
 class SystemController(
-    SystemControllerProxyMixin, SignalHandlerMixin, BaseControllerService
+    SignalHandlerMixin, BaseControllerService, SystemControllerProxyMixin
 ):
     """System Controller service.
 

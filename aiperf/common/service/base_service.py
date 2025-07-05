@@ -7,6 +7,7 @@ from abc import ABC
 
 from aiperf.common.comms.base import (
     CommunicationClientAddressType,
+    CommunicationFactory,
     CommunicationProtocol,
 )
 from aiperf.common.config import ServiceConfig
@@ -15,7 +16,6 @@ from aiperf.common.exceptions import (
     AIPerfError,
     ServiceError,
 )
-from aiperf.common.factories import CommunicationFactory
 from aiperf.common.hooks import (
     AIPerfHook,
     AIPerfTaskHook,
@@ -136,7 +136,7 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
         # Allow time for the event loop to start
         await asyncio.sleep(0.1)
 
-        await self.comms.initialize()
+        await self.comms.start()
 
         await asyncio.sleep(1)
 

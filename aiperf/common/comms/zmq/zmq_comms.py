@@ -5,7 +5,6 @@ import errno
 import glob
 import logging
 import os
-from abc import ABC
 from pathlib import Path
 
 import zmq.asyncio
@@ -13,6 +12,7 @@ import zmq.asyncio
 from aiperf.common.comms.base import (
     CommunicationClientFactory,
     CommunicationClientProtocol,
+    CommunicationFactory,
     CommunicationProtocol,
 )
 from aiperf.common.comms.zmq.zmq_base_client import BaseZMQClient
@@ -23,11 +23,11 @@ from aiperf.common.enums import (
     CommunicationClientAddressType,
     CommunicationClientType,
 )
-from aiperf.common.exceptions import ShutdownError
-from aiperf.common.factories import CommunicationFactory
+from aiperf.common.hooks import on_start, on_stop
+from aiperf.common.lifecycle_mixins import AIPerfLifecycleMixin
 
 
-class BaseZMQCommunication(CommunicationProtocol, ABC):
+class BaseZMQCommunication(AIPerfLifecycleMixin, CommunicationProtocol):
     """ZeroMQ-based implementation of the Communication interface.
 
     Uses ZeroMQ for publish/subscribe and request/reply patterns to
@@ -38,9 +38,8 @@ class BaseZMQCommunication(CommunicationProtocol, ABC):
         self,
         config: BaseZMQCommunicationConfig,
     ) -> None:
+        super().__init__()
         self.logger: logging.Logger = logging.getLogger(self.__class__.__name__)
-        self.stop_event: asyncio.Event = asyncio.Event()
-        self.initialized_event: asyncio.Event = asyncio.Event()
         self.config = config
 
         self.context = zmq.asyncio.Context.instance()
@@ -51,61 +50,22 @@ class BaseZMQCommunication(CommunicationProtocol, ABC):
             type(self.config).__name__,
         )
 
-    @property
-    def is_initialized(self) -> bool:
-        """Check if communication channels are initialized."""
-        return self.initialized_event.is_set()
-
     def get_address(self, address_type: CommunicationClientAddressType | str) -> str:
         """Get the actual address based on the address type from the config."""
         if isinstance(address_type, CommunicationClientAddressType):
             return self.config.get_address(address_type)
         return address_type
 
-    async def initialize(self) -> None:
-        """Initialize communication channels."""
-        if self.is_initialized:
-            return
+    @on_start
+    async def _start_clients(self) -> None:
+        """Start all the clients."""
+        await asyncio.gather(*(client.start() for client in self.clients))
 
-        await asyncio.gather(
-            *(
-                client.initialize()
-                for client in self.clients
-                if not client.is_initialized
-            )
-        )
-        self.initialized_event.set()
-
-    async def shutdown(self) -> None:
-        """Gracefully shutdown communication channels.
-
-        This method will wait for all clients to shutdown before shutting down
-        the context.
-
-        Returns:
-            True if shutdown was successful, False otherwise
-        """
-        if self.stop_event.is_set():
-            return
-
-        try:
-            if not self.stop_event.is_set():
-                self.stop_event.set()
-
-            await asyncio.gather(
-                *(client.shutdown() for client in self.clients if client.is_initialized)
-            )
-
-        except asyncio.CancelledError:
-            pass
-
-        except Exception as e:
-            raise ShutdownError(
-                "Failed to shutdown ZMQ communication",
-            ) from e
-
-        finally:
-            self.clients.clear()
+    @on_stop
+    async def _stop_clients(self) -> None:
+        """Stop all the clients."""
+        await asyncio.gather(*(client.stop() for client in self.clients))
+        self.clients.clear()
 
     def create_client(
         self,

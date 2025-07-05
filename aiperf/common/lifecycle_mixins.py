@@ -64,12 +64,12 @@ class AIPerfLifecycleMixin(HooksMixin, AsyncTaskManagerMixin):
     start and stop the tasks.
     """
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.logger = logging.getLogger(self.__class__.__name__)
 
         self._state = LifecycleState.NOT_INITIALIZED
-        self._error: Exception | None = None
+        self._lifecycle_error: Exception | None = None
 
         # Events to signal various lifecycle states
         self._initialized_event: asyncio.Event = asyncio.Event()
@@ -105,16 +105,19 @@ class AIPerfLifecycleMixin(HooksMixin, AsyncTaskManagerMixin):
     @property
     def error(self) -> Exception | None:
         """Get the error that occurred during the lifecycle, if any."""
-        return self._error
+        return self._lifecycle_error
 
-    def _set_error_state(self, state: LifecycleState, error: Exception) -> None:
+    def _set_lifecycle_error_state(
+        self, state: LifecycleState, error: Exception
+    ) -> None:
         """Set the current lifecycle state to an error state."""
-        # Set these first to ensure they are set before the hooks are run in case the hooks query the state or error
+        # Set these first to ensure they are set before the hooks are run in case
+        # the hooks query the state or error.
         self._state = state
-        self._error = error
+        self._lifecycle_error = error
 
+        self._set_lifecycle_error(error)
         self._set_state(state)
-        self._set_error(error)
 
     def _set_state(self, state: LifecycleState) -> None:
         """Set the current lifecycle state and run the ON_SET_STATE hooks."""
@@ -128,9 +131,9 @@ class AIPerfLifecycleMixin(HooksMixin, AsyncTaskManagerMixin):
         self.logger.debug("Setting lifecycle state to %s", state)
         self.execute_async(self.run_hooks_async(AIPerfHook.ON_SET_STATE, state=state))
 
-    def _set_error(self, error: Exception) -> None:
+    def _set_lifecycle_error(self, error: Exception) -> None:
         """Set the error that occurred during the lifecycle."""
-        self._error = error
+        self._lifecycle_error = error
         self.logger.error("Setting lifecycle error to %s", error)
         self.execute_async(
             self.run_hooks_async(AIPerfHook.ON_LIFECYCLE_ERROR, error=error)
@@ -154,7 +157,7 @@ class AIPerfLifecycleMixin(HooksMixin, AsyncTaskManagerMixin):
             await self.run_hooks(AIPerfHook.ON_POST_INIT)
         except Exception as e:
             self.logger.exception("Error during lifecycle initialization: %s", e)
-            self._set_error_state(LifecycleState.INITIALIZATION_FAILED, e)
+            self._set_lifecycle_error_state(LifecycleState.INITIALIZATION_FAILED, e)
             return False
 
         self.logger.debug("Lifecycle initialization complete")
@@ -216,7 +219,7 @@ class AIPerfLifecycleMixin(HooksMixin, AsyncTaskManagerMixin):
             await self.run_hooks(AIPerfHook.ON_POST_START)
         except Exception as e:
             self.logger.exception("Error starting lifecycle: %s", e)
-            self._set_error_state(LifecycleState.START_FAILED, e)
+            self._set_lifecycle_error_state(LifecycleState.START_FAILED, e)
             return False
 
         self.logger.debug("Lifecycle startup complete")
@@ -265,13 +268,13 @@ class AIPerfLifecycleMixin(HooksMixin, AsyncTaskManagerMixin):
             await self.run_hooks(AIPerfHook.ON_PRE_STOP)
         except Exception as e:
             self.logger.exception("Error during pre-stop hooks: %s", e)
-            self._set_error(e)
+            self._set_lifecycle_error(e)
 
         try:
             await self.run_hooks_async(AIPerfHook.ON_STOP)
         except Exception as e:
             self.logger.exception("Error during stop hooks: %s", e)
-            self._set_error(e)
+            self._set_lifecycle_error(e)
 
         # Cancel all tasks from the AsyncTaskManagerMixin
         await self.cancel_all_tasks()
@@ -280,7 +283,7 @@ class AIPerfLifecycleMixin(HooksMixin, AsyncTaskManagerMixin):
             await self.run_hooks(AIPerfHook.ON_POST_STOP)
         except Exception as e:
             self.logger.exception("Error during post-stop hooks: %s", e)
-            self._set_error(e)
+            self._set_lifecycle_error(e)
 
         await self._run_cleanup_hooks()
 
@@ -298,7 +301,7 @@ class AIPerfLifecycleMixin(HooksMixin, AsyncTaskManagerMixin):
             await self.run_hooks(AIPerfHook.ON_CLEANUP)
         except Exception as e:
             self.logger.exception("Error during cleanup hooks: %s", e)
-            self._set_error(e)
+            self._set_lifecycle_error(e)
 
         self.logger.debug("Lifecycle cleanup complete")
         self._set_state(LifecycleState.STOPPED)
@@ -308,7 +311,8 @@ class AIPerfLifecycleMixin(HooksMixin, AsyncTaskManagerMixin):
 
 @supports_hooks(
     AIPerfTaskHook.AIPERF_TASK,
-    AIPerfTaskHook.AIPERF_AUTO_TASK,
+    AIPerfTaskHook.AIPERF_INTERVAL_TASK,
+    AIPerfTaskHook.AIPERF_TASK_LOOP,
 )
 class AIPerfTaskLifecycleMixin(AIPerfLifecycleMixin):
     """Mixin to add aiperf task support to a class."""
@@ -325,9 +329,9 @@ class AIPerfTaskLifecycleMixin(AIPerfLifecycleMixin):
     @on_start
     async def _start_auto_aiperf_tasks(self):
         """Start all the auto tasks in the background."""
-        for hook in self.get_hooks(AIPerfTaskHook.AIPERF_AUTO_TASK):
+        for hook in self.get_hooks(AIPerfTaskHook.AIPERF_INTERVAL_TASK):
             interval_sec = getattr(
-                hook, AIPerfTaskHook.AIPERF_AUTO_TASK_INTERVAL_SEC, None
+                hook, AIPerfTaskHook.AIPERF_INTERVAL_TASK_INTERVAL_SEC, None
             )
             self.execute_async(self._aiperf_task_wrapper(hook, interval_sec))
 

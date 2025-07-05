@@ -1,14 +1,17 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+from abc import ABC
 from collections.abc import Callable, Coroutine
-from typing import Any, Protocol, TypeVar, cast
+from typing import Any, Protocol, TypeVar, cast, runtime_checkable
 
 from aiperf.common.constants import DEFAULT_COMMS_REQUEST_TIMEOUT
 from aiperf.common.enums import (
+    CommunicationBackend,
     CommunicationClientAddressType,
     CommunicationClientType,
     MessageType,
 )
+from aiperf.common.exceptions import AIPerfError
 from aiperf.common.factories import FactoryMixin
 from aiperf.common.messages import Message
 
@@ -21,15 +24,16 @@ MessageOutputT = TypeVar("MessageOutputT", bound=Message)
 ################################################################################
 
 
+@runtime_checkable
 class CommunicationClientProtocol(Protocol):
     """Base interface for specifying the base communication client for AIPerf components."""
 
-    async def initialize(self) -> None:
-        """Initialize communication channels."""
+    async def start(self) -> bool:
+        """Start communication channels."""
         ...
 
-    async def shutdown(self) -> None:
-        """Shutdown communication channels."""
+    async def stop(self) -> bool:
+        """Stop communication channels."""
         ...
 
 
@@ -200,18 +204,19 @@ class CommunicationClientFactory(
 ################################################################################
 
 
-class CommunicationProtocol(Protocol):
+class CommunicationProtocol(ABC):
     """Base class for specifying the base communication layer for AIPerf components."""
 
-    async def initialize(self) -> None:
-        """Initialize communication channels."""
+    async def start(self) -> bool:
+        """Start communication channels."""
+        ...
 
     @property
-    def is_initialized(self) -> bool:
-        """Check if communication channels are initialized.
+    def is_running(self) -> bool:
+        """Check if communication channels are running.
 
         Returns:
-            True if communication channels are initialized, False otherwise
+            True if communication channels are running, False otherwise
         """
         ...
 
@@ -224,8 +229,8 @@ class CommunicationProtocol(Protocol):
         """
         ...
 
-    async def shutdown(self) -> None:
-        """Gracefully shutdown communication channels."""
+    async def stop(self) -> bool:
+        """Gracefully stop communication channels."""
         ...
 
     def get_address(self, address_type: CommunicationClientAddressType | str) -> str:
@@ -257,6 +262,26 @@ class CommunicationProtocol(Protocol):
         ...
 
 
+class CommunicationFactory(FactoryMixin[CommunicationBackend, CommunicationProtocol]):
+    """Factory for registering and creating BaseCommunication instances based on the specified communication backend.
+
+    Example:
+    ```python
+        # Register a new communication backend
+        @CommunicationFactory.register(CommunicationBackend.ZMQ_TCP)
+        class ZMQCommunication(BaseCommunication):
+            pass
+
+        # Create a new communication instance
+        communication = CommunicationFactory.create_instance(
+            CommunicationBackend.ZMQ_TCP,
+            config=ZMQTCPCommunicationConfig(
+                host="localhost", port=5555, timeout=10.0),
+        )
+    ```
+    """
+
+
 ClientProtocolT = TypeVar("ClientProtocolT", bound=CommunicationClientProtocol)
 
 
@@ -286,6 +311,9 @@ def _create_specific_client(
     _create_client.__doc__ = f"Create a {client_type.upper()} client"
     return _create_client
 
+
+if len(CommunicationClientProtocolFactory.get_all_classes_and_types()) == 0:
+    raise AIPerfError("No communication client protocol classes registered")
 
 # Dynamically create a method for creating each specific client type on the CommunicationProtocol class,
 # such as create_push_client, create_pull_client, etc.

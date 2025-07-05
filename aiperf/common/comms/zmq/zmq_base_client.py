@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-import asyncio
 import logging
 import uuid
 
@@ -12,7 +11,7 @@ from aiperf.common.exceptions import (
     NotInitializedError,
 )
 from aiperf.common.hooks import (
-    on_init,
+    on_start,
     on_stop,
 )
 from aiperf.common.lifecycle_mixins import (
@@ -83,28 +82,10 @@ class BaseZMQClient(AIPerfTaskLifecycleMixin):
             )
         return self._socket
 
-    async def _ensure_initialized(self) -> None:
-        """Ensure the communication channels are initialized and not shutdown.
+    @on_start
+    async def _start_client(self) -> None:
+        """Create the zmq socket, bind or connect it to the address, and set the socket options."""
 
-        Raises:
-            NotInitializedError: If the communication channels are not initialized
-            asyncio.CancelledError: If the channels are closed or shutdown
-        """
-        if not self.is_initialized:
-            await self.initialize()
-        if self.stop_requested:
-            raise asyncio.CancelledError()
-
-    @on_init
-    async def _initialize_client(self) -> None:
-        """Initialize the communication.
-
-        This method will:
-        - Create the zmq socket
-        - Bind or connect the socket to the address
-        - Set the socket options
-        - Run the AIPerfHook.ON_INIT hooks
-        """
         try:
             self._socket = self.context.socket(self.socket_type)
             if self.bind:

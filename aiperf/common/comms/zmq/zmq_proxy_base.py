@@ -26,7 +26,7 @@ class ProxyEndType(CaseInsensitiveStrEnum):
     Control = "control"
 
 
-class ProxySocketClient(BaseZMQClient):
+class ZMQProxySocketClient(BaseZMQClient):
     """A ZMQ Proxy socket client class that extends BaseZMQClient.
 
     This class is used to create proxy sockets for the frontend, backend, capture, and control
@@ -75,8 +75,8 @@ class BaseZMQProxy(ABC):
 
     def __init__(
         self,
-        frontend_socket_class: type[BaseZMQClient],
-        backend_socket_class: type[BaseZMQClient],
+        frontend_socket_class: type[ZMQProxySocketClient],
+        backend_socket_class: type[ZMQProxySocketClient],
         context: zmq.asyncio.Context,
         zmq_proxy_config: BaseZMQProxyConfig,
         socket_ops: dict | None = None,
@@ -101,8 +101,8 @@ class BaseZMQProxy(ABC):
         self.socket_ops = socket_ops
 
         self.monitor_task: asyncio.Task | None = None
-        self.control_client: ProxySocketClient | None = None
-        self.capture_client: ProxySocketClient | None = None
+        self.control_client: ZMQProxySocketClient | None = None
+        self.capture_client: ZMQProxySocketClient | None = None
         self.proxy_task: asyncio.Task | None = None
         self.proxy: zmq.asyncio.Socket | None = None
 
@@ -122,18 +122,18 @@ class BaseZMQProxy(ABC):
             address=self.backend_address,
             socket_ops=self.socket_ops,
             proxy_uuid=self.proxy_uuid,  # Pass the proxy UUID for tracing
-        )
+        )  # type: ignore
 
         self.frontend_socket = frontend_socket_class(
             context=self.context,
             address=self.frontend_address,
             socket_ops=self.socket_ops,
             proxy_uuid=self.proxy_uuid,  # Pass the proxy UUID for tracing
-        )
+        )  # type: ignore
 
         if self.control_address:
-            self.logger.debug("Proxy Control - Address: %s", self.control_address)
-            self.control_client = ProxySocketClient(
+            self.logger.debug("ZMQ Proxy Control - Address: %s", self.control_address)
+            self.control_client = ZMQProxySocketClient(
                 context=self.context,
                 socket_type=SocketType.REP,
                 address=self.control_address,
@@ -143,8 +143,8 @@ class BaseZMQProxy(ABC):
             )
 
         if self.capture_address:
-            self.logger.debug("Proxy Capture - Address: %s", self.capture_address)
-            self.capture_client = ProxySocketClient(
+            self.logger.debug("ZMQ Proxy Capture - Address: %s", self.capture_address)
+            self.capture_client = ZMQProxySocketClient(
                 context=self.context,
                 socket_type=SocketType.PUB,
                 address=self.capture_address,
@@ -195,20 +195,24 @@ class BaseZMQProxy(ABC):
                 ],
             )
 
-            self.logger.debug("Proxy Sockets Initialized Successfully")
+            self.logger.debug("ZMQ Proxy Sockets Initialized Successfully")
 
             if self.control_client:
-                self.logger.debug("Control socket bound to: %s", self.control_address)
+                self.logger.debug(
+                    "ZMQ Proxy Control socket bound to: %s", self.control_address
+                )
             if self.capture_client:
-                self.logger.debug("Capture socket bound to: %s", self.capture_address)
+                self.logger.debug(
+                    "ZMQ Proxy Capture socket bound to: %s", self.capture_address
+                )
 
         except Exception as e:
-            self.logger.error(f"Proxy Socket Initialization Failed {e}")
+            self.logger.error(f"ZMQ Proxy Socket Initialization Failed {e}")
             raise
 
     async def stop(self) -> None:
         """Shutdown the BaseZMQProxy."""
-        self.logger.debug("Proxy Stopping...")
+        self.logger.debug("ZMQ Proxy Stopping...")
 
         try:
             if self.monitor_task is not None:
@@ -239,7 +243,7 @@ class BaseZMQProxy(ABC):
             )
 
         except Exception as e:
-            self.logger.error("Proxy Stop Error: %s", e)
+            self.logger.error("ZMQ Proxy Stop Error: %s", e)
 
     async def start(self) -> None:
         """Start the Base ZMQ Proxy.
@@ -253,11 +257,11 @@ class BaseZMQProxy(ABC):
         try:
             await self._initialize()
 
-            self.logger.debug("Proxy Starting...")
+            self.logger.debug("ZMQ Proxy Starting...")
 
             if self.capture_client:
                 self.monitor_task = asyncio.create_task(self._monitor_messages())
-                self.logger.debug("Proxy Message Monitoring Started")
+                self.logger.debug("ZMQ Proxy Message Monitoring Started")
 
             self.proxy_task = asyncio.create_task(
                 asyncio.to_thread(
@@ -270,11 +274,11 @@ class BaseZMQProxy(ABC):
             )
 
         except zmq.ContextTerminated:
-            self.logger.debug("Proxy Terminated by Context")
+            self.logger.debug("ZMQ Proxy Terminated by Context")
             raise
 
         except Exception as e:
-            self.logger.error("Proxy Error: %s", e)
+            self.logger.error("ZMQ Proxy Error: %s", e)
             raise ProxyError(f"Proxy failed: {e}") from e
 
     async def _monitor_messages(self) -> None:
@@ -283,7 +287,7 @@ class BaseZMQProxy(ABC):
             raise ProxyError("Proxy Monitor Not Enabled")
 
         self.logger.debug(
-            "Proxy Monitor Starting - Capture Address: %s",
+            "ZMQ Proxy Monitor Starting - Capture Address: %s",
             self.capture_address,
         )
 
@@ -294,9 +298,9 @@ class BaseZMQProxy(ABC):
         try:
             while True:
                 message = capture_socket.recv()
-                self.logger.debug("Proxy Monitor Received Message: %s", message)
+                self.logger.debug("ZMQ Proxy Monitor Received Message: %s", message)
         except Exception as e:
-            self.logger.error("Proxy Monitor Error - %s", e)
+            self.logger.error("ZMQ Proxy Monitor Error - %s", e)
             raise
         finally:
             capture_socket.close()

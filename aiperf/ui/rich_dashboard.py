@@ -27,11 +27,11 @@ from rich.table import Table
 from rich.text import Text
 
 from aiperf.common.hooks import (
-    AIPerfLifecycleMixin,
-    aiperf_auto_task,
+    aiperf_interval_task,
     on_start,
     on_stop,
 )
+from aiperf.common.lifecycle_mixins import AIPerfLifecycleMixin
 from aiperf.common.messages import WorkerHealthMessage
 from aiperf.common.utils import format_bytes, format_duration
 from aiperf.progress.progress_tracker import ProgressTracker
@@ -348,7 +348,7 @@ class AIPerfRichDashboard(LogsDashboardMixin, AIPerfLifecycleMixin):
             title_align="left",
         )
 
-    @aiperf_auto_task(interval_sec=0.1)
+    @aiperf_interval_task(interval_sec=0.1)
     async def _update_logs(self) -> None:
         """Update the dashboard display."""
         if not self.running:

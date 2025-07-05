@@ -19,7 +19,6 @@ class CreditManagerProtocol(Protocol):
 
     async def drop_credit(
         self,
-        amount: int = 1,
         conversation_id: str | None = None,
         credit_drop_ns: int | None = None,
     ) -> None:
