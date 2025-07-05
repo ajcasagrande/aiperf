@@ -297,7 +297,7 @@ class WorkerStatusElement(DashboardElement):
 
 
 class AIPerfRichDashboard(LogsDashboardMixin, AIPerfLifecycleMixin):
-    """Main AIPerf Rich Dashboard with live updates and clean interface."""
+    """Main AIPerf Rich Dashboard with live updates."""
 
     def __init__(self, progress_tracker: ProgressTracker) -> None:
         super().__init__()

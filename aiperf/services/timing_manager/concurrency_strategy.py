@@ -77,24 +77,33 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
         self._completed_credits += 1
 
         if self.logger.isEnabledFor(logging.DEBUG):
+            per_sec = (
+                self._completed_credits
+                / ((time.time_ns() - self.start_time_ns) / NANOS_PER_SECOND)
+                if (time.time_ns() - self.start_time_ns) > 0
+                else 0
+            )
             self.logger.debug(
                 "Processing credit return: (completed credits: %s of %s) (%.2f requests/s)",
                 self._completed_credits,
                 self._total_credits,
-                self._completed_credits
-                / (time.time_ns() - self.start_time_ns)
-                * NANOS_PER_SECOND,
+                per_sec,
             )
 
         if self._completed_credits >= self._total_credits:
             self.execute_async(self.credit_manager.publish_credits_complete(False))
 
             if self.logger.isEnabledFor(logging.DEBUG):
+                per_sec = (
+                    self._completed_credits
+                    / ((time.time_ns() - self.start_time_ns) / NANOS_PER_SECOND)
+                    if (time.time_ns() - self.start_time_ns) > 0
+                    else 0
+                )
                 self.logger.debug(
                     "All credits completed, stopping credit drop task after %.2f seconds (%.2f requests/s)",
                     (time.time_ns() - self.start_time_ns) / NANOS_PER_SECOND,
-                    self._total_credits
-                    / ((time.time_ns() - self.start_time_ns) / NANOS_PER_SECOND),
+                    per_sec,
                 )
 
     async def _progress_report_loop(self) -> None:
@@ -109,4 +118,11 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
                 break
             except Exception as e:
                 self.logger.error("TM: Error publishing progress: %s", e)
+
+            if self._completed_credits >= self._total_credits:
+                self.logger.debug(
+                    "TM: All credits completed, stopping progress reporting loop"
+                )
+                break
+
             await asyncio.sleep(1)  # TODO: Make this configurable

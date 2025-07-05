@@ -7,6 +7,7 @@ This file contains fixtures that are automatically discovered by pytest
 and made available to test functions in the same directory and subdirectories.
 """
 
+import asyncio
 import logging
 from collections.abc import Generator
 from unittest.mock import MagicMock, patch
@@ -19,6 +20,26 @@ from aiperf.tests.comms.mock_zmq import (
 )
 
 logging.basicConfig(level=logging.DEBUG)
+
+real_sleep = (
+    asyncio.sleep
+)  # save the real sleep so we can use it in the no_sleep fixture
+
+
+@pytest.fixture(autouse=True)
+def no_sleep(monkeypatch) -> None:
+    """
+    Patch asyncio.sleep with a no-op to prevent test delays.
+
+    This ensures tests don't need to wait for real sleep calls.
+    """
+
+    async def fast_sleep(*args, **kwargs):
+        await real_sleep(
+            0
+        )  # relinquish time slice to other tasks to avoid blocking the event loop
+
+    monkeypatch.setattr(asyncio, "sleep", fast_sleep)
 
 
 @pytest.fixture
