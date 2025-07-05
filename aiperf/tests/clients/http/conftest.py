@@ -10,7 +10,7 @@ import pytest
 from aiperf.clients.http.aiohttp_client import AioHttpClientMixin, create_tcp_connector
 from aiperf.common.record_models import (
     GenericHTTPClientConfig,
-    ParsedResponseRecord,
+    RequestRecord,
     SSEMessage,
     TextResponse,
 )
@@ -116,7 +116,7 @@ async def aiohttp_client(
     """Fixture providing an AioHttpClientMixin instance."""
     client = AioHttpClientMixin(http_client_config)
     yield client
-    await client.cleanup()
+    await client.close()
 
 
 def create_mock_response(
@@ -174,7 +174,7 @@ async def integration_client(http_client_config: GenericHTTPClientConfig):
     """Fixture providing a managed AioHttpClientMixin instance for integration tests."""
     client = AioHttpClientMixin(http_client_config)
     yield client
-    await client.cleanup()
+    await client.close()
 
 
 @pytest.fixture
@@ -196,13 +196,13 @@ def create_mock_error_response(status: int, reason: str, error_text: str) -> Moc
 
 
 def assert_successful_request_record(
-    record: ParsedResponseRecord,
+    record: RequestRecord,
     expected_status: int = 200,
     expected_response_count: int = 1,
     expected_response_type: type = TextResponse,
 ) -> None:
     """Assert that a RequestRecord represents a successful request."""
-    assert isinstance(record, ParsedResponseRecord)
+    assert isinstance(record, RequestRecord)
     assert record.status == expected_status
     assert record.error is None
     assert len(record.responses) == expected_response_count
@@ -217,13 +217,13 @@ def assert_successful_request_record(
 
 
 def assert_error_request_record(
-    record: ParsedResponseRecord,
+    record: RequestRecord,
     expected_error_code: int | None = None,
     expected_error_type: str | None = None,
     expected_error_message: str | None = None,
 ) -> None:
     """Assert that a RequestRecord represents a failed request."""
-    assert isinstance(record, ParsedResponseRecord)
+    assert isinstance(record, RequestRecord)
     assert record.error is not None
     assert len(record.responses) == 0
 

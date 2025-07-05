@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Coroutine
-from typing import Any, Protocol, TypeVar, cast
+from typing import Any, Protocol, TypeVar, cast, runtime_checkable
 
 from aiperf.common.constants import DEFAULT_COMMS_REQUEST_TIMEOUT
 from aiperf.common.enums import (
@@ -23,6 +23,7 @@ MessageOutputT = TypeVar("MessageOutputT", bound=Message)
 ################################################################################
 
 
+@runtime_checkable
 class CommunicationClientProtocol(Protocol):
     """Base interface for specifying the base communication client for AIPerf components."""
 

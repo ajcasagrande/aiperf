@@ -8,6 +8,7 @@ and made available to test functions in the comms test directory and subdirector
 """
 
 import asyncio
+import contextlib
 import tempfile
 from collections.abc import AsyncGenerator, Generator
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -34,7 +35,7 @@ from aiperf.common.enums import (
 from aiperf.common.messages import Message, StatusMessage
 
 
-class TestMessage(Message):
+class _TestMessage(Message):
     """Test message for communication testing."""
 
     message_type: MessageType = MessageType.UNKNOWN
@@ -100,9 +101,9 @@ def mock_zmq_socket() -> Generator[MagicMock, None, None]:
 
 
 @pytest.fixture
-def test_message() -> TestMessage:
+def test_message() -> _TestMessage:
     """Fixture providing a test message."""
-    return TestMessage(
+    return _TestMessage(
         message_type=MessageType.STATUS, test_data="test_data", counter=1
     )
 
@@ -285,18 +286,18 @@ def test_timeout() -> float:
 
 
 @pytest.fixture
-def multiple_test_messages() -> list[TestMessage]:
+def multiple_test_messages() -> list[_TestMessage]:
     """Fixture providing multiple test messages."""
     return [
-        TestMessage(message_type=MessageType.STATUS, test_data="msg1", counter=1),
-        TestMessage(message_type=MessageType.HEARTBEAT, test_data="msg2", counter=2),
-        TestMessage(message_type=MessageType.COMMAND, test_data="msg3", counter=3),
-        TestMessage(message_type=MessageType.ERROR, test_data="msg4", counter=4),
+        _TestMessage(message_type=MessageType.STATUS, test_data="msg1", counter=1),
+        _TestMessage(message_type=MessageType.HEARTBEAT, test_data="msg2", counter=2),
+        _TestMessage(message_type=MessageType.COMMAND, test_data="msg3", counter=3),
+        _TestMessage(message_type=MessageType.ERROR, test_data="msg4", counter=4),
     ]
 
 
 @pytest.fixture
-def cleanup_tasks() -> list:
+def cleanup_tasks() -> Generator[list[asyncio.Task], None, None]:
     """Fixture providing a list to track cleanup tasks."""
     tasks = []
     yield tasks
@@ -304,7 +305,5 @@ def cleanup_tasks() -> list:
     for task in tasks:
         if not task.done():
             task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 asyncio.get_event_loop().run_until_complete(task)
-            except asyncio.CancelledError:
-                pass

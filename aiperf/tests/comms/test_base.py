@@ -26,7 +26,6 @@ from aiperf.common.enums import (
     CommunicationClientAddressType,
     CommunicationClientType,
 )
-from aiperf.common.exceptions import FactoryError
 
 
 class TestCommunicationClientProtocol:
@@ -81,40 +80,40 @@ class TestCommunicationClientProtocolFactory:
 
     def test_factory_get_class_by_type(self):
         """Test getting protocol class by type."""
-        pub_class = CommunicationClientProtocolFactory.get_class_by_type(
+        pub_class = CommunicationClientProtocolFactory.get_class_from_type(
             CommunicationClientType.PUB
         )
         assert pub_class == PubClientProtocol
 
-        sub_class = CommunicationClientProtocolFactory.get_class_by_type(
+        sub_class = CommunicationClientProtocolFactory.get_class_from_type(
             CommunicationClientType.SUB
         )
         assert sub_class == SubClientProtocol
 
-        push_class = CommunicationClientProtocolFactory.get_class_by_type(
+        push_class = CommunicationClientProtocolFactory.get_class_from_type(
             CommunicationClientType.PUSH
         )
         assert push_class == PushClientProtocol
 
-        pull_class = CommunicationClientProtocolFactory.get_class_by_type(
+        pull_class = CommunicationClientProtocolFactory.get_class_from_type(
             CommunicationClientType.PULL
         )
         assert pull_class == PullClientProtocol
 
-        request_class = CommunicationClientProtocolFactory.get_class_by_type(
+        request_class = CommunicationClientProtocolFactory.get_class_from_type(
             CommunicationClientType.REQUEST
         )
         assert request_class == RequestClientProtocol
 
-        reply_class = CommunicationClientProtocolFactory.get_class_by_type(
+        reply_class = CommunicationClientProtocolFactory.get_class_from_type(
             CommunicationClientType.REPLY
         )
         assert reply_class == ReplyClientProtocol
 
     def test_factory_invalid_type(self):
         """Test factory with invalid type."""
-        with pytest.raises(FactoryError):
-            CommunicationClientProtocolFactory.get_class_by_type("invalid_type")
+        with pytest.raises(TypeError):
+            CommunicationClientProtocolFactory.get_class_from_type("invalid_type")
 
 
 class TestClientProtocols:
@@ -235,7 +234,7 @@ class TestBaseCommunication:
         mock_communication = MagicMock()
         mock_communication.create_client.return_value = mock_client_class
 
-        result = client_creator(
+        _ = client_creator(
             mock_communication, "test_address", True, {"option": "value"}
         )
 

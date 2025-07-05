@@ -546,7 +546,7 @@ class TestBaseZMQClient:
         """Test that multiple clients can share the same context."""
         clients = []
 
-        for i in range(3):
+        for _ in range(3):
             client = BaseZMQClient(
                 context=mock_zmq_context_instance,
                 socket_type=zmq.PUB,

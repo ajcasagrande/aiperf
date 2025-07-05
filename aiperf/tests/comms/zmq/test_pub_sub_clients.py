@@ -5,7 +5,8 @@ Tests for ZMQ PUB and SUB client implementations.
 """
 
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, call
+import errno
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
 import zmq
@@ -13,7 +14,7 @@ import zmq
 from aiperf.common.comms.zmq import ZMQPubClient, ZMQSubClient
 from aiperf.common.enums import MessageType
 from aiperf.common.exceptions import CommunicationError
-from aiperf.tests.comms.conftest import TestMessage
+from aiperf.tests.comms.conftest import _TestMessage
 
 
 class TestZMQPubClient:
@@ -61,7 +62,7 @@ class TestZMQPubClient:
 
     @pytest.mark.asyncio
     async def test_publish_message(
-        self, mock_zmq_context_instance: MagicMock, test_message: TestMessage
+        self, mock_zmq_context_instance: MagicMock, test_message: _TestMessage
     ):
         """Test publishing a message."""
         client = ZMQPubClient(
@@ -86,7 +87,7 @@ class TestZMQPubClient:
 
     @pytest.mark.asyncio
     async def test_publish_not_initialized(
-        self, mock_zmq_context_instance: MagicMock, test_message: TestMessage
+        self, mock_zmq_context_instance: MagicMock, test_message: _TestMessage
     ):
         """Test publishing when not initialized."""
         client = ZMQPubClient(
@@ -106,7 +107,7 @@ class TestZMQPubClient:
     async def test_publish_multiple_messages(
         self,
         mock_zmq_context_instance: MagicMock,
-        multiple_test_messages: list[TestMessage],
+        multiple_test_messages: list[_TestMessage],
     ):
         """Test publishing multiple messages."""
         client = ZMQPubClient(
@@ -127,7 +128,7 @@ class TestZMQPubClient:
 
     @pytest.mark.asyncio
     async def test_publish_error_handling(
-        self, mock_zmq_context_instance: MagicMock, test_message: TestMessage
+        self, mock_zmq_context_instance: MagicMock, test_message: _TestMessage
     ):
         """Test error handling during publish."""
         client = ZMQPubClient(
@@ -147,7 +148,7 @@ class TestZMQPubClient:
 
     @pytest.mark.asyncio
     async def test_publish_context_terminated(
-        self, mock_zmq_context_instance: MagicMock, test_message: TestMessage
+        self, mock_zmq_context_instance: MagicMock, test_message: _TestMessage
     ):
         """Test publish when context is terminated."""
         client = ZMQPubClient(
@@ -167,7 +168,7 @@ class TestZMQPubClient:
 
     @pytest.mark.asyncio
     async def test_publish_cancelled(
-        self, mock_zmq_context_instance: MagicMock, test_message: TestMessage
+        self, mock_zmq_context_instance: MagicMock, test_message: _TestMessage
     ):
         """Test publish when cancelled."""
         client = ZMQPubClient(
@@ -206,7 +207,7 @@ class TestZMQPubClient:
             bind=True,
         )
 
-        message = TestMessage(message_type=message_type, test_data="test")
+        message = _TestMessage(message_type=message_type, test_data="test")
 
         await client.initialize()
         await client.publish(message)
@@ -425,9 +426,7 @@ class TestZMQSubClient:
         await client.initialize()
 
         # Mock the cancel_all_tasks method
-        with patch.object(
-            client, "cancel_all_tasks", new_callable=AsyncMock
-        ) as mock_cancel:
+        with patch.object(client, "cancel_all_tasks", new_callable=AsyncMock):
             await client.shutdown()
             # The on_stop hook should have been called
             # This tests that the hook system is working
@@ -530,7 +529,7 @@ class TestPubSubIntegration:
 
     @pytest.mark.asyncio
     async def test_pub_sub_message_flow(
-        self, mock_zmq_context_instance: MagicMock, test_message: TestMessage
+        self, mock_zmq_context_instance: MagicMock, test_message: _TestMessage
     ):
         """Test message flow from PUB to SUB."""
         pub_client = ZMQPubClient(
@@ -568,11 +567,11 @@ class TestPubSubIntegration:
     async def test_multiple_publishers_single_subscriber(
         self,
         mock_zmq_context_instance: MagicMock,
-        multiple_test_messages: list[TestMessage],
+        multiple_test_messages: list[_TestMessage],
     ):
         """Test multiple publishers sending to a single subscriber."""
         pub_clients = []
-        for i in range(3):
+        for _ in range(3):
             client = ZMQPubClient(
                 context=mock_zmq_context_instance,
                 address="inproc://test_addr_5555",
@@ -612,7 +611,7 @@ class TestPubSubIntegration:
 
     @pytest.mark.asyncio
     async def test_single_publisher_multiple_subscribers(
-        self, mock_zmq_context_instance: MagicMock, test_message: TestMessage
+        self, mock_zmq_context_instance: MagicMock, test_message: _TestMessage
     ):
         """Test single publisher sending to multiple subscribers."""
         pub_client = ZMQPubClient(
@@ -624,7 +623,7 @@ class TestPubSubIntegration:
         sub_clients = []
         callbacks = []
 
-        for i in range(3):
+        for _ in range(3):
             client = ZMQSubClient(
                 context=mock_zmq_context_instance,
                 address="inproc://test_addr_5555",
@@ -661,7 +660,7 @@ class TestPubSubIntegration:
 
     @pytest.mark.asyncio
     async def test_pub_sub_error_isolation(
-        self, mock_zmq_context_instance: MagicMock, test_message: TestMessage
+        self, mock_zmq_context_instance: MagicMock, test_message: _TestMessage
     ):
         """Test that errors in one client don't affect others."""
         pub_client = ZMQPubClient(
@@ -681,7 +680,9 @@ class TestPubSubIntegration:
 
         # Make pub client fail
         pub_socket = mock_zmq_context_instance.socket.return_value
-        pub_socket.send_multipart.side_effect = zmq.ZMQError("Publish failed")
+        pub_socket.send_multipart.side_effect = zmq.ZMQError(
+            errno=errno.ECOMM, msg="Publish failed"
+        )
 
         # Publishing should fail
         with pytest.raises(CommunicationError):

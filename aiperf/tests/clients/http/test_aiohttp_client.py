@@ -85,7 +85,7 @@ class TestAioHttpClientMixin:
         mock_connector.close = AsyncMock()
         aiohttp_client.tcp_connector = mock_connector
 
-        await aiohttp_client.cleanup()
+        await aiohttp_client.close()
 
         mock_connector.close.assert_called_once()
         assert aiohttp_client.tcp_connector is None
@@ -97,7 +97,7 @@ class TestAioHttpClientMixin:
         aiohttp_client.tcp_connector = None
 
         # Should not raise an exception
-        await aiohttp_client.cleanup()
+        await aiohttp_client.close()
 
         assert aiohttp_client.tcp_connector is None
 

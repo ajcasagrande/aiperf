@@ -13,7 +13,7 @@ import zmq
 from aiperf.common.comms.zmq import ZMQPullClient, ZMQPushClient
 from aiperf.common.enums import MessageType
 from aiperf.common.exceptions import CommunicationError
-from aiperf.tests.comms.conftest import TestMessage
+from aiperf.tests.comms.conftest import _TestMessage
 
 
 class TestZMQPushClient:
@@ -61,7 +61,7 @@ class TestZMQPushClient:
 
     @pytest.mark.asyncio
     async def test_push_message(
-        self, mock_zmq_context_instance: MagicMock, test_message: TestMessage
+        self, mock_zmq_context_instance: MagicMock, test_message: _TestMessage
     ):
         """Test pushing a message."""
         client = ZMQPushClient(
@@ -86,7 +86,7 @@ class TestZMQPushClient:
 
     @pytest.mark.asyncio
     async def test_push_not_initialized(
-        self, mock_zmq_context_instance: MagicMock, test_message: TestMessage
+        self, mock_zmq_context_instance: MagicMock, test_message: _TestMessage
     ):
         """Test pushing when not initialized."""
         client = ZMQPushClient(
@@ -106,7 +106,7 @@ class TestZMQPushClient:
     async def test_push_multiple_messages(
         self,
         mock_zmq_context_instance: MagicMock,
-        multiple_test_messages: list[TestMessage],
+        multiple_test_messages: list[_TestMessage],
     ):
         """Test pushing multiple messages."""
         client = ZMQPushClient(
@@ -127,7 +127,7 @@ class TestZMQPushClient:
 
     @pytest.mark.asyncio
     async def test_push_error_handling(
-        self, mock_zmq_context_instance: MagicMock, test_message: TestMessage
+        self, mock_zmq_context_instance: MagicMock, test_message: _TestMessage
     ):
         """Test error handling during push."""
         client = ZMQPushClient(
@@ -147,7 +147,7 @@ class TestZMQPushClient:
 
     @pytest.mark.asyncio
     async def test_push_context_terminated(
-        self, mock_zmq_context_instance: MagicMock, test_message: TestMessage
+        self, mock_zmq_context_instance: MagicMock, test_message: _TestMessage
     ):
         """Test push when context is terminated."""
         client = ZMQPushClient(
@@ -167,7 +167,7 @@ class TestZMQPushClient:
 
     @pytest.mark.asyncio
     async def test_push_cancelled(
-        self, mock_zmq_context_instance: MagicMock, test_message: TestMessage
+        self, mock_zmq_context_instance: MagicMock, test_message: _TestMessage
     ):
         """Test push when cancelled."""
         client = ZMQPushClient(
@@ -206,7 +206,7 @@ class TestZMQPushClient:
             bind=True,
         )
 
-        message = TestMessage(message_type=message_type, test_data="test")
+        message = _TestMessage(message_type=message_type, test_data="test")
 
         await client.initialize()
         await client.push(message)
@@ -221,7 +221,7 @@ class TestZMQPushClient:
     async def test_push_load_balancing(
         self,
         mock_zmq_context_instance: MagicMock,
-        multiple_test_messages: list[TestMessage],
+        multiple_test_messages: list[_TestMessage],
     ):
         """Test that push distributes messages (load balancing behavior)."""
         client = ZMQPushClient(
@@ -537,7 +537,7 @@ class TestPushPullIntegration:
 
     @pytest.mark.asyncio
     async def test_push_pull_message_flow(
-        self, mock_zmq_context_instance: MagicMock, test_message: TestMessage
+        self, mock_zmq_context_instance: MagicMock, test_message: _TestMessage
     ):
         """Test message flow from PUSH to PULL."""
         push_client = ZMQPushClient(
@@ -574,11 +574,11 @@ class TestPushPullIntegration:
     async def test_multiple_pushers_single_puller(
         self,
         mock_zmq_context_instance: MagicMock,
-        multiple_test_messages: list[TestMessage],
+        multiple_test_messages: list[_TestMessage],
     ):
         """Test multiple pushers sending to a single puller."""
         push_clients = []
-        for i in range(3):
+        for _ in range(3):
             client = ZMQPushClient(
                 context=mock_zmq_context_instance,
                 address="inproc://test_addr_5555",
@@ -621,7 +621,7 @@ class TestPushPullIntegration:
     async def test_single_pusher_multiple_pullers(
         self,
         mock_zmq_context_instance: MagicMock,
-        multiple_test_messages: list[TestMessage],
+        multiple_test_messages: list[_TestMessage],
     ):
         """Test single pusher sending to multiple pullers (load balancing)."""
         push_client = ZMQPushClient(
@@ -633,7 +633,7 @@ class TestPushPullIntegration:
         pull_clients = []
         callbacks = []
 
-        for i in range(3):
+        for _ in range(3):
             client = ZMQPullClient(
                 context=mock_zmq_context_instance,
                 address="inproc://test_addr_5555",
@@ -649,7 +649,7 @@ class TestPushPullIntegration:
             await client.initialize()
 
         # Register callbacks for all pullers
-        for i, (client, callback) in enumerate(
+        for _, (client, callback) in enumerate(
             zip(pull_clients, callbacks, strict=False)
         ):
             for message in multiple_test_messages:
@@ -671,7 +671,7 @@ class TestPushPullIntegration:
 
     @pytest.mark.asyncio
     async def test_push_pull_error_isolation(
-        self, mock_zmq_context_instance: MagicMock, test_message: TestMessage
+        self, mock_zmq_context_instance: MagicMock, test_message: _TestMessage
     ):
         """Test that errors in one client don't affect others."""
         push_client = ZMQPushClient(
@@ -691,7 +691,9 @@ class TestPushPullIntegration:
 
         # Make push client fail
         push_socket = mock_zmq_context_instance.socket.return_value
-        push_socket.send_multipart.side_effect = zmq.ZMQError("Push failed")
+        push_socket.send_multipart.side_effect = zmq.ZMQError(
+            errno=1, msg="Push failed"
+        )
 
         # Pushing should fail
         with pytest.raises(CommunicationError):
@@ -710,7 +712,7 @@ class TestPushPullIntegration:
     async def test_pipeline_pattern(
         self,
         mock_zmq_context_instance: MagicMock,
-        multiple_test_messages: list[TestMessage],
+        multiple_test_messages: list[_TestMessage],
     ):
         """Test pipeline pattern with multiple pushers and pullers."""
         # Create multiple pushers (producers)
@@ -725,7 +727,7 @@ class TestPushPullIntegration:
 
         # Create multiple pullers (workers)
         pullers = []
-        for i in range(3):
+        for _ in range(3):
             client = ZMQPullClient(
                 context=mock_zmq_context_instance,
                 address="inproc://test_addr_5555",
@@ -778,7 +780,7 @@ class TestPushPullIntegration:
 
         # Create many messages
         messages = [
-            TestMessage(
+            _TestMessage(
                 message_type=MessageType.STATUS, test_data=f"msg_{i}", counter=i
             )
             for i in range(100)

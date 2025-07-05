@@ -164,12 +164,6 @@ class FactoryMixin(Generic[ClassEnumT, ClassProtocolT]):
     def get_class_from_type(cls, class_type: ClassEnumT | str) -> type[ClassProtocolT]:
         """Get the class from a class type.
 
-        Args:
-            class_type: The class type to get the class from
-
-        Returns:
-            The class for the given class type
-
         Raises:
             TypeError: If the class type is not registered
         """

@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-from typing import TYPE_CHECKING, Generic, Protocol
+from typing import TYPE_CHECKING, Generic, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from aiperf.common.record_models import ParsedResponseRecord, ResponseData
@@ -24,6 +24,7 @@ from aiperf.common.types import (
 ################################################################################
 
 
+@runtime_checkable
 class InputConverterProtocol(Protocol, Generic[InputT, RequestT]):
     """Protocol for an input converter."""
 
@@ -32,6 +33,7 @@ class InputConverterProtocol(Protocol, Generic[InputT, RequestT]):
         ...
 
 
+@runtime_checkable
 class OutputConverterProtocol(Protocol, Generic[OutputT, ResponseT]):
     """Protocol for an output converter."""
 
@@ -43,8 +45,8 @@ class OutputConverterProtocol(Protocol, Generic[OutputT, ResponseT]):
 ################################################################################
 # Inference Server Client Protocols
 ################################################################################
-
-
+@runtime_checkable
+@runtime_checkable
 class InferenceClientProtocol(Protocol, Generic[ConfigT, RequestT, ResponseT]):
     """Protocol for an inference server client.
 
@@ -98,7 +100,8 @@ class InferenceClientProtocol(Protocol, Generic[ConfigT, RequestT, ResponseT]):
 ################################################################################
 # Post Processor Protocol
 ################################################################################
-class PostProcessorProtocol(Protocol):
+@runtime_checkable
+class PostProcessorProtocol(Protocol, Generic[InputT, OutputT]):
     """
     PostProcessorProtocol is a protocol that defines the API for post-processors.
     It requires an `process` method that takes a list of records and returns a result.
@@ -119,6 +122,7 @@ class PostProcessorProtocol(Protocol):
 ################################################################################
 
 
+@runtime_checkable
 class DataExporterProtocol(Protocol):
     """
     Protocol for data exporters.
@@ -136,6 +140,7 @@ class DataExporterProtocol(Protocol):
 ################################################################################
 
 
+@runtime_checkable
 class ResponseExtractor(Protocol):
     """Base class for all response extractors."""
 
