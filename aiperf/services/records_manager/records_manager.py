@@ -142,10 +142,10 @@ class RecordsManager(BaseComponentService):
     async def _report_records_task(self) -> None:
         """Report the records."""
         while not self.stop_event.is_set():
-            await self.publish_profile_stats()
+            await self.publish_processing_stats()
             await asyncio.sleep(1)
 
-    async def publish_profile_stats(self) -> None:
+    async def publish_processing_stats(self) -> None:
         """Publish the profile stats."""
         await self.pub_client.publish(
             ProcessingStatsMessage(

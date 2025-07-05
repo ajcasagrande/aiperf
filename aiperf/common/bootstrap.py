@@ -36,8 +36,16 @@ def bootstrap_and_run_service(
 
         service_config = load_service_config()
 
-    # Create the service instance and run it
-    service = service_class(service_config=service_config, **kwargs)
+    async def _run_service():
+        service = service_class(service_config=service_config, **kwargs)
+
+        # Set up child process logging if a log queue is provided
+        if log_queue is not None:
+            from aiperf.common.logging import setup_child_process_logging
+
+            setup_child_process_logging(log_queue, service.service_id, service_config)
+
+        await service.run_forever()
 
     # # Profile with yappi
     # TODO: Add yappi profiling support via ServiceConfig
@@ -48,19 +56,13 @@ def bootstrap_and_run_service(
     # TODO: random seed configuration
     # random.seed(0)
 
-    # Set up child process logging if a log queue is provided
-    if log_queue is not None:
-        from aiperf.common.logging import setup_child_process_logging
-
-        setup_child_process_logging(log_queue, service.service_id, service_config)
-
     with contextlib.suppress(asyncio.CancelledError):
         if service_config.enable_uvloop:
             import uvloop
 
-            uvloop.run(service.run_forever())
+            uvloop.run(_run_service())
         else:
-            asyncio.run(service.run_forever())
+            asyncio.run(_run_service())
 
     # yappi.stop()
 

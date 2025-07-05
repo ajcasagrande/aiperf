@@ -113,6 +113,7 @@ class ProgressTracker:
 
     def update_processing_stats(self, message: ProcessingStatsMessage) -> None:
         if self.suite is None or self.suite.current_profile is None:
+            self.logger.warning("No current profile to update processing stats")
             return
 
         current_time_ns = time.time_ns()

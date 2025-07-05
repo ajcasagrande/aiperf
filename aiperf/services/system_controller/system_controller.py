@@ -230,6 +230,11 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         """
         self.logger.debug("Received signal %s, initiating graceful shutdown", sig)
         if sig == signal.SIGINT or sig == signal.SIGTERM:
+            if self.stop_event.is_set():
+                self.logger.debug("Stop event is already set, killing all services")
+                await self.kill()
+                return
+
             if self.profile_runner and self.profile_runner.is_complete:
                 self.stop_event.set()
                 return
@@ -397,7 +402,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         self.progress_tracker.update_processing_stats(message)
 
         if self.ui:
-            await self.ui.on_profile_stats_update()
+            await self.ui.on_processing_stats_update()
         if self.progress_logger:
             await self.progress_logger.update_stats()
 

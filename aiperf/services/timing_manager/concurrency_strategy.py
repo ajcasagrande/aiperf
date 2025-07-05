@@ -34,9 +34,9 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
         self._sent_credits = 0
         self._completed_credits = 0
         self.start_time_ns = 0
-        self._semaphore = asyncio.Semaphore(self._concurrency)
+        self._semaphore = asyncio.Semaphore(value=self._concurrency)
 
-        self.logger.debug(
+        self.logger.info(
             "TM: Concurrency Strategy initialized with total_credits=%s, concurrency=%s",
             self._total_credits,
             self._concurrency,
@@ -57,7 +57,11 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
     async def _issue_credit_drops(self) -> None:
         """Issue credit drops to workers."""
 
-        self.logger.info("TM: Issuing credit drops")
+        self.logger.info(
+            "TM: Issuing credit drops %s total credits, %s concurrency",
+            self._total_credits,
+            self._concurrency,
+        )
 
         while self._sent_credits < self._total_credits:
             await self._semaphore.acquire()

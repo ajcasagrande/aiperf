@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
+import logging
 import os
 import random
 import sys
@@ -75,12 +76,14 @@ class DatasetManager(BaseComponentService):
         service_id: str | None = None,
     ) -> None:
         super().__init__(service_config=service_config, service_id=service_id)
-        self.logger.debug("Initializing dataset manager")
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger.debug("Dataset manager __init__")
         self.tokenizer: Tokenizer | None = None
         self.dataset: dict[str, Conversation] = {}  # session ID -> Conversation mapping
         self.dealer_router_client: ReplyClientProtocol = self.comms.create_reply_client(
             CommunicationClientAddressType.DATASET_MANAGER_PROXY_BACKEND
         )
+        self.dealer_router_client.initialize()
         self.dataset_configured = asyncio.Event()
 
     @property

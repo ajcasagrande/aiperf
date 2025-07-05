@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
+import logging
 from collections.abc import Callable, Coroutine
 from typing import Any
 
@@ -65,6 +66,7 @@ class ZMQRouterReplyClient(BaseZMQClient, AsyncTaskManagerMixin):
         """
         super().__init__(context, zmq.SocketType.ROUTER, address, bind, socket_ops)
 
+        self.logger = logging.getLogger(__class__.__name__)
         self._request_handlers: dict[
             MessageType,
             tuple[str, Callable[[Message], Coroutine[Any, Any, Message | None]]],
@@ -162,8 +164,11 @@ class ZMQRouterReplyClient(BaseZMQClient, AsyncTaskManagerMixin):
         shutdown. It will wait for requests from the socket and send responses in
         an asynchronous manner.
         """
+        self.logger.warning("Waiting for router reply client to be initialized")
         if not self.is_initialized:
             await self.initialized_event.wait()
+
+        self.logger.warning("Router reply client initialized")
 
         while not self.stop_event.is_set():
             try:
@@ -190,9 +195,7 @@ class ZMQRouterReplyClient(BaseZMQClient, AsyncTaskManagerMixin):
 
                 # TODO: Can we handle the waiting for responses on a separate task, or will this fail?
                 if request.request_id:
-                    self.execute_async(
-                        self._wait_for_response(request.request_id, routing_envelope)
-                    )
+                    await self._wait_for_response(request.request_id, routing_envelope)
 
             except asyncio.CancelledError:
                 break

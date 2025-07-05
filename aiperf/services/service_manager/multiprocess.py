@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
+import contextlib
 import multiprocessing
 from multiprocessing import Process
 from multiprocessing.context import ForkProcess, SpawnProcess
@@ -78,10 +79,6 @@ class MultiProcessServiceManager(BaseServiceManager):
                     MultiProcessRunInfo(process=process, service_type=service_type[0])
                 )
 
-            # TODO: HACK: This is a hack
-            # Sleep to allow the service to register
-            await asyncio.sleep(1)
-
     async def run_all_services(self) -> None:
         """Start all required services as multiprocessing processes."""
         self.logger.debug("Starting all required services as multiprocessing processes")
@@ -108,7 +105,8 @@ class MultiProcessServiceManager(BaseServiceManager):
         # Kill all processes
         for info in self.multi_process_info:
             if info.process:
-                info.process.kill()
+                with contextlib.suppress(Exception):
+                    info.process.kill()
 
         # Wait for all to finish in parallel
         await asyncio.gather(
@@ -151,7 +149,7 @@ class MultiProcessServiceManager(BaseServiceManager):
                     return
 
                 # Wait a bit before checking again
-                await asyncio.sleep(0.5)
+                await asyncio.sleep(0.1)
 
         try:
             await asyncio.wait_for(_wait_for_registration(), timeout=timeout_seconds)

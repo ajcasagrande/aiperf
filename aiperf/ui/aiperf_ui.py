@@ -37,7 +37,7 @@ class AIPerfUI(AIPerfLifecycleMixin):
         if self.dashboard.running:
             self.dashboard.refresh_element(ProfileProgressElement.key)
 
-    async def on_profile_stats_update(self) -> None:
+    async def on_processing_stats_update(self) -> None:
         """Update statistics display."""
         if self.dashboard.running:
             self.dashboard.refresh_element(ProfileProgressElement.key)

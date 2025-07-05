@@ -36,7 +36,8 @@ class ChatCompletionMixin(AioHttpClientMixin):
 
     def __init__(self, client_config: OpenAIClientConfig) -> None:
         super().__init__(client_config)
-        self.client_config: OpenAIClientConfig = client_config
+        self.logger = logging.getLogger(__class__.__name__)
+        self.client_config: OpenAIClientConfig = client_config or OpenAIClientConfig()
 
     async def send_chat_completion_request(
         self, model_endpoint: ModelEndpointInfo, payload: OpenAIChatCompletionRequest
@@ -48,12 +49,12 @@ class ChatCompletionMixin(AioHttpClientMixin):
             request_payload = payload.model_dump()
 
             # Add optional parameters if configured
-            if self.client_config.stop:
-                request_payload["stop"] = self.client_config.stop
+            # if self.client_config.stop:
+            #     request_payload["stop"] = self.client_config.stop
 
             # Add any additional kwargs from payload
-            if payload.kwargs:
-                request_payload.update(payload.kwargs)
+            if request_payload.get("kwargs"):
+                request_payload.update(request_payload["kwargs"])
 
             # Prepare headers
             headers = {
@@ -65,16 +66,19 @@ class ChatCompletionMixin(AioHttpClientMixin):
             if self.client_config.api_key:
                 headers["Authorization"] = f"Bearer {self.client_config.api_key}"
 
-            if self.client_config.organization:
-                headers["OpenAI-Organization"] = self.client_config.organization
+            # if self.client_config.organization:
+            # headers["OpenAI-Organization"] = self.client_config.organization
 
             # Construct full URL
-            base_url = (
-                f"https://{self.client_config.base_url}"
-                if not self.client_config.base_url.startswith(("http://", "https://"))
-                else self.client_config.base_url
+            # base_url = (
+            #     f"https://{self.client_config.base_url}"
+            #     if not self.client_config.base_url.startswith(("http://", "https://"))
+            #     else self.client_config.base_url
+            # )
+            self.logger.warning(
+                "Sending chat completion request to %s", self.client_config.base_url
             )
-            url = f"{base_url.rstrip('/')}/{self.model_endpoint.endpoint.type}"
+            url = f"{self.client_config.base_url.rstrip('/')}/v1/chat/completions"
 
             record = await self.post_request(
                 url, json.dumps(request_payload), headers, delayed=False

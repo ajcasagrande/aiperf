@@ -35,7 +35,6 @@ class WorkerProcessInfo(BaseModel):
 
     worker_id: str = Field(..., description="ID of the worker process")
     process: Any = Field(None, description="Process object or task")
-    worker: Worker = Field(..., description="Worker object")
 
 
 @ServiceFactory.register(ServiceType.WORKER_MANAGER, override_priority=100)
@@ -148,7 +147,7 @@ class WorkerManager(BaseComponentService):
         """Spawn worker processes using multiprocessing."""
         self.logger.debug(f"Spawning {self.worker_count} worker processes")
 
-        # mp_ctx = multiprocessing.get_context("fork")
+        # mp_ctx = multiprocessing.get_context("spawn")
 
         # Get the global log queue for child process logging
         from aiperf.common.logging import get_global_log_queue
@@ -157,7 +156,6 @@ class WorkerManager(BaseComponentService):
 
         for _ in range(self.worker_count):
             worker_id = f"worker_{uuid.uuid4().hex[:8]}"
-            worker = Worker(service_config=self.service_config, service_id=worker_id)
 
             process = Process(
                 target=bootstrap_and_run_service,
@@ -171,7 +169,6 @@ class WorkerManager(BaseComponentService):
             self.workers[worker_id] = WorkerProcessInfo(
                 worker_id=worker_id,
                 process=process,
-                worker=worker,
             )
             self.logger.debug(
                 f"Started worker process {worker_id} (pid: {process.pid})"
@@ -184,8 +181,6 @@ class WorkerManager(BaseComponentService):
         # First terminate all processes
         for worker_id, worker_info in self.workers.items():
             self.logger.debug(f"Stopping worker process {worker_id} {worker_info}")
-            worker = worker_info.worker
-            worker.stop_event.set()
             process = worker_info.process
             if process and process.is_alive():
                 self.logger.debug(

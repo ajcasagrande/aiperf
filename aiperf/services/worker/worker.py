@@ -8,14 +8,14 @@ import time
 
 import psutil
 
-from aiperf.clients.openai.common import OpenAIClientConfig
+from aiperf.clients.openai.common import OpenAIChatCompletionRequest, OpenAIClientConfig
 from aiperf.common.comms.base import (
-    CommunicationClientProtocol,
     PubClientProtocol,
     PullClientProtocol,
     PushClientProtocol,
     RequestClientProtocol,
 )
+from aiperf.common.comms.zmq.zmq_comms import BaseZMQCommunication
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.constants import (
     BYTES_PER_MIB,
@@ -50,7 +50,6 @@ from aiperf.common.messages import (
     CreditDropMessage,
     CreditReturnMessage,
     CtxSwitches,
-    ErrorMessage,
     InferenceResultsMessage,
     WorkerHealthMessage,
 )
@@ -96,7 +95,7 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin):
         self.stop_event: asyncio.Event = asyncio.Event()
         self.health_task: asyncio.Task | None = None
 
-        self.comms: CommunicationClientProtocol = CommunicationFactory.create_instance(
+        self.comms: BaseZMQCommunication = CommunicationFactory.create_instance(
             self.service_config.comm_backend,
             config=self.service_config.comm_config,
         )
@@ -119,6 +118,32 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin):
         )
         self.pub_client: PubClientProtocol = self.comms.create_pub_client(
             CommunicationClientAddressType.EVENT_BUS_PROXY_FRONTEND,
+        )
+
+        api_key = os.environ.get("OPENAI_API_KEY", None)
+
+        # Default OpenAI inference server endpoint
+        openai_client_config = OpenAIClientConfig(
+            api_key=api_key,
+            base_url=f"http://{os.getenv('AIPERF_HOST', '127.0.0.1')}:{os.getenv('AIPERF_PORT', 8080)}",
+        )
+        self.model_endpoint = ModelEndpointInfo(
+            models=[
+                ModelInfo(
+                    name=os.getenv(
+                        "AIPERF_MODEL", "deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
+                    )
+                )
+            ],
+            endpoint=EndpointInfo(
+                type=RequestPayloadType.OPENAI_CHAT_COMPLETIONS,
+                streaming=os.getenv("AIPERF_STREAMING", "true").lower() == "true",
+            ),
+            model_selection_strategy=ModelSelectionStrategy.ROUND_ROBIN,
+        )
+
+        self.inference_client = InferenceClientFactory.create_instance(
+            InferenceClientType.OPENAI, client_config=openai_client_config
         )
 
     @property
@@ -265,23 +290,35 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin):
             )
             self.logger.debug("Received response message: %s", response)
 
-            if isinstance(response, ErrorMessage):
-                return RequestRecord(
-                    error=response.error,
-                )
+            # if isinstance(response, ErrorMessage):
+            #     return RequestRecord(
+            #         error=response.error,
+            #     )
 
-            # Format payload for the API request
-            formatted_payload = await self.inference_client.format_payload(
-                model_endpoint=self.model_endpoint,
-                turn=response.conversation.turns[0],  # todo: handle multiple turns
-                # payload={
-                #     "messages": [
-                #         {
-                #             "role": "user",
-                #             "content": "IO Sir you say well and well you do conceive And since you do profess to be a suitor You must as we do gratify this gentleman To whom we all rest generally beholding TRANIO Sir I shall not be slack in sign whereof Please ye we may contrive this afternoon And quaff carouses to our mistress health And do as adversaries do in law Strive mightily but eat and drink as friends GRUMIO BIONDELLO O excellent motion Fellows lets be gone HORT",
-                #         },
-                #     ],
-                # },
+            # # Format payload for the API request
+            # formatted_payload = await self.inference_client.format_payload(
+            #     model_endpoint=self.model_endpoint,
+            #     turn=response.conversation.turns[0],  # todo: handle multiple turns
+            #     # payload={
+            #     #     "messages": [
+            #     #         {
+            #     #             "role": "user",
+            #     #             "content": "IO Sir you say well and well you do conceive And since you do profess to be a suitor You must as we do gratify this gentleman To whom we all rest generally beholding TRANIO Sir I shall not be slack in sign whereof Please ye we may contrive this afternoon And quaff carouses to our mistress health And do as adversaries do in law Strive mightily but eat and drink as friends GRUMIO BIONDELLO O excellent motion Fellows lets be gone HORT",
+            #     #         },
+            #     #     ],
+            #     # },
+            # )
+
+            formatted_payload = OpenAIChatCompletionRequest(
+                messages=[
+                    {
+                        "role": "user",
+                        "content": "IO Sir you say well and well you do conceive And since you do profess to be a suitor You must as we do gratify this gentleman To whom we all rest generally beholding TRANIO Sir I shall not be slack in sign whereof Please ye we may contrive this afternoon And quaff carouses to our mistress health And do as adversaries do in law Strive mightily but eat and drink as friends GRUMIO BIONDELLO O excellent motion Fellows lets be gone HORT",
+                    },
+                ],
+                model=self.model_endpoint.models[0].name,
+                max_tokens=100,
+                stream=True,
             )
 
             delayed = False
@@ -301,7 +338,10 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin):
 
         except Exception as e:
             self.logger.error(
-                "Error calling inference server: %s %s", e.__class__.__name__, str(e)
+                "Error calling inference server API at %s: %s %s",
+                self.model_endpoint.endpoint,
+                e.__class__.__name__,
+                str(e),
             )
             return RequestRecord(
                 error=ErrorDetails.from_exception(e),

@@ -61,22 +61,31 @@ class BaseZMQCommunicationConfig(BaseModel, ABC):
         match address_type:
             case CommunicationClientAddressType.EVENT_BUS_PROXY_FRONTEND:
                 return self.event_bus_proxy_config.frontend_address
+
             case CommunicationClientAddressType.EVENT_BUS_PROXY_BACKEND:
                 return self.event_bus_proxy_config.backend_address
+
             case CommunicationClientAddressType.DATASET_MANAGER_PROXY_FRONTEND:
                 return self.dataset_manager_proxy_config.frontend_address
+
             case CommunicationClientAddressType.DATASET_MANAGER_PROXY_BACKEND:
                 return self.dataset_manager_proxy_config.backend_address
+
             case CommunicationClientAddressType.CREDIT_DROP:
                 return self.credit_drop_address
+
             case CommunicationClientAddressType.CREDIT_RETURN:
                 return self.credit_return_address
+
             case CommunicationClientAddressType.RECORDS:
                 return self.records_push_pull_address
+
             case CommunicationClientAddressType.RAW_INFERENCE_PROXY_FRONTEND:
                 return self.raw_inference_proxy_config.frontend_address
+
             case CommunicationClientAddressType.RAW_INFERENCE_PROXY_BACKEND:
                 return self.raw_inference_proxy_config.backend_address
+
             case _:
                 raise ValueError(f"Invalid address type: {address_type}")
 

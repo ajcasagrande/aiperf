@@ -67,13 +67,12 @@ class BaseZMQCommunication(CommunicationProtocol, ABC):
         if self.is_initialized:
             return
 
-        await asyncio.gather(
-            *(
-                client.initialize()
-                for client in self.clients
-                if not client.is_initialized
-            )
-        )
+        tasks = []
+        for client in self.clients:
+            if not client.is_initialized:
+                tasks.append(asyncio.create_task(client.initialize()))
+
+        await asyncio.gather(*tasks)
         self.initialized_event.set()
 
     async def shutdown(self) -> None:

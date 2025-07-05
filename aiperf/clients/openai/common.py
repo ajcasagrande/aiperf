@@ -3,7 +3,6 @@
 
 from typing import Any
 
-from openai.types.chat import ChatCompletionMessageParam
 from pydantic import BaseModel, ConfigDict, Field
 
 from aiperf.common.interfaces import InferenceClientProtocol
@@ -53,7 +52,7 @@ class OpenAIBaseRequest(BaseModel):
 class OpenAIChatCompletionRequest(OpenAIBaseRequest):
     """Request specific to an OpenAI chat completion."""
 
-    messages: list[ChatCompletionMessageParam] = Field(
+    messages: list[dict] = Field(
         default_factory=list,
         description="The messages to use for the OpenAI inference client.",
     )

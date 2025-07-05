@@ -268,6 +268,7 @@ class BaseZMQProxy(ABC):
                     control=self.control_client.socket if self.control_client else None,
                 )
             )
+            self.logger.debug("Proxy Started")
 
         except zmq.ContextTerminated:
             self.logger.debug("Proxy Terminated by Context")

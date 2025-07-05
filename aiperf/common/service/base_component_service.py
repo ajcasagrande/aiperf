@@ -47,7 +47,7 @@ class BaseComponentService(BaseService):
         ] = {}
 
     @on_init
-    async def _on_init1(self) -> None:
+    async def _on_init(self) -> None:
         """Automatically subscribe to the command message_type and register the service
         with the system controller when the run hook is called.
 
@@ -64,9 +64,6 @@ class BaseComponentService(BaseService):
             )
         except Exception as e:
             raise self._service_error("Failed to subscribe to command topic") from e
-
-        # TODO: HACK: Sleep for 1 second to allow the controller to be ready to register the service
-        await asyncio.sleep(1)
 
         # Register the service
         try:
