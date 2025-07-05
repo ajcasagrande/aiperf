@@ -44,18 +44,13 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
 
     async def start(self) -> None:
         self.start_time_ns = time.time_ns()
+        self.execute_async(self._progress_report_loop())
+        self.execute_async(self._credit_drop_loop())
 
-        self.execute_async(
-            self.credit_manager.publish_progress(
-                self.start_time_ns, self._total_credits, self._completed_credits
-            )
-        )
-
-        self.execute_async(self._report_progress())
-        self.execute_async(self._issue_credit_drops())
-
-    async def _issue_credit_drops(self) -> None:
+    async def _credit_drop_loop(self) -> None:
         """Issue credit drops to workers."""
+
+        await asyncio.sleep(1.5)  # TODO: HACK: Wait for the system to be ready
 
         self.logger.info(
             "TM: Issuing credit drops %s total credits, %s concurrency",
@@ -73,7 +68,7 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
             )
             self._sent_credits += 1
 
-        self.logger.info("TM: All credits sent, stopping credit drop task")
+        self.logger.info("TM: All credits sent, stopping credit drop loop")
 
     async def on_credit_return(self, message: CreditReturnMessage) -> None:
         """Process a credit return message."""
@@ -102,7 +97,7 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
                     / ((time.time_ns() - self.start_time_ns) / NANOS_PER_SECOND),
                 )
 
-    async def _report_progress(self) -> None:
+    async def _progress_report_loop(self) -> None:
         """Report the progress at a fixed interval."""
         while True:
             try:
@@ -110,7 +105,7 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
                     self.start_time_ns, self._total_credits, self._completed_credits
                 )
             except asyncio.CancelledError:
-                self.logger.debug("TM: Progress reporting task cancelled")
+                self.logger.debug("TM: Progress reporting loop cancelled")
                 break
             except Exception as e:
                 self.logger.error("TM: Error publishing progress: %s", e)

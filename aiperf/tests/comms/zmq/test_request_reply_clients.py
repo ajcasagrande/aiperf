@@ -416,12 +416,10 @@ class TestZMQRouterReplyClient:
 
         client.register_request_handler(service_id, message_type, mock_async_callback)
 
-        # Registering again should overwrite
+        # Registering again should raise an error
         new_handler = AsyncMock()
-        client.register_request_handler(service_id, message_type, new_handler)
-
-        key = (service_id, message_type)
-        assert client._request_handlers[key] == new_handler
+        with pytest.raises(ValueError, match="Handler already registered"):
+            client.register_request_handler(service_id, message_type, new_handler)
 
     @pytest.mark.asyncio
     async def test_reply_receiving_task(

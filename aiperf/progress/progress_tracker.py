@@ -119,7 +119,7 @@ class ProgressTracker:
         current_time_ns = time.time_ns()
         profile = self.suite.current_profile
         profile.request_errors = message.error_count
-        profile.successful_requests = message.completed - profile.request_errors
+        profile.successful_requests = message.completed - message.error_count
         profile.requests_processed = message.completed
 
         profile.worker_completed = message.worker_completed

@@ -25,12 +25,7 @@ class AsyncTaskManagerMixin:
 
     async def stop(self) -> None:
         """Stop all tasks in the set and wait for them to complete."""
-        if not self.tasks:
-            return
-
-        # Cancel all tasks
-        for task in list(self.tasks):
-            task.cancel()
+        await self.cancel_all_tasks()
 
     async def cancel_all_tasks(
         self, timeout: float = TASK_CANCEL_TIMEOUT_SHORT

@@ -151,7 +151,7 @@ class RecordsManager(BaseComponentService):
             ProcessingStatsMessage(
                 service_id=self.service_id,
                 error_count=self.error_records_count,
-                completed=self.records_count,
+                completed=self.records_count + self.error_records_count,
                 worker_completed=self.worker_success_counts,
                 worker_errors=self.worker_error_counts,
             ),

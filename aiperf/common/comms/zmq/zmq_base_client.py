@@ -72,7 +72,7 @@ class BaseZMQClient(AIPerfTaskMixin):
         super().__init__()
         # Set the logger after the super init to override the name
         self.logger = logging.getLogger(self.client_id)
-        self.logger.warning("ZMQ client __init__: %s", self.client_id)
+        self.logger.debug("ZMQ client __init__: %s", self.client_id)
 
     @property
     def is_initialized(self) -> bool:
