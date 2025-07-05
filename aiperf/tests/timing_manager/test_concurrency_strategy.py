@@ -5,7 +5,7 @@ Comprehensive unit tests for the ConcurrencyStrategy class.
 """
 
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -18,10 +18,16 @@ def sec_to_nanos(seconds: float) -> int:
     return int(seconds * NANOS_PER_SECOND)
 
 
-class MockSemaphore(MagicMock):
+class MockSemaphore(asyncio.Semaphore):
     def __init__(self):
-        self.acquire = AsyncMock()
-        self.release = AsyncMock()
+        self.acquire_count = 0
+        self.release_count = 0
+
+    async def acquire(self):
+        self.acquire_count += 1
+
+    def release(self):
+        self.release_count += 1
 
 
 @pytest.mark.asyncio
@@ -67,7 +73,7 @@ class TestConcurrencyStrategy:
 
         # Verify all credits were sent
         assert strategy._sent_credits == 3
-        assert strategy._semaphore.acquire.call_count == 3
+        assert strategy._semaphore.acquire_count == 3
         assert len(mock_credit_manager.dropped_credits) == 3
 
     async def test_credit_drop_loop_with_zero_credits(
@@ -95,9 +101,7 @@ class TestConcurrencyStrategy:
 
         strategy = ConcurrencyStrategy(config, mock_credit_manager)
         strategy.start_time_ns = sec_to_nanos(1)
-
-        # Mock the semaphore release
-        strategy._semaphore.release = MagicMock()
+        strategy._semaphore = MockSemaphore()
 
         message = CreditReturnMessage(service_id="test-service")
 
@@ -107,7 +111,7 @@ class TestConcurrencyStrategy:
         await asyncio.gather(*strategy.tasks)
 
         assert strategy._completed_credits == 1
-        strategy._semaphore.release.assert_called_once()
+        assert strategy._semaphore.release_count == 1
 
     @patch("time.time_ns")
     async def test_on_credit_return_triggers_credits_complete(
@@ -133,7 +137,7 @@ class TestConcurrencyStrategy:
 
         assert strategy._completed_credits == 2
         assert len(mock_credit_manager.credits_complete_calls) == 1
-        assert strategy._semaphore.release.call_count == 1
+        assert strategy._semaphore.release_count == 1
         assert mock_credit_manager.credits_complete_calls[0]["cancelled"] is False
 
     @patch("time.time_ns")
@@ -185,7 +189,7 @@ class TestConcurrencyStrategy:
 
         # Verify credits were sent
         assert strategy._sent_credits == 3
-        assert strategy._semaphore.acquire.call_count == 3
+        assert strategy._semaphore.acquire_count == 3
         assert len(mock_credit_manager.dropped_credits) == 3
 
         # Simulate credit returns
@@ -202,5 +206,5 @@ class TestConcurrencyStrategy:
 
         # Verify credits were returned
         assert strategy._completed_credits == 3
-        assert strategy._semaphore.release.call_count == 3
+        assert strategy._semaphore.release_count == 3
         assert len(mock_credit_manager.credits_complete_calls) == 1
