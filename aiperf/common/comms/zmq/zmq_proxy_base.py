@@ -103,8 +103,6 @@ class BaseZMQProxy(ABC):
         self.monitor_task: asyncio.Task | None = None
         self.control_client: ProxySocketClient | None = None
         self.capture_client: ProxySocketClient | None = None
-        self.proxy_task: asyncio.Task | None = None
-        self.proxy: zmq.asyncio.Socket | None = None
 
         self.frontend_address = zmq_proxy_config.frontend_address
         self.backend_address = zmq_proxy_config.backend_address
@@ -219,28 +217,6 @@ class BaseZMQProxy(ABC):
                         self.monitor_task, timeout=TASK_CANCEL_TIMEOUT_SHORT
                     )
 
-            if self.proxy_task is not None:
-                self.logger.debug("Cancelling Proxy Task")
-                self.proxy_task.cancel()
-                with suppress(asyncio.TimeoutError):
-                    await asyncio.wait_for(
-                        self.proxy_task, timeout=TASK_CANCEL_TIMEOUT_SHORT
-                    )
-
-            await asyncio.wait_for(
-                asyncio.gather(
-                    self.backend_socket.shutdown(),
-                    self.frontend_socket.shutdown(),
-                    *[
-                        client.shutdown()
-                        for client in [self.control_client, self.capture_client]
-                        if client
-                    ],
-                ),
-                timeout=TASK_CANCEL_TIMEOUT_SHORT,
-            )
-            self.logger.debug("Proxy Stopped")
-
         except Exception as e:
             self.logger.error("Proxy Stop Error: %s", e)
 
@@ -256,26 +232,23 @@ class BaseZMQProxy(ABC):
         try:
             await self._initialize()
 
-            self.logger.debug("Proxy Starting...")
+            self.logger.debug("Starting Proxy...")
 
             if self.capture_client:
                 self.monitor_task = asyncio.create_task(self._monitor_messages())
                 self.logger.debug("Proxy Message Monitoring Started")
 
-            self.proxy_task = asyncio.create_task(
-                asyncio.to_thread(
-                    zmq.proxy_steerable,
-                    self.frontend_socket.socket,
-                    self.backend_socket.socket,
-                    capture=self.capture_client.socket if self.capture_client else None,
-                    control=self.control_client.socket if self.control_client else None,
-                )
+            await asyncio.to_thread(
+                zmq.proxy_steerable,
+                self.frontend_socket.socket,
+                self.backend_socket.socket,
+                capture=self.capture_client.socket if self.capture_client else None,
+                control=self.control_client.socket if self.control_client else None,
             )
-            self.logger.debug("Proxy Started")
 
         except zmq.ContextTerminated:
             self.logger.debug("Proxy Terminated by Context")
-            raise
+            return
 
         except Exception as e:
             self.logger.error("Proxy Error: %s", e)

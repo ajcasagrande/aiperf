@@ -100,6 +100,8 @@ class BaseZMQCommunication(BaseCommunication, ABC):
                 *(client.shutdown() for client in self.clients if client.is_initialized)
             )
 
+            self.context.term()
+
         except asyncio.CancelledError:
             pass
 

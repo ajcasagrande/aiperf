@@ -123,13 +123,11 @@ def tcp_config() -> ZMQTCPConfig:
     """Fixture providing ZMQ TCP configuration."""
     return ZMQTCPConfig(
         host="127.0.0.1",
-        port_range_start=50000,
-        port_range_end=50100,
     )
 
 
 @pytest.fixture
-def ipc_config() -> ZMQIPCConfig:
+def ipc_config() -> Generator[ZMQIPCConfig, None, None]:
     """Fixture providing ZMQ IPC configuration."""
     with tempfile.TemporaryDirectory() as tmp_dir:
         yield ZMQIPCConfig(path=tmp_dir)

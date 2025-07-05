@@ -63,7 +63,7 @@ class AioHttpClientMixin:
         Otherwise, the response will be parsed into a TextResponse object.
         """
 
-        self.logger.warning("Sending POST request to %s", url)
+        self.logger.debug("Sending POST request to %s", url)
 
         record: RequestRecord = RequestRecord(
             start_perf_ns=time.perf_counter_ns(),

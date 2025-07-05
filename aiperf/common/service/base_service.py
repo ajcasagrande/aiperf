@@ -59,7 +59,6 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
         )
 
         self._state: ServiceState = ServiceState.UNKNOWN
-        self._heartbeat_interval = self.service_config.heartbeat_interval
 
         self.stop_event = asyncio.Event()
         self.initialized_event = asyncio.Event()
@@ -70,10 +69,10 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
         )
         self.sub_client = self.comms.create_sub_client(
             CommunicationClientAddressType.EVENT_BUS_PROXY_BACKEND
-        )
+        )  # type: ignore
         self.pub_client = self.comms.create_pub_client(
             CommunicationClientAddressType.EVENT_BUS_PROXY_FRONTEND
-        )
+        )  # type: ignore
 
         try:
             import setproctitle

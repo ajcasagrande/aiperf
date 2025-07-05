@@ -201,8 +201,6 @@ class BaseZMQClient(AIPerfTaskMixin):
                 "Exception running ON_STOP hooks: %s (%s)", e, self.client_id
             )
 
-        await self.cancel_all_tasks()
-
         # Run the ON_STOP and ON_CLEANUP hooks
         try:
             await self.run_hooks(AIPerfHook.ON_STOP)

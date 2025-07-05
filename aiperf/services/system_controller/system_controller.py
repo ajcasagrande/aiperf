@@ -11,7 +11,6 @@ from pydantic import BaseModel
 from aiperf.common.comms.zmq.zmq_proxy_base import BaseZMQProxy, ZMQProxyFactory
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
-from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
 from aiperf.common.enums import (
     CommandResponseStatus,
     CommandType,
@@ -25,7 +24,7 @@ from aiperf.common.enums import (
 )
 from aiperf.common.exceptions import CommunicationError, NotInitializedError
 from aiperf.common.factories import ServiceFactory
-from aiperf.common.hooks import on_cleanup, on_stop
+from aiperf.common.hooks import on_cleanup, on_start, on_stop
 from aiperf.common.logging import get_global_log_queue
 from aiperf.common.messages import (
     CommandResponseMessage,
@@ -59,7 +58,7 @@ from aiperf.ui.aiperf_ui import AIPerfUI
 
 
 @ServiceFactory.register(ServiceType.SYSTEM_CONTROLLER)
-class SystemController(SignalHandlerMixin, BaseControllerService):
+class SystemController(BaseControllerService, SignalHandlerMixin):
     """System Controller service.
 
     This service is responsible for managing the lifecycle of all other services.
@@ -223,49 +222,8 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         await self._setup_subscriptions()
 
         self._system_state = SystemState.CONFIGURING
-        await self._bootstrap_system()
 
-    async def _handle_signal(self, sig: int) -> None:
-        """Handle received signals by triggering graceful shutdown.
-
-        Args:
-            sig: The signal number received
-        """
-        self.logger.debug("Received signal %s, initiating graceful shutdown", sig)
-        if sig == signal.SIGINT or sig == signal.SIGTERM:
-            if self.stop_event.is_set():
-                self.logger.debug("Stop event is already set, killing all services")
-                await self.kill()
-                return
-
-            if self.profile_runner and self.profile_runner.is_complete:
-                self.stop_event.set()
-                return
-
-            if self.profile_runner and self.profile_runner.was_cancelled:
-                self.logger.error("Profile was cancelled, killing all services")
-                await self.kill()
-                return
-
-            if self.pub_client.stop_requested:
-                self.logger.error("Pub client is shutdown, killing all services")
-                await self.kill()
-                return
-
-            await self.send_command_to_service(
-                target_service_id=None,
-                target_service_type=ServiceType.RECORDS_MANAGER,
-                command=CommandType.PROCESS_RECORDS,
-                data=ProcessRecordsCommandData(cancelled=True),
-            )
-
-            if self.profile_runner:
-                await self.profile_runner.cancel_profile()
-
-            self.stop_event.set()
-        else:
-            self.stop_event.set()
-
+    @on_start
     async def _bootstrap_system(self) -> None:
         """Bootstrap the system services.
 
@@ -315,6 +273,48 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         self.logger.debug("All required services started successfully")
         self.logger.info("AIPerf System is RUNNING")
 
+    async def _handle_signal(self, sig: int) -> None:
+        """Handle received signals by triggering graceful shutdown.
+
+        Args:
+            sig: The signal number received
+        """
+        self.logger.debug("Received signal %s, initiating graceful shutdown", sig)
+        if sig == signal.SIGINT or sig == signal.SIGTERM:
+            if self.stop_event.is_set():
+                self.logger.debug("Stop event is already set, killing all services")
+                await self.kill()
+                return
+
+            if self.profile_runner and self.profile_runner.is_complete:
+                self.stop_event.set()
+                return
+
+            if self.profile_runner and self.profile_runner.was_cancelled:
+                self.logger.error("Profile was cancelled, killing all services")
+                await self.kill()
+                return
+
+            if self.pub_client.stop_requested:
+                self.logger.error("Pub client is shutdown, killing all services")
+                await self.kill()
+                return
+
+            await self.send_command_to_service(
+                target_service_id=None,
+                target_service_type=ServiceType.RECORDS_MANAGER,
+                command=CommandType.PROCESS_RECORDS,
+                data=ProcessRecordsCommandData(cancelled=True),
+            )
+
+            if self.profile_runner:
+                await self.profile_runner.cancel_profile()
+
+            if self.comms:
+                await self.comms.shutdown()
+
+        self.stop_event.set()
+
     @on_stop
     async def _stop(self) -> None:
         """Stop the system controller and all running services.
@@ -353,30 +353,6 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             raise self._service_error(
                 "Failed to stop all services",
             ) from e
-
-        tasks = []
-        if self.event_bus_proxy_task:
-            await self.event_bus_proxy.stop()
-            self.event_bus_proxy_task.cancel()
-            tasks.append(self.event_bus_proxy_task)
-
-        if self.dataset_manager_proxy_task:
-            await self.dataset_manager_proxy.stop()
-            self.dataset_manager_proxy_task.cancel()
-            tasks.append(self.dataset_manager_proxy_task)
-
-        if self.raw_inference_proxy_task:
-            await self.raw_inference_proxy.stop()
-            self.raw_inference_proxy_task.cancel()
-            tasks.append(self.raw_inference_proxy_task)
-
-        await asyncio.wait_for(
-            asyncio.gather(*tasks),
-            timeout=TASK_CANCEL_TIMEOUT_SHORT,
-        )
-
-        # TODO: This is a hack to give the services time to produce results
-        # await asyncio.sleep(3)
 
     @on_cleanup
     async def _cleanup(self) -> None:

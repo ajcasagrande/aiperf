@@ -292,9 +292,11 @@ class TestZMQTCPCommunication:
         )
 
         # Mock the client to raise an error on shutdown
-        with patch.object(client, "shutdown", side_effect=Exception("Shutdown error")):
-            with pytest.raises(ShutdownError):
-                await comm.shutdown()
+        with (
+            patch.object(client, "shutdown", side_effect=Exception("Shutdown error")),
+            pytest.raises(ShutdownError),
+        ):
+            await comm.shutdown()
 
     @pytest.mark.asyncio
     async def test_dynamic_client_creation_methods(self, tcp_config: ZMQTCPConfig):
@@ -304,37 +306,37 @@ class TestZMQTCPCommunication:
         # Test pub client
         pub_client = comm.create_pub_client(
             CommunicationClientAddressType.EVENT_BUS_PROXY_FRONTEND
-        )
+        )  # type: ignore
         assert pub_client is not None
 
         # Test sub client
         sub_client = comm.create_sub_client(
             CommunicationClientAddressType.EVENT_BUS_PROXY_BACKEND
-        )
+        )  # type: ignore
         assert sub_client is not None
 
         # Test push client
         push_client = comm.create_push_client(
             CommunicationClientAddressType.CREDIT_DROP
-        )
+        )  # type: ignore
         assert push_client is not None
 
         # Test pull client
         pull_client = comm.create_pull_client(
             CommunicationClientAddressType.CREDIT_RETURN
-        )
+        )  # type: ignore
         assert pull_client is not None
 
         # Test request client
         request_client = comm.create_request_client(
             CommunicationClientAddressType.DATASET_MANAGER_PROXY_FRONTEND
-        )
+        )  # type: ignore
         assert request_client is not None
 
         # Test reply client
         reply_client = comm.create_reply_client(
             CommunicationClientAddressType.DATASET_MANAGER_PROXY_BACKEND
-        )
+        )  # type: ignore
         assert reply_client is not None
 
         assert len(comm.clients) == 6
@@ -427,12 +429,12 @@ class TestZMQIPCCommunication:
             comm = ZMQIPCCommunication(config)
 
             # Create some clients
-            client1 = comm.create_client(
+            _ = comm.create_client(
                 CommunicationClientType.PUB,
                 CommunicationClientAddressType.EVENT_BUS_PROXY_FRONTEND,
             )
 
-            client2 = comm.create_client(
+            _ = comm.create_client(
                 CommunicationClientType.SUB,
                 CommunicationClientAddressType.EVENT_BUS_PROXY_BACKEND,
             )
@@ -516,12 +518,12 @@ class TestZMQIPCCommunication:
         ipc_comm = ZMQIPCCommunication(ipc_config)
 
         # Create clients on both
-        tcp_client = tcp_comm.create_client(
+        _ = tcp_comm.create_client(
             CommunicationClientType.PUB,
             CommunicationClientAddressType.EVENT_BUS_PROXY_FRONTEND,
         )
 
-        ipc_client = ipc_comm.create_client(
+        _ = ipc_comm.create_client(
             CommunicationClientType.SUB,
             CommunicationClientAddressType.EVENT_BUS_PROXY_BACKEND,
         )

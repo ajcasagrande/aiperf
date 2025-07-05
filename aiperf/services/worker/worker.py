@@ -100,23 +100,23 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin):
 
         self.credit_drop_client: PullClientProtocol = self.comms.create_pull_client(
             CommunicationClientAddressType.CREDIT_DROP,
-        )
+        )  # type: ignore
         self.credit_return_client: PushClientProtocol = self.comms.create_push_client(
             CommunicationClientAddressType.CREDIT_RETURN,
-        )
+        )  # type: ignore
         self.inference_results_client: PushClientProtocol = (
             self.comms.create_push_client(
                 CommunicationClientAddressType.RAW_INFERENCE_PROXY_FRONTEND,
             )
-        )
+        )  # type: ignore
         self.conversation_data_client: RequestClientProtocol = (
             self.comms.create_request_client(
                 CommunicationClientAddressType.DATASET_MANAGER_PROXY_FRONTEND,
             )
-        )
+        )  # type: ignore
         self.pub_client: PubClientProtocol = self.comms.create_pub_client(
             CommunicationClientAddressType.EVENT_BUS_PROXY_FRONTEND,
-        )
+        )  # type: ignore
 
         api_key = os.environ.get("OPENAI_API_KEY", None)
 

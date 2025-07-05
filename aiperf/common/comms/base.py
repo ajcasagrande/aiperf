@@ -190,6 +190,36 @@ class CommunicationClientFactory(
 ################################################################################
 
 
+ClientProtocolT = TypeVar("ClientProtocolT", bound=CommunicationClientProtocol)
+
+
+def _create_specific_client(
+    client_type: CommunicationClientType,
+    client_class: type[ClientProtocolT],
+) -> Callable[
+    [
+        "BaseCommunication",
+        CommunicationClientAddressType | str,
+        bool,
+        dict | None,
+    ],
+    ClientProtocolT,
+]:
+    def _create_client(
+        self: "BaseCommunication",
+        address: CommunicationClientAddressType | str,
+        bind: bool = False,
+        socket_ops: dict | None = None,
+    ) -> ClientProtocolT:
+        return cast(
+            ClientProtocolT, self.create_client(client_type, address, bind, socket_ops)
+        )
+
+    _create_client.__name__ = f"create_{client_type.lower()}_client"
+    _create_client.__doc__ = f"Create a {client_type.upper()} client"
+    return _create_client
+
+
 class BaseCommunication(ABC):
     """Base class for specifying the base communication layer for AIPerf components."""
 
@@ -247,51 +277,27 @@ class BaseCommunication(ABC):
             socket_ops: Additional socket options to set.
         """
 
+    create_pub_client = _create_specific_client(
+        CommunicationClientType.PUB, PubClientProtocol
+    )
+    create_sub_client = _create_specific_client(
+        CommunicationClientType.SUB, SubClientProtocol
+    )
+    create_push_client = _create_specific_client(
+        CommunicationClientType.PUSH, PushClientProtocol
+    )
+    create_pull_client = _create_specific_client(
+        CommunicationClientType.PULL, PullClientProtocol
+    )
+    create_request_client = _create_specific_client(
+        CommunicationClientType.REQUEST, RequestClientProtocol
+    )
+    create_reply_client = _create_specific_client(
+        CommunicationClientType.REPLY, ReplyClientProtocol
+    )
+
 
 class CommunicationFactory(FactoryMixin[CommunicationBackend, BaseCommunication]):
     """Factory for registering and creating BaseCommunication instances based on the specified communication backend.
     See :class:`FactoryMixin` for more details.
     """
-
-
-ClientProtocolT = TypeVar("ClientProtocolT", bound=CommunicationClientProtocol)
-
-
-def _create_specific_client(
-    client_type: CommunicationClientType,
-    client_class: type[ClientProtocolT],
-) -> Callable[
-    [
-        BaseCommunication,
-        CommunicationClientAddressType | str,
-        bool,
-        dict | None,
-    ],
-    ClientProtocolT,
-]:
-    def _create_client(
-        self: BaseCommunication,
-        address: CommunicationClientAddressType | str,
-        bind: bool = False,
-        socket_ops: dict | None = None,
-    ) -> ClientProtocolT:
-        return cast(
-            ClientProtocolT, self.create_client(client_type, address, bind, socket_ops)
-        )
-
-    _create_client.__name__ = f"create_{client_type.lower()}_client"
-    _create_client.__doc__ = f"Create a {client_type.upper()} client"
-    return _create_client
-
-
-# Create a method for creating each client type on the BaseCommunication class,
-# such as create_push_client, create_pull_client, etc.
-for (
-    protocol_class,
-    client_type,
-) in CommunicationClientProtocolFactory.get_all_classes_and_types():
-    setattr(
-        BaseCommunication,
-        f"create_{client_type.lower()}_client",
-        _create_specific_client(client_type, protocol_class),
-    )

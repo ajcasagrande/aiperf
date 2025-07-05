@@ -75,7 +75,7 @@ class ChatCompletionMixin(AioHttpClientMixin):
             #     if not self.client_config.base_url.startswith(("http://", "https://"))
             #     else self.client_config.base_url
             # )
-            self.logger.warning(
+            self.logger.debug(
                 "Sending chat completion request to %s", self.client_config.base_url
             )
             url = f"{self.client_config.base_url.rstrip('/')}/v1/chat/completions"

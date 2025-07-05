@@ -45,6 +45,7 @@ class BaseComponentService(BaseService):
         self._command_callbacks: dict[
             CommandType, Callable[[CommandMessage], Awaitable[None]]
         ] = {}
+        self._heartbeat_interval = self.service_config.heartbeat_interval
 
     @on_init
     async def _on_init(self) -> None:

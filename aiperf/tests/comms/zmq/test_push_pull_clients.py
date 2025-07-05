@@ -435,10 +435,8 @@ class TestZMQPullClient:
         await client.initialize()
 
         # Mock the cancel_all_tasks method
-        with pytest.raises(
-            NotImplementedError
-        ):  # Mocking a method that doesn't exist in the base class
-            await client.on_stop()
+        with pytest.raises(NotImplementedError):
+            await client._stop()
 
     @pytest.mark.parametrize(
         "message_type",
