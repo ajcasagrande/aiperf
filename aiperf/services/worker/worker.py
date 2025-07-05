@@ -10,12 +10,13 @@ import psutil
 
 from aiperf.clients.openai.common import OpenAIChatCompletionRequest, OpenAIClientConfig
 from aiperf.common.comms.base import (
+    BaseCommunication,
+    CommunicationFactory,
     PubClientProtocol,
     PullClientProtocol,
     PushClientProtocol,
     RequestClientProtocol,
 )
-from aiperf.common.comms.zmq.zmq_comms import BaseZMQCommunication
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.constants import (
     BYTES_PER_MIB,
@@ -30,11 +31,7 @@ from aiperf.common.enums import (
     RequestPayloadType,
     ServiceType,
 )
-from aiperf.common.factories import (
-    CommunicationFactory,
-    InferenceClientFactory,
-    ServiceFactory,
-)
+from aiperf.common.factories import InferenceClientFactory, ServiceFactory
 from aiperf.common.hooks import (
     aiperf_task,
     on_configure,
@@ -50,6 +47,7 @@ from aiperf.common.messages import (
     CreditDropMessage,
     CreditReturnMessage,
     CtxSwitches,
+    ErrorMessage,
     InferenceResultsMessage,
     WorkerHealthMessage,
 )
@@ -95,7 +93,7 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin):
         self.stop_event: asyncio.Event = asyncio.Event()
         self.health_task: asyncio.Task | None = None
 
-        self.comms: BaseZMQCommunication = CommunicationFactory.create_instance(
+        self.comms: BaseCommunication = CommunicationFactory.create_instance(
             self.service_config.comm_backend,
             config=self.service_config.comm_config,
         )
@@ -290,10 +288,13 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin):
             )
             self.logger.debug("Received response message: %s", response)
 
-            # if isinstance(response, ErrorMessage):
-            #     return RequestRecord(
-            #         error=response.error,
-            #     )
+            if isinstance(response, ErrorMessage):
+                return RequestRecord(
+                    timestamp_ns=time.time_ns(),
+                    start_perf_ns=time.perf_counter_ns(),
+                    end_perf_ns=time.perf_counter_ns(),
+                    error=response.error,
+                )
 
             # # Format payload for the API request
             # formatted_payload = await self.inference_client.format_payload(

@@ -212,6 +212,7 @@ class BaseZMQProxy(ABC):
 
         try:
             if self.monitor_task is not None:
+                self.logger.debug("Cancelling Monitor Task")
                 self.monitor_task.cancel()
                 with suppress(asyncio.TimeoutError):
                     await asyncio.wait_for(
@@ -219,6 +220,7 @@ class BaseZMQProxy(ABC):
                     )
 
             if self.proxy_task is not None:
+                self.logger.debug("Cancelling Proxy Task")
                 self.proxy_task.cancel()
                 with suppress(asyncio.TimeoutError):
                     await asyncio.wait_for(
@@ -237,6 +239,7 @@ class BaseZMQProxy(ABC):
                 ),
                 timeout=TASK_CANCEL_TIMEOUT_SHORT,
             )
+            self.logger.debug("Proxy Stopped")
 
         except Exception as e:
             self.logger.error("Proxy Stop Error: %s", e)

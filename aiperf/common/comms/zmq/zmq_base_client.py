@@ -1,14 +1,12 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
-import contextlib
 import logging
 import uuid
 
 import zmq.asyncio
 
 from aiperf.common.comms.zmq.zmq_defaults import ZMQSocketDefaults
-from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
 from aiperf.common.exceptions import (
     AIPerfError,
     CommunicationError,
@@ -203,17 +201,7 @@ class BaseZMQClient(AIPerfTaskMixin):
                 "Exception running ON_STOP hooks: %s (%s)", e, self.client_id
             )
 
-        # Cancel all registered tasks
-        for task in self.registered_tasks:
-            task.cancel()
-
-        # Wait for all tasks to complete
-        with contextlib.suppress(asyncio.TimeoutError):
-            await asyncio.wait_for(
-                asyncio.gather(*self.registered_tasks),
-                timeout=TASK_CANCEL_TIMEOUT_SHORT,
-            )
-        self.registered_tasks.clear()
+        await self.cancel_all_tasks()
 
         # Run the ON_STOP and ON_CLEANUP hooks
         try:

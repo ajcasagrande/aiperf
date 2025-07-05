@@ -6,7 +6,6 @@ from typing import Any, Generic, TypeVar
 
 from aiperf.common.enums import (
     CaseInsensitiveStrEnum,
-    CommunicationBackend,
     InferenceClientType,
     PromptSource,
     RequestPayloadType,
@@ -243,26 +242,6 @@ class OutputConverterFactory(
             OutputFormat.OPENAI_CHAT_COMPLETIONS,
         )
         output_converter.convert(...)
-    ```
-    """
-
-
-class CommunicationFactory(FactoryMixin[CommunicationBackend, "BaseCommunication"]):
-    """Factory for registering and creating BaseCommunication instances based on the specified communication backend.
-
-    Example:
-    ```python
-        # Register a new communication backend
-        @CommunicationFactory.register(CommunicationBackend.ZMQ_TCP)
-        class ZMQCommunication(BaseCommunication):
-            pass
-
-        # Create a new communication instance
-        communication = CommunicationFactory.create_instance(
-            CommunicationBackend.ZMQ_TCP,
-            config=ZMQTCPCommunicationConfig(
-                host="localhost", port=5555, timeout=10.0),
-        )
     ```
     """
 

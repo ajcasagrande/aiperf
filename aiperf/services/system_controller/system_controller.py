@@ -123,7 +123,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         logger before the system is fully initialized.
         """
         await self._pre_initialize()
-        await BaseControllerService.initialize(self)
+        await super().initialize()
         await self._post_initialize()
 
     async def _pre_initialize(self) -> None:
@@ -167,32 +167,9 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         self.raw_inference_proxy_task = asyncio.create_task(
             self.raw_inference_proxy.run()
         )
-        await asyncio.sleep(1)
 
-    async def _post_initialize(self) -> None:
-        """Post-initialize the system controller."""
-
-        # TODO: make this configurable
-        self.progress_tracker.configure(BenchmarkSuiteType.SINGLE_PROFILE)
-
-        if self.service_config.service_run_type == ServiceRunType.MULTIPROCESSING:
-            self.service_manager = MultiProcessServiceManager(
-                required_service_types=self.required_service_types,
-                config=self.service_config,
-                log_queue=get_global_log_queue(),
-            )
-
-        elif self.service_config.service_run_type == ServiceRunType.KUBERNETES:
-            self.service_manager = KubernetesServiceManager(
-                required_service_types=self.required_service_types,
-                config=self.service_config,
-            )
-
-        else:
-            raise self._service_error(
-                f"Unsupported service run type: {self.service_config.service_run_type}",
-            )
-
+    async def _setup_subscriptions(self) -> None:
+        """Setup subscriptions for the system controller."""
         # Subscribe to relevant messages
         subscribe_callbacks = [
             (MessageType.REGISTRATION, self._process_registration_message),
@@ -218,6 +195,32 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
                 raise CommunicationError(
                     f"Failed to subscribe to message_type {message_type}: {e}",
                 ) from e
+
+    async def _post_initialize(self) -> None:
+        """Post-initialize the system controller."""
+
+        # TODO: make this configurable
+        self.progress_tracker.configure(BenchmarkSuiteType.SINGLE_PROFILE)
+
+        if self.service_config.service_run_type == ServiceRunType.MULTIPROCESSING:
+            self.service_manager = MultiProcessServiceManager(
+                required_service_types=self.required_service_types,
+                config=self.service_config,
+                log_queue=get_global_log_queue(),
+            )
+
+        elif self.service_config.service_run_type == ServiceRunType.KUBERNETES:
+            self.service_manager = KubernetesServiceManager(
+                required_service_types=self.required_service_types,
+                config=self.service_config,
+            )
+
+        else:
+            raise self._service_error(
+                f"Unsupported service run type: {self.service_config.service_run_type}",
+            )
+
+        await self._setup_subscriptions()
 
         self._system_state = SystemState.CONFIGURING
         await self._bootstrap_system()

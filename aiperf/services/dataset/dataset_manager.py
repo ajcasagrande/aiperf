@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
-import logging
 import os
 import random
 import sys
@@ -22,7 +21,6 @@ from aiperf.common.enums import (
     NotificationType,
     ServiceType,
 )
-from aiperf.common.exceptions import AIPerfError
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
     on_cleanup,
@@ -76,14 +74,12 @@ class DatasetManager(BaseComponentService):
         service_id: str | None = None,
     ) -> None:
         super().__init__(service_config=service_config, service_id=service_id)
-        self.logger = logging.getLogger(self.__class__.__name__)
         self.logger.debug("Dataset manager __init__")
         self.tokenizer: Tokenizer | None = None
         self.dataset: dict[str, Conversation] = {}  # session ID -> Conversation mapping
-        self.dealer_router_client: ReplyClientProtocol = self.comms.create_reply_client(
+        self.reply_client: ReplyClientProtocol = self.comms.create_reply_client(
             CommunicationClientAddressType.DATASET_MANAGER_PROXY_BACKEND
         )
-        self.dealer_router_client.initialize()
         self.dataset_configured = asyncio.Event()
 
     @property
@@ -96,15 +92,12 @@ class DatasetManager(BaseComponentService):
         """Initialize dataset manager-specific components."""
         self.logger.info("Initializing dataset manager %s", self.service_id)
 
-        if self.comms is None:
-            raise AIPerfError("Communication is not initialized")
-
-        self.dealer_router_client.register_request_handler(
+        self.reply_client.register_request_handler(
             service_id=self.service_id,
             message_type=MessageType.CONVERSATION_REQUEST,
             handler=self._handle_conversation_request,
         )
-        self.dealer_router_client.register_request_handler(
+        self.reply_client.register_request_handler(
             service_id=self.service_id,
             message_type=MessageType.DATASET_TIMING_REQUEST,
             handler=self._handle_dataset_timing_request,

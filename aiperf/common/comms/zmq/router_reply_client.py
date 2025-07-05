@@ -103,6 +103,11 @@ class ZMQRouterReplyClient(BaseZMQClient, AsyncTaskManagerMixin):
                 f"Handler already registered for message type {message_type}"
             )
 
+        self.logger.debug(
+            "Registering request handler for %s with message type %s",
+            service_id,
+            message_type,
+        )
         self._request_handlers[message_type] = (service_id, handler)
 
     async def _handle_request(
