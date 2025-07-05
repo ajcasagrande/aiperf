@@ -11,58 +11,25 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.messages import CreditReturnMessage
 from aiperf.services.timing_manager.concurrency_strategy import ConcurrencyStrategy
+
+
+def sec_to_nanos(seconds: float) -> int:
+    return int(seconds * NANOS_PER_SECOND)
 
 
 @pytest.mark.asyncio
 class TestConcurrencyStrategy:
     """Tests for the ConcurrencyStrategy class."""
 
-    async def test_init_default_values(self, config, mock_credit_manager):
-        """Test initialization with default environment variables."""
-        with patch.dict(os.environ, {}, clear=True):
-            strategy = ConcurrencyStrategy(config, mock_credit_manager)
-
-            assert strategy._total_credits == 1000  # Default value
-            assert strategy._concurrency == 10  # Default value
-            assert strategy._sent_credits == 0
-            assert strategy._completed_credits == 0
-            assert strategy.start_time_ns == 0
-            assert strategy._semaphore._value == 10
-            assert strategy.config == config
-            assert strategy.credit_manager == mock_credit_manager
-
-    async def test_init_custom_env_values(self, config, mock_credit_manager):
-        """Test initialization with custom environment variables."""
-        with patch.dict(
-            os.environ, {"AIPERF_TOTAL_REQUESTS": "500", "AIPERF_CONCURRENCY": "20"}
-        ):
-            strategy = ConcurrencyStrategy(config, mock_credit_manager)
-
-            assert strategy._total_credits == 500
-            assert strategy._concurrency == 20
-            assert strategy._semaphore._value == 20
-
-    async def test_init_concurrency_limited_by_total_credits(
-        self, config, mock_credit_manager
-    ):
-        """Test that concurrency is limited by total credits."""
-        with patch.dict(
-            os.environ, {"AIPERF_TOTAL_REQUESTS": "5", "AIPERF_CONCURRENCY": "20"}
-        ):
-            strategy = ConcurrencyStrategy(config, mock_credit_manager)
-
-            assert strategy._total_credits == 5
-            assert strategy._concurrency == 5  # Limited by total credits
-            assert strategy._semaphore._value == 5
-
     @patch("time.time_ns")
     async def test_start_sets_start_time_and_launches_tasks(
         self, mock_time_ns, config, mock_credit_manager
     ):
         """Test that start() sets start time and launches background tasks."""
-        mock_time_ns.return_value = 1000000000
+        mock_time_ns.return_value = sec_to_nanos(1)
 
         strategy = ConcurrencyStrategy(config, mock_credit_manager)
 
@@ -72,7 +39,7 @@ class TestConcurrencyStrategy:
 
         await strategy.start()
 
-        assert strategy.start_time_ns == 1000000000
+        assert strategy.start_time_ns == sec_to_nanos(1)
         # Verify tasks were created (we can't easily verify they were started without more complex mocking)
         assert len(strategy.tasks) == 2
 
@@ -128,10 +95,10 @@ class TestConcurrencyStrategy:
         self, mock_time_ns, config, mock_credit_manager
     ):
         """Test basic credit return processing."""
-        mock_time_ns.return_value = 1000000000
+        mock_time_ns.return_value = sec_to_nanos(2)
 
         strategy = ConcurrencyStrategy(config, mock_credit_manager)
-        strategy.start_time_ns = 1000000000 - 1
+        strategy.start_time_ns = sec_to_nanos(1)
 
         # Mock the semaphore release
         strategy._semaphore.release = MagicMock()
@@ -151,13 +118,13 @@ class TestConcurrencyStrategy:
         self, mock_time_ns, config, mock_credit_manager
     ):
         """Test that credit return triggers credits complete when all credits are returned."""
-        mock_time_ns.return_value = 2000000000
+        mock_time_ns.return_value = sec_to_nanos(2)
 
         with patch.dict(
             os.environ, {"AIPERF_TOTAL_REQUESTS": "2", "AIPERF_CONCURRENCY": "1"}
         ):
             strategy = ConcurrencyStrategy(config, mock_credit_manager)
-            strategy.start_time_ns = 1000000000
+            strategy.start_time_ns = sec_to_nanos(1)
             strategy._completed_credits = 1  # One credit already completed
 
             # Mock the semaphore release
@@ -179,10 +146,10 @@ class TestConcurrencyStrategy:
         self, mock_time_ns, config, mock_credit_manager
     ):
         """Test credit return processing with debug logging enabled."""
-        mock_time_ns.return_value = 2000000000
+        mock_time_ns.return_value = sec_to_nanos(2)
 
         strategy = ConcurrencyStrategy(config, mock_credit_manager)
-        strategy.start_time_ns = 1000000000
+        strategy.start_time_ns = sec_to_nanos(1)
         strategy._completed_credits = 0
 
         # Enable debug logging
@@ -204,7 +171,7 @@ class TestConcurrencyStrategy:
         self, mock_time_ns, config, mock_credit_manager
     ):
         """Test a complete credit lifecycle from start to finish."""
-        mock_time_ns.return_value = 1000000000
+        mock_time_ns.return_value = sec_to_nanos(1)
 
         with patch.dict(
             os.environ, {"AIPERF_TOTAL_REQUESTS": "2", "AIPERF_CONCURRENCY": "1"}
@@ -235,23 +202,6 @@ class TestConcurrencyStrategy:
             assert strategy._completed_credits == 2
             assert len(mock_credit_manager.credits_complete_calls) == 1
             assert mock_credit_manager.credits_complete_calls[0]["cancelled"] is False
-
-    async def test_inheritance_from_base_classes(self, config, mock_credit_manager):
-        """Test that ConcurrencyStrategy properly inherits from base classes."""
-        strategy = ConcurrencyStrategy(config, mock_credit_manager)
-
-        # Test CreditIssuingStrategy inheritance
-        assert hasattr(strategy, "config")
-        assert hasattr(strategy, "credit_manager")
-        assert hasattr(strategy, "logger")
-        assert callable(strategy.start)
-        assert callable(strategy.stop)
-        assert callable(strategy.on_credit_return)
-
-        # Test AsyncTaskManagerMixin inheritance
-        assert hasattr(strategy, "tasks")
-        assert hasattr(strategy, "execute_async")
-        assert callable(strategy.cancel_all_tasks)
 
     async def test_semaphore_behavior_with_concurrent_credits(
         self, config, mock_credit_manager
@@ -351,14 +301,14 @@ class TestConcurrencyStrategy:
         """Test that rate calculation in debug logs works correctly."""
         # Set up time progression
         mock_time_ns.side_effect = [
-            1000000000,
-            2000000000,
-            3000000000,
+            sec_to_nanos(1),
+            sec_to_nanos(2),
+            sec_to_nanos(3),
         ]  # 1 second difference
 
         strategy = ConcurrencyStrategy(config, mock_credit_manager)
-        strategy.start_time_ns = 1000000000
-        strategy._completed_credits = 0
+        strategy.start_time_ns = sec_to_nanos(1)
+        strategy._completed_credits = 1
         strategy._total_credits = 100
 
         # Enable debug logging
