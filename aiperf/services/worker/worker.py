@@ -185,37 +185,26 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin):
 
         self.logger.debug("Processing credit drop: %s", message)
 
-        credit_amount = 0
-        tasks: list[asyncio.Task] = []
         try:
-            credit_amount = message.amount
-            self.logger.debug(
-                "Received %s credit(s) for %s", credit_amount, message.credit_drop_ns
-            )
+            self.logger.debug("Received credit drop for %s", message.conversation_id)
 
             # Make a call to the inference server for each credit concurrently, and then wait
             # for all the tasks to complete
-            for _ in range(credit_amount):
-                task = asyncio.create_task(
-                    self._execute_single_credit(
-                        credit_drop_ns=message.credit_drop_ns,
-                        conversation_id=message.conversation_id,
-                    )
-                )
-                tasks.append(task)
-
-            await asyncio.gather(*tasks)
+            await self._execute_single_credit(
+                credit_drop_ns=message.credit_drop_ns,
+                conversation_id=message.conversation_id,
+            )
 
         except Exception as e:
             self.logger.error("Error processing credit drop: %s", e)
 
         finally:
             # Always return the credits
-            self.logger.debug("Returning credits, %s", credit_amount)
+            self.logger.debug("Returning credits for %s", message.conversation_id)
             await self.credit_return_client.push(
                 message=CreditReturnMessage(
                     service_id=self.service_id,
-                    amount=credit_amount,
+                    conversation_id=message.conversation_id,
                 ),
             )
 

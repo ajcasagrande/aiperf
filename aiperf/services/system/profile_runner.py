@@ -18,7 +18,7 @@ from aiperf.progress.progress_models import (
 )
 
 if TYPE_CHECKING:
-    from aiperf.services.system_controller.system_controller import SystemController
+    from aiperf.services.system.system_controller import SystemController
 
 
 class ProfileRunner:

@@ -108,8 +108,11 @@ class TimingManager(BaseComponentService, AsyncTaskManagerMixin):
                 "TM: Received dataset timing response: %s",
                 dataset_timing_response,
             )
-            # TODO: Pass dataset_timing_response to strategy
-            self._credit_issuing_strategy = FixedScheduleStrategy(config, self)
+            self._credit_issuing_strategy = FixedScheduleStrategy(
+                config=config,
+                credit_manager=self,
+                schedule=dataset_timing_response.timing_data,
+            )
         elif config.timing_mode == TimingMode.CONCURRENCY:
             self._credit_issuing_strategy = ConcurrencyStrategy(config, self)
         elif config.timing_mode == TimingMode.RATE:
@@ -117,8 +120,6 @@ class TimingManager(BaseComponentService, AsyncTaskManagerMixin):
 
         if not self._credit_issuing_strategy:
             raise InvalidStateError("No credit issuing strategy configured")
-
-        await self._credit_issuing_strategy.initialize()
 
     @on_start
     async def _start(self) -> None:
@@ -178,7 +179,6 @@ class TimingManager(BaseComponentService, AsyncTaskManagerMixin):
             self.credit_drop_client.push(
                 message=CreditDropMessage(
                     service_id=self.service_id,
-                    amount=amount,
                     credit_drop_ns=credit_drop_ns,
                     conversation_id=conversation_id,
                 ),

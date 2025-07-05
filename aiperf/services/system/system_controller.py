@@ -3,29 +3,26 @@
 import asyncio
 import signal
 import sys
-import time
 
-import zmq.asyncio
 from pydantic import BaseModel
 
-from aiperf.common.comms.zmq.zmq_proxy_base import BaseZMQProxy, ZMQProxyFactory
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
-from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
 from aiperf.common.enums import (
     CommandResponseStatus,
     CommandType,
     MessageType,
-    ServiceRegistrationStatus,
     ServiceRunType,
-    ServiceState,
     ServiceType,
     SystemState,
-    ZMQProxyType,
 )
-from aiperf.common.exceptions import CommunicationError, NotInitializedError
+from aiperf.common.exceptions import (
+    CommunicationError,
+    InitializationError,
+    NotInitializedError,
+)
 from aiperf.common.factories import ServiceFactory
-from aiperf.common.hooks import on_cleanup, on_stop
+from aiperf.common.hooks import on_stop
 from aiperf.common.logging import get_global_log_queue
 from aiperf.common.messages import (
     CommandResponseMessage,
@@ -38,7 +35,6 @@ from aiperf.common.messages import (
     WorkerHealthMessage,
 )
 from aiperf.common.service.base_controller_service import BaseControllerService
-from aiperf.common.service_models import ServiceRunInfo
 from aiperf.data_exporter.exporter_manager import ExporterManager
 from aiperf.progress.progress_logger import SimpleProgressLogger
 from aiperf.progress.progress_models import (
@@ -48,13 +44,15 @@ from aiperf.progress.progress_models import (
     ProfileResultsMessage,
 )
 from aiperf.progress.progress_tracker import ProgressTracker
-from aiperf.services.service_manager import (
+from aiperf.services.system import (
     BaseServiceManager,
     KubernetesServiceManager,
     MultiProcessServiceManager,
 )
-from aiperf.services.system_controller.profile_runner import ProfileRunner
-from aiperf.services.system_controller.system_mixins import SignalHandlerMixin
+from aiperf.services.system.command_coordinator import CommandCoordinator
+from aiperf.services.system.profile_runner import ProfileRunner
+from aiperf.services.system.proxy_mixins import SystemControllerProxyMixin
+from aiperf.services.system.system_mixins import SignalHandlerMixin
 from aiperf.ui.aiperf_ui import AIPerfUI
 
 
@@ -78,6 +76,11 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         self._system_state: SystemState = SystemState.INITIALIZING
         self.user_config = user_config
 
+        self.proxy_manager = SystemControllerProxyMixin(
+            service_config=service_config,
+            service_id=service_id,
+        )
+
         # List of required service types, in no particular order
         # These are services that must be running before the system controller can start profiling
         self.required_service_types: list[tuple[ServiceType, int]] = [
@@ -90,15 +93,6 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
 
         self.service_manager: BaseServiceManager = None  # type: ignore - is set in _initialize
 
-        self.event_bus_proxy: BaseZMQProxy | None = None
-        self.event_bus_proxy_task: asyncio.Task | None = None
-
-        self.dataset_manager_proxy: BaseZMQProxy | None = None
-        self.dataset_manager_proxy_task: asyncio.Task | None = None
-
-        self.raw_inference_proxy: BaseZMQProxy | None = None
-        self.raw_inference_proxy_task: asyncio.Task | None = None
-
         self.progress_tracker: ProgressTracker = ProgressTracker()
         self.ui_enabled: bool = not self.service_config.disable_ui
         self.ui: AIPerfUI | None = (
@@ -107,7 +101,9 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         self.progress_logger: SimpleProgressLogger | None = (
             SimpleProgressLogger(self.progress_tracker) if not self.ui_enabled else None
         )
-
+        self.command_coordinator: CommandCoordinator = CommandCoordinator(
+            default_timeout=self.service_config.command_timeout
+        )
         self.profile_runner: ProfileRunner | None = None
 
         self.logger.debug("System Controller created")
@@ -117,15 +113,6 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         """The type of service."""
         return ServiceType.SYSTEM_CONTROLLER
 
-    async def initialize(self) -> None:
-        """Override the base initialize method to add pre-initialization and
-        post-initialization steps. This allows us to run the UI and progress
-        logger before the system is fully initialized.
-        """
-        await self._pre_initialize()
-        await BaseControllerService.initialize(self)
-        await self._post_initialize()
-
     async def _pre_initialize(self) -> None:
         """Initialize system controller-specific components.
 
@@ -133,41 +120,16 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         - Initialize the service manager
         - Subscribe to relevant messages
         """
+        await self.proxy_manager.start_all_proxies()
+
         if self.ui:
-            await self.ui.run_async()
+            await self.ui.run_lifecycle_async()
+            await self.ui.wait_until_started()
 
         self.logger.debug("Initializing System Controller")
 
         self.setup_signal_handlers(self._handle_signal)
         self.logger.debug("Setup signal handlers")
-
-        self.zmq_context = zmq.asyncio.Context.instance()
-
-        self.event_bus_proxy = ZMQProxyFactory.create_instance(
-            ZMQProxyType.XPUB_XSUB,
-            context=self.zmq_context,
-            zmq_proxy_config=self.service_config.comm_config.event_bus_proxy_config,
-        )
-        self.event_bus_proxy_task = asyncio.create_task(self.event_bus_proxy.run())
-
-        self.dataset_manager_proxy = ZMQProxyFactory.create_instance(
-            ZMQProxyType.DEALER_ROUTER,
-            context=self.zmq_context,
-            zmq_proxy_config=self.service_config.comm_config.dataset_manager_proxy_config,
-        )
-        self.dataset_manager_proxy_task = asyncio.create_task(
-            self.dataset_manager_proxy.run()
-        )
-
-        self.raw_inference_proxy = ZMQProxyFactory.create_instance(
-            ZMQProxyType.PUSH_PULL,
-            context=self.zmq_context,
-            zmq_proxy_config=self.service_config.comm_config.raw_inference_proxy_config,
-        )
-        self.raw_inference_proxy_task = asyncio.create_task(
-            self.raw_inference_proxy.run()
-        )
-        await asyncio.sleep(1)
 
     async def _post_initialize(self) -> None:
         """Post-initialize the system controller."""
@@ -219,6 +181,9 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
                     f"Failed to subscribe to message_type {message_type}: {e}",
                 ) from e
 
+        # TODO: HACK: Wait for the subscriptions to be established
+        await asyncio.sleep(1)
+
         self._system_state = SystemState.CONFIGURING
         await self._bootstrap_system()
 
@@ -231,7 +196,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         self.logger.debug("Received signal %s, initiating graceful shutdown", sig)
         if sig == signal.SIGINT or sig == signal.SIGTERM:
             if self.profile_runner and self.profile_runner.is_complete:
-                self.stop_event.set()
+                self.cancel_event.set()
                 return
 
             if self.profile_runner and self.profile_runner.was_cancelled:
@@ -254,9 +219,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             if self.profile_runner:
                 await self.profile_runner.cancel_profile()
 
-            self.stop_event.set()
-        else:
-            self.stop_event.set()
+        self.cancel_event.set()
 
     async def _bootstrap_system(self) -> None:
         """Bootstrap the system services.
@@ -272,17 +235,15 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         try:
             await self.service_manager.run_all_services()
         except Exception as e:
-            raise self._service_error(
-                "Failed to initialize all services",
-            ) from e
+            raise InitializationError("Failed to initialize all services") from e
 
         try:
             # Wait for all required services to be registered
             await self.service_manager.wait_for_all_services_registration(
-                self.stop_event
+                self.cancel_event
             )
 
-            if self.stop_event.is_set():
+            if self.cancel_event.is_set():
                 self.logger.debug(
                     "System Controller stopped before all services registered"
                 )
@@ -346,32 +307,10 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
                 "Failed to stop all services",
             ) from e
 
-        tasks = []
-        if self.event_bus_proxy_task:
-            await self.event_bus_proxy.stop()
-            self.event_bus_proxy_task.cancel()
-            tasks.append(self.event_bus_proxy_task)
+        await self._post_stop()
 
-        if self.dataset_manager_proxy_task:
-            await self.dataset_manager_proxy.stop()
-            self.dataset_manager_proxy_task.cancel()
-            tasks.append(self.dataset_manager_proxy_task)
-
-        if self.raw_inference_proxy_task:
-            await self.raw_inference_proxy.stop()
-            self.raw_inference_proxy_task.cancel()
-            tasks.append(self.raw_inference_proxy_task)
-
-        await asyncio.wait_for(
-            asyncio.gather(*tasks),
-            timeout=TASK_CANCEL_TIMEOUT_SHORT,
-        )
-
-        # TODO: This is a hack to give the services time to produce results
-        # await asyncio.sleep(3)
-
-    @on_cleanup
-    async def _cleanup(self) -> None:
+    # @on_post_stop
+    async def _post_stop(self) -> None:
         """Clean up system controller-specific components."""
         self.logger.debug("Cleaning up System Controller")
 
@@ -379,6 +318,7 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             await self.ui.shutdown()
             await self.ui.wait_for_shutdown()
 
+        await self.proxy_manager.stop_all_proxies()
         await self.kill()
 
         self._system_state = SystemState.SHUTDOWN
@@ -467,19 +407,11 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             "Processing registration from %s with ID: %s", service_type, service_id
         )
 
-        service_info = ServiceRunInfo(
-            registration_status=ServiceRegistrationStatus.REGISTERED,
-            service_type=service_type,
+        # Register service using the service registry
+        _ = self.service_manager.registry.register_service(
             service_id=service_id,
-            first_seen=time.time_ns(),
-            state=ServiceState.READY,
-            last_seen=time.time_ns(),
+            service_type=service_type,
         )
-
-        self.service_manager.service_id_map[service_id] = service_info
-        if service_type not in self.service_manager.service_map:
-            self.service_manager.service_map[service_type] = []
-        self.service_manager.service_map[service_type].append(service_info)
 
         is_required = service_type in self.required_service_types
         self.logger.info(
@@ -520,22 +452,21 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             "Received heartbeat from %s (ID: %s)", service_type, service_id
         )
 
-        # Update the last heartbeat timestamp if the component exists
-        try:
-            service_info = self.service_manager.service_id_map[service_id]
-            service_info.last_seen = timestamp
-            service_info.state = message.state
+        # Update the last heartbeat timestamp using the service registry
+        if self.service_manager.registry.update_service_heartbeat(service_id):
+            # Also update the state
+            self.service_manager.registry.update_service_state(
+                service_id, message.state
+            )
             self.logger.debug("Updated heartbeat for %s to %s", service_id, timestamp)
-        except Exception:
+        else:
             self.logger.warning(
                 f"Received heartbeat from unknown service: {service_id} ({service_type})"
             )
             # HACK: If the service is not registered, we need to register it
-            await self._process_registration_message(
-                RegistrationMessage(
-                    service_id=service_id,
-                    service_type=service_type,
-                )
+            self.service_manager.registry.register_service(
+                service_id=service_id,
+                service_type=service_type,
             )
 
     async def _process_credits_complete_message(
@@ -565,22 +496,15 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             f"Received status update from {service_type} (ID: {service_id}): {state}"
         )
 
-        # Update the component state if the component exists
-        if service_id not in self.service_manager.service_id_map:
+        # Update the component state using the service registry
+        if self.service_manager.registry.update_service_state(service_id, state):
+            self.logger.debug(f"Updated state for {service_id} to {state}")
+        else:
             self.logger.debug(
                 "Received status update from un-registered service: %s (%s)",
                 service_id,
                 service_type,
             )
-            return
-
-        service_info = self.service_manager.service_id_map.get(service_id)
-        if service_info is None:
-            return
-
-        service_info.state = message.state
-
-        self.logger.debug(f"Updated state for {service_id} to {state}")
 
     async def _process_worker_health_message(
         self, message: WorkerHealthMessage
@@ -609,6 +533,9 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             )
             if message.error:
                 self.logger.error("SC: Error details: %s", message.error)
+
+        # Feed response to coordinator for tracking
+        self.command_coordinator.process_response(message)
 
     async def send_command_to_service(
         self,
@@ -650,6 +577,99 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             raise CommunicationError(
                 f"Failed to publish command: {e}",
             ) from e
+
+    async def send_command_and_wait_for_responses(
+        self,
+        command: CommandType,
+        target_service_ids: set[str] | None = None,
+        target_service_type: ServiceType | None = None,
+        data: BaseModel | None = None,
+        timeout_seconds: float | None = None,
+        require_all_success: bool = True,
+    ) -> bool:
+        """
+        Send a command to services and wait for responses with timeout.
+
+        Args:
+            command: The command to send
+            target_service_ids: Specific service IDs to target (if None, uses target_service_type)
+            target_service_type: Type of services to target (if target_service_ids is None)
+            data: Optional data to send with the command
+            timeout_seconds: Custom timeout for this command
+            require_all_success: Whether all responses must be successful
+
+        Returns:
+            True if command coordination was successful, False otherwise
+
+        Raises:
+            CommunicationError: If command sending fails
+            asyncio.TimeoutError: If timeout exceeded
+            ValueError: If neither target_service_ids nor target_service_type specified
+        """
+        # Determine target services
+        if target_service_ids is None:
+            if target_service_type is None:
+                target_service_ids = self.service_manager.registry.get_all_service_ids()
+            else:
+                # Get all services of the specified type using the service registry
+                target_service_ids = self.service_manager.registry.service_ids_by_type(
+                    target_service_type
+                )
+
+            if not target_service_ids:
+                self.logger.warning(f"No services found of type {target_service_type}")
+                return False
+
+        # Create command message
+        command_message = self.create_command_message(
+            command=command,
+            target_service_id=None,  # Will be handled by service filtering
+            target_service_type=target_service_type,
+            data=data,
+        )
+
+        # Set require_response to True for coordination
+        command_message.require_response = True
+
+        # Register command for coordination
+        self.command_coordinator.register_command(
+            command_id=command_message.command_id,
+            command_type=command,
+            target_service_ids=target_service_ids,
+            timeout_seconds=timeout_seconds,
+        )
+
+        try:
+            await self.pub_client.publish(command_message)
+            self.logger.debug(
+                "Sent coordinated command %s to %d services",
+                command,
+                len(target_service_ids),
+            )
+        except Exception as e:
+            # Clean up registration on send failure
+            self.command_coordinator.pending_commands.pop(
+                command_message.command_id, None
+            )
+            raise CommunicationError(f"Failed to publish command: {e}") from e
+
+        try:
+            success = await self.command_coordinator.wait_for_responses(
+                command_id=command_message.command_id, timeout_seconds=timeout_seconds
+            )
+
+            if require_all_success and not success:
+                self.logger.error(
+                    "Command %s failed - not all services responded successfully",
+                    command,
+                )
+                return False
+
+            return True
+
+        except asyncio.TimeoutError:
+            self.logger.error("Command %s timed out waiting for responses", command)
+            raise
 
     async def kill(self):
         """Kill the system controller."""
