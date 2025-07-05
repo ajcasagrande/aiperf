@@ -20,7 +20,8 @@ from aiperf.common.comms.zmq.zmq_proxy_base import (
 from aiperf.common.config import ServiceConfig, load_service_config
 from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
 from aiperf.common.enums import ZMQProxyType
-from aiperf.common.hooks import AIPerfLifecycleMixin, on_post_stop, on_pre_init
+from aiperf.common.hooks import on_post_stop
+from aiperf.common.lifecycle_mixins import AIPerfLifecycleMixin
 
 
 class ZMQProxyManagerMixin(AIPerfLifecycleMixin):
@@ -31,8 +32,8 @@ class ZMQProxyManagerMixin(AIPerfLifecycleMixin):
     ZMQ proxies in a structured way.
     """
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.logger = logging.getLogger(self.__class__.__name__)
         self._proxies: dict[str, BaseZMQProxy] = {}
         self.zmq_context: zmq.asyncio.Context = zmq.asyncio.Context.instance()
@@ -54,7 +55,7 @@ class ZMQProxyManagerMixin(AIPerfLifecycleMixin):
         )
         self.logger.debug("Registered proxy %s of type %s", name, proxy_type)
 
-    @on_pre_init
+    # @on_pre_init
     async def start_all_proxies(self) -> None:
         """Start all registered proxies."""
         for proxy in self._proxies.values():
@@ -101,8 +102,8 @@ class SystemControllerProxyMixin(ZMQProxyManagerMixin):
     - Raw Inference Proxy (PUSH/PULL)
     """
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.logger = logging.getLogger(self.__class__.__name__)
         self.service_config: ServiceConfig = (
             kwargs.get("service_config") or load_service_config()

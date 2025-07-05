@@ -23,7 +23,6 @@ import inspect
 import logging
 from collections.abc import Awaitable, Callable
 from typing import ClassVar
-from warnings import deprecated
 
 from aiperf.common.enums import CaseInsensitiveStrEnum
 from aiperf.common.exceptions import (
@@ -113,6 +112,7 @@ class HookSystem:
         self.logger = logging.getLogger(__class__.__name__)
         self.supported_hooks: set[HookType] = supported_hooks
         self._hooks: dict[HookType, list[Callable]] = {}
+        super().__init__()
 
     def register_hook(self, hook_type: HookType, func: Callable):
         """Register a hook function for a given hook type.
@@ -409,7 +409,7 @@ class HooksMixin:
     # Class attributes that are set by the :func:`supports_hooks` decorator
     supported_hooks: ClassVar[set[HookType]] = set()
 
-    def __init__(self):
+    def __init__(self, **kwargs):
         """
         Initialize the hook system and register all functions that are decorated with a hook decorator.
         """
@@ -433,7 +433,7 @@ class HooksMixin:
                     # Register the function with the hook type
                     self.register_hook(hook_type, bound_method)
 
-        super().__init__()
+        super().__init__(**kwargs)
 
     def register_hook(self, hook_type: HookType, func: Callable):
         """Register a hook function for a given hook type.
@@ -457,10 +457,6 @@ class HooksMixin:
         return self._hook_system.get_hooks(hook_type)
 
 
-@deprecated(
-    "AIPerfTaskMixin is deprecated and will be removed in a future release. "
-    "Use AIPerfLifecycleMixin instead, which provides a more comprehensive lifecycle management.",
-)
 @supports_hooks(
     AIPerfTaskHook.AIPERF_TASK,
     AIPerfHook.ON_INIT,

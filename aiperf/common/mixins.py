@@ -10,7 +10,7 @@ from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
 class AsyncTaskManagerMixin:
     """Mixin to manage a set of async tasks."""
 
-    def __init__(self):
+    def __init__(self, **kwargs):
         super().__init__()
         self.tasks: set[asyncio.Task] = set()
 

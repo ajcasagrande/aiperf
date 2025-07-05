@@ -64,8 +64,8 @@ class AIPerfLifecycleMixin(HooksMixin, AsyncTaskManagerMixin):
     start and stop the tasks.
     """
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.logger = logging.getLogger(self.__class__.__name__)
 
         self._state = LifecycleState.NOT_INITIALIZED

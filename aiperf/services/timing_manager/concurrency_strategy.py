@@ -6,7 +6,8 @@ import os
 import time
 
 from aiperf.common.constants import NANOS_PER_SECOND
-from aiperf.common.hooks import AIPerfLifecycleMixin, aiperf_auto_task
+from aiperf.common.hooks import aiperf_auto_task
+from aiperf.common.lifecycle_mixins import AIPerfLifecycleMixin
 from aiperf.common.messages import CreditReturnMessage
 from aiperf.services.timing_manager.config import TimingManagerConfig
 from aiperf.services.timing_manager.credit_issuing_strategy import (

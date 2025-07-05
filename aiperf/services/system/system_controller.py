@@ -24,7 +24,7 @@ from aiperf.common.exceptions import (
     NotInitializedError,
 )
 from aiperf.common.factories import ServiceFactory
-from aiperf.common.hooks import on_post_stop, on_pre_init, on_stop
+from aiperf.common.hooks import on_stop
 from aiperf.common.logging import get_global_log_queue
 from aiperf.common.messages import (
     CommandResponseMessage,
@@ -59,9 +59,7 @@ from aiperf.ui.aiperf_ui import AIPerfUI
 
 
 @ServiceFactory.register(ServiceType.SYSTEM_CONTROLLER)
-class SystemController(
-    SystemControllerProxyMixin, SignalHandlerMixin, BaseControllerService
-):
+class SystemController(SignalHandlerMixin, BaseControllerService):
     """System Controller service.
 
     This service is responsible for managing the lifecycle of all other services.
@@ -79,6 +77,11 @@ class SystemController(
 
         self._system_state: SystemState = SystemState.INITIALIZING
         self.user_config = user_config
+
+        self.proxy_manager = SystemControllerProxyMixin(
+            service_config=service_config,
+            service_id=service_id,
+        )
 
         # List of required service types, in no particular order
         # These are services that must be running before the system controller can start profiling
@@ -112,7 +115,6 @@ class SystemController(
         """The type of service."""
         return ServiceType.SYSTEM_CONTROLLER
 
-    @on_pre_init
     async def _pre_initialize(self) -> None:
         """Initialize system controller-specific components.
 
@@ -120,6 +122,8 @@ class SystemController(
         - Initialize the service manager
         - Subscribe to relevant messages
         """
+        await self.proxy_manager.start_all_proxies()
+
         if self.ui:
             await self.ui.run_lifecycle_async()
             await self.ui.wait_until_started()
@@ -305,7 +309,9 @@ class SystemController(
                 "Failed to stop all services",
             ) from e
 
-    @on_post_stop
+        await self._post_stop()
+
+    # @on_post_stop
     async def _post_stop(self) -> None:
         """Clean up system controller-specific components."""
         self.logger.debug("Cleaning up System Controller")
@@ -314,6 +320,7 @@ class SystemController(
             await self.ui.shutdown()
             await self.ui.wait_for_shutdown()
 
+        await self.proxy_manager.stop_all_proxies()
         await self.kill()
 
         self._system_state = SystemState.SHUTDOWN

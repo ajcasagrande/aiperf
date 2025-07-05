@@ -8,11 +8,8 @@ from datetime import datetime
 from rich.table import Table
 from rich.text import Text
 
-from aiperf.common.hooks import (
-    AIPerfLifecycleMixin,
-    aiperf_auto_task,
-    on_init,
-)
+from aiperf.common.hooks import aiperf_auto_task, on_init
+from aiperf.common.lifecycle_mixins import AIPerfLifecycleMixin
 from aiperf.common.logging import get_global_log_queue
 
 logger = logging.getLogger(__name__)
