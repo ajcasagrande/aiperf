@@ -10,7 +10,7 @@ from aiperf.common.comms.base import (
     CommunicationClientAddressType,
     CommunicationFactory,
 )
-from aiperf.common.config import ServiceConfig
+from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.enums import ServiceState, ServiceType
 from aiperf.common.exceptions import (
     AIPerfError,
@@ -46,14 +46,20 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
     """
 
     def __init__(
-        self, service_config: ServiceConfig, service_id: str | None = None, **kwargs
+        self,
+        service_config: ServiceConfig,
+        user_config: UserConfig | None = None,
+        service_id: str | None = None,
+        **kwargs,
     ) -> None:
+        super().__init__()
         self.service_id: str = (
             service_id or f"{self.service_type}_{uuid.uuid4().hex[:8]}"
         )
-        self.service_config = service_config
-
         self.logger = logging.getLogger(self.service_id)
+        self.service_config = service_config
+        self.user_config = user_config
+
         self.logger.debug(
             f"Initializing {self.service_type} service (id: {self.service_id})"
         )
@@ -82,8 +88,6 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
             # setproctitle is not available on all platforms, so we ignore the error
             self.logger.debug("Failed to set process title, ignoring")
 
-        super().__init__()
-        self.logger = logging.getLogger(self.service_id)
         self.logger.debug(
             "BaseService._init__ finished for %s", self.__class__.__name__
         )

@@ -68,10 +68,14 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
     def __init__(
         self,
         service_config: ServiceConfig,
-        user_config: UserConfig,
+        user_config: UserConfig | None = None,
         service_id: str | None = None,
     ) -> None:
-        super().__init__(service_config=service_config, service_id=service_id)
+        super().__init__(
+            service_config=service_config,
+            user_config=user_config,
+            service_id=service_id,
+        )
         self.logger.debug("Creating System Controller")
 
         self._system_state: SystemState = SystemState.INITIALIZING

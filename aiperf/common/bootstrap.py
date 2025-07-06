@@ -6,6 +6,7 @@ import contextlib
 import multiprocessing
 
 from aiperf.common.config import ServiceConfig
+from aiperf.common.config.user_config import UserConfig
 from aiperf.common.service.base_service import BaseService
 
 
@@ -13,6 +14,7 @@ def bootstrap_and_run_service(
     service_class: type[BaseService],
     service_config: ServiceConfig | None = None,
     log_queue: "multiprocessing.Queue | None" = None,
+    user_config: UserConfig | None = None,
     **kwargs,
 ):
     """Bootstrap the service and run it.
@@ -27,6 +29,8 @@ def bootstrap_and_run_service(
             configuration will be loaded from the environment variables.
         log_queue: Optional multiprocessing queue for child process logging. If provided,
             the child process logging will be set up.
+        user_config: The user configuration to use. If not provided, the user configuration
+            will be loaded from the environment variables.
         kwargs: Additional keyword arguments to pass to the service constructor.
     """
 
@@ -37,7 +41,11 @@ def bootstrap_and_run_service(
         service_config = load_service_config()
 
     async def _run_service():
-        service = service_class(service_config=service_config, **kwargs)
+        service = service_class(
+            service_config=service_config,
+            user_config=user_config,
+            **kwargs,
+        )
 
         # Set up child process logging if a log queue is provided
         if log_queue is not None:
