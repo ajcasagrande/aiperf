@@ -133,7 +133,7 @@ def main(
     bootstrap_and_run_service(
         SystemController,
         service_config=cli_config.service_config,
-        user_config=cli_config.user_config,
+        user_config=cli_config.user_config or UserConfig(),
     )
 
     logger.info("AIPerf System exited")

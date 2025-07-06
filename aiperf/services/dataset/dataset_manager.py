@@ -12,7 +12,7 @@ from aiperf.common.comms import ReplyClientProtocol
 from aiperf.common.comms.base import (
     CommunicationClientAddressType,
 )
-from aiperf.common.config import ServiceConfig
+from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.dataset_models import Conversation
 from aiperf.common.enums import (
     ComposerType,
@@ -71,9 +71,14 @@ class DatasetManager(BaseComponentService):
     def __init__(
         self,
         service_config: ServiceConfig,
+        user_config: UserConfig | None = None,
         service_id: str | None = None,
     ) -> None:
-        super().__init__(service_config=service_config, service_id=service_id)
+        super().__init__(
+            service_config=service_config,
+            user_config=user_config,
+            service_id=service_id,
+        )
         self.logger.debug("Dataset manager __init__")
         self.tokenizer: Tokenizer | None = None
         self.dataset: dict[str, Conversation] = {}  # session ID -> Conversation mapping

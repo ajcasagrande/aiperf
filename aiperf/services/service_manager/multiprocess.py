@@ -9,7 +9,7 @@ from multiprocessing.context import ForkProcess, SpawnProcess
 from pydantic import BaseModel, ConfigDict, Field
 
 from aiperf.common.bootstrap import bootstrap_and_run_service
-from aiperf.common.config import ServiceConfig
+from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.constants import (
     GRACEFUL_SHUTDOWN_TIMEOUT_SECONDS,
     TASK_CANCEL_TIMEOUT_SHORT,
@@ -42,10 +42,12 @@ class MultiProcessServiceManager(BaseServiceManager):
         required_service_types: list[tuple[ServiceType, int]],
         config: ServiceConfig,
         log_queue: "multiprocessing.Queue | None" = None,
+        user_config: UserConfig | None = None,
     ):
         super().__init__(required_service_types, config)
         self.multi_process_info: list[MultiProcessRunInfo] = []
         self.log_queue = log_queue
+        self.user_config = user_config
 
     async def _run_services(self, service_types: list[tuple[ServiceType, int]]) -> None:
         """Run a list of services as multiprocessing processes."""
@@ -58,7 +60,12 @@ class MultiProcessServiceManager(BaseServiceManager):
                 process = Process(
                     target=bootstrap_and_run_service,
                     name=f"{service_type[0]}_process",
-                    args=(service_class, self.config, self.log_queue),
+                    kwargs={
+                        "service_class": service_class,
+                        "service_config": self.config,
+                        "log_queue": self.log_queue,
+                        "user_config": self.user_config,
+                    },
                     daemon=True,
                 )
                 if service_type[0] in [

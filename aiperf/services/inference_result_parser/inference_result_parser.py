@@ -36,9 +36,16 @@ class InferenceResultParser(BaseComponentService):
     """
 
     def __init__(
-        self, service_config: ServiceConfig, service_id: str | None = None
+        self,
+        service_config: ServiceConfig,
+        user_config: UserConfig | None = None,
+        service_id: str | None = None,
     ) -> None:
-        super().__init__(service_config=service_config, service_id=service_id)
+        super().__init__(
+            service_config=service_config,
+            user_config=user_config,
+            service_id=service_id,
+        )
         self.logger.debug("Initializing inference result parser")
         self.inference_results_client: PullClientProtocol = (
             self.comms.create_pull_client(

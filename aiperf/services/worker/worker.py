@@ -62,8 +62,13 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
         self,
         service_config: ServiceConfig,
         service_id: str | None = None,
+        user_config: UserConfig | None = None,
     ):
-        super().__init__(service_config=service_config, service_id=service_id)
+        super().__init__(
+            service_config=service_config,
+            service_id=service_id,
+            user_config=user_config,
+        )
         self.logger = logging.getLogger(self.service_id)
         self.logger.debug("Initializing worker process: %s", self.process.pid)
 
