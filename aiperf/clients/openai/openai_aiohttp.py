@@ -7,11 +7,10 @@ import time
 from abc import ABC
 from typing import Any
 
+from aiperf.clients.client_interfaces import EndpointType, InferenceClientFactory
 from aiperf.clients.http.aiohttp_client import AioHttpClientMixin
+from aiperf.clients.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.dataset_models import Turn
-from aiperf.common.enums import EndpointType
-from aiperf.common.factories import InferenceClientFactory
-from aiperf.common.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.record_models import (
     ErrorDetails,
     RequestRecord,
@@ -22,6 +21,7 @@ class OpenAIClientAioHttp(AioHttpClientMixin, ABC):
     """Base inference client for OpenAI based requests."""
 
     def __init__(self, model_endpoint: ModelEndpointInfo) -> None:
+        super().__init__(model_endpoint)
         self.model_endpoint = model_endpoint
         self.logger = logging.getLogger(self.__class__.__name__)
 
@@ -103,9 +103,11 @@ class OpenAIChatCompletionClientAioHttp(OpenAIClientAioHttp):
             {
                 "role": text.role or "user",
                 "name": text.name,
-                "content": text.content,
+                "content": content,
             }
             for text in turn.text
+            for content in text.content
+            if content
         ]
 
         payload = {

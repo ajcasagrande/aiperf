@@ -96,4 +96,5 @@ __all__ = [
     "ZMQIPCConfig",
     "ZMQTCPConfig",
     "load_service_config",
+    "load_user_config",
 ]

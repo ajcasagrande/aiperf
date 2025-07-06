@@ -41,8 +41,8 @@ class MultiProcessServiceManager(BaseServiceManager):
         self,
         required_service_types: list[tuple[ServiceType, int]],
         config: ServiceConfig,
-        log_queue: "multiprocessing.Queue | None" = None,
         user_config: UserConfig | None = None,
+        log_queue: "multiprocessing.Queue | None" = None,
     ):
         super().__init__(required_service_types, config)
         self.multi_process_info: list[MultiProcessRunInfo] = []
@@ -63,8 +63,8 @@ class MultiProcessServiceManager(BaseServiceManager):
                     kwargs={
                         "service_class": service_class,
                         "service_config": self.config,
-                        "log_queue": self.log_queue,
                         "user_config": self.user_config,
+                        "log_queue": self.log_queue,
                     },
                     daemon=True,
                 )

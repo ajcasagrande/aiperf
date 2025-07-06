@@ -6,7 +6,6 @@ from typing import Any, Generic, TypeVar
 
 from aiperf.common.enums import (
     CaseInsensitiveStrEnum,
-    EndpointType,
     PromptSource,
     ServiceType,
     ZMQProxyType,
@@ -201,39 +200,7 @@ class FactoryMixin(Generic[ClassEnumT, ClassProtocolT]):
 
 class InputConverterFactory(FactoryMixin[PromptSource, "InputConverterProtocol"]):
     """Factory for registering and creating InputConverterProtocol instances based on the specified prompt source.
-
-    Example:
-    ```python
-        # Register a new input converter
-        @InputConverterFactory.register(PromptSource.SYNTHETIC)
-        class SyntheticInputConverter(InputConverterProtocol):
-            pass
-
-        # Create a new input converter instance
-        input_converter = InputConverterFactory.create_instance(
-            PromptSource.SYNTHETIC,
-        )
-        input_converter.convert(...)
-    ```
-    """
-
-
-class OutputConverterFactory(FactoryMixin[EndpointType, "OutputConverterProtocol"]):
-    """Factory for registering and creating OutputConverterProtocol instances based on the specified output format.
-
-    Example:
-    ```python
-        # Register a new output converter
-        @OutputConverterFactory.register(OutputFormat.OPENAI_CHAT_COMPLETIONS)
-        class OpenAIChatCompletionsOutputConverter(OutputConverterProtocol):
-            pass
-
-        # Create a new output converter instance
-        output_converter = OutputConverterFactory.create_instance(
-            OutputFormat.OPENAI_CHAT_COMPLETIONS,
-        )
-        output_converter.convert(...)
-    ```
+    see: :class:`FactoryMixin` for more details.
     """
 
 
@@ -257,12 +224,6 @@ class ServiceFactory(FactoryMixin[ServiceType, "BaseService"]):
             daemon=False,
         )
     ```
-    """
-
-
-class InferenceClientFactory(FactoryMixin[EndpointType, "InferenceClientProtocol"]):
-    """Factory for registering and creating InferenceClientProtocol instances based on the specified endpoint type.
-    see: :class:`FactoryMixin` for more details.
     """
 
 
@@ -294,24 +255,6 @@ class PostProcessorFactory(FactoryMixin["PostProcessorType", "PostProcessorProto
         post_processor = PostProcessorFactory.create_instance(
             PostProcessorType.METRIC_SUMMARY,
         )
-    """
-
-
-class RequestConverterFactory(FactoryMixin[EndpointType, "RequestConverterProtocol"]):
-    """Factory for registering and creating RequestPayloadConverter instances based on the specified request payload type.
-
-    Example:
-    ```python
-        # Register a new request payload converter
-        @RequestConverterFactory.register(RequestPayloadType.OPENAI_CHAT_COMPLETIONS)
-        class OpenAIChatCompletionsRequestConverter(RequestConverterProtocol):
-            pass
-
-        # Create a new request payload converter instance
-        request_payload_converter = RequestConverterFactory.create_instance(
-            RequestPayloadType.OPENAI_CHAT_COMPLETIONS,
-        )
-    ```
     """
 
 

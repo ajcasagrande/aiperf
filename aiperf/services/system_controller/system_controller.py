@@ -79,7 +79,7 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
         self.logger.debug("Creating System Controller")
 
         self._system_state: SystemState = SystemState.INITIALIZING
-        self.user_config = user_config
+        self.user_config = user_config or UserConfig()
 
         # List of required service types, in no particular order
         # These are services that must be running before the system controller can start profiling
@@ -209,6 +209,7 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
             self.service_manager = MultiProcessServiceManager(
                 required_service_types=self.required_service_types,
                 config=self.service_config,
+                user_config=self.user_config,
                 log_queue=get_global_log_queue(),
             )
 

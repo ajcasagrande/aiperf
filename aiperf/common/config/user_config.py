@@ -25,13 +25,14 @@ class UserConfig(BaseConfig):
     model_names: Annotated[
         list[str],
         Field(
+            ...,
             description="Model name(s) to be benchmarked. Can be a comma-separated list or a single model name.",
         ),
         BeforeValidator(parse_str_or_list),
         cyclopts.Parameter(
             name=("--model-names", "-m"),
         ),
-    ] = UserDefaults.MODEL_NAMES
+    ]
 
     verbose: Annotated[
         bool,

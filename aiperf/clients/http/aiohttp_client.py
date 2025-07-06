@@ -9,8 +9,8 @@ from typing import Any
 import aiohttp
 
 from aiperf.clients.http.defaults import AioHttpDefaults, SocketDefaults
+from aiperf.clients.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.enums import SSEFieldType
-from aiperf.common.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.record_models import (
     ErrorDetails,
     RequestRecord,
@@ -32,6 +32,7 @@ class AioHttpClientMixin:
     """
 
     def __init__(self, model_endpoint: ModelEndpointInfo) -> None:
+        super().__init__()
         self.logger = logging.getLogger(self.__class__.__name__)
         self.model_endpoint = model_endpoint
         self.tcp_connector = create_tcp_connector()

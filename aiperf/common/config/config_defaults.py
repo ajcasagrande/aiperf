@@ -18,7 +18,7 @@ from aiperf.common.enums import (
 # Config Defaults
 @dataclass(frozen=True)
 class UserDefaults:
-    MODEL_NAMES = []
+    MODEL_NAMES = None  # This should be set by the user
     VERBOSE = False
     TEMPLATE_FILENAME = "aiperf_config.yaml"
 

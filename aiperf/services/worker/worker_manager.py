@@ -50,7 +50,6 @@ class WorkerManager(BaseComponentService):
         service_config: ServiceConfig,
         user_config: UserConfig | None = None,
         service_id: str | None = None,
-        log_queue: "multiprocessing.Queue | None" = None,
     ) -> None:
         super().__init__(
             service_config=service_config,
@@ -165,8 +164,13 @@ class WorkerManager(BaseComponentService):
             process = Process(
                 target=bootstrap_and_run_service,
                 name=f"{worker_id}_process",
-                args=(Worker, self.service_config, log_queue),
-                kwargs={"service_id": worker_id},
+                kwargs={
+                    "service_class": Worker,
+                    "service_config": self.service_config,
+                    "user_config": self.user_config,
+                    "log_queue": log_queue,
+                    "service_id": worker_id,
+                },
                 daemon=True,
             )
             process.start()

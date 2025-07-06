@@ -6,8 +6,9 @@ import logging
 import os
 import sys
 import time
-from typing import cast
 
+from aiperf.clients import InferenceClientFactory
+from aiperf.clients.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.comms.base import (
     BaseCommunication,
     CommunicationFactory,
@@ -26,15 +27,13 @@ from aiperf.common.enums import (
     MessageType,
     ServiceType,
 )
-from aiperf.common.exceptions import ConfigurationError
-from aiperf.common.factories import InferenceClientFactory, ServiceFactory
+from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
     aiperf_task,
     on_configure,
     on_init,
     on_stop,
 )
-from aiperf.common.interfaces import InferenceClientProtocol
 from aiperf.common.messages import (
     CommandMessage,
     ConversationRequestMessage,
@@ -46,7 +45,6 @@ from aiperf.common.messages import (
     WorkerHealthMessage,
 )
 from aiperf.common.mixins import AsyncTaskManagerMixin, ProcessHealthMixin
-from aiperf.common.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.record_models import ErrorDetails, RequestRecord
 from aiperf.common.service.base_component_service import BaseComponentService
 
@@ -61,14 +59,15 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
     def __init__(
         self,
         service_config: ServiceConfig,
-        service_id: str | None = None,
         user_config: UserConfig | None = None,
+        service_id: str | None = None,
     ):
         super().__init__(
             service_config=service_config,
-            service_id=service_id,
             user_config=user_config,
+            service_id=service_id,
         )
+
         self.logger = logging.getLogger(self.service_id)
         self.logger.debug("Initializing worker process: %s", self.process.pid)
 
@@ -77,6 +76,7 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
         )
         self.completed_tasks = 0
         self.failed_tasks = 0
+        self.total_tasks = 0
 
         self.stop_event: asyncio.Event = asyncio.Event()
         self.health_task: asyncio.Task | None = None
@@ -106,10 +106,19 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
             CommunicationClientAddressType.EVENT_BUS_PROXY_FRONTEND,
         )  # type: ignore
 
-        # These will be initialized in _configure
-        self.user_config: UserConfig | None = None
-        self.model_endpoint: ModelEndpointInfo | None = None
-        self.inference_client: InferenceClientProtocol | None = None
+        self.model_endpoint = ModelEndpointInfo.from_user_config(self.user_config)
+
+        self.logger.debug(
+            "Creating inference client for %s, class: %s",
+            self.model_endpoint.endpoint.type,
+            InferenceClientFactory.get_class_from_type(
+                self.model_endpoint.endpoint.type
+            ).__name__,
+        )
+        self.inference_client = InferenceClientFactory.create_instance(
+            self.model_endpoint.endpoint.type,
+            model_endpoint=self.model_endpoint,
+        )
 
     @property
     def service_type(self) -> ServiceType:
@@ -130,24 +139,10 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
 
     @on_configure
     async def _configure(self, message: CommandMessage) -> None:
-        self.logger.debug("Configuring worker process %s", self.service_id)
-        if not isinstance(message.data, UserConfig):
-            raise ConfigurationError("Invalid user config")
-
-        self.user_config = cast(UserConfig, message.data)
-        self.model_endpoint = ModelEndpointInfo.from_user_config(self.user_config)
-
-        self.logger.debug(
-            "Creating inference client for %s, class: %s",
-            self.model_endpoint.endpoint.type,
-            InferenceClientFactory.get_class_from_type(
-                self.model_endpoint.endpoint.type
-            ).__name__,
-        )
-        self.inference_client = InferenceClientFactory.create_instance(
-            self.model_endpoint.endpoint.type,
-            model_endpoint=self.model_endpoint,
-        )
+        # self.logger.debug("Configuring worker process %s", self.service_id)
+        # if not isinstance(message.data, UserConfig):
+        #     raise ConfigurationError("Invalid user config")
+        pass
 
     async def _process_credit_drop(self, message: CreditDropMessage) -> None:
         """Process a credit drop message.
@@ -281,11 +276,8 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
             return result
 
         except Exception as e:
-            self.logger.error(
-                "Error calling inference server API at %s: %s %s",
-                self.model_endpoint.url,
-                e.__class__.__name__,
-                str(e),
+            self.logger.exception(
+                "Error calling inference server API at %s", self.model_endpoint.url
             )
             return RequestRecord(
                 error=ErrorDetails.from_exception(e),

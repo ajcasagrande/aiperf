@@ -15,7 +15,6 @@ from aiperf.common.bootstrap import bootstrap_and_run_service
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.config_defaults import ServiceDefaults
 from aiperf.common.config.user_config import UserConfig
-from aiperf.common.logging import setup_child_process_logging
 from aiperf.services.system_controller.system_controller import SystemController
 
 logger = logging.getLogger(__name__)
@@ -88,9 +87,9 @@ def _setup_logging(service_config: ServiceConfig | None = None) -> None:
 
 @app.default
 def main(
+    user_config: UserConfig,
     config: Path | None = None,
     service_config: ServiceConfig | None = None,
-    user_config: UserConfig | None = None,
 ) -> None:
     """Main entry point for the AIPerf system."""
 
@@ -98,7 +97,7 @@ def main(
     cli_config = CLIConfig(
         config=config,
         service_config=service_config or ServiceConfig(),
-        user_config=user_config or UserConfig(),
+        user_config=user_config,
     )
 
     disable_ui = (
@@ -107,6 +106,12 @@ def main(
         else ServiceDefaults.DISABLE_UI
     )
 
+    print("Starting AIPerf CLI with configuration:")
+    print(f"  Config file: {cli_config.config}")
+    print(f"  Service config: {cli_config.service_config}")
+    print(f"  User config: {cli_config.user_config}")
+
+    log_queue = None
     if disable_ui:
         _setup_logging(cli_config.service_config)
     else:
@@ -114,12 +119,6 @@ def main(
 
         # Set up the global log queue
         log_queue = setup_global_log_queue()
-
-        setup_child_process_logging(
-            log_queue,
-            "system_controller",
-            cli_config.service_config,
-        )
 
     # Load configuration
     if cli_config.config:
@@ -133,7 +132,8 @@ def main(
     bootstrap_and_run_service(
         SystemController,
         service_config=cli_config.service_config,
-        user_config=cli_config.user_config or UserConfig(),
+        user_config=cli_config.user_config,
+        log_queue=log_queue,
     )
 
     logger.info("AIPerf System exited")

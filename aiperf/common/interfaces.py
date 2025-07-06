@@ -4,96 +4,14 @@ from typing import TYPE_CHECKING, Generic, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from aiperf.common.record_models import ParsedResponseRecord, ResponseData
-from aiperf.common.dataset_models import Turn
-from aiperf.common.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.record_models import (
     ParsedResponseRecord,
-    RequestRecord,
     ResponseData,
 )
 from aiperf.common.types import (
-    ConfigT,
     InputT,
     OutputT,
-    RequestT,
-    ResponseT,
 )
-
-################################################################################
-# Converter Protocols
-################################################################################
-
-
-@runtime_checkable
-class InputConverterProtocol(Protocol, Generic[InputT, RequestT]):
-    """Protocol for an input converter."""
-
-    async def convert(self, input: InputT) -> RequestT:
-        """Convert the input to the expected format."""
-        ...
-
-
-@runtime_checkable
-class OutputConverterProtocol(Protocol, Generic[OutputT, ResponseT]):
-    """Protocol for an output converter."""
-
-    async def convert(self, output: OutputT) -> ResponseT:
-        """Convert the output to the expected format."""
-        ...
-
-
-################################################################################
-# Inference Server Client Protocols
-################################################################################
-
-
-@runtime_checkable
-class InferenceClientProtocol(Protocol, Generic[ConfigT, RequestT, ResponseT]):
-    """Protocol for an inference server client.
-
-    This protocol defines the methods that must be implemented by any inference server client
-    implementation that is compatible with the AIPerf framework.
-    """
-
-    def __init__(self, client_config: ConfigT) -> None:
-        """Create a new inference server client based on the provided configuration."""
-        ...
-
-    @property
-    def client_config(self) -> ConfigT:
-        """Get the client configuration."""
-        ...
-
-    async def initialize(self) -> None:
-        """Initialize the inference server client in an asynchronous context."""
-        ...
-
-    async def format_payload(
-        self, model_endpoint: ModelEndpointInfo, turn: Turn
-    ) -> RequestT:
-        """Format the turn for the inference server."""
-        ...
-
-    async def send_request(
-        self,
-        model_endpoint: ModelEndpointInfo,
-        payload: RequestT,
-    ) -> RequestRecord:
-        """Send a request to the inference server.
-
-        This method is used to send a request to the inference server.
-
-        Args:
-            model_endpoint: The endpoint to send the request to.
-            payload: The payload to send to the inference server.
-        Returns:
-            The raw response from the inference server.
-        """
-        ...
-
-    async def close(self) -> None:
-        """Close the client."""
-        ...
 
 
 ################################################################################

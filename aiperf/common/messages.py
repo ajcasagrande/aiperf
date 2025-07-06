@@ -104,7 +104,8 @@ class Message(ExcludeIfNoneMixin):
 
     def to_json(self) -> str:
         """Fast serialization without full validation"""
-        return orjson.dumps(self.__dict__).decode("utf-8")
+        return self.model_dump_json()
+        return orjson.dumps(self.model_dump()).decode("utf-8")
 
 
 class BaseServiceMessage(Message):

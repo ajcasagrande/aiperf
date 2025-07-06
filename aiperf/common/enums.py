@@ -472,41 +472,65 @@ class MeasurementMode(CaseInsensitiveStrEnum):
     INTERVAL = "interval"
 
 
+####################################################################################
+# Data Exporter Enums
+####################################################################################
+
+
+class DataExporterType(CaseInsensitiveStrEnum):
+    CONSOLE = "console"
+    CONSOLE_ERROR = "console_error"
+    JSON = "json"
+
+
+#################################################################################
+# Post Processor Enums
 ################################################################################
-# Inference Client Enums
+
+
+class PostProcessorType(CaseInsensitiveStrEnum):
+    METRIC_SUMMARY = "metric_summary"
+
+
+#################################################################################
+# Metric Enums
 ################################################################################
 
 
-# class InferenceClientType(CaseInsensitiveStrEnum):
-#     """Inference client types.
+class MetricTimeType(Enum):
+    """Defines the time types for metrics."""
 
-#     Equivalent to `service_kind` from `genai-perf`.
-#     """
-
-#     GRPC = "grpc"
-#     OPENAI = "openai"
-#     DYNAMO_ENGINE = "dynamo_engine"
-#     TENSORRTLLM_ENGINE = "tensorrtllm_engine"
+    NANOSECONDS = 9
+    MILLISECONDS = 3
+    SECONDS = 0
 
 
-#     @classmethod
-#     def from_endpoint_type(cls, endpoint_type: "EndpointType") -> "InferenceClientType":
-#         """Get the client type for the request payload type."""
-#         match endpoint_type:
-#             case EndpointType.DYNAMIC_GRPC:
-#                 return InferenceClientType.GRPC
+class MetricType(Enum):
+    METRIC_OF_RECORDS = auto()
+    METRIC_OF_METRICS = auto()
+    METRIC_OF_BOTH = auto()
 
-#             case EndpointType.DYNAMO_ENGINE:
-#                 return InferenceClientType.DYNAMO_ENGINE
 
-#             case EndpointType.TRITON_GENERATE:
-#                 return InferenceClientType.TRITON
+################################################################################
+# SSE Enums
+################################################################################
 
-#             case EndpointType.HUGGINGFACE_GENERATE:
-#                 return InferenceClientType.DYNAMO_ENGINE
 
-#             case _:
-#                 raise NotImplementedError(f"Client type not implemented for {endpoint_type}")
+class SSEFieldType(CaseInsensitiveStrEnum):
+    """Field types in an SSE message."""
+
+    DATA = "data"
+    EVENT = "event"
+    ID = "id"
+    RETRY = "retry"
+    COMMENT = "comment"
+
+
+class SSEEventType(CaseInsensitiveStrEnum):
+    """Event types in an SSE message. Many of these are custom and not defined by the SSE spec."""
+
+    ERROR = "error"
+    LLM_METRICS = "llm_metrics"
 
 
 class ResponsePayloadType(CaseInsensitiveStrEnum):
@@ -627,64 +651,3 @@ class EndpointType(CaseInsensitiveStrEnum):
     def response_payload_type(self) -> ResponsePayloadType:
         """Get the response payload type for the request payload type."""
         return ResponsePayloadType.from_endpoint_type(self)
-
-
-####################################################################################
-# Data Exporter Enums
-####################################################################################
-
-
-class DataExporterType(CaseInsensitiveStrEnum):
-    CONSOLE = "console"
-    CONSOLE_ERROR = "console_error"
-    JSON = "json"
-
-
-#################################################################################
-# Post Processor Enums
-################################################################################
-
-
-class PostProcessorType(CaseInsensitiveStrEnum):
-    METRIC_SUMMARY = "metric_summary"
-
-
-#################################################################################
-# Metric Enums
-################################################################################
-
-
-class MetricTimeType(Enum):
-    """Defines the time types for metrics."""
-
-    NANOSECONDS = 9
-    MILLISECONDS = 3
-    SECONDS = 0
-
-
-class MetricType(Enum):
-    METRIC_OF_RECORDS = auto()
-    METRIC_OF_METRICS = auto()
-    METRIC_OF_BOTH = auto()
-
-
-################################################################################
-# SSE Enums
-################################################################################
-
-
-class SSEFieldType(CaseInsensitiveStrEnum):
-    """Field types in an SSE message."""
-
-    DATA = "data"
-    EVENT = "event"
-    ID = "id"
-    RETRY = "retry"
-    COMMENT = "comment"
-
-
-class SSEEventType(CaseInsensitiveStrEnum):
-    """Event types in an SSE message. Many of these are custom and not defined by the SSE spec."""
-
-    ERROR = "error"
-    LLM_METRICS = "llm_metrics"
