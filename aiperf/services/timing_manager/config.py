@@ -22,9 +22,9 @@ class TimingManagerConfig(BaseModel):
 
     timing_mode: TimingMode = TimingMode.CONCURRENCY
     concurrency: int = LoadGeneratorDefaults.CONCURRENCY
-    request_rate: float | None = None
-    request_count: int | None = None
-    warmup_request_count: int | None = None
+    request_rate: float | None = LoadGeneratorDefaults.REQUEST_RATE
+    request_count: int = LoadGeneratorDefaults.REQUEST_COUNT
+    warmup_request_count: int = LoadGeneratorDefaults.WARMUP_REQUEST_COUNT
 
     @classmethod
     def from_user_config(cls, user_config: UserConfig) -> "TimingManagerConfig":

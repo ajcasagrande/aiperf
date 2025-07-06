@@ -51,9 +51,11 @@ class CreditIssuingStrategy(AsyncTaskManagerMixin, ABC):
 
     @abstractmethod
     async def start(self) -> None:
-        pass
+        """Start the credit issuing strategy."""
+        raise NotImplementedError("Start method must be implemented in subclass")
 
     async def stop(self) -> None:
+        """Stop the credit issuing strategy."""
         await self.cancel_all_tasks()
 
     async def on_credit_return(self, message: CreditReturnMessage) -> None:
