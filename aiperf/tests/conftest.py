@@ -18,6 +18,7 @@ from aiperf.common.tokenizer import Tokenizer
 from aiperf.tests.comms.mock_zmq import (
     mock_zmq_communication,  # noqa: F401 : used as a fixture
 )
+from aiperf.tests.utils.async_test_utils import MockSemaphore
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -120,3 +121,10 @@ def mock_tokenizer_cls() -> type[Tokenizer]:
             return " ".join([f"token_{t}" for t in token_ids])
 
     return MockTokenizer
+
+
+@pytest.fixture
+def patch_semaphore() -> Generator[None, None, None]:
+    """Fixture to patch the semaphore for testing."""
+    with patch("asyncio.Semaphore", side_effect=MockSemaphore):
+        yield

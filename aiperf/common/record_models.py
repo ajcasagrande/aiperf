@@ -198,19 +198,7 @@ class SSEMessage(InferenceServerResponse):
 
 
 class RequestRecord(BaseModel):
-    """Record of a request with its associated responses.
-
-    Attributes:
-        request: The request payload.
-        timestamp_ns: The wall clock timestamp of the request in nanoseconds. DO NOT USE FOR LATENCY CALCULATIONS. (time.time_ns).
-        start_perf_ns: The start reference time of the request in nanoseconds used for latency calculations (perf_counter_ns).
-        end_perf_ns: The end reference time of the request in nanoseconds (perf_counter_ns).
-        recv_start_perf_ns: The start reference time of the response in nanoseconds used for latency calculations (perf_counter_ns).
-        status: The HTTP status code of the request.
-        responses: The raw responses received from the request.
-        error: The error details if the request failed.
-        delayed: Whether the request was delayed from when it was expected to be sent.
-    """
+    """Record of a request with its associated responses."""
 
     request: Any = Field(
         default=None,
@@ -247,10 +235,17 @@ class RequestRecord(BaseModel):
         default=None,
         description="The error details if the request failed.",
     )
-    delayed: bool = Field(
-        default=False,
-        description="Whether the request was delayed from when it was expected to be sent.",
+    delayed_ns: int | None = Field(
+        default=None,
+        gt=0,
+        description="The number of nanoseconds the request was delayed from when it was expected to be sent, "
+        "or None if the request was sent on time, or did not have a credit_drop_ns timestamp.",
     )
+
+    @property
+    def delayed(self) -> bool:
+        """Check if the request was delayed."""
+        return self.delayed_ns is not None and self.delayed_ns > 0
 
     # TODO: Most of these properties will be removed once we have proper record handling and metrics.
 

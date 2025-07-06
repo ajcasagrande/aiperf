@@ -36,10 +36,14 @@ from aiperf.common.mixins import AsyncTaskManagerMixin
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.progress import ProfileProgressMessage
 from aiperf.services.timing_manager.concurrency_strategy import ConcurrencyStrategy
-from aiperf.services.timing_manager.config import TimingManagerConfig, TimingMode
+from aiperf.services.timing_manager.config import (
+    CreditPhase,
+    TimingManagerConfig,
+    TimingMode,
+)
 from aiperf.services.timing_manager.credit_issuing_strategy import CreditIssuingStrategy
 from aiperf.services.timing_manager.fixed_schedule_strategy import FixedScheduleStrategy
-from aiperf.services.timing_manager.rate_strategy import RateStrategy
+from aiperf.services.timing_manager.request_rate_strategy import RequestRateStrategy
 
 
 @ServiceFactory.register(ServiceType.TIMING_MANAGER)
@@ -113,18 +117,21 @@ class TimingManager(BaseComponentService, AsyncTaskManagerMixin):
                 "TM: Received dataset timing response: %s",
                 dataset_timing_response,
             )
+            self.logger.info("TM: Using fixed schedule strategy")
             self._credit_issuing_strategy = FixedScheduleStrategy(
                 config=self.config,
                 credit_manager=self,
                 schedule=dataset_timing_response.timing_data,
             )
         elif self.config.timing_mode == TimingMode.CONCURRENCY:
+            self.logger.info("TM: Using concurrency strategy")
             self._credit_issuing_strategy = ConcurrencyStrategy(
                 config=self.config,
                 credit_manager=self,
             )
-        elif self.config.timing_mode == TimingMode.RATE:
-            self._credit_issuing_strategy = RateStrategy(
+        elif self.config.timing_mode == TimingMode.REQUEST_RATE:
+            self.logger.info("TM: Using request rate strategy")
+            self._credit_issuing_strategy = RequestRateStrategy(
                 config=self.config,
                 credit_manager=self,
             )
@@ -156,32 +163,35 @@ class TimingManager(BaseComponentService, AsyncTaskManagerMixin):
         if self._credit_issuing_strategy:
             await self._credit_issuing_strategy.on_credit_return(message)
 
-    async def publish_progress(
-        self, start_time_ns: int, total: int, completed: int
-    ) -> None:
+    async def publish_progress(self, phase: CreditPhase) -> None:
         """Publish the progress message."""
         self.execute_async(
             self.pub_client.publish(
                 ProfileProgressMessage(
                     service_id=self.service_id,
-                    start_ns=start_time_ns,
-                    total=total,
-                    completed=completed,
+                    start_ns=phase.start_time_ns,
+                    total=phase.total_credits,
+                    completed=phase.completed_credits,
+                    warmup=phase.warmup,
                 )
             )
         )
 
-    async def publish_credits_complete(self, cancelled: bool) -> None:
+    async def publish_credits_complete(self, warmup: bool, cancelled: bool) -> None:
         """Publish the credits complete message."""
         self.execute_async(
             self.pub_client.publish(
-                CreditsCompleteMessage(service_id=self.service_id, cancelled=cancelled)
+                CreditsCompleteMessage(
+                    service_id=self.service_id,
+                    warmup=warmup,
+                    cancelled=cancelled,
+                )
             )
         )
 
     async def drop_credit(
         self,
-        amount: int = 1,
+        warmup: bool = False,
         conversation_id: str | None = None,
         credit_drop_ns: int | None = None,
     ) -> None:
@@ -190,6 +200,7 @@ class TimingManager(BaseComponentService, AsyncTaskManagerMixin):
             self.credit_drop_client.push(
                 message=CreditDropMessage(
                     service_id=self.service_id,
+                    warmup=warmup,
                     credit_drop_ns=credit_drop_ns,
                     conversation_id=conversation_id,
                 ),

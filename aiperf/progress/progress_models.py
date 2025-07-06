@@ -446,6 +446,10 @@ class ProfileProgressMessage(BaseServiceMessage):
     completed: int = Field(
         ..., description="The number of inference requests completed"
     )
+    warmup: bool = Field(
+        default=False,
+        description="Whether this is the warmup phase of the profile run",
+    )
 
 
 class SweepProgressMessage(BaseServiceMessage):

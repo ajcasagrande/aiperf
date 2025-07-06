@@ -246,11 +246,11 @@ class TestAioHttpClientMixin:
             setup_mock_session(mock_session_class, mock_aiohttp_response, ["post"])
 
             record = await aiohttp_client.post_request(
-                "http://test.com", "{}", {}, delayed=True
+                "http://test.com", "{}", {}, delayed_ns=1000000000
             )
 
             assert_successful_request_record(record)
-            assert record.delayed is True
+            assert record.delayed_ns is not None
 
     @pytest.mark.asyncio
     async def test_kwargs_passed_to_session_post(

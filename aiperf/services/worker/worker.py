@@ -154,13 +154,13 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
         # NOTE: This function MUST NOT return until the credit drop is processed,
         #       that way the max concurrency is respected via the semaphore
 
+        # TODO: Add tests to verify that the above is true
+
         self.logger.debug("Processing credit drop: %s", message)
 
         try:
             self.logger.debug("Received credit drop for %s", message.conversation_id)
 
-            # Make a call to the inference server for each credit concurrently, and then wait
-            # for all the tasks to complete
             await self._execute_single_credit(
                 credit_drop_ns=message.credit_drop_ns,
                 conversation_id=message.conversation_id,
@@ -176,6 +176,8 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
                 message=CreditReturnMessage(
                     service_id=self.service_id,
                     conversation_id=message.conversation_id,
+                    credit_drop_ns=message.credit_drop_ns,
+                    delayed_ns=None,
                 ),
             )
 
@@ -258,13 +260,13 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
                 # },
             )
 
-            delayed = False
+            delayed_ns = None
             if credit_drop_ns and credit_drop_ns > time.time_ns():
                 await asyncio.sleep(
                     (credit_drop_ns - time.time_ns()) / NANOS_PER_SECOND
                 )
             elif credit_drop_ns and credit_drop_ns < time.time_ns():
-                delayed = True
+                delayed_ns = credit_drop_ns - time.time_ns()
 
             # Send the request to the Inference Server API and wait for the response
             result = await self.inference_client.send_request(
@@ -272,7 +274,7 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
                 payload=formatted_payload,
             )
 
-            result.delayed = delayed
+            result.delayed_ns = delayed_ns
             return result
 
         except Exception as e:

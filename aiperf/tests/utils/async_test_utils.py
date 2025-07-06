@@ -49,7 +49,9 @@ async def async_fixture(fixture: T) -> T:
 class MockSemaphore(asyncio.Semaphore):
     """Simple semaphore mock that allows for testing of concurrency."""
 
-    def __init__(self):
+    def __init__(self, value: int = 1):
+        # super().__init__(value=value)
+        self.value = value
         self.acquire_count = 0
         self.release_count = 0
 

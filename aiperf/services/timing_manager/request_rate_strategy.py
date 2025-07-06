@@ -13,7 +13,7 @@ from aiperf.services.timing_manager.credit_issuing_strategy import (
 )
 
 
-class RateStrategy(CreditIssuingStrategy):
+class RequestRateStrategy(CreditIssuingStrategy):
     """
     Class for rate credit issuing strategy.
     """
@@ -33,16 +33,46 @@ class RateStrategy(CreditIssuingStrategy):
         self._sent_credits = 0
         self._completed_credits = 0
         self.start_time_ns = 0
+        self._warmup_completed = False
+        self._warmup_sent_credits = 0
+        self._warmup_completed_credits = 0
+        self._warmup_start_time_ns = 0
+        self._warmup_end_time_ns = 0
+
+        self._warmup_completed_event = asyncio.Event()
+
+    async def _warmup_loop(self) -> None:
+        """Warmup the system."""
+
+        self._warmup_start_time_ns = time.time_ns()
+        self._warmup_end_time_ns = (
+            self._warmup_start_time_ns + self._warmup_request_count
+        )
+
+        while self._warmup_sent_credits < self._warmup_request_count:
+            await asyncio.sleep(1.0 / self._request_rate)
+            self._warmup_sent_credits += 1
+            self._warmup_completed_credits += 1
+            if self._warmup_completed_credits >= self._warmup_request_count:
+                self._warmup_completed_event.set()
+                break
+
+        self.logger.info("TM: Warmup completed")
+        self._warmup_completed_event.clear()
 
     async def start(self) -> None:
         self.start_time_ns = time.time_ns()
         self.execute_async(self._progress_report_loop())
+        self.execute_async(self._warmup_loop())
         self.execute_async(self._credit_drop_loop())
 
     async def _credit_drop_loop(self) -> None:
         """Issue credit drops to workers."""
 
-        await asyncio.sleep(1.5)  # TODO: HACK: Wait for the system to be ready
+        await self._warmup_completed_event.wait()
+        self._warmup_completed = True
+
+        self.start_time_ns = time.time_ns()
 
         self.logger.info(
             "TM: Issuing credit drops: %s total credits, %s request rate",

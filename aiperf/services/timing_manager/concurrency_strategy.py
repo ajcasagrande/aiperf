@@ -9,7 +9,7 @@ from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.exceptions import InvalidStateError
 from aiperf.common.messages import CreditReturnMessage
 from aiperf.common.mixins import AsyncTaskManagerMixin
-from aiperf.services.timing_manager.config import TimingManagerConfig
+from aiperf.services.timing_manager.config import CreditPhase, TimingManagerConfig
 from aiperf.services.timing_manager.credit_issuing_strategy import (
     CreditIssuingStrategy,
     CreditManagerProtocol,
@@ -25,107 +25,154 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
         self, config: TimingManagerConfig, credit_manager: CreditManagerProtocol
     ):
         super().__init__(config=config, credit_manager=credit_manager)
+        self.logger = logging.getLogger(__class__.__name__)
 
         if config.request_count is None:
-            # TODO: Add support for alternate strategies
+            # TODO: Add support for alternate completion triggers vs request count (eg. time based)
             raise InvalidStateError("Request count is not set")
 
-        self._total_credits = config.request_count
-        self._concurrency = min(self._total_credits, config.concurrency)
+        self.profiling = CreditPhase(total_credits=config.request_count)
+        self.active_phase = self.profiling
 
-        self._sent_credits = 0
-        self._completed_credits = 0
-        self.start_time_ns = 0
+        self.warmup = None
+        if config.warmup_request_count > 0:
+            self.warmup = CreditPhase(total_credits=config.warmup_request_count)
+            self.active_phase = self.warmup
+
+        # if the concurrency is larger than the total credits, it does not matter
+        self._concurrency = config.concurrency
         self._semaphore = asyncio.Semaphore(value=self._concurrency)
 
         self.logger.info(
-            "TM: Concurrency Strategy initialized with total_credits=%s, concurrency=%s",
-            self._total_credits,
+            "TM: Concurrency Strategy initialized with total_credits=%s, concurrency=%s, warmup=%s",
+            self.active_phase.total_credits,
             self._concurrency,
+            config.warmup_request_count,
         )
 
     async def start(self) -> None:
-        self.start_time_ns = time.time_ns()
+        """Start the credit issuing strategy. This will launch the progress reporting loop, the
+        warmup phase (if applicable), and the profiling phase, all in the background."""
+
         self.execute_async(self._progress_report_loop())
-        self.execute_async(self._credit_drop_loop())
-
-    async def _credit_drop_loop(self) -> None:
-        """Issue credit drops to workers."""
-
-        await asyncio.sleep(1.5)  # TODO: HACK: Wait for the system to be ready
-
-        self.logger.info(
-            "TM: Issuing credit drops: %s total credits, %s concurrency",
-            self._total_credits,
-            self._concurrency,
+        if self.warmup:
+            self.execute_async(self._execute_phase(self.warmup))
+        self.execute_async(
+            self._execute_phase(
+                self.profiling, self.warmup.completed_event if self.warmup else None
+            )
         )
 
-        while self._sent_credits < self._total_credits:
+    async def _execute_phase(
+        self, phase: CreditPhase, wait_for_event: asyncio.Event | None = None
+    ) -> None:
+        """Execute a phase of credit issuing. If a wait_for_event is provided,
+        it will wait for the event to be set before executing the phase."""
+
+        if wait_for_event is not None:
+            self.logger.info("TM: Waiting for warmup to complete")
+            await wait_for_event.wait()
+            self.logger.info("TM: Warmup completed")
+
+        self.active_phase = phase
+        self.logger.info(
+            "TM: Executing phase (total_credits=%s, concurrency=%s, warmup=%s, start_time_ns=%s)",
+            phase.total_credits,
+            self._concurrency,
+            phase.warmup,
+            phase.start_time_ns,
+        )
+
+        phase.start_time_ns = time.time_ns()
+
+        # Report the initial progress of the phase to ensure everything is in sync
+        self.execute_async(self._report_progress())
+
+        while phase.sent_credits < phase.total_credits:
             await self._semaphore.acquire()
             self.execute_async(
                 self.credit_manager.drop_credit(
+                    warmup=phase.warmup,
                     conversation_id=None,
                     credit_drop_ns=None,
                 )
             )
-            self._sent_credits += 1
+            phase.sent_credits += 1
 
-        self.logger.info("TM: All credits sent, stopping credit drop loop")
+        self.logger.debug("TM: Sent all credits for phase %s", phase)
 
     async def on_credit_return(self, message: CreditReturnMessage) -> None:
         """Process a credit return message."""
 
         self._semaphore.release()
-        self._completed_credits += 1
+        self.active_phase.completed_credits += 1
 
         if self.logger.isEnabledFor(logging.DEBUG):
             per_sec = (
-                self._completed_credits
-                / ((time.time_ns() - self.start_time_ns) / NANOS_PER_SECOND)
-                if (time.time_ns() - self.start_time_ns) > 0
+                self.active_phase.completed_credits
+                / (
+                    (time.time_ns() - self.active_phase.start_time_ns)
+                    / NANOS_PER_SECOND
+                )
+                if (time.time_ns() - self.active_phase.start_time_ns) > 0
                 else 0
             )
             self.logger.debug(
                 "TM: Processing credit return: %s (completed credits: %s of %s) (%.2f requests/s)",
                 message,
-                self._completed_credits,
-                self._total_credits,
+                self.active_phase.completed_credits,
+                self.active_phase.total_credits,
                 per_sec,
             )
 
-        if self._completed_credits >= self._total_credits:
-            self.execute_async(self.credit_manager.publish_credits_complete(False))
+        if self.active_phase.completed_credits >= self.active_phase.total_credits:
+            self.active_phase.end_time_ns = time.time_ns()
+            self.execute_async(
+                self.credit_manager.publish_credits_complete(
+                    self.active_phase.warmup, False
+                )
+            )
 
             if self.logger.isEnabledFor(logging.DEBUG):
                 per_sec = (
-                    self._completed_credits
-                    / ((time.time_ns() - self.start_time_ns) / NANOS_PER_SECOND)
-                    if (time.time_ns() - self.start_time_ns) > 0
+                    self.active_phase.completed_credits
+                    / (
+                        (time.time_ns() - self.active_phase.start_time_ns)
+                        / NANOS_PER_SECOND
+                    )
+                    if (time.time_ns() - self.active_phase.start_time_ns) > 0
                     else 0
                 )
                 self.logger.debug(
                     "TM: All credits completed, stopping credit drop task after %.2f seconds (%.2f requests/s)",
-                    (time.time_ns() - self.start_time_ns) / NANOS_PER_SECOND,
+                    (time.time_ns() - self.active_phase.start_time_ns)
+                    / NANOS_PER_SECOND,
                     per_sec,
                 )
+                self.active_phase.completed_event.set()
+
+    async def _report_progress(self) -> None:
+        """Report the progress of the active phase."""
+        try:
+            await self.credit_manager.publish_progress(self.active_phase)
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            self.logger.error("TM: Error publishing progress: %s", e)
 
     async def _progress_report_loop(self) -> None:
         """Report the progress at a fixed interval."""
         while True:
-            try:
-                await self.credit_manager.publish_progress(
-                    self.start_time_ns, self._total_credits, self._completed_credits
-                )
-            except asyncio.CancelledError:
-                self.logger.debug("TM: Progress reporting loop cancelled")
-                break
-            except Exception as e:
-                self.logger.error("TM: Error publishing progress: %s", e)
-
-            if self._completed_credits >= self._total_credits:
+            if self.active_phase.completed_event.is_set():
                 self.logger.debug(
                     "TM: All credits completed, stopping progress reporting loop"
                 )
+                break
+
+            try:
+                await self._report_progress()
+            except asyncio.CancelledError:
+                self.logger.debug("TM: Progress reporting loop cancelled")
                 break
 
             await asyncio.sleep(1)  # TODO: Make this configurable

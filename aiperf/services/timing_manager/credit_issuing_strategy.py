@@ -7,7 +7,7 @@ from typing import Protocol
 
 from aiperf.common.messages import CreditReturnMessage
 from aiperf.common.mixins import AsyncTaskManagerMixin
-from aiperf.services.timing_manager.config import TimingManagerConfig
+from aiperf.services.timing_manager.config import CreditPhase, TimingManagerConfig
 
 
 class CreditManagerProtocol(Protocol):
@@ -19,19 +19,18 @@ class CreditManagerProtocol(Protocol):
 
     async def drop_credit(
         self,
+        warmup: bool = False,
         conversation_id: str | None = None,
         credit_drop_ns: int | None = None,
     ) -> None:
         """Drop a credit."""
         ...
 
-    async def publish_progress(
-        self, start_time_ns: int, total: int, completed: int
-    ) -> None:
+    async def publish_progress(self, phase: CreditPhase) -> None:
         """Publish the progress message."""
         ...
 
-    async def publish_credits_complete(self, cancelled: bool) -> None:
+    async def publish_credits_complete(self, warmup: bool, cancelled: bool) -> None:
         """Publish the credits complete message."""
         ...
 
