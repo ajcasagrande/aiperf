@@ -129,14 +129,18 @@ def main(
     # Create and start the system controller
     logger.info("Starting AIPerf System")
 
-    bootstrap_and_run_service(
-        SystemController,
-        service_config=cli_config.service_config,
-        user_config=cli_config.user_config,
-        log_queue=log_queue,
-    )
-
-    logger.info("AIPerf System exited")
+    try:
+        bootstrap_and_run_service(
+            SystemController,
+            service_config=cli_config.service_config,
+            user_config=cli_config.user_config,
+            log_queue=log_queue,
+        )
+    except Exception as e:
+        logger.exception("Error starting AIPerf System")
+        raise e
+    finally:
+        logger.info("AIPerf System exited")
 
 
 if __name__ == "__main__":

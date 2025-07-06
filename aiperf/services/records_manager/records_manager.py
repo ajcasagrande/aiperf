@@ -115,7 +115,7 @@ class RecordsManager(BaseComponentService):
         await self.response_results_client.register_pull_callback(
             message_type=MessageType.PARSED_INFERENCE_RESULTS,
             callback=self._on_parsed_inference_results,
-            max_concurrency=1000000,
+            max_concurrency=100_000,
         )
 
     @on_start

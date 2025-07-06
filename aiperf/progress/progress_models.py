@@ -48,6 +48,25 @@ class SweepCompletionTrigger(CaseInsensitiveStrEnum):
     """User defined trigger. TBD"""
 
 
+class SweepParamType(CaseInsensitiveStrEnum):
+    """Determines the type of sweep parameter."""
+
+    INT = "int"
+    """The parameter is an integer."""
+
+    FLOAT = "float"
+    """The parameter is a float."""
+
+    STRING = "string"
+    """The parameter is a string."""
+
+    BOOLEAN = "boolean"
+    """The parameter is a boolean."""
+
+    CUSTOM = "custom"
+    """User defined parameter type. TBD"""
+
+
 class SweepParamOrder(CaseInsensitiveStrEnum):
     """Determines the order in which the sweep parameters are tested."""
 

@@ -12,6 +12,11 @@ from aiperf.common.enums import (
     ModelSelectionStrategy,
     ServiceRunType,
 )
+from aiperf.progress.progress_models import (
+    SweepCompletionTrigger,
+    SweepMultiParamOrder,
+    SweepParamOrder,
+)
 
 
 #
@@ -138,3 +143,34 @@ class ServiceDefaults:
     LOG_LEVEL = "INFO"
     DISABLE_UI = False
     ENABLE_UVLOOP = True
+
+
+@dataclass(frozen=True)
+class LoadGeneratorDefaults:
+    CONCURRENCY = 1
+    REQUEST_RATE = None
+    REQUEST_COUNT = 10
+    WARMUP_REQUEST_COUNT = 0
+
+
+@dataclass(frozen=True)
+class MeasurementDefaults:
+    MEASUREMENT_INTERVAL = 10_000
+    STABILITY_PERCENTAGE = 0.95
+
+
+@dataclass(frozen=True)
+class SweepParamDefaults:
+    VALUES = None
+    ORDER = SweepParamOrder.ASCENDING
+    COMPLETION_TRIGGER = SweepCompletionTrigger.COMPLETED_PROFILES
+    START = None
+    STEP = None
+    END = None
+    MAX_PROFILES = None
+
+
+@dataclass(frozen=True)
+class SweepDefaults:
+    PARAMS = None
+    ORDER = SweepMultiParamOrder.DEPTH_FIRST
