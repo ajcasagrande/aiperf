@@ -6,6 +6,7 @@ import logging
 import os
 import sys
 import time
+from typing import cast
 
 from aiperf.clients.openai.common import OpenAIChatCompletionRequest, OpenAIClientConfig
 from aiperf.common.comms.base import (
@@ -25,10 +26,9 @@ from aiperf.common.enums import (
     CommunicationClientAddressType,
     InferenceClientType,
     MessageType,
-    ModelSelectionStrategy,
-    RequestPayloadType,
     ServiceType,
 )
+from aiperf.common.exceptions import ConfigurationError
 from aiperf.common.factories import InferenceClientFactory, ServiceFactory
 from aiperf.common.hooks import (
     aiperf_task,
@@ -48,9 +48,9 @@ from aiperf.common.messages import (
     WorkerHealthMessage,
 )
 from aiperf.common.mixins import AsyncTaskManagerMixin, ProcessHealthMixin
+from aiperf.common.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.record_models import ErrorDetails, RequestRecord
 from aiperf.common.service.base_component_service import BaseComponentService
-from aiperf.common.types import EndpointInfo, ModelEndpointInfo, ModelInfo
 
 
 @ServiceFactory.register(ServiceType.WORKER)
@@ -115,20 +115,7 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
             api_key=api_key,
             base_url=f"http://{os.getenv('AIPERF_HOST', '127.0.0.1')}:{os.getenv('AIPERF_PORT', 8080)}",
         )
-        self.model_endpoint = ModelEndpointInfo(
-            models=[
-                ModelInfo(
-                    name=os.getenv(
-                        "AIPERF_MODEL", "deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
-                    )
-                )
-            ],
-            endpoint=EndpointInfo(
-                type=RequestPayloadType.OPENAI_CHAT_COMPLETIONS,
-                streaming=os.getenv("AIPERF_STREAMING", "true").lower() == "true",
-            ),
-            model_selection_strategy=ModelSelectionStrategy.ROUND_ROBIN,
-        )
+        self.model_endpoint: ModelEndpointInfo | None = None
 
         self.inference_client = InferenceClientFactory.create_instance(
             InferenceClientType.OPENAI, client_config=openai_client_config
@@ -154,10 +141,10 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
     @on_configure
     async def _configure(self, message: CommandMessage) -> None:
         self.logger.debug("Configuring worker process %s", self.service_id)
-        # if not isinstance(message.data, UserConfig):
-        #     raise ConfigurationError("Invalid user config")
+        if not isinstance(message.data, UserConfig):
+            raise ConfigurationError("Invalid user config")
 
-        # self.user_config = cast(UserConfig, message.data)
+        self.user_config = cast(UserConfig, message.data)
 
         # TODO: better way to get the API key
         api_key = os.environ.get("OPENAI_API_KEY", None)
@@ -167,20 +154,7 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
             api_key=api_key,
             base_url=f"http://{os.getenv('AIPERF_HOST', '127.0.0.1')}:{os.getenv('AIPERF_PORT', 8080)}",
         )
-        self.model_endpoint = ModelEndpointInfo(
-            models=[
-                ModelInfo(
-                    name=os.getenv(
-                        "AIPERF_MODEL", "deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
-                    )
-                )
-            ],
-            endpoint=EndpointInfo(
-                type=RequestPayloadType.OPENAI_CHAT_COMPLETIONS,
-                streaming=os.getenv("AIPERF_STREAMING", "true").lower() == "true",
-            ),
-            model_selection_strategy=ModelSelectionStrategy.ROUND_ROBIN,
-        )
+        self.model_endpoint = ModelEndpointInfo.from_user_config(self.user_config)
 
         self.inference_client = InferenceClientFactory.create_instance(
             InferenceClientType.OPENAI, client_config=openai_client_config
@@ -307,7 +281,7 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
                         "content": "IO Sir you say well and well you do conceive And since you do profess to be a suitor You must as we do gratify this gentleman To whom we all rest generally beholding TRANIO Sir I shall not be slack in sign whereof Please ye we may contrive this afternoon And quaff carouses to our mistress health And do as adversaries do in law Strive mightily but eat and drink as friends GRUMIO BIONDELLO O excellent motion Fellows lets be gone HORT",
                     },
                 ],
-                model=self.model_endpoint.models[0].name,
+                model=self.model_endpoint.models.models[0].name,
                 max_tokens=100,
                 stream=True,
             )

@@ -5,18 +5,18 @@ from typing import TYPE_CHECKING, Generic, Protocol, runtime_checkable
 if TYPE_CHECKING:
     from aiperf.common.record_models import ParsedResponseRecord, ResponseData
 from aiperf.common.dataset_models import Turn
-from aiperf.common.record_models import (
-    ParsedResponseRecord,
-    RequestRecord,
-    ResponseData,
-)
-from aiperf.common.types import (
+from aiperf.common.model_endpoint_info import (
     ConfigT,
     InputT,
     ModelEndpointInfo,
     OutputT,
     RequestT,
     ResponseT,
+)
+from aiperf.common.record_models import (
+    ParsedResponseRecord,
+    RequestRecord,
+    ResponseData,
 )
 
 ################################################################################

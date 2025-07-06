@@ -511,6 +511,23 @@ class RequestPayloadType(CaseInsensitiveStrEnum):
     TENSORRTLLM = "tensorrtllm"
     VLLM = "vllm"
 
+    def endpoint(self) -> str:
+        """Get the endpoint value for the request payload type."""
+        match self:
+            case (
+                RequestPayloadType.OPENAI_CHAT_COMPLETIONS,
+                RequestPayloadType.OPENAI_MULTIMODAL,
+            ):
+                return "/v1/chat/completions"
+            case RequestPayloadType.OPENAI_COMPLETIONS:
+                return "/v1/completions"
+            case RequestPayloadType.OPENAI_EMBEDDINGS:
+                return "/v1/embeddings"
+            case RequestPayloadType.OPENAI_RESPONSES:
+                return "/v1/responses"
+            case _:
+                raise NotImplementedError(f"Endpoint not implemented for {self}")
+
 
 class ResponsePayloadType(CaseInsensitiveStrEnum):
     """Response payload types.

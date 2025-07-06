@@ -18,11 +18,11 @@ from aiperf.common.dataset_models import Turn
 from aiperf.common.enums import InferenceClientType
 from aiperf.common.exceptions import InvalidPayloadError
 from aiperf.common.factories import InferenceClientFactory
+from aiperf.common.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.record_models import (
     ErrorDetails,
     RequestRecord,
 )
-from aiperf.common.types import ModelEndpointInfo
 
 ################################################################################
 # OpenAI Inference Client

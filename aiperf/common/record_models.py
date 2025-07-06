@@ -12,8 +12,6 @@ from pydantic import BaseModel, Field, SerializeAsAny
 from aiperf.common.enums import SSEFieldType
 
 
-# Temporary Record class to be used by the ConsoleExporter.
-# TODO: Remove once the actual Records classes are fully implemented.
 class MetricResult(BaseModel):
     """The result values of a single metric."""
 

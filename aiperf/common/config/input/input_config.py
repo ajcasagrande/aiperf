@@ -64,7 +64,7 @@ class InputConfig(BaseConfig):
         BeforeValidator(parse_goodput),
     ] = InputDefaults.GOODPUT
 
-    header: Annotated[
+    headers: Annotated[
         dict[str, str] | None,
         Field(
             description="Adds a custom header to the requests.\
