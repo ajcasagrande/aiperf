@@ -393,7 +393,6 @@ class HooksMixin:
 
 @supports_hooks(
     AIPerfTaskHook.AIPERF_TASK,
-    AIPerfTaskHook.AIPERF_AUTO_TASK,
     AIPerfHook.ON_INIT,
     AIPerfHook.ON_START,
     AIPerfHook.ON_STOP,

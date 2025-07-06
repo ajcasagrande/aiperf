@@ -404,11 +404,15 @@ class ProcessHealth(BaseModel):
         default=None,
         description="The PID of the process",
     )
+    create_time: float = Field(
+        ..., description="The creation time of the process in seconds"
+    )
+    uptime: float = Field(..., description="The uptime of the process in seconds")
     cpu_usage: float = Field(
         ..., description="The current CPU usage of the process in %"
     )
     memory_usage: float = Field(
-        ..., description="The current memory usage of the process in MiB"
+        ..., description="The current memory usage of the process in MiB (rss)"
     )
     net_connections: int | None = Field(
         default=None,
@@ -443,8 +447,6 @@ class WorkerHealthMessage(BaseServiceMessage):
         description="Timestamp of the request",
     )
 
-    service_id: str = Field(..., description="The ID of the worker")
-
     process: ProcessHealth = Field(..., description="The health of the worker process")
 
     # Worker specific fields
@@ -452,15 +454,13 @@ class WorkerHealthMessage(BaseServiceMessage):
         ..., description="The number of tasks that have been completed"
     )
     failed_tasks: int = Field(..., description="The number of tasks that have failed")
-    total_tasks: int = Field(
-        ..., description="The total number of tasks that have been attempted "
-    )
-    uptime: float = Field(..., description="The uptime of the worker in seconds")
-    timestamp_ns: int = Field(
-        ..., description="The current timestamp of the health check"
-    )
 
     @property
     def in_progress_tasks(self) -> int:
         """The number of tasks that are in progress."""
         return self.total_tasks - self.completed_tasks - self.failed_tasks
+
+    @property
+    def total_tasks(self) -> int:
+        """The total number of tasks that have been attempted."""
+        return self.completed_tasks + self.failed_tasks

@@ -2,11 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import asyncio
+import logging
 import os
 import sys
 import time
-
-import psutil
 
 from aiperf.clients.openai.common import OpenAIChatCompletionRequest, OpenAIClientConfig
 from aiperf.common.comms.base import (
@@ -19,7 +18,6 @@ from aiperf.common.comms.base import (
 )
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.constants import (
-    BYTES_PER_MIB,
     NANOS_PER_SECOND,
     TASK_CANCEL_TIMEOUT_SHORT,
 )
@@ -43,23 +41,20 @@ from aiperf.common.messages import (
     CommandMessage,
     ConversationRequestMessage,
     ConversationResponseMessage,
-    CPUTimes,
     CreditDropMessage,
     CreditReturnMessage,
-    CtxSwitches,
     ErrorMessage,
     InferenceResultsMessage,
-    ProcessHealth,
     WorkerHealthMessage,
 )
-from aiperf.common.mixins import AsyncTaskManagerMixin
+from aiperf.common.mixins import AsyncTaskManagerMixin, ProcessHealthMixin
 from aiperf.common.record_models import ErrorDetails, RequestRecord
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.common.types import EndpointInfo, ModelEndpointInfo, ModelInfo
 
 
 @ServiceFactory.register(ServiceType.WORKER)
-class Worker(BaseComponentService, AsyncTaskManagerMixin):
+class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
     """Worker is primarily responsible for converting the data into the appropriate
     format for the interface being used by the server. Also responsible for managing
     the conversation between turns.
@@ -71,7 +66,8 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin):
         service_id: str | None = None,
     ):
         super().__init__(service_config=service_config, service_id=service_id)
-        self.logger.debug("Initializing worker process")
+        self.logger = logging.getLogger(self.service_id)
+        self.logger.debug("Initializing worker process: %s", self.process.pid)
         self.user_config: UserConfig | None = None
         self.model_endpoint: ModelEndpointInfo | None = None
 
@@ -81,14 +77,8 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin):
         self.health_check_interval = int(
             os.getenv("AIPERF_WORKER_HEALTH_CHECK_INTERVAL", 1)
         )
-        self.begin_time = time.time()
         self.completed_tasks = 0
         self.failed_tasks = 0
-        self.total_tasks = 0
-
-        # Initialize process-specific CPU monitoring
-        self.process = psutil.Process()
-        self.process.cpu_percent()  # throw away the first result (will be 0)
 
         self.stop_event: asyncio.Event = asyncio.Event()
         self.health_task: asyncio.Task | None = None
@@ -361,33 +351,12 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin):
 
     def create_health_message(self) -> WorkerHealthMessage:
         """Create a health message for the worker."""
-        # Get process-specific CPU and memory usage
-        raw_cpu_times = self.process.cpu_times()
-        if len(raw_cpu_times) >= 5:
-            cpu_times = CPUTimes(
-                user=raw_cpu_times[0],
-                system=raw_cpu_times[1],
-                iowait=raw_cpu_times[4],
-            )
-        else:
-            cpu_times = CPUTimes(*raw_cpu_times[:2], 0.0)
+
         return WorkerHealthMessage(
             service_id=self.service_id,
-            process=ProcessHealth(
-                pid=self.process.pid,
-                cpu_usage=self.process.cpu_percent(),
-                memory_usage=self.process.memory_info().rss / BYTES_PER_MIB,
-                net_connections=len(self.process.net_connections("tcp4")),
-                io_counters=self.process.io_counters(),
-                cpu_times=cpu_times,
-                num_ctx_switches=CtxSwitches(*self.process.num_ctx_switches()),
-                num_threads=self.process.num_threads(),
-            ),
-            uptime=time.time() - self.begin_time,
+            process=self.get_process_health(),
             completed_tasks=self.completed_tasks,
             failed_tasks=self.failed_tasks,
-            total_tasks=self.total_tasks,
-            timestamp_ns=time.time_ns(),
         )
 
     @on_stop

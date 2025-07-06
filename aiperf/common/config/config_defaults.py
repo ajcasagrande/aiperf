@@ -8,7 +8,6 @@ from aiperf.common.enums import (
     AudioFormat,
     CommunicationBackend,
     ImageFormat,
-    InferenceClientType,
     ModelSelectionStrategy,
     RequestPayloadType,
     ServiceRunType,
@@ -27,9 +26,8 @@ class UserDefaults:
 @dataclass(frozen=True)
 class EndPointDefaults:
     MODEL_SELECTION_STRATEGY = ModelSelectionStrategy.ROUND_ROBIN
-    REQUEST_PAYLOAD_TYPE = RequestPayloadType.OPENAI_CHAT_COMPLETIONS
     CUSTOM = ""
-    TYPE = InferenceClientType.OPENAI
+    TYPE = RequestPayloadType.OPENAI_CHAT_COMPLETIONS
     STREAMING = True
     SERVER_METRICS_URLS = ["http://localhost:8002/metrics"]
     URL = "localhost:8080"
@@ -39,12 +37,12 @@ class EndPointDefaults:
 @dataclass(frozen=True)
 class InputDefaults:
     BATCH_SIZE = 1
-    EXTRA = ""
+    EXTRA = {}
     GOODPUT = {}
-    HEADER = ""
+    HEADER = {}
     FILE = None
     NUM_DATASET_ENTRIES = 100
-    RANDOM_SEED = 0
+    RANDOM_SEED = None
 
 
 @dataclass(frozen=True)

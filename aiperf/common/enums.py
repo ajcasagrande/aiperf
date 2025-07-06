@@ -492,7 +492,7 @@ class RequestPayloadType(CaseInsensitiveStrEnum):
     These determine the format of the request payload to send to the model.
     """
 
-    OPENAI_CHAT_COMPLETIONS = "openai_chat_completions"
+    OPENAI_CHAT_COMPLETIONS = "chat"
     OPENAI_COMPLETIONS = "openai_completions"
     OPENAI_EMBEDDINGS = "openai_embeddings"
     OPENAI_MULTIMODAL = "openai_multimodal"

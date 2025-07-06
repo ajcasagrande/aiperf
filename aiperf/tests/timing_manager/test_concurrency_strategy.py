@@ -12,22 +12,12 @@ import pytest
 from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.messages import CreditReturnMessage
 from aiperf.services.timing_manager.concurrency_strategy import ConcurrencyStrategy
+from aiperf.tests.utils.async_test_utils import MockSemaphore
 
 
-def sec_to_nanos(seconds: float) -> int:
+def seconds_to_ns(seconds: float) -> int:
+    """Convert seconds to nanoseconds."""
     return int(seconds * NANOS_PER_SECOND)
-
-
-class MockSemaphore(asyncio.Semaphore):
-    def __init__(self):
-        self.acquire_count = 0
-        self.release_count = 0
-
-    async def acquire(self):
-        self.acquire_count += 1
-
-    def release(self):
-        self.release_count += 1
 
 
 @pytest.mark.asyncio
@@ -39,7 +29,7 @@ class TestConcurrencyStrategy:
         self, mock_time_ns, config, mock_credit_manager
     ):
         """Test that start() sets start time and launches background tasks."""
-        mock_time_ns.return_value = sec_to_nanos(1)
+        mock_time_ns.return_value = seconds_to_ns(1)
 
         strategy = ConcurrencyStrategy(config, mock_credit_manager)
 
@@ -49,7 +39,7 @@ class TestConcurrencyStrategy:
 
         await strategy.start()
 
-        assert strategy.start_time_ns == sec_to_nanos(1)
+        assert strategy.start_time_ns == seconds_to_ns(1)
         # Verify tasks were created (we can't easily verify they were started without more complex mocking)
         assert len(strategy.tasks) == 2
 
@@ -97,10 +87,10 @@ class TestConcurrencyStrategy:
         self, mock_time_ns, config, mock_credit_manager
     ):
         """Test basic credit return processing."""
-        mock_time_ns.return_value = sec_to_nanos(2)
+        mock_time_ns.return_value = seconds_to_ns(2)
 
         strategy = ConcurrencyStrategy(config, mock_credit_manager)
-        strategy.start_time_ns = sec_to_nanos(1)
+        strategy.start_time_ns = seconds_to_ns(1)
         strategy._semaphore = MockSemaphore()
 
         message = CreditReturnMessage(service_id="test-service")
@@ -118,14 +108,14 @@ class TestConcurrencyStrategy:
         self, mock_time_ns, config, mock_credit_manager
     ):
         """Test that credit return triggers credits complete when all credits are returned."""
-        mock_time_ns.return_value = sec_to_nanos(2)
+        mock_time_ns.return_value = seconds_to_ns(2)
 
         strategy = ConcurrencyStrategy(config, mock_credit_manager)
         strategy._total_credits = 2
         strategy._concurrency = 1
         strategy._semaphore = MockSemaphore()
 
-        strategy.start_time_ns = sec_to_nanos(1)
+        strategy.start_time_ns = seconds_to_ns(1)
         strategy._completed_credits = 1  # One credit already completed
 
         message = CreditReturnMessage(service_id="test-service")
@@ -145,7 +135,7 @@ class TestConcurrencyStrategy:
         self, mock_time_ns, config, mock_credit_manager
     ):
         """Test a complete credit lifecycle from start to finish."""
-        mock_time_ns.return_value = sec_to_nanos(1)
+        mock_time_ns.return_value = seconds_to_ns(1)
 
         strategy = ConcurrencyStrategy(config, mock_credit_manager)
         strategy._total_credits = 2

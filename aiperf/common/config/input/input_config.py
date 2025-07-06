@@ -8,7 +8,11 @@ from pydantic import BeforeValidator, Field
 
 from aiperf.common.config.base_config import BaseConfig
 from aiperf.common.config.config_defaults import InputDefaults
-from aiperf.common.config.config_validators import parse_file, parse_goodput
+from aiperf.common.config.config_validators import (
+    parse_file,
+    parse_goodput,
+    parse_str_or_dict,
+)
 from aiperf.common.config.input.audio_config import AudioConfig
 from aiperf.common.config.input.image_config import ImageConfig
 from aiperf.common.config.input.prompt_config import PromptConfig
@@ -32,7 +36,7 @@ class InputConfig(BaseConfig):
     ] = InputDefaults.BATCH_SIZE
 
     extra: Annotated[
-        Any,
+        dict[str, str] | None,
         Field(
             description="Provide additional inputs to include with every request.\
             \nInputs should be in an 'input_name:value' format.",
@@ -40,6 +44,7 @@ class InputConfig(BaseConfig):
         cyclopts.Parameter(
             name=("--extra"),
         ),
+        BeforeValidator(parse_str_or_dict),
     ] = InputDefaults.EXTRA
 
     goodput: Annotated[
@@ -60,11 +65,12 @@ class InputConfig(BaseConfig):
     ] = InputDefaults.GOODPUT
 
     header: Annotated[
-        Any,
+        dict[str, str] | None,
         Field(
             description="Adds a custom header to the requests.\
             \nHeaders must be specified as 'Header:Value' pairs.",
         ),
+        BeforeValidator(parse_str_or_dict),
         cyclopts.Parameter(
             name=("--header"),
         ),
@@ -101,7 +107,7 @@ class InputConfig(BaseConfig):
     ] = InputDefaults.NUM_DATASET_ENTRIES
 
     random_seed: Annotated[
-        int,
+        int | None,
         Field(
             description="The seed used to generate random values.",
         ),

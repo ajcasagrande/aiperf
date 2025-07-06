@@ -4,6 +4,8 @@ from typing import Any, TypeVar
 
 from pydantic import BaseModel, Field
 
+from aiperf.common.config.endpoint import EndPointConfig
+from aiperf.common.config.user_config import UserConfig
 from aiperf.common.enums import Modality, ModelSelectionStrategy, RequestPayloadType
 
 ConfigT = TypeVar("ConfigT", bound=Any, covariant=True)
@@ -29,9 +31,11 @@ class ModelInfo(BaseModel):
         default=Modality.CUSTOM,
         description="The modality of the model. This is used to determine the type of request payload to use for the endpoint. If CUSTOM, the model is not supported.",
     )
-    extra: dict[str, Any] | None = Field(
+    extra_inputs: dict[str, Any] | None = Field(
         default=None,
-        description="Extra information to use for the model. This is used to store additional information about the model for future use.",
+        description="Provide additional inputs to include with every request. "
+        "You can repeat this flag for multiple inputs. Inputs should be in an 'input_name:value' format. "
+        "Alternatively, a string representing a json formatted dict can be provided.",
     )
 
 
@@ -46,14 +50,19 @@ class EndpointInfo(BaseModel):
         default=None,
         description="Custom endpoint to use for the models. If None, the endpoint will be the same as the model's endpoint.",
     )
-    extra: dict[str, Any] | None = Field(
-        default=None,
-        description="Extra information to send with the inference request.",
-    )
     streaming: bool = Field(
         default=False,
         description="Whether the endpoint supports streaming.",
     )
+
+    @classmethod
+    def from_endpoint_config(cls, endpoint_config: EndPointConfig) -> "EndpointInfo":
+        """Create an EndpointInfo from an EndpointConfig."""
+        return cls(
+            type=RequestPayloadType(endpoint_config.type),
+            custom_endpoint=endpoint_config.custom,
+            streaming=endpoint_config.streaming,
+        )
 
 
 class HttpEndpointInfo(EndpointInfo):
@@ -63,11 +72,11 @@ class HttpEndpointInfo(EndpointInfo):
         default=None,
         description="URL to use for the endpoint. If None, the URL will be the same as the model's URL.",
     )
-    custom_url_params: dict[str, Any] | None = Field(
+    url_params: dict[str, Any] | None = Field(
         default=None,
         description="Custom URL parameters to use for the endpoint. If None, the URL parameters will be the same as the model's URL parameters.",
     )
-    custom_headers: dict[str, Any] | None = Field(
+    headers: dict[str, str] | None = Field(
         default=None,
         description="Custom URL headers to use for the endpoint. If None, the URL headers will be the same as the model's URL headers.",
     )
@@ -93,3 +102,15 @@ class ModelEndpointInfo(BaseModel):
     model_selection_strategy: ModelSelectionStrategy = Field(
         description="The strategy to use for selecting the model to use for the endpoint.",
     )
+
+    @classmethod
+    def from_user_config(cls, user_config: UserConfig) -> "ModelEndpointInfo":
+        """Create a ModelEndpointInfo from a UserConfig."""
+        return cls(
+            models=[
+                ModelInfo(name=model, extra_inputs=user_config.input.extra)
+                for model in user_config.model_names
+            ],
+            endpoint=EndpointInfo.from_endpoint_config(user_config.endpoint),
+            model_selection_strategy=user_config.endpoint.model_selection_strategy,
+        )

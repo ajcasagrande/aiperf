@@ -29,16 +29,6 @@ class EndPointConfig(BaseConfig):
         ),
     ] = EndPointDefaults.MODEL_SELECTION_STRATEGY
 
-    request_payload_type: Annotated[
-        RequestPayloadType,
-        Field(
-            description="The type of request payload to send to the model.",
-        ),
-        cyclopts.Parameter(
-            name=("--request-payload-type"),
-        ),
-    ] = EndPointDefaults.REQUEST_PAYLOAD_TYPE
-
     custom: Annotated[
         str,
         Field(
@@ -50,7 +40,7 @@ class EndPointConfig(BaseConfig):
     ] = EndPointDefaults.CUSTOM
 
     type: Annotated[
-        str,
+        RequestPayloadType,
         Field(
             description="The type to send requests to on the server.",
         ),
