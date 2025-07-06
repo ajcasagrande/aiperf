@@ -12,8 +12,8 @@ from aiperf.common.service.base_service import BaseService
 
 def bootstrap_and_run_service(
     service_class: type[BaseService],
-    service_config: ServiceConfig | None,
-    user_config: UserConfig,
+    service_config: ServiceConfig | None = None,
+    user_config: UserConfig | None = None,
     service_id: str | None = None,
     log_queue: "multiprocessing.Queue | None" = None,
     **kwargs,
@@ -28,7 +28,8 @@ def bootstrap_and_run_service(
             BaseService. This should be a type and not an instance.
         service_config: The service configuration to use. If not provided, the service
             configuration will be loaded from the environment variables.
-        user_config: The user configuration to use.
+        user_config: The user configuration to use. If not provided, the user configuration
+            will be loaded from the environment variables.
         log_queue: Optional multiprocessing queue for child process logging. If provided,
             the child process logging will be set up.
         kwargs: Additional keyword arguments to pass to the service constructor.
@@ -42,7 +43,10 @@ def bootstrap_and_run_service(
 
     # Load the user configuration
     if user_config is None:
-        raise ValueError("User configuration is required")
+        from aiperf.common.config import load_user_config
+
+        # TODO: Add support for loading user config from a file/environment variables
+        user_config = load_user_config()
 
     async def _run_service():
         service = service_class(

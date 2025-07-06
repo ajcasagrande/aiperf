@@ -3,10 +3,10 @@
 
 import asyncio
 import logging
-import os
 import time
 
 from aiperf.common.constants import NANOS_PER_SECOND
+from aiperf.common.exceptions import InvalidStateError
 from aiperf.common.messages import CreditReturnMessage
 from aiperf.common.mixins import AsyncTaskManagerMixin
 from aiperf.services.timing_manager.config import TimingManagerConfig
@@ -26,10 +26,12 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
     ):
         super().__init__(config=config, credit_manager=credit_manager)
 
-        self._total_credits = int(os.getenv("AIPERF_TOTAL_REQUESTS", 1000))
-        self._concurrency = min(
-            self._total_credits, int(os.getenv("AIPERF_CONCURRENCY", 10))
-        )
+        if config.request_count is None:
+            # TODO: Add support for alternate strategies
+            raise InvalidStateError("Request count is not set")
+
+        self._total_credits = config.request_count
+        self._concurrency = min(self._total_credits, config.concurrency)
 
         self._sent_credits = 0
         self._completed_credits = 0
@@ -53,7 +55,7 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
         await asyncio.sleep(1.5)  # TODO: HACK: Wait for the system to be ready
 
         self.logger.info(
-            "TM: Issuing credit drops %s total credits, %s concurrency",
+            "TM: Issuing credit drops: %s total credits, %s concurrency",
             self._total_credits,
             self._concurrency,
         )
@@ -84,7 +86,8 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
                 else 0
             )
             self.logger.debug(
-                "Processing credit return: (completed credits: %s of %s) (%.2f requests/s)",
+                "TM: Processing credit return: %s (completed credits: %s of %s) (%.2f requests/s)",
+                message,
                 self._completed_credits,
                 self._total_credits,
                 per_sec,
@@ -101,7 +104,7 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
                     else 0
                 )
                 self.logger.debug(
-                    "All credits completed, stopping credit drop task after %.2f seconds (%.2f requests/s)",
+                    "TM: All credits completed, stopping credit drop task after %.2f seconds (%.2f requests/s)",
                     (time.time_ns() - self.start_time_ns) / NANOS_PER_SECOND,
                     per_sec,
                 )

@@ -77,6 +77,7 @@ class TimingManager(BaseComponentService, AsyncTaskManagerMixin):
         )
 
         self.start_time_ns = time.time_ns()
+        self.config = TimingManagerConfig.from_user_config(self.user_config)
         self._credit_issuing_strategy: CreditIssuingStrategy | None = None
 
     @property
@@ -99,11 +100,7 @@ class TimingManager(BaseComponentService, AsyncTaskManagerMixin):
         """Configure the timing manager."""
         self.logger.debug("Configuring timing manager with message: %s", message)
 
-        # config = TimingManagerConfig(message.data)
-        config = TimingManagerConfig()
-        assert isinstance(config, TimingManagerConfig)
-
-        if config.timing_mode == TimingMode.FIXED_SCHEDULE:
+        if self.config.timing_mode == TimingMode.FIXED_SCHEDULE:
             # This will block until the dataset is ready and the timing response is received
             dataset_timing_response: DatasetTimingResponse = (
                 await self.dataset_request_client.request(
@@ -117,14 +114,20 @@ class TimingManager(BaseComponentService, AsyncTaskManagerMixin):
                 dataset_timing_response,
             )
             self._credit_issuing_strategy = FixedScheduleStrategy(
-                config=config,
+                config=self.config,
                 credit_manager=self,
                 schedule=dataset_timing_response.timing_data,
             )
-        elif config.timing_mode == TimingMode.CONCURRENCY:
-            self._credit_issuing_strategy = ConcurrencyStrategy(config, self)
-        elif config.timing_mode == TimingMode.RATE:
-            self._credit_issuing_strategy = RateStrategy(config, self)
+        elif self.config.timing_mode == TimingMode.CONCURRENCY:
+            self._credit_issuing_strategy = ConcurrencyStrategy(
+                config=self.config,
+                credit_manager=self,
+            )
+        elif self.config.timing_mode == TimingMode.RATE:
+            self._credit_issuing_strategy = RateStrategy(
+                config=self.config,
+                credit_manager=self,
+            )
 
         if not self._credit_issuing_strategy:
             raise InvalidStateError("No credit issuing strategy configured")

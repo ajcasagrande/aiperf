@@ -35,6 +35,8 @@ class UserConfig(BaseConfig):
         ),
     ]
 
+    # TODO:: Should we move the verbose and template_filename to their own CLI config class?
+
     verbose: Annotated[
         bool,
         Field(
@@ -57,9 +59,44 @@ class UserConfig(BaseConfig):
         ),
     ] = UserDefaults.TEMPLATE_FILENAME
 
-    endpoint: EndPointConfig = EndPointConfig()
-    input: InputConfig = InputConfig()
-    output: OutputConfig = OutputConfig()
-    tokenizer: TokenizerConfig = TokenizerConfig()
-    load: LoadGeneratorConfig = LoadGeneratorConfig()
-    measurement: MeasurementConfig = MeasurementConfig()
+    endpoint: Annotated[
+        EndPointConfig,
+        Field(
+            description="Endpoint configuration",
+        ),
+    ] = EndPointConfig()
+
+    input: Annotated[
+        InputConfig,
+        Field(
+            description="Input configuration",
+        ),
+    ] = InputConfig()
+
+    output: Annotated[
+        OutputConfig,
+        Field(
+            description="Output configuration",
+        ),
+    ] = OutputConfig()
+
+    tokenizer: Annotated[
+        TokenizerConfig,
+        Field(
+            description="Tokenizer configuration",
+        ),
+    ] = TokenizerConfig()
+
+    load: Annotated[
+        LoadGeneratorConfig,
+        Field(
+            description="Load Generator configuration",
+        ),
+    ] = LoadGeneratorConfig()
+
+    measurement: Annotated[
+        MeasurementConfig,
+        Field(
+            description="Measurement configuration",
+        ),
+    ] = MeasurementConfig()

@@ -4,7 +4,7 @@
 from typing import Annotated, Any
 
 import cyclopts
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from aiperf.common.config.base_config import BaseConfig
 from aiperf.common.config.config_defaults import SweepDefaults, SweepParamDefaults
@@ -16,7 +16,7 @@ from aiperf.progress.progress_models import (
 )
 
 
-class SweepParam(BaseModel):
+class SweepParam(BaseConfig):
     """A parameter to be swept."""
 
     name: Annotated[
@@ -97,14 +97,12 @@ class SweepParam(BaseModel):
 
 
 class SweepConfig(BaseConfig):
-    """
-    A configuration class for defining top-level sweep settings.
-    """
+    """A sweep of parameters."""
 
     params: Annotated[
         list[SweepParam] | None,
         Field(
-            description="The list of all parameters to be swept and their values. If not specified, the sweep will run for a single profile.",
+            description="The list of all parameters to be swept and their values.",
         ),
         cyclopts.Parameter(
             name=("--sweep-params"),

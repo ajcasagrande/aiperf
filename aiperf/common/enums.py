@@ -277,6 +277,18 @@ class MessageType(CaseInsensitiveStrEnum):
 class CommandType(CaseInsensitiveStrEnum):
     """List of commands that the SystemController can send to component services."""
 
+    START = "start"
+    """A command sent to start a service. This will start the service in the
+    current state."""
+
+    SHUTDOWN = "shutdown"
+    """A command sent to shutdown a service. This will stop the service gracefully
+    no matter what state it is in."""
+
+    PROCESS_RECORDS = "process_records"
+    """A command sent to process records. This will process the records and return
+    the services to their pre-record processing state."""
+
     PROFILE_CONFIGURE = "profile_configure"
     """A command sent to configure a service in preparation for a profile run. This will
     override the current configuration."""
@@ -292,14 +304,6 @@ class CommandType(CaseInsensitiveStrEnum):
     PROFILE_CANCEL = "profile_cancel"
     """A command sent to cancel a profile run. This will stop the current profile run and
     process the partial results."""
-
-    SHUTDOWN = "shutdown"
-    """A command sent to shutdown a service. This will stop the service gracefully
-    no matter what state it is in."""
-
-    PROCESS_RECORDS = "process_records"
-    """A command sent to process records. This will process the records and return
-    the services to their pre-record processing state."""
 
 
 ################################################################################
@@ -335,25 +339,38 @@ class ServiceState(CaseInsensitiveStrEnum):
     """States a service can be in throughout its lifecycle."""
 
     UNKNOWN = "unknown"
+    """The service is in an unknown state."""
 
     INITIALIZING = "initializing"
     """The service is currently initializing. This is a temporary state that should be
+    followed by PENDING."""
+
+    PENDING = "pending"
+    """The service is pending configuration."""
+
+    CONFIGURING = "configuring"
+    """The service is currently configuring. This is a temporary state that should be
     followed by READY."""
 
     READY = "ready"
-    """The service has initialized and is ready to be configured or started."""
+    """The service has been configured and is ready to be started."""
 
     STARTING = "starting"
     """The service is starting. This is a temporary state that should be followed
     by RUNNING."""
 
     RUNNING = "running"
+    """The service is running."""
 
     STOPPING = "stopping"
     """The service is stopping. This is a temporary state that should be followed
     by STOPPED."""
 
     STOPPED = "stopped"
+    """The service has been stopped."""
+
+    SHUTDOWN = "shutdown"
+    """The service has been shutdown."""
 
     ERROR = "error"
     """The service is currently in an error state."""
