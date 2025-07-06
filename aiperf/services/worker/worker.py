@@ -49,6 +49,7 @@ from aiperf.common.messages import (
     CtxSwitches,
     ErrorMessage,
     InferenceResultsMessage,
+    ProcessHealth,
     WorkerHealthMessage,
 )
 from aiperf.common.mixins import AsyncTaskManagerMixin
@@ -70,7 +71,6 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin):
         service_id: str | None = None,
     ):
         super().__init__(service_config=service_config, service_id=service_id)
-
         self.logger.debug("Initializing worker process")
         self.user_config: UserConfig | None = None
         self.model_endpoint: ModelEndpointInfo | None = None
@@ -362,23 +362,32 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin):
     def create_health_message(self) -> WorkerHealthMessage:
         """Create a health message for the worker."""
         # Get process-specific CPU and memory usage
+        raw_cpu_times = self.process.cpu_times()
+        if len(raw_cpu_times) >= 5:
+            cpu_times = CPUTimes(
+                user=raw_cpu_times[0],
+                system=raw_cpu_times[1],
+                iowait=raw_cpu_times[4],
+            )
+        else:
+            cpu_times = CPUTimes(*raw_cpu_times[:2], 0.0)
         return WorkerHealthMessage(
             service_id=self.service_id,
-            pid=self.process.pid,
-            cpu_usage=self.process.cpu_percent(),
-            memory_usage=self.process.memory_info().rss / BYTES_PER_MIB,
+            process=ProcessHealth(
+                pid=self.process.pid,
+                cpu_usage=self.process.cpu_percent(),
+                memory_usage=self.process.memory_info().rss / BYTES_PER_MIB,
+                net_connections=len(self.process.net_connections("tcp4")),
+                io_counters=self.process.io_counters(),
+                cpu_times=cpu_times,
+                num_ctx_switches=CtxSwitches(*self.process.num_ctx_switches()),
+                num_threads=self.process.num_threads(),
+            ),
             uptime=time.time() - self.begin_time,
             completed_tasks=self.completed_tasks,
             failed_tasks=self.failed_tasks,
             total_tasks=self.total_tasks,
             timestamp_ns=time.time_ns(),
-            net_connections=len(self.process.net_connections("tcp4")),
-            io_counters=self.process.io_counters(),
-            cpu_times=CPUTimes(
-                *self.process.cpu_times()[:2], self.process.cpu_times()[4]
-            ),
-            num_ctx_switches=CtxSwitches(*self.process.num_ctx_switches()),
-            num_threads=self.process.num_threads(),
         )
 
     @on_stop

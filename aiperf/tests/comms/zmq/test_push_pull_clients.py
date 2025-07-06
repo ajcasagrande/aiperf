@@ -5,6 +5,7 @@ Tests for ZMQ PUSH and PULL client implementations.
 """
 
 import asyncio
+import errno
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -140,7 +141,9 @@ class TestZMQPushClient:
 
         # Mock socket to raise an error
         mock_socket = mock_zmq_context_instance.socket.return_value
-        mock_socket.send_multipart.side_effect = zmq.ZMQError("Send failed")
+        mock_socket.send_multipart.side_effect = zmq.ZMQError(
+            errno=errno.EFAULT, msg="Send failed"
+        )
 
         with pytest.raises(CommunicationError, match="Failed to push message"):
             await client.push(test_message)

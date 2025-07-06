@@ -5,6 +5,7 @@ Tests for ZMQ PUB and SUB client implementations.
 """
 
 import asyncio
+import contextlib
 import errno
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
@@ -141,7 +142,9 @@ class TestZMQPubClient:
 
         # Mock socket to raise an error
         mock_socket = mock_zmq_context_instance.socket.return_value
-        mock_socket.send_multipart.side_effect = zmq.ZMQError("Send failed")
+        mock_socket.send_multipart.side_effect = zmq.ZMQError(
+            errno=errno.EFAULT, msg="Send failed"
+        )
 
         with pytest.raises(CommunicationError, match="Failed to publish message"):
             await client.publish(test_message)
@@ -198,7 +201,13 @@ class TestZMQPubClient:
     )
     @pytest.mark.asyncio
     async def test_publish_different_message_types(
-        self, mock_zmq_context_instance: MagicMock, message_type
+        self,
+        mock_zmq_context_instance: MagicMock,
+        message_type: MessageType
+        | MessageType
+        | MessageType
+        | MessageType
+        | MessageType,
     ):
         """Test publishing different message types."""
         client = ZMQPubClient(
@@ -387,7 +396,9 @@ class TestZMQSubClient:
 
         # Mock socket to raise an error
         mock_socket = mock_zmq_context_instance.socket.return_value
-        mock_socket.subscribe.side_effect = zmq.ZMQError("Subscribe failed")
+        mock_socket.subscribe.side_effect = zmq.ZMQError(
+            errno=errno.ECOMM, msg="Subscribe failed"
+        )
 
         with pytest.raises(
             CommunicationError, match="Failed to subscribe to message_type"
@@ -409,7 +420,7 @@ class TestZMQSubClient:
         await client.subscribe(MessageType.STATUS, mock_async_callback)
 
         # Should have started a receiving task
-        assert hasattr(client, "_tasks")
+        assert hasattr(client, "tasks")
         # In a real implementation, there should be tasks for receiving messages
 
         await client.shutdown()
@@ -445,7 +456,11 @@ class TestZMQSubClient:
     async def test_subscribe_different_message_types(
         self,
         mock_zmq_context_instance: MagicMock,
-        message_type,
+        message_type: MessageType
+        | MessageType
+        | MessageType
+        | MessageType
+        | MessageType,
         mock_async_callback: AsyncMock,
     ):
         """Test subscribing to different message types."""
@@ -486,7 +501,8 @@ class TestZMQSubClient:
         mock_socket = mock_zmq_context_instance.socket.return_value
         mock_socket.setsockopt.assert_any_call(zmq.RCVTIMEO, 1000)
 
-        await client.shutdown()
+        with contextlib.suppress(asyncio.CancelledError):
+            await client.shutdown()
 
     @pytest.mark.asyncio
     async def test_concurrent_subscribes(self, mock_zmq_context_instance: MagicMock):

@@ -249,10 +249,12 @@ class WorkerStatusElement(DashboardElement):
                     else 0
                 )
 
+                process = health.process
+
                 if error_rate > 0.1:  # More than 10% error rate
                     status = Text("Error", style="bold red")
                     error_count += 1
-                elif health.cpu_usage > 75:  # High CPU usage
+                elif process.cpu_usage > 75:  # High CPU usage
                     status = Text("High Load", style="bold yellow")
                     warning_count += 1
                 elif health.total_tasks == 0:  # No tasks processed
@@ -262,7 +264,7 @@ class WorkerStatusElement(DashboardElement):
                     status = Text("Healthy", style="bold green")
                     healthy_count += 1
 
-            memory_mb = health.memory_usage
+            memory_mb = process.memory_usage
             if memory_mb >= 1024:
                 memory_display = f"{memory_mb / 1024:.1f} GB"
             else:
@@ -273,10 +275,10 @@ class WorkerStatusElement(DashboardElement):
                 status,
                 f"{health.in_progress_tasks:,}",
                 f"{health.completed_tasks:,}",
-                f"{health.cpu_usage:.1f}%",
+                f"{process.cpu_usage:.1f}%",
                 memory_display,
-                f"{format_bytes(health.io_counters.read_chars)}",
-                f"{format_bytes(health.io_counters.write_chars)}",
+                f"{format_bytes(process.io_counters.read_chars)}",
+                f"{format_bytes(process.io_counters.write_chars)}",
             )
 
         # Create summary

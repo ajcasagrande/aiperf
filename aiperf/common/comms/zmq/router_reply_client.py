@@ -183,11 +183,11 @@ class ZMQRouterReplyClient(BaseZMQClient, AsyncTaskManagerMixin):
         shutdown. It will wait for requests from the socket and send responses in
         an asynchronous manner.
         """
-        self.logger.warning("Waiting for router reply client to be initialized")
+        self.logger.debug("Waiting for router reply client to be initialized")
         if not self.is_initialized:
             await self.initialized_event.wait()
 
-        self.logger.warning("Router reply client initialized")
+        self.logger.debug("Router reply client initialized")
 
         while not self.stop_event.is_set():
             try:

@@ -39,10 +39,13 @@ class AsyncTaskManagerMixin:
             return
 
         for task in list(self.tasks):
-            task.cancel()
+            if not task.done():
+                task.cancel()
 
-        with contextlib.suppress(asyncio.TimeoutError):
-            await asyncio.wait_for(asyncio.gather(*self.tasks), timeout=timeout)
+        with contextlib.suppress(asyncio.TimeoutError, asyncio.CancelledError):
+            await asyncio.wait_for(
+                asyncio.gather(*self.tasks, return_exceptions=True), timeout=timeout
+            )
 
         # Clear the tasks set after cancellation to avoid memory leaks
         self.tasks.clear()

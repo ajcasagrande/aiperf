@@ -6,6 +6,7 @@ Shared fixtures for testing AIPerf ZMQ communication components.
 This file contains fixtures specifically for ZMQ testing.
 """
 
+import errno
 import tempfile
 from collections.abc import AsyncGenerator, Generator
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -40,13 +41,14 @@ def mock_zmq_context_instance() -> Generator[MagicMock, None, None]:
 
         # Mock socket creation
         mock_socket = MagicMock()
-        mock_socket.bind = AsyncMock()
-        mock_socket.connect = AsyncMock()
+        mock_socket.bind = MagicMock()  # Synchronous operation
+        mock_socket.connect = MagicMock()  # Synchronous operation
         mock_socket.send_multipart = AsyncMock()
-        mock_socket.recv_multipart = AsyncMock()
+        # Make recv_multipart raise zmq.Again to prevent background task from processing invalid data
+        mock_socket.recv_multipart = AsyncMock(side_effect=zmq.Again())
         mock_socket.subscribe = MagicMock()
         mock_socket.setsockopt = MagicMock()
-        mock_socket.close = AsyncMock()
+        mock_socket.close = MagicMock()  # Synchronous operation
         mock_context.socket.return_value = mock_socket
 
         yield mock_context
@@ -81,7 +83,7 @@ def zmq_socket_types() -> dict[str, zmq.SocketType]:
         "ROUTER": zmq.ROUTER,
         "XPUB": zmq.XPUB,
         "XSUB": zmq.XSUB,
-    }
+    }  # type: ignore[return-value]
 
 
 @pytest.fixture
@@ -240,16 +242,14 @@ def zmq_tcp_config_custom() -> ZMQTCPConfig:
     """Fixture providing custom ZMQ TCP configuration."""
     return ZMQTCPConfig(
         host="192.168.1.1",
-        port_range_start=6000,
-        port_range_end=6100,
     )
 
 
 @pytest.fixture
-def zmq_ipc_config_custom() -> ZMQIPCConfig:
+def zmq_ipc_config_custom() -> Generator[ZMQIPCConfig, None]:
     """Fixture providing custom ZMQ IPC configuration."""
     with tempfile.TemporaryDirectory() as tmp_dir:
-        yield ZMQIPCConfig(path=f"{tmp_dir}/custom")
+        yield ZMQIPCConfig(path=tmp_dir)
 
 
 @pytest.fixture
@@ -288,7 +288,7 @@ def client_socket_combinations() -> list[
         (CommunicationClientType.PULL, zmq.PULL),
         (CommunicationClientType.REQUEST, zmq.DEALER),
         (CommunicationClientType.REPLY, zmq.ROUTER),
-    ]
+    ]  # type: ignore[return-value]
 
 
 @pytest.fixture
@@ -387,9 +387,11 @@ def mock_zmq_error_scenarios() -> dict[str, Exception]:
     return {
         "context_terminated": zmq.ContextTerminated(),
         "again": zmq.Again(),
-        "invalid_socket": zmq.ZMQError("Invalid socket"),
-        "address_in_use": zmq.ZMQError("Address already in use"),
-        "timeout": zmq.ZMQError("Operation timed out"),
+        "invalid_socket": zmq.ZMQError(errno=errno.EINVAL, msg="Invalid socket"),
+        "address_in_use": zmq.ZMQError(
+            errno=errno.EADDRINUSE, msg="Address already in use"
+        ),
+        "timeout": zmq.ZMQError(errno=errno.ETIMEDOUT, msg="Operation timed out"),
     }
 
 

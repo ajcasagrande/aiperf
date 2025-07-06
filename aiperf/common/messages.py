@@ -397,6 +397,41 @@ CPUTimes = namedtuple(
 CtxSwitches = namedtuple("CtxSwitches", ["voluntary", "involuntary"])
 
 
+class ProcessHealth(BaseModel):
+    """Model for process health data."""
+
+    pid: int | None = Field(
+        default=None,
+        description="The PID of the process",
+    )
+    cpu_usage: float = Field(
+        ..., description="The current CPU usage of the process in %"
+    )
+    memory_usage: float = Field(
+        ..., description="The current memory usage of the process in MiB"
+    )
+    net_connections: int | None = Field(
+        default=None,
+        description="The current number of network connections",
+    )
+    io_counters: IOCounters | tuple | None = Field(
+        default=None,
+        description="The current I/O counters of the process (read_count, write_count, read_bytes, write_bytes, read_chars, write_chars)",
+    )
+    cpu_times: CPUTimes | tuple | None = Field(
+        default=None,
+        description="The current CPU times of the process (user, system, iowait)",
+    )
+    num_ctx_switches: CtxSwitches | tuple | None = Field(
+        default=None,
+        description="The current number of context switches (voluntary, involuntary)",
+    )
+    num_threads: int | None = Field(
+        default=None,
+        description="The current number of threads",
+    )
+
+
 class WorkerHealthMessage(BaseServiceMessage):
     """Message for a worker health check."""
 
@@ -409,10 +444,10 @@ class WorkerHealthMessage(BaseServiceMessage):
     )
 
     service_id: str = Field(..., description="The ID of the worker")
-    pid: int | None = Field(
-        default=None,
-        description="The PID of the worker",
-    )
+
+    process: ProcessHealth = Field(..., description="The health of the worker process")
+
+    # Worker specific fields
     completed_tasks: int = Field(
         ..., description="The number of tasks that have been completed"
     )
@@ -420,33 +455,9 @@ class WorkerHealthMessage(BaseServiceMessage):
     total_tasks: int = Field(
         ..., description="The total number of tasks that have been attempted "
     )
-    cpu_usage: float = Field(..., description="The current CPU usage of the worker")
-    memory_usage: float = Field(
-        ..., description="The current memory usage of the worker in MiB"
-    )
     uptime: float = Field(..., description="The uptime of the worker in seconds")
     timestamp_ns: int = Field(
         ..., description="The current timestamp of the health check"
-    )
-    net_connections: int | None = Field(
-        default=None,
-        description="The current number of network connections",
-    )
-    io_counters: IOCounters | tuple | None = Field(
-        default=None,
-        description="The current I/O counters of the worker (read_count, write_count, read_bytes, write_bytes, read_chars, write_chars)",
-    )
-    cpu_times: CPUTimes | tuple | None = Field(
-        default=None,
-        description="The current CPU times of the worker (user, system, iowait)",
-    )
-    num_ctx_switches: CtxSwitches | tuple | None = Field(
-        default=None,
-        description="The current number of context switches (voluntary, involuntary)",
-    )
-    num_threads: int | None = Field(
-        default=None,
-        description="The current number of threads",
     )
 
     @property

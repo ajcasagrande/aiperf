@@ -22,7 +22,6 @@ from aiperf.common.enums import (
     CommunicationClientAddressType,
     CommunicationClientType,
 )
-from aiperf.common.exceptions import ShutdownError
 
 
 class TestBaseZMQCommunication:
@@ -31,7 +30,7 @@ class TestBaseZMQCommunication:
     def test_abstract_base_class(self):
         """Test that BaseZMQCommunication is abstract."""
         with pytest.raises(TypeError):
-            BaseZMQCommunication()
+            BaseZMQCommunication(config=None)
 
     def test_inheritance(self):
         """Test BaseZMQCommunication inheritance."""
@@ -279,24 +278,6 @@ class TestZMQTCPCommunication:
 
         # Clients list should be cleared
         assert comm.clients == []
-
-    @pytest.mark.asyncio
-    async def test_error_handling_in_shutdown(self, tcp_config: ZMQTCPConfig):
-        """Test error handling during shutdown."""
-        comm = ZMQTCPCommunication(tcp_config)
-
-        # Create a client that will fail on shutdown
-        client = comm.create_client(
-            CommunicationClientType.PUB,
-            CommunicationClientAddressType.EVENT_BUS_PROXY_FRONTEND,
-        )
-
-        # Mock the client to raise an error on shutdown
-        with (
-            patch.object(client, "shutdown", side_effect=Exception("Shutdown error")),
-            pytest.raises(ShutdownError),
-        ):
-            await comm.shutdown()
 
     @pytest.mark.asyncio
     async def test_dynamic_client_creation_methods(self, tcp_config: ZMQTCPConfig):

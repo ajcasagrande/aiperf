@@ -206,7 +206,7 @@ class TestBaseZMQClient:
     ):
         """Test error handling during initialization."""
         mock_zmq_context_instance.socket.side_effect = zmq.ZMQError(
-            "Socket creation failed"
+            errno=1, msg="Socket creation failed"
         )
 
         client = BaseZMQClient(
@@ -463,7 +463,7 @@ class TestBaseZMQClient:
 
         # Error during socket creation
         mock_zmq_context_instance.socket.side_effect = zmq.ZMQError(
-            "Context terminated"
+            errno=1, msg="Context terminated"
         )
 
         with pytest.raises(InitializationError):

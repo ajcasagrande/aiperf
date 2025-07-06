@@ -105,9 +105,10 @@ class BaseZMQClient(AIPerfTaskMixin):
     async def _ensure_initialized(self) -> None:
         """Ensure the communication channels are initialized and not shutdown.
 
+        If not initialized, it will automatically initialize.
+
         Raises:
-            CommunicationError: If the communication channels are not initialized
-                or shutdown
+            CommunicationError: If the communication channels are shutdown
         """
         if not self.is_initialized:
             await self.initialize()
@@ -196,19 +197,17 @@ class BaseZMQClient(AIPerfTaskMixin):
 
         try:
             await self.run_hooks(AIPerfHook.ON_STOP)
+        except AIPerfError:
+            raise  # re-raise it up the stack
         except Exception as e:
             self.logger.error(
                 "Exception running ON_STOP hooks: %s (%s)", e, self.client_id
             )
 
-        # Run the ON_STOP and ON_CLEANUP hooks
         try:
-            await self.run_hooks(AIPerfHook.ON_STOP)
             await self.run_hooks(AIPerfHook.ON_CLEANUP)
-
         except AIPerfError:
             raise  # re-raise it up the stack
-
         except Exception as e:
             self.logger.error(
                 "Exception cleaning up ZMQ socket: %s (%s)", e, self.client_id

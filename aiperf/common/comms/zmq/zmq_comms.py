@@ -97,7 +97,11 @@ class BaseZMQCommunication(BaseCommunication, ABC):
                 self.stop_event.set()
 
             await asyncio.gather(
-                *(client.shutdown() for client in self.clients if client.is_initialized)
+                *(
+                    client.shutdown()
+                    for client in self.clients
+                    if client.is_initialized
+                ),
             )
 
             self.context.term()
