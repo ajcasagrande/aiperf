@@ -7,12 +7,12 @@ from typing import Any
 
 from aiperf.clients.converters.base_converter import BaseRequestConverter
 from aiperf.common.config import OutputTokenDefaults
-from aiperf.common.enums import RequestPayloadType
+from aiperf.common.enums import EndpointType
 from aiperf.common.factories import RequestConverterFactory
 from aiperf.common.models import GenericDataset
 
 
-@RequestConverterFactory.register(RequestPayloadType.OPENAI_COMPLETIONS)
+@RequestConverterFactory.register(EndpointType.OPENAI_COMPLETIONS)
 class OpenAICompletionsRequestConverter(BaseRequestConverter):
     def convert(
         self,

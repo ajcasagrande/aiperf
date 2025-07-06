@@ -9,7 +9,7 @@ from pydantic import BeforeValidator, Field
 from aiperf.common.config.base_config import BaseConfig
 from aiperf.common.config.config_defaults import EndPointDefaults
 from aiperf.common.config.config_validators import parse_str_or_list
-from aiperf.common.enums import ModelSelectionStrategy, RequestPayloadType
+from aiperf.common.enums import EndpointType, ModelSelectionStrategy
 
 
 class EndPointConfig(BaseConfig):
@@ -30,7 +30,7 @@ class EndPointConfig(BaseConfig):
     ] = EndPointDefaults.MODEL_SELECTION_STRATEGY
 
     custom: Annotated[
-        str,
+        str | None,
         Field(
             description="Set a custom endpoint that differs from the OpenAI defaults.",
         ),
@@ -40,7 +40,7 @@ class EndPointConfig(BaseConfig):
     ] = EndPointDefaults.CUSTOM
 
     type: Annotated[
-        RequestPayloadType,
+        EndpointType,
         Field(
             description="The type to send requests to on the server.",
         ),
@@ -93,3 +93,24 @@ class EndPointConfig(BaseConfig):
             name=("--grpc-method"),
         ),
     ] = EndPointDefaults.GRPC_METHOD
+
+    timeout: Annotated[
+        float,
+        Field(
+            description="The timeout in floating points seconds for each request to the endpoint.",
+        ),
+        cyclopts.Parameter(
+            name=("--timeout"),
+        ),
+    ] = EndPointDefaults.TIMEOUT
+
+    api_key: Annotated[
+        str | None,
+        Field(
+            description="The API key to use for the endpoint. If provided, it will be sent with every request as"
+            "as a header: `Authorization: Bearer <api_key>`.",
+        ),
+        cyclopts.Parameter(
+            name=("--api-key"),
+        ),
+    ] = EndPointDefaults.API_KEY

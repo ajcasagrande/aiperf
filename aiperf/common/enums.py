@@ -435,20 +435,6 @@ class SystemState(CaseInsensitiveStrEnum):
 
 
 ################################################################################
-# Inference Client Enums
-################################################################################
-
-
-class InferenceClientType(CaseInsensitiveStrEnum):
-    """Inference client types."""
-
-    GRPC = "grpc"
-    HTTP = "http"
-    OPENAI = "openai"
-    DYNAMO = "dynamo"
-
-
-################################################################################
 # Converter Enums
 ################################################################################
 
@@ -486,57 +472,50 @@ class MeasurementMode(CaseInsensitiveStrEnum):
     INTERVAL = "interval"
 
 
-class RequestPayloadType(CaseInsensitiveStrEnum):
-    """Request payload types.
+################################################################################
+# Inference Client Enums
+################################################################################
 
-    These determine the format of the request payload to send to the model.
-    """
 
-    OPENAI_CHAT_COMPLETIONS = "chat"
-    OPENAI_COMPLETIONS = "openai_completions"
-    OPENAI_EMBEDDINGS = "openai_embeddings"
-    OPENAI_MULTIMODAL = "openai_multimodal"
-    OPENAI_RESPONSES = "openai_responses"
+# class InferenceClientType(CaseInsensitiveStrEnum):
+#     """Inference client types.
 
-    HUGGINGFACE_GENERATE = "huggingface_generate"
-    HUGGINGFACE_RANKINGS = "huggingface_rankings"
+#     Equivalent to `service_kind` from `genai-perf`.
+#     """
 
-    IMAGE_RETRIEVAL = "image_retrieval"
-    DYNAMIC_GRPC = "dynamic_grpc"
-    NVCLIP = "nvclip"
+#     GRPC = "grpc"
+#     OPENAI = "openai"
+#     DYNAMO_ENGINE = "dynamo_engine"
+#     TENSORRTLLM_ENGINE = "tensorrtllm_engine"
 
-    RANKINGS = "rankings"
-    TEMPLATE = "template"
 
-    TENSORRTLLM = "tensorrtllm"
-    VLLM = "vllm"
+#     @classmethod
+#     def from_endpoint_type(cls, endpoint_type: "EndpointType") -> "InferenceClientType":
+#         """Get the client type for the request payload type."""
+#         match endpoint_type:
+#             case EndpointType.DYNAMIC_GRPC:
+#                 return InferenceClientType.GRPC
 
-    def endpoint(self) -> str:
-        """Get the endpoint value for the request payload type."""
-        match self:
-            case (
-                RequestPayloadType.OPENAI_CHAT_COMPLETIONS,
-                RequestPayloadType.OPENAI_MULTIMODAL,
-            ):
-                return "/v1/chat/completions"
-            case RequestPayloadType.OPENAI_COMPLETIONS:
-                return "/v1/completions"
-            case RequestPayloadType.OPENAI_EMBEDDINGS:
-                return "/v1/embeddings"
-            case RequestPayloadType.OPENAI_RESPONSES:
-                return "/v1/responses"
-            case _:
-                raise NotImplementedError(f"Endpoint not implemented for {self}")
+#             case EndpointType.DYNAMO_ENGINE:
+#                 return InferenceClientType.DYNAMO_ENGINE
+
+#             case EndpointType.TRITON_GENERATE:
+#                 return InferenceClientType.TRITON
+
+#             case EndpointType.HUGGINGFACE_GENERATE:
+#                 return InferenceClientType.DYNAMO_ENGINE
+
+#             case _:
+#                 raise NotImplementedError(f"Client type not implemented for {endpoint_type}")
 
 
 class ResponsePayloadType(CaseInsensitiveStrEnum):
     """Response payload types.
 
     These determine the format of the response payload that the model will return.
-    """
 
-    HUGGINGFACE_GENERATE = "huggingface_generate"
-    HUGGINGFACE_RANKINGS = "huggingface_rankings"
+    Equivalent to `output_format` from `genai-perf`.
+    """
 
     OPENAI_CHAT_COMPLETIONS = "openai_chat_completions"
     OPENAI_COMPLETIONS = "openai_completions"
@@ -544,11 +523,110 @@ class ResponsePayloadType(CaseInsensitiveStrEnum):
     OPENAI_MULTIMODAL = "openai_multimodal"
     OPENAI_RESPONSES = "openai_responses"
 
+    HUGGINGFACE_GENERATE = "huggingface_generate"
+
+    RANKINGS = "rankings"
+
+    IMAGE_RETRIEVAL = "image_retrieval"
+
+    @classmethod
+    def from_endpoint_type(cls, endpoint_type: "EndpointType") -> "ResponsePayloadType":
+        """Get the response payload type for the endpoint type."""
+        match endpoint_type:
+            case EndpointType.OPENAI_CHAT_COMPLETIONS | EndpointType.OPENAI_MULTIMODAL:
+                return ResponsePayloadType.OPENAI_CHAT_COMPLETIONS
+            case EndpointType.OPENAI_COMPLETIONS:
+                return ResponsePayloadType.OPENAI_COMPLETIONS
+            case EndpointType.OPENAI_EMBEDDINGS:
+                return ResponsePayloadType.OPENAI_EMBEDDINGS
+            case EndpointType.OPENAI_RESPONSES:
+                return ResponsePayloadType.OPENAI_RESPONSES
+
+            case EndpointType.HUGGINGFACE_GENERATE:
+                return ResponsePayloadType.HUGGINGFACE_GENERATE
+
+            case EndpointType.RANKINGS:
+                return ResponsePayloadType.RANKINGS
+
+            case EndpointType.IMAGE_RETRIEVAL:
+                return ResponsePayloadType.IMAGE_RETRIEVAL
+
+            case _:
+                raise NotImplementedError(
+                    f"Payload type not implemented for {endpoint_type}"
+                )
+
+
+class EndpointType(CaseInsensitiveStrEnum):
+    """Endpoint types.
+
+    These determine the format of request payload to send to the model.
+
+    Similar to `endpoint_type_map` and `OutputFormat` from `genai-perf`.
+    """
+
+    OPENAI_CHAT_COMPLETIONS = "chat"
+    OPENAI_COMPLETIONS = "completions"
+    OPENAI_EMBEDDINGS = "embeddings"
+    OPENAI_MULTIMODAL = "multimodal"
+    OPENAI_RESPONSES = "responses"
+
+    HUGGINGFACE_GENERATE = "generate"
+
+    DYNAMIC_GRPC = "dynamic_grpc"
+    NVCLIP = "nvclip"
+    TEMPLATE = "template"
+
     RANKINGS = "rankings"
     IMAGE_RETRIEVAL = "image_retrieval"
 
-    TRITON = "triton"
+    TENSORRTLLM = "tensorrtllm"
+    TENSORRTLLM_ENGINE = "tensorrtllm_engine"
+
     TRITON_GENERATE = "triton_generate"
+
+    DYNAMO_ENGINE = "dynamo_engine"
+
+    def endpoint_path(self) -> str | None:
+        """Get the endpoint path for the endpoint type."""
+        match self:
+            case EndpointType.OPENAI_CHAT_COMPLETIONS | EndpointType.OPENAI_MULTIMODAL:
+                return "/v1/chat/completions"
+            case EndpointType.OPENAI_COMPLETIONS:
+                return "/v1/completions"
+            case EndpointType.OPENAI_EMBEDDINGS | EndpointType.NVCLIP:
+                return "/v1/embeddings"
+            case EndpointType.OPENAI_RESPONSES:
+                return "/v1/responses"
+
+            case EndpointType.HUGGINGFACE_GENERATE:
+                # HuggingFace TGI only exposes root endpoint, so use that as endpoint path
+                return "/"
+
+            case EndpointType.RANKINGS:
+                return "/v1/ranking"
+
+            case EndpointType.IMAGE_RETRIEVAL:
+                return "/v1/infer"
+
+            case EndpointType.TRITON_GENERATE:
+                return "/v2/models/{MODEL_NAME}/generate"
+
+            case (
+                EndpointType.DYNAMIC_GRPC
+                | EndpointType.TEMPLATE
+                | EndpointType.TENSORRTLLM
+                | EndpointType.TENSORRTLLM_ENGINE
+            ):
+                # These endpoints do not have a specific path, so return None
+                return None
+
+            case _:
+                raise NotImplementedError(f"Endpoint not implemented for {self}")
+
+    def response_payload_type(self) -> ResponsePayloadType:
+        """Get the response payload type for the request payload type."""
+        return ResponsePayloadType.from_endpoint_type(self)
 
 
 ####################################################################################

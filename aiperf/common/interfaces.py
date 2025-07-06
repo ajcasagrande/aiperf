@@ -5,18 +5,18 @@ from typing import TYPE_CHECKING, Generic, Protocol, runtime_checkable
 if TYPE_CHECKING:
     from aiperf.common.record_models import ParsedResponseRecord, ResponseData
 from aiperf.common.dataset_models import Turn
-from aiperf.common.model_endpoint_info import (
-    ConfigT,
-    InputT,
-    ModelEndpointInfo,
-    OutputT,
-    RequestT,
-    ResponseT,
-)
+from aiperf.common.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.record_models import (
     ParsedResponseRecord,
     RequestRecord,
     ResponseData,
+)
+from aiperf.common.types import (
+    ConfigT,
+    InputT,
+    OutputT,
+    RequestT,
+    ResponseT,
 )
 
 ################################################################################
@@ -45,7 +45,8 @@ class OutputConverterProtocol(Protocol, Generic[OutputT, ResponseT]):
 ################################################################################
 # Inference Server Client Protocols
 ################################################################################
-@runtime_checkable
+
+
 @runtime_checkable
 class InferenceClientProtocol(Protocol, Generic[ConfigT, RequestT, ResponseT]):
     """Protocol for an inference server client.
@@ -77,7 +78,6 @@ class InferenceClientProtocol(Protocol, Generic[ConfigT, RequestT, ResponseT]):
         self,
         model_endpoint: ModelEndpointInfo,
         payload: RequestT,
-        delayed: bool = False,
     ) -> RequestRecord:
         """Send a request to the inference server.
 
@@ -86,7 +86,6 @@ class InferenceClientProtocol(Protocol, Generic[ConfigT, RequestT, ResponseT]):
         Args:
             model_endpoint: The endpoint to send the request to.
             payload: The payload to send to the inference server.
-            delayed: Whether the request is delayed.
         Returns:
             The raw response from the inference server.
         """

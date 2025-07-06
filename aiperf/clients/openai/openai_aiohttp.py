@@ -4,19 +4,12 @@
 import json
 import logging
 import time
+from abc import ABC
+from typing import Any
 
 from aiperf.clients.http.aiohttp_client import AioHttpClientMixin
-from aiperf.clients.openai.common import (
-    OpenAIBaseRequest,
-    OpenAIChatCompletionRequest,
-    OpenAIClientConfig,
-    OpenAICompletionRequest,
-    OpenAIEmbeddingsRequest,
-    OpenAIResponsesRequest,
-)
 from aiperf.common.dataset_models import Turn
-from aiperf.common.enums import InferenceClientType
-from aiperf.common.exceptions import InvalidPayloadError
+from aiperf.common.enums import EndpointType
 from aiperf.common.factories import InferenceClientFactory
 from aiperf.common.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.record_models import (
@@ -24,77 +17,66 @@ from aiperf.common.record_models import (
     RequestRecord,
 )
 
-################################################################################
-# OpenAI Inference Client
-################################################################################
 
-logger = logging.getLogger(__name__)
+class OpenAIClientAioHttp(AioHttpClientMixin, ABC):
+    """Base inference client for OpenAI based requests."""
 
+    def __init__(self, model_endpoint: ModelEndpointInfo) -> None:
+        self.model_endpoint = model_endpoint
+        self.logger = logging.getLogger(self.__class__.__name__)
 
-class ChatCompletionMixin(AioHttpClientMixin):
-    """Mixin for chat completion requests."""
+    def get_headers(self, model_endpoint: ModelEndpointInfo) -> dict[str, str]:
+        """Get the headers for the given endpoint."""
+        headers = {
+            "User-Agent": "aiperf/1.0",
+            "Content-Type": "application/json",
+            "Accept": "text/event-stream"
+            if model_endpoint.endpoint.streaming
+            else "application/json",
+        }
+        if model_endpoint.endpoint.api_key:
+            headers["Authorization"] = f"Bearer {model_endpoint.endpoint.api_key}"
+        if model_endpoint.endpoint.headers:
+            headers.update(model_endpoint.endpoint.headers)
+        return headers
 
-    def __init__(self, client_config: OpenAIClientConfig) -> None:
-        super().__init__(client_config)
-        self.logger = logging.getLogger(__class__.__name__)
-        self.client_config: OpenAIClientConfig = client_config or OpenAIClientConfig()
+    def get_url(self, model_endpoint: ModelEndpointInfo) -> str:
+        """Get the URL for the given endpoint."""
+        url = model_endpoint.url
+        if not url.startswith("http"):
+            url = f"http://{url}"
+        return url
 
-    async def send_chat_completion_request(
-        self, model_endpoint: ModelEndpointInfo, payload: OpenAIChatCompletionRequest
+    async def send_request(
+        self,
+        model_endpoint: ModelEndpointInfo,
+        payload: dict[str, Any],
     ) -> RequestRecord:
-        """Send chat completion request using aiohttp."""
+        """Send OpenAI request using aiohttp."""
 
+        # capture start time before request is sent in the case of an error
+        start_perf_ns = time.perf_counter_ns()
         try:
-            # Prepare request payload
-            request_payload = payload.model_dump()
-
-            # Add optional parameters if configured
-            # if self.client_config.stop:
-            #     request_payload["stop"] = self.client_config.stop
-
-            # Add any additional kwargs from payload
-            if request_payload.get("kwargs"):
-                request_payload.update(request_payload["kwargs"])
-
-            # Prepare headers
-            headers = {
-                "User-Agent": "aiperf/1.0",
-                "Content-Type": "application/json",
-                "Accept": "text/event-stream" if payload.stream else "application/json",
-            }
-
-            if self.client_config.api_key:
-                headers["Authorization"] = f"Bearer {self.client_config.api_key}"
-
-            # if self.client_config.organization:
-            # headers["OpenAI-Organization"] = self.client_config.organization
-
-            # Construct full URL
-            # base_url = (
-            #     f"https://{self.client_config.base_url}"
-            #     if not self.client_config.base_url.startswith(("http://", "https://"))
-            #     else self.client_config.base_url
-            # )
             self.logger.debug(
-                "Sending chat completion request to %s", self.client_config.base_url
+                "Sending OpenAI request to %s, payload: %s", model_endpoint.url, payload
             )
-            url = f"{self.client_config.base_url.rstrip('/')}/v1/chat/completions"
 
             record = await self.post_request(
-                url, json.dumps(request_payload), headers, delayed=False
+                self.get_url(model_endpoint),
+                json.dumps(payload),
+                self.get_headers(model_endpoint),
             )
-            record.request = request_payload
+            record.request = payload
 
         except Exception as e:
             record = RequestRecord(
-                request=request_payload,
-                start_perf_ns=time.perf_counter_ns(),
+                request=payload,
+                start_perf_ns=start_perf_ns,
                 end_perf_ns=time.perf_counter_ns(),
-                delayed=False,
                 error=ErrorDetails(type=e.__class__.__name__, message=str(e)),
             )
-            logger.error(
-                "Error in chat completion request: %s %s",
+            self.logger.error(
+                "Error in OpenAI request: %s %s",
                 e.__class__.__name__,
                 str(e),
             )
@@ -102,135 +84,138 @@ class ChatCompletionMixin(AioHttpClientMixin):
         return record
 
 
-@InferenceClientFactory.register(InferenceClientType.OPENAI)
-class OpenAIClientAioHttp(ChatCompletionMixin):
-    """A high-performance inference client for communicating with OpenAI based REST APIs using aiohttp.
+@InferenceClientFactory.register(EndpointType.OPENAI_CHAT_COMPLETIONS)
+class OpenAIChatCompletionClientAioHttp(OpenAIClientAioHttp):
+    """Inference client for OpenAI chat completion requests."""
 
-    This class is optimized for maximum performance and accurate timing measurements,
-    making it ideal for benchmarking scenarios.
-    """
-
-    def __init__(self, client_config: OpenAIClientConfig) -> None:
-        super().__init__(client_config)
-        self.logger = logging.getLogger(__class__.__name__)
-
-    async def close(self) -> None:
-        """Close the client."""
-        await super().close()
+    def __init__(self, model_endpoint: ModelEndpointInfo) -> None:
+        super().__init__(model_endpoint)
+        self.logger = logging.getLogger(self.__class__.__name__)
 
     async def format_payload(
         self,
         model_endpoint: ModelEndpointInfo,
         turn: Turn,
-    ) -> OpenAIBaseRequest:
-        """Format payload for the given endpoint."""
+    ) -> dict[str, Any]:
+        """Format payload for a chat completion request."""
 
-        if model_endpoint.endpoint.type == "v1/chat/completions":
-            messages = [
-                {
-                    "role": text.role or "user",
-                    "name": text.name,
-                    "content": text.content,
-                }
-                for text in turn.text
-            ]
+        messages = [
+            {
+                "role": text.role or "user",
+                "name": text.name,
+                "content": text.content,
+            }
+            for text in turn.text
+        ]
 
-            return OpenAIChatCompletionRequest(
-                messages=messages,
-                model=model_endpoint.models[0].name,
-                max_tokens=self.client_config.max_tokens,
-                stream=model_endpoint.endpoint.streaming,
-                **model_endpoint.endpoint.extra,
-            )
+        payload = {
+            "messages": messages,
+            "model": model_endpoint.primary_model_name,
+            "stream": model_endpoint.endpoint.streaming,
+        }
 
-        # elif model_endpoint.endpoint.type == "v1/completions":
-        #     return OpenAICompletionRequest(
-        #         prompt=payload["prompt"],
-        #         model=self.client_config.model,
-        #         max_tokens=self.client_config.max_tokens,
-        #         stream=model_endpoint.endpoint.streaming,
-        #         **model_endpoint.endpoint.extra,
-        #     )
+        if model_endpoint.endpoint.extra:
+            payload.update(model_endpoint.endpoint.extra)
 
-        # elif model_endpoint.endpoint.type == "v1/embeddings":
-        #     return OpenAIEmbeddingsRequest(
-        #         input=payload["input"],
-        #         model=model_endpoint.models[0].name,
-        #         dimensions=payload["dimensions"],
-        #         encoding_format=payload["encoding_format"],
-        #         user=payload["user"],
-        #         **model_endpoint.endpoint.extra,
-        #     )
+        self.logger.debug("Formatted payload: %s", payload)
+        return payload
 
-        # elif model_endpoint.endpoint.type == "v1/responses":
-        #     return OpenAIResponsesRequest(
-        #         input=payload["input"],
-        #         model=model_endpoint.models[0].name,
-        #         max_output_tokens=model_endpoint.max_output_tokens,
-        #         stream=model_endpoint.endpoint.streaming,
-        #         **model_endpoint.endpoint.extra,
-        #     )
 
-        else:
-            raise ValueError(f"Invalid endpoint: {model_endpoint.endpoint.type}")
+@InferenceClientFactory.register(EndpointType.OPENAI_COMPLETIONS)
+class OpenAICompletionClientAioHttp(OpenAIClientAioHttp):
+    """Inference client for OpenAI completion requests."""
 
-    async def send_request(
+    def __init__(self, model_endpoint: ModelEndpointInfo) -> None:
+        super().__init__(model_endpoint)
+        self.logger = logging.getLogger(self.__class__.__name__)
+
+    async def format_payload(
         self,
         model_endpoint: ModelEndpointInfo,
-        payload: OpenAIBaseRequest,
-        delayed: bool = False,
-    ) -> RequestRecord:
-        """Send request to the specified endpoint with the given payload."""
-        record: RequestRecord | None = None
-        start_perf_ns = time.perf_counter_ns()
+        turn: Turn,
+    ) -> dict[str, Any]:
+        """Format payload for a completion request."""
 
-        try:
-            if isinstance(payload, OpenAIChatCompletionRequest):
-                record = await self.send_chat_completion_request(
-                    model_endpoint, payload
-                )
+        payload = {
+            "prompt": turn.text,
+            "model": model_endpoint.primary_model_name,
+            "stream": model_endpoint.endpoint.streaming,
+        }
 
-            elif isinstance(payload, OpenAICompletionRequest):
-                record = await self.send_completion_request(model_endpoint, payload)
+        if model_endpoint.endpoint.extra:
+            payload.update(model_endpoint.endpoint.extra)
 
-            elif isinstance(payload, OpenAIEmbeddingsRequest):
-                record = await self.send_embeddings_request(model_endpoint, payload)
+        self.logger.debug("Formatted payload: %s", payload)
+        return payload
 
-            elif isinstance(payload, OpenAIResponsesRequest):
-                record = await self.send_chat_responses_request(model_endpoint, payload)
 
-            else:
-                raise InvalidPayloadError(f"Invalid payload: {payload}")
+@InferenceClientFactory.register(EndpointType.OPENAI_EMBEDDINGS)
+class OpenAIEmbeddingsClientAioHttp(OpenAIClientAioHttp):
+    """Inference client for OpenAI embeddings requests."""
 
-        except Exception as e:
-            record = RequestRecord(
-                start_perf_ns=start_perf_ns,
-                delayed=delayed,
-                error=ErrorDetails(
-                    type=e.__class__.__name__,
-                    message=str(e),
-                ),
+    def __init__(self, model_endpoint: ModelEndpointInfo) -> None:
+        super().__init__(model_endpoint)
+        self.logger = logging.getLogger(self.__class__.__name__)
+
+    async def format_payload(
+        self,
+        model_endpoint: ModelEndpointInfo,
+        turn: Turn,
+    ) -> dict[str, Any]:
+        """Format payload for an embeddings request."""
+
+        payload = {
+            "input": turn.text,
+            "model": model_endpoint.primary_model_name,
+            "dimensions": model_endpoint.endpoint.url_params.get("dimensions", 1536)
+            if model_endpoint.endpoint.url_params
+            else 1536,
+            "encoding_format": model_endpoint.endpoint.url_params.get(
+                "encoding_format", "float"
             )
+            if model_endpoint.endpoint.url_params
+            else "float",
+            "user": model_endpoint.endpoint.url_params.get("user", "")
+            if model_endpoint.endpoint.url_params
+            else "",
+            "stream": model_endpoint.endpoint.streaming,
+        }
 
-        return record
+        if model_endpoint.endpoint.extra:
+            payload.update(model_endpoint.endpoint.extra)
 
-    async def send_completion_request(
-        self, model_endpoint: ModelEndpointInfo, payload: OpenAICompletionRequest
-    ) -> RequestRecord:
-        raise NotImplementedError(
-            "OpenAIClientAioHttp does not support completion requests"
-        )
+        self.logger.debug("Formatted payload: %s", payload)
+        return payload
 
-    async def send_embeddings_request(
-        self, model_endpoint: ModelEndpointInfo, payload: OpenAIEmbeddingsRequest
-    ) -> RequestRecord:
-        raise NotImplementedError(
-            "OpenAIClientAioHttp does not support embeddings requests"
-        )
 
-    async def send_chat_responses_request(
-        self, model_endpoint: ModelEndpointInfo, payload: OpenAIResponsesRequest
-    ) -> RequestRecord:
-        raise NotImplementedError(
-            "OpenAIClientAioHttp does not support chat responses requests"
-        )
+@InferenceClientFactory.register(EndpointType.OPENAI_RESPONSES)
+class OpenAIResponsesClientAioHttp(OpenAIClientAioHttp):
+    """Inference client for OpenAI responses requests."""
+
+    def __init__(self, model_endpoint: ModelEndpointInfo) -> None:
+        super().__init__(model_endpoint)
+        self.logger = logging.getLogger(self.__class__.__name__)
+
+    async def format_payload(
+        self,
+        model_endpoint: ModelEndpointInfo,
+        turn: Turn,
+    ) -> dict[str, Any]:
+        """Format payload for a responses request."""
+
+        payload = {
+            "input": turn.text,
+            "model": model_endpoint.primary_model_name,
+            "max_output_tokens": model_endpoint.endpoint.url_params.get(
+                "max_output_tokens", 1000
+            )
+            if model_endpoint.endpoint.url_params
+            else 1000,
+            "stream": model_endpoint.endpoint.streaming,
+        }
+
+        if model_endpoint.endpoint.extra:
+            payload.update(model_endpoint.endpoint.extra)
+
+        self.logger.debug("Formatted payload: %s", payload)
+        return payload

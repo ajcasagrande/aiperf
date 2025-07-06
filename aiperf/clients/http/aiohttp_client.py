@@ -10,9 +10,9 @@ import aiohttp
 
 from aiperf.clients.http.defaults import AioHttpDefaults, SocketDefaults
 from aiperf.common.enums import SSEFieldType
+from aiperf.common.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.record_models import (
     ErrorDetails,
-    GenericHTTPClientConfig,
     RequestRecord,
     SSEField,
     SSEMessage,
@@ -31,16 +31,19 @@ class AioHttpClientMixin:
     making it ideal for benchmarking scenarios.
     """
 
-    def __init__(self, client_config: GenericHTTPClientConfig) -> None:
-        self.logger = logging.getLogger(__class__.__name__)
-        self.client_config = client_config
+    def __init__(self, model_endpoint: ModelEndpointInfo) -> None:
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.model_endpoint = model_endpoint
         self.tcp_connector = create_tcp_connector()
+
+        # For now, just set all timeouts to the same value.
+        # TODO: Add support for different timeouts for different parts of the request.
         self.timeout = aiohttp.ClientTimeout(
-            total=self.client_config.timeout_ms / 1000.0,
-            connect=self.client_config.timeout_ms / 1000.0,
-            sock_connect=self.client_config.timeout_ms / 1000.0,
-            sock_read=self.client_config.timeout_ms / 1000.0,
-            ceil_threshold=self.client_config.timeout_ms / 1000.0,
+            total=self.model_endpoint.endpoint.timeout,
+            connect=self.model_endpoint.endpoint.timeout,
+            sock_connect=self.model_endpoint.endpoint.timeout,
+            sock_read=self.model_endpoint.endpoint.timeout,
+            ceil_threshold=self.model_endpoint.endpoint.timeout,
         )
 
     async def close(self) -> None:
@@ -54,7 +57,6 @@ class AioHttpClientMixin:
         url: str,
         payload: str,
         headers: dict[str, str],
-        delayed: bool = False,
         **kwargs: Any,
     ) -> RequestRecord:
         """Send a streaming or non-streaming POST request to the specified URL with the given payload and headers.
@@ -67,7 +69,6 @@ class AioHttpClientMixin:
 
         record: RequestRecord = RequestRecord(
             start_perf_ns=time.perf_counter_ns(),
-            delayed=delayed,
         )
 
         try:

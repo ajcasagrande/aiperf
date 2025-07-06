@@ -6,9 +6,8 @@ from typing import Any, Generic, TypeVar
 
 from aiperf.common.enums import (
     CaseInsensitiveStrEnum,
-    InferenceClientType,
+    EndpointType,
     PromptSource,
-    RequestPayloadType,
     ServiceType,
     ZMQProxyType,
 )
@@ -219,9 +218,7 @@ class InputConverterFactory(FactoryMixin[PromptSource, "InputConverterProtocol"]
     """
 
 
-class OutputConverterFactory(
-    FactoryMixin[RequestPayloadType, "OutputConverterProtocol"]
-):
+class OutputConverterFactory(FactoryMixin[EndpointType, "OutputConverterProtocol"]):
     """Factory for registering and creating OutputConverterProtocol instances based on the specified output format.
 
     Example:
@@ -263,24 +260,9 @@ class ServiceFactory(FactoryMixin[ServiceType, "BaseService"]):
     """
 
 
-class InferenceClientFactory(
-    FactoryMixin[InferenceClientType, "InferenceClientProtocol"]
-):
-    """Factory for registering and creating InferenceClientProtocol instances based on the specified inference client type.
-
-    Example:
-    ```python
-        # Register a new inference client
-        @InferenceClientFactory.register(InferenceClientType.OPENAI)
-        class OpenAIClient:
-            pass  # Implement the InferenceClientProtocol
-
-        inference_client = InferenceClientFactory.create_instance(
-            InferenceClientType.OPENAI,
-            config=OpenAIClientConfig(api_key="sk-1234567890"),
-        )
-        inference_client.send_request(...)
-    ```
+class InferenceClientFactory(FactoryMixin[EndpointType, "InferenceClientProtocol"]):
+    """Factory for registering and creating InferenceClientProtocol instances based on the specified endpoint type.
+    see: :class:`FactoryMixin` for more details.
     """
 
 
@@ -315,9 +297,7 @@ class PostProcessorFactory(FactoryMixin["PostProcessorType", "PostProcessorProto
     """
 
 
-class RequestConverterFactory(
-    FactoryMixin[RequestPayloadType, "RequestConverterProtocol"]
-):
+class RequestConverterFactory(FactoryMixin[EndpointType, "RequestConverterProtocol"]):
     """Factory for registering and creating RequestPayloadConverter instances based on the specified request payload type.
 
     Example:

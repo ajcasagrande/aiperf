@@ -8,7 +8,6 @@ import sys
 import time
 from typing import cast
 
-from aiperf.clients.openai.common import OpenAIChatCompletionRequest, OpenAIClientConfig
 from aiperf.common.comms.base import (
     BaseCommunication,
     CommunicationFactory,
@@ -24,7 +23,6 @@ from aiperf.common.constants import (
 )
 from aiperf.common.enums import (
     CommunicationClientAddressType,
-    InferenceClientType,
     MessageType,
     ServiceType,
 )
@@ -68,11 +66,6 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
         super().__init__(service_config=service_config, service_id=service_id)
         self.logger = logging.getLogger(self.service_id)
         self.logger.debug("Initializing worker process: %s", self.process.pid)
-        self.user_config: UserConfig | None = None
-        self.model_endpoint: ModelEndpointInfo | None = None
-
-        # Inference client will be initialized in _initialize
-        self.inference_client: InferenceClientProtocol | None = None
 
         self.health_check_interval = int(
             os.getenv("AIPERF_WORKER_HEALTH_CHECK_INTERVAL", 1)
@@ -108,18 +101,10 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
             CommunicationClientAddressType.EVENT_BUS_PROXY_FRONTEND,
         )  # type: ignore
 
-        api_key = os.environ.get("OPENAI_API_KEY", None)
-
-        # Default OpenAI inference server endpoint
-        openai_client_config = OpenAIClientConfig(
-            api_key=api_key,
-            base_url=f"http://{os.getenv('AIPERF_HOST', '127.0.0.1')}:{os.getenv('AIPERF_PORT', 8080)}",
-        )
+        # These will be initialized in _configure
+        self.user_config: UserConfig | None = None
         self.model_endpoint: ModelEndpointInfo | None = None
-
-        self.inference_client = InferenceClientFactory.create_instance(
-            InferenceClientType.OPENAI, client_config=openai_client_config
-        )
+        self.inference_client: InferenceClientProtocol | None = None
 
     @property
     def service_type(self) -> ServiceType:
@@ -145,19 +130,18 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
             raise ConfigurationError("Invalid user config")
 
         self.user_config = cast(UserConfig, message.data)
-
-        # TODO: better way to get the API key
-        api_key = os.environ.get("OPENAI_API_KEY", None)
-
-        # Default OpenAI inference server endpoint
-        openai_client_config = OpenAIClientConfig(
-            api_key=api_key,
-            base_url=f"http://{os.getenv('AIPERF_HOST', '127.0.0.1')}:{os.getenv('AIPERF_PORT', 8080)}",
-        )
         self.model_endpoint = ModelEndpointInfo.from_user_config(self.user_config)
 
+        self.logger.debug(
+            "Creating inference client for %s, class: %s",
+            self.model_endpoint.endpoint.type,
+            InferenceClientFactory.get_class_from_type(
+                self.model_endpoint.endpoint.type
+            ).__name__,
+        )
         self.inference_client = InferenceClientFactory.create_instance(
-            InferenceClientType.OPENAI, client_config=openai_client_config
+            self.model_endpoint.endpoint.type,
+            model_endpoint=self.model_endpoint,
         )
 
     async def _process_credit_drop(self, message: CreditDropMessage) -> None:
@@ -260,30 +244,18 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
                     error=response.error,
                 )
 
-            # # Format payload for the API request
-            # formatted_payload = await self.inference_client.format_payload(
-            #     model_endpoint=self.model_endpoint,
-            #     turn=response.conversation.turns[0],  # todo: handle multiple turns
-            #     # payload={
-            #     #     "messages": [
-            #     #         {
-            #     #             "role": "user",
-            #     #             "content": "IO Sir you say well and well you do conceive And since you do profess to be a suitor You must as we do gratify this gentleman To whom we all rest generally beholding TRANIO Sir I shall not be slack in sign whereof Please ye we may contrive this afternoon And quaff carouses to our mistress health And do as adversaries do in law Strive mightily but eat and drink as friends GRUMIO BIONDELLO O excellent motion Fellows lets be gone HORT",
-            #     #         },
-            #     #     ],
-            #     # },
-            # )
-
-            formatted_payload = OpenAIChatCompletionRequest(
-                messages=[
-                    {
-                        "role": "user",
-                        "content": "IO Sir you say well and well you do conceive And since you do profess to be a suitor You must as we do gratify this gentleman To whom we all rest generally beholding TRANIO Sir I shall not be slack in sign whereof Please ye we may contrive this afternoon And quaff carouses to our mistress health And do as adversaries do in law Strive mightily but eat and drink as friends GRUMIO BIONDELLO O excellent motion Fellows lets be gone HORT",
-                    },
-                ],
-                model=self.model_endpoint.models.models[0].name,
-                max_tokens=100,
-                stream=True,
+            # Format payload for the API request
+            formatted_payload = await self.inference_client.format_payload(
+                model_endpoint=self.model_endpoint,
+                turn=response.conversation.turns[0],  # todo: handle multiple turns
+                # payload={
+                #     "messages": [
+                #         {
+                #             "role": "user",
+                #             "content": "IO Sir you say well and well you do conceive And since you do profess to be a suitor You must as we do gratify this gentleman To whom we all rest generally beholding TRANIO Sir I shall not be slack in sign whereof Please ye we may contrive this afternoon And quaff carouses to our mistress health And do as adversaries do in law Strive mightily but eat and drink as friends GRUMIO BIONDELLO O excellent motion Fellows lets be gone HORT",
+                #         },
+                #     ],
+                # },
             )
 
             delayed = False
@@ -295,16 +267,18 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
                 delayed = True
 
             # Send the request to the Inference Server API and wait for the response
-            return await self.inference_client.send_request(
+            result = await self.inference_client.send_request(
                 model_endpoint=self.model_endpoint,
                 payload=formatted_payload,
-                delayed=delayed,
             )
+
+            result.delayed = delayed
+            return result
 
         except Exception as e:
             self.logger.error(
                 "Error calling inference server API at %s: %s %s",
-                self.model_endpoint.endpoint,
+                self.model_endpoint.url,
                 e.__class__.__name__,
                 str(e),
             )

@@ -6,15 +6,15 @@ from typing import Any
 from aiperf.clients.converters.base_converter import BaseRequestConverter
 from aiperf.common.config import OutputTokenDefaults
 from aiperf.common.dataset_models import DataRow, GenericDataset
-from aiperf.common.enums import RequestPayloadType
+from aiperf.common.enums import EndpointType
 from aiperf.common.exceptions import AIPerfError
 from aiperf.common.factories import RequestConverterFactory
 
 # TODO: This file needs heavy cleanup and refactoring after bringing in from GAP
 
 
-@RequestConverterFactory.register(RequestPayloadType.OPENAI_CHAT_COMPLETIONS)
-@RequestConverterFactory.register(RequestPayloadType.OPENAI_MULTIMODAL)
+@RequestConverterFactory.register(EndpointType.OPENAI_CHAT_COMPLETIONS)
+@RequestConverterFactory.register(EndpointType.OPENAI_MULTIMODAL)
 class OpenAIChatCompletionsRequestConverter(BaseRequestConverter):
     # TODO: This should probably be handled in the config module
     # def check_config(self) -> None:
@@ -67,12 +67,11 @@ class OpenAIChatCompletionsRequestConverter(BaseRequestConverter):
         content: str | list[dict[Any, Any]] = ""
         if (
             self.config.endpoint.request_payload_type
-            == RequestPayloadType.OPENAI_CHAT_COMPLETIONS
+            == EndpointType.OPENAI_CHAT_COMPLETIONS
         ):
             content = row.texts[0]
         elif (
-            self.config.endpoint.request_payload_type
-            == RequestPayloadType.OPENAI_MULTIMODAL
+            self.config.endpoint.request_payload_type == EndpointType.OPENAI_MULTIMODAL
         ):
             content = self._add_multi_modal_content(row)
         else:
