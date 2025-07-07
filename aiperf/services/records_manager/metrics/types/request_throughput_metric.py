@@ -45,7 +45,7 @@ class RequestThroughputMetric(BaseMetric):
         """
         Returns the Request Throughput metric.
         """
-        return [self.metric]
+        return self.metric
 
     def _check_record(self, record: ParsedResponseRecord) -> None:
         """
