@@ -79,7 +79,7 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
         self.logger.debug("Creating System Controller")
 
         self._system_state: SystemState = SystemState.INITIALIZING
-        self.user_config = user_config or UserConfig()
+        self.user_config = user_config
 
         # List of required service types, in no particular order
         # These are services that must be running before the system controller can start profiling
@@ -88,7 +88,10 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
             (ServiceType.TIMING_MANAGER, 1),
             (ServiceType.WORKER_MANAGER, 1),
             (ServiceType.RECORDS_MANAGER, 1),
-            (ServiceType.INFERENCE_RESULT_PARSER, 4),
+            (
+                ServiceType.INFERENCE_RESULT_PARSER,
+                self.service_config.result_parser_service_count,
+            ),
         ]
 
         self.service_manager: BaseServiceManager = None  # type: ignore - is set in _initialize
@@ -285,38 +288,14 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
             sig: The signal number received
         """
         self.logger.debug("Received signal %s, initiating graceful shutdown", sig)
-        if sig == signal.SIGINT or sig == signal.SIGTERM:
+        if sig == signal.SIGINT:
             if self.stop_event.is_set():
                 self.logger.debug("Stop event is already set, killing all services")
                 await self.kill()
                 return
 
-            if self.profile_runner and self.profile_runner.is_complete:
-                self.stop_event.set()
-                return
-
-            if self.profile_runner and self.profile_runner.was_cancelled:
-                self.logger.error("Profile was cancelled, killing all services")
-                await self.kill()
-                return
-
-            if self.pub_client.stop_requested:
-                self.logger.error("Pub client is shutdown, killing all services")
-                await self.kill()
-                return
-
-            await self.send_command_to_service(
-                target_service_id=None,
-                target_service_type=ServiceType.RECORDS_MANAGER,
-                command=CommandType.PROCESS_RECORDS,
-                data=ProcessRecordsCommandData(cancelled=True),
-            )
-
-            if self.profile_runner:
+            if self.profile_runner and not self.profile_runner.is_complete:
                 await self.profile_runner.cancel_profile()
-
-            if self.comms:
-                await self.comms.shutdown()
 
         self.stop_event.set()
 
@@ -329,7 +308,6 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
         """
         self.logger.debug("Stopping System Controller")
         self.logger.info("AIPerf System is EXITING")
-        # logging.root.setLevel(logging.DEBUG)
 
         self._system_state = SystemState.STOPPING
 
@@ -355,9 +333,11 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
         try:
             await self.service_manager.shutdown_all_services()
         except Exception as e:
-            raise self._service_error(
-                "Failed to stop all services",
-            ) from e
+            self.logger.error("Failed to stop all services: %s", e)
+            await self.kill()
+        finally:
+            if self.comms:
+                await self.comms.shutdown()
 
     @on_cleanup
     async def _cleanup(self) -> None:
@@ -644,6 +624,7 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
         """Kill the system controller."""
         try:
             await self.service_manager.kill_all_services()
+            sys.exit(0)
         except Exception as e:
             raise self._service_error("Failed to stop all services") from e
 

@@ -26,12 +26,12 @@ from aiperf.common.record_models import (
     EndpointType.OPENAI_RESPONSES,
 )
 class OpenAIClientAioHttp(AioHttpClientMixin, ABC):
-    """Base inference client for OpenAI based requests."""
+    """Inference client for OpenAI based requests using aiohttp."""
 
     def __init__(self, model_endpoint: ModelEndpointInfo) -> None:
         super().__init__(model_endpoint)
-        self.model_endpoint = model_endpoint
         self.logger = logging.getLogger(self.__class__.__name__)
+        self.model_endpoint = model_endpoint
 
     def get_headers(self, model_endpoint: ModelEndpointInfo) -> dict[str, str]:
         """Get the headers for the given endpoint."""

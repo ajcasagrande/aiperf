@@ -55,7 +55,6 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
         """Start the credit issuing strategy. This will launch the progress reporting loop, the
         warmup phase (if applicable), and the profiling phase, all in the background."""
 
-        self.execute_async(self._progress_report_loop())
         if self.warmup:
             self.execute_async(self._execute_phase(self.warmup))
         self.execute_async(

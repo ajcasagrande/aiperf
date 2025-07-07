@@ -50,7 +50,6 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
         service_config: ServiceConfig,
         user_config: UserConfig | None = None,
         service_id: str | None = None,
-        **kwargs,
     ) -> None:
         super().__init__()
         self.service_id: str = (

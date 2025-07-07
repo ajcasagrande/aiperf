@@ -22,11 +22,17 @@ class SweepParam(BaseConfig):
     name: Annotated[
         str,
         Field(description="The name of the parameter"),
+        cyclopts.Parameter(
+            name=("--sweep-param-name"),
+        ),
     ]
 
     param_type: Annotated[
         SweepParamType,
         Field(description="The type of the parameter"),
+        cyclopts.Parameter(
+            name=("--sweep-param-type"),
+        ),
     ]
 
     values: Annotated[
@@ -41,7 +47,12 @@ class SweepParam(BaseConfig):
 
     order: Annotated[
         SweepParamOrder,
-        Field(description="The order of the parameter"),
+        Field(
+            description="The order of the parameter.\n"
+            "ascending: The parameter will be swept over a range of values in ascending order.\n"
+            "descending: The parameter will be swept over a range of values in descending order.\n"
+            "random: The parameter will be swept over a range of values in random order.",
+        ),
         cyclopts.Parameter(
             name=("--sweep-param-order"),
         ),

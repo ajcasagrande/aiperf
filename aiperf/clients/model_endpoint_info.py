@@ -14,6 +14,7 @@ class ModelInfo(BaseModel):
 
     name: str = Field(
         ...,
+        min_length=1,
         description="The name of the model. This is used to identify the model.",
     )
     version: str | None = Field(
@@ -32,6 +33,7 @@ class ModelListInfo(BaseModel):
 
     models: list[ModelInfo] = Field(
         ...,
+        min_length=1,
         description="The models to use for the endpoint.",
     )
     model_selection_strategy: ModelSelectionStrategy = Field(

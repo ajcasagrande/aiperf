@@ -22,11 +22,13 @@ from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.constants import (
     NANOS_PER_SECOND,
 )
+from aiperf.common.dataset_models import Turn
 from aiperf.common.enums import (
     CommunicationClientAddressType,
     MessageType,
     ServiceType,
 )
+from aiperf.common.exceptions import NotInitializedError
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
     aiperf_task,
@@ -158,99 +160,93 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
 
         self.logger.debug("Processing credit drop: %s", message)
 
+        record: RequestRecord = RequestRecord()
         try:
-            await self._execute_single_credit(message)
+            record = await self._execute_single_credit(message)
 
         except Exception as e:
-            self.logger.error("Error processing credit drop: %s", e)
+            self.logger.exception("Error processing credit drop: %s", e)
+            record.error = ErrorDetails.from_exception(e)
+            record.end_perf_ns = time.perf_counter_ns()
 
         finally:
-            # Always return the credits
-            self.logger.debug("Returning credits for %s", message.conversation_id)
-            await self.credit_return_client.push(
-                message=CreditReturnMessage(
-                    service_id=self.service_id,
-                    conversation_id=message.conversation_id,
-                    credit_drop_ns=message.credit_drop_ns,
-                    delayed_ns=None,
-                    warmup=message.warmup,
-                ),
+            record.warmup = message.warmup
+            msg = InferenceResultsMessage(
+                service_id=self.service_id,
+                record=record,
             )
+
+            if message.warmup:
+                self.warmup_tasks += 1
+                if not record.valid:
+                    self.warmup_failed_tasks += 1
+                self.logger.debug("Warmup request completed: %s", record)
+            else:
+                if record.valid:
+                    self.completed_tasks += 1
+                else:
+                    self.failed_tasks += 1
+
+            try:
+                await self.inference_results_client.push(message=msg)
+            except Exception as e:
+                # If we fail to push the record, log the error and continue
+                self.logger.exception("Error pushing request record: %s", e)
+            finally:
+                # Always return the credits
+                self.logger.debug("Returning credits for %s", message.conversation_id)
+                await self.credit_return_client.push(
+                    message=CreditReturnMessage(
+                        service_id=self.service_id,
+                        conversation_id=message.conversation_id,
+                        credit_drop_ns=message.credit_drop_ns,
+                        delayed_ns=None,
+                        warmup=message.warmup,
+                    ),
+                )
 
     async def _execute_single_credit(
         self,
         message: CreditDropMessage,
-    ) -> None:
+    ) -> RequestRecord:
         """Run a credit task for a single credit."""
         self.total_tasks += 1
 
-        record = await self._call_inference_api(message)
-        record.warmup = message.warmup  # pre-set the warmup flag
-        msg = InferenceResultsMessage(
-            service_id=self.service_id,
-            record=record,
+        if not self.inference_client:
+            raise NotInitializedError("Inference server client not initialized.")
+
+        # retrieve the prompt from the dataset
+        response: ConversationResponseMessage = (
+            await self.conversation_data_client.request(
+                ConversationRequestMessage(
+                    service_id=self.service_id,
+                    conversation_id=message.conversation_id,
+                )
+            )
         )
+        self.logger.debug("Received response message: %s", response)
 
-        if message.warmup:
-            self.warmup_tasks += 1
-            if record.valid:
-                self.warmup_failed_tasks += 1
-            self.logger.debug("Warmup request completed: %s", record)
-        else:
-            if record.valid:
-                self.completed_tasks += 1
-            else:
-                self.failed_tasks += 1
-
-        try:
-            await self.inference_results_client.push(message=msg)
-        except Exception as e:
-            # If we fail to push the record, log the error and continue
-            self.logger.error(
-                "Error pushing request record: %s: %s",
-                e.__class__.__name__,
-                e,
+        if isinstance(response, ErrorMessage):
+            return RequestRecord(
+                timestamp_ns=time.time_ns(),
+                start_perf_ns=time.perf_counter_ns(),
+                end_perf_ns=time.perf_counter_ns(),
+                error=response.error,
             )
 
-    async def _call_inference_api(self, message: CreditDropMessage) -> RequestRecord:
+        return await self._call_inference_api(message, response.conversation.turns[0])
+
+    async def _call_inference_api(
+        self, message: CreditDropMessage, turn: Turn
+    ) -> RequestRecord:
         """Make a single call to the inference API. Will return an error record if the call fails."""
         try:
             self.logger.debug("Calling inference API")
 
-            if not self.inference_client:
-                self.logger.warning(
-                    "Inference server client not initialized, skipping API call"
-                )
-                return RequestRecord(
-                    error=ErrorDetails(
-                        type="Inference server client not initialized",
-                        message="Inference server client not initialized",
-                    ),
-                )
-
-            # retrieve the prompt from the dataset
-            response: ConversationResponseMessage = (
-                await self.conversation_data_client.request(
-                    ConversationRequestMessage(
-                        service_id=self.service_id,
-                        conversation_id=message.conversation_id,
-                    )
-                )
-            )
-            self.logger.debug("Received response message: %s", response)
-
-            if isinstance(response, ErrorMessage):
-                return RequestRecord(
-                    timestamp_ns=time.time_ns(),
-                    start_perf_ns=time.perf_counter_ns(),
-                    end_perf_ns=time.perf_counter_ns(),
-                    error=response.error,
-                )
-
             # Format payload for the API request
             formatted_payload = await self.request_converter.format_payload(
                 model_endpoint=self.model_endpoint,
-                turn=response.conversation.turns[0],  # TODO: handle multiple turns
+                turn=turn,
             )
 
             delayed_ns = None

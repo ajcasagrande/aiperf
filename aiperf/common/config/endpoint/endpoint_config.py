@@ -100,7 +100,7 @@ class EndPointConfig(BaseConfig):
             description="The timeout in floating points seconds for each request to the endpoint.",
         ),
         cyclopts.Parameter(
-            name=("--timeout"),
+            name=("--request-timeout"),
         ),
     ] = EndPointDefaults.TIMEOUT
 

@@ -188,9 +188,7 @@ class HookSystem:
 ################################################################################
 
 
-def supports_hooks(
-    *supported_hook_types: HookType,
-) -> Callable[[type], type]:
+def supports_hooks(*supported_hook_types: HookType) -> Callable[[type], type]:
     """Decorator to indicate that a class supports hooks and sets the
     supported hook types.
 
@@ -277,9 +275,7 @@ def on_run(func: Callable) -> Callable:
     return hook_decorator(AIPerfHook.ON_RUN, func)
 
 
-def on_set_state(
-    func: Callable,
-) -> Callable:
+def on_set_state(func: Callable) -> Callable:
     """Decorator to specify that the function should be called when the service state is set.
     See :func:`aiperf.common.hooks.hook_decorator`."""
     return hook_decorator(AIPerfHook.ON_SET_STATE, func)
@@ -303,9 +299,7 @@ def on_profile_stop(func: Callable) -> Callable:
     return hook_decorator(AIPerfHook.ON_PROFILE_STOP, func)
 
 
-def aiperf_task(
-    func: Callable,
-) -> Callable:
+def aiperf_task(func: Callable) -> Callable:
     """Decorator to indicate that the function is a task function. It will be started
     and stopped automatically by the base class lifecycle.
     See :func:`aiperf.common.hooks.hook_decorator`.
@@ -475,15 +469,8 @@ class AIPerfLifecycleMixin(HooksMixin, AsyncTaskManagerMixin):
         await self.run_hooks_async(AIPerfHook.ON_START)
         self.started_event.set()
 
-        while not self.stop_requested.is_set() and not self.shutdown_event.is_set():
-            try:
-                # Wait forever until the stop_requested event is set
-                await self.stop_requested.wait()
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                self.logger.exception("Unhandled exception in lifecycle: %s", e)
-                continue
+        # Wait forever until the stop_requested event is set
+        await self.stop_requested.wait()
 
         try:
             # Run all the stop hooks

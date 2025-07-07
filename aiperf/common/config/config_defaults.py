@@ -144,6 +144,7 @@ class ServiceDefaults:
     LOG_LEVEL = "INFO"
     DISABLE_UI = False
     ENABLE_UVLOOP = True
+    RESULT_PARSER_SERVICE_COUNT = 4
 
 
 @dataclass(frozen=True)

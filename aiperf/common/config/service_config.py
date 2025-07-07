@@ -158,3 +158,13 @@ class ServiceConfig(BaseSettings):
             name=("--enable-uvloop"),
         ),
     ] = ServiceDefaults.ENABLE_UVLOOP
+
+    result_parser_service_count: Annotated[
+        int,
+        Field(
+            description="Number of result parser services to spawn for parsing inference results.",
+        ),
+        cyclopts.Parameter(
+            name=("--result-parser-service-count"),
+        ),
+    ] = ServiceDefaults.RESULT_PARSER_SERVICE_COUNT

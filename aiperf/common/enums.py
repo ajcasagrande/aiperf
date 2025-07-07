@@ -323,16 +323,6 @@ class NotificationType(CaseInsensitiveStrEnum):
 ################################################################################
 
 
-class RequestRateMode(CaseInsensitiveStrEnum):
-    """The different ways the request rate scheduler should generate requests."""
-
-    FIXED = "fixed"
-    """Generate requests at a fixed rate. This is the default mode."""
-
-    DYNAMIC = "dynamic"
-    """Generate requests at a dynamic rate based on the average response times of the previous requests. TBD."""
-
-
 class ServiceRunType(CaseInsensitiveStrEnum):
     """The different ways the SystemController should run the component services."""
 
@@ -663,3 +653,13 @@ class EndpointType(CaseInsensitiveStrEnum):
     def response_payload_type(self) -> ResponsePayloadType:
         """Get the response payload type for the request payload type."""
         return ResponsePayloadType.from_endpoint_type(self)
+
+
+class RequestRateMode(CaseInsensitiveStrEnum):
+    """The different ways the request rate scheduler should generate requests."""
+
+    FIXED = "fixed"
+    """Generate requests at a fixed rate. This is the default mode."""
+
+    DYNAMIC = "dynamic"
+    """Generate requests at a dynamic rate based on the average response times of the previous requests. TBD."""

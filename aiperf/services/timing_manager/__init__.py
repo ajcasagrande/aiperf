@@ -8,11 +8,20 @@ __all__ = [
     "ConcurrencyStrategy",
     "RequestRateStrategy",
     "FixedScheduleStrategy",
+    "CreditPhase",
+    "TimingManagerConfig",
+    "CreditManagerProtocol",
 ]
 
 from aiperf.services.timing_manager.concurrency_strategy import ConcurrencyStrategy
-from aiperf.services.timing_manager.config import TimingManagerConfig
-from aiperf.services.timing_manager.credit_issuing_strategy import CreditIssuingStrategy
+from aiperf.services.timing_manager.config import (
+    CreditPhase,
+    TimingManagerConfig,
+)
+from aiperf.services.timing_manager.credit_issuing_strategy import (
+    CreditIssuingStrategy,
+    CreditManagerProtocol,
+)
 from aiperf.services.timing_manager.fixed_schedule_strategy import FixedScheduleStrategy
 from aiperf.services.timing_manager.request_rate_strategy import RequestRateStrategy
 from aiperf.services.timing_manager.timing_manager import TimingManager
