@@ -104,7 +104,7 @@ class BaseZMQCommunication(BaseCommunication, ABC):
                 ),
             )
 
-            self.context.term()
+            # self.context.term()
 
         except asyncio.CancelledError:
             pass

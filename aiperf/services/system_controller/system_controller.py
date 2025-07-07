@@ -624,7 +624,6 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
         """Kill the system controller."""
         try:
             await self.service_manager.kill_all_services()
-            sys.exit(0)
         except Exception as e:
             raise self._service_error("Failed to stop all services") from e
 
