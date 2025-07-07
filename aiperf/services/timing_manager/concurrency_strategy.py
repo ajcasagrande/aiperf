@@ -31,15 +31,18 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
             # TODO: Add support for alternate completion triggers vs request count (eg. time based)
             raise InvalidStateError("Request count is not set")
 
-        self.profiling = CreditPhase(total_credits=config.request_count)
+        self.profiling = CreditPhase(total_credits=config.request_count, warmup=False)
         self.active_phase = self.profiling
 
         self.warmup = None
         if config.warmup_request_count > 0:
-            self.warmup = CreditPhase(total_credits=config.warmup_request_count)
+            self.warmup = CreditPhase(
+                total_credits=config.warmup_request_count, warmup=True
+            )
             self.active_phase = self.warmup
 
         # if the concurrency is larger than the total credits, it does not matter
+        # as it is simply an upper bound that will never be reached
         self._concurrency = config.concurrency
         self._semaphore = asyncio.Semaphore(value=self._concurrency)
 

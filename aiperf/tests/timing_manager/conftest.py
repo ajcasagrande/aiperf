@@ -18,6 +18,7 @@ class MockCreditManager:
         self.progress_calls = []
         self.credits_complete_calls = []
         self.credit_strategy: CreditIssuingStrategy | None = None
+        self.auto_credit_return = False
 
     async def drop_credit(
         self,
@@ -33,9 +34,13 @@ class MockCreditManager:
                 "credit_drop_ns": credit_drop_ns,
             }
         )
+        if not self.auto_credit_return:
+            return
+
         if self.credit_strategy is None:
             self.logger.warning("Credit strategy not set, skipping credit return")
             return
+
         await self.credit_strategy.on_credit_return(
             CreditReturnMessage(
                 service_id="test-service",

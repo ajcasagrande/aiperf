@@ -128,3 +128,25 @@ def patch_semaphore() -> Generator[None, None, None]:
     """Fixture to patch the semaphore for testing."""
     with patch("asyncio.Semaphore", side_effect=MockSemaphore):
         yield
+
+
+@pytest.fixture
+def mock_time_ns() -> Generator[MagicMock, None, None]:
+    """Fixture to patch time.time_ns with a mock."""
+    with patch("time.time_ns") as mock_time_ns:
+        yield mock_time_ns
+
+
+@pytest.fixture
+def mock_perf_counter_ns() -> Generator[MagicMock, None, None]:
+    """Fixture to patch time.perf_counter_ns with a mock."""
+    with patch("time.perf_counter_ns") as mock_perf_counter_ns:
+        yield mock_perf_counter_ns
+
+
+@pytest.fixture
+def mock_semaphore() -> Generator[MockSemaphore, None, None]:
+    """Fixture to patch asyncio.Semaphore with a mock."""
+    mock_semaphore = MockSemaphore()
+    with patch("asyncio.Semaphore", return_value=mock_semaphore):
+        yield mock_semaphore
