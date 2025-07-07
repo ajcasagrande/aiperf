@@ -9,6 +9,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field, SerializeAsAny
 
+from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import SSEFieldType
 
 
@@ -408,6 +409,18 @@ class ParsedResponseRecord(BaseModel):
         )
 
     @cached_property
+    def request_duration_ns(self) -> int:
+        """Get the duration of the request in nanoseconds."""
+        return self.end_perf_ns - self.start_perf_ns
+
+    @cached_property
+    def tokens_per_second(self) -> float | None:
+        """Get the number of tokens per second of the request."""
+        if self.token_count is None or self.request_duration_ns == 0:
+            return None
+        return self.token_count / (self.request_duration_ns / NANOS_PER_SECOND)
+
+    @cached_property
     def has_error(self) -> bool:
         """Check if the response record has an error."""
         return self.request.has_error
@@ -431,30 +444,3 @@ class ParsedResponseRecord(BaseModel):
             and 0 <= self.start_perf_ns < self.end_perf_ns < sys.maxsize
             and all(0 < response.perf_ns < sys.maxsize for response in self.responses)
         )
-
-
-class Transaction(BaseModel):
-    """
-    Represents a request/response with a timestamp and associated payload.
-
-    Attributes:
-        timestamp: The time at which the transaction was recorded.
-        payload: The data or content of the transaction.
-    """
-
-    timestamp: int = Field(description="The timestamp of the transaction")
-    payload: Any = Field(description="The payload of the transaction")
-
-
-class Record(BaseModel):
-    """
-    Represents a record containing a request transaction and its associated response transactions.
-    Attributes:
-        request: The input transaction for the record.
-        responses A list of response transactions corresponding to the request.
-    """
-
-    request: Transaction = Field(description="The request transaction for the record")
-    responses: list[Transaction] = Field(
-        description="A list of response transactions for the record",
-    )

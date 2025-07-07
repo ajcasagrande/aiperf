@@ -8,6 +8,7 @@ import sys
 import time
 
 from aiperf.clients import InferenceClientFactory
+from aiperf.clients.client_interfaces import RequestConverterFactory
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.comms.base import (
     BaseCommunication,
@@ -20,7 +21,6 @@ from aiperf.common.comms.base import (
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.constants import (
     NANOS_PER_SECOND,
-    TASK_CANCEL_TIMEOUT_SHORT,
 )
 from aiperf.common.enums import (
     CommunicationClientAddressType,
@@ -80,7 +80,6 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
         self.warmup_tasks = 0
         self.warmup_failed_tasks = 0
         self.stop_event: asyncio.Event = asyncio.Event()
-        self.health_task: asyncio.Task | None = None
 
         self.comms: BaseCommunication = CommunicationFactory.create_instance(
             self.service_config.comm_backend,
@@ -116,6 +115,9 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
                 self.model_endpoint.endpoint.type
             ).__name__,
         )
+        self.request_converter = RequestConverterFactory.create_instance(
+            self.model_endpoint.endpoint.type,
+        )
         self.inference_client = InferenceClientFactory.create_instance(
             self.model_endpoint.endpoint.type,
             model_endpoint=self.model_endpoint,
@@ -140,9 +142,6 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
 
     @on_configure
     async def _configure(self, message: CommandMessage) -> None:
-        # self.logger.debug("Configuring worker process %s", self.service_id)
-        # if not isinstance(message.data, UserConfig):
-        #     raise ConfigurationError("Invalid user config")
         pass
 
     async def _process_credit_drop(self, message: CreditDropMessage) -> None:
@@ -155,16 +154,12 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
         # NOTE: This function MUST NOT return until the credit drop is processed,
         #       that way the max concurrency is respected via the semaphore
 
-        # TODO: Add tests to verify that the above is true
+        # TODO: Add tests to ensure that the above is never violated in the future
 
         self.logger.debug("Processing credit drop: %s", message)
 
         try:
-            await self._execute_single_credit(
-                credit_drop_ns=message.credit_drop_ns,
-                conversation_id=message.conversation_id,
-                warmup=message.warmup,
-            )
+            await self._execute_single_credit(message)
 
         except Exception as e:
             self.logger.error("Error processing credit drop: %s", e)
@@ -184,23 +179,19 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
 
     async def _execute_single_credit(
         self,
-        credit_drop_ns: int | None = None,
-        conversation_id: str | None = None,
-        warmup: bool = False,
+        message: CreditDropMessage,
     ) -> None:
         """Run a credit task for a single credit."""
         self.total_tasks += 1
-        # Call the inference API
-        record = await self._call_inference_api(
-            credit_drop_ns=credit_drop_ns, conversation_id=conversation_id
-        )
-        record.warmup = warmup
+
+        record = await self._call_inference_api(message)
+        record.warmup = message.warmup  # pre-set the warmup flag
         msg = InferenceResultsMessage(
             service_id=self.service_id,
             record=record,
         )
 
-        if warmup:
+        if message.warmup:
             self.warmup_tasks += 1
             if record.valid:
                 self.warmup_failed_tasks += 1
@@ -211,7 +202,6 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
             else:
                 self.failed_tasks += 1
 
-        # Push the record to the inference results message_type
         try:
             await self.inference_results_client.push(message=msg)
         except Exception as e:
@@ -222,9 +212,7 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
                 e,
             )
 
-    async def _call_inference_api(
-        self, credit_drop_ns: int | None = None, conversation_id: str | None = None
-    ) -> RequestRecord:
+    async def _call_inference_api(self, message: CreditDropMessage) -> RequestRecord:
         """Make a single call to the inference API. Will return an error record if the call fails."""
         try:
             self.logger.debug("Calling inference API")
@@ -244,7 +232,8 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
             response: ConversationResponseMessage = (
                 await self.conversation_data_client.request(
                     ConversationRequestMessage(
-                        service_id=self.service_id, conversation_id=conversation_id
+                        service_id=self.service_id,
+                        conversation_id=message.conversation_id,
                     )
                 )
             )
@@ -259,26 +248,18 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
                 )
 
             # Format payload for the API request
-            formatted_payload = await self.inference_client.format_payload(
+            formatted_payload = await self.request_converter.format_payload(
                 model_endpoint=self.model_endpoint,
-                turn=response.conversation.turns[0],  # todo: handle multiple turns
-                # payload={
-                #     "messages": [
-                #         {
-                #             "role": "user",
-                #             "content": "IO Sir you say well and well you do conceive And since you do profess to be a suitor You must as we do gratify this gentleman To whom we all rest generally beholding TRANIO Sir I shall not be slack in sign whereof Please ye we may contrive this afternoon And quaff carouses to our mistress health And do as adversaries do in law Strive mightily but eat and drink as friends GRUMIO BIONDELLO O excellent motion Fellows lets be gone HORT",
-                #         },
-                #     ],
-                # },
+                turn=response.conversation.turns[0],  # TODO: handle multiple turns
             )
 
             delayed_ns = None
-            if credit_drop_ns and credit_drop_ns > time.time_ns():
-                await asyncio.sleep(
-                    (credit_drop_ns - time.time_ns()) / NANOS_PER_SECOND
-                )
-            elif credit_drop_ns and credit_drop_ns < time.time_ns():
-                delayed_ns = credit_drop_ns - time.time_ns()
+            drop_ns = message.credit_drop_ns
+            now_ns = time.time_ns()
+            if drop_ns and drop_ns > now_ns:
+                await asyncio.sleep((drop_ns - now_ns) / NANOS_PER_SECOND)
+            elif drop_ns and drop_ns < now_ns:
+                delayed_ns = drop_ns - now_ns
 
             # Send the request to the Inference Server API and wait for the response
             result = await self.inference_client.send_request(
@@ -314,6 +295,7 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
         return WorkerHealthMessage(
             service_id=self.service_id,
             process=self.get_process_health(),
+            total_tasks=self.total_tasks,
             completed_tasks=self.completed_tasks,
             failed_tasks=self.failed_tasks,
             warmup_tasks=self.warmup_tasks,
@@ -329,9 +311,6 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
             await self.comms.shutdown()
         if self.inference_client:
             await self.inference_client.close()
-        if self.health_task:
-            self.health_task.cancel()
-            await asyncio.wait_for(self.health_task, timeout=TASK_CANCEL_TIMEOUT_SHORT)
 
 
 def main() -> None:

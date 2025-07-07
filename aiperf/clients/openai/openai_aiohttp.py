@@ -7,16 +7,19 @@ import time
 from abc import ABC
 from typing import Any
 
-from aiperf.clients.client_interfaces import EndpointType, InferenceClientFactory
+from aiperf.clients.client_interfaces import (
+    EndpointType,
+    InferenceClientFactory,
+)
 from aiperf.clients.http.aiohttp_client import AioHttpClientMixin
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
-from aiperf.common.dataset_models import Turn
 from aiperf.common.record_models import (
     ErrorDetails,
     RequestRecord,
 )
 
 
+@InferenceClientFactory.register(EndpointType.OPENAI_CHAT_COMPLETIONS)
 class OpenAIClientAioHttp(AioHttpClientMixin, ABC):
     """Base inference client for OpenAI based requests."""
 
@@ -82,142 +85,3 @@ class OpenAIClientAioHttp(AioHttpClientMixin, ABC):
             )
 
         return record
-
-
-@InferenceClientFactory.register(EndpointType.OPENAI_CHAT_COMPLETIONS)
-class OpenAIChatCompletionClientAioHttp(OpenAIClientAioHttp):
-    """Inference client for OpenAI chat completion requests."""
-
-    def __init__(self, model_endpoint: ModelEndpointInfo) -> None:
-        super().__init__(model_endpoint)
-        self.logger = logging.getLogger(self.__class__.__name__)
-
-    async def format_payload(
-        self,
-        model_endpoint: ModelEndpointInfo,
-        turn: Turn,
-    ) -> dict[str, Any]:
-        """Format payload for a chat completion request."""
-
-        messages = [
-            {
-                "role": text.role or "user",
-                "name": text.name,
-                "content": content,
-            }
-            for text in turn.text
-            for content in text.content
-            if content
-        ]
-
-        payload = {
-            "messages": messages,
-            "model": model_endpoint.primary_model_name,
-            "stream": model_endpoint.endpoint.streaming,
-        }
-
-        if model_endpoint.endpoint.extra:
-            payload.update(model_endpoint.endpoint.extra)
-
-        self.logger.debug("Formatted payload: %s", payload)
-        return payload
-
-
-@InferenceClientFactory.register(EndpointType.OPENAI_COMPLETIONS)
-class OpenAICompletionClientAioHttp(OpenAIClientAioHttp):
-    """Inference client for OpenAI completion requests."""
-
-    def __init__(self, model_endpoint: ModelEndpointInfo) -> None:
-        super().__init__(model_endpoint)
-        self.logger = logging.getLogger(self.__class__.__name__)
-
-    async def format_payload(
-        self,
-        model_endpoint: ModelEndpointInfo,
-        turn: Turn,
-    ) -> dict[str, Any]:
-        """Format payload for a completion request."""
-
-        payload = {
-            "prompt": turn.text,
-            "model": model_endpoint.primary_model_name,
-            "stream": model_endpoint.endpoint.streaming,
-        }
-
-        if model_endpoint.endpoint.extra:
-            payload.update(model_endpoint.endpoint.extra)
-
-        self.logger.debug("Formatted payload: %s", payload)
-        return payload
-
-
-@InferenceClientFactory.register(EndpointType.OPENAI_EMBEDDINGS)
-class OpenAIEmbeddingsClientAioHttp(OpenAIClientAioHttp):
-    """Inference client for OpenAI embeddings requests."""
-
-    def __init__(self, model_endpoint: ModelEndpointInfo) -> None:
-        super().__init__(model_endpoint)
-        self.logger = logging.getLogger(self.__class__.__name__)
-
-    async def format_payload(
-        self,
-        model_endpoint: ModelEndpointInfo,
-        turn: Turn,
-    ) -> dict[str, Any]:
-        """Format payload for an embeddings request."""
-
-        payload = {
-            "input": turn.text,
-            "model": model_endpoint.primary_model_name,
-            "dimensions": model_endpoint.endpoint.url_params.get("dimensions", 1536)
-            if model_endpoint.endpoint.url_params
-            else 1536,
-            "encoding_format": model_endpoint.endpoint.url_params.get(
-                "encoding_format", "float"
-            )
-            if model_endpoint.endpoint.url_params
-            else "float",
-            "user": model_endpoint.endpoint.url_params.get("user", "")
-            if model_endpoint.endpoint.url_params
-            else "",
-            "stream": model_endpoint.endpoint.streaming,
-        }
-
-        if model_endpoint.endpoint.extra:
-            payload.update(model_endpoint.endpoint.extra)
-
-        self.logger.debug("Formatted payload: %s", payload)
-        return payload
-
-
-@InferenceClientFactory.register(EndpointType.OPENAI_RESPONSES)
-class OpenAIResponsesClientAioHttp(OpenAIClientAioHttp):
-    """Inference client for OpenAI responses requests."""
-
-    def __init__(self, model_endpoint: ModelEndpointInfo) -> None:
-        super().__init__(model_endpoint)
-        self.logger = logging.getLogger(self.__class__.__name__)
-
-    async def format_payload(
-        self,
-        model_endpoint: ModelEndpointInfo,
-        turn: Turn,
-    ) -> dict[str, Any]:
-        """Format payload for a responses request."""
-
-        payload = {
-            "input": turn.text,
-            "model": model_endpoint.primary_model_name,
-            "max_output_tokens": model_endpoint.endpoint.url_params.get(
-                "max_output_tokens", 1000
-            )
-            if model_endpoint.endpoint.url_params
-            else 1000,
-            "stream": model_endpoint.endpoint.streaming,
-        }
-
-        if model_endpoint.endpoint.extra:
-            payload.update(model_endpoint.endpoint.extra)
-
-        self.logger.debug("Formatted payload: %s", payload)
-        return payload

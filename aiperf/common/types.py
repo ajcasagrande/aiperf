@@ -4,7 +4,8 @@
 from typing import Any, TypeVar
 
 ConfigT = TypeVar("ConfigT", bound=Any, covariant=True)
-RequestT = TypeVar("RequestT", bound=Any)
+RequestInputT = TypeVar("RequestInputT", bound=Any, contravariant=True)
+RequestOutputT = TypeVar("RequestOutputT", bound=Any, covariant=True)
 ResponseT = TypeVar("ResponseT", bound=Any, covariant=True)
 RawResponseT = TypeVar("RawResponseT", bound=Any, contravariant=True)
 InputT = TypeVar("InputT", bound=Any)

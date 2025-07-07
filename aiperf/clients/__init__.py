@@ -3,18 +3,22 @@
 
 __all__ = [
     "OpenAIClientAioHttp",
-    "OpenAIChatCompletionClientAioHttp",
     "InferenceClientFactory",
     "InferenceClientProtocol",
-    "OutputConverterFactory",
+    "ResponseExtractorFactory",
+    "ResponseExtractorProtocol",
+    "RequestConverterFactory",
+    "RequestConverterProtocol",
 ]
 
 from aiperf.clients.client_interfaces import (
     InferenceClientFactory,
     InferenceClientProtocol,
-    OutputConverterFactory,
+    RequestConverterFactory,
+    RequestConverterProtocol,
+    ResponseExtractorFactory,
+    ResponseExtractorProtocol,
 )
 from aiperf.clients.openai.openai_aiohttp import (
-    OpenAIChatCompletionClientAioHttp,
     OpenAIClientAioHttp,
 )

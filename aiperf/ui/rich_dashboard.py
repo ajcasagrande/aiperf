@@ -214,7 +214,7 @@ class WorkerStatusElement(DashboardElement):
         workers_table = Table.grid(padding=(0, 2, 0, 0))
         workers_table.add_column("Worker ID", style="cyan", width=15)
         workers_table.add_column("Status", width=9)
-        workers_table.add_column("Tasks", min_width=6, justify="right")
+        workers_table.add_column("Active", min_width=6, justify="right")
         workers_table.add_column("Completed", min_width=6, justify="right")
         workers_table.add_column("CPU", min_width=5, justify="right")
         workers_table.add_column("Memory", min_width=6, justify="right")

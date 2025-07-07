@@ -6,7 +6,7 @@ from collections import namedtuple
 from functools import cached_property
 from typing import Any, ClassVar, Literal
 
-import orjson
+# import orjson
 from pydantic import (
     BaseModel,
     Field,
@@ -104,9 +104,9 @@ class Message(ExcludeIfNoneMixin):
         return message_class(**data)
 
     def to_json(self) -> str:
-        """Fast serialization without full validation"""
+        # """Fast serialization without full validation"""
         return self.model_dump_json()
-        return orjson.dumps(self.model_dump()).decode("utf-8")
+        # return orjson.dumps(self.model_dump()).decode("utf-8")
 
 
 class BaseServiceMessage(Message):
@@ -472,6 +472,9 @@ class WorkerHealthMessage(BaseServiceMessage):
     process: ProcessHealth = Field(..., description="The health of the worker process")
 
     # Worker specific fields
+    total_tasks: int = Field(
+        ..., description="The total number of tasks that have been attempted"
+    )
     completed_tasks: int = Field(
         ..., description="The number of tasks that have been completed successfully"
     )
@@ -488,11 +491,6 @@ class WorkerHealthMessage(BaseServiceMessage):
     def in_progress_tasks(self) -> int:
         """The number of tasks that are in progress."""
         return self.total_tasks - self.completed_tasks - self.failed_tasks
-
-    @cached_property
-    def total_tasks(self) -> int:
-        """The total number of tasks that have been attempted."""
-        return self.completed_tasks + self.failed_tasks
 
     @cached_property
     def warmup_in_progress_tasks(self) -> int:
