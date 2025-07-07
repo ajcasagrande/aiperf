@@ -77,7 +77,8 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
         self.completed_tasks = 0
         self.failed_tasks = 0
         self.total_tasks = 0
-
+        self.warmup_tasks = 0
+        self.warmup_failed_tasks = 0
         self.stop_event: asyncio.Event = asyncio.Event()
         self.health_task: asyncio.Task | None = None
 
@@ -159,11 +160,10 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
         self.logger.debug("Processing credit drop: %s", message)
 
         try:
-            self.logger.debug("Received credit drop for %s", message.conversation_id)
-
             await self._execute_single_credit(
                 credit_drop_ns=message.credit_drop_ns,
                 conversation_id=message.conversation_id,
+                warmup=message.warmup,
             )
 
         except Exception as e:
@@ -178,11 +178,15 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
                     conversation_id=message.conversation_id,
                     credit_drop_ns=message.credit_drop_ns,
                     delayed_ns=None,
+                    warmup=message.warmup,
                 ),
             )
 
     async def _execute_single_credit(
-        self, credit_drop_ns: int | None = None, conversation_id: str | None = None
+        self,
+        credit_drop_ns: int | None = None,
+        conversation_id: str | None = None,
+        warmup: bool = False,
     ) -> None:
         """Run a credit task for a single credit."""
         self.total_tasks += 1
@@ -190,14 +194,22 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
         record = await self._call_inference_api(
             credit_drop_ns=credit_drop_ns, conversation_id=conversation_id
         )
+        record.warmup = warmup
         msg = InferenceResultsMessage(
             service_id=self.service_id,
             record=record,
         )
-        if record.valid:
-            self.completed_tasks += 1
+
+        if warmup:
+            self.warmup_tasks += 1
+            if record.valid:
+                self.warmup_failed_tasks += 1
+            self.logger.debug("Warmup request completed: %s", record)
         else:
-            self.failed_tasks += 1
+            if record.valid:
+                self.completed_tasks += 1
+            else:
+                self.failed_tasks += 1
 
         # Push the record to the inference results message_type
         try:
@@ -304,6 +316,8 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
             process=self.get_process_health(),
             completed_tasks=self.completed_tasks,
             failed_tasks=self.failed_tasks,
+            warmup_tasks=self.warmup_tasks,
+            warmup_failed_tasks=self.warmup_failed_tasks,
         )
 
     @on_stop

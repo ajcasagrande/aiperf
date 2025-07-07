@@ -472,9 +472,16 @@ class WorkerHealthMessage(BaseServiceMessage):
 
     # Worker specific fields
     completed_tasks: int = Field(
-        ..., description="The number of tasks that have been completed"
+        ..., description="The number of tasks that have been completed successfully"
     )
     failed_tasks: int = Field(..., description="The number of tasks that have failed")
+    warmup_tasks: int = Field(
+        ...,
+        description="The number of warmup tasks that have been completed successfully",
+    )
+    warmup_failed_tasks: int = Field(
+        ..., description="The number of warmup tasks that have failed"
+    )
 
     @property
     def in_progress_tasks(self) -> int:
@@ -485,3 +492,13 @@ class WorkerHealthMessage(BaseServiceMessage):
     def total_tasks(self) -> int:
         """The total number of tasks that have been attempted."""
         return self.completed_tasks + self.failed_tasks
+
+    @property
+    def warmup_in_progress_tasks(self) -> int:
+        """The number of warmup tasks that are in progress."""
+        return self.warmup_total_tasks - self.warmup_tasks - self.warmup_failed_tasks
+
+    @property
+    def warmup_total_tasks(self) -> int:
+        """The total number of warmup tasks that have been attempted."""
+        return self.warmup_tasks + self.warmup_failed_tasks

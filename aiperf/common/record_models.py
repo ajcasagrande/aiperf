@@ -241,6 +241,10 @@ class RequestRecord(BaseModel):
         description="The number of nanoseconds the request was delayed from when it was expected to be sent, "
         "or None if the request was sent on time, or did not have a credit_drop_ns timestamp.",
     )
+    warmup: bool = Field(
+        default=False,
+        description="Whether the request is part of the warmup phase.",
+    )
 
     @property
     def delayed(self) -> bool:

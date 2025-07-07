@@ -69,17 +69,28 @@ class ProgressTracker:
             )
 
     def update_profile_progress(self, message: ProfileProgressMessage) -> None:
+        if message.warmup:
+            # TODO: handle warmup progress
+            return
+
         current_time_ns = time.time_ns()
         if self.suite is None or self.suite.current_profile is None:
             return
 
         profile = self.suite.current_profile
 
+        if message.start_ns == 0:
+            self.logger.warning("Profile progress message has no start_ns")
+            return
+
         if profile.start_time_ns is None:
             profile.start_time_ns = message.start_ns
+
             profile.total_expected_requests = message.total
             self.logger.info(
-                f"Starting performance test: {message.total:,} total requests"
+                "Starting performance test: %d total requests (start_ns: %d)",
+                message.total,
+                message.start_ns,
             )
 
         profile.total_expected_requests = message.total

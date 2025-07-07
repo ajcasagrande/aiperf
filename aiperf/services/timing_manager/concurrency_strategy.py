@@ -78,6 +78,8 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
             self.logger.info("TM: Warmup completed")
 
         self.active_phase = phase
+        phase.start_time_ns = time.time_ns()
+
         self.logger.info(
             "TM: Executing phase (total_credits=%s, concurrency=%s, warmup=%s, start_time_ns=%s)",
             phase.total_credits,
@@ -86,10 +88,8 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
             phase.start_time_ns,
         )
 
-        phase.start_time_ns = time.time_ns()
-
-        # Report the initial progress of the phase to ensure everything is in sync
-        self.execute_async(self._report_progress())
+        # Start the progress reporting loop in the background
+        self.execute_async(self._progress_report_loop())
 
         while phase.sent_credits < phase.total_credits:
             await self._semaphore.acquire()
@@ -110,14 +110,13 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
         self._semaphore.release()
         self.active_phase.completed_credits += 1
 
+        diff_ns, per_sec = 0, 0.0
         if self.logger.isEnabledFor(logging.DEBUG):
+            # Only calculate if debug logging is enabled
+            diff_ns = time.time_ns() - self.active_phase.start_time_ns
             per_sec = (
-                self.active_phase.completed_credits
-                / (
-                    (time.time_ns() - self.active_phase.start_time_ns)
-                    / NANOS_PER_SECOND
-                )
-                if (time.time_ns() - self.active_phase.start_time_ns) > 0
+                self.active_phase.completed_credits / (diff_ns / NANOS_PER_SECOND)
+                if diff_ns > 0
                 else 0
             )
             self.logger.debug(
@@ -137,19 +136,9 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
             )
 
             if self.logger.isEnabledFor(logging.DEBUG):
-                per_sec = (
-                    self.active_phase.completed_credits
-                    / (
-                        (time.time_ns() - self.active_phase.start_time_ns)
-                        / NANOS_PER_SECOND
-                    )
-                    if (time.time_ns() - self.active_phase.start_time_ns) > 0
-                    else 0
-                )
                 self.logger.debug(
                     "TM: All credits completed, stopping credit drop task after %.2f seconds (%.2f requests/s)",
-                    (time.time_ns() - self.active_phase.start_time_ns)
-                    / NANOS_PER_SECOND,
+                    diff_ns / NANOS_PER_SECOND,
                     per_sec,
                 )
                 self.active_phase.completed_event.set()
@@ -165,17 +154,17 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
 
     async def _progress_report_loop(self) -> None:
         """Report the progress at a fixed interval."""
-        while True:
-            if self.active_phase.completed_event.is_set():
-                self.logger.debug(
-                    "TM: All credits completed, stopping progress reporting loop"
-                )
-                break
-
+        self.logger.debug("TM: Starting progress reporting loop")
+        while not self.active_phase.completed_event.is_set():
             try:
                 await self._report_progress()
             except asyncio.CancelledError:
                 self.logger.debug("TM: Progress reporting loop cancelled")
-                break
+                return
 
             await asyncio.sleep(1)  # TODO: Make this configurable
+
+        self.logger.debug(
+            "TM: All credits completed for phase %s, stopping progress reporting loop",
+            self.active_phase,
+        )

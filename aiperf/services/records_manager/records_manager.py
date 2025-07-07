@@ -168,6 +168,10 @@ class RecordsManager(BaseComponentService):
         self, message: ParsedInferenceResultsMessage
     ) -> None:
         """Handle a parsed inference results message."""
+
+        if message.record.request.warmup:
+            return
+
         self.logger.debug("Received parsed inference results: %s", message)
 
         worker_id = message.record.worker_id

@@ -34,12 +34,12 @@ class AIPerfUI(AIPerfLifecycleMixin):
 
     async def on_profile_progress_update(self) -> None:
         """Update progress display."""
-        if self.dashboard.running:
+        if self.dashboard.running and self.progress_tracker.current_profile:
             self.dashboard.refresh_element(ProfileProgressElement.key)
 
     async def on_processing_stats_update(self) -> None:
         """Update statistics display."""
-        if self.dashboard.running:
+        if self.dashboard.running and self.progress_tracker.current_profile:
             self.dashboard.refresh_element(ProfileProgressElement.key)
 
     async def on_worker_health_update(self, message: WorkerHealthMessage) -> None:
