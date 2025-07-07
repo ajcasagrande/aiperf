@@ -19,7 +19,12 @@ from aiperf.common.record_models import (
 )
 
 
-@InferenceClientFactory.register(EndpointType.OPENAI_CHAT_COMPLETIONS)
+@InferenceClientFactory.register_all(
+    EndpointType.OPENAI_CHAT_COMPLETIONS,
+    EndpointType.OPENAI_COMPLETIONS,
+    EndpointType.OPENAI_EMBEDDINGS,
+    EndpointType.OPENAI_RESPONSES,
+)
 class OpenAIClientAioHttp(AioHttpClientMixin, ABC):
     """Base inference client for OpenAI based requests."""
 
