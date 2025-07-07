@@ -17,9 +17,7 @@ from aiperf.services.timing_manager.credit_issuing_strategy import (
 
 
 class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
-    """
-    Class for concurrency credit issuing strategy.
-    """
+    """Class for concurrency credit issuing strategy."""
 
     def __init__(
         self, config: TimingManagerConfig, credit_manager: CreditManagerProtocol

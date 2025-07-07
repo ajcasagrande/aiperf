@@ -238,6 +238,7 @@ class WorkerStatusElement(DashboardElement):
             worker_name = service_id
             last_seen = self.worker_last_seen.get(service_id, current_time)
 
+            process = health.process
             # Determine status
             if current_time - last_seen > 30:  # 30 seconds
                 status = Text("Stale", style="dim white")
@@ -248,8 +249,6 @@ class WorkerStatusElement(DashboardElement):
                     if health.total_tasks > 0
                     else 0
                 )
-
-                process = health.process
 
                 if error_rate > 0.1:  # More than 10% error rate
                     status = Text("Error", style="bold red")
@@ -397,6 +396,7 @@ class AIPerfRichDashboard(LogsDashboardMixin, AIPerfLifecycleMixin):
         self.running = False
 
         if self.live:
+            # TODO: Do we still want to do this?
             # Store final state before stopping, then print it to persist it.
             self.final_renderable = self.live.renderable
             self.live.stop()

@@ -26,6 +26,9 @@ class TimingManagerConfig(BaseModel):
     request_rate: float | None = LoadGeneratorDefaults.REQUEST_RATE
     request_count: int = LoadGeneratorDefaults.REQUEST_COUNT
     warmup_request_count: int = LoadGeneratorDefaults.WARMUP_REQUEST_COUNT
+    concurrency_ramp_up_time: float | None = (
+        LoadGeneratorDefaults.CONCURRENCY_RAMP_UP_TIME
+    )
 
     @classmethod
     def from_user_config(cls, user_config: UserConfig) -> "TimingManagerConfig":
@@ -44,6 +47,7 @@ class TimingManagerConfig(BaseModel):
             request_rate=user_config.load.request_rate,
             request_count=user_config.load.request_count,
             warmup_request_count=user_config.load.warmup_request_count,
+            concurrency_ramp_up_time=user_config.load.concurrency_ramp_up_time,
         )
 
 

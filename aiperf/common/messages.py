@@ -3,6 +3,7 @@
 import time
 import uuid
 from collections import namedtuple
+from functools import cached_property
 from typing import Any, ClassVar, Literal
 
 import orjson
@@ -483,22 +484,146 @@ class WorkerHealthMessage(BaseServiceMessage):
         ..., description="The number of warmup tasks that have failed"
     )
 
-    @property
+    @cached_property
     def in_progress_tasks(self) -> int:
         """The number of tasks that are in progress."""
         return self.total_tasks - self.completed_tasks - self.failed_tasks
 
-    @property
+    @cached_property
     def total_tasks(self) -> int:
         """The total number of tasks that have been attempted."""
         return self.completed_tasks + self.failed_tasks
 
-    @property
+    @cached_property
     def warmup_in_progress_tasks(self) -> int:
         """The number of warmup tasks that are in progress."""
         return self.warmup_total_tasks - self.warmup_tasks - self.warmup_failed_tasks
 
-    @property
+    @cached_property
     def warmup_total_tasks(self) -> int:
         """The total number of warmup tasks that have been attempted."""
         return self.warmup_tasks + self.warmup_failed_tasks
+
+    @cached_property
+    def request_rate(self) -> float:
+        """The request rate of the worker in requests per second."""
+        return (
+            self.total_tasks / self.process.uptime if self.process.uptime > 0 else 0.0
+        )
+
+    @cached_property
+    def average_response_time(self) -> float:
+        """The average response time of the worker in seconds."""
+        return self.total_tasks / self.request_rate if self.request_rate > 0 else 0.0
+
+
+class WorkerHealthSummary(BaseModel):
+    """Summary of all workers' health data."""
+
+    workers: list[WorkerHealthMessage] = Field(
+        ..., description="The health of the workers"
+    )
+
+    @cached_property
+    def total_tasks(self) -> int:
+        """The total number of tasks that have been attempted."""
+        return sum(worker.total_tasks for worker in self.workers)
+
+    @cached_property
+    def completed_tasks(self) -> int:
+        """The number of tasks that have been completed successfully."""
+        return sum(worker.completed_tasks for worker in self.workers)
+
+    @cached_property
+    def failed_tasks(self) -> int:
+        """The number of tasks that have failed."""
+        return sum(worker.failed_tasks for worker in self.workers)
+
+    @cached_property
+    def warmup_tasks(self) -> int:
+        """The number of warmup tasks that have been completed successfully."""
+        return sum(worker.warmup_tasks for worker in self.workers)
+
+    @cached_property
+    def warmup_failed_tasks(self) -> int:
+        """The number of warmup tasks that have failed."""
+        return sum(worker.warmup_failed_tasks for worker in self.workers)
+
+    @cached_property
+    def warmup_in_progress_tasks(self) -> int:
+        """The number of warmup tasks that are in progress."""
+        return sum(worker.warmup_in_progress_tasks for worker in self.workers)
+
+    @cached_property
+    def warmup_total_tasks(self) -> int:
+        """The total number of warmup tasks that have been attempted."""
+        return self.warmup_tasks + self.warmup_failed_tasks
+
+    @cached_property
+    def total_cpu_usage(self) -> float:
+        """The total CPU usage of all workers."""
+        return sum(worker.process.cpu_usage for worker in self.workers)
+
+    @cached_property
+    def total_memory_usage(self) -> float:
+        """The total memory usage of all workers."""
+        return sum(worker.process.memory_usage for worker in self.workers)
+
+    @cached_property
+    def total_net_connections(self) -> int:
+        """The total number of network connections of all workers."""
+        return sum(
+            worker.process.net_connections
+            for worker in self.workers
+            if worker.process.net_connections is not None
+        )
+
+    @cached_property
+    def average_uptime(self) -> float:
+        """The average uptime of all workers."""
+        return sum(worker.process.uptime for worker in self.workers) / len(self.workers)
+
+    @cached_property
+    def average_cpu_usage(self) -> float:
+        """The average CPU usage of all workers."""
+        return sum(worker.process.cpu_usage for worker in self.workers) / len(
+            self.workers
+        )
+
+    @cached_property
+    def average_memory_usage(self) -> float:
+        """The average memory usage of all workers."""
+        return sum(worker.process.memory_usage for worker in self.workers) / len(
+            self.workers
+        )
+
+    @cached_property
+    def average_net_connections(self) -> float:
+        """The average number of network connections of all workers."""
+        return sum(
+            worker.process.net_connections
+            for worker in self.workers
+            if worker.process.net_connections is not None
+        ) / sum(
+            1 for worker in self.workers if worker.process.net_connections is not None
+        )
+
+    @cached_property
+    def min_cpu_usage(self) -> float:
+        """The minimum CPU usage of all workers."""
+        return min(worker.process.cpu_usage for worker in self.workers)
+
+    @cached_property
+    def max_cpu_usage(self) -> float:
+        """The maximum CPU usage of all workers."""
+        return max(worker.process.cpu_usage for worker in self.workers)
+
+    @cached_property
+    def min_memory_usage(self) -> float:
+        """The minimum memory usage of all workers."""
+        return min(worker.process.memory_usage for worker in self.workers)
+
+    @cached_property
+    def max_memory_usage(self) -> float:
+        """The maximum memory usage of all workers."""
+        return max(worker.process.memory_usage for worker in self.workers)

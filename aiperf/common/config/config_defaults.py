@@ -10,6 +10,7 @@ from aiperf.common.enums import (
     EndpointType,
     ImageFormat,
     ModelSelectionStrategy,
+    RequestRateMode,
     ServiceRunType,
 )
 from aiperf.progress.progress_models import (
@@ -151,6 +152,8 @@ class LoadGeneratorDefaults:
     REQUEST_RATE = None
     REQUEST_COUNT = 10
     WARMUP_REQUEST_COUNT = 0
+    CONCURRENCY_RAMP_UP_TIME = None
+    REQUEST_RATE_MODE = RequestRateMode.FIXED
 
 
 @dataclass(frozen=True)

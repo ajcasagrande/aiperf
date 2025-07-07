@@ -323,6 +323,16 @@ class NotificationType(CaseInsensitiveStrEnum):
 ################################################################################
 
 
+class RequestRateMode(CaseInsensitiveStrEnum):
+    """The different ways the request rate scheduler should generate requests."""
+
+    FIXED = "fixed"
+    """Generate requests at a fixed rate. This is the default mode."""
+
+    DYNAMIC = "dynamic"
+    """Generate requests at a dynamic rate based on the average response times of the previous requests. TBD."""
+
+
 class ServiceRunType(CaseInsensitiveStrEnum):
     """The different ways the SystemController should run the component services."""
 
@@ -573,29 +583,23 @@ class ResponsePayloadType(CaseInsensitiveStrEnum):
     @classmethod
     def from_endpoint_type(cls, endpoint_type: "EndpointType") -> "ResponsePayloadType":
         """Get the response payload type for the endpoint type."""
-        match endpoint_type:
-            case EndpointType.OPENAI_CHAT_COMPLETIONS | EndpointType.OPENAI_MULTIMODAL:
-                return ResponsePayloadType.OPENAI_CHAT_COMPLETIONS
-            case EndpointType.OPENAI_COMPLETIONS:
-                return ResponsePayloadType.OPENAI_COMPLETIONS
-            case EndpointType.OPENAI_EMBEDDINGS:
-                return ResponsePayloadType.OPENAI_EMBEDDINGS
-            case EndpointType.OPENAI_RESPONSES:
-                return ResponsePayloadType.OPENAI_RESPONSES
+        endpoint_to_payload_map = {
+            EndpointType.OPENAI_CHAT_COMPLETIONS: ResponsePayloadType.OPENAI_CHAT_COMPLETIONS,
+            EndpointType.OPENAI_MULTIMODAL: ResponsePayloadType.OPENAI_CHAT_COMPLETIONS,
+            EndpointType.OPENAI_COMPLETIONS: ResponsePayloadType.OPENAI_COMPLETIONS,
+            EndpointType.OPENAI_EMBEDDINGS: ResponsePayloadType.OPENAI_EMBEDDINGS,
+            EndpointType.OPENAI_RESPONSES: ResponsePayloadType.OPENAI_RESPONSES,
+            EndpointType.HUGGINGFACE_GENERATE: ResponsePayloadType.HUGGINGFACE_GENERATE,
+            EndpointType.RANKINGS: ResponsePayloadType.RANKINGS,
+            EndpointType.IMAGE_RETRIEVAL: ResponsePayloadType.IMAGE_RETRIEVAL,
+        }
 
-            case EndpointType.HUGGINGFACE_GENERATE:
-                return ResponsePayloadType.HUGGINGFACE_GENERATE
+        if endpoint_type not in endpoint_to_payload_map:
+            raise NotImplementedError(
+                f"Payload type not implemented for {endpoint_type}"
+            )
 
-            case EndpointType.RANKINGS:
-                return ResponsePayloadType.RANKINGS
-
-            case EndpointType.IMAGE_RETRIEVAL:
-                return ResponsePayloadType.IMAGE_RETRIEVAL
-
-            case _:
-                raise NotImplementedError(
-                    f"Payload type not implemented for {endpoint_type}"
-                )
+        return endpoint_to_payload_map[endpoint_type]
 
 
 class EndpointType(CaseInsensitiveStrEnum):
@@ -630,40 +634,31 @@ class EndpointType(CaseInsensitiveStrEnum):
 
     def endpoint_path(self) -> str | None:
         """Get the endpoint path for the endpoint type."""
-        match self:
-            case EndpointType.OPENAI_CHAT_COMPLETIONS | EndpointType.OPENAI_MULTIMODAL:
-                return "/v1/chat/completions"
-            case EndpointType.OPENAI_COMPLETIONS:
-                return "/v1/completions"
-            case EndpointType.OPENAI_EMBEDDINGS | EndpointType.NVCLIP:
-                return "/v1/embeddings"
-            case EndpointType.OPENAI_RESPONSES:
-                return "/v1/responses"
+        endpoint_path_map = {
+            # OpenAI endpoints
+            EndpointType.OPENAI_CHAT_COMPLETIONS: "/v1/chat/completions",
+            EndpointType.OPENAI_MULTIMODAL: "/v1/chat/completions",
+            EndpointType.OPENAI_COMPLETIONS: "/v1/completions",
+            EndpointType.OPENAI_EMBEDDINGS: "/v1/embeddings",
+            EndpointType.OPENAI_RESPONSES: "/v1/responses",
+            # Other
+            EndpointType.NVCLIP: "/v1/embeddings",
+            EndpointType.HUGGINGFACE_GENERATE: "/",  # HuggingFace TGI only exposes root endpoint
+            EndpointType.RANKINGS: "/v1/ranking",  # TODO: Not implemented yet
+            EndpointType.IMAGE_RETRIEVAL: "/v1/infer",  # TODO: Not implemented yet
+            EndpointType.TRITON_GENERATE: "/v2/models/{MODEL_NAME}/generate",  # TODO: Not implemented yet
+            # These endpoints do not have a specific path
+            EndpointType.DYNAMIC_GRPC: None,  # TODO: Not implemented yet
+            EndpointType.TEMPLATE: None,  # TODO: Not implemented yet
+            EndpointType.TENSORRTLLM: None,  # TODO: Not implemented yet
+            EndpointType.TENSORRTLLM_ENGINE: None,  # TODO: Not implemented yet
+            EndpointType.DYNAMO_ENGINE: None,  # TODO: Not implemented yet
+        }
 
-            case EndpointType.HUGGINGFACE_GENERATE:
-                # HuggingFace TGI only exposes root endpoint, so use that as endpoint path
-                return "/"
+        if self not in endpoint_path_map:
+            raise NotImplementedError(f"Endpoint not implemented for {self}")
 
-            case EndpointType.RANKINGS:
-                return "/v1/ranking"
-
-            case EndpointType.IMAGE_RETRIEVAL:
-                return "/v1/infer"
-
-            case EndpointType.TRITON_GENERATE:
-                return "/v2/models/{MODEL_NAME}/generate"
-
-            case (
-                EndpointType.DYNAMIC_GRPC
-                | EndpointType.TEMPLATE
-                | EndpointType.TENSORRTLLM
-                | EndpointType.TENSORRTLLM_ENGINE
-            ):
-                # These endpoints do not have a specific path, so return None
-                return None
-
-            case _:
-                raise NotImplementedError(f"Endpoint not implemented for {self}")
+        return endpoint_path_map[self]
 
     def response_payload_type(self) -> ResponsePayloadType:
         """Get the response payload type for the request payload type."""
