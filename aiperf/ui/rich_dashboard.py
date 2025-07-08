@@ -3,16 +3,11 @@
 
 import logging
 import time
-from abc import ABC, abstractmethod
-from typing import ClassVar
 
-from rich.align import Align, AlignMethod
-from rich.console import Console, RenderableType
+from rich.console import Console
 from rich.layout import Layout
 from rich.live import Live
 from rich.panel import Panel
-from rich.style import StyleType
-from rich.text import Text
 
 from aiperf.common.hooks import (
     AIPerfLifecycleMixin,
@@ -22,51 +17,12 @@ from aiperf.common.hooks import (
 )
 from aiperf.common.messages import WorkerHealthMessage
 from aiperf.progress.progress_tracker import ProgressTracker
+from aiperf.ui.dashboard_element import DashboardElement, HeaderElement
 from aiperf.ui.logs_mixin import LogsDashboardMixin
 from aiperf.ui.profile_progress_ui import ProfileProgressElement
 from aiperf.ui.worker_status_ui import WorkerStatusElement
 
 logger = logging.getLogger(__name__)
-
-
-class DashboardElement(ABC):
-    """Base class for dashboard elements."""
-
-    key: ClassVar[str]
-    title: ClassVar[Text | str | None] = None
-    border_style: ClassVar[StyleType | None] = None
-    title_align: ClassVar[AlignMethod] = "center"
-    height: ClassVar[int | None] = None
-    width: ClassVar[int | None] = None
-    expand: ClassVar[bool] = True
-
-    @abstractmethod
-    def get_content(self) -> RenderableType:
-        """Get the content for the dashboard element."""
-        raise NotImplementedError("Subclasses must implement get_content")
-
-    def get_panel(self) -> Panel:
-        """Get the panel for the dashboard element."""
-        return Panel(
-            self.get_content(),
-            title=self.title,
-            border_style=self.border_style if self.border_style else "none",
-            title_align=self.title_align,
-            height=self.height,
-            width=self.width,
-            expand=self.expand,
-        )
-
-
-class HeaderElement(DashboardElement):
-    """Header element for the dashboard."""
-
-    key = "header"
-    border_style = "bright_green"
-
-    def get_content(self) -> RenderableType:
-        """Get the content for the header element."""
-        return Align.center(Text("NVIDIA AIPerf Dashboard", style="bold bright_green"))
 
 
 class AIPerfRichDashboard(LogsDashboardMixin, AIPerfLifecycleMixin):
@@ -138,7 +94,7 @@ class AIPerfRichDashboard(LogsDashboardMixin, AIPerfLifecycleMixin):
             for element in self.elements.values():
                 self.layout[element.key].update(element.get_panel())
         except Exception as e:
-            logger.error(f"Error updating dashboard display: {e}")
+            logger.error("Error updating dashboard display: %s", e)
 
     def refresh_element(self, element_key: str) -> None:
         """Refresh the specified element."""

@@ -19,7 +19,7 @@ from rich.text import Text
 
 from aiperf.common.utils import format_duration
 from aiperf.progress.progress_tracker import ProgressTracker
-from aiperf.ui.rich_dashboard import DashboardElement
+from aiperf.ui.dashboard_element import DashboardElement
 
 
 class ProfileProgressElement(DashboardElement):
