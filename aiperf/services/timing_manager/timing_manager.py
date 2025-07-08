@@ -13,6 +13,7 @@ from aiperf.common.comms.base import (
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
 from aiperf.common.enums import (
+    CreditPhaseType,
     MessageType,
     ServiceType,
 )
@@ -173,18 +174,20 @@ class TimingManager(BaseComponentService, AsyncTaskManagerMixin):
                     start_ns=phase.start_time_ns,
                     total=phase.total_credits,
                     completed=phase.completed_credits,
-                    warmup=phase.warmup,
+                    credit_phase=phase.phase_type,
                 )
             )
         )
 
-    async def publish_credits_complete(self, warmup: bool, cancelled: bool) -> None:
+    async def publish_credits_complete(
+        self, credit_phase: CreditPhaseType, cancelled: bool
+    ) -> None:
         """Publish the credits complete message."""
         self.execute_async(
             self.pub_client.publish(
                 CreditsCompleteMessage(
                     service_id=self.service_id,
-                    warmup=warmup,
+                    credit_phase=credit_phase,
                     cancelled=cancelled,
                 )
             )
@@ -192,7 +195,7 @@ class TimingManager(BaseComponentService, AsyncTaskManagerMixin):
 
     async def drop_credit(
         self,
-        warmup: bool = False,
+        credit_phase: CreditPhaseType = CreditPhaseType.PROFILING,
         conversation_id: str | None = None,
         credit_drop_ns: int | None = None,
     ) -> None:
@@ -201,7 +204,7 @@ class TimingManager(BaseComponentService, AsyncTaskManagerMixin):
             self.credit_drop_client.push(
                 message=CreditDropMessage(
                     service_id=self.service_id,
-                    warmup=warmup,
+                    credit_phase=credit_phase,
                     credit_drop_ns=credit_drop_ns,
                     conversation_id=conversation_id,
                 ),

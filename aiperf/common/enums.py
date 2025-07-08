@@ -655,8 +655,16 @@ class EndpointType(CaseInsensitiveStrEnum):
 class RequestRateMode(CaseInsensitiveStrEnum):
     """The different ways the request rate scheduler should generate requests."""
 
-    FIXED = "fixed"
+    CONSTANT = "constant"
     """Generate requests at a fixed rate."""
 
     POISSON = "poisson"
     """Generate requests using a poisson distribution."""
+
+
+class CreditPhaseType(CaseInsensitiveStrEnum):
+    """The type of credit phase."""
+
+    UNKNOWN = "unknown"
+    WARMUP = "warmup"
+    PROFILING = "profiling"

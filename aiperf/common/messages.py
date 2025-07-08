@@ -14,6 +14,7 @@ from aiperf.common.dataset_models import Conversation
 from aiperf.common.enums import (
     CommandResponseStatus,
     CommandType,
+    CreditPhaseType,
     MessageType,
     NotificationType,
     ServiceState,
@@ -245,9 +246,9 @@ class CreditDropMessage(BaseServiceMessage):
 
     message_type: Literal[MessageType.CREDIT_DROP] = MessageType.CREDIT_DROP
 
-    warmup: bool = Field(
-        default=False,
-        description="Whether the credit drop is part of the warmup phase",
+    credit_phase: CreditPhaseType = Field(
+        default=CreditPhaseType.PROFILING,
+        description="The type of credit phase (either warmup or profiling)",
     )
     conversation_id: str | None = Field(
         default=None, description="The ID of the conversation, if applicable."
@@ -266,9 +267,9 @@ class CreditReturnMessage(BaseServiceMessage):
 
     message_type: Literal[MessageType.CREDIT_RETURN] = MessageType.CREDIT_RETURN
 
-    warmup: bool = Field(
-        default=False,
-        description="Whether the credit return is part of the warmup phase",
+    credit_phase: CreditPhaseType = Field(
+        default=CreditPhaseType.PROFILING,
+        description="The type of credit phase (either warmup or profiling)",
     )
     conversation_id: str | None = Field(
         default=None, description="The ID of the conversation, if applicable."
@@ -287,9 +288,9 @@ class CreditsCompleteMessage(BaseServiceMessage):
     """Credits complete message sent by the TimingManager to the System controller to signify all requests have completed."""
 
     message_type: Literal[MessageType.CREDITS_COMPLETE] = MessageType.CREDITS_COMPLETE
-    warmup: bool = Field(
-        default=False,
-        description="Whether the credits complete is part of the warmup phase",
+    credit_phase: CreditPhaseType = Field(
+        default=CreditPhaseType.PROFILING,
+        description="The type of credit phase (either warmup or profiling)",
     )
     cancelled: bool = Field(
         default=False,

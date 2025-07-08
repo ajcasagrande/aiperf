@@ -11,8 +11,10 @@ __all__ = [
     "CreditPhase",
     "TimingManagerConfig",
     "CreditManagerProtocol",
+    "RequestRateMode",
 ]
 
+from aiperf.common.enums import RequestRateMode
 from aiperf.services.timing_manager.concurrency_strategy import ConcurrencyStrategy
 from aiperf.services.timing_manager.config import (
     CreditPhase,

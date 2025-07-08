@@ -5,6 +5,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Protocol
 
+from aiperf.common.enums import CreditPhaseType
 from aiperf.common.messages import CreditReturnMessage
 from aiperf.common.mixins import AsyncTaskManagerMixin
 from aiperf.services.timing_manager.config import CreditPhase, TimingManagerConfig
@@ -19,7 +20,7 @@ class CreditManagerProtocol(Protocol):
 
     async def drop_credit(
         self,
-        warmup: bool = False,
+        credit_phase: CreditPhaseType = CreditPhaseType.PROFILING,
         conversation_id: str | None = None,
         credit_drop_ns: int | None = None,
     ) -> None:
@@ -30,7 +31,9 @@ class CreditManagerProtocol(Protocol):
         """Publish the progress message."""
         ...
 
-    async def publish_credits_complete(self, warmup: bool, cancelled: bool) -> None:
+    async def publish_credits_complete(
+        self, credit_phase: CreditPhaseType, cancelled: bool
+    ) -> None:
         """Publish the credits complete message."""
         ...
 

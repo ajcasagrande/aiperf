@@ -6,6 +6,7 @@ import logging
 import time
 
 from aiperf.common.constants import NANOS_PER_SECOND
+from aiperf.common.enums import CreditPhaseType
 from aiperf.common.exceptions import InvalidStateError
 from aiperf.common.messages import CreditReturnMessage
 from aiperf.common.mixins import AsyncTaskManagerMixin
@@ -25,17 +26,20 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
         super().__init__(config=config, credit_manager=credit_manager)
         self.logger = logging.getLogger(__class__.__name__)
 
-        if config.request_count is None:
+        if not config.request_count or config.request_count < 1:
             # TODO: Add support for alternate completion triggers vs request count (eg. time based)
-            raise InvalidStateError("Request count is not set")
+            raise InvalidStateError("Request count must be at least 1")
 
-        self.profiling = CreditPhase(total_credits=config.request_count, warmup=False)
+        self.profiling = CreditPhase(
+            total_credits=config.request_count, phase_type=CreditPhaseType.PROFILING
+        )
         self.active_phase = self.profiling
 
         self.warmup = None
         if config.warmup_request_count > 0:
             self.warmup = CreditPhase(
-                total_credits=config.warmup_request_count, warmup=True
+                total_credits=config.warmup_request_count,
+                phase_type=CreditPhaseType.WARMUP,
             )
             self.active_phase = self.warmup
 
@@ -78,10 +82,10 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
         phase.start_time_ns = time.time_ns()
 
         self.logger.info(
-            "TM: Executing phase (total_credits=%s, concurrency=%s, warmup=%s, start_time_ns=%s)",
+            "TM: Executing phase (total_credits=%s, concurrency=%s, phase_type=%s, start_time_ns=%s)",
             phase.total_credits,
             self._concurrency,
-            phase.warmup,
+            phase.phase_type,
             phase.start_time_ns,
         )
 
@@ -92,7 +96,7 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
             await self._semaphore.acquire()
             self.execute_async(
                 self.credit_manager.drop_credit(
-                    warmup=phase.warmup,
+                    credit_phase=phase.phase_type,
                     conversation_id=None,
                     credit_drop_ns=None,
                 )
@@ -128,7 +132,7 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
             self.active_phase.end_time_ns = time.time_ns()
             self.execute_async(
                 self.credit_manager.publish_credits_complete(
-                    self.active_phase.warmup, False
+                    self.active_phase.phase_type, False
                 )
             )
 

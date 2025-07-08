@@ -518,7 +518,11 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
             message: The credits complete message to process
         """
         service_id = message.service_id
-        self.logger.info("Received credits complete from %s", service_id)
+        self.logger.info(
+            "Received credits complete from %s for phase %s",
+            service_id,
+            message.credit_phase,
+        )
 
     async def _process_status_message(self, message: StatusMessage) -> None:
         """Process a status message from a service. It will

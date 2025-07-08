@@ -10,7 +10,7 @@ from typing import Any
 from pydantic import BaseModel, Field, SerializeAsAny
 
 from aiperf.common.constants import NANOS_PER_SECOND
-from aiperf.common.enums import SSEFieldType
+from aiperf.common.enums import CreditPhaseType, SSEFieldType
 
 
 class MetricResult(BaseModel):
@@ -242,9 +242,9 @@ class RequestRecord(BaseModel):
         description="The number of nanoseconds the request was delayed from when it was expected to be sent, "
         "or None if the request was sent on time, or did not have a credit_drop_ns timestamp.",
     )
-    warmup: bool = Field(
-        default=False,
-        description="Whether the request is part of the warmup phase.",
+    credit_phase: CreditPhaseType = Field(
+        default=CreditPhaseType.PROFILING,
+        description="The type of credit phase (either warmup or profiling)",
     )
 
     @property

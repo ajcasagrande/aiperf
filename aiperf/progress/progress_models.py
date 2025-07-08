@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field, SerializeAsAny
 
 from aiperf.common.enums import (
     CaseInsensitiveStrEnum,
+    CreditPhaseType,
 )
 from aiperf.common.messages import BaseServiceMessage, MessageType
 from aiperf.common.record_models import ErrorDetailsCount, MetricResult
@@ -446,9 +447,9 @@ class ProfileProgressMessage(BaseServiceMessage):
     completed: int = Field(
         ..., description="The number of inference requests completed"
     )
-    warmup: bool = Field(
-        default=False,
-        description="Whether this is the warmup phase of the profile run",
+    credit_phase: CreditPhaseType = Field(
+        default=CreditPhaseType.PROFILING,
+        description="The type of credit phase (either warmup or profiling)",
     )
 
 
@@ -484,4 +485,8 @@ class ProcessingStatsMessage(BaseServiceMessage):
     worker_errors: dict[str, int] = Field(
         default_factory=dict,
         description="Per-worker error counts, keyed by worker service_id",
+    )
+    credit_phase: CreditPhaseType = Field(
+        default=CreditPhaseType.PROFILING,
+        description="The type of credit phase (either warmup or profiling)",
     )

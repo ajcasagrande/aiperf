@@ -157,7 +157,7 @@ class TestCreditDropProcessing:
             credit_return_call.conversation_id
             == sample_credit_drop_message.conversation_id
         )
-        assert credit_return_call.warmup is False
+        assert credit_return_call.credit_phase is False
 
     async def test_process_warmup_credit_drop(
         self,

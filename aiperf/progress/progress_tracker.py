@@ -4,6 +4,7 @@ import logging
 import time
 
 from aiperf.common.constants import NANOS_PER_SECOND
+from aiperf.common.enums import CreditPhaseType
 from aiperf.progress.progress_models import (
     BenchmarkSuiteType,
     ProcessingStatsMessage,
@@ -69,7 +70,7 @@ class ProgressTracker:
             )
 
     def update_profile_progress(self, message: ProfileProgressMessage) -> None:
-        if message.warmup:
+        if message.credit_phase != CreditPhaseType.PROFILING:
             # TODO: handle warmup progress
             return
 
@@ -137,6 +138,9 @@ class ProgressTracker:
         profile.worker_errors = message.worker_errors
         if (
             profile.total_expected_requests is not None
+            and profile.total_expected_requests > 0
+            and message.credit_phase == CreditPhaseType.PROFILING
+            and profile.start_time_ns is not None
             and profile.requests_processed >= profile.total_expected_requests
         ):
             self.logger.info("Profile completed")

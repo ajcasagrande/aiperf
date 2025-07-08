@@ -3,9 +3,11 @@
 
 import asyncio
 import logging
+import random
 import time
 
 from aiperf.common.constants import NANOS_PER_SECOND
+from aiperf.common.enums import CreditPhaseType, RequestRateMode
 from aiperf.common.exceptions import InvalidStateError
 from aiperf.common.messages import CreditReturnMessage
 from aiperf.common.mixins import AsyncTaskManagerMixin
@@ -19,6 +21,10 @@ from aiperf.services.timing_manager.credit_issuing_strategy import (
 class RequestRateStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
     """
     Class for rate credit issuing strategy.
+
+    Supports two modes:
+    - CONSTANT: Issues credits at a constant rate with fixed intervals
+    - POISSON: Issues credits using a Poisson process with exponentially distributed intervals
     """
 
     def __init__(
@@ -29,36 +35,35 @@ class RequestRateStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
 
         if config.request_rate is None:
             raise InvalidStateError("Request rate is not set")
-
-        if config.request_count is None:
-            raise InvalidStateError("Request count is not set")
+        if config.request_count < 1:
+            raise InvalidStateError("Request count must be at least 1")
 
         self._request_rate = config.request_rate
+        self._request_rate_mode = config.request_rate_mode
 
-        # Handle edge case of zero request count
-        if config.request_count > 0:
-            self.profiling = CreditPhase(
-                total_credits=config.request_count, warmup=False
-            )
-        else:
-            self.profiling = CreditPhase(
-                total_credits=1, warmup=False
-            )  # Dummy phase for zero case
-            self.profiling.total_credits = 0  # Override after creation
+        # Initialize random number generator for reproducibility
+        self._random = (
+            random.Random(config.random_seed) if config.random_seed else random.Random()
+        )
 
+        self.profiling = CreditPhase(
+            total_credits=config.request_count, phase_type=CreditPhaseType.PROFILING
+        )
         self.active_phase = self.profiling
 
         self.warmup = None
         if config.warmup_request_count > 0:
             self.warmup = CreditPhase(
-                total_credits=config.warmup_request_count, warmup=True
+                total_credits=config.warmup_request_count,
+                phase_type=CreditPhaseType.WARMUP,
             )
             self.active_phase = self.warmup
 
         self.logger.info(
-            "TM: Request Rate Strategy initialized with total_credits=%s, request_rate=%s, warmup=%s",
+            "TM: Request Rate Strategy initialized with total_credits=%s, request_rate=%s, request_rate_mode=%s, warmup_request_count=%s",
             self.active_phase.total_credits,
             self._request_rate,
+            self._request_rate_mode,
             config.warmup_request_count,
         )
 
@@ -88,10 +93,10 @@ class RequestRateStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
 
         self.active_phase = phase
         self.logger.info(
-            "TM: Executing phase (total_credits=%s, request_rate=%s, warmup=%s, start_time_ns=%s)",
+            "TM: Executing phase (total_credits=%s, request_rate=%s, phase_type=%s, start_time_ns=%s)",
             phase.total_credits,
             self._request_rate,
-            phase.warmup,
+            phase.phase_type,
             phase.start_time_ns,
         )
 
@@ -101,13 +106,26 @@ class RequestRateStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
         self.execute_async(self._report_progress())
 
         # Issue credit drops at the specified rate
+        if self._request_rate_mode == RequestRateMode.CONSTANT:
+            await self._execute_constant_rate(phase)
+        elif self._request_rate_mode == RequestRateMode.POISSON:
+            await self._execute_poisson_rate(phase)
+        else:
+            raise InvalidStateError(
+                f"Unsupported request rate mode: {self._request_rate_mode}"
+            )
+
+        self.logger.debug("TM: Sent all credits for phase %s", phase)
+
+    async def _execute_constant_rate(self, phase: CreditPhase) -> None:
+        """Execute credit drops at a constant rate."""
         period_sec = 1.0 / self._request_rate
         prev = time.perf_counter()
 
         while phase.sent_credits < phase.total_credits:
             self.execute_async(
                 self.credit_manager.drop_credit(
-                    warmup=phase.warmup,
+                    credit_phase=phase.phase_type,
                     conversation_id=None,
                     credit_drop_ns=None,
                 )
@@ -120,7 +138,30 @@ class RequestRateStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
                 await asyncio.sleep(wait_duration_sec)
             prev = now
 
-        self.logger.debug("TM: Sent all credits for phase %s", phase)
+    async def _execute_poisson_rate(self, phase: CreditPhase) -> None:
+        """Execute credit drops using Poisson distribution (exponential inter-arrival times).
+
+        In a Poisson process with rate λ (requests per second), the inter-arrival times
+        are exponentially distributed with parameter λ. This models realistic traffic
+        patterns where requests arrive randomly but at a consistent average rate.
+        """
+        while phase.sent_credits < phase.total_credits:
+            # For Poisson process, inter-arrival times are exponentially distributed
+            # random.expovariate(lambd) generates exponentially distributed random numbers
+            # where lambd is the rate parameter (requests per second)
+            wait_duration_sec = self._random.expovariate(self._request_rate)
+
+            if wait_duration_sec > 0:
+                await asyncio.sleep(wait_duration_sec)
+
+            self.execute_async(
+                self.credit_manager.drop_credit(
+                    credit_phase=phase.phase_type,
+                    conversation_id=None,
+                    credit_drop_ns=None,
+                )
+            )
+            phase.sent_credits += 1
 
     async def _report_progress(self) -> None:
         """Report the progress of the active phase."""
@@ -176,7 +217,7 @@ class RequestRateStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
             self.active_phase.end_time_ns = time.time_ns()
             self.execute_async(
                 self.credit_manager.publish_credits_complete(
-                    self.active_phase.warmup, False
+                    self.active_phase.phase_type, False
                 )
             )
 

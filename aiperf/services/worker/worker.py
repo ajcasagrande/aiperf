@@ -25,6 +25,7 @@ from aiperf.common.constants import (
 from aiperf.common.dataset_models import Turn
 from aiperf.common.enums import (
     CommunicationClientAddressType,
+    CreditPhaseType,
     MessageType,
     ServiceType,
 )
@@ -170,13 +171,13 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
             record.end_perf_ns = time.perf_counter_ns()
 
         finally:
-            record.warmup = message.warmup
+            record.credit_phase = message.credit_phase
             msg = InferenceResultsMessage(
                 service_id=self.service_id,
                 record=record,
             )
 
-            if message.warmup:
+            if message.credit_phase == CreditPhaseType.WARMUP:
                 self.warmup_tasks += 1
                 if not record.valid:
                     self.warmup_failed_tasks += 1
@@ -201,7 +202,7 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
                         conversation_id=message.conversation_id,
                         credit_drop_ns=message.credit_drop_ns,
                         delayed_ns=None,
-                        warmup=message.warmup,
+                        credit_phase=message.credit_phase,
                     ),
                 )
 

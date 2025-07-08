@@ -4,6 +4,7 @@ import logging
 
 import pytest
 
+from aiperf.common.enums import CreditPhaseType
 from aiperf.common.messages import CreditReturnMessage
 from aiperf.services.timing_manager.config import CreditPhase, TimingManagerConfig
 from aiperf.services.timing_manager.credit_issuing_strategy import CreditIssuingStrategy
@@ -22,14 +23,14 @@ class MockCreditManager:
 
     async def drop_credit(
         self,
-        warmup: bool = False,
+        phase_type: CreditPhaseType,
         conversation_id: str | None = None,
         credit_drop_ns: int | None = None,
     ) -> None:
         """Mock drop_credit method."""
         self.dropped_credits.append(
             {
-                "warmup": warmup,
+                "phase_type": phase_type,
                 "conversation_id": conversation_id,
                 "credit_drop_ns": credit_drop_ns,
             }
@@ -60,15 +61,17 @@ class MockCreditManager:
                 "start_time_ns": phase.start_time_ns,
                 "total": phase.total_credits,
                 "completed": phase.completed_credits,
-                "warmup": phase.warmup,
+                "phase_type": phase.phase_type,
             }
         )
 
     async def publish_credits_complete(
-        self, warmup: bool = False, cancelled: bool = False
+        self, phase_type: CreditPhaseType, cancelled: bool = False
     ) -> None:
         """Mock publish_credits_complete method."""
-        self.credits_complete_calls.append({"warmup": warmup, "cancelled": cancelled})
+        self.credits_complete_calls.append(
+            {"phase_type": phase_type, "cancelled": cancelled}
+        )
 
 
 @pytest.fixture
