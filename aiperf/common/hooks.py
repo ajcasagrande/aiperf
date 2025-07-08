@@ -59,7 +59,7 @@ class AIPerfTaskHook(CaseInsensitiveStrEnum):
 
     AIPERF_TASK = "__aiperf_task__"
     AIPERF_AUTO_TASK = "__aiperf_auto_task__"
-    AIPERF_AUTO_TASK_INTERVAL = "__aiperf_auto_task_interval__"
+    AIPERF_AUTO_TASK_INTERVAL_SEC = "__aiperf_auto_task_interval_sec__"
 
 
 HookType = AIPerfHook | AIPerfTaskHook | str
@@ -307,17 +307,17 @@ def aiperf_task(func: Callable) -> Callable:
     return hook_decorator(AIPerfTaskHook.AIPERF_TASK, func)
 
 
-def aiperf_auto_task(interval: float) -> Callable[[Callable], Callable]:
+def aiperf_auto_task(interval_sec: float) -> Callable[[Callable], Callable]:
     """Decorator to indicate that the function is a task function. It will be started
     and stopped automatically by the base class lifecycle.
     See :func:`aiperf.common.hooks.hook_decorator`.
 
     Args:
-        interval: The interval in seconds to sleep between runs.
+        interval_sec: The interval in seconds to sleep between runs.
     """
 
     def decorator(func: Callable) -> Callable:
-        setattr(func, AIPerfTaskHook.AIPERF_AUTO_TASK_INTERVAL, interval)
+        setattr(func, AIPerfTaskHook.AIPERF_AUTO_TASK_INTERVAL_SEC, interval_sec)
         return hook_decorator(AIPerfTaskHook.AIPERF_AUTO_TASK, func)
 
     return decorator
@@ -532,7 +532,7 @@ class AIPerfLifecycleMixin(HooksMixin, AsyncTaskManagerMixin):
 
         # Start all the auto tasks
         for hook in self.get_hooks(AIPerfTaskHook.AIPERF_AUTO_TASK):
-            interval = getattr(hook, AIPerfTaskHook.AIPERF_AUTO_TASK_INTERVAL, None)
+            interval = getattr(hook, AIPerfTaskHook.AIPERF_AUTO_TASK_INTERVAL_SEC, None)
             self.execute_async(self._task_wrapper(hook, interval))
 
     @on_stop

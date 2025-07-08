@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-import logging
 import multiprocessing
 from collections import deque
 from datetime import datetime
@@ -15,17 +14,17 @@ from aiperf.common.hooks import (
 )
 from aiperf.common.logging import get_global_log_queue
 
-logger = logging.getLogger(__name__)
-
 
 class LogsDashboardMixin(AIPerfLifecycleMixin):
-    """Mixin for capturing and displaying logs from multiple processes."""
+    """Mixin for capturing and displaying logs from multiple processes using a global log queue."""
 
+    # TODO: Make these configurable.
     MAX_LOG_RECORDS = 100
     MAX_LOG_MESSAGE_LENGTH = 400
-    LOG_REFRESH_INTERVAL = 0.1
+    LOG_REFRESH_INTERVAL_SEC = 0.1
     MAX_LOG_LOGGER_NAME_LENGTH = 25
 
+    # Color styles for log level names
     LOG_LEVEL_STYLES = {
         "DEBUG": "dim",
         "INFO": "green",
@@ -34,6 +33,7 @@ class LogsDashboardMixin(AIPerfLifecycleMixin):
         "CRITICAL": "bold red",
     }
 
+    # Color styles for log messages
     LOG_MSG_STYLES = {
         "DEBUG": "dim",
         "INFO": "white",
@@ -52,9 +52,12 @@ class LogsDashboardMixin(AIPerfLifecycleMixin):
         """Retrieve the global log queue."""
         self.log_queue = get_global_log_queue()
 
-    @aiperf_auto_task(interval=LOG_REFRESH_INTERVAL)
+    @aiperf_auto_task(interval_sec=LOG_REFRESH_INTERVAL_SEC)
     async def _consume_logs(self) -> None:
-        """Consume log records from the queue in a background task."""
+        """Consume log records from the queue in a background task.
+
+        This is a background task that runs every LOG_REFRESH_INTERVAL_SEC seconds to consume log records from the queue.
+        """
         if self.log_queue is None:
             return
 
@@ -63,7 +66,7 @@ class LogsDashboardMixin(AIPerfLifecycleMixin):
             self.log_records.append(log_data)
 
     def _create_logs_table(self) -> Table:
-        """Create the logs panel."""
+        """Create the logs table."""
         logs_table = Table.grid(expand=False, padding=(0, 1, 0, 0))
         logs_table.add_column("Time", style="dim", width=15, justify="left")
         logs_table.add_column(
@@ -76,7 +79,7 @@ class LogsDashboardMixin(AIPerfLifecycleMixin):
         logs_table.add_column("Message", style="white", justify="left")
 
         # Show recent logs (most recent first)
-        recent_logs = list(self.log_records)[-10:]  # Show last 10 logs
+        recent_logs = list(self.log_records)[-10:]
 
         for log_data in recent_logs:
             # Format timestamp

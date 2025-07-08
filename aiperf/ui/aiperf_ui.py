@@ -5,17 +5,18 @@ import logging
 from aiperf.common.hooks import AIPerfLifecycleMixin, on_start, on_stop
 from aiperf.common.messages import WorkerHealthMessage
 from aiperf.progress.progress_tracker import ProgressTracker
-from aiperf.ui.rich_dashboard import (
-    AIPerfRichDashboard,
-    ProfileProgressElement,
-    WorkerStatusElement,
-)
+from aiperf.ui.profile_progress_ui import ProfileProgressElement
+from aiperf.ui.rich_dashboard import AIPerfRichDashboard
+from aiperf.ui.worker_status_ui import WorkerStatusElement
 
 logger = logging.getLogger(__name__)
 
 
 class AIPerfUI(AIPerfLifecycleMixin):
-    """Mixin for Rich-based UI functionality with live dashboard updates."""
+    """Rich-based UI functionality with live dashboard updates.
+
+    Abstracts the internal AIPerfRichDashboard and provides lifecycle hooks for the UI.
+    """
 
     def __init__(self, progress_tracker: ProgressTracker) -> None:
         super().__init__()
@@ -50,6 +51,7 @@ class AIPerfUI(AIPerfLifecycleMixin):
 
     async def on_profile_results_update(self) -> None:
         """Process the final results."""
+        # TODO: Removed the update call because it was clearing the dashboard.
+        #       I think this is because the progress tracker changes the current profile.
+        #       We should find a better way to handle this.
         logger.info("Performance testing completed successfully!")
-        # if self.dashboard.running:
-        #     self.dashboard.refresh_element(RecordResultsElement.key)
