@@ -5,8 +5,12 @@ import sys
 import time
 from collections import deque
 
+from aiperf.common.comms.base import (
+    CommunicationClientAddressType,
+    PullClientProtocol,
+)
 from aiperf.common.config import ServiceConfig, UserConfig
-from aiperf.common.enums import CommandType, ServiceType
+from aiperf.common.enums import CommandType, MessageType, ServiceType
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
     aiperf_task,
@@ -19,17 +23,16 @@ from aiperf.common.hooks import (
 from aiperf.common.messages import (
     CommandMessage,
     InferenceResultsMessage,
-    Message,
     ParsedInferenceResultsMessage,
     ProcessRecordsCommandData,
-    ProfileResultsMessage,
 )
 from aiperf.common.record_models import (
     ErrorDetails,
     ErrorDetailsCount,
     ParsedResponseRecord,
 )
-from aiperf.common.service.base_component_service import BaseComponentService
+from aiperf.common.service import BaseComponentService
+from aiperf.progress import ProcessingStatsMessage, ProfileResultsMessage
 from aiperf.services.records_manager.post_processors.metric_summary import MetricSummary
 
 
@@ -41,9 +44,16 @@ class RecordsManager(BaseComponentService):
     """
 
     def __init__(
-        self, service_config: ServiceConfig, service_id: str | None = None
+        self,
+        service_config: ServiceConfig,
+        user_config: UserConfig,
+        service_id: str | None = None,
     ) -> None:
-        super().__init__(service_config=service_config, service_id=service_id)
+        super().__init__(
+            service_config=service_config,
+            user_config=user_config,
+            service_id=service_id,
+        )
         self.logger.debug("Initializing records manager")
         self.user_config: UserConfig | None = None
         self.configured_event = asyncio.Event()
@@ -60,13 +70,28 @@ class RecordsManager(BaseComponentService):
 
         self.start_time_ns: int = time.time_ns()
         self.end_time_ns: int | None = None
+
+        self.records: deque[ParsedResponseRecord] = deque()
+        self.error_records: deque[ParsedResponseRecord] = deque()
+        self.error_records_count: int = 0
+        self.records_count: int = 0
+        # Track per-worker statistics
+        self.worker_success_counts: dict[str, int] = {}
+        self.worker_error_counts: dict[str, int] = {}
+
+        self.start_time_ns: int = time.time_ns()
+        self.end_time_ns: int | None = None
+
+        self.user_config: UserConfig | None = None
+
         self.incoming_records: asyncio.Queue[InferenceResultsMessage] = asyncio.Queue()
 
-        # TODO: Enable after ZMQ clients refactoring
-        # self.response_results_client: PullClient = self.comms.create_pull_client(
-        #     ClientAddressType.INFERENCE_RESULTS_PUSH_PULL,
-        #     bind=True,
-        # )
+        self.response_results_client: PullClientProtocol = (
+            self.comms.create_pull_client(
+                CommunicationClientAddressType.RECORDS,
+                bind=True,
+            )
+        )
 
     @property
     def service_type(self) -> ServiceType:
@@ -82,17 +107,22 @@ class RecordsManager(BaseComponentService):
             self.process_records,
         )
 
-        # TODO: Enable after ZMQ clients refactoring
-        # await self.response_results_client.register_pull_callback(
-        #     message_type=MessageType.PARSED_INFERENCE_RESULTS,
-        #     callback=self._on_parsed_inference_results,
-        #     max_concurrency=1000000,
-        # )
+        self.register_command_callback(
+            CommandType.PROCESS_RECORDS,
+            self.process_records,
+        )
+
+        await self.response_results_client.register_pull_callback(
+            message_type=MessageType.PARSED_INFERENCE_RESULTS,
+            callback=self._on_parsed_inference_results,
+            max_concurrency=100_000,
+        )
 
     @on_start
     async def _start(self) -> None:
         """Start the records manager."""
         self.logger.debug("Starting records manager")
+        self.start_time_ns = time.time_ns()
         # TODO: Implement records manager start
 
     @on_stop
@@ -108,38 +138,40 @@ class RecordsManager(BaseComponentService):
         # TODO: Implement records manager cleanup
 
     @on_configure
-    async def _configure(self, message: Message) -> None:
+    async def _configure(self, message: CommandMessage) -> None:
         """Configure the records manager."""
-        self.logger.debug(f"Configuring records manager with message: {message}")
+        self.logger.debug("Configuring records manager with message: %s", message)
         self.user_config = (
             message.data if isinstance(message.data, UserConfig) else None
         )
-        self.configured_event.set()
 
     @aiperf_task
     async def _report_records_task(self) -> None:
         """Report the records."""
         while not self.stop_event.is_set():
-            await self.publish_profile_stats()
+            await self.publish_processing_stats()
             await asyncio.sleep(1)
 
-    async def publish_profile_stats(self) -> None:
+    async def publish_processing_stats(self) -> None:
         """Publish the profile stats."""
-        # TODO: Enable after ZMQ clients refactor
-        # await self.pub_client.publish(
-        #     ProfileStatsMessage(
-        #         service_id=self.service_id,
-        #         error_count=self.error_records_count,
-        #         completed=self.records_count,
-        #         worker_completed=self.worker_success_counts,
-        #         worker_errors=self.worker_error_counts,
-        #     ),
-        # )
+        await self.pub_client.publish(
+            ProcessingStatsMessage(
+                service_id=self.service_id,
+                error_count=self.error_records_count,
+                completed=self.records_count + self.error_records_count,
+                worker_completed=self.worker_success_counts,
+                worker_errors=self.worker_error_counts,
+            ),
+        )
 
     async def _on_parsed_inference_results(
         self, message: ParsedInferenceResultsMessage
     ) -> None:
         """Handle a parsed inference results message."""
+
+        if message.record.request.warmup:
+            return
+
         self.logger.debug("Received parsed inference results: %s", message)
 
         worker_id = message.record.worker_id
@@ -193,6 +225,7 @@ class RecordsManager(BaseComponentService):
             else False
         )
         self.end_time_ns = time.time_ns()
+        # TODO: Implement records processing
         self.logger.info(
             "Processed %d successful records and %d error records",
             len(self.records),
@@ -202,25 +235,24 @@ class RecordsManager(BaseComponentService):
         profile_results = await self.post_process_records()
         self.logger.info("Profile results: %s", profile_results)
 
-        # TODO: Enable after ZMQ Clients refactor
-        # if profile_results:
-        #     await self.pub_client.publish(
-        #         profile_results,
-        #     )
-        # else:
-        #     self.logger.error("No profile results to publish")
-        #     await self.pub_client.publish(
-        #         ProfileResultsMessage(
-        #             service_id=self.service_id,
-        #             total=0,
-        #             completed=0,
-        #             start_ns=self.start_time_ns,
-        #             end_ns=self.end_time_ns,
-        #             records=[],
-        #             errors_by_type=[],
-        #             was_cancelled=self.was_cancelled,
-        #         ),
-        #     )
+        if profile_results:
+            await self.pub_client.publish(
+                profile_results,
+            )
+        else:
+            self.logger.error("No profile results to publish")
+            await self.pub_client.publish(
+                ProfileResultsMessage(
+                    service_id=self.service_id,
+                    total=0,
+                    completed=0,
+                    start_ns=self.start_time_ns,
+                    end_ns=self.end_time_ns,
+                    records=[],
+                    errors_by_type=[],
+                    was_cancelled=self.was_cancelled,
+                ),
+            )
 
     async def post_process_records(self) -> ProfileResultsMessage | None:
         """Post process the records."""

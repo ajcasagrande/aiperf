@@ -7,13 +7,14 @@ import random
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+from aiperf.common.config import PromptConfig
 from aiperf.common.exceptions import (
-    GeneratorConfigurationError,
-    GeneratorInitializationError,
+    DatasetGeneratorError,
+    InvalidStateError,
+    NotInitializedError,
 )
 from aiperf.common.tokenizer import Tokenizer
 from aiperf.services.dataset import utils
-from aiperf.services.dataset.config import PromptConfig
 from aiperf.services.dataset.generator.base import BaseGenerator
 
 logger = logging.getLogger(__name__)
@@ -60,7 +61,7 @@ class PromptGenerator(BaseGenerator):
         with open(corpus_path) as f:
             lines = f.readlines()
 
-        def tokenize_chunk(chunk):
+        def tokenize_chunk(chunk: list[str]) -> list[int]:
             cleaned_text = " ".join(line.strip() for line in chunk if line.strip())
             tokens = self.tokenizer.encode(cleaned_text)
             return tokens
@@ -85,7 +86,9 @@ class PromptGenerator(BaseGenerator):
     def _create_prefix_prompt_pool(self) -> None:
         """Generate a pool of prefix prompts to sample from."""
         if self._tokenized_corpus is None:
-            raise GeneratorInitializationError("Tokenized corpus is not initialized.")
+            raise NotInitializedError(
+                "Tokenized corpus is not initialized.",
+            )
 
         self._prefix_prompts = [
             self._generate_prompt(self.config.prefix_prompt.length)
@@ -113,7 +116,9 @@ class PromptGenerator(BaseGenerator):
             A synthetic prompt as a string.
         """
         if hash_ids:
-            return self._generate_cached_prompt(mean, hash_ids, self.config.block_size)
+            return self._generate_cached_prompt(
+                mean, hash_ids, self.config.input_tokens.block_size
+            )
 
         num_tokens = utils.sample_positive_normal_integer(mean, stddev)
         return self._generate_prompt(num_tokens)
@@ -150,7 +155,7 @@ class PromptGenerator(BaseGenerator):
             str: A synthetic prompt as a string.
 
         Raises:
-            GeneratorConfigurationError: If the input parameters are not compatible.
+            ConfigurationError: If the input parameters are not compatible.
         """
         final_prompt: list[int] = []
         current_block_size = block_size
@@ -158,10 +163,10 @@ class PromptGenerator(BaseGenerator):
         # Sanity check the final block size
         final_block_size = num_tokens - ((len(hash_ids) - 1) * block_size)
         if final_block_size <= 0 or block_size < final_block_size:
-            raise GeneratorConfigurationError(
+            raise DatasetGeneratorError(
                 f"Input length: {num_tokens}, Hash IDs: {hash_ids}, Block size: {block_size} "
                 f"are not compatible. The final hash block size: {final_block_size} must be "
-                f"greater than 0 and less than or equal to {block_size}."
+                f"greater than 0 and less than or equal to {block_size}.",
             )
 
         for index, hash_id in enumerate(hash_ids):
@@ -193,10 +198,12 @@ class PromptGenerator(BaseGenerator):
             A list of token IDs.
 
         Raises:
-            GeneratorInitializationError: If the tokenized corpus is not initialized
+            NotInitializedError: If the tokenized corpus is not initialized
         """
         if not self._tokenized_corpus:
-            raise GeneratorInitializationError("Tokenized corpus is not initialized.")
+            raise NotInitializedError(
+                "Tokenized corpus is not initialized.",
+            )
         if num_tokens > self._corpus_size:
             logger.warning(
                 f"Requested prompt length {num_tokens} is longer than the corpus. "
@@ -221,11 +228,11 @@ class PromptGenerator(BaseGenerator):
             A random prefix prompt.
 
         Raises:
-            GeneratorInitializationError: If the prefix prompts pool is empty.
+            InvalidStateError: If the prefix prompts pool is empty.
         """
         if not self._prefix_prompts:
-            raise GeneratorInitializationError(
+            raise InvalidStateError(
                 "Attempted to sample a prefix prompt but the prefix prompts pool is empty. "
-                "Please ensure that the prefix prompts pool is initialized."
+                "Please ensure that the prefix prompts pool is initialized.",
             )
         return random.choice(self._prefix_prompts)

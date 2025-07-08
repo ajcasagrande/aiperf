@@ -93,12 +93,12 @@ class ZMQSubClient(BaseZMQClient, AsyncTaskManagerMixin):
         await self._ensure_initialized()
 
         try:
-            # Subscribe to message_type
-            self.socket.subscribe(message_type.encode())
+            # Only subscribe to message_type if this is the first callback for this type
+            if message_type not in self._subscribers:
+                self.socket.subscribe(message_type.encode())
+                self._subscribers[message_type] = []
 
             # Register callback
-            if message_type not in self._subscribers:
-                self._subscribers[message_type] = []
             self._subscribers[message_type].append(callback)
 
             self.logger.debug(
@@ -155,10 +155,14 @@ class ZMQSubClient(BaseZMQClient, AsyncTaskManagerMixin):
                 self.execute_async(self._handle_message(topic_bytes, message_bytes))
 
             except (asyncio.CancelledError, zmq.ContextTerminated):
+                self.logger.debug(
+                    "Sub client %s receiver task cancelled", self.client_id
+                )
                 break
 
             except zmq.Again:
-                pass
+                await asyncio.sleep(0)  # yield to the event loop
+                continue
 
             except Exception as e:
                 self.logger.error(

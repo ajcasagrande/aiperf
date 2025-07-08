@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
+import logging
 from collections.abc import Callable, Coroutine
 from typing import Any
 
@@ -65,11 +66,12 @@ class ZMQRouterReplyClient(BaseZMQClient, AsyncTaskManagerMixin):
         """
         super().__init__(context, zmq.SocketType.ROUTER, address, bind, socket_ops)
 
+        self.logger = logging.getLogger(__class__.__name__)
         self._request_handlers: dict[
             MessageType,
             tuple[str, Callable[[Message], Coroutine[Any, Any, Message | None]]],
         ] = {}
-        self._response_futures: dict[tuple[bytes], asyncio.Future[Message | None]] = {}
+        self._response_futures: dict[str, asyncio.Future[Message | None]] = {}
 
     @on_stop
     async def _on_stop(self) -> None:
@@ -101,11 +103,14 @@ class ZMQRouterReplyClient(BaseZMQClient, AsyncTaskManagerMixin):
                 f"Handler already registered for message type {message_type}"
             )
 
+        self.logger.debug(
+            "Registering request handler for %s with message type %s",
+            service_id,
+            message_type,
+        )
         self._request_handlers[message_type] = (service_id, handler)
 
-    async def _handle_request(
-        self, routing_envelope: tuple[bytes], request: Message
-    ) -> None:
+    async def _handle_request(self, request_id: str, request: Message) -> None:
         """Handle a request.
 
         This method will:
@@ -122,11 +127,18 @@ class ZMQRouterReplyClient(BaseZMQClient, AsyncTaskManagerMixin):
         except Exception as e:
             self.logger.error("Exception calling handler for %s: %s", message_type, e)
             response = ErrorMessage(
-                request_id=request.request_id,
+                request_id=request_id,
                 error=ErrorDetails.from_exception(e),
             )
 
-        self._response_futures[routing_envelope].set_result(response)
+        try:
+            self._response_futures[request_id].set_result(response)
+        except Exception as e:
+            self.logger.exception(
+                "Exception setting response future for request %s: %s",
+                request.request_id,
+                e.__class__.__name__,
+            )
 
     async def _wait_for_response(
         self, request_id: str, routing_envelope: tuple[bytes]
@@ -136,23 +148,32 @@ class ZMQRouterReplyClient(BaseZMQClient, AsyncTaskManagerMixin):
         This method will wait for the response future to be set and then send the response
         back to the client.
         """
-        # Wait for the response asynchronously.
-        response = await self._response_futures[routing_envelope]
+        try:
+            # Wait for the response asynchronously.
+            response = await self._response_futures[request_id]
 
-        if response is None:
-            self.logger.warning("Got None as response for request %s", request_id)
-            response = ErrorMessage(
-                request_id=request_id,
-                error=ErrorDetails(
-                    type="NO_RESPONSE",
-                    message="No response was generated for the request.",
-                ),
+            if response is None:
+                self.logger.warning("Got None as response for request %s", request_id)
+                response = ErrorMessage(
+                    request_id=request_id,
+                    error=ErrorDetails(
+                        type="NO_RESPONSE",
+                        message="No response was generated for the request.",
+                    ),
+                )
+
+            self._response_futures.pop(request_id, None)
+
+            # Send the response back to the client.
+            await self.socket.send_multipart(
+                [*routing_envelope, response.model_dump_json().encode()]
             )
-
-        # Send the response back to the client.
-        await self.socket.send_multipart(
-            [*routing_envelope, response.model_dump_json().encode()]
-        )
+        except Exception as e:
+            self.logger.exception(
+                "Exception waiting for response for request %s: %s",
+                request_id,
+                e.__class__.__name__,
+            )
 
     @aiperf_task
     async def _rep_router_receiver(self) -> None:
@@ -162,8 +183,11 @@ class ZMQRouterReplyClient(BaseZMQClient, AsyncTaskManagerMixin):
         shutdown. It will wait for requests from the socket and send responses in
         an asynchronous manner.
         """
+        self.logger.debug("Waiting for router reply client to be initialized")
         if not self.is_initialized:
             await self.initialized_event.wait()
+
+        self.logger.debug("Router reply client initialized")
 
         while not self.stop_event.is_set():
             try:
@@ -171,30 +195,36 @@ class ZMQRouterReplyClient(BaseZMQClient, AsyncTaskManagerMixin):
                 try:
                     data = await self.socket.recv_multipart()
                     self.logger.debug("Received request: %s", data)
-                    if len(data) < 2:
-                        self.logger.error("Invalid request data: %s", data)
-                        continue
+
                     request = Message.from_json(data[-1])
-                    routing_envelope: tuple[bytes] = tuple(data[:-1])
+                    if not request.request_id:
+                        self.logger.error(
+                            "Request ID is missing from request: %s", data
+                        )
+                        continue
+
+                    routing_envelope: tuple[bytes] = (
+                        tuple(data[:-1])
+                        if len(data) > 1
+                        else (request.request_id.encode(),)
+                    )
                 except zmq.Again:
                     # This means we timed out waiting for a request.
                     # We can continue to the next iteration of the loop.
+                    await asyncio.sleep(0)  # yield to the event loop
                     continue
 
                 # Create a new response future for this request that will be resolved
                 # when the handler returns a response.
-                self._response_futures[routing_envelope] = asyncio.Future()
-
+                self._response_futures[request.request_id] = asyncio.Future()
                 # Handle the request in a new task.
-                self.execute_async(self._handle_request(routing_envelope, request))
-
-                # TODO: Can we handle the waiting for responses on a separate task, or will this fail?
-                if request.request_id:
-                    self.execute_async(
-                        self._wait_for_response(request.request_id, routing_envelope)
-                    )
+                self.execute_async(self._handle_request(request.request_id, request))
+                self.execute_async(
+                    self._wait_for_response(request.request_id, routing_envelope)
+                )
 
             except asyncio.CancelledError:
+                self.logger.debug("Router reply client receiver task cancelled")
                 break
             except Exception:
                 self.logger.exception("Exception receiving request")

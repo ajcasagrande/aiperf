@@ -3,8 +3,8 @@
 
 from pydantic import BaseModel
 
-from aiperf.common.comms.client_enums import ClientType, PubClientType, SubClientType
 from aiperf.common.config import ServiceConfig
+from aiperf.common.config.user_config import UserConfig
 from aiperf.common.enums import CommandType, ServiceType
 from aiperf.common.hooks import on_run
 from aiperf.common.messages import CommandMessage
@@ -25,22 +25,16 @@ class BaseControllerService(BaseService):
     """
 
     def __init__(
-        self, service_config: ServiceConfig, service_id: str | None = None
+        self,
+        service_config: ServiceConfig,
+        user_config: UserConfig | None = None,
+        service_id: str | None = None,
     ) -> None:
-        super().__init__(service_config=service_config, service_id=service_id)
-
-    @property
-    def required_clients(self) -> list[ClientType]:
-        """The communication clients required by the service.
-
-        The controller service subscribes to controller messages and publishes
-        to components.
-        """
-        return [
-            *(super().required_clients or []),
-            PubClientType.CONTROLLER,
-            SubClientType.COMPONENT,
-        ]
+        super().__init__(
+            service_config=service_config,
+            user_config=user_config,
+            service_id=service_id,
+        )
 
     @on_run
     async def _on_run(self) -> None:
@@ -51,8 +45,8 @@ class BaseControllerService(BaseService):
         self,
         command: CommandType,
         target_service_id: str | None,
-        data: BaseModel | None = None,
         target_service_type: ServiceType | None = None,
+        data: BaseModel | None = None,
     ) -> CommandMessage:
         """Create a command message to be sent to a specific service.
 

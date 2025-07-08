@@ -8,7 +8,7 @@ from rich.console import Group, RenderableType
 from rich.table import Table
 from rich.text import Text
 
-from aiperf.common.messages import WorkerHealthMessage
+from aiperf.common.health_models import WorkerHealthMessage
 from aiperf.common.utils import format_bytes
 from aiperf.ui.rich_dashboard import DashboardElement
 

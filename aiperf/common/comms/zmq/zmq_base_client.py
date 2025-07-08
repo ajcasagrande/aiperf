@@ -1,14 +1,12 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
-import contextlib
 import logging
 import uuid
 
 import zmq.asyncio
 
 from aiperf.common.comms.zmq.zmq_defaults import ZMQSocketDefaults
-from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
 from aiperf.common.exceptions import (
     AIPerfError,
     CommunicationError,
@@ -74,6 +72,7 @@ class BaseZMQClient(AIPerfTaskMixin):
         super().__init__()
         # Set the logger after the super init to override the name
         self.logger = logging.getLogger(self.client_id)
+        self.logger.debug("ZMQ client __init__: %s", self.client_id)
 
     @property
     def is_initialized(self) -> bool:
@@ -106,9 +105,10 @@ class BaseZMQClient(AIPerfTaskMixin):
     async def _ensure_initialized(self) -> None:
         """Ensure the communication channels are initialized and not shutdown.
 
+        If not initialized, it will automatically initialize.
+
         Raises:
-            CommunicationError: If the communication channels are not initialized
-                or shutdown
+            CommunicationError: If the communication channels are shutdown
         """
         if not self.is_initialized:
             await self.initialize()
@@ -197,44 +197,38 @@ class BaseZMQClient(AIPerfTaskMixin):
 
         try:
             await self.run_hooks(AIPerfHook.ON_STOP)
-        except Exception as e:
-            self.logger.error(
-                "Exception running ON_STOP hooks: %s (%s)", e, self.client_id
-            )
-
-        # Cancel all registered tasks
-        for task in self.registered_tasks:
-            task.cancel()
-
-        # Wait for all tasks to complete
-        with contextlib.suppress(asyncio.TimeoutError):
-            await asyncio.wait_for(
-                asyncio.gather(*self.registered_tasks),
-                timeout=TASK_CANCEL_TIMEOUT_SHORT,
-            )
-        self.registered_tasks.clear()
-
-        # Run the ON_STOP and ON_CLEANUP hooks
-        try:
-            await self.run_hooks(AIPerfHook.ON_STOP)
-            await self.run_hooks(AIPerfHook.ON_CLEANUP)
-
         except AIPerfError:
             raise  # re-raise it up the stack
-
         except Exception as e:
             self.logger.error(
-                "Exception cleaning up ZMQ socket: %s (%s)", e, self.client_id
+                "Uncaught exception running ON_STOP hooks: %s (%s)", e, self.client_id
+            )
+
+        try:
+            await self.run_hooks(AIPerfHook.ON_CLEANUP)
+        except AIPerfError:
+            raise  # re-raise it up the stack
+        except Exception as e:
+            self.logger.error(
+                "Uncaught exception cleaning up ZMQ socket: %s (%s)", e, self.client_id
             )
 
         finally:
             try:
                 if self._socket:
                     self._socket.close()
-
+            except zmq.ContextTerminated:
+                self.logger.debug(
+                    "ZMQ context already terminated, skipping socket close"
+                )
+                return
+            except AIPerfError:
+                raise  # re-raise it up the stack
             except Exception as e:
                 self.logger.error(
-                    "Exception shutting down ZMQ socket: %s (%s)", e, self.client_id
+                    "Uncaught exception shutting down ZMQ socket: %s (%s)",
+                    e,
+                    self.client_id,
                 )
             finally:
                 self._socket = None

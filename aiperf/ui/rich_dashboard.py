@@ -8,13 +8,13 @@ from rich.console import Console
 from rich.layout import Layout
 from rich.live import Live
 
+from aiperf.common.health_models import WorkerHealthMessage
 from aiperf.common.hooks import (
     AIPerfLifecycleMixin,
     aiperf_auto_task,
     on_start,
     on_stop,
 )
-from aiperf.common.messages import WorkerHealthMessage
 from aiperf.progress.progress_tracker import ProgressTracker
 from aiperf.ui.dashboard_element import DashboardElement, HeaderElement
 from aiperf.ui.logs_mixin import LogsDashboardMixin
