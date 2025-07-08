@@ -106,11 +106,6 @@ def main(
         else ServiceDefaults.DISABLE_UI
     )
 
-    print("Starting AIPerf CLI with configuration:")
-    print(f"  Config file: {cli_config.config}")
-    print(f"  Service config: {cli_config.service_config}")
-    print(f"  User config: {cli_config.user_config}")
-
     log_queue = None
     if disable_ui:
         _setup_logging(cli_config.service_config)

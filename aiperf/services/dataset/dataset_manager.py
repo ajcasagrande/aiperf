@@ -105,6 +105,8 @@ class DatasetManager(BaseComponentService):
             handler=self._handle_dataset_timing_request,
         )
 
+        await self._configure_dataset()
+
         self.logger.info("Dataset manager %s initialized", self.service_id)
 
     @on_start
@@ -125,14 +127,7 @@ class DatasetManager(BaseComponentService):
         self.logger.debug("Cleaning up dataset manager %s", self.service_id)
         # TODO: Implement dataset manager cleanup
 
-    @on_configure
-    async def _configure(self, message: Message) -> None:
-        """Configure the dataset manager."""
-        self.dataset_configured.clear()
-        self.logger.debug(f"Configuring dataset manager with message: {message}")
-        self.user_config = (
-            message.data if isinstance(message.data, UserConfig) else None
-        )
+    async def _configure_dataset(self) -> None:
         if self.user_config is None:
             raise self._service_error("User config is required for dataset manager")
 
@@ -150,7 +145,10 @@ class DatasetManager(BaseComponentService):
                 ComposerType.SYNTHETIC,
             )
 
-        tokenizer = Tokenizer.from_pretrained(self.user_config.tokenizer.name)
+        tokenizer_name = self.user_config.tokenizer.name
+        if tokenizer_name is None:
+            tokenizer_name = self.user_config.model_names[0]
+        tokenizer = Tokenizer.from_pretrained(tokenizer_name)
         composer = ComposerFactory.create_instance(
             composer_type,
             config=self.user_config.input,
@@ -168,6 +166,18 @@ class DatasetManager(BaseComponentService):
                 data=None,
             ),
         )
+
+    @on_configure
+    async def _configure(self, message: Message) -> None:
+        """Configure the dataset manager."""
+        self.dataset_configured.clear()
+        self.logger.debug(f"Configuring dataset manager with message: {message}")
+        self.user_config = (
+            message.data if isinstance(message.data, UserConfig) else None
+        )  # type: ignore
+        # TODO: This is a temporary hack with the changes to user config loading
+        if self.user_config is not None:
+            await self._configure_dataset()
 
     async def _handle_conversation_request(
         self, message: ConversationRequestMessage

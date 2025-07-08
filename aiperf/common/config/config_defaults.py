@@ -127,7 +127,7 @@ class OutputDefaults:
 
 @dataclass(frozen=True)
 class TokenizerDefaults:
-    NAME = ""
+    NAME = None
     REVISION = "main"
     TRUST_REMOTE_CODE = False
 
