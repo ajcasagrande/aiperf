@@ -550,7 +550,7 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
 
         service_info.state = message.state
 
-        self.logger.debug(f"Updated state for {service_id} to {state}")
+        self.logger.debug("Updated state for %s to %s", service_id, state)
 
     async def _process_worker_health_message(
         self, message: WorkerHealthMessage
@@ -627,6 +627,8 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
             await self.service_manager.kill_all_services()
         except Exception as e:
             raise self._service_error("Failed to stop all services") from e
+
+        await self.comms.shutdown()
 
 
 def main() -> None:

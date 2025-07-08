@@ -177,17 +177,16 @@ def format_bytes(bytes: int | None, none_str: str = "--") -> str:
     """Format bytes to human-readable format."""
     if bytes is None:
         return none_str
-
-    if bytes < 1024:
+    if bytes < 1000:
         return f"{bytes} B"
-    if bytes / 1024 < 100:
-        return f"{bytes / 1024:.1f} KB"
-    if bytes / 1024 < 1000:
-        return f"{bytes / 1024:.0f} KB"
-    if bytes / 1024 / 1024 < 100:
-        return f"{bytes / 1024 / 1024:.1f} MB"
-    if bytes / 1024 / 1024 < 1000:
-        return f"{bytes / 1024 / 1024:.0f} MB"
-    if bytes / 1024 / 1024 / 1024 < 100:
-        return f"{bytes / 1024 / 1024 / 1024:.1f} GB"
-    return f"{bytes / 1024 / 1024 / 1024:.0f} GB"
+
+    _suffixes = ["KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"]
+
+    for i, suffix in enumerate(_suffixes):
+        factor = 1024 ** (i + 1)
+        if bytes / factor < 100:
+            return f"{bytes / factor:.1f} {suffix}"
+        if bytes / factor < 1000:
+            return f"{bytes / factor:.0f} {suffix}"
+
+    raise ValueError(f"Bytes value is too large to format: {bytes}")

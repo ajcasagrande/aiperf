@@ -131,7 +131,7 @@ class InferenceResultParser(BaseComponentService):
 
     async def _on_inference_results(self, message: InferenceResultsMessage) -> None:
         """Handle an inference results message."""
-        self.logger.debug(f"Received inference results message: {message}")
+        self.logger.debug("Received inference results message: %s", message)
 
         if message.record.has_error:
             await self.response_results_client.push(

@@ -62,6 +62,9 @@ class MultiProcessServiceManager(BaseServiceManager):
                     name=f"{service_type[0]}_process",
                     kwargs={
                         "service_class": service_class,
+                        "service_id": service_type[0].value
+                        if service_type[1] == 1
+                        else None,
                         "service_config": self.config,
                         "user_config": self.user_config,
                         "log_queue": self.log_queue,
@@ -70,7 +73,6 @@ class MultiProcessServiceManager(BaseServiceManager):
                 )
                 if service_type[0] in [
                     ServiceType.WORKER_MANAGER,
-                    ServiceType.RECORDS_MANAGER,
                 ]:
                     process.daemon = False  # Worker manager cannot be a daemon because it needs to be able to spawn worker processes
 

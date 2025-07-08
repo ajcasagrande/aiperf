@@ -193,8 +193,8 @@ class ProgressTracker:
 
         if current_sweep.start_time_ns is None:
             current_sweep.start_time_ns = message.sweep_start_ns
-            self.logger.info(f"Starting sweep: {current_sweep.sweep_id}")
+            self.logger.info("Starting sweep: %s", current_sweep.sweep_id)
 
         if message.end_ns is not None:
             current_sweep.end_time_ns = message.end_ns
-            self.logger.info(f"Completed sweep: {current_sweep.sweep_id}")
+            self.logger.info("Completed sweep: %s", current_sweep.sweep_id)

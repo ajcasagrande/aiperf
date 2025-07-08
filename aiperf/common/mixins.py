@@ -87,7 +87,6 @@ class ProcessHealthMixin:
             uptime=time.time() - self.create_time,
             cpu_usage=self.process.cpu_percent(),
             memory_usage=self.process.memory_info().rss / BYTES_PER_MIB,
-            net_connections=len(self.process.net_connections("tcp4")),
             io_counters=self.process.io_counters(),
             cpu_times=cpu_times,
             num_ctx_switches=CtxSwitches(*self.process.num_ctx_switches()),

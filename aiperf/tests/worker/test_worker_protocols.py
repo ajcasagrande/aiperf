@@ -8,14 +8,12 @@ from typing import Any
 
 import pytest
 
+from aiperf.common.dataset_models import Conversation
+from aiperf.common.health_models import WorkerHealthMessage
 from aiperf.common.messages import (
     ConversationResponseMessage,
-    CPUTimes,
     CreditDropMessage,
-    CtxSwitches,
     InferenceResultsMessage,
-    IOCounters,
-    WorkerHealthMessage,
 )
 from aiperf.services.worker.protocols import WorkerCommunicationsProtocol
 
@@ -43,7 +41,7 @@ class MockWorkerCommunication:
         self.conversation_requests.append(conversation_id)
         return ConversationResponseMessage(
             service_id="test-service",
-            conversation=None,
+            conversation=Conversation(session_id="test-session"),
         )
 
     async def push_inference_results(self, message: InferenceResultsMessage) -> None:
@@ -84,22 +82,39 @@ class TestWorkerCommunicationsProtocol:
                 timestamp_ns=1000000000,
                 start_perf_ns=2000000000,
                 end_perf_ns=3000000000,
-                valid=True,
+                error=None,
             ),
         )
 
     @pytest.fixture
     def sample_health_message(self) -> WorkerHealthMessage:
         """Create a sample worker health message."""
-        from aiperf.common.record_models import ProcessHealth
+        from aiperf.common.health_models import (
+            CPUTimes,
+            CtxSwitches,
+            IOCounters,
+            ProcessHealth,
+        )
 
         return WorkerHealthMessage(
             service_id="test-service",
             process=ProcessHealth(
                 pid=12345,
-                cpu_percent=50.0,
-                memory_mb=100.0,
-                uptime_seconds=300.0,
+                create_time=1000000000,
+                uptime=600.0,
+                cpu_usage=25.0,
+                memory_usage=50.0,
+                io_counters=IOCounters(
+                    read_count=1000,
+                    write_count=1000,
+                    read_bytes=1000,
+                    write_bytes=1000,
+                    read_chars=1000,
+                    write_chars=1000,
+                ),
+                cpu_times=CPUTimes(1000, 1000, 1000),
+                num_ctx_switches=CtxSwitches(1000, 1000),
+                num_threads=1,
             ),
             total_tasks=10,
             completed_tasks=8,
@@ -395,7 +410,12 @@ class TestProtocolUsage:
             await mock_comm.return_credits(1)
 
             # Publish health message
-            from aiperf.common.messages import ProcessHealth
+            from aiperf.common.health_models import (
+                CPUTimes,
+                CtxSwitches,
+                IOCounters,
+                ProcessHealth,
+            )
 
             health_msg = WorkerHealthMessage(
                 service_id=message.service_id,
@@ -405,7 +425,6 @@ class TestProtocolUsage:
                     uptime=600.0,
                     cpu_usage=25.0,
                     memory_usage=50.0,
-                    net_connections=1,
                     io_counters=IOCounters(
                         read_count=1000,
                         write_count=1000,
@@ -482,7 +501,7 @@ class TestProtocolEdgeCases:
             pass
 
         # This will work at runtime but is not type-safe
-        accept_worker_comm(invalid_comm)
+        accept_worker_comm(invalid_comm)  # type: ignore
 
     @pytest.mark.asyncio
     async def test_protocol_with_exception_handling(self):
@@ -538,7 +557,7 @@ class TestProtocolEdgeCases:
         with pytest.raises(ValueError):
             await exception_comm.push_inference_results(test_message)
 
-        from aiperf.common.messages import ProcessHealth
+        from aiperf.common.health_models import ProcessHealth
 
         health_message = WorkerHealthMessage(
             service_id="test",

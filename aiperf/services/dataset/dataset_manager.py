@@ -105,8 +105,6 @@ class DatasetManager(BaseComponentService):
             handler=self._handle_dataset_timing_request,
         )
 
-        await self._configure_dataset()
-
         self.logger.info("Dataset manager %s initialized", self.service_id)
 
     @on_start
@@ -170,14 +168,9 @@ class DatasetManager(BaseComponentService):
     @on_configure
     async def _configure(self, message: Message) -> None:
         """Configure the dataset manager."""
-        self.dataset_configured.clear()
-        self.logger.debug(f"Configuring dataset manager with message: {message}")
-        self.user_config = (
-            message.data if isinstance(message.data, UserConfig) else None
-        )  # type: ignore
         # TODO: This is a temporary hack with the changes to user config loading
-        if self.user_config is not None:
-            await self._configure_dataset()
+        self.dataset_configured.clear()
+        await self._configure_dataset()
 
     async def _handle_conversation_request(
         self, message: ConversationRequestMessage
@@ -187,6 +180,9 @@ class DatasetManager(BaseComponentService):
 
         # Wait for the dataset to be configured if it is not already
         if not self.dataset_configured.is_set():
+            self.logger.debug(
+                "Dataset not configured. Waiting for dataset to be configured..."
+            )
             await asyncio.wait_for(
                 self.dataset_configured.wait(), timeout=DATASET_CONFIGURATION_TIMEOUT
             )

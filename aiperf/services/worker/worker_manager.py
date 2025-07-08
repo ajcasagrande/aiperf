@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
 import multiprocessing
-import os
 import sys
 import uuid
 from multiprocessing import Process
@@ -62,13 +61,18 @@ class WorkerManager(BaseComponentService):
         self.worker_health: dict[str, WorkerHealthMessage] = {}
         # TODO: Need to implement some sort of max workers
         self.cpu_count = multiprocessing.cpu_count()
-        self.max_concurrency = int(os.environ.get("AIPERF_CONCURRENCY", 100))
+        self.max_concurrency = self.user_config.load.concurrency
+        self.worker_count = self.service_config.max_workers
+        if self.worker_count is None:
+            self.worker_count = self.cpu_count - 1
+
+        # cap the worker count to the max concurrency + 1
         self.worker_count = min(
             self.max_concurrency + 1,
-            int(os.getenv("AIPERF_WORKERS", self.cpu_count - 1)),
+            self.worker_count,
         )
         self.logger.info(
-            "Detected %s CPU threads. Spawning %s worker processes",
+            "Detected %s CPU cores/threads. Spawning %s worker processes",
             self.cpu_count,
             self.worker_count,
         )
@@ -136,7 +140,7 @@ class WorkerManager(BaseComponentService):
 
     async def _spawn_kubernetes_workers(self) -> None:
         """Spawn worker processes using Kubernetes."""
-        self.logger.debug(f"Spawning {self.worker_count} worker pods")
+        self.logger.debug("Spawning %s worker pods", self.worker_count)
 
         # TODO: Implement Kubernetes start
         raise NotImplementedError("Kubernetes start not implemented")
@@ -150,7 +154,7 @@ class WorkerManager(BaseComponentService):
 
     async def _spawn_multiprocessing_workers(self) -> None:
         """Spawn worker processes using multiprocessing."""
-        self.logger.debug(f"Spawning {self.worker_count} worker processes")
+        self.logger.debug("Spawning %s worker processes", self.worker_count)
 
         # mp_ctx = multiprocessing.get_context("spawn")
 
@@ -190,11 +194,11 @@ class WorkerManager(BaseComponentService):
 
         # First terminate all processes
         for worker_id, worker_info in self.workers.items():
-            self.logger.debug(f"Stopping worker process {worker_id} {worker_info}")
+            self.logger.debug("Stopping worker process %s %s", worker_id, worker_info)
             process = worker_info.process
             if process and process.is_alive():
                 self.logger.debug(
-                    f"Terminating worker process {worker_id} (pid: {process.pid})"
+                    "Terminating worker process %s (pid: %s)", worker_id, process.pid
                 )
                 process.terminate()
 
@@ -219,19 +223,20 @@ class WorkerManager(BaseComponentService):
                 timeout=5.0,  # Overall timeout
             )
             self.logger.debug(
-                f"Worker process {worker_id} (pid: {process.pid}) stopped"
+                "Worker process %s (pid: %s) stopped", worker_id, process.pid
             )
         except asyncio.TimeoutError:
             self.logger.warning(
-                f"Worker process {worker_id} (pid: {process.pid}) did not "
-                f"terminate gracefully, killing"
+                "Worker process %s (pid: %s) did not terminate gracefully, killing",
+                worker_id,
+                process.pid,
             )
             process.kill()
 
     @on_configure
     async def _configure(self, message: Message) -> None:
         """Configure the worker manager."""
-        self.logger.debug(f"Configuring worker manager with message: {message}")
+        self.logger.debug("Configuring worker manager with message: %s", message)
         # TODO: Implement worker manager configuration
 
 

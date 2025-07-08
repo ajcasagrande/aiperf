@@ -47,10 +47,6 @@ class ProcessHealth(BaseModel):
     memory_usage: float = Field(
         ..., description="The current memory usage of the process in MiB (rss)"
     )
-    net_connections: int | None = Field(
-        default=None,
-        description="The current number of network connections",
-    )
     io_counters: IOCounters | tuple | None = Field(
         default=None,
         description="The current I/O counters of the process (read_count, write_count, read_bytes, write_bytes, read_chars, write_chars)",
@@ -180,15 +176,6 @@ class WorkerHealthSummary(BaseModel):
         return sum(worker.process.memory_usage for worker in self.workers)
 
     @cached_property
-    def total_net_connections(self) -> int:
-        """The total number of network connections of all workers."""
-        return sum(
-            worker.process.net_connections
-            for worker in self.workers
-            if worker.process.net_connections is not None
-        )
-
-    @cached_property
     def average_uptime(self) -> float:
         """The average uptime of all workers."""
         return sum(worker.process.uptime for worker in self.workers) / len(self.workers)
@@ -205,17 +192,6 @@ class WorkerHealthSummary(BaseModel):
         """The average memory usage of all workers."""
         return sum(worker.process.memory_usage for worker in self.workers) / len(
             self.workers
-        )
-
-    @cached_property
-    def average_net_connections(self) -> float:
-        """The average number of network connections of all workers."""
-        return sum(
-            worker.process.net_connections
-            for worker in self.workers
-            if worker.process.net_connections is not None
-        ) / sum(
-            1 for worker in self.workers if worker.process.net_connections is not None
         )
 
     @cached_property

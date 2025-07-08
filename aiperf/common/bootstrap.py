@@ -4,6 +4,7 @@
 import asyncio
 import contextlib
 import multiprocessing
+import random
 
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
@@ -48,7 +49,38 @@ def bootstrap_and_run_service(
         # TODO: Add support for loading user config from a file/environment variables
         user_config = load_user_config()
 
+    def _start_yappi_profiling():
+        try:
+            import yappi
+
+            yappi.set_clock_type("cpu")
+            yappi.start()
+        except ImportError as e:
+            from aiperf.common.exceptions import AIPerfError
+
+            raise AIPerfError(
+                "yappi is not installed. Please install yappi to enable profiling. "
+                "You can install yappi with `pip install yappi`."
+            ) from e
+
+    def _stop_yappi_profiling(service_id_: str):
+        import yappi
+
+        yappi.stop()
+
+        # Get and print stats
+        stats = yappi.get_func_stats()
+        yappi_dir = user_config.output.artifact_directory / "yappi"
+        yappi_dir.mkdir(parents=True, exist_ok=True)
+        stats.save(
+            str(yappi_dir / f"{service_id_}.prof"),
+            type="pstat",
+        )
+
     async def _run_service():
+        if service_config.enable_yappi:
+            _start_yappi_profiling()
+
         service = service_class(
             service_config=service_config,
             user_config=user_config,
@@ -62,16 +94,17 @@ def bootstrap_and_run_service(
 
             setup_child_process_logging(log_queue, service.service_id, service_config)
 
+        if user_config.input.random_seed is not None:
+            random.seed(user_config.input.random_seed)
+            # TODO: Add support for numpy random seed ?
+            # https://numpy.org/doc/stable/reference/random/index.html#random-quick-start
+            # import numpy as np
+            # np.random.seed(user_config.input.random_seed)
+
         await service.run_forever()
 
-    # # Profile with yappi
-    # TODO: Add yappi profiling support via ServiceConfig
-    # import yappi
-    # yappi.set_clock_type("wall")  # Use wall time for async code
-    # yappi.start()
-
-    # TODO: random seed configuration
-    # random.seed(0)
+        if service_config.enable_yappi:
+            _stop_yappi_profiling(service.service_id)
 
     with contextlib.suppress(asyncio.CancelledError):
         if service_config.enable_uvloop:
@@ -80,10 +113,3 @@ def bootstrap_and_run_service(
             uvloop.run(_run_service())
         else:
             asyncio.run(_run_service())
-
-    # yappi.stop()
-
-    # # Get and print stats
-    # stats = yappi.get_func_stats()
-    # # Save to file for later analysis
-    # stats.save(f"aiperf_profile_{service.service_id}.prof", type="pstat")

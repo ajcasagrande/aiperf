@@ -127,6 +127,7 @@ def main(
     try:
         bootstrap_and_run_service(
             SystemController,
+            service_id="system_controller",
             service_config=cli_config.service_config,
             user_config=cli_config.user_config,
             log_queue=log_queue,

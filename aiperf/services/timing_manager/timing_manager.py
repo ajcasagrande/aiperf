@@ -147,6 +147,7 @@ class TimingManager(BaseComponentService, AsyncTaskManagerMixin):
         if not self._credit_issuing_strategy:
             raise InvalidStateError("No credit issuing strategy configured")
 
+        # await asyncio.sleep(1)
         self.execute_async(self._credit_issuing_strategy.start())
 
     @on_stop

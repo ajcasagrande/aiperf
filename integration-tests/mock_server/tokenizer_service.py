@@ -24,12 +24,12 @@ class TokenizerService:
         """
         for model_name in model_names:
             try:
-                logger.info(f"Pre-loading tokenizer for model: {model_name}")
+                logger.info("Pre-loading tokenizer for model: %s", model_name)
                 self._tokenizers[model_name] = AutoTokenizer.from_pretrained(
                     model_name, trust_remote_code=True
                 )
             except Exception as e:
-                logger.exception(f"Failed to load tokenizer for {model_name}: {e}")
+                logger.exception("Failed to load tokenizer for %s: %s", model_name, e)
 
     def get_tokenizer(self, model_name: str) -> PreTrainedTokenizer:
         """Get or create a tokenizer for the specified model."""

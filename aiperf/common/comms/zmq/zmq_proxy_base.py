@@ -201,7 +201,7 @@ class BaseZMQProxy(ABC):
                 self.logger.debug("Capture socket bound to: %s", self.capture_address)
 
         except Exception as e:
-            self.logger.error(f"Proxy Socket Initialization Failed {e}")
+            self.logger.error("Proxy Socket Initialization Failed: %s", e)
             raise
 
     async def stop(self) -> None:
