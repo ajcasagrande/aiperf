@@ -1,7 +1,5 @@
 #  SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #  SPDX-License-Identifier: Apache-2.0
-import logging
-
 from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import MetricTimeType, MetricType
 from aiperf.common.record_models import ParsedResponseRecord
@@ -23,7 +21,6 @@ class RequestThroughputMetric(BaseMetric):
     def __init__(self):
         self.total_requests: int = 0
         self.metric: float = 0.0
-        self.logger = logging.getLogger(__name__)
 
     def update_value(
         self,
@@ -36,10 +33,7 @@ class RequestThroughputMetric(BaseMetric):
 
         if metrics:
             benchmark_duration = metrics["benchmark_duration"].values()
-            self.logger.warning(f"benchmark_duration: {benchmark_duration}")
-            self.logger.warning(f"total_requests: {self.total_requests}")
             self.metric = self.total_requests / (benchmark_duration / NANOS_PER_SECOND)
-            self.logger.warning(f"self.metric: {self.metric}")
 
     def values(self) -> float:
         """
