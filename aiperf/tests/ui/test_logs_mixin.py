@@ -91,15 +91,15 @@ class TestLogsDashboardMixin:
             "msg": "Test message",
         }
 
-        logs_mixin_instance.log_queue.empty.side_effect = [
-            False,
-            True,
-            True,
-            True,
-            True,
-            True,
-            True,
-        ]
+        # return empty after first call
+        checks = 0
+
+        def empty() -> bool:
+            nonlocal checks
+            checks += 1
+            return checks > 1
+
+        logs_mixin_instance.log_queue.empty.side_effect = empty
         logs_mixin_instance.log_queue.get_nowait.return_value = log_data
 
         await logs_mixin_instance._consume_logs()
@@ -126,15 +126,15 @@ class TestLogsDashboardMixin:
             "msg": "Message 2",
         }
 
-        logs_mixin_instance.log_queue.empty.side_effect = [
-            False,
-            False,
-            True,
-            True,
-            True,
-            True,
-            True,
-        ]
+        # return empty after second call
+        checks = 0
+
+        def empty() -> bool:
+            nonlocal checks
+            checks += 1
+            return checks > 2
+
+        logs_mixin_instance.log_queue.empty.side_effect = empty
         logs_mixin_instance.log_queue.get_nowait.side_effect = [log_data_1, log_data_2]
 
         await logs_mixin_instance._consume_logs()
