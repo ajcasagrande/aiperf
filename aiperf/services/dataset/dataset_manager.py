@@ -92,7 +92,7 @@ class DatasetManager(BaseComponentService):
     @on_init
     async def _initialize(self) -> None:
         """Initialize dataset manager-specific components."""
-        self.logger.info("Initializing dataset manager %s", self.service_id)
+        self.logger.debug("Initializing dataset manager %s", self.service_id)
 
         self.reply_client.register_request_handler(
             service_id=self.service_id,
@@ -105,12 +105,12 @@ class DatasetManager(BaseComponentService):
             handler=self._handle_dataset_timing_request,
         )
 
-        self.logger.info("Dataset manager %s initialized", self.service_id)
+        self.logger.debug("Dataset manager %s initialized", self.service_id)
 
     @on_start
     async def _start(self) -> None:
         """Start the dataset manager."""
-        self.logger.info("Starting dataset manager %s", self.service_id)
+        self.logger.debug("Starting dataset manager %s", self.service_id)
         # TODO: Implement dataset manager start
 
     @on_stop

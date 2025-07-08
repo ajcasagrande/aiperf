@@ -62,7 +62,7 @@ class TurnConfig(BaseConfig):
     mean: Annotated[
         int,
         Field(
-            ge=0,
+            ge=1,
             description="The mean number of turns within a conversation.",
         ),
         cyclopts.Parameter(
