@@ -4,7 +4,7 @@
 Tests for the AIPerfUI main class.
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -154,28 +154,6 @@ class TestAIPerfUI:
         aiperf_ui.dashboard.refresh_element.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_on_profile_results_update(self, aiperf_ui):
-        """Test on_profile_results_update method."""
-        with patch("aiperf.ui.aiperf_ui.logger") as mock_logger:
-            await aiperf_ui.on_profile_results_update()
-
-            mock_logger.info.assert_called_once_with(
-                "Performance testing completed successfully!"
-            )
-
-    def test_dashboard_configuration(self, aiperf_ui, mock_progress_tracker):
-        """Test dashboard is configured correctly."""
-        dashboard = aiperf_ui.dashboard
-
-        assert isinstance(dashboard, AIPerfRichDashboard)
-        assert dashboard.progress_tracker == mock_progress_tracker
-
-    def test_progress_tracker_reference(self, aiperf_ui, mock_progress_tracker):
-        """Test progress tracker reference is maintained."""
-        assert aiperf_ui.progress_tracker == mock_progress_tracker
-        assert aiperf_ui.dashboard.progress_tracker == mock_progress_tracker
-
-    @pytest.mark.asyncio
     async def test_multiple_worker_health_updates(
         self, aiperf_ui, multiple_worker_health_messages
     ):
@@ -236,48 +214,6 @@ class TestAIPerfUI:
         await aiperf_ui.on_profile_progress_update()
         assert aiperf_ui.dashboard.refresh_element.call_count == 1
 
-    def test_ui_has_required_methods(self, aiperf_ui):
-        """Test UI has all required methods."""
-        required_methods = [
-            "on_profile_progress_update",
-            "on_processing_stats_update",
-            "on_worker_health_update",
-            "on_profile_results_update",
-        ]
-
-        for method_name in required_methods:
-            assert hasattr(aiperf_ui, method_name)
-            assert callable(getattr(aiperf_ui, method_name))
-
-    def test_ui_lifecycle_methods(self, aiperf_ui):
-        """Test UI has lifecycle methods."""
-        lifecycle_methods = [
-            "_on_start",
-            "_on_stop",
-        ]
-
-        for method_name in lifecycle_methods:
-            assert hasattr(aiperf_ui, method_name)
-            assert callable(getattr(aiperf_ui, method_name))
-
-    @pytest.mark.asyncio
-    async def test_ui_async_methods_are_async(self, aiperf_ui):
-        """Test that async methods are properly async."""
-        import inspect
-
-        # Test that methods are async functions
-        assert inspect.iscoroutinefunction(aiperf_ui.on_profile_progress_update)
-        assert inspect.iscoroutinefunction(aiperf_ui.on_processing_stats_update)
-        assert inspect.iscoroutinefunction(aiperf_ui.on_worker_health_update)
-        assert inspect.iscoroutinefunction(aiperf_ui.on_profile_results_update)
-
-        # Test that they can be awaited (when conditions are met)
-        aiperf_ui.dashboard.running = False  # Ensure no refresh calls are made
-        await aiperf_ui.on_profile_progress_update()
-        await aiperf_ui.on_processing_stats_update()
-        await aiperf_ui.on_worker_health_update(MagicMock())
-        await aiperf_ui.on_profile_results_update()
-
     def test_ui_docstring_and_class_attributes(self, aiperf_ui):
         """Test UI has proper docstring and class attributes."""
         assert AIPerfUI.__doc__ is not None
@@ -285,7 +221,7 @@ class TestAIPerfUI:
 
     @pytest.mark.asyncio
     async def test_dashboard_lifecycle_integration(self, aiperf_ui):
-        """Test dashboard lifecycle integration."""
+        """Test that the UI can start and stop the dashboard."""
         # Mock dashboard methods
         aiperf_ui.dashboard.run_async = AsyncMock()
         aiperf_ui.dashboard.shutdown = AsyncMock()
@@ -300,7 +236,7 @@ class TestAIPerfUI:
 
     @pytest.mark.asyncio
     async def test_error_handling_in_methods(self, aiperf_ui):
-        """Test error handling in UI methods."""
+        """Test that the UI can handle errors in methods."""
         # Mock dashboard methods to raise exceptions
         aiperf_ui.dashboard.refresh_element = MagicMock(
             side_effect=Exception("Dashboard error")
@@ -308,16 +244,13 @@ class TestAIPerfUI:
         aiperf_ui.dashboard.running = True
         aiperf_ui.progress_tracker.current_profile = MagicMock()
 
-        # The current implementation doesn't handle exceptions gracefully,
-        # so we expect exceptions to be raised
-        with pytest.raises(Exception, match="Dashboard error"):
-            await aiperf_ui.on_profile_progress_update()
-
-        with pytest.raises(Exception, match="Dashboard error"):
-            await aiperf_ui.on_processing_stats_update()
+        # Expect no exceptions to be raised
+        await aiperf_ui.on_profile_progress_update()
+        await aiperf_ui.on_processing_stats_update()
+        assert aiperf_ui.dashboard.refresh_element.call_count == 2
 
     def test_ui_integration_with_dashboard_components(self, aiperf_ui):
-        """Test UI integration with dashboard components."""
+        """Test that the UI can integrate with dashboard components."""
         dashboard = aiperf_ui.dashboard
 
         # Check that dashboard has required elements

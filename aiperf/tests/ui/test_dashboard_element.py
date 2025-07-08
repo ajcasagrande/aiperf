@@ -146,11 +146,8 @@ class TestHeaderElement:
         content = header.get_content()
 
         assert isinstance(content, Align)
-        # Check that the content is properly aligned
         assert content.align == "center"
-        # Default vertical alignment is None (which means top)
 
-        # Check the text content
         text_content = content.renderable
         assert isinstance(text_content, Text)
         assert text_content.plain == "NVIDIA AIPerf Dashboard"
@@ -172,7 +169,6 @@ class TestHeaderElement:
         header = HeaderElement()
         content = header.get_content()
 
-        # Verify the content is an Align object with proper Text
         assert isinstance(content, Align)
         text = content.renderable
         assert isinstance(text, Text)
