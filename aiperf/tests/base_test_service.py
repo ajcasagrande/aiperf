@@ -112,9 +112,12 @@ class BaseTestService(ABC):
         ```
         """
         # Patch the heartbeat task otherwise it will run forever
-        with patch(
-            "aiperf.common.service.base_component_service.BaseComponentService._heartbeat_task",
-            lambda: None,
+        with (
+            patch(
+                "aiperf.common.service.base_component_service.BaseComponentService._heartbeat_task",
+                lambda: None,
+            ),
+            patch("aiperf.common.hooks.AIPerfTaskMixin._start_tasks", lambda: None),
         ):
             if service_class is SystemController:
                 service = service_class(

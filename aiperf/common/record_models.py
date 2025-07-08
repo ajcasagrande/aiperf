@@ -9,11 +9,10 @@ from typing import Any
 
 from pydantic import BaseModel, Field, SerializeAsAny
 
+from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import SSEFieldType
 
 
-# Temporary Record class to be used by the ConsoleExporter.
-# TODO: Remove once the actual Records classes are fully implemented.
 class MetricResult(BaseModel):
     """The result values of a single metric."""
 
@@ -56,8 +55,12 @@ class BaseClientConfig(BaseModel):
 class GenericHTTPClientConfig(BaseClientConfig):
     """Configuration options for a generic HTTP inference client."""
 
-    url: str = Field(
-        default=f"http://localhost:{os.getenv('AIPERF_PORT', 8080)}",
+    api_key: str | None = Field(
+        default=None,
+        description="The API key to use for the inference client.",
+    )
+    base_url: str = Field(
+        default=f"http://{os.getenv('AIPERF_HOST', 'localhost')}:{os.getenv('AIPERF_PORT', 8080)}",
         description="The URL of the inference client.",
     )
     protocol: str = Field(
@@ -74,10 +77,6 @@ class GenericHTTPClientConfig(BaseClientConfig):
     headers: dict[str, str] = Field(
         default_factory=dict,
         description="The headers to use for the inference client.",
-    )
-    api_key: str | None = Field(
-        default=None,
-        description="The API key to use for the inference client.",
     )
 
 
@@ -200,19 +199,7 @@ class SSEMessage(InferenceServerResponse):
 
 
 class RequestRecord(BaseModel):
-    """Record of a request with its associated responses.
-
-    Attributes:
-        request: The request payload.
-        timestamp_ns: The wall clock timestamp of the request in nanoseconds. DO NOT USE FOR LATENCY CALCULATIONS. (time.time_ns).
-        start_perf_ns: The start reference time of the request in nanoseconds used for latency calculations (perf_counter_ns).
-        end_perf_ns: The end reference time of the request in nanoseconds (perf_counter_ns).
-        recv_start_perf_ns: The start reference time of the response in nanoseconds used for latency calculations (perf_counter_ns).
-        status: The HTTP status code of the request.
-        responses: The raw responses received from the request.
-        error: The error details if the request failed.
-        delayed: Whether the request was delayed from when it was expected to be sent.
-    """
+    """Record of a request with its associated responses."""
 
     request: Any = Field(
         default=None,
@@ -249,10 +236,21 @@ class RequestRecord(BaseModel):
         default=None,
         description="The error details if the request failed.",
     )
-    delayed: bool = Field(
-        default=False,
-        description="Whether the request was delayed from when it was expected to be sent.",
+    delayed_ns: int | None = Field(
+        default=None,
+        gt=0,
+        description="The number of nanoseconds the request was delayed from when it was expected to be sent, "
+        "or None if the request was sent on time, or did not have a credit_drop_ns timestamp.",
     )
+    warmup: bool = Field(
+        default=False,
+        description="Whether the request is part of the warmup phase.",
+    )
+
+    @property
+    def delayed(self) -> bool:
+        """Check if the request was delayed."""
+        return self.delayed_ns is not None and self.delayed_ns > 0
 
     # TODO: Most of these properties will be removed once we have proper record handling and metrics.
 
@@ -411,6 +409,18 @@ class ParsedResponseRecord(BaseModel):
         )
 
     @cached_property
+    def request_duration_ns(self) -> int:
+        """Get the duration of the request in nanoseconds."""
+        return self.end_perf_ns - self.start_perf_ns
+
+    @cached_property
+    def tokens_per_second(self) -> float | None:
+        """Get the number of tokens per second of the request."""
+        if self.token_count is None or self.request_duration_ns == 0:
+            return None
+        return self.token_count / (self.request_duration_ns / NANOS_PER_SECOND)
+
+    @cached_property
     def has_error(self) -> bool:
         """Check if the response record has an error."""
         return self.request.has_error
@@ -434,30 +444,3 @@ class ParsedResponseRecord(BaseModel):
             and 0 <= self.start_perf_ns < self.end_perf_ns < sys.maxsize
             and all(0 < response.perf_ns < sys.maxsize for response in self.responses)
         )
-
-
-class Transaction(BaseModel):
-    """
-    Represents a request/response with a timestamp and associated payload.
-
-    Attributes:
-        timestamp: The time at which the transaction was recorded.
-        payload: The data or content of the transaction.
-    """
-
-    timestamp: int = Field(description="The timestamp of the transaction")
-    payload: Any = Field(description="The payload of the transaction")
-
-
-class Record(BaseModel):
-    """
-    Represents a record containing a request transaction and its associated response transactions.
-    Attributes:
-        request: The input transaction for the record.
-        responses A list of response transactions corresponding to the request.
-    """
-
-    request: Transaction = Field(description="The request transaction for the record")
-    responses: list[Transaction] = Field(
-        description="A list of response transactions for the record",
-    )

@@ -9,7 +9,6 @@ from unittest.mock import patch
 import pytest
 
 from aiperf.services.timing_manager.timing_manager import FixedScheduleStrategy
-from aiperf.tests.utils.async_test_utils import async_fixture
 
 
 @pytest.mark.asyncio

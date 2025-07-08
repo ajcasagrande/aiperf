@@ -170,3 +170,13 @@ class ServiceConfig(BaseSettings):
             name=("--result-parser-service-count"),
         ),
     ] = ServiceDefaults.RESULT_PARSER_SERVICE_COUNT
+
+    enable_yappi: Annotated[
+        bool,
+        Field(
+            description="Enable yappi profiling",
+        ),
+        cyclopts.Parameter(
+            name=("--enable-yappi"),
+        ),
+    ] = ServiceDefaults.ENABLE_YAPPI

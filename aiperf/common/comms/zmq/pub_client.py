@@ -84,6 +84,9 @@ class ZMQPubClient(BaseZMQClient):
             )
 
         except (asyncio.CancelledError, zmq.ContextTerminated):
+            self.logger.debug(
+                "Pub client %s cancelled or context terminated", self.client_id
+            )
             return
 
         except Exception as e:

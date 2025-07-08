@@ -1,6 +1,6 @@
 <!--
-#  SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-#  SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 -->
 # AIPerf Hook System
 
@@ -194,13 +194,13 @@ sequenceDiagram
 class BaseService(HooksMixin):
     @on_init
     async def base_init(self):
-        self.logger.info("Base service initializing")
+        self.logger.debug("Base service initializing")
 
 @supports_hooks(AIPerfHook.ON_START)  # Adds ON_START to inherited hooks
 class WebService(BaseService):
     @on_init
     async def web_init(self):
-        self.logger.info("Web service initializing")
+        self.logger.debug("Web service initializing")
 
     @on_start
     async def start_server(self):
@@ -427,7 +427,7 @@ class BackgroundService(AIPerfTaskMixin):
                 await asyncio.sleep(5)  # Poll every 5 seconds
 
             except asyncio.CancelledError:
-                self.logger.info("Health monitoring task cancelled")
+                self.logger.debug("Health monitoring task cancelled")
                 break
             except Exception as e:
                 self.logger.error(f"Error in health monitoring: {e}")
@@ -467,7 +467,7 @@ class AIPerfTaskMixin(HooksMixin):
     @on_init
     async def _start_tasks(self):
         """Start all the registered tasks."""
-        for hook in self.get_hooks(AIPerfHook.AIPERF_TASK):
+        for hook in self.get_hooks(AIPerfTaskHook.AIPERF_TASK):
             self.registered_tasks[hook.__name__] = asyncio.create_task(hook())
 
     @on_stop
@@ -476,9 +476,7 @@ class AIPerfTaskMixin(HooksMixin):
         for task in self.registered_tasks.values():
             task.cancel()
 
-        # Wait for all tasks to complete
-        with contextlib.suppress(asyncio.CancelledError):
-            await asyncio.gather(*self.registered_tasks.values())
+        await asyncio.gather(*self.registered_tasks.values())
 ```
 
 ### Best Practices for `@aiperf_task`

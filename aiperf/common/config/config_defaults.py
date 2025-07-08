@@ -127,7 +127,7 @@ class OutputDefaults:
 
 @dataclass(frozen=True)
 class TokenizerDefaults:
-    NAME = ""
+    NAME = None
     REVISION = "main"
     TRUST_REMOTE_CODE = False
 
@@ -154,6 +154,7 @@ class ServiceDefaults:
     DISABLE_UI = False
     ENABLE_UVLOOP = True
     RESULT_PARSER_SERVICE_COUNT = 2
+    ENABLE_YAPPI = False
 
 
 @dataclass(frozen=True)
@@ -163,7 +164,7 @@ class LoadGeneratorDefaults:
     REQUEST_COUNT = 10
     WARMUP_REQUEST_COUNT = 0
     CONCURRENCY_RAMP_UP_TIME = None
-    REQUEST_RATE_MODE = RequestRateMode.FIXED
+    REQUEST_RATE_MODE = RequestRateMode.POISSON
 
 
 @dataclass(frozen=True)

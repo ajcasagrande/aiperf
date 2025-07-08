@@ -656,7 +656,7 @@ class RequestRateMode(CaseInsensitiveStrEnum):
     """The different ways the request rate scheduler should generate requests."""
 
     FIXED = "fixed"
-    """Generate requests at a fixed rate. This is the default mode."""
+    """Generate requests at a fixed rate."""
 
-    # DYNAMIC = "dynamic"
-    # """Generate requests at a dynamic rate based on the average response times of the previous requests. TBD."""
+    POISSON = "poisson"
+    """Generate requests using a poisson distribution."""

@@ -1,5 +1,5 @@
-#  SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-#  SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 import asyncio
 import logging
 import signal
@@ -13,7 +13,7 @@ class SignalHandlerMixin:
     def __init__(self, *args, **kwargs) -> None:
         # Set to store signal handler tasks to prevent them from being garbage collected
         self._signal_tasks = set()
-        self.logger = logging.getLogger(__name__)
+        self.logger = logging.getLogger(self.__class__.__name__)
         super().__init__(*args, **kwargs)
 
     def setup_signal_handlers(

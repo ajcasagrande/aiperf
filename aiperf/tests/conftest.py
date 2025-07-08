@@ -7,6 +7,7 @@ This file contains fixtures that are automatically discovered by pytest
 and made available to test functions in the same directory and subdirectories.
 """
 
+import asyncio
 import logging
 from collections.abc import Generator
 from unittest.mock import MagicMock, patch
@@ -17,8 +18,29 @@ from aiperf.common.tokenizer import Tokenizer
 from aiperf.tests.comms.mock_zmq import (
     mock_zmq_communication,  # noqa: F401 : used as a fixture
 )
+from aiperf.tests.utils.async_test_utils import MockSemaphore
 
 logging.basicConfig(level=logging.DEBUG)
+
+real_sleep = (
+    asyncio.sleep
+)  # save the real sleep so we can use it in the no_sleep fixture
+
+
+@pytest.fixture(autouse=True)
+def no_sleep(monkeypatch) -> None:
+    """
+    Patch asyncio.sleep with a no-op to prevent test delays.
+
+    This ensures tests don't need to wait for real sleep calls.
+    """
+
+    async def fast_sleep(*args, **kwargs):
+        await real_sleep(
+            0
+        )  # relinquish time slice to other tasks to avoid blocking the event loop
+
+    monkeypatch.setattr(asyncio, "sleep", fast_sleep)
 
 
 @pytest.fixture
@@ -99,3 +121,32 @@ def mock_tokenizer_cls() -> type[Tokenizer]:
             return " ".join([f"token_{t}" for t in token_ids])
 
     return MockTokenizer
+
+
+@pytest.fixture
+def patch_semaphore() -> Generator[None, None, None]:
+    """Fixture to patch the semaphore for testing."""
+    with patch("asyncio.Semaphore", side_effect=MockSemaphore):
+        yield
+
+
+@pytest.fixture
+def mock_time_ns() -> Generator[MagicMock, None, None]:
+    """Fixture to patch time.time_ns with a mock."""
+    with patch("time.time_ns") as mock_time_ns:
+        yield mock_time_ns
+
+
+@pytest.fixture
+def mock_perf_counter_ns() -> Generator[MagicMock, None, None]:
+    """Fixture to patch time.perf_counter_ns with a mock."""
+    with patch("time.perf_counter_ns") as mock_perf_counter_ns:
+        yield mock_perf_counter_ns
+
+
+@pytest.fixture
+def mock_semaphore() -> Generator[MockSemaphore, None, None]:
+    """Fixture to patch asyncio.Semaphore with a mock."""
+    mock_semaphore = MockSemaphore()
+    with patch("asyncio.Semaphore", return_value=mock_semaphore):
+        yield mock_semaphore

@@ -21,6 +21,7 @@ class MockServerConfig(BaseSettings):
         env_prefix="MOCK_SERVER_",
         env_file=".env",
         env_file_encoding="utf-8",
+        extra="allow",
     )
 
     # Server settings

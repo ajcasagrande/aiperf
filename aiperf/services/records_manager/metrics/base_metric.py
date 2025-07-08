@@ -89,7 +89,7 @@ class BaseMetric(ABC):
     def update_value(
         self,
         record: ParsedResponseRecord | None = None,
-        metrics: dict["BaseMetric"] | None = None,
+        metrics: dict[str, "BaseMetric"] | None = None,
     ) -> None:
         """
         Updates the metric value based on the provided record and dictionary of other metrics.

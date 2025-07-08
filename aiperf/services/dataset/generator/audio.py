@@ -86,7 +86,7 @@ class AudioGenerator(BaseGenerator):
             supported_depths = sorted(SUPPORTED_BIT_DEPTHS.keys())
             raise ConfigurationError(
                 f"Unsupported bit depth: {bit_depth}. "
-                f"Supported bit depths are: {supported_depths}"
+                f"Supported bit depths are: {supported_depths}",
             )
 
     def generate(self, *args, **kwargs) -> str:
@@ -105,7 +105,7 @@ class AudioGenerator(BaseGenerator):
         """
         if self.config.num_channels not in (1, 2):
             raise ConfigurationError(
-                "Only mono (1) and stereo (2) channels are supported"
+                "Only mono (1) and stereo (2) channels are supported",
             )
 
         if self.config.length.mean < 0.01:
@@ -157,7 +157,7 @@ class AudioGenerator(BaseGenerator):
         else:
             raise ConfigurationError(
                 f"Unsupported audio format: {self.config.format}. "
-                f"Supported formats are: {AudioFormat.WAV.name}, {AudioFormat.MP3.name}"
+                f"Supported formats are: {AudioFormat.WAV.name}, {AudioFormat.MP3.name}",
             )
 
         sf.write(

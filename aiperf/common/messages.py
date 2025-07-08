@@ -1,16 +1,13 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-import json
 import time
 import uuid
 from typing import Any, ClassVar, Literal
 
-import orjson
 from pydantic import (
     BaseModel,
     Field,
     SerializeAsAny,
-    model_serializer,
 )
 
 from aiperf.common.dataset_models import Conversation
@@ -22,35 +19,21 @@ from aiperf.common.enums import (
     ServiceState,
     ServiceType,
 )
+from aiperf.common.pydantic_utils import ExcludeIfNoneMixin, exclude_if_none
 from aiperf.common.record_models import (
     ErrorDetails,
-    ErrorDetailsCount,
-    MetricResult,
     ParsedResponseRecord,
     RequestRecord,
 )
+from aiperf.common.utils import load_json_str
 
 ################################################################################
 # Abstract Base Message Models
 ################################################################################
 
-EXCLUDE_IF_NONE = "__exclude_if_none__"
-
-
-def exclude_if_none(field_names: list[str]):
-    """Decorator to set the _exclude_if_none_fields class attribute to the set of
-    field names that should be excluded if they are None.
-    """
-
-    def decorator(model: type["Message"]) -> type["Message"]:
-        model._exclude_if_none_fields.update(field_names)
-        return model
-
-    return decorator
-
 
 @exclude_if_none(["request_ns", "request_id"])
-class Message(BaseModel):
+class Message(ExcludeIfNoneMixin):
     """Base message class for optimized message handling.
 
     This class provides a base for all messages, including common fields like message_type,
@@ -98,19 +81,6 @@ class Message(BaseModel):
         description="ID of the request",
     )
 
-    @model_serializer
-    def _serialize_message(self) -> dict[str, Any]:
-        """Serialize the message to a dictionary.
-
-        This method overrides the default serializer to exclude fields that have a
-        value of None and have the EXCLUDE_IF_NONE json_schema_extra key set to True.
-        """
-        return {
-            k: v
-            for k, v in self
-            if not (k in self._exclude_if_none_fields and v is None)
-        }
-
     @classmethod
     def __get_validators__(cls):
         yield cls.from_json
@@ -118,7 +88,7 @@ class Message(BaseModel):
     @classmethod
     def from_json(cls, json_str: str) -> "Message":
         """Fast deserialization without full validation"""
-        data = json.loads(json_str)
+        data = load_json_str(json_str)
         message_type = data.get("message_type")
         if not message_type:
             raise ValueError("Missing message_type")
@@ -131,8 +101,7 @@ class Message(BaseModel):
         return message_class(**data)
 
     def to_json(self) -> str:
-        """Fast serialization without full validation"""
-        return orjson.dumps(self.__dict__).decode("utf-8")
+        return self.model_dump_json()
 
 
 class BaseServiceMessage(Message):
@@ -152,7 +121,7 @@ class BaseStatusMessage(BaseServiceMessage):
 
     # override request_ns to be auto-filled if not provided
     request_ns: int | None = Field(
-        default=time.time_ns(),
+        default_factory=time.time_ns,
         description="Timestamp of the request",
     )
     state: ServiceState = Field(
@@ -276,9 +245,9 @@ class CreditDropMessage(BaseServiceMessage):
 
     message_type: Literal[MessageType.CREDIT_DROP] = MessageType.CREDIT_DROP
 
-    amount: int = Field(
-        ...,
-        description="Amount of credits that have been dropped",
+    warmup: bool = Field(
+        default=False,
+        description="Whether the credit drop is part of the warmup phase",
     )
     conversation_id: str | None = Field(
         default=None, description="The ID of the conversation, if applicable."
@@ -297,9 +266,34 @@ class CreditReturnMessage(BaseServiceMessage):
 
     message_type: Literal[MessageType.CREDIT_RETURN] = MessageType.CREDIT_RETURN
 
-    amount: int = Field(
-        ...,
-        description="Amount of credits being returned",
+    warmup: bool = Field(
+        default=False,
+        description="Whether the credit return is part of the warmup phase",
+    )
+    conversation_id: str | None = Field(
+        default=None, description="The ID of the conversation, if applicable."
+    )
+    credit_drop_ns: int | None = Field(
+        default=None,
+        description="Timestamp of the original credit drop, if applicable.",
+    )
+    delayed_ns: int | None = Field(
+        default=None,
+        description="The number of nanoseconds the credit drop was delayed by, or None if the credit was sent on time.",
+    )
+
+
+class CreditsCompleteMessage(BaseServiceMessage):
+    """Credits complete message sent by the TimingManager to the System controller to signify all requests have completed."""
+
+    message_type: Literal[MessageType.CREDITS_COMPLETE] = MessageType.CREDITS_COMPLETE
+    warmup: bool = Field(
+        default=False,
+        description="Whether the credits complete is part of the warmup phase",
+    )
+    cancelled: bool = Field(
+        default=False,
+        description="Whether the profile run was cancelled",
     )
 
 
@@ -333,16 +327,6 @@ class BaseServiceErrorMessage(BaseServiceMessage):
     message_type: Literal[MessageType.SERVICE_ERROR] = MessageType.SERVICE_ERROR
 
     error: ErrorDetails = Field(..., description="Error information")
-
-
-class CreditsCompleteMessage(BaseServiceMessage):
-    """Credits complete message sent to System controller to signify all requests have completed."""
-
-    message_type: Literal[MessageType.CREDITS_COMPLETE] = MessageType.CREDITS_COMPLETE
-    cancelled: bool = Field(
-        default=False,
-        description="Whether the profile run was cancelled",
-    )
 
 
 class ConversationRequestMessage(BaseServiceMessage):
@@ -386,76 +370,6 @@ class ParsedInferenceResultsMessage(BaseServiceMessage):
 
     record: SerializeAsAny[ParsedResponseRecord] = Field(
         ..., description="The post process results record"
-    )
-
-
-class ProfileResultsMessage(BaseServiceMessage):
-    """Message for profile results."""
-
-    message_type: Literal[MessageType.PROFILE_RESULTS] = MessageType.PROFILE_RESULTS
-
-    records: SerializeAsAny[list[MetricResult]] = Field(
-        ..., description="The records of the profile results"
-    )
-    total: int = Field(
-        ...,
-        description="The total number of inference requests expected to be made (if known)",
-    )
-    completed: int = Field(
-        ..., description="The number of inference requests completed"
-    )
-    start_ns: int = Field(
-        ..., description="The start time of the profile run in nanoseconds"
-    )
-    end_ns: int = Field(
-        ..., description="The end time of the profile run in nanoseconds"
-    )
-    was_cancelled: bool = Field(
-        default=False,
-        description="Whether the profile run was cancelled early",
-    )
-    errors_by_type: list[ErrorDetailsCount] = Field(
-        default_factory=list,
-        description="A list of the unique error details and their counts",
-    )
-
-
-class ProfileProgressMessage(BaseServiceMessage):
-    """Message for profile progress. Sent by the timing manager to the system controller to report the progress of the profile run."""
-
-    message_type: Literal[MessageType.PROFILE_PROGRESS] = MessageType.PROFILE_PROGRESS
-
-    profile_id: str | None = Field(
-        default=None, description="The ID of the current profile"
-    )
-    start_ns: int = Field(
-        ..., description="The start time of the profile run in nanoseconds"
-    )
-    end_ns: int | None = Field(
-        default=None, description="The end time of the profile run in nanoseconds"
-    )
-    total: int = Field(
-        ..., description="The total number of inference requests to be made (if known)"
-    )
-    completed: int = Field(
-        ..., description="The number of inference requests completed"
-    )
-
-
-class ProfileStatsMessage(BaseServiceMessage):
-    """Message for profile stats. Sent by the records manager to the system controller to report the stats of the profile run."""
-
-    message_type: Literal[MessageType.PROCESSING_STATS] = MessageType.PROCESSING_STATS
-
-    error_count: int = Field(default=0, description="The number of errors encountered")
-    completed: int = Field(default=0, description="The number of requests completed")
-    worker_completed: dict[str, int] = Field(
-        default_factory=dict,
-        description="Per-worker request completion counts, keyed by worker service_id",
-    )
-    worker_errors: dict[str, int] = Field(
-        default_factory=dict,
-        description="Per-worker error counts, keyed by worker service_id",
     )
 
 

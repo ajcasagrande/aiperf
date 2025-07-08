@@ -9,6 +9,8 @@ __all__ = [
     "TimingManager",
     "WorkerManager",
     "Worker",
+    # "DaskWorkerManager",
+    # "DaskWorker",
 ]
 
 # This will ensure that the services are registered with the ServiceFactory
@@ -18,4 +20,6 @@ from aiperf.services.records_manager import RecordsManager
 from aiperf.services.system_controller import SystemController
 from aiperf.services.timing_manager import TimingManager
 from aiperf.services.worker import Worker
-from aiperf.services.worker_manager import WorkerManager
+
+# from aiperf.services.worker.dask import DaskWorker, DaskWorkerManager
+from aiperf.services.worker.worker_manager import WorkerManager

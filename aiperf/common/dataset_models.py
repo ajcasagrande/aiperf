@@ -1,11 +1,16 @@
-#  SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-#  SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 
 from pydantic import BaseModel, Field
 
+from aiperf.common.pydantic_utils import exclude_if_none
 
+
+@exclude_if_none(["role"])
 class Text(BaseModel):
     name: str = Field(default="text", description="Name of the text field.")
+
+    role: str | None = Field(default=None, description="Role of the text field.")
 
     content: list[str] = Field(
         default=[],

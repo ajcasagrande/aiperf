@@ -134,28 +134,26 @@ class OpenAIResponseExtractor:
 
         obj = OpenAIObject.parse(raw_text)
 
-        val = None
-        if isinstance(obj, ChatCompletion):
-            # TODO: how to support multiple choices?
-            val = obj.choices[0].message.content
+        # Dictionary mapping object types to their value extraction functions
+        type_to_extractor = {
+            ChatCompletion: lambda obj: obj.choices[
+                0
+            ].message.content,  # TODO: how to support multiple choices?
+            ChatCompletionChunk: lambda obj: obj.choices[
+                0
+            ].delta.content,  # TODO: how to support multiple choices?
+            Completion: lambda obj: obj.choices[
+                0
+            ].text,  # TODO: how to support multiple choices?
+            Embedding: lambda obj: obj.embedding,
+            ResponsesModel: lambda obj: obj.output_text,
+        }
 
-        elif isinstance(obj, ChatCompletionChunk):
-            # TODO: how to support multiple choices?
-            val = obj.choices[0].delta.content
+        for obj_type, extractor in type_to_extractor.items():
+            if isinstance(obj, obj_type):
+                return extractor(obj)
 
-        elif isinstance(obj, Completion):
-            # TODO: how to support multiple choices?
-            val = obj.choices[0].text
-
-        elif isinstance(obj, Embedding):
-            val = obj.embedding
-
-        elif isinstance(obj, ResponsesModel):
-            val = obj.output_text
-        else:
-            raise ValueError(f"Invalid OpenAI object: {raw_text}")
-
-        return val
+        raise ValueError(f"Invalid OpenAI object: {raw_text}")
 
     def _parse_sse(self, raw_sse: list[str]) -> list[Any]:
         """Parse the SSE of the response."""

@@ -64,7 +64,9 @@ class TestAioHttpClientMixin:
     )
     def test_timeout_conversion(self, timeout_ms: int, expected_seconds: float) -> None:
         """Test that timeout milliseconds are correctly converted to seconds."""
-        config = GenericHTTPClientConfig(url="http://test.com", timeout_ms=timeout_ms)
+        config = GenericHTTPClientConfig(
+            base_url="http://test.com", timeout_ms=timeout_ms
+        )
 
         with patch("aiperf.clients.http.aiohttp_client.create_tcp_connector"):
             client = AioHttpClientMixin(config)
@@ -83,7 +85,7 @@ class TestAioHttpClientMixin:
         mock_connector.close = AsyncMock()
         aiohttp_client.tcp_connector = mock_connector
 
-        await aiohttp_client.cleanup()
+        await aiohttp_client.close()
 
         mock_connector.close.assert_called_once()
         assert aiohttp_client.tcp_connector is None
@@ -95,7 +97,7 @@ class TestAioHttpClientMixin:
         aiohttp_client.tcp_connector = None
 
         # Should not raise an exception
-        await aiohttp_client.cleanup()
+        await aiohttp_client.close()
 
         assert aiohttp_client.tcp_connector is None
 
@@ -244,11 +246,11 @@ class TestAioHttpClientMixin:
             setup_mock_session(mock_session_class, mock_aiohttp_response, ["post"])
 
             record = await aiohttp_client.post_request(
-                "http://test.com", "{}", {}, delayed=True
+                "http://test.com", "{}", {}, delayed_ns=1000000000
             )
 
             assert_successful_request_record(record)
-            assert record.delayed is True
+            assert record.delayed_ns is not None
 
     @pytest.mark.asyncio
     async def test_kwargs_passed_to_session_post(

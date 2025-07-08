@@ -22,19 +22,20 @@ class MinRequestMetric(BaseMetric):
     def update_value(
         self,
         record: ParsedResponseRecord | None = None,
-        metrics: dict["BaseMetric"] | None = None,
+        metrics: dict[str, "BaseMetric"] | None = None,
     ) -> None:
         """
         Adds a new record and calculates the minimum request timestamp metric.
 
         """
-        self._check_record(record)
-        if record.start_perf_ns < self.metric:
-            self.metric = record.start_perf_ns
+        if record:
+            self._check_record(record)
+            if record.timestamp_ns < self.metric:
+                self.metric = record.timestamp_ns
 
     def values(self) -> float:
         """
-        Returns the list of Time to First Token (TTFT) metrics.
+        Returns the minimum request timestamp.
         """
         return self.metric
 
@@ -43,5 +44,5 @@ class MinRequestMetric(BaseMetric):
         Checks if the record is valid for calculations.
 
         """
-        if not record or not record.start_perf_ns:
+        if not record or not record.timestamp_ns:
             raise ValueError("Record must have a valid request with a timestamp.")

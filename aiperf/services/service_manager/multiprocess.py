@@ -1,13 +1,15 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
+import contextlib
+import multiprocessing
 from multiprocessing import Process
 from multiprocessing.context import ForkProcess, SpawnProcess
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from aiperf.common.bootstrap import bootstrap_and_run_service
-from aiperf.common.config import ServiceConfig
+from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.constants import (
     GRACEFUL_SHUTDOWN_TIMEOUT_SECONDS,
     TASK_CANCEL_TIMEOUT_SHORT,
@@ -39,12 +41,17 @@ class MultiProcessServiceManager(BaseServiceManager):
         self,
         required_service_types: list[tuple[ServiceType, int]],
         config: ServiceConfig,
+        user_config: UserConfig | None = None,
+        log_queue: "multiprocessing.Queue | None" = None,
     ):
         super().__init__(required_service_types, config)
         self.multi_process_info: list[MultiProcessRunInfo] = []
+        self.log_queue = log_queue
+        self.user_config = user_config
 
     async def _run_services(self, service_types: list[tuple[ServiceType, int]]) -> None:
         """Run a list of services as multiprocessing processes."""
+
         # Create and start all service processes
         for service_type in service_types:
             service_class = ServiceFactory.get_class_from_type(service_type[0])
@@ -53,12 +60,19 @@ class MultiProcessServiceManager(BaseServiceManager):
                 process = Process(
                     target=bootstrap_and_run_service,
                     name=f"{service_type[0]}_process",
-                    args=(service_class, self.config),
+                    kwargs={
+                        "service_class": service_class,
+                        "service_id": service_type[0].value
+                        if service_type[1] == 1
+                        else None,
+                        "service_config": self.config,
+                        "user_config": self.user_config,
+                        "log_queue": self.log_queue,
+                    },
                     daemon=True,
                 )
                 if service_type[0] in [
                     ServiceType.WORKER_MANAGER,
-                    ServiceType.RECORDS_MANAGER,
                 ]:
                     process.daemon = False  # Worker manager cannot be a daemon because it needs to be able to spawn worker processes
 
@@ -73,10 +87,6 @@ class MultiProcessServiceManager(BaseServiceManager):
                 self.multi_process_info.append(
                     MultiProcessRunInfo(process=process, service_type=service_type[0])
                 )
-
-            # TODO: HACK: This is a hack
-            # Sleep to allow the service to register
-            await asyncio.sleep(0.01)
 
     async def run_all_services(self) -> None:
         """Start all required services as multiprocessing processes."""
@@ -104,7 +114,8 @@ class MultiProcessServiceManager(BaseServiceManager):
         # Kill all processes
         for info in self.multi_process_info:
             if info.process:
-                info.process.kill()
+                with contextlib.suppress(Exception):
+                    info.process.kill()
 
         # Wait for all to finish in parallel
         await asyncio.gather(
@@ -147,7 +158,7 @@ class MultiProcessServiceManager(BaseServiceManager):
                     return
 
                 # Wait a bit before checking again
-                await asyncio.sleep(0.5)
+                await asyncio.sleep(0.1)
 
         try:
             await asyncio.wait_for(_wait_for_registration(), timeout=timeout_seconds)

@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 import pytest
 
-from aiperf.common.enums import CommandType, ServiceType, Topic
+from aiperf.common.enums import CommandType, MessageType, ServiceType
 from aiperf.common.messages import CommandMessage, CreditReturnMessage
 from aiperf.common.service.base_service import BaseService
 from aiperf.services.timing_manager.config import TimingManagerConfig, TimingMode
@@ -72,7 +72,7 @@ class TestTimingManager(BaseTestComponentService):
         )
 
         # Mock the open function when called with that specific path
-        mock_file = io.StringIO(mock_file_content)
+        mock_file = io.StringIO(str(mock_timing_data))
 
         # Use patch to replace the built-in open function
         with patch("builtins.open", return_value=mock_file):
@@ -114,12 +114,12 @@ class TestTimingManager(BaseTestComponentService):
         pushed_messages = []
 
         # 5. Create a function to simulate credit returns
-        async def simulate_credit_return(topic, message):
+        async def simulate_credit_return(message_type, message):
             # First collect the pushed message
-            pushed_messages.append((topic, message))
+            pushed_messages.append((message_type, message))
 
             # Create and process a return message
-            return_message = CreditReturnMessage(service_id="test-consumer", amount=1)
+            return_message = CreditReturnMessage(service_id="test-consumer")
             await service._on_credit_return(return_message)
 
         # 6. Mock necessary functions
@@ -140,8 +140,8 @@ class TestTimingManager(BaseTestComponentService):
             )
 
             # 10. Check details of the pushed messages
-            for topic, message in pushed_messages:
-                assert topic == Topic.CREDIT_DROP
+            for message_type, message in pushed_messages:
+                assert message_type == MessageType.CREDIT_DROP
                 assert message.service_id == service.service_id
                 assert message.amount == 1
                 # You could also verify the timestamp corresponds to the schedule

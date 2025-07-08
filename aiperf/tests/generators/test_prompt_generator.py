@@ -14,8 +14,7 @@ import pytest
 
 from aiperf.common.config import PrefixPromptConfig, PromptConfig
 from aiperf.common.exceptions import (
-    ConfigurationError,
-    InitializationError,
+    NotInitializedError,
 )
 from aiperf.services.dataset.generator.prompt import PromptGenerator
 
@@ -270,7 +269,7 @@ class TestPromptGeneratorComprehensive:
         generator = PromptGenerator(config, tokenizer)
 
         if should_raise:
-            with pytest.raises(ConfigurationError) as exc_info:
+            with pytest.raises(NotInitializedError) as exc_info:
                 generator._generate_cached_prompt(
                     num_tokens=num_tokens, hash_ids=hash_ids, block_size=block_size
                 )
@@ -431,7 +430,7 @@ class TestPromptGeneratorComprehensive:
         generator._tokenized_corpus = []
         generator._corpus_size = 0
 
-        with pytest.raises(InitializationError):
+        with pytest.raises(NotInitializedError):
             generator._sample_tokens(5)
 
     # ============================================================================
@@ -469,7 +468,7 @@ class TestPromptGeneratorComprehensive:
         tokenizer, config = basic_config
         generator = PromptGenerator(config, tokenizer)
 
-        with pytest.raises(InitializationError):
+        with pytest.raises(NotInitializedError):
             generator.get_random_prefix_prompt()
 
     # ============================================================================
@@ -505,7 +504,7 @@ class TestPromptGeneratorComprehensive:
         generator = PromptGenerator(config, tokenizer)
         generator._tokenized_corpus = None
 
-        with pytest.raises(InitializationError):
+        with pytest.raises(NotInitializedError):
             generator._create_prefix_prompt_pool()
 
     def test_create_prefix_prompt_pool_zero_length(self, prefix_config):

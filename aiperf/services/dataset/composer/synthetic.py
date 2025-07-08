@@ -83,7 +83,7 @@ class SyntheticDatasetComposer(BaseDatasetComposer):
 
         # TODO: complete the warning message
         if not turn.text and not turn.image and not turn.audio:
-            self.logger.warning("There w")
+            self.logger.warning("There was no payload generated for turn %s", turn)
 
         return turn
 

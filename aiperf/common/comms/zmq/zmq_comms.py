@@ -104,7 +104,18 @@ class BaseZMQCommunication(BaseCommunication, ABC):
                 ),
             )
 
+            self.context.term()
+
         except asyncio.CancelledError:
+            self.logger.debug("ZMQ communication shutdown cancelled")
+            pass
+
+        except asyncio.TimeoutError:
+            self.logger.debug("ZMQ communication shutdown timed out")
+            pass
+
+        except zmq.ContextTerminated:
+            self.logger.debug("ZMQ communication context already terminated")
             pass
 
         except Exception as e:
@@ -209,7 +220,7 @@ class ZMQIPCCommunication(BaseZMQCommunication):
                 try:
                     if os.path.exists(ipc_file):
                         os.unlink(ipc_file)
-                        self.logger.debug(f"Removed IPC socket file: {ipc_file}")
+                        self.logger.debug("Removed IPC socket file: %s", ipc_file)
                 except OSError as e:
                     if e.errno != errno.ENOENT:
                         self.logger.warning(

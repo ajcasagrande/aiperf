@@ -41,7 +41,7 @@ async def lifespan(_: FastAPI):
     logger.info("Server configuration: %s", server_config.model_dump())
 
     if server_config.tokenizer_models:
-        logger.info(f"Pre-loading tokenizer models: {server_config.tokenizer_models}")
+        logger.info("Pre-loading tokenizer models: %s", server_config.tokenizer_models)
         tokenizer_service.load_tokenizers(server_config.tokenizer_models)
         logger.info("Tokenizer models loaded successfully")
 
@@ -132,7 +132,7 @@ async def configure(request: ConfigureMessage):
     if request.ttft is not None:
         server_config.ttft = request.ttft
     if request.tokenizer_models is not None:
-        logger.info(f"Loading tokenizer models: {request.tokenizer_models}")
+        logger.info("Loading tokenizer models: %s", request.tokenizer_models)
         tokenizer_service.load_tokenizers(request.tokenizer_models)
         logger.info("Tokenizer models loaded successfully")
 

@@ -3,4 +3,16 @@
 
 __all__ = ["DatasetManager"]
 
+from aiperf.services.dataset.composer import (
+    BaseDatasetComposer,
+    CustomDatasetComposer,
+    SyntheticDatasetComposer,
+)
 from aiperf.services.dataset.dataset_manager import DatasetManager
+
+__all__ = [
+    "DatasetManager",
+    "BaseDatasetComposer",
+    "CustomDatasetComposer",
+    "SyntheticDatasetComposer",
+]

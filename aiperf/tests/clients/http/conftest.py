@@ -64,7 +64,7 @@ def edge_case_inputs() -> dict[str, str]:
 def http_client_config() -> GenericHTTPClientConfig:
     """Fixture providing a standard HTTP client configuration."""
     return GenericHTTPClientConfig(
-        url="http://localhost:8080",
+        base_url="http://localhost:8080",
         timeout_ms=30000,
         headers={"Content-Type": "application/json"},
         api_key="test-api-key",
@@ -116,7 +116,7 @@ async def aiohttp_client(
     """Fixture providing an AioHttpClientMixin instance."""
     client = AioHttpClientMixin(http_client_config)
     yield client
-    await client.cleanup()
+    await client.close()
 
 
 def create_mock_response(
@@ -174,7 +174,7 @@ async def integration_client(http_client_config: GenericHTTPClientConfig):
     """Fixture providing a managed AioHttpClientMixin instance for integration tests."""
     client = AioHttpClientMixin(http_client_config)
     yield client
-    await client.cleanup()
+    await client.close()
 
 
 @pytest.fixture

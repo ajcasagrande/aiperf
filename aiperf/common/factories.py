@@ -6,7 +6,7 @@ from typing import Any, Generic, TypeVar
 
 from aiperf.common.enums import (
     CaseInsensitiveStrEnum,
-    CommunicationBackend,
+    PromptSource,
     ServiceType,
     ZMQProxyType,
 )
@@ -76,6 +76,21 @@ class FactoryMixin(Generic[ClassEnumT, ClassProtocolT]):
         cls._override_priorities = {}
         cls.logger = logging.getLogger(cls.__name__)
         super().__init_subclass__()
+
+    @classmethod
+    def register_all(
+        cls, *class_types: ClassEnumT | str, override_priority: int = 0
+    ) -> Callable:
+        """Register multiple class types mapping to a single corresponding class.
+        This is useful if a single class implements multiple types. Currently only supports
+        registering as a single override priority for all types."""
+
+        def decorator(class_cls: type[ClassProtocolT]) -> type[ClassProtocolT]:
+            for class_type in class_types:
+                cls.register(class_type, override_priority)(class_cls)
+            return class_cls
+
+        return decorator
 
     @classmethod
     def register(
@@ -162,12 +177,6 @@ class FactoryMixin(Generic[ClassEnumT, ClassProtocolT]):
     def get_class_from_type(cls, class_type: ClassEnumT | str) -> type[ClassProtocolT]:
         """Get the class from a class type.
 
-        Args:
-            class_type: The class type to get the class from
-
-        Returns:
-            The class for the given class type
-
         Raises:
             TypeError: If the class type is not registered
         """
@@ -204,23 +213,9 @@ class FactoryMixin(Generic[ClassEnumT, ClassProtocolT]):
 ################################################################################
 
 
-class CommunicationFactory(FactoryMixin[CommunicationBackend, "BaseCommunication"]):
-    """Factory for registering and creating BaseCommunication instances based on the specified communication backend.
-
-    Example:
-    ```python
-        # Register a new communication backend
-        @CommunicationFactory.register(CommunicationBackend.ZMQ_TCP)
-        class ZMQCommunication(BaseCommunication):
-            pass
-
-        # Create a new communication instance
-        communication = CommunicationFactory.create_instance(
-            CommunicationBackend.ZMQ_TCP,
-            config=ZMQTCPCommunicationConfig(
-                host="localhost", port=5555, timeout=10.0),
-        )
-    ```
+class InputConverterFactory(FactoryMixin[PromptSource, "InputConverterProtocol"]):
+    """Factory for registering and creating InputConverterProtocol instances based on the specified prompt source.
+    see: :class:`FactoryMixin` for more details.
     """
 
 

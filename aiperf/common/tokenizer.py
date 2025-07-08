@@ -5,11 +5,11 @@ import contextlib
 import io
 from typing import TYPE_CHECKING
 
+from aiperf.common.exceptions import InitializationError, NotInitializedError
+
 # Use TYPE_CHECKING to import BatchEncoding only during static type checks
 if TYPE_CHECKING:
     from transformers import BatchEncoding
-
-from aiperf.common.exceptions import InitializationError, NotInitializedError
 
 # Silence tokenizer warning on import and first use
 with (
