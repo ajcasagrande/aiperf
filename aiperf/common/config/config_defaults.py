@@ -154,7 +154,7 @@ class LoadGeneratorDefaults:
     REQUEST_COUNT = 10
     WARMUP_REQUEST_COUNT = 0
     CONCURRENCY_RAMP_UP_TIME = None
-    REQUEST_RATE_MODE = RequestRateMode.FIXED
+    REQUEST_RATE_MODE = RequestRateMode.POISSON
 
 
 @dataclass(frozen=True)

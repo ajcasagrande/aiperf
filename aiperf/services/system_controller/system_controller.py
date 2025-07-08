@@ -24,6 +24,7 @@ from aiperf.common.enums import (
 )
 from aiperf.common.exceptions import CommunicationError, NotInitializedError
 from aiperf.common.factories import ServiceFactory
+from aiperf.common.health_models import WorkerHealthMessage
 from aiperf.common.hooks import on_cleanup, on_start, on_stop
 from aiperf.common.logging import get_global_log_queue
 from aiperf.common.messages import (
@@ -34,7 +35,6 @@ from aiperf.common.messages import (
     ProcessRecordsCommandData,
     RegistrationMessage,
     StatusMessage,
-    WorkerHealthMessage,
 )
 from aiperf.common.service.base_controller_service import BaseControllerService
 from aiperf.common.service_models import ServiceRunInfo
@@ -79,7 +79,7 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
         self.logger.debug("Creating System Controller")
 
         self._system_state: SystemState = SystemState.INITIALIZING
-        self.user_config = user_config
+        self.user_config: UserConfig | None = user_config
 
         # List of required service types, in no particular order
         # These are services that must be running before the system controller can start profiling
@@ -409,9 +409,10 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
                 await self.progress_logger.update_results()
 
             # Export the results
-            await ExporterManager(
-                results=message, input_config=self.user_config
-            ).export_all()
+            if self.user_config:
+                await ExporterManager(
+                    results=message, input_config=self.user_config
+                ).export_all()
 
         except Exception as e:
             self.logger.error("Failed to export results: %s", e)

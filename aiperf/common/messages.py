@@ -4,7 +4,6 @@ import time
 import uuid
 from typing import Any, ClassVar, Literal
 
-# import orjson
 from pydantic import (
     BaseModel,
     Field,
@@ -102,9 +101,7 @@ class Message(ExcludeIfNoneMixin):
         return message_class(**data)
 
     def to_json(self) -> str:
-        # """Fast serialization without full validation"""
         return self.model_dump_json()
-        # return orjson.dumps(self.model_dump()).decode("utf-8")
 
 
 class BaseServiceMessage(Message):
