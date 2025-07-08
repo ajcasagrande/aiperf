@@ -4,29 +4,22 @@ import asyncio
 import random
 import sys
 
-from pydantic import BaseModel, ConfigDict
-
 from aiperf.common.comms import ReplyClientProtocol
 from aiperf.common.comms.base import (
     CommunicationClientAddressType,
 )
 from aiperf.common.config import ServiceConfig, UserConfig
-from aiperf.common.config.input.prompt_config import PromptConfig
 from aiperf.common.dataset_models import Conversation
 from aiperf.common.enums import (
     ComposerType,
-    CustomDatasetType,
     MessageType,
     NotificationType,
     ServiceType,
 )
 from aiperf.common.factories import ComposerFactory, ServiceFactory
 from aiperf.common.hooks import (
-    on_cleanup,
     on_configure,
     on_init,
-    on_start,
-    on_stop,
 )
 from aiperf.common.messages import (
     ConversationRequestMessage,
@@ -40,21 +33,6 @@ from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.common.tokenizer import Tokenizer
 
 DATASET_CONFIGURATION_TIMEOUT = 30.0
-
-
-################################################################################
-# TODO: Temporary (remove when command config is ready)
-class MockConfig(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-    filename: str | None = None
-    tokenizer: Tokenizer | None = None
-    custom_dataset_type: CustomDatasetType | None = None
-    public_dataset: str | None = None
-    prompt: PromptConfig | None = None
-
-
-################################################################################
 
 
 @ServiceFactory.register(ServiceType.DATASET_MANAGER)
@@ -106,24 +84,6 @@ class DatasetManager(BaseComponentService):
         )
 
         self.logger.debug("Dataset manager %s initialized", self.service_id)
-
-    @on_start
-    async def _start(self) -> None:
-        """Start the dataset manager."""
-        self.logger.debug("Starting dataset manager %s", self.service_id)
-        # TODO: Implement dataset manager start
-
-    @on_stop
-    async def _stop(self) -> None:
-        """Stop the dataset manager."""
-        self.logger.debug("Stopping dataset manager %s", self.service_id)
-        # TODO: Implement dataset manager stop
-
-    @on_cleanup
-    async def _cleanup(self) -> None:
-        """Clean up dataset manager-specific components."""
-        self.logger.debug("Cleaning up dataset manager %s", self.service_id)
-        # TODO: Implement dataset manager cleanup
 
     async def _configure_dataset(self) -> None:
         if self.user_config is None:

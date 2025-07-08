@@ -7,7 +7,7 @@ import uuid
 from multiprocessing import Process
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 
 from aiperf.common.bootstrap import bootstrap_and_run_service
 from aiperf.common.config import ServiceConfig, UserConfig
@@ -24,14 +24,13 @@ from aiperf.common.hooks import (
     on_stop,
 )
 from aiperf.common.messages import Message
+from aiperf.common.pydantic_utils import AIPerfBaseModel
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.services.worker.worker import Worker
 
 
-class WorkerProcessInfo(BaseModel):
+class WorkerProcessInfo(AIPerfBaseModel):
     """Information about a worker process."""
-
-    model_config = ConfigDict(arbitrary_types_allowed=True, extra="allow")
 
     worker_id: str = Field(..., description="ID of the worker process")
     process: Any = Field(None, description="Process object or task")
@@ -66,11 +65,14 @@ class WorkerManager(BaseComponentService):
         if self.worker_count is None:
             self.worker_count = self.cpu_count - 1
 
-        # cap the worker count to the max concurrency + 1
-        self.worker_count = min(
-            self.max_concurrency + 1,
-            self.worker_count,
-        )
+        # TODO: This is broken. We need to cap the worker count to the max concurrency + 1, but only
+        #       if the user in in concurrency mode.
+        # # cap the worker count to the max concurrency + 1
+        # self.worker_count = min(
+        #     self.max_concurrency + 1,
+        #     self.worker_count,
+        # )
+
         self.logger.info(
             "Detected %s CPU cores/threads. Spawning %s worker processes",
             self.cpu_count,

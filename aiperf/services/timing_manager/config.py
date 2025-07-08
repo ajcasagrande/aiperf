@@ -3,11 +3,12 @@
 
 import asyncio
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 
 from aiperf.common.config.config_defaults import LoadGeneratorDefaults
 from aiperf.common.config.user_config import UserConfig
 from aiperf.common.enums import CaseInsensitiveStrEnum, CreditPhaseType, RequestRateMode
+from aiperf.common.pydantic_utils import AIPerfBaseModel
 
 
 class TimingMode(CaseInsensitiveStrEnum):
@@ -18,7 +19,7 @@ class TimingMode(CaseInsensitiveStrEnum):
     REQUEST_RATE = "rate"
 
 
-class TimingManagerConfig(BaseModel):
+class TimingManagerConfig(AIPerfBaseModel):
     """Configuration for the timing manager."""
 
     timing_mode: TimingMode = TimingMode.CONCURRENCY
@@ -55,14 +56,10 @@ class TimingManagerConfig(BaseModel):
         )
 
 
-class CreditPhase(BaseModel):
+class CreditPhase(AIPerfBaseModel):
     """
     A phase of credit issuing. Either a warmup phase or a profiling phase.
     """
-
-    model_config = ConfigDict(
-        arbitrary_types_allowed=True,
-    )
 
     phase_type: CreditPhaseType = Field(
         default=CreditPhaseType.PROFILING,

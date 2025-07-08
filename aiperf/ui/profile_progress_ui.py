@@ -17,7 +17,9 @@ from rich.progress import (
 from rich.table import Table
 from rich.text import Text
 
+from aiperf.common.enums import CreditPhaseType
 from aiperf.common.utils import format_duration
+from aiperf.progress.progress_models import ProfileProgress
 from aiperf.progress.progress_tracker import ProgressTracker
 from aiperf.ui.dashboard_element import DashboardElement
 
@@ -38,6 +40,7 @@ class ProfileProgressElement(DashboardElement):
         self.progress_tracker = progress_tracker
         self.progress_task_id: TaskID | None = None
         self.records_task_id: TaskID | None = None
+        self.warmup_progress_task_id: TaskID | None = None
         self.progress_bar = Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
@@ -58,18 +61,89 @@ class ProfileProgressElement(DashboardElement):
             TimeRemainingColumn(),
             expand=True,
         )
+        self.warmup_progress_bar = Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            MofNCompleteColumn(),
+            TimeElapsedColumn(),
+            TimeRemainingColumn(),
+            expand=True,
+        )
 
     def get_content(self) -> RenderableType:
         """Create the progress panel with benchmark status."""
 
+        # TODO: This is broken. We need to update the title and border style when the credit phase changes.
         if not self.progress_tracker.current_profile:
-            return Align.center(
-                Text("Waiting for benchmark data...", style="dim yellow"),
-                vertical="middle",
-            )
+            if self.progress_tracker.active_credit_phase == CreditPhaseType.WARMUP:
+                self.title = Text("Warmup Progress", style="bold orange")
+                self.border_style = "orange"
+                return Align.center(
+                    Text("Waiting for warmup data...", style="dim yellow"),
+                    vertical="middle",
+                )
+            else:
+                self.title = Text("Profiling Progress", style="bold cyan")
+                self.border_style = "cyan"
+                return Align.center(
+                    Text("Waiting for benchmark data...", style="dim yellow"),
+                    vertical="middle",
+                )
 
         profile = self.progress_tracker.current_profile
 
+        if profile.credit_phase == CreditPhaseType.WARMUP:
+            return self._get_content_warmup(profile)
+        elif profile.credit_phase == CreditPhaseType.PROFILING:
+            return self._get_content_profiling(profile)
+        else:
+            raise ValueError(f"Unsupported credit phase: {profile.credit_phase}")
+
+    def _get_content_warmup(self, profile: ProfileProgress) -> RenderableType:
+        """Create the progress panel with benchmark status."""
+
+        self.title = Text("Warmup Progress", style="bold orange")
+        self.border_style = "orange"
+        # Create or update warmup progress bar
+        if self.warmup_progress_task_id is None and profile.total_expected_requests:
+            self.warmup_progress_task_id = self.warmup_progress_bar.add_task(
+                "Warming up...", total=profile.total_expected_requests
+            )
+        elif self.warmup_progress_task_id is not None:
+            self.warmup_progress_bar.update(
+                self.warmup_progress_task_id, completed=profile.requests_completed or 0
+            )
+
+        # Pad each column by 1 space
+        progress_table = Table.grid(padding=(0, 1, 0, 0))
+        progress_table.add_column(style="bold cyan", justify="right")
+        progress_table.add_column(style="bold white")
+
+        if profile.is_complete:
+            status = Text("Complete", style="bold green")
+        elif profile.was_cancelled:
+            status = Text("Cancelled", style="bold red")
+        else:
+            status = Text("Warmup", style="bold orange")
+
+        progress_table.add_row("Status:", status)
+        progress_table.add_row(
+            "Progress:",
+            f"{profile.requests_completed or 0:,} / {profile.total_expected_requests or 0:,} requests "
+            f"({(profile.requests_completed or 0) / (profile.total_expected_requests or 1) * 100:.1f}%)",
+        )
+        progress_table.add_row(
+            "Request Rate:", f"{profile.requests_per_second or 0:.1f} req/s"
+        )
+        progress_table.add_row("Elapsed:", format_duration(profile.elapsed_time))
+        progress_table.add_row("Warmup ETA:", format_duration(profile.eta))
+
+        return Group(self.warmup_progress_bar, progress_table)
+
+    def _get_content_profiling(self, profile: ProfileProgress) -> RenderableType:
+        """Create the progress panel with benchmark status."""
         # Create or update requests progress bar
         if self.progress_task_id is None and profile.total_expected_requests:
             self.progress_task_id = self.progress_bar.add_task(

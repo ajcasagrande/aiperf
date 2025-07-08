@@ -6,7 +6,7 @@ import multiprocessing
 from multiprocessing import Process
 from multiprocessing.context import ForkProcess, SpawnProcess
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict, Field
 
 from aiperf.common.bootstrap import bootstrap_and_run_service
 from aiperf.common.config import ServiceConfig, UserConfig
@@ -17,10 +17,11 @@ from aiperf.common.constants import (
 from aiperf.common.enums import ServiceRegistrationStatus, ServiceType
 from aiperf.common.exceptions import ServiceError
 from aiperf.common.factories import ServiceFactory
+from aiperf.common.pydantic_utils import AIPerfBaseModel
 from aiperf.services.service_manager.base import BaseServiceManager
 
 
-class MultiProcessRunInfo(BaseModel):
+class MultiProcessRunInfo(AIPerfBaseModel):
     """Information about a service running as a multiprocessing process."""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)

@@ -2,14 +2,15 @@
 # SPDX-License-Identifier: Apache-2.0
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from aiperf.common.config.config_defaults import EndPointDefaults
 from aiperf.common.config.user_config import UserConfig
 from aiperf.common.enums import EndpointType, Modality, ModelSelectionStrategy
+from aiperf.common.pydantic_utils import AIPerfBaseModel
 
 
-class ModelInfo(BaseModel):
+class ModelInfo(AIPerfBaseModel):
     """Information about a model."""
 
     name: str = Field(
@@ -28,7 +29,7 @@ class ModelInfo(BaseModel):
     )
 
 
-class ModelListInfo(BaseModel):
+class ModelListInfo(AIPerfBaseModel):
     """Information about a list of models."""
 
     models: list[ModelInfo] = Field(
@@ -50,7 +51,7 @@ class ModelListInfo(BaseModel):
         )
 
 
-class EndpointInfo(BaseModel):
+class EndpointInfo(AIPerfBaseModel):
     """Information about an endpoint."""
 
     type: EndpointType = Field(
@@ -110,7 +111,7 @@ class EndpointInfo(BaseModel):
         )
 
 
-class ModelEndpointInfo(BaseModel):
+class ModelEndpointInfo(AIPerfBaseModel):
     """Information about a model endpoint."""
 
     models: ModelListInfo = Field(

@@ -4,6 +4,11 @@ import logging
 
 from aiperf.common.health_models import WorkerHealthMessage
 from aiperf.common.hooks import AIPerfLifecycleMixin, on_start, on_stop
+from aiperf.progress.progress_models import (
+    ProcessingStatsMessage,
+    ProfileProgressMessage,
+    ProfileResultsMessage,
+)
 from aiperf.progress.progress_tracker import ProgressTracker
 from aiperf.ui.profile_progress_ui import ProfileProgressElement
 from aiperf.ui.rich_dashboard import AIPerfRichDashboard
@@ -33,7 +38,7 @@ class AIPerfUI(AIPerfLifecycleMixin):
         """Stop the UI."""
         await self.dashboard.shutdown()
 
-    async def on_profile_progress_update(self) -> None:
+    async def on_profile_progress_update(self, message: ProfileProgressMessage) -> None:
         """Update progress display."""
         try:
             if self.dashboard.running and self.progress_tracker.current_profile:
@@ -41,7 +46,7 @@ class AIPerfUI(AIPerfLifecycleMixin):
         except Exception as e:
             logger.error("Error updating profile progress: %s", e)
 
-    async def on_processing_stats_update(self) -> None:
+    async def on_processing_stats_update(self, message: ProcessingStatsMessage) -> None:
         """Update statistics display."""
         try:
             if self.dashboard.running and self.progress_tracker.current_profile:
@@ -58,7 +63,7 @@ class AIPerfUI(AIPerfLifecycleMixin):
         except Exception as e:
             logger.error("Error updating worker health: %s", e)
 
-    async def on_profile_results_update(self) -> None:
+    async def on_profile_results_update(self, message: ProfileResultsMessage) -> None:
         """Process the final results."""
         # TODO: Removed the update call because it was clearing the dashboard.
         #       I think this is because the progress tracker changes the current profile.

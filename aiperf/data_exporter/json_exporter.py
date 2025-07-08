@@ -5,17 +5,17 @@ import logging
 from datetime import datetime
 
 import aiofiles
-from pydantic import BaseModel
 
 from aiperf.common.config import UserConfig
 from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import DataExporterType
 from aiperf.common.factories import DataExporterFactory
+from aiperf.common.pydantic_utils import AIPerfBaseModel
 from aiperf.common.record_models import ErrorDetailsCount, MetricResult
 from aiperf.data_exporter.exporter_config import ExporterConfig
 
 
-class JsonExportData(BaseModel):
+class JsonExportData(AIPerfBaseModel):
     """Data to be exported to a JSON file."""
 
     input_config: UserConfig | None = None

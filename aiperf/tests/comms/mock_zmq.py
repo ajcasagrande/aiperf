@@ -6,14 +6,15 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from aiperf.common.comms.zmq import BaseZMQCommunication
 from aiperf.common.enums import MessageType, ServiceState, ServiceType
 from aiperf.common.messages import Message, StatusMessage
+from aiperf.common.pydantic_utils import AIPerfBaseModel
 
 
-class MockCommunicationData(BaseModel):
+class MockCommunicationData(AIPerfBaseModel):
     """Data structure to hold state information for mock communication objects."""
 
     published_messages: dict[MessageType, list[Message]] = Field(default_factory=dict)

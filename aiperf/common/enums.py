@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 from enum import Enum, auto
-from typing import Any
+from typing import Any, Protocol
 
 
 ################################################################################
@@ -511,12 +511,29 @@ class PostProcessorType(CaseInsensitiveStrEnum):
 ################################################################################
 
 
-class MetricTimeType(Enum):
+class ShortNameProtocol(Protocol):
+    """A protocol for objects that have a short name."""
+
+    def short_name(self) -> str:
+        """Get the short name for the object."""
+        raise NotImplementedError("Subclass must implement short_name")
+
+
+class MetricTimeType(CaseInsensitiveStrEnum):
     """Defines the time types for metrics."""
 
-    NANOSECONDS = 9
-    MILLISECONDS = 3
-    SECONDS = 0
+    NANOSECONDS = "nanoseconds"
+    MILLISECONDS = "milliseconds"
+    SECONDS = "seconds"
+
+    def short_name(self) -> str:
+        """Get the short name for the time type."""
+        _short_name_map = {
+            MetricTimeType.NANOSECONDS: "ns",
+            MetricTimeType.MILLISECONDS: "ms",
+            MetricTimeType.SECONDS: "s",
+        }
+        return _short_name_map[self]
 
 
 class MetricType(Enum):

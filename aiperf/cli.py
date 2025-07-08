@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 import cyclopts
-from pydantic import BaseModel, Field
+from pydantic import Field
 from rich.console import Console
 from rich.logging import RichHandler
 
@@ -15,12 +15,13 @@ from aiperf.common.bootstrap import bootstrap_and_run_service
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.config_defaults import ServiceDefaults
 from aiperf.common.config.user_config import UserConfig
+from aiperf.common.pydantic_utils import AIPerfBaseModel
 from aiperf.services.system_controller.system_controller import SystemController
 
 logger = logging.getLogger(__name__)
 
 
-class CLIConfig(BaseModel):
+class CLIConfig(AIPerfBaseModel):
     """Configuration model for CLI arguments."""
 
     config: Path | None = Field(

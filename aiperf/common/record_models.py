@@ -7,13 +7,14 @@ import time
 from functools import cached_property
 from typing import Any
 
-from pydantic import BaseModel, Field, SerializeAsAny
+from pydantic import Field, SerializeAsAny
 
 from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import CreditPhaseType, SSEFieldType
+from aiperf.common.pydantic_utils import AIPerfBaseModel
 
 
-class MetricResult(BaseModel):
+class MetricResult(AIPerfBaseModel):
     """The result values of a single metric."""
 
     tag: str = Field(description="The unique identifier of the metric")
@@ -48,7 +49,7 @@ class MetricResult(BaseModel):
 ################################################################################
 
 
-class BaseClientConfig(BaseModel):
+class BaseClientConfig(AIPerfBaseModel):
     """Base configuration options for all clients."""
 
 
@@ -85,7 +86,7 @@ class GenericHTTPClientConfig(BaseClientConfig):
 ################################################################################
 
 
-class InferenceServerResponse(BaseModel):
+class InferenceServerResponse(AIPerfBaseModel):
     """Response from a inference client."""
 
     perf_ns: int = Field(
@@ -107,7 +108,7 @@ class TextResponse(InferenceServerResponse):
     )
 
 
-class ErrorDetails(BaseModel):
+class ErrorDetails(AIPerfBaseModel):
     """Encapsulates details about an error."""
 
     code: int | None = Field(
@@ -146,7 +147,7 @@ class ErrorDetails(BaseModel):
         )
 
 
-class ErrorDetailsCount(BaseModel):
+class ErrorDetailsCount(AIPerfBaseModel):
     """Count of error details."""
 
     error_details: ErrorDetails
@@ -156,7 +157,7 @@ class ErrorDetailsCount(BaseModel):
     )
 
 
-class SSEField(BaseModel):
+class SSEField(AIPerfBaseModel):
     """Base model for a single field in an SSE message."""
 
     name: SSEFieldType | str = Field(
@@ -198,7 +199,7 @@ class SSEMessage(InferenceServerResponse):
 ################################################################################
 
 
-class RequestRecord(BaseModel):
+class RequestRecord(AIPerfBaseModel):
     """Record of a request with its associated responses."""
 
     request: Any = Field(
@@ -345,7 +346,7 @@ class RequestRecord(BaseModel):
         )
 
 
-class ResponseData(BaseModel):
+class ResponseData(AIPerfBaseModel):
     """Base class for all response data."""
 
     perf_ns: int = Field(description="The performance timestamp of the response.")
@@ -362,7 +363,7 @@ class ResponseData(BaseModel):
     )
 
 
-class ParsedResponseRecord(BaseModel):
+class ParsedResponseRecord(AIPerfBaseModel):
     """Record of a request and its associated responses, already parsed and ready for metrics."""
 
     worker_id: str = Field(

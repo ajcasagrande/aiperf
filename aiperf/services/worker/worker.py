@@ -222,6 +222,7 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
                 ConversationRequestMessage(
                     service_id=self.service_id,
                     conversation_id=message.conversation_id,
+                    credit_phase=message.credit_phase,
                 )
             )
         )

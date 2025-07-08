@@ -5,9 +5,10 @@ from collections import namedtuple
 from functools import cached_property
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from aiperf.common.messages import BaseServiceMessage, MessageType
+from aiperf.common.pydantic_utils import AIPerfBaseModel
 
 # TODO: These can be different for each platform. (below is linux specific)
 IOCounters = namedtuple(
@@ -30,7 +31,7 @@ CPUTimes = namedtuple(
 CtxSwitches = namedtuple("CtxSwitches", ["voluntary", "involuntary"])
 
 
-class ProcessHealth(BaseModel):
+class ProcessHealth(AIPerfBaseModel):
     """Model for process health data."""
 
     pid: int | None = Field(
@@ -123,7 +124,7 @@ class WorkerHealthMessage(BaseServiceMessage):
 
 
 # TODO: This is a work in progress.
-class WorkerHealthSummary(BaseModel):
+class WorkerHealthSummary(AIPerfBaseModel):
     """Summary of all workers' health data."""
 
     workers: list[WorkerHealthMessage] = Field(

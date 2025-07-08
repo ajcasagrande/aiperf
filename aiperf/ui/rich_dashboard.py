@@ -36,7 +36,7 @@ class AIPerfRichDashboard(LogsDashboardMixin, AIPerfLifecycleMixin):
 
         self.elements: dict[str, DashboardElement] = {
             HeaderElement.key: HeaderElement(),
-            ProfileProgressElement.key: ProfileProgressElement(self.progress_tracker),
+            ProfileProgressElement.key: ProfileProgressElement(progress_tracker),
             WorkerStatusElement.key: WorkerStatusElement(
                 self.worker_health, self.worker_last_seen
             ),
@@ -48,6 +48,7 @@ class AIPerfRichDashboard(LogsDashboardMixin, AIPerfLifecycleMixin):
 
     def _create_layout(self) -> Layout:
         """Create the main layout for the dashboard."""
+
         layout = Layout()
 
         layout.split_column(
@@ -87,6 +88,7 @@ class AIPerfRichDashboard(LogsDashboardMixin, AIPerfLifecycleMixin):
 
     def refresh_element(self, element_key: str) -> None:
         """Refresh the specified element."""
+        logger.debug("Refreshing ui element: %s", element_key)
         self.layout[element_key].update(self.elements[element_key].get_panel())
 
     def update_worker_health(self, health_message: WorkerHealthMessage) -> None:

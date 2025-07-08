@@ -3,12 +3,13 @@
 
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import Field, model_validator
 
 from aiperf.common.enums import CustomDatasetType
+from aiperf.common.pydantic_utils import AIPerfBaseModel
 
 
-class TraceCustomData(BaseModel):
+class TraceCustomData(AIPerfBaseModel):
     """Defines the schema of each JSONL line in a trace file.
 
     Example:

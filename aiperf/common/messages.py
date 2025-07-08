@@ -5,7 +5,6 @@ import uuid
 from typing import Any, ClassVar, Literal
 
 from pydantic import (
-    BaseModel,
     Field,
     SerializeAsAny,
 )
@@ -20,7 +19,11 @@ from aiperf.common.enums import (
     ServiceState,
     ServiceType,
 )
-from aiperf.common.pydantic_utils import ExcludeIfNoneMixin, exclude_if_none
+from aiperf.common.pydantic_utils import (
+    AIPerfBaseModel,
+    ExcludeIfNoneMixin,
+    exclude_if_none,
+)
 from aiperf.common.record_models import (
     ErrorDetails,
     ParsedResponseRecord,
@@ -167,7 +170,7 @@ class HeartbeatMessage(BaseStatusMessage):
     message_type: Literal[MessageType.HEARTBEAT] = MessageType.HEARTBEAT
 
 
-class ProcessRecordsCommandData(BaseModel):
+class ProcessRecordsCommandData(AIPerfBaseModel):
     """Data to send with the process records command."""
 
     cancelled: bool = Field(
@@ -207,7 +210,7 @@ class CommandMessage(BaseServiceMessage):
         "If both `target_service_type` and `target_service_id` are None, the command is "
         "sent to all services.",
     )
-    data: SerializeAsAny[ProcessRecordsCommandData | BaseModel | None] = Field(
+    data: SerializeAsAny[ProcessRecordsCommandData | AIPerfBaseModel | None] = Field(
         default=None,
         description="Data to send with the command",
     )
@@ -228,7 +231,7 @@ class CommandResponseMessage(BaseServiceMessage):
         ..., description="The ID of the command that is being responded to"
     )
     status: CommandResponseStatus = Field(..., description="The status of the command")
-    data: SerializeAsAny[BaseModel | None] = Field(
+    data: SerializeAsAny[AIPerfBaseModel | None] = Field(
         default=None,
         description="Data to send with the command response if the command succeeded",
     )
@@ -316,7 +319,7 @@ class NotificationMessage(BaseServiceMessage):
         description="The type of notification",
     )
 
-    data: SerializeAsAny[BaseModel | None] = Field(
+    data: SerializeAsAny[AIPerfBaseModel | None] = Field(
         default=None,
         description="Data to send with the notification",
     )
@@ -339,6 +342,10 @@ class ConversationRequestMessage(BaseServiceMessage):
 
     conversation_id: str | None = Field(
         default=None, description="The session ID of the conversation"
+    )
+    credit_phase: CreditPhaseType | None = Field(
+        default=None,
+        description="The type of credit phase (either warmup or profiling). If not provided, the timing manager will use the default credit phase.",
     )
 
 

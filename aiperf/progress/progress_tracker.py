@@ -35,6 +35,12 @@ class ProgressTracker:
             return None
         return self.suite.current_profile
 
+    @property
+    def active_credit_phase(self) -> CreditPhaseType | None:
+        if self.current_profile is None:
+            return None
+        return self.current_profile.credit_phase
+
     def configure(self, suite_type: BenchmarkSuiteType) -> None:
         if suite_type in [
             BenchmarkSuiteType.SINGLE_PROFILE,
@@ -79,6 +85,7 @@ class ProgressTracker:
             return
 
         profile = self.suite.current_profile
+        profile.credit_phase = message.credit_phase
 
         if message.start_ns == 0:
             self.logger.warning("Profile progress message has no start_ns")
@@ -139,7 +146,7 @@ class ProgressTracker:
         if (
             profile.total_expected_requests is not None
             and profile.total_expected_requests > 0
-            and message.credit_phase == CreditPhaseType.PROFILING
+            and profile.credit_phase == CreditPhaseType.PROFILING
             and profile.start_time_ns is not None
             and profile.requests_processed >= profile.total_expected_requests
         ):

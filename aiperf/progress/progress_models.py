@@ -4,13 +4,14 @@
 from abc import ABC, abstractmethod
 from typing import Literal
 
-from pydantic import BaseModel, Field, SerializeAsAny
+from pydantic import Field, SerializeAsAny
 
 from aiperf.common.enums import (
     CaseInsensitiveStrEnum,
     CreditPhaseType,
 )
 from aiperf.common.messages import BaseServiceMessage, MessageType
+from aiperf.common.pydantic_utils import AIPerfBaseModel
 from aiperf.common.record_models import ErrorDetailsCount, MetricResult
 
 
@@ -130,7 +131,7 @@ class BenchmarkSuiteType(CaseInsensitiveStrEnum):
     """User defined suite type. TBD"""
 
 
-class ProfileProgress(BaseModel):
+class ProfileProgress(AIPerfBaseModel):
     """State of the profile progress."""
 
     profile_id: str = Field(..., description="The ID of the profile")
@@ -215,9 +216,13 @@ class ProfileProgress(BaseModel):
         default=False,
         description="Whether the profile run is complete",
     )
+    credit_phase: CreditPhaseType = Field(
+        default=CreditPhaseType.UNKNOWN,
+        description="The type of credit phase (either warmup or profiling)",
+    )
 
 
-class SweepProgress(BaseModel):
+class SweepProgress(AIPerfBaseModel):
     """State of the sweep progress."""
 
     sweep_id: str = Field(..., description="The ID of the current sweep")
@@ -266,7 +271,7 @@ class SweepProgress(BaseModel):
         return self.profiles[self.current_profile_idx]
 
 
-class BenchmarkSuiteProgress(BaseModel, ABC):
+class BenchmarkSuiteProgress(AIPerfBaseModel, ABC):
     """State of the suite progress."""
 
     suite_type: BenchmarkSuiteType = Field(
@@ -487,6 +492,6 @@ class ProcessingStatsMessage(BaseServiceMessage):
         description="Per-worker error counts, keyed by worker service_id",
     )
     credit_phase: CreditPhaseType = Field(
-        default=CreditPhaseType.PROFILING,
+        default=CreditPhaseType.UNKNOWN,
         description="The type of credit phase (either warmup or profiling)",
     )

@@ -16,7 +16,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 import zmq
 import zmq.asyncio
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from aiperf.common.comms.base import BaseCommunication, CommunicationClientProtocol
 from aiperf.common.comms.zmq import (
@@ -33,6 +33,7 @@ from aiperf.common.enums import (
     ServiceType,
 )
 from aiperf.common.messages import Message, StatusMessage
+from aiperf.common.pydantic_utils import AIPerfBaseModel
 
 
 class _TestMessage(Message):
@@ -43,7 +44,7 @@ class _TestMessage(Message):
     counter: int = Field(default=0)
 
 
-class MockCommunicationData(BaseModel):
+class MockCommunicationData(AIPerfBaseModel):
     """Data structure to hold state information for mock communication objects."""
 
     published_messages: dict[MessageType, list[Message]] = Field(default_factory=dict)

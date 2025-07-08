@@ -3,16 +3,17 @@
 
 import time
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from aiperf.common.enums import (
     ServiceRegistrationStatus,
     ServiceState,
     ServiceType,
 )
+from aiperf.common.pydantic_utils import AIPerfBaseModel
 
 
-class ServiceRunInfo(BaseModel):
+class ServiceRunInfo(AIPerfBaseModel):
     """Base model for tracking service run information."""
 
     service_type: ServiceType = Field(

@@ -2,14 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
 
-from pydantic import BaseModel
-
 from aiperf.common.config import ServiceConfig
 from aiperf.common.enums import ServiceType
+from aiperf.common.pydantic_utils import AIPerfBaseModel
 from aiperf.services.service_manager.base import BaseServiceManager
 
 
-class ServiceKubernetesRunInfo(BaseModel):
+class ServiceKubernetesRunInfo(AIPerfBaseModel):
     """Information about a service running in a Kubernetes pod."""
 
     pod_name: str
