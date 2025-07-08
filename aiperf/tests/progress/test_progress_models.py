@@ -388,16 +388,21 @@ class TestMessageModels:
 
     def test_profile_progress_message(self):
         """Test ProfileProgressMessage creation."""
+        start_time = time.time_ns()
         message = ProfileProgressMessage(
             service_id="test-service",
-            start_ns=time.time_ns(),
+            start_ns=start_time,
+            measurement_start_ns=start_time,
             total=100,
             completed=50,
+            ramp_up_completed=10,
         )
 
         assert message.service_id == "test-service"
         assert message.total == 100
         assert message.completed == 50
+        assert message.ramp_up_completed == 10
+        assert message.steady_state_completed == 40
         assert message.profile_id is None
         assert message.end_ns is None
 
@@ -410,9 +415,11 @@ class TestMessageModels:
             service_id="test-service",
             profile_id="test-profile",
             start_ns=start_time,
+            measurement_start_ns=start_time,
             end_ns=end_time,
             total=100,
             completed=100,
+            ramp_up_completed=20,
         )
 
         assert message.profile_id == "test-profile"

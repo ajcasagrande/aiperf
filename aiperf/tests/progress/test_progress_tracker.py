@@ -5,9 +5,13 @@
 import time
 from unittest.mock import patch
 
+from aiperf.common.constants import NANOS_PER_SECOND
+from aiperf.common.enums import CreditPhaseType
 from aiperf.progress.progress_models import (
     BenchmarkSuiteType,
+    ProcessingStatsMessage,
     ProfileProgress,
+    ProfileProgressMessage,
     ProfileSuiteProgress,
     SweepSuiteProgress,
 )
@@ -252,6 +256,9 @@ class TestProgressTracker:
         start_time = 1000000000  # Use fixed start time
         profile.start_time_ns = start_time
         profile.total_expected_requests = 45  # Same as completed in message
+        profile.credit_phase = (
+            CreditPhaseType.PROFILING
+        )  # Required for completion check
 
         with patch("aiperf.progress.progress_tracker.time.time_ns") as mock_time:
             mock_time.return_value = start_time + 1000000000  # 1 second later
@@ -437,6 +444,110 @@ class TestProgressTracker:
             tracker.update_processing_stats(processing_stats_message)
 
             assert profile.processing_eta is None  # Should be None when no progress
+
+    def test_measurement_start_time_ns_usage(self):
+        """Test that measurement_start_ns is used for steady-state metrics calculation."""
+        tracker = ProgressTracker()
+        tracker.configure(BenchmarkSuiteType.SINGLE_PROFILE)
+        tracker.suite.current_profile_idx = 0
+
+        # Create a progress message with different start_ns and measurement_start_ns
+        # This simulates a ramp-up scenario where measurement should start after ramp-up
+        start_ns = 1000000000  # 1 second
+        measurement_start_ns = 1500000000  # 1.5 seconds (500ms after start)
+
+        message = ProfileProgressMessage(
+            service_id="test-service",
+            start_ns=start_ns,
+            measurement_start_ns=measurement_start_ns,
+            total=100,
+            completed=50,
+            ramp_up_completed=10,
+        )
+
+        # Mock current time to be 2 seconds after start (500ms after measurement start)
+        current_time = 2000000000  # 2 seconds
+
+        with patch("aiperf.progress.progress_tracker.time.time_ns") as mock_time:
+            mock_time.return_value = current_time
+            tracker.update_profile_progress(message)
+
+            profile = tracker.current_profile
+
+            # Verify that measurement start time is stored
+            assert (
+                profile.__dict__.get("measurement_start_time_ns")
+                == measurement_start_ns
+            )
+
+            # Verify that requests_per_second is calculated using measurement_start_ns
+            # and steady-state completed requests (50 - 10 = 40 steady-state requests)
+            # 40 requests over 500ms (current_time - measurement_start_ns) = 80 req/s
+            steady_state_completed = 50 - 10  # total completed - ramp_up_completed
+            expected_rate = steady_state_completed / (
+                (current_time - measurement_start_ns) / NANOS_PER_SECOND
+            )
+            assert profile.requests_per_second == expected_rate
+
+            # Verify that elapsed_time is calculated using original start_ns
+            # 1 second elapsed (current_time - start_ns)
+            expected_elapsed = (current_time - start_ns) / NANOS_PER_SECOND
+            assert profile.elapsed_time == expected_elapsed
+
+            # Verify that processing stats can use the stored measurement start time
+            processing_message = ProcessingStatsMessage(
+                service_id="test-service",
+                completed=45,
+                error_count=5,
+            )
+
+            # Update processing stats and verify it uses measurement start time
+            tracker.update_processing_stats(processing_message)
+
+            # Processing rate should be calculated using measurement_start_ns
+            # and steady-state processed requests (45 - 10 = 35 steady-state processed)
+            steady_state_processed = 45 - 10  # total processed - ramp_up_completed
+            expected_processing_rate = steady_state_processed / (
+                (current_time - measurement_start_ns) / NANOS_PER_SECOND
+            )
+            assert profile.processed_per_second == expected_processing_rate
+
+    def test_measurement_start_time_ns_fallback(self):
+        """Test that start_ns is used as fallback when measurement_start_ns is 0."""
+        tracker = ProgressTracker()
+        tracker.configure(BenchmarkSuiteType.SINGLE_PROFILE)
+        tracker.suite.current_profile_idx = 0
+
+        # Create a progress message with measurement_start_ns = 0 (should fallback to start_ns)
+        start_ns = 1000000000  # 1 second
+
+        message = ProfileProgressMessage(
+            service_id="test-service",
+            start_ns=start_ns,
+            measurement_start_ns=0,  # This should trigger fallback
+            total=100,
+            completed=50,
+            ramp_up_completed=5,
+        )
+
+        current_time = 2000000000  # 2 seconds
+
+        with patch("aiperf.progress.progress_tracker.time.time_ns") as mock_time:
+            mock_time.return_value = current_time
+            tracker.update_profile_progress(message)
+
+            profile = tracker.current_profile
+
+            # Verify that measurement start time falls back to start_ns
+            assert profile.__dict__.get("measurement_start_time_ns") == start_ns
+
+            # Verify that requests_per_second is calculated using start_ns
+            # and steady-state completed requests (50 - 5 = 45 steady-state requests)
+            steady_state_completed = 50 - 5  # total completed - ramp_up_completed
+            expected_rate = steady_state_completed / (
+                (current_time - start_ns) / NANOS_PER_SECOND
+            )
+            assert profile.requests_per_second == expected_rate
 
     def test_thread_safety_considerations(self):
         """Test that tracker operations are generally thread-safe."""

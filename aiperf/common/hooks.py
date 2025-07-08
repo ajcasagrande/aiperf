@@ -477,6 +477,8 @@ class AIPerfLifecycleMixin(HooksMixin, AsyncTaskManagerMixin):
             await self.run_hooks_async(AIPerfHook.ON_STOP)
         except Exception as e:
             self.logger.exception("Unhandled exception in lifecycle: %s", e)
+        except asyncio.CancelledError:
+            self.logger.info("Lifecycle cancelled")
 
         try:
             # Run all the cleanup hooks and set the shutdown_event

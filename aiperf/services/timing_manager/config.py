@@ -68,6 +68,10 @@ class CreditPhase(AIPerfBaseModel):
     start_time_ns: int = Field(
         default=0, description="The start time of the phase in nanoseconds"
     )
+    measurement_start_time_ns: int = Field(
+        default=0,
+        description="The start time for steady-state measurement in nanoseconds (after ramp-up)",
+    )
     end_time_ns: int = Field(
         default=0, description="The end time of the phase in nanoseconds"
     )
@@ -80,6 +84,10 @@ class CreditPhase(AIPerfBaseModel):
     completed_credits: int = Field(
         default=0, description="The number of credits completed in the phase"
     )
+    ramp_up_completed_credits: int = Field(
+        default=0,
+        description="The number of credits completed during ramp-up (before steady-state measurement begins)",
+    )
     cancelled: bool = Field(
         default=False, description="Whether the phase was cancelled"
     )
@@ -87,3 +95,8 @@ class CreditPhase(AIPerfBaseModel):
         default_factory=asyncio.Event,
         description="An event that is set when the phase is completed",
     )
+
+    @property
+    def steady_state_completed_credits(self) -> int:
+        """Calculate the number of credits completed during steady-state (after ramp-up)."""
+        return max(0, self.completed_credits - self.ramp_up_completed_credits)

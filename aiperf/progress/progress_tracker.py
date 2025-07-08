@@ -103,26 +103,42 @@ class ProgressTracker:
 
         profile.total_expected_requests = message.total
         profile.requests_completed = message.completed
+        profile.ramp_up_completed = message.ramp_up_completed
+
+        # Store measurement start time for steady-state calculations
+        if message.measurement_start_ns > 0:
+            profile.measurement_start_time_ns = message.measurement_start_ns
+        else:
+            profile.measurement_start_time_ns = message.start_ns
 
         if message.completed < profile.total_expected_requests:
-            profile.requests_per_second = (
-                (
-                    message.completed
-                    / (current_time_ns - profile.start_time_ns)
+            # Calculate steady-state metrics using measurement start time and steady-state completed requests
+            measurement_start_ns = (
+                profile.measurement_start_time_ns or profile.start_time_ns
+            )
+            steady_state_completed = profile.steady_state_completed
+            if current_time_ns > measurement_start_ns:
+                profile.requests_per_second = (
+                    steady_state_completed
+                    / (current_time_ns - measurement_start_ns)
                     * NANOS_PER_SECOND
                 )
-                if current_time_ns > profile.start_time_ns
-                else None
-            )
+            else:
+                profile.requests_per_second = None
 
+            # Calculate overall elapsed time using the original start time
             profile.elapsed_time = (
                 current_time_ns - profile.start_time_ns
             ) / NANOS_PER_SECOND
 
+            # Calculate ETA using steady-state rate and remaining steady-state requests
+            steady_state_total = (
+                profile.total_expected_requests - profile.ramp_up_completed
+            )
+            steady_state_remaining = steady_state_total - steady_state_completed
             profile.eta = (
                 (
-                    (profile.total_expected_requests - profile.requests_completed)
-                    / profile.requests_per_second
+                    steady_state_remaining / profile.requests_per_second
                     if profile.requests_per_second and profile.requests_per_second > 0
                     else None
                 )
@@ -154,22 +170,33 @@ class ProgressTracker:
             profile.end_time_ns = current_time_ns
             profile.is_complete = True
 
-        if not profile.is_complete:
-            profile.processed_per_second = (
-                (
-                    message.completed
-                    / (current_time_ns - profile.start_time_ns)
-                    * NANOS_PER_SECOND
-                )
-                if profile.start_time_ns is not None
-                and current_time_ns > profile.start_time_ns
-                else None
+        if not profile.is_complete and profile.start_time_ns is not None:
+            # Use measurement start time for processing rate calculation if available
+            measurement_start_ns = (
+                profile.measurement_start_time_ns or profile.start_time_ns
             )
 
+            # Calculate processing rate using measurement start time and steady-state processed requests
+            steady_state_processed = max(
+                0, message.completed - profile.ramp_up_completed
+            )
+            if current_time_ns > measurement_start_ns:
+                profile.processed_per_second = (
+                    steady_state_processed
+                    / (current_time_ns - measurement_start_ns)
+                    * NANOS_PER_SECOND
+                )
+            else:
+                profile.processed_per_second = None
+
+            # Calculate processing ETA using steady-state processed requests
+            steady_state_total = (
+                profile.total_expected_requests - profile.ramp_up_completed
+            )
+            steady_state_remaining = steady_state_total - steady_state_processed
             profile.processing_eta = (
                 (
-                    (profile.total_expected_requests - profile.requests_processed)
-                    / profile.processed_per_second
+                    steady_state_remaining / profile.processed_per_second
                     if profile.processed_per_second
                     and profile.processed_per_second > 0
                     and profile.total_expected_requests

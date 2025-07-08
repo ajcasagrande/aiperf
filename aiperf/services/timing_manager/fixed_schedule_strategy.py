@@ -6,15 +6,18 @@ import time
 from collections import defaultdict
 
 from aiperf.common.constants import NANOS_PER_SECOND
+from aiperf.common.enums import CreditPhaseType
 from aiperf.common.exceptions import InvalidStateError
-from aiperf.services.timing_manager.config import TimingManagerConfig
+from aiperf.common.messages import CreditReturnMessage
+from aiperf.common.mixins import AsyncTaskManagerMixin
+from aiperf.services.timing_manager.config import CreditPhase, TimingManagerConfig
 from aiperf.services.timing_manager.credit_issuing_strategy import (
     CreditIssuingStrategy,
     CreditManagerProtocol,
 )
 
 
-class FixedScheduleStrategy(CreditIssuingStrategy):
+class FixedScheduleStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
     """
     Class for fixed schedule credit issuing strategy.
     """
@@ -29,11 +32,23 @@ class FixedScheduleStrategy(CreditIssuingStrategy):
 
         self._schedule: list[tuple[int, str]] = schedule
 
+        # Create a profiling phase for progress tracking
+        self.profiling = CreditPhase(
+            total_credits=len(schedule), phase_type=CreditPhaseType.PROFILING
+        )
+        self.active_phase = self.profiling
+
     async def start(self) -> None:
         if not self._schedule:
             raise InvalidStateError("No schedule loaded, no credits will be dropped")
 
         start_time_ns = time.time_ns()
+        self.active_phase.start_time_ns = start_time_ns
+        # In fixed schedule mode, measurement starts immediately
+        self.active_phase.measurement_start_time_ns = start_time_ns
+
+        # Start progress reporting
+        self.execute_async(self._progress_report_loop())
 
         timestamp_groups = defaultdict(list)
 
@@ -56,5 +71,43 @@ class FixedScheduleStrategy(CreditIssuingStrategy):
                         credit_drop_ns=time.time_ns(),
                     )
                 )
+                self.active_phase.sent_credits += 1
 
         self.logger.info("Completed all scheduled credit drops")
+        # Wait for all credits to be returned
+        await self.active_phase.completed_event.wait()
+
+    async def on_credit_return(self, message: CreditReturnMessage) -> None:
+        """Process a credit return message."""
+        self.active_phase.completed_credits += 1
+
+        if self.active_phase.completed_credits >= self.active_phase.total_credits:
+            self.active_phase.end_time_ns = time.time_ns()
+            self.execute_async(
+                self.credit_manager.publish_credits_complete(
+                    self.active_phase.phase_type, False
+                )
+            )
+            self.active_phase.completed_event.set()
+
+    async def _report_progress(self) -> None:
+        """Report the progress of the active phase."""
+        try:
+            await self.credit_manager.publish_progress(self.active_phase)
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            self.logger.error("TM: Error publishing progress: %s", e)
+
+    async def _progress_report_loop(self) -> None:
+        """Report the progress at a fixed interval."""
+        while not self.active_phase.completed_event.is_set():
+            try:
+                await self._report_progress()
+            except asyncio.CancelledError:
+                self.logger.debug("TM: Progress reporting loop cancelled")
+                return
+
+            await asyncio.sleep(1)  # TODO: Make this configurable
+
+        self.logger.debug("TM: All credits completed, stopping progress reporting loop")

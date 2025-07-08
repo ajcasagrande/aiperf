@@ -3,6 +3,7 @@
 
 import asyncio
 import logging
+import random
 import time
 
 from aiperf.common.constants import NANOS_PER_SECOND
@@ -46,12 +47,19 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
         # if the concurrency is larger than the total credits, it does not matter
         # as it is simply an upper bound that will never be reached
         self._concurrency = config.concurrency
+        self._concurrency_ramp_up_time = config.concurrency_ramp_up_time
         self._semaphore = asyncio.Semaphore(value=self._concurrency)
 
+        # Initialize random generator for Poisson ramp-up
+        self._random = (
+            random.Random(config.random_seed) if config.random_seed else random.Random()
+        )
+
         self.logger.info(
-            "TM: Concurrency Strategy initialized with total_credits=%s, concurrency=%s, warmup=%s",
+            "TM: Concurrency Strategy initialized with total_credits=%s, concurrency=%s, ramp_up_time=%s, warmup=%s",
             self.active_phase.total_credits,
             self._concurrency,
+            self._concurrency_ramp_up_time,
             config.warmup_request_count,
         )
 
@@ -82,15 +90,30 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
         phase.start_time_ns = time.time_ns()
 
         self.logger.info(
-            "TM: Executing phase (total_credits=%s, concurrency=%s, phase_type=%s, start_time_ns=%s)",
+            "TM: Executing phase (total_credits=%s, concurrency=%s, ramp_up_time=%s, phase_type=%s, start_time_ns=%s)",
             phase.total_credits,
             self._concurrency,
+            self._concurrency_ramp_up_time,
             phase.phase_type,
             phase.start_time_ns,
         )
 
         # Start the progress reporting loop in the background
         self.execute_async(self._progress_report_loop())
+
+        # Use ramp-up strategy if configured, otherwise use burst strategy
+        if self._concurrency_ramp_up_time and self._concurrency_ramp_up_time > 0:
+            await self._execute_with_ramp_up(phase)
+        else:
+            await self._execute_burst_mode(phase)
+
+        self.logger.debug("TM: Sent all credits for phase %s", phase)
+
+    async def _execute_burst_mode(self, phase: CreditPhase) -> None:
+        """Execute the original burst mode - send all requests as fast as possible."""
+
+        # In burst mode, measurement starts immediately
+        phase.measurement_start_time_ns = phase.start_time_ns
 
         while phase.sent_credits < phase.total_credits:
             await self._semaphore.acquire()
@@ -103,7 +126,84 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
             )
             phase.sent_credits += 1
 
-        self.logger.debug("TM: Sent all credits for phase %s", phase)
+    async def _execute_with_ramp_up(self, phase: CreditPhase) -> None:
+        """Execute with Poisson-based ramp-up to target concurrency, then normal operation."""
+
+        # Type safety: ensure ramp_up_time is not None
+        if not self._concurrency_ramp_up_time or self._concurrency_ramp_up_time <= 0:
+            # Fallback to burst mode if invalid ramp-up time
+            await self._execute_burst_mode(phase)
+            return
+
+        # Phase 1: Ramp-up phase - gradually reach target concurrency
+        ramp_up_requests = min(self._concurrency, phase.total_credits)
+        self.logger.info(
+            "TM: Starting ramp-up phase: %s requests over %s seconds",
+            ramp_up_requests,
+            self._concurrency_ramp_up_time,
+        )
+
+        ramp_up_start_time = time.time()
+
+        # Send initial requests using Poisson timing during ramp-up
+        for i in range(ramp_up_requests):
+            if phase.sent_credits >= phase.total_credits:
+                break
+
+            # Calculate progress through ramp-up (0 to 1)
+            progress = (i + 1) / ramp_up_requests
+
+            # Use time-varying Poisson process - rate increases linearly
+            # Target: reach full concurrency by end of ramp-up time
+            target_rate = (ramp_up_requests / self._concurrency_ramp_up_time) * progress
+
+            if target_rate > 0 and i > 0:  # Skip delay for first request
+                # Exponential inter-arrival time for Poisson process
+                wait_time = self._random.expovariate(target_rate)
+
+                # Don't exceed total ramp-up time
+                elapsed_time = time.time() - ramp_up_start_time
+                remaining_time = self._concurrency_ramp_up_time - elapsed_time
+
+                if wait_time > remaining_time and remaining_time > 0:
+                    wait_time = remaining_time
+
+                if wait_time > 0:
+                    await asyncio.sleep(wait_time)
+
+            await self._semaphore.acquire()
+            self.execute_async(
+                self.credit_manager.drop_credit(
+                    credit_phase=phase.phase_type,
+                    conversation_id=None,
+                    credit_drop_ns=None,
+                )
+            )
+            phase.sent_credits += 1
+
+        # Mark when steady-state measurement should begin (after ramp-up)
+        phase.measurement_start_time_ns = time.time_ns()
+        # Store how many requests were completed during ramp-up
+        phase.ramp_up_completed_credits = phase.completed_credits
+
+        self.logger.info(
+            "TM: Ramp-up phase completed in %.2f seconds, %s requests sent. Starting steady-state measurement. Ramp-up completed: %s",
+            time.time() - ramp_up_start_time,
+            min(ramp_up_requests, phase.sent_credits),
+            phase.ramp_up_completed_credits,
+        )
+
+        # Phase 2: Normal concurrency maintenance - send new request when old one completes
+        while phase.sent_credits < phase.total_credits:
+            await self._semaphore.acquire()
+            self.execute_async(
+                self.credit_manager.drop_credit(
+                    credit_phase=phase.phase_type,
+                    conversation_id=None,
+                    credit_drop_ns=None,
+                )
+            )
+            phase.sent_credits += 1
 
     async def on_credit_return(self, message: CreditReturnMessage) -> None:
         """Process a credit return message."""
@@ -113,18 +213,24 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
 
         diff_ns, per_sec = 0, 0.0
         if self.logger.isEnabledFor(logging.DEBUG):
-            # Only calculate if debug logging is enabled
-            diff_ns = time.time_ns() - self.active_phase.start_time_ns
+            # Use measurement start time and steady-state credits for rate calculation in debug logs
+            measurement_start_ns = (
+                self.active_phase.measurement_start_time_ns
+                or self.active_phase.start_time_ns
+            )
+            diff_ns = time.time_ns() - measurement_start_ns
+            steady_state_completed = self.active_phase.steady_state_completed_credits
             per_sec = (
-                self.active_phase.completed_credits / (diff_ns / NANOS_PER_SECOND)
+                steady_state_completed / (diff_ns / NANOS_PER_SECOND)
                 if diff_ns > 0
                 else 0
             )
             self.logger.debug(
-                "TM: Processing credit return: %s (completed credits: %s of %s) (%.2f requests/s)",
+                "TM: Processing credit return: %s (total: %s/%s, steady-state: %s) (%.2f requests/s steady-state)",
                 message,
                 self.active_phase.completed_credits,
                 self.active_phase.total_credits,
+                steady_state_completed,
                 per_sec,
             )
 
@@ -137,10 +243,26 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
             )
 
             if self.logger.isEnabledFor(logging.DEBUG):
+                # Use measurement start time and steady-state credits for final rate calculation in debug logs
+                measurement_start_ns = (
+                    self.active_phase.measurement_start_time_ns
+                    or self.active_phase.start_time_ns
+                )
+                final_diff_ns = time.time_ns() - measurement_start_ns
+                steady_state_completed = (
+                    self.active_phase.steady_state_completed_credits
+                )
+                final_per_sec = (
+                    steady_state_completed / (final_diff_ns / NANOS_PER_SECOND)
+                    if final_diff_ns > 0
+                    else 0
+                )
+                # Still use overall duration for elapsed time display
+                overall_diff_ns = time.time_ns() - self.active_phase.start_time_ns
                 self.logger.debug(
-                    "TM: All credits completed, stopping credit drop task after %.2f seconds (%.2f requests/s)",
-                    diff_ns / NANOS_PER_SECOND,
-                    per_sec,
+                    "TM: All credits completed, stopping credit drop task after %.2f seconds (%.2f steady-state requests/s)",
+                    overall_diff_ns / NANOS_PER_SECOND,
+                    final_per_sec,
                 )
                 self.active_phase.completed_event.set()
 

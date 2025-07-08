@@ -136,15 +136,12 @@ class OpenAIResponseExtractor:
 
         # Dictionary mapping object types to their value extraction functions
         type_to_extractor = {
-            ChatCompletion: lambda obj: obj.choices[
-                0
-            ].message.content,  # TODO: how to support multiple choices?
-            ChatCompletionChunk: lambda obj: obj.choices[
-                0
-            ].delta.content,  # TODO: how to support multiple choices?
-            Completion: lambda obj: obj.choices[
-                0
-            ].text,  # TODO: how to support multiple choices?
+            # TODO: how to support multiple choices?
+            ChatCompletion: lambda obj: obj.choices[0].message.content,
+            # TODO: how to support multiple choices?
+            ChatCompletionChunk: lambda obj: obj.choices[0].delta.content,
+            # TODO: how to support multiple choices?
+            Completion: lambda obj: obj.choices[0].text,
             Embedding: lambda obj: obj.embedding,
             ResponsesModel: lambda obj: obj.output_text,
         }

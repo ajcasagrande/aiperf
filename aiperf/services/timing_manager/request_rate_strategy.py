@@ -101,6 +101,8 @@ class RequestRateStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
         )
 
         phase.start_time_ns = time.time_ns()
+        # In rate mode, measurement starts immediately since there's no ramp-up
+        phase.measurement_start_time_ns = phase.start_time_ns
 
         # Report the initial progress of the phase to ensure everything is in sync
         self.execute_async(self._report_progress())
@@ -196,20 +198,24 @@ class RequestRateStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
         self.active_phase.completed_credits += 1
 
         if self.logger.isEnabledFor(logging.DEBUG):
+            # Use measurement start time and steady-state credits for rate calculation in debug logs
+            measurement_start_ns = (
+                self.active_phase.measurement_start_time_ns
+                or self.active_phase.start_time_ns
+            )
+            steady_state_completed = self.active_phase.steady_state_completed_credits
             per_sec = (
-                self.active_phase.completed_credits
-                / (
-                    (time.time_ns() - self.active_phase.start_time_ns)
-                    / NANOS_PER_SECOND
-                )
-                if (time.time_ns() - self.active_phase.start_time_ns) > 0
+                steady_state_completed
+                / ((time.time_ns() - measurement_start_ns) / NANOS_PER_SECOND)
+                if (time.time_ns() - measurement_start_ns) > 0
                 else 0
             )
             self.logger.debug(
-                "TM: Processing credit return: %s (completed credits: %s of %s) (%.2f requests/s)",
+                "TM: Processing credit return: %s (total: %s/%s, steady-state: %s) (%.2f requests/s steady-state)",
                 message,
                 self.active_phase.completed_credits,
                 self.active_phase.total_credits,
+                steady_state_completed,
                 per_sec,
             )
 
@@ -222,17 +228,22 @@ class RequestRateStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
             )
 
             if self.logger.isEnabledFor(logging.DEBUG):
+                # Use measurement start time and steady-state credits for final rate calculation in debug logs
+                measurement_start_ns = (
+                    self.active_phase.measurement_start_time_ns
+                    or self.active_phase.start_time_ns
+                )
+                steady_state_completed = (
+                    self.active_phase.steady_state_completed_credits
+                )
                 per_sec = (
-                    self.active_phase.completed_credits
-                    / (
-                        (time.time_ns() - self.active_phase.start_time_ns)
-                        / NANOS_PER_SECOND
-                    )
-                    if (time.time_ns() - self.active_phase.start_time_ns) > 0
+                    steady_state_completed
+                    / ((time.time_ns() - measurement_start_ns) / NANOS_PER_SECOND)
+                    if (time.time_ns() - measurement_start_ns) > 0
                     else 0
                 )
                 self.logger.debug(
-                    "TM: All credits completed, stopping credit drop task after %.2f seconds (%.2f requests/s)",
+                    "TM: All credits completed, stopping credit drop task after %.2f seconds (%.2f steady-state requests/s)",
                     (time.time_ns() - self.active_phase.start_time_ns)
                     / NANOS_PER_SECOND,
                     per_sec,

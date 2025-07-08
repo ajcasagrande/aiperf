@@ -145,6 +145,10 @@ class ProfileProgress(AIPerfBaseModel):
         default=None,
         description="The start time of the profile run in nanoseconds. If it has not been started, this will be None.",
     )
+    measurement_start_time_ns: int | None = Field(
+        default=None,
+        description="The start time for steady-state measurement in nanoseconds (after ramp-up). If None, falls back to start_time_ns.",
+    )
     end_time_ns: int | None = Field(
         default=None,
         description="The end time of the profile run in nanoseconds. If it has not been completed, this will be None.",
@@ -157,6 +161,10 @@ class ProfileProgress(AIPerfBaseModel):
     requests_completed: int = Field(
         default=0,
         description="The number of inference requests completed during the profile run",
+    )
+    ramp_up_completed: int = Field(
+        default=0,
+        description="The number of inference requests completed during ramp-up phase",
     )
     request_errors: int = Field(
         default=0,
@@ -220,6 +228,11 @@ class ProfileProgress(AIPerfBaseModel):
         default=CreditPhaseType.UNKNOWN,
         description="The type of credit phase (either warmup or profiling)",
     )
+
+    @property
+    def steady_state_completed(self) -> int:
+        """Calculate the number of requests completed during steady-state (after ramp-up)."""
+        return max(0, self.requests_completed - self.ramp_up_completed)
 
 
 class SweepProgress(AIPerfBaseModel):
@@ -443,6 +456,10 @@ class ProfileProgressMessage(BaseServiceMessage):
     start_ns: int = Field(
         ..., description="The start time of the profile run in nanoseconds"
     )
+    measurement_start_ns: int = Field(
+        ...,
+        description="The start time for steady-state measurement in nanoseconds (after ramp-up)",
+    )
     end_ns: int | None = Field(
         default=None, description="The end time of the profile run in nanoseconds"
     )
@@ -452,10 +469,19 @@ class ProfileProgressMessage(BaseServiceMessage):
     completed: int = Field(
         ..., description="The number of inference requests completed"
     )
+    ramp_up_completed: int = Field(
+        default=0,
+        description="The number of inference requests completed during ramp-up phase",
+    )
     credit_phase: CreditPhaseType = Field(
         default=CreditPhaseType.PROFILING,
         description="The type of credit phase (either warmup or profiling)",
     )
+
+    @property
+    def steady_state_completed(self) -> int:
+        """Calculate the number of requests completed during steady-state (after ramp-up)."""
+        return max(0, self.completed - self.ramp_up_completed)
 
 
 class SweepProgressMessage(BaseServiceMessage):

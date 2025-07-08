@@ -172,8 +172,10 @@ class TimingManager(BaseComponentService, AsyncTaskManagerMixin):
                 ProfileProgressMessage(
                     service_id=self.service_id,
                     start_ns=phase.start_time_ns,
+                    measurement_start_ns=phase.measurement_start_time_ns,
                     total=phase.total_credits,
                     completed=phase.completed_credits,
+                    ramp_up_completed=phase.ramp_up_completed_credits,
                     credit_phase=phase.phase_type,
                 )
             )

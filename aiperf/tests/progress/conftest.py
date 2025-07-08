@@ -56,11 +56,14 @@ def simple_progress_logger(progress_tracker):
 @pytest.fixture
 def profile_progress_message():
     """Create a ProfileProgressMessage instance."""
+    start_ns = time.time_ns()
     return ProfileProgressMessage(
         service_id="test-service",
-        start_ns=time.time_ns(),
+        start_ns=start_ns,
+        measurement_start_ns=start_ns,  # Add the required field
         total=100,
         completed=50,
+        ramp_up_completed=0,  # Add the required field
     )
 
 
