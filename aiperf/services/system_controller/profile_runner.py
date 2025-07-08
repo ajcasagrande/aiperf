@@ -53,17 +53,13 @@ class ProfileRunner:
         # Start the first profile
         self.tracker.suite.next_profile()
 
-        # self.logger.debug("Starting services")
-        # for service_info in self.controller.service_manager.service_id_map.values():
-        #     self.logger.debug("Starting service: %s", service_info.service_id)
-        #     if service_info.state == ServiceState.READY:
         try:
             await self.controller.send_command_to_service(
                 target_service_id=None,
                 command=CommandType.PROFILE_START,
             )
         except Exception as e:
-            self.logger.warning("Failed to start service: %s", e)
+            self.logger.warning("Failed to start services: %s", e)
             # TODO: should we have some sort of retries?
             # raise self._service_error("Failed to start service") from e
 

@@ -8,7 +8,6 @@ and made available to test functions in the UI test directory.
 """
 
 import time
-from collections import deque
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -248,31 +247,3 @@ def mock_lifecycle_hooks():
         patch("aiperf.ui.logs_mixin.aiperf_auto_task"),
     ):
         yield
-
-
-@pytest.fixture
-def log_records():
-    """Sample log records for testing."""
-    current_time = time.time()
-    return deque(
-        [
-            {
-                "created": current_time - 10,
-                "name": "test.module",
-                "levelname": "INFO",
-                "msg": "Test info message",
-            },
-            {
-                "created": current_time - 5,
-                "name": "another.module",
-                "levelname": "ERROR",
-                "msg": "Test error message",
-            },
-            {
-                "created": current_time,
-                "name": "debug.module",
-                "levelname": "DEBUG",
-                "msg": "Test debug message",
-            },
-        ]
-    )
