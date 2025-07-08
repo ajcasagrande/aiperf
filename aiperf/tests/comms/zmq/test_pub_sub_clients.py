@@ -356,11 +356,7 @@ class TestZMQSubClient:
     async def test_subscribe_different_message_types(
         self,
         zmq_sub_connect_client: ZMQSubClient,
-        message_type: MessageType
-        | MessageType
-        | MessageType
-        | MessageType
-        | MessageType,
+        message_type: MessageType,
         mock_async_callback: AsyncMock,
     ):
         """Test subscribing to different message types."""

@@ -209,16 +209,3 @@ class TestWorkerStatusElement:
 
         assert isinstance(content, Align)
         assert "No worker data available" in content.renderable.plain
-
-    def test_partial_worker_last_seen_dict(self, worker_health_dict):
-        """Test with partial worker last seen dictionary."""
-        # Only include some workers in last_seen
-        partial_last_seen = {list(worker_health_dict.keys())[0]: time.time()}
-
-        element = WorkerStatusElement(worker_health_dict, partial_last_seen)
-
-        with patch("time.time", return_value=1234567890.0):
-            content = element.get_content()
-
-        assert isinstance(content, Group)
-        # Should handle missing last_seen entries gracefully

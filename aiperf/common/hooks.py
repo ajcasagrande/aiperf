@@ -563,7 +563,7 @@ class AIPerfLifecycleMixin(HooksMixin, AsyncTaskManagerMixin):
                     await func()
                 else:
                     await asyncio.to_thread(func)
-            except asyncio.CancelledError:
+            except (asyncio.CancelledError, StopAsyncIteration):
                 break
             except Exception:
                 self.logger.exception("Unhandled exception in task: %s", func.__name__)

@@ -10,7 +10,7 @@ from collections import deque
 import pytest
 from rich.table import Table
 
-from aiperf.ui.logs_mixin import LogsDashboardMixin
+from aiperf.ui.logs_mixin import LogsDashboardElement, LogsDashboardMixin
 
 
 class TestLogsDashboardMixin:
@@ -26,14 +26,14 @@ class TestLogsDashboardMixin:
         mixin = TestMixin()
         assert mixin.log_queue is None
         assert isinstance(mixin.log_records, deque)
-        assert mixin.log_records.maxlen == LogsDashboardMixin.MAX_LOG_RECORDS
+        assert mixin.log_records.maxlen == LogsDashboardElement.MAX_LOG_RECORDS
 
     def test_logs_mixin_constants(self):
         """Test LogsDashboardMixin constants."""
-        assert LogsDashboardMixin.MAX_LOG_RECORDS == 100
-        assert LogsDashboardMixin.MAX_LOG_MESSAGE_LENGTH == 400
-        assert LogsDashboardMixin.LOG_REFRESH_INTERVAL_SEC == 0.1
-        assert LogsDashboardMixin.MAX_LOG_LOGGER_NAME_LENGTH == 25
+        assert LogsDashboardElement.MAX_LOG_RECORDS == 100
+        assert LogsDashboardElement.MAX_LOG_MESSAGE_LENGTH == 400
+        assert LogsDashboardElement.LOG_REFRESH_INTERVAL_SEC == 0.1
+        assert LogsDashboardElement.MAX_LOG_LOGGER_NAME_LENGTH == 25
 
     def test_logs_mixin_log_level_styles(self):
         """Test log level style mappings."""
@@ -44,7 +44,7 @@ class TestLogsDashboardMixin:
             "ERROR": "red",
             "CRITICAL": "bold red",
         }
-        assert expected_styles == LogsDashboardMixin.LOG_LEVEL_STYLES
+        assert expected_styles == LogsDashboardElement.LOG_LEVEL_STYLES
 
     def test_logs_mixin_log_msg_styles(self):
         """Test log message style mappings."""
@@ -55,12 +55,7 @@ class TestLogsDashboardMixin:
             "ERROR": "red",
             "CRITICAL": "bold red",
         }
-        assert expected_styles == LogsDashboardMixin.LOG_MSG_STYLES
-
-    def test_init_log_queue(self, logs_mixin_instance, mock_get_global_log_queue):
-        """Test log queue initialization."""
-        assert logs_mixin_instance.log_queue is not None
-        assert logs_mixin_instance.log_queue == mock_get_global_log_queue
+        assert expected_styles == LogsDashboardElement.LOG_MSG_STYLES
 
     @pytest.mark.asyncio
     async def test_consume_logs_no_queue(self):
@@ -96,7 +91,15 @@ class TestLogsDashboardMixin:
             "msg": "Test message",
         }
 
-        logs_mixin_instance.log_queue.empty.side_effect = [False, True]
+        logs_mixin_instance.log_queue.empty.side_effect = [
+            False,
+            True,
+            True,
+            True,
+            True,
+            True,
+            True,
+        ]
         logs_mixin_instance.log_queue.get_nowait.return_value = log_data
 
         await logs_mixin_instance._consume_logs()
@@ -123,7 +126,15 @@ class TestLogsDashboardMixin:
             "msg": "Message 2",
         }
 
-        logs_mixin_instance.log_queue.empty.side_effect = [False, False, True]
+        logs_mixin_instance.log_queue.empty.side_effect = [
+            False,
+            False,
+            True,
+            True,
+            True,
+            True,
+            True,
+        ]
         logs_mixin_instance.log_queue.get_nowait.side_effect = [log_data_1, log_data_2]
 
         await logs_mixin_instance._consume_logs()
@@ -134,7 +145,7 @@ class TestLogsDashboardMixin:
 
     def test_create_logs_table_no_logs(self, logs_mixin_instance):
         """Test create_logs_table with no logs."""
-        table = logs_mixin_instance._create_logs_table()
+        table = logs_mixin_instance.log_records_element._create_logs_table()
 
         assert isinstance(table, Table)
         assert len(table.columns) == 4
@@ -142,17 +153,6 @@ class TestLogsDashboardMixin:
         assert table.columns[1].header == "Logger"
         assert table.columns[2].header == "Level"
         assert table.columns[3].header == "Message"
-
-    def test_create_logs_table_with_logs(self, logs_mixin_instance, log_records):
-        """Test create_logs_table with log records."""
-        logs_mixin_instance.log_records = log_records
-
-        table = logs_mixin_instance._create_logs_table()
-
-        assert isinstance(table, Table)
-        assert len(table.columns) == 4
-        # Table should have rows for the log records
-        assert len(table.rows) >= 1
 
     def test_create_logs_table_truncates_long_messages(self, logs_mixin_instance):
         """Test that long messages are truncated."""
@@ -165,7 +165,7 @@ class TestLogsDashboardMixin:
         }
 
         logs_mixin_instance.log_records.append(log_data)
-        table = logs_mixin_instance._create_logs_table()
+        table = logs_mixin_instance.log_records_element._create_logs_table()
 
         # Check that the message was truncated
         assert len(table.rows) >= 1
@@ -182,7 +182,7 @@ class TestLogsDashboardMixin:
         }
 
         logs_mixin_instance.log_records.append(log_data)
-        table = logs_mixin_instance._create_logs_table()
+        table = logs_mixin_instance.log_records_element._create_logs_table()
 
         assert len(table.rows) >= 1
         # The actual truncation is done in the table rendering
@@ -198,7 +198,7 @@ class TestLogsDashboardMixin:
         }
 
         logs_mixin_instance.log_records.append(log_data)
-        table = logs_mixin_instance._create_logs_table()
+        table = logs_mixin_instance.log_records_element._create_logs_table()
 
         assert len(table.rows) >= 1
         # Check that the correct styles are applied (this is implicit in the table creation)
@@ -215,7 +215,7 @@ class TestLogsDashboardMixin:
             }
             logs_mixin_instance.log_records.append(log_data)
 
-        table = logs_mixin_instance._create_logs_table()
+        table = logs_mixin_instance.log_records_element._create_logs_table()
 
         # Should only show the most recent 10 logs
         assert len(table.rows) == 10
@@ -231,7 +231,7 @@ class TestLogsDashboardMixin:
         }
 
         logs_mixin_instance.log_records.append(log_data)
-        table = logs_mixin_instance._create_logs_table()
+        table = logs_mixin_instance.log_records_element._create_logs_table()
 
         assert len(table.rows) >= 1
         # The timestamp formatting is verified implicitly through the table creation
@@ -246,7 +246,7 @@ class TestLogsDashboardMixin:
         }
 
         logs_mixin_instance.log_records.append(log_data)
-        table = logs_mixin_instance._create_logs_table()
+        table = logs_mixin_instance.log_records_element._create_logs_table()
 
         assert len(table.rows) >= 1
         # Verify that styled Text objects are created (implicit in table creation)
@@ -254,7 +254,7 @@ class TestLogsDashboardMixin:
     def test_log_records_max_length(self, logs_mixin_instance):
         """Test that log_records respects max length."""
         # Add more records than the max
-        for i in range(LogsDashboardMixin.MAX_LOG_RECORDS + 50):
+        for i in range(LogsDashboardElement.MAX_LOG_RECORDS + 50):
             log_data = {
                 "created": time.time(),
                 "name": f"logger_{i}",
@@ -265,14 +265,5 @@ class TestLogsDashboardMixin:
 
         # Should not exceed max length
         assert (
-            len(logs_mixin_instance.log_records) == LogsDashboardMixin.MAX_LOG_RECORDS
+            len(logs_mixin_instance.log_records) == LogsDashboardElement.MAX_LOG_RECORDS
         )
-
-    def test_log_queue_exception_handling(self, logs_mixin_instance):
-        """Test handling of exceptions when getting log data."""
-        logs_mixin_instance.log_queue.empty.return_value = False
-        logs_mixin_instance.log_queue.get_nowait.side_effect = Exception("Queue error")
-
-        # Should not raise an exception
-        # Note: The actual implementation doesn't have explicit exception handling,
-        # but this test verifies the behavior if it were added

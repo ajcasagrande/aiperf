@@ -97,38 +97,16 @@ class LogsDashboardElement(DashboardElement):
 class LogsDashboardMixin(AIPerfLifecycleMixin):
     """Mixin for capturing and displaying logs from multiple processes using a global log queue."""
 
-    # TODO: Make these configurable.
-    MAX_LOG_RECORDS = 100
-    MAX_LOG_MESSAGE_LENGTH = 400
-    LOG_REFRESH_INTERVAL_SEC = 0.1
-    MAX_LOG_LOGGER_NAME_LENGTH = 25
-
-    # Color styles for log level names
-    LOG_LEVEL_STYLES = {
-        "DEBUG": "dim",
-        "INFO": "green",
-        "WARNING": "yellow",
-        "ERROR": "red",
-        "CRITICAL": "bold red",
-    }
-
-    # Color styles for log messages
-    LOG_MSG_STYLES = {
-        "DEBUG": "dim",
-        "INFO": "white",
-        "WARNING": "yellow",
-        "ERROR": "red",
-        "CRITICAL": "bold red",
-    }
-
     def __init__(self) -> None:
         super().__init__()
         self.log_queue: multiprocessing.Queue | None = None
-        self.log_records: deque[dict] = deque(maxlen=self.MAX_LOG_RECORDS)
+        self.log_records: deque[dict] = deque(
+            maxlen=LogsDashboardElement.MAX_LOG_RECORDS
+        )
         self.log_queue = get_global_log_queue()
         self.log_records_element = LogsDashboardElement(self.log_records)
 
-    @aiperf_auto_task(interval_sec=LOG_REFRESH_INTERVAL_SEC)
+    @aiperf_auto_task(interval_sec=LogsDashboardElement.LOG_REFRESH_INTERVAL_SEC)
     async def _consume_logs(self) -> None:
         """Consume log records from the queue in a background task.
 

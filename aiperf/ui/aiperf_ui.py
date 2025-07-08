@@ -35,19 +35,28 @@ class AIPerfUI(AIPerfLifecycleMixin):
 
     async def on_profile_progress_update(self) -> None:
         """Update progress display."""
-        if self.dashboard.running and self.progress_tracker.current_profile:
-            self.dashboard.refresh_element(ProfileProgressElement.key)
+        try:
+            if self.dashboard.running and self.progress_tracker.current_profile:
+                self.dashboard.refresh_element(ProfileProgressElement.key)
+        except Exception as e:
+            logger.error("Error updating profile progress: %s", e)
 
     async def on_processing_stats_update(self) -> None:
         """Update statistics display."""
-        if self.dashboard.running and self.progress_tracker.current_profile:
-            self.dashboard.refresh_element(ProfileProgressElement.key)
+        try:
+            if self.dashboard.running and self.progress_tracker.current_profile:
+                self.dashboard.refresh_element(ProfileProgressElement.key)
+        except Exception as e:
+            logger.error("Error updating processing stats: %s", e)
 
     async def on_worker_health_update(self, message: WorkerHealthMessage) -> None:
         """Update worker health information."""
-        self.dashboard.update_worker_health(message)
-        if self.dashboard.running:
-            self.dashboard.refresh_element(WorkerStatusElement.key)
+        try:
+            self.dashboard.update_worker_health(message)
+            if self.dashboard.running:
+                self.dashboard.refresh_element(WorkerStatusElement.key)
+        except Exception as e:
+            logger.error("Error updating worker health: %s", e)
 
     async def on_profile_results_update(self) -> None:
         """Process the final results."""

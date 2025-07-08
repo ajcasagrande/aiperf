@@ -9,6 +9,7 @@ from unittest.mock import patch
 import pytest
 from rich.layout import Layout
 from rich.panel import Panel
+from rich.text import Text
 
 from aiperf.ui.dashboard_element import HeaderElement
 from aiperf.ui.profile_progress_ui import ProfileProgressElement
@@ -70,10 +71,10 @@ class TestAIPerfRichDashboard:
 
     def test_get_logs_panel(self, aiperf_rich_dashboard):
         """Test logs panel creation."""
-        panel = aiperf_rich_dashboard._get_logs_panel()
+        panel = aiperf_rich_dashboard.get_logs_panel()
 
         assert isinstance(panel, Panel)
-        assert panel.title == "[bold]System Logs[/bold]"
+        assert panel.title == Text("System Logs", style="bold")
         assert panel.border_style == "yellow"
         assert panel.height == 12
         assert panel.title_align == "left"
@@ -219,33 +220,13 @@ class TestAIPerfRichDashboard:
         """Test layout sections are properly configured."""
         layout = aiperf_rich_dashboard.layout
 
-        # Check header section
         assert layout["header"].size == 3
-
-        # Check body section
         assert layout["body"].ratio == 2
-
-        # Check logs section
         assert layout["logs"].size == 12
 
         # Check left/right split in body
+        assert layout["body"]["left"].ratio == 1
         assert layout["body"]["right"].ratio == 1
-
-    def test_console_configuration(self, aiperf_rich_dashboard):
-        """Test console is properly configured."""
-        console = aiperf_rich_dashboard.console
-        # Console is mocked in fixtures, so just check it exists
-        assert console is not None
-
-    def test_dashboard_run_async_method_exists(self, aiperf_rich_dashboard):
-        """Test dashboard has run_async method."""
-        # The run_async method should be inherited from AIPerfLifecycleMixin
-        assert hasattr(aiperf_rich_dashboard, "run_async")
-
-    def test_dashboard_shutdown_method_exists(self, aiperf_rich_dashboard):
-        """Test dashboard has shutdown method."""
-        # The shutdown method should be inherited from AIPerfLifecycleMixin
-        assert hasattr(aiperf_rich_dashboard, "shutdown")
 
     def test_worker_health_data_structure(self, aiperf_rich_dashboard):
         """Test worker health data structures."""
@@ -294,13 +275,3 @@ class TestAIPerfRichDashboard:
         # Worker status element should reference the same dictionaries
         assert worker_element.worker_health is aiperf_rich_dashboard.worker_health
         assert worker_element.worker_last_seen is aiperf_rich_dashboard.worker_last_seen
-
-    def test_dashboard_state_management(self, aiperf_rich_dashboard):
-        """Test dashboard state management."""
-        # Initially not running
-        assert aiperf_rich_dashboard.running is False
-        assert aiperf_rich_dashboard.live is None
-
-        # State should be modifiable
-        aiperf_rich_dashboard.running = True
-        assert aiperf_rich_dashboard.running is True

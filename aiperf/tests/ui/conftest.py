@@ -183,15 +183,18 @@ def mock_get_global_log_queue(mock_log_queue):
 
 
 @pytest.fixture
-def logs_mixin_instance(mock_get_global_log_queue):
+async def logs_mixin_instance(mock_get_global_log_queue):
     """Instance of LogsDashboardMixin for testing."""
 
     class TestLogsMixin(LogsDashboardMixin):
         def __init__(self):
             super().__init__()
-            self._init_log_queue()
 
-    return TestLogsMixin()
+    logs_mixin = TestLogsMixin()
+    await logs_mixin.run_async()
+    yield logs_mixin
+    await logs_mixin.shutdown()
+    await logs_mixin.shutdown_event.wait()
 
 
 @pytest.fixture
@@ -242,7 +245,6 @@ def mock_lifecycle_hooks():
         patch("aiperf.ui.rich_dashboard.on_start"),
         patch("aiperf.ui.rich_dashboard.on_stop"),
         patch("aiperf.ui.rich_dashboard.aiperf_auto_task"),
-        patch("aiperf.ui.logs_mixin.on_init"),
         patch("aiperf.ui.logs_mixin.aiperf_auto_task"),
     ):
         yield
