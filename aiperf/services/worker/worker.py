@@ -30,6 +30,7 @@ from aiperf.common.enums import (
 )
 from aiperf.common.exceptions import NotInitializedError
 from aiperf.common.factories import ServiceFactory
+from aiperf.common.health_models import WorkerHealthMessage
 from aiperf.common.hooks import (
     aiperf_task,
     on_configure,
@@ -44,7 +45,6 @@ from aiperf.common.messages import (
     CreditReturnMessage,
     ErrorMessage,
     InferenceResultsMessage,
-    WorkerHealthMessage,
 )
 from aiperf.common.mixins import AsyncTaskManagerMixin, ProcessHealthMixin
 from aiperf.common.record_models import ErrorDetails, RequestRecord

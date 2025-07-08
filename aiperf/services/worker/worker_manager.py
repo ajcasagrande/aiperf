@@ -16,6 +16,7 @@ from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
 from aiperf.common.enums import MessageType, ServiceRunType, ServiceType
 from aiperf.common.exceptions import ConfigurationError
 from aiperf.common.factories import ServiceFactory
+from aiperf.common.health_models import WorkerHealthMessage
 from aiperf.common.hooks import (
     on_cleanup,
     on_configure,
@@ -23,7 +24,7 @@ from aiperf.common.hooks import (
     on_start,
     on_stop,
 )
-from aiperf.common.messages import Message, WorkerHealthMessage
+from aiperf.common.messages import Message
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.services.worker.worker import Worker
 

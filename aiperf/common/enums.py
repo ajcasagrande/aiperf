@@ -149,6 +149,7 @@ class ImageFormat(CaseInsensitiveStrEnum):
 
     PNG = "png"
     JPEG = "jpeg"
+    RANDOM = "random"
 
 
 class AudioFormat(CaseInsensitiveStrEnum):
@@ -276,10 +277,6 @@ class MessageType(CaseInsensitiveStrEnum):
 
 class CommandType(CaseInsensitiveStrEnum):
     """List of commands that the SystemController can send to component services."""
-
-    START = "start"
-    """A command sent to start a service. This will start the service in the
-    current state."""
 
     SHUTDOWN = "shutdown"
     """A command sent to shutdown a service. This will stop the service gracefully

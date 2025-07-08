@@ -8,7 +8,7 @@ from collections.abc import Coroutine
 import psutil
 
 from aiperf.common.constants import BYTES_PER_MIB, TASK_CANCEL_TIMEOUT_SHORT
-from aiperf.common.messages import CPUTimes, CtxSwitches, ProcessHealth
+from aiperf.common.health_models import CPUTimes, CtxSwitches, ProcessHealth
 
 
 class AsyncTaskManagerMixin:

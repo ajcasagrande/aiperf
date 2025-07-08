@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 import logging
 
-from aiperf.common.messages import WorkerHealthMessage, WorkerHealthSummary
+from aiperf.common.health_models import WorkerHealthMessage, WorkerHealthSummary
 
 
 class HealthTracker:
