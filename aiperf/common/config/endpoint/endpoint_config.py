@@ -20,9 +20,9 @@ class EndPointConfig(BaseConfig):
     model_selection_strategy: Annotated[
         ModelSelectionStrategy,
         Field(
-            description="When multiple models are specified, this is how a specific model should be assigned to a prompt. \
-            \nround_robin: nth prompt in the list gets assigned to n-mod len(models). \
-            \nrandom: assignment is uniformly random",
+            description="When multiple models are specified, this is how a specific model should be assigned to a prompt.\n"
+            "round_robin: nth prompt in the list gets assigned to n-mod len(models).\n"
+            "random: assignment is uniformly random",
         ),
         cyclopts.Parameter(
             name=("--model-selection-strategy"),
@@ -62,8 +62,8 @@ class EndPointConfig(BaseConfig):
     server_metrics_urls: Annotated[
         list[str],
         Field(
-            description="The list of Triton server metrics URLs. \
-            \nThese are used for Telemetry metric reporting with Triton.",
+            description="The list of Triton server metrics URLs.\n"
+            "These are used for Telemetry metric reporting with Triton.",
         ),
         BeforeValidator(parse_str_or_list),
         cyclopts.Parameter(
@@ -85,9 +85,9 @@ class EndPointConfig(BaseConfig):
         str,
         Field(
             description="A fully-qualified gRPC method name in "
-            "'<package>.<service>/<method>' format."
-            "\nThe option is only supported by dynamic gRPC service kind and is"
-            "\nrequired to identify the RPC to use when sending requests to the server.",
+            "'<package>.<service>/<method>' format.\n"
+            "The option is only supported by dynamic gRPC service kind and is\n"
+            "required to identify the RPC to use when sending requests to the server.",
         ),
         cyclopts.Parameter(
             name=("--grpc-method"),

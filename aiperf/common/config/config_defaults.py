@@ -47,7 +47,7 @@ class InputDefaults:
     BATCH_SIZE = 1
     EXTRA = {}
     GOODPUT = {}
-    HEADER = {}
+    HEADERS = {}
     FILE = None
     NUM_DATASET_ENTRIES = 100
     RANDOM_SEED = None
@@ -144,7 +144,6 @@ class ServiceDefaults:
     LOG_LEVEL = "INFO"
     DISABLE_UI = False
     ENABLE_UVLOOP = True
-    RESULT_PARSER_SERVICE_COUNT = 4
 
 
 @dataclass(frozen=True)
