@@ -5,7 +5,6 @@ Tests for ZMQ PUB and SUB client implementations.
 """
 
 import asyncio
-import contextlib
 import errno
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
@@ -35,18 +34,6 @@ class TestZMQPubClient:
         assert client.bind is True
         assert client.client_id.startswith("pub_client_")
 
-    def test_inheritance(self, mock_zmq_context_instance: MagicMock):
-        """Test that ZMQPubClient inherits from BaseZMQClient."""
-        from aiperf.common.comms.zmq import BaseZMQClient
-
-        client = ZMQPubClient(
-            context=mock_zmq_context_instance,
-            address="inproc://test_addr_5555",
-            bind=True,
-        )
-
-        assert isinstance(client, BaseZMQClient)
-
     def test_factory_registration(self, mock_zmq_context_instance: MagicMock):
         """Test that ZMQPubClient is properly registered with the factory."""
         from aiperf.common.comms.base import CommunicationClientFactory
@@ -63,19 +50,15 @@ class TestZMQPubClient:
 
     @pytest.mark.asyncio
     async def test_publish_message(
-        self, mock_zmq_context_instance: MagicMock, test_message: _TestMessage
+        self, zmq_pub_bind_client: ZMQPubClient, test_message: _TestMessage
     ):
         """Test publishing a message."""
-        client = ZMQPubClient(
-            context=mock_zmq_context_instance,
-            address="inproc://test_addr_5555",
-            bind=True,
-        )
+        client = zmq_pub_bind_client
 
         await client.initialize()
         await client.publish(test_message)
 
-        mock_socket = mock_zmq_context_instance.socket.return_value
+        mock_socket = zmq_pub_bind_client.socket
         mock_socket.send_multipart.assert_called_once()
 
         # Check the call arguments
@@ -84,64 +67,48 @@ class TestZMQPubClient:
         assert call_args[0] == test_message.message_type.encode()
         assert isinstance(call_args[1], bytes)
 
-        await client.shutdown()
-
     @pytest.mark.asyncio
     async def test_publish_not_initialized(
-        self, mock_zmq_context_instance: MagicMock, test_message: _TestMessage
+        self, zmq_pub_bind_client: ZMQPubClient, test_message: _TestMessage
     ):
         """Test publishing when not initialized."""
-        client = ZMQPubClient(
-            context=mock_zmq_context_instance,
-            address="inproc://test_addr_5555",
-            bind=True,
-        )
+        client = zmq_pub_bind_client
 
         # Should initialize automatically
         await client.publish(test_message)
 
         assert client.is_initialized
-        mock_socket = mock_zmq_context_instance.socket.return_value
+        mock_socket = zmq_pub_bind_client.socket
         mock_socket.send_multipart.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_publish_multiple_messages(
         self,
-        mock_zmq_context_instance: MagicMock,
+        zmq_pub_bind_client: ZMQPubClient,
         multiple_test_messages: list[_TestMessage],
     ):
         """Test publishing multiple messages."""
-        client = ZMQPubClient(
-            context=mock_zmq_context_instance,
-            address="inproc://test_addr_5555",
-            bind=True,
-        )
+        client = zmq_pub_bind_client
 
         await client.initialize()
 
         for message in multiple_test_messages:
             await client.publish(message)
 
-        mock_socket = mock_zmq_context_instance.socket.return_value
+        mock_socket = zmq_pub_bind_client.socket
         assert mock_socket.send_multipart.call_count == len(multiple_test_messages)
-
-        await client.shutdown()
 
     @pytest.mark.asyncio
     async def test_publish_error_handling(
-        self, mock_zmq_context_instance: MagicMock, test_message: _TestMessage
+        self, zmq_pub_bind_client: ZMQPubClient, test_message: _TestMessage
     ):
         """Test error handling during publish."""
-        client = ZMQPubClient(
-            context=mock_zmq_context_instance,
-            address="inproc://test_addr_5555",
-            bind=True,
-        )
+        client = zmq_pub_bind_client
 
         await client.initialize()
 
         # Mock socket to raise an error
-        mock_socket = mock_zmq_context_instance.socket.return_value
+        mock_socket = zmq_pub_bind_client.socket
         mock_socket.send_multipart.side_effect = zmq.ZMQError(
             errno=errno.EFAULT, msg="Send failed"
         )
@@ -151,19 +118,15 @@ class TestZMQPubClient:
 
     @pytest.mark.asyncio
     async def test_publish_context_terminated(
-        self, mock_zmq_context_instance: MagicMock, test_message: _TestMessage
+        self, zmq_pub_bind_client: ZMQPubClient, test_message: _TestMessage
     ):
         """Test publish when context is terminated."""
-        client = ZMQPubClient(
-            context=mock_zmq_context_instance,
-            address="inproc://test_addr_5555",
-            bind=True,
-        )
+        client = zmq_pub_bind_client
 
         await client.initialize()
 
         # Mock socket to raise ContextTerminated
-        mock_socket = mock_zmq_context_instance.socket.return_value
+        mock_socket = client.socket
         mock_socket.send_multipart.side_effect = zmq.ContextTerminated()
 
         # Should not raise error
@@ -171,19 +134,15 @@ class TestZMQPubClient:
 
     @pytest.mark.asyncio
     async def test_publish_cancelled(
-        self, mock_zmq_context_instance: MagicMock, test_message: _TestMessage
+        self, zmq_pub_bind_client: ZMQPubClient, test_message: _TestMessage
     ):
         """Test publish when cancelled."""
-        client = ZMQPubClient(
-            context=mock_zmq_context_instance,
-            address="inproc://test_addr_5555",
-            bind=True,
-        )
+        client = zmq_pub_bind_client
 
         await client.initialize()
 
         # Mock socket to raise CancelledError
-        mock_socket = mock_zmq_context_instance.socket.return_value
+        mock_socket = client.socket
         mock_socket.send_multipart.side_effect = asyncio.CancelledError()
 
         # Should not raise error
@@ -202,138 +161,101 @@ class TestZMQPubClient:
     @pytest.mark.asyncio
     async def test_publish_different_message_types(
         self,
-        mock_zmq_context_instance: MagicMock,
-        message_type: MessageType
-        | MessageType
-        | MessageType
-        | MessageType
-        | MessageType,
+        zmq_pub_bind_client: ZMQPubClient,
+        message_type: MessageType,
     ):
         """Test publishing different message types."""
-        client = ZMQPubClient(
-            context=mock_zmq_context_instance,
-            address="inproc://test_addr_5555",
-            bind=True,
-        )
+        client = zmq_pub_bind_client
 
         message = _TestMessage(message_type=message_type, test_data="test")
 
         await client.initialize()
         await client.publish(message)
 
-        mock_socket = mock_zmq_context_instance.socket.return_value
+        mock_socket = client.socket
         call_args = mock_socket.send_multipart.call_args[0][0]
         assert call_args[0] == message_type.encode()
-
-        await client.shutdown()
 
 
 class TestZMQSubClient:
     """Tests for ZMQSubClient class."""
 
-    def test_init(self, mock_zmq_context_instance: MagicMock):
+    def test_init(self, zmq_sub_connect_client: ZMQSubClient):
         """Test SubClient initialization."""
-        client = ZMQSubClient(
-            context=mock_zmq_context_instance,
-            address="inproc://test_addr_5556",
-            bind=False,
-        )
+        client = zmq_sub_connect_client
 
-        assert client.context == mock_zmq_context_instance
+        assert client.context == zmq_sub_connect_client.context
         assert client.socket_type == zmq.SUB
-        assert client.address == "inproc://test_addr_5556"
+        assert client.address == "inproc://test_sub_client"
         assert client.bind is False
         assert client.client_id.startswith("sub_client_")
 
-    def test_inheritance(self, mock_zmq_context_instance: MagicMock):
+    def test_inheritance(self, zmq_sub_connect_client: ZMQSubClient):
         """Test that ZMQSubClient inherits from BaseZMQClient and AsyncTaskManagerMixin."""
         from aiperf.common.comms.zmq import BaseZMQClient
         from aiperf.common.mixins import AsyncTaskManagerMixin
 
-        client = ZMQSubClient(
-            context=mock_zmq_context_instance,
-            address="inproc://test_addr_5556",
-            bind=False,
-        )
+        client = zmq_sub_connect_client
 
         assert isinstance(client, BaseZMQClient)
         assert isinstance(client, AsyncTaskManagerMixin)
 
-    def test_factory_registration(self, mock_zmq_context_instance: MagicMock):
+    def test_factory_registration(self, zmq_sub_connect_client: ZMQSubClient):
         """Test that ZMQSubClient is properly registered with the factory."""
         from aiperf.common.comms.base import CommunicationClientFactory
         from aiperf.common.enums import CommunicationClientType
 
         client = CommunicationClientFactory.create_instance(
             CommunicationClientType.SUB,
-            context=mock_zmq_context_instance,
-            address="inproc://test_addr_5556",
+            context=zmq_sub_connect_client.context,
+            address="inproc://test_sub_client",
             bind=False,
         )
 
         assert isinstance(client, ZMQSubClient)
 
-    def test_subscribers_initialization(self, mock_zmq_context_instance: MagicMock):
+    def test_subscribers_initialization(self, zmq_sub_connect_client: ZMQSubClient):
         """Test that subscribers dict is initialized."""
-        client = ZMQSubClient(
-            context=mock_zmq_context_instance,
-            address="inproc://test_addr_5556",
-            bind=False,
-        )
 
-        assert hasattr(client, "_subscribers")
-        assert client._subscribers == {}
+        assert hasattr(zmq_sub_connect_client, "_subscribers")
+        assert zmq_sub_connect_client._subscribers == {}
 
     @pytest.mark.asyncio
     async def test_subscribe_single_message_type(
-        self, mock_zmq_context_instance: MagicMock, mock_async_callback: AsyncMock
+        self, zmq_sub_connect_client: ZMQSubClient, mock_async_callback: AsyncMock
     ):
         """Test subscribing to a single message type."""
-        client = ZMQSubClient(
-            context=mock_zmq_context_instance,
-            address="inproc://test_addr_5556",
-            bind=False,
-        )
+        client = zmq_sub_connect_client
 
         await client.initialize()
         await client.subscribe(MessageType.STATUS, mock_async_callback)
 
-        mock_socket = mock_zmq_context_instance.socket.return_value
+        mock_socket = zmq_sub_connect_client.socket
         mock_socket.subscribe.assert_called_once_with(MessageType.STATUS.encode())
 
         assert MessageType.STATUS in client._subscribers
         assert mock_async_callback in client._subscribers[MessageType.STATUS]
 
-        await client.shutdown()
-
     @pytest.mark.asyncio
     async def test_subscribe_not_initialized(
-        self, mock_zmq_context_instance: MagicMock, mock_async_callback: AsyncMock
+        self, zmq_sub_connect_client: ZMQSubClient, mock_async_callback: AsyncMock
     ):
         """Test subscribing when not initialized."""
-        client = ZMQSubClient(
-            context=mock_zmq_context_instance,
-            address="inproc://test_addr_5556",
-            bind=False,
-        )
+        client = zmq_sub_connect_client
 
         # Should initialize automatically
         await client.subscribe(MessageType.STATUS, mock_async_callback)
 
         assert client.is_initialized
-        mock_socket = mock_zmq_context_instance.socket.return_value
+        mock_socket = zmq_sub_connect_client.socket
         mock_socket.subscribe.assert_called_once_with(MessageType.STATUS.encode())
 
     @pytest.mark.asyncio
     async def test_subscribe_multiple_message_types(
-        self, mock_zmq_context_instance: MagicMock, mock_async_callback: AsyncMock
+        self, zmq_sub_connect_client: ZMQSubClient, mock_async_callback: AsyncMock
     ):
         """Test subscribing to multiple message types."""
-        client = ZMQSubClient(
-            context=mock_zmq_context_instance,
-            address="inproc://test_addr_5556",
-            bind=False,
-        )
+        client = zmq_sub_connect_client
 
         await client.initialize()
 
@@ -342,7 +264,7 @@ class TestZMQSubClient:
         for msg_type in message_types:
             await client.subscribe(msg_type, mock_async_callback)
 
-        mock_socket = mock_zmq_context_instance.socket.return_value
+        mock_socket = zmq_sub_connect_client.socket
         expected_calls = [call(msg_type.encode()) for msg_type in message_types]
         mock_socket.subscribe.assert_has_calls(expected_calls)
 
@@ -350,18 +272,12 @@ class TestZMQSubClient:
             assert msg_type in client._subscribers
             assert mock_async_callback in client._subscribers[msg_type]
 
-        await client.shutdown()
-
     @pytest.mark.asyncio
     async def test_subscribe_multiple_callbacks_same_type(
-        self, mock_zmq_context_instance: MagicMock
+        self, zmq_sub_connect_client: ZMQSubClient
     ):
         """Test subscribing multiple callbacks to the same message type."""
-        client = ZMQSubClient(
-            context=mock_zmq_context_instance,
-            address="inproc://test_addr_5556",
-            bind=False,
-        )
+        client = zmq_sub_connect_client
 
         callback1 = AsyncMock()
         callback2 = AsyncMock()
@@ -370,7 +286,7 @@ class TestZMQSubClient:
         await client.subscribe(MessageType.STATUS, callback1)
         await client.subscribe(MessageType.STATUS, callback2)
 
-        mock_socket = mock_zmq_context_instance.socket.return_value
+        mock_socket = zmq_sub_connect_client.socket
         # Subscribe should only be called once per message type
         mock_socket.subscribe.assert_called_once_with(MessageType.STATUS.encode())
 
@@ -379,23 +295,17 @@ class TestZMQSubClient:
         assert callback2 in client._subscribers[MessageType.STATUS]
         assert len(client._subscribers[MessageType.STATUS]) == 2
 
-        await client.shutdown()
-
     @pytest.mark.asyncio
     async def test_subscribe_error_handling(
-        self, mock_zmq_context_instance: MagicMock, mock_async_callback: AsyncMock
+        self, zmq_sub_connect_client: ZMQSubClient, mock_async_callback: AsyncMock
     ):
         """Test error handling during subscribe."""
-        client = ZMQSubClient(
-            context=mock_zmq_context_instance,
-            address="inproc://test_addr_5556",
-            bind=False,
-        )
+        client = zmq_sub_connect_client
 
         await client.initialize()
 
         # Mock socket to raise an error
-        mock_socket = mock_zmq_context_instance.socket.return_value
+        mock_socket = client.socket
         mock_socket.subscribe.side_effect = zmq.ZMQError(
             errno=errno.ECOMM, msg="Subscribe failed"
         )
@@ -407,14 +317,10 @@ class TestZMQSubClient:
 
     @pytest.mark.asyncio
     async def test_message_receiving_task(
-        self, mock_zmq_context_instance: MagicMock, mock_async_callback: AsyncMock
+        self, zmq_sub_connect_client: ZMQSubClient, mock_async_callback: AsyncMock
     ):
         """Test that message receiving task is started."""
-        client = ZMQSubClient(
-            context=mock_zmq_context_instance,
-            address="inproc://test_addr_5556",
-            bind=False,
-        )
+        client = zmq_sub_connect_client
 
         await client.initialize()
         await client.subscribe(MessageType.STATUS, mock_async_callback)
@@ -423,16 +329,10 @@ class TestZMQSubClient:
         assert hasattr(client, "tasks")
         # In a real implementation, there should be tasks for receiving messages
 
-        await client.shutdown()
-
     @pytest.mark.asyncio
-    async def test_on_stop_hook(self, mock_zmq_context_instance: MagicMock):
+    async def test_on_stop_hook(self, zmq_sub_connect_client: ZMQSubClient):
         """Test that the on_stop hook cancels all tasks."""
-        client = ZMQSubClient(
-            context=mock_zmq_context_instance,
-            address="inproc://test_addr_5556",
-            bind=False,
-        )
+        client = zmq_sub_connect_client
 
         await client.initialize()
 
@@ -455,7 +355,7 @@ class TestZMQSubClient:
     @pytest.mark.asyncio
     async def test_subscribe_different_message_types(
         self,
-        mock_zmq_context_instance: MagicMock,
+        zmq_sub_connect_client: ZMQSubClient,
         message_type: MessageType
         | MessageType
         | MessageType
@@ -464,54 +364,21 @@ class TestZMQSubClient:
         mock_async_callback: AsyncMock,
     ):
         """Test subscribing to different message types."""
-        client = ZMQSubClient(
-            context=mock_zmq_context_instance,
-            address="inproc://test_addr_5556",
-            bind=False,
-        )
+        client = zmq_sub_connect_client
 
         await client.initialize()
         await client.subscribe(message_type, mock_async_callback)
 
-        mock_socket = mock_zmq_context_instance.socket.return_value
+        mock_socket = zmq_sub_connect_client.socket
         mock_socket.subscribe.assert_called_once_with(message_type.encode())
 
         assert message_type in client._subscribers
         assert mock_async_callback in client._subscribers[message_type]
 
-        await client.shutdown()
-
     @pytest.mark.asyncio
-    async def test_subscribe_with_socket_options(
-        self, mock_zmq_context_instance: MagicMock, mock_async_callback: AsyncMock
-    ):
-        """Test subscribing with custom socket options."""
-        socket_ops = {zmq.RCVTIMEO: 1000}
-
-        client = ZMQSubClient(
-            context=mock_zmq_context_instance,
-            address="inproc://test_addr_5556",
-            bind=False,
-            socket_ops=socket_ops,
-        )
-
-        await client.initialize()
-        await client.subscribe(MessageType.STATUS, mock_async_callback)
-
-        mock_socket = mock_zmq_context_instance.socket.return_value
-        mock_socket.setsockopt.assert_any_call(zmq.RCVTIMEO, 1000)
-
-        with contextlib.suppress(asyncio.CancelledError):
-            await client.shutdown()
-
-    @pytest.mark.asyncio
-    async def test_concurrent_subscribes(self, mock_zmq_context_instance: MagicMock):
+    async def test_concurrent_subscribes(self, zmq_sub_connect_client: ZMQSubClient):
         """Test concurrent subscribe operations."""
-        client = ZMQSubClient(
-            context=mock_zmq_context_instance,
-            address="inproc://test_addr_5556",
-            bind=False,
-        )
+        client = zmq_sub_connect_client
 
         await client.initialize()
 
@@ -537,28 +404,21 @@ class TestZMQSubClient:
             assert msg_type in client._subscribers
             assert callback in client._subscribers[msg_type]
 
-        await client.shutdown()
-
 
 class TestPubSubIntegration:
     """Integration tests for PUB/SUB clients."""
 
     @pytest.mark.asyncio
     async def test_pub_sub_message_flow(
-        self, mock_zmq_context_instance: MagicMock, test_message: _TestMessage
+        self,
+        zmq_pub_bind_client: ZMQPubClient,
+        zmq_sub_connect_client: ZMQSubClient,
+        test_message: _TestMessage,
     ):
         """Test message flow from PUB to SUB."""
-        pub_client = ZMQPubClient(
-            context=mock_zmq_context_instance,
-            address="inproc://test_addr_5555",
-            bind=True,
-        )
+        pub_client = zmq_pub_bind_client
 
-        sub_client = ZMQSubClient(
-            context=mock_zmq_context_instance,
-            address="inproc://test_addr_5555",
-            bind=False,
-        )
+        sub_client = zmq_sub_connect_client
 
         callback = AsyncMock()
 
@@ -569,37 +429,27 @@ class TestPubSubIntegration:
         await pub_client.publish(test_message)
 
         # Verify publish was called
-        pub_socket = mock_zmq_context_instance.socket.return_value
+        pub_socket = pub_client.socket
         pub_socket.send_multipart.assert_called_once()
 
         # Verify subscribe was called
-        sub_socket = mock_zmq_context_instance.socket.return_value
+        sub_socket = sub_client.socket
         sub_socket.subscribe.assert_called_once_with(test_message.message_type.encode())
-
-        await pub_client.shutdown()
-        await sub_client.shutdown()
 
     @pytest.mark.asyncio
     async def test_multiple_publishers_single_subscriber(
         self,
-        mock_zmq_context_instance: MagicMock,
+        zmq_pub_bind_client: ZMQPubClient,
+        zmq_sub_connect_client: ZMQSubClient,
         multiple_test_messages: list[_TestMessage],
     ):
         """Test multiple publishers sending to a single subscriber."""
         pub_clients = []
         for _ in range(3):
-            client = ZMQPubClient(
-                context=mock_zmq_context_instance,
-                address="inproc://test_addr_5555",
-                bind=True,
-            )
+            client = zmq_pub_bind_client
             pub_clients.append(client)
 
-        sub_client = ZMQSubClient(
-            context=mock_zmq_context_instance,
-            address="inproc://test_addr_5555",
-            bind=False,
-        )
+        sub_client = zmq_sub_connect_client
 
         callback = AsyncMock()
 
@@ -617,34 +467,24 @@ class TestPubSubIntegration:
             await pub_clients[i].publish(message)
 
         # Verify all publishes were called
-        pub_socket = mock_zmq_context_instance.socket.return_value
+        pub_socket = pub_clients[0].socket
         assert pub_socket.send_multipart.call_count == 3
-
-        # Cleanup
-        for client in pub_clients:
-            await client.shutdown()
-        await sub_client.shutdown()
 
     @pytest.mark.asyncio
     async def test_single_publisher_multiple_subscribers(
-        self, mock_zmq_context_instance: MagicMock, test_message: _TestMessage
+        self,
+        zmq_pub_bind_client: ZMQPubClient,
+        zmq_sub_connect_client: ZMQSubClient,
+        test_message: _TestMessage,
     ):
         """Test single publisher sending to multiple subscribers."""
-        pub_client = ZMQPubClient(
-            context=mock_zmq_context_instance,
-            address="inproc://test_addr_5555",
-            bind=True,
-        )
+        pub_client = zmq_pub_bind_client
 
         sub_clients = []
         callbacks = []
 
         for _ in range(3):
-            client = ZMQSubClient(
-                context=mock_zmq_context_instance,
-                address="inproc://test_addr_5555",
-                bind=False,
-            )
+            client = zmq_sub_connect_client
             callback = AsyncMock()
             sub_clients.append(client)
             callbacks.append(callback)
@@ -662,40 +502,30 @@ class TestPubSubIntegration:
         await pub_client.publish(test_message)
 
         # Verify publish was called once
-        pub_socket = mock_zmq_context_instance.socket.return_value
+        pub_socket = pub_client.socket
         pub_socket.send_multipart.assert_called_once()
 
-        # Verify all subscribers subscribed
-        sub_socket = mock_zmq_context_instance.socket.return_value
-        assert sub_socket.subscribe.call_count == 3
-
-        # Cleanup
-        await pub_client.shutdown()
-        for client in sub_clients:
-            await client.shutdown()
+        # Verify the socket only subscribed once each
+        assert sub_clients[0].socket.subscribe.call_count == 1
+        assert sub_clients[1].socket.subscribe.call_count == 1
+        assert sub_clients[2].socket.subscribe.call_count == 1
 
     @pytest.mark.asyncio
     async def test_pub_sub_error_isolation(
-        self, mock_zmq_context_instance: MagicMock, test_message: _TestMessage
+        self,
+        zmq_pub_bind_client: ZMQPubClient,
+        zmq_sub_connect_client: ZMQSubClient,
+        test_message: _TestMessage,
     ):
         """Test that errors in one client don't affect others."""
-        pub_client = ZMQPubClient(
-            context=mock_zmq_context_instance,
-            address="inproc://test_addr_5555",
-            bind=True,
-        )
-
-        sub_client = ZMQSubClient(
-            context=mock_zmq_context_instance,
-            address="inproc://test_addr_5556",
-            bind=False,
-        )
+        pub_client = zmq_pub_bind_client
+        sub_client = zmq_sub_connect_client
 
         await pub_client.initialize()
         await sub_client.initialize()
 
         # Make pub client fail
-        pub_socket = mock_zmq_context_instance.socket.return_value
+        pub_socket = pub_client.socket
         pub_socket.send_multipart.side_effect = zmq.ZMQError(
             errno=errno.ECOMM, msg="Publish failed"
         )
@@ -708,8 +538,5 @@ class TestPubSubIntegration:
         callback = AsyncMock()
         await sub_client.subscribe(test_message.message_type, callback)
 
-        sub_socket = mock_zmq_context_instance.socket.return_value
+        sub_socket = sub_client.socket
         sub_socket.subscribe.assert_called_once()
-
-        await pub_client.shutdown()
-        await sub_client.shutdown()

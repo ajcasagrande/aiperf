@@ -44,8 +44,12 @@ def mock_zmq_context_instance() -> Generator[MagicMock, None, None]:
         mock_socket.bind = MagicMock()  # Synchronous operation
         mock_socket.connect = MagicMock()  # Synchronous operation
         mock_socket.send_multipart = AsyncMock()
+        mock_socket.send_string = AsyncMock()  # Add send_string mock for PUSH client
         # Make recv_multipart raise zmq.Again to prevent background task from processing invalid data
         mock_socket.recv_multipart = AsyncMock(side_effect=zmq.Again())
+        mock_socket.recv_string = AsyncMock(
+            side_effect=zmq.Again()
+        )  # Add recv_string mock for PULL client
         mock_socket.subscribe = MagicMock()
         mock_socket.setsockopt = MagicMock()
         mock_socket.close = MagicMock()  # Synchronous operation
@@ -108,7 +112,7 @@ def inproc_addresses_alt() -> dict[str, str]:
 
 
 @pytest.fixture
-async def zmq_pub_client(
+async def zmq_pub_bind_client(
     mock_zmq_context_instance: MagicMock,
 ) -> AsyncGenerator[ZMQPubClient, None]:
     """Fixture providing a ZMQ pub client."""
@@ -124,7 +128,7 @@ async def zmq_pub_client(
 
 
 @pytest.fixture
-async def zmq_sub_client(
+async def zmq_sub_connect_client(
     mock_zmq_context_instance: MagicMock,
 ) -> AsyncGenerator[ZMQSubClient, None]:
     """Fixture providing a ZMQ sub client."""
@@ -140,7 +144,7 @@ async def zmq_sub_client(
 
 
 @pytest.fixture
-async def zmq_push_client(
+async def zmq_push_bind_client(
     mock_zmq_context_instance: MagicMock,
 ) -> AsyncGenerator[ZMQPushClient, None]:
     """Fixture providing a ZMQ push client."""
@@ -156,7 +160,7 @@ async def zmq_push_client(
 
 
 @pytest.fixture
-async def zmq_pull_client(
+async def zmq_pull_connect_client(
     mock_zmq_context_instance: MagicMock,
 ) -> AsyncGenerator[ZMQPullClient, None]:
     """Fixture providing a ZMQ pull client."""
@@ -172,7 +176,7 @@ async def zmq_pull_client(
 
 
 @pytest.fixture
-async def zmq_request_client(
+async def zmq_request_connect_client(
     mock_zmq_context_instance: MagicMock,
 ) -> AsyncGenerator[ZMQDealerRequestClient, None]:
     """Fixture providing a ZMQ request client."""
@@ -188,7 +192,7 @@ async def zmq_request_client(
 
 
 @pytest.fixture
-async def zmq_reply_client(
+async def zmq_reply_bind_client(
     mock_zmq_context_instance: MagicMock,
 ) -> AsyncGenerator[ZMQRouterReplyClient, None]:
     """Fixture providing a ZMQ reply client."""
@@ -204,7 +208,7 @@ async def zmq_reply_client(
 
 
 @pytest.fixture
-async def zmq_base_client_pub(
+async def zmq_base_bind_client_pub(
     mock_zmq_context_instance: MagicMock,
 ) -> AsyncGenerator[BaseZMQClient, None]:
     """Fixture providing a base ZMQ client with PUB socket."""
@@ -221,7 +225,7 @@ async def zmq_base_client_pub(
 
 
 @pytest.fixture
-async def zmq_base_client_sub(
+async def zmq_base_connect_client_sub(
     mock_zmq_context_instance: MagicMock,
 ) -> AsyncGenerator[BaseZMQClient, None]:
     """Fixture providing a base ZMQ client with SUB socket."""

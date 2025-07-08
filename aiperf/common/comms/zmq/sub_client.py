@@ -155,10 +155,14 @@ class ZMQSubClient(BaseZMQClient, AsyncTaskManagerMixin):
                 self.execute_async(self._handle_message(topic_bytes, message_bytes))
 
             except (asyncio.CancelledError, zmq.ContextTerminated):
+                self.logger.debug(
+                    "Sub client %s receiver task cancelled", self.client_id
+                )
                 break
 
             except zmq.Again:
-                pass
+                await asyncio.sleep(0)  # yield to the event loop
+                continue
 
             except Exception as e:
                 self.logger.error(

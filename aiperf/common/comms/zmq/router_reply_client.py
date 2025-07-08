@@ -211,6 +211,7 @@ class ZMQRouterReplyClient(BaseZMQClient, AsyncTaskManagerMixin):
                 except zmq.Again:
                     # This means we timed out waiting for a request.
                     # We can continue to the next iteration of the loop.
+                    await asyncio.sleep(0)  # yield to the event loop
                     continue
 
                 # Create a new response future for this request that will be resolved

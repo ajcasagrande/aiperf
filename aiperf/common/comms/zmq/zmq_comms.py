@@ -107,6 +107,7 @@ class BaseZMQCommunication(BaseCommunication, ABC):
             # self.context.term()
 
         except asyncio.CancelledError:
+            self.logger.debug("ZMQ communication shutdown cancelled")
             pass
 
         except Exception as e:

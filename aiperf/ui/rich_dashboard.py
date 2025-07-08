@@ -7,7 +7,6 @@ import time
 from rich.console import Console
 from rich.layout import Layout
 from rich.live import Live
-from rich.panel import Panel
 
 from aiperf.common.hooks import (
     AIPerfLifecycleMixin,
@@ -67,23 +66,13 @@ class AIPerfRichDashboard(LogsDashboardMixin, AIPerfLifecycleMixin):
 
         return layout
 
-    def _get_logs_panel(self) -> Panel:
-        """Create the logs panel with recent log entries."""
-        return Panel(
-            self._create_logs_table(),
-            title="[bold]System Logs[/bold]",
-            border_style="yellow",
-            height=12,
-            title_align="left",
-        )
-
     @aiperf_auto_task(interval_sec=0.1)
     async def _update_logs(self) -> None:
         """Update the dashboard display."""
         if not self.running:
             return
 
-        self.layout["logs"].update(self._get_logs_panel())
+        self.layout["logs"].update(self.get_logs_panel())
 
     def update_display(self) -> None:
         """Update the dashboard display."""

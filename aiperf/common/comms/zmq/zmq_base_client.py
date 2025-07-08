@@ -201,7 +201,7 @@ class BaseZMQClient(AIPerfTaskMixin):
             raise  # re-raise it up the stack
         except Exception as e:
             self.logger.error(
-                "Exception running ON_STOP hooks: %s (%s)", e, self.client_id
+                "Uncaught exception running ON_STOP hooks: %s (%s)", e, self.client_id
             )
 
         try:
@@ -210,17 +210,25 @@ class BaseZMQClient(AIPerfTaskMixin):
             raise  # re-raise it up the stack
         except Exception as e:
             self.logger.error(
-                "Exception cleaning up ZMQ socket: %s (%s)", e, self.client_id
+                "Uncaught exception cleaning up ZMQ socket: %s (%s)", e, self.client_id
             )
 
         finally:
             try:
                 if self._socket:
                     self._socket.close()
-
+            except zmq.ContextTerminated:
+                self.logger.debug(
+                    "ZMQ context already terminated, skipping socket close"
+                )
+                return
+            except AIPerfError:
+                raise  # re-raise it up the stack
             except Exception as e:
                 self.logger.error(
-                    "Exception shutting down ZMQ socket: %s (%s)", e, self.client_id
+                    "Uncaught exception shutting down ZMQ socket: %s (%s)",
+                    e,
+                    self.client_id,
                 )
             finally:
                 self._socket = None

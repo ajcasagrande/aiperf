@@ -4,19 +4,27 @@ import multiprocessing
 from collections import deque
 from datetime import datetime
 
+from rich.console import RenderableType
+from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
 from aiperf.common.hooks import (
     AIPerfLifecycleMixin,
     aiperf_auto_task,
-    on_init,
 )
 from aiperf.common.logging import get_global_log_queue
+from aiperf.ui.dashboard_element import DashboardElement
 
 
-class LogsDashboardMixin(AIPerfLifecycleMixin):
-    """Mixin for capturing and displaying logs from multiple processes using a global log queue."""
+class LogsDashboardElement(DashboardElement):
+    """Logs dashboard element for the dashboard."""
+
+    key = "logs"
+    title = Text("System Logs", style="bold")
+    border_style = "yellow"
+    height = 12
+    title_align = "left"
 
     # TODO: Make these configurable.
     MAX_LOG_RECORDS = 100
@@ -42,28 +50,13 @@ class LogsDashboardMixin(AIPerfLifecycleMixin):
         "CRITICAL": "bold red",
     }
 
-    def __init__(self) -> None:
+    def __init__(self, log_records: deque[dict]) -> None:
         super().__init__()
-        self.log_queue: multiprocessing.Queue | None = None
-        self.log_records: deque[dict] = deque(maxlen=self.MAX_LOG_RECORDS)
+        self.log_records = log_records
 
-    @on_init
-    def _init_log_queue(self) -> None:
-        """Retrieve the global log queue."""
-        self.log_queue = get_global_log_queue()
-
-    @aiperf_auto_task(interval_sec=LOG_REFRESH_INTERVAL_SEC)
-    async def _consume_logs(self) -> None:
-        """Consume log records from the queue in a background task.
-
-        This is a background task that runs every LOG_REFRESH_INTERVAL_SEC seconds to consume log records from the queue.
-        """
-        if self.log_queue is None:
-            return
-
-        while not self.log_queue.empty():
-            log_data = self.log_queue.get_nowait()
-            self.log_records.append(log_data)
+    def get_content(self) -> RenderableType:
+        """Get the content for the logs element."""
+        return self._create_logs_table()
 
     def _create_logs_table(self) -> Table:
         """Create the logs table."""
@@ -99,3 +92,55 @@ class LogsDashboardMixin(AIPerfLifecycleMixin):
             )
 
         return logs_table
+
+
+class LogsDashboardMixin(AIPerfLifecycleMixin):
+    """Mixin for capturing and displaying logs from multiple processes using a global log queue."""
+
+    # TODO: Make these configurable.
+    MAX_LOG_RECORDS = 100
+    MAX_LOG_MESSAGE_LENGTH = 400
+    LOG_REFRESH_INTERVAL_SEC = 0.1
+    MAX_LOG_LOGGER_NAME_LENGTH = 25
+
+    # Color styles for log level names
+    LOG_LEVEL_STYLES = {
+        "DEBUG": "dim",
+        "INFO": "green",
+        "WARNING": "yellow",
+        "ERROR": "red",
+        "CRITICAL": "bold red",
+    }
+
+    # Color styles for log messages
+    LOG_MSG_STYLES = {
+        "DEBUG": "dim",
+        "INFO": "white",
+        "WARNING": "yellow",
+        "ERROR": "red",
+        "CRITICAL": "bold red",
+    }
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.log_queue: multiprocessing.Queue | None = None
+        self.log_records: deque[dict] = deque(maxlen=self.MAX_LOG_RECORDS)
+        self.log_queue = get_global_log_queue()
+        self.log_records_element = LogsDashboardElement(self.log_records)
+
+    @aiperf_auto_task(interval_sec=LOG_REFRESH_INTERVAL_SEC)
+    async def _consume_logs(self) -> None:
+        """Consume log records from the queue in a background task.
+
+        This is a background task that runs every LOG_REFRESH_INTERVAL_SEC seconds to consume log records from the queue.
+        """
+        if self.log_queue is None:
+            return
+
+        while not self.log_queue.empty():
+            log_data = self.log_queue.get_nowait()
+            self.log_records.append(log_data)
+
+    def get_logs_panel(self) -> Panel:
+        """Get the logs panel."""
+        return self.log_records_element.get_panel()

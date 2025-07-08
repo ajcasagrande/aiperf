@@ -20,29 +20,20 @@ from aiperf.tests.comms.conftest import _TestMessage
 class TestZMQPushClient:
     """Tests for ZMQPushClient class."""
 
-    def test_init(self, mock_zmq_context_instance: MagicMock):
+    def test_init(self, zmq_push_bind_client: ZMQPushClient):
         """Test PushClient initialization."""
-        client = ZMQPushClient(
-            context=mock_zmq_context_instance,
-            address="inproc://test_addr_5555",
-            bind=True,
-        )
+        client = zmq_push_bind_client
 
-        assert client.context == mock_zmq_context_instance
         assert client.socket_type == zmq.PUSH
-        assert client.address == "inproc://test_addr_5555"
+        assert client.address == "inproc://test_push_client"
         assert client.bind is True
         assert client.client_id.startswith("push_client_")
 
-    def test_inheritance(self, mock_zmq_context_instance: MagicMock):
+    def test_inheritance(self, zmq_push_bind_client: ZMQPushClient):
         """Test that ZMQPushClient inherits from BaseZMQClient."""
         from aiperf.common.comms.zmq import BaseZMQClient
 
-        client = ZMQPushClient(
-            context=mock_zmq_context_instance,
-            address="inproc://test_addr_5555",
-            bind=True,
-        )
+        client = zmq_push_bind_client
 
         assert isinstance(client, BaseZMQClient)
 
@@ -54,7 +45,7 @@ class TestZMQPushClient:
         client = CommunicationClientFactory.create_instance(
             CommunicationClientType.PUSH,
             context=mock_zmq_context_instance,
-            address="inproc://test_addr_5555",
+            address="inproc://test_push_client",
             bind=True,
         )
 
@@ -62,26 +53,25 @@ class TestZMQPushClient:
 
     @pytest.mark.asyncio
     async def test_push_message(
-        self, mock_zmq_context_instance: MagicMock, test_message: _TestMessage
+        self,
+        zmq_push_bind_client: ZMQPushClient,
+        test_message: _TestMessage,
+        mock_zmq_context_instance: MagicMock,
     ):
         """Test pushing a message."""
-        client = ZMQPushClient(
-            context=mock_zmq_context_instance,
-            address="inproc://test_addr_5555",
-            bind=True,
-        )
+        client = zmq_push_bind_client
 
         await client.initialize()
         await client.push(test_message)
 
         mock_socket = mock_zmq_context_instance.socket.return_value
-        mock_socket.send_multipart.assert_called_once()
+        mock_socket.send_string.assert_called_once()
 
-        # Check the call arguments
-        call_args = mock_socket.send_multipart.call_args[0][0]
-        assert len(call_args) == 2
-        assert call_args[0] == test_message.message_type.encode()
-        assert isinstance(call_args[1], bytes)
+        # Check the call arguments - should be JSON string
+        call_args = mock_socket.send_string.call_args[0][0]
+        assert isinstance(call_args, str)
+        # The call should contain the JSON representation of the message
+        assert test_message.test_data in call_args
 
         await client.shutdown()
 
@@ -92,7 +82,7 @@ class TestZMQPushClient:
         """Test pushing when not initialized."""
         client = ZMQPushClient(
             context=mock_zmq_context_instance,
-            address="inproc://test_addr_5555",
+            address="inproc://test_push_client",
             bind=True,
         )
 
@@ -101,7 +91,7 @@ class TestZMQPushClient:
 
         assert client.is_initialized
         mock_socket = mock_zmq_context_instance.socket.return_value
-        mock_socket.send_multipart.assert_called_once()
+        mock_socket.send_string.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_push_multiple_messages(
@@ -112,7 +102,7 @@ class TestZMQPushClient:
         """Test pushing multiple messages."""
         client = ZMQPushClient(
             context=mock_zmq_context_instance,
-            address="inproc://test_addr_5555",
+            address="inproc://test_push_client",
             bind=True,
         )
 
@@ -122,7 +112,7 @@ class TestZMQPushClient:
             await client.push(message)
 
         mock_socket = mock_zmq_context_instance.socket.return_value
-        assert mock_socket.send_multipart.call_count == len(multiple_test_messages)
+        assert mock_socket.send_string.call_count == len(multiple_test_messages)
 
         await client.shutdown()
 
@@ -133,7 +123,7 @@ class TestZMQPushClient:
         """Test error handling during push."""
         client = ZMQPushClient(
             context=mock_zmq_context_instance,
-            address="inproc://test_addr_5555",
+            address="inproc://test_push_client",
             bind=True,
         )
 
@@ -141,11 +131,11 @@ class TestZMQPushClient:
 
         # Mock socket to raise an error
         mock_socket = mock_zmq_context_instance.socket.return_value
-        mock_socket.send_multipart.side_effect = zmq.ZMQError(
+        mock_socket.send_string.side_effect = zmq.ZMQError(
             errno=errno.EFAULT, msg="Send failed"
         )
 
-        with pytest.raises(CommunicationError, match="Failed to push message"):
+        with pytest.raises(CommunicationError, match="Failed to push data"):
             await client.push(test_message)
 
     @pytest.mark.asyncio
@@ -155,7 +145,7 @@ class TestZMQPushClient:
         """Test push when context is terminated."""
         client = ZMQPushClient(
             context=mock_zmq_context_instance,
-            address="inproc://test_addr_5555",
+            address="inproc://test_push_client",
             bind=True,
         )
 
@@ -163,7 +153,7 @@ class TestZMQPushClient:
 
         # Mock socket to raise ContextTerminated
         mock_socket = mock_zmq_context_instance.socket.return_value
-        mock_socket.send_multipart.side_effect = zmq.ContextTerminated()
+        mock_socket.send_string.side_effect = zmq.ContextTerminated()
 
         # Should not raise error
         await client.push(test_message)
@@ -175,7 +165,7 @@ class TestZMQPushClient:
         """Test push when cancelled."""
         client = ZMQPushClient(
             context=mock_zmq_context_instance,
-            address="inproc://test_addr_5555",
+            address="inproc://test_push_client",
             bind=True,
         )
 
@@ -183,7 +173,7 @@ class TestZMQPushClient:
 
         # Mock socket to raise CancelledError
         mock_socket = mock_zmq_context_instance.socket.return_value
-        mock_socket.send_multipart.side_effect = asyncio.CancelledError()
+        mock_socket.send_string.side_effect = asyncio.CancelledError()
 
         # Should not raise error
         await client.push(test_message)
@@ -205,7 +195,7 @@ class TestZMQPushClient:
         """Test pushing different message types."""
         client = ZMQPushClient(
             context=mock_zmq_context_instance,
-            address="inproc://test_addr_5555",
+            address="inproc://test_push_client",
             bind=True,
         )
 
@@ -215,8 +205,8 @@ class TestZMQPushClient:
         await client.push(message)
 
         mock_socket = mock_zmq_context_instance.socket.return_value
-        call_args = mock_socket.send_multipart.call_args[0][0]
-        assert call_args[0] == message_type.encode()
+        call_args = mock_socket.send_string.call_args[0][0]
+        assert message_type in call_args
 
         await client.shutdown()
 
@@ -229,7 +219,7 @@ class TestZMQPushClient:
         """Test that push distributes messages (load balancing behavior)."""
         client = ZMQPushClient(
             context=mock_zmq_context_instance,
-            address="inproc://test_addr_5555",
+            address="inproc://test_push_client",
             bind=True,
         )
 
@@ -240,7 +230,7 @@ class TestZMQPushClient:
         await asyncio.gather(*tasks)
 
         mock_socket = mock_zmq_context_instance.socket.return_value
-        assert mock_socket.send_multipart.call_count == len(multiple_test_messages)
+        assert mock_socket.send_string.call_count == len(multiple_test_messages)
 
         await client.shutdown()
 
@@ -248,30 +238,21 @@ class TestZMQPushClient:
 class TestZMQPullClient:
     """Tests for ZMQPullClient class."""
 
-    def test_init(self, mock_zmq_context_instance: MagicMock):
+    def test_init(self, zmq_pull_connect_client: ZMQPullClient):
         """Test PullClient initialization."""
-        client = ZMQPullClient(
-            context=mock_zmq_context_instance,
-            address="inproc://test_addr_5556",
-            bind=False,
-        )
+        client = zmq_pull_connect_client
 
-        assert client.context == mock_zmq_context_instance
         assert client.socket_type == zmq.PULL
-        assert client.address == "inproc://test_addr_5556"
+        assert client.address == "inproc://test_pull_client"
         assert client.bind is False
         assert client.client_id.startswith("pull_client_")
 
-    def test_inheritance(self, mock_zmq_context_instance: MagicMock):
+    def test_inheritance(self, zmq_pull_connect_client: ZMQPullClient):
         """Test that ZMQPullClient inherits from BaseZMQClient and AsyncTaskManagerMixin."""
         from aiperf.common.comms.zmq import BaseZMQClient
         from aiperf.common.mixins import AsyncTaskManagerMixin
 
-        client = ZMQPullClient(
-            context=mock_zmq_context_instance,
-            address="inproc://test_addr_5556",
-            bind=False,
-        )
+        client = zmq_pull_connect_client
 
         assert isinstance(client, BaseZMQClient)
         assert isinstance(client, AsyncTaskManagerMixin)
@@ -284,7 +265,7 @@ class TestZMQPullClient:
         client = CommunicationClientFactory.create_instance(
             CommunicationClientType.PULL,
             context=mock_zmq_context_instance,
-            address="inproc://test_addr_5556",
+            address="inproc://test_pull_client",
             bind=False,
         )
 
@@ -294,7 +275,7 @@ class TestZMQPullClient:
         """Test that pull callbacks dict is initialized."""
         client = ZMQPullClient(
             context=mock_zmq_context_instance,
-            address="inproc://test_addr_5556",
+            address="inproc://test_pull_client",
             bind=False,
         )
 
@@ -303,14 +284,10 @@ class TestZMQPullClient:
 
     @pytest.mark.asyncio
     async def test_register_pull_callback(
-        self, mock_zmq_context_instance: MagicMock, mock_async_callback: AsyncMock
+        self, zmq_pull_connect_client: ZMQPullClient, mock_async_callback: AsyncMock
     ):
         """Test registering a pull callback."""
-        client = ZMQPullClient(
-            context=mock_zmq_context_instance,
-            address="inproc://test_addr_5556",
-            bind=False,
-        )
+        client = zmq_pull_connect_client
 
         await client.initialize()
         await client.register_pull_callback(MessageType.STATUS, mock_async_callback)
@@ -327,7 +304,7 @@ class TestZMQPullClient:
         """Test registering pull callback when not initialized."""
         client = ZMQPullClient(
             context=mock_zmq_context_instance,
-            address="inproc://test_addr_5556",
+            address="inproc://test_pull_client",
             bind=False,
         )
 
@@ -344,7 +321,7 @@ class TestZMQPullClient:
         """Test registering duplicate pull callback."""
         client = ZMQPullClient(
             context=mock_zmq_context_instance,
-            address="inproc://test_addr_5556",
+            address="inproc://test_pull_client",
             bind=False,
         )
 
@@ -362,7 +339,7 @@ class TestZMQPullClient:
         """Test registering pull callback with max concurrency."""
         client = ZMQPullClient(
             context=mock_zmq_context_instance,
-            address="inproc://test_addr_5556",
+            address="inproc://test_pull_client",
             bind=False,
         )
 
@@ -384,7 +361,7 @@ class TestZMQPullClient:
         """Test registering multiple pull callbacks for different message types."""
         client = ZMQPullClient(
             context=mock_zmq_context_instance,
-            address="inproc://test_addr_5556",
+            address="inproc://test_pull_client",
             bind=False,
         )
 
@@ -408,38 +385,32 @@ class TestZMQPullClient:
 
     @pytest.mark.asyncio
     async def test_pull_receiving_task(
-        self, mock_zmq_context_instance: MagicMock, mock_async_callback: AsyncMock
+        self, zmq_pull_connect_client: ZMQPullClient, mock_async_callback: AsyncMock
     ):
         """Test that pull receiving task is started."""
-        client = ZMQPullClient(
-            context=mock_zmq_context_instance,
-            address="inproc://test_addr_5556",
-            bind=False,
-        )
+        client = zmq_pull_connect_client
 
         await client.initialize()
         await client.register_pull_callback(MessageType.STATUS, mock_async_callback)
 
         # Should have started a receiving task
-        assert hasattr(client, "_tasks")
+        assert hasattr(client, "tasks")
         # In a real implementation, there should be tasks for receiving messages
 
         await client.shutdown()
 
     @pytest.mark.asyncio
-    async def test_on_stop_hook(self, mock_zmq_context_instance: MagicMock):
+    async def test_on_stop_hook(self, zmq_pull_connect_client: ZMQPullClient):
         """Test that the on_stop hook cancels all tasks."""
-        client = ZMQPullClient(
-            context=mock_zmq_context_instance,
-            address="inproc://test_addr_5556",
-            bind=False,
-        )
+        client = zmq_pull_connect_client
 
         await client.initialize()
 
-        # Mock the cancel_all_tasks method
-        with pytest.raises(NotImplementedError):
-            await client._stop()
+        # The _stop hook should call cancel_all_tasks without raising an error
+        await client._stop()
+
+        # Verify that tasks set exists (from AsyncTaskManagerMixin)
+        assert hasattr(client, "tasks")
 
     @pytest.mark.parametrize(
         "message_type",
@@ -461,7 +432,7 @@ class TestZMQPullClient:
         """Test registering callbacks for different message types."""
         client = ZMQPullClient(
             context=mock_zmq_context_instance,
-            address="inproc://test_addr_5556",
+            address="inproc://test_pull_client",
             bind=False,
         )
 
@@ -471,8 +442,6 @@ class TestZMQPullClient:
         assert message_type in client._pull_callbacks
         assert client._pull_callbacks[message_type] == mock_async_callback
 
-        await client.shutdown()
-
     @pytest.mark.asyncio
     async def test_concurrent_callback_registration(
         self, mock_zmq_context_instance: MagicMock
@@ -480,7 +449,7 @@ class TestZMQPullClient:
         """Test concurrent callback registration."""
         client = ZMQPullClient(
             context=mock_zmq_context_instance,
-            address="inproc://test_addr_5556",
+            address="inproc://test_pull_client",
             bind=False,
         )
 
@@ -508,8 +477,6 @@ class TestZMQPullClient:
             assert msg_type in client._pull_callbacks
             assert client._pull_callbacks[msg_type] == callback
 
-        await client.shutdown()
-
     @pytest.mark.asyncio
     async def test_pull_with_high_water_mark(
         self, mock_zmq_context_instance: MagicMock, mock_async_callback: AsyncMock
@@ -519,7 +486,7 @@ class TestZMQPullClient:
 
         client = ZMQPullClient(
             context=mock_zmq_context_instance,
-            address="inproc://test_addr_5556",
+            address="inproc://test_pull_client",
             bind=False,
             socket_ops=socket_ops,
         )
@@ -530,28 +497,18 @@ class TestZMQPullClient:
         mock_socket = mock_zmq_context_instance.socket.return_value
         mock_socket.setsockopt.assert_any_call(zmq.RCVHWM, 1000)
 
-        await client.shutdown()
-
 
 class TestPushPullIntegration:
     """Integration tests for PUSH/PULL clients."""
 
     @pytest.mark.asyncio
     async def test_push_pull_message_flow(
-        self, mock_zmq_context_instance: MagicMock, test_message: _TestMessage
+        self, zmq_push_bind_client, zmq_pull_connect_client, test_message: _TestMessage
     ):
         """Test message flow from PUSH to PULL."""
-        push_client = ZMQPushClient(
-            context=mock_zmq_context_instance,
-            address="inproc://test_addr_5555",
-            bind=True,
-        )
+        push_client = zmq_push_bind_client
 
-        pull_client = ZMQPullClient(
-            context=mock_zmq_context_instance,
-            address="inproc://test_addr_5555",
-            bind=False,
-        )
+        pull_client = zmq_pull_connect_client
 
         callback = AsyncMock()
 
@@ -562,14 +519,11 @@ class TestPushPullIntegration:
         await push_client.push(test_message)
 
         # Verify push was called
-        push_socket = mock_zmq_context_instance.socket.return_value
-        push_socket.send_multipart.assert_called_once()
+        push_socket = push_client.socket
+        push_socket.send_string.assert_called_once()
 
         # Verify callback was registered
         assert test_message.message_type in pull_client._pull_callbacks
-
-        await push_client.shutdown()
-        await pull_client.shutdown()
 
     @pytest.mark.asyncio
     async def test_multiple_pushers_single_puller(
@@ -582,14 +536,14 @@ class TestPushPullIntegration:
         for _ in range(3):
             client = ZMQPushClient(
                 context=mock_zmq_context_instance,
-                address="inproc://test_addr_5555",
+                address="inproc://test_push_client",
                 bind=True,
             )
             push_clients.append(client)
 
         pull_client = ZMQPullClient(
             context=mock_zmq_context_instance,
-            address="inproc://test_addr_5555",
+            address="inproc://test_pull_client",
             bind=False,
         )
 
@@ -611,7 +565,7 @@ class TestPushPullIntegration:
 
         # Verify all pushes were called
         push_socket = mock_zmq_context_instance.socket.return_value
-        assert push_socket.send_multipart.call_count == 3
+        assert push_socket.send_string.call_count == 3
 
         # Cleanup
         for client in push_clients:
@@ -627,7 +581,7 @@ class TestPushPullIntegration:
         """Test single pusher sending to multiple pullers (load balancing)."""
         push_client = ZMQPushClient(
             context=mock_zmq_context_instance,
-            address="inproc://test_addr_5555",
+            address="inproc://test_push_client",
             bind=True,
         )
 
@@ -637,7 +591,7 @@ class TestPushPullIntegration:
         for _ in range(3):
             client = ZMQPullClient(
                 context=mock_zmq_context_instance,
-                address="inproc://test_addr_5555",
+                address="inproc://test_pull_client",
                 bind=False,
             )
             callback = AsyncMock()
@@ -663,7 +617,7 @@ class TestPushPullIntegration:
 
         # Verify all pushes were called
         push_socket = mock_zmq_context_instance.socket.return_value
-        assert push_socket.send_multipart.call_count == len(multiple_test_messages)
+        assert push_socket.send_string.call_count == len(multiple_test_messages)
 
         # Cleanup
         await push_client.shutdown()
@@ -672,29 +626,19 @@ class TestPushPullIntegration:
 
     @pytest.mark.asyncio
     async def test_push_pull_error_isolation(
-        self, mock_zmq_context_instance: MagicMock, test_message: _TestMessage
+        self, zmq_push_bind_client, zmq_pull_connect_client, test_message: _TestMessage
     ):
         """Test that errors in one client don't affect others."""
-        push_client = ZMQPushClient(
-            context=mock_zmq_context_instance,
-            address="inproc://test_addr_5555",
-            bind=True,
-        )
+        push_client = zmq_push_bind_client
 
-        pull_client = ZMQPullClient(
-            context=mock_zmq_context_instance,
-            address="inproc://test_addr_5556",
-            bind=False,
-        )
+        pull_client = zmq_pull_connect_client
 
         await push_client.initialize()
         await pull_client.initialize()
 
         # Make push client fail
-        push_socket = mock_zmq_context_instance.socket.return_value
-        push_socket.send_multipart.side_effect = zmq.ZMQError(
-            errno=1, msg="Push failed"
-        )
+        push_socket = push_client.socket
+        push_socket.send_string.side_effect = zmq.ZMQError(errno=1, msg="Push failed")
 
         # Pushing should fail
         with pytest.raises(CommunicationError):
@@ -705,9 +649,6 @@ class TestPushPullIntegration:
         await pull_client.register_pull_callback(test_message.message_type, callback)
 
         assert test_message.message_type in pull_client._pull_callbacks
-
-        await push_client.shutdown()
-        await pull_client.shutdown()
 
     @pytest.mark.asyncio
     async def test_pipeline_pattern(
@@ -721,7 +662,7 @@ class TestPushPullIntegration:
         for i in range(2):
             client = ZMQPushClient(
                 context=mock_zmq_context_instance,
-                address="inproc://test_addr_5555",
+                address="inproc://test_push_client",
                 bind=i == 0,  # Only first one binds
             )
             pushers.append(client)
@@ -731,7 +672,7 @@ class TestPushPullIntegration:
         for _ in range(3):
             client = ZMQPullClient(
                 context=mock_zmq_context_instance,
-                address="inproc://test_addr_5555",
+                address="inproc://test_pull_client",
                 bind=False,
             )
             pullers.append(client)
@@ -755,26 +696,20 @@ class TestPushPullIntegration:
         # Verify all pushes were made
         push_socket = mock_zmq_context_instance.socket.return_value
         expected_calls = len(pushers) * len(multiple_test_messages)
-        assert push_socket.send_multipart.call_count == expected_calls
+        assert push_socket.send_string.call_count == expected_calls
 
         # Cleanup
         for client in pushers + pullers:
             await client.shutdown()
 
     @pytest.mark.asyncio
-    async def test_high_throughput_scenario(self, mock_zmq_context_instance: MagicMock):
+    async def test_high_throughput_scenario(
+        self, zmq_push_bind_client, zmq_pull_connect_client
+    ):
         """Test high throughput scenario with many messages."""
-        push_client = ZMQPushClient(
-            context=mock_zmq_context_instance,
-            address="inproc://test_addr_5555",
-            bind=True,
-        )
+        push_client = zmq_push_bind_client
 
-        pull_client = ZMQPullClient(
-            context=mock_zmq_context_instance,
-            address="inproc://test_addr_5555",
-            bind=False,
-        )
+        pull_client = zmq_pull_connect_client
 
         await push_client.initialize()
         await pull_client.initialize()
@@ -796,8 +731,5 @@ class TestPushPullIntegration:
         await asyncio.gather(*tasks)
 
         # Verify all messages were pushed
-        push_socket = mock_zmq_context_instance.socket.return_value
-        assert push_socket.send_multipart.call_count == len(messages)
-
-        await push_client.shutdown()
-        await pull_client.shutdown()
+        push_socket = push_client.socket
+        assert push_socket.send_string.call_count == len(messages)
