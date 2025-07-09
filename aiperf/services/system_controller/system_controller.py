@@ -392,9 +392,9 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
         self.progress_tracker.on_phase_processing_stats(message)
 
         if self.ui:
-            await self.ui.on_processing_stats_update(message)
+            await self.ui.on_message(message)
         if self.progress_logger:
-            await self.progress_logger.update_stats()
+            await self.progress_logger.on_message(message)
 
         if (
             self.progress_tracker.current_profile_run
@@ -417,9 +417,9 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
         self.logger.debug("Received credit phase progress: %s", message)
         self.progress_tracker.on_credit_phase_progress(message)
         if self.ui:
-            await self.ui.on_credit_phase_progress_update(message)
+            await self.ui.on_message(message)
         if self.progress_logger:
-            await self.progress_logger.update_credit_phase_progress()
+            await self.progress_logger.on_message(message)
 
     async def _process_credit_phase_start_message(
         self, message: CreditPhaseStartMessage
@@ -428,9 +428,9 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
         self.logger.debug("Received credit phase start: %s", message)
         self.progress_tracker.on_credit_phase_start(message)
         if self.ui:
-            await self.ui.on_credit_phase_start_update(message)
+            await self.ui.on_message(message)
         if self.progress_logger:
-            await self.progress_logger.update_credit_phase_start()
+            await self.progress_logger.on_message(message)
 
     async def _process_credit_phase_complete_message(
         self, message: CreditPhaseCompleteMessage
@@ -439,9 +439,9 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
         self.logger.debug("Received credit phase complete: %s", message)
         self.progress_tracker.on_credit_phase_complete(message)
         if self.ui:
-            await self.ui.on_credit_phase_complete_update(message)
+            await self.ui.on_message(message)
         if self.progress_logger:
-            await self.progress_logger.update_credit_phase_complete()
+            await self.progress_logger.on_message(message)
 
     async def _process_profile_results_message(
         self, message: ProfileResultsMessage
@@ -451,10 +451,10 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
             self.logger.debug("Received profile results: %s", message)
             self.progress_tracker.on_profile_results(message)
             if self.ui:
-                await self.ui.on_profile_results_update(message)
+                await self.ui.on_message(message)
                 await self.ui.shutdown()
             if self.progress_logger:
-                await self.progress_logger.update_results()
+                await self.progress_logger.on_message(message)
 
             # Export the results
             if self.user_config:
@@ -611,7 +611,7 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
         self.logger.debug("SC: Received worker health message: %s", message)
         self.progress_tracker.on_worker_health(message)
         if self.ui:
-            await self.ui.on_worker_health_update(message)
+            await self.ui.on_message(message)
 
     async def _process_notification_message(self, message: NotificationMessage) -> None:
         """Process a notification message."""

@@ -2,19 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 import logging
 
-from aiperf.common.credit_models import (
-    CreditPhaseCompleteMessage,
-    CreditPhaseProgressMessage,
-    CreditPhaseStartMessage,
-    RecordsProcessingStatsMessage,
-)
+from aiperf.common.enums import MessageType
 from aiperf.common.hooks import AIPerfLifecycleMixin, on_start, on_stop
-from aiperf.common.worker_models import WorkerHealthMessage
+from aiperf.common.messages import BaseServiceMessage
 from aiperf.progress.progress_tracker import ProgressTracker
 from aiperf.ui.profile_progress_ui import ProfileProgressElement
 from aiperf.ui.rich_dashboard import AIPerfRichDashboard
-
-logger = logging.getLogger(__name__)
+from aiperf.ui.worker_status_ui import WorkerStatusElement
 
 
 class AIPerfUI(AIPerfLifecycleMixin):
@@ -25,6 +19,7 @@ class AIPerfUI(AIPerfLifecycleMixin):
 
     def __init__(self, progress_tracker: ProgressTracker) -> None:
         super().__init__()
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.dashboard = AIPerfRichDashboard(progress_tracker)
         self.progress_tracker = progress_tracker
 
@@ -38,50 +33,40 @@ class AIPerfUI(AIPerfLifecycleMixin):
         """Stop the UI."""
         await self.dashboard.shutdown()
 
-    async def on_credit_phase_progress_update(
-        self, message: CreditPhaseProgressMessage
-    ) -> None:
-        """Update progress display."""
-        try:
-            if self.dashboard.running and self.progress_tracker.current_profile_run:
-                self.dashboard.refresh_element(ProfileProgressElement.key)
-        except Exception as e:
-            logger.exception("Error updating credit phase progress: %s", e)
+    async def on_message(self, message: BaseServiceMessage) -> None:
+        """Handle a message from the system controller."""
+        _message_mappings = {
+            MessageType.CREDIT_PHASE_PROGRESS: ProfileProgressElement.key,
+            MessageType.CREDIT_PHASE_START: ProfileProgressElement.key,
+            MessageType.CREDIT_PHASE_COMPLETE: ProfileProgressElement.key,
+            MessageType.PROCESSING_STATS: ProfileProgressElement.key,
+            MessageType.WORKER_HEALTH: WorkerStatusElement.key,
+            MessageType.PROFILE_RESULTS: ProfileProgressElement.key,
+        }
 
-    async def on_credit_phase_start_update(
-        self, message: CreditPhaseStartMessage
-    ) -> None:
-        """Update progress display."""
-        try:
-            if self.dashboard.running and self.progress_tracker.current_profile_run:
-                self.dashboard.refresh_element(ProfileProgressElement.key)
-        except Exception as e:
-            logger.exception("Error updating credit phase start: %s", e)
+        if message.message_type in _message_mappings:
+            self.logger.debug(
+                "UI: Refreshing element (%s) for message (%s)",
+                _message_mappings[message.message_type],
+                message.message_type,
+            )
+            self.try_refresh_element(_message_mappings[message.message_type])
+        else:
+            self.logger.debug(
+                "UI: No element mapping found for message (%s)", message.message_type
+            )
 
-    async def on_credit_phase_complete_update(
-        self, message: CreditPhaseCompleteMessage
-    ) -> None:
-        """Update progress display."""
+    def try_refresh_element(self, element_key: str) -> None:
+        """Try to refresh the specified element. If the dashboard is not running or the current profile run is not set,
+        do nothing."""
         try:
             if self.dashboard.running and self.progress_tracker.current_profile_run:
-                self.dashboard.refresh_element(ProfileProgressElement.key)
+                self.dashboard.refresh_element(element_key)
+            else:
+                self.logger.debug(
+                    "Dashboard not running (%s) or no current profile run (%s)",
+                    self.dashboard.running,
+                    self.progress_tracker.current_profile_run,
+                )
         except Exception as e:
-            logger.exception("Error updating credit phase complete: %s", e)
-
-    async def on_processing_stats_update(
-        self, message: RecordsProcessingStatsMessage
-    ) -> None:
-        """Update progress display."""
-        try:
-            if self.dashboard.running and self.progress_tracker.current_profile_run:
-                self.dashboard.refresh_element(ProfileProgressElement.key)
-        except Exception as e:
-            logger.exception("Error updating processing stats: %s", e)
-
-    async def on_worker_health_update(self, message: WorkerHealthMessage) -> None:
-        """Update progress display."""
-        try:
-            if self.dashboard.running and self.progress_tracker.current_profile_run:
-                self.dashboard.refresh_element(ProfileProgressElement.key)
-        except Exception as e:
-            logger.exception("Error updating worker health: %s", e)
+            self.logger.exception("Error refreshing element (%s): %s", element_key, e)

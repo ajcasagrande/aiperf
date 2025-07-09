@@ -39,11 +39,7 @@ class ProfileProgressElement(DashboardElement):
 
         # Create a panel with multiple sections
         return Panel.fit(
-            Table.grid(
-                self._create_status_table(profile_run),
-                padding=(0, 0, 1, 0),
-                expand=True,
-            ),
+            self._create_status_table(profile_run),
             title=f"Profile: {profile_run.profile_id or 'N/A'}",
             border_style="green",
         )

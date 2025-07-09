@@ -17,6 +17,7 @@ from aiperf.common.credit_models import (
 from aiperf.common.enums import BenchmarkSuiteType, CreditPhase
 from aiperf.common.pydantic_utils import AIPerfBaseModel
 from aiperf.common.worker_models import WorkerHealthMessage, WorkerPhaseTaskStats
+from aiperf.progress.progress_models import ProfileResultsMessage
 
 
 class CreditPhaseComputedStats(AIPerfBaseModel):
@@ -84,6 +85,9 @@ class ProfileRunProgress(AIPerfBaseModel):
         default_factory=dict,
         description="The computed stats for each credit phase (requests per second, eta, processed per second, processing eta)",
     )
+    profile_results: ProfileResultsMessage | None = Field(
+        default=None, description="The profile results"
+    )
 
     @property
     def is_started(self) -> bool:
@@ -142,31 +146,34 @@ class ProfileRunProgress(AIPerfBaseModel):
 
     def on_credit_phase_progress(self, message: CreditPhaseProgressMessage):
         """Update the progress from a credit phase progress message."""
-        self.phases[message.phase.type] = message.phase
-        self.update_requests_stats(message.phase, message.request_ns)
+        for phase, stats in message.phase_stats_map.items():
+            self.phases[phase] = stats
+            self.update_requests_stats(stats, message.request_ns)
 
     def on_credit_phase_start(self, message: CreditPhaseStartMessage):
         """Update the progress from a credit phase start message."""
-        self.active_phase = message.phase.type
-        self.phases[message.phase.type] = message.phase
-        self.update_requests_stats(message.phase, message.request_ns)
+        self.active_phase = message.phase_stats.type
+        self.phases[message.phase_stats.type] = message.phase_stats
+        self.update_requests_stats(message.phase_stats, message.request_ns)
 
     def on_credit_phase_complete(self, message: CreditPhaseCompleteMessage):
         """Update the progress from a credit phase complete message."""
-        self.phases[message.phase.type] = message.phase
-        self.update_requests_stats(message.phase, message.request_ns)
+        self.phases[message.phase_stats.type] = message.phase_stats
+        self.update_requests_stats(message.phase_stats, message.request_ns)
 
     def on_phase_processing_stats(self, message: RecordsProcessingStatsMessage):
         """Update the progress from a phase processing stats message."""
-        self.processing_stats[message.current_phase] = message.phase_stats
+        self.processing_stats[message.current_phase] = message.phase_stats  # type: ignore
         for worker_id, worker_stats in message.worker_stats.items():
             if worker_id not in self.worker_processing_stats:
                 self.worker_processing_stats[worker_id] = {}
             self.worker_processing_stats[worker_id][message.current_phase] = (
-                worker_stats
+                worker_stats  # type: ignore
             )
         self.update_records_stats(
-            message.current_phase, message.request_ns, message.phase_stats
+            message.current_phase,
+            message.request_ns,
+            message.phase_stats,  # type: ignore
         )
 
     def on_worker_health(self, message: WorkerHealthMessage):
@@ -176,6 +183,10 @@ class ProfileRunProgress(AIPerfBaseModel):
             if worker_id not in self.worker_task_stats:
                 self.worker_task_stats[worker_id] = {}
             self.worker_task_stats[worker_id][phase] = stats
+
+    def on_profile_results(self, message: ProfileResultsMessage):
+        """Update the progress from a profile results message."""
+        self.profile_results = message
 
 
 # class SweepRunProgress(AIPerfBaseModel):
@@ -258,3 +269,9 @@ class ProgressTracker:
         if self.current_profile_run is None:
             return
         self.current_profile_run.on_worker_health(message)
+
+    def on_profile_results(self, message: ProfileResultsMessage):
+        """Update the progress from a profile results message."""
+        if self.current_profile_run is None:
+            return
+        self.current_profile_run.on_profile_results(message)

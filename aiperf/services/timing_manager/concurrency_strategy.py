@@ -37,11 +37,7 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
         self._ramp_up_time = config.concurrency_ramp_up_time
         self._semaphore = asyncio.Semaphore(value=self._concurrency)
 
-        self.logger.info(
-            "TM: Concurrency Strategy initialized with %d phases: %s",
-            len(self.phases),
-            self.phases,
-        )
+        self._setup_phases()
 
     def _setup_phases(self) -> None:
         """Setup the phases for the strategy."""
@@ -80,6 +76,12 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
             phase.type: phase for phase in self.phases
         }
         self.active_phase: CreditPhaseStats = self.phases[0]
+
+        self.logger.info(
+            "TM: Concurrency Strategy initialized with %d phases: %s",
+            len(self.phases),
+            self.phases,
+        )
 
     async def start(self) -> None:
         """Start the credit issuing strategy. This will launch the progress reporting loop, the

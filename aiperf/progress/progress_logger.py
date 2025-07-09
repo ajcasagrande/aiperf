@@ -4,7 +4,15 @@ import logging
 
 from tqdm import tqdm
 
-from aiperf.common.enums import CreditPhase
+from aiperf.common.credit_models import (
+    CreditPhaseCompleteMessage,
+    CreditPhaseProgressMessage,
+    CreditPhaseStartMessage,
+    RecordsProcessingStatsMessage,
+)
+from aiperf.common.enums import CreditPhase, MessageType
+from aiperf.common.messages import BaseServiceMessage
+from aiperf.common.worker_models import WorkerHealthMessage
 from aiperf.progress.progress_tracker import ProgressTracker
 
 
@@ -20,111 +28,125 @@ class SimpleProgressLogger:
     async def update_progress(self):
         """Log a progress update based on current credit phase."""
         current_profile_run = self.progress_tracker.current_profile_run
-        active_phase = self.progress_tracker.active_credit_phase
 
-        if current_profile_run is None or active_phase is None:
+        if current_profile_run is None:
             return
 
-        if active_phase not in current_profile_run.phases:
-            return
+        for phase, phase_stats in current_profile_run.phases.items():
+            total_requests = phase_stats.total or 0
+            completed_requests = phase_stats.completed
 
-        phase_stats = current_profile_run.phases[active_phase]
-        total_requests = phase_stats.total or 0
-        completed_requests = phase_stats.completed
-
-        self.logger.debug(
-            "Phase %s - Requests Completed: %d / %d",
-            active_phase,
-            completed_requests,
-            total_requests,
-        )
-
-        # Only create tqdm if we have a valid total > 0
-        if active_phase not in self.tqdm_requests and total_requests > 0:
-            self.tqdm_requests[active_phase] = tqdm(
-                total=total_requests,
-                desc=f"Requests ({active_phase.value})",
-                colour="green",
+            self.logger.debug(
+                "Phase %s - Requests Completed: %d / %d",
+                phase,
+                completed_requests,
+                total_requests,
             )
 
-        if active_phase in self.tqdm_requests:
-            self.tqdm_requests[active_phase].n = completed_requests
-            self.tqdm_requests[active_phase].refresh()
+            # Only create tqdm if we have a valid total > 0
+            if phase not in self.tqdm_requests and total_requests > 0:
+                self.tqdm_requests[phase] = tqdm(
+                    total=total_requests,
+                    desc=f"Requests ({phase.value})",
+                    colour="green",
+                )
 
-        # Close tqdm when completed
-        if (
-            total_requests > 0
-            and completed_requests >= total_requests
-            and active_phase in self.tqdm_requests
-        ):
-            self.tqdm_requests[active_phase].close()
-            del self.tqdm_requests[active_phase]
+            if phase in self.tqdm_requests:
+                self.tqdm_requests[phase].n = completed_requests
+                self.tqdm_requests[phase].refresh()
 
-    async def update_stats(self):
+            # Close tqdm when completed
+            if (
+                total_requests > 0
+                and completed_requests >= total_requests
+                and phase in self.tqdm_requests
+            ):
+                self.tqdm_requests[phase].close()
+                del self.tqdm_requests[phase]
+
+    async def update_stats(self, message: RecordsProcessingStatsMessage):
         """Log a stats update based on current credit phase."""
         current_profile_run = self.progress_tracker.current_profile_run
-        active_phase = self.progress_tracker.active_credit_phase
 
-        if current_profile_run is None or active_phase is None:
+        if current_profile_run is None:
             return
 
-        if active_phase not in current_profile_run.processing_stats:
-            return
-
-        processing_stats = current_profile_run.processing_stats[active_phase]
-        phase_stats = current_profile_run.phases.get(active_phase)
-        total_requests = phase_stats.total if phase_stats else 0
-        processed_requests = processing_stats.processed
+        for phase, processing_stats in current_profile_run.processing_stats.items():
+            processed_records = processing_stats.processed
+            total_records = processing_stats.total
 
         self.logger.debug(
             "Phase %s - Records Processed: %d / %d",
-            active_phase,
-            processed_requests,
-            total_requests,
+            phase,
+            processed_records,
+            total_records,
         )
 
         # Only create tqdm if we have a valid total > 0
-        if active_phase not in self.tqdm_records and total_requests > 0:
-            self.tqdm_records[active_phase] = tqdm(
-                total=total_requests,
-                desc=f"Records ({active_phase.value})",
+        if phase not in self.tqdm_records and total_records > 0:
+            self.tqdm_records[phase] = tqdm(
+                total=total_records,
+                desc=f"Records ({phase.value})",
                 colour="blue",
             )
 
-        if active_phase in self.tqdm_records:
-            self.tqdm_records[active_phase].n = processed_requests
-            self.tqdm_records[active_phase].refresh()
+        if phase in self.tqdm_records:
+            self.tqdm_records[phase].n = processed_records
+            self.tqdm_records[phase].refresh()
 
         # Close tqdm when completed
         if (
             total_requests > 0
-            and processed_requests >= total_requests
-            and active_phase in self.tqdm_records
+            and processed_records >= total_records
+            and phase in self.tqdm_records
         ):
             self.logger.debug(
                 "Phase %s - Closing TQDM. Records Processed: %d / %d",
-                active_phase,
-                processed_requests,
-                total_requests,
+                phase,
+                processed_records,
+                total_records,
             )
-            self.tqdm_records[active_phase].close()
-            del self.tqdm_records[active_phase]
-
-    async def update_credit_phase_complete(self, phase: CreditPhase):
-        """Log a credit phase complete update."""
-        self.logger.debug("Credit phase %s completed", phase)
-
-        if phase in self.tqdm_requests:
-            self.tqdm_requests[phase].close()
-            del self.tqdm_requests[phase]
-
-        if phase in self.tqdm_records:
             self.tqdm_records[phase].close()
             del self.tqdm_records[phase]
 
-    async def update_credit_phase_start(self, phase: CreditPhase):
+    async def on_message(self, message: BaseServiceMessage) -> None:
+        """Handle a message from the system controller."""
+        _message_mappings = {
+            MessageType.CREDIT_PHASE_PROGRESS: self.update_credit_phase_progress,
+            MessageType.CREDIT_PHASE_COMPLETE: self.update_credit_phase_complete,
+            MessageType.CREDIT_PHASE_START: self.update_credit_phase_start,
+            MessageType.PROCESSING_STATS: self.update_stats,
+            MessageType.WORKER_HEALTH: self.update_worker_health,
+            MessageType.PROFILE_RESULTS: self.update_results,
+        }
+
+        if message.message_type in _message_mappings:
+            await _message_mappings[message.message_type](message)
+        else:
+            self.logger.debug(
+                "No message mapping found for message: %s", message.message_type
+            )
+
+    async def update_worker_health(self, message: WorkerHealthMessage) -> None:
+        """Update the worker health."""
+        self.logger.debug("Worker health updated: %s", message)
+
+    async def update_credit_phase_complete(self, message: CreditPhaseCompleteMessage):
+        """Log a credit phase complete update."""
+        self.logger.debug("Credit phase %s completed", message.phase_stats.type)
+
+        if message.phase_stats.type in self.tqdm_requests:
+            self.tqdm_requests[message.phase_stats.type].close()
+            del self.tqdm_requests[message.phase_stats.type]
+
+        if message.phase_stats.type in self.tqdm_records:
+            self.tqdm_records[message.phase_stats.type].close()
+            del self.tqdm_records[message.phase_stats.type]
+
+    async def update_credit_phase_start(self, message: CreditPhaseStartMessage):
         """Log a credit phase start update."""
-        self.logger.debug("Credit phase %s started", phase)
+        self.logger.debug("Credit phase %s started", message.phase_stats.type)
+        phase = message.phase_stats.type
 
         # Close any existing tqdm for this phase
         if phase in self.tqdm_requests:
@@ -135,9 +157,11 @@ class SimpleProgressLogger:
             self.tqdm_records[phase].close()
             del self.tqdm_records[phase]
 
-    async def update_credit_phase_progress(self, phase: CreditPhase):
+    async def update_credit_phase_progress(self, message: CreditPhaseProgressMessage):
         """Log a credit phase progress update."""
-        self.logger.debug("Credit phase %s progress updated", phase)
+        self.logger.debug(
+            "Credit phase %s progress updated", message.phase_stats_map.keys()
+        )
 
         # This will be handled by update_progress() which is called regularly
         await self.update_progress()

@@ -93,10 +93,17 @@ class PhaseProcessingStats(AIPerfBaseModel):
     """Model for phase processing stats. How many requests were processed and
     how many errors were encountered."""
 
-    processed: int = Field(default=0, description="The number of records processed")
+    processed: int = Field(
+        default=0, description="The number of records processed successfully"
+    )
     errors: int = Field(
         default=0, description="The number of record errors encountered"
     )
+
+    @property
+    def total(self) -> int:
+        """The total number of records processed successfully or in error."""
+        return self.processed + self.errors
 
 
 class RecordsProcessingStatsMessage(BaseServiceMessage, RequiresRequestNSMixin):
@@ -136,7 +143,7 @@ class CreditPhaseProgressMessage(BaseServiceMessage, RequiresRequestNSMixin):
         MessageType.CREDIT_PHASE_PROGRESS
     )
 
-    phase_stats: dict[CreditPhase, CreditPhaseStats] = Field(
+    phase_stats_map: dict[CreditPhase, CreditPhaseStats] = Field(
         ...,
         description="The credit phase stats for all phases",
     )

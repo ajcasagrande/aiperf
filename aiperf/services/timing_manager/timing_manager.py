@@ -213,7 +213,7 @@ class TimingManager(BaseComponentService, AsyncTaskManagerMixin):
             self.pub_client.publish(
                 CreditPhaseProgressMessage(
                     service_id=self.service_id,
-                    phase_stats=phase_stats,
+                    phase_stats_map=phase_stats,
                     request_ns=time.time_ns(),
                 )
             )
