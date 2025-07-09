@@ -109,6 +109,15 @@ class Message(ExcludeIfNoneMixin):
         return self.model_dump_json()
 
 
+class RequiresRequestNSMixin(Message):
+    """Mixin for messages that require a request_ns field."""
+
+    request_ns: int = Field(  # type: ignore[assignment]
+        default_factory=time.time_ns,
+        description="Timestamp of the request in nanoseconds",
+    )
+
+
 class BaseServiceMessage(Message):
     """Base message that is sent from a service. Requires a service_id field to specify
     the service that sent the message."""
@@ -119,16 +128,11 @@ class BaseServiceMessage(Message):
     )
 
 
-class BaseStatusMessage(BaseServiceMessage):
+class BaseStatusMessage(BaseServiceMessage, RequiresRequestNSMixin):
     """Base message containing status data.
     This message is sent by a service to the system controller to report its status.
     """
 
-    # override request_ns to be auto-filled if not provided
-    request_ns: int | None = Field(
-        default_factory=time.time_ns,
-        description="Timestamp of the request",
-    )
     state: ServiceState = Field(
         ...,
         description="Current state of the service",

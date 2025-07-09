@@ -7,7 +7,7 @@ from typing import Literal
 from pydantic import Field
 
 from aiperf.common.enums import CreditPhase, MessageType
-from aiperf.common.messages import BaseServiceMessage
+from aiperf.common.messages import BaseServiceMessage, RequiresRequestNSMixin
 from aiperf.common.pydantic_utils import AIPerfBaseModel
 
 
@@ -99,16 +99,12 @@ class PhaseProcessingStats(AIPerfBaseModel):
     )
 
 
-class RecordsProcessingStatsMessage(BaseServiceMessage):
+class RecordsProcessingStatsMessage(BaseServiceMessage, RequiresRequestNSMixin):
     """Message for processing stats. Sent by the RecordsManager to report the stats of the profile run.
     This contains the stats for a single credit phase only."""
 
     message_type: Literal[MessageType.PROCESSING_STATS] = MessageType.PROCESSING_STATS
 
-    request_ns: int = Field(  # type: ignore
-        default_factory=time.time_ns,
-        description="The timestamp of the request in nanoseconds",
-    )
     current_phase: CreditPhase = Field(
         ...,
         description="The current credit phase (either warmup, ramp-up, stabilizing, or steady-state)",
@@ -124,25 +120,25 @@ class RecordsProcessingStatsMessage(BaseServiceMessage):
     )
 
 
-class BasePhaseStatsMessage(BaseServiceMessage):
+class BasePhaseStatsMessage(BaseServiceMessage, RequiresRequestNSMixin):
     """Base message for phase stats. Sent by the TimingManager to report stats of a credit phase."""
 
-    # override request_ns to be auto-filled if not provided
-    request_ns: int = Field(  # type: ignore
-        default_factory=time.time_ns,
-        description="The timestamp of the request in nanoseconds",
-    )
     phase_stats: CreditPhaseStats = Field(
         ...,
         description="The credit phase stats for the phase",
     )
 
 
-class CreditPhaseProgressMessage(BasePhaseStatsMessage):
-    """Message for credit phase stats. Sent by the TimingManager to report the stats of a credit phase."""
+class CreditPhaseProgressMessage(BaseServiceMessage, RequiresRequestNSMixin):
+    """Sent by the TimingManager to report the stats of ALL credit phases."""
 
     message_type: Literal[MessageType.CREDIT_PHASE_PROGRESS] = (
         MessageType.CREDIT_PHASE_PROGRESS
+    )
+
+    phase_stats: dict[CreditPhase, CreditPhaseStats] = Field(
+        ...,
+        description="The credit phase stats for all phases",
     )
 
 
