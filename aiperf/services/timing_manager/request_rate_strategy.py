@@ -104,7 +104,7 @@ class RequestRateStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
         # TODO: Model this after the CONCURRENCY strategy
 
         # Report the initial progress of the phase to ensure everything is in sync
-        self.execute_async(self._report_progress())
+        # self.execute_async(self._report_progress())
 
         # Issue credit drops at the specified rate
         if self._request_rate_mode == RequestRateMode.CONSTANT:

@@ -1,13 +1,11 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-import time
 from typing import Literal
 
 from pydantic import Field, SerializeAsAny
 
-from aiperf.common.credit_models import PhaseProcessingStats
-from aiperf.common.enums import CaseInsensitiveStrEnum, CreditPhase, MessageType
+from aiperf.common.enums import CaseInsensitiveStrEnum, MessageType
 from aiperf.common.messages import BaseServiceMessage
 from aiperf.common.record_models import ErrorDetailsCount, MetricResult
 
@@ -217,24 +215,3 @@ class ProfileResultsMessage(BaseServiceMessage):
 #     def steady_state_completed(self) -> int:
 #         """Calculate the number of requests completed during steady-state (after ramp-up)."""
 #         return max(0, self.completed - self.ramp_up_completed)
-
-
-class RecordsProcessingStatsMessage(BaseServiceMessage):
-    """Message for processing stats. Sent by the RecordsManager to report the stats of the profile run.
-    This contains the stats for a single credit phase only."""
-
-    message_type: Literal[MessageType.PROCESSING_STATS] = MessageType.PROCESSING_STATS
-
-    request_ns: int = Field(  # type: ignore
-        default_factory=time.time_ns,
-        description="The timestamp of the request in nanoseconds",
-    )
-    current_phase: CreditPhase = Field(
-        ...,
-        description="The current credit phase (either warmup, ramp-up, stabilizing, or steady-state)",
-    )
-    worker_stats: dict[str, PhaseProcessingStats] = Field(
-        default_factory=dict,
-        description="The stats for each worker how many requests were processed and how many errors were "
-        "encountered, keyed by worker service_id",
-    )

@@ -105,9 +105,9 @@ class RecordsProcessingStatsMessage(BaseServiceMessage, RequiresRequestNSMixin):
 
     message_type: Literal[MessageType.PROCESSING_STATS] = MessageType.PROCESSING_STATS
 
-    current_phase: CreditPhase = Field(
-        ...,
-        description="The current credit phase (either warmup, ramp-up, stabilizing, or steady-state)",
+    current_phase: CreditPhase | None = Field(
+        default=None,
+        description="The current credit phase if known.",
     )
     phase_stats: PhaseProcessingStats = Field(
         ...,

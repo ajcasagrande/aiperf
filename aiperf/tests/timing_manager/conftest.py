@@ -4,9 +4,9 @@ import logging
 
 import pytest
 
-from aiperf.common.credit_models import CreditReturnMessage
+from aiperf.common.credit_models import CreditPhaseStats, CreditReturnMessage
 from aiperf.common.enums import CreditPhase
-from aiperf.services.timing_manager.config import CreditPhaseStatus, TimingManagerConfig
+from aiperf.services.timing_manager.config import TimingManagerConfig
 from aiperf.services.timing_manager.credit_issuing_strategy import CreditIssuingStrategy
 
 
@@ -53,15 +53,12 @@ class MockCreditManager:
 
     async def publish_progress(
         self,
-        phase: CreditPhaseStatus,
+        phase_stats: dict[CreditPhase, CreditPhaseStats],
     ) -> None:
         """Mock publish_progress method."""
         self.progress_calls.append(
             {
-                "start_time_ns": phase.start_time_ns,
-                "total": phase.total_credits,
-                "completed": phase.completed_credits,
-                "phase_type": phase.phase_type,
+                "phase_stats": phase_stats,
             }
         )
 

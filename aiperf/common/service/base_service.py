@@ -172,7 +172,9 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin, ProcessHealthMixin
             raise  # re-raise it up the stack
 
         except Exception as e:
-            self.logger.exception("Service %s execution failed:", self.service_type)
+            self.logger.exception(
+                "Service %s execution failed: %s", self.service_type, e
+            )
             _ = await self.set_state(ServiceState.ERROR)
             raise self._service_error("Service execution failed") from e
 

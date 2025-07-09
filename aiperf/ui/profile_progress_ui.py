@@ -50,7 +50,7 @@ class ProfileProgressElement(DashboardElement):
 
     def _create_status_table(self, profile_run) -> Table:
         """Create a table showing profile status."""
-        active_phase = self.progress_tracker.active_credit_phase or CreditPhase.UNKNOWN
+        active_phase = self.progress_tracker.active_credit_phase
 
         # Pad each column by 1 space
         progress_table = Table.grid(padding=(0, 1, 0, 0))
@@ -64,7 +64,7 @@ class ProfileProgressElement(DashboardElement):
 
         progress_table.add_row("Status:", status)
         progress_table.add_row(
-            "Active Phase:", Text(active_phase.value, style="bold white")
+            "Active Phase:", Text(active_phase or "N/A", style="bold white")
         )
 
         # Show phase-specific stats
@@ -174,9 +174,6 @@ class ProfileProgressElement(DashboardElement):
         phases_table.add_column("Rate", style="bold")
 
         for phase in CreditPhase:
-            if phase == CreditPhase.UNKNOWN:
-                continue
-
             if phase in profile_run.phases:
                 phase_stats = profile_run.phases[phase]
 

@@ -46,7 +46,7 @@ class AIPerfUI(AIPerfLifecycleMixin):
             if self.dashboard.running and self.progress_tracker.current_profile_run:
                 self.dashboard.refresh_element(ProfileProgressElement.key)
         except Exception as e:
-            logger.error("Error updating credit phase progress: %s", e)
+            logger.exception("Error updating credit phase progress: %s", e)
 
     async def on_credit_phase_start_update(
         self, message: CreditPhaseStartMessage
@@ -56,7 +56,7 @@ class AIPerfUI(AIPerfLifecycleMixin):
             if self.dashboard.running and self.progress_tracker.current_profile_run:
                 self.dashboard.refresh_element(ProfileProgressElement.key)
         except Exception as e:
-            logger.error("Error updating credit phase start: %s", e)
+            logger.exception("Error updating credit phase start: %s", e)
 
     async def on_credit_phase_complete_update(
         self, message: CreditPhaseCompleteMessage
@@ -66,7 +66,7 @@ class AIPerfUI(AIPerfLifecycleMixin):
             if self.dashboard.running and self.progress_tracker.current_profile_run:
                 self.dashboard.refresh_element(ProfileProgressElement.key)
         except Exception as e:
-            logger.error("Error updating credit phase complete: %s", e)
+            logger.exception("Error updating credit phase complete: %s", e)
 
     async def on_processing_stats_update(
         self, message: RecordsProcessingStatsMessage
@@ -76,7 +76,7 @@ class AIPerfUI(AIPerfLifecycleMixin):
             if self.dashboard.running and self.progress_tracker.current_profile_run:
                 self.dashboard.refresh_element(ProfileProgressElement.key)
         except Exception as e:
-            logger.error("Error updating processing stats: %s", e)
+            logger.exception("Error updating processing stats: %s", e)
 
     async def on_worker_health_update(self, message: WorkerHealthMessage) -> None:
         """Update progress display."""
@@ -84,4 +84,4 @@ class AIPerfUI(AIPerfLifecycleMixin):
             if self.dashboard.running and self.progress_tracker.current_profile_run:
                 self.dashboard.refresh_element(ProfileProgressElement.key)
         except Exception as e:
-            logger.error("Error updating worker health: %s", e)
+            logger.exception("Error updating worker health: %s", e)

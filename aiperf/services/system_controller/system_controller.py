@@ -16,8 +16,10 @@ from aiperf.common.credit_models import (
     CreditPhaseProgressMessage,
     CreditPhaseStartMessage,
     CreditsCompleteMessage,
+    RecordsProcessingStatsMessage,
 )
 from aiperf.common.enums import (
+    BenchmarkSuiteType,
     CommandResponseStatus,
     CommandType,
     MessageType,
@@ -45,10 +47,7 @@ from aiperf.common.service_models import ServiceRunInfo
 from aiperf.common.worker_models import WorkerHealthMessage
 from aiperf.data_exporter.exporter_manager import ExporterManager
 from aiperf.progress.progress_logger import SimpleProgressLogger
-from aiperf.progress.progress_models import (
-    ProfileResultsMessage,
-    RecordsProcessingStatsMessage,
-)
+from aiperf.progress.progress_models import ProfileResultsMessage
 from aiperf.progress.progress_tracker import (
     BenchmarkSuiteProgress,
     ProfileRunProgress,
@@ -222,7 +221,13 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
 
         # TODO: make this configurable
         suite = BenchmarkSuiteProgress(
-            profile_runs=[ProfileRunProgress(profile_id="profile_1")],
+            type=BenchmarkSuiteType.SINGLE_PROFILE,
+            profile_runs=[
+                ProfileRunProgress(
+                    profile_id="profile_1",
+                    start_ns=time.time_ns(),
+                )
+            ],
         )
         self.progress_tracker.configure(
             suite=suite,
