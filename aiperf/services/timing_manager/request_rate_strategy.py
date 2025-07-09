@@ -6,12 +6,10 @@ import logging
 import random
 import time
 
-from aiperf.common.constants import NANOS_PER_SECOND
-from aiperf.common.credit_models import CreditReturnMessage
+from aiperf.common.credit_models import CreditPhaseStats, CreditReturnMessage
 from aiperf.common.enums import CreditPhase, RequestRateMode
 from aiperf.common.exceptions import InvalidStateError
 from aiperf.common.mixins import AsyncTaskManagerMixin
-from aiperf.progress.progress_models import CreditPhaseStats
 from aiperf.services.timing_manager.config import TimingManagerConfig
 from aiperf.services.timing_manager.credit_issuing_strategy import (
     CreditIssuingStrategy,
@@ -48,7 +46,7 @@ class RequestRateStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
         )
 
         self.profiling = CreditPhaseStats(
-            total=config.request_count, phase_type=CreditPhase.STEADY_STATE
+            total=config.request_count, type=CreditPhase.STEADY_STATE
         )
         self.active_phase = self.profiling
 
@@ -56,7 +54,7 @@ class RequestRateStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
         if config.warmup_request_count > 0:
             self.warmup = CreditPhaseStats(
                 total=config.warmup_request_count,
-                phase_type=CreditPhase.WARMUP,
+                type=CreditPhase.WARMUP,
             )
             self.active_phase = self.warmup
 
@@ -97,13 +95,13 @@ class RequestRateStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
             "TM: Executing phase (total_credits=%s, request_rate=%s, phase_type=%s, start_time_ns=%s)",
             phase.total,
             self._request_rate,
-            phase.phase_type,
-            phase.start_time_ns,
+            phase.type,
+            phase.start_ns,
         )
 
-        phase.start_time_ns = time.time_ns()
-        # In rate mode, measurement starts immediately since there's no ramp-up
-        phase.measurement_start_time_ns = phase.start_time_ns
+        phase.start_ns = time.time_ns()
+
+        # TODO: Model this after the CONCURRENCY strategy
 
         # Report the initial progress of the phase to ensure everything is in sync
         self.execute_async(self._report_progress())
@@ -125,15 +123,17 @@ class RequestRateStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
         period_sec = 1.0 / self._request_rate
         prev = time.perf_counter()
 
-        while phase.sent < phase.total:
+        while not phase.is_sending_complete:
             self.execute_async(
                 self.credit_manager.drop_credit(
-                    credit_phase=phase.phase_type,
+                    credit_phase=phase.type,
                     conversation_id=None,
                     credit_drop_ns=None,
                 )
             )
             phase.sent += 1
+
+            # TODO: Add a check to see if the phase SENDING is complete
 
             now = time.perf_counter()
             wait_duration_sec = period_sec - (now - prev)
@@ -148,7 +148,7 @@ class RequestRateStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
         are exponentially distributed with parameter λ. This models realistic traffic
         patterns where requests arrive randomly but at a consistent average rate.
         """
-        while phase.sent < phase.total:
+        while not phase.is_sending_complete:
             # For Poisson process, inter-arrival times are exponentially distributed
             # random.expovariate(lambd) generates exponentially distributed random numbers
             # where lambd is the rate parameter (requests per second)
@@ -159,95 +159,17 @@ class RequestRateStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
 
             self.execute_async(
                 self.credit_manager.drop_credit(
-                    credit_phase=phase.phase_type,
+                    credit_phase=phase.type,
                     conversation_id=None,
                     credit_drop_ns=None,
                 )
             )
             phase.sent += 1
 
-    async def _report_progress(self) -> None:
-        """Report the progress of the active phase."""
-        try:
-            await self.credit_manager.publish_progress(self.active_phase)
-        except asyncio.CancelledError:
-            raise
-        except Exception as e:
-            self.logger.error("TM: Error publishing progress: %s", e)
+            # TODO: Add a check to see if the phase SENDING is complete
 
     async def _progress_report_loop(self) -> None:
         """Report the progress at a fixed interval."""
-        while True:
-            # Check if the profiling phase (final phase) is complete
-            if self.profiling.completed_event.is_set():
-                self.logger.debug(
-                    "TM: All credits completed, stopping progress reporting loop"
-                )
-                break
-
-            try:
-                await self._report_progress()
-            except asyncio.CancelledError:
-                self.logger.debug("TM: Progress reporting loop cancelled")
-                break
-
-            await asyncio.sleep(1)  # TODO: Make this configurable
 
     async def on_credit_return(self, message: CreditReturnMessage) -> None:
         """Process a credit return message."""
-
-        self.active_phase.completed += 1
-
-        if self.logger.isEnabledFor(logging.DEBUG):
-            # Use measurement start time and steady-state credits for rate calculation in debug logs
-            measurement_start_ns = (
-                self.active_phase.measurement_start_time_ns
-                or self.active_phase.start_time_ns
-            )
-            steady_state_completed = self.active_phase.steady_state_completed_credits
-            per_sec = (
-                steady_state_completed
-                / ((time.time_ns() - measurement_start_ns) / NANOS_PER_SECOND)
-                if (time.time_ns() - measurement_start_ns) > 0
-                else 0
-            )
-            self.logger.debug(
-                "TM: Processing credit return: %s (total: %s/%s, steady-state: %s) (%.2f requests/s steady-state)",
-                message,
-                self.active_phase.completed,
-                self.active_phase.total,
-                steady_state_completed,
-                per_sec,
-            )
-
-        if self.active_phase.completed >= self.active_phase.total:
-            self.active_phase.end_time_ns = time.time_ns()
-            self.execute_async(
-                self.credit_manager.publish_credits_complete(
-                    self.active_phase.phase_type, False
-                )
-            )
-
-            if self.logger.isEnabledFor(logging.DEBUG):
-                # Use measurement start time and steady-state credits for final rate calculation in debug logs
-                measurement_start_ns = (
-                    self.active_phase.measurement_start_time_ns
-                    or self.active_phase.start_time_ns
-                )
-                steady_state_completed = (
-                    self.active_phase.steady_state_completed_credits
-                )
-                per_sec = (
-                    steady_state_completed
-                    / ((time.time_ns() - measurement_start_ns) / NANOS_PER_SECOND)
-                    if (time.time_ns() - measurement_start_ns) > 0
-                    else 0
-                )
-                self.logger.debug(
-                    "TM: All credits completed, stopping credit drop task after %.2f seconds (%.2f steady-state requests/s)",
-                    (time.time_ns() - self.active_phase.start_time_ns)
-                    / NANOS_PER_SECOND,
-                    per_sec,
-                )
-
-            self.active_phase.completed_event.set()

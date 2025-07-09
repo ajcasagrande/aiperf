@@ -10,13 +10,12 @@ from pydantic import (
     SerializeAsAny,
 )
 
-from aiperf.common.credit_models import CreditPhase
-
 # from aiperf.common.config import UserConfig
 from aiperf.common.dataset_models import Conversation
 from aiperf.common.enums import (
     CommandResponseStatus,
     CommandType,
+    CreditPhase,
     MessageType,
     NotificationType,
     ServiceState,

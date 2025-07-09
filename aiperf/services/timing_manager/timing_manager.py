@@ -14,7 +14,6 @@ from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
 from aiperf.common.credit_models import (
     CreditDropMessage,
-    CreditPhase,
     CreditPhaseCompleteMessage,
     CreditPhaseProgressMessage,
     CreditPhaseSendingCompleteMessage,
@@ -24,6 +23,7 @@ from aiperf.common.credit_models import (
     CreditsCompleteMessage,
 )
 from aiperf.common.enums import (
+    CreditPhase,
     MessageType,
     ServiceType,
 )

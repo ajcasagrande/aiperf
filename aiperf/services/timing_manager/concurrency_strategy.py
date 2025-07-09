@@ -7,11 +7,10 @@ import random
 import time
 
 from aiperf.common.constants import NANOS_PER_SECOND
-from aiperf.common.credit_models import CreditReturnMessage
+from aiperf.common.credit_models import CreditPhaseStats, CreditReturnMessage
 from aiperf.common.enums import CreditPhase
 from aiperf.common.exceptions import InvalidStateError
 from aiperf.common.mixins import AsyncTaskManagerMixin
-from aiperf.progress.progress_models import CreditPhaseStats
 from aiperf.services.timing_manager.config import TimingManagerConfig
 from aiperf.services.timing_manager.credit_issuing_strategy import (
     CreditIssuingStrategy,

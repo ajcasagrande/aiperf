@@ -6,8 +6,8 @@ from typing import Literal
 
 from pydantic import Field, SerializeAsAny
 
-from aiperf.common.credit_models import CreditPhase, PhaseProcessingStats
-from aiperf.common.enums import CaseInsensitiveStrEnum, MessageType
+from aiperf.common.credit_models import PhaseProcessingStats
+from aiperf.common.enums import CaseInsensitiveStrEnum, CreditPhase, MessageType
 from aiperf.common.messages import BaseServiceMessage
 from aiperf.common.record_models import ErrorDetailsCount, MetricResult
 

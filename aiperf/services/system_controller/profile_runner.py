@@ -6,10 +6,10 @@ import time
 from typing import TYPE_CHECKING
 
 from aiperf.common.enums import (
+    BenchmarkSuiteType,
     CommandType,
     SystemState,
 )
-from aiperf.progress.benchmark_suite_models import BenchmarkSuiteType
 from aiperf.progress.progress_tracker import BenchmarkSuiteProgress, ProfileRunProgress
 
 if TYPE_CHECKING:
@@ -46,7 +46,7 @@ class ProfileRunner:
 
         # Start the first profile
         self.tracker.suite.current_profile_run = self.tracker.suite.profile_runs[0]
-        self.tracker.suite.current_profile_run.phstart_ns = time.time_ns()
+        self.tracker.suite.current_profile_run.start_ns = time.time_ns()
 
         try:
             await self.controller.send_command_to_service(

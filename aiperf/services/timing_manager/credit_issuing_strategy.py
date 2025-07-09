@@ -5,10 +5,9 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Protocol
 
-from aiperf.common.credit_models import CreditReturnMessage
+from aiperf.common.credit_models import CreditPhaseStats, CreditReturnMessage
 from aiperf.common.enums import CreditPhase
 from aiperf.common.mixins import AsyncTaskManagerMixin
-from aiperf.progress.progress_models import CreditPhaseStats
 from aiperf.services.timing_manager.config import TimingManagerConfig
 
 

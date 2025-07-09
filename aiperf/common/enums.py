@@ -693,3 +693,56 @@ class RequestRateMode(CaseInsensitiveStrEnum):
 
     POISSON = "poisson"
     """Generate requests using a poisson distribution."""
+
+
+class CreditPhase(CaseInsensitiveStrEnum):
+    """The type of credit phase. This is used to identify which phase of the
+    benchmark the credit is being used in, for tracking and reporting purposes."""
+
+    WARMUP = "warmup"
+    """The credit phase is the warmup phase. This is used to warm up the model
+    before the benchmark starts."""
+
+    RAMP_UP = "ramp_up"
+    """The credit phase is the ramp up phase. This is used to ramp up the request
+    rate before the benchmark starts."""
+
+    STABILIZING = "stabilizing"
+    """Used with stabilization based measurement modes to indicate that the
+    benchmark is still stabilizing."""
+
+    STEADY_STATE = "steady_state"
+    """The credit phase is the steady state phase. This is the primary phase of the
+    benchmark, and what is used to calculate the final results."""
+
+
+class BenchmarkSuiteCompletionTrigger(CaseInsensitiveStrEnum):
+    """Determines how the suite completion is determined in order to know how to track the progress."""
+
+    COMPLETED_PROFILES = "completed_profiles"
+    """The suite will run until all profiles are completed."""
+
+    # TODO: add other completion triggers
+    # COMPLETED_SWEEPS = "completed_sweeps"
+    # STABILIZATION_BASED = "stabilization_based"
+    # CUSTOM = "custom"  # TBD
+
+
+class BenchmarkSuiteType(CaseInsensitiveStrEnum):
+    """Determines the type of suite to know how to track the progress."""
+
+    SINGLE_PROFILE = "single_profile"
+    """A suite with a single profile run."""
+
+    # TODO: implement additional suite types
+    # MULTI_PROFILE = "multi_profile"
+    # """A suite with multiple profile runs. As opposed to a sweep, more than one parameter can be varied. TBD"""
+
+    # SINGLE_SWEEP = "single_sweep"
+    # """A suite with a single sweep over one or more varying parameters. TBD"""
+
+    # MULTI_SWEEP = "multi_sweep"
+    # """A suite with multiple sweep runs over multiple varying parameters. TBD"""
+
+    # CUSTOM = "custom"
+    # """User defined suite type. TBD"""

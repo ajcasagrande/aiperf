@@ -6,10 +6,7 @@ import logging
 from pydantic import Field
 
 from aiperf.common.constants import NANOS_PER_SECOND
-from aiperf.common.enums import CreditPhase
-from aiperf.common.pydantic_utils import AIPerfBaseModel
-from aiperf.common.worker_models import WorkerHealthMessage, WorkerPhaseTaskStats
-from aiperf.progress.progress_models import (
+from aiperf.common.credit_models import (
     CreditPhaseCompleteMessage,
     CreditPhaseProgressMessage,
     CreditPhaseStartMessage,
@@ -17,6 +14,9 @@ from aiperf.progress.progress_models import (
     PhaseProcessingStats,
     RecordsProcessingStatsMessage,
 )
+from aiperf.common.enums import BenchmarkSuiteType, CreditPhase
+from aiperf.common.pydantic_utils import AIPerfBaseModel
+from aiperf.common.worker_models import WorkerHealthMessage, WorkerPhaseTaskStats
 
 
 class CreditPhaseComputedStats(AIPerfBaseModel):
@@ -55,7 +55,12 @@ class ProfileRunProgress(AIPerfBaseModel):
 
     # TODO: implement the profile_id
     profile_id: str | None = Field(default=None, description="The ID of the profile")
-
+    start_ns: int | None = Field(
+        default=None, description="The start time of the profile run in nanoseconds"
+    )
+    end_ns: int | None = Field(
+        default=None, description="The end time of the profile run in nanoseconds"
+    )
     active_phase: CreditPhase | None = Field(
         default=None, description="The active credit phase"
     )
@@ -182,6 +187,13 @@ class ProfileRunProgress(AIPerfBaseModel):
 class BenchmarkSuiteProgress(AIPerfBaseModel):
     """State of the benchmark suite progress."""
 
+    type: BenchmarkSuiteType = Field(..., description="The type of benchmark suite")
+    start_ns: int | None = Field(
+        default=None, description="The start time of the benchmark suite in nanoseconds"
+    )
+    end_ns: int | None = Field(
+        default=None, description="The end time of the benchmark suite in nanoseconds"
+    )
     profile_runs: list[ProfileRunProgress] = Field(
         default_factory=list, description="The state of the profile runs in the suite"
     )

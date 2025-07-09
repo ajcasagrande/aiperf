@@ -11,7 +11,12 @@ from pydantic import BaseModel
 from aiperf.common.comms.zmq.zmq_proxy_base import BaseZMQProxy, ZMQProxyFactory
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
-from aiperf.common.credit_models import CreditsCompleteMessage
+from aiperf.common.credit_models import (
+    CreditPhaseCompleteMessage,
+    CreditPhaseProgressMessage,
+    CreditPhaseStartMessage,
+    CreditsCompleteMessage,
+)
 from aiperf.common.enums import (
     CommandResponseStatus,
     CommandType,
@@ -41,9 +46,6 @@ from aiperf.common.worker_models import WorkerHealthMessage
 from aiperf.data_exporter.exporter_manager import ExporterManager
 from aiperf.progress.progress_logger import SimpleProgressLogger
 from aiperf.progress.progress_models import (
-    CreditPhaseCompleteMessage,
-    CreditPhaseProgressMessage,
-    CreditPhaseStartMessage,
     ProfileResultsMessage,
     RecordsProcessingStatsMessage,
 )
