@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 import logging
 
-from aiperf.common.health_models import WorkerHealthMessage
 from aiperf.common.hooks import AIPerfLifecycleMixin, on_start, on_stop
+from aiperf.common.worker_models import WorkerHealthMessage
 from aiperf.progress.progress_models import (
     ProcessingStatsMessage,
     ProfileProgressMessage,

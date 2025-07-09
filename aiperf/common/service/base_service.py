@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
 import logging
-import uuid
 from abc import ABC
 
 from aiperf.common.comms.base import (
@@ -23,6 +22,7 @@ from aiperf.common.hooks import (
     supports_hooks,
 )
 from aiperf.common.messages import Message
+from aiperf.common.mixins import ProcessHealthMixin
 from aiperf.common.service.base_service_interface import BaseServiceInterface
 
 
@@ -36,7 +36,7 @@ from aiperf.common.service.base_service_interface import BaseServiceInterface
     AIPerfHook.ON_SET_STATE,
     AIPerfTaskHook.AIPERF_TASK,
 )
-class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
+class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin, ProcessHealthMixin):
     """Base class for all AIPerf services, providing common functionality for
     communication, state management, and lifecycle operations.
 
@@ -52,9 +52,7 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin):
         service_id: str | None = None,
     ) -> None:
         super().__init__()
-        self.service_id: str = (
-            service_id or f"{self.service_type}_{uuid.uuid4().hex[:8]}"
-        )
+        self.service_id: str = service_id or f"{self.service_type}_{self.process.pid}"
         self.logger = logging.getLogger(self.service_id)
         self.service_config = service_config
         self.user_config = user_config

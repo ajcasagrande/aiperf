@@ -1,16 +1,17 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from abc import ABC, abstractmethod
+import time
 from typing import Literal
 
 from pydantic import Field, SerializeAsAny
 
 from aiperf.common.enums import (
     CaseInsensitiveStrEnum,
-    CreditPhaseType,
+    CreditPhase,
+    MessageType,
 )
-from aiperf.common.messages import BaseServiceMessage, MessageType
+from aiperf.common.messages import BaseServiceMessage
 from aiperf.common.pydantic_utils import AIPerfBaseModel
 from aiperf.common.record_models import ErrorDetailsCount, MetricResult
 
@@ -21,114 +22,94 @@ class ProfileCompletionTrigger(CaseInsensitiveStrEnum):
     REQUEST_COUNT = "request_count"
     """The profile will run for a fixed number of requests."""
 
-    TIME_BASED = "time_based"
-    """The profile will run for a fixed amount of time."""
+    # TIME_BASED = "time_based"
+    # """The profile will run for a fixed amount of time."""
 
-    STABILIZATION_BASED = "stabilization_based"
-    """The profile will run until the metrics stabilize. TDB"""
+    # STABILIZATION_BASED = "stabilization_based"
+    # """The profile will run until the metrics stabilize. TDB"""
 
-    GOODPUT_THRESHOLD = "goodput_threshold"
-    """The profile will run until the goodput threshold is met. TDB"""
+    # GOODPUT_THRESHOLD = "goodput_threshold"
+    # """The profile will run until the goodput threshold is met. TDB"""
 
-    CUSTOM = "custom"
-    """User defined trigger. TBD"""
-
-
-class SweepCompletionTrigger(CaseInsensitiveStrEnum):
-    """Determines how the sweep completion is determined in order to know how to track the progress."""
-
-    COMPLETED_PROFILES = "completed_profiles"
-    """The sweep will run until all profiles are completed."""
-
-    STABILIZATION_BASED = "stabilization_based"
-    """The sweep will run until the metrics stabilize. TDB"""
-
-    GOODPUT_THRESHOLD = "goodput_threshold"
-    """The sweep will run until the goodput threshold is met. TDB"""
-
-    CUSTOM = "custom"
-    """User defined trigger. TBD"""
+    # CUSTOM = "custom"
+    # """User defined trigger. TBD"""
 
 
-class SweepParamType(CaseInsensitiveStrEnum):
-    """Determines the type of sweep parameter."""
+class CreditPhaseStats(AIPerfBaseModel):
+    """Model for phase credit stats. This is used by the TimingManager to track the progress of the credit phases.
+    How many credits were dropped and how many were returned, as well as the progress percentage of the phase."""
 
-    INT = "int"
-    """The parameter is an integer."""
+    phase: CreditPhase = Field(..., description="The credit phase")
+    start_ns: int | None = Field(
+        default=None,
+        description="The start time of the credit phase in nanoseconds. If None, the phase has not started.",
+    )
+    end_ns: int | None = Field(
+        default=None,
+        description="The end time of the credit phase in nanoseconds. If None, the phase has not ended.",
+    )
+    total: int | None = Field(
+        default=None,
+        description="The total number of expected credits. If None, the phase is not request count based.",
+    )
+    duration_ns: int | None = Field(
+        default=None,
+        description="The duration of the credit phase in nanoseconds. If None, the phase is not time based.",
+    )
+    sent: int = Field(default=0, description="The number of sent credits")
+    completed: int = Field(
+        default=0,
+        description="The number of completed credits (returned from the workers)",
+    )
 
-    FLOAT = "float"
-    """The parameter is a float."""
+    @property
+    def is_complete(self) -> bool:
+        """Check if the phase is complete."""
+        return self.end_ns is not None
 
-    STRING = "string"
-    """The parameter is a string."""
+    @property
+    def is_started(self) -> bool:
+        """Check if the phase has started."""
+        return self.start_ns is not None
 
-    BOOLEAN = "boolean"
-    """The parameter is a boolean."""
+    @property
+    def in_flight(self) -> int:
+        """Calculate the number of in-flight credits (sent but not completed)."""
+        return self.sent - self.completed
 
-    CUSTOM = "custom"
-    """User defined parameter type. TBD"""
+    @property
+    def progress_percent(self) -> float | None:
+        """Calculate the progress percentage of the phase."""
+        if not self.is_started:
+            return None
 
+        if self.is_complete:
+            return 100
 
-class SweepParamOrder(CaseInsensitiveStrEnum):
-    """Determines the order in which the sweep parameters are tested."""
+        if self.total is not None:
+            # Credit count based, so progress is the percentage of credits returned
+            return (self.completed / self.total) * 100
 
-    ASCENDING = "ascending"
-    """The parameters are tested in ascending order."""
+        if self.duration_ns is not None:
+            # Time based, so progress is the percentage of time elapsed compared to the duration
+            return (
+                (time.time_ns() - self.start_ns) / self.duration_ns  # type: ignore
+            ) * 100
 
-    DESCENDING = "descending"
-    """The parameters are tested in descending order."""
-
-    RANDOM = "random"
-    """The parameters are tested in random order. TBD"""
-
-    CUSTOM = "custom"
-    """User defined order. TBD"""
-
-
-class SweepMultiParamOrder(CaseInsensitiveStrEnum):
-    """Determines the order in which the sweep parameters are tested for a multi-parameter sweep.
-    This is only applicable for multi-parameter sweeps."""
-
-    DEPTH_FIRST = "depth_first"
-    """The parameters are tested in depth-first order."""
-
-    BREADTH_FIRST = "breadth_first"
-    """The parameters are tested in breadth-first order."""
-
-    RANDOM = "random"
-    """The parameters are tested in random order. TBD"""
-
-    CUSTOM = "custom"
-    """User defined order. TBD"""
+        # We don't know the progress
+        return None
 
 
-class BenchmarkSuiteCompletionTrigger(CaseInsensitiveStrEnum):
-    """Determines how the suite completion is determined in order to know how to track the progress."""
+class PhaseProcessingStats(AIPerfBaseModel):
+    """Model for phase processing stats. How many requests were processed and
+    how many errors were encountered."""
 
-    UNKNOWN = "unknown"
-    COMPLETED_SWEEPS = "completed_sweeps"
-    COMPLETED_PROFILES = "completed_profiles"
-    STABILIZATION_BASED = "stabilization_based"
-    CUSTOM = "custom"  # TBD
-
-
-class BenchmarkSuiteType(CaseInsensitiveStrEnum):
-    """Determines the type of suite to know how to track the progress."""
-
-    SINGLE_PROFILE = "single_profile"
-    """An suite with a single profile run."""
-
-    MULTI_PROFILE = "multi_profile"
-    """An suite with multiple profile runs. As opposed to a sweep, more than one parameter can be varied. TBD"""
-
-    SINGLE_SWEEP = "single_sweep"
-    """An suite with a single sweep over one or more varying parameters. TBD"""
-
-    MULTI_SWEEP = "multi_sweep"
-    """An suite with multiple sweep runs over multiple varying parameters. TBD"""
-
-    CUSTOM = "custom"
-    """User defined suite type. TBD"""
+    requests_processed: int = Field(
+        default=0, description="The number of requests processed"
+    )
+    request_errors: int = Field(
+        default=0, description="The number of request errors encountered"
+    )
 
 
 class ProfileProgress(AIPerfBaseModel):
@@ -143,20 +124,29 @@ class ProfileProgress(AIPerfBaseModel):
 
     start_time_ns: int | None = Field(
         default=None,
-        description="The start time of the profile run in nanoseconds. If it has not been started, this will be None.",
+        description="The start time of the profile run in nanoseconds. "
+        "If it has not been started, this will be None.",
     )
     measurement_start_time_ns: int | None = Field(
         default=None,
-        description="The start time for steady-state measurement in nanoseconds (after ramp-up). If None, falls back to start_time_ns.",
+        description="The start time for steady-state measurement in nanoseconds (after ramp-up). "
+        "If None, falls back to start_time_ns.",
     )
     end_time_ns: int | None = Field(
         default=None,
-        description="The end time of the profile run in nanoseconds. If it has not been completed, this will be None.",
+        description="The end time of the profile run in nanoseconds. "
+        "If it has not been completed, this will be None.",
+    )
+    phase_credits: dict[CreditPhase, CreditPhaseStats] = Field(
+        default_factory=dict,
+        description="The stats for each credit phase how many credits were dropped and how many were returned. "
+        "If None, the phase has not started.",
     )
 
     total_expected_requests: int | None = Field(
         default=None,
-        description="The total number of inference requests to be made. This will be None if the profile completion trigger is not request-based.",
+        description="The total number of inference requests to be made. "
+        "This will be None if the profile completion trigger is not request-based.",
     )
     requests_completed: int = Field(
         default=0,
@@ -224,8 +214,8 @@ class ProfileProgress(AIPerfBaseModel):
         default=False,
         description="Whether the profile run is complete",
     )
-    credit_phase: CreditPhaseType = Field(
-        default=CreditPhaseType.UNKNOWN,
+    credit_phase: CreditPhase = Field(
+        default=CreditPhase.UNKNOWN,
         description="The type of credit phase (either warmup or profiling)",
     )
 
@@ -233,185 +223,6 @@ class ProfileProgress(AIPerfBaseModel):
     def steady_state_completed(self) -> int:
         """Calculate the number of requests completed during steady-state (after ramp-up)."""
         return max(0, self.requests_completed - self.ramp_up_completed)
-
-
-class SweepProgress(AIPerfBaseModel):
-    """State of the sweep progress."""
-
-    sweep_id: str = Field(..., description="The ID of the current sweep")
-    sweep_completion_trigger: SweepCompletionTrigger = Field(
-        default=SweepCompletionTrigger.COMPLETED_PROFILES,
-        description="The trigger of sweep completion",
-    )
-    profiles: list[ProfileProgress] = Field(
-        default_factory=list, description="The state of the profiles in the sweep"
-    )
-    current_profile_idx: int | None = Field(
-        default=None,
-        description="The index of the current profile. If it has not been started, this will be None.",
-    )
-    completed_profiles: int = Field(
-        default=0, description="The number of completed profiles in the sweep"
-    )
-    start_time_ns: int | None = Field(
-        default=None,
-        description="The start time of the sweep in nanoseconds. If it has not been started, this will be None.",
-    )
-    end_time_ns: int | None = Field(
-        default=None,
-        description="The end time of the sweep in nanoseconds. If it has not been completed, this will be None.",
-    )
-    was_cancelled: bool = Field(
-        default=False,
-        description="Whether the sweep was cancelled early",
-    )
-
-    @property
-    def current_profile(self) -> ProfileProgress | None:
-        if self.current_profile_idx is None:
-            return None
-        return self.profiles[self.current_profile_idx]
-
-    def next_profile(self) -> ProfileProgress | None:
-        if self.current_profile_idx is None:
-            self.current_profile_idx = 0
-        else:
-            self.current_profile_idx += 1
-
-        if self.current_profile_idx >= len(self.profiles):
-            return None
-
-        return self.profiles[self.current_profile_idx]
-
-
-class BenchmarkSuiteProgress(AIPerfBaseModel, ABC):
-    """State of the suite progress."""
-
-    suite_type: BenchmarkSuiteType = Field(
-        default=BenchmarkSuiteType.SINGLE_PROFILE,
-        description="The type of suite. Default is SINGLE_PROFILE.",
-    )
-    suite_completion_trigger: BenchmarkSuiteCompletionTrigger = Field(
-        default=BenchmarkSuiteCompletionTrigger.COMPLETED_PROFILES,
-        description="The trigger of suite completion",
-    )
-    start_time_ns: int | None = Field(
-        default=None,
-        description="The overall start time of the suite in nanoseconds. If it has not been started, this will be None.",
-    )
-    end_time_ns: int | None = Field(
-        default=None,
-        description="The overall end time of the suite in nanoseconds. If it has not been completed, this will be None.",
-    )
-    was_cancelled: bool = Field(
-        default=False,
-        description="Whether the suite was cancelled early",
-    )
-
-    @property
-    def current_sweep(self) -> SweepProgress | None:
-        if not isinstance(self, SweepSuiteProgress) or self.current_sweep_idx is None:
-            return None
-        return self.sweeps[self.current_sweep_idx]
-
-    @property
-    def current_profile(self) -> ProfileProgress | None:
-        if isinstance(self, ProfileSuiteProgress):
-            if self.current_profile_idx is None or self.current_profile_idx >= len(
-                self.profiles
-            ):
-                return None
-            return self.profiles[self.current_profile_idx]
-
-        elif isinstance(self, SweepSuiteProgress):
-            if self.current_sweep is None:
-                return None
-            return self.current_sweep.current_profile
-
-        return None
-
-    @abstractmethod
-    def next_profile(self) -> ProfileProgress | None: ...
-
-
-class ProfileSuiteProgress(BenchmarkSuiteProgress):
-    """State of a profile based suite with 1 or more profile runs."""
-
-    profiles: list[ProfileProgress] = Field(
-        default_factory=list, description="The state of the profiles in the suite"
-    )
-    total_profiles: int = Field(default=0, description="The total number of profiles")
-    completed_profiles: int = Field(
-        default=0, description="The number of completed profiles"
-    )
-    current_profile_idx: int | None = Field(
-        default=None,
-        description="The index of the current profile run. If it has not been started, this will be None.",
-    )
-
-    def next_profile(self) -> ProfileProgress | None:
-        if self.current_profile_idx is None:
-            self.current_profile_idx = 0
-        else:
-            self.current_profile_idx += 1
-
-        if self.current_profile_idx >= len(self.profiles):
-            return None
-
-        return self.profiles[self.current_profile_idx]
-
-
-class SweepSuiteProgress(BenchmarkSuiteProgress):
-    """State of a sweep based suite with 1 or more sweep runs."""
-
-    sweeps: list[SweepProgress] = Field(
-        default_factory=list, description="The state of the sweeps in the suite"
-    )
-    total_sweeps: int = Field(default=0, description="The total number of sweeps")
-    completed_sweeps: int = Field(
-        default=0, description="The number of completed sweeps"
-    )
-    current_sweep_idx: int | None = Field(
-        default=None,
-        description="The index of the current sweep. If it has not been started, this will be None.",
-    )
-
-    def next_profile(self) -> ProfileProgress | None:
-        """Get the next profile to run.
-
-        Returns:
-            The next profile to run, or None if there are no more profiles to run.
-        """
-        if self.current_sweep is None or self.current_sweep.current_profile_idx is None:
-            next_sweep = self.next_sweep()
-            if next_sweep is None:
-                return None
-            return next_sweep.next_profile()
-
-        # Try to get the next profile in the current sweep
-        next_profile = self.current_sweep.next_profile()
-        if next_profile is not None:
-            return next_profile
-
-        # If no more profiles in current sweep, move to next sweep
-        next_sweep = self.next_sweep()
-        if next_sweep is None:
-            return None
-        return next_sweep.next_profile()
-
-    def next_sweep(self) -> SweepProgress | None:
-        """Get the next sweep to run.
-
-        Returns:
-            The next sweep to run, or None if there are no more sweeps to run.
-        """
-        if self.current_sweep_idx is None:
-            self.current_sweep_idx = 0
-            return self.sweeps[0]
-        if self.current_sweep_idx >= len(self.sweeps) - 1:
-            return None
-        self.current_sweep_idx += 1
-        return self.sweeps[self.current_sweep_idx]
 
 
 class ProfileResultsMessage(BaseServiceMessage):
@@ -445,8 +256,25 @@ class ProfileResultsMessage(BaseServiceMessage):
     )
 
 
+class CreditPhaseProgressMessage(BaseServiceMessage):
+    """Message for credit phase stats. Sent by the TimingManager to report the stats of a credit phase."""
+
+    message_type: Literal[MessageType.CREDIT_PHASE_PROGRESS] = (
+        MessageType.CREDIT_PHASE_PROGRESS
+    )
+    request_ns: int = Field(  # type: ignore
+        default_factory=time.time_ns,
+        description="The timestamp of the request in nanoseconds",
+    )
+    phase: CreditPhaseStats = Field(
+        ...,
+        description="The credit phase stats for the phase that has started",
+    )
+
+
 class ProfileProgressMessage(BaseServiceMessage):
-    """Message for profile progress. Sent by the timing manager to the system controller to report the progress of the profile run."""
+    """Message for profile progress. Sent by the timing manager to the system controller
+    to report the progress of the profile run."""
 
     message_type: Literal[MessageType.PROFILE_PROGRESS] = MessageType.PROFILE_PROGRESS
 
@@ -463,6 +291,10 @@ class ProfileProgressMessage(BaseServiceMessage):
     end_ns: int | None = Field(
         default=None, description="The end time of the profile run in nanoseconds"
     )
+    phase_credits: dict[CreditPhase, CreditPhaseStats] = Field(
+        default_factory=dict,
+        description="The stats for each credit phase how many credits were dropped and how many were returned",
+    )
     total: int = Field(
         ..., description="The total number of inference requests to be made (if known)"
     )
@@ -473,8 +305,8 @@ class ProfileProgressMessage(BaseServiceMessage):
         default=0,
         description="The number of inference requests completed during ramp-up phase",
     )
-    credit_phase: CreditPhaseType = Field(
-        default=CreditPhaseType.PROFILING,
+    credit_phase: CreditPhase = Field(
+        default=CreditPhase.STEADY_STATE,
         description="The type of credit phase (either warmup or profiling)",
     )
 
@@ -484,40 +316,51 @@ class ProfileProgressMessage(BaseServiceMessage):
         return max(0, self.completed - self.ramp_up_completed)
 
 
-class SweepProgressMessage(BaseServiceMessage):
-    """Message for sweep progress."""
-
-    # TODO: add profile information
-
-    message_type: Literal[MessageType.SWEEP_PROGRESS] = MessageType.SWEEP_PROGRESS
-
-    sweep_id: str = Field(..., description="The ID of the current sweep")
-    sweep_start_ns: int = Field(
-        ..., description="The start time of the sweep in nanoseconds"
-    )
-    end_ns: int | None = Field(
-        default=None, description="The end time of the profile run in nanoseconds"
-    )
-
-
 class ProcessingStatsMessage(BaseServiceMessage):
-    """Message for processing stats. Sent by the records manager to the system controller to report the stats of the profile run."""
+    """Message for processing stats. Sent by the RecordsManager to report the stats of the profile run.
+    This contains the stats for a single credit phase only."""
 
     message_type: Literal[MessageType.PROCESSING_STATS] = MessageType.PROCESSING_STATS
 
-    error_count: int = Field(default=0, description="The number of errors encountered")
-    completed: int = Field(
-        default=0, description="The number of requests processed by the records manager"
+    current_phase: CreditPhase = Field(
+        ...,
+        description="The current credit phase (either warmup, ramp-up, stabilizing, or steady-state)",
     )
-    worker_completed: dict[str, int] = Field(
+
+    phase_stats: PhaseProcessingStats = Field(
+        ...,
+        description="The stats for the current credit phase, how many requests were processed "
+        "and how many errors were encountered",
+    )
+
+    worker_stats: dict[str, PhaseProcessingStats] = Field(
         default_factory=dict,
-        description="Per-worker request completion counts, keyed by worker service_id",
+        description="The stats for each worker how many requests were processed and how many errors were "
+        "encountered, keyed by worker service_id",
     )
-    worker_errors: dict[str, int] = Field(
-        default_factory=dict,
-        description="Per-worker error counts, keyed by worker service_id",
+
+
+class CreditPhaseStartMessage(BaseServiceMessage):
+    """Message for credit phase start. Sent by the TimingManager to report that a credit phase has started."""
+
+    message_type: Literal[MessageType.CREDIT_PHASE_START] = (
+        MessageType.CREDIT_PHASE_START
     )
-    credit_phase: CreditPhaseType = Field(
-        default=CreditPhaseType.UNKNOWN,
-        description="The type of credit phase (either warmup or profiling)",
+
+    phase: CreditPhaseStats = Field(
+        ...,
+        description="The credit phase stats for the phase that has started",
+    )
+
+
+class CreditPhaseCompleteMessage(BaseServiceMessage):
+    """Message for credit phase complete. Sent by the TimingManager to report that a credit phase has completed."""
+
+    message_type: Literal[MessageType.CREDIT_PHASE_COMPLETE] = (
+        MessageType.CREDIT_PHASE_COMPLETE
+    )
+
+    phase: CreditPhaseStats = Field(
+        ...,
+        description="The credit phase stats for the phase that was just completed",
     )

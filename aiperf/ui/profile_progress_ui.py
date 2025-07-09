@@ -17,7 +17,7 @@ from rich.progress import (
 from rich.table import Table
 from rich.text import Text
 
-from aiperf.common.enums import CreditPhaseType
+from aiperf.common.enums import CreditPhase
 from aiperf.common.utils import format_duration
 from aiperf.progress.progress_models import ProfileProgress
 from aiperf.progress.progress_tracker import ProgressTracker
@@ -77,7 +77,7 @@ class ProfileProgressElement(DashboardElement):
 
         # TODO: This is broken. We need to update the title and border style when the credit phase changes.
         if not self.progress_tracker.current_profile:
-            if self.progress_tracker.active_credit_phase == CreditPhaseType.WARMUP:
+            if self.progress_tracker.active_credit_phase == CreditPhase.WARMUP:
                 self.title = Text("Warmup Progress", style="bold orange")
                 self.border_style = "orange"
                 return Align.center(
@@ -94,9 +94,9 @@ class ProfileProgressElement(DashboardElement):
 
         profile = self.progress_tracker.current_profile
 
-        if profile.credit_phase == CreditPhaseType.WARMUP:
+        if profile.credit_phase == CreditPhase.WARMUP:
             return self._get_content_warmup(profile)
-        elif profile.credit_phase == CreditPhaseType.PROFILING:
+        elif profile.credit_phase == CreditPhase.STEADY_STATE:
             return self._get_content_profiling(profile)
         else:
             raise ValueError(f"Unsupported credit phase: {profile.credit_phase}")

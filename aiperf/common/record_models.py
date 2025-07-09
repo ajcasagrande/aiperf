@@ -10,7 +10,7 @@ from typing import Any
 from pydantic import Field, SerializeAsAny
 
 from aiperf.common.constants import NANOS_PER_SECOND
-from aiperf.common.enums import CreditPhaseType, SSEFieldType
+from aiperf.common.enums import CreditPhase, SSEFieldType
 from aiperf.common.pydantic_utils import AIPerfBaseModel
 
 
@@ -228,7 +228,7 @@ class RequestRecord(AIPerfBaseModel):
     )
     # Note: we need to use SerializeAsAny to allow for generic subclass support
     responses: SerializeAsAny[
-        list[InferenceServerResponse | SSEMessage | TextResponse]
+        list[SSEMessage | TextResponse | InferenceServerResponse | Any]
     ] = Field(
         default_factory=list,
         description="The raw responses received from the request.",
@@ -243,8 +243,8 @@ class RequestRecord(AIPerfBaseModel):
         description="The number of nanoseconds the request was delayed from when it was expected to be sent, "
         "or None if the request was sent on time, or did not have a credit_drop_ns timestamp.",
     )
-    credit_phase: CreditPhaseType = Field(
-        default=CreditPhaseType.PROFILING,
+    credit_phase: CreditPhase = Field(
+        default=CreditPhase.STEADY_STATE,
         description="The type of credit phase (either warmup or profiling)",
     )
 

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 import logging
 
-from aiperf.common.health_models import WorkerHealthMessage, WorkerHealthSummary
+from aiperf.common.worker_models import WorkerHealthMessage
 
 
 class HealthTracker:
@@ -18,8 +18,3 @@ class HealthTracker:
 
     def get_worker_health_summary(self) -> dict[str, WorkerHealthMessage]:
         return self.worker_health
-
-    def total_summary(self) -> WorkerHealthSummary:
-        return WorkerHealthSummary(
-            workers=[health for health in self.worker_health.values()],
-        )

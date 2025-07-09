@@ -8,7 +8,6 @@ __all__ = [
     "ConcurrencyStrategy",
     "RequestRateStrategy",
     "FixedScheduleStrategy",
-    "CreditPhase",
     "TimingManagerConfig",
     "CreditManagerProtocol",
     "RequestRateMode",
@@ -17,7 +16,6 @@ __all__ = [
 from aiperf.common.enums import RequestRateMode
 from aiperf.services.timing_manager.concurrency_strategy import ConcurrencyStrategy
 from aiperf.services.timing_manager.config import (
-    CreditPhase,
     TimingManagerConfig,
 )
 from aiperf.services.timing_manager.credit_issuing_strategy import (

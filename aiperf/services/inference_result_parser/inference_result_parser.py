@@ -1,20 +1,17 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
-import os
 import sys
 
+from aiperf.clients.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.comms.base import PullClientProtocol, PushClientProtocol
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
 from aiperf.common.enums import CommunicationClientAddressType, MessageType, ServiceType
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
-    on_cleanup,
     on_configure,
     on_init,
-    on_start,
-    on_stop,
 )
 from aiperf.common.messages import (
     CommandMessage,
@@ -38,7 +35,7 @@ class InferenceResultParser(BaseComponentService):
     def __init__(
         self,
         service_config: ServiceConfig,
-        user_config: UserConfig | None = None,
+        user_config: UserConfig,
         service_id: str | None = None,
     ) -> None:
         super().__init__(
@@ -58,9 +55,12 @@ class InferenceResultParser(BaseComponentService):
             )
         )
         self.tokenizers: dict[str, Tokenizer] = {}
-        self.user_config: UserConfig | None = None
+        self.user_config: UserConfig = user_config
         self.tokenizer_lock: asyncio.Lock = asyncio.Lock()
         self.extractor = OpenAIResponseExtractor()
+        self.model_endpoint: ModelEndpointInfo = ModelEndpointInfo.from_user_config(
+            user_config
+        )
 
     @property
     def service_type(self) -> ServiceType:
@@ -79,23 +79,15 @@ class InferenceResultParser(BaseComponentService):
             max_concurrency=1000000,
         )
 
-    @on_start
-    async def _start(self) -> None:
-        """Start the inference result parser."""
-        self.logger.debug("Starting inference result parser")
-        # TODO: Implement inference result parser start
-
-    @on_stop
-    async def _stop(self) -> None:
-        """Stop the inference result parser."""
-        self.logger.debug("Stopping inference result parser")
-        # TODO: Implement inference result parser stop
-
-    @on_cleanup
-    async def _cleanup(self) -> None:
-        """Clean up inference result parser-specific components."""
-        self.logger.debug("Cleaning up inference result parser")
-        # TODO: Implement inference result parser cleanup
+        self.model_endpoint = ModelEndpointInfo.from_user_config(self.user_config)
+        async with self.tokenizer_lock:
+            self.tokenizers = {
+                model.name: Tokenizer.from_pretrained(model.name)
+                for model in self.model_endpoint.models.models
+            }
+            self.logger.info(
+                "Initialized tokenizers for %d models", len(self.tokenizers)
+            )
 
     async def get_tokenizer(self, model: str) -> Tokenizer:
         """Get the tokenizer for a given model."""
@@ -107,27 +99,6 @@ class InferenceResultParser(BaseComponentService):
     @on_configure
     async def _configure(self, message: CommandMessage) -> None:
         """Configure the inference result parser."""
-        self.logger.debug(
-            f"Configuring inference result parser with message: {message}"
-        )
-        self.user_config = (
-            message.data if isinstance(message.data, UserConfig) else None
-        )
-
-        # TODO: This is a hack to get the tokenizer for the default model.
-        # We should remove this once we have a better way to get the tokenizer from the user config.
-        await self.get_tokenizer(
-            os.getenv("AIPERF_MODEL", "deepseek-ai/DeepSeek-R1-Distill-Llama-8B")
-        )
-
-        if self.user_config:
-            # TODO: Does this code actually work as intended? Maybe refactor this to use a loop.
-            await asyncio.gather(
-                *[self.get_tokenizer(model) for model in self.user_config.model_names]
-            )
-            self.logger.info(
-                "Initialized tokenizers for %d models", len(self.tokenizers)
-            )
 
     async def _on_inference_results(self, message: InferenceResultsMessage) -> None:
         """Handle an inference results message."""

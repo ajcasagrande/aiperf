@@ -1,12 +1,12 @@
-#  SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-#  SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 import logging
 
 import pytest
 
-from aiperf.common.enums import CreditPhaseType
+from aiperf.common.enums import CreditPhase
 from aiperf.common.messages import CreditReturnMessage
-from aiperf.services.timing_manager.config import CreditPhase, TimingManagerConfig
+from aiperf.services.timing_manager.config import CreditPhaseStatus, TimingManagerConfig
 from aiperf.services.timing_manager.credit_issuing_strategy import CreditIssuingStrategy
 
 
@@ -23,7 +23,7 @@ class MockCreditManager:
 
     async def drop_credit(
         self,
-        phase_type: CreditPhaseType,
+        phase_type: CreditPhase,
         conversation_id: str | None = None,
         credit_drop_ns: int | None = None,
     ) -> None:
@@ -53,7 +53,7 @@ class MockCreditManager:
 
     async def publish_progress(
         self,
-        phase: CreditPhase,
+        phase: CreditPhaseStatus,
     ) -> None:
         """Mock publish_progress method."""
         self.progress_calls.append(
@@ -66,7 +66,7 @@ class MockCreditManager:
         )
 
     async def publish_credits_complete(
-        self, phase_type: CreditPhaseType, cancelled: bool = False
+        self, phase_type: CreditPhase, cancelled: bool = False
     ) -> None:
         """Mock publish_credits_complete method."""
         self.credits_complete_calls.append(

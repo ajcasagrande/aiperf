@@ -137,6 +137,7 @@ class AioHttpSSEStreamReader:
 
     def __init__(self, response: aiohttp.ClientResponse):
         self.response = response
+        self.logger = logging.getLogger(self.__class__.__name__)
 
     async def read_complete_stream(self) -> list[SSEMessage]:
         """Read the complete SSE stream in a performant manner and return a list of
@@ -151,6 +152,7 @@ class AioHttpSSEStreamReader:
             # Parse the raw SSE message into a SSEMessage object
             message = parse_sse_message(raw_message, first_byte_ns)
             messages.append(message)
+            # self.logger.info("Parsed SSE message: %s", message)
 
         return messages
 

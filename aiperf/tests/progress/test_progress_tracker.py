@@ -6,7 +6,7 @@ import time
 from unittest.mock import patch
 
 from aiperf.common.constants import NANOS_PER_SECOND
-from aiperf.common.enums import CreditPhaseType
+from aiperf.common.enums import CreditPhase
 from aiperf.progress.progress_models import (
     BenchmarkSuiteType,
     ProcessingStatsMessage,
@@ -256,9 +256,7 @@ class TestProgressTracker:
         start_time = 1000000000  # Use fixed start time
         profile.start_time_ns = start_time
         profile.total_expected_requests = 45  # Same as completed in message
-        profile.credit_phase = (
-            CreditPhaseType.PROFILING
-        )  # Required for completion check
+        profile.credit_phase = CreditPhase.STEADY_STATE  # Required for completion check
 
         with patch("aiperf.progress.progress_tracker.time.time_ns") as mock_time:
             mock_time.return_value = start_time + 1000000000  # 1 second later

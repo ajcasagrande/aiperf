@@ -39,7 +39,7 @@ class EndPointDefaults:
     SERVER_METRICS_URLS = ["http://localhost:8002/metrics"]
     URL = "localhost:8080"
     GRPC_METHOD = ""
-    TIMEOUT = 30.0
+    TIMEOUT = 600.0
     API_KEY = None
 
 

@@ -9,13 +9,13 @@ from typing import Any
 
 from pydantic import Field
 
+from aiperf.clients.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.bootstrap import bootstrap_and_run_service
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
 from aiperf.common.enums import MessageType, ServiceRunType, ServiceType
 from aiperf.common.exceptions import ConfigurationError
 from aiperf.common.factories import ServiceFactory
-from aiperf.common.health_models import WorkerHealthMessage
 from aiperf.common.hooks import (
     on_cleanup,
     on_configure,
@@ -26,6 +26,7 @@ from aiperf.common.hooks import (
 from aiperf.common.messages import Message
 from aiperf.common.pydantic_utils import AIPerfBaseModel
 from aiperf.common.service.base_component_service import BaseComponentService
+from aiperf.common.worker_models import WorkerHealthMessage
 from aiperf.services.worker.worker import Worker
 
 
@@ -36,7 +37,7 @@ class WorkerProcessInfo(AIPerfBaseModel):
     process: Any = Field(None, description="Process object or task")
 
 
-@ServiceFactory.register(ServiceType.WORKER_MANAGER, override_priority=100)
+@ServiceFactory.register(ServiceType.WORKER_MANAGER)
 class WorkerManager(BaseComponentService):
     """
     The WorkerManager service is primary responsibility is to pull data from the dataset manager
@@ -60,18 +61,20 @@ class WorkerManager(BaseComponentService):
         self.worker_health: dict[str, WorkerHealthMessage] = {}
         # TODO: Need to implement some sort of max workers
         self.cpu_count = multiprocessing.cpu_count()
+        self.model_endpoint = ModelEndpointInfo.from_user_config(self.user_config)
         self.max_concurrency = self.user_config.load.concurrency
+
+        # Default to the number of CPU cores - 1
         self.worker_count = self.service_config.max_workers
         if self.worker_count is None:
             self.worker_count = self.cpu_count - 1
 
-        # TODO: This is broken. We need to cap the worker count to the max concurrency + 1, but only
-        #       if the user in in concurrency mode.
-        # # cap the worker count to the max concurrency + 1
-        # self.worker_count = min(
-        #     self.max_concurrency + 1,
-        #     self.worker_count,
-        # )
+        # Cap the worker count to the max concurrency + 1, but only if the user in in concurrency mode.
+        if self.max_concurrency > 1:
+            self.worker_count = min(
+                self.max_concurrency + 1,
+                self.worker_count,
+            )
 
         self.logger.info(
             "Detected %s CPU cores/threads. Spawning %s worker processes",
@@ -122,8 +125,6 @@ class WorkerManager(BaseComponentService):
     async def _stop(self) -> None:
         """Stop the worker manager."""
         self.logger.debug("Stopping worker manager")
-        # TODO: This needs to be investigated, as currently we handle the exit signal
-        #       by all workers already, so need to understand best way to handle this
         # Stop all workers
         if self.service_config.service_run_type == ServiceRunType.MULTIPROCESSING:
             await self._stop_multiprocessing_workers()

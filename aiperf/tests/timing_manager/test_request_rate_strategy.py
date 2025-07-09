@@ -68,10 +68,10 @@ class TestRequestRateStrategy:
         )
 
         assert strategy._request_rate == 10.0
-        assert strategy.profiling.total_credits == 100
+        assert strategy.profiling.total == 100
         assert strategy.warmup is None
-        assert strategy.profiling.sent_credits == 0
-        assert strategy.profiling.completed_credits == 0
+        assert strategy.profiling.sent == 0
+        assert strategy.profiling.completed == 0
         assert strategy.active_phase == strategy.profiling
 
     async def test_initialization_with_warmup(self, config, mock_credit_manager):
@@ -85,9 +85,9 @@ class TestRequestRateStrategy:
         )
 
         assert strategy._request_rate == 5.0
-        assert strategy.profiling.total_credits == 50
+        assert strategy.profiling.total == 50
         assert strategy.warmup is not None
-        assert strategy.warmup.total_credits == 10
+        assert strategy.warmup.total == 10
         assert strategy.warmup.completed_event is not None
         assert strategy.active_phase == strategy.warmup
 
@@ -125,7 +125,7 @@ class TestRequestRateStrategy:
             await asyncio.gather(*strategy.tasks)
 
             # Verify warmup completion
-            assert strategy.warmup.sent_credits == 3
+            assert strategy.warmup.sent == 3
             assert mock_sleep_func.call_count == 3
 
             # Verify sleep duration (1/request_rate = 0.5 seconds)
@@ -174,7 +174,7 @@ class TestRequestRateStrategy:
             await asyncio.gather(*strategy.tasks)
 
             # Verify credits were sent
-            assert strategy.profiling.sent_credits == 10
+            assert strategy.profiling.sent == 10
             assert len(mock_credit_manager.dropped_credits) == 10
             assert mock_sleep_func.call_count == 10
 
@@ -222,7 +222,7 @@ class TestRequestRateStrategy:
 
             # Verify warmup completion was awaited
             assert strategy.warmup.completed_event.is_set()
-            assert strategy.profiling.sent_credits == 5
+            assert strategy.profiling.sent == 5
 
     async def test_credit_drop_loop_with_zero_rate(
         self, mock_time_ns, config, mock_credit_manager
@@ -249,7 +249,7 @@ class TestRequestRateStrategy:
             await asyncio.gather(*strategy.tasks)
 
             # Verify credits were sent
-            assert strategy.profiling.sent_credits == 5
+            assert strategy.profiling.sent == 5
             assert len(mock_credit_manager.dropped_credits) == 5
             assert mock_sleep_func.call_count == 5
 
@@ -350,7 +350,7 @@ class TestRequestRateStrategy:
         await strategy.on_credit_return(message)
 
         # Verify credit was processed
-        assert strategy.active_phase.completed_credits == 1
+        assert strategy.active_phase.completed == 1
 
     async def test_on_credit_return_triggers_completion(
         self, config, mock_credit_manager
@@ -374,7 +374,7 @@ class TestRequestRateStrategy:
         await asyncio.gather(*strategy.tasks)
 
         # Verify completion was triggered
-        assert strategy.active_phase.completed_credits == 3
+        assert strategy.active_phase.completed == 3
         assert len(mock_credit_manager.credits_complete_calls) == 1
         assert mock_credit_manager.credits_complete_calls[0]["cancelled"] is False
 
@@ -399,7 +399,7 @@ class TestRequestRateStrategy:
         await asyncio.gather(*strategy.tasks)
 
         # Verify partial completion
-        assert strategy.active_phase.completed_credits == 2
+        assert strategy.active_phase.completed == 2
         assert len(mock_credit_manager.credits_complete_calls) == 0
 
     async def test_full_lifecycle_without_warmup(
@@ -433,8 +433,8 @@ class TestRequestRateStrategy:
             await strategy.on_credit_return(message)
 
             # Verify final state
-            assert strategy.profiling.sent_credits == 3
-            assert strategy.profiling.completed_credits == 3
+            assert strategy.profiling.sent == 3
+            assert strategy.profiling.completed == 3
             assert len(mock_credit_manager.dropped_credits) == 3
             assert len(mock_credit_manager.credits_complete_calls) == 1
 
@@ -475,8 +475,8 @@ class TestRequestRateStrategy:
             )  # profiling credit 3 (completes profiling)
 
             # Verify final state (warmup + profiling credits)
-            assert strategy.warmup.sent_credits == 2
-            assert strategy.profiling.sent_credits == 3
+            assert strategy.warmup.sent == 2
+            assert strategy.profiling.sent == 3
             assert (
                 len(mock_credit_manager.dropped_credits) == 5
             )  # 2 warmup + 3 profiling
@@ -602,7 +602,7 @@ class TestRequestRateStrategyEdgeCases:
             await asyncio.gather(*strategy.tasks)
 
             # Verify credits were sent
-            assert strategy.profiling.sent_credits == 10
+            assert strategy.profiling.sent == 10
             assert len(mock_credit_manager.dropped_credits) == 10
 
             # Verify sleep was called with very small durations
@@ -635,7 +635,7 @@ class TestRequestRateStrategyEdgeCases:
             await asyncio.gather(*strategy.tasks)
 
             # Verify credits were sent
-            assert strategy.profiling.sent_credits == 2
+            assert strategy.profiling.sent == 2
             assert len(mock_credit_manager.dropped_credits) == 2
 
             # Verify sleep was called with long durations
@@ -660,7 +660,7 @@ class TestRequestRateStrategyEdgeCases:
         await asyncio.gather(*strategy.tasks)
 
         # Verify no credits were sent
-        assert strategy.profiling.sent_credits == 0
+        assert strategy.profiling.sent == 0
         assert len(mock_credit_manager.dropped_credits) == 0
 
     async def test_single_request_count(
@@ -688,7 +688,7 @@ class TestRequestRateStrategyEdgeCases:
             await asyncio.gather(*strategy.tasks)
 
             # Verify single credit was sent
-            assert strategy.profiling.sent_credits == 1
+            assert strategy.profiling.sent == 1
             assert len(mock_credit_manager.dropped_credits) == 1
             assert mock_sleep_func.call_count == 1
 
@@ -716,7 +716,7 @@ class TestRequestRateStrategyEdgeCases:
             await asyncio.gather(*strategy.tasks)
 
             # After warmup, verify credits were sent
-            assert strategy.warmup.sent_credits == 2
+            assert strategy.warmup.sent == 2
 
     async def test_concurrent_credit_returns(self, config, mock_credit_manager):
         """Test handling of concurrent credit returns."""
@@ -738,6 +738,6 @@ class TestRequestRateStrategyEdgeCases:
         await asyncio.gather(*strategy.tasks)
 
         # Verify all credits were processed
-        assert strategy.active_phase.completed_credits == 5
+        assert strategy.active_phase.completed == 5
         assert len(mock_credit_manager.credits_complete_calls) == 1
         assert mock_credit_manager.credits_complete_calls[0]["cancelled"] is False

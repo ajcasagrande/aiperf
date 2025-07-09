@@ -269,6 +269,15 @@ class MessageType(CaseInsensitiveStrEnum):
     WORKER_HEALTH = "worker_health"
     """A message sent by a worker to the worker manager to report its health."""
 
+    CREDIT_PHASE_START = "credit_phase_start"
+    """A message sent by the TimingManager to report that a phase has started."""
+
+    CREDIT_PHASE_COMPLETE = "credit_phase_complete"
+    """A message sent by the TimingManager to report that a phase has completed."""
+
+    CREDIT_PHASE_PROGRESS = "credit_phase_progress"
+    """A message sent by the TimingManager to report the progress of a credit phase."""
+
 
 ################################################################################
 # Command Enums
@@ -578,11 +587,12 @@ class ResponsePayloadType(CaseInsensitiveStrEnum):
     OPENAI_MULTIMODAL = "openai_multimodal"
     OPENAI_RESPONSES = "openai_responses"
 
-    HUGGINGFACE_GENERATE = "huggingface_generate"
+    # TODO: implement other endpoints
+    # HUGGINGFACE_GENERATE = "huggingface_generate"
 
-    RANKINGS = "rankings"
+    # RANKINGS = "rankings"
 
-    IMAGE_RETRIEVAL = "image_retrieval"
+    # IMAGE_RETRIEVAL = "image_retrieval"
 
     @classmethod
     def from_endpoint_type(cls, endpoint_type: "EndpointType") -> "ResponsePayloadType":
@@ -593,9 +603,10 @@ class ResponsePayloadType(CaseInsensitiveStrEnum):
             EndpointType.OPENAI_COMPLETIONS: ResponsePayloadType.OPENAI_COMPLETIONS,
             EndpointType.OPENAI_EMBEDDINGS: ResponsePayloadType.OPENAI_EMBEDDINGS,
             EndpointType.OPENAI_RESPONSES: ResponsePayloadType.OPENAI_RESPONSES,
-            EndpointType.HUGGINGFACE_GENERATE: ResponsePayloadType.HUGGINGFACE_GENERATE,
-            EndpointType.RANKINGS: ResponsePayloadType.RANKINGS,
-            EndpointType.IMAGE_RETRIEVAL: ResponsePayloadType.IMAGE_RETRIEVAL,
+            # TODO: implement other endpoints
+            # EndpointType.HUGGINGFACE_GENERATE: ResponsePayloadType.HUGGINGFACE_GENERATE,
+            # EndpointType.RANKINGS: ResponsePayloadType.RANKINGS,
+            # EndpointType.IMAGE_RETRIEVAL: ResponsePayloadType.IMAGE_RETRIEVAL,
         }
 
         if endpoint_type not in endpoint_to_payload_map:
@@ -620,21 +631,22 @@ class EndpointType(CaseInsensitiveStrEnum):
     OPENAI_MULTIMODAL = "multimodal"
     OPENAI_RESPONSES = "responses"
 
-    HUGGINGFACE_GENERATE = "generate"
+    # TODO: implement other endpoints
+    # HUGGINGFACE_GENERATE = "generate"
 
-    DYNAMIC_GRPC = "dynamic_grpc"
-    NVCLIP = "nvclip"
-    TEMPLATE = "template"
+    # DYNAMIC_GRPC = "dynamic_grpc"
+    # NVCLIP = "nvclip"
+    # TEMPLATE = "template"
 
-    RANKINGS = "rankings"
-    IMAGE_RETRIEVAL = "image_retrieval"
+    # RANKINGS = "rankings"
+    # IMAGE_RETRIEVAL = "image_retrieval"
 
-    TENSORRTLLM = "tensorrtllm"
-    TENSORRTLLM_ENGINE = "tensorrtllm_engine"
+    # TENSORRTLLM = "tensorrtllm"
+    # TENSORRTLLM_ENGINE = "tensorrtllm_engine"
 
-    TRITON_GENERATE = "triton_generate"
+    # TRITON_GENERATE = "triton_generate"
 
-    DYNAMO_ENGINE = "dynamo_engine"
+    # DYNAMO_ENGINE = "dynamo_engine"
 
     def endpoint_path(self) -> str | None:
         """Get the endpoint path for the endpoint type."""
@@ -645,18 +657,19 @@ class EndpointType(CaseInsensitiveStrEnum):
             EndpointType.OPENAI_COMPLETIONS: "/v1/completions",
             EndpointType.OPENAI_EMBEDDINGS: "/v1/embeddings",
             EndpointType.OPENAI_RESPONSES: "/v1/responses",
+            # TODO: implement other endpoints
             # Other
-            EndpointType.NVCLIP: "/v1/embeddings",
-            EndpointType.HUGGINGFACE_GENERATE: "/",  # HuggingFace TGI only exposes root endpoint
-            EndpointType.RANKINGS: "/v1/ranking",  # TODO: Not implemented yet
-            EndpointType.IMAGE_RETRIEVAL: "/v1/infer",  # TODO: Not implemented yet
-            EndpointType.TRITON_GENERATE: "/v2/models/{MODEL_NAME}/generate",  # TODO: Not implemented yet
-            # These endpoints do not have a specific path
-            EndpointType.DYNAMIC_GRPC: None,  # TODO: Not implemented yet
-            EndpointType.TEMPLATE: None,  # TODO: Not implemented yet
-            EndpointType.TENSORRTLLM: None,  # TODO: Not implemented yet
-            EndpointType.TENSORRTLLM_ENGINE: None,  # TODO: Not implemented yet
-            EndpointType.DYNAMO_ENGINE: None,  # TODO: Not implemented yet
+            # EndpointType.NVCLIP: "/v1/embeddings",
+            # EndpointType.HUGGINGFACE_GENERATE: "/",  # HuggingFace TGI only exposes root endpoint
+            # EndpointType.RANKINGS: "/v1/ranking",  # TODO: Not implemented yet
+            # EndpointType.IMAGE_RETRIEVAL: "/v1/infer",  # TODO: Not implemented yet
+            # EndpointType.TRITON_GENERATE: "/v2/models/{MODEL_NAME}/generate",  # TODO: Not implemented yet
+            # # These endpoints do not have a specific path
+            # EndpointType.DYNAMIC_GRPC: None,  # TODO: Not implemented yet
+            # EndpointType.TEMPLATE: None,  # TODO: Not implemented yet
+            # EndpointType.TENSORRTLLM: None,  # TODO: Not implemented yet
+            # EndpointType.TENSORRTLLM_ENGINE: None,  # TODO: Not implemented yet
+            # EndpointType.DYNAMO_ENGINE: None,  # TODO: Not implemented yet
         }
 
         if self not in endpoint_path_map:
@@ -673,15 +686,31 @@ class RequestRateMode(CaseInsensitiveStrEnum):
     """The different ways the request rate scheduler should generate requests."""
 
     CONSTANT = "constant"
-    """Generate requests at a fixed rate."""
+    """Generate requests at a constant rate."""
 
     POISSON = "poisson"
     """Generate requests using a poisson distribution."""
 
 
-class CreditPhaseType(CaseInsensitiveStrEnum):
-    """The type of credit phase."""
+class CreditPhase(CaseInsensitiveStrEnum):
+    """The type of credit phase. This is used to identify which phase of the
+    benchmark the credit is being used in, for reporting purposes."""
 
     UNKNOWN = "unknown"
+    """The credit phase is unknown."""
+
     WARMUP = "warmup"
-    PROFILING = "profiling"
+    """The credit phase is the warmup phase. This is used to warm up the model
+    before the benchmark starts."""
+
+    RAMP_UP = "ramp_up"
+    """The credit phase is the ramp up phase. This is used to ramp up the request
+    rate before the benchmark starts."""
+
+    STABILIZING = "stabilizing"
+    """Used with stabilization based measurement modes to indicate that the
+    benchmark is stabilizing."""
+
+    STEADY_STATE = "steady_state"
+    """The credit phase is the steady state phase. This is the primary phase of the
+    benchmark, and what is used to calculate the final results."""

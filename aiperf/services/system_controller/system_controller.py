@@ -24,7 +24,6 @@ from aiperf.common.enums import (
 )
 from aiperf.common.exceptions import CommunicationError, NotInitializedError
 from aiperf.common.factories import ServiceFactory
-from aiperf.common.health_models import WorkerHealthMessage
 from aiperf.common.hooks import on_cleanup, on_start, on_stop
 from aiperf.common.logging import get_global_log_queue
 from aiperf.common.messages import (
@@ -38,6 +37,7 @@ from aiperf.common.messages import (
 )
 from aiperf.common.service.base_controller_service import BaseControllerService
 from aiperf.common.service_models import ServiceRunInfo
+from aiperf.common.worker_models import WorkerHealthMessage
 from aiperf.data_exporter.exporter_manager import ExporterManager
 from aiperf.progress.progress_logger import SimpleProgressLogger
 from aiperf.progress.progress_models import (

@@ -25,13 +25,12 @@ from aiperf.common.constants import (
 from aiperf.common.dataset_models import Turn
 from aiperf.common.enums import (
     CommunicationClientAddressType,
-    CreditPhaseType,
+    CreditPhase,
     MessageType,
     ServiceType,
 )
 from aiperf.common.exceptions import NotInitializedError
 from aiperf.common.factories import ServiceFactory
-from aiperf.common.health_models import WorkerHealthMessage
 from aiperf.common.hooks import (
     aiperf_task,
     on_configure,
@@ -50,6 +49,7 @@ from aiperf.common.messages import (
 from aiperf.common.mixins import AsyncTaskManagerMixin, ProcessHealthMixin
 from aiperf.common.record_models import ErrorDetails, RequestRecord
 from aiperf.common.service.base_component_service import BaseComponentService
+from aiperf.common.worker_models import WorkerHealthMessage, WorkerPhaseTaskStats
 
 
 @ServiceFactory.register(ServiceType.WORKER)
@@ -77,13 +77,17 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
         self.health_check_interval = int(
             os.getenv("AIPERF_WORKER_HEALTH_CHECK_INTERVAL", 1)
         )
-        self.completed_tasks = 0
-        self.failed_tasks = 0
-        self.total_tasks = 0
-        self.warmup_tasks = 0
-        self.warmup_failed_tasks = 0
-        self.stop_event: asyncio.Event = asyncio.Event()
 
+        self.task_stats: dict[CreditPhase, WorkerPhaseTaskStats] = {
+            phase: WorkerPhaseTaskStats(
+                total_tasks=0,
+                completed_tasks=0,
+                failed_tasks=0,
+            )
+            for phase in CreditPhase
+        }
+
+        self.stop_event: asyncio.Event = asyncio.Event()
         self.comms: BaseCommunication = CommunicationFactory.create_instance(
             self.service_config.comm_backend,
             config=self.service_config.comm_config,
@@ -135,6 +139,7 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
     async def _do_initialize(self) -> None:
         """Initialize worker-specific components."""
         self.logger.debug("Initializing worker")
+
         await self.comms.initialize()
 
         await self.credit_drop_client.register_pull_callback(
@@ -177,16 +182,11 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
                 record=record,
             )
 
-            if message.credit_phase == CreditPhaseType.WARMUP:
-                self.warmup_tasks += 1
-                if not record.valid:
-                    self.warmup_failed_tasks += 1
-                self.logger.debug("Warmup request completed: %s", record)
+            self.task_stats[message.credit_phase].total_tasks += 1
+            if not record.valid:
+                self.task_stats[message.credit_phase].failed_tasks += 1
             else:
-                if record.valid:
-                    self.completed_tasks += 1
-                else:
-                    self.failed_tasks += 1
+                self.task_stats[message.credit_phase].completed_tasks += 1
 
             try:
                 await self.inference_results_client.push(message=msg)
@@ -211,7 +211,7 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
         message: CreditDropMessage,
     ) -> RequestRecord:
         """Run a credit task for a single credit."""
-        self.total_tasks += 1
+        self.task_stats[message.credit_phase].total_tasks += 1
 
         if not self.inference_client:
             raise NotInitializedError("Inference server client not initialized.")
@@ -293,11 +293,7 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
         return WorkerHealthMessage(
             service_id=self.service_id,
             process=self.get_process_health(),
-            total_tasks=self.total_tasks,
-            completed_tasks=self.completed_tasks,
-            failed_tasks=self.failed_tasks,
-            warmup_tasks=self.warmup_tasks,
-            warmup_failed_tasks=self.warmup_failed_tasks,
+            task_stats=self.task_stats,
         )
 
     @on_stop

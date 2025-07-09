@@ -4,18 +4,20 @@ import logging
 import time
 
 from aiperf.common.constants import NANOS_PER_SECOND
-from aiperf.common.enums import CreditPhaseType
-from aiperf.progress.progress_models import (
+from aiperf.common.enums import CreditPhase
+from aiperf.progress.benchmark_suite_models import (
     BenchmarkSuiteType,
+    ProfileSuiteProgress,
+    SweepSuiteProgress,
+)
+from aiperf.progress.progress_models import (
     ProcessingStatsMessage,
     ProfileProgress,
     ProfileProgressMessage,
     ProfileResultsMessage,
-    ProfileSuiteProgress,
-    SweepProgress,
-    SweepProgressMessage,
-    SweepSuiteProgress,
 )
+
+# from aiperf.progress.sweep_models import SweepProgress, SweepProgressMessage
 
 
 class ProgressTracker:
@@ -23,11 +25,11 @@ class ProgressTracker:
         self.logger = logging.getLogger(self.__class__.__name__)
         self.suite: ProfileSuiteProgress | SweepSuiteProgress | None = None
 
-    @property
-    def current_sweep(self) -> SweepProgress | None:
-        if self.suite is None or not isinstance(self.suite, SweepSuiteProgress):
-            return None
-        return self.suite.current_sweep
+    # @property
+    # def current_sweep(self) -> SweepProgress | None:
+    #     if self.suite is None or not isinstance(self.suite, SweepSuiteProgress):
+    #         return None
+    #     return self.suite.current_sweep
 
     @property
     def current_profile(self) -> ProfileProgress | None:
@@ -36,7 +38,7 @@ class ProgressTracker:
         return self.suite.current_profile
 
     @property
-    def active_credit_phase(self) -> CreditPhaseType | None:
+    def active_credit_phase(self) -> CreditPhase | None:
         if self.current_profile is None:
             return None
         return self.current_profile.credit_phase
@@ -44,7 +46,7 @@ class ProgressTracker:
     def configure(self, suite_type: BenchmarkSuiteType) -> None:
         if suite_type in [
             BenchmarkSuiteType.SINGLE_PROFILE,
-            BenchmarkSuiteType.MULTI_PROFILE,
+            # BenchmarkSuiteType.MULTI_PROFILE,
         ]:
             self.suite = ProfileSuiteProgress(
                 profiles=[
@@ -56,27 +58,27 @@ class ProgressTracker:
                 total_profiles=1,
             )
 
-        elif suite_type in [
-            BenchmarkSuiteType.SINGLE_SWEEP,
-            BenchmarkSuiteType.MULTI_SWEEP,
-        ]:
-            self.suite = SweepSuiteProgress(
-                sweeps=[
-                    SweepProgress(
-                        sweep_id="0",
-                        profiles=[
-                            ProfileProgress(
-                                profile_id="0",
-                                total_expected_requests=0,
-                            )
-                        ],
-                    )
-                ],
-                total_sweeps=1,
-            )
+        # elif suite_type in [
+        #     BenchmarkSuiteType.SINGLE_SWEEP,
+        #     BenchmarkSuiteType.MULTI_SWEEP,
+        # ]:
+        #     self.suite = SweepSuiteProgress(
+        #         sweeps=[
+        #             SweepProgress(
+        #                 sweep_id="0",
+        #                 profiles=[
+        #                     ProfileProgress(
+        #                         profile_id="0",
+        #                         total_expected_requests=0,
+        #                     )
+        #                 ],
+        #             )
+        #         ],
+        #         total_sweeps=1,
+        #     )
 
     def update_profile_progress(self, message: ProfileProgressMessage) -> None:
-        if message.credit_phase != CreditPhaseType.PROFILING:
+        if message.credit_phase != CreditPhase.STEADY_STATE:
             # TODO: handle warmup progress
             return
 
@@ -162,7 +164,7 @@ class ProgressTracker:
         if (
             profile.total_expected_requests is not None
             and profile.total_expected_requests > 0
-            and profile.credit_phase == CreditPhaseType.PROFILING
+            and profile.credit_phase == CreditPhase.STEADY_STATE
             and profile.start_time_ns is not None
             and profile.requests_processed >= profile.total_expected_requests
         ):
@@ -190,16 +192,24 @@ class ProgressTracker:
                 profile.processed_per_second = None
 
             # Calculate processing ETA using steady-state processed requests
-            steady_state_total = (
-                profile.total_expected_requests - profile.ramp_up_completed
+            if profile.total_expected_requests is not None:
+                steady_state_total = (
+                    profile.total_expected_requests - profile.ramp_up_completed
+                )
+            else:
+                steady_state_total = None
+
+            steady_state_remaining = (
+                steady_state_total - steady_state_processed
+                if steady_state_total is not None
+                else None
             )
-            steady_state_remaining = steady_state_total - steady_state_processed
             profile.processing_eta = (
                 (
                     steady_state_remaining / profile.processed_per_second
                     if profile.processed_per_second
                     and profile.processed_per_second > 0
-                    and profile.total_expected_requests
+                    and steady_state_total is not None
                     else None
                 )
                 if profile.processed_per_second is not None
@@ -222,17 +232,17 @@ class ProgressTracker:
         profile.records = message.records
         profile.errors_by_type = message.errors_by_type
 
-    def update_sweep_progress(self, message: SweepProgressMessage) -> None:
-        """Update sweep progress with the provided message."""
-        if self.suite is None or self.suite.current_sweep is None:
-            return
+    # def update_sweep_progress(self, message: SweepProgressMessage) -> None:
+    #     """Update sweep progress with the provided message."""
+    #     if self.suite is None or self.suite.current_sweep is None:
+    #         return
 
-        current_sweep = self.suite.current_sweep
+    #     current_sweep = self.suite.current_sweep
 
-        if current_sweep.start_time_ns is None:
-            current_sweep.start_time_ns = message.sweep_start_ns
-            self.logger.info("Starting sweep: %s", current_sweep.sweep_id)
+    #     if current_sweep.start_time_ns is None:
+    #         current_sweep.start_time_ns = message.sweep_start_ns
+    #         self.logger.info("Starting sweep: %s", current_sweep.sweep_id)
 
-        if message.end_ns is not None:
-            current_sweep.end_time_ns = message.end_ns
-            self.logger.info("Completed sweep: %s", current_sweep.sweep_id)
+    #     if message.end_ns is not None:
+    #         current_sweep.end_time_ns = message.end_ns
+    #         self.logger.info("Completed sweep: %s", current_sweep.sweep_id)

@@ -13,7 +13,7 @@ from aiperf.common.comms.base import (
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
 from aiperf.common.enums import (
-    CreditPhaseType,
+    CreditPhase,
     MessageType,
     ServiceType,
 )
@@ -35,10 +35,14 @@ from aiperf.common.messages import (
 )
 from aiperf.common.mixins import AsyncTaskManagerMixin
 from aiperf.common.service.base_component_service import BaseComponentService
-from aiperf.progress import ProfileProgressMessage
+from aiperf.progress.progress_models import (
+    CreditPhaseCompleteMessage,
+    CreditPhaseProgressMessage,
+    CreditPhaseStartMessage,
+    CreditPhaseStats,
+)
 from aiperf.services.timing_manager.concurrency_strategy import ConcurrencyStrategy
 from aiperf.services.timing_manager.config import (
-    CreditPhase,
     TimingManagerConfig,
     TimingMode,
 )
@@ -165,24 +169,42 @@ class TimingManager(BaseComponentService, AsyncTaskManagerMixin):
         if self._credit_issuing_strategy:
             await self._credit_issuing_strategy.on_credit_return(message)
 
-    async def publish_progress(self, phase: CreditPhase) -> None:
+    async def publish_phase_start(self, phase: CreditPhaseStats) -> None:
+        """Publish the phase start message."""
+        self.execute_async(
+            self.pub_client.publish(
+                CreditPhaseStartMessage(
+                    service_id=self.service_id,
+                    phase=phase,
+                )
+            )
+        )
+
+    async def publish_phase_complete(self, phase: CreditPhaseStats) -> None:
+        """Publish the phase complete message."""
+        self.execute_async(
+            self.pub_client.publish(
+                CreditPhaseCompleteMessage(
+                    service_id=self.service_id,
+                    phase=phase,
+                )
+            )
+        )
+
+    async def publish_progress(self, phase: CreditPhaseStats) -> None:
         """Publish the progress message."""
         self.execute_async(
             self.pub_client.publish(
-                ProfileProgressMessage(
+                CreditPhaseProgressMessage(
                     service_id=self.service_id,
-                    start_ns=phase.start_time_ns,
-                    measurement_start_ns=phase.measurement_start_time_ns,
-                    total=phase.total_credits,
-                    completed=phase.completed_credits,
-                    ramp_up_completed=phase.ramp_up_completed_credits,
-                    credit_phase=phase.phase_type,
+                    phase=phase,
+                    request_ns=time.time_ns(),
                 )
             )
         )
 
     async def publish_credits_complete(
-        self, credit_phase: CreditPhaseType, cancelled: bool
+        self, credit_phase: CreditPhase, cancelled: bool
     ) -> None:
         """Publish the credits complete message."""
         self.execute_async(
@@ -197,7 +219,7 @@ class TimingManager(BaseComponentService, AsyncTaskManagerMixin):
 
     async def drop_credit(
         self,
-        credit_phase: CreditPhaseType = CreditPhaseType.PROFILING,
+        credit_phase: CreditPhase = CreditPhase.STEADY_STATE,
         conversation_id: str | None = None,
         credit_drop_ns: int | None = None,
     ) -> None:

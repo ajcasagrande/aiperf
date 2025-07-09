@@ -1,13 +1,9 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-import asyncio
-
-from pydantic import Field
-
 from aiperf.common.config.config_defaults import LoadGeneratorDefaults
 from aiperf.common.config.user_config import UserConfig
-from aiperf.common.enums import CaseInsensitiveStrEnum, CreditPhaseType, RequestRateMode
+from aiperf.common.enums import CaseInsensitiveStrEnum, RequestRateMode
 from aiperf.common.pydantic_utils import AIPerfBaseModel
 
 
@@ -54,49 +50,3 @@ class TimingManagerConfig(AIPerfBaseModel):
             concurrency_ramp_up_time=user_config.load.concurrency_ramp_up_time,
             random_seed=user_config.input.random_seed,
         )
-
-
-class CreditPhase(AIPerfBaseModel):
-    """
-    A phase of credit issuing. Either a warmup phase or a profiling phase.
-    """
-
-    phase_type: CreditPhaseType = Field(
-        default=CreditPhaseType.PROFILING,
-        description="The type of credit phase (either warmup or profiling)",
-    )
-    start_time_ns: int = Field(
-        default=0, description="The start time of the phase in nanoseconds"
-    )
-    measurement_start_time_ns: int = Field(
-        default=0,
-        description="The start time for steady-state measurement in nanoseconds (after ramp-up)",
-    )
-    end_time_ns: int = Field(
-        default=0, description="The end time of the phase in nanoseconds"
-    )
-    total_credits: int = Field(
-        ..., gt=0, description="The total number of credits in the phase"
-    )
-    sent_credits: int = Field(
-        default=0, description="The number of credits sent in the phase"
-    )
-    completed_credits: int = Field(
-        default=0, description="The number of credits completed in the phase"
-    )
-    ramp_up_completed_credits: int = Field(
-        default=0,
-        description="The number of credits completed during ramp-up (before steady-state measurement begins)",
-    )
-    cancelled: bool = Field(
-        default=False, description="Whether the phase was cancelled"
-    )
-    completed_event: asyncio.Event = Field(
-        default_factory=asyncio.Event,
-        description="An event that is set when the phase is completed",
-    )
-
-    @property
-    def steady_state_completed_credits(self) -> int:
-        """Calculate the number of credits completed during steady-state (after ramp-up)."""
-        return max(0, self.completed_credits - self.ramp_up_completed_credits)

@@ -1,13 +1,12 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from pydantic import BaseModel
-
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
 from aiperf.common.enums import CommandType, ServiceType
 from aiperf.common.hooks import on_run
 from aiperf.common.messages import CommandMessage
+from aiperf.common.pydantic_utils import AIPerfBaseModel
 from aiperf.common.service.base_service import BaseService
 
 
@@ -46,7 +45,7 @@ class BaseControllerService(BaseService):
         command: CommandType,
         target_service_id: str | None,
         target_service_type: ServiceType | None = None,
-        data: BaseModel | None = None,
+        data: AIPerfBaseModel | None = None,
     ) -> CommandMessage:
         """Create a command message to be sent to a specific service.
 

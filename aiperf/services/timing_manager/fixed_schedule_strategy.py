@@ -6,11 +6,11 @@ import time
 from collections import defaultdict
 
 from aiperf.common.constants import NANOS_PER_SECOND
-from aiperf.common.enums import CreditPhaseType
+from aiperf.common.enums import CreditPhase
 from aiperf.common.exceptions import InvalidStateError
 from aiperf.common.messages import CreditReturnMessage
 from aiperf.common.mixins import AsyncTaskManagerMixin
-from aiperf.services.timing_manager.config import CreditPhase, TimingManagerConfig
+from aiperf.services.timing_manager.config import CreditPhaseStatus, TimingManagerConfig
 from aiperf.services.timing_manager.credit_issuing_strategy import (
     CreditIssuingStrategy,
     CreditManagerProtocol,
@@ -33,8 +33,8 @@ class FixedScheduleStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
         self._schedule: list[tuple[int, str]] = schedule
 
         # Create a profiling phase for progress tracking
-        self.profiling = CreditPhase(
-            total_credits=len(schedule), phase_type=CreditPhaseType.PROFILING
+        self.profiling = CreditPhaseStatus(
+            total_credits=len(schedule), phase_type=CreditPhase.STEADY_STATE
         )
         self.active_phase = self.profiling
 

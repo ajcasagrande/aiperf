@@ -8,8 +8,9 @@ from rich.console import Group, RenderableType
 from rich.table import Table
 from rich.text import Text
 
-from aiperf.common.health_models import WorkerHealthMessage
+from aiperf.common.enums import CreditPhase
 from aiperf.common.utils import format_bytes
+from aiperf.common.worker_models import WorkerHealthMessage
 from aiperf.ui.rich_dashboard import DashboardElement
 
 
@@ -69,14 +70,15 @@ class WorkerStatusElement(DashboardElement):
             last_seen = self.worker_last_seen.get(service_id, current_time)
 
             process = health.process
+            task_stats = health.task_stats[CreditPhase.STEADY_STATE]
             # Determine status
             if current_time - last_seen > 30:  # 30 seconds
                 status = Text("Stale", style="dim white")
                 stale_count += 1
             else:
                 error_rate = (
-                    health.failed_tasks / health.total_tasks
-                    if health.total_tasks > 0
+                    task_stats.failed_tasks / task_stats.total_tasks
+                    if task_stats.total_tasks > 0
                     else 0
                 )
 
@@ -86,7 +88,7 @@ class WorkerStatusElement(DashboardElement):
                 elif process.cpu_usage > 75:  # High CPU usage
                     status = Text("High Load", style="bold yellow")
                     warning_count += 1
-                elif health.total_tasks == 0:  # No tasks processed
+                elif task_stats.total_tasks == 0:  # No tasks processed
                     status = Text("Idle", style="dim")
                     idle_count += 1
                 else:
@@ -102,9 +104,9 @@ class WorkerStatusElement(DashboardElement):
             workers_table.add_row(
                 worker_name,
                 status,
-                f"{health.in_progress_tasks:,}",
-                f"{health.completed_tasks:,}",
-                f"{health.failed_tasks:,}",
+                f"{task_stats.in_progress_tasks:,}",
+                f"{task_stats.completed_tasks:,}",
+                f"{task_stats.failed_tasks:,}",
                 f"{process.cpu_usage:.1f}%",
                 memory_display,
                 f"{format_bytes(process.io_counters.read_chars)}",

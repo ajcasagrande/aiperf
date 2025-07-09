@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+import json
 import time
 import uuid
 from typing import Any, ClassVar, Literal
@@ -9,11 +10,12 @@ from pydantic import (
     SerializeAsAny,
 )
 
+# from aiperf.common.config import UserConfig
 from aiperf.common.dataset_models import Conversation
 from aiperf.common.enums import (
     CommandResponseStatus,
     CommandType,
-    CreditPhaseType,
+    CreditPhase,
     MessageType,
     NotificationType,
     ServiceState,
@@ -29,7 +31,6 @@ from aiperf.common.record_models import (
     ParsedResponseRecord,
     RequestRecord,
 )
-from aiperf.common.utils import load_json_str
 
 ################################################################################
 # Abstract Base Message Models
@@ -92,7 +93,7 @@ class Message(ExcludeIfNoneMixin):
     @classmethod
     def from_json(cls, json_str: str) -> "Message":
         """Fast deserialization without full validation"""
-        data = load_json_str(json_str)
+        data = json.loads(json_str)
         message_type = data.get("message_type")
         if not message_type:
             raise ValueError("Missing message_type")
@@ -102,7 +103,7 @@ class Message(ExcludeIfNoneMixin):
         if not message_class:
             raise ValueError(f"Unknown message type: {message_type}")
 
-        return message_class(**data)
+        return message_class.model_validate_json(json_str)
 
     def to_json(self) -> str:
         return self.model_dump_json()
@@ -210,7 +211,7 @@ class CommandMessage(BaseServiceMessage):
         "If both `target_service_type` and `target_service_id` are None, the command is "
         "sent to all services.",
     )
-    data: SerializeAsAny[ProcessRecordsCommandData | AIPerfBaseModel | None] = Field(
+    data: SerializeAsAny[Any] = Field(
         default=None,
         description="Data to send with the command",
     )
@@ -249,8 +250,8 @@ class CreditDropMessage(BaseServiceMessage):
 
     message_type: Literal[MessageType.CREDIT_DROP] = MessageType.CREDIT_DROP
 
-    credit_phase: CreditPhaseType = Field(
-        default=CreditPhaseType.PROFILING,
+    credit_phase: CreditPhase = Field(
+        default=CreditPhase.STEADY_STATE,
         description="The type of credit phase (either warmup or profiling)",
     )
     conversation_id: str | None = Field(
@@ -270,8 +271,8 @@ class CreditReturnMessage(BaseServiceMessage):
 
     message_type: Literal[MessageType.CREDIT_RETURN] = MessageType.CREDIT_RETURN
 
-    credit_phase: CreditPhaseType = Field(
-        default=CreditPhaseType.PROFILING,
+    credit_phase: CreditPhase = Field(
+        default=CreditPhase.STEADY_STATE,
         description="The type of credit phase (either warmup or profiling)",
     )
     conversation_id: str | None = Field(
@@ -291,8 +292,8 @@ class CreditsCompleteMessage(BaseServiceMessage):
     """Credits complete message sent by the TimingManager to the System controller to signify all requests have completed."""
 
     message_type: Literal[MessageType.CREDITS_COMPLETE] = MessageType.CREDITS_COMPLETE
-    credit_phase: CreditPhaseType = Field(
-        default=CreditPhaseType.PROFILING,
+    credit_phase: CreditPhase = Field(
+        default=CreditPhase.STEADY_STATE,
         description="The type of credit phase (either warmup or profiling)",
     )
     cancelled: bool = Field(
@@ -343,7 +344,7 @@ class ConversationRequestMessage(BaseServiceMessage):
     conversation_id: str | None = Field(
         default=None, description="The session ID of the conversation"
     )
-    credit_phase: CreditPhaseType | None = Field(
+    credit_phase: CreditPhase | None = Field(
         default=None,
         description="The type of credit phase (either warmup or profiling). If not provided, the timing manager will use the default credit phase.",
     )

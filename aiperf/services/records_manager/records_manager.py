@@ -10,7 +10,7 @@ from aiperf.common.comms.base import (
     PullClientProtocol,
 )
 from aiperf.common.config import ServiceConfig, UserConfig
-from aiperf.common.enums import CommandType, CreditPhaseType, MessageType, ServiceType
+from aiperf.common.enums import CommandType, CreditPhase, MessageType, ServiceType
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
     aiperf_task,
@@ -93,7 +93,7 @@ class RecordsManager(BaseComponentService):
             )
         )
 
-        self.active_credit_phase: CreditPhaseType = CreditPhaseType.UNKNOWN
+        self.active_credit_phase: CreditPhase = CreditPhase.UNKNOWN
 
     @property
     def service_type(self) -> ServiceType:
@@ -173,7 +173,7 @@ class RecordsManager(BaseComponentService):
         """Handle a parsed inference results message."""
 
         self.active_credit_phase = message.record.request.credit_phase
-        if self.active_credit_phase != CreditPhaseType.PROFILING:
+        if self.active_credit_phase != CreditPhase.STEADY_STATE:
             return
 
         self.logger.debug("Received parsed inference results: %s", message)
