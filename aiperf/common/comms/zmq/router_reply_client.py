@@ -125,7 +125,9 @@ class ZMQRouterReplyClient(BaseZMQClient, AsyncTaskManagerMixin):
             response = await handler(request)
 
         except Exception as e:
-            self.logger.error("Exception calling handler for %s: %s", message_type, e)
+            self.logger.exception(
+                "Exception calling handler for %s: %s", message_type, e
+            )
             response = ErrorMessage(
                 request_id=request_id,
                 error=ErrorDetails.from_exception(e),
@@ -198,7 +200,7 @@ class ZMQRouterReplyClient(BaseZMQClient, AsyncTaskManagerMixin):
 
                     request = Message.from_json(data[-1])
                     if not request.request_id:
-                        self.logger.error(
+                        self.logger.exception(
                             "Request ID is missing from request: %s", data
                         )
                         continue

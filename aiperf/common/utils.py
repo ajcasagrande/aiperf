@@ -69,7 +69,7 @@ async def call_all_functions(funcs: list[Callable], *args, **kwargs) -> None:
                 func(*args, **kwargs)
         except Exception as e:
             # TODO: error handling, logging
-            traceback.print_exc()
+            logger.exception("Error calling function %s: %s", func.__name__, e)
             exceptions.append(
                 AIPerfError(f"Error calling function {func.__name__}: {e}")
             )

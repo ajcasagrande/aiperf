@@ -94,7 +94,7 @@ class BaseComponentService(BaseService):
             try:
                 await self.send_heartbeat()
             except Exception as e:
-                self.logger.error("Exception sending heartbeat: %s", e)
+                self.logger.exception("Exception sending heartbeat: %s", e)
                 # continue to keep sending heartbeats regardless of the error
 
         self.logger.debug("Heartbeat task stopped")

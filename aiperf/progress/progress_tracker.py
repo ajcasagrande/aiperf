@@ -134,7 +134,7 @@ class ProfileRunProgress(AIPerfBaseModel):
         ):
             dur_sec = diff_ns / NANOS_PER_SECOND
             computed.records_per_second = stats.processed / dur_sec
-            if self.phases[phase].total is not None:
+            if computed.records_per_second > 0 and self.phases[phase].total is not None:
                 computed.records_eta = (
                     self.phases[phase].total - stats.processed  # pyright: ignore
                 ) / computed.records_per_second

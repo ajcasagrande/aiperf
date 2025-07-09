@@ -201,7 +201,7 @@ class BaseZMQProxy(ABC):
                 self.logger.debug("Capture socket bound to: %s", self.capture_address)
 
         except Exception as e:
-            self.logger.error("Proxy Socket Initialization Failed: %s", e)
+            self.logger.exception("Proxy Socket Initialization Failed: %s", e)
             raise
 
     async def stop(self) -> None:
@@ -218,7 +218,7 @@ class BaseZMQProxy(ABC):
                     )
 
         except Exception as e:
-            self.logger.error("Proxy Stop Error: %s", e)
+            self.logger.exception("Proxy Stop Error: %s", e)
 
     async def run(self) -> None:
         """Start the Base ZMQ Proxy.
@@ -251,7 +251,7 @@ class BaseZMQProxy(ABC):
             return
 
         except Exception as e:
-            self.logger.error("Proxy Error: %s", e)
+            self.logger.exception("Proxy Error: %s", e)
             raise ProxyError(f"Proxy failed: {e}") from e
 
     async def _monitor_messages(self) -> None:
@@ -273,7 +273,7 @@ class BaseZMQProxy(ABC):
                 message = capture_socket.recv()
                 self.logger.debug("Proxy Monitor Received Message: %s", message)
         except Exception as e:
-            self.logger.error("Proxy Monitor Error - %s", e)
+            self.logger.exception("Proxy Monitor Error - %s", e)
             raise
         finally:
             capture_socket.close()

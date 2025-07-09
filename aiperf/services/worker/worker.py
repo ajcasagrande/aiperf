@@ -283,7 +283,7 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
                 health_message = self.create_health_message()
                 await self.pub_client.publish(health_message)
             except Exception as e:
-                self.logger.error("Error reporting health: %s", e)
+                self.logger.exception("Error reporting health: %s", e)
             await asyncio.sleep(self.health_check_interval)
 
     def create_health_message(self) -> WorkerHealthMessage:

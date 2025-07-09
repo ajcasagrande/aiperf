@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
+import contextlib
 from collections.abc import Callable
 from typing import Any
 
@@ -108,7 +109,7 @@ class ZMQSubClient(BaseZMQClient, AsyncTaskManagerMixin):
             )
 
         except Exception as e:
-            self.logger.error(
+            self.logger.exception(
                 "Exception subscribing to message_type %s: %s", message_type, e
             )
             raise CommunicationError(
@@ -129,7 +130,8 @@ class ZMQSubClient(BaseZMQClient, AsyncTaskManagerMixin):
 
         # Call callbacks with the parsed message object
         if message_type in self._subscribers:
-            await call_all_functions(self._subscribers[message_type], message)
+            with contextlib.suppress(Exception):  # Ignore errors, they will get logged
+                await call_all_functions(self._subscribers[message_type], message)
 
     @aiperf_task
     async def _sub_receiver(self) -> None:
@@ -165,7 +167,7 @@ class ZMQSubClient(BaseZMQClient, AsyncTaskManagerMixin):
                 continue
 
             except Exception as e:
-                self.logger.error(
+                self.logger.exception(
                     "Exception receiving message from subscription: %s, %s",
                     e,
                     type(e),

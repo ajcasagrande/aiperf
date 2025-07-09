@@ -85,7 +85,7 @@ class ZMQDealerRequestClient(BaseZMQClient, AsyncTaskManagerMixin):
                 raise  # re-raise the cancelled error
 
             except Exception as e:
-                self.logger.error(
+                self.logger.exception(
                     "Exception receiving responses: %s %s",
                     e.__class__.__qualname__,
                     e,

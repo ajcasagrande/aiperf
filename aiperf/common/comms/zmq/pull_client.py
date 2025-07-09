@@ -109,7 +109,7 @@ class ZMQPullClient(BaseZMQClient, AsyncTaskManagerMixin):
                 break
 
             except Exception as e:
-                self.logger.error(
+                self.logger.exception(
                     "Exception receiving data from pull socket: %s %s",
                     type(e).__name__,
                     e,

@@ -209,7 +209,7 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
                     message_type=message_type, callback=callback
                 )
             except Exception as e:
-                self.logger.error(
+                self.logger.exception(
                     "Failed to subscribe to message_type %s: %s", message_type, e
                 )
                 raise CommunicationError(
@@ -359,7 +359,7 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
         try:
             await self.service_manager.shutdown_all_services()
         except Exception as e:
-            self.logger.error("Failed to stop all services: %s", e)
+            self.logger.exception("Failed to stop all services: %s", e)
             await self.kill()
         finally:
             if self.comms:
@@ -463,7 +463,7 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
                 ).export_all()
 
         except Exception as e:
-            self.logger.error("Failed to export results: %s", e)
+            self.logger.exception("Failed to export results: %s", e)
             raise self._service_error(
                 "Failed to export results",
             ) from e
@@ -669,7 +669,7 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
                 )
             )
         except Exception as e:
-            self.logger.error("Exception publishing command: %s", e)
+            self.logger.exception("Exception publishing command: %s", e)
             raise CommunicationError(
                 f"Failed to publish command: {e}",
             ) from e

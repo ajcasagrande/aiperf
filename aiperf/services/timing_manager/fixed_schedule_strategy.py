@@ -101,7 +101,7 @@ class FixedScheduleStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
         except asyncio.CancelledError:
             raise
         except Exception as e:
-            self.logger.error("TM: Error publishing progress: %s", e)
+            self.logger.exception("TM: Error publishing progress: %s", e)
 
     async def _progress_report_loop(self) -> None:
         """Report the progress at a fixed interval."""
