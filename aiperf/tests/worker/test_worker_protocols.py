@@ -8,11 +8,11 @@ from typing import Any
 
 import pytest
 
+from aiperf.common.credit_models import CreditDropMessage
 from aiperf.common.dataset_models import Conversation
 from aiperf.common.health_models import WorkerHealthMessage
 from aiperf.common.messages import (
     ConversationResponseMessage,
-    CreditDropMessage,
     InferenceResultsMessage,
 )
 from aiperf.services.worker.protocols import WorkerCommunicationsProtocol

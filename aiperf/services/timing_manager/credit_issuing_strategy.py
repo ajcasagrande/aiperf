@@ -5,8 +5,8 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Protocol
 
+from aiperf.common.credit_models import CreditReturnMessage
 from aiperf.common.enums import CreditPhase
-from aiperf.common.messages import CreditReturnMessage
 from aiperf.common.mixins import AsyncTaskManagerMixin
 from aiperf.progress.progress_models import CreditPhaseStats
 from aiperf.services.timing_manager.config import TimingManagerConfig
@@ -24,29 +24,18 @@ class CreditManagerProtocol(Protocol):
         credit_phase: CreditPhase,
         conversation_id: str | None = None,
         credit_drop_ns: int | None = None,
-    ) -> None:
-        """Drop a credit."""
-        ...
+    ) -> None: ...
 
     async def publish_progress(
         self, phase_stats: dict[CreditPhase, CreditPhaseStats]
-    ) -> None:
-        """Publish the progress message."""
-        ...
+    ) -> None: ...
 
-    async def publish_credits_complete(
-        self, credit_phase: CreditPhaseStats, cancelled: bool
-    ) -> None:
-        """Publish the credits complete message."""
-        ...
-
-    async def publish_phase_start(self, phase: CreditPhaseStats) -> None:
-        """Publish the phase start message."""
-        ...
-
-    async def publish_phase_complete(self, phase: CreditPhaseStats) -> None:
-        """Publish the phase complete message."""
-        ...
+    async def publish_credits_complete(self, cancelled: bool) -> None: ...
+    async def publish_phase_start(self, phase_stats: CreditPhaseStats) -> None: ...
+    async def publish_phase_sending_complete(
+        self, phase_stats: CreditPhaseStats
+    ) -> None: ...
+    async def publish_phase_complete(self, phase_stats: CreditPhaseStats) -> None: ...
 
 
 class CreditIssuingStrategy(AsyncTaskManagerMixin, ABC):
@@ -62,6 +51,11 @@ class CreditIssuingStrategy(AsyncTaskManagerMixin, ABC):
         self.config = config
         self.credit_manager = credit_manager
 
+        # The phases to run, in order
+        self.phases: list[CreditPhaseStats] = []
+        # The stats for each phase, keyed by phase type
+        self.phase_stats: dict[CreditPhase, CreditPhaseStats] = {}
+
     @abstractmethod
     async def start(self) -> None:
         """Start the credit issuing strategy."""
@@ -75,3 +69,7 @@ class CreditIssuingStrategy(AsyncTaskManagerMixin, ABC):
         """This is called by the credit manager when a credit is returned. It can be
         overridden in subclasses to handle the credit return."""
         return
+
+    def all_phases_complete(self) -> bool:
+        """Check if all phases are complete."""
+        return all(phase.is_complete for phase in self.phases)

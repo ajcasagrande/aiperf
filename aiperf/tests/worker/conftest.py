@@ -25,6 +25,7 @@ from aiperf.clients.model_endpoint_info import (
 )
 from aiperf.common.comms.base import BaseCommunication
 from aiperf.common.config import ServiceConfig, UserConfig
+from aiperf.common.credit_models import CreditDropMessage
 from aiperf.common.dataset_models import Conversation, Turn
 from aiperf.common.enums import (
     CommunicationBackend,
@@ -37,7 +38,6 @@ from aiperf.common.enums import (
 from aiperf.common.messages import (
     CommandMessage,
     ConversationResponseMessage,
-    CreditDropMessage,
 )
 from aiperf.common.record_models import RequestRecord
 from aiperf.services.worker.worker import Worker

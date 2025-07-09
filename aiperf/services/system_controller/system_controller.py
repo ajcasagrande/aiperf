@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from aiperf.common.comms.zmq.zmq_proxy_base import BaseZMQProxy, ZMQProxyFactory
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
+from aiperf.common.credit_models import CreditsCompleteMessage
 from aiperf.common.enums import (
     CommandResponseStatus,
     CommandType,
@@ -28,7 +29,6 @@ from aiperf.common.hooks import on_cleanup, on_start, on_stop
 from aiperf.common.logging import get_global_log_queue
 from aiperf.common.messages import (
     CommandResponseMessage,
-    CreditsCompleteMessage,
     HeartbeatMessage,
     NotificationMessage,
     ProcessRecordsCommandData,

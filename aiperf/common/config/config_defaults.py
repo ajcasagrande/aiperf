@@ -28,7 +28,7 @@ class UserDefaults:
 @dataclass(frozen=True)
 class EndPointDefaults:
     MODEL_SELECTION_STRATEGY = ModelSelectionStrategy.ROUND_ROBIN
-    CUSTOM = None
+    CUSTOM_ENDPOINT = None
     TYPE = EndpointType.OPENAI_CHAT_COMPLETIONS
     STREAMING = True
     SERVER_METRICS_URLS = ["http://localhost:8002/metrics"]

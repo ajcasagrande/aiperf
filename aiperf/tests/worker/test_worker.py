@@ -10,13 +10,12 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from aiperf.common.credit_models import CreditDropMessage, CreditReturnMessage
 from aiperf.common.enums import MessageType, ServiceState, ServiceType
 from aiperf.common.exceptions import NotInitializedError
 from aiperf.common.messages import (
     CommandMessage,
     ConversationResponseMessage,
-    CreditDropMessage,
-    CreditReturnMessage,
     ErrorMessage,
     InferenceResultsMessage,
     WorkerHealthMessage,

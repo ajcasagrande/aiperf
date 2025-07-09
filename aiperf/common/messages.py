@@ -10,12 +10,13 @@ from pydantic import (
     SerializeAsAny,
 )
 
+from aiperf.common.credit_models import CreditPhase
+
 # from aiperf.common.config import UserConfig
 from aiperf.common.dataset_models import Conversation
 from aiperf.common.enums import (
     CommandResponseStatus,
     CommandType,
-    CreditPhase,
     MessageType,
     NotificationType,
     ServiceState,
@@ -211,6 +212,7 @@ class CommandMessage(BaseServiceMessage):
         "If both `target_service_type` and `target_service_id` are None, the command is "
         "sent to all services.",
     )
+    # TODO: I'm not sure if SerializeAsAny actually works as expected
     data: SerializeAsAny[Any] = Field(
         default=None,
         description="Data to send with the command",
@@ -225,8 +227,7 @@ class CommandResponseMessage(BaseServiceMessage):
     message_type: Literal[MessageType.COMMAND_RESPONSE] = MessageType.COMMAND_RESPONSE
 
     command: CommandType = Field(
-        ...,
-        description="Command type that is being responded to",
+        ..., description="Command type that is being responded to"
     )
     command_id: str = Field(
         ..., description="The ID of the command that is being responded to"
@@ -237,64 +238,7 @@ class CommandResponseMessage(BaseServiceMessage):
         description="Data to send with the command response if the command succeeded",
     )
     error: ErrorDetails | None = Field(
-        default=None,
-        description="Error information if the command failed",
-    )
-
-
-class CreditDropMessage(BaseServiceMessage):
-    """Message indicating that a credit has been dropped.
-    This message is sent by the timing manager to workers to indicate that credit(s)
-    have been dropped.
-    """
-
-    message_type: Literal[MessageType.CREDIT_DROP] = MessageType.CREDIT_DROP
-
-    credit_phase: CreditPhase = Field(
-        default=CreditPhase.STEADY_STATE,
-        description="The type of credit phase (either warmup or profiling)",
-    )
-    conversation_id: str | None = Field(
-        default=None, description="The ID of the conversation, if applicable."
-    )
-    credit_drop_ns: int | None = Field(
-        default=None,
-        description="Timestamp of the credit drop, if applicable. None means send ASAP.",
-    )
-
-
-class CreditReturnMessage(BaseServiceMessage):
-    """Message indicating that a credit has been returned.
-    This message is sent by a worker to the timing manager to indicate that work has
-    been completed.
-    """
-
-    message_type: Literal[MessageType.CREDIT_RETURN] = MessageType.CREDIT_RETURN
-
-    credit_phase: CreditPhase = Field(
-        default=CreditPhase.STEADY_STATE,
-        description="The type of credit phase (either warmup or profiling)",
-    )
-    conversation_id: str | None = Field(
-        default=None, description="The ID of the conversation, if applicable."
-    )
-    credit_drop_ns: int | None = Field(
-        default=None,
-        description="Timestamp of the original credit drop, if applicable.",
-    )
-    delayed_ns: int | None = Field(
-        default=None,
-        description="The number of nanoseconds the credit drop was delayed by, or None if the credit was sent on time.",
-    )
-
-
-class CreditsCompleteMessage(BaseServiceMessage):
-    """Credits complete message sent by the TimingManager to the System controller to signify all requests have completed."""
-
-    message_type: Literal[MessageType.CREDITS_COMPLETE] = MessageType.CREDITS_COMPLETE
-    cancelled: bool = Field(
-        default=False,
-        description="Whether the profile run was cancelled",
+        default=None, description="Error information if the command failed"
     )
 
 
@@ -312,8 +256,7 @@ class NotificationMessage(BaseServiceMessage):
     message_type: Literal[MessageType.NOTIFICATION] = MessageType.NOTIFICATION
 
     notification_type: NotificationType = Field(
-        ...,
-        description="The type of notification",
+        ..., description="The type of notification"
     )
 
     data: SerializeAsAny[AIPerfBaseModel | None] = Field(
@@ -352,7 +295,6 @@ class ConversationResponseMessage(BaseServiceMessage):
     message_type: Literal[MessageType.CONVERSATION_RESPONSE] = (
         MessageType.CONVERSATION_RESPONSE
     )
-
     conversation: Conversation = Field(..., description="The conversation data")
 
 

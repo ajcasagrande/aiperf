@@ -6,9 +6,9 @@ import time
 from collections import defaultdict
 
 from aiperf.common.constants import NANOS_PER_SECOND
+from aiperf.common.credit_models import CreditReturnMessage
 from aiperf.common.enums import CreditPhase
 from aiperf.common.exceptions import InvalidStateError
-from aiperf.common.messages import CreditReturnMessage
 from aiperf.common.mixins import AsyncTaskManagerMixin
 from aiperf.progress.progress_tracker import CreditPhaseStats
 from aiperf.services.timing_manager.config import TimingManagerConfig

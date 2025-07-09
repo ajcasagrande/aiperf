@@ -16,8 +16,7 @@ def test_endpoint_config_defaults():
 
     config = EndPointConfig()
     assert config.model_selection_strategy == EndPointDefaults.MODEL_SELECTION_STRATEGY
-    assert config.request_payload_type == EndPointDefaults.REQUEST_PAYLOAD_TYPE
-    assert config.custom == EndPointDefaults.CUSTOM
+    assert config.custom_endpoint == EndPointDefaults.CUSTOM_ENDPOINT
     assert config.type == EndPointDefaults.TYPE
     assert config.streaming == EndPointDefaults.STREAMING
     assert config.server_metrics_urls == EndPointDefaults.SERVER_METRICS_URLS
@@ -40,7 +39,7 @@ def test_endpoint_config_custom_values():
     custom_values = {
         "model_selection_strategy": "round_robin",
         "request_payload_type": "openai_chat_completions",
-        "custom": "custom_endpoint",
+        "custom_endpoint": "custom_endpoint",
         "type": "llm",
         "streaming": True,
         "server_metrics_urls": ["http://custom-metrics-url"],

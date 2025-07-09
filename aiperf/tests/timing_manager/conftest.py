@@ -4,8 +4,8 @@ import logging
 
 import pytest
 
+from aiperf.common.credit_models import CreditReturnMessage
 from aiperf.common.enums import CreditPhase
-from aiperf.common.messages import CreditReturnMessage
 from aiperf.services.timing_manager.config import CreditPhaseStatus, TimingManagerConfig
 from aiperf.services.timing_manager.credit_issuing_strategy import CreditIssuingStrategy
 

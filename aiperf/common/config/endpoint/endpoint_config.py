@@ -29,7 +29,7 @@ class EndPointConfig(BaseConfig):
         ),
     ] = EndPointDefaults.MODEL_SELECTION_STRATEGY
 
-    custom: Annotated[
+    custom_endpoint: Annotated[
         str | None,
         Field(
             description="Set a custom endpoint that differs from the OpenAI defaults.",
@@ -37,7 +37,7 @@ class EndPointConfig(BaseConfig):
         cyclopts.Parameter(
             name=("--custom-endpoint"),
         ),
-    ] = EndPointDefaults.CUSTOM
+    ] = EndPointDefaults.CUSTOM_ENDPOINT
 
     type: Annotated[
         EndpointType,

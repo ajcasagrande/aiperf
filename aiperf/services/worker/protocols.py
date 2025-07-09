@@ -3,9 +3,9 @@
 from collections.abc import Callable, Coroutine
 from typing import Any, Protocol
 
+from aiperf.common.credit_models import CreditDropMessage
 from aiperf.common.messages import (
     ConversationResponseMessage,
-    CreditDropMessage,
     InferenceResultsMessage,
     WorkerHealthMessage,
 )

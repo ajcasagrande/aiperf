@@ -101,7 +101,7 @@ class EndpointInfo(AIPerfBaseModel):
         """Create an HttpEndpointInfo from a UserConfig."""
         return cls(
             type=EndpointType(user_config.endpoint.type),
-            custom_endpoint=user_config.endpoint.custom,
+            custom_endpoint=user_config.endpoint.custom_endpoint,
             streaming=user_config.endpoint.streaming,
             base_url=user_config.endpoint.url,
             headers=user_config.input.headers,

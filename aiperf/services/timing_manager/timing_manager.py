@@ -12,8 +12,18 @@ from aiperf.common.comms.base import (
 )
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
-from aiperf.common.enums import (
+from aiperf.common.credit_models import (
+    CreditDropMessage,
     CreditPhase,
+    CreditPhaseCompleteMessage,
+    CreditPhaseProgressMessage,
+    CreditPhaseSendingCompleteMessage,
+    CreditPhaseStartMessage,
+    CreditPhaseStats,
+    CreditReturnMessage,
+    CreditsCompleteMessage,
+)
+from aiperf.common.enums import (
     MessageType,
     ServiceType,
 )
@@ -27,20 +37,11 @@ from aiperf.common.hooks import (
 )
 from aiperf.common.messages import (
     CommandMessage,
-    CreditDropMessage,
-    CreditReturnMessage,
-    CreditsCompleteMessage,
     DatasetTimingRequest,
     DatasetTimingResponse,
 )
 from aiperf.common.mixins import AsyncTaskManagerMixin
 from aiperf.common.service.base_component_service import BaseComponentService
-from aiperf.progress.progress_models import (
-    CreditPhaseCompleteMessage,
-    CreditPhaseProgressMessage,
-    CreditPhaseStartMessage,
-    CreditPhaseStats,
-)
 from aiperf.services.timing_manager.concurrency_strategy import ConcurrencyStrategy
 from aiperf.services.timing_manager.config import (
     TimingManagerConfig,
@@ -185,6 +186,19 @@ class TimingManager(BaseComponentService, AsyncTaskManagerMixin):
         self.execute_async(
             self.pub_client.publish(
                 CreditPhaseCompleteMessage(
+                    service_id=self.service_id,
+                    phase_stats=phase_stats,
+                )
+            )
+        )
+
+    async def publish_phase_sending_complete(
+        self, phase_stats: CreditPhaseStats
+    ) -> None:
+        """Publish the phase sending complete message."""
+        self.execute_async(
+            self.pub_client.publish(
+                CreditPhaseSendingCompleteMessage(
                     service_id=self.service_id,
                     phase_stats=phase_stats,
                 )
