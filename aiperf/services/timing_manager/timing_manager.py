@@ -169,49 +169,48 @@ class TimingManager(BaseComponentService, AsyncTaskManagerMixin):
         if self._credit_issuing_strategy:
             await self._credit_issuing_strategy.on_credit_return(message)
 
-    async def publish_phase_start(self, phase: CreditPhaseStats) -> None:
+    async def publish_phase_start(self, phase_stats: CreditPhaseStats) -> None:
         """Publish the phase start message."""
         self.execute_async(
             self.pub_client.publish(
                 CreditPhaseStartMessage(
                     service_id=self.service_id,
-                    phase=phase,
+                    phase_stats=phase_stats,
                 )
             )
         )
 
-    async def publish_phase_complete(self, phase: CreditPhaseStats) -> None:
+    async def publish_phase_complete(self, phase_stats: CreditPhaseStats) -> None:
         """Publish the phase complete message."""
         self.execute_async(
             self.pub_client.publish(
                 CreditPhaseCompleteMessage(
                     service_id=self.service_id,
-                    phase=phase,
+                    phase_stats=phase_stats,
                 )
             )
         )
 
-    async def publish_progress(self, phase: CreditPhaseStats) -> None:
+    async def publish_progress(
+        self, phase_stats: dict[CreditPhase, CreditPhaseStats]
+    ) -> None:
         """Publish the progress message."""
         self.execute_async(
             self.pub_client.publish(
                 CreditPhaseProgressMessage(
                     service_id=self.service_id,
-                    phase=phase,
+                    phase_stats=phase_stats,
                     request_ns=time.time_ns(),
                 )
             )
         )
 
-    async def publish_credits_complete(
-        self, credit_phase: CreditPhase, cancelled: bool
-    ) -> None:
+    async def publish_credits_complete(self, cancelled: bool) -> None:
         """Publish the credits complete message."""
         self.execute_async(
             self.pub_client.publish(
                 CreditsCompleteMessage(
                     service_id=self.service_id,
-                    credit_phase=credit_phase,
                     cancelled=cancelled,
                 )
             )
@@ -219,7 +218,7 @@ class TimingManager(BaseComponentService, AsyncTaskManagerMixin):
 
     async def drop_credit(
         self,
-        credit_phase: CreditPhase = CreditPhase.STEADY_STATE,
+        credit_phase: CreditPhase,
         conversation_id: str | None = None,
         credit_drop_ns: int | None = None,
     ) -> None:

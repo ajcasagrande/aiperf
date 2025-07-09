@@ -292,10 +292,6 @@ class CreditsCompleteMessage(BaseServiceMessage):
     """Credits complete message sent by the TimingManager to the System controller to signify all requests have completed."""
 
     message_type: Literal[MessageType.CREDITS_COMPLETE] = MessageType.CREDITS_COMPLETE
-    credit_phase: CreditPhase = Field(
-        default=CreditPhase.STEADY_STATE,
-        description="The type of credit phase (either warmup or profiling)",
-    )
     cancelled: bool = Field(
         default=False,
         description="Whether the profile run was cancelled",

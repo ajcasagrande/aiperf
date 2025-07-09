@@ -48,6 +48,10 @@ class CreditPhaseStats(AIPerfBaseModel):
         default=None,
         description="The end time of the credit phase in nanoseconds. If None, the phase has not ended.",
     )
+    sent_end_ns: int | None = Field(
+        default=None,
+        description="The end time of the sent credits in nanoseconds. If None, the phase has not sent all credits.",
+    )
     total: int | None = Field(
         default=None,
         description="The total number of expected credits. If None, the phase is not request count based.",
@@ -63,9 +67,14 @@ class CreditPhaseStats(AIPerfBaseModel):
     )
 
     @property
+    def is_sending_complete(self) -> bool:
+        """Check if the phase has sent all credits."""
+        return self.sent_end_ns is not None
+
+    @property
     def is_complete(self) -> bool:
         """Check if the phase is complete."""
-        return self.end_ns is not None
+        return self.is_sending_complete and self.end_ns is not None
 
     @property
     def is_started(self) -> bool:
@@ -264,9 +273,9 @@ class CreditPhaseProgressMessage(BaseServiceMessage):
         default_factory=time.time_ns,
         description="The timestamp of the request in nanoseconds",
     )
-    phase: CreditPhaseStats = Field(
+    phase_stats: dict[CreditPhase, CreditPhaseStats] = Field(
         ...,
-        description="The credit phase stats for the phase that has started",
+        description="The credit phase stats for each phase",
     )
 
 
@@ -354,7 +363,7 @@ class CreditPhaseStartMessage(BaseServiceMessage):
         description="The timestamp of the request in nanoseconds",
     )
 
-    phase: CreditPhaseStats = Field(
+    phase_stats: CreditPhaseStats = Field(
         ...,
         description="The credit phase stats for the phase that has started",
     )
@@ -370,7 +379,7 @@ class CreditPhaseCompleteMessage(BaseServiceMessage):
         default_factory=time.time_ns,
         description="The timestamp of the request in nanoseconds",
     )
-    phase: CreditPhaseStats = Field(
+    phase_stats: CreditPhaseStats = Field(
         ...,
         description="The credit phase stats for the phase that was just completed",
     )

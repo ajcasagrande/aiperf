@@ -60,23 +60,17 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
             CreditPhaseStats(type=CreditPhase.STEADY_STATE, total=config.request_count)
         )
 
-        # Set the active phase to the first phase
-        self.active_phase: CreditPhaseStats = self.phases[0]
         # Link the phase stats by phase type for easy access
         self.phase_stats: dict[CreditPhase, CreditPhaseStats] = {
             phase.type: phase for phase in self.phases
         }
+        self.active_phase: CreditPhaseStats = self.phases[0]
 
         # if the concurrency is larger than the total credits, it does not matter
         # as it is simply an upper bound that will never be reached
         self._concurrency = config.concurrency
         self._concurrency_ramp_up_time = config.concurrency_ramp_up_time
         self._semaphore = asyncio.Semaphore(value=self._concurrency)
-
-        # Initialize random generator for Poisson ramp-up
-        self._random = (
-            random.Random(config.random_seed) if config.random_seed else random.Random()
-        )
 
         self.logger.info(
             "TM: Concurrency Strategy initialized with %d phases: %s",
@@ -94,189 +88,137 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
         # Execute the phases in the background
         self.execute_async(self._execute_phases())
 
-    async def _execute_active_phase(self) -> None:
-        """Execute a the active phase of credit issuing."""
+    async def _execute_time_based_phase(self, phase: CreditPhaseStats) -> None:
+        """Execute a time-based phase of credit issuing."""
+        if not phase.expected_duration_ns or phase.expected_duration_ns <= 0:
+            raise InvalidStateError("Expected duration must be set and positive")
 
-        # Set the start time of the active phase
-        self.active_phase.start_ns = time.time_ns()
-
-        self.logger.info("TM: Executing phase %s", self.active_phase)
-
-        await self.credit_manager.publish_phase_start(self.active_phase)
-
-    async def _execute_phases(self) -> None:
-        """Execute a phase of credit issuing. If a wait_for_event is provided,
-        it will wait for the event to be set before executing the phase."""
-
-        # Use ramp-up strategy if configured, otherwise use burst strategy
-        if self._concurrency_ramp_up_time and self._concurrency_ramp_up_time > 0:
-            await self._execute_with_ramp_up(self.active_phase)
-        else:
-            await self._execute_burst_mode(self.active_phase)
-
-        self.logger.debug("TM: Sent all credits for phase %s", self.active_phase)
-
-    async def _execute_burst_mode(self) -> None:
-        """Execute the original burst mode - send all requests as fast as possible."""
-
-        # In burst mode, measurement starts immediately
-        self.active_phase.measurement_start_time_ns = self.active_phase.start_ns
-
-        while self.active_phase.sent < self.active_phase.total:
+        while time.time_ns() - phase.start_ns < phase.expected_duration_ns:
             await self._semaphore.acquire()
+            if time.time_ns() - phase.start_ns >= phase.expected_duration_ns:
+                # If the time has expired, do not send the credit
+                return
             self.execute_async(
                 self.credit_manager.drop_credit(
-                    credit_phase=self.active_phase,
+                    credit_phase=phase.type,
                     conversation_id=None,
                     credit_drop_ns=None,
                 )
             )
-            self.active_phase.sent += 1
+            phase.sent += 1
 
-    # async def _execute_with_ramp_up(self, phase: CreditPhaseStatus) -> None:
-    #     """Execute with Poisson-based ramp-up to target concurrency, then normal operation."""
+    async def _execute_request_count_based_phase(self, phase: CreditPhaseStats) -> None:
+        """Execute a request count-based phase of credit issuing."""
+        if not phase.total or phase.total <= 0:
+            raise InvalidStateError("Total must be set and positive")
 
-    #     # Type safety: ensure ramp_up_time is not None
-    #     if not self._concurrency_ramp_up_time or self._concurrency_ramp_up_time <= 0:
-    #         # Fallback to burst mode if invalid ramp-up time
-    #         await self._execute_burst_mode(phase)
-    #         return
+        while phase.sent < phase.total:
+            await self._semaphore.acquire()
+            self.execute_async(
+                self.credit_manager.drop_credit(
+                    credit_phase=phase.type,
+                    conversation_id=None,
+                    credit_drop_ns=None,
+                )
+            )
+            phase.sent += 1
 
-    #     # Phase 1: Ramp-up phase - gradually reach target concurrency
-    #     ramp_up_requests = min(self._concurrency, phase.total_credits)
-    #     self.logger.info(
-    #         "TM: Starting ramp-up phase: %s requests over %s seconds",
-    #         ramp_up_requests,
-    #         self._concurrency_ramp_up_time,
-    #     )
+    async def _execute_phases(self) -> None:
+        """Execute the phases in the background."""
+        for phase in self.phases:
+            phase.start_ns = time.time_ns()
+            self.execute_async(self.credit_manager.publish_phase_start(phase))
 
-    #     ramp_up_start_time = time.time()
+            if phase.type == CreditPhase.RAMP_UP:
+                await self._execute_with_ramp_up(phase)
+            elif phase.expected_duration_ns:
+                await self._execute_time_based_phase(phase)
+            elif phase.total:
+                await self._execute_request_count_based_phase(phase)
+            else:
+                raise InvalidStateError(
+                    "Phase must have either total or expected_duration_ns set"
+                )
 
-    #     # Send initial requests using Poisson timing during ramp-up
-    #     for i in range(ramp_up_requests):
-    #         if phase.sent_credits >= phase.total_credits:
-    #             break
+            phase.sent_end_ns = time.time_ns()
 
-    #         # Calculate progress through ramp-up (0 to 1)
-    #         progress = (i + 1) / ramp_up_requests
+    async def _execute_with_ramp_up(self, phase: CreditPhaseStats) -> None:
+        """Execute with Poisson-based ramp-up to target concurrency."""
 
-    #         # Use time-varying Poisson process - rate increases linearly
-    #         # Target: reach full concurrency by end of ramp-up time
-    #         target_rate = (ramp_up_requests / self._concurrency_ramp_up_time) * progress
+        if not self._concurrency_ramp_up_time or self._concurrency_ramp_up_time <= 0:
+            raise InvalidStateError("Ramp-up time must be set and positive")
 
-    #         if target_rate > 0 and i > 0:  # Skip delay for first request
-    #             # Exponential inter-arrival time for Poisson process
-    #             wait_time = self._random.expovariate(target_rate)
+        random_generator = (
+            random.Random(self.config.random_seed)
+            if self.config.random_seed
+            else random.Random()
+        )
 
-    #             # Don't exceed total ramp-up time
-    #             elapsed_time = time.time() - ramp_up_start_time
-    #             remaining_time = self._concurrency_ramp_up_time - elapsed_time
+        # Ramp-up phase - gradually reach target concurrency
+        ramp_up_requests = self._concurrency
+        self.logger.info(
+            "TM: Starting ramp-up phase: %s requests over %s seconds",
+            ramp_up_requests,
+            self._concurrency_ramp_up_time,
+        )
 
-    #             if wait_time > remaining_time and remaining_time > 0:
-    #                 wait_time = remaining_time
+        ramp_up_start_time = time.time()
 
-    #             if wait_time > 0:
-    #                 await asyncio.sleep(wait_time)
+        # Send initial requests using Poisson timing during ramp-up
+        for i in range(ramp_up_requests):
+            if phase.sent >= self._concurrency:
+                break
 
-    #         await self._semaphore.acquire()
-    #         self.execute_async(
-    #             self.credit_manager.drop_credit(
-    #                 credit_phase=phase.phase_type,
-    #                 conversation_id=None,
-    #                 credit_drop_ns=None,
-    #             )
-    #         )
-    #         phase.sent_credits += 1
+            await self._semaphore.acquire()
 
-    #     # Mark when steady-state measurement should begin (after ramp-up)
-    #     phase.measurement_start_time_ns = time.time_ns()
-    #     # Store how many requests were completed during ramp-up
-    #     phase.ramp_up_completed_credits = phase.completed_credits
+            # Calculate progress through ramp-up (0 to 1)
+            progress = (i + 1) / ramp_up_requests
 
-    #     self.logger.info(
-    #         "TM: Ramp-up phase completed in %.2f seconds, %s requests sent. Starting steady-state measurement. Ramp-up completed: %s",
-    #         time.time() - ramp_up_start_time,
-    #         min(ramp_up_requests, phase.sent_credits),
-    #         phase.ramp_up_completed_credits,
-    #     )
+            # Use time-varying Poisson process - rate increases linearly
+            # Target: reach full concurrency by end of ramp-up time
+            target_rate = (ramp_up_requests / self._concurrency_ramp_up_time) * progress
 
-    #     # Phase 2: Normal concurrency maintenance - send new request when old one completes
-    #     while phase.sent_credits < phase.total_credits:
-    #         await self._semaphore.acquire()
-    #         self.execute_async(
-    #             self.credit_manager.drop_credit(
-    #                 credit_phase=phase.phase_type,
-    #                 conversation_id=None,
-    #                 credit_drop_ns=None,
-    #             )
-    #         )
-    #         phase.sent_credits += 1
+            if target_rate > 0 and i > 0:  # Skip delay for first request
+                # Exponential inter-arrival time for Poisson process
+                wait_time = random_generator.expovariate(target_rate)
+
+                # Don't exceed total ramp-up time
+                elapsed_time = time.time() - ramp_up_start_time
+                remaining_time = self._concurrency_ramp_up_time - elapsed_time
+
+                if wait_time > remaining_time and remaining_time > 0:
+                    wait_time = remaining_time
+
+                if wait_time > 0:
+                    await asyncio.sleep(wait_time)
+
+            self.execute_async(
+                self.credit_manager.drop_credit(
+                    credit_phase=phase.type,
+                    conversation_id=None,
+                    credit_drop_ns=None,
+                )
+            )
+            phase.sent += 1
 
     async def on_credit_return(self, message: CreditReturnMessage) -> None:
         """Process a credit return message."""
 
         self._semaphore.release()
-        self.active_phase.completed += 1
+        phase_stats = self.phase_stats[message.credit_phase]
+        phase_stats.completed += 1
 
-        diff_ns, per_sec = 0, 0.0
-        if self.logger.isEnabledFor(logging.DEBUG):
-            # Use measurement start time and steady-state credits for rate calculation in debug logs
-            measurement_start_ns = (
-                self.active_phase.measurement_start_time_ns
-                or self.active_phase.start_time_ns
-            )
-            diff_ns = time.time_ns() - measurement_start_ns
-            steady_state_completed = self.active_phase.steady_state_completed_credits
-            per_sec = (
-                steady_state_completed / (diff_ns / NANOS_PER_SECOND)
-                if diff_ns > 0
-                else 0
-            )
-            self.logger.debug(
-                "TM: Processing credit return: %s (total: %s/%s, steady-state: %s) (%.2f requests/s steady-state)",
-                message,
-                self.active_phase.completed,
-                self.active_phase.total,
-                steady_state_completed,
-                per_sec,
-            )
-
-        if self.active_phase.completed >= self.active_phase.total:
-            self.active_phase.end_time_ns = time.time_ns()
+        if phase_stats.completed >= phase_stats.total:
+            phase_stats.end_ns = time.time_ns()
             self.execute_async(
-                self.credit_manager.publish_credits_complete(
-                    self.active_phase.phase_type, False
-                )
+                self.credit_manager.publish_credits_complete(phase_stats, False)
             )
-
-            if self.logger.isEnabledFor(logging.DEBUG):
-                # Use measurement start time and steady-state credits for final rate calculation in debug logs
-                measurement_start_ns = (
-                    self.active_phase.measurement_start_time_ns
-                    or self.active_phase.start_time_ns
-                )
-                final_diff_ns = time.time_ns() - measurement_start_ns
-                steady_state_completed = (
-                    self.active_phase.steady_state_completed_credits
-                )
-                final_per_sec = (
-                    steady_state_completed / (final_diff_ns / NANOS_PER_SECOND)
-                    if final_diff_ns > 0
-                    else 0
-                )
-                # Still use overall duration for elapsed time display
-                overall_diff_ns = time.time_ns() - self.active_phase.start_time_ns
-                self.logger.debug(
-                    "TM: All credits completed, stopping credit drop task after %.2f seconds (%.2f steady-state requests/s)",
-                    overall_diff_ns / NANOS_PER_SECOND,
-                    final_per_sec,
-                )
-                self.active_phase.completed_event.set()
+            self.execute_async(self.credit_manager.publish_phase_complete(phase_stats))
 
     async def _report_progress(self) -> None:
         """Report the progress of the active phase."""
         try:
-            await self.credit_manager.publish_progress(self.active_phase)
+            await self.credit_manager.publish_progress(self.phase_stats)
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -285,7 +227,7 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
     async def _progress_report_loop(self) -> None:
         """Report the progress at a fixed interval."""
         self.logger.debug("TM: Starting progress reporting loop")
-        while not self.active_phase.completed_event.is_set():
+        while not self.all_phases_complete():
             try:
                 await self._report_progress()
             except asyncio.CancelledError:
@@ -295,6 +237,9 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
             await asyncio.sleep(1)  # TODO: Make this configurable
 
         self.logger.debug(
-            "TM: All credits completed for phase %s, stopping progress reporting loop",
-            self.active_phase,
+            "TM: All credits completed, stopping progress reporting loop",
         )
+
+    def all_phases_complete(self) -> bool:
+        """Check if all phases are complete."""
+        return all(phase.is_complete for phase in self.phases)

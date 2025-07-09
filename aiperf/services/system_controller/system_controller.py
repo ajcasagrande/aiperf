@@ -562,7 +562,7 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
         self.logger.info(
             "Received credits complete from %s for phase %s",
             service_id,
-            message.credit_phase,
+            message.phase_stats,
         )
 
     async def _process_status_message(self, message: StatusMessage) -> None:

@@ -21,19 +21,21 @@ class CreditManagerProtocol(Protocol):
 
     async def drop_credit(
         self,
-        credit_phase: CreditPhase = CreditPhase.STEADY_STATE,
+        credit_phase: CreditPhase,
         conversation_id: str | None = None,
         credit_drop_ns: int | None = None,
     ) -> None:
         """Drop a credit."""
         ...
 
-    async def publish_progress(self, phase: CreditPhase) -> None:
+    async def publish_progress(
+        self, phase_stats: dict[CreditPhase, CreditPhaseStats]
+    ) -> None:
         """Publish the progress message."""
         ...
 
     async def publish_credits_complete(
-        self, credit_phase: CreditPhase, cancelled: bool
+        self, credit_phase: CreditPhaseStats, cancelled: bool
     ) -> None:
         """Publish the credits complete message."""
         ...
