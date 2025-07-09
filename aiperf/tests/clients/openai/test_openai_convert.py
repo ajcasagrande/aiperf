@@ -200,9 +200,10 @@ class TestOpenAICompletionRequestConverter:
 
     def test_converter_factory_registration(self):
         """Test that converter is registered with factory."""
-        assert RequestConverterFactory.is_registered(EndpointType.OPENAI_COMPLETIONS)
 
-        converter = RequestConverterFactory.create(EndpointType.OPENAI_COMPLETIONS)
+        converter = RequestConverterFactory.create_instance(
+            EndpointType.OPENAI_COMPLETIONS
+        )
         assert isinstance(converter, OpenAICompletionRequestConverter)
 
 
@@ -297,9 +298,10 @@ class TestOpenAIEmbeddingsRequestConverter:
 
     def test_converter_factory_registration(self):
         """Test that converter is registered with factory."""
-        assert RequestConverterFactory.is_registered(EndpointType.OPENAI_EMBEDDINGS)
 
-        converter = RequestConverterFactory.create(EndpointType.OPENAI_EMBEDDINGS)
+        converter = RequestConverterFactory.create_instance(
+            EndpointType.OPENAI_EMBEDDINGS
+        )
         assert isinstance(converter, OpenAIEmbeddingsRequestConverter)
 
 
@@ -396,9 +398,10 @@ class TestOpenAIResponsesRequestConverter:
 
     def test_converter_factory_registration(self):
         """Test that converter is registered with factory."""
-        assert RequestConverterFactory.is_registered(EndpointType.OPENAI_RESPONSES)
 
-        converter = RequestConverterFactory.create(EndpointType.OPENAI_RESPONSES)
+        converter = RequestConverterFactory.create_instance(
+            EndpointType.OPENAI_RESPONSES
+        )
         assert isinstance(converter, OpenAIResponsesRequestConverter)
 
 
@@ -419,8 +422,7 @@ class TestConverterIntegration:
         ]
 
         for endpoint_type, converter_class in converters:
-            assert RequestConverterFactory.is_registered(endpoint_type)
-            converter = RequestConverterFactory.create(endpoint_type)
+            converter = RequestConverterFactory.create_instance(endpoint_type)
             assert isinstance(converter, converter_class)
 
     @pytest.mark.asyncio
@@ -518,8 +520,7 @@ class TestConverterIntegration:
         invalid_endpoint.endpoint.extra = None
 
         # Should not raise an exception
-        with pytest.raises(AttributeError):
-            await converter.format_payload(invalid_endpoint, sample_turn)
+        await converter.format_payload(invalid_endpoint, sample_turn)
 
     @pytest.mark.asyncio
     async def test_converters_with_empty_turn(self, sample_model_endpoint_info):

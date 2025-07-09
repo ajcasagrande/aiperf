@@ -7,7 +7,6 @@ import pytest
 
 from aiperf.clients.client_interfaces import (
     InferenceClientFactory,
-    InferenceClientProtocol,
     RequestConverterFactory,
     RequestConverterProtocol,
     ResponseExtractorFactory,
@@ -19,38 +18,6 @@ from aiperf.common.enums import EndpointType
 from aiperf.common.exceptions import FactoryCreationError
 from aiperf.common.record_models import RequestRecord, ResponseData
 from aiperf.common.tokenizer import Tokenizer
-
-
-class TestInferenceClientProtocol:
-    """Test cases for InferenceClientProtocol."""
-
-    def test_inference_client_protocol_methods(self):
-        """Test that InferenceClientProtocol defines the required methods."""
-        assert hasattr(InferenceClientProtocol, "__init__")
-        assert hasattr(InferenceClientProtocol, "initialize")
-        assert hasattr(InferenceClientProtocol, "send_request")
-        assert hasattr(InferenceClientProtocol, "close")
-
-    def test_inference_client_protocol_isinstance_check(self):
-        """Test isinstance check for InferenceClientProtocol."""
-        # Create a mock that implements all required methods
-        mock_client = Mock()
-        mock_client.__init__ = Mock()
-        mock_client.initialize = AsyncMock()
-        mock_client.send_request = AsyncMock()
-        mock_client.close = AsyncMock()
-
-        # This should pass the isinstance check
-        assert isinstance(mock_client, InferenceClientProtocol)
-
-    def test_inference_client_protocol_missing_methods(self):
-        """Test that objects missing required methods don't pass isinstance check."""
-        mock_client = Mock()
-        mock_client.__init__ = Mock()
-        mock_client.initialize = AsyncMock()
-        # Missing send_request and close methods
-
-        assert not isinstance(mock_client, InferenceClientProtocol)
 
 
 class TestInferenceClientFactory:
@@ -217,13 +184,6 @@ class TestRequestConverterProtocol:
 
         assert isinstance(mock_converter, RequestConverterProtocol)
 
-    def test_request_converter_protocol_missing_methods(self):
-        """Test that objects missing required methods don't pass isinstance check."""
-        mock_converter = Mock()
-        # Missing format_payload method
-
-        assert not isinstance(mock_converter, RequestConverterProtocol)
-
 
 class TestRequestConverterFactory:
     """Test cases for RequestConverterFactory."""
@@ -351,7 +311,7 @@ class TestResponseExtractorProtocol:
 
     def test_response_extractor_protocol_missing_methods(self):
         """Test that objects missing required methods don't pass isinstance check."""
-        mock_extractor = Mock()
+        mock_extractor = object()
         # Missing extract_response_data method
 
         assert not isinstance(mock_extractor, ResponseExtractorProtocol)

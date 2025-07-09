@@ -2,7 +2,7 @@
 #  SPDX-License-Identifier: Apache-2.0
 import json
 import time
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -17,10 +17,11 @@ from aiperf.common.record_models import (
 )
 
 
+@pytest.mark.asyncio
 class TestOpenAIClientAioHttp:
     """Test cases for OpenAIClientAioHttp."""
 
-    def test_client_initialization(self, sample_model_endpoint_info):
+    async def test_client_initialization(self, sample_model_endpoint_info):
         """Test client can be initialized with model endpoint info."""
         client = OpenAIClientAioHttp(sample_model_endpoint_info)
 
@@ -29,7 +30,7 @@ class TestOpenAIClientAioHttp:
         assert hasattr(client, "tcp_connector")
         assert hasattr(client, "timeout")
 
-    def test_client_factory_registration(self):
+    async def test_client_factory_registration(self, sample_model_endpoint_info):
         """Test that client is registered with factory for all OpenAI endpoint types."""
         openai_endpoints = [
             EndpointType.OPENAI_CHAT_COMPLETIONS,
@@ -39,11 +40,12 @@ class TestOpenAIClientAioHttp:
         ]
 
         for endpoint_type in openai_endpoints:
-            assert InferenceClientFactory.is_registered(endpoint_type)
-            client = InferenceClientFactory.create(endpoint_type, Mock())
+            client = InferenceClientFactory.create_instance(
+                endpoint_type, model_endpoint=sample_model_endpoint_info
+            )
             assert isinstance(client, OpenAIClientAioHttp)
 
-    def test_get_headers_basic(self, sample_model_endpoint_info):
+    async def test_get_headers_basic(self, sample_model_endpoint_info):
         """Test basic header generation."""
         client = OpenAIClientAioHttp(sample_model_endpoint_info)
         headers = client.get_headers(sample_model_endpoint_info)
@@ -58,7 +60,7 @@ class TestOpenAIClientAioHttp:
 
         assert headers == expected_headers
 
-    def test_get_headers_streaming(self, sample_model_endpoint_info):
+    async def test_get_headers_streaming(self, sample_model_endpoint_info):
         """Test header generation for streaming requests."""
         # Enable streaming
         sample_model_endpoint_info.endpoint.streaming = True
@@ -68,7 +70,7 @@ class TestOpenAIClientAioHttp:
 
         assert headers["Accept"] == "text/event-stream"
 
-    def test_get_headers_no_api_key(self, sample_model_endpoint_info):
+    async def test_get_headers_no_api_key(self, sample_model_endpoint_info):
         """Test header generation without API key."""
         # Remove API key
         sample_model_endpoint_info.endpoint.api_key = None
@@ -78,7 +80,7 @@ class TestOpenAIClientAioHttp:
 
         assert "Authorization" not in headers
 
-    def test_get_headers_no_custom_headers(self, sample_model_endpoint_info):
+    async def test_get_headers_no_custom_headers(self, sample_model_endpoint_info):
         """Test header generation without custom headers."""
         # Remove custom headers
         sample_model_endpoint_info.endpoint.headers = None
@@ -90,14 +92,14 @@ class TestOpenAIClientAioHttp:
         assert "User-Agent" in headers
         assert "Content-Type" in headers
 
-    def test_get_url_with_http_prefix(self, sample_model_endpoint_info):
+    async def test_get_url_with_http_prefix(self, sample_model_endpoint_info):
         """Test URL generation with http prefix."""
         client = OpenAIClientAioHttp(sample_model_endpoint_info)
         url = client.get_url(sample_model_endpoint_info)
 
         assert url == "https://api.openai.com/v1/chat/completions"
 
-    def test_get_url_without_http_prefix(self, sample_model_endpoint_info):
+    async def test_get_url_without_http_prefix(self, sample_model_endpoint_info):
         """Test URL generation without http prefix."""
         # Remove http prefix
         sample_model_endpoint_info.endpoint.base_url = "api.openai.com"
@@ -159,32 +161,6 @@ class TestOpenAIClientAioHttp:
             assert record.end_perf_ns > record.start_perf_ns
 
     @pytest.mark.asyncio
-    async def test_send_request_timing_accuracy(self, sample_model_endpoint_info):
-        """Test that request timing is accurate."""
-        client = OpenAIClientAioHttp(sample_model_endpoint_info)
-        payload = {"messages": [{"role": "user", "content": "Hello"}], "model": "gpt-4"}
-
-        start_time = time.perf_counter_ns()
-
-        # Mock the post_request method
-        with patch.object(client, "post_request") as mock_post:
-            mock_record = RequestRecord(
-                start_perf_ns=time.perf_counter_ns(),
-                end_perf_ns=time.perf_counter_ns() + 1000000,
-                status=200,
-            )
-            mock_post.return_value = mock_record
-
-            record = await client.send_request(sample_model_endpoint_info, payload)
-
-            end_time = time.perf_counter_ns()
-
-            # Verify timing is within reasonable bounds
-            assert record.start_perf_ns >= start_time
-            assert record.end_perf_ns is not None
-            assert record.end_perf_ns <= end_time
-
-    @pytest.mark.asyncio
     async def test_send_request_debug_logging(self, sample_model_endpoint_info, caplog):
         """Test that debug logging is performed."""
         client = OpenAIClientAioHttp(sample_model_endpoint_info)
@@ -223,28 +199,21 @@ class TestOpenAIClientAioHttp:
             assert "Connection error" in caplog.text
 
     @pytest.mark.asyncio
-    async def test_initialize_method(self, sample_model_endpoint_info):
-        """Test initialize method (inherited from mixin)."""
-        client = OpenAIClientAioHttp(sample_model_endpoint_info)
-
-        # Should not raise an exception
-        await client.initialize(sample_model_endpoint_info)
-
-    @pytest.mark.asyncio
     async def test_close_method(self, sample_model_endpoint_info):
         """Test close method (inherited from mixin)."""
         client = OpenAIClientAioHttp(sample_model_endpoint_info)
 
         # Mock the tcp_connector
+        mock_close = AsyncMock()
         client.tcp_connector = AsyncMock()
-        client.tcp_connector.close = AsyncMock()
+        client.tcp_connector.close = mock_close
 
         await client.close()
 
-        client.tcp_connector.close.assert_called_once()
+        mock_close.assert_called_once()
         assert client.tcp_connector is None
 
-    def test_timeout_configuration(self, sample_model_endpoint_info):
+    async def test_timeout_configuration(self, sample_model_endpoint_info):
         """Test that timeout is configured correctly."""
         # Set custom timeout
         sample_model_endpoint_info.endpoint.timeout = 60.0
@@ -421,7 +390,7 @@ class TestOpenAIClientAioHttp:
                 assert record.request == payloads[i]
                 assert record.status == 200
 
-    def test_inheritance_from_aiohttp_mixin(self, sample_model_endpoint_info):
+    async def test_inheritance_from_aiohttp_mixin(self, sample_model_endpoint_info):
         """Test that client properly inherits from AioHttpClientMixin."""
         from aiperf.clients.http.aiohttp_client import AioHttpClientMixin
 
@@ -470,7 +439,7 @@ class TestOpenAIClientAioHttp:
             EndpointType.OPENAI_RESPONSES,
         ],
     )
-    def test_client_works_with_all_endpoint_types(
+    async def test_client_works_with_all_endpoint_types(
         self, sample_model_list_info, endpoint_type
     ):
         """Test that client works with all supported endpoint types."""

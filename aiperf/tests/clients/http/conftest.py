@@ -7,7 +7,11 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 import aiohttp
 import pytest
 
+from aiperf.clients import model_endpoint_info
 from aiperf.clients.http.aiohttp_client import AioHttpClientMixin, create_tcp_connector
+from aiperf.common.config import UserConfig
+from aiperf.common.config.user_config import EndPointConfig
+from aiperf.common.enums import EndpointType
 from aiperf.common.record_models import (
     GenericHTTPClientConfig,
     RequestRecord,
@@ -110,11 +114,29 @@ def create_sse_chunk_list(messages: list[str]) -> list[tuple[bytes, bytes]]:
 
 
 @pytest.fixture
+def user_config() -> UserConfig:
+    """Fixture providing a sample UserConfig."""
+    return UserConfig(
+        model_names=["gpt-4"],
+        endpoint=EndPointConfig(
+            type=EndpointType.OPENAI_CHAT_COMPLETIONS,
+            url="http://localhost:8080",
+            timeout=30,
+            api_key="test-api-key",
+        ),
+    )
+
+
+@pytest.fixture
 async def aiohttp_client(
-    http_client_config: GenericHTTPClientConfig,
+    user_config: UserConfig,
 ):
     """Fixture providing an AioHttpClientMixin instance."""
-    client = AioHttpClientMixin(http_client_config)
+    client = AioHttpClientMixin(
+        model_endpoint=model_endpoint_info.ModelEndpointInfo.from_user_config(
+            user_config
+        )
+    )
     yield client
     await client.close()
 
@@ -170,9 +192,13 @@ def sample_sse_chunks() -> list[tuple[bytes, bytes]]:
 
 
 @pytest.fixture
-async def integration_client(http_client_config: GenericHTTPClientConfig):
+async def integration_client(user_config: UserConfig):
     """Fixture providing a managed AioHttpClientMixin instance for integration tests."""
-    client = AioHttpClientMixin(http_client_config)
+    client = AioHttpClientMixin(
+        model_endpoint=model_endpoint_info.ModelEndpointInfo.from_user_config(
+            user_config
+        )
+    )
     yield client
     await client.close()
 
