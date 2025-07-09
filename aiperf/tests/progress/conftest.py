@@ -7,37 +7,42 @@ from unittest.mock import Mock
 
 import pytest
 
+from aiperf.common.enums import CreditPhase
+from aiperf.common.health_models import CPUTimes, CtxSwitches, IOCounters, ProcessHealth
+from aiperf.common.worker_models import WorkerHealthMessage, WorkerPhaseTaskStats
 from aiperf.progress.progress_logger import SimpleProgressLogger
 from aiperf.progress.progress_models import (
-    ProcessingStatsMessage,
-    ProfileProgress,
-    ProfileProgressMessage,
+    CreditPhaseCompleteMessage,
+    CreditPhaseProgressMessage,
+    CreditPhaseStartMessage,
+    CreditPhaseStats,
+    PhaseProcessingStats,
     ProfileResultsMessage,
-    SweepProgress,
-    SweepProgressMessage,
+    RecordsProcessingStatsMessage,
 )
-from aiperf.progress.progress_tracker import ProgressTracker
+from aiperf.progress.progress_tracker import (
+    BenchmarkSuiteProgress,
+    ProfileRunProgress,
+    ProgressTracker,
+)
 
 
 @pytest.fixture
-def profile_progress():
-    """Create a basic ProfileProgress instance."""
-    return ProfileProgress(
+def profile_run_progress():
+    """Create a basic ProfileRunProgress instance."""
+    return ProfileRunProgress(
         profile_id="test-profile",
-        total_expected_requests=100,
-        start_time_ns=time.time_ns(),
+        active_phase=CreditPhase.STEADY_STATE,
     )
 
 
 @pytest.fixture
-def sweep_progress():
-    """Create a basic SweepProgress instance."""
-    return SweepProgress(
-        sweep_id="test-sweep",
-        profiles=[
-            ProfileProgress(profile_id="profile-1", total_expected_requests=50),
-            ProfileProgress(profile_id="profile-2", total_expected_requests=75),
-        ],
+def benchmark_suite_progress():
+    """Create a basic BenchmarkSuiteProgress instance."""
+    profile_run = ProfileRunProgress(profile_id="test-profile")
+    return BenchmarkSuiteProgress(
+        profile_runs=[profile_run],
+        current_profile_run=profile_run,
     )
 
 
@@ -54,28 +59,105 @@ def simple_progress_logger(progress_tracker):
 
 
 @pytest.fixture
-def profile_progress_message():
-    """Create a ProfileProgressMessage instance."""
-    start_ns = time.time_ns()
-    return ProfileProgressMessage(
-        service_id="test-service",
-        start_ns=start_ns,
-        measurement_start_ns=start_ns,  # Add the required field
+def credit_phase_stats():
+    """Create a CreditPhaseStats instance."""
+    return CreditPhaseStats(
+        type=CreditPhase.STEADY_STATE,
+        start_ns=time.time_ns(),
         total=100,
-        completed=50,
-        ramp_up_completed=0,  # Add the required field
+        sent=50,
+        completed=25,
     )
 
 
 @pytest.fixture
-def processing_stats_message():
-    """Create a ProcessingStatsMessage instance."""
-    return ProcessingStatsMessage(
+def credit_phase_progress_message(credit_phase_stats):
+    """Create a CreditPhaseProgressMessage instance."""
+    return CreditPhaseProgressMessage(
         service_id="test-service",
-        error_count=5,
-        completed=45,
-        worker_completed={"worker-1": 25, "worker-2": 20},
-        worker_errors={"worker-1": 3, "worker-2": 2},
+        phase=credit_phase_stats,
+    )
+
+
+@pytest.fixture
+def credit_phase_start_message(credit_phase_stats):
+    """Create a CreditPhaseStartMessage instance."""
+    return CreditPhaseStartMessage(
+        service_id="test-service",
+        phase=credit_phase_stats,
+    )
+
+
+@pytest.fixture
+def credit_phase_complete_message(credit_phase_stats):
+    """Create a CreditPhaseCompleteMessage instance."""
+    credit_phase_stats.end_ns = time.time_ns()
+    return CreditPhaseCompleteMessage(
+        service_id="test-service",
+        phase=credit_phase_stats,
+    )
+
+
+@pytest.fixture
+def phase_processing_stats():
+    """Create a PhaseProcessingStats instance."""
+    return PhaseProcessingStats(
+        processed=45,
+        errors=5,
+    )
+
+
+@pytest.fixture
+def records_processing_stats_message(phase_processing_stats):
+    """Create a RecordsProcessingStatsMessage instance."""
+    return RecordsProcessingStatsMessage(
+        service_id="test-service",
+        current_phase=CreditPhase.STEADY_STATE,
+        phase_stats=phase_processing_stats,
+        worker_stats={
+            "worker-1": PhaseProcessingStats(processed=25, errors=3),
+            "worker-2": PhaseProcessingStats(processed=20, errors=2),
+        },
+    )
+
+
+@pytest.fixture
+def worker_health_message():
+    """Create a WorkerHealthMessage instance."""
+    return WorkerHealthMessage(
+        service_id="test-worker",
+        process=ProcessHealth(
+            pid=12345,
+            create_time=time.time() - 100,  # Process started 100 seconds ago
+            uptime=100.0,
+            cpu_usage=25.0,
+            memory_usage=512.5,
+            io_counters=IOCounters(
+                read_count=1000,
+                write_count=500,
+                read_bytes=1024000,
+                write_bytes=512000,
+                read_chars=2048000,
+                write_chars=1024000,
+            ),
+            cpu_times=CPUTimes(
+                user=10.5,
+                system=5.2,
+                iowait=0.3,
+            ),
+            num_ctx_switches=CtxSwitches(
+                voluntary=1000,
+                involuntary=50,
+            ),
+            num_threads=4,
+        ),
+        task_stats={
+            CreditPhase.STEADY_STATE: WorkerPhaseTaskStats(
+                total=100,
+                completed=75,
+                failed=5,
+            ),
+        },
     )
 
 
@@ -91,16 +173,6 @@ def profile_results_message():
         end_ns=time.time_ns(),
         was_cancelled=False,
         errors_by_type=[],
-    )
-
-
-@pytest.fixture
-def sweep_progress_message():
-    """Create a SweepProgressMessage instance."""
-    return SweepProgressMessage(
-        service_id="test-service",
-        sweep_id="test-sweep",
-        sweep_start_ns=time.time_ns(),
     )
 
 

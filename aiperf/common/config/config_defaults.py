@@ -14,11 +14,6 @@ from aiperf.common.enums import (
     RequestRateMode,
     ServiceRunType,
 )
-from aiperf.progress.progress_models import (
-    SweepCompletionTrigger,
-    SweepMultiParamOrder,
-    SweepParamOrder,
-)
 
 
 #
@@ -173,18 +168,18 @@ class MeasurementDefaults:
     STABILITY_PERCENTAGE = 0.95
 
 
-@dataclass(frozen=True)
-class SweepParamDefaults:
-    VALUES = None
-    ORDER = SweepParamOrder.ASCENDING
-    COMPLETION_TRIGGER = SweepCompletionTrigger.COMPLETED_PROFILES
-    START = None
-    STEP = None
-    END = None
-    MAX_PROFILES = None
+# @dataclass(frozen=True)
+# class SweepParamDefaults:
+#     VALUES = None
+#     ORDER = SweepParamOrder.ASCENDING
+#     COMPLETION_TRIGGER = SweepCompletionTrigger.COMPLETED_PROFILES
+#     START = None
+#     STEP = None
+#     END = None
+#     MAX_PROFILES = None
 
 
-@dataclass(frozen=True)
-class SweepDefaults:
-    PARAMS = None
-    ORDER = SweepMultiParamOrder.DEPTH_FIRST
+# @dataclass(frozen=True)
+# class SweepDefaults:
+#     PARAMS = None
+#     ORDER = SweepMultiParamOrder.DEPTH_FIRST

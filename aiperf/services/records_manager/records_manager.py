@@ -32,7 +32,11 @@ from aiperf.common.record_models import (
     ParsedResponseRecord,
 )
 from aiperf.common.service import BaseComponentService
-from aiperf.progress import ProcessingStatsMessage, ProfileResultsMessage
+from aiperf.progress import ProfileResultsMessage
+from aiperf.progress.progress_models import (
+    PhaseProcessingStats,
+    RecordsProcessingStatsMessage,
+)
 from aiperf.services.records_manager.post_processors.metric_summary import MetricSummary
 
 
@@ -157,13 +161,21 @@ class RecordsManager(BaseComponentService):
     async def publish_processing_stats(self) -> None:
         """Publish the profile stats."""
         await self.pub_client.publish(
-            ProcessingStatsMessage(
+            RecordsProcessingStatsMessage(
                 service_id=self.service_id,
-                error_count=self.error_records_count,
-                completed=self.records_count + self.error_records_count,
-                worker_completed=self.worker_success_counts,
-                worker_errors=self.worker_error_counts,
-                credit_phase=self.active_credit_phase,
+                current_phase=self.active_credit_phase,
+                phase_stats=PhaseProcessingStats(
+                    processed=self.records_count,
+                    errors=self.error_records_count,
+                ),
+                worker_stats={
+                    worker_id: PhaseProcessingStats(
+                        processed=self.worker_success_counts[worker_id],
+                        errors=self.worker_error_counts[worker_id],
+                    )
+                    for worker_id in self.worker_success_counts
+                },
+                request_ns=time.time_ns(),
             ),
         )
 

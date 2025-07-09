@@ -1,27 +1,29 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 __all__ = [
+    "BenchmarkSuiteProgress",
+    "CreditPhaseComputedStats",
+    "ProfileRunProgress",
     "ProgressTracker",
     "SimpleProgressLogger",
-    "ProfileProgress",
-    "ProfileProgressMessage",
-    "ProfileSuiteProgress",
-    "SweepProgress",
-    "SweepProgressMessage",
-    "SweepSuiteProgress",
-    "ProcessingStatsMessage",
     "ProfileResultsMessage",
+    "CreditPhaseProgressMessage",
+    "CreditPhaseStartMessage",
+    "CreditPhaseCompleteMessage",
+    "RecordsProcessingStatsMessage",
 ]
 
 from aiperf.progress.progress_logger import SimpleProgressLogger
 from aiperf.progress.progress_models import (
-    ProcessingStatsMessage,
-    ProfileProgress,
-    ProfileProgressMessage,
+    CreditPhaseCompleteMessage,
+    CreditPhaseProgressMessage,
+    CreditPhaseStartMessage,
     ProfileResultsMessage,
-    ProfileSuiteProgress,
-    SweepProgress,
-    SweepProgressMessage,
-    SweepSuiteProgress,
+    RecordsProcessingStatsMessage,
 )
-from aiperf.progress.progress_tracker import ProgressTracker
+from aiperf.progress.progress_tracker import (
+    BenchmarkSuiteProgress,
+    CreditPhaseComputedStats,
+    ProfileRunProgress,
+    ProgressTracker,
+)

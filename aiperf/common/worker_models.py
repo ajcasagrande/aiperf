@@ -16,27 +16,27 @@ from aiperf.common.pydantic_utils import AIPerfBaseModel
 class WorkerPhaseTaskStats(AIPerfBaseModel):
     """Stats for the tasks that have been sent to the worker for a given credit phase."""
 
-    total_tasks: int = Field(
+    total: int = Field(
         default=0,
         description="The total number of tasks that have been sent to the worker. "
         "Not all tasks will be completed.",
     )
-    failed_tasks: int = Field(
+    failed: int = Field(
         default=0,
         description="The number of tasks that returned an error",
     )
-    completed_tasks: int = Field(
+    completed: int = Field(
         default=0,
         description="The number of tasks that were completed successfully",
     )
 
     @cached_property
-    def in_progress_tasks(self) -> int:
+    def in_progress(self) -> int:
         """The number of tasks that are currently in progress.
 
         This is the total number of tasks sent to the worker minus the number of failed and successfully completed tasks.
         """
-        return self.total_tasks - self.completed_tasks - self.failed_tasks
+        return self.total - self.completed - self.failed
 
 
 class WorkerHealthMessage(BaseServiceMessage):

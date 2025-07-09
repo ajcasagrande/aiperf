@@ -39,7 +39,7 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
         if config.warmup_request_count > 0:
             self.phases.append(
                 CreditPhaseStats(
-                    phase=CreditPhase.WARMUP, total=config.warmup_request_count
+                    type=CreditPhase.WARMUP, total=config.warmup_request_count
                 )
             )
 
@@ -47,22 +47,24 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
         if config.concurrency_ramp_up_time and config.concurrency_ramp_up_time > 0:
             self.phases.append(
                 CreditPhaseStats(
-                    phase=CreditPhase.RAMP_UP,
+                    type=CreditPhase.RAMP_UP,
                     total=None,
-                    duration_ns=int(config.concurrency_ramp_up_time * NANOS_PER_SECOND),
+                    expected_duration_ns=int(
+                        config.concurrency_ramp_up_time * NANOS_PER_SECOND
+                    ),
                 )
             )
 
         # Add the steady-state phase
         self.phases.append(
-            CreditPhaseStats(phase=CreditPhase.STEADY_STATE, total=config.request_count)
+            CreditPhaseStats(type=CreditPhase.STEADY_STATE, total=config.request_count)
         )
 
         # Set the active phase to the first phase
         self.active_phase: CreditPhaseStats = self.phases[0]
         # Link the phase stats by phase type for easy access
         self.phase_stats: dict[CreditPhase, CreditPhaseStats] = {
-            phase.phase: phase for phase in self.phases
+            phase.type: phase for phase in self.phases
         }
 
         # if the concurrency is larger than the total credits, it does not matter

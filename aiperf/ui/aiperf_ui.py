@@ -5,14 +5,14 @@ import logging
 from aiperf.common.hooks import AIPerfLifecycleMixin, on_start, on_stop
 from aiperf.common.worker_models import WorkerHealthMessage
 from aiperf.progress.progress_models import (
-    ProcessingStatsMessage,
-    ProfileProgressMessage,
-    ProfileResultsMessage,
+    CreditPhaseCompleteMessage,
+    CreditPhaseProgressMessage,
+    CreditPhaseStartMessage,
+    RecordsProcessingStatsMessage,
 )
 from aiperf.progress.progress_tracker import ProgressTracker
 from aiperf.ui.profile_progress_ui import ProfileProgressElement
 from aiperf.ui.rich_dashboard import AIPerfRichDashboard
-from aiperf.ui.worker_status_ui import WorkerStatusElement
 
 logger = logging.getLogger(__name__)
 
@@ -38,34 +38,50 @@ class AIPerfUI(AIPerfLifecycleMixin):
         """Stop the UI."""
         await self.dashboard.shutdown()
 
-    async def on_profile_progress_update(self, message: ProfileProgressMessage) -> None:
+    async def on_credit_phase_progress_update(
+        self, message: CreditPhaseProgressMessage
+    ) -> None:
         """Update progress display."""
         try:
-            if self.dashboard.running and self.progress_tracker.current_profile:
+            if self.dashboard.running and self.progress_tracker.current_profile_run:
                 self.dashboard.refresh_element(ProfileProgressElement.key)
         except Exception as e:
-            logger.error("Error updating profile progress: %s", e)
+            logger.error("Error updating credit phase progress: %s", e)
 
-    async def on_processing_stats_update(self, message: ProcessingStatsMessage) -> None:
-        """Update statistics display."""
+    async def on_credit_phase_start_update(
+        self, message: CreditPhaseStartMessage
+    ) -> None:
+        """Update progress display."""
         try:
-            if self.dashboard.running and self.progress_tracker.current_profile:
+            if self.dashboard.running and self.progress_tracker.current_profile_run:
+                self.dashboard.refresh_element(ProfileProgressElement.key)
+        except Exception as e:
+            logger.error("Error updating credit phase start: %s", e)
+
+    async def on_credit_phase_complete_update(
+        self, message: CreditPhaseCompleteMessage
+    ) -> None:
+        """Update progress display."""
+        try:
+            if self.dashboard.running and self.progress_tracker.current_profile_run:
+                self.dashboard.refresh_element(ProfileProgressElement.key)
+        except Exception as e:
+            logger.error("Error updating credit phase complete: %s", e)
+
+    async def on_processing_stats_update(
+        self, message: RecordsProcessingStatsMessage
+    ) -> None:
+        """Update progress display."""
+        try:
+            if self.dashboard.running and self.progress_tracker.current_profile_run:
                 self.dashboard.refresh_element(ProfileProgressElement.key)
         except Exception as e:
             logger.error("Error updating processing stats: %s", e)
 
     async def on_worker_health_update(self, message: WorkerHealthMessage) -> None:
-        """Update worker health information."""
+        """Update progress display."""
         try:
-            self.dashboard.update_worker_health(message)
-            if self.dashboard.running:
-                self.dashboard.refresh_element(WorkerStatusElement.key)
+            if self.dashboard.running and self.progress_tracker.current_profile_run:
+                self.dashboard.refresh_element(ProfileProgressElement.key)
         except Exception as e:
             logger.error("Error updating worker health: %s", e)
-
-    async def on_profile_results_update(self, message: ProfileResultsMessage) -> None:
-        """Process the final results."""
-        # TODO: Removed the update call because it was clearing the dashboard.
-        #       I think this is because the progress tracker changes the current profile.
-        #       We should find a better way to handle this.
-        logger.info("Performance testing completed successfully!")

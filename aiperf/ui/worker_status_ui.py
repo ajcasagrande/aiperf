@@ -77,9 +77,7 @@ class WorkerStatusElement(DashboardElement):
                 stale_count += 1
             else:
                 error_rate = (
-                    task_stats.failed_tasks / task_stats.total_tasks
-                    if task_stats.total_tasks > 0
-                    else 0
+                    task_stats.failed / task_stats.total if task_stats.total > 0 else 0
                 )
 
                 if error_rate > 0.1:  # More than 10% error rate
@@ -88,7 +86,7 @@ class WorkerStatusElement(DashboardElement):
                 elif process.cpu_usage > 75:  # High CPU usage
                     status = Text("High Load", style="bold yellow")
                     warning_count += 1
-                elif task_stats.total_tasks == 0:  # No tasks processed
+                elif task_stats.total == 0:  # No tasks processed
                     status = Text("Idle", style="dim")
                     idle_count += 1
                 else:
@@ -104,9 +102,9 @@ class WorkerStatusElement(DashboardElement):
             workers_table.add_row(
                 worker_name,
                 status,
-                f"{task_stats.in_progress_tasks:,}",
-                f"{task_stats.completed_tasks:,}",
-                f"{task_stats.failed_tasks:,}",
+                f"{task_stats.in_progress:,}",
+                f"{task_stats.completed:,}",
+                f"{task_stats.failed:,}",
                 f"{process.cpu_usage:.1f}%",
                 memory_display,
                 f"{format_bytes(process.io_counters.read_chars)}",

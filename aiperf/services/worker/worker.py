@@ -80,9 +80,9 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
 
         self.task_stats: dict[CreditPhase, WorkerPhaseTaskStats] = {
             phase: WorkerPhaseTaskStats(
-                total_tasks=0,
-                completed_tasks=0,
-                failed_tasks=0,
+                total=0,
+                completed=0,
+                failed=0,
             )
             for phase in CreditPhase
         }
@@ -182,11 +182,11 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
                 record=record,
             )
 
-            self.task_stats[message.credit_phase].total_tasks += 1
+            self.task_stats[message.credit_phase].total += 1
             if not record.valid:
-                self.task_stats[message.credit_phase].failed_tasks += 1
+                self.task_stats[message.credit_phase].failed += 1
             else:
-                self.task_stats[message.credit_phase].completed_tasks += 1
+                self.task_stats[message.credit_phase].completed += 1
 
             try:
                 await self.inference_results_client.push(message=msg)
@@ -211,7 +211,7 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
         message: CreditDropMessage,
     ) -> RequestRecord:
         """Run a credit task for a single credit."""
-        self.task_stats[message.credit_phase].total_tasks += 1
+        self.task_stats[message.credit_phase].total += 1
 
         if not self.inference_client:
             raise NotInitializedError("Inference server client not initialized.")

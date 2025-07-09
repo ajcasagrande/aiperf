@@ -5,16 +5,12 @@ import logging
 import time
 from typing import TYPE_CHECKING
 
-from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import (
     CommandType,
     SystemState,
 )
-from aiperf.progress.progress_models import (
-    BenchmarkSuiteType,
-    ProfileProgress,
-    ProfileSuiteProgress,
-)
+from aiperf.progress.benchmark_suite_models import BenchmarkSuiteType
+from aiperf.progress.progress_tracker import BenchmarkSuiteProgress, ProfileRunProgress
 
 if TYPE_CHECKING:
     from aiperf.services.system_controller.system_controller import SystemController
@@ -38,20 +34,19 @@ class ProfileRunner:
         self.controller._system_state = SystemState.PROFILING
 
         if self.tracker.suite is None:
-            self.tracker.suite = ProfileSuiteProgress(
-                suite_type=BenchmarkSuiteType.SINGLE_PROFILE,
-                start_time_ns=time.time_ns(),
-                profiles=[
-                    ProfileProgress(
+            self.tracker.suite = BenchmarkSuiteProgress(
+                type=BenchmarkSuiteType.SINGLE_PROFILE,
+                profile_runs=[
+                    ProfileRunProgress(
                         profile_id="0",
-                        total_expected_requests=0,
+                        start_ns=time.time_ns(),
                     )
                 ],
-                total_profiles=1,
             )
 
         # Start the first profile
-        self.tracker.suite.next_profile()
+        self.tracker.suite.current_profile_run = self.tracker.suite.profile_runs[0]
+        self.tracker.suite.current_profile_run.phstart_ns = time.time_ns()
 
         try:
             await self.controller.send_command_to_service(
@@ -66,37 +61,41 @@ class ProfileRunner:
     @property
     def is_complete(self) -> bool:
         return (
-            self.tracker.current_profile is not None
-            and self.tracker.current_profile.is_complete
+            self.tracker.current_profile_run is not None
+            and self.tracker.current_profile_run.is_complete
         )
 
     async def profile_completed(self) -> None:
-        if self.tracker.current_profile is None:
+        if self.tracker.current_profile_run is None:
             self.logger.error("No current profile to complete")
             return
 
-        self.tracker.current_profile.end_time_ns = time.time_ns()
-        self.tracker.current_profile.is_complete = True
-        if self.tracker.current_profile.start_time_ns is not None:
-            self.tracker.current_profile.elapsed_time = (
-                self.tracker.current_profile.end_time_ns
-                - self.tracker.current_profile.start_time_ns
-            ) / NANOS_PER_SECOND
+        self.tracker.current_profile_run.end_ns = time.time_ns()
+        self.tracker.current_profile_run.is_complete = True
 
-        if self.tracker.suite is None or self.tracker.suite.next_profile() is None:
+        # Start the next profile
+        if self.tracker.suite is None or self.tracker.suite.current_profile_run is None:
             self.logger.info("All profiles completed")
             return
 
         self.logger.info("Starting next profile")
+        self.tracker.suite.current_profile_run = self.tracker.suite.profile_runs[1]
+        self.tracker.suite.current_profile_run.start_ns = time.time_ns()
 
     async def cancel_profile(self) -> None:
         self.was_cancelled = True
-        if self.tracker.current_profile is None:
+        if self.tracker.current_profile_run is None:
             self.logger.error("No current profile to cancel")
             self.controller.stop_event.set()
             return
 
-        self.tracker.current_profile.was_cancelled = True
-        self.tracker.current_profile.end_time_ns = time.time_ns()
-        self.tracker.current_profile.is_complete = True
+        self.tracker.current_profile_run.phases[
+            self.tracker.active_credit_phase
+        ].was_cancelled = True
+        self.tracker.current_profile_run.phases[
+            self.tracker.active_credit_phase
+        ].end_ns = time.time_ns()
+        self.tracker.current_profile_run.phases[
+            self.tracker.active_credit_phase
+        ].is_complete = True
         self.controller.stop_event.set()

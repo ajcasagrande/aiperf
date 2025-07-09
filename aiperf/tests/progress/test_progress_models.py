@@ -7,12 +7,12 @@ import time
 from aiperf.progress.progress_models import (
     BenchmarkSuiteCompletionTrigger,
     BenchmarkSuiteType,
-    ProcessingStatsMessage,
     ProfileCompletionTrigger,
     ProfileProgress,
     ProfileProgressMessage,
     ProfileResultsMessage,
     ProfileSuiteProgress,
+    RecordProcessingStatsMessage,
     SweepCompletionTrigger,
     SweepProgress,
     SweepProgressMessage,
@@ -427,7 +427,7 @@ class TestMessageModels:
 
     def test_processing_stats_message(self):
         """Test ProcessingStatsMessage creation."""
-        message = ProcessingStatsMessage(
+        message = RecordProcessingStatsMessage(
             service_id="test-service",
             error_count=5,
             completed=95,
@@ -443,7 +443,7 @@ class TestMessageModels:
 
     def test_processing_stats_message_defaults(self):
         """Test ProcessingStatsMessage with default values."""
-        message = ProcessingStatsMessage(service_id="test-service")
+        message = RecordProcessingStatsMessage(service_id="test-service")
 
         assert message.error_count == 0
         assert message.completed == 0

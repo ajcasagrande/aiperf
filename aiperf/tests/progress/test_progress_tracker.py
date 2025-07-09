@@ -3,19 +3,25 @@
 """Tests for ProgressTracker."""
 
 import time
-from unittest.mock import patch
 
 from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import CreditPhase
+from aiperf.common.health_models import ProcessHealth
+from aiperf.common.worker_models import WorkerHealthMessage
 from aiperf.progress.progress_models import (
-    BenchmarkSuiteType,
-    ProcessingStatsMessage,
-    ProfileProgress,
-    ProfileProgressMessage,
-    ProfileSuiteProgress,
-    SweepSuiteProgress,
+    CreditPhaseCompleteMessage,
+    CreditPhaseProgressMessage,
+    CreditPhaseStartMessage,
+    CreditPhaseStats,
+    PhaseProcessingStats,
+    RecordsProcessingStatsMessage,
 )
-from aiperf.progress.progress_tracker import ProgressTracker
+from aiperf.progress.progress_tracker import (
+    BenchmarkSuiteProgress,
+    CreditPhaseComputedStats,
+    ProfileRunProgress,
+    ProgressTracker,
+)
 
 
 class TestProgressTracker:
@@ -26,554 +32,308 @@ class TestProgressTracker:
         tracker = ProgressTracker()
 
         assert tracker.suite is None
-        assert tracker.current_profile is None
-        assert tracker.current_sweep is None
+        assert tracker.current_profile_run is None
+        assert tracker.active_credit_phase is None
         assert tracker.logger is not None
 
-    def test_configure_single_profile(self):
-        """Test configuring for single profile."""
+    def test_configure_with_suite_and_profile_run(self):
+        """Test configuring ProgressTracker with suite and profile run."""
         tracker = ProgressTracker()
-        tracker.configure(BenchmarkSuiteType.SINGLE_PROFILE)
+        profile_run = ProfileRunProgress(profile_id="test-profile")
+        suite = BenchmarkSuiteProgress(
+            profile_runs=[profile_run],
+            current_profile_run=profile_run,
+        )
+
+        tracker.configure(suite, profile_run)
 
         assert tracker.suite is not None
-        assert isinstance(tracker.suite, ProfileSuiteProgress)
-        assert len(tracker.suite.profiles) == 1
-        assert tracker.suite.total_profiles == 1
-        assert tracker.suite.profiles[0].profile_id == "0"
+        assert tracker.current_profile_run is not None
+        assert tracker.current_profile_run.profile_id == "test-profile"
 
-    def test_configure_multi_profile(self):
-        """Test configuring for multi profile."""
-        tracker = ProgressTracker()
-        tracker.configure(BenchmarkSuiteType.MULTI_PROFILE)
-
-        assert tracker.suite is not None
-        assert isinstance(tracker.suite, ProfileSuiteProgress)
-        assert len(tracker.suite.profiles) == 1
-        assert tracker.suite.total_profiles == 1
-
-    def test_configure_single_sweep(self):
-        """Test configuring for single sweep."""
-        tracker = ProgressTracker()
-        tracker.configure(BenchmarkSuiteType.SINGLE_SWEEP)
-
-        assert tracker.suite is not None
-        assert isinstance(tracker.suite, SweepSuiteProgress)
-        assert len(tracker.suite.sweeps) == 1
-        assert tracker.suite.total_sweeps == 1
-        assert tracker.suite.sweeps[0].sweep_id == "0"
-        assert len(tracker.suite.sweeps[0].profiles) == 1
-
-    def test_configure_multi_sweep(self):
-        """Test configuring for multi sweep."""
-        tracker = ProgressTracker()
-        tracker.configure(BenchmarkSuiteType.MULTI_SWEEP)
-
-        assert tracker.suite is not None
-        assert isinstance(tracker.suite, SweepSuiteProgress)
-        assert len(tracker.suite.sweeps) == 1
-        assert tracker.suite.total_sweeps == 1
-
-    def test_current_profile_property_profile_suite(self):
-        """Test current_profile property with profile suite."""
-        tracker = ProgressTracker()
-        tracker.configure(BenchmarkSuiteType.SINGLE_PROFILE)
-
-        # Initially no current profile
-        assert tracker.current_profile is None
-
-        # Set current profile index
-        tracker.suite.current_profile_idx = 0
-        assert tracker.current_profile is not None
-        assert tracker.current_profile.profile_id == "0"
-
-    def test_current_profile_property_sweep_suite(self):
-        """Test current_profile property with sweep suite."""
-        tracker = ProgressTracker()
-        tracker.configure(BenchmarkSuiteType.SINGLE_SWEEP)
-
-        # Initially no current profile
-        assert tracker.current_profile is None
-
-        # Set current sweep and profile
-        tracker.suite.current_sweep_idx = 0
-        tracker.suite.current_sweep.current_profile_idx = 0
-        assert tracker.current_profile is not None
-        assert tracker.current_profile.profile_id == "0"
-
-    def test_current_sweep_property(self):
-        """Test current_sweep property."""
+    def test_active_credit_phase_property(self):
+        """Test active_credit_phase property."""
         tracker = ProgressTracker()
 
-        # Profile suite should return None
-        tracker.configure(BenchmarkSuiteType.SINGLE_PROFILE)
-        assert tracker.current_sweep is None
+        # Initially None
+        assert tracker.active_credit_phase is None
 
-        # Sweep suite should return sweep
-        tracker.configure(BenchmarkSuiteType.SINGLE_SWEEP)
-        assert tracker.current_sweep is None  # No current sweep index set
+        # Configure with profile run
+        profile_run = ProfileRunProgress(
+            profile_id="test-profile",
+            active_phase=CreditPhase.STEADY_STATE,
+        )
+        suite = BenchmarkSuiteProgress(
+            profile_runs=[profile_run],
+            current_profile_run=profile_run,
+        )
+        tracker.configure(suite, profile_run)
 
-        tracker.suite.current_sweep_idx = 0
-        assert tracker.current_sweep is not None
-        assert tracker.current_sweep.sweep_id == "0"
+        assert tracker.active_credit_phase == CreditPhase.STEADY_STATE
 
-    def test_update_profile_progress_no_suite(self, profile_progress_message):
-        """Test update_profile_progress with no suite configured."""
+    def test_on_credit_phase_start(self, credit_phase_start_message):
+        """Test handling credit phase start message."""
         tracker = ProgressTracker()
+        profile_run = ProfileRunProgress(profile_id="test-profile")
+        suite = BenchmarkSuiteProgress(
+            profile_runs=[profile_run],
+            current_profile_run=profile_run,
+        )
+        tracker.configure(suite, profile_run)
 
-        # Should not raise error
-        tracker.update_profile_progress(profile_progress_message)
+        tracker.on_credit_phase_start(credit_phase_start_message)
 
-        assert tracker.suite is None
+        assert tracker.current_profile_run.active_phase == CreditPhase.STEADY_STATE
+        assert CreditPhase.STEADY_STATE in tracker.current_profile_run.phases
+        assert tracker.current_profile_run.phases[CreditPhase.STEADY_STATE].is_started
 
-    def test_update_profile_progress_no_current_profile(self, profile_progress_message):
-        """Test update_profile_progress with no current profile."""
+    def test_on_credit_phase_progress(self, credit_phase_progress_message):
+        """Test handling credit phase progress message."""
         tracker = ProgressTracker()
-        tracker.configure(BenchmarkSuiteType.SINGLE_PROFILE)
+        profile_run = ProfileRunProgress(profile_id="test-profile")
+        suite = BenchmarkSuiteProgress(
+            profile_runs=[profile_run],
+            current_profile_run=profile_run,
+        )
+        tracker.configure(suite, profile_run)
 
-        # Should not raise error
-        tracker.update_profile_progress(profile_progress_message)
+        tracker.on_credit_phase_progress(credit_phase_progress_message)
 
-        # Profile should not be updated
-        assert tracker.current_profile is None
+        assert CreditPhase.STEADY_STATE in tracker.current_profile_run.phases
+        phase = tracker.current_profile_run.phases[CreditPhase.STEADY_STATE]
+        assert phase.sent == 50
+        assert phase.completed == 25
 
-    def test_update_profile_progress_first_time(self, profile_progress_message):
-        """Test update_profile_progress for the first time."""
+    def test_on_credit_phase_complete(self, credit_phase_complete_message):
+        """Test handling credit phase complete message."""
         tracker = ProgressTracker()
-        tracker.configure(BenchmarkSuiteType.SINGLE_PROFILE)
-        tracker.suite.current_profile_idx = 0
+        profile_run = ProfileRunProgress(profile_id="test-profile")
+        suite = BenchmarkSuiteProgress(
+            profile_runs=[profile_run],
+            current_profile_run=profile_run,
+        )
+        tracker.configure(suite, profile_run)
 
-        with patch("aiperf.progress.progress_tracker.time.time_ns") as mock_time:
-            mock_time.return_value = 1000000000  # 1 second in nanoseconds
+        tracker.on_credit_phase_complete(credit_phase_complete_message)
 
-            tracker.update_profile_progress(profile_progress_message)
+        assert CreditPhase.STEADY_STATE in tracker.current_profile_run.phases
+        phase = tracker.current_profile_run.phases[CreditPhase.STEADY_STATE]
+        assert phase.is_complete
 
-            profile = tracker.current_profile
-            assert profile.start_time_ns == profile_progress_message.start_ns
-            assert profile.total_expected_requests == profile_progress_message.total
-            assert profile.requests_completed == profile_progress_message.completed
-
-    def test_update_profile_progress_subsequent_times(self, profile_progress_message):
-        """Test update_profile_progress for subsequent times."""
+    def test_on_phase_processing_stats(self, records_processing_stats_message):
+        """Test handling phase processing stats message."""
         tracker = ProgressTracker()
-        tracker.configure(BenchmarkSuiteType.SINGLE_PROFILE)
-        tracker.suite.current_profile_idx = 0
+        profile_run = ProfileRunProgress(profile_id="test-profile")
+        suite = BenchmarkSuiteProgress(
+            profile_runs=[profile_run],
+            current_profile_run=profile_run,
+        )
+        tracker.configure(suite, profile_run)
 
-        # First update
-        with patch("aiperf.progress.progress_tracker.time.time_ns") as mock_time:
-            mock_time.return_value = (
-                profile_progress_message.start_ns + 1000000000
-            )  # 1 second after start
-            tracker.update_profile_progress(profile_progress_message)
+        tracker.on_phase_processing_stats(records_processing_stats_message)
 
-            # Second update with more progress
-            profile_progress_message.completed = 75
-            mock_time.return_value = (
-                profile_progress_message.start_ns + 2000000000
-            )  # 2 seconds after start
-            tracker.update_profile_progress(profile_progress_message)
+        assert CreditPhase.STEADY_STATE in tracker.current_profile_run.processing_stats
+        stats = tracker.current_profile_run.processing_stats[CreditPhase.STEADY_STATE]
+        assert stats.processed == 45
+        assert stats.errors == 5
 
-            profile = tracker.current_profile
-            assert profile.requests_completed == 75
-            assert profile.requests_per_second is not None
-            assert profile.requests_per_second > 0
-            assert profile.elapsed_time > 0
-            assert profile.eta is not None
+        # Check worker stats
+        assert "worker-1" in tracker.current_profile_run.worker_processing_stats
+        worker_stats = tracker.current_profile_run.worker_processing_stats["worker-1"]
+        assert CreditPhase.STEADY_STATE in worker_stats
+        assert worker_stats[CreditPhase.STEADY_STATE].processed == 25
+        assert worker_stats[CreditPhase.STEADY_STATE].errors == 3
 
-    def test_update_profile_progress_completed(self, profile_progress_message):
-        """Test update_profile_progress when profile is completed."""
+    def test_on_worker_health(self, worker_health_message):
+        """Test handling worker health message."""
         tracker = ProgressTracker()
-        tracker.configure(BenchmarkSuiteType.SINGLE_PROFILE)
-        tracker.suite.current_profile_idx = 0
+        profile_run = ProfileRunProgress(profile_id="test-profile")
+        suite = BenchmarkSuiteProgress(
+            profile_runs=[profile_run],
+            current_profile_run=profile_run,
+        )
+        tracker.configure(suite, profile_run)
 
-        # Set completed equal to total
-        profile_progress_message.completed = profile_progress_message.total
+        tracker.on_worker_health(worker_health_message)
 
-        with patch("aiperf.progress.progress_tracker.time.time_ns") as mock_time:
-            mock_time.return_value = 1000000000
-            tracker.update_profile_progress(profile_progress_message)
+        worker_id = "test-worker"
+        assert worker_id in tracker.current_profile_run.worker_task_stats
+        task_stats = tracker.current_profile_run.worker_task_stats[worker_id]
+        assert CreditPhase.STEADY_STATE in task_stats
+        assert task_stats[CreditPhase.STEADY_STATE].total == 100
+        assert task_stats[CreditPhase.STEADY_STATE].completed == 75
+        assert task_stats[CreditPhase.STEADY_STATE].failed == 5
 
-            profile = tracker.current_profile
-            assert profile.requests_completed == profile_progress_message.total
-            # Should not calculate rates when completed
-            assert (
-                profile.requests_per_second is None or profile.requests_per_second == 0
-            )
-
-    def test_update_processing_stats_no_suite(self, processing_stats_message):
-        """Test update_processing_stats with no suite configured."""
+    def test_requests_stats_computation(self):
+        """Test computation of request statistics."""
         tracker = ProgressTracker()
-
-        # Should not raise error
-        tracker.update_processing_stats(processing_stats_message)
-
-        assert tracker.suite is None
-
-    def test_update_processing_stats_no_current_profile(self, processing_stats_message):
-        """Test update_processing_stats with no current profile."""
-        tracker = ProgressTracker()
-        tracker.configure(BenchmarkSuiteType.SINGLE_PROFILE)
-
-        # Should not raise error
-        tracker.update_processing_stats(processing_stats_message)
-
-        assert tracker.current_profile is None
-
-    def test_update_processing_stats_normal(self, processing_stats_message):
-        """Test update_processing_stats with normal operation."""
-        tracker = ProgressTracker()
-        tracker.configure(BenchmarkSuiteType.SINGLE_PROFILE)
-        tracker.suite.current_profile_idx = 0
-
-        # Set up profile with start time
-        profile = tracker.current_profile
-        start_time = 1000000000  # Use fixed start time
-        profile.start_time_ns = start_time
-        profile.total_expected_requests = 100
-
-        with patch("aiperf.progress.progress_tracker.time.time_ns") as mock_time:
-            mock_time.return_value = start_time + 1000000000  # 1 second later
-
-            tracker.update_processing_stats(processing_stats_message)
-
-            assert profile.request_errors == processing_stats_message.error_count
-            assert (
-                profile.successful_requests
-                == processing_stats_message.completed
-                - processing_stats_message.error_count
-            )
-            assert profile.requests_processed == processing_stats_message.completed
-            assert profile.worker_completed == processing_stats_message.worker_completed
-            assert profile.worker_errors == processing_stats_message.worker_errors
-
-    def test_update_processing_stats_completion(self, processing_stats_message):
-        """Test update_processing_stats when profile is completed."""
-        tracker = ProgressTracker()
-        tracker.configure(BenchmarkSuiteType.SINGLE_PROFILE)
-        tracker.suite.current_profile_idx = 0
-
-        # Set up profile
-        profile = tracker.current_profile
-        start_time = 1000000000  # Use fixed start time
-        profile.start_time_ns = start_time
-        profile.total_expected_requests = 45  # Same as completed in message
-        profile.credit_phase = CreditPhase.STEADY_STATE  # Required for completion check
-
-        with patch("aiperf.progress.progress_tracker.time.time_ns") as mock_time:
-            mock_time.return_value = start_time + 1000000000  # 1 second later
-
-            tracker.update_processing_stats(processing_stats_message)
-
-            assert profile.is_complete is True
-            assert profile.end_time_ns is not None
-
-    def test_update_processing_stats_with_processing_rate(
-        self, processing_stats_message
-    ):
-        """Test update_processing_stats calculates processing rate."""
-        tracker = ProgressTracker()
-        tracker.configure(BenchmarkSuiteType.SINGLE_PROFILE)
-        tracker.suite.current_profile_idx = 0
-
-        # Set up profile
-        profile = tracker.current_profile
-        start_time = 1000000000  # Use fixed start time
-        profile.start_time_ns = start_time
-        profile.total_expected_requests = 100
-
-        with patch("aiperf.progress.progress_tracker.time.time_ns") as mock_time:
-            mock_time.return_value = start_time + 1000000000  # 1 second later
-
-            tracker.update_processing_stats(processing_stats_message)
-
-            assert profile.processed_per_second is not None
-            assert profile.processed_per_second > 0
-            assert profile.processing_eta is not None
-
-    def test_update_profile_results_no_suite(self, profile_results_message):
-        """Test update_profile_results with no suite configured."""
-        tracker = ProgressTracker()
-
-        # Should not raise error
-        tracker.update_profile_results(profile_results_message)
-
-        assert tracker.suite is None
-
-    def test_update_profile_results_no_current_profile(self, profile_results_message):
-        """Test update_profile_results with no current profile."""
-        tracker = ProgressTracker()
-        tracker.configure(BenchmarkSuiteType.SINGLE_PROFILE)
-
-        # Should not raise error
-        tracker.update_profile_results(profile_results_message)
-
-        assert tracker.current_profile is None
-
-    def test_update_profile_results_normal(self, profile_results_message):
-        """Test update_profile_results with normal operation."""
-        tracker = ProgressTracker()
-        tracker.configure(BenchmarkSuiteType.SINGLE_PROFILE)
-        tracker.suite.current_profile_idx = 0
-
-        # Set up profile with start time
-        profile = tracker.current_profile
-        profile.start_time_ns = profile_results_message.start_ns
-
-        tracker.update_profile_results(profile_results_message)
-
-        assert profile.end_time_ns == profile_results_message.end_ns
-        assert profile.was_cancelled == profile_results_message.was_cancelled
-        assert profile.elapsed_time > 0
-        assert profile.eta is None
-        assert profile.requests_per_second == 0
-        assert profile.records == profile_results_message.records
-        assert profile.errors_by_type == profile_results_message.errors_by_type
-
-    def test_update_profile_results_no_start_time(self, profile_results_message):
-        """Test update_profile_results when profile has no start time."""
-        tracker = ProgressTracker()
-        tracker.configure(BenchmarkSuiteType.SINGLE_PROFILE)
-        tracker.suite.current_profile_idx = 0
-
-        # Profile has no start time
-        profile = tracker.current_profile
-        profile.start_time_ns = None
-
-        tracker.update_profile_results(profile_results_message)
-
-        assert profile.end_time_ns == profile_results_message.end_ns
-        assert profile.elapsed_time == 0  # Should remain 0 since no start time
-
-    def test_update_sweep_progress_no_suite(self, sweep_progress_message):
-        """Test update_sweep_progress with no suite configured."""
-        tracker = ProgressTracker()
-
-        # Should not raise error
-        tracker.update_sweep_progress(sweep_progress_message)
-
-        assert tracker.suite is None
-
-    def test_update_sweep_progress_no_current_sweep(self, sweep_progress_message):
-        """Test update_sweep_progress with no current sweep."""
-        tracker = ProgressTracker()
-        tracker.configure(BenchmarkSuiteType.SINGLE_PROFILE)  # Profile suite, not sweep
-
-        # Should not raise error
-        tracker.update_sweep_progress(sweep_progress_message)
-
-        assert tracker.current_sweep is None
-
-    def test_update_sweep_progress_first_time(self, sweep_progress_message):
-        """Test update_sweep_progress for the first time."""
-        tracker = ProgressTracker()
-        tracker.configure(BenchmarkSuiteType.SINGLE_SWEEP)
-        tracker.suite.current_sweep_idx = 0
-
-        tracker.update_sweep_progress(sweep_progress_message)
-
-        current_sweep = tracker.current_sweep
-        assert current_sweep.start_time_ns == sweep_progress_message.sweep_start_ns
-
-    def test_update_sweep_progress_with_end_time(self, sweep_progress_message):
-        """Test update_sweep_progress with end time."""
-        tracker = ProgressTracker()
-        tracker.configure(BenchmarkSuiteType.SINGLE_SWEEP)
-        tracker.suite.current_sweep_idx = 0
-
-        # Set end time
-        sweep_progress_message.end_ns = time.time_ns()
-
-        tracker.update_sweep_progress(sweep_progress_message)
-
-        current_sweep = tracker.current_sweep
-        assert current_sweep.end_time_ns == sweep_progress_message.end_ns
-
-    def test_update_sweep_progress_subsequent_times(self, sweep_progress_message):
-        """Test update_sweep_progress for subsequent times."""
-        tracker = ProgressTracker()
-        tracker.configure(BenchmarkSuiteType.SINGLE_SWEEP)
-        tracker.suite.current_sweep_idx = 0
-
-        # First update
-        tracker.update_sweep_progress(sweep_progress_message)
-
-        # Second update should not change start time
-        original_start = tracker.current_sweep.start_time_ns
-        tracker.update_sweep_progress(sweep_progress_message)
-
-        assert tracker.current_sweep.start_time_ns == original_start
-
-    def test_eta_calculation_edge_cases(self, profile_progress_message):
-        """Test ETA calculation edge cases."""
-        tracker = ProgressTracker()
-        tracker.configure(BenchmarkSuiteType.SINGLE_PROFILE)
-        tracker.suite.current_profile_idx = 0
-
-        # Test when requests_per_second is 0
-        profile_progress_message.completed = 0
-
-        with patch("aiperf.progress.progress_tracker.time.time_ns") as mock_time:
-            mock_time.return_value = (
-                profile_progress_message.start_ns + 1000000000
-            )  # 1 second later
-
-            tracker.update_profile_progress(profile_progress_message)
-
-            profile = tracker.current_profile
-            assert profile.eta is None  # Should be None when no progress
-
-    def test_processing_eta_calculation_edge_cases(self, processing_stats_message):
-        """Test processing ETA calculation edge cases."""
-        tracker = ProgressTracker()
-        tracker.configure(BenchmarkSuiteType.SINGLE_PROFILE)
-        tracker.suite.current_profile_idx = 0
-
-        # Set up profile
-        profile = tracker.current_profile
-        start_time = 1000000000  # Use fixed start time
-        profile.start_time_ns = start_time
-        profile.total_expected_requests = 100
-
-        # Test when processed_per_second is 0
-        processing_stats_message.completed = 0
-
-        with patch("aiperf.progress.progress_tracker.time.time_ns") as mock_time:
-            mock_time.return_value = start_time + 1000000000  # 1 second later
-
-            tracker.update_processing_stats(processing_stats_message)
-
-            assert profile.processing_eta is None  # Should be None when no progress
-
-    def test_measurement_start_time_ns_usage(self):
-        """Test that measurement_start_ns is used for steady-state metrics calculation."""
-        tracker = ProgressTracker()
-        tracker.configure(BenchmarkSuiteType.SINGLE_PROFILE)
-        tracker.suite.current_profile_idx = 0
-
-        # Create a progress message with different start_ns and measurement_start_ns
-        # This simulates a ramp-up scenario where measurement should start after ramp-up
-        start_ns = 1000000000  # 1 second
-        measurement_start_ns = 1500000000  # 1.5 seconds (500ms after start)
-
-        message = ProfileProgressMessage(
-            service_id="test-service",
-            start_ns=start_ns,
-            measurement_start_ns=measurement_start_ns,
+        profile_run = ProfileRunProgress(profile_id="test-profile")
+        suite = BenchmarkSuiteProgress(
+            profile_runs=[profile_run],
+            current_profile_run=profile_run,
+        )
+        tracker.configure(suite, profile_run)
+
+        # Create a phase with timing data
+        phase_stats = CreditPhaseStats(
+            type=CreditPhase.STEADY_STATE,
+            start_ns=time.time_ns() - 5 * NANOS_PER_SECOND,  # 5 seconds ago
             total=100,
+            sent=100,
             completed=50,
-            ramp_up_completed=10,
         )
 
-        # Mock current time to be 2 seconds after start (500ms after measurement start)
-        current_time = 2000000000  # 2 seconds
+        # Update request stats
+        tracker.current_profile_run.update_requests_stats(phase_stats, time.time_ns())
 
-        with patch("aiperf.progress.progress_tracker.time.time_ns") as mock_time:
-            mock_time.return_value = current_time
-            tracker.update_profile_progress(message)
+        computed_stats = tracker.current_profile_run.computed_stats[
+            CreditPhase.STEADY_STATE
+        ]
+        assert computed_stats.requests_per_second is not None
+        assert computed_stats.requests_per_second > 0
+        assert computed_stats.requests_eta is not None
+        assert computed_stats.requests_update_ns is not None
 
-            profile = tracker.current_profile
-
-            # Verify that measurement start time is stored
-            assert (
-                profile.__dict__.get("measurement_start_time_ns")
-                == measurement_start_ns
-            )
-
-            # Verify that requests_per_second is calculated using measurement_start_ns
-            # and steady-state completed requests (50 - 10 = 40 steady-state requests)
-            # 40 requests over 500ms (current_time - measurement_start_ns) = 80 req/s
-            steady_state_completed = 50 - 10  # total completed - ramp_up_completed
-            expected_rate = steady_state_completed / (
-                (current_time - measurement_start_ns) / NANOS_PER_SECOND
-            )
-            assert profile.requests_per_second == expected_rate
-
-            # Verify that elapsed_time is calculated using original start_ns
-            # 1 second elapsed (current_time - start_ns)
-            expected_elapsed = (current_time - start_ns) / NANOS_PER_SECOND
-            assert profile.elapsed_time == expected_elapsed
-
-            # Verify that processing stats can use the stored measurement start time
-            processing_message = ProcessingStatsMessage(
-                service_id="test-service",
-                completed=45,
-                error_count=5,
-            )
-
-            # Update processing stats and verify it uses measurement start time
-            tracker.update_processing_stats(processing_message)
-
-            # Processing rate should be calculated using measurement_start_ns
-            # and steady-state processed requests (45 - 10 = 35 steady-state processed)
-            steady_state_processed = 45 - 10  # total processed - ramp_up_completed
-            expected_processing_rate = steady_state_processed / (
-                (current_time - measurement_start_ns) / NANOS_PER_SECOND
-            )
-            assert profile.processed_per_second == expected_processing_rate
-
-    def test_measurement_start_time_ns_fallback(self):
-        """Test that start_ns is used as fallback when measurement_start_ns is 0."""
+    def test_records_stats_computation(self):
+        """Test computation of record processing statistics."""
         tracker = ProgressTracker()
-        tracker.configure(BenchmarkSuiteType.SINGLE_PROFILE)
-        tracker.suite.current_profile_idx = 0
+        profile_run = ProfileRunProgress(profile_id="test-profile")
+        suite = BenchmarkSuiteProgress(
+            profile_runs=[profile_run],
+            current_profile_run=profile_run,
+        )
+        tracker.configure(suite, profile_run)
 
-        # Create a progress message with measurement_start_ns = 0 (should fallback to start_ns)
-        start_ns = 1000000000  # 1 second
-
-        message = ProfileProgressMessage(
-            service_id="test-service",
-            start_ns=start_ns,
-            measurement_start_ns=0,  # This should trigger fallback
+        # Set up phase with timing data
+        phase_stats = CreditPhaseStats(
+            type=CreditPhase.STEADY_STATE,
+            start_ns=time.time_ns() - 5 * NANOS_PER_SECOND,  # 5 seconds ago
             total=100,
+            sent=100,
             completed=50,
-            ramp_up_completed=5,
+        )
+        tracker.current_profile_run.phases[CreditPhase.STEADY_STATE] = phase_stats
+
+        # Create processing stats
+        processing_stats = PhaseProcessingStats(processed=30, errors=5)
+
+        # Update records stats
+        tracker.current_profile_run.update_records_stats(
+            CreditPhase.STEADY_STATE, time.time_ns(), processing_stats
         )
 
-        current_time = 2000000000  # 2 seconds
+        computed_stats = tracker.current_profile_run.computed_stats[
+            CreditPhase.STEADY_STATE
+        ]
+        assert computed_stats.records_per_second is not None
+        assert computed_stats.records_per_second > 0
+        assert computed_stats.records_eta is not None
+        assert computed_stats.records_update_ns is not None
 
-        with patch("aiperf.progress.progress_tracker.time.time_ns") as mock_time:
-            mock_time.return_value = current_time
-            tracker.update_profile_progress(message)
+    def test_profile_run_progress_properties(self):
+        """Test ProfileRunProgress properties."""
+        profile_run = ProfileRunProgress(profile_id="test-profile")
 
-            profile = tracker.current_profile
+        # Initially not started or complete
+        assert not profile_run.is_started
+        assert not profile_run.is_complete
 
-            # Verify that measurement start time falls back to start_ns
-            assert profile.__dict__.get("measurement_start_time_ns") == start_ns
+        # Add a started phase
+        phase_stats = CreditPhaseStats(
+            type=CreditPhase.STEADY_STATE,
+            start_ns=time.time_ns(),
+            total=100,
+            sent=50,
+            completed=25,
+        )
+        profile_run.phases[CreditPhase.STEADY_STATE] = phase_stats
 
-            # Verify that requests_per_second is calculated using start_ns
-            # and steady-state completed requests (50 - 5 = 45 steady-state requests)
-            steady_state_completed = 50 - 5  # total completed - ramp_up_completed
-            expected_rate = steady_state_completed / (
-                (current_time - start_ns) / NANOS_PER_SECOND
-            )
-            assert profile.requests_per_second == expected_rate
+        assert profile_run.is_started
+        assert not profile_run.is_complete
 
-    def test_thread_safety_considerations(self):
-        """Test that tracker operations are generally thread-safe."""
+        # Complete the phase
+        phase_stats.end_ns = time.time_ns()
+
+        assert profile_run.is_started
+        assert profile_run.is_complete
+
+    def test_no_current_profile_run_handling(self):
+        """Test that methods handle missing current profile run gracefully."""
         tracker = ProgressTracker()
-        tracker.configure(BenchmarkSuiteType.SINGLE_PROFILE)
 
-        # This test mainly ensures no obvious race conditions
-        # More comprehensive thread safety testing would require more complex setup
-        assert tracker.suite is not None
-        assert tracker.current_profile is None
-        assert tracker.current_sweep is None
-
-    def test_memory_management(self):
-        """Test that tracker doesn't leak memory with large datasets."""
-        tracker = ProgressTracker()
-        tracker.configure(BenchmarkSuiteType.SINGLE_PROFILE)
-
-        # Create large profile data
-        profile = ProfileProgress(
-            profile_id="test",
-            total_expected_requests=10000,
-            worker_completed={f"worker-{i}": 100 for i in range(100)},
-            worker_errors={f"worker-{i}": 5 for i in range(100)},
+        # All methods should not raise errors with no current profile run
+        phase_stats = CreditPhaseStats(
+            type=CreditPhase.STEADY_STATE,
+            start_ns=time.time_ns(),
+            total=100,
+            sent=50,
+            completed=25,
         )
 
-        tracker.suite.profiles = [profile]
-        tracker.suite.current_profile_idx = 0
+        start_message = CreditPhaseStartMessage(
+            service_id="test-service",
+            phase=phase_stats,
+        )
+        progress_message = CreditPhaseProgressMessage(
+            service_id="test-service",
+            phase=phase_stats,
+        )
+        complete_message = CreditPhaseCompleteMessage(
+            service_id="test-service",
+            phase=phase_stats,
+        )
+        processing_message = RecordsProcessingStatsMessage(
+            service_id="test-service",
+            current_phase=CreditPhase.STEADY_STATE,
+            phase_stats=PhaseProcessingStats(processed=10, errors=1),
+            worker_stats={},
+        )
+        health_message = WorkerHealthMessage(
+            service_id="test-worker",
+            process=ProcessHealth(
+                pid=12345,
+                memory_usage_mb=512.5,
+                cpu_usage_percent=25.0,
+            ),
+            task_stats={},
+        )
 
-        # Should handle large datasets without issues
-        assert len(tracker.current_profile.worker_completed) == 100
-        assert len(tracker.current_profile.worker_errors) == 100
+        # Should not raise errors
+        tracker.on_credit_phase_start(start_message)
+        tracker.on_credit_phase_progress(progress_message)
+        tracker.on_credit_phase_complete(complete_message)
+        tracker.on_phase_processing_stats(processing_message)
+        tracker.on_worker_health(health_message)
+
+        # Should still be None
+        assert tracker.current_profile_run is None
+
+    def test_credit_phase_computed_stats_model(self):
+        """Test CreditPhaseComputedStats model."""
+        stats = CreditPhaseComputedStats(
+            requests_per_second=10.5,
+            requests_eta=30.0,
+            requests_update_ns=time.time_ns(),
+            records_per_second=8.2,
+            records_eta=45.0,
+            records_update_ns=time.time_ns(),
+        )
+
+        assert stats.requests_per_second == 10.5
+        assert stats.requests_eta == 30.0
+        assert stats.requests_update_ns is not None
+        assert stats.records_per_second == 8.2
+        assert stats.records_eta == 45.0
+        assert stats.records_update_ns is not None
+
+    def test_benchmark_suite_progress_model(self):
+        """Test BenchmarkSuiteProgress model."""
+        profile_run = ProfileRunProgress(profile_id="test-profile")
+        suite = BenchmarkSuiteProgress(
+            profile_runs=[profile_run],
+            current_profile_run=profile_run,
+        )
+
+        assert len(suite.profile_runs) == 1
+        assert suite.current_profile_run is not None
+        assert suite.current_profile_run.profile_id == "test-profile"
