@@ -48,7 +48,7 @@ class RequestRateStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
         )
 
         self.profiling = CreditPhaseStats(
-            total=config.request_count, phase_type=CreditPhase.STEADY_STATE
+            total=config.request_count, type=CreditPhase.STEADY_STATE
         )
         self.active_phase = self.profiling
 
@@ -56,7 +56,7 @@ class RequestRateStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
         if config.warmup_request_count > 0:
             self.warmup = CreditPhaseStats(
                 total=config.warmup_request_count,
-                phase_type=CreditPhase.WARMUP,
+                type=CreditPhase.WARMUP,
             )
             self.active_phase = self.warmup
 
@@ -97,7 +97,7 @@ class RequestRateStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
             "TM: Executing phase (total_credits=%s, request_rate=%s, phase_type=%s, start_time_ns=%s)",
             phase.total,
             self._request_rate,
-            phase.phase_type,
+            phase.type,
             phase.start_time_ns,
         )
 
@@ -128,7 +128,7 @@ class RequestRateStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
         while phase.sent < phase.total:
             self.execute_async(
                 self.credit_manager.drop_credit(
-                    credit_phase=phase.phase_type,
+                    credit_phase=phase.type,
                     conversation_id=None,
                     credit_drop_ns=None,
                 )
@@ -159,7 +159,7 @@ class RequestRateStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
 
             self.execute_async(
                 self.credit_manager.drop_credit(
-                    credit_phase=phase.phase_type,
+                    credit_phase=phase.type,
                     conversation_id=None,
                     credit_drop_ns=None,
                 )
@@ -224,7 +224,7 @@ class RequestRateStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
             self.active_phase.end_time_ns = time.time_ns()
             self.execute_async(
                 self.credit_manager.publish_credits_complete(
-                    self.active_phase.phase_type, False
+                    self.active_phase.type, False
                 )
             )
 

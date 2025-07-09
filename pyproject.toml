@@ -36,6 +36,7 @@ dependencies = [
   "openai[aiohttp]~=1.92.2",
   "dask[distributed]~=2025.5.1",
   "bokeh~=3.7.3",
+  "textual~=0.95.0",
 ]
 readme = "README.md"
 requires-python = ">=3.10"

@@ -15,6 +15,7 @@ from aiperf.progress.progress_models import (
     CreditPhaseStartMessage,
     CreditPhaseStats,
     PhaseProcessingStats,
+    ProfileResultsMessage,
     RecordsProcessingStatsMessage,
 )
 
@@ -246,3 +247,10 @@ class ProgressTracker:
         if self.current_profile_run is None:
             return
         self.current_profile_run.on_worker_health(message)
+
+    def on_profile_results(self, message: ProfileResultsMessage):
+        """Update the progress from a profile results message."""
+        if self.current_profile_run is None:
+            return
+        pass
+        # self.current_profile_run.on_profile_results(message)

@@ -120,13 +120,13 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
         """Execute the original burst mode - send all requests as fast as possible."""
 
         # In burst mode, measurement starts immediately
-        self.active_phase.measurement_start_time_ns = self.active_phase.start_ns
+        self.active_phase.start_ns = time.time_ns()
 
-        while self.active_phase.sent < self.active_phase.total:
+        while self.active_phase.sent_credits < self.active_phase.total:
             await self._semaphore.acquire()
             self.execute_async(
                 self.credit_manager.drop_credit(
-                    credit_phase=self.active_phase,
+                    credit_phase=self.active_phase.type,
                     conversation_id=None,
                     credit_drop_ns=None,
                 )
