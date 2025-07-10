@@ -7,23 +7,19 @@ import uuid
 from multiprocessing import Process
 from typing import Any
 
-from pydantic import Field
+from pydantic import ConfigDict, Field
 
-from aiperf.clients.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.bootstrap import bootstrap_and_run_service
 from aiperf.common.config import ServiceConfig, UserConfig
-from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
+from aiperf.common.constants import TASK_CANCEL_TIMEOUT_LONG, TASK_CANCEL_TIMEOUT_SHORT
 from aiperf.common.enums import MessageType, ServiceRunType, ServiceType
 from aiperf.common.exceptions import ConfigurationError
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
     on_cleanup,
-    on_configure,
     on_init,
-    on_start,
     on_stop,
 )
-from aiperf.common.messages import Message
 from aiperf.common.pydantic_utils import AIPerfBaseModel
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.common.worker_models import WorkerHealthMessage
@@ -33,6 +29,8 @@ from aiperf.services.worker.worker import Worker
 class WorkerProcessInfo(AIPerfBaseModel):
     """Information about a worker process."""
 
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     worker_id: str = Field(..., description="ID of the worker process")
     process: Any = Field(None, description="Process object or task")
 
@@ -40,9 +38,9 @@ class WorkerProcessInfo(AIPerfBaseModel):
 @ServiceFactory.register(ServiceType.WORKER_MANAGER)
 class WorkerManager(BaseComponentService):
     """
-    The WorkerManager service is primary responsibility is to pull data from the dataset manager
-    after receiving the timing credit from the timing manager. It will then push the request data
-    to the worker to issue to the request.
+    The WorkerManager service is primary responsibility to manage the worker processes.
+    It will spawn the workers, monitor their health, and stop them when the service is stopped.
+    In the future it will also be responsible for the auto-scaling of the workers.
     """
 
     def __init__(
@@ -59,32 +57,33 @@ class WorkerManager(BaseComponentService):
         self.logger.debug("Initializing worker manager")
         self.workers: dict[str, WorkerProcessInfo] = {}
         self.worker_health: dict[str, WorkerHealthMessage] = {}
-        # TODO: Need to implement some sort of max workers
-        self.cpu_count = multiprocessing.cpu_count()
-        self.model_endpoint = ModelEndpointInfo.from_user_config(self.user_config)
-        self.max_concurrency = self.user_config.load.concurrency
 
-        # Default to the number of CPU cores - 1
-        self.worker_count = self.service_config.max_workers
-        if self.worker_count is None:
-            self.worker_count = self.cpu_count - 1
+        self.cpu_count = multiprocessing.cpu_count()
+        self.logger.info("Detected %s CPU cores/threads", self.cpu_count)
+
+        # TODO: Need to implement some sort of max workers
+        self.max_concurrency = self.user_config.load.concurrency
+        self.max_workers = self.service_config.max_workers
+        if self.max_workers is None:
+            # Default to the number of CPU cores - 1
+            self.max_workers = self.cpu_count - 1
 
         # Cap the worker count to the max concurrency + 1, but only if the user in in concurrency mode.
         if self.max_concurrency > 1:
-            self.worker_count = min(
+            self.max_workers = min(
                 self.max_concurrency + 1,
-                self.worker_count,
+                self.max_workers,
             )
 
-        self.logger.info(
-            "Detected %s CPU cores/threads. Spawning %s worker processes",
-            self.cpu_count,
-            self.worker_count,
+        # Ensure we have at least the min workers
+        self.max_workers = max(
+            self.max_workers,
+            self.service_config.min_workers or 0,
         )
+        self.initial_workers = self.max_workers
 
     @property
     def service_type(self) -> ServiceType:
-        """The type of service."""
         return ServiceType.WORKER_MANAGER
 
     @on_init
@@ -96,7 +95,8 @@ class WorkerManager(BaseComponentService):
             MessageType.WORKER_HEALTH, self._on_worker_health
         )
 
-        # Spawn workers based on CPU count
+        # Spawn workers
+        # TODO: This logic can be refactored to make use of the ServiceManager class
         if self.service_config.service_run_type == ServiceRunType.MULTIPROCESSING:
             await self._spawn_multiprocessing_workers()
 
@@ -104,69 +104,53 @@ class WorkerManager(BaseComponentService):
             await self._spawn_kubernetes_workers()
 
         else:
-            self.logger.warning(
-                f"Unsupported run type: {self.service_config.service_run_type}"
-            )
             raise ConfigurationError(
                 f"Unsupported run type: {self.service_config.service_run_type}",
             )
 
     async def _on_worker_health(self, message: WorkerHealthMessage) -> None:
-        """Handle a worker health message."""
         self.logger.debug("Received worker health message: %s", message)
         self.worker_health[message.service_id] = message
 
-    @on_start
-    async def _start(self) -> None:
-        """Start the worker manager."""
-        self.logger.debug("Starting worker manager")
-
     @on_stop
     async def _stop(self) -> None:
-        """Stop the worker manager."""
         self.logger.debug("Stopping worker manager")
+
         # Stop all workers
+        # TODO: This logic can be refactored to make use of the ServiceManager class
         if self.service_config.service_run_type == ServiceRunType.MULTIPROCESSING:
             await self._stop_multiprocessing_workers()
         elif self.service_config.service_run_type == ServiceRunType.KUBERNETES:
             await self._stop_kubernetes_workers()
         else:
-            self.logger.warning(
-                f"Unsupported run type: {self.service_config.service_run_type}"
+            raise ConfigurationError(
+                f"Unsupported run type: {self.service_config.service_run_type}",
             )
 
     @on_cleanup
     async def _cleanup(self) -> None:
-        """Clean up worker manager-specific components."""
         self.logger.debug("Cleaning up worker manager")
         self.workers.clear()
 
     async def _spawn_kubernetes_workers(self) -> None:
-        """Spawn worker processes using Kubernetes."""
-        self.logger.debug("Spawning %s worker pods", self.worker_count)
-
+        self.logger.debug("Spawning %s worker pods", self.initial_workers)
         # TODO: Implement Kubernetes start
         raise NotImplementedError("Kubernetes start not implemented")
 
     async def _stop_kubernetes_workers(self) -> None:
-        """Stop worker processes using Kubernetes."""
         self.logger.debug("Stopping all worker processes")
-
         # TODO: Implement Kubernetes stop
         raise NotImplementedError("Kubernetes stop not implemented")
 
     async def _spawn_multiprocessing_workers(self) -> None:
-        """Spawn worker processes using multiprocessing."""
-        self.logger.debug("Spawning %s worker processes", self.worker_count)
-
-        # mp_ctx = multiprocessing.get_context("spawn")
+        self.logger.debug("Spawning %s worker processes", self.initial_workers)
 
         # Get the global log queue for child process logging
         from aiperf.common.logging import get_global_log_queue
 
         log_queue = get_global_log_queue()
 
-        for _ in range(self.worker_count):
+        for _ in range(self.initial_workers):
             worker_id = f"worker_{uuid.uuid4().hex[:8]}"
 
             process = Process(
@@ -188,11 +172,10 @@ class WorkerManager(BaseComponentService):
                 process=process,
             )
             self.logger.debug(
-                f"Started worker process {worker_id} (pid: {process.pid})"
+                "Started worker process %s (pid: %s)", worker_id, process.pid
             )
 
     async def _stop_multiprocessing_workers(self) -> None:
-        """Stop all multiprocessing worker processes."""
         self.logger.debug("Stopping all worker processes")
 
         # First terminate all processes
@@ -223,7 +206,7 @@ class WorkerManager(BaseComponentService):
                 asyncio.to_thread(
                     process.join, timeout=TASK_CANCEL_TIMEOUT_SHORT
                 ),  # Add timeout to join
-                timeout=5.0,  # Overall timeout
+                timeout=TASK_CANCEL_TIMEOUT_LONG,  # Overall timeout
             )
             self.logger.debug(
                 "Worker process %s (pid: %s) stopped", worker_id, process.pid
@@ -235,12 +218,6 @@ class WorkerManager(BaseComponentService):
                 process.pid,
             )
             process.kill()
-
-    @on_configure
-    async def _configure(self, message: Message) -> None:
-        """Configure the worker manager."""
-        self.logger.debug("Configuring worker manager with message: %s", message)
-        # TODO: Implement worker manager configuration
 
 
 def main() -> None:

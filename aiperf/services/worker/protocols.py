@@ -7,8 +7,8 @@ from aiperf.common.credit_models import CreditDropMessage
 from aiperf.common.messages import (
     ConversationResponseMessage,
     InferenceResultsMessage,
-    WorkerHealthMessage,
 )
+from aiperf.common.worker_models import WorkerHealthMessage
 
 
 class WorkerCommunicationsProtocol(Protocol):
