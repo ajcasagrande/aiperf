@@ -71,7 +71,8 @@ class ProfileRunner:
             return
 
         self.tracker.current_profile_run.end_ns = time.time_ns()
-        self.tracker.current_profile_run.is_complete = True
+        # TODO: Better way to track this?
+        # self.tracker.current_profile_run.is_complete = True
 
         # Start the next profile
         if self.tracker.suite is None or self.tracker.suite.current_profile_run is None:
@@ -109,13 +110,5 @@ class ProfileRunner:
             self.controller.stop_event.set()
             return
 
-        self.tracker.current_profile_run.phases[
-            self.tracker.active_credit_phase
-        ].was_cancelled = True
-        self.tracker.current_profile_run.phases[
-            self.tracker.active_credit_phase
-        ].end_ns = time.time_ns()
-        self.tracker.current_profile_run.phases[
-            self.tracker.active_credit_phase
-        ].is_complete = True
+        self.tracker.current_profile_run.was_cancelled = True
         self.controller.stop_event.set()

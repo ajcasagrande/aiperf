@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-import logging.handlers
+import logging
 import multiprocessing
 import queue
 from functools import lru_cache
@@ -13,8 +13,6 @@ from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
 
 LOG_QUEUE_MAXSIZE = 1000
-DEFAULT_LOG_MAX_BYTES = 5 * 1024 * 1024  # 5MB per log file
-DEFAULT_LOG_BACKUP_COUNT = 10  # Keep 10 backup files (total ~50MB)
 
 
 @lru_cache(maxsize=1)
@@ -51,7 +49,12 @@ def setup_child_process_logging(
             for service_type in service_config.debug_services or set():
                 # for cases of service_id being "worker_xxxxxx" and service_type being "worker",
                 # we want to set the log level to debug
-                if service_id.startswith(service_type.value):
+                if (
+                    service_id == service_type.value
+                    or service_id.startswith(f"{service_type.value}_")
+                    and service_id
+                    != f"{service_type.value}_manager"  # for worker vs worker_manager
+                ):
                     level = logging.DEBUG
                     break
 
@@ -67,26 +70,23 @@ def setup_child_process_logging(
     queue_handler.setLevel(level)
     root_logger.addHandler(queue_handler)
 
-    file_handler = create_rolling_file_handler(
-        user_config.output.artifact_directory, level
-    )
-    root_logger.addHandler(file_handler)
+    if user_config and user_config.output.artifact_directory:
+        file_handler = create_file_handler(
+            user_config.output.artifact_directory / "logs", level
+        )
+        root_logger.addHandler(file_handler)
 
 
-def create_rolling_file_handler(
+def create_file_handler(
     log_folder: Path,
     level: str | int,
-    max_bytes: int = DEFAULT_LOG_MAX_BYTES,
-    backup_count: int = DEFAULT_LOG_BACKUP_COUNT,
-) -> logging.handlers.RotatingFileHandler:
-    """Configure a rolling file handler for logging."""
+) -> logging.FileHandler:
+    """Configure a file handler for logging."""
 
     log_folder.mkdir(parents=True, exist_ok=True)
     log_file_path = log_folder / "aiperf.log"
 
-    file_handler = logging.handlers.RotatingFileHandler(
-        log_file_path, maxBytes=max_bytes, backupCount=backup_count, encoding="utf-8"
-    )
+    file_handler = logging.FileHandler(log_file_path, encoding="utf-8")
     file_handler.setLevel(level)
     file_handler.setFormatter(
         logging.Formatter(

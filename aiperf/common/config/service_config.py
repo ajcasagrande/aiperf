@@ -7,7 +7,7 @@ from pydantic import BeforeValidator, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from aiperf.common.config.config_defaults import ServiceDefaults
-from aiperf.common.config.config_validators import parse_str_or_list
+from aiperf.common.config.config_validators import parse_service_types
 from aiperf.common.config.zmq_config import (
     BaseZMQCommunicationConfig,
     ZMQIPCConfig,
@@ -177,28 +177,23 @@ class ServiceConfig(BaseSettings):
         Field(
             description="[Developer use only] Enable yappi profiling (Yet Another Python Profiler). This can be used in the "
             "development of AIPerf in order to find performance bottlenecks across the various services. The output '*.prof' "
-            "files can be viewed with SnakeViz.",
+            "files can be viewed with snakeviz. Requires yappi and snakeviz to be installed. "
+            "Run 'pip install yappi snakeviz'.",
         ),
         cyclopts.Parameter(
-            name=("--enable-yappi"),
+            name=("--enable-yappi-profiling"),
         ),
     ] = ServiceDefaults.ENABLE_YAPPI
 
     debug_services: Annotated[
         set[ServiceType] | None,
         Field(
-            description="List of services to debug. If provided, the service will be started with debug logging enabled. "
-            "Can be a comma-separated list or a single service type.",
+            description="List of services to enable debug logging for. Can be a comma-separated list, a single service type, "
+            "or the cli flag can be used multiple times.",
         ),
         cyclopts.Parameter(
+            # Note that the name is singular because it can be used multiple times.
             name=("--debug-service"),
         ),
-        BeforeValidator(
-            lambda v: {
-                ServiceType(service_type.replace("-", "_"))
-                for service_type in parse_str_or_list(v)
-            }
-            if v is not None
-            else set()
-        ),
+        BeforeValidator(parse_service_types),
     ] = ServiceDefaults.DEBUG_SERVICES

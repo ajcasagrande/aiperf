@@ -88,6 +88,10 @@ class ProfileRunProgress(AIPerfBaseModel):
     profile_results: ProfileResultsMessage | None = Field(
         default=None, description="The profile results"
     )
+    was_cancelled: bool = Field(
+        default=False,
+        description="Whether the profile run was cancelled early",
+    )
 
     @property
     def is_started(self) -> bool:
