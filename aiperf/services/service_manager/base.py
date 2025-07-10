@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 
 from aiperf.common.config import ServiceConfig
 from aiperf.common.enums import ServiceType
+from aiperf.common.messages import BaseServiceMessage
 from aiperf.common.service_models import ServiceRunInfo
 
 
@@ -50,4 +51,9 @@ class BaseServiceManager(ABC):
         self, stop_event: asyncio.Event, timeout_seconds: int = 30
     ) -> None:
         """Wait for all required services to be registered."""
+        pass
+
+    @abstractmethod
+    async def on_message(self, message: BaseServiceMessage) -> None:
+        """Handle a message from a service."""
         pass

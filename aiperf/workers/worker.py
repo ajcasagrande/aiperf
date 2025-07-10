@@ -181,6 +181,12 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
         self, message: CreditDropMessage, timestamp_ns: int
     ) -> RequestRecord:
         """Run a credit task for a single credit."""
+        if message.credit_phase not in self.task_stats:
+            self.task_stats[message.credit_phase] = WorkerPhaseTaskStats(
+                total=0,
+                completed=0,
+                failed=0,
+            )
         self.task_stats[message.credit_phase].total += 1
 
         if not self.inference_client:
@@ -233,7 +239,7 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
             if drop_ns and drop_ns > now_ns:
                 await asyncio.sleep((drop_ns - now_ns) / NANOS_PER_SECOND)
             elif drop_ns and drop_ns < now_ns:
-                delayed_ns = drop_ns - now_ns
+                delayed_ns = now_ns - drop_ns
 
             # Send the request to the Inference Server API and wait for the response
             result = await self.inference_client.send_request(

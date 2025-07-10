@@ -33,7 +33,7 @@ class Audio(AIPerfBaseModel):
     )
 
 
-@exclude_if_none(["role", "text", "image", "audio"])
+@exclude_if_none(["role"])
 class Turn(AIPerfBaseModel):
     """A dataset representation of a single turn within a conversation.
 

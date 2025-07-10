@@ -14,10 +14,13 @@ from aiperf.common.credit_models import (
     PhaseProcessingStats,
     RecordsProcessingStatsMessage,
 )
-from aiperf.common.enums import BenchmarkSuiteType, CreditPhase
+from aiperf.common.enums import BenchmarkSuiteType, CreditPhase, MessageType
+from aiperf.common.messages import Message
 from aiperf.common.pydantic_utils import AIPerfBaseModel
 from aiperf.common.worker_models import WorkerHealthMessage, WorkerPhaseTaskStats
 from aiperf.progress.progress_models import ProfileResultsMessage
+
+logger = logging.getLogger(__name__)
 
 
 class CreditPhaseComputedStats(AIPerfBaseModel):
@@ -105,6 +108,80 @@ class ProfileRunProgress(AIPerfBaseModel):
             return False
         return all(phase.is_complete for phase in self.phases.values())
 
+    def on_message(self, message: Message):
+        """Update the progress from a message."""
+        _message_mappings = {
+            MessageType.CREDIT_PHASE_PROGRESS: self.on_credit_phase_progress,
+            MessageType.CREDIT_PHASE_START: self.on_credit_phase_start,
+            MessageType.CREDIT_PHASE_COMPLETE: self.on_credit_phase_complete,
+            MessageType.PROCESSING_STATS: self.on_phase_processing_stats,
+            MessageType.WORKER_HEALTH: self.on_worker_health,
+            MessageType.PROFILE_RESULTS: self.on_profile_results,
+        }
+
+        if message.message_type in _message_mappings:
+            _message_mappings[message.message_type](message)
+        else:
+            logger.debug(
+                "ProfileRunProgress: Received unsupported message type: %s",
+                message.message_type,
+            )
+
+    def on_credit_phase_progress(self, message: CreditPhaseProgressMessage):
+        """Update the progress from a credit phase progress message."""
+        for phase, stats in message.phase_stats_map.items():
+            self.phases[phase] = stats
+            self.update_requests_stats(stats, message.request_ns)
+
+    def on_credit_phase_start(self, message: CreditPhaseStartMessage):
+        """Update the progress from a credit phase start message."""
+        self.active_phase = message.phase_stats.type
+        self.phases[message.phase_stats.type] = message.phase_stats
+        self.update_requests_stats(message.phase_stats, message.request_ns)
+
+    def on_credit_phase_complete(self, message: CreditPhaseCompleteMessage):
+        """Update the progress from a credit phase complete message."""
+        self.phases[message.phase_stats.type] = message.phase_stats
+        self.update_requests_stats(message.phase_stats, message.request_ns)
+
+    def on_phase_processing_stats(self, message: RecordsProcessingStatsMessage):
+        """Update the progress from a phase processing stats message."""
+        if message.current_phase is None:
+            logger.debug(
+                "ProfileRunProgress: Received phase processing stats message with no current phase"
+            )
+            return
+
+        self.processing_stats[message.current_phase] = message.phase_stats
+        for worker_id, worker_stats in message.worker_stats.items():
+            if worker_id not in self.worker_processing_stats:
+                self.worker_processing_stats[worker_id] = {}
+            if message.current_phase not in self.worker_processing_stats[worker_id]:
+                self.worker_processing_stats[worker_id][message.current_phase] = (
+                    PhaseProcessingStats()
+                )
+            self.worker_processing_stats[worker_id][message.current_phase] = (
+                worker_stats
+            )
+
+        self.update_records_stats(
+            message.current_phase,
+            message.request_ns,
+            message.phase_stats,
+        )
+
+    def on_worker_health(self, message: WorkerHealthMessage):
+        """Update the progress from a worker health message."""
+        worker_id = message.service_id
+        for phase, stats in message.task_stats.items():
+            if worker_id not in self.worker_task_stats:
+                self.worker_task_stats[worker_id] = {}
+            self.worker_task_stats[worker_id][phase] = stats
+
+    def on_profile_results(self, message: ProfileResultsMessage):
+        """Update the progress from a profile results message."""
+        self.profile_results = message
+
     def update_requests_stats(self, phase: CreditPhaseStats, request_ns: int):
         """Update the requests stats based on the TimingManager stats."""
         computed = self.computed_stats.setdefault(
@@ -147,50 +224,6 @@ class ProfileRunProgress(AIPerfBaseModel):
         else:
             computed.records_per_second = None
             computed.records_eta = None
-
-    def on_credit_phase_progress(self, message: CreditPhaseProgressMessage):
-        """Update the progress from a credit phase progress message."""
-        for phase, stats in message.phase_stats_map.items():
-            self.phases[phase] = stats
-            self.update_requests_stats(stats, message.request_ns)
-
-    def on_credit_phase_start(self, message: CreditPhaseStartMessage):
-        """Update the progress from a credit phase start message."""
-        self.active_phase = message.phase_stats.type
-        self.phases[message.phase_stats.type] = message.phase_stats
-        self.update_requests_stats(message.phase_stats, message.request_ns)
-
-    def on_credit_phase_complete(self, message: CreditPhaseCompleteMessage):
-        """Update the progress from a credit phase complete message."""
-        self.phases[message.phase_stats.type] = message.phase_stats
-        self.update_requests_stats(message.phase_stats, message.request_ns)
-
-    def on_phase_processing_stats(self, message: RecordsProcessingStatsMessage):
-        """Update the progress from a phase processing stats message."""
-        self.processing_stats[message.current_phase] = message.phase_stats  # type: ignore
-        for worker_id, worker_stats in message.worker_stats.items():
-            if worker_id not in self.worker_processing_stats:
-                self.worker_processing_stats[worker_id] = {}
-            self.worker_processing_stats[worker_id][message.current_phase] = (
-                worker_stats  # type: ignore
-            )
-        self.update_records_stats(
-            message.current_phase,
-            message.request_ns,
-            message.phase_stats,  # type: ignore
-        )
-
-    def on_worker_health(self, message: WorkerHealthMessage):
-        """Update the progress from a worker health message."""
-        worker_id = message.service_id
-        for phase, stats in message.task_stats.items():
-            if worker_id not in self.worker_task_stats:
-                self.worker_task_stats[worker_id] = {}
-            self.worker_task_stats[worker_id][phase] = stats
-
-    def on_profile_results(self, message: ProfileResultsMessage):
-        """Update the progress from a profile results message."""
-        self.profile_results = message
 
 
 # class SweepRunProgress(AIPerfBaseModel):
@@ -244,38 +277,12 @@ class ProgressTracker:
             return None
         return self.current_profile_run.active_phase
 
-    def on_credit_phase_progress(self, message: CreditPhaseProgressMessage):
-        """Update the progress from a credit phase progress message."""
+    def on_message(self, message: Message):
+        """Update the progress from a message."""
         if self.current_profile_run is None:
+            self.logger.debug(
+                "Received %s message before profile run is started",
+                message.message_type,
+            )
             return
-        self.current_profile_run.on_credit_phase_progress(message)
-
-    def on_credit_phase_start(self, message: CreditPhaseStartMessage):
-        """Update the progress from a credit phase start message."""
-        if self.current_profile_run is None:
-            return
-        self.current_profile_run.on_credit_phase_start(message)
-
-    def on_credit_phase_complete(self, message: CreditPhaseCompleteMessage):
-        """Update the progress from a credit phase complete message."""
-        if self.current_profile_run is None:
-            return
-        self.current_profile_run.on_credit_phase_complete(message)
-
-    def on_phase_processing_stats(self, message: RecordsProcessingStatsMessage):
-        """Update the progress from a phase processing stats message."""
-        if self.current_profile_run is None:
-            return
-        self.current_profile_run.on_phase_processing_stats(message)
-
-    def on_worker_health(self, message: WorkerHealthMessage):
-        """Update the progress from a worker health message."""
-        if self.current_profile_run is None:
-            return
-        self.current_profile_run.on_worker_health(message)
-
-    def on_profile_results(self, message: ProfileResultsMessage):
-        """Update the progress from a profile results message."""
-        if self.current_profile_run is None:
-            return
-        self.current_profile_run.on_profile_results(message)
+        self.current_profile_run.on_message(message)

@@ -11,7 +11,7 @@ from aiperf.common.credit_models import (
     RecordsProcessingStatsMessage,
 )
 from aiperf.common.enums import CreditPhase, MessageType
-from aiperf.common.messages import BaseServiceMessage
+from aiperf.common.messages import Message
 from aiperf.common.worker_models import WorkerHealthMessage
 from aiperf.progress.progress_tracker import ProgressTracker
 
@@ -109,7 +109,7 @@ class SimpleProgressLogger:
             self.tqdm_records[phase].close()
             del self.tqdm_records[phase]
 
-    async def on_message(self, message: BaseServiceMessage) -> None:
+    async def on_message(self, message: Message) -> None:
         """Handle a message from the system controller."""
         _message_mappings = {
             MessageType.CREDIT_PHASE_PROGRESS: self.update_credit_phase_progress,

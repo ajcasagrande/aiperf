@@ -6,16 +6,11 @@ import sys
 import time
 
 import zmq.asyncio
-from pydantic import BaseModel
 
 from aiperf.common.comms.zmq.zmq_proxy_base import BaseZMQProxy, ZMQProxyFactory
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
 from aiperf.common.credit_models import (
-    CreditPhaseCompleteMessage,
-    CreditPhaseProgressMessage,
-    CreditPhaseStartMessage,
-    CreditsCompleteMessage,
     RecordsProcessingStatsMessage,
 )
 from aiperf.common.enums import (
@@ -37,14 +32,14 @@ from aiperf.common.logging import get_global_log_queue
 from aiperf.common.messages import (
     CommandResponseMessage,
     HeartbeatMessage,
-    NotificationMessage,
+    Message,
     ProcessRecordsCommandData,
     RegistrationMessage,
     StatusMessage,
 )
+from aiperf.common.pydantic_utils import AIPerfBaseModel
 from aiperf.common.service.base_controller_service import BaseControllerService
 from aiperf.common.service_models import ServiceRunInfo
-from aiperf.common.worker_models import WorkerHealthMessage
 from aiperf.data_exporter.exporter_manager import ExporterManager
 from aiperf.progress.progress_logger import SimpleProgressLogger
 from aiperf.progress.progress_models import ProfileResultsMessage
@@ -184,23 +179,25 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
         """Setup subscriptions for the system controller."""
         # Subscribe to relevant messages
         subscribe_callbacks = [
+            # Specific handlers
             (MessageType.REGISTRATION, self._process_registration_message),
             (MessageType.HEARTBEAT, self._process_heartbeat_message),
             (MessageType.STATUS, self._process_status_message),
-            (MessageType.CREDITS_COMPLETE, self._process_credits_complete_message),
             (MessageType.PROCESSING_STATS, self._process_processing_stats_message),
             (MessageType.PROFILE_RESULTS, self._process_profile_results_message),
-            (MessageType.WORKER_HEALTH, self._process_worker_health_message),
-            (MessageType.NOTIFICATION, self._process_notification_message),
             (MessageType.COMMAND_RESPONSE, self._process_command_response_message),
+            # Generic handlers
+            (MessageType.CREDITS_COMPLETE, self._forward_generic_message),
+            (MessageType.WORKER_HEALTH, self._forward_generic_message),
+            (MessageType.NOTIFICATION, self._forward_generic_message),
             (
                 MessageType.CREDIT_PHASE_PROGRESS,
-                self._process_credit_phase_progress_message,
+                self._forward_generic_message,
             ),
-            (MessageType.CREDIT_PHASE_START, self._process_credit_phase_start_message),
+            (MessageType.CREDIT_PHASE_START, self._forward_generic_message),
             (
                 MessageType.CREDIT_PHASE_COMPLETE,
-                self._process_credit_phase_complete_message,
+                self._forward_generic_message,
             ),
         ]
         for message_type, callback in subscribe_callbacks:
@@ -384,17 +381,20 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
         self.profile_runner = ProfileRunner(self)
         await self.profile_runner.run()
 
-    async def _process_processing_stats_message(
-        self, message: RecordsProcessingStatsMessage
-    ) -> None:
-        """Process a profile stats message."""
-        self.logger.debug("Received profile stats: %s", message)
-        self.progress_tracker.on_phase_processing_stats(message)
-
+    async def _forward_generic_message(self, message: Message) -> None:
+        """Generic message handler for all messages that don't have or need a specific handler."""
+        self.logger.debug("SC: Received message: %s", message.message_type, message)
+        self.progress_tracker.on_message(message)
         if self.ui:
             await self.ui.on_message(message)
         if self.progress_logger:
             await self.progress_logger.on_message(message)
+
+    async def _process_processing_stats_message(
+        self, message: RecordsProcessingStatsMessage
+    ) -> None:
+        """Process a profile stats message."""
+        await self._forward_generic_message(message)
 
         if (
             self.progress_tracker.current_profile_run
@@ -410,51 +410,12 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
             if self.profile_runner:
                 await self.profile_runner.profile_completed()
 
-    async def _process_credit_phase_progress_message(
-        self, message: CreditPhaseProgressMessage
-    ) -> None:
-        """Process a credit phase progress message."""
-        self.logger.debug("Received credit phase progress: %s", message)
-        self.progress_tracker.on_credit_phase_progress(message)
-        if self.ui:
-            await self.ui.on_message(message)
-        if self.progress_logger:
-            await self.progress_logger.on_message(message)
-
-    async def _process_credit_phase_start_message(
-        self, message: CreditPhaseStartMessage
-    ) -> None:
-        """Process a credit phase start message."""
-        self.logger.debug("Received credit phase start: %s", message)
-        self.progress_tracker.on_credit_phase_start(message)
-        if self.ui:
-            await self.ui.on_message(message)
-        if self.progress_logger:
-            await self.progress_logger.on_message(message)
-
-    async def _process_credit_phase_complete_message(
-        self, message: CreditPhaseCompleteMessage
-    ) -> None:
-        """Process a credit phase complete message."""
-        self.logger.debug("Received credit phase complete: %s", message)
-        self.progress_tracker.on_credit_phase_complete(message)
-        if self.ui:
-            await self.ui.on_message(message)
-        if self.progress_logger:
-            await self.progress_logger.on_message(message)
-
     async def _process_profile_results_message(
         self, message: ProfileResultsMessage
     ) -> None:
         """Process a profile results message."""
         try:
-            self.logger.debug("Received profile results: %s", message)
-            self.progress_tracker.on_profile_results(message)
-            if self.ui:
-                await self.ui.on_message(message)
-                await self.ui.shutdown()
-            if self.progress_logger:
-                await self.progress_logger.on_message(message)
+            await self._forward_generic_message(message)
 
             # Export the results
             if self.user_config:
@@ -556,22 +517,6 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
                 )
             )
 
-    async def _process_credits_complete_message(
-        self, message: CreditsCompleteMessage
-    ) -> None:
-        """Process a credits complete message from a service. It will
-        update the state of the service with the service manager.
-
-        Args:
-            message: The credits complete message to process
-        """
-        service_id = message.service_id
-        self.logger.info(
-            "Received credits complete from %s for phase %s",
-            service_id,
-            message.phase_stats,
-        )
-
     async def _process_status_message(self, message: StatusMessage) -> None:
         """Process a status message from a service. It will
         update the state of the service with the service manager.
@@ -579,6 +524,8 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
         Args:
             message: The status message to process
         """
+        await self.service_manager.on_message(message)
+
         service_id = message.service_id
         service_type = message.service_type
         state = message.state
@@ -604,19 +551,6 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
 
         self.logger.debug("Updated state for %s to %s", service_id, state)
 
-    async def _process_worker_health_message(
-        self, message: WorkerHealthMessage
-    ) -> None:
-        """Process a worker health message."""
-        self.logger.debug("SC: Received worker health message: %s", message)
-        self.progress_tracker.on_worker_health(message)
-        if self.ui:
-            await self.ui.on_message(message)
-
-    async def _process_notification_message(self, message: NotificationMessage) -> None:
-        """Process a notification message."""
-        self.logger.info("SC: Received notification message: %s", message)
-
     async def _process_command_response_message(
         self, message: CommandResponseMessage
     ) -> None:
@@ -637,7 +571,7 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
         self,
         target_service_id: str | None,
         command: CommandType,
-        data: BaseModel | None = None,
+        data: AIPerfBaseModel | None = None,
         target_service_type: ServiceType | None = None,
     ) -> None:
         """Send a command to a specific service.

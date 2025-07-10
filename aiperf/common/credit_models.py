@@ -215,8 +215,13 @@ class CreditReturnMessage(BaseServiceMessage):
     )
     delayed_ns: int | None = Field(
         default=None,
+        ge=1,
         description="The number of nanoseconds the credit drop was delayed by, or None if the credit was sent on time.",
     )
+
+    @property
+    def delayed(self) -> bool:
+        return self.delayed_ns is not None
 
 
 class CreditsCompleteMessage(BaseServiceMessage):

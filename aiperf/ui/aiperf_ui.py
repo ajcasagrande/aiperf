@@ -4,7 +4,7 @@ import logging
 
 from aiperf.common.enums import MessageType
 from aiperf.common.hooks import AIPerfLifecycleMixin, on_start, on_stop
-from aiperf.common.messages import BaseServiceMessage
+from aiperf.common.messages import Message
 from aiperf.progress.progress_tracker import ProgressTracker
 from aiperf.ui.profile_progress_ui import ProfileProgressElement
 from aiperf.ui.rich_dashboard import AIPerfRichDashboard
@@ -33,7 +33,7 @@ class AIPerfUI(AIPerfLifecycleMixin):
         """Stop the UI."""
         await self.dashboard.shutdown()
 
-    async def on_message(self, message: BaseServiceMessage) -> None:
+    async def on_message(self, message: Message) -> None:
         """Handle a message from the system controller."""
         _message_mappings = {
             MessageType.CREDIT_PHASE_PROGRESS: ProfileProgressElement.key,
