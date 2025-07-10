@@ -12,7 +12,9 @@ from aiperf.common.worker_models import WorkerHealthMessage
 
 
 class WorkerCommunicationsProtocol(Protocol):
-    """Protocol for a worker service that handles communications."""
+    """Protocol for a worker service that handles communications.
+    This abstracts away the communication layer from the workers themselves.
+    """
 
     def register_credit_drop_handler(
         self,

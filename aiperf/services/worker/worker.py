@@ -131,12 +131,10 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
 
     @property
     def service_type(self) -> ServiceType:
-        """The type of service."""
         return ServiceType.WORKER
 
     @on_init
     async def _do_initialize(self) -> None:
-        """Initialize worker-specific components."""
         self.logger.debug("Initializing worker")
 
         await self.comms.initialize()
@@ -152,12 +150,6 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
         pass
 
     async def _process_credit_drop(self, message: CreditDropMessage) -> None:
-        """Process a credit drop message.
-
-        Args:
-            message: The message received from the credit drop
-        """
-
         # NOTE: This function MUST NOT return until the credit drop is processed,
         #       that way the max concurrency is respected via the semaphore
 
@@ -286,8 +278,6 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
             await asyncio.sleep(self.health_check_interval)
 
     def create_health_message(self) -> WorkerHealthMessage:
-        """Create a health message for the worker."""
-
         return WorkerHealthMessage(
             service_id=self.service_id,
             process=self.get_process_health(),
@@ -296,7 +286,6 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
 
     @on_stop
     async def _do_shutdown(self) -> None:
-        """Shutdown the worker."""
         self.logger.debug("Shutting down worker")
         self.stop_event.set()
         if self.comms:
@@ -306,8 +295,6 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
 
 
 def main() -> None:
-    """Main entry point for the worker process."""
-
     from aiperf.common.bootstrap import bootstrap_and_run_service
 
     bootstrap_and_run_service(Worker)
