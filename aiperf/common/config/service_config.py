@@ -7,7 +7,7 @@ from pydantic import BeforeValidator, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from aiperf.common.config.config_defaults import ServiceDefaults
-from aiperf.common.config.config_validators import parse_str_or_set
+from aiperf.common.config.config_validators import parse_str_or_list
 from aiperf.common.config.zmq_config import (
     BaseZMQCommunicationConfig,
     ZMQIPCConfig,
@@ -191,10 +191,10 @@ class ServiceConfig(BaseSettings):
         cyclopts.Parameter(
             name=("--debug-service"),
         ),
-        BeforeValidator(parse_str_or_set),
         BeforeValidator(
             lambda v: {
-                ServiceType(service_type.replace("-", "_")) for service_type in v
+                ServiceType(service_type.replace("-", "_"))
+                for service_type in parse_str_or_list(v)
             }
         ),
     ] = ServiceDefaults.DEBUG_SERVICES
