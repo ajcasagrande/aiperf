@@ -111,10 +111,9 @@ def main(
     if disable_ui:
         _setup_logging(cli_config.service_config)
     else:
-        from aiperf.common.logging import setup_global_log_queue
+        from aiperf.common.logging import get_global_log_queue
 
-        # Set up the global log queue
-        log_queue = setup_global_log_queue()
+        log_queue = get_global_log_queue()
 
     # Load configuration
     if cli_config.config:

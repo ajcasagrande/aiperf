@@ -59,9 +59,8 @@ class WorkerManager(BaseComponentService):
         self.worker_health: dict[str, WorkerHealthMessage] = {}
 
         self.cpu_count = multiprocessing.cpu_count()
-        self.logger.info("Detected %s CPU cores/threads", self.cpu_count)
+        self.logger.debug("Detected %s CPU cores/threads", self.cpu_count)
 
-        # TODO: Need to implement some sort of max workers
         self.max_concurrency = self.user_config.load.concurrency
         self.max_workers = self.service_config.max_workers
         if self.max_workers is None:
@@ -221,8 +220,6 @@ class WorkerManager(BaseComponentService):
 
 
 def main() -> None:
-    """Main entry point for the worker manager."""
-
     from aiperf.common.bootstrap import bootstrap_and_run_service
 
     bootstrap_and_run_service(WorkerManager)

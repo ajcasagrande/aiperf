@@ -13,6 +13,7 @@ from aiperf.common.enums import (
     ModelSelectionStrategy,
     RequestRateMode,
     ServiceRunType,
+    TimingMode,
 )
 
 
@@ -146,6 +147,7 @@ class ServiceDefaults:
     MIN_WORKERS = None
     MAX_WORKERS = None
     LOG_LEVEL = "INFO"
+    LOG_PATH = None
     DISABLE_UI = False
     ENABLE_UVLOOP = True
     RESULT_PARSER_SERVICE_COUNT = 2
@@ -161,6 +163,7 @@ class LoadGeneratorDefaults:
     WARMUP_REQUEST_COUNT = 0
     CONCURRENCY_RAMP_UP_TIME = None
     REQUEST_RATE_MODE = RequestRateMode.POISSON
+    TIMING_MODE = TimingMode.CONCURRENCY
 
 
 @dataclass(frozen=True)

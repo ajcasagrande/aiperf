@@ -12,5 +12,5 @@ __all__ = [
 #     DaskWorker,
 #     DaskWorkerManager,
 # )
-from aiperf.services.worker.worker import Worker
-from aiperf.services.worker.worker_manager import WorkerManager
+from aiperf.workers.worker import Worker
+from aiperf.workers.worker_manager import WorkerManager

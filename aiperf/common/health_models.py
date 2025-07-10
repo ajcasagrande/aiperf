@@ -6,7 +6,7 @@ from pydantic import Field
 
 from aiperf.common.pydantic_utils import AIPerfBaseModel
 
-# TODO: These can be different for each platform. (below is linux specific)
+# TODO: These can be potentially different for each platform. (below is linux)
 IOCounters = namedtuple(
     "IOCounters",
     [

@@ -686,7 +686,7 @@ class EndpointType(CaseInsensitiveStrEnum):
 
 
 class RequestRateMode(CaseInsensitiveStrEnum):
-    """The different ways the request rate scheduler should generate requests."""
+    """The different ways the RequestRateStrategy should generate requests."""
 
     CONSTANT = "constant"
     """Generate requests at a constant rate."""
@@ -746,3 +746,16 @@ class BenchmarkSuiteType(CaseInsensitiveStrEnum):
 
     # CUSTOM = "custom"
     # """User defined suite type. TBD"""
+
+
+class TimingMode(CaseInsensitiveStrEnum):
+    """The different ways the TimingManager should generate requests."""
+
+    FIXED_SCHEDULE = "fixed_schedule"
+    """A mode where the TimingManager will send requests according to a fixed schedule."""
+
+    CONCURRENCY = "concurrency"
+    """A mode where the TimingManager will maintain a continuous stream of concurrent requests."""
+
+    REQUEST_RATE = "request_rate"
+    """A mode where the TimingManager will send requests at either a constant request rate or based on a poisson distribution."""

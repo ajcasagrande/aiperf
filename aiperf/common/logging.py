@@ -1,8 +1,9 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-import logging
+import logging.handlers
 import multiprocessing
 import queue
+from functools import lru_cache
 from pathlib import Path
 
 from rich.logging import RichHandler
@@ -10,35 +11,23 @@ from rich.logging import RichHandler
 from aiperf.common.config.config_defaults import ServiceDefaults
 from aiperf.common.config.service_config import ServiceConfig
 
-# Global log queue for multiprocessing
-_GLOBAL_LOG_QUEUE: "multiprocessing.Queue | None" = None
+LOG_QUEUE_MAXSIZE = 1000
+DEFAULT_LOG_MAX_BYTES = 5 * 1024 * 1024  # 5MB per log file
+DEFAULT_LOG_BACKUP_COUNT = 10  # Keep 10 backup files (total ~50MB)
+# TODO: Use config to determine the log folder based on artifacts directory.
+DEFAULT_LOG_FOLDER = Path("artifacts/logs")
 
 
-def setup_global_log_queue() -> multiprocessing.Queue:
-    """Set up a global log queue that can be used by all processes.
-
-    Returns:
-        The global multiprocessing queue for logging.
-    """
-    global _GLOBAL_LOG_QUEUE
-    if _GLOBAL_LOG_QUEUE is None:
-        _GLOBAL_LOG_QUEUE = multiprocessing.Queue(maxsize=1000)
-    return _GLOBAL_LOG_QUEUE
-
-
-def get_global_log_queue() -> "multiprocessing.Queue | None":
-    """Get the global log queue if it exists.
-
-    Returns:
-        The global log queue or None if not set up.
-    """
-    return _GLOBAL_LOG_QUEUE
+@lru_cache(maxsize=1)
+def get_global_log_queue() -> multiprocessing.Queue:
+    """Get the global log queue. Will create a new queue if it doesn't exist."""
+    return multiprocessing.Queue(maxsize=LOG_QUEUE_MAXSIZE)
 
 
 def setup_child_process_logging(
     log_queue: "multiprocessing.Queue | None" = None,
     service_id: str | None = None,
-    service_config: "ServiceConfig | None" = None,
+    service_config: ServiceConfig | None = None,
 ) -> None:
     """Set up logging for a child process to send logs to the main process.
 
@@ -47,26 +36,23 @@ def setup_child_process_logging(
     Args:
         log_queue: The multiprocessing queue to send logs to. If None, tries to get the global queue.
         service_id: The ID of the service to log under. If None, logs will be under the process name.
-        service_config: The service configuration to log under. If None, logs will be under the process name.
+        service_config: The service configuration used to determine the log level.
     """
     if log_queue is None:
         log_queue = get_global_log_queue()
 
-    if log_queue is None:
-        return
-
     root_logger = logging.getLogger()
-    level = (
-        service_config.log_level.upper()
-        if service_config
-        else ServiceDefaults.LOG_LEVEL.upper()
-    )
-    if service_config and service_id:
-        for service_type in service_config.debug_services or set():
-            # for cases of service_id being "worker_xxxxxx" and service_type being "worker",
-            if service_id.startswith(service_type.value):
-                level = logging.DEBUG
-                break
+    level = ServiceDefaults.LOG_LEVEL.upper()
+    if service_config:
+        level = service_config.log_level.upper()
+
+        if service_id:
+            for service_type in service_config.debug_services or set():
+                # for cases of service_id being "worker_xxxxxx" and service_type being "worker",
+                # we want to set the log level to debug
+                if service_id.startswith(service_type.value):
+                    level = logging.DEBUG
+                    break
 
     # Set the root logger level to ensure logs are passed to handlers
     root_logger.setLevel(level)
@@ -80,17 +66,33 @@ def setup_child_process_logging(
     queue_handler.setLevel(level)
     root_logger.addHandler(queue_handler)
 
-    # Enable file logging for services
-    # TODO: Use config to determine if file logging is enabled and the folder path.
-    log_folder = Path("artifacts/logs")
-    log_folder.mkdir(parents=True, exist_ok=True)
-    file_handler = logging.FileHandler(log_folder / "aiperf.log")
-    file_handler.setLevel(level)
-    file_handler.formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
+    file_handler = create_rolling_file_handler(level)
     root_logger.addHandler(file_handler)
+
+
+def create_rolling_file_handler(
+    level: str | int,
+    max_bytes: int = DEFAULT_LOG_MAX_BYTES,
+    backup_count: int = DEFAULT_LOG_BACKUP_COUNT,
+) -> logging.handlers.RotatingFileHandler:
+    """Configure a rolling file handler for logging."""
+
+    # TODO: Use config to determine if file logging is enabled and the folder path.
+    log_folder = DEFAULT_LOG_FOLDER
+    log_folder.mkdir(parents=True, exist_ok=True)
+    log_file_path = log_folder / "aiperf.log"
+
+    file_handler = logging.handlers.RotatingFileHandler(
+        log_file_path, maxBytes=max_bytes, backupCount=backup_count, encoding="utf-8"
+    )
+    file_handler.setLevel(level)
+    file_handler.setFormatter(
+        logging.Formatter(
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+        )
+    )
+    return file_handler
 
 
 class MultiProcessLogHandler(RichHandler):
@@ -122,5 +124,5 @@ class MultiProcessLogHandler(RichHandler):
             # Drop logs if queue is full to prevent blocking
             pass
         except Exception:
-            # Ignore errors to prevent logging from breaking the application
+            # Do not log to prevent recursion
             pass
