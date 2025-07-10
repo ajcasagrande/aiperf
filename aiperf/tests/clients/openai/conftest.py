@@ -7,10 +7,13 @@ import pytest
 
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
 from aiperf.clients.openai.openai_aiohttp import OpenAIClientAioHttp
-from aiperf.clients.openai.openai_convert import (
+from aiperf.clients.openai.openai_chat import (
     OpenAIChatCompletionRequestConverter,
+)
+from aiperf.clients.openai.openai_completions import (
     OpenAICompletionRequestConverter,
-    OpenAIEmbeddingsRequestConverter,
+)
+from aiperf.clients.openai.openai_responses import (
     OpenAIResponsesRequestConverter,
 )
 from aiperf.common.enums import EndpointType
@@ -31,12 +34,6 @@ def openai_chat_converter():
 def openai_completion_converter():
     """OpenAI Completion request converter for testing."""
     return OpenAICompletionRequestConverter()
-
-
-@pytest.fixture
-def openai_embeddings_converter():
-    """OpenAI Embeddings request converter for testing."""
-    return OpenAIEmbeddingsRequestConverter()
 
 
 @pytest.fixture
@@ -101,27 +98,6 @@ def completions_endpoint_info():
             input=Mock(
                 headers={"Custom-Header": "test-value"}, extra={"max_tokens": 100}
             ),
-        )
-    )
-
-
-@pytest.fixture
-def embeddings_endpoint_info():
-    """ModelEndpointInfo for OpenAI Embeddings endpoint."""
-    return ModelEndpointInfo.from_user_config(
-        Mock(
-            model_names=["text-embedding-ada-002"],
-            endpoint=Mock(
-                type=EndpointType.OPENAI_EMBEDDINGS,
-                url="https://api.openai.com",
-                custom=None,
-                streaming=False,
-                timeout=30.0,
-                api_key="test-api-key",
-                model_selection_strategy="round_robin",
-                url_params={"dimensions": 1536, "encoding_format": "float"},
-            ),
-            input=Mock(headers={"Custom-Header": "test-value"}, extra={}),
         )
     )
 
