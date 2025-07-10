@@ -28,8 +28,11 @@ class OpenAICompletionRequestConverter(RequestConverterProtocol[dict[str, Any]])
     ) -> dict[str, Any]:
         """Format payload for a completion request."""
 
+        # TODO: Do we need to support image and audio inputs?
+        prompts = [content for text in turn.text for content in text.content if content]
+
         payload = {
-            "prompt": turn.text,
+            "prompt": prompts,
             "model": model_endpoint.primary_model_name,
             "stream": model_endpoint.endpoint.streaming,
         }

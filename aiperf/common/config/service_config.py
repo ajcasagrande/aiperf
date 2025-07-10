@@ -183,7 +183,7 @@ class ServiceConfig(BaseSettings):
     ] = ServiceDefaults.ENABLE_YAPPI
 
     debug_services: Annotated[
-        set[ServiceType],
+        set[ServiceType] | None,
         Field(
             description="List of services to debug. If provided, the service will be started with debug logging enabled. "
             "Can be a comma-separated list or a single service type.",
@@ -196,5 +196,7 @@ class ServiceConfig(BaseSettings):
                 ServiceType(service_type.replace("-", "_"))
                 for service_type in parse_str_or_list(v)
             }
+            if v is not None
+            else set()
         ),
     ] = ServiceDefaults.DEBUG_SERVICES

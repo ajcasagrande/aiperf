@@ -150,7 +150,7 @@ class ServiceDefaults:
     ENABLE_UVLOOP = True
     RESULT_PARSER_SERVICE_COUNT = 2
     ENABLE_YAPPI = False
-    DEBUG_SERVICES = set()
+    DEBUG_SERVICES = None
 
 
 @dataclass(frozen=True)

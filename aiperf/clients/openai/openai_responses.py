@@ -28,18 +28,18 @@ class OpenAIResponsesRequestConverter(RequestConverterProtocol[dict[str, Any]]):
     ) -> dict[str, Any]:
         """Format payload for a responses request."""
 
+        # TODO: Add support for image and audio inputs.
+        prompts = [content for text in turn.text for content in text.content if content]
+
         payload = {
-            "input": turn.text,
+            "input": prompts,
             "model": model_endpoint.primary_model_name,
-            "max_output_tokens": model_endpoint.endpoint.url_params.get(
-                "max_output_tokens", 1000
-            )
-            if model_endpoint.endpoint.url_params
-            else 1000,
+            "max_output_tokens": model_endpoint.endpoint.max_tokens,
             "stream": model_endpoint.endpoint.streaming,
         }
 
         if model_endpoint.endpoint.extra:
+            # TODO: How do we handle max_output_tokens?
             payload.update(model_endpoint.endpoint.extra)
 
         self.logger.debug("Formatted payload: %s", payload)

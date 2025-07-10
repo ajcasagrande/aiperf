@@ -12,6 +12,8 @@ from aiperf.clients.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.dataset_models import Turn
 from aiperf.common.enums import EndpointType
 
+DEFAULT_ROLE = "user"
+
 
 @RequestConverterFactory.register(EndpointType.OPENAI_CHAT_COMPLETIONS)
 class OpenAIChatCompletionRequestConverter(RequestConverterProtocol[dict[str, Any]]):
@@ -28,9 +30,10 @@ class OpenAIChatCompletionRequestConverter(RequestConverterProtocol[dict[str, An
     ) -> dict[str, Any]:
         """Format payload for a chat completion request."""
 
+        # TODO: Do we need to support image and audio inputs?
         messages = [
             {
-                "role": text.role or "user",
+                "role": turn.role or DEFAULT_ROLE,
                 "name": text.name,
                 "content": content,
             }

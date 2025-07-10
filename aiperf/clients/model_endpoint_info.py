@@ -66,9 +66,6 @@ class EndpointInfo(AIPerfBaseModel):
         default=None,
         description="Custom endpoint to use for the models.",
     )
-    url_params: dict[str, Any] | None = Field(
-        default=None, description="Custom URL parameters to use for the endpoint."
-    )
     streaming: bool = Field(
         default=False,
         description="Whether the endpoint supports streaming.",
