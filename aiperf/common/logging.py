@@ -10,12 +10,11 @@ from rich.logging import RichHandler
 
 from aiperf.common.config.config_defaults import ServiceDefaults
 from aiperf.common.config.service_config import ServiceConfig
+from aiperf.common.config.user_config import UserConfig
 
 LOG_QUEUE_MAXSIZE = 1000
 DEFAULT_LOG_MAX_BYTES = 5 * 1024 * 1024  # 5MB per log file
 DEFAULT_LOG_BACKUP_COUNT = 10  # Keep 10 backup files (total ~50MB)
-# TODO: Use config to determine the log folder based on artifacts directory.
-DEFAULT_LOG_FOLDER = Path("artifacts/logs")
 
 
 @lru_cache(maxsize=1)
@@ -28,6 +27,7 @@ def setup_child_process_logging(
     log_queue: "multiprocessing.Queue | None" = None,
     service_id: str | None = None,
     service_config: ServiceConfig | None = None,
+    user_config: UserConfig | None = None,
 ) -> None:
     """Set up logging for a child process to send logs to the main process.
 
@@ -37,6 +37,7 @@ def setup_child_process_logging(
         log_queue: The multiprocessing queue to send logs to. If None, tries to get the global queue.
         service_id: The ID of the service to log under. If None, logs will be under the process name.
         service_config: The service configuration used to determine the log level.
+        user_config: The user configuration used to determine the log folder.
     """
     if log_queue is None:
         log_queue = get_global_log_queue()
@@ -66,19 +67,20 @@ def setup_child_process_logging(
     queue_handler.setLevel(level)
     root_logger.addHandler(queue_handler)
 
-    file_handler = create_rolling_file_handler(level)
+    file_handler = create_rolling_file_handler(
+        user_config.output.artifact_directory, level
+    )
     root_logger.addHandler(file_handler)
 
 
 def create_rolling_file_handler(
+    log_folder: Path,
     level: str | int,
     max_bytes: int = DEFAULT_LOG_MAX_BYTES,
     backup_count: int = DEFAULT_LOG_BACKUP_COUNT,
 ) -> logging.handlers.RotatingFileHandler:
     """Configure a rolling file handler for logging."""
 
-    # TODO: Use config to determine if file logging is enabled and the folder path.
-    log_folder = DEFAULT_LOG_FOLDER
     log_folder.mkdir(parents=True, exist_ok=True)
     log_file_path = log_folder / "aiperf.log"
 

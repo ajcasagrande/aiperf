@@ -92,11 +92,13 @@ def bootstrap_and_run_service(
         if log_queue is not None:
             from aiperf.common.logging import setup_child_process_logging
 
-            setup_child_process_logging(log_queue, service.service_id, service_config)
+            setup_child_process_logging(
+                log_queue, service.service_id, service_config, user_config
+            )
 
         if user_config.input.random_seed is not None:
             random.seed(user_config.input.random_seed)
-            # TODO: Add support for numpy random seed ?
+            # TODO: Should we add support for numpy random seed?
             # https://numpy.org/doc/stable/reference/random/index.html#random-quick-start
             # import numpy as np
             # np.random.seed(user_config.input.random_seed)
