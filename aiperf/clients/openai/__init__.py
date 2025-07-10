@@ -12,9 +12,15 @@ __all__ = [
 from aiperf.clients.openai.openai_aiohttp import (
     OpenAIClientAioHttp,
 )
-from aiperf.clients.openai.openai_convert import (
+from aiperf.clients.openai.openai_chat import (
     OpenAIChatCompletionRequestConverter,
+)
+from aiperf.clients.openai.openai_completions import (
     OpenAICompletionRequestConverter,
+)
+from aiperf.clients.openai.openai_embeddings import (
     OpenAIEmbeddingsRequestConverter,
+)
+from aiperf.clients.openai.openai_responses import (
     OpenAIResponsesRequestConverter,
 )
