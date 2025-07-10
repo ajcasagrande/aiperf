@@ -22,8 +22,9 @@ from aiperf.common.record_models import (
 @InferenceClientFactory.register_all(
     EndpointType.OPENAI_CHAT_COMPLETIONS,
     EndpointType.OPENAI_COMPLETIONS,
-    EndpointType.OPENAI_EMBEDDINGS,
+    # EndpointType.OPENAI_EMBEDDINGS,
     EndpointType.OPENAI_RESPONSES,
+    # EndpointType.OPENAI_MULTIMODAL,
 )
 class OpenAIClientAioHttp(AioHttpClientMixin, ABC):
     """Inference client for OpenAI based requests using aiohttp."""
@@ -35,12 +36,17 @@ class OpenAIClientAioHttp(AioHttpClientMixin, ABC):
 
     def get_headers(self, model_endpoint: ModelEndpointInfo) -> dict[str, str]:
         """Get the headers for the given endpoint."""
+
+        accept = (
+            "text/event-stream"
+            if model_endpoint.endpoint.streaming
+            else "application/json"
+        )
+
         headers = {
             "User-Agent": "aiperf/1.0",
             "Content-Type": "application/json",
-            "Accept": "text/event-stream"
-            if model_endpoint.endpoint.streaming
-            else "application/json",
+            "Accept": accept,
         }
         if model_endpoint.endpoint.api_key:
             headers["Authorization"] = f"Bearer {model_endpoint.endpoint.api_key}"

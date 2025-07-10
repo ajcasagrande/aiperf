@@ -13,6 +13,7 @@ from aiperf.common.dataset_models import Turn
 from aiperf.common.enums import EndpointType
 
 
+# TODO: Not fully implemented yet.
 @RequestConverterFactory.register(EndpointType.OPENAI_RESPONSES)
 class OpenAIResponsesRequestConverter(RequestConverterProtocol[dict[str, Any]]):
     """Request converter for OpenAI Responses requests."""
@@ -31,16 +32,18 @@ class OpenAIResponsesRequestConverter(RequestConverterProtocol[dict[str, Any]]):
         # TODO: Add support for image and audio inputs.
         prompts = [content for text in turn.text for content in text.content if content]
 
+        extra = model_endpoint.endpoint.extra or {}
+
         payload = {
             "input": prompts,
             "model": model_endpoint.primary_model_name,
-            "max_output_tokens": model_endpoint.endpoint.max_tokens,
+            # TODO: How do we handle max_output_tokens? Should be provided by OSL logic
+            "max_output_tokens": extra.pop("max_output_tokens", None),
             "stream": model_endpoint.endpoint.streaming,
         }
 
-        if model_endpoint.endpoint.extra:
-            # TODO: How do we handle max_output_tokens?
-            payload.update(model_endpoint.endpoint.extra)
+        if extra:
+            payload.update(extra)
 
         self.logger.debug("Formatted payload: %s", payload)
         return payload

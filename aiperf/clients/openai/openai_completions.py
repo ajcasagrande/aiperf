@@ -13,6 +13,7 @@ from aiperf.common.dataset_models import Turn
 from aiperf.common.enums import EndpointType
 
 
+# TODO: Not fully implemented yet.
 @RequestConverterFactory.register(EndpointType.OPENAI_COMPLETIONS)
 class OpenAICompletionRequestConverter(RequestConverterProtocol[dict[str, Any]]):
     """Request converter for OpenAI completion requests."""
@@ -31,14 +32,16 @@ class OpenAICompletionRequestConverter(RequestConverterProtocol[dict[str, Any]])
         # TODO: Do we need to support image and audio inputs?
         prompts = [content for text in turn.text for content in text.content if content]
 
+        extra = model_endpoint.endpoint.extra or {}
+
         payload = {
             "prompt": prompts,
             "model": model_endpoint.primary_model_name,
             "stream": model_endpoint.endpoint.streaming,
         }
 
-        if model_endpoint.endpoint.extra:
-            payload.update(model_endpoint.endpoint.extra)
+        if extra:
+            payload.update(extra)
 
         self.logger.debug("Formatted payload: %s", payload)
         return payload
