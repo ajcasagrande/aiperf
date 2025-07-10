@@ -125,16 +125,21 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
         pass
 
     async def _process_credit_drop(self, message: CreditDropMessage) -> None:
-        # NOTE: This function MUST NOT return until the credit drop is processed,
-        #       that way the max concurrency is respected via the semaphore
+        """Process a credit drop message.
 
-        # TODO: Add tests to ensure that the above is never violated in the future
+        - Every credit must be returned after processing
+        - All results or errors should be converted to a RequestRecord and pushed to the inference results client.
+
+        NOTE: This function MUST NOT return until the credit drop is fully processed.
+        This is to ensure that the max concurrency is respected via the semaphore of the pull client.
+        """
+        # TODO: Add tests to ensure that the above note is never violated in the future
 
         self.logger.debug("Processing credit drop: %s", message)
 
         record: RequestRecord = RequestRecord()
         try:
-            record = await self._execute_single_credit(message)
+            record = await self._execute_single_credit(message, time.time_ns())
 
         except Exception as e:
             self.logger.exception("Error processing credit drop: %s", e)
@@ -172,7 +177,9 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
                     message=return_message,
                 )
 
-    async def _execute_single_credit(self, message: CreditDropMessage) -> RequestRecord:
+    async def _execute_single_credit(
+        self, message: CreditDropMessage, timestamp_ns: int
+    ) -> RequestRecord:
         """Run a credit task for a single credit."""
         self.task_stats[message.credit_phase].total += 1
 
@@ -193,28 +200,33 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
 
         if isinstance(response, ErrorMessage):
             return RequestRecord(
-                timestamp_ns=time.time_ns(),
+                timestamp_ns=timestamp_ns,
                 start_perf_ns=time.perf_counter_ns(),
                 end_perf_ns=time.perf_counter_ns(),
                 error=response.error,
             )
 
-        return await self._call_inference_api(message, response.conversation.turns[0])
+        return await self._call_inference_api(
+            message, response.conversation.turns[0], timestamp_ns
+        )
 
     async def _call_inference_api(
-        self, message: CreditDropMessage, turn: Turn
+        self, message: CreditDropMessage, turn: Turn, timestamp_ns: int
     ) -> RequestRecord:
         """Make a single call to the inference API. Will return an error record if the call fails."""
+        self.logger.debug("Calling inference API")
+        formatted_payload = None
         try:
-            self.logger.debug("Calling inference API")
-
             # Format payload for the API request
             formatted_payload = await self.request_converter.format_payload(
                 model_endpoint=self.model_endpoint,
                 turn=turn,
             )
 
-            # Wait for the credit drop time if it is in the future
+            # NOTE: Current implementation of the TimingManager bypasses this, it is for future use.
+            # Wait for the credit drop time if it is in the future.
+            # Note that we check this after we have retrieved the data from the dataset, to ensure
+            # that we are fully ready to go.
             delayed_ns = None
             drop_ns = message.credit_drop_ns
             now_ns = time.time_ns()
@@ -239,6 +251,11 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
                 e,
             )
             return RequestRecord(
+                # Use the formatted payload if it is available, otherwise use the turn.
+                request=formatted_payload or turn,
+                timestamp_ns=timestamp_ns,
+                start_perf_ns=time.perf_counter_ns(),
+                end_perf_ns=time.perf_counter_ns(),
                 error=ErrorDetails.from_exception(e),
             )
 

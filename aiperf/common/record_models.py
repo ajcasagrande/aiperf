@@ -188,7 +188,8 @@ class RequestRecord(AIPerfBaseModel):
         default=None,
         description="The HTTP status code of the response.",
     )
-    # Note: we need to use SerializeAsAny to allow for generic subclass support
+    # NOTE: We need to use SerializeAsAny to allow for generic subclass support
+    # NOTE: Order of the types is important, as that is the order they are type checked.
     responses: SerializeAsAny[
         list[SSEMessage | TextResponse | InferenceServerResponse | Any]
     ] = Field(
