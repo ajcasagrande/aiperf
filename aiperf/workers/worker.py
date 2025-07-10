@@ -3,7 +3,6 @@
 
 import asyncio
 import logging
-import os
 import sys
 import time
 
@@ -11,9 +10,6 @@ from aiperf.clients import InferenceClientFactory
 from aiperf.clients.client_interfaces import RequestConverterFactory
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.comms.base import (
-    BaseCommunication,
-    CommunicationFactory,
-    PubClientProtocol,
     PullClientProtocol,
     PushClientProtocol,
     RequestClientProtocol,
@@ -53,9 +49,8 @@ from aiperf.common.worker_models import WorkerHealthMessage, WorkerPhaseTaskStat
 
 @ServiceFactory.register(ServiceType.WORKER)
 class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
-    """Worker is primarily responsible for converting the data into the appropriate
-    format for the interface being used by the server. Also responsible for managing
-    the conversation between turns.
+    """Worker is primarily responsible for making API calls to the inference server.
+    It also manages the conversation between turns and returns the results to the Inference Results Parsers.
     """
 
     def __init__(
@@ -73,9 +68,7 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
         self.logger = logging.getLogger(self.service_id)
         self.logger.debug("Initializing worker process: %s", self.process.pid)
 
-        self.health_check_interval = int(
-            os.getenv("AIPERF_WORKER_HEALTH_CHECK_INTERVAL", 1)
-        )
+        self.health_check_interval = self.service_config.worker_health_check_interval
 
         self.task_stats: dict[CreditPhase, WorkerPhaseTaskStats] = {
             phase: WorkerPhaseTaskStats(
@@ -85,12 +78,6 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
             )
             for phase in CreditPhase
         }
-
-        self.stop_event: asyncio.Event = asyncio.Event()
-        self.comms: BaseCommunication = CommunicationFactory.create_instance(
-            self.service_config.comm_backend,
-            config=self.service_config.comm_config,
-        )
 
         self.credit_drop_client: PullClientProtocol = self.comms.create_pull_client(
             CommunicationClientAddressType.CREDIT_DROP,
@@ -107,9 +94,6 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
             self.comms.create_request_client(
                 CommunicationClientAddressType.DATASET_MANAGER_PROXY_FRONTEND,
             )
-        )  # type: ignore
-        self.pub_client: PubClientProtocol = self.comms.create_pub_client(
-            CommunicationClientAddressType.EVENT_BUS_PROXY_FRONTEND,
         )  # type: ignore
 
         self.model_endpoint = ModelEndpointInfo.from_user_config(self.user_config)
@@ -136,8 +120,6 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
     @on_init
     async def _do_initialize(self) -> None:
         self.logger.debug("Initializing worker")
-
-        await self.comms.initialize()
 
         await self.credit_drop_client.register_pull_callback(
             MessageType.CREDIT_DROP, self._process_credit_drop
@@ -287,9 +269,6 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
     @on_stop
     async def _do_shutdown(self) -> None:
         self.logger.debug("Shutting down worker")
-        self.stop_event.set()
-        if self.comms:
-            await self.comms.shutdown()
         if self.inference_client:
             await self.inference_client.close()
 

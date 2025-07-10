@@ -153,6 +153,7 @@ class ServiceDefaults:
     RESULT_PARSER_SERVICE_COUNT = 2
     ENABLE_YAPPI = False
     DEBUG_SERVICES = None
+    WORKER_HEALTH_CHECK_INTERVAL = 1.0
 
 
 @dataclass(frozen=True)

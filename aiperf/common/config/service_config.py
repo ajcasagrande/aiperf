@@ -197,3 +197,13 @@ class ServiceConfig(BaseSettings):
         ),
         BeforeValidator(parse_service_types),
     ] = ServiceDefaults.DEBUG_SERVICES
+
+    worker_health_check_interval: Annotated[
+        float,
+        Field(
+            description="Interval in seconds between health checks for workers",
+        ),
+        cyclopts.Parameter(
+            name=("--worker-health-check-interval"),
+        ),
+    ] = ServiceDefaults.WORKER_HEALTH_CHECK_INTERVAL
