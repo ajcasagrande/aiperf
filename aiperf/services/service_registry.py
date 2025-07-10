@@ -2,16 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 """
 Service Registry for tracking and managing services by type and ID.
-
-This module provides a centralized registry for tracking services, making it easier
-to look up services by type or ID, and manage service lifecycle.
 """
 
 import logging
 import time
 
 from aiperf.common.enums import ServiceRegistrationStatus, ServiceState, ServiceType
-from aiperf.common.service_models import ServiceRunInfo
+from aiperf.common.service_models import ServiceRegistrationInfo
 
 
 class ServiceRegistry:
@@ -26,9 +23,11 @@ class ServiceRegistry:
         self.logger = logging.getLogger(self.__class__.__name__)
 
         # services organized by type
-        self._services_by_type: dict[ServiceType, dict[str, ServiceRunInfo]] = {}
+        self._services_by_type: dict[
+            ServiceType, dict[str, ServiceRegistrationInfo]
+        ] = {}
         # direct lookup by service ID
-        self._services_by_id: dict[str, ServiceRunInfo] = {}
+        self._services_by_id: dict[str, ServiceRegistrationInfo] = {}
 
     def register_service(
         self,
@@ -36,13 +35,13 @@ class ServiceRegistry:
         service_type: ServiceType,
         state: ServiceState = ServiceState.READY,
         registration_status: ServiceRegistrationStatus = ServiceRegistrationStatus.REGISTERED,
-    ) -> ServiceRunInfo:
+    ) -> ServiceRegistrationInfo:
         """Register a new service in the registry."""
         if service_id in self._services_by_id:
             raise ValueError(f"Service {service_id} is already registered")
 
         current_time = time.time_ns()
-        service_info = ServiceRunInfo(
+        service_info = ServiceRegistrationInfo(
             registration_status=registration_status,
             service_type=service_type,
             service_id=service_id,
@@ -51,7 +50,7 @@ class ServiceRegistry:
             last_seen=current_time,
         )
 
-        # Add to both indexes
+        # add to both indexes
         if service_type not in self._services_by_type:
             self._services_by_type[service_type] = {}
 
@@ -72,11 +71,11 @@ class ServiceRegistry:
         service_info = self._services_by_id[service_id]
         service_type = service_info.service_type
 
-        # Remove from both indexes
+        # remove from both indexes
         del self._services_by_id[service_id]
         del self._services_by_type[service_type][service_id]
 
-        # Clean up empty service type entries
+        # clean up empty service type entries
         if not self._services_by_type[service_type]:
             del self._services_by_type[service_type]
 
@@ -85,11 +84,17 @@ class ServiceRegistry:
         )
         return True
 
-    def get_service(self, service_id: str) -> ServiceRunInfo | None:
+    def service_by_id(self, service_id: str) -> ServiceRegistrationInfo | None:
         """Get service information by service ID."""
         return self._services_by_id.get(service_id)
 
-    def services_by_type(self, service_type: ServiceType) -> dict[str, ServiceRunInfo]:
+    def get_service(self, service_id: str) -> ServiceRegistrationInfo | None:
+        """Get service information by service ID."""
+        return self._services_by_id.get(service_id)
+
+    def services_by_type(
+        self, service_type: ServiceType
+    ) -> dict[str, ServiceRegistrationInfo]:
         """Get all services of a specific type."""
         return self._services_by_type.get(service_type, {}).copy()
 
@@ -152,7 +157,7 @@ class ServiceRegistry:
 
     def services_by_registration_status(
         self, registration_status: ServiceRegistrationStatus
-    ) -> dict[str, ServiceRunInfo]:
+    ) -> dict[str, ServiceRegistrationInfo]:
         """Get all services with a specific registration status."""
         return {
             service_id: service_info
@@ -160,7 +165,9 @@ class ServiceRegistry:
             if service_info.registration_status == registration_status
         }
 
-    def services_by_state(self, state: ServiceState) -> dict[str, ServiceRunInfo]:
+    def services_by_state(
+        self, state: ServiceState
+    ) -> dict[str, ServiceRegistrationInfo]:
         """Get all services with a specific state."""
         return {
             service_id: service_info

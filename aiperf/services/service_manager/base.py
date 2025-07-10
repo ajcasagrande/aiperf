@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from aiperf.common.config import ServiceConfig
 from aiperf.common.enums import ServiceType
 from aiperf.common.messages import BaseServiceMessage
-from aiperf.common.service_models import ServiceRunInfo
+from aiperf.common.service_models import ServiceRegistrationInfo
 
 
 class BaseServiceManager(ABC):
@@ -26,10 +26,10 @@ class BaseServiceManager(ABC):
         self.config = config
 
         # Maps to track service information
-        self.service_map: dict[ServiceType, list[ServiceRunInfo]] = {}
+        self.service_map: dict[ServiceType, list[ServiceRegistrationInfo]] = {}
 
         # Create service ID map for component lookups
-        self.service_id_map: dict[str, ServiceRunInfo] = {}
+        self.service_id_map: dict[str, ServiceRegistrationInfo] = {}
 
     @abstractmethod
     async def run_all_services(self) -> None:

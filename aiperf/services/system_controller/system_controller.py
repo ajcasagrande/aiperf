@@ -39,7 +39,7 @@ from aiperf.common.messages import (
 )
 from aiperf.common.pydantic_utils import AIPerfBaseModel
 from aiperf.common.service.base_controller_service import BaseControllerService
-from aiperf.common.service_models import ServiceRunInfo
+from aiperf.common.service_models import ServiceRegistrationInfo
 from aiperf.data_exporter.exporter_manager import ExporterManager
 from aiperf.progress.progress_logger import SimpleProgressLogger
 from aiperf.progress.progress_models import ProfileResultsMessage
@@ -446,7 +446,7 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
             "Processing registration from %s with ID: %s", service_type, service_id
         )
 
-        service_info = ServiceRunInfo(
+        service_info = ServiceRegistrationInfo(
             registration_status=ServiceRegistrationStatus.REGISTERED,
             service_type=service_type,
             service_id=service_id,
