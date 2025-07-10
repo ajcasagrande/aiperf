@@ -70,14 +70,7 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
 
         self.health_check_interval = self.service_config.worker_health_check_interval
 
-        self.task_stats: dict[CreditPhase, WorkerPhaseTaskStats] = {
-            phase: WorkerPhaseTaskStats(
-                total=0,
-                completed=0,
-                failed=0,
-            )
-            for phase in CreditPhase
-        }
+        self.task_stats: dict[CreditPhase, WorkerPhaseTaskStats] = {}
 
         self.credit_drop_client: PullClientProtocol = self.comms.create_pull_client(
             CommunicationClientAddressType.CREDIT_DROP,
@@ -167,21 +160,19 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
                 self.logger.exception("Error pushing request record: %s", e)
             finally:
                 # Always return the credits
-                self.logger.debug("Returning credits for %s", message.conversation_id)
+                return_message = CreditReturnMessage(
+                    service_id=self.service_id,
+                    conversation_id=message.conversation_id,
+                    credit_drop_ns=message.credit_drop_ns,
+                    delayed_ns=None,
+                    credit_phase=message.credit_phase,
+                )
+                self.logger.debug("Returning credit %s", return_message)
                 await self.credit_return_client.push(
-                    message=CreditReturnMessage(
-                        service_id=self.service_id,
-                        conversation_id=message.conversation_id,
-                        credit_drop_ns=message.credit_drop_ns,
-                        delayed_ns=None,
-                        credit_phase=message.credit_phase,
-                    ),
+                    message=return_message,
                 )
 
-    async def _execute_single_credit(
-        self,
-        message: CreditDropMessage,
-    ) -> RequestRecord:
+    async def _execute_single_credit(self, message: CreditDropMessage) -> RequestRecord:
         """Run a credit task for a single credit."""
         self.task_stats[message.credit_phase].total += 1
 
@@ -223,6 +214,7 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
                 turn=turn,
             )
 
+            # Wait for the credit drop time if it is in the future
             delayed_ns = None
             drop_ns = message.credit_drop_ns
             now_ns = time.time_ns()
@@ -242,7 +234,9 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
 
         except Exception as e:
             self.logger.exception(
-                "Error calling inference server API at %s", self.model_endpoint.url
+                "Error calling inference server API at %s: %s",
+                self.model_endpoint.url,
+                e,
             )
             return RequestRecord(
                 error=ErrorDetails.from_exception(e),
@@ -251,12 +245,16 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
     @aiperf_task
     async def _health_check_task(self) -> None:
         """Task to report the health of the worker to the worker manager."""
-        while not self.stop_event.is_set():
+        while True:
             try:
                 health_message = self.create_health_message()
                 await self.pub_client.publish(health_message)
             except Exception as e:
                 self.logger.exception("Error reporting health: %s", e)
+            except asyncio.CancelledError:
+                self.logger.debug("Health check task cancelled")
+                break
+
             await asyncio.sleep(self.health_check_interval)
 
     def create_health_message(self) -> WorkerHealthMessage:
