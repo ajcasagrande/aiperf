@@ -23,7 +23,7 @@ from aiperf.common.hooks import (
 from aiperf.common.pydantic_utils import AIPerfBaseModel
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.common.worker_models import WorkerHealthMessage
-from aiperf.services.worker.worker import Worker
+from aiperf.workers.worker import Worker
 
 
 class WorkerProcessInfo(AIPerfBaseModel):
