@@ -3,16 +3,17 @@
 from typing import Annotated, Any, Literal
 
 import cyclopts
-from pydantic import Field
+from pydantic import BeforeValidator, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from aiperf.common.config.config_defaults import ServiceDefaults
+from aiperf.common.config.config_validators import parse_str_or_set
 from aiperf.common.config.zmq_config import (
     BaseZMQCommunicationConfig,
     ZMQIPCConfig,
     ZMQTCPConfig,
 )
-from aiperf.common.enums import CommunicationBackend, ServiceRunType
+from aiperf.common.enums import CommunicationBackend, ServiceRunType, ServiceType
 
 
 class ServiceConfig(BaseSettings):
@@ -180,3 +181,20 @@ class ServiceConfig(BaseSettings):
             name=("--enable-yappi"),
         ),
     ] = ServiceDefaults.ENABLE_YAPPI
+
+    debug_services: Annotated[
+        set[ServiceType],
+        Field(
+            description="List of services to debug. If provided, the service will be started with debug logging enabled. "
+            "Can be a comma-separated list or a single service type.",
+        ),
+        cyclopts.Parameter(
+            name=("--debug-service"),
+        ),
+        BeforeValidator(parse_str_or_set),
+        BeforeValidator(
+            lambda v: {
+                ServiceType(service_type.replace("-", "_")) for service_type in v
+            }
+        ),
+    ] = ServiceDefaults.DEBUG_SERVICES

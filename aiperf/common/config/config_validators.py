@@ -35,6 +35,24 @@ def parse_str_or_list(input: Any) -> list[Any]:
     return output
 
 
+def parse_str_or_set(input: Any) -> set[Any]:
+    """
+    Parses the input to ensure it is either a string or a set. If the input is a string,
+    it splits the string by commas and trims any whitespace around each element, returning
+    the result as a set. If the input is already a set, it is returned as-is. If the input is a list,
+    it is converted to a set. If the input is neither a string nor a set, nor a list, a ValueError is raised.
+    """
+    if isinstance(input, str):
+        output = {input.strip() for input in input.split(",")}
+    elif isinstance(input, set):
+        output = input
+    elif isinstance(input, list):
+        output = set(input)
+    else:
+        raise ValueError(f"User Config: {input} - must be a string or set")
+    return output
+
+
 def parse_str_or_dict(input: Any | None) -> dict[str, Any] | None:
     """
     Parses the input to ensure it is a dictionary.

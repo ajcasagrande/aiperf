@@ -50,6 +50,8 @@ class AIPerfUI(AIPerfLifecycleMixin):
                 _message_mappings[message.message_type],
                 message.message_type,
             )
+            if message.message_type == MessageType.WORKER_HEALTH:
+                self.dashboard.update_worker_health(message)
             self.try_refresh_element(_message_mappings[message.message_type])
         else:
             self.logger.debug(

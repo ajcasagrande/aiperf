@@ -61,6 +61,13 @@ def setup_child_process_logging(
         if service_config
         else ServiceDefaults.LOG_LEVEL.upper()
     )
+    if service_config and service_id:
+        for service_type in service_config.debug_services:
+            # for cases of service_id being "worker_xxxxxx" and service_type being "worker",
+            if service_id.startswith(service_type.value):
+                level = logging.DEBUG
+                break
+
     # Set the root logger level to ensure logs are passed to handlers
     root_logger.setLevel(level)
 

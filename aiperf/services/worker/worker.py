@@ -181,7 +181,6 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
                 record=record,
             )
 
-            self.task_stats[message.credit_phase].total += 1
             if not record.valid:
                 self.task_stats[message.credit_phase].failed += 1
             else:
