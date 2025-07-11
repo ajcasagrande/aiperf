@@ -35,7 +35,7 @@ class EndPointConfig(BaseConfig):
             description="Set a custom endpoint that differs from the OpenAI defaults.",
         ),
         cyclopts.Parameter(
-            name=("--custom-endpoint"),
+            name=("--custom-endpoint", "--endpoint"),
         ),
     ] = EndPointDefaults.CUSTOM_ENDPOINT
 
@@ -45,7 +45,7 @@ class EndPointConfig(BaseConfig):
             description="The type to send requests to on the server.",
         ),
         cyclopts.Parameter(
-            name=("--type"),
+            name=("--endpoint-type", "--type"),
         ),
     ] = EndPointDefaults.TYPE
 

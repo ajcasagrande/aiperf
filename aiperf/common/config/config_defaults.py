@@ -119,6 +119,7 @@ class TurnDelayDefaults:
 @dataclass(frozen=True)
 class OutputDefaults:
     ARTIFACT_DIRECTORY = Path("./artifacts")
+    PROFILE_EXPORT_FILE = Path("profile_export.json")
 
 
 @dataclass(frozen=True)

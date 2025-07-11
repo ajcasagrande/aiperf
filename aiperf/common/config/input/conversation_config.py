@@ -26,7 +26,11 @@ class TurnDelayConfig(BaseConfig):
             description="The mean delay between turns within a conversation in milliseconds.",
         ),
         cyclopts.Parameter(
-            name=("--conversation-turn-delay-mean"),
+            name=(
+                "--conversation-turn-delay-mean",
+                "--turn-delay-mean",
+                "--turn-delay",
+            ),
         ),
     ] = TurnDelayDefaults.MEAN
 
@@ -38,7 +42,7 @@ class TurnDelayConfig(BaseConfig):
             "within a conversation in milliseconds.",
         ),
         cyclopts.Parameter(
-            name=("--conversation-turn-delay-stddev"),
+            name=("--conversation-turn-delay-stddev", "--turn-delay-stddev"),
         ),
     ] = TurnDelayDefaults.STDDEV
 
@@ -49,7 +53,7 @@ class TurnDelayConfig(BaseConfig):
             description="A ratio to scale multi-turn delays.",
         ),
         cyclopts.Parameter(
-            name=("--conversation-turn-delay-ratio"),
+            name=("--conversation-turn-delay-ratio", "--turn-delay-ratio"),
         ),
     ] = TurnDelayDefaults.RATIO
 
@@ -66,7 +70,7 @@ class TurnConfig(BaseConfig):
             description="The mean number of turns within a conversation.",
         ),
         cyclopts.Parameter(
-            name=("--conversation-turn-mean"),
+            name=("--conversation-turn-mean", "--num-turns", "--num-turns-mean"),
         ),
     ] = TurnDefaults.MEAN
 
@@ -77,7 +81,7 @@ class TurnConfig(BaseConfig):
             description="The standard deviation of the number of turns within a conversation.",
         ),
         cyclopts.Parameter(
-            name=("--conversation-turn-stddev"),
+            name=("--conversation-turn-stddev", "--num-turns-stddev"),
         ),
     ] = TurnDefaults.STDDEV
 
@@ -98,7 +102,7 @@ class ConversationConfig(BaseConfig):
             "Supported on synthetic mode only and conversations will be reused until benchmarking is complete.",
         ),
         cyclopts.Parameter(
-            name=("--conversation-num"),
+            name=("--conversation-num", "--num-conversations"),
         ),
     ] = ConversationDefaults.NUM
 

@@ -32,7 +32,7 @@ class UserConfig(BaseConfig):
         ),
         BeforeValidator(parse_str_or_list),
         cyclopts.Parameter(
-            name=("--model-names", "-m"),
+            name=("--model-names", "--model", "-m"),
         ),
     ]
 

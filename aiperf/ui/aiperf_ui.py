@@ -1,10 +1,11 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import logging
+from typing import cast
 
 from aiperf.common.enums import MessageType
 from aiperf.common.hooks import AIPerfLifecycleMixin, on_start, on_stop
-from aiperf.common.messages import Message
+from aiperf.common.messages import Message, WorkerHealthMessage
 from aiperf.progress.progress_tracker import ProgressTracker
 from aiperf.ui.profile_progress_ui import ProfileProgressElement
 from aiperf.ui.rich_dashboard import AIPerfRichDashboard
@@ -51,7 +52,7 @@ class AIPerfUI(AIPerfLifecycleMixin):
                 message.message_type,
             )
             if message.message_type == MessageType.WORKER_HEALTH:
-                self.dashboard.update_worker_health(message)
+                self.dashboard.update_worker_health(cast(WorkerHealthMessage, message))
             self.try_refresh_element(_message_mappings[message.message_type])
         else:
             self.logger.debug(
