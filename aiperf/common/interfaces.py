@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 from typing import Generic, Protocol, runtime_checkable
 
-from aiperf.common.messages.base_messages import Message
+from aiperf.common.messages import Message
 from aiperf.common.types import (
     InputT,
     OutputT,

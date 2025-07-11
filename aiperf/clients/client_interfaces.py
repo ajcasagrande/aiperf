@@ -92,6 +92,10 @@ class ResponseExtractorProtocol(Protocol):
     """Protocol for a response extractor that extracts the response data from a raw inference server
     response and converts it to a list of ResponseData objects."""
 
+    def __init__(self, model_endpoint: ModelEndpointInfo) -> None:
+        """Create a new response extractor based on the provided configuration."""
+        ...
+
     async def extract_response_data(
         self, record: RequestRecord, tokenizer: Tokenizer | None
     ) -> list[ResponseData]:

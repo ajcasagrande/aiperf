@@ -4,7 +4,6 @@
 import json
 import logging
 import time
-from abc import ABC
 from typing import Any
 
 from aiperf.clients.client_interfaces import (
@@ -26,7 +25,7 @@ from aiperf.common.record_models import (
     EndpointType.OPENAI_RESPONSES,
     # EndpointType.OPENAI_MULTIMODAL,
 )
-class OpenAIClientAioHttp(AioHttpClientMixin, ABC):
+class OpenAIClientAioHttp(AioHttpClientMixin):
     """Inference client for OpenAI based requests using aiohttp."""
 
     def __init__(self, model_endpoint: ModelEndpointInfo) -> None:
@@ -60,6 +59,10 @@ class OpenAIClientAioHttp(AioHttpClientMixin, ABC):
         if not url.startswith("http"):
             url = f"http://{url}"
         return url
+
+    async def initialize(self) -> None:
+        """Initialize the client."""
+        return
 
     async def send_request(
         self,

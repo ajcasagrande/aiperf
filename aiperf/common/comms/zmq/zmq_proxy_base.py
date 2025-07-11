@@ -266,12 +266,16 @@ class BaseZMQProxy(ABC):
 
         capture_socket = self.context.socket(SocketType.SUB)
         capture_socket.connect(self.capture_address)
+        self.logger.debug(
+            "Proxy Monitor Connected to Capture Address: %s", self.capture_address
+        )
         capture_socket.setsockopt(zmq.SUBSCRIBE, b"")  # Subscribe to all messages
+        self.logger.debug("Proxy Monitor Subscribed to all messages")
 
         try:
             while True:
-                message = capture_socket.recv()
-                self.logger.debug("Proxy Monitor Received Message: %s", message)
+                x = await capture_socket.recv_multipart()
+                self.logger.debug("Proxy Monitor Received: %s", x)
         except Exception as e:
             self.logger.exception("Proxy Monitor Error - %s", e)
             raise

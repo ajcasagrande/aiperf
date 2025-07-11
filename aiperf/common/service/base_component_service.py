@@ -35,7 +35,6 @@ class BaseComponentService(BaseService):
     - Sending heartbeat notifications to the system controller
     - Sending status notifications to the system controller
     - Helpers to create heartbeat, registration, and status messages
-    - Request the appropriate communication clients for a component service
     """
 
     def __init__(
@@ -116,7 +115,7 @@ class BaseComponentService(BaseService):
         This method should be called after the service has been initialized and is
         ready to start processing messages.
         """
-        self.logger.info(
+        self.logger.debug(
             "Attempting to register service %s (%s) with system controller",
             self.service_type,
             self.service_id,

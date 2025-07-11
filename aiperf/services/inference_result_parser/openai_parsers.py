@@ -12,7 +12,9 @@ from openai.types.embedding import Embedding
 from openai.types.responses.response import Response as ResponsesModel
 from pydantic import BaseModel
 
-from aiperf.common.enums import CaseInsensitiveStrEnum
+from aiperf.clients.client_interfaces import ResponseExtractorFactory
+from aiperf.clients.model_endpoint_info import ModelEndpointInfo
+from aiperf.common.enums import CaseInsensitiveStrEnum, EndpointType
 from aiperf.common.record_models import (
     InferenceServerResponse,
     RequestRecord,
@@ -70,8 +72,17 @@ class OpenAIObject(CaseInsensitiveStrEnum):
 
 
 # TODO: Factory support for different supported parsers/extractors
+@ResponseExtractorFactory.register_all(
+    EndpointType.OPENAI_CHAT_COMPLETIONS,
+    EndpointType.OPENAI_COMPLETIONS,
+    EndpointType.OPENAI_RESPONSES,
+)
 class OpenAIResponseExtractor:
     """Extractor for OpenAI responses."""
+
+    def __init__(self, model_endpoint: ModelEndpointInfo) -> None:
+        """Create a new response extractor based on the provided configuration."""
+        self.model_endpoint = model_endpoint
 
     def _parse_text_response(self, response: TextResponse) -> ResponseData | None:
         """Parse a TextResponse into a ResponseData object."""

@@ -43,7 +43,8 @@ class CommunicationClientProtocolFactory(
 
 
 @CommunicationClientProtocolFactory.register(CommunicationClientType.PUSH)
-class PushClientProtocol(CommunicationClientProtocol):
+@runtime_checkable
+class PushClientProtocol(CommunicationClientProtocol, Protocol):
     """Interface for push clients."""
 
     async def push(self, message: Message) -> None:
@@ -58,7 +59,8 @@ class PushClientProtocol(CommunicationClientProtocol):
 
 
 @CommunicationClientProtocolFactory.register(CommunicationClientType.PULL)
-class PullClientProtocol(CommunicationClientProtocol):
+@runtime_checkable
+class PullClientProtocol(CommunicationClientProtocol, Protocol):
     """Interface for pull clients."""
 
     async def register_pull_callback(
@@ -78,8 +80,10 @@ class PullClientProtocol(CommunicationClientProtocol):
         ...
 
 
+@runtime_checkable
 @CommunicationClientProtocolFactory.register(CommunicationClientType.REQUEST)
-class RequestClientProtocol(CommunicationClientProtocol):
+@runtime_checkable
+class RequestClientProtocol(CommunicationClientProtocol, Protocol):
     """Interface for request clients."""
 
     async def request(
@@ -115,7 +119,8 @@ class RequestClientProtocol(CommunicationClientProtocol):
 
 
 @CommunicationClientProtocolFactory.register(CommunicationClientType.REPLY)
-class ReplyClientProtocol(CommunicationClientProtocol):
+@runtime_checkable
+class ReplyClientProtocol(CommunicationClientProtocol, Protocol):
     """Interface for reply clients."""
 
     def register_request_handler(
@@ -136,7 +141,8 @@ class ReplyClientProtocol(CommunicationClientProtocol):
 
 
 @CommunicationClientProtocolFactory.register(CommunicationClientType.SUB)
-class SubClientProtocol(CommunicationClientProtocol):
+@runtime_checkable
+class SubClientProtocol(CommunicationClientProtocol, Protocol):
     """Interface for subscribe clients."""
 
     async def subscribe(
@@ -148,9 +154,19 @@ class SubClientProtocol(CommunicationClientProtocol):
         a message is received for the given message type."""
         ...
 
+    async def subscribe_all(
+        self,
+        message_callback_map: dict[
+            MessageType, Callable[[MessageT], Coroutine[Any, Any, None]]
+        ],
+    ) -> None:
+        """Subscribe to each message type in the map with the corresponding callback."""
+        ...
+
 
 @CommunicationClientProtocolFactory.register(CommunicationClientType.PUB)
-class PubClientProtocol(CommunicationClientProtocol):
+@runtime_checkable
+class PubClientProtocol(CommunicationClientProtocol, Protocol):
     """Interface for publish clients."""
 
     async def publish(self, message: MessageT) -> None:

@@ -3,6 +3,7 @@
 import asyncio
 import sys
 
+from aiperf.clients.client_interfaces import ResponseExtractorFactory
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.comms.base import PullClientProtocol, PushClientProtocol
 from aiperf.common.config import ServiceConfig
@@ -21,9 +22,6 @@ from aiperf.common.messages import (
 from aiperf.common.record_models import ErrorDetails, ParsedResponseRecord
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.common.tokenizer import Tokenizer
-from aiperf.services.inference_result_parser.openai_parsers import (
-    OpenAIResponseExtractor,
-)
 
 
 @ServiceFactory.register(ServiceType.INFERENCE_RESULT_PARSER)
@@ -57,7 +55,6 @@ class InferenceResultParser(BaseComponentService):
         self.tokenizers: dict[str, Tokenizer] = {}
         self.user_config: UserConfig = user_config
         self.tokenizer_lock: asyncio.Lock = asyncio.Lock()
-        self.extractor = OpenAIResponseExtractor()
         self.model_endpoint: ModelEndpointInfo = ModelEndpointInfo.from_user_config(
             user_config
         )
@@ -77,6 +74,11 @@ class InferenceResultParser(BaseComponentService):
             callback=self._on_inference_results,
             # TODO: Support for unbounded concurrency in the future by setting to None or 0?
             max_concurrency=1000000,
+        )
+
+        self.extractor = ResponseExtractorFactory.create_instance(
+            self.model_endpoint.endpoint.type,
+            model_endpoint=self.model_endpoint,
         )
 
         self.model_endpoint = ModelEndpointInfo.from_user_config(self.user_config)

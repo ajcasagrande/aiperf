@@ -81,16 +81,13 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
 
         # List of required service types, in no particular order
         # These are services that must be running before the system controller can start profiling
-        self.required_service_types: list[tuple[ServiceType, int]] = [
-            (ServiceType.DATASET_MANAGER, 1),
-            (ServiceType.TIMING_MANAGER, 1),
-            (ServiceType.WORKER_MANAGER, 1),
-            (ServiceType.RECORDS_MANAGER, 1),
-            (
-                ServiceType.INFERENCE_RESULT_PARSER,
-                self.service_config.result_parser_service_count,
-            ),
-        ]
+        self.required_service_types: dict[ServiceType, int] = {
+            ServiceType.DATASET_MANAGER: 1,
+            ServiceType.TIMING_MANAGER: 1,
+            ServiceType.WORKER_MANAGER: 1,
+            ServiceType.RECORDS_MANAGER: 1,
+            ServiceType.INFERENCE_RESULT_PARSER: self.service_config.result_parser_service_count,
+        }
 
         self.service_manager: BaseServiceManager = None  # type: ignore - is set in _initialize
 
@@ -128,6 +125,7 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
         """
         await self._pre_initialize()
         await super().initialize()
+        await self._setup_subscriptions()
         await self._post_initialize()
 
     async def _pre_initialize(self) -> None:
@@ -246,8 +244,6 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
             raise self._service_error(
                 f"Unsupported service run type: {self.service_config.service_run_type}",
             )
-
-        await self._setup_subscriptions()
 
         self._system_state = SystemState.CONFIGURING
 
@@ -382,7 +378,7 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
 
     async def _forward_generic_message(self, message: Message) -> None:
         """Generic message handler for all messages that don't have or need a specific handler."""
-        self.logger.debug("SC: Received message: %s", message.message_type, message)
+        self.logger.debug("SC: Received message: %s", message)
         self.progress_tracker.on_message(message)
         if self.ui:
             await self.ui.on_message(message)

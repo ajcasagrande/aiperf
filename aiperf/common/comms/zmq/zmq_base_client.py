@@ -165,6 +165,9 @@ class BaseZMQClient(AIPerfTaskMixin):
             for key, val in self.socket_ops.items():
                 self._socket.setsockopt(key, val)
 
+            # poll libzmq with a zero timeout to ensure subscriptions have propagated
+            # await self._socket.poll(timeout=0)
+
             await self.run_hooks(AIPerfHook.ON_INIT)
 
             self.initialized_event.set()

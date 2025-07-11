@@ -79,6 +79,15 @@ class ZMQSubClient(BaseZMQClient, AsyncTaskManagerMixin):
     async def _on_stop(self) -> None:
         await self.cancel_all_tasks()
 
+    async def subscribe_all(
+        self, message_callback_map: dict[MessageType, Callable[[Message], Any]]
+    ) -> None:
+        """Subscribe to all message_types in the map."""
+        await self._ensure_initialized()
+        for message_type, callback in message_callback_map.items():
+            await self._subscribe_internal(message_type, callback)
+        await asyncio.sleep(0.1)
+
     async def subscribe(
         self, message_type: MessageType, callback: Callable[[Message], Any]
     ) -> None:
@@ -92,7 +101,18 @@ class ZMQSubClient(BaseZMQClient, AsyncTaskManagerMixin):
             Exception if subscription was not successful, None otherwise
         """
         await self._ensure_initialized()
+        await self._subscribe_internal(message_type, callback)
+        await asyncio.sleep(0.1)
 
+    async def _subscribe_internal(
+        self, message_type: MessageType, callback: Callable[[Message], Any]
+    ) -> None:
+        """Subscribe to a message_type.
+
+        Args:
+            message_type: MessageType to subscribe to
+            callback: Function to call when a message is received (receives Message object)
+        """
         try:
             # Only subscribe to message_type if this is the first callback for this type
             if message_type not in self._subscribers:

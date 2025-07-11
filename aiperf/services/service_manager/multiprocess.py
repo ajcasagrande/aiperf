@@ -51,7 +51,7 @@ class MultiProcessServiceManager(BaseServiceManager):
 
     def __init__(
         self,
-        required_service_types: list[tuple[ServiceType, int]],
+        required_service_types: dict[ServiceType, int],
         config: ServiceConfig,
         user_config: UserConfig | None = None,
         log_queue: "multiprocessing.Queue | None" = None,
@@ -62,36 +62,34 @@ class MultiProcessServiceManager(BaseServiceManager):
         self.user_config = user_config
         self.registry = GlobalServiceRegistry
         self.registered_events: dict[ServiceType, asyncio.Event] = {
-            service_type: asyncio.Event() for service_type, _ in required_service_types
+            service_type: asyncio.Event() for service_type in required_service_types
         }
         self.state_events: dict[ServiceType, dict[ServiceState, asyncio.Event]] = {
             service_type: {state: asyncio.Event() for state in ServiceState}
             for service_type in ServiceType
         }
 
-    async def _run_services(self, service_types: list[tuple[ServiceType, int]]) -> None:
+    async def _run_services(self, service_types: dict[ServiceType, int]) -> None:
         """Run a list of services as multiprocessing processes."""
 
         # Create and start all service processes
-        for service_type in service_types:
-            service_class = ServiceFactory.get_class_from_type(service_type[0])
+        for service_type, count in service_types.items():
+            service_class = ServiceFactory.get_class_from_type(service_type)
 
-            for _ in range(service_type[1]):
+            for _ in range(count):
                 process = Process(
                     target=bootstrap_and_run_service,
-                    name=f"{service_type[0]}_process",
+                    name=f"{service_type}_process",
                     kwargs={
                         "service_class": service_class,
-                        "service_id": service_type[0].value
-                        if service_type[1] == 1
-                        else None,
+                        "service_id": service_type.value if count == 1 else None,
                         "service_config": self.config,
                         "user_config": self.user_config,
                         "log_queue": self.log_queue,
                     },
                     daemon=True,
                 )
-                if service_type[0] in [
+                if service_type in [
                     ServiceType.WORKER_MANAGER,
                 ]:
                     process.daemon = False  # Worker manager cannot be a daemon because it needs to be able to spawn worker processes
@@ -100,12 +98,12 @@ class MultiProcessServiceManager(BaseServiceManager):
 
                 self.logger.debug(
                     "Service %s started as process (pid: %d)",
-                    service_type[0],
+                    service_type,
                     process.pid,
                 )
 
                 self.multi_process_info.append(
-                    MultiProcessRunInfo(process=process, service_type=service_type[0])
+                    MultiProcessRunInfo(process=process, service_type=service_type)
                 )
 
     async def run_all_services(self) -> None:
@@ -164,7 +162,7 @@ class MultiProcessServiceManager(BaseServiceManager):
             )
         except asyncio.TimeoutError as e:
             # Log which services didn't register in time
-            for service_type, _ in self.required_service_types:
+            for service_type in self.required_service_types:
                 if service_type not in self.registry:
                     self.logger.error(
                         f"Service {service_type} failed to register within timeout"
@@ -184,7 +182,7 @@ class MultiProcessServiceManager(BaseServiceManager):
             asyncio.gather(
                 *[
                     self.state_events[service_type][ServiceState.RUNNING].wait()
-                    for service_type in ServiceType
+                    for service_type in self.required_service_types
                 ]
             ),
             timeout=timeout_seconds,

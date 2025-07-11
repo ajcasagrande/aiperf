@@ -74,6 +74,8 @@ class ZMQPubClient(BaseZMQClient):
             message: Message to publish (must be a Message object)
         """
         await self._ensure_initialized()
+        # # poll libzmq with a zero timeout to ensure subscriptions have propagated
+        # await self._socket.poll(timeout=0)
 
         try:
             message_json = message.model_dump_json()
