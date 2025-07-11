@@ -41,11 +41,12 @@ from aiperf.common.messages import (
     CreditReturnMessage,
     ErrorMessage,
     InferenceResultsMessage,
+    WorkerHealthMessage,
 )
 from aiperf.common.mixins import AsyncTaskManagerMixin, ProcessHealthMixin
 from aiperf.common.record_models import ErrorDetails, RequestRecord
 from aiperf.common.service.base_component_service import BaseComponentService
-from aiperf.common.worker_models import WorkerHealthMessage, WorkerPhaseTaskStats
+from aiperf.common.worker_models import WorkerPhaseTaskStats
 
 
 @ServiceFactory.register(ServiceType.WORKER)

@@ -13,6 +13,7 @@ from textual.widgets import Label
 
 from aiperf.common.config import ServiceConfig
 from aiperf.common.enums import ServiceType
+from aiperf.common.enums.message import MessageType
 from aiperf.common.hooks import AIPerfLifecycleMixin, aiperf_task, on_init
 from aiperf.common.messages import WorkerHealthMessage
 from aiperf.common.service.base_component_service import BaseComponentService
@@ -525,7 +526,9 @@ class WorkerHealthService(BaseComponentService):
 
         # Subscribe to worker health messages
         try:
-            await self.sub_client.subscribe(self._on_worker_health_message)
+            await self.sub_client.subscribe(
+                MessageType.WORKER_HEALTH, self._on_worker_health_message
+            )
             logger.debug("Subscribed to WORKER_HEALTH topic")
         except Exception as e:
             logger.error(f"Failed to subscribe to WORKER_HEALTH topic: {e}")

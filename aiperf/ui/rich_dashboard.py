@@ -14,7 +14,7 @@ from aiperf.common.hooks import (
     on_start,
     on_stop,
 )
-from aiperf.common.worker_models import WorkerHealthMessage
+from aiperf.common.messages import WorkerHealthMessage
 from aiperf.progress.progress_tracker import ProgressTracker
 from aiperf.ui.dashboard_element import DashboardElement, HeaderElement
 from aiperf.ui.logs_mixin import LogsDashboardMixin

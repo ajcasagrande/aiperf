@@ -8,8 +8,9 @@ from pydantic import Field
 
 from aiperf.common.credit_models import CreditPhase
 from aiperf.common.enums import MessageType
+from aiperf.common.health_models import ProcessHealth
 from aiperf.common.messages.base import BaseServiceMessage
-from aiperf.common.worker_models import ProcessHealth, WorkerPhaseTaskStats
+from aiperf.common.worker_models import WorkerPhaseTaskStats
 
 
 class WorkerHealthMessage(BaseServiceMessage):

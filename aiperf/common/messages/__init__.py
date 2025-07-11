@@ -36,6 +36,9 @@ from aiperf.common.messages.error import (
     BaseServiceErrorMessage,
     ErrorMessage,
 )
+from aiperf.common.messages.health import (
+    WorkerHealthMessage,
+)
 from aiperf.common.messages.inference import (
     InferenceResultsMessage,
     ParsedInferenceResultsMessage,
@@ -83,4 +86,5 @@ __all__ = [
     "RegistrationMessage",
     "RequiresRequestNSMixin",
     "StatusMessage",
+    "WorkerHealthMessage",
 ]

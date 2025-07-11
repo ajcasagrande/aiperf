@@ -18,9 +18,10 @@ from aiperf.common.messages import (
     Message,
     ProfileResultsMessage,
     RecordsProcessingStatsMessage,
+    WorkerHealthMessage,
 )
 from aiperf.common.pydantic_utils import AIPerfBaseModel
-from aiperf.common.worker_models import WorkerHealthMessage, WorkerPhaseTaskStats
+from aiperf.common.worker_models import WorkerPhaseTaskStats
 
 logger = logging.getLogger(__name__)
 

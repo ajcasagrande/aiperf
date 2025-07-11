@@ -11,8 +11,8 @@ from aiperf.common.messages import (
     CreditPhaseStartMessage,
     Message,
     RecordsProcessingStatsMessage,
+    WorkerHealthMessage,
 )
-from aiperf.common.worker_models import WorkerHealthMessage
 from aiperf.progress.progress_tracker import ProgressTracker
 
 
@@ -77,12 +77,12 @@ class SimpleProgressLogger:
             processed_records = processing_stats.processed
             total_records = processing_stats.total
 
-        self.logger.debug(
-            "Phase %s - Records Processed: %d / %d",
-            phase,
-            processed_records,
-            total_records,
-        )
+            self.logger.debug(
+                "Phase %s - Records Processed: %d / %d",
+                phase,
+                processed_records,
+                total_records,
+            )
 
         # Only create tqdm if we have a valid total > 0
         if phase not in self.tqdm_records and total_records > 0:
@@ -98,7 +98,7 @@ class SimpleProgressLogger:
 
         # Close tqdm when completed
         if (
-            total_requests > 0
+            total_records > 0
             and processed_records >= total_records
             and phase in self.tqdm_records
         ):
@@ -176,21 +176,21 @@ class SimpleProgressLogger:
         self.logger.debug("Profile results updated")
 
         # Close all tqdm bars
-        for phase, tqdm_bar in list(self.tqdm_requests.items()):
+        for _, tqdm_bar in list(self.tqdm_requests.items()):
             tqdm_bar.close()
         self.tqdm_requests.clear()
 
-        for phase, tqdm_bar in list(self.tqdm_records.items()):
+        for _, tqdm_bar in list(self.tqdm_records.items()):
             tqdm_bar.close()
         self.tqdm_records.clear()
 
     def cleanup(self):
         """Clean up all progress bars."""
         return
-        for phase, tqdm_bar in list(self.tqdm_requests.items()):
+        for _, tqdm_bar in list(self.tqdm_requests.items()):
             tqdm_bar.close()
         self.tqdm_requests.clear()
 
-        for phase, tqdm_bar in list(self.tqdm_records.items()):
+        for _, tqdm_bar in list(self.tqdm_records.items()):
             tqdm_bar.close()
         self.tqdm_records.clear()

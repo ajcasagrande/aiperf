@@ -9,8 +9,9 @@ from rich.table import Table
 from rich.text import Text
 
 from aiperf.common.enums import CreditPhase
+from aiperf.common.messages import WorkerHealthMessage
 from aiperf.common.utils import format_bytes
-from aiperf.common.worker_models import WorkerHealthMessage, WorkerPhaseTaskStats
+from aiperf.common.worker_models import WorkerPhaseTaskStats
 from aiperf.ui.rich_dashboard import DashboardElement
 
 
