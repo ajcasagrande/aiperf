@@ -33,8 +33,7 @@ class TextualLogHandler(logging.Handler):
         self.log_widget = log_widget
         # Set a more visually appealing format for the logs
         formatter = logging.Formatter(
-            "[dim][%(asctime)s][/dim] [bold][%(levelname)s][/bold] [%(name)s]: %(message)s",
-            datefmt="%H:%M:%S.%s",
+            "[%(asctime)s] %(levelname)-8s %(name)s: %(message)s", datefmt="%H:%M:%S"
         )
         self.setFormatter(formatter)
         self.log_widget.border_title = "System Logs"
@@ -56,13 +55,11 @@ class LogViewer(Container):
 
     DEFAULT_CSS = """
     #log-content {
-        border: round rgb(100,205,145);
+        border: round rgb(229,205,145;
         height: 100%;
         padding: 0;
         margin: 0;
         scrollbar-size-vertical: 1;
-        scrollbar-gutter: stable;
-        scrollbar-color: rgb(100,205,145);
     }
     """
 
@@ -76,7 +73,7 @@ class LogViewer(Container):
     def compose(self) -> ComposeResult:
         """Compose the clean log viewer layout."""
         self.log_widget = RichLog(
-            highlight=True, markup=True, wrap=True, auto_scroll=True, id="log-content"
+            highlight=True, markup=False, wrap=True, auto_scroll=True, id="log-content"
         )
         yield self.log_widget
 
