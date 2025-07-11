@@ -24,7 +24,7 @@ class ProgressDashboard(Container):
 
     DEFAULT_CSS = """
     ProgressDashboard {
-        border: solid $primary;
+        border: round $primary;
         border-title-color: $primary;
         border-title-background: $surface;
         height: 100%;

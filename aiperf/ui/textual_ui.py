@@ -264,7 +264,7 @@ class QuitConfirmationDialog(Static):
         padding: 0 1;
         width: 50;
         height: 9;
-        border: thick $primary;
+        border: round $primary;
         background: $surface;
         margin: 1;
     }

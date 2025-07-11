@@ -36,7 +36,7 @@ class TextualLogHandler(logging.Handler):
             "[%(asctime)s] %(levelname)-8s %(name)s: %(message)s", datefmt="%H:%M:%S"
         )
         self.setFormatter(formatter)
-        self.border_title = "Application Logs"
+        self.log_widget.border_title = "System Logs"
 
     def emit(self, record: logging.LogRecord) -> None:
         """Emit a log record to the Textual log widget with color coding."""
@@ -61,10 +61,11 @@ class LogViewer(Container):
     }
 
     #log-content {
+        border: round $primary;
         height: 100%;
-        scrollbar-gutter: stable;
         padding: 0;
         margin: 0;
+        scrollbar-size-vertical: 1;
     }
     """
 
