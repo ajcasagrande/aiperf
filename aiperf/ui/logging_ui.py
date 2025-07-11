@@ -47,21 +47,15 @@ class TextualLogHandler(logging.Handler):
                 return
 
             style = self.LOG_LEVEL_STYLES.get(record.levelno, "dim")
-            self.log_widget.write(f"[{style}]{self.format(record)}[/{style}]")
+            self.log_widget.write(f"{self.format(record)}")
 
 
 class LogViewer(Container):
     """Clean log viewer widget that displays application logs."""
 
     DEFAULT_CSS = """
-    LogViewer {
-        border: solid $primary;
-        border-title-color: $primary;
-        border-title-background: $surface;
-    }
-
     #log-content {
-        border: round $primary;
+        border: round rgb(215,215,0);
         height: 100%;
         padding: 0;
         margin: 0;
@@ -79,7 +73,7 @@ class LogViewer(Container):
     def compose(self) -> ComposeResult:
         """Compose the clean log viewer layout."""
         self.log_widget = RichLog(
-            highlight=True, markup=True, wrap=True, auto_scroll=True, id="log-content"
+            highlight=True, markup=False, wrap=True, auto_scroll=True, id="log-content"
         )
         yield self.log_widget
 
