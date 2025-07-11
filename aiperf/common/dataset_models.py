@@ -49,7 +49,6 @@ class Turn(AIPerfBaseModel):
         description="Amount of milliseconds to wait before sending the turn.",
     )
     role: str | None = Field(default=None, description="Role of the turn.")
-
     text: list[Text] = Field(
         default=[], description="Collection of text data in each turn."
     )

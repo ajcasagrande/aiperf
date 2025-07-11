@@ -7,18 +7,20 @@ from pydantic import Field
 
 from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.credit_models import (
+    CreditPhaseStats,
+    PhaseProcessingStats,
+)
+from aiperf.common.enums import BenchmarkSuiteType, CreditPhase, MessageType
+from aiperf.common.messages import (
     CreditPhaseCompleteMessage,
     CreditPhaseProgressMessage,
     CreditPhaseStartMessage,
-    CreditPhaseStats,
-    PhaseProcessingStats,
+    Message,
+    ProfileResultsMessage,
     RecordsProcessingStatsMessage,
 )
-from aiperf.common.enums import BenchmarkSuiteType, CreditPhase, MessageType
-from aiperf.common.messages import Message
 from aiperf.common.pydantic_utils import AIPerfBaseModel
 from aiperf.common.worker_models import WorkerHealthMessage, WorkerPhaseTaskStats
-from aiperf.progress.progress_models import ProfileResultsMessage
 
 logger = logging.getLogger(__name__)
 
@@ -152,7 +154,7 @@ class ProfileRunProgress(AIPerfBaseModel):
             )
             return
 
-        self.processing_stats[message.current_phase] = message.phase_stats
+        self.processing_stats[message.current_phase] = message.processing_stats
         for worker_id, worker_stats in message.worker_stats.items():
             if worker_id not in self.worker_processing_stats:
                 self.worker_processing_stats[worker_id] = {}
@@ -167,7 +169,7 @@ class ProfileRunProgress(AIPerfBaseModel):
         self.update_records_stats(
             message.current_phase,
             message.request_ns,
-            message.phase_stats,
+            message.processing_stats,
         )
 
     def on_worker_health(self, message: WorkerHealthMessage):

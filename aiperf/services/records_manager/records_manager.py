@@ -10,10 +10,7 @@ from aiperf.common.comms.base import (
     PullClientProtocol,
 )
 from aiperf.common.config import ServiceConfig, UserConfig
-from aiperf.common.credit_models import (
-    PhaseProcessingStats,
-    RecordsProcessingStatsMessage,
-)
+from aiperf.common.credit_models import PhaseProcessingStats
 from aiperf.common.enums import CommandType, CreditPhase, MessageType, ServiceType
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
@@ -29,6 +26,8 @@ from aiperf.common.messages import (
     InferenceResultsMessage,
     ParsedInferenceResultsMessage,
     ProcessRecordsCommandData,
+    ProfileResultsMessage,
+    RecordsProcessingStatsMessage,
 )
 from aiperf.common.record_models import (
     ErrorDetails,
@@ -36,7 +35,6 @@ from aiperf.common.record_models import (
     ParsedResponseRecord,
 )
 from aiperf.common.service import BaseComponentService
-from aiperf.progress.progress_models import ProfileResultsMessage
 from aiperf.services.records_manager.post_processors.metric_summary import MetricSummary
 
 
@@ -164,7 +162,7 @@ class RecordsManager(BaseComponentService):
             RecordsProcessingStatsMessage(
                 service_id=self.service_id,
                 current_phase=self.active_credit_phase,
-                phase_stats=PhaseProcessingStats(
+                processing_stats=PhaseProcessingStats(
                     processed=self.records_count,
                     errors=self.error_records_count,
                 ),

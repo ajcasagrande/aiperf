@@ -11,14 +11,25 @@ from pydantic import ConfigDict, Field
 from aiperf.common.bootstrap import bootstrap_and_run_service
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.constants import (
+    DEFAULT_WAIT_FOR_START_SECONDS,
     GRACEFUL_SHUTDOWN_TIMEOUT_SECONDS,
     TASK_CANCEL_TIMEOUT_SHORT,
 )
-from aiperf.common.enums import ServiceRegistrationStatus, ServiceType
-from aiperf.common.exceptions import ServiceError
+from aiperf.common.enums import ServiceType
+from aiperf.common.enums.message import MessageType
+from aiperf.common.enums.service import ServiceState
+from aiperf.common.exceptions import ServiceTimeoutError
 from aiperf.common.factories import ServiceFactory
+from aiperf.common.messages import BaseServiceMessage
+from aiperf.common.messages.error import BaseServiceErrorMessage
+from aiperf.common.messages.service import (
+    HeartbeatMessage,
+    RegistrationMessage,
+    StatusMessage,
+)
 from aiperf.common.pydantic_utils import AIPerfBaseModel
 from aiperf.services.service_manager.base import BaseServiceManager
+from aiperf.services.service_registry import GlobalServiceRegistry
 
 
 class MultiProcessRunInfo(AIPerfBaseModel):
@@ -49,6 +60,14 @@ class MultiProcessServiceManager(BaseServiceManager):
         self.multi_process_info: list[MultiProcessRunInfo] = []
         self.log_queue = log_queue
         self.user_config = user_config
+        self.registry = GlobalServiceRegistry
+        self.registered_events: dict[ServiceType, asyncio.Event] = {
+            service_type: asyncio.Event() for service_type, _ in required_service_types
+        }
+        self.state_events: dict[ServiceType, dict[ServiceState, asyncio.Event]] = {
+            service_type: {state: asyncio.Event() for state in ServiceState}
+            for service_type in ServiceType
+        }
 
     async def _run_services(self, service_types: list[tuple[ServiceType, int]]) -> None:
         """Run a list of services as multiprocessing processes."""
@@ -124,7 +143,7 @@ class MultiProcessServiceManager(BaseServiceManager):
         )
 
     async def wait_for_all_services_registration(
-        self, stop_event: asyncio.Event, timeout_seconds: int = 30
+        self, timeout_seconds: int = DEFAULT_WAIT_FOR_START_SECONDS
     ) -> None:
         """Wait for all required services to be registered.
 
@@ -136,53 +155,40 @@ class MultiProcessServiceManager(BaseServiceManager):
             Exception if any service failed to register, None otherwise
         """
         self.logger.debug("Waiting for all required services to register...")
-
-        # Get the set of required service types for checking completion
-        required_types = set(self.required_service_types)
-
-        # TODO: Can this be done better by using asyncio.Event()?
-
-        async def _wait_for_registration():
-            required_types_set = set(typ for typ, _ in required_types)
-
-            while not stop_event.is_set():
-                # Get all registered service types from the id map
-                registered_types = {
-                    service_info.service_type
-                    for service_info in self.service_id_map.values()
-                    if service_info.registration_status
-                    == ServiceRegistrationStatus.REGISTERED
-                }
-
-                # Check if all required types are registered
-                if required_types_set.issubset(registered_types):
-                    return
-
-                # Wait a bit before checking again
-                await asyncio.sleep(0.1)
-
         try:
-            await asyncio.wait_for(_wait_for_registration(), timeout=timeout_seconds)
+            await asyncio.wait_for(
+                asyncio.gather(
+                    *[event.wait() for event in self.registered_events.values()]
+                ),
+                timeout=timeout_seconds,
+            )
         except asyncio.TimeoutError as e:
             # Log which services didn't register in time
-            registered_types_set = set(
-                service_info.service_type
-                for service_info in self.service_id_map.values()
-                if service_info.registration_status
-                == ServiceRegistrationStatus.REGISTERED
-            )
-
-            for service_type, _ in required_types:
-                if service_type not in registered_types_set:
+            for service_type, _ in self.required_service_types:
+                if service_type not in self.registry:
                     self.logger.error(
                         f"Service {service_type} failed to register within timeout"
                     )
 
-            raise ServiceError(
-                "Some services failed to register within timeout",
-                ServiceType.SYSTEM_CONTROLLER,
-                "system_controller",  # TODO: Get the service ID from the system controller
+            raise ServiceTimeoutError(
+                "Some services failed to register within timeout"
             ) from e
+
+    async def wait_for_all_services_to_start(
+        self,
+        timeout_seconds: int = DEFAULT_WAIT_FOR_START_SECONDS,
+    ) -> None:
+        """Wait for all services to start."""
+        self.logger.debug("Waiting for all services to start...")
+        await asyncio.wait_for(
+            asyncio.gather(
+                *[
+                    self.state_events[service_type][ServiceState.RUNNING].wait()
+                    for service_type in ServiceType
+                ]
+            ),
+            timeout=timeout_seconds,
+        )
 
     async def _wait_for_process(self, info: MultiProcessRunInfo) -> None:
         """Wait for a process to terminate with timeout handling."""
@@ -209,3 +215,31 @@ class MultiProcessServiceManager(BaseServiceManager):
                 info.process.pid,
             )
             info.process.kill()
+
+    async def on_message(self, message: BaseServiceMessage) -> None:
+        _handlers = {
+            MessageType.REGISTRATION: self._on_registration_message,
+            MessageType.HEARTBEAT: self._on_heartbeat_message,
+            MessageType.STATUS: self._on_status_message,
+            MessageType.SERVICE_ERROR: self._on_service_error_message,
+        }
+        if message.message_type in _handlers:
+            await _handlers[message.message_type](message)
+
+    async def _on_registration_message(self, message: RegistrationMessage) -> None:
+        self.registry.register_service(
+            message.service_id,
+            message.service_type,
+            message.state,
+        )
+        if message.service_type in self.required_service_types:
+            self.registered_events[message.service_type].set()
+
+    async def _on_heartbeat_message(self, message: HeartbeatMessage) -> None:
+        self.registry.update_service_heartbeat(message.service_id)
+
+    async def _on_status_message(self, message: StatusMessage) -> None:
+        self.registry.update_service_state(message.service_id, message.state)
+
+    async def _on_service_error_message(self, message: BaseServiceErrorMessage) -> None:
+        self.registry[message.service_id].errors.append(message.error)

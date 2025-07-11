@@ -8,9 +8,10 @@
 from aiperf.common.enums.base import (
     CaseInsensitiveStrEnum,
 )
-from aiperf.common.enums.benchmark_suite import (
+from aiperf.common.enums.benchmark import (
     BenchmarkSuiteCompletionTrigger,
     BenchmarkSuiteType,
+    ProfileCompletionTrigger,
 )
 from aiperf.common.enums.command import (
     CommandResponseStatus,
@@ -97,6 +98,7 @@ __all__ = [
     "ModelSelectionStrategy",
     "NotificationType",
     "PostProcessorType",
+    "ProfileCompletionTrigger",
     "PromptSource",
     "RequestRateMode",
     "ResponsePayloadType",

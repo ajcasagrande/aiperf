@@ -4,7 +4,7 @@
 import logging
 from abc import ABC, abstractmethod
 
-from aiperf.common.config import InputConfig
+from aiperf.common.config.input.input_config import InputConfig
 from aiperf.common.dataset_models import Conversation
 from aiperf.common.tokenizer import Tokenizer
 from aiperf.services.dataset.generator import (

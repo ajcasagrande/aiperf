@@ -7,9 +7,10 @@ import random
 import time
 
 from aiperf.common.constants import NANOS_PER_SECOND
-from aiperf.common.credit_models import CreditPhaseStats, CreditReturnMessage
+from aiperf.common.credit_models import CreditPhaseStats
 from aiperf.common.enums import CreditPhase
 from aiperf.common.exceptions import InvalidStateError
+from aiperf.common.messages import CreditReturnMessage
 from aiperf.common.mixins import AsyncTaskManagerMixin
 from aiperf.services.timing_manager.config import TimingManagerConfig
 from aiperf.services.timing_manager.credit_issuing_strategy import (
@@ -25,7 +26,7 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
         self, config: TimingManagerConfig, credit_manager: CreditManagerProtocol
     ):
         super().__init__(config=config, credit_manager=credit_manager)
-        self.logger = logging.getLogger(__class__.__name__)
+        self.logger = logging.getLogger(self.__class__.__name__)
 
         if not config.request_count or config.request_count < 1:
             # TODO: Add support for alternate completion triggers vs request count (eg. time based)
@@ -94,14 +95,17 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
         self.execute_async(self._execute_phases())
 
     async def _execute_time_based_phase(self, phase: CreditPhaseStats) -> None:
-        if not phase.expected_duration_ns or phase.expected_duration_ns <= 0:
-            raise InvalidStateError("Expected duration must be set and positive")
+        start_ns: int = phase.start_ns  # type: ignore[assignment]
+        expected_duration_ns: int = phase.expected_duration_ns  # type: ignore[assignment]
 
-        while time.time_ns() - phase.start_ns < phase.expected_duration_ns:
+        while time.time_ns() - start_ns < expected_duration_ns:
             await self._semaphore.acquire()
-            if time.time_ns() - phase.start_ns >= phase.expected_duration_ns:
-                # If the time has expired, do not send the credit
+
+            if time.time_ns() - start_ns >= expected_duration_ns:
+                # If the time has expired while we were waiting for the semaphore,
+                # do not send the credit
                 return
+
             self.execute_async(
                 self.credit_manager.drop_credit(
                     credit_phase=phase.type,
@@ -112,10 +116,9 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
             phase.sent += 1
 
     async def _execute_request_count_based_phase(self, phase: CreditPhaseStats) -> None:
-        if not phase.total or phase.total <= 0:
-            raise InvalidStateError("Total must be set and positive")
+        total: int = phase.total  # type: ignore[assignment]
 
-        while phase.sent < phase.total:
+        while phase.sent < total:
             await self._semaphore.acquire()
             self.execute_async(
                 self.credit_manager.drop_credit(
@@ -139,12 +142,12 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
                 await self._execute_request_count_based_phase(phase)
             else:
                 raise InvalidStateError(
-                    "Phase must have either total or expected_duration_ns set"
+                    "Phase must have either a valid total or expected_duration_ns set"
                 )
 
-            # We have sent all the credits. we can continue to the next phase even though
-            # not all the credits have been returned. This is because we do not want a
-            # gap in the credit issuing.
+            # We have sent all the credits for this phase. We must continue to the next
+            # phase even though not all the credits have been returned. This is because
+            # we do not want a gap in the credit issuing.
             phase.sent_end_ns = time.time_ns()
             self.execute_async(
                 self.credit_manager.publish_phase_sending_complete(phase)
@@ -217,10 +220,10 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
         phase_stats.completed += 1
 
         if (
+            # If we have sent all the credits, check if this is the last one to be returned
             phase_stats.is_sending_complete
             and phase_stats.completed >= phase_stats.total  # type: ignore[operator]
         ):
-            # if we have sent all the credits, check if this is the last one to be returned
             phase_stats.end_ns = time.time_ns()
             self.logger.info("TM: Phase completed: %s", phase_stats)
 

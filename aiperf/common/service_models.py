@@ -2,11 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import time
+from typing import Any
 
 from pydantic import Field
 
 from aiperf.common.enums import (
-    ServiceRegistrationStatus,
     ServiceState,
     ServiceType,
 )
@@ -20,9 +20,8 @@ class ServiceRegistrationInfo(AIPerfBaseModel):
 
     service_id: str = Field(..., description="The ID of the service")
     service_type: ServiceType = Field(..., description="The type of service")
-    address: str = Field(..., description="The address of the service (if known)")
-    registration_status: ServiceRegistrationStatus = Field(
-        ..., description="The registration status of the service"
+    address: str | None = Field(
+        default=None, description="The address of the service (if known)"
     )
     first_seen: int | None = Field(
         default_factory=time.time_ns, description="The first time the service was seen"
@@ -40,4 +39,7 @@ class ServiceRegistrationInfo(AIPerfBaseModel):
     )
     errors: list[ErrorDetails] = Field(
         default_factory=list, description="The errors the service has encountered"
+    )
+    metadata: dict[str, Any] = Field(
+        default_factory=dict, description="Any miscellaneous metadata about the service"
     )

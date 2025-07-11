@@ -10,9 +10,8 @@ class BenchmarkSuiteCompletionTrigger(CaseInsensitiveStrEnum):
     COMPLETED_PROFILES = "completed_profiles"
     """The suite will run until all profiles are completed."""
 
-    # TODO: add other completion triggers
+    # # TODO: add other completion triggers
     # COMPLETED_SWEEPS = "completed_sweeps"
-    # STABILIZATION_BASED = "stabilization_based"
     # CUSTOM = "custom"  # TBD
 
 
@@ -34,3 +33,22 @@ class BenchmarkSuiteType(CaseInsensitiveStrEnum):
 
     # CUSTOM = "custom"
     # """User defined suite type. TBD"""
+
+
+class ProfileCompletionTrigger(CaseInsensitiveStrEnum):
+    """Determines how the profile completion is determined in order to know how to track the progress."""
+
+    REQUEST_COUNT = "request_count"
+    """The profile will run for a fixed number of requests."""
+
+    # TIME_BASED = "time_based"
+    # """The profile will run for a fixed amount of time."""
+
+    # STABILIZATION_BASED = "stabilization_based"
+    # """The profile will run until the metrics stabilize. TDB"""
+
+    # GOODPUT_THRESHOLD = "goodput_threshold"
+    # """The profile will run until the goodput threshold is met. TDB"""
+
+    # CUSTOM = "custom"
+    # """User defined trigger. TBD"""

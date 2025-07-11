@@ -6,8 +6,9 @@ Service Registry for tracking and managing services by type and ID.
 
 import logging
 import time
+from collections.abc import AsyncIterator, Iterator
 
-from aiperf.common.enums import ServiceRegistrationStatus, ServiceState, ServiceType
+from aiperf.common.enums import ServiceState, ServiceType
 from aiperf.common.service_models import ServiceRegistrationInfo
 
 
@@ -22,11 +23,9 @@ class ServiceRegistry:
     def __init__(self):
         self.logger = logging.getLogger(self.__class__.__name__)
 
-        # services organized by type
-        self._services_by_type: dict[
-            ServiceType, dict[str, ServiceRegistrationInfo]
-        ] = {}
-        # direct lookup by service ID
+        # Services organized by type -> set of service IDs
+        self._services_by_type: dict[ServiceType, set[str]] = {}
+        # Direct lookup by service ID -> service info
         self._services_by_id: dict[str, ServiceRegistrationInfo] = {}
 
     def register_service(
@@ -34,34 +33,33 @@ class ServiceRegistry:
         service_id: str,
         service_type: ServiceType,
         state: ServiceState = ServiceState.READY,
-        registration_status: ServiceRegistrationStatus = ServiceRegistrationStatus.REGISTERED,
     ) -> ServiceRegistrationInfo:
-        """Register a new service in the registry."""
+        """Register a new service in the registry and return the service info."""
+
         if service_id in self._services_by_id:
             raise ValueError(f"Service {service_id} is already registered")
 
         current_time = time.time_ns()
         service_info = ServiceRegistrationInfo(
-            registration_status=registration_status,
-            service_type=service_type,
             service_id=service_id,
+            service_type=service_type,
             first_seen=current_time,
-            state=state,
             last_seen=current_time,
+            state=state,
         )
 
         # add to both indexes
         if service_type not in self._services_by_type:
-            self._services_by_type[service_type] = {}
+            self._services_by_type[service_type] = set()
 
-        self._services_by_type[service_type][service_id] = service_info
+        self._services_by_type[service_type].add(service_id)
         self._services_by_id[service_id] = service_info
 
         self.logger.debug("Registered service %s of type %s", service_id, service_type)
         return service_info
 
     def unregister_service(self, service_id: str) -> bool:
-        """Unregister a service from the registry."""
+        """Unregister a service from the registry and return True if successful."""
         if service_id not in self._services_by_id:
             self.logger.warning(
                 "Attempted to unregister unknown service %s", service_id
@@ -73,7 +71,7 @@ class ServiceRegistry:
 
         # remove from both indexes
         del self._services_by_id[service_id]
-        del self._services_by_type[service_type][service_id]
+        self._services_by_type[service_type].discard(service_id)
 
         # clean up empty service type entries
         if not self._services_by_type[service_type]:
@@ -84,43 +82,47 @@ class ServiceRegistry:
         )
         return True
 
-    def service_by_id(self, service_id: str) -> ServiceRegistrationInfo | None:
-        """Get service information by service ID."""
-        return self._services_by_id.get(service_id)
+    def __contains__(self, service_id: str) -> bool:
+        return service_id in self._services_by_id
 
-    def get_service(self, service_id: str) -> ServiceRegistrationInfo | None:
-        """Get service information by service ID."""
-        return self._services_by_id.get(service_id)
+    def __getitem__(self, service_id: str) -> ServiceRegistrationInfo:
+        return self._services_by_id[service_id]
 
-    def services_by_type(
-        self, service_type: ServiceType
-    ) -> dict[str, ServiceRegistrationInfo]:
-        """Get all services of a specific type."""
-        return self._services_by_type.get(service_type, {}).copy()
+    def __len__(self) -> int:
+        return len(self._services_by_id)
+
+    def __iter__(self) -> Iterator[ServiceRegistrationInfo]:
+        return iter(self._services_by_id.values())
+
+    async def __aiter__(self) -> AsyncIterator[ServiceRegistrationInfo]:
+        for service_info in list(self._services_by_id.values()):
+            yield service_info
 
     def service_ids_by_type(self, service_type: ServiceType) -> set[str]:
-        """Get all service IDs of a specific type."""
-        return set(self._services_by_type.get(service_type, {}).keys())
+        return self._services_by_type.get(service_type, set())
 
     def all_service_types(self) -> set[ServiceType]:
-        """Get all service types currently registered."""
         return set(self._services_by_type.keys())
 
     def all_service_ids(self) -> set[str]:
-        """Get all service IDs currently registered."""
         return set(self._services_by_id.keys())
 
-    def service_count_by_type(self, service_type: ServiceType) -> int:
-        """Get count of services of a specific type."""
-        return len(self._services_by_type.get(service_type, {}))
+    def num_replicas(self, service_type: ServiceType) -> int:
+        """Get the number of replicas of a specific service type."""
+        return len(self._services_by_type.get(service_type, set()))
 
-    def total_service_count(self) -> int:
-        """Get total count of all registered services."""
-        return len(self._services_by_id)
+    def services_with_state(self, *states: ServiceState) -> set[str]:
+        """Get all service IDs with a specific state."""
+        return set(
+            service_id
+            for service_id, service_info in self._services_by_id.items()
+            if service_info.state in states
+        )
 
     def update_service_state(self, service_id: str, state: ServiceState) -> bool:
-        """Update the state of a registered service."""
+        """Update the state of a registered service and return True if successful."""
         if service_id not in self._services_by_id:
+            # TODO: Should this automatically register the service?
             self.logger.warning(
                 "Attempted to update state of unknown service %s", service_id
             )
@@ -134,8 +136,9 @@ class ServiceRegistry:
         return True
 
     def update_service_heartbeat(self, service_id: str) -> bool:
-        """Update the last seen timestamp for a service (heartbeat)."""
+        """Update the last seen timestamp for a service (heartbeat) and return True if successful."""
         if service_id not in self._services_by_id:
+            # TODO: Should this automatically register the service?
             self.logger.debug("Received heartbeat from unknown service %s", service_id)
             return False
 
@@ -144,57 +147,12 @@ class ServiceRegistry:
 
         return True
 
-    def is_service_registered(self, service_id: str) -> bool:
-        """Check if a service is registered."""
-        return service_id in self._services_by_id
-
-    def has_service_type(self, service_type: ServiceType) -> bool:
-        """Check if any services of a specific type are registered."""
-        return (
-            service_type in self._services_by_type
-            and len(self._services_by_type[service_type]) > 0
-        )
-
-    def services_by_registration_status(
-        self, registration_status: ServiceRegistrationStatus
-    ) -> dict[str, ServiceRegistrationInfo]:
-        """Get all services with a specific registration status."""
-        return {
-            service_id: service_info
-            for service_id, service_info in self._services_by_id.items()
-            if service_info.registration_status == registration_status
-        }
-
-    def services_by_state(
-        self, state: ServiceState
-    ) -> dict[str, ServiceRegistrationInfo]:
-        """Get all services with a specific state."""
-        return {
-            service_id: service_info
-            for service_id, service_info in self._services_by_id.items()
-            if service_info.state == state
-        }
-
     def clear(self) -> None:
         """Clear all registered services from the registry."""
         self._services_by_type.clear()
         self._services_by_id.clear()
         self.logger.debug("Cleared all services from registry")
 
-    def registry_summary(self) -> dict:
-        """Get a summary of the current registry state."""
-        service_counts_by_type = {
-            service_type: len(services)
-            for service_type, services in self._services_by_type.items()
-        }
 
-        return {
-            "total_services": self.total_service_count(),
-            "service_types": len(self._services_by_type),
-            "services_by_type": service_counts_by_type,
-            "registered_services": len(
-                self.services_by_registration_status(
-                    ServiceRegistrationStatus.REGISTERED
-                )
-            ),
-        }
+# Create a global instance
+GlobalServiceRegistry = ServiceRegistry()

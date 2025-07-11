@@ -91,7 +91,7 @@ class HookSystem:
         Args:
             supported_hooks: The hook types that the class supports.
         """
-        self.logger = logging.getLogger(__class__.__name__)
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.supported_hooks: set[HookType] = supported_hooks
         self._hooks: dict[HookType, list[Callable]] = {}
 
@@ -448,7 +448,7 @@ class AIPerfLifecycleMixin(HooksMixin, AsyncTaskManagerMixin):
 
     def __init__(self):
         super().__init__()
-        self.logger = logging.getLogger(__class__.__name__)
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.initialized_event: asyncio.Event = asyncio.Event()
         self.started_event: asyncio.Event = asyncio.Event()
         self.stop_requested: asyncio.Event = asyncio.Event()
@@ -586,7 +586,7 @@ class AIPerfProfileMixin(HooksMixin):
 
     def __init__(self):
         super().__init__()
-        self.logger = logging.getLogger(__class__.__name__)
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.profile_started_event: asyncio.Event = asyncio.Event()
         self.profile_stopped_event: asyncio.Event = asyncio.Event()
         self.request_profile_stop_event: asyncio.Event = asyncio.Event()

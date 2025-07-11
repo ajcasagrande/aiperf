@@ -82,7 +82,11 @@ class InferenceResultParser(BaseComponentService):
         self.model_endpoint = ModelEndpointInfo.from_user_config(self.user_config)
         async with self.tokenizer_lock:
             self.tokenizers = {
-                model.name: Tokenizer.from_pretrained(model.name)
+                model.name: Tokenizer.from_pretrained(
+                    self.user_config.tokenizer.name or model.name,
+                    trust_remote_code=self.user_config.tokenizer.trust_remote_code,
+                    revision=self.user_config.tokenizer.revision,
+                )
                 for model in self.model_endpoint.models.models
             }
             self.logger.info(
@@ -93,7 +97,11 @@ class InferenceResultParser(BaseComponentService):
         """Get the tokenizer for a given model."""
         async with self.tokenizer_lock:
             if model not in self.tokenizers:
-                self.tokenizers[model] = Tokenizer.from_pretrained(model)
+                self.tokenizers[model] = Tokenizer.from_pretrained(
+                    self.user_config.tokenizer.name or model,
+                    trust_remote_code=self.user_config.tokenizer.trust_remote_code,
+                    revision=self.user_config.tokenizer.revision,
+                )
             return self.tokenizers[model]
 
     @on_configure
@@ -156,8 +164,6 @@ class InferenceResultParser(BaseComponentService):
 
 
 def main() -> None:
-    """Main entry point for the inference result parser."""
-
     from aiperf.common.bootstrap import bootstrap_and_run_service
 
     bootstrap_and_run_service(InferenceResultParser)

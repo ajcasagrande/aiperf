@@ -15,3 +15,6 @@ TASK_CANCEL_TIMEOUT_LONG = 5.0
 
 DEFAULT_COMMS_REQUEST_TIMEOUT = 10.0
 """Default timeout for requests from req_clients to rep_clients in seconds."""
+
+DEFAULT_WAIT_FOR_START_SECONDS = 30
+"""Default timeout for waiting for services to start in seconds."""

@@ -17,7 +17,7 @@
 
 .PHONY: ruff lint ruff-fix lint-fix format fmt check-format check-fmt \
 		test coverage cov clean install docker docker-run first-time-setup \
-		test-verbose init \
+		test-verbose init-files \
 		internal-help help
 
 
@@ -90,8 +90,10 @@ internal-help:
 	} | sort
 	@printf "────────────────────────────────────────────────────────────────────────────\n"
 
-init: #? run mkinit to generate the __init__.py files.
+init-files: #? run mkinit to generate the __init__.py files.
 	$(activate_venv) && mkinit --write --black --nomods --norespect_all aiperf/common/enums
+	$(activate_venv) && mkinit --write --black --nomods --norespect_all aiperf/common/messages
+	$(activate_venv) && mkinit --write --black --nomods --norespect_all aiperf/common/config
 
 ruff lint: #? run the ruff linters
 	$(activate_venv) && ruff check . $(args)

@@ -10,15 +10,11 @@ import zmq.asyncio
 from aiperf.common.comms.zmq.zmq_proxy_base import BaseZMQProxy, ZMQProxyFactory
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
-from aiperf.common.credit_models import (
-    RecordsProcessingStatsMessage,
-)
 from aiperf.common.enums import (
     BenchmarkSuiteType,
     CommandResponseStatus,
     CommandType,
     MessageType,
-    ServiceRegistrationStatus,
     ServiceRunType,
     ServiceState,
     ServiceType,
@@ -34,15 +30,16 @@ from aiperf.common.messages import (
     HeartbeatMessage,
     Message,
     ProcessRecordsCommandData,
+    RecordsProcessingStatsMessage,
     RegistrationMessage,
     StatusMessage,
 )
+from aiperf.common.messages.progress import ProfileResultsMessage
 from aiperf.common.pydantic_utils import AIPerfBaseModel
 from aiperf.common.service.base_controller_service import BaseControllerService
 from aiperf.common.service_models import ServiceRegistrationInfo
 from aiperf.data_exporter.exporter_manager import ExporterManager
 from aiperf.progress.progress_logger import SimpleProgressLogger
-from aiperf.progress.progress_models import ProfileResultsMessage
 from aiperf.progress.progress_tracker import (
     BenchmarkSuiteProgress,
     ProfileRunProgress,
@@ -275,33 +272,35 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
 
         try:
             # Wait for all required services to be registered
-            await self.service_manager.wait_for_all_services_registration(
-                self.stop_event
-            )
+            await self.service_manager.wait_for_all_services_registration()
 
             if self.stop_event.is_set():
                 self.logger.debug(
                     "System Controller stopped before all services registered"
                 )
-                return  # Don't continue with the rest of the initialization
+                raise asyncio.CancelledError()
 
         except Exception as e:
-            raise self._service_error(
-                "Not all required services registered within the timeout period",
-            ) from e
+            raise asyncio.CancelledError() from e
 
         self.logger.debug("All required services registered successfully")
 
         self.logger.info("AIPerf System is READY")
         self._system_state = SystemState.READY
 
+        try:
+            await self.service_manager.wait_for_all_services_to_start()
+        except Exception as e:
+            raise asyncio.CancelledError() from e
+
+        self.logger.debug("All required services started successfully")
+
         await self.start_profiling_all_services()
 
         if self.stop_event.is_set():
             self.logger.debug("System Controller stopped before all services started")
-            return  # Don't continue with the rest of the initialization
+            raise asyncio.CancelledError()
 
-        self.logger.debug("All required services started successfully")
         self.logger.info("AIPerf System is RUNNING")
 
     async def _handle_signal(self, sig: int) -> None:
@@ -442,12 +441,13 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
         service_id = message.service_id
         service_type = message.service_type
 
-        self.logger.info(
+        self.logger.debug(
             "Processing registration from %s with ID: %s", service_type, service_id
         )
 
+        await self.service_manager.on_message(message)
+
         service_info = ServiceRegistrationInfo(
-            registration_status=ServiceRegistrationStatus.REGISTERED,
             service_type=service_type,
             service_id=service_id,
             first_seen=time.time_ns(),
@@ -498,6 +498,7 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
         self.logger.debug(
             "Received heartbeat from %s (ID: %s)", service_type, service_id
         )
+        await self.service_manager.on_message(message)
 
         # Update the last heartbeat timestamp if the component exists
         try:

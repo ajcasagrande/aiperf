@@ -12,16 +12,7 @@ from aiperf.common.comms.base import (
 )
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
-from aiperf.common.credit_models import (
-    CreditDropMessage,
-    CreditPhaseCompleteMessage,
-    CreditPhaseProgressMessage,
-    CreditPhaseSendingCompleteMessage,
-    CreditPhaseStartMessage,
-    CreditPhaseStats,
-    CreditReturnMessage,
-    CreditsCompleteMessage,
-)
+from aiperf.common.credit_models import CreditPhaseStats
 from aiperf.common.enums import (
     CreditPhase,
     MessageType,
@@ -37,6 +28,13 @@ from aiperf.common.hooks import (
 )
 from aiperf.common.messages import (
     CommandMessage,
+    CreditDropMessage,
+    CreditPhaseCompleteMessage,
+    CreditPhaseProgressMessage,
+    CreditPhaseSendingCompleteMessage,
+    CreditPhaseStartMessage,
+    CreditReturnMessage,
+    CreditsCompleteMessage,
     DatasetTimingRequest,
     DatasetTimingResponse,
 )
@@ -87,7 +85,7 @@ class TimingManager(BaseComponentService, AsyncTaskManagerMixin):
         )
 
         self.start_time_ns = time.time_ns()
-        self.config = TimingManagerConfig.from_user_config(self.user_config)
+        self.user_config = user_config
         self._credit_issuing_strategy: CreditIssuingStrategy | None = None
 
     @property
@@ -99,7 +97,7 @@ class TimingManager(BaseComponentService, AsyncTaskManagerMixin):
     async def _initialize(self) -> None:
         """Initialize timing manager-specific components."""
         self.logger.debug("Initializing timing manager")
-
+        self.config = TimingManagerConfig.from_user_config(self.user_config)
         await self.credit_return_client.register_pull_callback(
             message_type=MessageType.CREDIT_RETURN,
             callback=self._on_credit_return,

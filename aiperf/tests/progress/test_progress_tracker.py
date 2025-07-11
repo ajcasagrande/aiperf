@@ -6,6 +6,7 @@ import time
 
 from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import CreditPhase
+from aiperf.common.enums.benchmark import BenchmarkSuiteType
 from aiperf.common.health_models import ProcessHealth
 from aiperf.common.worker_models import WorkerHealthMessage
 from aiperf.progress.progress_models import (
@@ -64,6 +65,7 @@ class TestProgressTracker:
             active_phase=CreditPhase.STEADY_STATE,
         )
         suite = BenchmarkSuiteProgress(
+            type=BenchmarkSuiteType.SINGLE_PROFILE,
             profile_runs=[profile_run],
             current_profile_run=profile_run,
         )
@@ -76,6 +78,7 @@ class TestProgressTracker:
         tracker = ProgressTracker()
         profile_run = ProfileRunProgress(profile_id="test-profile")
         suite = BenchmarkSuiteProgress(
+            type=BenchmarkSuiteType.SINGLE_PROFILE,
             profile_runs=[profile_run],
             current_profile_run=profile_run,
         )
@@ -92,6 +95,7 @@ class TestProgressTracker:
         tracker = ProgressTracker()
         profile_run = ProfileRunProgress(profile_id="test-profile")
         suite = BenchmarkSuiteProgress(
+            type=BenchmarkSuiteType.SINGLE_PROFILE,
             profile_runs=[profile_run],
             current_profile_run=profile_run,
         )
@@ -109,6 +113,7 @@ class TestProgressTracker:
         tracker = ProgressTracker()
         profile_run = ProfileRunProgress(profile_id="test-profile")
         suite = BenchmarkSuiteProgress(
+            type=BenchmarkSuiteType.SINGLE_PROFILE,
             profile_runs=[profile_run],
             current_profile_run=profile_run,
         )
@@ -125,6 +130,7 @@ class TestProgressTracker:
         tracker = ProgressTracker()
         profile_run = ProfileRunProgress(profile_id="test-profile")
         suite = BenchmarkSuiteProgress(
+            type=BenchmarkSuiteType.SINGLE_PROFILE,
             profile_runs=[profile_run],
             current_profile_run=profile_run,
         )
@@ -149,6 +155,7 @@ class TestProgressTracker:
         tracker = ProgressTracker()
         profile_run = ProfileRunProgress(profile_id="test-profile")
         suite = BenchmarkSuiteProgress(
+            type=BenchmarkSuiteType.SINGLE_PROFILE,
             profile_runs=[profile_run],
             current_profile_run=profile_run,
         )
@@ -199,6 +206,7 @@ class TestProgressTracker:
         tracker = ProgressTracker()
         profile_run = ProfileRunProgress(profile_id="test-profile")
         suite = BenchmarkSuiteProgress(
+            type=BenchmarkSuiteType.SINGLE_PROFILE,
             profile_runs=[profile_run],
             current_profile_run=profile_run,
         )
@@ -299,11 +307,11 @@ class TestProgressTracker:
         )
 
         # Should not raise errors
-        tracker.on_credit_phase_start(start_message)
-        tracker.on_credit_phase_progress(progress_message)
-        tracker.on_credit_phase_complete(complete_message)
-        tracker.on_phase_processing_stats(processing_message)
-        tracker.on_worker_health(health_message)
+        tracker.on_message(start_message)
+        tracker.on_message(progress_message)
+        tracker.on_message(complete_message)
+        tracker.on_message(processing_message)
+        tracker.on_message(health_message)
 
         # Should still be None
         assert tracker.current_profile_run is None
@@ -330,6 +338,7 @@ class TestProgressTracker:
         """Test BenchmarkSuiteProgress model."""
         profile_run = ProfileRunProgress(profile_id="test-profile")
         suite = BenchmarkSuiteProgress(
+            type=BenchmarkSuiteType.SINGLE_PROFILE,
             profile_runs=[profile_run],
             current_profile_run=profile_run,
         )

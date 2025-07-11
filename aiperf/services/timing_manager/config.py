@@ -40,6 +40,6 @@ class TimingManagerConfig(AIPerfBaseModel):
             request_rate_mode=user_config.load.request_rate_mode,
             request_count=user_config.load.request_count,
             warmup_request_count=user_config.load.warmup_request_count,
-            concurrency_ramp_up_time=user_config.load.concurrency_ramp_up_time,
+            # concurrency_ramp_up_time=user_config.load.concurrency_ramp_up_time,
             random_seed=user_config.input.random_seed,
         )

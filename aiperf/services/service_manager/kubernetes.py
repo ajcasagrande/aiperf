@@ -4,8 +4,10 @@ import asyncio
 
 from aiperf.common.config import ServiceConfig
 from aiperf.common.enums import ServiceType
+from aiperf.common.messages import BaseServiceMessage
 from aiperf.common.pydantic_utils import AIPerfBaseModel
 from aiperf.services.service_manager.base import BaseServiceManager
+from aiperf.services.service_registry import GlobalServiceRegistry
 
 
 class ServiceKubernetesRunInfo(AIPerfBaseModel):
@@ -27,6 +29,7 @@ class KubernetesServiceManager(BaseServiceManager):
         config: ServiceConfig,
     ):
         super().__init__(required_service_types, config)
+        self.registry = GlobalServiceRegistry
 
     async def run_all_services(self) -> None:
         """Initialize all required services as Kubernetes pods."""
@@ -73,3 +76,6 @@ class KubernetesServiceManager(BaseServiceManager):
         raise NotImplementedError(
             "KubernetesServiceManager.wait_for_all_services_start not implemented"
         )
+
+    async def on_message(self, message: BaseServiceMessage) -> None:
+        raise NotImplementedError

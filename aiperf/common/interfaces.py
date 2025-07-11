@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 from typing import Generic, Protocol, runtime_checkable
 
+from aiperf.common.messages.base_messages import Message
 from aiperf.common.types import (
     InputT,
     OutputT,
@@ -43,4 +44,22 @@ class DataExporterProtocol(Protocol):
 
     async def export(self) -> None:
         """Export the data."""
+        ...
+
+
+################################################################################
+# Message Handler Protocol
+################################################################################
+
+
+@runtime_checkable
+class MessageHandlerProtocol(Protocol):
+    """
+    Protocol for message handlers.
+    Any class implementing this protocol must provide an `on_message` method
+    that takes a message and handles it appropriately.
+    """
+
+    async def on_message(self, message: Message) -> None:
+        """Handle the message."""
         ...

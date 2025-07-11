@@ -1,10 +1,10 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-import asyncio
 import logging
 from abc import ABC, abstractmethod
 
 from aiperf.common.config import ServiceConfig
+from aiperf.common.constants import DEFAULT_WAIT_FOR_START_SECONDS
 from aiperf.common.enums import ServiceType
 from aiperf.common.messages import BaseServiceMessage
 from aiperf.common.service_models import ServiceRegistrationInfo
@@ -48,9 +48,17 @@ class BaseServiceManager(ABC):
 
     @abstractmethod
     async def wait_for_all_services_registration(
-        self, stop_event: asyncio.Event, timeout_seconds: int = 30
+        self, timeout_seconds: int = DEFAULT_WAIT_FOR_START_SECONDS
     ) -> None:
         """Wait for all required services to be registered."""
+        pass
+
+    @abstractmethod
+    async def wait_for_all_services_to_start(
+        self,
+        timeout_seconds: int = DEFAULT_WAIT_FOR_START_SECONDS,
+    ) -> None:
+        """Wait for all services to start."""
         pass
 
     @abstractmethod

@@ -4,14 +4,14 @@ import logging
 
 from tqdm import tqdm
 
-from aiperf.common.credit_models import (
+from aiperf.common.enums import CreditPhase, MessageType
+from aiperf.common.messages import (
     CreditPhaseCompleteMessage,
     CreditPhaseProgressMessage,
     CreditPhaseStartMessage,
+    Message,
     RecordsProcessingStatsMessage,
 )
-from aiperf.common.enums import CreditPhase, MessageType
-from aiperf.common.messages import Message
 from aiperf.common.worker_models import WorkerHealthMessage
 from aiperf.progress.progress_tracker import ProgressTracker
 
@@ -27,6 +27,7 @@ class SimpleProgressLogger:
 
     async def update_progress(self):
         """Log a progress update based on current credit phase."""
+        return
         current_profile_run = self.progress_tracker.current_profile_run
 
         if current_profile_run is None:
@@ -66,6 +67,7 @@ class SimpleProgressLogger:
 
     async def update_stats(self, message: RecordsProcessingStatsMessage):
         """Log a stats update based on current credit phase."""
+        return
         current_profile_run = self.progress_tracker.current_profile_run
 
         if current_profile_run is None:
@@ -111,6 +113,7 @@ class SimpleProgressLogger:
 
     async def on_message(self, message: Message) -> None:
         """Handle a message from the system controller."""
+        return
         _message_mappings = {
             MessageType.CREDIT_PHASE_PROGRESS: self.update_credit_phase_progress,
             MessageType.CREDIT_PHASE_COMPLETE: self.update_credit_phase_complete,
@@ -159,6 +162,7 @@ class SimpleProgressLogger:
 
     async def update_credit_phase_progress(self, message: CreditPhaseProgressMessage):
         """Log a credit phase progress update."""
+        return
         self.logger.debug(
             "Credit phase %s progress updated", message.phase_stats_map.keys()
         )
@@ -168,6 +172,7 @@ class SimpleProgressLogger:
 
     async def update_results(self):
         """Log a results update."""
+        return
         self.logger.debug("Profile results updated")
 
         # Close all tqdm bars
@@ -181,6 +186,7 @@ class SimpleProgressLogger:
 
     def cleanup(self):
         """Clean up all progress bars."""
+        return
         for phase, tqdm_bar in list(self.tqdm_requests.items()):
             tqdm_bar.close()
         self.tqdm_requests.clear()

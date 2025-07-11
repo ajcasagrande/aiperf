@@ -10,7 +10,7 @@ from rich.text import Text
 
 from aiperf.common.enums import CreditPhase
 from aiperf.common.utils import format_bytes
-from aiperf.common.worker_models import WorkerHealthMessage
+from aiperf.common.worker_models import WorkerHealthMessage, WorkerPhaseTaskStats
 from aiperf.ui.rich_dashboard import DashboardElement
 
 
@@ -70,7 +70,15 @@ class WorkerStatusElement(DashboardElement):
             last_seen = self.worker_last_seen.get(service_id, current_time)
 
             process = health.process
-            task_stats = health.task_stats[CreditPhase.STEADY_STATE]
+            if CreditPhase.STEADY_STATE in health.task_stats:
+                task_stats = health.task_stats[CreditPhase.STEADY_STATE]
+            else:
+                task_stats = WorkerPhaseTaskStats(
+                    total=0,
+                    completed=0,
+                    failed=0,
+                )
+
             # Determine status
             if current_time - last_seen > 30:  # 30 seconds
                 status = Text("Stale", style="dim white")

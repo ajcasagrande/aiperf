@@ -68,17 +68,17 @@ def sample_model_endpoint_info(sample_model_list_info, sample_endpoint_info):
 
 # User Config Fixtures
 @pytest.fixture
-def sample_user_config():
+def sample_user_config(sample_text):
     """Sample UserConfig for testing."""
     return UserConfig(
         model_names=["gpt-4"],
         endpoint=EndPointConfig(
-            type="chat",
+            type=EndpointType.OPENAI_CHAT_COMPLETIONS,
             url="https://api.openai.com",
             api_key="test-api-key",
             streaming=False,
             timeout=30.0,
-            model_selection_strategy="round_robin",
+            model_selection_strategy=ModelSelectionStrategy.ROUND_ROBIN,
         ),
         input=InputConfig(
             headers={"Custom-Header": "test-value"}, extra={"temperature": 0.7}
@@ -90,7 +90,7 @@ def sample_user_config():
 @pytest.fixture
 def sample_text():
     """Sample Text for testing."""
-    return Text(name="text", role="user", content=["Hello, how are you?"])
+    return Text(name="text", content=["Hello, how are you?"])
 
 
 @pytest.fixture

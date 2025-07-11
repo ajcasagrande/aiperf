@@ -7,19 +7,19 @@ from unittest.mock import Mock
 
 import pytest
 
+from aiperf.common.credit_models import CreditPhaseStats, PhaseProcessingStats
 from aiperf.common.enums import CreditPhase
+from aiperf.common.enums.benchmark_suite import BenchmarkSuiteType
 from aiperf.common.health_models import CPUTimes, CtxSwitches, IOCounters, ProcessHealth
-from aiperf.common.worker_models import WorkerHealthMessage, WorkerPhaseTaskStats
-from aiperf.progress.progress_logger import SimpleProgressLogger
-from aiperf.progress.progress_models import (
+from aiperf.common.messages import (
     CreditPhaseCompleteMessage,
     CreditPhaseProgressMessage,
     CreditPhaseStartMessage,
-    CreditPhaseStats,
-    PhaseProcessingStats,
-    ProfileResultsMessage,
     RecordsProcessingStatsMessage,
 )
+from aiperf.common.worker_models import WorkerHealthMessage, WorkerPhaseTaskStats
+from aiperf.progress.progress_logger import SimpleProgressLogger
+from aiperf.progress.progress_models import ProfileResultsMessage
 from aiperf.progress.progress_tracker import (
     BenchmarkSuiteProgress,
     ProfileRunProgress,
@@ -41,6 +41,7 @@ def benchmark_suite_progress():
     """Create a basic BenchmarkSuiteProgress instance."""
     profile_run = ProfileRunProgress(profile_id="test-profile")
     return BenchmarkSuiteProgress(
+        type=BenchmarkSuiteType.SINGLE_PROFILE,
         profile_runs=[profile_run],
         current_profile_run=profile_run,
     )
@@ -75,7 +76,7 @@ def credit_phase_progress_message(credit_phase_stats):
     """Create a CreditPhaseProgressMessage instance."""
     return CreditPhaseProgressMessage(
         service_id="test-service",
-        phase=credit_phase_stats,
+        phase_stats_map={CreditPhase.STEADY_STATE: credit_phase_stats},
     )
 
 
@@ -84,7 +85,7 @@ def credit_phase_start_message(credit_phase_stats):
     """Create a CreditPhaseStartMessage instance."""
     return CreditPhaseStartMessage(
         service_id="test-service",
-        phase=credit_phase_stats,
+        phase_stats=credit_phase_stats,
     )
 
 
@@ -94,7 +95,7 @@ def credit_phase_complete_message(credit_phase_stats):
     credit_phase_stats.end_ns = time.time_ns()
     return CreditPhaseCompleteMessage(
         service_id="test-service",
-        phase=credit_phase_stats,
+        phase_stats=credit_phase_stats,
     )
 
 
@@ -113,7 +114,7 @@ def records_processing_stats_message(phase_processing_stats):
     return RecordsProcessingStatsMessage(
         service_id="test-service",
         current_phase=CreditPhase.STEADY_STATE,
-        phase_stats=phase_processing_stats,
+        processing_stats=phase_processing_stats,
         worker_stats={
             "worker-1": PhaseProcessingStats(processed=25, errors=3),
             "worker-2": PhaseProcessingStats(processed=20, errors=2),

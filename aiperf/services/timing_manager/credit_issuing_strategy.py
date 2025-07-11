@@ -5,8 +5,9 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Protocol
 
-from aiperf.common.credit_models import CreditPhaseStats, CreditReturnMessage
+from aiperf.common.credit_models import CreditPhaseStats
 from aiperf.common.enums import CreditPhase
+from aiperf.common.messages import CreditReturnMessage
 from aiperf.common.mixins import AsyncTaskManagerMixin
 from aiperf.services.timing_manager.config import TimingManagerConfig
 
@@ -46,7 +47,7 @@ class CreditIssuingStrategy(AsyncTaskManagerMixin, ABC):
         self, config: TimingManagerConfig, credit_manager: CreditManagerProtocol
     ):
         super().__init__()
-        self.logger = logging.getLogger(__class__.__name__)
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.config = config
         self.credit_manager = credit_manager
 

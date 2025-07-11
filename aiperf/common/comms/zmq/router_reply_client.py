@@ -66,7 +66,7 @@ class ZMQRouterReplyClient(BaseZMQClient, AsyncTaskManagerMixin):
         """
         super().__init__(context, zmq.SocketType.ROUTER, address, bind, socket_ops)
 
-        self.logger = logging.getLogger(__class__.__name__)
+        self.logger = logging.getLogger(self.__class__.__name__)
         self._request_handlers: dict[
             MessageType,
             tuple[str, Callable[[Message], Coroutine[Any, Any, Message | None]]],

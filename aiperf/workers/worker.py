@@ -18,7 +18,6 @@ from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.constants import (
     NANOS_PER_SECOND,
 )
-from aiperf.common.credit_models import CreditDropMessage, CreditReturnMessage
 from aiperf.common.dataset_models import Turn
 from aiperf.common.enums import (
     CommunicationClientAddressType,
@@ -38,6 +37,8 @@ from aiperf.common.messages import (
     CommandMessage,
     ConversationRequestMessage,
     ConversationResponseMessage,
+    CreditDropMessage,
+    CreditReturnMessage,
     ErrorMessage,
     InferenceResultsMessage,
 )

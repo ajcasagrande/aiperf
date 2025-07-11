@@ -105,3 +105,7 @@ class ShutdownError(AIPerfError):
 
 class ProxyError(AIPerfError):
     """Exception raised when a proxy encounters an error."""
+
+
+class ServiceTimeoutError(AIPerfError):
+    """Exception raised when a service registration times out."""

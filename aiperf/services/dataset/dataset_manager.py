@@ -55,6 +55,7 @@ class DatasetManager(BaseComponentService):
             service_id=service_id,
         )
         self.logger.debug("Dataset manager __init__")
+        self.user_config = user_config
         self.tokenizer: Tokenizer | None = None
         self.dataset: dict[str, Conversation] = {}  # session ID -> Conversation mapping
         self.reply_client: ReplyClientProtocol = self.comms.create_reply_client(
@@ -105,8 +106,14 @@ class DatasetManager(BaseComponentService):
 
         tokenizer_name = self.user_config.tokenizer.name
         if tokenizer_name is None:
+            # TODO: How do we support multiple?
             tokenizer_name = self.user_config.model_names[0]
-        tokenizer = Tokenizer.from_pretrained(tokenizer_name)
+
+        tokenizer = Tokenizer.from_pretrained(
+            tokenizer_name,
+            trust_remote_code=self.user_config.tokenizer.trust_remote_code,
+            revision=self.user_config.tokenizer.revision,
+        )
         composer = ComposerFactory.create_instance(
             composer_type,
             config=self.user_config.input,

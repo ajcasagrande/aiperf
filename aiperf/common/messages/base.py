@@ -6,6 +6,7 @@ from typing import Any, ClassVar
 from pydantic import Field
 
 from aiperf.common.enums import MessageType
+from aiperf.common.enums.service import ServiceState, ServiceType
 from aiperf.common.pydantic_utils import ExcludeIfNoneMixin, exclude_if_none
 
 __all__ = ["Message", "RequiresRequestNSMixin"]
@@ -89,4 +90,29 @@ class RequiresRequestNSMixin(Message):
     request_ns: int = Field(  # type: ignore[assignment]
         default_factory=time.time_ns,
         description="Timestamp of the request in nanoseconds",
+    )
+
+
+class BaseServiceMessage(Message):
+    """Base message that is sent from a service. Requires a service_id field to specify
+    the service that sent the message."""
+
+    service_id: str = Field(
+        ...,
+        description="ID of the service sending the message",
+    )
+
+
+class BaseStatusMessage(BaseServiceMessage, RequiresRequestNSMixin):
+    """Base message containing status data.
+    This message is sent by a service to the system controller to report its status.
+    """
+
+    state: ServiceState = Field(
+        ...,
+        description="Current state of the service",
+    )
+    service_type: ServiceType = Field(
+        ...,
+        description="Type of service",
     )
