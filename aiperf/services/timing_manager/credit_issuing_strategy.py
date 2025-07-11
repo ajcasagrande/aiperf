@@ -3,7 +3,7 @@
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 from aiperf.common.credit_models import CreditPhaseStats
 from aiperf.common.enums import CreditPhase
@@ -12,6 +12,7 @@ from aiperf.common.mixins import AsyncTaskManagerMixin
 from aiperf.services.timing_manager.config import TimingManagerConfig
 
 
+@runtime_checkable
 class CreditManagerProtocol(Protocol):
     """Defines the interface for a CreditManager.
 
