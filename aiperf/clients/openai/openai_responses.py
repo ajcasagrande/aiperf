@@ -4,10 +4,7 @@
 import logging
 from typing import Any
 
-from aiperf.clients.client_interfaces import (
-    RequestConverterFactory,
-    RequestConverterProtocol,
-)
+from aiperf.clients.client_interfaces import RequestConverterFactory
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.dataset_models import Turn
 from aiperf.common.enums import EndpointType
@@ -15,7 +12,7 @@ from aiperf.common.enums import EndpointType
 
 # TODO: Not fully implemented yet.
 @RequestConverterFactory.register(EndpointType.OPENAI_RESPONSES)
-class OpenAIResponsesRequestConverter(RequestConverterProtocol[dict[str, Any]]):
+class OpenAIResponsesRequestConverter:
     """Request converter for OpenAI Responses requests."""
 
     def __init__(self) -> None:

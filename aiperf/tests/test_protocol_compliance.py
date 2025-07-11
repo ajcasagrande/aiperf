@@ -47,131 +47,49 @@ from aiperf.services.inference_result_parser.openai_parsers import (
 from aiperf.services.records_manager.post_processors.metric_summary import MetricSummary
 
 ################################################################################
-# Communication Client Protocol Tests
+# Protocol Compliance Tests
 ################################################################################
 
 
-class TestCommunicationClientProtocol:
-    """Tests for CommunicationClientProtocol implementations."""
+class TestProtocolCompliance:
+    """Tests for protocol compliance across all implementations."""
 
-    def test_protocol_compliance(self) -> None:
-        """Test that all communication client protocols inherit from CommunicationClientProtocol."""
-        assert issubclass(PushClientProtocol, CommunicationClientProtocol)
-        assert issubclass(PullClientProtocol, CommunicationClientProtocol)
-        assert issubclass(PubClientProtocol, CommunicationClientProtocol)
-        assert issubclass(RequestClientProtocol, CommunicationClientProtocol)
-        assert issubclass(ReplyClientProtocol, CommunicationClientProtocol)
-        assert issubclass(SubClientProtocol, CommunicationClientProtocol)
-
-
-class TestPushClientProtocol:
-    """Tests for PushClientProtocol implementations."""
-
-    def test_protocol_compliance(self) -> None:
-        """Test that all classes implementing PushClientProtocol are compliant."""
-        assert issubclass(ZMQPushClient, PushClientProtocol)
-        assert issubclass(ZMQPushClient, CommunicationClientProtocol)
-
-
-class TestPullClientProtocol:
-    """Tests for PullClientProtocol implementations."""
-
-    def test_protocol_compliance(self) -> None:
-        """Test that all classes implementing PullClientProtocol are compliant."""
-        assert issubclass(ZMQPullClient, PullClientProtocol)
-        assert issubclass(ZMQPullClient, CommunicationClientProtocol)
-
-
-class TestPubClientProtocol:
-    """Tests for PubClientProtocol implementations."""
-
-    def test_protocol_compliance(self) -> None:
-        """Test that all classes implementing PubClientProtocol are compliant."""
-        assert issubclass(ZMQPubClient, PubClientProtocol)
-        assert issubclass(ZMQPubClient, CommunicationClientProtocol)
-
-
-class TestSubClientProtocol:
-    """Tests for SubClientProtocol implementations."""
-
-    def test_protocol_compliance(self) -> None:
-        """Test that all classes implementing SubClientProtocol are compliant."""
-        assert issubclass(ZMQSubClient, SubClientProtocol)
-        assert issubclass(ZMQSubClient, CommunicationClientProtocol)
-
-
-class TestRequestClientProtocol:
-    """Tests for RequestClientProtocol implementations."""
-
-    def test_protocol_compliance(self) -> None:
-        """Test that all classes implementing RequestClientProtocol are compliant."""
-        assert issubclass(ZMQDealerRequestClient, RequestClientProtocol)
-        assert issubclass(ZMQDealerRequestClient, CommunicationClientProtocol)
-
-
-class TestReplyClientProtocol:
-    """Tests for ReplyClientProtocol implementations."""
-
-    def test_protocol_compliance(self) -> None:
-        """Test that all classes implementing ReplyClientProtocol are compliant."""
-        assert issubclass(ZMQRouterReplyClient, ReplyClientProtocol)
-        assert issubclass(ZMQRouterReplyClient, CommunicationClientProtocol)
-
-
-################################################################################
-# Client Interface Protocol Tests
-################################################################################
-
-
-class TestInferenceClientProtocol:
-    """Tests for InferenceClientProtocol implementations."""
-
-    def test_protocol_compliance(self) -> None:
-        """Test that all classes implementing InferenceClientProtocol are compliant."""
-        assert issubclass(OpenAIClientAioHttp, InferenceClientProtocol)
-
-
-class TestRequestConverterProtocol:
-    """Tests for RequestConverterProtocol implementations."""
-
-    def test_protocol_compliance(self) -> None:
-        """Test that all classes implementing RequestConverterProtocol are compliant."""
-        assert issubclass(
-            OpenAIChatCompletionRequestConverter, RequestConverterProtocol
-        )
-        assert issubclass(OpenAICompletionRequestConverter, RequestConverterProtocol)
-        assert issubclass(OpenAIResponsesRequestConverter, RequestConverterProtocol)
-
-
-class TestResponseExtractorProtocol:
-    """Tests for ResponseExtractorProtocol implementations."""
-
-    def test_protocol_compliance(self) -> None:
-        """Test that all classes implementing ResponseExtractorProtocol are compliant."""
-        assert issubclass(OpenAIResponseExtractor, ResponseExtractorProtocol)
-
-
-################################################################################
-# Common Interface Protocol Tests
-################################################################################
-
-
-class TestDataExporterProtocol:
-    """Tests for DataExporterProtocol implementations."""
-
-    def test_protocol_compliance(self) -> None:
-        """Test that all classes implementing DataExporterProtocol are compliant."""
-        assert issubclass(ConsoleExporter, DataExporterProtocol)
-        assert issubclass(ConsoleErrorExporter, DataExporterProtocol)
-        assert issubclass(JsonExporter, DataExporterProtocol)
-
-
-class TestPostProcessorProtocol:
-    """Tests for PostProcessorProtocol implementations."""
-
-    def test_protocol_compliance(self) -> None:
-        """Test that all classes implementing PostProcessorProtocol are compliant."""
-        assert issubclass(MetricSummary, PostProcessorProtocol)
+    @pytest.mark.parametrize(
+        "implementation,protocol",
+        [
+            # Communication client protocols inherit from base protocol
+            (PushClientProtocol, CommunicationClientProtocol),
+            (PullClientProtocol, CommunicationClientProtocol),
+            (PubClientProtocol, CommunicationClientProtocol),
+            (RequestClientProtocol, CommunicationClientProtocol),
+            (ReplyClientProtocol, CommunicationClientProtocol),
+            (SubClientProtocol, CommunicationClientProtocol),
+            # ZMQ implementations inherit from specific protocols
+            (ZMQPushClient, PushClientProtocol),
+            (ZMQPullClient, PullClientProtocol),
+            (ZMQPubClient, PubClientProtocol),
+            (ZMQSubClient, SubClientProtocol),
+            (ZMQDealerRequestClient, RequestClientProtocol),
+            (ZMQRouterReplyClient, ReplyClientProtocol),
+            # Inference client implementations
+            (OpenAIClientAioHttp, InferenceClientProtocol),
+            # Request converter implementations
+            (OpenAIChatCompletionRequestConverter, RequestConverterProtocol),
+            (OpenAICompletionRequestConverter, RequestConverterProtocol),
+            (OpenAIResponsesRequestConverter, RequestConverterProtocol),
+            # Response extractor implementations
+            (OpenAIResponseExtractor, ResponseExtractorProtocol),
+            # Data exporter implementations
+            (ConsoleExporter, DataExporterProtocol),
+            (ConsoleErrorExporter, DataExporterProtocol),
+            (JsonExporter, DataExporterProtocol),
+            # Post processor implementations
+            (MetricSummary, PostProcessorProtocol),
+        ],
+    )
+    def test_protocol_compliance(self, implementation, protocol) -> None:
+        """Test that implementations properly inherit from their protocols."""
+        assert issubclass(implementation, protocol)
 
 
 ################################################################################
@@ -262,41 +180,3 @@ class TestFactoryRegistrations:
         """Test that post processors are registered with PostProcessorFactory."""
         registered_classes = PostProcessorFactory.get_all_classes()
         assert MetricSummary in registered_classes
-
-
-################################################################################
-# Protocol Inheritance Tests
-################################################################################
-
-
-class TestProtocolInheritance:
-    """Test that protocol inheritance hierarchies are correctly established."""
-
-    def test_communication_client_protocol_hierarchy(self) -> None:
-        """Test that all communication client protocols inherit from the base protocol."""
-        assert issubclass(PushClientProtocol, CommunicationClientProtocol)
-        assert issubclass(PullClientProtocol, CommunicationClientProtocol)
-        assert issubclass(PubClientProtocol, CommunicationClientProtocol)
-        assert issubclass(SubClientProtocol, CommunicationClientProtocol)
-        assert issubclass(RequestClientProtocol, CommunicationClientProtocol)
-        assert issubclass(ReplyClientProtocol, CommunicationClientProtocol)
-
-    def test_factory_registered_classes_implement_protocols(self) -> None:
-        """Test that all factory-registered classes implement their respective protocols."""
-        for client_class in CommunicationClientFactory.get_all_classes():
-            assert issubclass(client_class, CommunicationClientProtocol)
-
-        for exporter_class in DataExporterFactory.get_all_classes():
-            assert issubclass(exporter_class, DataExporterProtocol)
-
-        for processor_class in PostProcessorFactory.get_all_classes():
-            assert issubclass(processor_class, PostProcessorProtocol)
-
-        for client_class in InferenceClientFactory.get_all_classes():
-            assert issubclass(client_class, InferenceClientProtocol)
-
-        for converter_class in RequestConverterFactory.get_all_classes():
-            assert issubclass(converter_class, RequestConverterProtocol)
-
-        for extractor_class in ResponseExtractorFactory.get_all_classes():
-            assert issubclass(extractor_class, ResponseExtractorProtocol)

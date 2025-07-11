@@ -4,10 +4,7 @@
 import logging
 from typing import Any
 
-from aiperf.clients.client_interfaces import (
-    RequestConverterFactory,
-    RequestConverterProtocol,
-)
+from aiperf.clients.client_interfaces import RequestConverterFactory
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.dataset_models import Turn
 from aiperf.common.enums import EndpointType
@@ -16,7 +13,7 @@ DEFAULT_ROLE = "user"
 
 
 @RequestConverterFactory.register(EndpointType.OPENAI_CHAT_COMPLETIONS)
-class OpenAIChatCompletionRequestConverter(RequestConverterProtocol[dict[str, Any]]):
+class OpenAIChatCompletionRequestConverter:
     """Request converter for OpenAI chat completion requests."""
 
     def __init__(self) -> None:
