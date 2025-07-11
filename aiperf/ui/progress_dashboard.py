@@ -8,7 +8,7 @@ from textual.containers import Container, Vertical
 from textual.css.query import NoMatches
 from textual.widgets import Label, ProgressBar
 
-from aiperf.common.progress_tracker import ProgressTracker
+from aiperf.progress.progress_tracker import ProgressTracker
 from aiperf.ui.widgets import (
     DashboardField,
     DashboardFormatter,
@@ -24,7 +24,7 @@ class ProgressDashboard(Container):
 
     DEFAULT_CSS = """
     ProgressDashboard {
-        border: solid $primary;
+        border: round $primary;
         border-title-color: $primary;
         border-title-background: $surface;
         height: 100%;

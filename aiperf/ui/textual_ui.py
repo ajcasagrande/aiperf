@@ -20,8 +20,8 @@ from aiperf.common.hooks import (
     aiperf_task,
     on_stop,
 )
-from aiperf.common.models.messages import WorkerHealthMessage
-from aiperf.common.progress_tracker import ProgressTracker
+from aiperf.common.worker_models import WorkerHealthMessage
+from aiperf.progress.progress_tracker import ProgressTracker
 from aiperf.ui.logging_ui import LogViewer
 from aiperf.ui.progress_dashboard import ProgressDashboard
 from aiperf.ui.widgets import Header
@@ -264,7 +264,7 @@ class QuitConfirmationDialog(Static):
         padding: 0 1;
         width: 50;
         height: 9;
-        border: thick $primary;
+        border: round $primary;
         background: $surface;
         margin: 1;
     }

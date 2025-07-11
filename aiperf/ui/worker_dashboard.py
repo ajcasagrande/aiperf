@@ -197,7 +197,7 @@ class WorkerTable(Widget):
         grid-size: 5;
         grid-columns: 1fr 1fr 1fr 1fr 1fr;
         background: $surface-lighten-1;
-        border-bottom: solid $primary;
+        border-bottom: round $primary;
         padding: 0 0;
         margin: 0 0 0 0;
     }
@@ -282,7 +282,7 @@ class WorkerDashboard(Container):
 
     DEFAULT_CSS = """
     WorkerDashboard {
-        border: solid $primary;
+        border: round $primary;
         border-title-color: $primary;
         border-title-background: $surface;
         height: 1fr;
