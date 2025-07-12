@@ -378,7 +378,7 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
 
     async def _forward_generic_message(self, message: Message) -> None:
         """Generic message handler for all messages that don't have or need a specific handler."""
-        self.logger.debug("SC: Received message: %s", message)
+        self.trace("SC: Received message: %s", message)
         self.progress_tracker.on_message(message)
         if self.ui:
             await self.ui.on_message(message)
@@ -491,9 +491,7 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
         service_type = message.service_type
         timestamp = message.request_ns
 
-        self.logger.debug(
-            "Received heartbeat from %s (ID: %s)", service_type, service_id
-        )
+        self.trace(lambda: f"Received heartbeat from {service_type} (ID: {service_id})")
         await self.service_manager.on_message(message)
 
         # Update the last heartbeat timestamp if the component exists
@@ -501,10 +499,10 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
             service_info = self.service_manager.service_id_map[service_id]
             service_info.last_seen = timestamp
             service_info.state = message.state
-            self.logger.debug("Updated heartbeat for %s to %s", service_id, timestamp)
+            self.trace(lambda: f"Updated heartbeat for {service_id} to {timestamp}")
         except Exception:
-            self.logger.warning(
-                f"Received heartbeat from unknown service: {service_id} ({service_type})"
+            self.warning(
+                lambda: f"Received heartbeat from unknown service: {service_id} ({service_type})"
             )
             # HACK: If the service is not registered, we need to register it
             await self._process_registration_message(
@@ -533,10 +531,8 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
 
         # Update the component state if the component exists
         if service_id not in self.service_manager.service_id_map:
-            self.logger.debug(
-                "Received status update from un-registered service: %s (%s)",
-                service_id,
-                service_type,
+            self.trace(
+                lambda: f"Received status update from un-registered service: {service_id} ({service_type})"
             )
             return
 
@@ -546,23 +542,21 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
 
         service_info.state = message.state
 
-        self.logger.debug("Updated state for %s to %s", service_id, state)
+        self.trace(lambda: f"Updated state for {service_id} to {state}")
 
     async def _process_command_response_message(
         self, message: CommandResponseMessage
     ) -> None:
         """Process a command response message."""
-        self.logger.debug("SC: Received command response message: %s", message)
+        self.trace(lambda: f"SC: Received command response message: {message}")
         if message.status == CommandResponseStatus.SUCCESS:
-            self.logger.debug(
-                "SC: Command %s succeeded with data: %s", message.command, message.data
+            self.debug(
+                lambda: f"SC: Command {message.command} succeeded with data: {message.data}"
             )
         else:
-            self.logger.error(
-                "SC: Command %s failed: %s", message.command, message.error
-            )
+            self.error(lambda: f"SC: Command {message.command} failed: {message.error}")
             if message.error:
-                self.logger.error("SC: Error details: %s", message.error)
+                self.error(lambda: f"SC: Error details: {message.error}")
 
     async def send_command_to_service(
         self,
@@ -600,7 +594,7 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
                 )
             )
         except Exception as e:
-            self.logger.exception("Exception publishing command: %s", e)
+            self.exception(lambda e=e: f"Exception publishing command: {e}")
             raise CommunicationError(
                 f"Failed to publish command: {e}",
             ) from e

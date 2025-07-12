@@ -273,3 +273,207 @@ class TestIntegration:
 
         assert not expensive_operation_called
         assert "Expensive result" not in caplog.text
+
+
+class TestPerformance:
+    """Performance tests comparing AIPerfLogger vs standard logger."""
+
+    @pytest.fixture
+    def standard_logger(self):
+        """Create a standard logger for comparison."""
+        return logging.getLogger("test_standard")
+
+    @pytest.fixture
+    def aiperf_logger(self):
+        """Create an AIPerfLogger for comparison."""
+        return AIPerfLogger("test_aiperf")
+
+    def test_performance_enabled_logging(self, standard_logger, aiperf_logger):
+        """Test performance when logging is enabled."""
+        import timeit
+
+        # Set both loggers to INFO level
+        standard_logger.setLevel(logging.INFO)
+        aiperf_logger.set_level(logging.INFO)
+
+        # Test data
+        test_value = "test_value"
+        iterations = 1000000
+
+        # Test standard logger with % formatting
+        def standard_logging():
+            standard_logger.info("Processing item %s", test_value)
+
+        # Test AIPerfLogger with % formatting
+        def aiperf_logging():
+            aiperf_logger.info("Processing item %s", test_value)
+
+        # Test AIPerfLogger with lambda (should be slower when enabled)
+        def aiperf_lazy_logging():
+            aiperf_logger.info(lambda: f"Processing item {test_value}")
+
+        def standard_block_logging():
+            if standard_logger.isEnabledFor(logging.INFO):
+                standard_logger.info(f"Processing item {test_value}")
+
+        def aiperf_block_logging():
+            aiperf_logger.info(lambda: f"Processing item {test_value}")
+
+        # Measure performance
+        standard_time = timeit.timeit(standard_logging, number=iterations)
+        aiperf_time = timeit.timeit(aiperf_logging, number=iterations)
+        aiperf_lazy_time = timeit.timeit(aiperf_lazy_logging, number=iterations)
+        standard_block_time = timeit.timeit(standard_block_logging, number=iterations)
+        aiperf_block_time = timeit.timeit(aiperf_block_logging, number=iterations)
+
+        print(f"Standard logger time: {standard_time:.2f}s")
+        print(f"AIPerfLogger time: {aiperf_time:.2f}s")
+        print(f"AIPerfLogger lazy time: {aiperf_lazy_time:.2f}s")
+        print(f"Standard block time: {standard_block_time:.2f}s")
+        print(f"AIPerfLogger block time: {aiperf_block_time:.2f}s")
+
+        # AIPerfLogger should be close to standard logger for % formatting
+        overhead_ratio = aiperf_time / standard_time
+        assert overhead_ratio < 2.0, (
+            f"AIPerfLogger too slow: {overhead_ratio:.2f}x overhead"
+        )
+
+        # Lambda should be slower when enabled but not excessively
+        lazy_overhead_ratio = aiperf_lazy_time / standard_time
+        assert lazy_overhead_ratio < 5.0, (
+            f"Lambda logging too slow: {lazy_overhead_ratio:.2f}x overhead"
+        )
+
+    def test_performance_disabled_logging(self):
+        """Test performance when logging is disabled - lazy evaluation should shine."""
+        import timeit
+
+        standard_logger = logging.getLogger("standard_logger")
+        aiperf_logger = AIPerfLogger("aiperf_logger")
+
+        # Set both loggers to WARNING level (disabling INFO)
+        standard_logger.setLevel(logging.WARNING)
+        standard_logger.root.handlers = []
+        for handler in standard_logger.handlers[:]:
+            standard_logger.removeHandler(handler)
+
+        aiperf_logger.set_level(logging.WARNING)
+        aiperf_logger._logger.root.handlers = []
+        for handler in aiperf_logger.handlers[:]:
+            aiperf_logger.removeHandler(handler)
+
+        # standard_logger.addHandler(logging.StreamHandler(sys.de))
+        # aiperf_logger.addHandler(logging.StreamHandler(sys.stderr))
+
+        # Test data
+        test_value = "test_value"
+        iterations = 10000
+
+        # Test standard logger with % formatting
+        def standard_logging():
+            standard_logger.info("Processing item %s", test_value)
+
+        # Test AIPerfLogger with % formatting
+        def aiperf_logging():
+            aiperf_logger.info("Processing item %s", test_value)
+
+        # Test AIPerfLogger with lambda (should be fastest when disabled)
+        def aiperf_lazy_logging():
+            aiperf_logger.info(lambda: f"Processing item {test_value * 1000}")
+
+        # Test expensive operation that should be skipped
+        def expensive_operation():
+            # Simulate expensive string formatting
+            return "".join(
+                [f"Processing item {test_value} {' ' * 1000}" for _ in range(10)]
+            )
+
+        def aiperf_expensive_lazy():
+            aiperf_logger.info(lambda: expensive_operation())
+
+        def aiperf_expensive_eager():
+            aiperf_logger.info(expensive_operation())
+
+        def standard_expensive_logging():
+            standard_logger.info(
+                "Processing item %s",
+                " ".join(
+                    [f"Processing item {test_value} {' ' * 1000}" for _ in range(10)]
+                ),
+            )
+
+        def standard_lazy_logging():
+            standard_logger.info(
+                lambda: " ".join(
+                    [f"Processing item {test_value} {' ' * 1000}" for _ in range(10)]
+                )
+            )
+
+        def standard_lazy_eager_logging():
+            standard_logger.warning(
+                lambda: " ".join(
+                    [f"Processing item {test_value} {' ' * 1000}" for _ in range(1000)]
+                )
+            )
+
+        # Measure performance
+        standard_time = timeit.timeit(standard_logging, number=iterations)
+        aiperf_time = timeit.timeit(aiperf_logging, number=iterations)
+        aiperf_lazy_time = timeit.timeit(aiperf_lazy_logging, number=iterations)
+        aiperf_expensive_time = timeit.timeit(aiperf_expensive_lazy, number=iterations)
+        aiperf_expensive_eager_time = timeit.timeit(
+            aiperf_expensive_eager, number=iterations
+        )
+        standard_expensive_time = timeit.timeit(
+            standard_expensive_logging, number=iterations
+        )
+        standard_lazy_time = timeit.timeit(standard_lazy_logging, number=iterations)
+        standard_lazy_eager_time = timeit.timeit(
+            standard_lazy_eager_logging, number=iterations
+        )
+        print(f"Standard logger time: {standard_time:.2f}s")
+        print(f"AIPerfLogger time: {aiperf_time:.2f}s")
+        print(f"AIPerfLogger lazy time: {aiperf_lazy_time:.2f}s")
+        print(f"AIPerfLogger expensive time: {aiperf_expensive_time:.2f}s")
+        print(f"AIPerfLogger expensive eager time: {aiperf_expensive_eager_time:.2f}s")
+        print(f"Standard expensive time: {standard_expensive_time:.2f}s")
+        print(f"Standard lazy time: {standard_lazy_time:.2f}s")
+        print(f"Standard lazy eager time: {standard_lazy_eager_time:.2f}s")
+        # Expensive operation should be skipped (very fast)
+        expensive_ratio = aiperf_expensive_time / standard_time
+        print(f"Expensive lambda not skipped: {expensive_ratio:.2f}x")
+        assert expensive_ratio < 4.0, (
+            f"Expensive lambda not skipped: {expensive_ratio:.2f}x"
+        )
+        assert aiperf_expensive_eager_time < aiperf_expensive_time, (
+            "Eager evaluation should be faster than lazy evaluation"
+        )
+
+    def test_lazy_evaluation_benefit(self, aiperf_logger):
+        """Test that lazy evaluation provides significant benefit for expensive operations."""
+        import timeit
+
+        # Test with logging disabled
+        aiperf_logger.set_level(logging.WARNING)
+        iterations = 1000
+
+        # Expensive operation
+        def expensive_operation():
+            return "expensive " * 1000 + str(sum(range(100)))
+
+        # Test lazy evaluation (should be fast)
+        def lazy_logging():
+            aiperf_logger.info(lambda: expensive_operation())
+
+        # Test eager evaluation (should be slow)
+        def eager_logging():
+            aiperf_logger.info(expensive_operation())
+
+        lazy_time = timeit.timeit(lazy_logging, number=iterations)
+        eager_time = timeit.timeit(eager_logging, number=iterations)
+
+        # Lazy should be significantly faster when logging is disabled
+        speedup = eager_time / lazy_time
+        assert speedup > 2.0, (
+            f"Lazy evaluation benefit too small: {speedup:.2f}x speedup"
+        )

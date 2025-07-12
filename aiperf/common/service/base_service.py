@@ -9,7 +9,7 @@ from aiperf.common.comms.base import (
     CommunicationFactory,
 )
 from aiperf.common.config import ServiceConfig, UserConfig
-from aiperf.common.enums import ServiceState, ServiceType
+from aiperf.common.enums import ServiceState
 from aiperf.common.exceptions import (
     AIPerfError,
     ServiceError,
@@ -294,13 +294,10 @@ class BaseService(
             # Set the state to STOPPED. Communications are shutdown, so we don't need to
             # publish a status message
             self._state = ServiceState.STOPPED
-            if self.service_type not in (
-                ServiceType.WORKER,
-                ServiceType.WORKER_MANAGER,
-            ):
-                self.debug(
-                    lambda: f"Service {self.service_type} (id: {self.service_id}) stopped"
-                )
+
+            self.debug(
+                lambda: f"Service {self.service_type} (id: {self.service_id}) stopped"
+            )
 
             # Re-raise the cancelled error if it was raised during the stop hooks
             if cancelled_error:

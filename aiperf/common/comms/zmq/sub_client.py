@@ -122,15 +122,13 @@ class ZMQSubClient(BaseZMQClient, AsyncTaskManagerMixin):
             # Register callback
             self._subscribers[message_type].append(callback)
 
-            self.logger.debug(
-                "Subscribed to message_type: %s, %s",
-                message_type,
-                self._subscribers[message_type],
+            self.trace(
+                lambda: f"Subscribed to message_type: {message_type}, {self._subscribers[message_type]}"
             )
 
         except Exception as e:
-            self.logger.exception(
-                "Exception subscribing to message_type %s: %s", message_type, e
+            self.exception(
+                lambda e=e: f"Exception subscribing to message_type {message_type}: {e}"
             )
             raise CommunicationError(
                 f"Failed to subscribe to message_type {message_type}: {e}",
@@ -140,10 +138,8 @@ class ZMQSubClient(BaseZMQClient, AsyncTaskManagerMixin):
         """Handle a message from a subscribed message_type."""
         message_type = topic_bytes.decode()
         message_json = message_bytes.decode()
-        self.logger.debug(
-            "Received message from message_type: '%s', message: %s",
-            message_type,
-            message_json,
+        self.trace(
+            lambda: f"Received message from message_type: '{message_type}', message: {message_json}"
         )
 
         message = Message.from_json(message_json)
@@ -161,11 +157,9 @@ class ZMQSubClient(BaseZMQClient, AsyncTaskManagerMixin):
         shutdown. It will wait for messages from the socket and handle them.
         """
         if not self.is_initialized:
-            self.logger.debug(
-                "Sub client %s waiting for initialization", self.client_id
-            )
+            self.trace("Sub client %s waiting for initialization", self.client_id)
             await self.initialized_event.wait()
-            self.logger.debug("Sub client %s initialized", self.client_id)
+            self.trace(lambda: f"Sub client {self.client_id} initialized")
 
         while not self.stop_event.is_set():
             try:
@@ -177,8 +171,8 @@ class ZMQSubClient(BaseZMQClient, AsyncTaskManagerMixin):
                 self.execute_async(self._handle_message(topic_bytes, message_bytes))
 
             except (asyncio.CancelledError, zmq.ContextTerminated):
-                self.logger.debug(
-                    "Sub client %s receiver task cancelled", self.client_id
+                self.trace(
+                    lambda: f"Sub client {self.client_id} receiver task cancelled"
                 )
                 break
 
@@ -187,9 +181,7 @@ class ZMQSubClient(BaseZMQClient, AsyncTaskManagerMixin):
                 continue
 
             except Exception as e:
-                self.logger.exception(
-                    "Exception receiving message from subscription: %s, %s",
-                    e,
-                    type(e),
+                self.exception(
+                    lambda e=e: f"Exception receiving message from subscription: {e}, {type(e)}"
                 )
                 await asyncio.sleep(0.1)

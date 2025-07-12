@@ -155,6 +155,7 @@ class ServiceDefaults:
     ENABLE_YAPPI = False
     DEBUG_SERVICES = None
     WORKER_HEALTH_CHECK_INTERVAL = 1.0
+    PLUGIN_DIRS = []
 
 
 @dataclass(frozen=True)

@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 import inspect
 import logging
+import os
 import random
 import traceback
 from collections.abc import Callable
@@ -190,3 +191,8 @@ def format_bytes(bytes: int | None, none_str: str = "--") -> str:
             return f"{bytes / factor:.0f} {suffix}"
 
     raise ValueError(f"Bytes value is too large to format: {bytes}")
+
+
+# This is used to identify the source file of the call_all_functions function
+# in the AIPerfLogger class to skip it when determining the caller.
+_srcfile = os.path.normcase(call_all_functions.__code__.co_filename)

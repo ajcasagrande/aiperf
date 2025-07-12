@@ -109,3 +109,11 @@ class ProxyError(AIPerfError):
 
 class ServiceTimeoutError(AIPerfError):
     """Exception raised when a service registration times out."""
+
+
+class PluginError(AIPerfError):
+    """Exception raised when a plugin encounters an error."""
+
+
+class PluginNotFoundError(PluginError):
+    """Exception raised when a plugin is not found."""

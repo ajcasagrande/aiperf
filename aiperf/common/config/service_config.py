@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+from pathlib import Path
 from typing import Annotated, Any, Literal
 
 import cyclopts
@@ -216,3 +217,20 @@ class ServiceConfig(BaseSettings):
             name=("--worker-health-check-interval"),
         ),
     ] = ServiceDefaults.WORKER_HEALTH_CHECK_INTERVAL
+
+    plugin_dirs: Annotated[
+        list[Path],
+        Field(
+            description="One or more directories to load plugins from. If not specified, the plugins will be loaded from the default plugins directory.",
+        ),
+        cyclopts.Parameter(
+            name=("--plugin-dir"),
+        ),
+    ] = ServiceDefaults.PLUGIN_DIRS
+
+    # plugins: Annotated[
+    #     list[str],
+    #     Field(
+    #         description="One or more plugins to load. If not specified, the plugins will be loaded from the default plugins directory.",
+    #     ),
+    # ] = ServiceDefaults.PLUGINS

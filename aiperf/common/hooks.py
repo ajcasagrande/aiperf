@@ -59,10 +59,20 @@ class AIPerfTaskHook(CaseInsensitiveStrEnum):
 
     AIPERF_TASK = "__aiperf_task__"
     AIPERF_AUTO_TASK = "__aiperf_auto_task__"
+
+
+class AIPerfMessageHook(CaseInsensitiveStrEnum):
+    """Enum for the various AIPerf message hooks."""
+
+    MESSAGE_HANDLER = "__aiperf_message_handler__"
+
+
+class AIPerfHookParams:
     AIPERF_AUTO_TASK_INTERVAL_SEC = "__aiperf_auto_task_interval_sec__"
+    MESSAGE_HANDLER_MESSAGE_TYPE = "__aiperf_message_handler_message_type__"
 
 
-HookType = AIPerfHook | AIPerfTaskHook | str
+HookType = AIPerfHook | AIPerfTaskHook | AIPerfMessageHook | str
 """Type alias for valid hook types. This is a union of the AIPerfHook enum, the AIPerfTaskHook enum, and any user-defined custom strings."""
 
 
@@ -317,7 +327,7 @@ def aiperf_auto_task(interval_sec: float) -> Callable[[Callable], Callable]:
     """
 
     def decorator(func: Callable) -> Callable:
-        setattr(func, AIPerfTaskHook.AIPERF_AUTO_TASK_INTERVAL_SEC, interval_sec)
+        setattr(func, AIPerfHookParams.AIPERF_AUTO_TASK_INTERVAL_SEC, interval_sec)
         return hook_decorator(AIPerfTaskHook.AIPERF_AUTO_TASK, func)
 
     return decorator
@@ -534,7 +544,9 @@ class AIPerfLifecycleMixin(HooksMixin, AsyncTaskManagerMixin):
 
         # Start all the auto tasks
         for hook in self.get_hooks(AIPerfTaskHook.AIPERF_AUTO_TASK):
-            interval = getattr(hook, AIPerfTaskHook.AIPERF_AUTO_TASK_INTERVAL_SEC, None)
+            interval = getattr(
+                hook, AIPerfHookParams.AIPERF_AUTO_TASK_INTERVAL_SEC, None
+            )
             self.execute_async(self._task_wrapper(hook, interval))
 
     @on_stop
