@@ -208,9 +208,9 @@ class AIPerfLoggerMixin:
                 self.success(lambda: f"Benchmark completed successfully after {time.time() - start_time} seconds")
     """
 
-    def __init__(self):
+    def __init__(self, logger_name: str | None = None):
         super().__init__()
-        self.logger: AIPerfLogger = AIPerfLogger(self.__class__.__name__)
+        self.logger: AIPerfLogger = AIPerfLogger(logger_name or self.__class__.__name__)
         self._log = self.logger._log
         self.is_enabled_for = self.logger.is_enabled_for
         self.is_trace_enabled = self.logger.is_trace_enabled

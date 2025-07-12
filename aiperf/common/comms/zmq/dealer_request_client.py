@@ -68,7 +68,7 @@ class ZMQDealerRequestClient(BaseZMQClient, AsyncTaskManagerMixin):
         while not self.stop_event.is_set():
             try:
                 message = await self._socket.recv_string()
-                self.logger.debug("Received response: %s", message)
+                self.trace(lambda msg=message: f"Received response: {msg}")
                 response_message = Message.from_json(message)
 
                 # Call the callback if it exists
@@ -77,7 +77,7 @@ class ZMQDealerRequestClient(BaseZMQClient, AsyncTaskManagerMixin):
                     self.execute_async(callback(response_message))
 
             except zmq.Again:
-                self.logger.debug("No data received, yielding to event loop")
+                self.trace(lambda: "No data received, yielding to event loop")
                 await asyncio.sleep(0)  # yield to the event loop
                 continue
 
@@ -85,11 +85,7 @@ class ZMQDealerRequestClient(BaseZMQClient, AsyncTaskManagerMixin):
                 raise  # re-raise the cancelled error
 
             except Exception as e:
-                self.logger.exception(
-                    "Exception receiving responses: %s %s",
-                    e.__class__.__qualname__,
-                    e,
-                )
+                self.exception(lambda e=e: f"Exception receiving responses: {e}")
                 await asyncio.sleep(0)  # yield to the event loop
                 continue
 
@@ -118,7 +114,7 @@ class ZMQDealerRequestClient(BaseZMQClient, AsyncTaskManagerMixin):
         self.request_callbacks[message.request_id] = callback
 
         request_json = message.model_dump_json()
-        self.logger.debug("Sending request: %s", request_json)
+        self.trace(lambda msg=request_json: f"Sending request: {msg}")
 
         try:
             await self._socket.send_string(request_json)

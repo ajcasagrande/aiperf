@@ -83,7 +83,7 @@ class ZMQPushClient(BaseZMQClient, AsyncTaskManagerMixin):
         try:
             data_json = message.model_dump_json()
             await self.socket.send_string(data_json)
-            self.logger.debug("Pushed json data: %s", data_json)
+            self.trace(lambda msg=data_json: f"Pushed json data: {msg}")
         except (asyncio.CancelledError, zmq.ContextTerminated):
             return
         except zmq.Again as e:

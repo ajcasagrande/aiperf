@@ -103,10 +103,9 @@ class ZMQRouterReplyClient(BaseZMQClient, AsyncTaskManagerMixin):
                 f"Handler already registered for message type {message_type}"
             )
 
-        self.logger.debug(
-            "Registering request handler for %s with message type %s",
-            service_id,
-            message_type,
+        self.debug(
+            lambda sid=service_id,
+            typ=message_type: f"Registering request handler for {sid} with message type {typ}"
         )
         self._request_handlers[message_type] = (service_id, handler)
 
@@ -125,8 +124,9 @@ class ZMQRouterReplyClient(BaseZMQClient, AsyncTaskManagerMixin):
             response = await handler(request)
 
         except Exception as e:
-            self.logger.exception(
-                "Exception calling handler for %s: %s", message_type, e
+            self.exception(
+                lambda typ=message_type,
+                e=e: f"Exception calling handler for {typ}: {e}"
             )
             response = ErrorMessage(
                 request_id=request_id,
@@ -136,10 +136,9 @@ class ZMQRouterReplyClient(BaseZMQClient, AsyncTaskManagerMixin):
         try:
             self._response_futures[request_id].set_result(response)
         except Exception as e:
-            self.logger.exception(
-                "Exception setting response future for request %s: %s",
-                request.request_id,
-                e.__class__.__name__,
+            self.exception(
+                lambda req_id=request.request_id,
+                e=e: f"Exception setting response future for request {req_id}: {e}"
             )
 
     async def _wait_for_response(
@@ -155,7 +154,9 @@ class ZMQRouterReplyClient(BaseZMQClient, AsyncTaskManagerMixin):
             response = await self._response_futures[request_id]
 
             if response is None:
-                self.logger.warning("Got None as response for request %s", request_id)
+                self.warning(
+                    lambda req_id=request_id: f"Got None as response for request {req_id}"
+                )
                 response = ErrorMessage(
                     request_id=request_id,
                     error=ErrorDetails(
@@ -171,10 +172,9 @@ class ZMQRouterReplyClient(BaseZMQClient, AsyncTaskManagerMixin):
                 [*routing_envelope, response.model_dump_json().encode()]
             )
         except Exception as e:
-            self.logger.exception(
-                "Exception waiting for response for request %s: %s",
-                request_id,
-                e.__class__.__name__,
+            self.exception(
+                lambda req_id=request_id,
+                e=e: f"Exception waiting for response for request {req_id}: {e}"
             )
 
     @aiperf_task
@@ -185,23 +185,23 @@ class ZMQRouterReplyClient(BaseZMQClient, AsyncTaskManagerMixin):
         shutdown. It will wait for requests from the socket and send responses in
         an asynchronous manner.
         """
-        self.logger.debug("Waiting for router reply client to be initialized")
+        self.debug("Waiting for router reply client to be initialized")
         if not self.is_initialized:
             await self.initialized_event.wait()
 
-        self.logger.debug("Router reply client initialized")
+        self.debug("Router reply client initialized")
 
         while not self.stop_event.is_set():
             try:
                 # Receive request
                 try:
                     data = await self.socket.recv_multipart()
-                    self.logger.debug("Received request: %s", data)
+                    self.trace(lambda msg=data: f"Received request: {msg}")
 
                     request = Message.from_json(data[-1])
                     if not request.request_id:
-                        self.logger.exception(
-                            "Request ID is missing from request: %s", data
+                        self.exception(
+                            lambda msg=data: f"Request ID is missing from request: {msg}"
                         )
                         continue
 
@@ -226,8 +226,8 @@ class ZMQRouterReplyClient(BaseZMQClient, AsyncTaskManagerMixin):
                 )
 
             except asyncio.CancelledError:
-                self.logger.debug("Router reply client receiver task cancelled")
+                self.trace(lambda: "Router reply client receiver task cancelled")
                 break
-            except Exception:
-                self.logger.exception("Exception receiving request")
+            except Exception as e:
+                self.exception(lambda e=e: f"Exception receiving request: {e}")
                 await asyncio.sleep(0.1)
