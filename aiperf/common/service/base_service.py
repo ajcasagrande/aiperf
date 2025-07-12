@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
-import logging
 from abc import ABC
 
 from aiperf.common.comms.base import (
@@ -21,6 +20,7 @@ from aiperf.common.hooks import (
     AIPerfTaskMixin,
     supports_hooks,
 )
+from aiperf.common.logging_mixins import AIPerfLoggerMixin
 from aiperf.common.messages import Message
 from aiperf.common.mixins import ProcessHealthMixin
 from aiperf.common.service.base_service_interface import BaseServiceInterface
@@ -36,7 +36,9 @@ from aiperf.common.service.base_service_interface import BaseServiceInterface
     AIPerfHook.ON_SET_STATE,
     AIPerfTaskHook.AIPERF_TASK,
 )
-class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin, ProcessHealthMixin):
+class BaseService(
+    BaseServiceInterface, ABC, AIPerfTaskMixin, ProcessHealthMixin, AIPerfLoggerMixin
+):
     """Base class for all AIPerf services, providing common functionality for
     communication, state management, and lifecycle operations.
 
@@ -53,12 +55,11 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin, ProcessHealthMixin
     ) -> None:
         super().__init__()
         self.service_id: str = service_id or f"{self.service_type}_{self.process.pid}"
-        self.logger = logging.getLogger(self.service_id)
         self.service_config = service_config
         self.user_config = user_config
 
-        self.logger.debug(
-            f"Initializing {self.service_type} service (id: {self.service_id})"
+        self.debug(
+            lambda: f"Initializing {self.service_type} service (id: {self.service_id})"
         )
 
         self._state: ServiceState = ServiceState.UNKNOWN
@@ -83,10 +84,10 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin, ProcessHealthMixin
             setproctitle.setproctitle(f"aiperf {self.service_id}")
         except Exception:
             # setproctitle is not available on all platforms, so we ignore the error
-            self.logger.debug("Failed to set process title, ignoring")
+            self.debug("Failed to set process title, ignoring")
 
-        self.logger.debug(
-            "BaseService._init__ finished for %s", self.__class__.__name__
+        self.debug(
+            lambda: f"BaseService._init__ finished for {self.__class__.__name__}"
         )
 
     @property
@@ -157,23 +158,23 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin, ProcessHealthMixin
         This method will be called as the main entry point for the service.
         """
         try:
-            self.logger.debug(
-                "Running %s service (id: %s)", self.service_type, self.service_id
+            self.debug(
+                lambda: f"Running {self.service_type} service (id: {self.service_id})"
             )
 
             await self.initialize()
             await self.run_hooks(AIPerfHook.ON_RUN)
 
         except asyncio.CancelledError:
-            self.logger.debug("Service %s execution cancelled", self.service_type)
+            self.debug(lambda: f"Service {self.service_type} execution cancelled")
             return
 
         except AIPerfError:
             raise  # re-raise it up the stack
 
         except Exception as e:
-            self.logger.exception(
-                "Service %s execution failed: %s", self.service_type, e
+            self.exception(
+                lambda e=e: f"Service {self.service_type} execution failed: {e}"
             )
             _ = await self.set_state(ServiceState.ERROR)
             raise self._service_error("Service execution failed") from e
@@ -191,32 +192,29 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin, ProcessHealthMixin
         """
         while not self.stop_event.is_set():
             try:
-                self.logger.debug(
-                    "Service %s waiting for stop event", self.service_type
+                self.debug(
+                    lambda: f"Service {self.service_type} waiting for stop event"
                 )
                 # Wait forever for the stop event to be set
                 await self.stop_event.wait()
 
             except asyncio.CancelledError:
-                self.logger.debug(
-                    "Service %s received CancelledError, exiting",
-                    self.service_type,
+                self.debug(
+                    lambda: f"Service {self.service_type} received CancelledError, exiting"
                 )
                 break
 
-            except Exception:
-                self.logger.exception(
-                    "Caught unexpected exception in service %s execution",
-                    self.service_type,
+            except Exception as e:
+                self.exception(
+                    lambda e=e: f"Caught unexpected exception {e} in service {self.service_type} execution"
                 )
 
         # Shutdown the service
         try:
             await self.stop()
-        except Exception:
-            self.logger.exception(
-                "Caught unexpected exception in service %s stop",
-                self.service_type,
+        except Exception as e:
+            self.exception(
+                lambda e=e: f"Caught unexpected exception {e} in service {self.service_type} stop"
             )
 
     async def start(self) -> None:
@@ -233,8 +231,8 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin, ProcessHealthMixin
         """
 
         try:
-            self.logger.debug(
-                "Starting %s service (id: %s)", self.service_type, self.service_id
+            self.debug(
+                lambda: f"Starting {self.service_type} service (id: {self.service_id})"
             )
             _ = await self.set_state(ServiceState.STARTING)
 
@@ -262,10 +260,8 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin, ProcessHealthMixin
         """
         try:
             if self.state == ServiceState.STOPPED:
-                self.logger.warning(
-                    "Service %s state %s is already STOPPED, ignoring stop request",
-                    self.service_type,
-                    self.state,
+                self.warning(
+                    lambda: f"Service {self.service_type} state {self.state} is already STOPPED, ignoring stop request"
                 )
                 return
 
@@ -302,8 +298,8 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin, ProcessHealthMixin
                 ServiceType.WORKER,
                 ServiceType.WORKER_MANAGER,
             ):
-                self.logger.debug(
-                    "Service %s (id: %s) stopped", self.service_type, self.service_id
+                self.debug(
+                    lambda: f"Service {self.service_type} (id: {self.service_id}) stopped"
                 )
 
             # Re-raise the cancelled error if it was raised during the stop hooks

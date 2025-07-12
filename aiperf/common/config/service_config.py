@@ -132,7 +132,16 @@ class ServiceConfig(BaseSettings):
     ] = ServiceDefaults.MAX_WORKERS
 
     log_level: Annotated[
-        Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        Literal[
+            "DEBUG",
+            "INFO",
+            "WARNING",
+            "ERROR",
+            "CRITICAL",
+            "TRACE",
+            "NOTICE",
+            "SUCCESS",
+        ],
         Field(
             description="Logging level",
         ),
