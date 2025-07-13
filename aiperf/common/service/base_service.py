@@ -3,11 +3,6 @@
 import asyncio
 from abc import ABC
 
-from aiperf.common.comms.base import (
-    BaseCommunication,
-    CommunicationClientAddressType,
-    CommunicationFactory,
-)
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.enums import ServiceState
 from aiperf.common.exceptions import (
@@ -17,12 +12,15 @@ from aiperf.common.exceptions import (
 from aiperf.common.hooks import (
     AIPerfHook,
     AIPerfTaskHook,
+)
+from aiperf.common.messages import Message
+from aiperf.common.mixins import (
+    AIPerfLoggerMixin,
     AIPerfTaskMixin,
+    EventBusClientMixin,
+    ProcessHealthMixin,
     supports_hooks,
 )
-from aiperf.common.logging_mixins import AIPerfLoggerMixin
-from aiperf.common.messages import Message
-from aiperf.common.mixins import ProcessHealthMixin
 from aiperf.common.service.base_service_interface import BaseServiceInterface
 
 
@@ -37,7 +35,12 @@ from aiperf.common.service.base_service_interface import BaseServiceInterface
     AIPerfTaskHook.AIPERF_TASK,
 )
 class BaseService(
-    BaseServiceInterface, ABC, AIPerfTaskMixin, ProcessHealthMixin, AIPerfLoggerMixin
+    BaseServiceInterface,
+    AIPerfTaskMixin,
+    ProcessHealthMixin,
+    EventBusClientMixin,
+    AIPerfLoggerMixin,
+    ABC,
 ):
     """Base class for all AIPerf services, providing common functionality for
     communication, state management, and lifecycle operations.
@@ -52,8 +55,14 @@ class BaseService(
         service_config: ServiceConfig,
         user_config: UserConfig | None = None,
         service_id: str | None = None,
+        **kwargs,
     ) -> None:
-        super().__init__()
+        super().__init__(
+            service_id=service_id,
+            service_config=service_config,
+            user_config=user_config,
+            **kwargs,
+        )
         self.service_id: str = service_id or f"{self.service_type}_{self.process.pid}"
         self.service_config = service_config
         self.user_config = user_config
@@ -66,17 +75,6 @@ class BaseService(
 
         self.stop_event = asyncio.Event()
         self.initialized_event = asyncio.Event()
-
-        self.comms: BaseCommunication = CommunicationFactory.create_instance(
-            self.service_config.comm_backend,
-            config=self.service_config.comm_config,
-        )
-        self.sub_client = self.comms.create_sub_client(
-            CommunicationClientAddressType.EVENT_BUS_PROXY_BACKEND
-        )  # type: ignore
-        self.pub_client = self.comms.create_pub_client(
-            CommunicationClientAddressType.EVENT_BUS_PROXY_FRONTEND
-        )  # type: ignore
 
         try:
             import setproctitle

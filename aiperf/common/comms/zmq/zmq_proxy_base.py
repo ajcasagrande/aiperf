@@ -16,7 +16,7 @@ from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
 from aiperf.common.enums import CaseInsensitiveStrEnum, ZMQProxyType
 from aiperf.common.exceptions import ProxyError
 from aiperf.common.factories import FactoryMixin
-from aiperf.common.logging_mixins import AIPerfLoggerMixin
+from aiperf.common.mixins import AIPerfLoggerMixin
 
 
 class ProxyEndType(CaseInsensitiveStrEnum):
@@ -92,7 +92,7 @@ class BaseZMQProxy(AIPerfLoggerMixin, ABC):
 
         self.proxy_uuid = proxy_uuid or uuid.uuid4().hex[:8]
         self.proxy_id = f"{self.__class__.__name__.lower()}_{self.proxy_uuid}"
-        super().__init__(logger_name=self.proxy_id)
+        super().__init__()
         self.context = context
         self.socket_ops = socket_ops
 

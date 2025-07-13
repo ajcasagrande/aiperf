@@ -5,9 +5,6 @@ import signal
 import sys
 import time
 
-import zmq.asyncio
-
-from aiperf.common.comms.zmq.zmq_proxy_base import BaseZMQProxy, ZMQProxyFactory
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
 from aiperf.common.enums import (
@@ -15,16 +12,13 @@ from aiperf.common.enums import (
     CommandResponseStatus,
     CommandType,
     MessageType,
-    ServiceRunType,
     ServiceState,
     ServiceType,
     SystemState,
-    ZMQProxyType,
 )
 from aiperf.common.exceptions import CommunicationError, NotInitializedError
 from aiperf.common.factories import ServiceFactory
-from aiperf.common.hooks import on_cleanup, on_start, on_stop
-from aiperf.common.logging import get_global_log_queue
+from aiperf.common.hooks import on_cleanup, on_message, on_start, on_stop
 from aiperf.common.messages import (
     CommandResponseMessage,
     HeartbeatMessage,
@@ -35,6 +29,7 @@ from aiperf.common.messages import (
     StatusMessage,
 )
 from aiperf.common.messages.progress import ProfileResultsMessage
+from aiperf.common.mixins.aiperf_message_handler import AIPerfMessageHandlerMixin
 from aiperf.common.pydantic_utils import AIPerfBaseModel
 from aiperf.common.service.base_controller_service import BaseControllerService
 from aiperf.common.service_models import ServiceRegistrationInfo
@@ -45,18 +40,21 @@ from aiperf.progress.progress_tracker import (
     ProfileRunProgress,
     ProgressTracker,
 )
-from aiperf.services.service_manager import (
-    BaseServiceManager,
-    KubernetesServiceManager,
-    MultiProcessServiceManager,
-)
 from aiperf.services.system_controller.profile_runner import ProfileRunner
+from aiperf.services.system_controller.proxy_mixins import ProxyMixin
+from aiperf.services.system_controller.service_manager_mixin import ServiceManagerMixin
 from aiperf.services.system_controller.system_mixins import SignalHandlerMixin
 from aiperf.ui.aiperf_ui import AIPerfUI
 
 
 @ServiceFactory.register(ServiceType.SYSTEM_CONTROLLER)
-class SystemController(BaseControllerService, SignalHandlerMixin):
+class SystemController(
+    BaseControllerService,
+    SignalHandlerMixin,
+    ProxyMixin,
+    ServiceManagerMixin,
+    AIPerfMessageHandlerMixin,
+):
     """System Controller service.
 
     This service is responsible for managing the lifecycle of all other services.
@@ -68,37 +66,18 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
         service_config: ServiceConfig,
         user_config: UserConfig | None = None,
         service_id: str | None = None,
+        **kwargs,
     ) -> None:
         super().__init__(
             service_config=service_config,
             user_config=user_config,
             service_id=service_id,
+            **kwargs,
         )
-        self.logger.debug("Creating System Controller")
-
+        self.debug("Creating System Controller")
+        self.service_config: ServiceConfig = service_config
+        self.user_config: UserConfig = user_config
         self._system_state: SystemState = SystemState.INITIALIZING
-        self.user_config: UserConfig | None = user_config
-
-        # List of required service types, in no particular order
-        # These are services that must be running before the system controller can start profiling
-        self.required_service_types: dict[ServiceType, int] = {
-            ServiceType.DATASET_MANAGER: 1,
-            ServiceType.TIMING_MANAGER: 1,
-            ServiceType.WORKER_MANAGER: 1,
-            ServiceType.RECORDS_MANAGER: 1,
-            ServiceType.INFERENCE_RESULT_PARSER: self.service_config.result_parser_service_count,
-        }
-
-        self.service_manager: BaseServiceManager = None  # type: ignore - is set in _initialize
-
-        self.event_bus_proxy: BaseZMQProxy | None = None
-        self.event_bus_proxy_task: asyncio.Task | None = None
-
-        self.dataset_manager_proxy: BaseZMQProxy | None = None
-        self.dataset_manager_proxy_task: asyncio.Task | None = None
-
-        self.raw_inference_proxy: BaseZMQProxy | None = None
-        self.raw_inference_proxy_task: asyncio.Task | None = None
 
         self.progress_tracker: ProgressTracker = ProgressTracker()
         self.ui_enabled: bool = not self.service_config.disable_ui
@@ -111,7 +90,7 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
 
         self.profile_runner: ProfileRunner | None = None
 
-        self.logger.debug("System Controller created")
+        self.debug("System Controller created")
 
     @property
     def service_type(self) -> ServiceType:
@@ -138,37 +117,14 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
         if self.ui:
             await self.ui.run_async()
 
-        self.logger.debug("Initializing System Controller")
+        self.debug("Initializing System Controller")
 
         self.setup_signal_handlers(self._handle_signal)
-        self.logger.debug("Setup signal handlers")
+        self.debug("Setup signal handlers")
 
-        self.zmq_context = zmq.asyncio.Context.instance()
-
-        self.event_bus_proxy = ZMQProxyFactory.create_instance(
-            ZMQProxyType.XPUB_XSUB,
-            context=self.zmq_context,
-            zmq_proxy_config=self.service_config.comm_config.event_bus_proxy_config,
-        )
-        self.event_bus_proxy_task = asyncio.create_task(self.event_bus_proxy.run())
-
-        self.dataset_manager_proxy = ZMQProxyFactory.create_instance(
-            ZMQProxyType.DEALER_ROUTER,
-            context=self.zmq_context,
-            zmq_proxy_config=self.service_config.comm_config.dataset_manager_proxy_config,
-        )
-        self.dataset_manager_proxy_task = asyncio.create_task(
-            self.dataset_manager_proxy.run()
-        )
-
-        self.raw_inference_proxy = ZMQProxyFactory.create_instance(
-            ZMQProxyType.PUSH_PULL,
-            context=self.zmq_context,
-            zmq_proxy_config=self.service_config.comm_config.raw_inference_proxy_config,
-        )
-        self.raw_inference_proxy_task = asyncio.create_task(
-            self.raw_inference_proxy.run()
-        )
+        if not self.service_config or not self.service_config.comm_config:
+            raise ValueError("Communication configuration is not set")
+        await self.run_proxies(self.service_config.comm_config)
 
     async def _setup_subscriptions(self) -> None:
         """Setup subscriptions for the system controller."""
@@ -201,8 +157,8 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
                     message_type=message_type, callback=callback
                 )
             except Exception as e:
-                self.logger.exception(
-                    "Failed to subscribe to message_type %s: %s", message_type, e
+                self.exception(
+                    f"Failed to subscribe to message_type {message_type}: {e}"
                 )
                 raise CommunicationError(
                     f"Failed to subscribe to message_type {message_type}: {e}",
@@ -226,24 +182,10 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
             current_profile_run=suite.profile_runs[0],
         )
 
-        if self.service_config.service_run_type == ServiceRunType.MULTIPROCESSING:
-            self.service_manager = MultiProcessServiceManager(
-                required_service_types=self.required_service_types,
-                config=self.service_config,
-                user_config=self.user_config,
-                log_queue=get_global_log_queue(),
-            )
-
-        elif self.service_config.service_run_type == ServiceRunType.KUBERNETES:
-            self.service_manager = KubernetesServiceManager(
-                required_service_types=self.required_service_types,
-                config=self.service_config,
-            )
-
-        else:
-            raise self._service_error(
-                f"Unsupported service run type: {self.service_config.service_run_type}",
-            )
+        self.create_service_manager(
+            service_config=self.service_config,
+            user_config=self.user_config,
+        )
 
         self._system_state = SystemState.CONFIGURING
 
@@ -256,7 +198,7 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
         - Wait for all required services to be registered
         - Start all required services
         """
-        self.logger.debug("Starting System Controller")
+        self.debug("Starting System Controller")
 
         # Start all required services
         try:
@@ -271,17 +213,15 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
             await self.service_manager.wait_for_all_services_registration()
 
             if self.stop_event.is_set():
-                self.logger.debug(
-                    "System Controller stopped before all services registered"
-                )
+                self.debug("System Controller stopped before all services registered")
                 raise asyncio.CancelledError()
 
         except Exception as e:
             raise asyncio.CancelledError() from e
 
-        self.logger.debug("All required services registered successfully")
+        self.debug("All required services registered successfully")
 
-        self.logger.info("AIPerf System is READY")
+        self.info("AIPerf System is READY")
         self._system_state = SystemState.READY
 
         try:
@@ -289,15 +229,15 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
         except Exception as e:
             raise asyncio.CancelledError() from e
 
-        self.logger.debug("All required services started successfully")
+        self.debug("All required services started successfully")
 
         await self.start_profiling_all_services()
 
         if self.stop_event.is_set():
-            self.logger.debug("System Controller stopped before all services started")
+            self.debug("System Controller stopped before all services started")
             raise asyncio.CancelledError()
 
-        self.logger.info("AIPerf System is RUNNING")
+        self.info("AIPerf System is RUNNING")
 
     async def _handle_signal(self, sig: int) -> None:
         """Handle received signals by triggering graceful shutdown.
@@ -305,10 +245,10 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
         Args:
             sig: The signal number received
         """
-        self.logger.debug("Received signal %s, initiating graceful shutdown", sig)
+        self.debug(lambda: f"Received signal {sig}, initiating graceful shutdown")
         if sig == signal.SIGINT:
             if self.stop_event.is_set():
-                self.logger.debug("Stop event is already set, killing all services")
+                self.debug("Stop event is already set, killing all services")
                 await self.kill()
                 return
 
@@ -324,8 +264,8 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
         This method will:
         - Stop all running services
         """
-        self.logger.debug("Stopping System Controller")
-        self.logger.info("AIPerf System is EXITING")
+        self.debug("Stopping System Controller")
+        self.info("AIPerf System is EXITING")
 
         self._system_state = SystemState.STOPPING
 
@@ -351,16 +291,17 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
         try:
             await self.service_manager.shutdown_all_services()
         except Exception as e:
-            self.logger.exception("Failed to stop all services: %s", e)
+            self.exception(f"Failed to stop all services: {e}")
             await self.kill()
         finally:
             if self.comms:
                 await self.comms.shutdown()
+            await self.stop_proxies()
 
     @on_cleanup
     async def _cleanup(self) -> None:
         """Clean up system controller-specific components."""
-        self.logger.debug("Cleaning up System Controller")
+        self.debug("Cleaning up System Controller")
 
         if self.ui:
             await self.ui.shutdown()
@@ -376,6 +317,14 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
         self.profile_runner = ProfileRunner(self)
         await self.profile_runner.run()
 
+    @on_message(
+        MessageType.CREDITS_COMPLETE,
+        MessageType.WORKER_HEALTH,
+        MessageType.NOTIFICATION,
+        MessageType.CREDIT_PHASE_PROGRESS,
+        MessageType.CREDIT_PHASE_START,
+        MessageType.CREDIT_PHASE_COMPLETE,
+    )
     async def _forward_generic_message(self, message: Message) -> None:
         """Generic message handler for all messages that don't have or need a specific handler."""
         self.trace("SC: Received message: %s", message)
@@ -385,6 +334,7 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
         if self.progress_logger:
             await self.progress_logger.on_message(message)
 
+    @on_message(MessageType.PROCESSING_STATS)
     async def _process_processing_stats_message(
         self, message: RecordsProcessingStatsMessage
     ) -> None:
@@ -395,7 +345,7 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
             self.progress_tracker.current_profile_run
             and self.progress_tracker.current_profile_run.is_complete
         ):
-            self.logger.info("Profile completed, sending process records command")
+            self.info("Profile completed, sending process records command")
             await self.send_command_to_service(
                 target_service_id=None,
                 target_service_type=ServiceType.RECORDS_MANAGER,
@@ -405,6 +355,7 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
             if self.profile_runner:
                 await self.profile_runner.profile_completed()
 
+    @on_message(MessageType.PROFILE_RESULTS)
     async def _process_profile_results_message(
         self, message: ProfileResultsMessage
     ) -> None:
@@ -419,13 +370,14 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
                 ).export_all()
 
         except Exception as e:
-            self.logger.exception("Failed to export results: %s", e)
+            self.exception(f"Failed to export results: {e}")
             raise self._service_error(
                 "Failed to export results",
             ) from e
         finally:
             self.stop_event.set()
 
+    @on_message(MessageType.REGISTRATION)
     async def _process_registration_message(self, message: RegistrationMessage) -> None:
         """Process a registration message from a service. It will
         add the service to the service manager and send a configure command
@@ -437,8 +389,8 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
         service_id = message.service_id
         service_type = message.service_type
 
-        self.logger.debug(
-            "Processing registration from %s with ID: %s", service_type, service_id
+        self.debug(
+            lambda: f"Processing registration from {service_type} with ID: {service_id}"
         )
 
         await self.service_manager.on_message(message)
@@ -456,12 +408,9 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
             self.service_manager.service_map[service_type] = []
         self.service_manager.service_map[service_type].append(service_info)
 
-        is_required = service_type in self.required_service_types
-        self.logger.info(
-            "Registered %s service: %s with ID: %s",
-            "required" if is_required else "non-required",
-            service_type,
-            service_id,
+        is_required = service_type in self.required_services
+        self.info(
+            lambda: f"Registered {'required' if is_required else 'non-required'} service: {service_type} with ID: {service_id}"
         )
 
         # Send configure command to the newly registered service
@@ -476,10 +425,11 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
                 f"Failed to send configure command to {service_type} (ID: {service_id})",
             ) from e
 
-        self.logger.debug(
-            "Sent configure command to %s (ID: %s)", service_type, service_id
+        self.debug(
+            lambda: f"Sent configure command to {service_type} (ID: {service_id})"
         )
 
+    @on_message(MessageType.HEARTBEAT)
     async def _process_heartbeat_message(self, message: HeartbeatMessage) -> None:
         """Process a heartbeat message from a service. It will
         update the last seen timestamp and state of the service.
@@ -512,6 +462,7 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
                 )
             )
 
+    @on_message(MessageType.STATUS)
     async def _process_status_message(self, message: StatusMessage) -> None:
         """Process a status message from a service. It will
         update the state of the service with the service manager.
@@ -525,8 +476,8 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
         service_type = message.service_type
         state = message.state
 
-        self.logger.debug(
-            f"Received status update from {service_type} (ID: {service_id}): {state}"
+        self.debug(
+            lambda: f"Received status update from {service_type} (ID: {service_id}): {state}"
         )
 
         # Update the component state if the component exists
@@ -542,8 +493,9 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
 
         service_info.state = message.state
 
-        self.trace(lambda: f"Updated state for {service_id} to {state}")
+        self.trace(lambda: f"Updated state for {service_id} to {message.state}")
 
+    @on_message(MessageType.COMMAND_RESPONSE)
     async def _process_command_response_message(
         self, message: CommandResponseMessage
     ) -> None:
@@ -578,7 +530,7 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
                 or the command was not sent successfully
         """
         if not self.comms:
-            self.logger.error("Cannot send command: Communication is not initialized")
+            self.error("Cannot send command: Communication is not initialized")
             raise NotInitializedError(
                 "Communication channels are not initialized",
             )
@@ -594,7 +546,7 @@ class SystemController(BaseControllerService, SignalHandlerMixin):
                 )
             )
         except Exception as e:
-            self.exception(lambda e=e: f"Exception publishing command: {e}")
+            self.exception(f"Exception publishing command: {e}")
             raise CommunicationError(
                 f"Failed to publish command: {e}",
             ) from e

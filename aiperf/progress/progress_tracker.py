@@ -1,10 +1,9 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-import logging
-
 from pydantic import Field
 
+from aiperf.common.aiperf_logger import AIPerfLogger
 from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.credit_models import (
     CreditPhaseStats,
@@ -20,10 +19,11 @@ from aiperf.common.messages import (
     RecordsProcessingStatsMessage,
     WorkerHealthMessage,
 )
+from aiperf.common.mixins.aiperf_logger import AIPerfLoggerMixin
 from aiperf.common.pydantic_utils import AIPerfBaseModel
 from aiperf.common.worker_models import WorkerPhaseTaskStats
 
-logger = logging.getLogger(__name__)
+logger = AIPerfLogger(__name__)
 
 
 class CreditPhaseComputedStats(AIPerfBaseModel):
@@ -126,8 +126,7 @@ class ProfileRunProgress(AIPerfBaseModel):
             _message_mappings[message.message_type](message)
         else:
             logger.debug(
-                "ProfileRunProgress: Received unsupported message type: %s",
-                message.message_type,
+                lambda: f"ProfileRunProgress: Received unsupported message type: {message.message_type}"
             )
 
     def on_credit_phase_progress(self, message: CreditPhaseProgressMessage):
@@ -254,11 +253,11 @@ class BenchmarkSuiteProgress(AIPerfBaseModel):
     )
 
 
-class ProgressTracker:
+class ProgressTracker(AIPerfLoggerMixin):
     """A progress tracker that tracks the progress of the entire benchmark suite."""
 
     def __init__(self):
-        self.logger = logging.getLogger(self.__class__.__name__)
+        super().__init__()
         self.suite: BenchmarkSuiteProgress | None = None
 
     def configure(

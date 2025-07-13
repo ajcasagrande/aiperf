@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
-import logging
 import time
 from typing import Any
 
@@ -12,6 +11,7 @@ from aiperf.clients.client_interfaces import (
 )
 from aiperf.clients.http.aiohttp_client import AioHttpClientMixin
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
+from aiperf.common.mixins.aiperf_logger import AIPerfLoggerMixin
 from aiperf.common.record_models import (
     ErrorDetails,
     RequestRecord,
@@ -25,12 +25,11 @@ from aiperf.common.record_models import (
     EndpointType.OPENAI_RESPONSES,
     # EndpointType.OPENAI_MULTIMODAL,
 )
-class OpenAIClientAioHttp(AioHttpClientMixin):
+class OpenAIClientAioHttp(AioHttpClientMixin, AIPerfLoggerMixin):
     """Inference client for OpenAI based requests using aiohttp."""
 
     def __init__(self, model_endpoint: ModelEndpointInfo) -> None:
         super().__init__(model_endpoint)
-        self.logger = logging.getLogger(self.__class__.__name__)
         self.model_endpoint = model_endpoint
 
     def get_headers(self, model_endpoint: ModelEndpointInfo) -> dict[str, str]:
@@ -74,8 +73,9 @@ class OpenAIClientAioHttp(AioHttpClientMixin):
         # capture start time before request is sent in the case of an error
         start_perf_ns = time.perf_counter_ns()
         try:
-            self.logger.debug(
-                "Sending OpenAI request to %s, payload: %s", model_endpoint.url, payload
+            self.debug(
+                lambda url=model_endpoint.url,
+                payload=payload: f"Sending OpenAI request to {url}, payload: {payload}"
             )
 
             record = await self.post_request(
@@ -92,10 +92,6 @@ class OpenAIClientAioHttp(AioHttpClientMixin):
                 end_perf_ns=time.perf_counter_ns(),
                 error=ErrorDetails(type=e.__class__.__name__, message=str(e)),
             )
-            self.logger.exception(
-                "Error in OpenAI request: %s %s",
-                e.__class__.__name__,
-                str(e),
-            )
+            self.exception(f"Error in OpenAI request: {e.__class__.__name__} {str(e)}")
 
         return record

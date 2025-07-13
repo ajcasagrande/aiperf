@@ -1,8 +1,12 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-import asyncio
 
 from aiperf.common.config import ServiceConfig
+from aiperf.common.constants import (
+    DEFAULT_WAIT_FOR_REGISTRATION_SECONDS,
+    DEFAULT_WAIT_FOR_START_SECONDS,
+    DEFAULT_WAIT_FOR_STOP_SECONDS,
+)
 from aiperf.common.enums import ServiceType
 from aiperf.common.messages import BaseServiceMessage
 from aiperf.common.pydantic_utils import AIPerfBaseModel
@@ -25,15 +29,15 @@ class KubernetesServiceManager(BaseServiceManager):
 
     def __init__(
         self,
-        required_service_types: list[tuple[ServiceType, int]],
+        required_services: dict[ServiceType, int],
         config: ServiceConfig,
     ):
-        super().__init__(required_service_types, config)
+        super().__init__(required_services, config)
         self.registry = GlobalServiceRegistry
 
     async def run_all_services(self) -> None:
         """Initialize all required services as Kubernetes pods."""
-        self.logger.debug("Initializing all required services as Kubernetes pods")
+        self.debug("Initializing all required services as Kubernetes pods")
         # TODO: Implement Kubernetes
         raise NotImplementedError(
             "KubernetesServiceManager.initialize_all_services not implemented"
@@ -41,7 +45,7 @@ class KubernetesServiceManager(BaseServiceManager):
 
     async def shutdown_all_services(self) -> None:
         """Stop all required services as Kubernetes pods."""
-        self.logger.debug("Stopping all required services as Kubernetes pods")
+        self.debug("Stopping all required services as Kubernetes pods")
         # TODO: Implement Kubernetes
         raise NotImplementedError(
             "KubernetesServiceManager.stop_all_services not implemented"
@@ -49,32 +53,40 @@ class KubernetesServiceManager(BaseServiceManager):
 
     async def kill_all_services(self) -> None:
         """Kill all required services as Kubernetes pods."""
-        self.logger.debug("Killing all required services as Kubernetes pods")
+        self.debug("Killing all required services as Kubernetes pods")
         # TODO: Implement Kubernetes
         raise NotImplementedError(
             "KubernetesServiceManager.kill_all_services not implemented"
         )
 
     async def wait_for_all_services_registration(
-        self, stop_event: asyncio.Event, timeout_seconds: int = 30
+        self, timeout_seconds: float = DEFAULT_WAIT_FOR_REGISTRATION_SECONDS
     ) -> None:
         """Wait for all required services to be registered in Kubernetes."""
-        self.logger.debug(
-            "Waiting for all required services to be registered in Kubernetes"
-        )
+        self.debug("Waiting for all required services to be registered in Kubernetes")
         # TODO: Implement Kubernetes
         raise NotImplementedError(
             "KubernetesServiceManager.wait_for_all_services_registration not implemented"
         )
 
-    async def wait_for_all_services_start(self) -> None:
+    async def wait_for_all_services_to_start(
+        self, timeout_seconds: float = DEFAULT_WAIT_FOR_START_SECONDS
+    ) -> None:
         """Wait for all required services to be started in Kubernetes."""
-        self.logger.debug(
-            "Waiting for all required services to be started in Kubernetes"
-        )
+        self.debug("Waiting for all required services to be started in Kubernetes")
         # TODO: Implement Kubernetes
         raise NotImplementedError(
-            "KubernetesServiceManager.wait_for_all_services_start not implemented"
+            "KubernetesServiceManager.wait_for_all_services_to_start not implemented"
+        )
+
+    async def wait_for_all_services_to_stop(
+        self, timeout_seconds: float = DEFAULT_WAIT_FOR_STOP_SECONDS
+    ) -> None:
+        """Wait for all required services to be stopped in Kubernetes."""
+        self.debug("Waiting for all required services to be stopped in Kubernetes")
+        # TODO: Implement Kubernetes
+        raise NotImplementedError(
+            "KubernetesServiceManager.wait_for_all_services_to_stop not implemented"
         )
 
     async def on_message(self, message: BaseServiceMessage) -> None:

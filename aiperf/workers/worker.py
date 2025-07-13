@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import asyncio
-import logging
 import sys
 import time
 
@@ -43,14 +42,14 @@ from aiperf.common.messages import (
     InferenceResultsMessage,
     WorkerHealthMessage,
 )
-from aiperf.common.mixins import AsyncTaskManagerMixin, ProcessHealthMixin
+from aiperf.common.mixins import ProcessHealthMixin
 from aiperf.common.record_models import ErrorDetails, RequestRecord
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.common.worker_models import WorkerPhaseTaskStats
 
 
 @ServiceFactory.register(ServiceType.WORKER)
-class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
+class Worker(BaseComponentService, ProcessHealthMixin):
     """Worker is primarily responsible for making API calls to the inference server.
     It also manages the conversation between turns and returns the results to the Inference Results Parsers.
     """
@@ -60,15 +59,16 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
         service_config: ServiceConfig,
         user_config: UserConfig | None = None,
         service_id: str | None = None,
+        **kwargs,
     ):
         super().__init__(
             service_config=service_config,
             user_config=user_config,
             service_id=service_id,
+            **kwargs,
         )
 
-        self.logger = logging.getLogger(self.service_id)
-        self.logger.debug("Initializing worker process: %s", self.process.pid)
+        self.debug(lambda: f"Initializing worker process: {self.process.pid}")
 
         self.health_check_interval = self.service_config.worker_health_check_interval
 
@@ -93,12 +93,8 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
 
         self.model_endpoint = ModelEndpointInfo.from_user_config(self.user_config)
 
-        self.logger.debug(
-            "Creating inference client for %s, class: %s",
-            self.model_endpoint.endpoint.type,
-            InferenceClientFactory.get_class_from_type(
-                self.model_endpoint.endpoint.type
-            ).__name__,
+        self.debug(
+            lambda: f"Creating inference client for {self.model_endpoint.endpoint.type}, class: {InferenceClientFactory.get_class_from_type(self.model_endpoint.endpoint.type).__name__}",
         )
         self.request_converter = RequestConverterFactory.create_instance(
             self.model_endpoint.endpoint.type,
@@ -114,13 +110,13 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
 
     @on_init
     async def _do_initialize(self) -> None:
-        self.logger.debug("Initializing worker")
+        self.debug("Initializing worker")
 
         await self.credit_drop_client.register_pull_callback(
             MessageType.CREDIT_DROP, self._process_credit_drop
         )
 
-        self.logger.debug("Worker initialized")
+        self.debug("Worker initialized")
 
     @on_configure
     async def _configure(self, message: CommandMessage) -> None:
@@ -137,14 +133,14 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
         """
         # TODO: Add tests to ensure that the above note is never violated in the future
 
-        self.logger.debug("Processing credit drop: %s", message)
+        self.trace(lambda: f"Processing credit drop: {message}")
 
         record: RequestRecord = RequestRecord()
         try:
             record = await self._execute_single_credit(message, time.time_ns())
 
         except Exception as e:
-            self.logger.exception("Error processing credit drop: %s", e)
+            self.exception(f"Error processing credit drop: {e}")
             record.error = ErrorDetails.from_exception(e)
             record.end_perf_ns = time.perf_counter_ns()
 
@@ -164,7 +160,7 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
                 await self.inference_results_client.push(message=msg)
             except Exception as e:
                 # If we fail to push the record, log the error and continue
-                self.logger.exception("Error pushing request record: %s", e)
+                self.exception(f"Error pushing request record: {e}")
             finally:
                 # Always return the credits
                 return_message = CreditReturnMessage(
@@ -174,7 +170,7 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
                     delayed_ns=None,
                     credit_phase=message.credit_phase,
                 )
-                self.logger.debug("Returning credit %s", return_message)
+                self.trace(lambda: f"Returning credit {return_message}")
                 await self.credit_return_client.push(
                     message=return_message,
                 )
@@ -204,7 +200,7 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
                 )
             )
         )
-        self.logger.debug("Received response message: %s", response)
+        self.trace(lambda: f"Received response message: {response}")
 
         if isinstance(response, ErrorMessage):
             return RequestRecord(
@@ -222,7 +218,7 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
         self, message: CreditDropMessage, turn: Turn, timestamp_ns: int
     ) -> RequestRecord:
         """Make a single call to the inference API. Will return an error record if the call fails."""
-        self.logger.debug("Calling inference API")
+        self.trace("Calling inference API")
         formatted_payload = None
         try:
             # Format payload for the API request
@@ -253,10 +249,8 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
             return result
 
         except Exception as e:
-            self.logger.exception(
-                "Error calling inference server API at %s: %s",
-                self.model_endpoint.url,
-                e,
+            self.exception(
+                f"Error calling inference server API at {self.model_endpoint.url}: {e}"
             )
             return RequestRecord(
                 # Use the formatted payload if it is available, otherwise use the turn.
@@ -275,9 +269,9 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
                 health_message = self.create_health_message()
                 await self.pub_client.publish(health_message)
             except Exception as e:
-                self.logger.exception("Error reporting health: %s", e)
+                self.exception(f"Error reporting health: {e}")
             except asyncio.CancelledError:
-                self.logger.debug("Health check task cancelled")
+                self.debug("Health check task cancelled")
                 break
 
             await asyncio.sleep(self.health_check_interval)
@@ -291,7 +285,7 @@ class Worker(BaseComponentService, AsyncTaskManagerMixin, ProcessHealthMixin):
 
     @on_stop
     async def _do_shutdown(self) -> None:
-        self.logger.debug("Shutting down worker")
+        self.debug("Shutting down worker")
         if self.inference_client:
             await self.inference_client.close()
 

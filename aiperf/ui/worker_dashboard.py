@@ -13,8 +13,9 @@ from textual.widgets import Label
 
 from aiperf.common.config import ServiceConfig
 from aiperf.common.enums import ServiceType
-from aiperf.common.hooks import AIPerfLifecycleMixin, aiperf_task, on_init
+from aiperf.common.hooks import aiperf_task, on_init
 from aiperf.common.messages import WorkerHealthMessage
+from aiperf.common.mixins import AIPerfLifecycleMixin
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.ui.widgets import StatusIndicator
 

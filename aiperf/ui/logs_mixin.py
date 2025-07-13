@@ -10,10 +10,10 @@ from rich.table import Table
 from rich.text import Text
 
 from aiperf.common.hooks import (
-    AIPerfLifecycleMixin,
     aiperf_auto_task,
 )
 from aiperf.common.logging import get_global_log_queue
+from aiperf.common.mixins import AIPerfLifecycleMixin
 from aiperf.ui.dashboard_element import DashboardElement
 
 

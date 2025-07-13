@@ -153,7 +153,8 @@ class RecordsManager(BaseComponentService):
     async def _report_records_task(self) -> None:
         """Report the records."""
         while not self.stop_event.is_set():
-            await self.publish_processing_stats()
+            if self.active_credit_phase is not None:
+                await self.publish_processing_stats()
             await asyncio.sleep(1)
 
     async def publish_processing_stats(self) -> None:

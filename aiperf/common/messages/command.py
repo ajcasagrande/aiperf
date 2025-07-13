@@ -5,13 +5,13 @@ import uuid
 from typing import Any, Literal
 
 from pydantic import Field, SerializeAsAny
-from pydantic_core import ErrorDetails
 
 from aiperf.common.enums import CommandType, MessageType
 from aiperf.common.enums.command import CommandResponseStatus
 from aiperf.common.enums.service import ServiceType
 from aiperf.common.messages.base import BaseServiceMessage
 from aiperf.common.pydantic_utils import AIPerfBaseModel
+from aiperf.common.record_models import ErrorDetails
 
 
 class CommandMessage(BaseServiceMessage):

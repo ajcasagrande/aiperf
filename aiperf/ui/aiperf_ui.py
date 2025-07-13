@@ -1,11 +1,11 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-import logging
 from typing import cast
 
 from aiperf.common.enums import MessageType
-from aiperf.common.hooks import AIPerfLifecycleMixin, on_start, on_stop
+from aiperf.common.hooks import on_start, on_stop
 from aiperf.common.messages import Message, WorkerHealthMessage
+from aiperf.common.mixins import AIPerfLifecycleMixin
 from aiperf.progress.progress_tracker import ProgressTracker
 from aiperf.ui.profile_progress_ui import ProfileProgressElement
 from aiperf.ui.rich_dashboard import AIPerfRichDashboard
@@ -20,7 +20,6 @@ class AIPerfUI(AIPerfLifecycleMixin):
 
     def __init__(self, progress_tracker: ProgressTracker) -> None:
         super().__init__()
-        self.logger = logging.getLogger(self.__class__.__name__)
         self.dashboard = AIPerfRichDashboard(progress_tracker)
         self.progress_tracker = progress_tracker
 

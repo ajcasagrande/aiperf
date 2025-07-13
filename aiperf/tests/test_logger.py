@@ -3,7 +3,7 @@
 
 import pytest
 
-from aiperf.common.logging_mixins import _NOTICE, _SUCCESS, _TRACE, AIPerfLogger
+from aiperf.common.aiperf_logger import _NOTICE, _SUCCESS, _TRACE, AIPerfLogger
 
 
 @pytest.mark.parametrize("level", [_TRACE, _NOTICE, _SUCCESS])

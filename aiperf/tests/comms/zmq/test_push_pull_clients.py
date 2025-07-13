@@ -250,7 +250,7 @@ class TestZMQPullClient:
     def test_inheritance(self, zmq_pull_connect_client: ZMQPullClient):
         """Test that ZMQPullClient inherits from BaseZMQClient and AsyncTaskManagerMixin."""
         from aiperf.common.comms.zmq import BaseZMQClient
-        from aiperf.common.mixins import AsyncTaskManagerMixin
+        from aiperf.common.mixins.async_task_manager import AsyncTaskManagerMixin
 
         client = zmq_pull_connect_client
 

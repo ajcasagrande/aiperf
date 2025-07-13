@@ -1,16 +1,19 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-import logging
 from abc import ABC, abstractmethod
 
 from aiperf.common.config import ServiceConfig
-from aiperf.common.constants import DEFAULT_WAIT_FOR_START_SECONDS
+from aiperf.common.constants import (
+    DEFAULT_WAIT_FOR_START_SECONDS,
+    DEFAULT_WAIT_FOR_STOP_SECONDS,
+)
 from aiperf.common.enums import ServiceType
 from aiperf.common.messages import BaseServiceMessage
+from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.common.service_models import ServiceRegistrationInfo
 
 
-class BaseServiceManager(ABC):
+class BaseServiceManager(AIPerfLoggerMixin, ABC):
     """
     Base class for service managers. It provides a common interface for
     managing services and a way to look up service information by service ID.
@@ -18,11 +21,11 @@ class BaseServiceManager(ABC):
 
     def __init__(
         self,
-        required_service_types: dict[ServiceType, int],
+        required_services: dict[ServiceType, int],
         config: ServiceConfig,
     ):
-        self.logger = logging.getLogger(self.__class__.__name__)
-        self.required_service_types = required_service_types
+        super().__init__(logger_name="service_manager")
+        self.required_services = required_services
         self.config = config
 
         # Maps to track service information
@@ -48,7 +51,7 @@ class BaseServiceManager(ABC):
 
     @abstractmethod
     async def wait_for_all_services_registration(
-        self, timeout_seconds: int = DEFAULT_WAIT_FOR_START_SECONDS
+        self, timeout_seconds: float = DEFAULT_WAIT_FOR_START_SECONDS
     ) -> None:
         """Wait for all required services to be registered."""
         pass
@@ -56,9 +59,17 @@ class BaseServiceManager(ABC):
     @abstractmethod
     async def wait_for_all_services_to_start(
         self,
-        timeout_seconds: int = DEFAULT_WAIT_FOR_START_SECONDS,
+        timeout_seconds: float = DEFAULT_WAIT_FOR_START_SECONDS,
     ) -> None:
         """Wait for all services to start."""
+        pass
+
+    @abstractmethod
+    async def wait_for_all_services_to_stop(
+        self,
+        timeout_seconds: float = DEFAULT_WAIT_FOR_STOP_SECONDS,
+    ) -> None:
+        """Wait for all services to stop."""
         pass
 
     @abstractmethod

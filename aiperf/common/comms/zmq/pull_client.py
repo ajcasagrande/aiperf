@@ -12,7 +12,7 @@ from aiperf.common.comms.zmq.zmq_base_client import BaseZMQClient
 from aiperf.common.enums import CommunicationClientType, MessageType
 from aiperf.common.hooks import aiperf_task, on_stop
 from aiperf.common.messages import Message
-from aiperf.common.mixins import AsyncTaskManagerMixin
+from aiperf.common.mixins.async_task_manager import AsyncTaskManagerMixin
 
 
 @CommunicationClientFactory.register(CommunicationClientType.PULL)

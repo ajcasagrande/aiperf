@@ -88,7 +88,7 @@ class TestSystemController(BaseTestControllerService):
         )
 
         multiprocess_manager = MultiProcessServiceManager(
-            required_service_types=[ServiceType.TEST],
+            required_services=[ServiceType.TEST],
             config=service_config,
         )
 

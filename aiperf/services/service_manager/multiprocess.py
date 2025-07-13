@@ -11,7 +11,9 @@ from pydantic import ConfigDict, Field
 from aiperf.common.bootstrap import bootstrap_and_run_service
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.constants import (
+    DEFAULT_WAIT_FOR_REGISTRATION_SECONDS,
     DEFAULT_WAIT_FOR_START_SECONDS,
+    DEFAULT_WAIT_FOR_STOP_SECONDS,
     GRACEFUL_SHUTDOWN_TIMEOUT_SECONDS,
     TASK_CANCEL_TIMEOUT_SHORT,
 )
@@ -51,18 +53,18 @@ class MultiProcessServiceManager(BaseServiceManager):
 
     def __init__(
         self,
-        required_service_types: dict[ServiceType, int],
+        required_services: dict[ServiceType, int],
         config: ServiceConfig,
         user_config: UserConfig | None = None,
         log_queue: "multiprocessing.Queue | None" = None,
     ):
-        super().__init__(required_service_types, config)
+        super().__init__(required_services, config)
         self.multi_process_info: list[MultiProcessRunInfo] = []
         self.log_queue = log_queue
         self.user_config = user_config
         self.registry = GlobalServiceRegistry
         self.registered_events: dict[ServiceType, asyncio.Event] = {
-            service_type: asyncio.Event() for service_type in required_service_types
+            service_type: asyncio.Event() for service_type in required_services
         }
         self.state_events: dict[ServiceType, dict[ServiceState, asyncio.Event]] = {
             service_type: {state: asyncio.Event() for state in ServiceState}
@@ -96,10 +98,9 @@ class MultiProcessServiceManager(BaseServiceManager):
 
                 process.start()
 
-                self.logger.debug(
-                    "Service %s started as process (pid: %d)",
-                    service_type,
-                    process.pid,
+                self.debug(
+                    lambda pid=process.pid,
+                    type=service_type: f"Service {type} started as process (pid: {pid})"
                 )
 
                 self.multi_process_info.append(
@@ -108,26 +109,24 @@ class MultiProcessServiceManager(BaseServiceManager):
 
     async def run_all_services(self) -> None:
         """Start all required services as multiprocessing processes."""
-        self.logger.debug("Starting all required services as multiprocessing processes")
+        self.debug("Starting all required services as multiprocessing processes")
 
         try:
-            await self._run_services(self.required_service_types)
+            await self._run_services(self.required_services)
         except Exception as e:
-            self.logger.exception("Error starting services: %s", e)
+            self.exception(lambda e=e: f"Error starting services: {e}")
             raise e
 
     async def shutdown_all_services(self) -> None:
         """Stop all required services as multiprocessing processes."""
-        self.logger.debug("Stopping all service processes")
-
-        # Wait for all to finish in parallel
-        await asyncio.gather(
-            *[self._wait_for_process(info) for info in self.multi_process_info]
-        )
+        self.debug("Stopping all service processes")
+        for info in self.multi_process_info:
+            if info.process:
+                info.process.terminate()
 
     async def kill_all_services(self) -> None:
         """Kill all required services as multiprocessing processes."""
-        self.logger.debug("Killing all service processes")
+        self.debug("Killing all service processes")
 
         # Kill all processes
         for info in self.multi_process_info:
@@ -141,7 +140,7 @@ class MultiProcessServiceManager(BaseServiceManager):
         )
 
     async def wait_for_all_services_registration(
-        self, timeout_seconds: int = DEFAULT_WAIT_FOR_START_SECONDS
+        self, timeout_seconds: float = DEFAULT_WAIT_FOR_REGISTRATION_SECONDS
     ) -> None:
         """Wait for all required services to be registered.
 
@@ -152,7 +151,7 @@ class MultiProcessServiceManager(BaseServiceManager):
         Raises:
             Exception if any service failed to register, None otherwise
         """
-        self.logger.debug("Waiting for all required services to register...")
+        self.debug("Waiting for all required services to register...")
         try:
             await asyncio.wait_for(
                 asyncio.gather(
@@ -162,9 +161,9 @@ class MultiProcessServiceManager(BaseServiceManager):
             )
         except asyncio.TimeoutError as e:
             # Log which services didn't register in time
-            for service_type in self.required_service_types:
+            for service_type in self.required_services:
                 if service_type not in self.registry:
-                    self.logger.error(
+                    self.error(
                         f"Service {service_type} failed to register within timeout"
                     )
 
@@ -174,18 +173,30 @@ class MultiProcessServiceManager(BaseServiceManager):
 
     async def wait_for_all_services_to_start(
         self,
-        timeout_seconds: int = DEFAULT_WAIT_FOR_START_SECONDS,
+        timeout_seconds: float = DEFAULT_WAIT_FOR_START_SECONDS,
     ) -> None:
         """Wait for all services to start."""
-        self.logger.debug("Waiting for all services to start...")
+        self.debug("Waiting for all services to start...")
         await asyncio.wait_for(
             asyncio.gather(
                 *[
                     self.state_events[service_type][ServiceState.RUNNING].wait()
-                    for service_type in self.required_service_types
+                    for service_type in self.required_services
                 ]
             ),
             timeout=timeout_seconds,
+        )
+
+    async def wait_for_all_services_to_stop(
+        self,
+        timeout_seconds: float = DEFAULT_WAIT_FOR_STOP_SECONDS,
+    ) -> None:
+        """Wait for all services to stop."""
+        self.debug("Waiting for all services to stop...")
+
+        # Wait for all to finish in parallel
+        await asyncio.gather(
+            *[self._wait_for_process(info) for info in self.multi_process_info]
         )
 
     async def _wait_for_process(self, info: MultiProcessRunInfo) -> None:
@@ -194,27 +205,25 @@ class MultiProcessServiceManager(BaseServiceManager):
             return
 
         try:
-            info.process.terminate()
             await asyncio.wait_for(
                 asyncio.to_thread(
                     info.process.join, timeout=TASK_CANCEL_TIMEOUT_SHORT
                 ),  # Add timeout to join
                 timeout=GRACEFUL_SHUTDOWN_TIMEOUT_SECONDS,  # Overall timeout
             )
-            self.logger.debug(
-                "Service %s process stopped (pid: %d)",
-                info.service_type,
-                info.process.pid,
+            self.debug(
+                lambda pid=info.process.pid,
+                type=info.service_type: f"Service {type} process stopped (pid: {pid})"
             )
         except asyncio.TimeoutError:
-            self.logger.warning(
-                "Service %s process (pid: %d) did not terminate gracefully, killing",
-                info.service_type,
-                info.process.pid,
+            self.warning(
+                lambda pid=info.process.pid,
+                type=info.service_type: f"Service {type} process (pid: {pid}) did not terminate gracefully, killing"
             )
             info.process.kill()
 
     async def on_message(self, message: BaseServiceMessage) -> None:
+        """Handle a message from a service."""
         _handlers = {
             MessageType.REGISTRATION: self._on_registration_message,
             MessageType.HEARTBEAT: self._on_heartbeat_message,
@@ -230,7 +239,7 @@ class MultiProcessServiceManager(BaseServiceManager):
             message.service_type,
             message.state,
         )
-        if message.service_type in self.required_service_types:
+        if message.service_type in self.required_services:
             self.registered_events[message.service_type].set()
 
     async def _on_heartbeat_message(self, message: HeartbeatMessage) -> None:

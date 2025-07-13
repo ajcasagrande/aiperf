@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-import logging
 import socket
 import time
 import typing
@@ -10,7 +9,9 @@ import aiohttp
 
 from aiperf.clients.http.defaults import AioHttpDefaults, SocketDefaults
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
+from aiperf.common.aiperf_logger import AIPerfLogger
 from aiperf.common.enums import SSEFieldType
+from aiperf.common.mixins.aiperf_logger import AIPerfLoggerMixin
 from aiperf.common.record_models import (
     ErrorDetails,
     RequestRecord,
@@ -19,12 +20,14 @@ from aiperf.common.record_models import (
     TextResponse,
 )
 
+logger = AIPerfLogger(__name__)
+
 ################################################################################
 # AioHTTP Client
 ################################################################################
 
 
-class AioHttpClientMixin:
+class AioHttpClientMixin(AIPerfLoggerMixin):
     """A high-performance HTTP client for communicating with HTTP based REST APIs using aiohttp.
 
     This class is optimized for maximum performance and accurate timing measurements,
@@ -33,7 +36,6 @@ class AioHttpClientMixin:
 
     def __init__(self, model_endpoint: ModelEndpointInfo) -> None:
         super().__init__()
-        self.logger = logging.getLogger(self.__class__.__name__)
         self.model_endpoint = model_endpoint
         self.tcp_connector = create_tcp_connector()
 
@@ -66,7 +68,7 @@ class AioHttpClientMixin:
         Otherwise, the response will be parsed into a TextResponse object.
         """
 
-        self.logger.debug("Sending POST request to %s", url)
+        self.debug(lambda url=url: f"Sending POST request to {url}")
 
         record: RequestRecord = RequestRecord(
             start_perf_ns=time.perf_counter_ns(),
@@ -122,7 +124,7 @@ class AioHttpClientMixin:
 
         except Exception as e:
             record.end_perf_ns = time.perf_counter_ns()
-            self.logger.exception("Error in aiohttp request: %s", str(e))
+            self.exception(f"Error in aiohttp request: {e}")
             record.error = ErrorDetails(type=e.__class__.__name__, message=str(e))
 
         return record
@@ -137,7 +139,6 @@ class AioHttpSSEStreamReader:
 
     def __init__(self, response: aiohttp.ClientResponse):
         self.response = response
-        self.logger = logging.getLogger(self.__class__.__name__)
 
     async def read_complete_stream(self) -> list[SSEMessage]:
         """Read the complete SSE stream in a performant manner and return a list of
@@ -152,7 +153,7 @@ class AioHttpSSEStreamReader:
             # Parse the raw SSE message into a SSEMessage object
             message = parse_sse_message(raw_message, first_byte_ns)
             messages.append(message)
-            # self.logger.info("Parsed SSE message: %s", message)
+            logger.trace(lambda msg=message: f"Parsed SSE message: {msg}")
 
         return messages
 

@@ -6,7 +6,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from aiperf.common.logging_mixins import AIPerfLogger, AIPerfLoggerMixin
+from aiperf.common.aiperf_logger import AIPerfLogger, AIPerfLoggerMixin
 
 
 class MockClass(AIPerfLoggerMixin):

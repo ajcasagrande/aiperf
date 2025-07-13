@@ -193,7 +193,7 @@ class TestZMQSubClient:
     def test_inheritance(self, zmq_sub_connect_client: ZMQSubClient):
         """Test that ZMQSubClient inherits from BaseZMQClient and AsyncTaskManagerMixin."""
         from aiperf.common.comms.zmq import BaseZMQClient
-        from aiperf.common.mixins import AsyncTaskManagerMixin
+        from aiperf.common.mixins.async_task_manager import AsyncTaskManagerMixin
 
         client = zmq_sub_connect_client
 

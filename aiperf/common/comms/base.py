@@ -211,7 +211,7 @@ ClientProtocolT = TypeVar("ClientProtocolT", bound=CommunicationClientProtocol)
 
 def _create_specific_client(
     client_type: CommunicationClientType,
-    client_class: type[ClientProtocolT],
+    client_class: type[ClientProtocolT],  # client_class is used by generics
 ) -> Callable[
     [
         "BaseCommunication",

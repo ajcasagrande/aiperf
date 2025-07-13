@@ -11,6 +11,7 @@ from pydantic import Field
 from rich.console import Console
 from rich.logging import RichHandler
 
+from aiperf.common.aiperf_logger import AIPerfLogger
 from aiperf.common.bootstrap import bootstrap_and_run_service
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.config_defaults import ServiceDefaults
@@ -18,7 +19,7 @@ from aiperf.common.config.user_config import UserConfig
 from aiperf.common.pydantic_utils import AIPerfBaseModel
 from aiperf.services import SystemController
 
-logger = logging.getLogger(__name__)
+logger = AIPerfLogger(__name__)
 
 
 class CLIConfig(AIPerfBaseModel):

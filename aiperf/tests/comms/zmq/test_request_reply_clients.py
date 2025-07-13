@@ -36,7 +36,7 @@ class TestZMQDealerRequestClient:
     def test_inheritance(self, mock_zmq_context_instance: MagicMock):
         """Test that ZMQDealerRequestClient inherits from BaseZMQClient and AsyncTaskManagerMixin."""
         from aiperf.common.comms.zmq import BaseZMQClient
-        from aiperf.common.mixins import AsyncTaskManagerMixin
+        from aiperf.common.mixins.async_task_manager import AsyncTaskManagerMixin
 
         client = ZMQDealerRequestClient(
             context=mock_zmq_context_instance,
@@ -320,7 +320,7 @@ class TestZMQRouterReplyClient:
     def test_inheritance(self, mock_zmq_context_instance: MagicMock):
         """Test that ZMQRouterReplyClient inherits from BaseZMQClient and AsyncTaskManagerMixin."""
         from aiperf.common.comms.zmq import BaseZMQClient
-        from aiperf.common.mixins import AsyncTaskManagerMixin
+        from aiperf.common.mixins.async_task_manager import AsyncTaskManagerMixin
 
         client = ZMQRouterReplyClient(
             context=mock_zmq_context_instance,

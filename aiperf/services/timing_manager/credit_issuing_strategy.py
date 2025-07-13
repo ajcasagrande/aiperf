@@ -8,7 +8,7 @@ from typing import Protocol, runtime_checkable
 from aiperf.common.credit_models import CreditPhaseStats
 from aiperf.common.enums import CreditPhase
 from aiperf.common.messages import CreditReturnMessage
-from aiperf.common.mixins import AsyncTaskManagerMixin
+from aiperf.common.mixins.async_task_manager import AsyncTaskManagerMixin
 from aiperf.services.timing_manager.config import TimingManagerConfig
 
 

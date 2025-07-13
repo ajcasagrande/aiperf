@@ -24,7 +24,7 @@ from aiperf.common.enums import (
     CommunicationClientType,
 )
 from aiperf.common.exceptions import ShutdownError
-from aiperf.common.logging_mixins import AIPerfLoggerMixin
+from aiperf.common.mixins import AIPerfLoggerMixin
 
 
 class BaseZMQCommunication(BaseCommunication, AIPerfLoggerMixin, ABC):
