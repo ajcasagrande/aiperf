@@ -1,209 +1,136 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-import logging
-
-from rich.console import RenderableType
-from rich.panel import Panel
+from rich.align import Align
+from rich.console import Group, RenderableType
+from rich.progress import (
+    BarColumn,
+    MofNCompleteColumn,
+    Progress,
+    SpinnerColumn,
+    TaskID,
+    TaskProgressColumn,
+    TextColumn,
+    TimeElapsedColumn,
+    TimeRemainingColumn,
+)
 from rich.table import Table
 from rich.text import Text
 
-from aiperf.common.enums import CreditPhase
 from aiperf.common.utils import format_duration
-from aiperf.progress.progress_tracker import ProfileRunProgress, ProgressTracker
+from aiperf.progress.progress_tracker import ProgressTracker
 from aiperf.ui.rich.dashboard_element import DashboardElement
 
 
 class ProfileProgressElement(DashboardElement):
-    """Profile progress dashboard element for the dashboard."""
+    """Profile progress element for the dashboard.
+
+    This element displays the progress of the current profile along with the progress of
+    the results processing.
+    """
 
     key = "profile_progress"
     title = Text("Profile Progress", style="bold")
-    border_style = "green"
-    height = 20
-    title_align = "left"
+    border_style = "cyan"
 
     def __init__(self, progress_tracker: ProgressTracker) -> None:
         super().__init__()
-        self.logger = logging.getLogger(self.__class__.__name__)
         self.progress_tracker = progress_tracker
-
-    def get_content(self) -> RenderableType:
-        """Get the content for the profile progress element."""
-        profile_run = self.progress_tracker.current_profile_run
-        if profile_run is None:
-            return Text("No profile run active", style="dim")
-
-        # Create a panel with multiple sections
-        return Panel.fit(
-            self._create_status_table(profile_run),
-            title=f"Profile: {profile_run.profile_id or 'N/A'}",
-            border_style="green",
+        self.progress_task_id: TaskID | None = None
+        self.records_task_id: TaskID | None = None
+        self.progress_bar = Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            MofNCompleteColumn(),
+            TimeElapsedColumn(),
+            TimeRemainingColumn(),
+            expand=True,
+        )
+        self.records_progress_bar = Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            MofNCompleteColumn(),
+            TimeElapsedColumn(),
+            TimeRemainingColumn(),
+            expand=True,
         )
 
-    def _create_status_table(self, profile_run: ProfileRunProgress) -> Table:
-        """Create a table showing profile status."""
-        active_phase = self.progress_tracker.active_credit_phase
+    def get_content(self) -> RenderableType:
+        """Create the progress panel with benchmark status."""
+
+        if not self.progress_tracker.current_profile_run:
+            return Align.center(
+                Text("Waiting for benchmark data...", style="dim yellow"),
+                vertical="middle",
+            )
+
+        profile = self.progress_tracker.current_profile_run
+
+        # Create or update requests progress bar
+        if self.progress_task_id is None and profile.total_expected_requests:
+            self.progress_task_id = self.progress_bar.add_task(
+                "Executing requests...", total=profile.total_expected_requests
+            )
+        elif self.progress_task_id is not None:
+            self.progress_bar.update(
+                self.progress_task_id, completed=profile.requests_completed or 0
+            )
+
+        # Create or update results progress bar
+        if self.records_task_id is None and profile.total_expected_requests:
+            self.records_task_id = self.records_progress_bar.add_task(
+                "Processing results...", total=profile.total_expected_requests
+            )
+        elif self.records_task_id is not None:
+            self.records_progress_bar.update(
+                self.records_task_id, completed=profile.requests_processed or 0
+            )
 
         # Pad each column by 1 space
         progress_table = Table.grid(padding=(0, 1, 0, 0))
         progress_table.add_column(style="bold cyan", justify="right")
         progress_table.add_column(style="bold white")
 
-        if profile_run.is_complete:
+        if profile.is_complete:
             status = Text("Complete", style="bold green")
+        elif profile.was_cancelled:
+            status = Text("Cancelled", style="bold red")
         else:
             status = Text("Processing", style="bold yellow")
 
-        progress_table.add_row("Status:", status)
-        progress_table.add_row(
-            "Active Phase:", Text(active_phase or "N/A", style="bold white")
+        error_percent = 0.0
+        if profile.requests_processed and profile.requests_processed > 0:
+            error_percent = (
+                (profile.request_errors or 0) / profile.requests_processed * 100
+            )
+
+        # TODO: Color palette for error percentages? Or always red if above 0?
+        error_color = (
+            "green" if error_percent == 0 else "red" if error_percent > 10 else "yellow"
         )
 
-        # Show phase-specific stats
-        if active_phase in profile_run.phases:
-            phase_stats = profile_run.phases[active_phase]
+        progress_table.add_row("Status:", status)
+        progress_table.add_row(
+            "Progress:",
+            f"{profile.requests_completed or 0:,} / {profile.total_expected_requests or 0:,} requests "
+            f"({(profile.requests_completed or 0) / (profile.total_expected_requests or 1) * 100:.1f}%)",
+        )
+        progress_table.add_row(
+            "Errors:",
+            f"[{error_color}]{profile.request_errors or 0:,} / {profile.requests_processed or 0:,} ({error_percent:.1f}%)[/{error_color}]",
+        )
+        progress_table.add_row(
+            "Request Rate:", f"{profile.requests_per_second or 0:.1f} req/s"
+        )
+        progress_table.add_row(
+            "Processing Rate:", f"{profile.processed_per_second or 0:.1f} req/s"
+        )
+        progress_table.add_row("Elapsed:", format_duration(profile.elapsed_time))
+        progress_table.add_row("Request ETA:", format_duration(profile.eta))
+        progress_table.add_row("Results ETA:", format_duration(profile.processing_eta))
 
-            # Request stats
-            if phase_stats.total:
-                progress_percent = (phase_stats.completed / phase_stats.total) * 100
-                progress_table.add_row(
-                    "Requests:",
-                    Text(
-                        f"{phase_stats.completed}/{phase_stats.total} ({progress_percent:.1f}%)"
-                    ),
-                )
-            else:
-                progress_table.add_row("Requests:", Text(f"{phase_stats.completed}"))
-
-            # Request rate
-            if active_phase in profile_run.computed_stats:
-                computed = profile_run.computed_stats[active_phase]
-                if computed.requests_per_second:
-                    progress_table.add_row(
-                        "Request Rate:",
-                        Text(f"{computed.requests_per_second:.1f} req/s"),
-                    )
-                if computed.requests_eta:
-                    progress_table.add_row(
-                        "Request ETA:", Text(format_duration(computed.requests_eta))
-                    )
-
-        # Processing stats
-        if active_phase in profile_run.processing_stats:
-            processing_stats = profile_run.processing_stats[active_phase]
-
-            error_percent = 0.0
-            if processing_stats.processed > 0:
-                error_percent = (
-                    processing_stats.errors / processing_stats.processed
-                ) * 100
-
-            # Color palette for error percentages
-            error_color = (
-                "green"
-                if error_percent == 0
-                else "red"
-                if error_percent > 10
-                else "yellow"
-            )
-
-            progress_table.add_row("Processed:", Text(f"{processing_stats.processed}"))
-            progress_table.add_row(
-                "Errors:",
-                Text(
-                    f"{processing_stats.errors} ({error_percent:.1f}%)",
-                    style=error_color,
-                ),
-            )
-
-            # Processing rate
-            if active_phase in profile_run.computed_stats:
-                computed = profile_run.computed_stats[active_phase]
-                if computed.records_per_second:
-                    progress_table.add_row(
-                        "Processing Rate:",
-                        Text(f"{computed.records_per_second:.1f} rec/s"),
-                    )
-                if computed.records_eta:
-                    progress_table.add_row(
-                        "Processing ETA:", Text(format_duration(computed.records_eta))
-                    )
-
-        # Worker stats summary
-        if profile_run.worker_task_stats:
-            worker_count = len(profile_run.worker_task_stats)
-            active_workers = sum(
-                1
-                for worker_stats in profile_run.worker_task_stats.values()
-                if active_phase in worker_stats
-                and worker_stats[active_phase].in_progress > 0
-            )
-
-            progress_table.add_row(
-                "Workers:", Text(f"{active_workers}/{worker_count} active")
-            )
-
-        # Phase timing
-        if active_phase in profile_run.phases:
-            phase_stats = profile_run.phases[active_phase]
-            if phase_stats.start_ns:
-                import time
-
-                elapsed_ns = time.time_ns() - phase_stats.start_ns
-                elapsed_sec = elapsed_ns / 1_000_000_000
-                progress_table.add_row(
-                    "Phase Duration:", Text(format_duration(elapsed_sec))
-                )
-
-        return progress_table
-
-    def _create_phase_overview_table(self, profile_run: ProfileRunProgress) -> Table:
-        """Create a table showing all phases."""
-        phases_table = Table()
-        phases_table.add_column("Phase", style="bold")
-        phases_table.add_column("Status", style="bold")
-        phases_table.add_column("Progress", style="bold")
-        phases_table.add_column("Rate", style="bold")
-
-        for phase in CreditPhase:
-            if phase in profile_run.phases:
-                phase_stats = profile_run.phases[phase]
-
-                # Status
-                if phase_stats.is_complete:
-                    status = Text("Complete", style="green")
-                elif phase_stats.is_started:
-                    status = Text("Running", style="yellow")
-                else:
-                    status = Text("Pending", style="dim")
-
-                # Progress
-                if phase_stats.total:
-                    progress_percent = (phase_stats.completed / phase_stats.total) * 100
-                    progress_text = f"{phase_stats.completed}/{phase_stats.total} ({progress_percent:.1f}%)"
-                else:
-                    progress_text = f"{phase_stats.completed}"
-
-                # Rate
-                rate_text = "--"
-                if phase in profile_run.computed_stats:
-                    computed = profile_run.computed_stats[phase]
-                    if computed.requests_per_second:
-                        rate_text = f"{computed.requests_per_second:.1f} req/s"
-
-                phases_table.add_row(
-                    phase.value,
-                    status,
-                    progress_text,
-                    rate_text,
-                )
-            else:
-                phases_table.add_row(
-                    phase.value,
-                    Text("Not Started", style="dim"),
-                    "--",
-                    "--",
-                )
-
-        return phases_table
+        return Group(self.progress_bar, self.records_progress_bar, progress_table)

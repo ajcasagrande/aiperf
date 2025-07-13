@@ -46,3 +46,7 @@ class CreditPhase(CaseInsensitiveStrEnum):
     STEADY_STATE = "steady_state"
     """The credit phase is the steady state phase. This is the primary phase of the
     benchmark, and what is used to calculate the final results."""
+
+    COOLDOWN = "cooldown"
+    """The credit phase is the cooldown phase. This is used to cool down the model
+    after the benchmark ends."""

@@ -137,7 +137,11 @@ class WorkerStatusTable(Widget):
             status_style = f"status-{worker.status.value.replace('_', '-')}"
             self.data_table.add_row(
                 worker.worker_id,
-                Text(worker.status.value.replace("_", " ").title(), style=status_style),
+                Text(
+                    worker.status.value.replace("_", " ").title(),
+                    style=status_style,
+                    justify="right",
+                ),
                 f"{worker.in_progress_tasks:,}",
                 f"{worker.completed_tasks:,}",
                 f"{worker.failed_tasks:,}",

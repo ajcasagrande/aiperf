@@ -81,7 +81,7 @@ class SystemController(
         self.progress_tracker: ProgressTracker = ProgressTracker()
         self.ui_enabled: bool = not self.service_config.disable_ui
         self.ui: AIPerfUI | TextualUIMixin | None = (
-            TextualUIMixin(self.progress_tracker) if self.ui_enabled else None
+            AIPerfUI(self.progress_tracker) if self.ui_enabled else None
         )
         self.progress_logger: SimpleProgressLogger | None = (
             SimpleProgressLogger(self.progress_tracker) if not self.ui_enabled else None

@@ -113,6 +113,98 @@ class ProfileRunProgress(AIPerfBaseModel):
             return False
         return all(phase.is_complete for phase in self.phases.values())
 
+    @property
+    def total_expected_requests(self) -> int | None:
+        """Get the total number of requests."""
+        if not self.phases:
+            return None
+        return sum(
+            phase.total for phase in self.phases.values() if phase.total is not None
+        )
+
+    @property
+    def requests_completed(self) -> int | None:
+        """Get the number of requests completed."""
+        if not self.phases:
+            return None
+        return sum(
+            phase.completed
+            for phase in self.phases.values()
+            if phase.completed is not None
+        )
+
+    @property
+    def requests_processed(self) -> int | None:
+        """Get the number of requests processed."""
+        if not self.processing_stats:
+            return None
+        return sum(
+            stats.processed
+            for stats in self.processing_stats.values()
+            if stats.processed is not None
+        )
+
+    @property
+    def request_errors(self) -> int | None:
+        """Get the number of requests with errors."""
+        if not self.processing_stats:
+            return None
+        return sum(
+            stats.errors
+            for stats in self.processing_stats.values()
+            if stats.errors is not None
+        )
+
+    @property
+    def requests_per_second(self) -> float | None:
+        if not self.active_phase:
+            return None
+        """Get the requests per second."""
+        if not self.computed_stats:
+            return None
+        return self.computed_stats[self.active_phase].requests_per_second
+
+    @property
+    def requests_eta(self) -> float | None:
+        if not self.active_phase:
+            return None
+        """Get the requests eta."""
+        if not self.computed_stats:
+            return None
+        return self.computed_stats[self.active_phase].requests_eta
+
+    @property
+    def processed_per_second(self) -> float | None:
+        if not self.active_phase:
+            return None
+        """Get the processed per second."""
+        if not self.computed_stats:
+            return None
+        return self.computed_stats[self.active_phase].records_per_second
+
+    @property
+    def processing_eta(self) -> float | None:
+        if not self.active_phase:
+            return None
+        """Get the processed eta."""
+        if not self.computed_stats:
+            return None
+        return self.computed_stats[self.active_phase].records_eta
+
+    @property
+    def elapsed_time(self) -> float | None:
+        """Get the elapsed time."""
+        if not self.start_ns or not self.end_ns:
+            return None
+        return (self.end_ns - self.start_ns) / NANOS_PER_SECOND
+
+    @property
+    def eta(self) -> float | None:
+        """Get the eta."""
+        if not self.requests_eta or not self.processing_eta:
+            return None
+        return max(self.requests_eta, self.processing_eta)
+
     def on_message(self, message: Message):
         """Update the progress from a message."""
         _message_mappings = {
@@ -281,11 +373,25 @@ class ProgressTracker(AIPerfLoggerMixin):
             return None
         return self.suite.current_profile_run
 
+    # TODO: this is a hack to allow examples to set the current profile run
+    # we should have a better way to do this
+    @current_profile_run.setter
+    def current_profile_run(self, value: ProfileRunProgress):
+        if self.suite is None:
+            self.suite = BenchmarkSuiteProgress(type=BenchmarkSuiteType.SINGLE_PROFILE)
+        self.suite.current_profile_run = value
+
     @property
     def active_credit_phase(self) -> CreditPhase | None:
         if self.current_profile_run is None:
             return None
         return self.current_profile_run.active_phase
+
+    @active_credit_phase.setter
+    def active_credit_phase(self, value: CreditPhase):
+        if self.current_profile_run is None:
+            return
+        self.current_profile_run.active_phase = value
 
     def on_message(self, message: Message):
         """Update the progress from a message."""
