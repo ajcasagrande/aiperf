@@ -75,13 +75,13 @@ class ProfileRunner:
         # self.tracker.current_profile_run.is_complete = True
 
         # Start the next profile
-        if self.tracker.suite is None or self.tracker.suite.current_profile_run is None:
-            self.logger.info("All profiles completed")
-            return
+        # if self.tracker.suite is None or self.tracker.suite.current_profile_run is None:
+        #     self.logger.info("All profiles completed")
+        #     return
 
-        self.logger.info("Starting next profile")
-        self.tracker.suite.current_profile_run = self.tracker.suite.profile_runs[1]
-        self.tracker.suite.current_profile_run.start_ns = time.time_ns()
+        # self.logger.info("Starting next profile")
+        # self.tracker.suite.current_profile_run = self.tracker.suite.profile_runs[1]
+        # self.tracker.suite.current_profile_run.start_ns = time.time_ns()
 
     async def cancel_profile(self) -> None:
         self.was_cancelled = True

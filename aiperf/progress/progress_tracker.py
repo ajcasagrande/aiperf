@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+import time
+
 from pydantic import Field
 
 from aiperf.common.aiperf_logger import AIPerfLogger
@@ -149,8 +151,8 @@ class ProfileRunProgress(AIPerfBaseModel):
     def on_phase_processing_stats(self, message: RecordsProcessingStatsMessage):
         """Update the progress from a phase processing stats message."""
         if message.current_phase is None:
-            logger.debug(
-                "ProfileRunProgress: Received phase processing stats message with no current phase"
+            logger.warning(
+                "Received phase processing stats message with no current phase"
             )
             return
 
@@ -190,12 +192,18 @@ class ProfileRunProgress(AIPerfBaseModel):
             phase.type, CreditPhaseComputedStats()
         )
         computed.requests_update_ns = request_ns
+        logger.info(
+            lambda: f"Updating requests stats for phase {phase.type} {request_ns} {phase.start_ns} {time.time_ns()}"
+        )
 
-        if phase.start_ns is not None and (diff_ns := request_ns - phase.start_ns) > 0:
+        if (
+            phase.start_ns is not None
+            and (diff_ns := (request_ns or time.time_ns()) - phase.start_ns) > 0
+        ):
             dur_sec = diff_ns / NANOS_PER_SECOND
             computed.requests_per_second = phase.completed / dur_sec
             if pct := phase.progress_percent:
-                pct_remaining = 1 - pct
+                pct_remaining = 100 - pct
                 computed.requests_eta = pct_remaining / (pct / dur_sec)
             else:
                 computed.requests_eta = None

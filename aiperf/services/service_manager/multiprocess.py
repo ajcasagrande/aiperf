@@ -159,6 +159,7 @@ class MultiProcessServiceManager(BaseServiceManager):
                 ),
                 timeout=timeout_seconds,
             )
+            self.success("All required services registered")
         except asyncio.TimeoutError as e:
             # Log which services didn't register in time
             for service_type in self.required_services:
@@ -180,12 +181,13 @@ class MultiProcessServiceManager(BaseServiceManager):
         await asyncio.wait_for(
             asyncio.gather(
                 *[
-                    self.state_events[service_type][ServiceState.RUNNING].wait()
+                    self.state_events[service_type][ServiceState.READY].wait()
                     for service_type in self.required_services
                 ]
             ),
             timeout=timeout_seconds,
         )
+        self.success("All services started")
 
     async def wait_for_all_services_to_stop(
         self,
@@ -240,13 +242,17 @@ class MultiProcessServiceManager(BaseServiceManager):
             message.state,
         )
         if message.service_type in self.required_services:
+            self.debug(lambda: f"Service {message.service_type} registered event set")
             self.registered_events[message.service_type].set()
+            self.debug(lambda: f"Registered events: {self.registered_events}")
 
     async def _on_heartbeat_message(self, message: HeartbeatMessage) -> None:
         self.registry.update_service_heartbeat(message.service_id)
 
     async def _on_status_message(self, message: StatusMessage) -> None:
         self.registry.update_service_state(message.service_id, message.state)
+        self.state_events[message.service_type][message.state].set()
+        self.debug(lambda: f"State events: {self.state_events}")
 
     async def _on_service_error_message(self, message: BaseServiceErrorMessage) -> None:
         self.registry[message.service_id].errors.append(message.error)

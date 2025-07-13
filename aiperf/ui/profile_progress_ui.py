@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
-from typing import TYPE_CHECKING
 
 from rich.console import RenderableType
 from rich.panel import Panel
@@ -11,10 +10,8 @@ from rich.text import Text
 
 from aiperf.common.enums import CreditPhase
 from aiperf.common.utils import format_duration
+from aiperf.progress.progress_tracker import ProfileRunProgress, ProgressTracker
 from aiperf.ui.dashboard_element import DashboardElement
-
-if TYPE_CHECKING:
-    from aiperf.progress.progress_tracker import ProgressTracker
 
 
 class ProfileProgressElement(DashboardElement):
@@ -26,7 +23,7 @@ class ProfileProgressElement(DashboardElement):
     height = 20
     title_align = "left"
 
-    def __init__(self, progress_tracker: "ProgressTracker") -> None:
+    def __init__(self, progress_tracker: ProgressTracker) -> None:
         super().__init__()
         self.logger = logging.getLogger(self.__class__.__name__)
         self.progress_tracker = progress_tracker
@@ -44,7 +41,7 @@ class ProfileProgressElement(DashboardElement):
             border_style="green",
         )
 
-    def _create_status_table(self, profile_run) -> Table:
+    def _create_status_table(self, profile_run: ProfileRunProgress) -> Table:
         """Create a table showing profile status."""
         active_phase = self.progress_tracker.active_credit_phase
 
@@ -161,7 +158,7 @@ class ProfileProgressElement(DashboardElement):
 
         return progress_table
 
-    def _create_phase_overview_table(self, profile_run) -> Table:
+    def _create_phase_overview_table(self, profile_run: ProfileRunProgress) -> Table:
         """Create a table showing all phases."""
         phases_table = Table()
         phases_table.add_column("Phase", style="bold")
