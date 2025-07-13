@@ -54,6 +54,29 @@ class CreditPhaseComputedStats(AIPerfBaseModel):
     )
 
 
+class FullCreditPhaseProgress(
+    CreditPhaseStats, PhaseProcessingStats, CreditPhaseComputedStats
+):
+    """Full state of the credit phase progress, including the progress of the phase, the processing stats, and the worker stats."""
+
+    last_record_update_ns: int | None = Field(
+        default=None,
+        description="The last time the records stats were updated in nanoseconds",
+    )
+    worker_processing_stats: dict[str, PhaseProcessingStats] = Field(
+        default_factory=dict,
+        description="The processing stats for each worker as reported by the RecordsManager (processed, errors)",
+    )
+    last_request_update_ns: int | None = Field(
+        default=None,
+        description="The last time the requests stats were updated in nanoseconds",
+    )
+    worker_request_stats: dict[str, WorkerPhaseTaskStats] = Field(
+        default_factory=dict,
+        description="The request stats for each worker as reported by the Workers (total, completed, failed)",
+    )
+
+
 class ProfileRunProgress(AIPerfBaseModel):
     """State of the profile run progress, including the progress of each credit phase, the processing stats, and the worker stats.
 
@@ -70,28 +93,16 @@ class ProfileRunProgress(AIPerfBaseModel):
     end_ns: int | None = Field(
         default=None, description="The end time of the profile run in nanoseconds"
     )
+    last_update_ns: int | None = Field(
+        default=None,
+        description="The last time the progress was updated in nanoseconds",
+    )
     active_phase: CreditPhase | None = Field(
         default=None, description="The active credit phase"
     )
-    phases: dict[CreditPhase, CreditPhaseStats] = Field(
+    phases: dict[CreditPhase, FullCreditPhaseProgress] = Field(
         default_factory=dict,
-        description="The credit stats for each credit phase as reported by the TimingManager (sent, completed, etc.)",
-    )
-    processing_stats: dict[CreditPhase, PhaseProcessingStats] = Field(
-        default_factory=dict,
-        description="The processing stats for each credit phase as reported by the RecordsManager (processed, errors)",
-    )
-    worker_processing_stats: dict[str, dict[CreditPhase, PhaseProcessingStats]] = Field(
-        default_factory=dict,
-        description="The processing stats for each worker for each credit phase as reported by the RecordsManager (processed, errors)",
-    )
-    worker_task_stats: dict[str, dict[CreditPhase, WorkerPhaseTaskStats]] = Field(
-        default_factory=dict,
-        description="The task stats for each worker for each credit phase as reported by the Workers (total, completed, failed)",
-    )
-    computed_stats: dict[CreditPhase, CreditPhaseComputedStats] = Field(
-        default_factory=dict,
-        description="The computed stats for each credit phase (requests per second, eta, processed per second, processing eta)",
+        description="The full credit stats for each credit phase as reported by the TimingManager and RecordsManager.",
     )
     profile_results: ProfileResultsMessage | None = Field(
         default=None, description="The profile results"
@@ -119,7 +130,9 @@ class ProfileRunProgress(AIPerfBaseModel):
         if not self.phases:
             return None
         return sum(
-            phase.total for phase in self.phases.values() if phase.total is not None
+            phase.total_requests
+            for phase in self.phases.values()
+            if phase.total_requests is not None
         )
 
     @property
@@ -136,67 +149,65 @@ class ProfileRunProgress(AIPerfBaseModel):
     @property
     def requests_processed(self) -> int | None:
         """Get the number of requests processed."""
-        if not self.processing_stats:
+        if not self.phases:
             return None
         return sum(
-            stats.processed
-            for stats in self.processing_stats.values()
-            if stats.processed is not None
+            phase.processed
+            for phase in self.phases.values()
+            if phase.processed is not None
         )
 
     @property
     def request_errors(self) -> int | None:
         """Get the number of requests with errors."""
-        if not self.processing_stats:
+        if not self.phases:
             return None
         return sum(
-            stats.errors
-            for stats in self.processing_stats.values()
-            if stats.errors is not None
+            phase.errors for phase in self.phases.values() if phase.errors is not None
         )
 
     @property
     def requests_per_second(self) -> float | None:
+        """Get the requests per second."""
         if not self.active_phase:
             return None
-        """Get the requests per second."""
-        if not self.computed_stats:
+        if not self.phases:
             return None
-        return self.computed_stats[self.active_phase].requests_per_second
+        return self.phases[self.active_phase].requests_per_second
 
     @property
     def requests_eta(self) -> float | None:
+        """Get the requests eta."""
         if not self.active_phase:
             return None
-        """Get the requests eta."""
-        if not self.computed_stats:
+        if not self.phases:
             return None
-        return self.computed_stats[self.active_phase].requests_eta
+        return self.phases[self.active_phase].requests_eta
 
     @property
     def processed_per_second(self) -> float | None:
+        """Get the processed per second."""
         if not self.active_phase:
             return None
-        """Get the processed per second."""
-        if not self.computed_stats:
+        if not self.phases:
             return None
-        return self.computed_stats[self.active_phase].records_per_second
+        return self.phases[self.active_phase].records_per_second
 
     @property
     def processing_eta(self) -> float | None:
+        """Get the processed eta."""
         if not self.active_phase:
             return None
-        """Get the processed eta."""
-        if not self.computed_stats:
+        if not self.phases:
             return None
-        return self.computed_stats[self.active_phase].records_eta
+        return self.phases[self.active_phase].records_eta
 
     @property
     def elapsed_time(self) -> float | None:
         """Get the elapsed time."""
-        if not self.start_ns or not self.end_ns:
+        if not self.start_ns or not self.last_update_ns:
             return None
-        return (self.end_ns - self.start_ns) / NANOS_PER_SECOND
+        return (self.last_update_ns - self.start_ns) / NANOS_PER_SECOND
 
     @property
     def eta(self) -> float | None:
@@ -225,20 +236,25 @@ class ProfileRunProgress(AIPerfBaseModel):
 
     def on_credit_phase_progress(self, message: CreditPhaseProgressMessage):
         """Update the progress from a credit phase progress message."""
-        for phase, stats in message.phase_stats_map.items():
+        for phase, stats in message.phase_progress_map.items():
             self.phases[phase] = stats
             self.update_requests_stats(stats, message.request_ns)
 
     def on_credit_phase_start(self, message: CreditPhaseStartMessage):
         """Update the progress from a credit phase start message."""
-        self.active_phase = message.phase_stats.type
-        self.phases[message.phase_stats.type] = message.phase_stats
-        self.update_requests_stats(message.phase_stats, message.request_ns)
+        self.active_phase = message.phase
+        self.phases[message.phase] = FullCreditPhaseProgress(
+            type=message.phase,
+            start_ns=message.start_ns,
+            total_requests=message.total_requests,
+            expected_duration_ns=message.expected_duration_ns,
+        )
+        self.update_requests_stats(self.phases[message.phase], message.request_ns)
 
     def on_credit_phase_complete(self, message: CreditPhaseCompleteMessage):
         """Update the progress from a credit phase complete message."""
-        self.phases[message.phase_stats.type] = message.phase_stats
-        self.update_requests_stats(message.phase_stats, message.request_ns)
+        self.phases[message.phase].end_ns = message.end_ns
+        self.update_requests_stats(self.phases[message.phase], message.request_ns)
 
     def on_phase_processing_stats(self, message: RecordsProcessingStatsMessage):
         """Update the progress from a phase processing stats message."""
@@ -248,15 +264,14 @@ class ProfileRunProgress(AIPerfBaseModel):
             )
             return
 
-        self.processing_stats[message.current_phase] = message.processing_stats
+        self.phases[
+            message.current_phase
+        ].processed = message.processing_stats.processed
+        self.phases[message.current_phase].errors = message.processing_stats.errors
+        self.phases[message.current_phase].last_record_update_ns = message.request_ns
+
         for worker_id, worker_stats in message.worker_stats.items():
-            if worker_id not in self.worker_processing_stats:
-                self.worker_processing_stats[worker_id] = {}
-            if message.current_phase not in self.worker_processing_stats[worker_id]:
-                self.worker_processing_stats[worker_id][message.current_phase] = (
-                    PhaseProcessingStats()
-                )
-            self.worker_processing_stats[worker_id][message.current_phase] = (
+            self.phases[message.current_phase].worker_processing_stats[worker_id] = (
                 worker_stats
             )
 
@@ -270,9 +285,7 @@ class ProfileRunProgress(AIPerfBaseModel):
         """Update the progress from a worker health message."""
         worker_id = message.service_id
         for phase, stats in message.task_stats.items():
-            if worker_id not in self.worker_task_stats:
-                self.worker_task_stats[worker_id] = {}
-            self.worker_task_stats[worker_id][phase] = stats
+            self.phases[phase].worker_request_stats[worker_id] = stats
 
     def on_profile_results(self, message: ProfileResultsMessage):
         """Update the progress from a profile results message."""
@@ -280,11 +293,9 @@ class ProfileRunProgress(AIPerfBaseModel):
 
     def update_requests_stats(self, phase: CreditPhaseStats, request_ns: int):
         """Update the requests stats based on the TimingManager stats."""
-        computed = self.computed_stats.setdefault(
-            phase.type, CreditPhaseComputedStats()
-        )
-        computed.requests_update_ns = request_ns
-        logger.info(
+        self.last_update_ns = request_ns or time.time_ns()
+        self.phases[phase.type].requests_update_ns = request_ns
+        logger.debug(
             lambda: f"Updating requests stats for phase {phase.type} {request_ns} {phase.start_ns} {time.time_ns()}"
         )
 
@@ -293,22 +304,21 @@ class ProfileRunProgress(AIPerfBaseModel):
             and (diff_ns := (request_ns or time.time_ns()) - phase.start_ns) > 0
         ):
             dur_sec = diff_ns / NANOS_PER_SECOND
-            computed.requests_per_second = phase.completed / dur_sec
+            self.phases[phase.type].requests_per_second = phase.completed / dur_sec
             if pct := phase.progress_percent:
                 pct_remaining = 100 - pct
-                computed.requests_eta = pct_remaining / (pct / dur_sec)
+                self.phases[phase.type].requests_eta = pct_remaining / (pct / dur_sec)
             else:
-                computed.requests_eta = None
+                self.phases[phase.type].requests_eta = None
         else:
-            computed.requests_per_second = None
-            computed.requests_eta = None
+            self.phases[phase.type].requests_per_second = None
+            self.phases[phase.type].requests_eta = None
 
     def update_records_stats(
         self, phase: CreditPhase, request_ns: int, stats: PhaseProcessingStats
     ):
         """Update the records stats based on the RecordsManager stats."""
-        computed = self.computed_stats.setdefault(phase, CreditPhaseComputedStats())
-        computed.records_update_ns = request_ns
+        self.phases[phase].records_update_ns = request_ns
 
         # Check if the phase exists in phases before accessing it
         if phase in self.phases and (
@@ -316,16 +326,19 @@ class ProfileRunProgress(AIPerfBaseModel):
             and (diff_ns := request_ns - self.phases[phase].start_ns) > 0  # pyright: ignore
         ):
             dur_sec = diff_ns / NANOS_PER_SECOND
-            computed.records_per_second = stats.processed / dur_sec
-            if computed.records_per_second > 0 and self.phases[phase].total is not None:
-                computed.records_eta = (
-                    self.phases[phase].total - stats.processed  # pyright: ignore
-                ) / computed.records_per_second
+            self.phases[phase].records_per_second = stats.processed / dur_sec
+            if (
+                self.phases[phase].records_per_second is not None
+                and self.phases[phase].total_requests is not None
+            ):
+                self.phases[phase].records_eta = (
+                    self.phases[phase].total_requests - stats.processed  # pyright: ignore
+                ) / self.phases[phase].records_per_second
             else:
-                computed.records_eta = None
+                self.phases[phase].records_eta = None
         else:
-            computed.records_per_second = None
-            computed.records_eta = None
+            self.phases[phase].records_per_second = None
+            self.phases[phase].records_eta = None
 
 
 # class SweepRunProgress(AIPerfBaseModel):

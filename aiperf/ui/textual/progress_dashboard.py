@@ -83,7 +83,7 @@ class ProgressDashboard(Container):
                     ].processed,
                     profile.processing_stats[
                         self.progress_tracker.active_credit_phase
-                    ].total,
+                    ].total_records,
                 ),
                 lambda data: DashboardFormatter.format_count_with_total(
                     data[0], data[1]
@@ -100,16 +100,16 @@ class ProgressDashboard(Container):
                         ].processed
                         / profile.processing_stats[
                             self.progress_tracker.active_credit_phase
-                        ].total
+                        ].total_records
                         * 100
                     )
                     if profile.processing_stats[
                         self.progress_tracker.active_credit_phase
-                    ].total
+                    ].total_records
                     is not None
                     and profile.processing_stats[
                         self.progress_tracker.active_credit_phase
-                    ].total
+                    ].total_records
                     > 0
                     else 0
                 ),
@@ -230,11 +230,11 @@ class ProgressDashboard(Container):
             if (
                 self.progress_tracker.current_profile_run.processing_stats[
                     self.progress_tracker.active_credit_phase
-                ].total
+                ].total_records
                 is not None
                 and self.progress_tracker.current_profile_run.processing_stats[
                     self.progress_tracker.active_credit_phase
-                ].total
+                ].total_records
                 > 0
             ):
                 progress_value = min(
@@ -245,7 +245,7 @@ class ProgressDashboard(Container):
                         ].processed
                         / self.progress_tracker.current_profile_run.processing_stats[
                             self.progress_tracker.active_credit_phase
-                        ].total
+                        ].total_records
                     )
                     * 100,
                 )

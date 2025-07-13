@@ -11,7 +11,7 @@ from aiperf.common.credit_models import CreditPhaseStats
 from aiperf.common.enums import CreditPhase
 from aiperf.common.exceptions import InvalidStateError
 from aiperf.common.messages import CreditReturnMessage
-from aiperf.common.mixins.async_task_manager import AsyncTaskManagerMixin
+from aiperf.common.mixins import AIPerfLoggerMixin, AsyncTaskManagerMixin
 from aiperf.services.timing_manager.config import TimingManagerConfig
 from aiperf.services.timing_manager.credit_issuing_strategy import (
     CreditIssuingStrategy,
@@ -19,7 +19,9 @@ from aiperf.services.timing_manager.credit_issuing_strategy import (
 )
 
 
-class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
+class ConcurrencyStrategy(
+    CreditIssuingStrategy, AsyncTaskManagerMixin, AIPerfLoggerMixin
+):
     """Class for concurrency credit issuing strategy."""
 
     def __init__(
@@ -44,10 +46,9 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
         """Setup the phases for the strategy."""
         # Add the warmup phase if applicable
         if self.config.warmup_request_count > 0:
-            self.phases.append(
-                CreditPhaseStats(
-                    type=CreditPhase.WARMUP, total=self.config.warmup_request_count
-                )
+            self.phases.append(CreditPhase.WARMUP)
+            self.phase_stats[CreditPhase.WARMUP] = CreditPhaseStats(
+                type=CreditPhase.WARMUP, total_requests=self.config.warmup_request_count
             )
 
         # Add the ramp-up phase if applicable
@@ -55,33 +56,28 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
             self.config.concurrency_ramp_up_time
             and self.config.concurrency_ramp_up_time > 0
         ):
-            self.phases.append(
-                CreditPhaseStats(
-                    type=CreditPhase.RAMP_UP,
-                    total=None,
-                    expected_duration_ns=int(
-                        self.config.concurrency_ramp_up_time * NANOS_PER_SECOND
-                    ),
-                )
+            self.phases.append(CreditPhase.RAMP_UP)
+            self.phase_stats[CreditPhase.RAMP_UP] = CreditPhaseStats(
+                type=CreditPhase.RAMP_UP,
+                total_requests=None,
+                expected_duration_ns=int(
+                    self.config.concurrency_ramp_up_time * NANOS_PER_SECOND
+                ),
             )
 
         # Add the steady-state phase
-        self.phases.append(
-            CreditPhaseStats(
-                type=CreditPhase.STEADY_STATE, total=self.config.request_count
-            )
+        self.phases.append(CreditPhase.STEADY_STATE)
+        self.phase_stats[CreditPhase.STEADY_STATE] = CreditPhaseStats(
+            type=CreditPhase.STEADY_STATE, total_requests=self.config.request_count
         )
 
-        # Link the phase stats by phase type for easy access
-        self.phase_stats: dict[CreditPhase, CreditPhaseStats] = {
-            phase.type: phase for phase in self.phases
-        }
-        self.active_phase: CreditPhaseStats = self.phases[0]
+        self.active_phase_idx = 0
+        self.active_phase: CreditPhaseStats = self.phase_stats[
+            self.phases[self.active_phase_idx]
+        ]
 
-        self.logger.info(
-            "TM: Concurrency Strategy initialized with %d phases: %s",
-            len(self.phases),
-            self.phases,
+        self.info(
+            lambda: f"TM: Concurrency Strategy initialized with {len(self.phases)} phases: {self.phases}"
         )
 
     async def start(self) -> None:
@@ -116,7 +112,7 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
             phase.sent += 1
 
     async def _execute_request_count_based_phase(self, phase: CreditPhaseStats) -> None:
-        total: int = phase.total  # type: ignore[assignment]
+        total: int = phase.total_requests  # type: ignore[assignment]
 
         while phase.sent < total:
             await self._semaphore.acquire()
@@ -131,15 +127,27 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
 
     async def _execute_phases(self) -> None:
         for phase in self.phases:
-            phase.start_ns = time.time_ns()
-            self.execute_async(self.credit_manager.publish_phase_start(phase))
+            stats = CreditPhaseStats(
+                type=phase,
+                start_ns=time.time_ns(),
+                total_requests=self.phase_stats[phase].total_requests,
+                expected_duration_ns=self.phase_stats[phase].expected_duration_ns,
+            )
+            self.execute_async(
+                self.credit_manager.publish_phase_start(
+                    phase,
+                    stats.start_ns,
+                    stats.total_requests,
+                    stats.expected_duration_ns,
+                )
+            )
 
-            if phase.type == CreditPhase.RAMP_UP:
-                await self._execute_with_ramp_up(phase)
-            elif phase.is_time_based:
-                await self._execute_time_based_phase(phase)
-            elif phase.total and phase.total > 0:
-                await self._execute_request_count_based_phase(phase)
+            if phase == CreditPhase.RAMP_UP:
+                await self._execute_with_ramp_up(stats)
+            elif stats.is_time_based:
+                await self._execute_time_based_phase(stats)
+            elif stats.total_requests and stats.total_requests > 0:
+                await self._execute_request_count_based_phase(stats)
             else:
                 raise InvalidStateError(
                     "Phase must have either a valid total or expected_duration_ns set"
@@ -148,9 +156,10 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
             # We have sent all the credits for this phase. We must continue to the next
             # phase even though not all the credits have been returned. This is because
             # we do not want a gap in the credit issuing.
-            phase.sent_end_ns = time.time_ns()
             self.execute_async(
-                self.credit_manager.publish_phase_sending_complete(phase)
+                self.credit_manager.publish_phase_sending_complete(
+                    phase, time.time_ns()
+                )
             )
 
     # TODO: This is still very experimental, and needs to be improved
@@ -216,36 +225,4 @@ class ConcurrencyStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
         """Process a credit return message."""
 
         self._semaphore.release()
-        phase_stats = self.phase_stats[message.credit_phase]
-        phase_stats.completed += 1
-
-        if (
-            # If we have sent all the credits, check if this is the last one to be returned
-            phase_stats.is_sending_complete
-            and phase_stats.completed >= phase_stats.total  # type: ignore[operator]
-        ):
-            phase_stats.end_ns = time.time_ns()
-            self.logger.info("TM: Phase completed: %s", phase_stats)
-
-            self.execute_async(self.credit_manager.publish_phase_complete(phase_stats))
-
-            if self.all_phases_complete():
-                self.execute_async(
-                    self.credit_manager.publish_credits_complete(cancelled=False)
-                )
-
-    async def _progress_report_loop(self) -> None:
-        """Report the progress at a fixed interval."""
-        self.logger.debug("TM: Starting progress reporting loop")
-        while not self.all_phases_complete():
-            try:
-                await self.credit_manager.publish_progress(self.phase_stats)
-            except asyncio.CancelledError:
-                self.logger.debug("TM: Progress reporting loop cancelled")
-                return
-
-            await asyncio.sleep(1)  # TODO: Make this configurable
-
-        self.logger.debug(
-            "TM: All credits completed, stopping progress reporting loop",
-        )
+        await super().on_credit_return(message)

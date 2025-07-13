@@ -10,7 +10,9 @@ __ignore__ = ["logger"]
 __submodules__ = [
     "rich",
     "textual",
+    "tqdm_progress",
     "progress_logger",
+    "ui_protocol",
 ]
 #########################################################
 
@@ -19,12 +21,12 @@ from aiperf.ui.progress_logger import (
 )
 from aiperf.ui.rich import (
     AIPerfRichDashboard,
-    AIPerfUI,
     DashboardElement,
     HeaderElement,
     LogsDashboardElement,
     LogsDashboardMixin,
     ProfileProgressElement,
+    RichUI,
     WorkerStatusElement,
 )
 from aiperf.ui.textual import (
@@ -44,7 +46,7 @@ from aiperf.ui.textual import (
     StatusClassifier,
     StatusIndicator,
     TextualLogHandler,
-    TextualUIMixin,
+    TextualUI,
     WorkerDashboard,
     WorkerDashboardMixin,
     WorkerHealthService,
@@ -56,11 +58,19 @@ from aiperf.ui.textual import (
     WorkerStatusTable,
     WorkerTable,
 )
+from aiperf.ui.tqdm_progress import (
+    TqdmProgressUI,
+)
+from aiperf.ui.ui_protocol import (
+    AIPerfUIFactory,
+    AIPerfUIProtocol,
+)
 
 __all__ = [
     "AIPerfRichDashboard",
     "AIPerfTextualApp",
-    "AIPerfUI",
+    "AIPerfUIFactory",
+    "AIPerfUIProtocol",
     "DashboardElement",
     "DashboardField",
     "DashboardFormatter",
@@ -77,12 +87,14 @@ __all__ = [
     "ProfileStatus",
     "ProgressDashboard",
     "RichProfileProgressContainer",
+    "RichUI",
     "RichWorkerStatusContainer",
     "SimpleProgressLogger",
     "StatusClassifier",
     "StatusIndicator",
     "TextualLogHandler",
-    "TextualUIMixin",
+    "TextualUI",
+    "TqdmProgressUI",
     "WorkerDashboard",
     "WorkerDashboardMixin",
     "WorkerHealthService",

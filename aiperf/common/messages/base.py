@@ -10,7 +10,7 @@ from aiperf.common.enums.service import ServiceState, ServiceType
 from aiperf.common.pydantic_utils import ExcludeIfNoneMixin, exclude_if_none
 
 
-@exclude_if_none(["request_ns", "request_id"])
+@exclude_if_none(["request_id"])
 class Message(ExcludeIfNoneMixin):
     """Base message class for optimized message handling.
 
@@ -49,8 +49,8 @@ class Message(ExcludeIfNoneMixin):
         description="Type of the message",
     )
 
-    request_ns: int | None = Field(
-        default=None,
+    request_ns: int = Field(
+        default_factory=time.time_ns,
         description="Timestamp of the request",
     )
 
@@ -82,15 +82,6 @@ class Message(ExcludeIfNoneMixin):
         return self.model_dump_json()
 
 
-class RequiresRequestNSMixin(Message):
-    """Mixin for messages that require a request_ns field."""
-
-    request_ns: int = Field(  # type: ignore[assignment]
-        default_factory=time.time_ns,
-        description="Timestamp of the request in nanoseconds",
-    )
-
-
 class BaseServiceMessage(Message):
     """Base message that is sent from a service. Requires a service_id field to specify
     the service that sent the message."""
@@ -101,7 +92,7 @@ class BaseServiceMessage(Message):
     )
 
 
-class BaseStatusMessage(BaseServiceMessage, RequiresRequestNSMixin):
+class BaseStatusMessage(BaseServiceMessage):
     """Base message containing status data.
     This message is sent by a service to the system controller to report its status.
     """

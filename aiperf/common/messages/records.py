@@ -8,10 +8,10 @@ from pydantic import Field
 
 from aiperf.common.credit_models import PhaseProcessingStats
 from aiperf.common.enums import CreditPhase, MessageType
-from aiperf.common.messages.base import BaseServiceMessage, RequiresRequestNSMixin
+from aiperf.common.messages.base import BaseServiceMessage
 
 
-class RecordsProcessingStatsMessage(BaseServiceMessage, RequiresRequestNSMixin):
+class RecordsProcessingStatsMessage(BaseServiceMessage):
     """Message for processing stats. Sent by the RecordsManager to report the stats of the profile run.
     This contains the stats for a single credit phase only."""
 

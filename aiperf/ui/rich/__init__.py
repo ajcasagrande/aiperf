@@ -7,9 +7,6 @@
 __ignore__ = ["logger"]
 #########################################################
 
-from aiperf.ui.rich.aiperf_ui import (
-    AIPerfUI,
-)
 from aiperf.ui.rich.dashboard_element import (
     DashboardElement,
     HeaderElement,
@@ -24,17 +21,20 @@ from aiperf.ui.rich.profile_progress_ui import (
 from aiperf.ui.rich.rich_dashboard import (
     AIPerfRichDashboard,
 )
+from aiperf.ui.rich.rich_ui import (
+    RichUI,
+)
 from aiperf.ui.rich.worker_status_ui import (
     WorkerStatusElement,
 )
 
 __all__ = [
     "AIPerfRichDashboard",
-    "AIPerfUI",
     "DashboardElement",
     "HeaderElement",
     "LogsDashboardElement",
     "LogsDashboardMixin",
     "ProfileProgressElement",
+    "RichUI",
     "WorkerStatusElement",
 ]

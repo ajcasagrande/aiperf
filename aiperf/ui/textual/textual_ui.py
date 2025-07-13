@@ -9,7 +9,7 @@ from textual.widgets import (
 )
 
 from aiperf.common.aiperf_logger import AIPerfLogger
-from aiperf.common.enums import MessageType
+from aiperf.common.enums import AIPerfUIType, MessageType
 from aiperf.common.hooks import (
     aiperf_task,
     on_stop,
@@ -21,6 +21,7 @@ from aiperf.ui.textual.logging_ui import LogViewer
 from aiperf.ui.textual.progress_dashboard import ProgressDashboard
 from aiperf.ui.textual.widgets import Header
 from aiperf.ui.textual.worker_dashboard import WorkerDashboard
+from aiperf.ui.ui_protocol import AIPerfUIFactory
 
 logger = AIPerfLogger(__name__)
 
@@ -141,11 +142,12 @@ class AIPerfTextualApp(App):
         raise KeyboardInterrupt()
 
 
-class TextualUIMixin(AIPerfLifecycleMixin):
+@AIPerfUIFactory.register(AIPerfUIType.TEXTUAL)
+class TextualUI(AIPerfLifecycleMixin):
     """Enhanced mixin for Textual-based UI functionality with improved visual feedback."""
 
-    def __init__(self, progress_tracker: ProgressTracker) -> None:
-        super().__init__()
+    def __init__(self, progress_tracker: ProgressTracker, **kwargs) -> None:
+        super().__init__(**kwargs)
         self.app: AIPerfTextualApp = AIPerfTextualApp(progress_tracker)
         self.progress_tracker = progress_tracker
 

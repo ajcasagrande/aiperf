@@ -16,6 +16,7 @@ from aiperf.common.enums import (
     ServiceType,
     SystemState,
 )
+from aiperf.common.enums.ui import AIPerfUIType
 from aiperf.common.exceptions import CommunicationError, NotInitializedError
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import on_cleanup, on_message, on_start, on_stop
@@ -43,7 +44,8 @@ from aiperf.services.system_controller.profile_runner import ProfileRunner
 from aiperf.services.system_controller.proxy_mixins import ProxyMixin
 from aiperf.services.system_controller.service_manager_mixin import ServiceManagerMixin
 from aiperf.services.system_controller.system_mixins import SignalHandlerMixin
-from aiperf.ui import AIPerfUI, SimpleProgressLogger, TextualUIMixin
+from aiperf.ui import AIPerfUIProtocol
+from aiperf.ui.ui_protocol import AIPerfUIFactory
 
 
 @ServiceFactory.register(ServiceType.SYSTEM_CONTROLLER)
@@ -79,12 +81,12 @@ class SystemController(
         self._system_state: SystemState = SystemState.INITIALIZING
 
         self.progress_tracker: ProgressTracker = ProgressTracker()
-        self.ui_enabled: bool = not self.service_config.disable_ui
-        self.ui: AIPerfUI | TextualUIMixin | None = (
-            AIPerfUI(self.progress_tracker) if self.ui_enabled else None
+
+        self.ui_type = (
+            AIPerfUIType.TQDM if self.service_config.disable_ui else AIPerfUIType.RICH
         )
-        self.progress_logger: SimpleProgressLogger | None = (
-            SimpleProgressLogger(self.progress_tracker) if not self.ui_enabled else None
+        self.ui: AIPerfUIProtocol = AIPerfUIFactory.create_instance(
+            self.ui_type, progress_tracker=self.progress_tracker
         )
 
         self.profile_runner: ProfileRunner | None = None
@@ -113,10 +115,8 @@ class SystemController(
         - Initialize the service manager
         - Subscribe to relevant messages
         """
-        if self.ui:
-            await self.ui.run_async()
-
         self.debug("Initializing System Controller")
+        await self.ui.run_async()
 
         self.setup_signal_handlers(self._handle_signal)
         self.debug("Setup signal handlers")
@@ -268,10 +268,6 @@ class SystemController(
 
         self._system_state = SystemState.STOPPING
 
-        if self.ui:
-            await self.ui.shutdown()
-            await self.ui.wait_for_shutdown()
-
         # TODO: This is a hack to force printing results again
         # Process records command
         await self.send_command_to_service(
@@ -302,9 +298,8 @@ class SystemController(
         """Clean up system controller-specific components."""
         self.debug("Cleaning up System Controller")
 
-        if self.ui:
-            await self.ui.shutdown()
-            await self.ui.wait_for_shutdown()
+        await self.ui.shutdown()
+        await self.ui.wait_for_shutdown()
 
         await self.kill()
 
@@ -328,10 +323,7 @@ class SystemController(
         """Generic message handler for all messages that don't have or need a specific handler."""
         self.trace("SC: Received message: %s", message)
         self.progress_tracker.on_message(message)
-        if self.ui:
-            await self.ui.on_message(message)
-        if self.progress_logger:
-            await self.progress_logger.on_message(message)
+        await self.ui.on_message(message)
 
     @on_message(MessageType.PROCESSING_STATS)
     async def _process_processing_stats_message(

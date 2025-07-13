@@ -4,6 +4,7 @@
 import asyncio
 import inspect
 from collections.abc import Callable
+from typing import Protocol, runtime_checkable
 
 from aiperf.common.hooks import (
     AIPerfHook,
@@ -13,7 +14,10 @@ from aiperf.common.hooks import (
     on_stop,
 )
 from aiperf.common.mixins.aiperf_logger import AIPerfLoggerMixin
-from aiperf.common.mixins.async_task_manager import AsyncTaskManagerMixin
+from aiperf.common.mixins.async_task_manager import (
+    AsyncTaskManagerMixin,
+    AsyncTaskManagerProtocol,
+)
 from aiperf.common.mixins.hooks import HooksMixin, supports_hooks
 
 
@@ -160,3 +164,36 @@ class AIPerfLifecycleMixin(HooksMixin, AsyncTaskManagerMixin, AIPerfLoggerMixin)
             if interval is None:
                 break
             await asyncio.sleep(interval)
+
+
+@runtime_checkable
+class AIPerfLifeCycleProtocol(AsyncTaskManagerProtocol, Protocol):
+    """Protocol for the AIPerf lifecycle."""
+
+    def is_initialized(self) -> bool:
+        """Check if the lifecycle has been initialized."""
+        ...
+
+    async def run_async(self) -> None:
+        """Start the lifecycle in the background. Will call the :meth:`HooksMixin.on_init` hooks,
+        followed by the :meth:`HooksMixin.on_start` hooks. Will return immediately."""
+
+    async def run_and_wait_for_start(self) -> None:
+        """Start the lifecycle in the background and wait until the lifecycle is initialized and started.
+        Will call the :meth:`HooksMixin.on_init` hooks, followed by the :meth:`HooksMixin.on_start` hooks."""
+
+    async def wait_for_initialize(self) -> None:
+        """Wait for the lifecycle to be initialized. Will wait until the :meth:`HooksMixin.on_init` hooks have been called.
+        Will return immediately if the lifecycle is already initialized."""
+
+    async def wait_for_start(self) -> None:
+        """Wait for the lifecycle to be started. Will wait until the :meth:`HooksMixin.on_start` hooks have been called.
+        Will return immediately if the lifecycle is already started."""
+
+    async def wait_for_shutdown(self) -> None:
+        """Wait for the lifecycle to be shutdown. Will wait until the :meth:`HooksMixin.on_stop` hooks have been called.
+        Will return immediately if the lifecycle is already shutdown."""
+
+    async def shutdown(self) -> None:
+        """Shutdown the lifecycle. Will call the :meth:`HooksMixin.on_stop` hooks,
+        followed by the :meth:`HooksMixin.on_cleanup` hooks."""

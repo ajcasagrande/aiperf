@@ -211,7 +211,7 @@ class TimingManager(BaseComponentService, AsyncTaskManagerMixin):
             self.pub_client.publish(
                 CreditPhaseProgressMessage(
                     service_id=self.service_id,
-                    phase_stats_map=phase_stats,
+                    phase_progress_map=phase_stats,
                     request_ns=time.time_ns(),
                 )
             )
@@ -239,7 +239,7 @@ class TimingManager(BaseComponentService, AsyncTaskManagerMixin):
             self.credit_drop_client.push(
                 message=CreditDropMessage(
                     service_id=self.service_id,
-                    credit_phase=credit_phase,
+                    phase=credit_phase,
                     credit_drop_ns=credit_drop_ns,
                     conversation_id=conversation_id,
                 ),

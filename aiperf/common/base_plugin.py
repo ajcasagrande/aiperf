@@ -2,7 +2,7 @@
 #  SPDX-License-Identifier: Apache-2.0
 from abc import ABC, abstractmethod
 
-from aiperf.common.hooks import AIPerfLifecycleMixin
+from aiperf.common.mixins import AIPerfLifecycleMixin
 
 
 class BasePlugin(AIPerfLifecycleMixin, ABC):

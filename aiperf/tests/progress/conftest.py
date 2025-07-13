@@ -65,7 +65,7 @@ def credit_phase_stats():
     return CreditPhaseStats(
         type=CreditPhase.STEADY_STATE,
         start_ns=time.time_ns(),
-        total=100,
+        total_requests=100,
         sent=50,
         completed=25,
     )
@@ -76,7 +76,7 @@ def credit_phase_progress_message(credit_phase_stats):
     """Create a CreditPhaseProgressMessage instance."""
     return CreditPhaseProgressMessage(
         service_id="test-service",
-        phase_stats_map={CreditPhase.STEADY_STATE: credit_phase_stats},
+        phase_progress_map={CreditPhase.STEADY_STATE: credit_phase_stats},
     )
 
 

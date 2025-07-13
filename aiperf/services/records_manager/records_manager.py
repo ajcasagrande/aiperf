@@ -286,7 +286,9 @@ class RecordsManager(BaseComponentService):
                 was_cancelled=self.was_cancelled,
             )
 
-        self.logger.info("Token counts: %s", [r.token_count for r in self.records])
+        self.logger.debug(
+            lambda: f"Token counts: {', '.join([str(r.token_count) for r in self.records])}"
+        )
         metric_summary = MetricSummary()
         metric_summary.process(list(self.records))
         metrics_summary = metric_summary.get_metrics_summary()

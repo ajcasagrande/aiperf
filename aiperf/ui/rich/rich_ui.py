@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 from typing import cast
 
-from aiperf.common.enums import MessageType
+from aiperf.common.enums import AIPerfUIType, MessageType
 from aiperf.common.hooks import on_start, on_stop
 from aiperf.common.messages import Message, WorkerHealthMessage
 from aiperf.common.mixins import AIPerfLifecycleMixin
@@ -10,16 +10,18 @@ from aiperf.progress.progress_tracker import ProgressTracker
 from aiperf.ui.rich.profile_progress_ui import ProfileProgressElement
 from aiperf.ui.rich.rich_dashboard import AIPerfRichDashboard
 from aiperf.ui.rich.worker_status_ui import WorkerStatusElement
+from aiperf.ui.ui_protocol import AIPerfUIFactory
 
 
-class AIPerfUI(AIPerfLifecycleMixin):
+@AIPerfUIFactory.register(AIPerfUIType.RICH)
+class RichUI(AIPerfLifecycleMixin):
     """Rich-based UI functionality with live dashboard updates.
 
     Abstracts the internal AIPerfRichDashboard and provides lifecycle hooks for the UI.
     """
 
-    def __init__(self, progress_tracker: ProgressTracker) -> None:
-        super().__init__()
+    def __init__(self, progress_tracker: ProgressTracker, **kwargs) -> None:
+        super().__init__(**kwargs)
         self.dashboard = AIPerfRichDashboard(progress_tracker)
         self.progress_tracker = progress_tracker
 

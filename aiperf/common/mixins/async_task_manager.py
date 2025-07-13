@@ -3,6 +3,7 @@
 import asyncio
 import contextlib
 from collections.abc import Coroutine
+from typing import Protocol, runtime_checkable
 
 from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
 
@@ -49,3 +50,26 @@ class AsyncTaskManagerMixin:
 
         # Clear the tasks set after cancellation to avoid memory leaks
         self.tasks.clear()
+
+
+@runtime_checkable
+class AsyncTaskManagerProtocol(Protocol):
+    """Protocol to manage a set of async tasks."""
+
+    def execute_async(self, coro: Coroutine) -> asyncio.Task:
+        """Create a task from a coroutine and add it to the set of tasks, and return immediately.
+        The task will be automatically cleaned up when it completes.
+        """
+        ...
+
+    async def stop(self) -> None:
+        """Stop all tasks in the set and wait for them to complete."""
+
+    async def cancel_all_tasks(
+        self, timeout: float = TASK_CANCEL_TIMEOUT_SHORT
+    ) -> None:
+        """Cancel all tasks in the set and wait for up to timeout seconds for them to complete.
+
+        Args:
+            timeout: The timeout to wait for the tasks to complete.
+        """

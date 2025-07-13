@@ -11,6 +11,7 @@ __ignore__ = ["logger"]
 
 from aiperf.common.mixins.aiperf_lifecycle import (
     AIPerfLifecycleMixin,
+    AIPerfLifeCycleProtocol,
 )
 from aiperf.common.mixins.aiperf_logger import (
     AIPerfLoggerMixin,
@@ -26,6 +27,7 @@ from aiperf.common.mixins.aiperf_task import (
 )
 from aiperf.common.mixins.async_task_manager import (
     AsyncTaskManagerMixin,
+    AsyncTaskManagerProtocol,
 )
 from aiperf.common.mixins.comms import (
     CommunicationsMixin,
@@ -45,12 +47,14 @@ from aiperf.common.mixins.progress_tracker_mixin import (
 )
 
 __all__ = [
+    "AIPerfLifeCycleProtocol",
     "AIPerfLifecycleMixin",
     "AIPerfLoggerMixin",
     "AIPerfMessageHandlerMixin",
     "AIPerfProfileMixin",
     "AIPerfTaskMixin",
     "AsyncTaskManagerMixin",
+    "AsyncTaskManagerProtocol",
     "CommunicationsMixin",
     "EventBusClientMixin",
     "HooksMixin",

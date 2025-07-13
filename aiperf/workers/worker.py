@@ -145,16 +145,16 @@ class Worker(BaseComponentService, ProcessHealthMixin):
             record.end_perf_ns = time.perf_counter_ns()
 
         finally:
-            record.credit_phase = message.credit_phase
+            record.credit_phase = message.phase
             msg = InferenceResultsMessage(
                 service_id=self.service_id,
                 record=record,
             )
 
             if not record.valid:
-                self.task_stats[message.credit_phase].failed += 1
+                self.task_stats[message.phase].failed += 1
             else:
-                self.task_stats[message.credit_phase].completed += 1
+                self.task_stats[message.phase].completed += 1
 
             try:
                 await self.inference_results_client.push(message=msg)
@@ -168,7 +168,7 @@ class Worker(BaseComponentService, ProcessHealthMixin):
                     conversation_id=message.conversation_id,
                     credit_drop_ns=message.credit_drop_ns,
                     delayed_ns=None,
-                    credit_phase=message.credit_phase,
+                    phase=message.phase,
                 )
                 self.trace(lambda: f"Returning credit {return_message}")
                 await self.credit_return_client.push(
@@ -179,13 +179,13 @@ class Worker(BaseComponentService, ProcessHealthMixin):
         self, message: CreditDropMessage, timestamp_ns: int
     ) -> RequestRecord:
         """Run a credit task for a single credit."""
-        if message.credit_phase not in self.task_stats:
-            self.task_stats[message.credit_phase] = WorkerPhaseTaskStats(
+        if message.phase not in self.task_stats:
+            self.task_stats[message.phase] = WorkerPhaseTaskStats(
                 total=0,
                 completed=0,
                 failed=0,
             )
-        self.task_stats[message.credit_phase].total += 1
+        self.task_stats[message.phase].total += 1
 
         if not self.inference_client:
             raise NotInitializedError("Inference server client not initialized.")
@@ -196,7 +196,7 @@ class Worker(BaseComponentService, ProcessHealthMixin):
                 ConversationRequestMessage(
                     service_id=self.service_id,
                     conversation_id=message.conversation_id,
-                    credit_phase=message.credit_phase,
+                    credit_phase=message.phase,
                 )
             )
         )

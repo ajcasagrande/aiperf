@@ -2,14 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import asyncio
-import logging
 import random
 import time
 
 from aiperf.common.credit_models import CreditPhaseStats
 from aiperf.common.enums import CreditPhase, RequestRateMode
 from aiperf.common.exceptions import InvalidStateError
-from aiperf.common.messages import CreditReturnMessage
 from aiperf.common.mixins.async_task_manager import AsyncTaskManagerMixin
 from aiperf.services.timing_manager.config import TimingManagerConfig
 from aiperf.services.timing_manager.credit_issuing_strategy import (
@@ -31,7 +29,6 @@ class RequestRateStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
         self, config: TimingManagerConfig, credit_manager: CreditManagerProtocol
     ):
         super().__init__(config=config, credit_manager=credit_manager)
-        self.logger = logging.getLogger(self.__class__.__name__)
 
         if config.request_rate is None:
             raise InvalidStateError("Request rate is not set")
@@ -52,61 +49,53 @@ class RequestRateStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
         """Setup the phases for the strategy."""
         # Add the warmup phase if applicable
         if self.config.warmup_request_count > 0:
-            self.phases.append(
-                CreditPhaseStats(
-                    type=CreditPhase.WARMUP, total=self.config.warmup_request_count
-                )
+            self.phases.append(CreditPhase.WARMUP)
+            self.phase_stats[CreditPhase.WARMUP] = CreditPhaseStats(
+                type=CreditPhase.WARMUP, total_requests=self.config.warmup_request_count
             )
 
         # Add the steady-state phase
-        self.phases.append(
-            CreditPhaseStats(
-                type=CreditPhase.STEADY_STATE, total=self.config.request_count
-            )
+        self.phases.append(CreditPhase.STEADY_STATE)
+        self.phase_stats[CreditPhase.STEADY_STATE] = CreditPhaseStats(
+            type=CreditPhase.STEADY_STATE, total_requests=self.config.request_count
         )
 
-        # Link the phase stats by phase type for easy access
-        self.phase_stats: dict[CreditPhase, CreditPhaseStats] = {
-            phase.type: phase for phase in self.phases
-        }
-        self.active_phase: CreditPhaseStats = self.phases[0]
+        self.active_phase_idx = 0
+        self.active_phase: CreditPhaseStats = self.phase_stats[
+            self.phases[self.active_phase_idx]
+        ]
 
-        self.logger.info(
-            "TM: Request Rate Strategy initialized with %d phases: %s",
-            len(self.phases),
-            self.phases,
+        self.info(
+            lambda: f"TM: Request Rate Strategy initialized with {len(self.phases)} phases: {self.phases}"
         )
-
-    async def start(self) -> None:
-        """Start the credit issuing strategy. This will launch the progress reporting loop, the
-        warmup phase (if applicable), and the profiling phase, all in the background."""
-
-        # Start the progress reporting loop in the background
-        self.execute_async(self._progress_report_loop())
-
-        # Execute the phases in the background
-        self.execute_async(self._execute_phases())
 
     async def _execute_phases(self) -> None:
         """Execute all phases sequentially."""
         for phase in self.phases:
-            phase.start_ns = time.time_ns()
-            self.active_phase = phase
-            self.execute_async(self.credit_manager.publish_phase_start(phase))
+            stats = CreditPhaseStats(
+                type=phase,
+                start_ns=time.time_ns(),
+                total_requests=self.phase_stats[phase].total_requests,
+                expected_duration_ns=self.phase_stats[phase].expected_duration_ns,
+            )
+            self.execute_async(
+                self.credit_manager.publish_phase_start(
+                    phase,
+                    stats.start_ns,
+                    stats.total_requests,
+                    stats.expected_duration_ns,
+                )
+            )
 
-            self.logger.info(
-                "TM: Executing phase (total_credits=%s, request_rate=%s, phase_type=%s, start_time_ns=%s)",
-                phase.total,
-                self._request_rate,
-                phase.type,
-                phase.start_ns,
+            self.info(
+                f"TM: Executing phase (total_credits={stats.total_requests}, request_rate={self._request_rate}, phase_type={phase}, start_time_ns={stats.start_ns})"
             )
 
             # Issue credit drops at the specified rate
             if self._request_rate_mode == RequestRateMode.CONSTANT:
-                await self._execute_constant_rate(phase)
+                await self._execute_constant_rate(stats)
             elif self._request_rate_mode == RequestRateMode.POISSON:
-                await self._execute_poisson_rate(phase)
+                await self._execute_poisson_rate(stats)
             else:
                 raise InvalidStateError(
                     f"Unsupported request rate mode: {self._request_rate_mode}"
@@ -115,16 +104,18 @@ class RequestRateStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
             # We have sent all the credits. we can continue to the next phase even though
             # not all the credits have been returned. This is because we do not want a
             # gap in the credit issuing.
-            phase.sent_end_ns = time.time_ns()
+            stats.sent_end_ns = time.time_ns()
             self.execute_async(
-                self.credit_manager.publish_phase_sending_complete(phase)
+                self.credit_manager.publish_phase_sending_complete(
+                    phase, stats.sent_end_ns
+                )
             )
 
-            self.logger.debug("TM: Sent all credits for phase %s", phase)
+            self.debug(lambda phase=phase: f"TM: Sent all credits for phase {phase}")
 
     async def _execute_constant_rate(self, phase: CreditPhaseStats) -> None:
         """Execute credit drops at a constant rate."""
-        if not phase.total:
+        if not phase.total_requests:
             raise InvalidStateError(
                 "Phase total must be set for request count based phase"
             )
@@ -135,7 +126,7 @@ class RequestRateStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
         # We start by sending the first credit immediately.
         next_drop_at = time.perf_counter()
 
-        while phase.sent < phase.total:
+        while phase.sent < phase.total_requests:
             wait_sec = next_drop_at - time.perf_counter()
             if wait_sec > 0:
                 await asyncio.sleep(wait_sec)
@@ -162,12 +153,12 @@ class RequestRateStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
         are exponentially distributed with parameter λ. This models realistic traffic
         patterns where requests arrive randomly but at a consistent average rate.
         """
-        if not phase.total:
+        if not phase.total_requests:
             raise InvalidStateError(
                 "Phase total must be set for request count based phase"
             )
 
-        while phase.sent < phase.total:
+        while phase.sent < phase.total_requests:
             # For Poisson process, inter-arrival times are exponentially distributed.
             # random.expovariate(lambd) generates exponentially distributed random numbers
             # where lambd is the rate parameter (requests per second)
@@ -184,39 +175,3 @@ class RequestRateStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
                 )
             )
             phase.sent += 1
-
-    async def _progress_report_loop(self) -> None:
-        """Report the progress at a fixed interval."""
-        self.logger.debug("TM: Starting progress reporting loop")
-        while not self.all_phases_complete():
-            try:
-                await self.credit_manager.publish_progress(self.phase_stats)
-            except asyncio.CancelledError:
-                self.logger.debug("TM: Progress reporting loop cancelled")
-                return
-
-            await asyncio.sleep(1)  # TODO: Make this configurable
-
-        self.logger.debug(
-            "TM: All credits completed, stopping progress reporting loop",
-        )
-
-    async def on_credit_return(self, message: CreditReturnMessage) -> None:
-        """Process a credit return message."""
-        phase_stats = self.phase_stats[message.credit_phase]
-        phase_stats.completed += 1
-
-        if (
-            # If we have sent all the credits, check if this is the last one to be returned
-            phase_stats.is_sending_complete
-            and phase_stats.completed >= phase_stats.total  # type: ignore[operator]
-        ):
-            phase_stats.end_ns = time.time_ns()
-            self.logger.info("TM: Phase completed: %s", phase_stats)
-
-            self.execute_async(self.credit_manager.publish_phase_complete(phase_stats))
-
-            if self.all_phases_complete():
-                self.execute_async(
-                    self.credit_manager.publish_credits_complete(cancelled=False)
-                )

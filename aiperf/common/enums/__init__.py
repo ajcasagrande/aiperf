@@ -76,8 +76,12 @@ from aiperf.common.enums.timing import (
     RequestRateMode,
     TimingMode,
 )
+from aiperf.common.enums.ui import (
+    AIPerfUIType,
+)
 
 __all__ = [
+    "AIPerfUIType",
     "AudioFormat",
     "BenchmarkSuiteCompletionTrigger",
     "BenchmarkSuiteType",
