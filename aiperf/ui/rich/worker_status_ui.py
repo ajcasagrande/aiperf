@@ -12,7 +12,7 @@ from aiperf.common.enums import CreditPhase
 from aiperf.common.messages import WorkerHealthMessage
 from aiperf.common.utils import format_bytes
 from aiperf.common.worker_models import WorkerPhaseTaskStats
-from aiperf.ui.rich_dashboard import DashboardElement
+from aiperf.ui.rich.dashboard_element import DashboardElement
 
 
 class WorkerStatusElement(DashboardElement):

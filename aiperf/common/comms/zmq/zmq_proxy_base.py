@@ -97,6 +97,7 @@ class BaseZMQProxy(AIPerfLoggerMixin, ABC):
         self.socket_ops = socket_ops
 
         self.monitor_task: asyncio.Task | None = None
+        self.proxy_task: asyncio.Task | None = None
         self.control_client: ProxySocketClient | None = None
         self.capture_client: ProxySocketClient | None = None
 

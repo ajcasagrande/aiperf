@@ -7,9 +7,9 @@ from aiperf.common.hooks import on_start, on_stop
 from aiperf.common.messages import Message, WorkerHealthMessage
 from aiperf.common.mixins import AIPerfLifecycleMixin
 from aiperf.progress.progress_tracker import ProgressTracker
-from aiperf.ui.profile_progress_ui import ProfileProgressElement
-from aiperf.ui.rich_dashboard import AIPerfRichDashboard
-from aiperf.ui.worker_status_ui import WorkerStatusElement
+from aiperf.ui.rich.profile_progress_ui import ProfileProgressElement
+from aiperf.ui.rich.rich_dashboard import AIPerfRichDashboard
+from aiperf.ui.rich.worker_status_ui import WorkerStatusElement
 
 
 class AIPerfUI(AIPerfLifecycleMixin):

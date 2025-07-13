@@ -55,9 +55,22 @@ class ProxyMixin:
 
     async def stop_proxies(self) -> None:
         """Stop the proxies."""
-        if self.event_bus_proxy:
-            await self.event_bus_proxy.stop()
-        if self.dataset_manager_proxy:
-            await self.dataset_manager_proxy.stop()
-        if self.raw_inference_proxy:
-            await self.raw_inference_proxy.stop()
+
+        self.zmq_context.term()
+
+        await asyncio.gather(
+            self.event_bus_proxy.stop(),
+            self.dataset_manager_proxy.stop(),
+            self.raw_inference_proxy.stop(),
+        )
+
+        tasks = [
+            self.event_bus_proxy_task,
+            self.dataset_manager_proxy_task,
+            self.raw_inference_proxy_task,
+        ]
+        for task in tasks:
+            if task:
+                task.cancel()
+
+        await asyncio.gather(*tasks, return_exceptions=True)

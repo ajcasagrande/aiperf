@@ -16,16 +16,16 @@ from textual.widgets import (
 )
 
 from aiperf.common.hooks import (
-    AIPerfLifecycleMixin,
     aiperf_task,
     on_stop,
 )
 from aiperf.common.messages import WorkerHealthMessage
+from aiperf.common.mixins import AIPerfLifecycleMixin
 from aiperf.progress.progress_tracker import ProgressTracker
 from aiperf.ui.textual.logging_ui import LogViewer
 from aiperf.ui.textual.progress_dashboard import ProgressDashboard
-from aiperf.ui.widgets import Header
-from aiperf.ui.worker_dashboard import WorkerDashboard
+from aiperf.ui.textual.widgets import Header
+from aiperf.ui.textual.worker_dashboard import WorkerDashboard
 
 logger = logging.getLogger(__name__)
 

@@ -9,8 +9,6 @@ from aiperf.common.enums import MessageType
 from aiperf.common.enums.service import ServiceState, ServiceType
 from aiperf.common.pydantic_utils import ExcludeIfNoneMixin, exclude_if_none
 
-__all__ = ["Message", "RequiresRequestNSMixin"]
-
 
 @exclude_if_none(["request_ns", "request_id"])
 class Message(ExcludeIfNoneMixin):

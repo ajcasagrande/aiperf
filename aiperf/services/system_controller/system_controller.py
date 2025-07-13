@@ -45,6 +45,7 @@ from aiperf.services.system_controller.proxy_mixins import ProxyMixin
 from aiperf.services.system_controller.service_manager_mixin import ServiceManagerMixin
 from aiperf.services.system_controller.system_mixins import SignalHandlerMixin
 from aiperf.ui.aiperf_ui import AIPerfUI
+from aiperf.ui.textual_ui import TextualUIMixin
 
 
 @ServiceFactory.register(ServiceType.SYSTEM_CONTROLLER)
@@ -81,8 +82,8 @@ class SystemController(
 
         self.progress_tracker: ProgressTracker = ProgressTracker()
         self.ui_enabled: bool = not self.service_config.disable_ui
-        self.ui: AIPerfUI | None = (
-            AIPerfUI(self.progress_tracker) if self.ui_enabled else None
+        self.ui: AIPerfUI | TextualUIMixin | None = (
+            TextualUIMixin(self.progress_tracker) if self.ui_enabled else None
         )
         self.progress_logger: SimpleProgressLogger | None = (
             SimpleProgressLogger(self.progress_tracker) if not self.ui_enabled else None

@@ -91,9 +91,10 @@ internal-help:
 	@printf "────────────────────────────────────────────────────────────────────────────\n"
 
 init-files: #? run mkinit to generate the __init__.py files.
-	$(activate_venv) && mkinit --write --black --nomods --norespect_all aiperf/common/enums
-	$(activate_venv) && mkinit --write --black --nomods --norespect_all aiperf/common/messages
-	$(activate_venv) && mkinit --write --black --nomods --norespect_all aiperf/common/mixins
+	$(activate_venv) && mkinit --write --black --nomods aiperf/common/enums
+	$(activate_venv) && mkinit --write --black --nomods aiperf/common/messages
+	$(activate_venv) && mkinit --write --black --nomods aiperf/common/mixins
+	$(activate_venv) && mkinit --write --black --nomods --recursive aiperf/ui
 
 ruff lint: #? run the ruff linters
 	$(activate_venv) && ruff check . $(args)

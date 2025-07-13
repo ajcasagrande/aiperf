@@ -14,7 +14,7 @@ from aiperf.common.hooks import (
 )
 from aiperf.common.logging import get_global_log_queue
 from aiperf.common.mixins import AIPerfLifecycleMixin
-from aiperf.ui.dashboard_element import DashboardElement
+from aiperf.ui.rich.dashboard_element import DashboardElement
 
 
 class LogsDashboardElement(DashboardElement):

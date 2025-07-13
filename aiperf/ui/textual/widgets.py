@@ -14,8 +14,7 @@ from textual.widgets._header import (
     HeaderTitle,
 )
 
-# from aiperf.progress.progress_models import ProfileProgress
-from aiperf.progress.progress_tracker import ProgressTracker
+from aiperf.progress.progress_tracker import ProfileRunProgress, ProgressTracker
 
 logger = logging.getLogger(__name__)
 
@@ -112,7 +111,7 @@ class DashboardField:
         self,
         field_id: str,
         label: str,
-        value_getter: Callable[[ProgressTracker, Any], Any],
+        value_getter: Callable[[ProgressTracker, ProfileRunProgress], Any],
         formatter: Callable[[Any], str],
         status_classifier: Callable[[Any], str] | None = None,
         show_dot: bool = True,
@@ -125,7 +124,7 @@ class DashboardField:
         self.show_dot = show_dot
 
     def update(
-        self, container: Widget, progress: ProgressTracker, profile: Any
+        self, container: Widget, progress: ProgressTracker, profile: ProfileRunProgress
     ) -> None:
         """Update this field in the container."""
         try:
@@ -263,7 +262,7 @@ class Header(Widget):
         )
         return sub_title
 
-    def _on_mount(self, event: Mount) -> None:
+    def _on_mount(self, _: Mount) -> None:
         async def set_title() -> None:
             with contextlib.suppress(NoScreen):
                 self.query_one(HeaderTitle).text = self.screen_title

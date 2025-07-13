@@ -11,7 +11,7 @@ from rich.text import Text
 from aiperf.common.enums import CreditPhase
 from aiperf.common.utils import format_duration
 from aiperf.progress.progress_tracker import ProfileRunProgress, ProgressTracker
-from aiperf.ui.dashboard_element import DashboardElement
+from aiperf.ui.rich.dashboard_element import DashboardElement
 
 
 class ProfileProgressElement(DashboardElement):
