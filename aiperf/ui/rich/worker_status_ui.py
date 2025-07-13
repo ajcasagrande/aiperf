@@ -108,6 +108,19 @@ class WorkerStatusElement(DashboardElement):
             else:
                 memory_display = f"{memory_mb:.0f} MB"
 
+            # Format I/O display (handle potential None values)
+            io_read_display = "0 B"
+            io_write_display = "0 B"
+
+            if process.io_counters:
+                try:
+                    if hasattr(process.io_counters, "read_chars"):
+                        io_read_display = format_bytes(process.io_counters.read_chars)
+                    if hasattr(process.io_counters, "write_chars"):
+                        io_write_display = format_bytes(process.io_counters.write_chars)
+                except (AttributeError, TypeError):
+                    pass  # Use default values if attributes don't exist
+
             workers_table.add_row(
                 worker_name,
                 status,
@@ -116,8 +129,8 @@ class WorkerStatusElement(DashboardElement):
                 f"{task_stats.failed:,}",
                 f"{process.cpu_usage:.1f}%",
                 memory_display,
-                f"{format_bytes(process.io_counters.read_chars)}",
-                f"{format_bytes(process.io_counters.write_chars)}",
+                io_read_display,
+                io_write_display,
             )
 
         # Create summary

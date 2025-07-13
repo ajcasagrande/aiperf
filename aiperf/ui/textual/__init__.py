@@ -10,6 +10,14 @@ __ignore__ = ["logger"]
 
 from aiperf.ui.textual.logging_ui import LogViewer, TextualLogHandler
 from aiperf.ui.textual.progress_dashboard import ProgressDashboard
+from aiperf.ui.textual.rich_worker_status_container import (
+    RichWorkerStatusContainer,
+    WorkerStatus,
+    WorkerStatusData,
+    WorkerStatusSummary,
+    WorkerStatusSummaryWidget,
+    WorkerStatusTable,
+)
 from aiperf.ui.textual.textual_ui import AIPerfTextualApp, TextualUIMixin
 from aiperf.ui.textual.widgets import (
     DashboardField,
@@ -33,6 +41,7 @@ __all__ = [
     "Header",
     "LogViewer",
     "ProgressDashboard",
+    "RichWorkerStatusContainer",
     "StatusClassifier",
     "StatusIndicator",
     "TextualLogHandler",
@@ -41,5 +50,10 @@ __all__ = [
     "WorkerDashboardMixin",
     "WorkerHealthService",
     "WorkerRow",
+    "WorkerStatus",
+    "WorkerStatusData",
+    "WorkerStatusSummary",
+    "WorkerStatusSummaryWidget",
+    "WorkerStatusTable",
     "WorkerTable",
 ]

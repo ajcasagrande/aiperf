@@ -31,3 +31,30 @@ class WorkerHealthMessage(BaseServiceMessage):
         ...,
         description="Stats for the tasks that have been sent to the worker, keyed by the credit phase",
     )
+
+    @property
+    def total_tasks(self) -> int:
+        """The total number of tasks that have been sent to the worker."""
+        return sum(task_stats.total for task_stats in self.task_stats.values())
+
+    @property
+    def completed_tasks(self) -> int:
+        """The number of tasks that have been completed by the worker."""
+        return sum(task_stats.completed for task_stats in self.task_stats.values())
+
+    @property
+    def failed_tasks(self) -> int:
+        """The number of tasks that have failed by the worker."""
+        return sum(task_stats.failed for task_stats in self.task_stats.values())
+
+    @property
+    def in_progress_tasks(self) -> int:
+        """The number of tasks that are currently in progress by the worker."""
+        return sum(task_stats.in_progress for task_stats in self.task_stats.values())
+
+    @property
+    def error_rate(self) -> float:
+        """The error rate of the worker."""
+        if self.total_tasks == 0:
+            return 0
+        return self.failed_tasks / self.total_tasks

@@ -78,16 +78,6 @@ class AIPerfTextualApp(App):
         height: auto;
     }
 
-    /* Specific fixes for WorkerDashboard scrolling */
-    TabPane > WorkerDashboard > #workers-scroll {
-        height: 1fr;
-        overflow-y: auto;
-    }
-
-    TabPane > WorkerDashboard > #workers-scroll > Vertical {
-        height: auto;
-    }
-
     TabbedContent ContentSwitcher {
         height: 1fr;
     }
@@ -149,17 +139,6 @@ class AIPerfTextualApp(App):
         """Show confirmation dialog as an overlay."""
         self.exit(return_code=0)
         raise KeyboardInterrupt()
-        # if hasattr(self, "_quit_dialog") and self._quit_dialog.parent:
-        #     # Dialog already visible
-        #     return
-
-        # def _on_quit() -> None:
-        #     self.exit(return_code=0)
-        #     raise KeyboardInterrupt()
-
-        # self._quit_dialog = QuitConfirmationDialog()
-        # self._quit_dialog.on_quit = _on_quit
-        # await self.mount(self._quit_dialog)
 
 
 class TextualUIMixin(AIPerfLifecycleMixin):
@@ -205,9 +184,9 @@ class TextualUIMixin(AIPerfLifecycleMixin):
             return
 
         try:
-            # profile = self.progress_tracker.current_profile
-            # if profile is None:
-            #     return
+            profile = self.progress_tracker.current_profile_run
+            if profile is None:
+                return
             # Force refresh the display
             self.app.dashboard.update_display()
 
@@ -220,9 +199,9 @@ class TextualUIMixin(AIPerfLifecycleMixin):
             return
 
         try:
-            # profile = self.progress_tracker.current_profile
-            # if profile is None:
-            #     return
+            profile = self.progress_tracker.current_profile_run
+            if profile is None:
+                return
 
             # Force refresh the display
             self.app.dashboard.update_display()

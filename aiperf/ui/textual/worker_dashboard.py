@@ -12,6 +12,7 @@ from textual.widgets import Label
 
 from aiperf.common.aiperf_logger import AIPerfLogger
 from aiperf.common.config import ServiceConfig
+from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import ServiceType
 from aiperf.common.hooks import aiperf_task, on_init
 from aiperf.common.messages import WorkerHealthMessage
@@ -29,10 +30,10 @@ class WorkerRow(Widget):
     WorkerRow {
         height: 1;
         layout: grid;
-        grid-size: 5;
-        grid-columns: 1fr 1fr 1fr 1fr 1fr;
+        grid-size: 7;
+        grid-columns: 3fr 2fr 1fr 1fr 1fr 1fr 1fr;
         margin: 0;
-        padding: 0 1;
+        padding: 0 1 0 0;
     }
 
     WorkerRow:hover {
@@ -84,7 +85,9 @@ class WorkerRow(Widget):
         """Compose the worker row with name and metrics."""
         yield Label(self.worker_id, classes="worker-name", id="worker-name")
         yield Label("Unknown", id="status")
-        yield Label("0 / 0", id="tasks")
+        yield Label("0", id="in-progress-tasks")
+        yield Label("0", id="completed-tasks")
+        yield Label("0", id="failed-tasks")
         yield Label("0.0%", id="cpu")
         yield Label("0.0 MB", id="memory")
 
@@ -108,7 +111,7 @@ class WorkerRow(Widget):
             if error_rate > 0.1:  # More than 10% error rate
                 status_text = "Error"
                 status_class = "status-error"
-            elif health_message.cpu_usage > 75:  # High CPU usage
+            elif health_message.process.cpu_usage > 75:  # High CPU usage
                 status_text = "High Load"
                 status_class = "status-warning"
             elif health_message.total_tasks == 0:  # No tasks processed
@@ -129,14 +132,22 @@ class WorkerRow(Widget):
             )
             self.query_one("#status", Label).add_class(status_class)
 
-            self.query_one("#tasks", Label).update(
-                f"{health_message.completed_tasks} / {health_message.total_tasks}"
+            self.query_one("#in-progress-tasks", Label).update(
+                f"{health_message.in_progress_tasks}"
+            )
+            self.query_one("#completed-tasks", Label).update(
+                f"{health_message.completed_tasks}"
+            )
+            self.query_one("#failed-tasks", Label).update(
+                f"{health_message.failed_tasks}"
             )
 
-            self.query_one("#cpu", Label).update(f"{health_message.cpu_usage:.1f}%")
+            self.query_one("#cpu", Label).update(
+                f"{health_message.process.cpu_usage:.1f}%"
+            )
 
             # Format memory in MB for cleaner display
-            memory_mb = health_message.memory_usage
+            memory_mb = health_message.process.memory_usage
             if memory_mb >= 1024:
                 memory_display = f"{memory_mb / 1024:.1f} GB"
             else:
@@ -184,9 +195,7 @@ class WorkerTable(Widget):
 
     #table-header {
         height: 1;
-        layout: grid;
-        grid-size: 5;
-        grid-columns: 1fr 1fr 1fr 1fr 1fr;
+
         background: $surface-lighten-1;
         border-bottom: round $primary;
         padding: 0 0;
@@ -218,7 +227,9 @@ class WorkerTable(Widget):
         yield Container(
             Label("Worker ID"),
             Label("Status"),
-            Label("Tasks"),
+            Label("In Progress"),
+            Label("Completed"),
+            Label("Failed"),
             Label("CPU"),
             Label("Memory"),
             id="table-header",
@@ -396,7 +407,7 @@ class WorkerDashboard(Container):
                         > 0.1
                     ):  # High error rate
                         self.error_workers += 1
-                    elif health_message.cpu_usage > 90:  # High CPU
+                    elif health_message.process.cpu_usage > 75:  # High CPU
                         self.warning_workers += 1
                     else:
                         self.healthy_workers += 1
@@ -426,7 +437,7 @@ class WorkerDashboard(Container):
         while True:
             try:
                 self._update_summary()
-                await asyncio.sleep(10)  # Update every 10 seconds
+                await asyncio.sleep(1)  # Update every 10 seconds
             except asyncio.CancelledError:
                 break
             except Exception as e:
@@ -475,7 +486,7 @@ class WorkerDashboardMixin(AIPerfLifecycleMixin):
         }
 
         for _, health_msg in self.worker_health_data.items():
-            age = current_time - (health_msg.timestamp_ns / 1e9)
+            age = current_time - (health_msg.request_ns / NANOS_PER_SECOND)
 
             if age > 30:  # Stale data (30 seconds)
                 summary["stale"] += 1
@@ -483,7 +494,7 @@ class WorkerDashboardMixin(AIPerfLifecycleMixin):
                 health_msg.failed_tasks / max(health_msg.total_tasks, 1) > 0.1
             ):  # High error rate
                 summary["error"] += 1
-            elif health_msg.cpu_usage > 90:  # High CPU
+            elif health_msg.process.cpu_usage > 75:  # High CPU
                 summary["warning"] += 1
             else:
                 summary["healthy"] += 1
