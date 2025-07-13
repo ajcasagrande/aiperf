@@ -6,11 +6,11 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from aiperf.progress.progress_logger import SimpleProgressLogger
 from aiperf.progress.progress_models import (
     BenchmarkSuiteType,
 )
 from aiperf.progress.progress_tracker import ProgressTracker
+from aiperf.ui.progress_logger import SimpleProgressLogger
 
 
 class TestSimpleProgressLogger:

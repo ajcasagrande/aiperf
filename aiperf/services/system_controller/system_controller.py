@@ -34,7 +34,6 @@ from aiperf.common.pydantic_utils import AIPerfBaseModel
 from aiperf.common.service.base_controller_service import BaseControllerService
 from aiperf.common.service_models import ServiceRegistrationInfo
 from aiperf.data_exporter.exporter_manager import ExporterManager
-from aiperf.progress.progress_logger import SimpleProgressLogger
 from aiperf.progress.progress_tracker import (
     BenchmarkSuiteProgress,
     ProfileRunProgress,
@@ -44,8 +43,7 @@ from aiperf.services.system_controller.profile_runner import ProfileRunner
 from aiperf.services.system_controller.proxy_mixins import ProxyMixin
 from aiperf.services.system_controller.service_manager_mixin import ServiceManagerMixin
 from aiperf.services.system_controller.system_mixins import SignalHandlerMixin
-from aiperf.ui.aiperf_ui import AIPerfUI
-from aiperf.ui.textual_ui import TextualUIMixin
+from aiperf.ui import AIPerfUI, SimpleProgressLogger, TextualUIMixin
 
 
 @ServiceFactory.register(ServiceType.SYSTEM_CONTROLLER)
@@ -372,9 +370,6 @@ class SystemController(
 
         except Exception as e:
             self.exception(f"Failed to export results: {e}")
-            raise self._service_error(
-                "Failed to export results",
-            ) from e
         finally:
             self.stop_event.set()
 

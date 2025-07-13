@@ -78,8 +78,12 @@ class ProgressDashboard(Container):
                 "progress-indicator",
                 "Progress",
                 lambda _, profile: (
-                    profile.requests_completed,
-                    profile.total_expected_requests,
+                    profile.processing_stats[
+                        self.progress_tracker.active_credit_phase
+                    ].processed,
+                    profile.processing_stats[
+                        self.progress_tracker.active_credit_phase
+                    ].total,
                 ),
                 lambda data: DashboardFormatter.format_count_with_total(
                     data[0], data[1]
@@ -90,9 +94,23 @@ class ProgressDashboard(Container):
                 "completion-indicator",
                 "Completion",
                 lambda _, profile: (
-                    (profile.requests_completed / profile.total_expected_requests * 100)
-                    if profile.total_expected_requests is not None
-                    and profile.total_expected_requests > 0
+                    (
+                        profile.processing_stats[
+                            self.progress_tracker.active_credit_phase
+                        ].processed
+                        / profile.processing_stats[
+                            self.progress_tracker.active_credit_phase
+                        ].total
+                        * 100
+                    )
+                    if profile.processing_stats[
+                        self.progress_tracker.active_credit_phase
+                    ].total
+                    is not None
+                    and profile.processing_stats[
+                        self.progress_tracker.active_credit_phase
+                    ].total
+                    > 0
                     else 0
                 ),
                 DashboardFormatter.format_percentage,
@@ -102,10 +120,25 @@ class ProgressDashboard(Container):
                 "error-indicator",
                 "Errors",
                 lambda _, profile: (
-                    profile.request_errors,
-                    profile.requests_processed,
-                    (profile.request_errors / profile.requests_processed) * 100
-                    if profile.requests_processed > 0
+                    profile.processing_stats[
+                        self.progress_tracker.active_credit_phase
+                    ].errors,
+                    profile.processing_stats[
+                        self.progress_tracker.active_credit_phase
+                    ].processed,
+                    (
+                        profile.processing_stats[
+                            self.progress_tracker.active_credit_phase
+                        ].errors
+                        / profile.processing_stats[
+                            self.progress_tracker.active_credit_phase
+                        ].processed
+                    )
+                    * 100
+                    if profile.processing_stats[
+                        self.progress_tracker.active_credit_phase
+                    ].processed
+                    > 0
                     else 0.0,
                 ),
                 lambda data: DashboardFormatter.format_error_stats(
@@ -168,7 +201,7 @@ class ProgressDashboard(Container):
             return
 
         # Show default content if no profile data is available
-        if not self.progress_tracker.current_profile:
+        if not self.progress_tracker.current_profile_run:
             try:
                 # Update progress bar with default values
                 progress_bar = self.query_one(ProgressBar)
@@ -195,15 +228,24 @@ class ProgressDashboard(Container):
         try:
             # Update progress bar
             if (
-                self.progress_tracker.current_profile.total_expected_requests
+                self.progress_tracker.current_profile_run.processing_stats[
+                    self.progress_tracker.active_credit_phase
+                ].total
                 is not None
-                and self.progress_tracker.current_profile.total_expected_requests > 0
+                and self.progress_tracker.current_profile_run.processing_stats[
+                    self.progress_tracker.active_credit_phase
+                ].total
+                > 0
             ):
                 progress_value = min(
                     100,
                     (
-                        self.progress_tracker.current_profile.requests_completed
-                        / self.progress_tracker.current_profile.total_expected_requests
+                        self.progress_tracker.current_profile_run.processing_stats[
+                            self.progress_tracker.active_credit_phase
+                        ].processed
+                        / self.progress_tracker.current_profile_run.processing_stats[
+                            self.progress_tracker.active_credit_phase
+                        ].total
                     )
                     * 100,
                 )
@@ -213,15 +255,17 @@ class ProgressDashboard(Container):
                 # Update progress label
                 progress_label = self.query_one("#progress-label", Label)
                 progress_text = (
-                    f"Processing: {self.progress_tracker.current_profile.requests_completed:,} "
-                    f"/ {self.progress_tracker.current_profile.total_expected_requests:,} requests"
+                    f"Processing: {self.progress_tracker.current_profile_run.requests_completed:,} "
+                    f"/ {self.progress_tracker.current_profile_run.total_expected_requests:,} requests"
                 )
                 progress_label.update(progress_text)
 
             # Update all status indicators using field definitions
             for field in self.fields:
                 field.update(
-                    self, self.progress_tracker, self.progress_tracker.current_profile
+                    self,
+                    self.progress_tracker,
+                    self.progress_tracker.current_profile_run,
                 )
 
         except NoMatches:

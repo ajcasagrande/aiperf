@@ -8,18 +8,9 @@ __ignore__ = ["logger"]
 #########################################################
 
 
-from aiperf.ui.textual.logging_ui import (
-    LogViewer,
-    TextualLogHandler,
-)
-from aiperf.ui.textual.progress_dashboard import (
-    ProgressDashboard,
-)
-from aiperf.ui.textual.textual_ui import (
-    AIPerfTextualApp,
-    QuitConfirmationDialog,
-    TextualUIMixin,
-)
+from aiperf.ui.textual.logging_ui import LogViewer, TextualLogHandler
+from aiperf.ui.textual.progress_dashboard import ProgressDashboard
+from aiperf.ui.textual.textual_ui import AIPerfTextualApp, TextualUIMixin
 from aiperf.ui.textual.widgets import (
     DashboardField,
     DashboardFormatter,
@@ -42,7 +33,6 @@ __all__ = [
     "Header",
     "LogViewer",
     "ProgressDashboard",
-    "QuitConfirmationDialog",
     "StatusClassifier",
     "StatusIndicator",
     "TextualLogHandler",

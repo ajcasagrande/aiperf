@@ -1,25 +1,20 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-import logging
-from collections.abc import Callable
-
 from textual.app import App, ComposeResult
-from textual.binding import Binding
-from textual.containers import Container, Grid, Vertical
+from textual.containers import Container, Vertical
 from textual.widgets import (
-    Button,
-    Label,
-    Static,
     TabbedContent,
     TabPane,
 )
 
+from aiperf.common.aiperf_logger import AIPerfLogger
+from aiperf.common.enums import MessageType
 from aiperf.common.hooks import (
     aiperf_task,
     on_stop,
 )
-from aiperf.common.messages import WorkerHealthMessage
+from aiperf.common.messages import Message, WorkerHealthMessage
 from aiperf.common.mixins import AIPerfLifecycleMixin
 from aiperf.progress.progress_tracker import ProgressTracker
 from aiperf.ui.textual.logging_ui import LogViewer
@@ -27,7 +22,7 @@ from aiperf.ui.textual.progress_dashboard import ProgressDashboard
 from aiperf.ui.textual.widgets import Header
 from aiperf.ui.textual.worker_dashboard import WorkerDashboard
 
-logger = logging.getLogger(__name__)
+logger = AIPerfLogger(__name__)
 
 
 class AIPerfTextualApp(App):
@@ -246,65 +241,15 @@ class TextualUIMixin(AIPerfLifecycleMixin):
         except Exception as e:
             logger.warning("Worker health update error: %s", e)
 
+    async def on_message(self, message: Message) -> None:
+        """Handle a message from the system controller."""
+        _message_mappings = {
+            MessageType.WORKER_HEALTH: self.on_worker_health_update,
+        }
 
-class QuitConfirmationDialog(Static):
-    """Overlay dialog to confirm quitting the application."""
-
-    DEFAULT_CSS = """
-    QuitConfirmationDialog {
-        dock: top;
-        layer: overlay;
-        align: center middle;
-    }
-
-    #dialog-box {
-        grid-size: 2;
-        grid-gutter: 1 2;
-        grid-rows: 1fr 3;
-        padding: 0 1;
-        width: 50;
-        height: 9;
-        border: round $primary;
-        background: $surface;
-        margin: 1;
-    }
-
-    #question {
-        column-span: 2;
-        height: 1fr;
-        width: 1fr;
-        content-align: center middle;
-        text-style: bold;
-    }
-
-    QuitConfirmationDialog Button {
-        width: 100%;
-    }
-    """
-
-    BINDINGS = [
-        Binding("escape", "cancel", "Cancel"),
-    ]
-
-    def __init__(self):
-        super().__init__()
-        self.on_quit: Callable[[], None] | None = None
-
-    def compose(self) -> ComposeResult:
-        """Compose the confirmation dialog."""
-        yield Grid(
-            Label("Are you sure you want to exit AIPerf?", id="question"),
-            Button("Yes, Exit", variant="error", id="quit"),
-            Button("Cancel", variant="primary", id="cancel"),
-            id="dialog-box",
-        )
-
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        """Handle button presses in the confirmation dialog."""
-        if event.button.id == "quit" and self.on_quit:
-            self.on_quit()
-        self.remove()
-
-    def action_cancel(self) -> None:
-        """Cancel the dialog with Escape key."""
-        self.remove()
+        if message.message_type in _message_mappings:
+            await _message_mappings[message.message_type](message)
+        else:
+            if not self.app.dashboard:
+                return
+            self.app.dashboard.update_display()

@@ -10,9 +10,13 @@ __ignore__ = ["logger"]
 __submodules__ = [
     "rich",
     "textual",
+    "progress_logger",
 ]
 #########################################################
 
+from aiperf.ui.progress_logger import (
+    SimpleProgressLogger,
+)
 from aiperf.ui.rich import (
     AIPerfRichDashboard,
     AIPerfUI,
@@ -30,7 +34,6 @@ from aiperf.ui.textual import (
     Header,
     LogViewer,
     ProgressDashboard,
-    QuitConfirmationDialog,
     StatusClassifier,
     StatusIndicator,
     TextualLogHandler,
@@ -56,7 +59,7 @@ __all__ = [
     "LogsDashboardMixin",
     "ProfileProgressElement",
     "ProgressDashboard",
-    "QuitConfirmationDialog",
+    "SimpleProgressLogger",
     "StatusClassifier",
     "StatusIndicator",
     "TextualLogHandler",

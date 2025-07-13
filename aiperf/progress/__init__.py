@@ -6,10 +6,8 @@ __all__ = [
     "CreditPhaseComputedStats",
     "ProfileRunProgress",
     "ProgressTracker",
-    "SimpleProgressLogger",
 ]
 
-from aiperf.progress.progress_logger import SimpleProgressLogger
 from aiperf.progress.progress_tracker import (
     BenchmarkSuiteProgress,
     CreditPhaseComputedStats,

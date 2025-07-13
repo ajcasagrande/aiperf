@@ -18,13 +18,13 @@ from aiperf.common.messages import (
     RecordsProcessingStatsMessage,
 )
 from aiperf.common.worker_models import WorkerHealthMessage, WorkerPhaseTaskStats
-from aiperf.progress.progress_logger import SimpleProgressLogger
 from aiperf.progress.progress_models import ProfileResultsMessage
 from aiperf.progress.progress_tracker import (
     BenchmarkSuiteProgress,
     ProfileRunProgress,
     ProgressTracker,
 )
+from aiperf.ui.progress_logger import SimpleProgressLogger
 
 
 @pytest.fixture

@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-import logging
 import time
 from collections.abc import Callable
 
@@ -11,15 +10,16 @@ from textual.css.query import NoMatches
 from textual.widget import Widget
 from textual.widgets import Label
 
+from aiperf.common.aiperf_logger import AIPerfLogger
 from aiperf.common.config import ServiceConfig
 from aiperf.common.enums import ServiceType
 from aiperf.common.hooks import aiperf_task, on_init
 from aiperf.common.messages import WorkerHealthMessage
 from aiperf.common.mixins import AIPerfLifecycleMixin
 from aiperf.common.service.base_component_service import BaseComponentService
-from aiperf.ui.widgets import StatusIndicator
+from aiperf.ui.textual.widgets import StatusIndicator
 
-logger = logging.getLogger(__name__)
+logger = AIPerfLogger(__name__)
 
 
 class WorkerRow(Widget):
@@ -80,19 +80,9 @@ class WorkerRow(Widget):
         self.health_message: WorkerHealthMessage | None = None
         self.last_update_time = time.time()
 
-    @staticmethod
-    def worker_name(worker_id: str) -> str:
-        """Get the worker name from the worker ID."""
-        ids = worker_id.split("_")
-        if ids[2] == "0":
-            return f"Worker {ids[1]}"
-        return f"Worker {ids[1]} (Sub {ids[2]})"
-
     def compose(self) -> ComposeResult:
         """Compose the worker row with name and metrics."""
-        yield Label(
-            self.worker_name(self.worker_id), classes="worker-name", id="worker-name"
-        )
+        yield Label(self.worker_id, classes="worker-name", id="worker-name")
         yield Label("Unknown", id="status")
         yield Label("0 / 0", id="tasks")
         yield Label("0.0%", id="cpu")

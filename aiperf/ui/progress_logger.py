@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-import logging
 
 from tqdm import tqdm
 
@@ -10,24 +9,26 @@ from aiperf.common.messages import (
     CreditPhaseProgressMessage,
     CreditPhaseStartMessage,
     Message,
+    ProfileResultsMessage,
     RecordsProcessingStatsMessage,
     WorkerHealthMessage,
 )
+from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.progress.progress_tracker import ProgressTracker
 
 
-class SimpleProgressLogger:
+class SimpleProgressLogger(AIPerfLoggerMixin):
     """Simple logger for progress updates. It will use tqdm to show a progress bar."""
 
     def __init__(self, progress_tracker: ProgressTracker):
-        self.logger = logging.getLogger(self.__class__.__name__)
+        super().__init__()
         self.progress_tracker = progress_tracker
         self.tqdm_requests: dict[CreditPhase, tqdm] = {}
         self.tqdm_records: dict[CreditPhase, tqdm] = {}
 
     async def update_progress(self):
         """Log a progress update based on current credit phase."""
-        return
+        # return
         current_profile_run = self.progress_tracker.current_profile_run
 
         if current_profile_run is None:
@@ -37,7 +38,7 @@ class SimpleProgressLogger:
             total_requests = phase_stats.total or 0
             completed_requests = phase_stats.completed
 
-            self.logger.debug(
+            self.debug(
                 "Phase %s - Requests Completed: %d / %d",
                 phase,
                 completed_requests,
@@ -67,7 +68,6 @@ class SimpleProgressLogger:
 
     async def update_stats(self, message: RecordsProcessingStatsMessage):
         """Log a stats update based on current credit phase."""
-        return
         current_profile_run = self.progress_tracker.current_profile_run
 
         if current_profile_run is None:
@@ -77,43 +77,41 @@ class SimpleProgressLogger:
             processed_records = processing_stats.processed
             total_records = processing_stats.total
 
-            self.logger.debug(
-                "Phase %s - Records Processed: %d / %d",
-                phase,
-                processed_records,
-                total_records,
+            self.debug(
+                lambda phase=phase,
+                processed_records=processed_records,
+                total_records=total_records: f"Phase {phase} - Records Processed: {processed_records} / {total_records}"
             )
 
-        # Only create tqdm if we have a valid total > 0
-        if phase not in self.tqdm_records and total_records > 0:
-            self.tqdm_records[phase] = tqdm(
-                total=total_records,
-                desc=f"Records ({phase.value})",
-                colour="blue",
-            )
+            # Only create tqdm if we have a valid total > 0
+            if phase not in self.tqdm_records and total_records > 0:
+                self.tqdm_records[phase] = tqdm(
+                    total=total_records,
+                    desc=f"Records ({phase.value})",
+                    colour="blue",
+                )
 
-        if phase in self.tqdm_records:
-            self.tqdm_records[phase].n = processed_records
-            self.tqdm_records[phase].refresh()
+            if phase in self.tqdm_records:
+                self.tqdm_records[phase].n = processed_records
+                self.tqdm_records[phase].refresh()
 
-        # Close tqdm when completed
-        if (
-            total_records > 0
-            and processed_records >= total_records
-            and phase in self.tqdm_records
-        ):
-            self.logger.debug(
-                "Phase %s - Closing TQDM. Records Processed: %d / %d",
-                phase,
-                processed_records,
-                total_records,
-            )
-            self.tqdm_records[phase].close()
-            del self.tqdm_records[phase]
+            # Close tqdm when completed
+            if (
+                total_records > 0
+                and processed_records >= total_records
+                and phase in self.tqdm_records
+            ):
+                self.logger.debug(
+                    "Phase %s - Closing TQDM. Records Processed: %d / %d",
+                    phase,
+                    processed_records,
+                    total_records,
+                )
+                self.tqdm_records[phase].close()
+                del self.tqdm_records[phase]
 
     async def on_message(self, message: Message) -> None:
         """Handle a message from the system controller."""
-        return
         _message_mappings = {
             MessageType.CREDIT_PHASE_PROGRESS: self.update_credit_phase_progress,
             MessageType.CREDIT_PHASE_COMPLETE: self.update_credit_phase_complete,
@@ -162,18 +160,16 @@ class SimpleProgressLogger:
 
     async def update_credit_phase_progress(self, message: CreditPhaseProgressMessage):
         """Log a credit phase progress update."""
-        return
-        self.logger.debug(
-            "Credit phase %s progress updated", message.phase_stats_map.keys()
+        self.debug(
+            lambda: f"Credit phase {message.phase_stats_map.keys()} progress updated"
         )
 
         # This will be handled by update_progress() which is called regularly
         await self.update_progress()
 
-    async def update_results(self):
+    async def update_results(self, message: ProfileResultsMessage):
         """Log a results update."""
-        return
-        self.logger.debug("Profile results updated")
+        self.debug(lambda: f"Profile results updated: {message}")
 
         # Close all tqdm bars
         for _, tqdm_bar in list(self.tqdm_requests.items()):
@@ -186,7 +182,6 @@ class SimpleProgressLogger:
 
     def cleanup(self):
         """Clean up all progress bars."""
-        return
         for _, tqdm_bar in list(self.tqdm_requests.items()):
             tqdm_bar.close()
         self.tqdm_requests.clear()
