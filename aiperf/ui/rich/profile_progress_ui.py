@@ -17,6 +17,7 @@ from rich.progress import (
 from rich.table import Table
 from rich.text import Text
 
+from aiperf.common.enums.timing import CreditPhase
 from aiperf.common.utils import format_duration
 from aiperf.progress.progress_tracker import ProgressTracker
 from aiperf.ui.rich.dashboard_element import DashboardElement
@@ -38,17 +39,10 @@ class ProfileProgressElement(DashboardElement):
         self.progress_tracker = progress_tracker
         self.progress_task_id: TaskID | None = None
         self.records_task_id: TaskID | None = None
+        self.current_phase: CreditPhase | None = None
+        self.progress_task_ids: dict[CreditPhase, list[TaskID]] = {}
+
         self.progress_bar = Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            TaskProgressColumn(),
-            MofNCompleteColumn(),
-            TimeElapsedColumn(),
-            TimeRemainingColumn(),
-            expand=True,
-        )
-        self.records_progress_bar = Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
             BarColumn(),
@@ -70,43 +64,67 @@ class ProfileProgressElement(DashboardElement):
 
         profile = self.progress_tracker.current_profile_run
 
-        # Create or update requests progress bar
-        if self.progress_task_id is None and profile.total_expected_requests:
-            self.progress_task_id = self.progress_bar.add_task(
-                "Executing requests...", total=profile.total_expected_requests
-            )
-        elif self.progress_task_id is not None:
-            self.progress_bar.update(
-                self.progress_task_id, completed=profile.requests_completed or 0
+        if self.current_phase != profile.active_phase:
+            self.current_phase = profile.active_phase
+            for task_ids in self.progress_task_ids.values():
+                for task_id in task_ids:
+                    self.progress_bar.remove_task(task_id)
+            self.progress_bar.refresh()
+            self.progress_task_ids.clear()
+
+        if self.current_phase is None:
+            return Align.center(
+                Text("Waiting for benchmark data...", style="dim yellow"),
+                vertical="middle",
             )
 
-        # Create or update results progress bar
-        if self.records_task_id is None and profile.total_expected_requests:
-            self.records_task_id = self.records_progress_bar.add_task(
-                "Processing results...", total=profile.total_expected_requests
+        phase = profile.phases.get(self.current_phase)
+        if phase is None:
+            return Align.center(
+                Text("Waiting for benchmark data...", style="dim yellow"),
+                vertical="middle",
             )
-        elif self.records_task_id is not None:
-            self.records_progress_bar.update(
-                self.records_task_id, completed=profile.requests_processed or 0
-            )
+
+        # Create or update requests progress bar
+        if self.progress_task_ids.get(phase.type) is None and phase.total_requests:
+            self.progress_task_ids[phase.type] = [
+                self.progress_bar.add_task(
+                    f"Executing {'warmup ' if phase.type != CreditPhase.STEADY_STATE else ''}requests...",
+                    total=phase.total_requests,
+                )
+            ]
+            if phase.type == CreditPhase.STEADY_STATE:
+                self.progress_task_ids[phase.type].append(
+                    self.progress_bar.add_task(
+                        "Processing results...", total=phase.total_requests
+                    )
+                )
+        elif self.progress_task_ids.get(phase.type) is not None:
+            task_ids = self.progress_task_ids.get(phase.type)
+            if task_ids and len(task_ids) >= 1:
+                self.progress_bar.update(
+                    task_ids[0],
+                    completed=phase.completed or 0,
+                )
+            if task_ids and len(task_ids) >= 2:
+                self.progress_bar.update(
+                    task_ids[1],
+                    completed=phase.processed or 0,
+                )
 
         # Pad each column by 1 space
         progress_table = Table.grid(padding=(0, 1, 0, 0))
         progress_table.add_column(style="bold cyan", justify="right")
         progress_table.add_column(style="bold white")
 
-        if profile.is_complete:
+        if phase.is_complete:
             status = Text("Complete", style="bold green")
-        elif profile.was_cancelled:
-            status = Text("Cancelled", style="bold red")
         else:
             status = Text("Processing", style="bold yellow")
 
         error_percent = 0.0
-        if profile.requests_processed and profile.requests_processed > 0:
-            error_percent = (
-                (profile.request_errors or 0) / profile.requests_processed * 100
-            )
+        if phase.processed and phase.processed > 0:
+            error_percent = (phase.errors or 0) / phase.processed * 100
 
         # TODO: Color palette for error percentages? Or always red if above 0?
         error_color = (
@@ -116,21 +134,21 @@ class ProfileProgressElement(DashboardElement):
         progress_table.add_row("Status:", status)
         progress_table.add_row(
             "Progress:",
-            f"{profile.requests_completed or 0:,} / {profile.total_expected_requests or 0:,} requests "
-            f"({(profile.requests_completed or 0) / (profile.total_expected_requests or 1) * 100:.1f}%)",
+            f"{phase.sent or 0:,} / {phase.total_requests or 0:,} requests "
+            f"({(phase.sent or 0) / (phase.total_requests or 1) * 100:.1f}%)",
         )
         progress_table.add_row(
             "Errors:",
-            f"[{error_color}]{profile.request_errors or 0:,} / {profile.requests_processed or 0:,} ({error_percent:.1f}%)[/{error_color}]",
+            f"[{error_color}]{phase.errors or 0:,} / {phase.processed or 0:,} ({error_percent:.1f}%)[/{error_color}]",
         )
         progress_table.add_row(
-            "Request Rate:", f"{profile.requests_per_second or 0:.1f} req/s"
+            "Request Rate:", f"{phase.records_per_second or 0:.1f} req/s"
         )
         progress_table.add_row(
-            "Processing Rate:", f"{profile.processed_per_second or 0:.1f} req/s"
+            "Processing Rate:", f"{phase.records_per_second or 0:.1f} req/s"
         )
-        progress_table.add_row("Elapsed:", format_duration(profile.elapsed_time))
-        progress_table.add_row("Request ETA:", format_duration(profile.eta))
-        progress_table.add_row("Results ETA:", format_duration(profile.processing_eta))
+        progress_table.add_row("Elapsed:", format_duration(phase.elapsed_time))
+        progress_table.add_row("Request ETA:", format_duration(phase.requests_eta))
+        progress_table.add_row("Results ETA:", format_duration(phase.records_eta))
 
-        return Group(self.progress_bar, self.records_progress_bar, progress_table)
+        return Group(self.progress_bar, progress_table)

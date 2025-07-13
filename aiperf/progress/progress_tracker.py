@@ -76,6 +76,13 @@ class FullCreditPhaseProgress(
         description="The request stats for each worker as reported by the Workers (total, completed, failed)",
     )
 
+    @property
+    def elapsed_time(self) -> float | None:
+        """Get the elapsed time."""
+        if not self.start_ns or not self.last_request_update_ns:
+            return None
+        return (self.last_request_update_ns - self.start_ns) / NANOS_PER_SECOND
+
 
 class ProfileRunProgress(AIPerfBaseModel):
     """State of the profile run progress, including the progress of each credit phase, the processing stats, and the worker stats.
@@ -219,8 +226,8 @@ class ProfileRunProgress(AIPerfBaseModel):
     def on_message(self, message: Message):
         """Update the progress from a message."""
         _message_mappings = {
-            MessageType.CREDIT_PHASE_PROGRESS: self.on_credit_phase_progress,
             MessageType.CREDIT_PHASE_START: self.on_credit_phase_start,
+            MessageType.CREDIT_PHASE_PROGRESS: self.on_credit_phase_progress,
             MessageType.CREDIT_PHASE_COMPLETE: self.on_credit_phase_complete,
             MessageType.PROCESSING_STATS: self.on_phase_processing_stats,
             MessageType.WORKER_HEALTH: self.on_worker_health,
@@ -254,6 +261,8 @@ class ProfileRunProgress(AIPerfBaseModel):
     def on_credit_phase_complete(self, message: CreditPhaseCompleteMessage):
         """Update the progress from a credit phase complete message."""
         self.phases[message.phase].end_ns = message.end_ns
+        # Mark all credits as completed
+        self.phases[message.phase].completed = self.phases[message.phase].sent
         self.update_requests_stats(self.phases[message.phase], message.request_ns)
 
     def on_phase_processing_stats(self, message: RecordsProcessingStatsMessage):
