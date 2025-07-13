@@ -70,10 +70,9 @@ class CreditPhaseStartMessage(BaseServiceMessage):
         MessageType.CREDIT_PHASE_START
     )
     phase: CreditPhase = Field(..., description="The type of credit phase")
-    start_ns: int | None = Field(
-        default=None,
+    start_ns: int = Field(
         ge=1,
-        description="The start time of the credit phase in nanoseconds. If None, the phase has not started.",
+        description="The start time of the credit phase in nanoseconds.",
     )
     total_requests: int | None = Field(
         default=None,

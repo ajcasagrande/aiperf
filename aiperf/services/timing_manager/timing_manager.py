@@ -12,7 +12,6 @@ from aiperf.common.comms.base import (
 )
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
-from aiperf.common.credit_models import CreditPhaseStats
 from aiperf.common.enums import (
     CreditPhase,
     MessageType,
@@ -29,16 +28,10 @@ from aiperf.common.hooks import (
 from aiperf.common.messages import (
     CommandMessage,
     CreditDropMessage,
-    CreditPhaseCompleteMessage,
-    CreditPhaseProgressMessage,
-    CreditPhaseSendingCompleteMessage,
-    CreditPhaseStartMessage,
     CreditReturnMessage,
-    CreditsCompleteMessage,
     DatasetTimingRequest,
     DatasetTimingResponse,
 )
-from aiperf.common.mixins.async_task_manager import AsyncTaskManagerMixin
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.services.timing_manager.concurrency_strategy import ConcurrencyStrategy
 from aiperf.services.timing_manager.config import (
@@ -46,12 +39,13 @@ from aiperf.services.timing_manager.config import (
     TimingMode,
 )
 from aiperf.services.timing_manager.credit_issuing_strategy import CreditIssuingStrategy
+from aiperf.services.timing_manager.credit_manager import CreditPhaseMessagesMixin
 from aiperf.services.timing_manager.fixed_schedule_strategy import FixedScheduleStrategy
 from aiperf.services.timing_manager.request_rate_strategy import RequestRateStrategy
 
 
 @ServiceFactory.register(ServiceType.TIMING_MANAGER)
-class TimingManager(BaseComponentService, AsyncTaskManagerMixin):
+class TimingManager(BaseComponentService, CreditPhaseMessagesMixin):
     """
     The TimingManager service is responsible to generate the schedule and issuing
     timing credits for requests.
@@ -167,66 +161,6 @@ class TimingManager(BaseComponentService, AsyncTaskManagerMixin):
         self.logger.debug("Timing manager received credit return message: %s", message)
         if self._credit_issuing_strategy:
             await self._credit_issuing_strategy.on_credit_return(message)
-
-    async def publish_phase_start(self, phase_stats: CreditPhaseStats) -> None:
-        """Publish the phase start message."""
-        self.execute_async(
-            self.pub_client.publish(
-                CreditPhaseStartMessage(
-                    service_id=self.service_id,
-                    phase_stats=phase_stats,
-                )
-            )
-        )
-
-    async def publish_phase_complete(self, phase_stats: CreditPhaseStats) -> None:
-        """Publish the phase complete message."""
-        self.execute_async(
-            self.pub_client.publish(
-                CreditPhaseCompleteMessage(
-                    service_id=self.service_id,
-                    phase_stats=phase_stats,
-                )
-            )
-        )
-
-    async def publish_phase_sending_complete(
-        self, phase_stats: CreditPhaseStats
-    ) -> None:
-        """Publish the phase sending complete message."""
-        self.execute_async(
-            self.pub_client.publish(
-                CreditPhaseSendingCompleteMessage(
-                    service_id=self.service_id,
-                    phase_stats=phase_stats,
-                )
-            )
-        )
-
-    async def publish_progress(
-        self, phase_stats: dict[CreditPhase, CreditPhaseStats]
-    ) -> None:
-        """Publish the progress message."""
-        self.execute_async(
-            self.pub_client.publish(
-                CreditPhaseProgressMessage(
-                    service_id=self.service_id,
-                    phase_progress_map=phase_stats,
-                    request_ns=time.time_ns(),
-                )
-            )
-        )
-
-    async def publish_credits_complete(self, cancelled: bool) -> None:
-        """Publish the credits complete message."""
-        self.execute_async(
-            self.pub_client.publish(
-                CreditsCompleteMessage(
-                    service_id=self.service_id,
-                    cancelled=cancelled,
-                )
-            )
-        )
 
     async def drop_credit(
         self,

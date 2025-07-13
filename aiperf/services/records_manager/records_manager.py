@@ -162,7 +162,7 @@ class RecordsManager(BaseComponentService):
         await self.pub_client.publish(
             RecordsProcessingStatsMessage(
                 service_id=self.service_id,
-                current_phase=self.active_credit_phase,
+                phase=self.active_credit_phase,
                 processing_stats=PhaseProcessingStats(
                     processed=self.records_count,
                     errors=self.error_records_count,

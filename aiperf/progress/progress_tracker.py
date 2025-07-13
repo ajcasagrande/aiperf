@@ -236,9 +236,9 @@ class ProfileRunProgress(AIPerfBaseModel):
 
     def on_credit_phase_progress(self, message: CreditPhaseProgressMessage):
         """Update the progress from a credit phase progress message."""
-        for phase, stats in message.phase_progress_map.items():
-            self.phases[phase] = stats
-            self.update_requests_stats(stats, message.request_ns)
+        self.phases[message.phase].sent = message.sent
+        self.phases[message.phase].completed = message.completed
+        self.update_requests_stats(self.phases[message.phase], message.request_ns)
 
     def on_credit_phase_start(self, message: CreditPhaseStartMessage):
         """Update the progress from a credit phase start message."""
@@ -249,7 +249,7 @@ class ProfileRunProgress(AIPerfBaseModel):
             total_requests=message.total_requests,
             expected_duration_ns=message.expected_duration_ns,
         )
-        self.update_requests_stats(self.phases[message.phase], message.request_ns)
+        self.update_requests_stats(self.phases[message.phase], message.start_ns)
 
     def on_credit_phase_complete(self, message: CreditPhaseCompleteMessage):
         """Update the progress from a credit phase complete message."""
@@ -258,25 +258,15 @@ class ProfileRunProgress(AIPerfBaseModel):
 
     def on_phase_processing_stats(self, message: RecordsProcessingStatsMessage):
         """Update the progress from a phase processing stats message."""
-        if message.current_phase is None:
-            logger.warning(
-                "Received phase processing stats message with no current phase"
-            )
-            return
-
-        self.phases[
-            message.current_phase
-        ].processed = message.processing_stats.processed
-        self.phases[message.current_phase].errors = message.processing_stats.errors
-        self.phases[message.current_phase].last_record_update_ns = message.request_ns
+        self.phases[message.phase].processed = message.processing_stats.processed
+        self.phases[message.phase].errors = message.processing_stats.errors
+        self.phases[message.phase].last_record_update_ns = time.time_ns()
 
         for worker_id, worker_stats in message.worker_stats.items():
-            self.phases[message.current_phase].worker_processing_stats[worker_id] = (
-                worker_stats
-            )
+            self.phases[message.phase].worker_processing_stats[worker_id] = worker_stats
 
         self.update_records_stats(
-            message.current_phase,
+            message.phase,
             message.request_ns,
             message.processing_stats,
         )
@@ -328,7 +318,7 @@ class ProfileRunProgress(AIPerfBaseModel):
             dur_sec = diff_ns / NANOS_PER_SECOND
             self.phases[phase].records_per_second = stats.processed / dur_sec
             if (
-                self.phases[phase].records_per_second is not None
+                self.phases[phase].records_per_second
                 and self.phases[phase].total_requests is not None
             ):
                 self.phases[phase].records_eta = (

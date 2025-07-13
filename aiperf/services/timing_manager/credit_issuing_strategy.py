@@ -4,7 +4,6 @@
 import asyncio
 import time
 from abc import ABC, abstractmethod
-from typing import Protocol, runtime_checkable
 
 from aiperf.common.credit_models import CreditPhaseStats
 from aiperf.common.enums import CreditPhase
@@ -12,38 +11,7 @@ from aiperf.common.messages import CreditReturnMessage
 from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.common.mixins.async_task_manager import AsyncTaskManagerMixin
 from aiperf.services.timing_manager.config import TimingManagerConfig
-
-
-@runtime_checkable
-class CreditManagerProtocol(Protocol):
-    """Defines the interface for a CreditManager.
-
-    This is used to allow the credit issuing strategy to interact with the TimingManager
-    in a decoupled way.
-    """
-
-    async def drop_credit(
-        self,
-        credit_phase: CreditPhase,
-        conversation_id: str | None = None,
-        credit_drop_ns: int | None = None,
-    ) -> None: ...
-
-    async def publish_progress(
-        self, phase: CreditPhase, sent: int, completed: int
-    ) -> None: ...
-    async def publish_credits_complete(self) -> None: ...
-    async def publish_phase_start(
-        self,
-        phase: CreditPhase,
-        start_ns: int,
-        total_requests: int | None,
-        expected_duration_ns: int | None,
-    ) -> None: ...
-    async def publish_phase_sending_complete(
-        self, phase: CreditPhase, sent_end_ns: int
-    ) -> None: ...
-    async def publish_phase_complete(self, phase: CreditPhase, end_ns: int) -> None: ...
+from aiperf.services.timing_manager.credit_manager import CreditManagerProtocol
 
 
 class CreditIssuingStrategy(AsyncTaskManagerMixin, AIPerfLoggerMixin, ABC):

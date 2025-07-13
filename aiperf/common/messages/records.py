@@ -17,11 +17,9 @@ class RecordsProcessingStatsMessage(BaseServiceMessage):
 
     message_type: Literal[MessageType.PROCESSING_STATS] = MessageType.PROCESSING_STATS
 
-    current_phase: CreditPhase | None = Field(
-        default=None, description="The current credit phase if known."
-    )
+    phase: CreditPhase = Field(..., description="The credit phase")
     processing_stats: PhaseProcessingStats = Field(
-        ..., description="The stats for the current credit phase"
+        ..., description="The stats for the credit phase"
     )
     worker_stats: dict[str, PhaseProcessingStats] = Field(
         default_factory=dict,

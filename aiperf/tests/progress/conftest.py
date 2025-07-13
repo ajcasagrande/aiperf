@@ -113,7 +113,7 @@ def records_processing_stats_message(phase_processing_stats):
     """Create a RecordsProcessingStatsMessage instance."""
     return RecordsProcessingStatsMessage(
         service_id="test-service",
-        current_phase=CreditPhase.STEADY_STATE,
+        phase=CreditPhase.STEADY_STATE,
         processing_stats=phase_processing_stats,
         worker_stats={
             "worker-1": PhaseProcessingStats(processed=25, errors=3),
