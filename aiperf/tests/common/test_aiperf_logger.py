@@ -139,6 +139,11 @@ class TestAIPerfLogger:
                 "Hello, world! This is a test of an example message that will NOT be printed."
             )
 
+        def aiperf_plain_string_lazy():
+            aiperf_logger.debug(
+                lambda: "Hello, world! This is a test of an example message that will NOT be printed."
+            )
+
         def standard_plain_string():
             standard_logger.debug(
                 "Hello, world! This is a test of an example message that will NOT be printed."
@@ -146,6 +151,13 @@ class TestAIPerfLogger:
 
         compare_logger_performance(
             aiperf_plain_string,
+            standard_plain_string,
+            number=10_000,
+            max_slow_down=1.5,
+        )
+
+        compare_logger_performance(
+            aiperf_plain_string_lazy,
             standard_plain_string,
             number=10_000,
             max_slow_down=1.5,
@@ -162,6 +174,11 @@ class TestAIPerfLogger:
                 "Hello, world! This is a test of an example message that will be printed."
             )
 
+        def aiperf_plain_string_lazy():
+            aiperf_logger.info(
+                lambda: "Hello, world! This is a test of an example message that will be printed."
+            )
+
         def standard_plain_string():
             standard_logger.info(
                 "Hello, world! This is a test of an example message that will be printed."
@@ -169,6 +186,13 @@ class TestAIPerfLogger:
 
         compare_logger_performance(
             aiperf_plain_string,
+            standard_plain_string,
+            number=10_000,
+            max_slow_down=1.5,
+        )
+
+        compare_logger_performance(
+            aiperf_plain_string_lazy,
             standard_plain_string,
             number=10_000,
             max_slow_down=1.5,
