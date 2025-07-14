@@ -262,7 +262,7 @@ class Header(Widget):
         )
         return sub_title
 
-    def _on_mount(self, _: Mount) -> None:
+    def _on_mount(self, event: Mount) -> None:
         async def set_title() -> None:
             with contextlib.suppress(NoScreen):
                 self.query_one(HeaderTitle).text = self.screen_title

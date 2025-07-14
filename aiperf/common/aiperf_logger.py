@@ -47,15 +47,22 @@ class AIPerfLogger:
         logger.exception(lambda e=e: f"Error: {e}")
     """
 
-    def __init__(self, name: str):
-        self.name = name
-        self._logger = logging.getLogger(name)
+    def __init__(self, logger_name: str):
+        self.logger_name = logger_name
+        self._logger = logging.getLogger(logger_name)
+
+        # Cache the internal logging module's _log method
         self._internal_log = self._logger._log
+
+        # Forward the internal findCaller method to our custom method
         self._logger.findCaller = self.find_caller
+
         # Python style method names
         self.is_enabled_for = self._logger.isEnabledFor
         self.set_level = self._logger.setLevel
         self.get_effective_level = self._logger.getEffectiveLevel
+
+        # Individual level enabled checks
         self.is_trace_enabled = MethodType(self._logger.isEnabledFor, _TRACE)
         self.is_debug_enabled = MethodType(self._logger.isEnabledFor, _DEBUG)
         self.is_info_enabled = MethodType(self._logger.isEnabledFor, _INFO)
@@ -64,10 +71,19 @@ class AIPerfLogger:
         self.is_success_enabled = MethodType(self._logger.isEnabledFor, _SUCCESS)
         self.is_error_enabled = MethodType(self._logger.isEnabledFor, _ERROR)
         self.is_critical_enabled = MethodType(self._logger.isEnabledFor, _CRITICAL)
-        # Legacy logging method compatibility
+
+        # Legacy logging method compatibility / passthrough
         self.isEnabledFor = self._logger.isEnabledFor
         self.setLevel = self._logger.setLevel
         self.getEffectiveLevel = self._logger.getEffectiveLevel
+        self.handlers = self._logger.handlers
+        self.removeHandler = self._logger.removeHandler
+        self.addHandler = self._logger.addHandler
+        self.hasHandlers = self._logger.hasHandlers
+        self.getChild = self._logger.getChild
+        self.callHandlers = self._logger.callHandlers
+        self.handle = self._logger.handle
+        self.makeRecord = self._logger.makeRecord
 
     def _log(self, level: int, msg: str | Callable[..., str], *args, **kwargs) -> None:
         if callable(msg):
@@ -116,10 +132,10 @@ class AIPerfLogger:
         self, stack_info=False, stacklevel=1
     ) -> tuple[str, int, str, str | None]:
         """
+        NOTE: This is a modified version of the findCaller method in the logging module.
+
         Find the stack frame of the caller so that we can note the source
         file name, line number and function name.
-
-        This is a modified version of the findCaller method in the logging module.
 
         It is modified to skip the source file of the call_all_functions function
         and the current file, to find the actual caller.
@@ -155,38 +171,42 @@ class AIPerfLogger:
             break
         return rv
 
+    def log(self, level: int, msg: str | Callable[..., str], *args, **kwargs) -> None:
+        if self.is_enabled_for(level):
+            self._log(level, msg, args, **kwargs)
+
     def trace(self, msg: str | Callable[..., str], *args, **kwargs) -> None:
-        if self.isEnabledFor(_TRACE):
+        if self.is_enabled_for(_TRACE):
             self._log(_TRACE, msg, *args, **kwargs)
 
     def debug(self, msg: str | Callable[..., str], *args, **kwargs) -> None:
-        if self.isEnabledFor(_DEBUG):
+        if self.is_enabled_for(_DEBUG):
             self._log(_DEBUG, msg, *args, **kwargs)
 
     def info(self, msg: str | Callable[..., str], *args, **kwargs) -> None:
-        if self.isEnabledFor(_INFO):
+        if self.is_enabled_for(_INFO):
             self._log(_INFO, msg, *args, **kwargs)
 
     def notice(self, msg: str | Callable[..., str], *args, **kwargs) -> None:
-        if self.isEnabledFor(_NOTICE):
+        if self.is_enabled_for(_NOTICE):
             self._log(_NOTICE, msg, *args, **kwargs)
 
     def warning(self, msg: str | Callable[..., str], *args, **kwargs) -> None:
-        if self.isEnabledFor(_WARNING):
+        if self.is_enabled_for(_WARNING):
             self._log(_WARNING, msg, *args, **kwargs)
 
     def success(self, msg: str | Callable[..., str], *args, **kwargs) -> None:
-        if self.isEnabledFor(_SUCCESS):
+        if self.is_enabled_for(_SUCCESS):
             self._log(_SUCCESS, msg, *args, **kwargs)
 
     def error(self, msg: str | Callable[..., str], *args, **kwargs) -> None:
-        if self.isEnabledFor(_ERROR):
+        if self.is_enabled_for(_ERROR):
             self._log(_ERROR, msg, *args, **kwargs)
 
     def exception(self, msg: str | Callable[..., str], *args, **kwargs) -> None:
-        if self.isEnabledFor(_ERROR):
+        if self.is_enabled_for(_ERROR):
             self._log(_ERROR, msg, *args, exc_info=True, **kwargs)
 
     def critical(self, msg: str | Callable[..., str], *args, **kwargs) -> None:
-        if self.isEnabledFor(_CRITICAL):
+        if self.is_enabled_for(_CRITICAL):
             self._log(_CRITICAL, msg, *args, **kwargs)

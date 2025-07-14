@@ -6,7 +6,18 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from aiperf.common.aiperf_logger import AIPerfLogger, AIPerfLoggerMixin
+from aiperf.common.aiperf_logger import (
+    _CRITICAL,
+    _DEBUG,
+    _ERROR,
+    _INFO,
+    _NOTICE,
+    _SUCCESS,
+    _TRACE,
+    _WARNING,
+    AIPerfLogger,
+)
+from aiperf.common.mixins import AIPerfLoggerMixin
 
 
 class MockClass(AIPerfLoggerMixin):
@@ -47,10 +58,10 @@ class TestAIPerfLogger:
     @pytest.mark.parametrize(
         "level,level_name",
         [
-            (AIPerfLogger.TRACE, "TRACE"),
-            (AIPerfLogger.DEBUG, "DEBUG"),
-            (AIPerfLogger.NOTICE, "NOTICE"),
-            (AIPerfLogger.SUCCESS, "SUCCESS"),
+            (_TRACE, "TRACE"),
+            (_DEBUG, "DEBUG"),
+            (_NOTICE, "NOTICE"),
+            (_SUCCESS, "SUCCESS"),
         ],
     )
     def test_custom_log_levels_valid(self, level, level_name):
@@ -94,37 +105,37 @@ class TestAIPerfLogger:
         mock_logging_logger.isEnabledFor.return_value = True
         logger = AIPerfLogger("test")
 
-        logger.log(AIPerfLogger.INFO, message, *args)
+        logger.info(message, *args)
 
-        mock_logging_logger.isEnabledFor.assert_called_once_with(AIPerfLogger.INFO)
+        mock_logging_logger.isEnabledFor.assert_called_once_with(_INFO)
         mock_logging_logger._log.assert_called_once_with(
-            AIPerfLogger.INFO, expected_msg, args=expected_args
+            _INFO, expected_msg, args=expected_args
         )
 
     def test_callable_not_executed_when_disabled(self, mock_logging_logger):
         """Test that callable is not executed when level is disabled."""
         mock_logging_logger.isEnabledFor.return_value = False
         logger = AIPerfLogger("test")
-        logger.set_level(AIPerfLogger.INFO)
+        logger.set_level(_INFO)
 
         message_lambda = Mock(return_value="Dynamic message")
         logger.debug(message_lambda)
 
-        mock_logging_logger.isEnabledFor.assert_called_once_with(AIPerfLogger.DEBUG)
+        mock_logging_logger.isEnabledFor.assert_called_once_with(_DEBUG)
         mock_logging_logger._log.assert_not_called()
         message_lambda.assert_not_called()
 
     @pytest.mark.parametrize(
         "method_name,level",
         [
-            ("trace", AIPerfLogger.TRACE),
-            ("debug", AIPerfLogger.DEBUG),
-            ("notice", AIPerfLogger.NOTICE),
-            ("info", AIPerfLogger.INFO),
-            ("warning", AIPerfLogger.WARNING),
-            ("error", AIPerfLogger.ERROR),
-            ("critical", AIPerfLogger.CRITICAL),
-            ("success", AIPerfLogger.SUCCESS),
+            ("trace", _TRACE),
+            ("debug", _DEBUG),
+            ("notice", _NOTICE),
+            ("info", _INFO),
+            ("warning", _WARNING),
+            ("error", _ERROR),
+            ("critical", _CRITICAL),
+            ("success", _SUCCESS),
         ],
     )
     def test_convenience_methods(self, mock_logging_logger, method_name, level):
@@ -146,7 +157,7 @@ class TestAIPerfLogger:
         logger.exception("Error occurred")
 
         mock_logging_logger._log.assert_called_once_with(
-            AIPerfLogger.ERROR, "Error occurred", args=(), exc_info=True
+            _ERROR, "Error occurred", args=(), exc_info=True
         )
 
     @pytest.mark.parametrize(
@@ -161,9 +172,9 @@ class TestAIPerfLogger:
             ("ERROR", True),
             ("CRITICAL", True),
             ("SUCCESS", True),
-            (AIPerfLogger.TRACE, True),
-            (AIPerfLogger.NOTICE, True),
-            (AIPerfLogger.SUCCESS, True),
+            (_TRACE, True),
+            (_NOTICE, True),
+            (_SUCCESS, True),
             # Fake levels
             ("INVALID", False),
             (999, False),
@@ -176,9 +187,9 @@ class TestAIPerfLogger:
     def test_legacy_methods(self):
         """Test that legacy methods delegate to the logger."""
         logger = AIPerfLogger("test")
-        logger.setLevel(AIPerfLogger.WARNING)
-        assert logger.getEffectiveLevel() == AIPerfLogger.WARNING
-        assert logger.isEnabledFor(AIPerfLogger.WARNING)
+        logger.setLevel(_WARNING)
+        assert logger.getEffectiveLevel() == _WARNING
+        assert logger.isEnabledFor(_WARNING)
 
 
 class TestAIPerfLoggerMixin:
@@ -192,14 +203,14 @@ class TestAIPerfLoggerMixin:
     @pytest.mark.parametrize(
         "method_name,level",
         [
-            ("trace", AIPerfLogger.TRACE),
-            ("debug", AIPerfLogger.DEBUG),
-            ("notice", AIPerfLogger.NOTICE),
-            ("info", AIPerfLogger.INFO),
-            ("warning", AIPerfLogger.WARNING),
-            ("error", AIPerfLogger.ERROR),
-            ("critical", AIPerfLogger.CRITICAL),
-            ("success", AIPerfLogger.SUCCESS),
+            ("trace", _TRACE),
+            ("debug", _DEBUG),
+            ("notice", _NOTICE),
+            ("info", _INFO),
+            ("warning", _WARNING),
+            ("error", _ERROR),
+            ("critical", _CRITICAL),
+            ("success", _SUCCESS),
         ],
     )
     def test_mixin_convenience_methods(self, mock_class, method_name, level):
@@ -215,10 +226,10 @@ class TestAIPerfLoggerMixin:
     def test_mixin_log_method(self, mock_class):
         """Test that mixin log method delegates to logger."""
         with patch.object(mock_class.logger, "log") as mock_log:
-            mock_class.log(AIPerfLogger.INFO, "Test message", "arg1", kwarg1="value1")
+            mock_class.log(_INFO, "Test message", "arg1", kwarg1="value1")
 
             mock_log.assert_called_once_with(
-                AIPerfLogger.INFO, "Test message", "arg1", kwarg1="value1"
+                _INFO, "Test message", "arg1", kwarg1="value1"
             )
 
     def test_mixin_with_lazy_evaluation(self, mock_class):
@@ -230,7 +241,7 @@ class TestAIPerfLoggerMixin:
 
             mock_class.info(message_lambda)
 
-            mock_log.assert_called_once_with(AIPerfLogger.INFO, message_lambda)
+            mock_log.assert_called_once_with(_INFO, message_lambda)
 
 
 class TestIntegration:
@@ -239,12 +250,12 @@ class TestIntegration:
     @pytest.mark.parametrize(
         "method_name,level,should_be_logged",
         [
-            ("info", AIPerfLogger.INFO, True),
-            ("notice", AIPerfLogger.NOTICE, True),
-            ("success", AIPerfLogger.SUCCESS, True),
-            ("error", AIPerfLogger.ERROR, True),
-            ("critical", AIPerfLogger.CRITICAL, True),
-            ("exception", AIPerfLogger.ERROR, True),
+            ("info", _INFO, True),
+            ("notice", _NOTICE, True),
+            ("success", _SUCCESS, True),
+            ("error", _ERROR, True),
+            ("critical", _CRITICAL, True),
+            ("exception", _ERROR, True),
         ],
     )
     def test_end_to_end_logging(self, caplog, method_name, level, should_be_logged):
@@ -359,8 +370,8 @@ class TestPerformance:
 
         aiperf_logger.set_level(logging.WARNING)
         aiperf_logger._logger.root.handlers = []
-        for handler in aiperf_logger.handlers[:]:
-            aiperf_logger.removeHandler(handler)
+        for handler in aiperf_logger._logger.handlers[:]:
+            aiperf_logger._logger.removeHandler(handler)
 
         # standard_logger.addHandler(logging.StreamHandler(sys.de))
         # aiperf_logger.addHandler(logging.StreamHandler(sys.stderr))

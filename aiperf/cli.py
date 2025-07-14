@@ -74,7 +74,7 @@ def _setup_logging(service_config: ServiceConfig | None = None) -> None:
     )
     logging.root.addHandler(file_handler)
 
-    logger.debug("Logging initialized with level: %s", level)
+    logger.debug(lambda: f"Logging initialized with level: {level}")
 
 
 # @app.command("profile")
@@ -119,7 +119,7 @@ def main(
     # Load configuration
     if cli_config.config:
         # In a real implementation, this would load from the specified file
-        logger.debug("Loading configuration from %s", cli_config.config)
+        logger.debug(f"Loading configuration from {cli_config.config}")
         # service_config.load_from_file(cli_config.config)
 
     # Create and start the system controller

@@ -34,18 +34,24 @@ class LogsDashboardElement(DashboardElement):
 
     # Color styles for log level names
     LOG_LEVEL_STYLES = {
+        "TRACE": "dim",
         "DEBUG": "dim",
         "INFO": "green",
+        "NOTICE": "blue",
         "WARNING": "yellow",
+        "SUCCESS": "bold green",
         "ERROR": "red",
         "CRITICAL": "bold red",
     }
 
     # Color styles for log messages
     LOG_MSG_STYLES = {
+        "TRACE": "dim",
         "DEBUG": "dim",
         "INFO": "white",
+        "NOTICE": "blue",
         "WARNING": "yellow",
+        "SUCCESS": "bold green",
         "ERROR": "red",
         "CRITICAL": "bold red",
     }

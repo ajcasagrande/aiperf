@@ -149,6 +149,7 @@ class SystemController(
                 MessageType.CREDIT_PHASE_COMPLETE,
                 self._forward_generic_message,
             ),
+            (MessageType.CREDIT_PHASE_SENDING_COMPLETE, self._forward_generic_message),
         ]
         for message_type, callback in subscribe_callbacks:
             try:
@@ -318,12 +319,17 @@ class SystemController(
         MessageType.CREDIT_PHASE_PROGRESS,
         MessageType.CREDIT_PHASE_START,
         MessageType.CREDIT_PHASE_COMPLETE,
+        MessageType.CREDIT_PHASE_SENDING_COMPLETE,
     )
     async def _forward_generic_message(self, message: Message) -> None:
         """Generic message handler for all messages that don't have or need a specific handler."""
         self.trace("SC: Received message: %s", message)
         self.progress_tracker.on_message(message)
         await self.ui.on_message(message)
+        if message.message_type == MessageType.CREDIT_PHASE_SENDING_COMPLETE:
+            self.info("Credit phase sending complete, sending process records command")
+        if message.message_type == MessageType.CREDIT_PHASE_COMPLETE:
+            self.info("Profile completed, sending process records command")
 
     @on_message(MessageType.PROCESSING_STATS)
     async def _process_processing_stats_message(

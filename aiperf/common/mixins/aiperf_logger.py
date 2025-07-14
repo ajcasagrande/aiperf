@@ -34,8 +34,9 @@ class AIPerfLoggerMixin:
                 super().__init__()
                 self.trace(lambda: f"Processing {item} of {count} ({item / count * 100}% complete)")
                 self.info("Simple string message")
+                self.debug(lambda i=i: f"Processing {i}")
                 self.warning("Warning message: %s", "legacy support")
-                self.exception(lambda e=e: f"Error: {e}")
+                self.exception(f"Error: {e}")
                 self.success(lambda: f"Benchmark completed successfully after {time.time() - start_time} seconds")
     """
 

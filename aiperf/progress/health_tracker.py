@@ -3,7 +3,7 @@
 import logging
 from collections.abc import AsyncIterator, Iterator
 
-from aiperf.common.worker_models import WorkerHealthMessage
+from aiperf.common.messages import WorkerHealthMessage
 
 
 class HealthTracker:

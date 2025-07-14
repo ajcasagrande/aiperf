@@ -243,6 +243,12 @@ class ProfileRunProgress(AIPerfBaseModel):
 
     def on_credit_phase_progress(self, message: CreditPhaseProgressMessage):
         """Update the progress from a credit phase progress message."""
+        if message.phase not in self.phases:
+            logger.debug(
+                lambda: f"ProfileRunProgress: Received credit phase progress message for unknown phase: {message.phase}"
+            )
+            return
+
         self.phases[message.phase].sent = message.sent
         self.phases[message.phase].completed = message.completed
         self.update_requests_stats(self.phases[message.phase], message.request_ns)
