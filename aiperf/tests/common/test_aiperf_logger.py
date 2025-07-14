@@ -115,14 +115,15 @@ class TestAIPerfLogger:
         f-string formatting when the log will NOT be printed.
         """
 
-        def aiperf_lazy_evaluation():
+        def aiperf_lazy_f_string():
             aiperf_logger.debug(lambda: f"Hello, world! {time.time_ns() ** 2}")
 
         def standard_f_string():
             standard_logger.debug(f"Hello, world! {time.time_ns() ** 2}")
 
+        # Expected to be faster than standard logger
         compare_logger_performance(
-            aiperf_lazy_evaluation,
+            aiperf_lazy_f_string,
             standard_f_string,
             number=1_000,
             min_speed_up=1.5,
@@ -149,6 +150,7 @@ class TestAIPerfLogger:
                 "Hello, world! This is a test of an example message that will NOT be printed."
             )
 
+        # Expected to be marginally slower than standard logger
         compare_logger_performance(
             aiperf_plain_string,
             standard_plain_string,
@@ -156,6 +158,7 @@ class TestAIPerfLogger:
             max_slow_down=1.5,
         )
 
+        # Expected to be marginally slower than standard logger
         compare_logger_performance(
             aiperf_plain_string_lazy,
             standard_plain_string,
@@ -184,6 +187,7 @@ class TestAIPerfLogger:
                 "Hello, world! This is a test of an example message that will be printed."
             )
 
+        # Expected to be marginally slower than standard logger
         compare_logger_performance(
             aiperf_plain_string,
             standard_plain_string,
@@ -191,6 +195,7 @@ class TestAIPerfLogger:
             max_slow_down=1.5,
         )
 
+        # Expected to be marginally slower than standard logger
         compare_logger_performance(
             aiperf_plain_string_lazy,
             standard_plain_string,
@@ -214,6 +219,7 @@ class TestAIPerfLogger:
                 "Hello, world! This will be printed %s" * 100, *["test"] * 100
             )
 
+        # Expected to be marginally slower than standard logger
         compare_logger_performance(
             aiperf_formatting,
             standard_formatting,
@@ -241,6 +247,7 @@ class TestAIPerfLogger:
                 "Hello, world! This will NOT be printed %s " * 100, *["test"] * 100
             )
 
+        # Expected to be faster than standard logger
         compare_logger_performance(
             aiperf_formatting_and_lazy_evaluation,
             standard_formatting_and_lazy_evaluation,
@@ -268,6 +275,7 @@ class TestAIPerfLogger:
                 time.time_ns() ** 2,
             )
 
+        # Expected to be faster than standard logger
         compare_logger_performance(
             aiperf_multiple_args,
             standard_multiple_args,
@@ -291,6 +299,7 @@ class TestAIPerfLogger:
                 "Hello, world! This will be printed %s" * 100, *["test"] * 100
             )
 
+        # Expected to be marginally slower than standard logger
         compare_logger_performance(
             aiperf_message_formatting,
             standard_message_formatting,
@@ -315,7 +324,7 @@ class TestAIPerfLogger:
         def standard_fmt_message():
             standard_logger.debug("Got message: %s", large_message)
 
-        # Should be incredibly fast
+        # Expected to be incredibly fast
         compare_logger_performance(
             aiperf_f_string_message,
             standard_f_string_message,
@@ -323,7 +332,7 @@ class TestAIPerfLogger:
             min_speed_up=10,
         )
 
-        # Should be slower than %s, but not more than 1.5x
+        # Expected to be marginally slower than standard logger
         compare_logger_performance(
             aiperf_f_string_message,
             standard_fmt_message,
@@ -356,7 +365,7 @@ class TestAIPerfLogger:
                 / NANOS_PER_SECOND,
             )
 
-        # Should be decently faster
+        # Expected to be decently faster
         compare_logger_performance(
             aiperf_f_string_math,
             standard_f_string_math,

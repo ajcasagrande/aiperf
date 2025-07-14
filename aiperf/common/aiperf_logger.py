@@ -14,15 +14,11 @@ from aiperf.common import utils
 _TRACE = logging.DEBUG - 5
 _DEBUG = logging.DEBUG
 _INFO = logging.INFO
-_NOTICE = logging.WARNING - 5
 _WARNING = logging.WARNING
-_SUCCESS = logging.WARNING + 1
 _ERROR = logging.ERROR
 _CRITICAL = logging.CRITICAL
 
 logging.addLevelName(_TRACE, "TRACE")
-logging.addLevelName(_NOTICE, "NOTICE")
-logging.addLevelName(_SUCCESS, "SUCCESS")
 
 _ignored_files = [logging._srcfile, utils._srcfile, __file__]
 
@@ -35,8 +31,6 @@ class AIPerfLogger:
 
     It also extends the standard logging module with additional log levels:
         - TRACE    (lower than DEBUG)
-        - NOTICE   (lower than WARNING)
-        - SUCCESS  (around WARNING)
 
     Usage:
         logger = AIPerfLogger("my_logger")
@@ -66,9 +60,7 @@ class AIPerfLogger:
         self.is_trace_enabled = MethodType(self._logger.isEnabledFor, _TRACE)
         self.is_debug_enabled = MethodType(self._logger.isEnabledFor, _DEBUG)
         self.is_info_enabled = MethodType(self._logger.isEnabledFor, _INFO)
-        self.is_notice_enabled = MethodType(self._logger.isEnabledFor, _NOTICE)
         self.is_warning_enabled = MethodType(self._logger.isEnabledFor, _WARNING)
-        self.is_success_enabled = MethodType(self._logger.isEnabledFor, _SUCCESS)
         self.is_error_enabled = MethodType(self._logger.isEnabledFor, _ERROR)
         self.is_critical_enabled = MethodType(self._logger.isEnabledFor, _CRITICAL)
 
@@ -102,8 +94,6 @@ class AIPerfLogger:
         if isinstance(level, str):
             return level in [
                 "TRACE",
-                "NOTICE",
-                "SUCCESS",
                 "DEBUG",
                 "INFO",
                 "WARNING",
@@ -113,8 +103,6 @@ class AIPerfLogger:
         else:
             return level in [
                 _TRACE,
-                _NOTICE,
-                _SUCCESS,
                 _DEBUG,
                 _INFO,
                 _WARNING,
@@ -193,20 +181,10 @@ class AIPerfLogger:
         if self.is_enabled_for(_INFO):
             self._log(_INFO, msg, *args, **kwargs)
 
-    def notice(self, msg: str | Callable[..., str], *args, **kwargs) -> None:
-        """Log a notice message with support for lazy evaluation through lambdas."""
-        if self.is_enabled_for(_NOTICE):
-            self._log(_NOTICE, msg, *args, **kwargs)
-
     def warning(self, msg: str | Callable[..., str], *args, **kwargs) -> None:
         """Log a warning message with support for lazy evaluation using lambdas."""
         if self.is_enabled_for(_WARNING):
             self._log(_WARNING, msg, *args, **kwargs)
-
-    def success(self, msg: str | Callable[..., str], *args, **kwargs) -> None:
-        """Log a success message with support for lazy evaluation using lambdas."""
-        if self.is_enabled_for(_SUCCESS):
-            self._log(_SUCCESS, msg, *args, **kwargs)
 
     def error(self, msg: str | Callable[..., str], *args, **kwargs) -> None:
         """Log an error message with support for lazy evaluation using lambdas."""
