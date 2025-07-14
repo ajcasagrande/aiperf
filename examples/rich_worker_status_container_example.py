@@ -91,7 +91,7 @@ class WorkerStatusExampleApp(App):
                 num_threads=4,
             ),
             task_stats={
-                CreditPhase.STEADY_STATE: WorkerPhaseTaskStats(
+                CreditPhase.PROFILING: WorkerPhaseTaskStats(
                     total=100,
                     completed=90,
                     failed=2,
@@ -128,7 +128,7 @@ class WorkerStatusExampleApp(App):
                 num_threads=8,
             ),
             task_stats={
-                CreditPhase.STEADY_STATE: WorkerPhaseTaskStats(
+                CreditPhase.PROFILING: WorkerPhaseTaskStats(
                     total=120,
                     completed=110,
                     failed=1,
@@ -165,7 +165,7 @@ class WorkerStatusExampleApp(App):
                 num_threads=2,
             ),
             task_stats={
-                CreditPhase.STEADY_STATE: WorkerPhaseTaskStats(
+                CreditPhase.PROFILING: WorkerPhaseTaskStats(
                     total=80,
                     completed=60,
                     failed=15,  # High error rate
@@ -202,7 +202,7 @@ class WorkerStatusExampleApp(App):
                 num_threads=1,
             ),
             task_stats={
-                CreditPhase.STEADY_STATE: WorkerPhaseTaskStats(
+                CreditPhase.PROFILING: WorkerPhaseTaskStats(
                     total=0,  # Idle
                     completed=0,
                     failed=0,
@@ -231,8 +231,8 @@ class WorkerStatusExampleApp(App):
                 # Simulate changing CPU usage
                 health.process.cpu_usage = 20.0 + (time.time() % 30)
                 # Simulate task progress
-                if CreditPhase.STEADY_STATE in health.task_stats:
-                    stats = health.task_stats[CreditPhase.STEADY_STATE]
+                if CreditPhase.PROFILING in health.task_stats:
+                    stats = health.task_stats[CreditPhase.PROFILING]
                     stats.completed = min(stats.completed + 1, stats.total)
 
             elif worker_id == "worker-002":
@@ -241,8 +241,8 @@ class WorkerStatusExampleApp(App):
 
             elif worker_id == "worker-003":
                 # Simulate more failures
-                if CreditPhase.STEADY_STATE in health.task_stats:
-                    stats = health.task_stats[CreditPhase.STEADY_STATE]
+                if CreditPhase.PROFILING in health.task_stats:
+                    stats = health.task_stats[CreditPhase.PROFILING]
                     if stats.failed < 20:
                         stats.failed += 1
                         stats.total += 1
@@ -250,15 +250,15 @@ class WorkerStatusExampleApp(App):
             elif worker_id == "worker-004":
                 # Simulate idle worker occasionally getting tasks
                 if time.time() % 10 < 2:  # 20% of the time
-                    if CreditPhase.STEADY_STATE in health.task_stats:
-                        stats = health.task_stats[CreditPhase.STEADY_STATE]
+                    if CreditPhase.PROFILING in health.task_stats:
+                        stats = health.task_stats[CreditPhase.PROFILING]
                         stats.total = 5
                         stats.completed = 3
                         stats.failed = 0
                 else:
                     # Reset to idle
-                    if CreditPhase.STEADY_STATE in health.task_stats:
-                        stats = health.task_stats[CreditPhase.STEADY_STATE]
+                    if CreditPhase.PROFILING in health.task_stats:
+                        stats = health.task_stats[CreditPhase.PROFILING]
                         stats.total = 0
                         stats.completed = 0
                         stats.failed = 0

@@ -62,7 +62,7 @@ class TestProgressTracker:
         # Configure with profile run
         profile_run = ProfileRunProgress(
             profile_id="test-profile",
-            active_phase=CreditPhase.STEADY_STATE,
+            active_phase=CreditPhase.PROFILING,
         )
         suite = BenchmarkSuiteProgress(
             type=BenchmarkSuiteType.SINGLE_PROFILE,
@@ -71,7 +71,7 @@ class TestProgressTracker:
         )
         tracker.configure(suite, profile_run)
 
-        assert tracker.active_credit_phase == CreditPhase.STEADY_STATE
+        assert tracker.active_credit_phase == CreditPhase.PROFILING
 
     def test_on_credit_phase_start(self, credit_phase_start_message):
         """Test handling credit phase start message."""
@@ -86,9 +86,9 @@ class TestProgressTracker:
 
         tracker.on_credit_phase_start(credit_phase_start_message)
 
-        assert tracker.current_profile_run.active_phase == CreditPhase.STEADY_STATE
-        assert CreditPhase.STEADY_STATE in tracker.current_profile_run.phases
-        assert tracker.current_profile_run.phases[CreditPhase.STEADY_STATE].is_started
+        assert tracker.current_profile_run.active_phase == CreditPhase.PROFILING
+        assert CreditPhase.PROFILING in tracker.current_profile_run.phases
+        assert tracker.current_profile_run.phases[CreditPhase.PROFILING].is_started
 
     def test_on_credit_phase_progress(self, credit_phase_progress_message):
         """Test handling credit phase progress message."""
@@ -103,8 +103,8 @@ class TestProgressTracker:
 
         tracker.on_credit_phase_progress(credit_phase_progress_message)
 
-        assert CreditPhase.STEADY_STATE in tracker.current_profile_run.phases
-        phase = tracker.current_profile_run.phases[CreditPhase.STEADY_STATE]
+        assert CreditPhase.PROFILING in tracker.current_profile_run.phases
+        phase = tracker.current_profile_run.phases[CreditPhase.PROFILING]
         assert phase.sent == 50
         assert phase.completed == 25
 
@@ -121,8 +121,8 @@ class TestProgressTracker:
 
         tracker.on_credit_phase_complete(credit_phase_complete_message)
 
-        assert CreditPhase.STEADY_STATE in tracker.current_profile_run.phases
-        phase = tracker.current_profile_run.phases[CreditPhase.STEADY_STATE]
+        assert CreditPhase.PROFILING in tracker.current_profile_run.phases
+        phase = tracker.current_profile_run.phases[CreditPhase.PROFILING]
         assert phase.is_complete
 
     def test_on_phase_processing_stats(self, records_processing_stats_message):
@@ -138,17 +138,17 @@ class TestProgressTracker:
 
         tracker.on_phase_processing_stats(records_processing_stats_message)
 
-        assert CreditPhase.STEADY_STATE in tracker.current_profile_run.processing_stats
-        stats = tracker.current_profile_run.processing_stats[CreditPhase.STEADY_STATE]
+        assert CreditPhase.PROFILING in tracker.current_profile_run.processing_stats
+        stats = tracker.current_profile_run.processing_stats[CreditPhase.PROFILING]
         assert stats.processed == 45
         assert stats.errors == 5
 
         # Check worker stats
         assert "worker-1" in tracker.current_profile_run.worker_processing_stats
         worker_stats = tracker.current_profile_run.worker_processing_stats["worker-1"]
-        assert CreditPhase.STEADY_STATE in worker_stats
-        assert worker_stats[CreditPhase.STEADY_STATE].processed == 25
-        assert worker_stats[CreditPhase.STEADY_STATE].errors == 3
+        assert CreditPhase.PROFILING in worker_stats
+        assert worker_stats[CreditPhase.PROFILING].processed == 25
+        assert worker_stats[CreditPhase.PROFILING].errors == 3
 
     def test_on_worker_health(self, worker_health_message):
         """Test handling worker health message."""
@@ -166,10 +166,10 @@ class TestProgressTracker:
         worker_id = "test-worker"
         assert worker_id in tracker.current_profile_run.worker_task_stats
         task_stats = tracker.current_profile_run.worker_task_stats[worker_id]
-        assert CreditPhase.STEADY_STATE in task_stats
-        assert task_stats[CreditPhase.STEADY_STATE].total == 100
-        assert task_stats[CreditPhase.STEADY_STATE].completed == 75
-        assert task_stats[CreditPhase.STEADY_STATE].failed == 5
+        assert CreditPhase.PROFILING in task_stats
+        assert task_stats[CreditPhase.PROFILING].total == 100
+        assert task_stats[CreditPhase.PROFILING].completed == 75
+        assert task_stats[CreditPhase.PROFILING].failed == 5
 
     def test_requests_stats_computation(self):
         """Test computation of request statistics."""
@@ -183,7 +183,7 @@ class TestProgressTracker:
 
         # Create a phase with timing data
         phase_stats = CreditPhaseStats(
-            type=CreditPhase.STEADY_STATE,
+            type=CreditPhase.PROFILING,
             start_ns=time.time_ns() - 5 * NANOS_PER_SECOND,  # 5 seconds ago
             total=100,
             sent=100,
@@ -194,7 +194,7 @@ class TestProgressTracker:
         tracker.current_profile_run.update_requests_stats(phase_stats, time.time_ns())
 
         computed_stats = tracker.current_profile_run.computed_stats[
-            CreditPhase.STEADY_STATE
+            CreditPhase.PROFILING
         ]
         assert computed_stats.requests_per_second is not None
         assert computed_stats.requests_per_second > 0
@@ -214,24 +214,24 @@ class TestProgressTracker:
 
         # Set up phase with timing data
         phase_stats = CreditPhaseStats(
-            type=CreditPhase.STEADY_STATE,
+            type=CreditPhase.PROFILING,
             start_ns=time.time_ns() - 5 * NANOS_PER_SECOND,  # 5 seconds ago
             total=100,
             sent=100,
             completed=50,
         )
-        tracker.current_profile_run.phases[CreditPhase.STEADY_STATE] = phase_stats
+        tracker.current_profile_run.phases[CreditPhase.PROFILING] = phase_stats
 
         # Create processing stats
         processing_stats = PhaseProcessingStats(processed=30, errors=5)
 
         # Update records stats
         tracker.current_profile_run.update_records_stats(
-            CreditPhase.STEADY_STATE, time.time_ns(), processing_stats
+            CreditPhase.PROFILING, time.time_ns(), processing_stats
         )
 
         computed_stats = tracker.current_profile_run.computed_stats[
-            CreditPhase.STEADY_STATE
+            CreditPhase.PROFILING
         ]
         assert computed_stats.records_per_second is not None
         assert computed_stats.records_per_second > 0
@@ -248,13 +248,13 @@ class TestProgressTracker:
 
         # Add a started phase
         phase_stats = CreditPhaseStats(
-            type=CreditPhase.STEADY_STATE,
+            type=CreditPhase.PROFILING,
             start_ns=time.time_ns(),
             total=100,
             sent=50,
             completed=25,
         )
-        profile_run.phases[CreditPhase.STEADY_STATE] = phase_stats
+        profile_run.phases[CreditPhase.PROFILING] = phase_stats
 
         assert profile_run.is_started
         assert not profile_run.is_complete
@@ -271,7 +271,7 @@ class TestProgressTracker:
 
         # All methods should not raise errors with no current profile run
         phase_stats = CreditPhaseStats(
-            type=CreditPhase.STEADY_STATE,
+            type=CreditPhase.PROFILING,
             start_ns=time.time_ns(),
             total=100,
             sent=50,
@@ -292,7 +292,7 @@ class TestProgressTracker:
         )
         processing_message = RecordsProcessingStatsMessage(
             service_id="test-service",
-            current_phase=CreditPhase.STEADY_STATE,
+            current_phase=CreditPhase.PROFILING,
             phase_stats=PhaseProcessingStats(processed=10, errors=1),
             worker_stats={},
         )

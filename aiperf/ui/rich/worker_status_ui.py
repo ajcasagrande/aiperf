@@ -71,8 +71,8 @@ class WorkerStatusElement(DashboardElement):
             last_seen = self.worker_last_seen.get(service_id, current_time)
 
             process = health.process
-            if CreditPhase.STEADY_STATE in health.task_stats:
-                task_stats = health.task_stats[CreditPhase.STEADY_STATE]
+            if CreditPhase.PROFILING in health.task_stats:
+                task_stats = health.task_stats[CreditPhase.PROFILING]
             else:
                 task_stats = WorkerPhaseTaskStats(
                     total=0,

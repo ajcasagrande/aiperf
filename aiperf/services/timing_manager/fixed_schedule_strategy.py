@@ -35,7 +35,7 @@ class FixedScheduleStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
 
         # Create a profiling phase for progress tracking
         self.active_phase = CreditPhaseStats(
-            type=CreditPhase.STEADY_STATE,
+            type=CreditPhase.PROFILING,
             start_ns=time.time_ns(),
             total_requests=len(schedule),
             sent=0,

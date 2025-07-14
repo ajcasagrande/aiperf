@@ -41,7 +41,7 @@ class AIPerfLoggerMixin:
     """
 
     def __init__(self, logger_name: str | None = None, **kwargs) -> None:
-        super().__init__(**kwargs)
+        super().__init__()
         self.logger = AIPerfLogger(logger_name or self.__class__.__name__)
         self._log = self.logger._log
         self.is_enabled_for = self.logger.is_enabled_for

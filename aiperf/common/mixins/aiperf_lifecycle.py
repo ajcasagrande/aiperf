@@ -36,8 +36,8 @@ class AIPerfLifecycleMixin(HooksMixin, AsyncTaskManagerMixin, AIPerfLoggerMixin)
     start and stop the tasks.
     """
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.initialized_event: asyncio.Event = asyncio.Event()
         self.started_event: asyncio.Event = asyncio.Event()
         self.stop_requested: asyncio.Event = asyncio.Event()

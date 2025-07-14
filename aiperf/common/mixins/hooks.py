@@ -16,7 +16,7 @@ class HooksMixin:
     # Class attributes that are set by the :func:`supports_hooks` decorator
     supported_hooks: ClassVar[set[HookType]] = set()
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, **kwargs):
         """
         Initialize the hook system and register all functions that are decorated with a hook decorator.
         """

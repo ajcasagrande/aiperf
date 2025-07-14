@@ -202,12 +202,12 @@ class RequestRecord(AIPerfBaseModel):
     )
     delayed_ns: int | None = Field(
         default=None,
-        gt=0,
+        ge=0,
         description="The number of nanoseconds the request was delayed from when it was expected to be sent, "
         "or None if the request was sent on time, or did not have a credit_drop_ns timestamp.",
     )
     credit_phase: CreditPhase = Field(
-        default=CreditPhase.STEADY_STATE,
+        default=CreditPhase.PROFILING,
         description="The type of credit phase (either warmup or profiling)",
     )
 

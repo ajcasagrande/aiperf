@@ -44,8 +44,8 @@ class TqdmProgressUI(AIPerfLifecycleMixin):
             if phase not in self.tqdm_requests and total_requests > 0:
                 self.tqdm_requests[phase] = tqdm(
                     total=total_requests,
-                    desc=f"Requests ({phase.value})",
-                    colour="green",
+                    desc=f"Requests ({phase.capitalize()})",
+                    colour="green" if phase == CreditPhase.PROFILING else "yellow",
                 )
 
             if phase in self.tqdm_requests:
@@ -68,7 +68,7 @@ class TqdmProgressUI(AIPerfLifecycleMixin):
         if current_profile_run is None:
             return
 
-        for phase, processing_stats in current_profile_run.processing_stats.items():
+        for phase, processing_stats in current_profile_run.phases.items():
             processed_records = processing_stats.processed
             total_records = processing_stats.total_records
 
@@ -76,7 +76,7 @@ class TqdmProgressUI(AIPerfLifecycleMixin):
             if phase not in self.tqdm_records and total_records > 0:
                 self.tqdm_records[phase] = tqdm(
                     total=total_records,
-                    desc=f"Records ({phase.value})",
+                    desc=f" Records ({phase.capitalize()})",
                     colour="blue",
                 )
 
@@ -90,11 +90,10 @@ class TqdmProgressUI(AIPerfLifecycleMixin):
                 and processed_records >= total_records
                 and phase in self.tqdm_records
             ):
-                self.logger.debug(
-                    "Phase %s - Closing TQDM. Records Processed: %d / %d",
-                    phase,
-                    processed_records,
-                    total_records,
+                self.debug(
+                    lambda phase=phase,
+                    processed=processed_records,
+                    total=total_records: f"Phase {phase} - Closing TQDM. Records Processed: {processed} / {total}",
                 )
                 self.tqdm_records[phase].close()
                 del self.tqdm_records[phase]
@@ -123,20 +122,20 @@ class TqdmProgressUI(AIPerfLifecycleMixin):
 
     async def update_credit_phase_complete(self, message: CreditPhaseCompleteMessage):
         """Log a credit phase complete update."""
-        self.logger.debug("Credit phase %s completed", message.phase_stats.type)
+        self.logger.debug("Credit phase %s completed", message.phase)
 
-        if message.phase_stats.type in self.tqdm_requests:
-            self.tqdm_requests[message.phase_stats.type].close()
-            del self.tqdm_requests[message.phase_stats.type]
+        if message.phase in self.tqdm_requests:
+            self.tqdm_requests[message.phase].close()
+            del self.tqdm_requests[message.phase]
 
-        if message.phase_stats.type in self.tqdm_records:
-            self.tqdm_records[message.phase_stats.type].close()
-            del self.tqdm_records[message.phase_stats.type]
+        if message.phase in self.tqdm_records:
+            self.tqdm_records[message.phase].close()
+            del self.tqdm_records[message.phase]
 
     async def update_credit_phase_start(self, message: CreditPhaseStartMessage):
         """Log a credit phase start update."""
-        self.logger.debug("Credit phase %s started", message.phase_stats.type)
-        phase = message.phase_stats.type
+        self.logger.debug("Credit phase %s started", message.phase)
+        phase = message.phase
 
         # Close any existing tqdm for this phase
         if phase in self.tqdm_requests:

@@ -48,7 +48,7 @@ class SimpleProgressLogger(AIPerfLoggerMixin):
         if current_profile_run is None:
             return
 
-        for phase, processing_stats in current_profile_run.processing_stats.items():
+        for phase, processing_stats in current_profile_run.phases.items():
             processed_records = processing_stats.processed
             total_records = processing_stats.total_records
 
@@ -82,20 +82,16 @@ class SimpleProgressLogger(AIPerfLoggerMixin):
 
     async def update_credit_phase_complete(self, message: CreditPhaseCompleteMessage):
         """Log a credit phase complete update."""
-        self.notice(
-            lambda phase=message.phase_stats.type: f"Credit phase {phase} completed"
-        )
+        self.notice(lambda phase=message.phase: f"Credit phase {phase} completed")
 
     async def update_credit_phase_start(self, message: CreditPhaseStartMessage):
         """Log a credit phase start update."""
-        self.notice(
-            lambda phase=message.phase_stats.type: f"Credit phase {phase} started"
-        )
+        self.notice(lambda phase=message.phase: f"Credit phase {phase} started")
 
     async def update_credit_phase_progress(self, message: CreditPhaseProgressMessage):
         """Log a credit phase progress update."""
         self.info(
-            lambda phases=message.phase_progress_map: f"Credit phase {phases.keys()} progress updated"
+            lambda phases=message.phase: f"Credit phase {phases} progress updated"
         )
 
         # This will be handled by update_progress() which is called regularly

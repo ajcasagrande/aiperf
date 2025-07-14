@@ -184,7 +184,7 @@ class RecordsManager(BaseComponentService):
         """Handle a parsed inference results message."""
 
         self.active_credit_phase = message.record.request.credit_phase
-        if self.active_credit_phase != CreditPhase.STEADY_STATE:
+        if self.active_credit_phase != CreditPhase.PROFILING:
             return
 
         self.logger.debug("Received parsed inference results: %s", message)

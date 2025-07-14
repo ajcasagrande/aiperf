@@ -32,7 +32,7 @@ def profile_run_progress():
     """Create a basic ProfileRunProgress instance."""
     return ProfileRunProgress(
         profile_id="test-profile",
-        active_phase=CreditPhase.STEADY_STATE,
+        active_phase=CreditPhase.PROFILING,
     )
 
 
@@ -63,7 +63,7 @@ def simple_progress_logger(progress_tracker):
 def credit_phase_stats():
     """Create a CreditPhaseStats instance."""
     return CreditPhaseStats(
-        type=CreditPhase.STEADY_STATE,
+        type=CreditPhase.PROFILING,
         start_ns=time.time_ns(),
         total_requests=100,
         sent=50,
@@ -76,7 +76,7 @@ def credit_phase_progress_message(credit_phase_stats):
     """Create a CreditPhaseProgressMessage instance."""
     return CreditPhaseProgressMessage(
         service_id="test-service",
-        phase_progress_map={CreditPhase.STEADY_STATE: credit_phase_stats},
+        phase_progress_map={CreditPhase.PROFILING: credit_phase_stats},
     )
 
 
@@ -113,7 +113,7 @@ def records_processing_stats_message(phase_processing_stats):
     """Create a RecordsProcessingStatsMessage instance."""
     return RecordsProcessingStatsMessage(
         service_id="test-service",
-        phase=CreditPhase.STEADY_STATE,
+        phase=CreditPhase.PROFILING,
         processing_stats=phase_processing_stats,
         worker_stats={
             "worker-1": PhaseProcessingStats(processed=25, errors=3),
@@ -153,7 +153,7 @@ def worker_health_message():
             num_threads=4,
         ),
         task_stats={
-            CreditPhase.STEADY_STATE: WorkerPhaseTaskStats(
+            CreditPhase.PROFILING: WorkerPhaseTaskStats(
                 total=100,
                 completed=75,
                 failed=5,

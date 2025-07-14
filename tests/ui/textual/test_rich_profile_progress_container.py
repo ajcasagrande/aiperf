@@ -60,7 +60,7 @@ class TestRichProfileProgressContainer:
         data = ProfileProgressData(
             profile_id="test-profile",
             status=ProfileStatus.PROCESSING,
-            active_phase=CreditPhase.STEADY_STATE,
+            active_phase=CreditPhase.PROFILING,
             requests_completed=150,
             requests_total=1000,
             requests_progress_percent=15.0,
@@ -74,7 +74,7 @@ class TestRichProfileProgressContainer:
 
         assert data.profile_id == "test-profile"
         assert data.status == ProfileStatus.PROCESSING
-        assert data.active_phase == CreditPhase.STEADY_STATE
+        assert data.active_phase == CreditPhase.PROFILING
         assert data.requests_completed == 150
         assert data.requests_total == 1000
         assert data.requests_progress_percent == 15.0
@@ -102,14 +102,14 @@ class TestRichProfileProgressContainer:
     def test_phase_overview_data_creation(self):
         """Test PhaseOverviewData creation."""
         data = PhaseOverviewData(
-            phase=CreditPhase.STEADY_STATE,
+            phase=CreditPhase.PROFILING,
             status="Running",
             progress="500/1000 (50.0%)",
             rate="12.5 req/s",
             status_style="phase-running",
         )
 
-        assert data.phase == CreditPhase.STEADY_STATE
+        assert data.phase == CreditPhase.PROFILING
         assert data.status == "Running"
         assert data.progress == "500/1000 (50.0%)"
         assert data.rate == "12.5 req/s"
@@ -163,13 +163,13 @@ class TestRichProfileProgressContainer:
 
         # Add phase stats
         phase_stats = CreditPhaseStats(
-            type=CreditPhase.STEADY_STATE,
+            type=CreditPhase.PROFILING,
             start_ns=time.time_ns() - 1000000000,
             total_requests=1000,
             sent=300,
             completed=250,
         )
-        profile_run.phases[CreditPhase.STEADY_STATE] = phase_stats
+        profile_run.phases[CreditPhase.PROFILING] = phase_stats
 
         # Add computed stats
         computed_stats = CreditPhaseComputedStats(
@@ -178,21 +178,21 @@ class TestRichProfileProgressContainer:
             records_per_second=11.8,
             records_eta=65.0,
         )
-        profile_run.computed_stats[CreditPhase.STEADY_STATE] = computed_stats
+        profile_run.computed_stats[CreditPhase.PROFILING] = computed_stats
 
         # Add processing stats
         processing_stats = PhaseProcessingStats(processed=240, errors=10)
-        profile_run.processing_stats[CreditPhase.STEADY_STATE] = processing_stats
+        profile_run.processing_stats[CreditPhase.PROFILING] = processing_stats
 
         container.progress_tracker = progress_tracker
         container.progress_tracker.current_profile_run = profile_run
-        container.progress_tracker.active_credit_phase = CreditPhase.STEADY_STATE
+        container.progress_tracker.active_credit_phase = CreditPhase.PROFILING
 
         progress_data = container._process_profile_data(profile_run)
 
         assert progress_data.profile_id == "test-profile"
         assert progress_data.status == ProfileStatus.PROCESSING
-        assert progress_data.active_phase == CreditPhase.STEADY_STATE
+        assert progress_data.active_phase == CreditPhase.PROFILING
         assert progress_data.requests_completed == 250
         assert progress_data.requests_total == 1000
         assert progress_data.requests_progress_percent == 25.0
@@ -215,14 +215,14 @@ class TestRichProfileProgressContainer:
 
         # Add completed phase stats
         phase_stats = CreditPhaseStats(
-            type=CreditPhase.STEADY_STATE,
+            type=CreditPhase.PROFILING,
             start_ns=time.time_ns() - 2000000000,
             end_ns=time.time_ns() - 1000000000,
             total_requests=1000,
             sent=1000,
             completed=1000,
         )
-        profile_run.phases[CreditPhase.STEADY_STATE] = phase_stats
+        profile_run.phases[CreditPhase.PROFILING] = phase_stats
 
         container.progress_tracker = progress_tracker
         container.progress_tracker.current_profile_run = profile_run
@@ -247,17 +247,17 @@ class TestRichProfileProgressContainer:
         # Add worker task stats
         profile_run.worker_task_stats = {
             "worker-001": {
-                CreditPhase.STEADY_STATE: WorkerPhaseTaskStats(
+                CreditPhase.PROFILING: WorkerPhaseTaskStats(
                     total=100, completed=80, failed=2
                 )
             },
             "worker-002": {
-                CreditPhase.STEADY_STATE: WorkerPhaseTaskStats(
+                CreditPhase.PROFILING: WorkerPhaseTaskStats(
                     total=100, completed=75, failed=1
                 )
             },
             "worker-003": {
-                CreditPhase.STEADY_STATE: WorkerPhaseTaskStats(
+                CreditPhase.PROFILING: WorkerPhaseTaskStats(
                     total=100, completed=85, failed=0
                 )
             },
@@ -265,7 +265,7 @@ class TestRichProfileProgressContainer:
 
         container.progress_tracker = progress_tracker
         container.progress_tracker.current_profile_run = profile_run
-        container.progress_tracker.active_credit_phase = CreditPhase.STEADY_STATE
+        container.progress_tracker.active_credit_phase = CreditPhase.PROFILING
 
         progress_data = container._process_profile_data(profile_run)
 
@@ -292,17 +292,17 @@ class TestRichProfileProgressContainer:
 
         # Running steady state phase
         steady_stats = CreditPhaseStats(
-            type=CreditPhase.STEADY_STATE,
+            type=CreditPhase.PROFILING,
             start_ns=time.time_ns() - 2000000000,
             total_requests=1000,
             sent=300,
             completed=250,
         )
-        profile_run.phases[CreditPhase.STEADY_STATE] = steady_stats
+        profile_run.phases[CreditPhase.PROFILING] = steady_stats
 
         # Add computed stats for steady state
         computed_stats = CreditPhaseComputedStats(requests_per_second=12.5)
-        profile_run.computed_stats[CreditPhase.STEADY_STATE] = computed_stats
+        profile_run.computed_stats[CreditPhase.PROFILING] = computed_stats
 
         phases_data = container._process_phases_data(profile_run)
 
@@ -316,9 +316,7 @@ class TestRichProfileProgressContainer:
         assert warmup_phase.progress == "50/50 (100.0%)"
 
         # Find steady state phase
-        steady_phase = next(
-            p for p in phases_data if p.phase == CreditPhase.STEADY_STATE
-        )
+        steady_phase = next(p for p in phases_data if p.phase == CreditPhase.PROFILING)
         assert steady_phase.status == "Running"
         assert steady_phase.status_style == "phase-running"
         assert steady_phase.progress == "250/1000 (25.0%)"
@@ -417,14 +415,14 @@ class TestRichProfileProgressContainer:
 
         # Add completed phase
         phase_stats = CreditPhaseStats(
-            type=CreditPhase.STEADY_STATE,
+            type=CreditPhase.PROFILING,
             start_ns=time.time_ns() - 2000000000,
             end_ns=time.time_ns() - 1000000000,
             total_requests=1000,
             sent=1000,
             completed=1000,
         )
-        profile_run.phases[CreditPhase.STEADY_STATE] = phase_stats
+        profile_run.phases[CreditPhase.PROFILING] = phase_stats
 
         container.progress_tracker = progress_tracker
         container.progress_tracker.current_profile_run = profile_run

@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
+import multiprocessing
 from abc import ABC
 
 from aiperf.common.config import ServiceConfig, UserConfig
@@ -57,13 +58,16 @@ class BaseService(
         service_id: str | None = None,
         **kwargs,
     ) -> None:
+        self.service_id: str = (
+            service_id or f"{self.service_type}_{multiprocessing.current_process().pid}"
+        )
         super().__init__(
             service_id=service_id,
             service_config=service_config,
             user_config=user_config,
+            logger_name=self.service_id,
             **kwargs,
         )
-        self.service_id: str = service_id or f"{self.service_type}_{self.process.pid}"
         self.service_config = service_config
         self.user_config = user_config
 

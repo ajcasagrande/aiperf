@@ -104,6 +104,7 @@ class TestAIPerfLogger:
         """Test logging with different message types when level is enabled."""
         mock_logging_logger.isEnabledFor.return_value = True
         logger = AIPerfLogger("test")
+        logger._logger = mock_logging_logger
 
         logger.info(message, *args)
 

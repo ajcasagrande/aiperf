@@ -77,7 +77,7 @@ class ProfileProgressExampleApp(App):
         profile_run = ProfileRunProgress(
             profile_id="demo-profile-001",
             start_ns=time.time_ns() - 30_000_000_000,  # Started 30 seconds ago
-            active_phase=CreditPhase.STEADY_STATE,
+            active_phase=CreditPhase.PROFILING,
         )
 
         # Add some initial phase data
@@ -97,13 +97,13 @@ class ProfileProgressExampleApp(App):
 
         # Steady state phase (in progress)
         steady_stats = CreditPhaseStats(
-            type=CreditPhase.STEADY_STATE,
+            type=CreditPhase.PROFILING,
             start_ns=time.time_ns() - 20_000_000_000,
             total_requests=1000,
             sent=300,
             completed=250,
         )
-        profile_run.phases[CreditPhase.STEADY_STATE] = steady_stats
+        profile_run.phases[CreditPhase.PROFILING] = steady_stats
 
         # Add computed stats for steady state
         computed_stats = CreditPhaseComputedStats(
@@ -112,35 +112,35 @@ class ProfileProgressExampleApp(App):
             records_per_second=11.8,
             records_eta=65.0,
         )
-        profile_run.computed_stats[CreditPhase.STEADY_STATE] = computed_stats
+        profile_run.computed_stats[CreditPhase.PROFILING] = computed_stats
 
         # Add processing stats
         processing_stats = PhaseProcessingStats(
             processed=240,
             errors=5,
         )
-        profile_run.processing_stats[CreditPhase.STEADY_STATE] = processing_stats
+        profile_run.processing_stats[CreditPhase.PROFILING] = processing_stats
 
         # Add some worker task stats
         from aiperf.common.worker_models import WorkerPhaseTaskStats
 
         profile_run.worker_task_stats = {
             "worker-001": {
-                CreditPhase.STEADY_STATE: WorkerPhaseTaskStats(
+                CreditPhase.PROFILING: WorkerPhaseTaskStats(
                     total=100,
                     completed=85,
                     failed=2,
                 )
             },
             "worker-002": {
-                CreditPhase.STEADY_STATE: WorkerPhaseTaskStats(
+                CreditPhase.PROFILING: WorkerPhaseTaskStats(
                     total=100,
                     completed=80,
                     failed=1,
                 )
             },
             "worker-003": {
-                CreditPhase.STEADY_STATE: WorkerPhaseTaskStats(
+                CreditPhase.PROFILING: WorkerPhaseTaskStats(
                     total=100,
                     completed=75,
                     failed=3,
@@ -150,7 +150,7 @@ class ProfileProgressExampleApp(App):
 
         # Set the profile run in the tracker
         self.progress_tracker.current_profile_run = profile_run
-        self.progress_tracker.active_credit_phase = CreditPhase.STEADY_STATE
+        self.progress_tracker.active_credit_phase = CreditPhase.PROFILING
 
     def _update_simulation(self) -> None:
         """Update simulation to show changing progress."""
@@ -164,8 +164,8 @@ class ProfileProgressExampleApp(App):
         profile_run = self.progress_tracker.current_profile_run
 
         # Update steady state phase progress
-        if CreditPhase.STEADY_STATE in profile_run.phases:
-            phase_stats = profile_run.phases[CreditPhase.STEADY_STATE]
+        if CreditPhase.PROFILING in profile_run.phases:
+            phase_stats = profile_run.phases[CreditPhase.PROFILING]
 
             # Simulate progress (don't exceed total)
             if phase_stats.completed < phase_stats.total_requests:
@@ -185,8 +185,8 @@ class ProfileProgressExampleApp(App):
                     self._start_cooldown_phase()
 
         # Update processing stats
-        if CreditPhase.STEADY_STATE in profile_run.processing_stats:
-            processing_stats = profile_run.processing_stats[CreditPhase.STEADY_STATE]
+        if CreditPhase.PROFILING in profile_run.processing_stats:
+            processing_stats = profile_run.processing_stats[CreditPhase.PROFILING]
 
             # Simulate processing progress
             if processing_stats.processed < 1000:
@@ -200,16 +200,16 @@ class ProfileProgressExampleApp(App):
                     processing_stats.errors += 1
 
         # Update computed stats (simulate changing rates)
-        if CreditPhase.STEADY_STATE in profile_run.computed_stats:
-            computed = profile_run.computed_stats[CreditPhase.STEADY_STATE]
+        if CreditPhase.PROFILING in profile_run.computed_stats:
+            computed = profile_run.computed_stats[CreditPhase.PROFILING]
 
             # Simulate fluctuating rates
             computed.requests_per_second = 12.5 + random.uniform(-2.0, 2.0)
             computed.records_per_second = 11.8 + random.uniform(-1.5, 1.5)
 
             # Update ETAs based on progress
-            if CreditPhase.STEADY_STATE in profile_run.phases:
-                phase_stats = profile_run.phases[CreditPhase.STEADY_STATE]
+            if CreditPhase.PROFILING in profile_run.phases:
+                phase_stats = profile_run.phases[CreditPhase.PROFILING]
                 remaining = phase_stats.total_requests - phase_stats.completed
                 if computed.requests_per_second > 0:
                     computed.requests_eta = remaining / computed.requests_per_second
@@ -218,8 +218,8 @@ class ProfileProgressExampleApp(App):
 
         # Update worker task stats
         for worker_id, worker_phases in profile_run.worker_task_stats.items():
-            if CreditPhase.STEADY_STATE in worker_phases:
-                task_stats = worker_phases[CreditPhase.STEADY_STATE]
+            if CreditPhase.PROFILING in worker_phases:
+                task_stats = worker_phases[CreditPhase.PROFILING]
 
                 # Simulate task progress
                 if task_stats.completed < task_stats.total:

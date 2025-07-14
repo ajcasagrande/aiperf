@@ -55,9 +55,9 @@ class RequestRateStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
             )
 
         # Add the steady-state phase
-        self.phases.append(CreditPhase.STEADY_STATE)
-        self.phase_stats[CreditPhase.STEADY_STATE] = CreditPhaseStats(
-            type=CreditPhase.STEADY_STATE, total_requests=self.config.request_count
+        self.phases.append(CreditPhase.PROFILING)
+        self.phase_stats[CreditPhase.PROFILING] = CreditPhaseStats(
+            type=CreditPhase.PROFILING, total_requests=self.config.request_count
         )
 
         self.active_phase_idx = 0

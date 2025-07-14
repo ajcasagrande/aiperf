@@ -324,7 +324,7 @@ class TestRichWorkerStatusContainer:
                 num_threads=4,
             ),
             task_stats={
-                CreditPhase.STEADY_STATE: WorkerPhaseTaskStats(
+                CreditPhase.PROFILING: WorkerPhaseTaskStats(
                     total=100,
                     completed=90,
                     failed=2,

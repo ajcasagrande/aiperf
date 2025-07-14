@@ -89,11 +89,11 @@ class ProfileProgressElement(DashboardElement):
         if self.progress_task_ids.get(phase.type) is None and phase.total_requests:
             self.progress_task_ids[phase.type] = [
                 self.progress_bar.add_task(
-                    f"Executing {'warmup ' if phase.type != CreditPhase.STEADY_STATE else ''}requests...",
+                    f"Executing {'warmup ' if phase.type != CreditPhase.PROFILING else ''}requests...",
                     total=phase.total_requests,
                 )
             ]
-            if phase.type == CreditPhase.STEADY_STATE:
+            if phase.type == CreditPhase.PROFILING:
                 self.progress_task_ids[phase.type].append(
                     self.progress_bar.add_task(
                         "Processing results...", total=phase.total_requests
