@@ -10,6 +10,7 @@ from typing import Any
 
 import orjson
 
+from aiperf.common import aiperf_logger
 from aiperf.common.exceptions import AIPerfError, AIPerfMultiError
 
 logger = logging.getLogger(__name__)
@@ -195,4 +196,6 @@ def format_bytes(bytes: int | None, none_str: str = "--") -> str:
 
 # This is used to identify the source file of the call_all_functions function
 # in the AIPerfLogger class to skip it when determining the caller.
+# NOTE: Using similar logic to logging._srcfile
 _srcfile = os.path.normcase(call_all_functions.__code__.co_filename)
+aiperf_logger._ignored_files.append(_srcfile)

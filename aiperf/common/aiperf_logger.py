@@ -7,8 +7,6 @@ import traceback
 from collections.abc import Callable
 from inspect import currentframe
 
-from aiperf.common import utils
-
 _TRACE = logging.DEBUG - 5
 _DEBUG = logging.DEBUG
 _INFO = logging.INFO
@@ -22,9 +20,6 @@ _CRITICAL = logging.CRITICAL
 logging.addLevelName(_TRACE, "TRACE")
 logging.addLevelName(_NOTICE, "NOTICE")
 logging.addLevelName(_SUCCESS, "SUCCESS")
-
-# Setup the list of files that should be ignored when finding the caller (logging, utils, this file)
-_ignored_files = [logging._srcfile, utils._srcfile, __file__]
 
 
 class AIPerfLogger:
@@ -214,3 +209,9 @@ class AIPerfLogger:
         """Log a critical message with support for lazy evaluation using lambdas."""
         if self.is_enabled_for(_CRITICAL):
             self._log(_CRITICAL, msg, *args, **kwargs)
+
+
+# Setup the list of files that should be ignored when finding the caller (built-in logging, this file)
+# NOTE: Using similar logic to logging._srcfile
+_srcfile = os.path.normcase(AIPerfLogger.is_valid_level.__code__.co_filename)
+_ignored_files = [logging._srcfile, _srcfile]

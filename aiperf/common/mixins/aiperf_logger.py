@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+import os
 from collections.abc import Callable
 
 from aiperf.common import aiperf_logger
@@ -15,9 +16,6 @@ from aiperf.common.aiperf_logger import (
     _WARNING,
     AIPerfLogger,
 )
-
-# Add this file to the list of ignored files to avoid this file from being the source of the log messages
-aiperf_logger._ignored_files.append(__file__)
 
 
 class AIPerfLoggerMixin:
@@ -98,3 +96,10 @@ class AIPerfLoggerMixin:
         """Log a critical message with lazy evaluation."""
         if self.is_enabled_for(_CRITICAL):
             self._log(_CRITICAL, message, *args, **kwargs)
+
+
+# Add this file to the list of ignored files to avoid this file from being the source of the log messages
+# in the AIPerfLogger class to skip it when determining the caller.
+# NOTE: Using similar logic to logging._srcfile
+_srcfile = os.path.normcase(AIPerfLoggerMixin.info.__code__.co_filename)
+aiperf_logger._ignored_files.append(_srcfile)
