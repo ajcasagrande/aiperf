@@ -9,6 +9,8 @@ from aiperf.common.aiperf_logger import (
     _DEBUG,
     _ERROR,
     _INFO,
+    _NOTICE,
+    _SUCCESS,
     _TRACE,
     _WARNING,
     AIPerfLogger,
@@ -22,7 +24,7 @@ class AIPerfLoggerMixin:
     """Mixin to provide lazy evaluated logging for f-strings.
 
     This mixin provides a logger with lazy evaluation support for f-strings,
-    and direct log functions for all standard logging levels.
+    and direct log functions for all standard and custom logging levels.
 
     see :class:`AIPerfLogger` for more details.
 
@@ -32,9 +34,11 @@ class AIPerfLoggerMixin:
                 super().__init__()
                 self.trace(lambda: f"Processing {item} of {count} ({item / count * 100}% complete)")
                 self.info("Simple string message")
-                self.debug(lambda i=i: f"Processing {i}")
+                self.debug(lambda i=i: f"Binding loop variable: {i}")
                 self.warning("Warning message: %s", "legacy support")
-                self.exception(f"Error: {e}")
+                self.success("Benchmark completed successfully")
+                self.notice("Warmup has completed")
+                self.exception(f"Direct f-string usage: {e}")
     """
 
     def __init__(self, logger_name: str | None = None, **kwargs) -> None:
@@ -65,10 +69,20 @@ class AIPerfLoggerMixin:
         if self.is_enabled_for(_INFO):
             self._log(_INFO, message, *args, **kwargs)
 
+    def notice(self, message: str | Callable[..., str], *args, **kwargs) -> None:
+        """Log a notice message with lazy evaluation."""
+        if self.is_enabled_for(_NOTICE):
+            self._log(_NOTICE, message, *args, **kwargs)
+
     def warning(self, message: str | Callable[..., str], *args, **kwargs) -> None:
         """Log a warning message with lazy evaluation."""
         if self.is_enabled_for(_WARNING):
             self._log(_WARNING, message, *args, **kwargs)
+
+    def success(self, message: str | Callable[..., str], *args, **kwargs) -> None:
+        """Log a success message with lazy evaluation."""
+        if self.is_enabled_for(_SUCCESS):
+            self._log(_SUCCESS, message, *args, **kwargs)
 
     def error(self, message: str | Callable[..., str], *args, **kwargs) -> None:
         """Log an error message with lazy evaluation."""

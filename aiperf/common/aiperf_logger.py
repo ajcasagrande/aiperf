@@ -6,20 +6,24 @@ import os
 import traceback
 from collections.abc import Callable
 from inspect import currentframe
-from types import MethodType
 
 from aiperf.common import utils
 
-# Register custom log levels once at module import time
 _TRACE = logging.DEBUG - 5
 _DEBUG = logging.DEBUG
 _INFO = logging.INFO
+_NOTICE = logging.WARNING - 5
 _WARNING = logging.WARNING
+_SUCCESS = logging.WARNING + 5
 _ERROR = logging.ERROR
 _CRITICAL = logging.CRITICAL
 
+# Register custom log levels
 logging.addLevelName(_TRACE, "TRACE")
+logging.addLevelName(_NOTICE, "NOTICE")
+logging.addLevelName(_SUCCESS, "SUCCESS")
 
+# Setup the list of files that should be ignored when finding the caller (logging, utils, this file)
 _ignored_files = [logging._srcfile, utils._srcfile, __file__]
 
 
@@ -30,15 +34,19 @@ class AIPerfLogger:
     expensive string formatting operations when the log level is not enabled.
 
     It also extends the standard logging module with additional log levels:
-        - TRACE    (lower than DEBUG)
+        - TRACE    (TRACE < DEBUG)
+        - NOTICE   (INFO < NOTICE < WARNING)
+        - SUCCESS  (WARNING < SUCCESS < ERROR)
 
     Usage:
         logger = AIPerfLogger("my_logger")
         logger.debug(lambda: f"Processing {item} with {count} items")
         logger.info("Simple string message")
-
+        logger.notice("Notice message")
+        logger.success("Benchmark completed successfully")
         # Need to pass local variables to the lambda to avoid them going out of scope
-        logger.exception(lambda e=e: f"Error: {e}")
+        logger.debug(lambda i=i: f"Binding loop variable: {i}")
+        logger.exception(f"Direct f-string usage: {e}")
     """
 
     def __init__(self, logger_name: str):
@@ -55,14 +63,6 @@ class AIPerfLogger:
         self.is_enabled_for = self._logger.isEnabledFor
         self.set_level = self._logger.setLevel
         self.get_effective_level = self._logger.getEffectiveLevel
-
-        # Individual level enabled checks
-        self.is_trace_enabled = MethodType(self._logger.isEnabledFor, _TRACE)
-        self.is_debug_enabled = MethodType(self._logger.isEnabledFor, _DEBUG)
-        self.is_info_enabled = MethodType(self._logger.isEnabledFor, _INFO)
-        self.is_warning_enabled = MethodType(self._logger.isEnabledFor, _WARNING)
-        self.is_error_enabled = MethodType(self._logger.isEnabledFor, _ERROR)
-        self.is_critical_enabled = MethodType(self._logger.isEnabledFor, _CRITICAL)
 
         # Legacy logging method compatibility / passthrough
         self.isEnabledFor = self._logger.isEnabledFor
@@ -96,7 +96,9 @@ class AIPerfLogger:
                 "TRACE",
                 "DEBUG",
                 "INFO",
+                "NOTICE",
                 "WARNING",
+                "SUCCESS",
                 "ERROR",
                 "CRITICAL",
             ]
@@ -105,7 +107,9 @@ class AIPerfLogger:
                 _TRACE,
                 _DEBUG,
                 _INFO,
+                _NOTICE,
                 _WARNING,
+                _SUCCESS,
                 _ERROR,
                 _CRITICAL,
             ]
@@ -181,10 +185,20 @@ class AIPerfLogger:
         if self.is_enabled_for(_INFO):
             self._log(_INFO, msg, *args, **kwargs)
 
+    def notice(self, msg: str | Callable[..., str], *args, **kwargs) -> None:
+        """Log a notice message with support for lazy evaluation using lambdas."""
+        if self.is_enabled_for(_NOTICE):
+            self._log(_NOTICE, msg, *args, **kwargs)
+
     def warning(self, msg: str | Callable[..., str], *args, **kwargs) -> None:
         """Log a warning message with support for lazy evaluation using lambdas."""
         if self.is_enabled_for(_WARNING):
             self._log(_WARNING, msg, *args, **kwargs)
+
+    def success(self, msg: str | Callable[..., str], *args, **kwargs) -> None:
+        """Log a success message with support for lazy evaluation using lambdas."""
+        if self.is_enabled_for(_SUCCESS):
+            self._log(_SUCCESS, msg, *args, **kwargs)
 
     def error(self, msg: str | Callable[..., str], *args, **kwargs) -> None:
         """Log an error message with support for lazy evaluation using lambdas."""

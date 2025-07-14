@@ -7,7 +7,14 @@ import timeit
 import pytest
 
 from aiperf.common.aiperf_logger import (
+    _CRITICAL,
+    _DEBUG,
+    _ERROR,
     _INFO,
+    _NOTICE,
+    _SUCCESS,
+    _TRACE,
+    _WARNING,
     AIPerfLogger,
 )
 from aiperf.common.constants import NANOS_PER_SECOND
@@ -107,6 +114,64 @@ def compare_logger_performance(
 
 
 class TestAIPerfLogger:
+    def test_logger_initialization(self):
+        """Test that logger initializes correctly."""
+        logger = AIPerfLogger("test")
+        assert logger._logger.name == "test"
+
+    def test_exception_logging(self, mock_logging_logger):
+        """Test exception logging includes exc_info."""
+        mock_logging_logger.isEnabledFor.return_value = True
+        logger = AIPerfLogger("test")
+
+        logger.exception("Error occurred")
+
+        mock_logging_logger._log.assert_called_once_with(
+            _ERROR, "Error occurred", (), exc_info=True
+        )
+
+    @pytest.mark.parametrize(
+        "level,expected",
+        [
+            # Real levels
+            ("DEBUG", True),
+            ("INFO", True),
+            ("WARNING", True),
+            ("ERROR", True),
+            ("CRITICAL", True),
+            (_DEBUG, True),
+            (_INFO, True),
+            (_WARNING, True),
+            (_ERROR, True),
+            (_CRITICAL, True),
+            # Custom levels
+            (_TRACE, True),
+            (_NOTICE, True),
+            (_SUCCESS, True),
+            ("TRACE", True),
+            ("NOTICE", True),
+            ("SUCCESS", True),
+            # Fake levels
+            ("INVALID", False),
+            (999, False),
+            (-1, False),
+            ("SUPER_SECRET_LEVEL", False),
+        ],
+    )
+    def test_is_valid_level(self, level, expected):
+        """Test level validation."""
+        assert AIPerfLogger.is_valid_level(level) == expected
+
+    def test_legacy_methods(self):
+        """Test that legacy methods delegate to the logger."""
+        logger = AIPerfLogger("test")
+        logger.setLevel(_WARNING)
+        assert logger.getEffectiveLevel() == _WARNING
+        assert logger.isEnabledFor(_WARNING)
+        assert logger.root == logging.root
+
+
+class TestAIPerfLoggerPerformance:
     def test_aiperf_logger_with_lazy_evaluation_debug(
         self, aiperf_logger, standard_logger, capsys
     ):
