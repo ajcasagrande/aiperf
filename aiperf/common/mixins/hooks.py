@@ -40,7 +40,7 @@ class HooksMixin:
                     # Register the function with the hook type
                     self.register_hook(hook_type, bound_method)
 
-        super().__init__()
+        super().__init__(**kwargs)
 
     def register_hook(self, hook_type: HookType, func: Callable):
         """Register a hook function for a given hook type.

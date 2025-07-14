@@ -10,9 +10,7 @@ from aiperf.common.mixins.hooks import HooksMixin, supports_hooks
 class CommunicationsMixin(HooksMixin):
     """Mixin that provides a communications instance."""
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
+    def __init__(self, **kwargs):
         self._service_config = kwargs.get("service_config")
         if not self._service_config:
             raise ValueError("CommunicationsMixin requires a service_config attribute")
@@ -21,3 +19,5 @@ class CommunicationsMixin(HooksMixin):
             self._service_config.comm_backend,
             config=self._service_config.comm_config,
         )
+
+        super().__init__(**kwargs)

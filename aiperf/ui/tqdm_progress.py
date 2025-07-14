@@ -118,11 +118,11 @@ class TqdmProgressUI(AIPerfLifecycleMixin):
 
     async def update_worker_health(self, message: WorkerHealthMessage) -> None:
         """Update the worker health."""
-        self.logger.debug("Worker health updated: %s", message)
+        self.trace(lambda: f"Worker health updated: {message}")
 
     async def update_credit_phase_complete(self, message: CreditPhaseCompleteMessage):
         """Log a credit phase complete update."""
-        self.logger.debug("Credit phase %s completed", message.phase)
+        self.debug(lambda: f"Credit phase {message.phase} completed")
 
         if message.phase in self.tqdm_requests:
             self.tqdm_requests[message.phase].close()
@@ -134,7 +134,7 @@ class TqdmProgressUI(AIPerfLifecycleMixin):
 
     async def update_credit_phase_start(self, message: CreditPhaseStartMessage):
         """Log a credit phase start update."""
-        self.logger.debug("Credit phase %s started", message.phase)
+        self.debug(lambda: f"Credit phase {message.phase} started")
         phase = message.phase
 
         # Close any existing tqdm for this phase

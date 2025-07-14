@@ -78,7 +78,7 @@ class SimpleProgressLogger(AIPerfLoggerMixin):
 
     async def update_worker_health(self, message: WorkerHealthMessage) -> None:
         """Update the worker health."""
-        self.debug(lambda: f"Worker health updated: {message}")
+        self.trace(lambda: f"Worker health updated: {message}")
 
     async def update_credit_phase_complete(self, message: CreditPhaseCompleteMessage):
         """Log a credit phase complete update."""
@@ -90,7 +90,7 @@ class SimpleProgressLogger(AIPerfLoggerMixin):
 
     async def update_credit_phase_progress(self, message: CreditPhaseProgressMessage):
         """Log a credit phase progress update."""
-        self.info(
+        self.debug(
             lambda phases=message.phase: f"Credit phase {phases} progress updated"
         )
 
@@ -99,7 +99,7 @@ class SimpleProgressLogger(AIPerfLoggerMixin):
 
     async def update_results(self, message: ProfileResultsMessage):
         """Log a results update."""
-        self.info(lambda: f"Profile results updated: {message.records}")
+        self.debug(lambda: f"Profile results updated: {message.records}")
 
     def cleanup(self):
         """Clean up all progress bars."""

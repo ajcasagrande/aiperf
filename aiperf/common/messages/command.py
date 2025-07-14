@@ -6,12 +6,22 @@ from typing import Any, Literal
 
 from pydantic import Field, SerializeAsAny
 
+from aiperf.common.config.user_config import UserConfig
 from aiperf.common.enums import CommandType, MessageType
 from aiperf.common.enums.command import CommandResponseStatus
 from aiperf.common.enums.service import ServiceType
 from aiperf.common.messages.base import BaseServiceMessage
 from aiperf.common.pydantic_utils import AIPerfBaseModel
 from aiperf.common.record_models import ErrorDetails
+
+
+class ProcessRecordsCommandData(AIPerfBaseModel):
+    """Data to send with the process records command."""
+
+    cancelled: bool = Field(
+        default=False,
+        description="Whether the profile run was cancelled",
+    )
 
 
 class CommandMessage(BaseServiceMessage):
@@ -46,7 +56,9 @@ class CommandMessage(BaseServiceMessage):
         "sent to all services.",
     )
     # TODO: I'm not sure if SerializeAsAny actually works as expected
-    data: SerializeAsAny[Any] = Field(
+    data: SerializeAsAny[
+        UserConfig | ProcessRecordsCommandData | AIPerfBaseModel | Any
+    ] = Field(
         default=None,
         description="Data to send with the command",
     )
@@ -72,13 +84,4 @@ class CommandResponseMessage(BaseServiceMessage):
     )
     error: ErrorDetails | None = Field(
         default=None, description="Error information if the command failed"
-    )
-
-
-class ProcessRecordsCommandData(AIPerfBaseModel):
-    """Data to send with the process records command."""
-
-    cancelled: bool = Field(
-        default=False,
-        description="Whether the profile run was cancelled",
     )

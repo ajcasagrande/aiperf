@@ -252,7 +252,7 @@ class MultiProcessServiceManager(BaseServiceManager):
     async def _on_status_message(self, message: StatusMessage) -> None:
         self.registry.update_service_state(message.service_id, message.state)
         self.state_events[message.service_type][message.state].set()
-        self.debug(lambda: f"State events: {self.state_events}")
+        self.trace(lambda: f"State events: {self.state_events}")
 
     async def _on_service_error_message(self, message: BaseServiceErrorMessage) -> None:
         self.registry[message.service_id].errors.append(message.error)

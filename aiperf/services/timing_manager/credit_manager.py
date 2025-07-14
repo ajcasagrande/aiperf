@@ -13,6 +13,7 @@ from aiperf.common.messages import (
     CreditsCompleteMessage,
 )
 from aiperf.common.mixins import AsyncTaskManagerMixin
+from aiperf.common.mixins.async_task_manager import AsyncTaskManagerProtocol
 
 
 @runtime_checkable
@@ -51,13 +52,30 @@ class CreditManagerProtocol(Protocol):
     async def publish_phase_complete(self, phase: CreditPhase, end_ns: int) -> None: ...
 
 
-class CreditPhaseMessagesMixin(AsyncTaskManagerMixin):
-    """Mixin for services to implement the CreditManagerProtocol."""
+@runtime_checkable
+class CreditPhaseMessagesRequirements(AsyncTaskManagerProtocol, Protocol):
+    """Requirements for the CreditPhaseMessagesMixin. This is the list of attributes that must
+    be provided by the class that uses this mixin."""
 
-    def __init__(self):
-        super().__init__()
-        self.pub_client: PubClientProtocol
-        self.service_id: str
+    pub_client: PubClientProtocol
+    service_id: str
+
+
+class CreditPhaseMessagesMixin(AsyncTaskManagerMixin, CreditPhaseMessagesRequirements):
+    """Mixin for services to implement the CreditManagerProtocol.
+
+    Requirements:
+        This mixin must be used with a class that provides:
+        - pub_client: PubClientProtocol
+        - service_id: str
+    """
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        if not isinstance(self, CreditPhaseMessagesRequirements):
+            raise TypeError(
+                "CreditPhaseMessagesMixin must be used with a class that provides CreditPhaseMessagesRequirements"
+            )
 
     async def publish_phase_start(
         self,

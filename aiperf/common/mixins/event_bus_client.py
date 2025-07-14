@@ -11,9 +11,8 @@ from aiperf.common.mixins.hooks import HooksMixin, supports_hooks
 class EventBusClientMixin(CommunicationsMixin, HooksMixin):
     """Mixin that provides clients for the event bus."""
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.sub_client = self.comms.create_sub_client(
             CommunicationClientAddressType.EVENT_BUS_PROXY_BACKEND
         )
