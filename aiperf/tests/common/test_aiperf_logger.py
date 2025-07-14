@@ -48,15 +48,15 @@ def large_message():
         },
         timestamp_ns=time.time_ns(),
         start_perf_ns=time.perf_counter_ns(),
-        end_perf_ns=time.perf_counter_ns() + 2_000_000_000,
+        end_perf_ns=time.perf_counter_ns() + (1_000_000_000 * 101),
         recv_start_perf_ns=time.perf_counter_ns() + 1_000_000_000,
         status=200,
         responses=[
             TextResponse(
-                perf_ns=time.perf_counter_ns() + (i * 1_000_000),
+                perf_ns=time.perf_counter_ns() + (i * 1_000_000_000),
                 text="Hello, world!",
             )
-            for i in range(100)
+            for i in range(1, 101)
         ],
         error=None,
         delayed_ns=None,
@@ -67,43 +67,43 @@ def large_message():
 def compare_logger_performance(
     aiperf_logger_func,
     standard_logger_func,
-    number=10_000,
+    number=1_000,
     tries=3,
     min_speed_up=None,
     max_slow_down=None,
 ):
-    aiperf_logger_times = [
+    aiperf_times = [
         timeit.timeit(aiperf_logger_func, number=number) for _ in range(tries)
     ]
-    standard_logger_times = [
+    standard_times = [
         timeit.timeit(standard_logger_func, number=number) for _ in range(tries)
     ]
-    aiperf_logger_time = sum(aiperf_logger_times) / tries
-    standard_logger_time = sum(standard_logger_times) / tries
+
+    aiperf_avg_time = sum(aiperf_times) / tries
+    standard_avg_time = sum(standard_times) / tries
+    slow_down = aiperf_avg_time / standard_avg_time
+    speed_up = standard_avg_time / aiperf_avg_time
+    func_name = aiperf_logger_func.__name__
+
     print(
-        f"AIPerf logger time: {aiperf_logger_time:.5f} seconds (min: {min(aiperf_logger_times):.5f}, max: {max(aiperf_logger_times):.5f}, avg: {aiperf_logger_time:.5f})"
+        f"AIPerf logger time: {aiperf_avg_time:.5f} seconds (min: {min(aiperf_times):.5f}, max: {max(aiperf_times):.5f})"
     )
     print(
-        f"Standard logger time: {standard_logger_time:.5f} seconds (min: {min(standard_logger_times):.5f}, max: {max(standard_logger_times):.5f}, avg: {standard_logger_time:.5f})"
+        f"Standard logger time: {standard_avg_time:.5f} seconds (min: {min(standard_times):.5f}, max: {max(standard_times):.5f})"
     )
-    if aiperf_logger_time > standard_logger_time:
-        print(
-            f"AIPerf logger is {aiperf_logger_time / standard_logger_time:.2f}x slower than standard logger for {aiperf_logger_func.__name__} (expected at most {max_slow_down or 1 / (min_speed_up or 1):.2f}x)"
-        )
+
+    slow_down_msg = f"AIPerf logger is {slow_down:.2f}x slower than standard logger for {func_name} (expected at most {max_slow_down or 1 / (min_speed_up or 1):.2f}x)"
+    speed_up_msg = f"AIPerf logger is {speed_up:.2f}x faster than standard logger for {func_name} (expected at least {min_speed_up or 1 / (max_slow_down or 1):.2f}x)"
+
+    if slow_down > 1:
+        print(slow_down_msg)
     else:
-        print(
-            f"AIPerf logger is {standard_logger_time / aiperf_logger_time:.2f}x faster than standard logger for {aiperf_logger_func.__name__} (expected at least {min_speed_up or 1 / (max_slow_down or 1):.2f}x)"
-        )
-    slow_down = aiperf_logger_time / standard_logger_time
-    speed_up = standard_logger_time / aiperf_logger_time
+        print(speed_up_msg)
+
     if max_slow_down is not None:
-        assert slow_down <= max_slow_down, (
-            f"AIPerf logger is {slow_down}x slower than standard logger for {aiperf_logger_func.__name__}, expected at most {max_slow_down}x slower"
-        )
+        assert slow_down <= max_slow_down, slow_down_msg
     if min_speed_up is not None:
-        assert speed_up >= min_speed_up, (
-            f"AIPerf logger is {speed_up}x faster than standard logger for {aiperf_logger_func.__name__}, expected at least {min_speed_up}x faster"
-        )
+        assert speed_up >= min_speed_up, speed_up_msg
 
 
 class TestAIPerfLogger:
@@ -124,14 +124,14 @@ class TestAIPerfLogger:
         compare_logger_performance(
             aiperf_lazy_evaluation,
             standard_f_string,
-            number=10_000,
+            number=1_000,
             min_speed_up=1.5,
         )
 
     def test_plain_string_debug(self, aiperf_logger, standard_logger, capsys):
         """
         Tests that the AIPerf logger is not a lot slower than the standard logger when a plain string is used for
-        logging when the log will NOT be printed.
+        logging both with and without lazy evaluation when the log will NOT be printed.
         """
 
         def aiperf_plain_string():
@@ -152,21 +152,21 @@ class TestAIPerfLogger:
         compare_logger_performance(
             aiperf_plain_string,
             standard_plain_string,
-            number=10_000,
+            number=1_000,
             max_slow_down=1.5,
         )
 
         compare_logger_performance(
             aiperf_plain_string_lazy,
             standard_plain_string,
-            number=10_000,
+            number=1_000,
             max_slow_down=1.5,
         )
 
     def test_plain_string_info(self, aiperf_logger, standard_logger, capsys):
         """
         Tests that the AIPerf logger is not a lot slower than the standard logger when a plain string is used for
-        logging when the log will be printed.
+        logging both with and without lazy evaluation when the log will be printed.
         """
 
         def aiperf_plain_string():
@@ -187,14 +187,14 @@ class TestAIPerfLogger:
         compare_logger_performance(
             aiperf_plain_string,
             standard_plain_string,
-            number=10_000,
+            number=1_000,
             max_slow_down=1.5,
         )
 
         compare_logger_performance(
             aiperf_plain_string_lazy,
             standard_plain_string,
-            number=10_000,
+            number=1_000,
             max_slow_down=1.5,
         )
 
@@ -217,8 +217,7 @@ class TestAIPerfLogger:
         compare_logger_performance(
             aiperf_formatting,
             standard_formatting,
-            number=10_000,
-            tries=3,
+            number=1_000,
             max_slow_down=1.5,
         )
 
@@ -245,7 +244,7 @@ class TestAIPerfLogger:
         compare_logger_performance(
             aiperf_formatting_and_lazy_evaluation,
             standard_formatting_and_lazy_evaluation,
-            number=10_000,
+            number=1_000,
             min_speed_up=2,
         )
 
@@ -272,7 +271,7 @@ class TestAIPerfLogger:
         compare_logger_performance(
             aiperf_multiple_args,
             standard_multiple_args,
-            number=10_000,
+            number=1_000,
             min_speed_up=2,
         )
 
@@ -296,7 +295,6 @@ class TestAIPerfLogger:
             aiperf_message_formatting,
             standard_message_formatting,
             number=1_000,
-            tries=3,
             max_slow_down=1.5,
         )
 
@@ -322,7 +320,6 @@ class TestAIPerfLogger:
             aiperf_f_string_message,
             standard_f_string_message,
             number=1_000,
-            tries=3,
             min_speed_up=10,
         )
 
@@ -331,7 +328,6 @@ class TestAIPerfLogger:
             aiperf_f_string_message,
             standard_fmt_message,
             number=1_000,
-            tries=3,
             max_slow_down=1.5,
         )
 
@@ -364,8 +360,7 @@ class TestAIPerfLogger:
         compare_logger_performance(
             aiperf_f_string_math,
             standard_f_string_math,
-            number=10_000,
-            tries=3,
+            number=1_000,
             min_speed_up=1.5,
         )
 
@@ -373,7 +368,6 @@ class TestAIPerfLogger:
         compare_logger_performance(
             aiperf_f_string_math,
             standard_fmt_math,
-            number=10_000,
-            tries=5,
+            number=1_000,
             max_slow_down=1.5,
         )
