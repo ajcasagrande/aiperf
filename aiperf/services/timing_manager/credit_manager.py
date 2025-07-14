@@ -5,7 +5,7 @@ from typing import Protocol, runtime_checkable
 
 from aiperf.common.comms.base import PubClientProtocol
 from aiperf.common.enums import CreditPhase
-from aiperf.common.messages.credit import (
+from aiperf.common.messages import (
     CreditPhaseCompleteMessage,
     CreditPhaseProgressMessage,
     CreditPhaseSendingCompleteMessage,

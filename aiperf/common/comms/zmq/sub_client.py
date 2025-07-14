@@ -127,9 +127,7 @@ class ZMQSubClient(BaseZMQClient, AsyncTaskManagerMixin):
             )
 
         except Exception as e:
-            self.exception(
-                lambda e=e: f"Exception subscribing to message_type {message_type}: {e}"
-            )
+            self.exception(f"Exception subscribing to message_type {message_type}: {e}")
             raise CommunicationError(
                 f"Failed to subscribe to message_type {message_type}: {e}",
             ) from e

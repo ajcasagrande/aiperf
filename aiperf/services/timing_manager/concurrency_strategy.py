@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import asyncio
-import logging
 import random
 import time
 
@@ -28,7 +27,6 @@ class ConcurrencyStrategy(
         self, config: TimingManagerConfig, credit_manager: CreditManagerProtocol
     ):
         super().__init__(config=config, credit_manager=credit_manager)
-        self.logger = logging.getLogger(self.__class__.__name__)
 
         if not config.request_count or config.request_count < 1:
             # TODO: Add support for alternate completion triggers vs request count (eg. time based)
@@ -56,9 +54,9 @@ class ConcurrencyStrategy(
             self.config.concurrency_ramp_up_time
             and self.config.concurrency_ramp_up_time > 0
         ):
-            self.phases.append(CreditPhase.RAMP_UP)
-            self.phase_stats[CreditPhase.RAMP_UP] = CreditPhaseStats(
-                type=CreditPhase.RAMP_UP,
+            self.phases.append(CreditPhase.WARMUP)
+            self.phase_stats[CreditPhase.WARMUP] = CreditPhaseStats(
+                type=CreditPhase.WARMUP,
                 total_requests=None,
                 expected_duration_ns=int(
                     self.config.concurrency_ramp_up_time * NANOS_PER_SECOND
@@ -142,9 +140,9 @@ class ConcurrencyStrategy(
                 )
             )
 
-            if phase == CreditPhase.RAMP_UP:
-                await self._execute_with_ramp_up(stats)
-            elif stats.is_time_based:
+            # if phase == CreditPhase.WARMUP:
+            #     await self._execute_with_ramp_up(stats)
+            if stats.is_time_based:
                 await self._execute_time_based_phase(stats)
             elif stats.total_requests and stats.total_requests > 0:
                 await self._execute_request_count_based_phase(stats)

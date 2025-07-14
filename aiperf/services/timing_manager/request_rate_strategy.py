@@ -8,7 +8,7 @@ import time
 from aiperf.common.credit_models import CreditPhaseStats
 from aiperf.common.enums import CreditPhase, RequestRateMode
 from aiperf.common.exceptions import InvalidStateError
-from aiperf.common.mixins.async_task_manager import AsyncTaskManagerMixin
+from aiperf.common.mixins import AsyncTaskManagerMixin
 from aiperf.services.timing_manager.config import TimingManagerConfig
 from aiperf.services.timing_manager.credit_issuing_strategy import (
     CreditIssuingStrategy,
@@ -126,7 +126,7 @@ class RequestRateStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
         # We start by sending the first credit immediately.
         next_drop_at = time.perf_counter()
 
-        while phase.sent < phase.total_requests:
+        while phase.should_send:
             wait_sec = next_drop_at - time.perf_counter()
             if wait_sec > 0:
                 await asyncio.sleep(wait_sec)
@@ -158,7 +158,7 @@ class RequestRateStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
                 "Phase total must be set for request count based phase"
             )
 
-        while phase.sent < phase.total_requests:
+        while phase.should_send:
             # For Poisson process, inter-arrival times are exponentially distributed.
             # random.expovariate(lambd) generates exponentially distributed random numbers
             # where lambd is the rate parameter (requests per second)

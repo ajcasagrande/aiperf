@@ -306,7 +306,7 @@ class TestAIPerfLoggerPerformance:
                 % tuple([*["test"] * 100])
             )
 
-        def standard_formatting_and_lazy_evaluation():
+        def standard_formatting_no_print():
             standard_logger.debug(
                 "Hello, world! This will NOT be printed %s " * 100, *["test"] * 100
             )
@@ -314,7 +314,7 @@ class TestAIPerfLoggerPerformance:
         # Expected to be faster than standard logger
         compare_logger_performance(
             aiperf_formatting_and_lazy_evaluation,
-            standard_formatting_and_lazy_evaluation,
+            standard_formatting_no_print,
             number=1_000,
             min_speed_up=2,
         )
