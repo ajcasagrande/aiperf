@@ -3,6 +3,7 @@
 import logging
 import time
 import timeit
+from unittest.mock import Mock
 
 import pytest
 
@@ -90,17 +91,18 @@ def compare_logger_performance(
     standard_avg_time = sum(standard_times) / tries
     slow_down = aiperf_avg_time / standard_avg_time
     speed_up = standard_avg_time / aiperf_avg_time
-    func_name = aiperf_logger_func.__name__
+    func_name_aiperf = aiperf_logger_func.__name__
+    func_name_standard = standard_logger_func.__name__
 
-    print(
-        f"AIPerf logger time: {aiperf_avg_time:.5f} seconds (min: {min(aiperf_times):.5f}, max: {max(aiperf_times):.5f})"
-    )
-    print(
-        f"Standard logger time: {standard_avg_time:.5f} seconds (min: {min(standard_times):.5f}, max: {max(standard_times):.5f})"
-    )
+    # print(
+    #     f"AIPerf logger time: {aiperf_avg_time:.5f} seconds (min: {min(aiperf_times):.5f}, max: {max(aiperf_times):.5f})"
+    # )
+    # print(
+    #     f"Standard logger time: {standard_avg_time:.5f} seconds (min: {min(standard_times):.5f}, max: {max(standard_times):.5f})"
+    # )
 
-    slow_down_msg = f"AIPerf logger is {slow_down:.2f}x slower than standard logger for {func_name} (expected at most {max_slow_down or 1 / (min_speed_up or 1):.2f}x)"
-    speed_up_msg = f"AIPerf logger is {speed_up:.2f}x faster than standard logger for {func_name} (expected at least {min_speed_up or 1 / (max_slow_down or 1):.2f}x)"
+    slow_down_msg = f"AIPerf logger is {slow_down:.2f}x slower than standard logger for {func_name_aiperf} vs {func_name_standard} (expected at most {max_slow_down or 1 / (min_speed_up or 1):.2f}x)"
+    speed_up_msg = f"AIPerf logger is {speed_up:.2f}x faster than standard logger for {func_name_aiperf} vs {func_name_standard} (expected at least {min_speed_up or 1 / (max_slow_down or 1):.2f}x)"
 
     if slow_down > 1:
         print(slow_down_msg)
@@ -119,16 +121,15 @@ class TestAIPerfLogger:
         logger = AIPerfLogger("test")
         assert logger._logger.name == "test"
 
-    def test_exception_logging(self, mock_logging_logger):
+    def test_exception_logging(self):
         """Test exception logging includes exc_info."""
-        mock_logging_logger.isEnabledFor.return_value = True
         logger = AIPerfLogger("test")
+        logger._log = Mock()
+        logger.set_level(_ERROR)
 
         logger.exception("Error occurred")
 
-        mock_logging_logger._log.assert_called_once_with(
-            _ERROR, "Error occurred", (), exc_info=True
-        )
+        logger._log.assert_called_once_with(_ERROR, "Error occurred", exc_info=True)
 
     @pytest.mark.parametrize(
         "level,expected",
@@ -173,7 +174,7 @@ class TestAIPerfLogger:
 
 class TestAIPerfLoggerPerformance:
     def test_aiperf_logger_with_lazy_evaluation_debug(
-        self, aiperf_logger, standard_logger, capsys
+        self, aiperf_logger, standard_logger
     ):
         """
         Tests that the AIPerf logger is faster than the standard logger when lazy evaluation is used for
@@ -194,7 +195,7 @@ class TestAIPerfLoggerPerformance:
             min_speed_up=1.5,
         )
 
-    def test_plain_string_debug(self, aiperf_logger, standard_logger, capsys):
+    def test_plain_string_debug(self, aiperf_logger, standard_logger):
         """
         Tests that the AIPerf logger is not a lot slower than the standard logger when a plain string is used for
         logging both with and without lazy evaluation when the log will NOT be printed.
@@ -231,7 +232,7 @@ class TestAIPerfLoggerPerformance:
             max_slow_down=1.5,
         )
 
-    def test_plain_string_info(self, aiperf_logger, standard_logger, capsys):
+    def test_plain_string_info(self, aiperf_logger, standard_logger):
         """
         Tests that the AIPerf logger is not a lot slower than the standard logger when a plain string is used for
         logging both with and without lazy evaluation when the log will be printed.
@@ -268,7 +269,7 @@ class TestAIPerfLoggerPerformance:
             max_slow_down=1.5,
         )
 
-    def test_formatting_info(self, aiperf_logger, standard_logger, capsys):
+    def test_formatting_info(self, aiperf_logger, standard_logger):
         """
         Tests that the AIPerf logger is not a lot slower than the standard logger when the message is formatted
         using %s and will be printed.
@@ -292,9 +293,7 @@ class TestAIPerfLoggerPerformance:
             max_slow_down=1.5,
         )
 
-    def test_lazy_evaluation_and_formatting_debug(
-        self, aiperf_logger, standard_logger, capsys
-    ):
+    def test_lazy_evaluation_and_formatting_debug(self, aiperf_logger, standard_logger):
         """
         Tests that the AIPerf logger is faster than the standard logger when lazy evaluation is used for
         lazy %s formatting when the log will NOT be printed.
@@ -321,7 +320,7 @@ class TestAIPerfLoggerPerformance:
         )
 
     def test_lazy_evaluation_and_formatting_and_multiple_args_debug(
-        self, aiperf_logger, standard_logger, capsys
+        self, aiperf_logger, standard_logger
     ):
         """
         Tests that the AIPerf logger is not a lot slower than the standard logger when the message is formatted
@@ -348,7 +347,7 @@ class TestAIPerfLoggerPerformance:
             min_speed_up=2,
         )
 
-    def test_message_formatting_info(self, aiperf_logger, standard_logger, capsys):
+    def test_message_formatting_info(self, aiperf_logger, standard_logger):
         """
         Tests that the AIPerf logger is not a lot slower than the standard logger when the message is formatted
         using %s and will be printed.
@@ -372,9 +371,7 @@ class TestAIPerfLoggerPerformance:
             max_slow_down=1.5,
         )
 
-    def test_large_messages_debug(
-        self, aiperf_logger, standard_logger, large_message, capsys
-    ):
+    def test_large_messages_debug(self, aiperf_logger, standard_logger, large_message):
         """
         Tests that the AIPerf logger is faster than the standard logger when lazy evaluation is used for
         f-string formatting large messages when the log will NOT be printed.
@@ -406,7 +403,7 @@ class TestAIPerfLoggerPerformance:
         )
 
     def test_large_messages_debug_math(
-        self, aiperf_logger, standard_logger, large_message, capsys
+        self, aiperf_logger, standard_logger, large_message
     ):
         """
         Tests that the AIPerf logger is faster than the standard logger when lazy evaluation is used for simple math
