@@ -2,19 +2,15 @@
 # SPDX-License-Identifier: Apache-2.0
 """Main CLI entry point for the AIPerf system."""
 
-import logging
 import sys
-from pathlib import Path
 
 import cyclopts
-from rich.console import Console
-from rich.logging import RichHandler
 
 from aiperf.common.aiperf_logger import AIPerfLogger
 from aiperf.common.bootstrap import bootstrap_and_run_service
 from aiperf.common.config import CLIConfig, ServiceConfig
-from aiperf.common.config.config_defaults import ServiceDefaults
 from aiperf.common.config.user_config import UserConfig
+from aiperf.common.logging import setup_rich_logging
 from aiperf.services import SystemController
 
 logger = AIPerfLogger(__name__)
@@ -22,80 +18,94 @@ logger = AIPerfLogger(__name__)
 app = cyclopts.App(name="aiperf", help="NVIDIA AIPerf")
 
 
-def _setup_logging(service_config: ServiceConfig | None = None) -> None:
-    """Set up rich logging with appropriate configuration."""
-    # Set logging level for the root logger (affects all loggers)
-    level = (
-        service_config.log_level.upper()
-        if service_config
-        else ServiceDefaults.LOG_LEVEL.upper()
-    )
-    logging.root.setLevel(level)
-
-    rich_handler = RichHandler(
-        rich_tracebacks=True,
-        show_path=True,
-        console=Console(),
-        tracebacks_show_locals=False,
-        log_time_format="%H:%M:%S.%f",
-        omit_repeated_times=False,
-    )
-    logging.root.addHandler(rich_handler)
-
-    # Enable file logging for services
-    # TODO: Use config to determine if file logging is enabled and the folder path.
-    log_folder = Path("artifacts/logs")
-    log_folder.mkdir(parents=True, exist_ok=True)
-    file_handler = logging.FileHandler(log_folder / "aiperf.log")
-    file_handler.setLevel(level)
-    file_handler.formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
-    logging.root.addHandler(file_handler)
-
-    logger.debug(lambda: f"Logging initialized with level: {level}")
-
-
-# @app.command("profile")
-# def profile(
-#     config: Path | None = None,
-#     run_type: ServiceRunType = ServiceRunType.MULTIPROCESSING,
-#     user_config: UserConfig | None = None,
-# ) -> None:
-#     """Profile the AIPerf system."""
-#     pass
-
-
-@app.default
-def main(
-    cli_config: CLIConfig,
+@app.command(name="profile")
+def profile(
     user_config: UserConfig,
     service_config: ServiceConfig | None = None,
+    cli_config: CLIConfig | None = None,
 ) -> None:
-    """Main entry point for the AIPerf system."""
+    """Run the Profile subcommand.
 
-    # Create service config if not provided
-    if service_config is None:
-        service_config = ServiceConfig()
+    Args:
+        user_config: User configuration for the benchmark
+        service_config: Service configuration options
+        cli_config: CLI configuration options
+    """
+    service_config = _prepare_service_config_from_cli(cli_config, service_config)
+    _run_system_controller(user_config, service_config)
 
-    # Override log level to DEBUG if verbose is enabled
-    if cli_config.verbose:
+
+@app.command(name="analyze")
+def analyze(
+    user_config: UserConfig,
+    service_config: ServiceConfig | None = None,
+    cli_config: CLIConfig | None = None,
+) -> None:
+    """Sweep through one or more parameters."""
+    # TODO: Implement this
+    service_config = _prepare_service_config_from_cli(cli_config, service_config)
+    setup_rich_logging(user_config or UserConfig(model_names=["gpt2"]), service_config)
+    logger.error("Analyze subcommand not implemented")
+    raise NotImplementedError("Analyze not implemented")
+
+
+@app.command(name="create-template", help="Create a template configuration file")
+def create_template(
+    user_config: UserConfig | None = None,
+    service_config: ServiceConfig | None = None,
+    cli_config: CLIConfig | None = None,
+) -> None:
+    """Create a template configuration file."""
+    # TODO: Implement this
+    service_config = _prepare_service_config_from_cli(cli_config, service_config)
+    setup_rich_logging(user_config or UserConfig(model_names=["gpt2"]), service_config)
+    logger.error("Create template subcommand not implemented")
+    raise NotImplementedError("Create template not implemented")
+
+
+@app.command(name="validate", help="Validate the configuration file")
+def validate(
+    user_config: UserConfig | None = None,
+    service_config: ServiceConfig | None = None,
+    cli_config: CLIConfig | None = None,
+) -> None:
+    """Validate the configuration file."""
+    # TODO: Implement this
+    service_config = _prepare_service_config_from_cli(cli_config, service_config)
+    setup_rich_logging(user_config or UserConfig(model_names=["gpt2"]), service_config)
+    logger.error("Validate subcommand not implemented")
+    raise NotImplementedError("Validate not implemented")
+
+
+def _prepare_service_config_from_cli(
+    cli_config: CLIConfig | None = None,
+    service_config: ServiceConfig | None = None,
+) -> ServiceConfig:
+    """Prepare service config and apply verbose overrides."""
+    cli_config = cli_config or CLIConfig()
+    service_config = service_config or ServiceConfig()
+
+    # Override log level based on verbose flags
+    # TODO: Warn the user that the log level is being overridden if they manually set it with --log-level
+    if cli_config.extra_verbose:
+        service_config.log_level = "TRACE"
+    elif cli_config.verbose:
         service_config.log_level = "DEBUG"
 
+    return service_config
+
+
+def _run_system_controller(
+    user_config: UserConfig, service_config: ServiceConfig
+) -> None:
+    """Run the system controller with the given configuration."""
     log_queue = None
     if service_config.disable_ui:
-        _setup_logging(service_config)
+        setup_rich_logging(user_config, service_config)
     else:
         from aiperf.common.logging import get_global_log_queue
 
         log_queue = get_global_log_queue()
-
-    # Load configuration
-    if cli_config.template_filename:
-        logger.debug(f"Loading configuration from {cli_config.template_filename}")
-        # TODO: Implement this
-        # service_config.load_from_file(cli_config.template_filename)
 
     # Create and start the system controller
     logger.info("Starting AIPerf System")

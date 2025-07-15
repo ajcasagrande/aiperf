@@ -61,7 +61,7 @@ class WorkerManager(BaseComponentService):
         self.cpu_count = multiprocessing.cpu_count()
         self.debug("Detected %s CPU cores/threads", self.cpu_count)
 
-        self.max_concurrency = self.user_config.load.concurrency
+        self.max_concurrency = self.user_config.loadgen.concurrency
         self.max_workers = self.service_config.max_workers
         if self.max_workers is None:
             # Default to the number of CPU cores - 1

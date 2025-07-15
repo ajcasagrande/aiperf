@@ -6,13 +6,18 @@ import queue
 from functools import lru_cache
 from pathlib import Path
 
+from rich.console import Console
 from rich.logging import RichHandler
 
+from aiperf.common.aiperf_logger import AIPerfLogger
 from aiperf.common.config.config_defaults import ServiceDefaults
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
 
 LOG_QUEUE_MAXSIZE = 1000
+
+
+logger = AIPerfLogger(__name__)
 
 
 @lru_cache(maxsize=1)
@@ -75,6 +80,38 @@ def setup_child_process_logging(
             user_config.output.artifact_directory / "logs", level
         )
         root_logger.addHandler(file_handler)
+
+
+# TODO: Integrate with the subprocess logging instead of being separate
+def setup_rich_logging(user_config: UserConfig, service_config: ServiceConfig) -> None:
+    """Set up rich logging with appropriate configuration."""
+    # Set logging level for the root logger (affects all loggers)
+    level = service_config.log_level.upper()
+    logging.root.setLevel(level)
+
+    rich_handler = RichHandler(
+        rich_tracebacks=True,
+        show_path=True,
+        console=Console(),
+        tracebacks_show_locals=False,
+        log_time_format="%H:%M:%S.%f",
+        omit_repeated_times=False,
+    )
+    logging.root.addHandler(rich_handler)
+
+    # Enable file logging for services
+    # TODO: Use config to determine if file logging is enabled and the folder path.
+    log_folder = user_config.output.artifact_directory / "logs"
+    log_folder.mkdir(parents=True, exist_ok=True)
+    file_handler = logging.FileHandler(log_folder / "aiperf.log")
+    file_handler.setLevel(level)
+    file_handler.formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+    logging.root.addHandler(file_handler)
+
+    logger.debug(lambda: f"Logging initialized with level: {level}")
 
 
 def create_file_handler(

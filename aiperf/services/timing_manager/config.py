@@ -27,7 +27,7 @@ class TimingManagerConfig(AIPerfBaseModel):
 
         if user_config.input.file is not None:
             timing_mode = TimingMode.FIXED_SCHEDULE
-        elif user_config.load.request_rate is not None:
+        elif user_config.loadgen.request_rate is not None:
             timing_mode = TimingMode.REQUEST_RATE
         else:
             # Default to concurrency mode if no request rate or schedule is provided
@@ -35,11 +35,11 @@ class TimingManagerConfig(AIPerfBaseModel):
 
         return cls(
             timing_mode=timing_mode,
-            concurrency=user_config.load.concurrency,
-            request_rate=user_config.load.request_rate,
-            request_rate_mode=user_config.load.request_rate_mode,
-            request_count=user_config.load.request_count,
-            warmup_request_count=user_config.load.warmup_request_count,
-            # concurrency_ramp_up_time=user_config.load.concurrency_ramp_up_time,
+            concurrency=user_config.loadgen.concurrency,
+            request_rate=user_config.loadgen.request_rate,
+            request_rate_mode=user_config.loadgen.request_rate_mode,
+            request_count=user_config.loadgen.request_count,
+            warmup_request_count=user_config.loadgen.warmup_request_count,
+            # concurrency_ramp_up_time=user_config.loadgen.concurrency_ramp_up_time,
             random_seed=user_config.input.random_seed,
         )
