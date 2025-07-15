@@ -83,7 +83,9 @@ class SystemController(
         self.progress_tracker: ProgressTracker = ProgressTracker()
 
         self.ui_type = (
-            AIPerfUIType.TQDM if self.service_config.disable_ui else AIPerfUIType.RICH
+            AIPerfUIType.LOGGING
+            if self.service_config.disable_ui
+            else AIPerfUIType.RICH
         )
         self.ui: AIPerfUIProtocol = AIPerfUIFactory.create_instance(
             self.ui_type, progress_tracker=self.progress_tracker

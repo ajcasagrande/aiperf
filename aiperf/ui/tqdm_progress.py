@@ -30,7 +30,7 @@ class TqdmProgressUI(AIPerfLifecycleMixin):
         self.tqdm_records: dict[CreditPhase, tqdm] = {}
 
     async def update_progress(self):
-        """Log a progress update based on current credit phase."""
+        """Update progress bars based on current credit phase."""
         current_profile_run = self.progress_tracker.current_profile_run
 
         if current_profile_run is None:
@@ -40,7 +40,7 @@ class TqdmProgressUI(AIPerfLifecycleMixin):
             total_requests = phase_stats.total_requests or 0
             completed_requests = phase_stats.completed
 
-            # Only create tqdm if we have a valid total > 0
+            # Only create tqdm if we have a valid total > 0 (right now just supporting count-based progress)
             if phase not in self.tqdm_requests and total_requests > 0:
                 self.tqdm_requests[phase] = tqdm(
                     total=total_requests,
@@ -58,11 +58,12 @@ class TqdmProgressUI(AIPerfLifecycleMixin):
                 and completed_requests >= total_requests
                 and phase in self.tqdm_requests
             ):
+                # TODO: There seems to be an issue where the tqdm bar keeps showing even after it is closed.
                 self.tqdm_requests[phase].close()
                 del self.tqdm_requests[phase]
 
     async def update_stats(self, message: RecordsProcessingStatsMessage):
-        """Log a stats update based on current credit phase."""
+        """Update progress bars based on current credit phase."""
         current_profile_run = self.progress_tracker.current_profile_run
 
         if current_profile_run is None:
@@ -112,8 +113,8 @@ class TqdmProgressUI(AIPerfLifecycleMixin):
         if message.message_type in _message_mappings:
             await _message_mappings[message.message_type](message)
         else:
-            self.logger.debug(
-                "No message mapping found for message: %s", message.message_type
+            self.debug(
+                lambda: f"No message mapping found for message: {message.message_type}"
             )
 
     async def update_worker_health(self, message: WorkerHealthMessage) -> None:
@@ -121,7 +122,7 @@ class TqdmProgressUI(AIPerfLifecycleMixin):
         self.trace(lambda: f"Worker health updated: {message}")
 
     async def update_credit_phase_complete(self, message: CreditPhaseCompleteMessage):
-        """Log a credit phase complete update."""
+        """Update progress bars based on current credit phase."""
         self.debug(lambda: f"Credit phase {message.phase} completed")
 
         if message.phase in self.tqdm_requests:
@@ -133,7 +134,7 @@ class TqdmProgressUI(AIPerfLifecycleMixin):
             del self.tqdm_records[message.phase]
 
     async def update_credit_phase_start(self, message: CreditPhaseStartMessage):
-        """Log a credit phase start update."""
+        """Update progress bars based on current credit phase."""
         self.debug(lambda: f"Credit phase {message.phase} started")
         phase = message.phase
 
@@ -147,12 +148,11 @@ class TqdmProgressUI(AIPerfLifecycleMixin):
             del self.tqdm_records[phase]
 
     async def update_credit_phase_progress(self, message: CreditPhaseProgressMessage):
-        """Log a credit phase progress update."""
+        """Update progress bars based on current credit phase."""
         await self.update_progress()
 
     async def update_results(self, message: ProfileResultsMessage):
-        """Log a results update."""
-        pass
+        self.debug(lambda: f"Profile results updated: {message.records}")
 
     async def cleanup(self):
         """Clean up all progress bars."""

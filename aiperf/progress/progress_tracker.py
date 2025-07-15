@@ -4,7 +4,7 @@ from aiperf.common.enums import CreditPhase
 from aiperf.common.messages import (
     Message,
 )
-from aiperf.common.mixins.aiperf_logger import AIPerfLoggerMixin
+from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.progress.progress_models import BenchmarkSuiteProgress, ProfileRunProgress
 
 

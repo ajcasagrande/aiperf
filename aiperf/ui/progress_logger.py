@@ -1,7 +1,9 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from aiperf.common.enums import AIPerfUIType, MessageType
+from pydantic import Field
+
+from aiperf.common.enums import AIPerfUIType, CreditPhase, MessageType
 from aiperf.common.messages import (
     CreditPhaseCompleteMessage,
     CreditPhaseProgressMessage,
@@ -11,18 +13,43 @@ from aiperf.common.messages import (
     RecordsProcessingStatsMessage,
     WorkerHealthMessage,
 )
-from aiperf.common.mixins import AIPerfLoggerMixin
+from aiperf.common.mixins import AIPerfLifecycleMixin
+from aiperf.common.pydantic_utils import AIPerfBaseModel
+from aiperf.common.utils import format_duration
 from aiperf.progress.progress_tracker import ProgressTracker
 from aiperf.ui.ui_protocol import AIPerfUIFactory
 
 
+class LoggerTracker(AIPerfBaseModel):
+    """Tracker for the logger."""
+
+    prev_records: dict[CreditPhase, int] = Field(default_factory=dict)
+    prev_requests: dict[CreditPhase, int] = Field(default_factory=dict)
+
+    def update_records(self, phase: CreditPhase, records: int) -> int:
+        """Update the tracker with new records."""
+        delta = records - self.prev_records.get(phase, 0)
+        self.prev_records[phase] = records
+        return delta
+
+    def update_requests(self, phase: CreditPhase, requests: int) -> int:
+        """Update the tracker with new requests."""
+        delta = requests - self.prev_requests.get(phase, 0)
+        self.prev_requests[phase] = requests
+        return delta
+
+
 @AIPerfUIFactory.register(AIPerfUIType.LOGGING)
-class SimpleProgressLogger(AIPerfLoggerMixin):
-    """Simple logger for progress updates. It will log the progress to the console."""
+class SimpleProgressLogger(AIPerfLifecycleMixin):
+    """Simple logger for progress updates. It will log the progress to the console.
+
+    This is a fallback UI for when no other UI is available, or the user wants no-frills progress logging.
+    """
 
     def __init__(self, progress_tracker: ProgressTracker, **kwargs):
         super().__init__(**kwargs)
         self.progress_tracker = progress_tracker
+        self.tracker = LoggerTracker()
 
     async def update_progress(self):
         """Log a progress update based on current credit phase."""
@@ -34,11 +61,17 @@ class SimpleProgressLogger(AIPerfLoggerMixin):
         for phase, phase_stats in current_profile_run.phases.items():
             total_requests = phase_stats.total_requests or 0
             completed_requests = phase_stats.completed
+            requests_delta = self.tracker.update_requests(phase, completed_requests)
+
+            if requests_delta == 0 or total_requests == 0:
+                continue
 
             self.info(
                 lambda phase=phase,
                 completed=completed_requests,
-                total=total_requests: f"Phase {phase} - Requests Completed: {completed} / {total}"
+                per_sec=phase_stats.requests_per_second,
+                eta=phase_stats.requests_eta,
+                total=total_requests: f"Phase {phase.capitalize()} - Requests Completed: {completed} / {total} ({per_sec:.2f} requests/s, ~{format_duration(eta)} remaining)"
             )
 
     async def update_stats(self, message: RecordsProcessingStatsMessage):
@@ -48,14 +81,20 @@ class SimpleProgressLogger(AIPerfLoggerMixin):
         if current_profile_run is None:
             return
 
-        for phase, processing_stats in current_profile_run.phases.items():
-            processed_records = processing_stats.processed
-            total_records = processing_stats.total_records
+        for phase, phase_stats in current_profile_run.phases.items():
+            processed_records = phase_stats.processed
+            total_records = phase_stats.total_requests or 0
+            records_delta = self.tracker.update_records(phase, processed_records)
+
+            if records_delta == 0 or total_records == 0:
+                continue
 
             self.info(
                 lambda phase=phase,
                 processed=processed_records,
-                total=total_records: f"Phase {phase} - Records Processed: {processed} / {total}"
+                per_sec=phase_stats.records_per_second,
+                eta=phase_stats.records_eta,
+                total=total_records: f"Phase {phase.capitalize()} - Records Processed: {processed} / {total} ({per_sec:.2f} records/s, ~{format_duration(eta)} remaining)"
             )
 
     async def on_message(self, message: Message) -> None:
