@@ -327,9 +327,9 @@ class SystemController(
         self.progress_tracker.on_message(message)
         await self.ui.on_message(message)
         if message.message_type == MessageType.CREDIT_PHASE_SENDING_COMPLETE:
-            self.info("Credit phase sending complete, sending process records command")
+            self.info("Credit phase sending complete")
         if message.message_type == MessageType.CREDIT_PHASE_COMPLETE:
-            self.info("Profile completed, sending process records command")
+            self.info("Credit phase complete")
 
     @on_message(MessageType.PROCESSING_STATS)
     async def _process_processing_stats_message(

@@ -63,7 +63,7 @@ class ConcurrencyStrategy(
                 ),
             )
 
-        # Add the steady-state phase
+        # Add the profiling phase
         self.phases.append(CreditPhase.PROFILING)
         self.phase_stats[CreditPhase.PROFILING] = CreditPhaseStats(
             type=CreditPhase.PROFILING, total_requests=self.config.request_count
@@ -222,5 +222,7 @@ class ConcurrencyStrategy(
     async def on_credit_return(self, message: CreditReturnMessage) -> None:
         """Process a credit return message."""
 
+        # Release the semaphore, then call the superclass to handle the credit return
         self._semaphore.release()
+        self.trace(lambda: f"TM: Released semaphore: {self._semaphore}")
         await super().on_credit_return(message)
