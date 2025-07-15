@@ -28,6 +28,49 @@ from aiperf.common.worker_models import WorkerPhaseTaskStats
 logger = AIPerfLogger(__name__)
 
 
+class ProgressTracker(AIPerfLoggerMixin):
+    """A progress tracker that tracks the progress of the entire benchmark suite."""
+
+    def __init__(self):
+        super().__init__()
+        self.suite: BenchmarkSuiteProgress | None = None
+
+    def configure(
+        self, suite: "BenchmarkSuiteProgress", current_profile_run: "ProfileRunProgress"
+    ):
+        """Configure the progress tracker with a benchmark suite."""
+        self.suite = suite
+        self.suite.current_profile_run = current_profile_run
+
+    @property
+    def current_profile_run(self) -> "ProfileRunProgress | None":
+        if self.suite is None:
+            return None
+        return self.suite.current_profile_run
+
+    @property
+    def active_credit_phase(self) -> CreditPhase | None:
+        if self.current_profile_run is None:
+            return None
+        return self.current_profile_run.active_phase
+
+    @active_credit_phase.setter
+    def active_credit_phase(self, value: CreditPhase):
+        if self.current_profile_run is None:
+            return
+        self.current_profile_run.active_phase = value
+
+    def on_message(self, message: Message):
+        """Update the progress from a message."""
+        if self.current_profile_run is None:
+            self.logger.debug(
+                "Received %s message before profile run is started",
+                message.message_type,
+            )
+            return
+        self.current_profile_run.on_message(message)
+
+
 class CreditPhaseComputedStats(AIPerfBaseModel):
     """Contains additional stats for a credit phase based on computed values."""
 
@@ -369,54 +412,3 @@ class BenchmarkSuiteProgress(AIPerfBaseModel):
         default_factory=ProfileRunProgress,
         description="The current profile run progress",
     )
-
-
-class ProgressTracker(AIPerfLoggerMixin):
-    """A progress tracker that tracks the progress of the entire benchmark suite."""
-
-    def __init__(self):
-        super().__init__()
-        self.suite: BenchmarkSuiteProgress | None = None
-
-    def configure(
-        self, suite: BenchmarkSuiteProgress, current_profile_run: ProfileRunProgress
-    ):
-        """Configure the progress tracker with a benchmark suite."""
-        self.suite = suite
-        self.suite.current_profile_run = current_profile_run
-
-    @property
-    def current_profile_run(self) -> ProfileRunProgress | None:
-        if self.suite is None:
-            return None
-        return self.suite.current_profile_run
-
-    # TODO: this is a hack to allow examples to set the current profile run
-    # we should have a better way to do this
-    @current_profile_run.setter
-    def current_profile_run(self, value: ProfileRunProgress):
-        if self.suite is None:
-            self.suite = BenchmarkSuiteProgress(type=BenchmarkSuiteType.SINGLE_PROFILE)
-        self.suite.current_profile_run = value
-
-    @property
-    def active_credit_phase(self) -> CreditPhase | None:
-        if self.current_profile_run is None:
-            return None
-        return self.current_profile_run.active_phase
-
-    @active_credit_phase.setter
-    def active_credit_phase(self, value: CreditPhase):
-        if self.current_profile_run is None:
-            return
-        self.current_profile_run.active_phase = value
-
-    def on_message(self, message: Message):
-        """Update the progress from a message."""
-        if self.current_profile_run is None:
-            self.logger.debug(
-                "Received %s message before profile run is started",
-                message.message_type,
-            )
-            return
-        self.current_profile_run.on_message(message)
