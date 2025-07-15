@@ -2,18 +2,17 @@
 # SPDX-License-Identifier: Apache-2.0
 """Main CLI entry point for the AIPerf system."""
 
+################################################################################
+# NOTE: WARNING: Keep the imports here to a minimum. This file is read every
+# time the CLI is run, in order to parse the CLI arguments. Any imports here
+# will cause a performance penalty on startup.
+################################################################################
+
 import sys
 
 import cyclopts
 
-from aiperf.common.aiperf_logger import AIPerfLogger
-from aiperf.common.bootstrap import bootstrap_and_run_service
-from aiperf.common.config import CLIConfig, ServiceConfig
-from aiperf.common.config.user_config import UserConfig
-from aiperf.common.logging import setup_rich_logging
-from aiperf.services import SystemController
-
-logger = AIPerfLogger(__name__)
+from aiperf.common.config import CLIConfig, ServiceConfig, UserConfig
 
 app = cyclopts.App(name="aiperf", help="NVIDIA AIPerf")
 
@@ -31,7 +30,9 @@ def profile(
         service_config: Service configuration options
         cli_config: CLI configuration options
     """
-    service_config = _prepare_service_config_from_cli(cli_config, service_config)
+    service_config = _prepare_service_config_from_cli(
+        cli_config=cli_config, service_config=service_config
+    )
     _run_system_controller(user_config, service_config)
 
 
@@ -43,10 +44,12 @@ def analyze(
 ) -> None:
     """Sweep through one or more parameters."""
     # TODO: Implement this
-    service_config = _prepare_service_config_from_cli(cli_config, service_config)
-    setup_rich_logging(user_config or UserConfig(model_names=["gpt2"]), service_config)
-    logger.error("Analyze subcommand not implemented")
-    raise NotImplementedError("Analyze not implemented")
+    raise_not_implemented(
+        "Analyze",
+        user_config=user_config,
+        service_config=service_config,
+        cli_config=cli_config,
+    )
 
 
 @app.command(name="create-template", help="Create a template configuration file")
@@ -57,10 +60,12 @@ def create_template(
 ) -> None:
     """Create a template configuration file."""
     # TODO: Implement this
-    service_config = _prepare_service_config_from_cli(cli_config, service_config)
-    setup_rich_logging(user_config or UserConfig(model_names=["gpt2"]), service_config)
-    logger.error("Create template subcommand not implemented")
-    raise NotImplementedError("Create template not implemented")
+    raise_not_implemented(
+        "Create Template",
+        user_config=user_config,
+        service_config=service_config,
+        cli_config=cli_config,
+    )
 
 
 @app.command(name="validate", help="Validate the configuration file")
@@ -71,10 +76,12 @@ def validate(
 ) -> None:
     """Validate the configuration file."""
     # TODO: Implement this
-    service_config = _prepare_service_config_from_cli(cli_config, service_config)
-    setup_rich_logging(user_config or UserConfig(model_names=["gpt2"]), service_config)
-    logger.error("Validate subcommand not implemented")
-    raise NotImplementedError("Validate not implemented")
+    raise_not_implemented(
+        "Validate Configuration",
+        user_config=user_config,
+        service_config=service_config,
+        cli_config=cli_config,
+    )
 
 
 def _prepare_service_config_from_cli(
@@ -99,9 +106,19 @@ def _run_system_controller(
     user_config: UserConfig, service_config: ServiceConfig
 ) -> None:
     """Run the system controller with the given configuration."""
+
+    from aiperf.common.aiperf_logger import AIPerfLogger
+    from aiperf.common.bootstrap import bootstrap_and_run_service
+    from aiperf.services import SystemController
+
+    logger = AIPerfLogger(__name__)
+
     log_queue = None
     if service_config.disable_ui:
+        from aiperf.common.logging import setup_rich_logging
+
         setup_rich_logging(user_config, service_config)
+
     else:
         from aiperf.common.logging import get_global_log_queue
 
@@ -123,6 +140,26 @@ def _run_system_controller(
         raise e
     finally:
         logger.info("AIPerf System exited")
+
+
+def raise_not_implemented(
+    subcommand: str,
+    user_config: UserConfig | None = None,
+    service_config: ServiceConfig | None = None,
+    cli_config: CLIConfig | None = None,
+) -> None:
+    """Raise a NotImplementedError with a message."""
+    from aiperf.common.aiperf_logger import AIPerfLogger
+    from aiperf.common.logging import setup_rich_logging
+
+    service_config = _prepare_service_config_from_cli(
+        cli_config=cli_config, service_config=service_config
+    )
+    setup_rich_logging(user_config or UserConfig(model_names=["gpt2"]), service_config)
+    logger = AIPerfLogger(__name__)
+
+    logger.error(f"{subcommand} subcommand not implemented")
+    raise NotImplementedError(f"{subcommand} not implemented")
 
 
 if __name__ == "__main__":
