@@ -18,15 +18,16 @@ def run_system_controller(
     service_config = service_config or ServiceConfig()
 
     log_queue = None
-    if service_config.disable_ui:
-        from aiperf.common.logging import setup_rich_logging
-
-        setup_rich_logging(user_config, service_config)
-
-    else:
+    if service_config.ui_type.is_graphical:
+        # If the UI is graphical, we need to set up the log queue
         from aiperf.common.logging import get_global_log_queue
 
         log_queue = get_global_log_queue()
+    else:
+        # If the UI is not graphical, we need to set up the logging to the console
+        from aiperf.common.logging import setup_rich_logging
+
+        setup_rich_logging(user_config, service_config)
 
     # Create and start the system controller
     logger.info("Starting AIPerf System")

@@ -39,7 +39,7 @@ class LoggerTracker(AIPerfBaseModel):
         return delta
 
 
-@AIPerfUIFactory.register(AIPerfUIType.LOGGING)
+@AIPerfUIFactory.register(AIPerfUIType.NONE)
 class SimpleProgressLogger(AIPerfLifecycleMixin):
     """Simple logger for progress updates. It will log the progress to the console.
 

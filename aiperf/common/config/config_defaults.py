@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from aiperf.common.enums import (
+    AIPerfUIType,
     AudioFormat,
     CommunicationBackend,
     CustomDatasetType,
@@ -155,12 +156,14 @@ class ServiceDefaults:
     EXTRA_VERBOSE = False
     LOG_PATH = None
     DISABLE_UI = False
+    BASIC_UI = False
     ENABLE_UVLOOP = True
     RESULT_PARSER_SERVICE_COUNT = 2
     ENABLE_YAPPI = False
     DEBUG_SERVICES = None
     WORKER_HEALTH_CHECK_INTERVAL = 1.0
     PLUGIN_DIRS = []
+    UI_TYPE = AIPerfUIType.RICH
 
 
 @dataclass(frozen=True)
@@ -180,6 +183,7 @@ class MeasurementDefaults:
     STABILITY_PERCENTAGE = 0.95
 
 
+# TODO: Enable this when we implement the sweep command
 # @dataclass(frozen=True)
 # class SweepParamDefaults:
 #     VALUES = None
@@ -191,6 +195,7 @@ class MeasurementDefaults:
 #     MAX_PROFILES = None
 
 
+# TODO: Enable this when we implement the sweep command
 # @dataclass(frozen=True)
 # class SweepDefaults:
 #     PARAMS = None

@@ -16,7 +16,12 @@ from aiperf.common.config.zmq_config import (
     ZMQIPCConfig,
     ZMQTCPConfig,
 )
-from aiperf.common.enums import CommunicationBackend, ServiceRunType, ServiceType
+from aiperf.common.enums import (
+    AIPerfUIType,
+    CommunicationBackend,
+    ServiceRunType,
+    ServiceType,
+)
 
 
 class ServiceConfig(BaseSettings):
@@ -48,6 +53,15 @@ class ServiceConfig(BaseSettings):
                 self.comm_config = ZMQTCPConfig()
             else:
                 raise ValueError(f"Invalid communication backend: {self.comm_backend}")
+        return self
+
+    @model_validator(mode="after")
+    def validate_ui_type(self) -> Self:
+        """Validate the UI type."""
+        if self.disable_ui:
+            self.ui_type = AIPerfUIType.NONE
+        elif self.basic_ui:
+            self.ui_type = AIPerfUIType.BASIC
         return self
 
     service_run_type: Annotated[
@@ -184,15 +198,35 @@ class ServiceConfig(BaseSettings):
         ),
     ] = ServiceDefaults.EXTRA_VERBOSE
 
+    basic_ui: Annotated[
+        bool,
+        Field(
+            description="Enable the basic tqdm-based UI. This is equivalent to --ui-type basic.",
+        ),
+        cyclopts.Parameter(
+            name=("--basic-ui"),
+        ),
+    ] = ServiceDefaults.BASIC_UI
+
     disable_ui: Annotated[
         bool,
         Field(
-            description="Disable the UI",
+            description="Disable the UI (prints progress to the console as log messages). This is equivalent to --ui-type none.",
         ),
         cyclopts.Parameter(
             name=("--disable-ui"),
         ),
     ] = ServiceDefaults.DISABLE_UI
+
+    ui_type: Annotated[
+        AIPerfUIType,
+        Field(
+            description="Type of UI to use",
+        ),
+        cyclopts.Parameter(
+            name=("--ui-type", "--ui"),
+        ),
+    ] = ServiceDefaults.UI_TYPE
 
     enable_uvloop: Annotated[
         bool,

@@ -134,6 +134,7 @@ class Worker(BaseComponentService, ProcessHealthMixin):
         # TODO: Add tests to ensure that the above note is never violated in the future
 
         self.trace(lambda: f"Processing credit drop: {message}")
+        drop_perf_ns = time.perf_counter_ns()  # The time the credit was received
 
         record: RequestRecord = RequestRecord()
         try:
@@ -162,12 +163,15 @@ class Worker(BaseComponentService, ProcessHealthMixin):
                 # If we fail to push the record, log the error and continue
                 self.exception(f"Error pushing request record: {e}")
             finally:
+                # Calculate the latency of the credit drop
+                pre_inference_ns = record.start_perf_ns - drop_perf_ns
                 # Always return the credits
                 return_message = CreditReturnMessage(
                     service_id=self.service_id,
                     conversation_id=message.conversation_id,
                     credit_drop_ns=message.credit_drop_ns,
                     delayed_ns=None,
+                    pre_inference_ns=pre_inference_ns,
                     phase=message.phase,
                 )
                 self.trace(lambda: f"Returning credit {return_message}")

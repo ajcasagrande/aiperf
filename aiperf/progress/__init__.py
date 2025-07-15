@@ -13,7 +13,7 @@ from aiperf.progress.health_tracker import (
 from aiperf.progress.progress_models import (
     BenchmarkSuiteProgress,
     CreditPhaseComputedStats,
-    FullCreditPhaseProgress,
+    FullCreditPhaseProgressInfo,
     ProfileRunProgress,
 )
 from aiperf.progress.progress_tracker import (
@@ -23,7 +23,7 @@ from aiperf.progress.progress_tracker import (
 __all__ = [
     "BenchmarkSuiteProgress",
     "CreditPhaseComputedStats",
-    "FullCreditPhaseProgress",
+    "FullCreditPhaseProgressInfo",
     "HealthTracker",
     "ProfileRunProgress",
     "ProgressTracker",

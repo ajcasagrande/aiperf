@@ -15,9 +15,8 @@ class CreditPhaseStats(AIPerfBaseModel):
     How many credits were dropped and how many were returned, as well as the progress percentage of the phase."""
 
     type: CreditPhase = Field(..., description="The type of credit phase")
-    start_ns: int = Field(
-        default_factory=time.time_ns,
-        ge=1,
+    start_ns: int | None = Field(
+        default=None,
         description="The start time of the credit phase in nanoseconds.",
     )
     sent_end_ns: int | None = Field(
@@ -69,7 +68,7 @@ class CreditPhaseStats(AIPerfBaseModel):
     @property
     def should_send(self) -> bool:
         if self.expected_duration_ns:
-            return time.time_ns() - self.start_ns <= self.expected_duration_ns
+            return time.time_ns() - (self.start_ns or 0) <= self.expected_duration_ns
         elif self.total_requests:
             return self.sent < self.total_requests
         raise InvalidStateError("Phase is not time or request count based")
@@ -84,6 +83,9 @@ class CreditPhaseStats(AIPerfBaseModel):
 
         if self.is_time_based:
             # Time based, so progress is the percentage of time elapsed compared to the duration
+            if not self.is_started:
+                return 0
+
             return (
                 (time.time_ns() - self.start_ns) / self.expected_duration_ns  # type: ignore
             ) * 100

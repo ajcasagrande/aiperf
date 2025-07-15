@@ -16,7 +16,6 @@ from aiperf.common.enums import (
     ServiceType,
     SystemState,
 )
-from aiperf.common.enums.ui import AIPerfUIType
 from aiperf.common.exceptions import CommunicationError, NotInitializedError
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import on_cleanup, on_message, on_start, on_stop
@@ -82,13 +81,8 @@ class SystemController(
 
         self.progress_tracker: ProgressTracker = ProgressTracker()
 
-        self.ui_type = (
-            AIPerfUIType.LOGGING
-            if self.service_config.disable_ui
-            else AIPerfUIType.RICH
-        )
         self.ui: AIPerfUIProtocol = AIPerfUIFactory.create_instance(
-            self.ui_type, progress_tracker=self.progress_tracker
+            self.service_config.ui_type, progress_tracker=self.progress_tracker
         )
 
         self.profile_runner: ProfileRunner | None = None

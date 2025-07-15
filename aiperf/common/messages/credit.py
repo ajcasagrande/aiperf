@@ -54,7 +54,8 @@ class CreditReturnMessage(BaseServiceMessage):
     )
     pre_inference_ns: int | None = Field(
         default=None,
-        description="The latency of the credit in nanoseconds from when it was first received to when the inference request was sent.",
+        description="The latency of the credit in nanoseconds from when it was first received to when the inference request was sent. "
+        "This can be used to trace the latency in order to identify bottlenecks or other issues.",
         ge=0,
     )
 

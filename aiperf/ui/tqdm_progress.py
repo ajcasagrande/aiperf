@@ -19,7 +19,7 @@ from aiperf.progress.progress_tracker import ProgressTracker
 from aiperf.ui.ui_protocol import AIPerfUIFactory
 
 
-@AIPerfUIFactory.register(AIPerfUIType.TQDM)
+@AIPerfUIFactory.register(AIPerfUIType.BASIC)
 class TqdmProgressUI(AIPerfLifecycleMixin):
     """Tqdm progress UI."""
 

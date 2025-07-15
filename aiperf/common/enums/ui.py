@@ -17,11 +17,16 @@ class AIPerfUIType(CaseInsensitiveStrEnum):
     Full feature terminal UI with scrolling and mouse support.
     """
 
-    TQDM = "tqdm"
+    BASIC = "basic"
     """No dashboard, just simple progress bars using tqdm.
     Requires the tqdm package to be installed."""
 
-    LOGGING = "logging"
+    NONE = "none"
     """Logs progress to the console as log messages. This can be considered a fallback
     for when no other UI is available.
     """
+
+    @property
+    def is_graphical(self) -> bool:
+        """Check if the UI is graphical. This is for convenience to determine how to handle log queues."""
+        return self in (AIPerfUIType.RICH, AIPerfUIType.TEXTUAL)
