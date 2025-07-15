@@ -40,6 +40,9 @@ from aiperf.common.enums.endpoints import (
     EndpointType,
     ResponsePayloadType,
 )
+from aiperf.common.enums.logging import (
+    AIPerfLogLevel,
+)
 from aiperf.common.enums.measurement import (
     MeasurementMode,
 )
@@ -81,6 +84,7 @@ from aiperf.common.enums.ui import (
 )
 
 __all__ = [
+    "AIPerfLogLevel",
     "AIPerfUIType",
     "AudioFormat",
     "BenchmarkSuiteCompletionTrigger",

@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated
 
 import cyclopts
 from pydantic import BeforeValidator, Field, model_validator
@@ -10,13 +10,14 @@ from typing_extensions import Self
 
 from aiperf.common.config.base_config import ADD_TO_TEMPLATE
 from aiperf.common.config.config_defaults import ServiceDefaults
-from aiperf.common.config.config_validators import parse_service_types
+from aiperf.common.config.config_validators import parse_service_types, parse_ui_type
 from aiperf.common.config.zmq_config import (
     BaseZMQCommunicationConfig,
     ZMQIPCConfig,
     ZMQTCPConfig,
 )
 from aiperf.common.enums import (
+    AIPerfLogLevel,
     AIPerfUIType,
     CommunicationBackend,
     ServiceRunType,
@@ -38,9 +39,9 @@ class ServiceConfig(BaseSettings):
     def validate_log_level_from_verbose_flags(self) -> Self:
         """Set log level based on verbose flags."""
         if self.extra_verbose:
-            self.log_level = "TRACE"
+            self.log_level = AIPerfLogLevel.TRACE
         elif self.verbose:
-            self.log_level = "DEBUG"
+            self.log_level = AIPerfLogLevel.DEBUG
         return self
 
     @model_validator(mode="after")
@@ -158,16 +159,7 @@ class ServiceConfig(BaseSettings):
     ] = ServiceDefaults.MAX_WORKERS
 
     log_level: Annotated[
-        Literal[
-            "DEBUG",
-            "INFO",
-            "WARNING",
-            "ERROR",
-            "CRITICAL",
-            "TRACE",
-            "NOTICE",
-            "SUCCESS",
-        ],
+        AIPerfLogLevel,
         Field(
             description="Logging level",
         ),
@@ -226,6 +218,7 @@ class ServiceConfig(BaseSettings):
         cyclopts.Parameter(
             name=("--ui-type", "--ui"),
         ),
+        BeforeValidator(parse_ui_type),
     ] = ServiceDefaults.UI_TYPE
 
     enable_uvloop: Annotated[

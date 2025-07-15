@@ -17,6 +17,7 @@ __submodules__ = [
 #########################################################
 
 from aiperf.ui.progress_logger import (
+    LoggerTracker,
     SimpleProgressLogger,
 )
 from aiperf.ui.rich import (
@@ -77,6 +78,7 @@ __all__ = [
     "Header",
     "HeaderElement",
     "LogViewer",
+    "LoggerTracker",
     "LogsDashboardElement",
     "LogsDashboardMixin",
     "PhaseOverviewData",
