@@ -26,9 +26,7 @@ class UserDefaults:
 
 @dataclass(frozen=True)
 class CLIDefaults:
-    VERBOSE = False
     TEMPLATE_FILENAME = "aiperf_config.yaml"
-    EXTRA_VERBOSE = False
 
 
 @dataclass(frozen=True)
@@ -153,6 +151,8 @@ class ServiceDefaults:
     MIN_WORKERS = None
     MAX_WORKERS = None
     LOG_LEVEL = "INFO"
+    VERBOSE = False
+    EXTRA_VERBOSE = False
     LOG_PATH = None
     DISABLE_UI = False
     ENABLE_UVLOOP = True

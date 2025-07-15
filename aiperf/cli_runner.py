@@ -1,30 +1,11 @@
 #  SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #  SPDX-License-Identifier: Apache-2.0
-from aiperf.common.config import CLIConfig, ServiceConfig, UserConfig
-
-
-def prepare_service_config_from_cli(
-    cli_config: CLIConfig | None = None,
-    service_config: ServiceConfig | None = None,
-) -> ServiceConfig:
-    """Prepare service config and apply verbose overrides."""
-    cli_config = cli_config or CLIConfig()
-    service_config = service_config or ServiceConfig()
-
-    # Override log level based on verbose flags
-    # TODO: Warn the user that the log level is being overridden if they manually set it with --log-level
-    if cli_config.extra_verbose:
-        service_config.log_level = "TRACE"
-    elif cli_config.verbose:
-        service_config.log_level = "DEBUG"
-
-    return service_config
+from aiperf.common.config import ServiceConfig, UserConfig
 
 
 def run_system_controller(
     user_config: UserConfig,
     service_config: ServiceConfig | None = None,
-    cli_config: CLIConfig | None = None,
 ) -> None:
     """Run the system controller with the given configuration."""
 
@@ -32,11 +13,9 @@ def run_system_controller(
     from aiperf.common.bootstrap import bootstrap_and_run_service
     from aiperf.services import SystemController
 
-    service_config = prepare_service_config_from_cli(
-        cli_config=cli_config, service_config=service_config
-    )
-
     logger = AIPerfLogger(__name__)
+
+    service_config = service_config or ServiceConfig()
 
     log_queue = None
     if service_config.disable_ui:
@@ -67,21 +46,21 @@ def run_system_controller(
         logger.info("AIPerf System exited")
 
 
-def raise_subcommand_not_implemented(
-    subcommand: str,
-    user_config: UserConfig | None = None,
-    service_config: ServiceConfig | None = None,
-    cli_config: CLIConfig | None = None,
-) -> None:
-    """Raise a NotImplementedError with a message."""
-    from aiperf.common.aiperf_logger import AIPerfLogger
-    from aiperf.common.logging import setup_rich_logging
+def warn_command_not_implemented(command: str) -> None:
+    """Warn the user that the subcommand is not implemented."""
+    import sys
 
-    service_config = prepare_service_config_from_cli(
-        cli_config=cli_config, service_config=service_config
+    from rich.console import Console
+    from rich.panel import Panel
+
+    console = Console()
+    console.print(
+        Panel(
+            f"Command [bold red]{command}[/bold red] is not yet implemented",
+            title="Error",
+            title_align="left",
+            border_style="red",
+        )
     )
-    setup_rich_logging(user_config or UserConfig(model_names=["gpt2"]), service_config)
-    logger = AIPerfLogger(__name__)
 
-    logger.error(f"{subcommand} subcommand not implemented")
-    raise NotImplementedError(f"{subcommand} not implemented")
+    sys.exit(1)
