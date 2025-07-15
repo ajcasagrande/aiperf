@@ -7,39 +7,19 @@ import sys
 from pathlib import Path
 
 import cyclopts
-from pydantic import Field
 from rich.console import Console
 from rich.logging import RichHandler
 
 from aiperf.common.aiperf_logger import AIPerfLogger
 from aiperf.common.bootstrap import bootstrap_and_run_service
-from aiperf.common.config import ServiceConfig
+from aiperf.common.config import CLIConfig, ServiceConfig
 from aiperf.common.config.config_defaults import ServiceDefaults
 from aiperf.common.config.user_config import UserConfig
-from aiperf.common.pydantic_utils import AIPerfBaseModel
 from aiperf.services import SystemController
 
 logger = AIPerfLogger(__name__)
 
-
-class CLIConfig(AIPerfBaseModel):
-    """Configuration model for CLI arguments."""
-
-    config: Path | None = Field(
-        default=None,
-        description="Path to configuration file",
-    )
-    service_config: ServiceConfig | None = Field(
-        default=None,
-        description="Service configuration",
-    )
-    user_config: UserConfig | None = Field(
-        default=None,
-        description="User configuration",
-    )
-
-
-app = cyclopts.App(name="aiperf", help="AIPerf Benchmarking System")
+app = cyclopts.App(name="aiperf", help="NVIDIA AIPerf")
 
 
 def _setup_logging(service_config: ServiceConfig | None = None) -> None:
@@ -89,38 +69,33 @@ def _setup_logging(service_config: ServiceConfig | None = None) -> None:
 
 @app.default
 def main(
+    cli_config: CLIConfig,
     user_config: UserConfig,
-    config: Path | None = None,
     service_config: ServiceConfig | None = None,
 ) -> None:
     """Main entry point for the AIPerf system."""
 
-    # Create CLI config
-    cli_config = CLIConfig(
-        config=config,
-        service_config=service_config or ServiceConfig(),
-        user_config=user_config,
-    )
+    # Create service config if not provided
+    if service_config is None:
+        service_config = ServiceConfig()
 
-    disable_ui = (
-        cli_config.service_config.disable_ui
-        if cli_config.service_config
-        else ServiceDefaults.DISABLE_UI
-    )
+    # Override log level to DEBUG if verbose is enabled
+    if cli_config.verbose:
+        service_config.log_level = "DEBUG"
 
     log_queue = None
-    if disable_ui:
-        _setup_logging(cli_config.service_config)
+    if service_config.disable_ui:
+        _setup_logging(service_config)
     else:
         from aiperf.common.logging import get_global_log_queue
 
         log_queue = get_global_log_queue()
 
     # Load configuration
-    if cli_config.config:
-        # In a real implementation, this would load from the specified file
-        logger.debug(f"Loading configuration from {cli_config.config}")
-        # service_config.load_from_file(cli_config.config)
+    if cli_config.template_filename:
+        logger.debug(f"Loading configuration from {cli_config.template_filename}")
+        # TODO: Implement this
+        # service_config.load_from_file(cli_config.template_filename)
 
     # Create and start the system controller
     logger.info("Starting AIPerf System")
@@ -129,8 +104,8 @@ def main(
         bootstrap_and_run_service(
             SystemController,
             service_id="system_controller",
-            service_config=cli_config.service_config,
-            user_config=cli_config.user_config,
+            service_config=service_config,
+            user_config=user_config,
             log_queue=log_queue,
         )
     except Exception as e:

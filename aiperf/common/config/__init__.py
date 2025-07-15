@@ -8,6 +8,7 @@ __all__ = [
     "AudioLengthConfig",
     "BaseConfig",
     "BaseZMQCommunicationConfig",
+    "CLIConfig",
     "EndPointConfig",
     "EndPointDefaults",
     "LoadGeneratorConfig",
@@ -50,6 +51,7 @@ __all__ = [
 from aiperf.common.config.base_config import (
     BaseConfig,
 )
+from aiperf.common.config.cli_config import CLIConfig
 from aiperf.common.config.config_defaults import (
     AudioDefaults,
     ConversationDefaults,
