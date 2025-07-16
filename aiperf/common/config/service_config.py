@@ -35,6 +35,8 @@ class ServiceConfig(BaseSettings):
         extra="allow",
     )
 
+    _GROUP_NAME = "Service"
+
     @model_validator(mode="after")
     def validate_log_level_from_verbose_flags(self) -> Self:
         """Set log level based on verbose flags."""
@@ -72,6 +74,7 @@ class ServiceConfig(BaseSettings):
         ),
         cyclopts.Parameter(
             name=("--run-type"),
+            group=_GROUP_NAME,
         ),
     ] = ServiceDefaults.SERVICE_RUN_TYPE
 
@@ -82,6 +85,7 @@ class ServiceConfig(BaseSettings):
         ),
         cyclopts.Parameter(
             name=("--comm-backend"),
+            group=_GROUP_NAME,
         ),
     ] = ServiceDefaults.COMM_BACKEND
 
@@ -104,6 +108,7 @@ class ServiceConfig(BaseSettings):
         ),
         cyclopts.Parameter(
             name=("--heartbeat-timeout"),
+            group=_GROUP_NAME,
         ),
     ] = ServiceDefaults.HEARTBEAT_TIMEOUT
 
@@ -114,6 +119,7 @@ class ServiceConfig(BaseSettings):
         ),
         cyclopts.Parameter(
             name=("--registration-timeout"),
+            group=_GROUP_NAME,
         ),
     ] = ServiceDefaults.REGISTRATION_TIMEOUT
 
@@ -124,6 +130,7 @@ class ServiceConfig(BaseSettings):
         ),
         cyclopts.Parameter(
             name=("--command-timeout"),
+            group=_GROUP_NAME,
         ),
     ] = ServiceDefaults.COMMAND_TIMEOUT
 
@@ -134,6 +141,7 @@ class ServiceConfig(BaseSettings):
         ),
         cyclopts.Parameter(
             name=("--heartbeat-interval-seconds"),
+            group=_GROUP_NAME,
         ),
     ] = ServiceDefaults.HEARTBEAT_INTERVAL_SECONDS
 
@@ -151,6 +159,7 @@ class ServiceConfig(BaseSettings):
         ),
         cyclopts.Parameter(
             name=("--log-level"),
+            group=_GROUP_NAME,
         ),
     ] = ServiceDefaults.LOG_LEVEL
 
@@ -162,6 +171,7 @@ class ServiceConfig(BaseSettings):
         ),
         cyclopts.Parameter(
             name=("--verbose", "-v"),
+            group=_GROUP_NAME,
         ),
     ] = ServiceDefaults.VERBOSE
 
@@ -173,6 +183,7 @@ class ServiceConfig(BaseSettings):
         ),
         cyclopts.Parameter(
             name=("--extra-verbose", "-vv"),
+            group=_GROUP_NAME,
         ),
     ] = ServiceDefaults.EXTRA_VERBOSE
 
@@ -183,6 +194,7 @@ class ServiceConfig(BaseSettings):
         ),
         cyclopts.Parameter(
             name=("--basic-ui"),
+            group=_GROUP_NAME,
         ),
     ] = ServiceDefaults.BASIC_UI
 
@@ -193,6 +205,7 @@ class ServiceConfig(BaseSettings):
         ),
         cyclopts.Parameter(
             name=("--disable-ui"),
+            group=_GROUP_NAME,
         ),
     ] = ServiceDefaults.DISABLE_UI
 
@@ -203,6 +216,7 @@ class ServiceConfig(BaseSettings):
         ),
         cyclopts.Parameter(
             name=("--ui-type", "--ui"),
+            group=_GROUP_NAME,
         ),
         BeforeValidator(parse_ui_type),
     ] = ServiceDefaults.UI_TYPE
@@ -214,6 +228,7 @@ class ServiceConfig(BaseSettings):
         ),
         cyclopts.Parameter(
             name=("--enable-uvloop"),
+            group=_GROUP_NAME,
         ),
     ] = ServiceDefaults.ENABLE_UVLOOP
 
@@ -225,6 +240,7 @@ class ServiceConfig(BaseSettings):
         ),
         cyclopts.Parameter(
             name=("--result-parser-service-count"),
+            group=_GROUP_NAME,
         ),
     ] = ServiceDefaults.RESULT_PARSER_SERVICE_COUNT
 
@@ -238,6 +254,7 @@ class ServiceConfig(BaseSettings):
         ),
         cyclopts.Parameter(
             name=("--enable-yappi-profiling"),
+            group=_GROUP_NAME,
         ),
     ] = ServiceDefaults.ENABLE_YAPPI
 
@@ -250,6 +267,7 @@ class ServiceConfig(BaseSettings):
         cyclopts.Parameter(
             # Note that the name is singular because it can be used multiple times.
             name=("--debug-service"),
+            group=_GROUP_NAME,
         ),
         BeforeValidator(parse_service_types),
     ] = ServiceDefaults.DEBUG_SERVICES

@@ -5,7 +5,7 @@ from aiperf.common.config import ServiceConfig, UserConfig
 
 def run_system_controller(
     user_config: UserConfig,
-    service_config: ServiceConfig | None = None,
+    service_config: ServiceConfig,
 ) -> None:
     """Run the system controller with the given configuration."""
 
@@ -14,8 +14,6 @@ def run_system_controller(
     from aiperf.services import SystemController
 
     logger = AIPerfLogger(__name__)
-
-    service_config = service_config or ServiceConfig()
 
     log_queue = None
     if service_config.ui_type.is_graphical:

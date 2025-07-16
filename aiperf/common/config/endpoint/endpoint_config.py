@@ -30,7 +30,7 @@ class EndPointConfig(BaseConfig):
             name=(
                 "--model-selection-strategy",  # GenAI-Perf
             ),
-            group="Model",
+            group=_GROUP_NAME,
         ),
     ] = EndPointDefaults.MODEL_SELECTION_STRATEGY
 

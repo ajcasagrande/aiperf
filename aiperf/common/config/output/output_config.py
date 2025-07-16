@@ -32,22 +32,21 @@ class OutputConfig(BaseConfig):
         ),
     ] = OutputDefaults.ARTIFACT_DIRECTORY
 
-    profile_export_file: Annotated[
-        Path,
-        Field(
-            # TODO: Description is not correct
-            description="The path where the AIPerf profile export will be generated. \n"
-            "By default, the profile export will be to profile_export.json. The AIPerf files \n"
-            "will be exported to <profile_export_file>_aiperf.json and <profile_export_file>_aiperf.csv. \n"
-            "For example, if the profile export file is profile_export.json, the AIPerf file will\n"
-            "be exported to profile_export_aiperf.csv. (default: profile_export.json)",
-        ),
-        cyclopts.Parameter(
-            name=(
-                "--output-profile-export-file",
-                "--profile-export-file",  # GenAI-Perf
-            ),
-            group=_GROUP_NAME,
-        ),
-        # BeforeValidator(raise_not_implemented_error("--profile-export-file")),
-    ] = OutputDefaults.PROFILE_EXPORT_FILE
+    # profile_export_file: Annotated[
+    #     Path,
+    #     Field(
+    #         # TODO: Description is not correct
+    #         description="The path where the AIPerf profile export will be generated. \n"
+    #         "By default, the profile export will be to profile_export.json. The AIPerf files \n"
+    #         "will be exported to <profile_export_file>_aiperf.json and <profile_export_file>_aiperf.csv. \n"
+    #         "For example, if the profile export file is profile_export.json, the AIPerf file will\n"
+    #         "be exported to profile_export_aiperf.csv. (default: profile_export.json)",
+    #     ),
+    #     cyclopts.Parameter(
+    #         name=(
+    #             "--output-profile-export-file",
+    #             "--profile-export-file",  # GenAI-Perf
+    #         ),
+    #         group=_GROUP_NAME,
+    #     ),
+    # ] = OutputDefaults.PROFILE_EXPORT_FILE
