@@ -243,11 +243,12 @@ class Worker(BaseComponentService, ProcessHealthMixin):
                 delayed_ns = now_ns - drop_ns
 
             # Send the request to the Inference Server API and wait for the response
-            result = await self.inference_client.send_request(
+            result: RequestRecord = await self.inference_client.send_request(
                 model_endpoint=self.model_endpoint,
                 payload=formatted_payload,
             )
 
+            result.turn = turn
             result.delayed_ns = delayed_ns
             return result
 

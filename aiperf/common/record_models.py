@@ -9,6 +9,7 @@ from typing import Any
 from pydantic import Field, SerializeAsAny
 
 from aiperf.common.constants import NANOS_PER_SECOND
+from aiperf.common.dataset_models import Turn
 from aiperf.common.enums import CreditPhase, SSEFieldType
 from aiperf.common.pydantic_utils import AIPerfBaseModel
 
@@ -166,7 +167,11 @@ class RequestRecord(AIPerfBaseModel):
 
     request: Any = Field(
         default=None,
-        description="The raw request payload.",
+        description="The raw request payload formatted for the inference API.",
+    )
+    turn: Turn | None = Field(
+        default=None,
+        description="The turn used to generate the request. This will be used for metrics.",
     )
     timestamp_ns: int = Field(
         default_factory=time.time_ns,
