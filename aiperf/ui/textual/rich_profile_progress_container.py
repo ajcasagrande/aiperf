@@ -496,11 +496,11 @@ class RichProfileProgressContainer(Container):
 
             # Request statistics
             progress_data.requests_completed = phase_stats.completed
-            progress_data.requests_total = phase_stats.total_requests
+            progress_data.requests_total = phase_stats.total_expected_requests
 
-            if phase_stats.total_requests:
+            if phase_stats.total_expected_requests:
                 progress_data.requests_progress_percent = (
-                    phase_stats.completed / phase_stats.total_requests
+                    phase_stats.completed / phase_stats.total_expected_requests
                 ) * 100
 
             # Request rate and ETA
@@ -579,11 +579,11 @@ class RichProfileProgressContainer(Container):
                     status_style = "phase-pending"
 
                 # Progress
-                if phase_stats.total_requests:
+                if phase_stats.total_expected_requests:
                     progress_percent = (
-                        phase_stats.completed / phase_stats.total_requests
+                        phase_stats.completed / phase_stats.total_expected_requests
                     ) * 100
-                    progress = f"{phase_stats.completed}/{phase_stats.total_requests} ({progress_percent:.1f}%)"
+                    progress = f"{phase_stats.completed}/{phase_stats.total_expected_requests} ({progress_percent:.1f}%)"
                 else:
                     progress = str(phase_stats.completed)
 

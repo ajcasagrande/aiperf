@@ -41,7 +41,7 @@ class CreditManagerProtocol(Protocol):
         self,
         phase: CreditPhase,
         start_ns: int,
-        total_requests: int | None,
+        total_expected_requests: int | None,
         expected_duration_ns: int | None,
     ) -> None: ...
 
@@ -81,7 +81,7 @@ class CreditPhaseMessagesMixin(AsyncTaskManagerMixin, CreditPhaseMessagesRequire
         self,
         phase: CreditPhase,
         start_ns: int,
-        total_requests: int | None,
+        total_expected_requests: int | None,
         expected_duration_ns: int | None,
     ) -> None:
         """Publish the phase start message."""
@@ -91,7 +91,7 @@ class CreditPhaseMessagesMixin(AsyncTaskManagerMixin, CreditPhaseMessagesRequire
                     service_id=self.service_id,
                     phase=phase,
                     start_ns=start_ns,
-                    total_requests=total_requests,
+                    total_expected_requests=total_expected_requests,
                     expected_duration_ns=expected_duration_ns,
                 )
             )

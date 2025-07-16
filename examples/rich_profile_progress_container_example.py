@@ -89,7 +89,7 @@ class ProfileProgressExampleApp(App):
             type=CreditPhase.WARMUP,
             start_ns=time.time_ns() - 30_000_000_000,
             end_ns=time.time_ns() - 20_000_000_000,
-            total_requests=50,
+            total_expected_requests=50,
             sent=50,
             completed=50,
         )
@@ -99,7 +99,7 @@ class ProfileProgressExampleApp(App):
         steady_stats = CreditPhaseStats(
             type=CreditPhase.PROFILING,
             start_ns=time.time_ns() - 20_000_000_000,
-            total_requests=1000,
+            total_expected_requests=1000,
             sent=300,
             completed=250,
         )
@@ -168,18 +168,18 @@ class ProfileProgressExampleApp(App):
             phase_stats = profile_run.phases[CreditPhase.PROFILING]
 
             # Simulate progress (don't exceed total)
-            if phase_stats.completed < phase_stats.total_requests:
+            if phase_stats.completed < phase_stats.total_expected_requests:
                 # Randomly advance progress
                 advance = random.randint(0, 3)
                 phase_stats.completed = min(
-                    phase_stats.completed + advance, phase_stats.total_requests
+                    phase_stats.completed + advance, phase_stats.total_expected_requests
                 )
                 phase_stats.sent = min(
-                    phase_stats.sent + advance, phase_stats.total_requests
+                    phase_stats.sent + advance, phase_stats.total_expected_requests
                 )
 
                 # Check if phase is complete
-                if phase_stats.completed >= phase_stats.total_requests:
+                if phase_stats.completed >= phase_stats.total_expected_requests:
                     phase_stats.end_ns = time.time_ns()
                     # Start cooldown phase
                     self._start_cooldown_phase()
@@ -210,7 +210,7 @@ class ProfileProgressExampleApp(App):
             # Update ETAs based on progress
             if CreditPhase.PROFILING in profile_run.phases:
                 phase_stats = profile_run.phases[CreditPhase.PROFILING]
-                remaining = phase_stats.total_requests - phase_stats.completed
+                remaining = phase_stats.total_expected_requests - phase_stats.completed
                 if computed.requests_per_second > 0:
                     computed.requests_eta = remaining / computed.requests_per_second
                 else:
@@ -248,7 +248,7 @@ class ProfileProgressExampleApp(App):
         cooldown_stats = CreditPhaseStats(
             type=CreditPhase.COOLDOWN,
             start_ns=time.time_ns(),
-            total_requests=100,
+            total_expected_requests=100,
             sent=0,
             completed=0,
         )
@@ -297,9 +297,9 @@ class ProfileProgressExampleApp(App):
 
                 if active_phase and active_phase in profile_run.phases:
                     phase_stats = profile_run.phases[active_phase]
-                    if phase_stats.total_requests:
-                        phase_stats.completed = phase_stats.total_requests
-                        phase_stats.sent = phase_stats.total_requests
+                    if phase_stats.total_expected_requests:
+                        phase_stats.completed = phase_stats.total_expected_requests
+                        phase_stats.sent = phase_stats.total_expected_requests
                         phase_stats.end_ns = time.time_ns()
 
                 if self.profile_container:

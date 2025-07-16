@@ -51,13 +51,15 @@ class RequestRateStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
         if self.config.warmup_request_count > 0:
             self.phases.append(CreditPhase.WARMUP)
             self.phase_stats[CreditPhase.WARMUP] = CreditPhaseStats(
-                type=CreditPhase.WARMUP, total_requests=self.config.warmup_request_count
+                type=CreditPhase.WARMUP,
+                total_expected_requests=self.config.warmup_request_count,
             )
 
         # Add the steady-state phase
         self.phases.append(CreditPhase.PROFILING)
         self.phase_stats[CreditPhase.PROFILING] = CreditPhaseStats(
-            type=CreditPhase.PROFILING, total_requests=self.config.request_count
+            type=CreditPhase.PROFILING,
+            total_expected_requests=self.config.request_count,
         )
 
         self.active_phase_idx = 0
@@ -75,20 +77,20 @@ class RequestRateStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
             stats = CreditPhaseStats(
                 type=phase,
                 start_ns=time.time_ns(),
-                total_requests=self.phase_stats[phase].total_requests,
+                total_expected_requests=self.phase_stats[phase].total_expected_requests,
                 expected_duration_ns=self.phase_stats[phase].expected_duration_ns,
             )
             self.execute_async(
                 self.credit_manager.publish_phase_start(
                     phase,
-                    stats.start_ns,
-                    stats.total_requests,
+                    stats.start_ns,  # type: ignore  - we set it above
+                    stats.total_expected_requests,
                     stats.expected_duration_ns,
                 )
             )
 
             self.info(
-                f"TM: Executing phase (total_credits={stats.total_requests}, request_rate={self._request_rate}, phase_type={phase}, start_time_ns={stats.start_ns})"
+                f"TM: Executing phase (total_credits={stats.total_expected_requests}, request_rate={self._request_rate}, phase_type={phase}, start_time_ns={stats.start_ns})"
             )
 
             # Issue credit drops at the specified rate
@@ -115,7 +117,7 @@ class RequestRateStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
 
     async def _execute_constant_rate(self, phase: CreditPhaseStats) -> None:
         """Execute credit drops at a constant rate."""
-        if not phase.total_requests:
+        if not phase.total_expected_requests:
             raise InvalidStateError(
                 "Phase total must be set for request count based phase"
             )
@@ -153,7 +155,7 @@ class RequestRateStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
         are exponentially distributed with parameter λ. This models realistic traffic
         patterns where requests arrive randomly but at a consistent average rate.
         """
-        if not phase.total_requests:
+        if not phase.total_expected_requests:
             raise InvalidStateError(
                 "Phase total must be set for request count based phase"
             )

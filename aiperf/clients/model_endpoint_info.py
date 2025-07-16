@@ -82,7 +82,7 @@ class EndpointInfo(AIPerfBaseModel):
         default=None,
         description="SSL options to use for the endpoint.",
     )
-    timeout: float = Field(
+    timeout_seconds: float = Field(
         default=EndPointDefaults.TIMEOUT,
         description="The timeout in seconds for each request to the endpoint.",
     )
@@ -103,7 +103,7 @@ class EndpointInfo(AIPerfBaseModel):
             base_url=user_config.endpoint.url,
             headers=user_config.input.headers,
             extra=user_config.input.extra,
-            timeout=user_config.endpoint.timeout,
+            timeout_seconds=user_config.endpoint.timeout_seconds,
             api_key=user_config.endpoint.api_key,
         )
 

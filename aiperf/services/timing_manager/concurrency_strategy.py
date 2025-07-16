@@ -6,7 +6,7 @@ import random
 import time
 
 from aiperf.common.constants import NANOS_PER_SECOND
-from aiperf.common.credit_models import CreditPhaseStats
+from aiperf.common.credit_models import CreditPhaseConfig, CreditPhaseStats
 from aiperf.common.enums import CreditPhase
 from aiperf.common.exceptions import InvalidStateError
 from aiperf.common.messages import CreditReturnMessage
@@ -32,11 +32,14 @@ class ConcurrencyStrategy(
             # TODO: Add support for alternate completion triggers vs request count (eg. time based)
             raise InvalidStateError("Request count must be at least 1")
 
-        # if the concurrency is larger than the total credits, it does not matter
+        # if the concurrency is larger than the total number of requests, it does not matter
         # as it is simply an upper bound that will never be reached
         self._concurrency = config.concurrency
-        self._ramp_up_time = config.concurrency_ramp_up_time
+        self._ramp_up_time_seconds = config.concurrency_ramp_up_time_seconds
         self._semaphore = asyncio.Semaphore(value=self._concurrency)
+
+        # The phases to run including their configuration, in order of execution.
+        self.ordered_phase_configs: list[CreditPhaseConfig] = []
 
         self._setup_phases()
 
@@ -44,49 +47,79 @@ class ConcurrencyStrategy(
         """Setup the phases for the strategy."""
         # Add the warmup phase if applicable
         if self.config.warmup_request_count > 0:
-            self.phases.append(CreditPhase.WARMUP)
-            self.phase_stats[CreditPhase.WARMUP] = CreditPhaseStats(
-                type=CreditPhase.WARMUP, total_requests=self.config.warmup_request_count
+            self.ordered_phase_configs.append(
+                CreditPhaseConfig(
+                    type=CreditPhase.WARMUP,
+                    total_expected_requests=self.config.warmup_request_count,
+                )
             )
 
         # Add the ramp-up phase if applicable
         if (
-            self.config.concurrency_ramp_up_time
-            and self.config.concurrency_ramp_up_time > 0
+            self.config.concurrency_ramp_up_time_seconds
+            and self.config.concurrency_ramp_up_time_seconds > 0
         ):
-            self.phases.append(CreditPhase.WARMUP)
-            self.phase_stats[CreditPhase.WARMUP] = CreditPhaseStats(
-                type=CreditPhase.WARMUP,
-                total_requests=None,
-                expected_duration_ns=int(
-                    self.config.concurrency_ramp_up_time * NANOS_PER_SECOND
-                ),
+            self.ordered_phase_configs.append(
+                CreditPhaseConfig(
+                    type=CreditPhase.WARMUP,
+                    expected_duration_ns=int(
+                        self.config.concurrency_ramp_up_time_seconds * NANOS_PER_SECOND
+                    ),
+                )
             )
 
         # Add the profiling phase
-        self.phases.append(CreditPhase.PROFILING)
-        self.phase_stats[CreditPhase.PROFILING] = CreditPhaseStats(
-            type=CreditPhase.PROFILING, total_requests=self.config.request_count
+        self.ordered_phase_configs.append(
+            CreditPhaseConfig(
+                type=CreditPhase.PROFILING,
+                total_expected_requests=self.config.request_count,
+            )
         )
-
-        self.active_phase_idx = 0
-        self.active_phase: CreditPhaseStats = self.phase_stats[
-            self.phases[self.active_phase_idx]
-        ]
 
         self.info(
-            lambda: f"TM: Concurrency Strategy initialized with {len(self.phases)} phases: {self.phases}"
+            lambda: f"Concurrency Strategy initialized with {len(self.ordered_phase_configs)} phases: {self.ordered_phase_configs}"
         )
 
-    async def start(self) -> None:
-        """Start the credit issuing strategy. This will launch the progress reporting loop, the
-        warmup phase (if applicable), and the profiling phase, all in the background."""
+    async def _execute_phases(self) -> None:
+        for phase_config in self.ordered_phase_configs:
+            if not phase_config.is_valid:
+                raise InvalidStateError(
+                    f"Phase {phase_config.type} is not valid. It must have either a valid total_expected_requests or expected_duration_ns set"
+                )
 
-        # Start the progress reporting loop in the background
-        self.execute_async(self._progress_report_loop())
+            phase_stats = CreditPhaseStats(
+                type=phase_config.type,
+                start_ns=time.time_ns(),
+                # Only one of these will be set, this was validated above
+                total_expected_requests=phase_config.total_expected_requests,
+                expected_duration_ns=phase_config.expected_duration_ns,
+            )
+            self.execute_async(
+                self.credit_manager.publish_phase_start(
+                    phase_config.type,
+                    phase_stats.start_ns,  # type: ignore - we set it above
+                    phase_config.total_expected_requests,
+                    phase_config.expected_duration_ns,
+                )
+            )
 
-        # Execute the phases in the background
-        self.execute_async(self._execute_phases())
+            if phase_config.is_time_based:
+                await self._execute_time_based_phase(phase_stats)
+            elif phase_config.is_request_count_based:
+                await self._execute_request_count_based_phase(phase_stats)
+            else:
+                raise InvalidStateError(
+                    "Phase must have either a valid total or expected_duration_ns set"
+                )
+
+            # We have sent all the credits for this phase. We must continue to the next
+            # phase even though not all the credits have been returned. This is because
+            # we do not want a gap in the credit issuing.
+            self.execute_async(
+                self.credit_manager.publish_phase_sending_complete(
+                    phase_config.type, time.time_ns()
+                )
+            )
 
     async def _execute_time_based_phase(self, phase: CreditPhaseStats) -> None:
         start_ns: int = phase.start_ns  # type: ignore[assignment]
@@ -97,7 +130,7 @@ class ConcurrencyStrategy(
 
             if time.time_ns() - start_ns >= expected_duration_ns:
                 # If the time has expired while we were waiting for the semaphore,
-                # do not send the credit
+                # do not send the credit. This is to be expected.
                 return
 
             self.execute_async(
@@ -110,7 +143,7 @@ class ConcurrencyStrategy(
             phase.sent += 1
 
     async def _execute_request_count_based_phase(self, phase: CreditPhaseStats) -> None:
-        total: int = phase.total_requests  # type: ignore[assignment]
+        total: int = phase.total_expected_requests  # type: ignore[assignment]
 
         while phase.sent < total:
             await self._semaphore.acquire()
@@ -123,48 +156,11 @@ class ConcurrencyStrategy(
             )
             phase.sent += 1
 
-    async def _execute_phases(self) -> None:
-        for phase in self.phases:
-            stats = CreditPhaseStats(
-                type=phase,
-                start_ns=time.time_ns(),
-                total_requests=self.phase_stats[phase].total_requests,
-                expected_duration_ns=self.phase_stats[phase].expected_duration_ns,
-            )
-            self.execute_async(
-                self.credit_manager.publish_phase_start(
-                    phase,
-                    stats.start_ns,
-                    stats.total_requests,
-                    stats.expected_duration_ns,
-                )
-            )
-
-            # if phase == CreditPhase.WARMUP:
-            #     await self._execute_with_ramp_up(stats)
-            if stats.is_time_based:
-                await self._execute_time_based_phase(stats)
-            elif stats.total_requests and stats.total_requests > 0:
-                await self._execute_request_count_based_phase(stats)
-            else:
-                raise InvalidStateError(
-                    "Phase must have either a valid total or expected_duration_ns set"
-                )
-
-            # We have sent all the credits for this phase. We must continue to the next
-            # phase even though not all the credits have been returned. This is because
-            # we do not want a gap in the credit issuing.
-            self.execute_async(
-                self.credit_manager.publish_phase_sending_complete(
-                    phase, time.time_ns()
-                )
-            )
-
     # TODO: This is still very experimental, and needs to be improved
     async def _execute_with_ramp_up(self, phase: CreditPhaseStats) -> None:
         """Execute with Poisson-based ramp-up to target concurrency."""
 
-        if not self._ramp_up_time or self._ramp_up_time <= 0:
+        if not self._ramp_up_time_seconds or self._ramp_up_time_seconds <= 0:
             raise InvalidStateError("Ramp-up time must be set and positive")
 
         random_generator = (
@@ -178,7 +174,7 @@ class ConcurrencyStrategy(
         self.logger.info(
             "TM: Starting ramp-up phase: %s requests over %s seconds",
             ramp_up_requests,
-            self._ramp_up_time,
+            self._ramp_up_time_seconds,
         )
 
         ramp_up_start_time = time.time()
@@ -195,7 +191,7 @@ class ConcurrencyStrategy(
 
             # time-varying Poisson process - rate increases linearly
             # target: reach full concurrency by end of ramp-up time
-            target_rate = (ramp_up_requests / self._ramp_up_time) * progress
+            target_rate = (ramp_up_requests / self._ramp_up_time_seconds) * progress
 
             if target_rate > 0 and i > 0:  # skip delay for first request
                 # exponential inter-arrival time for Poisson process
@@ -204,7 +200,7 @@ class ConcurrencyStrategy(
                 # don't exceed total ramp-up time
                 wait_time = min(
                     wait_time,
-                    self._ramp_up_time - (time.time() - ramp_up_start_time),
+                    self._ramp_up_time_seconds - (time.time() - ramp_up_start_time),
                 )
 
                 if wait_time > 0:

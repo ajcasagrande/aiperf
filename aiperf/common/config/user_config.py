@@ -31,7 +31,12 @@ class UserConfig(BaseConfig):
         ),
         BeforeValidator(parse_str_or_list),
         cyclopts.Parameter(
-            name=("--model-names", "--model", "-m"),
+            name=(
+                "--model-names",
+                "--model",  # GenAI-Perf
+                "-m",  # GenAI-Perf
+            ),
+            group="Model",
         ),
     ]
 

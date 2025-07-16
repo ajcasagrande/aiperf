@@ -107,7 +107,7 @@ class ProgressTracker(AIPerfLoggerMixin):
         phase_info = FullCreditPhaseProgressInfo(
             type=message.phase,
             start_ns=message.start_ns,
-            total_requests=message.total_requests,
+            total_expected_requests=message.total_expected_requests,
             expected_duration_ns=message.expected_duration_ns,
         )
         self.phases[message.phase] = phase_info
@@ -215,9 +215,9 @@ class ProgressTracker(AIPerfLoggerMixin):
         ):
             dur_sec = diff_ns / NANOS_PER_SECOND
             phase_info.records_per_second = stats.processed / dur_sec
-            if phase_info.records_per_second and phase_info.total_requests:
+            if phase_info.records_per_second and phase_info.total_expected_requests:
                 phase_info.records_eta = (
-                    phase_info.total_requests - stats.processed
+                    phase_info.total_expected_requests - stats.processed
                 ) / phase_info.records_per_second
             else:
                 phase_info.records_eta = None

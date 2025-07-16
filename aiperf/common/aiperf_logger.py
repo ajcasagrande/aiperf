@@ -121,13 +121,11 @@ class AIPerfLogger:
         self, stack_info=False, stacklevel=1
     ) -> tuple[str, int, str, str | None]:
         """
-        NOTE: This is a modified version of the findCaller method in the logging module.
+        NOTE: This is a modified version of the findCaller method in the logging module,
+        in order to allow us to add custom ignored files.
 
         Find the stack frame of the caller so that we can note the source
         file name, line number and function name.
-
-        It is modified to skip the source file of the call_all_functions function
-        and the current file, to find the actual caller.
         """
         f = currentframe()
         # On some versions of IronPython, currentframe() returns None if
@@ -144,6 +142,8 @@ class AIPerfLogger:
         while f and hasattr(f, "f_code"):
             co = f.f_code
             filename = os.path.normcase(co.co_filename)
+            # NOTE: The if-statement below was modified to use our own list of ignored files (_ignored_files).
+            # This is required to avoid it appearing as all logs are coming from this file.
             if filename in _ignored_files:
                 f = f.f_back
                 continue
@@ -212,6 +212,7 @@ class AIPerfLogger:
 
 
 # Setup the list of files that should be ignored when finding the caller (built-in logging, this file)
+# This is required to avoid it appearing as all logs are coming from this file.
 # NOTE: Using similar logic to logging._srcfile
 _srcfile = os.path.normcase(AIPerfLogger.is_valid_level.__code__.co_filename)
 _ignored_files = [logging._srcfile, _srcfile]

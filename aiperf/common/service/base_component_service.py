@@ -54,7 +54,9 @@ class BaseComponentService(BaseService):
         self._command_callbacks: dict[
             CommandType, Callable[[CommandMessage], Awaitable[None]]
         ] = {}
-        self._heartbeat_interval = self.service_config.heartbeat_interval
+        self._heartbeat_interval_seconds = (
+            self.service_config.heartbeat_interval_seconds
+        )
 
     @on_init
     async def _on_init(self) -> None:
@@ -90,7 +92,7 @@ class BaseComponentService(BaseService):
         while not self.stop_event.is_set():
             # Sleep first to avoid sending a heartbeat before the registration
             # message has been published
-            await asyncio.sleep(self._heartbeat_interval)
+            await asyncio.sleep(self._heartbeat_interval_seconds)
 
             try:
                 await self.send_heartbeat()

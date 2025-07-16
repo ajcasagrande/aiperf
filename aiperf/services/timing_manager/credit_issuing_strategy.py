@@ -24,17 +24,17 @@ class CreditIssuingStrategy(AsyncTaskManagerMixin, AIPerfLoggerMixin, ABC):
         super().__init__()
         self.config = config
         self.credit_manager = credit_manager
+
+        # This event is set when all phases are complete
         self.all_phases_complete_event = asyncio.Event()
 
-        # The stats for each phase, keyed by phase type
+        # The running stats for each phase, keyed by phase type.
         self.phase_stats: dict[CreditPhase, CreditPhaseStats] = {}
-        # The phases to run, in order
-        self.phases: list[CreditPhase] = []
 
     async def start(self) -> None:
         """Start the credit issuing strategy. This will launch the progress reporting loop, the
         warmup phase (if applicable), and the profiling phase, all in the background."""
-        self.debug("TM: Starting credit issuing strategy")
+        self.debug("Starting credit issuing strategy")
         self.all_phases_complete_event.clear()
 
         # Start the progress reporting loop in the background
@@ -43,10 +43,10 @@ class CreditIssuingStrategy(AsyncTaskManagerMixin, AIPerfLoggerMixin, ABC):
         # Execute the phases in the background
         self.execute_async(self._execute_phases())
 
-        self.debug("TM: Waiting for all phases to complete")
+        self.debug("Waiting for all phases to complete")
         # Wait for all phases to complete before returning
         await self.all_phases_complete_event.wait()
-        self.debug("TM: All phases completed")
+        self.debug("All phases completed")
 
     @abstractmethod
     async def _execute_phases(self) -> None:
@@ -66,10 +66,10 @@ class CreditIssuingStrategy(AsyncTaskManagerMixin, AIPerfLoggerMixin, ABC):
         if (
             # If we have sent all the credits, check if this is the last one to be returned
             phase_stats.is_sending_complete
-            and phase_stats.completed >= phase_stats.total_requests  # type: ignore[operator]
+            and phase_stats.completed >= phase_stats.total_expected_requests  # type: ignore[operator]
         ):
             phase_stats.end_ns = time.time_ns()
-            self.info(lambda: f"TM: Phase completed: {phase_stats}")
+            self.info(lambda: f"Phase completed: {phase_stats}")
 
             self.execute_async(
                 self.credit_manager.publish_phase_complete(
@@ -83,7 +83,7 @@ class CreditIssuingStrategy(AsyncTaskManagerMixin, AIPerfLoggerMixin, ABC):
 
     async def _progress_report_loop(self) -> None:
         """Report the progress at a fixed interval."""
-        self.debug("TM: Starting progress reporting loop")
+        self.debug("Starting progress reporting loop")
         while not self.all_phases_complete_event.is_set():
             await asyncio.sleep(1)  # TODO: Make this configurable
             for phase, stats in self.phase_stats.items():
@@ -95,12 +95,12 @@ class CreditIssuingStrategy(AsyncTaskManagerMixin, AIPerfLoggerMixin, ABC):
                         phase, stats.sent, stats.completed
                     )
                 except Exception as e:
-                    self.error(f"TM: Error publishing progress: {e}")
+                    self.error(f"Error publishing progress: {e}")
                 except asyncio.CancelledError:
-                    self.debug("TM: Progress reporting loop cancelled")
+                    self.debug("Progress reporting loop cancelled")
                     return
 
-        self.debug("TM: All credits completed, stopping progress reporting loop")
+        self.debug("All credits completed, stopping progress reporting loop")
 
     def all_phases_complete(self) -> bool:
         """Check if all phases are complete."""

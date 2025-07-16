@@ -37,7 +37,7 @@ class TqdmProgressUI(AIPerfLifecycleMixin):
             return
 
         for phase, phase_stats in current_profile_run.phases.items():
-            total_requests = phase_stats.total_requests or 0
+            total_requests = phase_stats.total_expected_requests or 0
             completed_requests = phase_stats.completed
 
             # Only create tqdm if we have a valid total > 0 (right now just supporting count-based progress)

@@ -42,11 +42,11 @@ class AioHttpClientMixin(AIPerfLoggerMixin):
         # For now, just set all timeouts to the same value.
         # TODO: Add support for different timeouts for different parts of the request.
         self.timeout = aiohttp.ClientTimeout(
-            total=self.model_endpoint.endpoint.timeout,
-            connect=self.model_endpoint.endpoint.timeout,
-            sock_connect=self.model_endpoint.endpoint.timeout,
-            sock_read=self.model_endpoint.endpoint.timeout,
-            ceil_threshold=self.model_endpoint.endpoint.timeout,
+            total=self.model_endpoint.endpoint.timeout_seconds,
+            connect=self.model_endpoint.endpoint.timeout_seconds,
+            sock_connect=self.model_endpoint.endpoint.timeout_seconds,
+            sock_read=self.model_endpoint.endpoint.timeout_seconds,
+            ceil_threshold=self.model_endpoint.endpoint.timeout_seconds,
         )
 
     async def close(self) -> None:

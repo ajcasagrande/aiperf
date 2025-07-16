@@ -128,9 +128,9 @@ class ProfileRunProgress(AIPerfBaseModel):
         if not self.phases:
             return None
         return sum(
-            phase.total_requests
+            phase.total_expected_requests
             for phase in self.phases.values()
-            if phase.total_requests is not None
+            if phase.total_expected_requests is not None
         )
 
     @property

@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-from pathlib import Path
 from typing import Annotated
 
 import cyclopts
@@ -11,6 +10,7 @@ from typing_extensions import Self
 from aiperf.common.config.base_config import ADD_TO_TEMPLATE
 from aiperf.common.config.config_defaults import ServiceDefaults
 from aiperf.common.config.config_validators import parse_service_types, parse_ui_type
+from aiperf.common.config.worker_config import WorkersConfig
 from aiperf.common.config.zmq_config import (
     BaseZMQCommunicationConfig,
     ZMQIPCConfig,
@@ -127,36 +127,22 @@ class ServiceConfig(BaseSettings):
         ),
     ] = ServiceDefaults.COMMAND_TIMEOUT
 
-    heartbeat_interval: Annotated[
+    heartbeat_interval_seconds: Annotated[
         float,
         Field(
             description="Interval in seconds between heartbeat messages",
         ),
         cyclopts.Parameter(
-            name=("--heartbeat-interval"),
+            name=("--heartbeat-interval-seconds"),
         ),
-    ] = ServiceDefaults.HEARTBEAT_INTERVAL
+    ] = ServiceDefaults.HEARTBEAT_INTERVAL_SECONDS
 
-    min_workers: Annotated[
-        int | None,
+    workers: Annotated[
+        WorkersConfig,
         Field(
-            description="Minimum number of workers to maintain",
+            description="Worker configuration",
         ),
-        cyclopts.Parameter(
-            name=("--min-workers"),
-        ),
-    ] = ServiceDefaults.MIN_WORKERS
-
-    max_workers: Annotated[
-        int | None,
-        Field(
-            description="Maximum number of workers to create. If not specified, the number of"
-            " workers will be determined by the smaller of (concurrency + 1) and (num CPUs - 1).",
-        ),
-        cyclopts.Parameter(
-            name=("--max-workers"),
-        ),
-    ] = ServiceDefaults.MAX_WORKERS
+    ] = WorkersConfig()
 
     log_level: Annotated[
         AIPerfLogLevel,
@@ -245,10 +231,10 @@ class ServiceConfig(BaseSettings):
     enable_yappi: Annotated[
         bool,
         Field(
-            description="[Developer use only] Enable yappi profiling (Yet Another Python Profiler). This can be used in the "
-            "development of AIPerf in order to find performance bottlenecks across the various services. The output '*.prof' "
-            "files can be viewed with snakeviz. Requires yappi and snakeviz to be installed. "
-            "Run 'pip install yappi snakeviz'.",
+            description="[Developer use only] Enable yappi profiling (Yet Another Python Profiler) to profile AIPerf's internal python code. "
+            "This can be used in the development of AIPerf in order to find performance bottlenecks across the various services. "
+            "The output '*.prof' files can be viewed with snakeviz. Requires yappi and snakeviz to be installed. "
+            "Run 'pip install yappi snakeviz' to install them.",
         ),
         cyclopts.Parameter(
             name=("--enable-yappi-profiling"),
@@ -268,25 +254,15 @@ class ServiceConfig(BaseSettings):
         BeforeValidator(parse_service_types),
     ] = ServiceDefaults.DEBUG_SERVICES
 
-    worker_health_check_interval: Annotated[
-        float,
-        Field(
-            description="Interval in seconds between health checks for workers",
-        ),
-        cyclopts.Parameter(
-            name=("--worker-health-check-interval"),
-        ),
-    ] = ServiceDefaults.WORKER_HEALTH_CHECK_INTERVAL
-
-    plugin_dirs: Annotated[
-        list[Path],
-        Field(
-            description="One or more directories to load plugins from. If not specified, the plugins will be loaded from the default plugins directory.",
-        ),
-        cyclopts.Parameter(
-            name=("--plugin-dir"),
-        ),
-    ] = ServiceDefaults.PLUGIN_DIRS
+    # plugin_dirs: Annotated[
+    #     list[Path],
+    #     Field(
+    #         description="One or more directories to load plugins from. If not specified, the plugins will be loaded from the default plugins directory.",
+    #     ),
+    #     cyclopts.Parameter(
+    #         name=("--plugin-dir"),
+    #     ),
+    # ] = ServiceDefaults.PLUGIN_DIRS
 
     # plugins: Annotated[
     #     list[str],

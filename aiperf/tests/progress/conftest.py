@@ -65,7 +65,7 @@ def credit_phase_stats():
     return CreditPhaseStats(
         type=CreditPhase.PROFILING,
         start_ns=time.time_ns(),
-        total_requests=100,
+        total_expected_requests=100,
         sent=50,
         completed=25,
     )

@@ -248,7 +248,7 @@ class ProgressDashboard(Container):
                 progress_label = self.query_one("#progress-label", Label)
                 progress_text = (
                     f"Processing: {self.progress_tracker.current_profile_run.phases[self.progress_tracker.active_credit_phase].processed:,} "
-                    f"/ {self.progress_tracker.current_profile_run.phases[self.progress_tracker.active_credit_phase].total_requests:,} requests"
+                    f"/ {self.progress_tracker.current_profile_run.phases[self.progress_tracker.active_credit_phase].total_expected_requests:,} requests"
                 )
                 progress_label.update(progress_text)
 

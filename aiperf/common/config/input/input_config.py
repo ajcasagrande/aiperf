@@ -25,16 +25,7 @@ class InputConfig(BaseConfig):
     A configuration class for defining input related settings.
     """
 
-    batch_size: Annotated[
-        int,
-        Field(
-            description="The batch size of text requests AIPerf should send.\n"
-            "This is currently supported with the embeddings and rankings endpoint types",
-        ),
-        cyclopts.Parameter(
-            name=("--batch-size"),
-        ),
-    ] = InputDefaults.BATCH_SIZE
+    _GROUP_NAME = "Input"
 
     extra: Annotated[
         dict[str, Any] | None,
@@ -43,7 +34,10 @@ class InputConfig(BaseConfig):
             "Inputs should be in an 'input_name:value' format.",
         ),
         cyclopts.Parameter(
-            name=("--extra-inputs"),
+            name=(
+                "--extra-inputs",  # GenAI-Perf
+            ),
+            group=_GROUP_NAME,
         ),
         BeforeValidator(parse_str_or_dict),
     ] = InputDefaults.EXTRA
@@ -58,7 +52,10 @@ class InputConfig(BaseConfig):
             "For example: request_latency:300,output_token_throughput_per_user:600",
         ),
         cyclopts.Parameter(
-            name=("--goodput"),
+            name=(
+                "--goodput",  # GenAI-Perf
+            ),
+            group=_GROUP_NAME,
         ),
         BeforeValidator(parse_goodput),
     ] = InputDefaults.GOODPUT
@@ -71,7 +68,11 @@ class InputConfig(BaseConfig):
         ),
         BeforeValidator(parse_str_or_dict),
         cyclopts.Parameter(
-            name=("--header", "-H"),
+            name=(
+                "--header",  # GenAI-Perf
+                "-H",  # GenAI-Perf
+            ),
+            group=_GROUP_NAME,
         ),
     ] = InputDefaults.HEADERS
 
@@ -84,10 +85,14 @@ class InputConfig(BaseConfig):
         ),
         BeforeValidator(parse_file),
         cyclopts.Parameter(
-            name=("--file", "-f"),
+            name=(
+                "--input-file",  # GenAI-Perf
+            ),
+            group=_GROUP_NAME,
         ),
     ] = InputDefaults.FILE
 
+    # NEW AIPerf Option
     custom_dataset_type: Annotated[
         CustomDatasetType,
         Field(
@@ -96,6 +101,7 @@ class InputConfig(BaseConfig):
         ),
         cyclopts.Parameter(
             name=("--custom-dataset-type"),
+            group=_GROUP_NAME,
         ),
     ] = InputDefaults.CUSTOM_DATASET_TYPE
 
@@ -108,7 +114,10 @@ class InputConfig(BaseConfig):
             "It will use system default if not provided.",
         ),
         cyclopts.Parameter(
-            name=("--random-seed"),
+            name=(
+                "--random-seed",  # GenAI-Perf
+            ),
+            group=_GROUP_NAME,
         ),
     ] = InputDefaults.RANDOM_SEED
 

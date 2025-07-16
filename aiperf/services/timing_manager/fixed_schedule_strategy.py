@@ -37,7 +37,7 @@ class FixedScheduleStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
         self.active_phase = CreditPhaseStats(
             type=CreditPhase.PROFILING,
             start_ns=time.time_ns(),
-            total_requests=len(schedule),
+            total_expected_requests=len(schedule),
             sent=0,
             completed=0,
         )
@@ -85,7 +85,7 @@ class FixedScheduleStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
         """Process a credit return message."""
         self.active_phase.completed += 1
 
-        if self.active_phase.completed >= self.active_phase.total_requests:
+        if self.active_phase.completed >= self.active_phase.total_expected_requests:
             self.active_phase.end_ns = time.time_ns()
             self.execute_async(
                 self.credit_manager.publish_credits_complete(

@@ -86,17 +86,20 @@ class ProfileProgressElement(DashboardElement):
             )
 
         # Create or update requests progress bar
-        if self.progress_task_ids.get(phase.type) is None and phase.total_requests:
+        if (
+            self.progress_task_ids.get(phase.type) is None
+            and phase.total_expected_requests
+        ):
             self.progress_task_ids[phase.type] = [
                 self.progress_bar.add_task(
                     f"Executing {'warmup ' if phase.type != CreditPhase.PROFILING else ''}requests...",
-                    total=phase.total_requests,
+                    total=phase.total_expected_requests,
                 )
             ]
             if phase.type == CreditPhase.PROFILING:
                 self.progress_task_ids[phase.type].append(
                     self.progress_bar.add_task(
-                        "Processing results...", total=phase.total_requests
+                        "Processing results...", total=phase.total_expected_requests
                     )
                 )
         elif self.progress_task_ids.get(phase.type) is not None:
@@ -134,8 +137,8 @@ class ProfileProgressElement(DashboardElement):
         progress_table.add_row("Status:", status)
         progress_table.add_row(
             "Progress:",
-            f"{phase.sent or 0:,} / {phase.total_requests or 0:,} requests "
-            f"({(phase.sent or 0) / (phase.total_requests or 1) * 100:.1f}%)",
+            f"{phase.sent or 0:,} / {phase.total_expected_requests or 0:,} requests "
+            f"({(phase.sent or 0) / (phase.total_expected_requests or 1) * 100:.1f}%)",
         )
         progress_table.add_row(
             "Errors:",

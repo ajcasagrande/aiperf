@@ -165,7 +165,7 @@ class TestRichProfileProgressContainer:
         phase_stats = CreditPhaseStats(
             type=CreditPhase.PROFILING,
             start_ns=time.time_ns() - 1000000000,
-            total_requests=1000,
+            total_expected_requests=1000,
             sent=300,
             completed=250,
         )
@@ -218,7 +218,7 @@ class TestRichProfileProgressContainer:
             type=CreditPhase.PROFILING,
             start_ns=time.time_ns() - 2000000000,
             end_ns=time.time_ns() - 1000000000,
-            total_requests=1000,
+            total_expected_requests=1000,
             sent=1000,
             completed=1000,
         )
@@ -284,7 +284,7 @@ class TestRichProfileProgressContainer:
             type=CreditPhase.WARMUP,
             start_ns=time.time_ns() - 3000000000,
             end_ns=time.time_ns() - 2000000000,
-            total_requests=50,
+            total_expected_requests=50,
             sent=50,
             completed=50,
         )
@@ -294,7 +294,7 @@ class TestRichProfileProgressContainer:
         steady_stats = CreditPhaseStats(
             type=CreditPhase.PROFILING,
             start_ns=time.time_ns() - 2000000000,
-            total_requests=1000,
+            total_expected_requests=1000,
             sent=300,
             completed=250,
         )
@@ -418,7 +418,7 @@ class TestRichProfileProgressContainer:
             type=CreditPhase.PROFILING,
             start_ns=time.time_ns() - 2000000000,
             end_ns=time.time_ns() - 1000000000,
-            total_requests=1000,
+            total_expected_requests=1000,
             sent=1000,
             completed=1000,
         )

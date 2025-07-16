@@ -16,7 +16,7 @@ class TimingManagerConfig(AIPerfBaseModel):
     request_rate_mode: RequestRateMode = LoadGeneratorDefaults.REQUEST_RATE_MODE
     request_count: int = LoadGeneratorDefaults.REQUEST_COUNT
     warmup_request_count: int = LoadGeneratorDefaults.WARMUP_REQUEST_COUNT
-    concurrency_ramp_up_time: float | None = (
+    concurrency_ramp_up_time_seconds: float | None = (
         LoadGeneratorDefaults.CONCURRENCY_RAMP_UP_TIME
     )
     random_seed: int | None = None
