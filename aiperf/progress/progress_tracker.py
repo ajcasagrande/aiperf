@@ -107,6 +107,7 @@ class ProgressTracker(AIPerfLoggerMixin):
         phase_info = FullCreditPhaseProgressInfo(
             type=message.phase,
             start_ns=message.start_ns,
+            # Only one of the below would be set
             total_expected_requests=message.total_expected_requests,
             expected_duration_sec=message.expected_duration_sec,
         )
@@ -126,7 +127,7 @@ class ProgressTracker(AIPerfLoggerMixin):
     def on_credit_phase_sending_complete(
         self, message: CreditPhaseSendingCompleteMessage
     ):
-        """Update the progress from a credit phase complete message."""
+        """Update the progress from a credit phase sending complete message."""
         phase_info = self.get_phase_progress_info_or_warn(message.phase)
         if phase_info is None:
             return

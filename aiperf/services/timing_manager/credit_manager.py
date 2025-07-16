@@ -13,6 +13,7 @@ from aiperf.common.messages import (
     CreditsCompleteMessage,
 )
 from aiperf.common.mixins import AsyncTaskManagerMixin
+from aiperf.common.mixins.aiperf_logger import AIPerfLoggerProtocol
 from aiperf.common.mixins.async_task_manager import AsyncTaskManagerProtocol
 
 
@@ -53,7 +54,9 @@ class CreditManagerProtocol(Protocol):
 
 
 @runtime_checkable
-class CreditPhaseMessagesRequirements(AsyncTaskManagerProtocol, Protocol):
+class CreditPhaseMessagesRequirements(
+    AsyncTaskManagerProtocol, AIPerfLoggerProtocol, Protocol
+):
     """Requirements for the CreditPhaseMessagesMixin. This is the list of attributes that must
     be provided by the class that uses this mixin."""
 
@@ -141,6 +144,7 @@ class CreditPhaseMessagesMixin(AsyncTaskManagerMixin, CreditPhaseMessagesRequire
 
     async def publish_credits_complete(self) -> None:
         """Publish the credits complete message."""
+        self.debug("Publishing credits complete message")
         self.execute_async(
             self.pub_client.publish(CreditsCompleteMessage(service_id=self.service_id))
         )

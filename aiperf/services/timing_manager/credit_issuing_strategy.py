@@ -129,7 +129,7 @@ class CreditIssuingStrategy(AsyncTaskManagerMixin, AIPerfLoggerMixin, ABC):
 
     @abstractmethod
     async def _execute_single_phase(self, phase_stats: CreditPhaseStats) -> None:
-        """Execute a single phase. Must be implemented in subclasses."""
+        """Execute a single phase. Should not return until the phase sending is complete. Must be implemented in subclasses."""
         raise NotImplementedError("Subclasses must implement this method")
 
     async def stop(self) -> None:

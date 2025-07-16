@@ -265,12 +265,24 @@ class ServiceConfig(BaseSettings):
             "or the cli flag can be used multiple times.",
         ),
         cyclopts.Parameter(
-            # Note that the name is singular because it can be used multiple times.
-            name=("--debug-service"),
+            name=("--debug-service", "--debug-services"),
             group=_GROUP_NAME,
         ),
         BeforeValidator(parse_service_types),
     ] = ServiceDefaults.DEBUG_SERVICES
+
+    trace_services: Annotated[
+        set[ServiceType] | None,
+        Field(
+            description="List of services to enable trace logging for. Can be a comma-separated list, a single service type, "
+            "or the cli flag can be used multiple times.",
+        ),
+        cyclopts.Parameter(
+            name=("--trace-service", "--trace-services"),
+            group=_GROUP_NAME,
+        ),
+        BeforeValidator(parse_service_types),
+    ] = ServiceDefaults.TRACE_SERVICES
 
     # plugin_dirs: Annotated[
     #     list[Path],

@@ -71,7 +71,7 @@ class SimpleProgressLogger(AIPerfLifecycleMixin):
                 completed=completed_requests,
                 per_sec=phase_stats.requests_per_second,
                 eta=phase_stats.requests_eta,
-                total=total_requests: f"Phase {phase.capitalize()} - Requests Completed: {completed} / {total} ({per_sec:.2f} requests/s, ~{format_duration(eta)} remaining)"
+                total=total_requests: f"Phase '{phase.capitalize()}' - Requests Completed: {completed} / {total} ({per_sec:.2f} requests/s, ~{format_duration(eta)} remaining)"
             )
 
     async def update_stats(self, message: RecordsProcessingStatsMessage):
@@ -94,7 +94,7 @@ class SimpleProgressLogger(AIPerfLifecycleMixin):
                 processed=processed_records,
                 per_sec=phase_stats.records_per_second,
                 eta=phase_stats.records_eta,
-                total=total_records: f"Phase {phase.capitalize()} - Records Processed: {processed} / {total} ({per_sec:.2f} records/s, ~{format_duration(eta)} remaining)"
+                total=total_records: f"Phase '{phase.capitalize()}' - Records Processed: {processed} / {total} ({per_sec:.2f} records/s, ~{format_duration(eta)} remaining)"
             )
 
     async def on_message(self, message: Message) -> None:
@@ -121,16 +121,20 @@ class SimpleProgressLogger(AIPerfLifecycleMixin):
 
     async def update_credit_phase_complete(self, message: CreditPhaseCompleteMessage):
         """Log a credit phase complete update."""
-        self.notice(lambda phase=message.phase: f"Credit phase {phase} completed")
+        self.notice(
+            lambda phase=message.phase: f"Credit phase '{phase.capitalize()}' completed"
+        )
 
     async def update_credit_phase_start(self, message: CreditPhaseStartMessage):
         """Log a credit phase start update."""
-        self.notice(lambda phase=message.phase: f"Credit phase {phase} started")
+        self.notice(
+            lambda phase=message.phase: f"Credit phase '{phase.capitalize()}' started"
+        )
 
     async def update_credit_phase_progress(self, message: CreditPhaseProgressMessage):
         """Log a credit phase progress update."""
         self.debug(
-            lambda phases=message.phase: f"Credit phase {phases} progress updated"
+            lambda phase=message.phase: f"Credit phase '{phase.capitalize()}' progress updated"
         )
 
         # This will be handled by update_progress() which is called regularly

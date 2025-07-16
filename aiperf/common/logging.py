@@ -9,10 +9,11 @@ from pathlib import Path
 from rich.console import Console
 from rich.logging import RichHandler
 
-from aiperf.common.aiperf_logger import AIPerfLogger
+from aiperf.common.aiperf_logger import _DEBUG, _TRACE, AIPerfLogger
 from aiperf.common.config.config_defaults import ServiceDefaults
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
+from aiperf.common.enums import ServiceType
 
 LOG_QUEUE_MAXSIZE = 1000
 
@@ -24,6 +25,21 @@ logger = AIPerfLogger(__name__)
 def get_global_log_queue() -> multiprocessing.Queue:
     """Get the global log queue. Will create a new queue if it doesn't exist."""
     return multiprocessing.Queue(maxsize=LOG_QUEUE_MAXSIZE)
+
+
+def _is_service_in_types(service_id: str, service_types: set[ServiceType]) -> bool:
+    """Check if a service is in a set of services."""
+    for service_type in service_types:
+        # for cases of service_id being "worker_xxxxxx" and service_type being "worker",
+        # we want to set the log level to debug
+        if (
+            service_id == service_type.value
+            or service_id.startswith(f"{service_type.value}_")
+            and service_id
+            != f"{service_type.value}_manager"  # for worker vs worker_manager, etc.
+        ):
+            return True
+    return False
 
 
 def setup_child_process_logging(
@@ -48,17 +64,15 @@ def setup_child_process_logging(
         level = service_config.log_level.upper()
 
         if service_id:
-            for service_type in service_config.debug_services or set():
-                # for cases of service_id being "worker_xxxxxx" and service_type being "worker",
-                # we want to set the log level to debug
-                if (
-                    service_id == service_type.value
-                    or service_id.startswith(f"{service_type.value}_")
-                    and service_id
-                    != f"{service_type.value}_manager"  # for worker vs worker_manager
-                ):
-                    level = logging.DEBUG
-                    break
+            # If the service is in the trace or debug services, set the level to trace or debug
+            if service_config.trace_services and _is_service_in_types(
+                service_id, service_config.trace_services
+            ):
+                level = _TRACE
+            elif service_config.debug_services and _is_service_in_types(
+                service_id, service_config.debug_services
+            ):
+                level = _DEBUG
 
     # Set the root logger level to ensure logs are passed to handlers
     root_logger.setLevel(level)
