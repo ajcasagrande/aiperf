@@ -108,7 +108,7 @@ class ProgressTracker(AIPerfLoggerMixin):
             type=message.phase,
             start_ns=message.start_ns,
             total_expected_requests=message.total_expected_requests,
-            expected_duration_sec=message.expected_duration_ns,
+            expected_duration_sec=message.expected_duration_sec,
         )
         self.phases[message.phase] = phase_info
         self.update_requests_stats(phase_info, message.start_ns)

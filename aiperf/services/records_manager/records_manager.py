@@ -9,7 +9,7 @@ from aiperf.common.comms.base import (
     CommunicationClientAddressType,
     PullClientProtocol,
 )
-from aiperf.common.config import ServiceConfig, UserConfig
+from aiperf.common.config import ServiceConfig, ServiceDefaults, UserConfig
 from aiperf.common.credit_models import PhaseProcessingStats
 from aiperf.common.enums import CommandType, CreditPhase, MessageType, ServiceType
 from aiperf.common.factories import ServiceFactory
@@ -35,6 +35,7 @@ from aiperf.common.record_models import (
     ParsedResponseRecord,
 )
 from aiperf.common.service import BaseComponentService
+from aiperf.data_exporter.exporter_manager import ExporterManager
 from aiperf.services.records_manager.post_processors.metric_summary import MetricSummary
 
 
@@ -153,12 +154,14 @@ class RecordsManager(BaseComponentService):
     async def _report_records_task(self) -> None:
         """Report the records."""
         while not self.stop_event.is_set():
-            if self.active_credit_phase is not None:
-                await self.publish_processing_stats()
-            await asyncio.sleep(1)
+            await asyncio.sleep(ServiceDefaults.PROGRESS_REPORT_INTERVAL_SECONDS)
+            await self.publish_processing_stats()
 
     async def publish_processing_stats(self) -> None:
         """Publish the profile stats."""
+        if self.active_credit_phase is None:
+            return
+
         await self.pub_client.publish(
             RecordsProcessingStatsMessage(
                 service_id=self.service_id,
@@ -187,7 +190,7 @@ class RecordsManager(BaseComponentService):
         if self.active_credit_phase != CreditPhase.PROFILING:
             return
 
-        self.logger.debug("Received parsed inference results: %s", message)
+        self.trace(lambda: f"Received parsed inference results: {message}")
 
         worker_id = message.record.worker_id
         if worker_id not in self.worker_success_counts:
@@ -196,7 +199,7 @@ class RecordsManager(BaseComponentService):
             self.worker_error_counts[worker_id] = 0
 
         if message.record.request.has_error:
-            self.logger.warning("Received error inference results: %s", message)
+            self.warning(lambda: f"Received error inference results: {message}")
             # TODO: we do not want to keep all the data forever
             self.error_records.append(message.record)
             self.worker_error_counts[worker_id] += 1
@@ -207,7 +210,7 @@ class RecordsManager(BaseComponentService):
             self.worker_success_counts[worker_id] += 1
             self.records_count += 1
         else:
-            self.logger.warning("Received invalid inference results: %s", message)
+            self.warning(lambda: f"Received invalid inference results: {message}")
             # TODO: we do not want to keep all the data forever
             self.error_records.append(message.record)
             self.worker_error_counts[worker_id] += 1
@@ -233,7 +236,7 @@ class RecordsManager(BaseComponentService):
 
         This method is called when the records manager receives a command to process the records.
         """
-        self.logger.debug("Processing records")
+        self.notice(lambda: f"Processing records: {message}")
         self.was_cancelled = (
             message.data.cancelled
             if isinstance(message.data, ProcessRecordsCommandData)
@@ -241,21 +244,25 @@ class RecordsManager(BaseComponentService):
         )
         self.end_time_ns = time.time_ns()
         # TODO: Implement records processing
-        self.logger.info(
-            "Processed %d successful records and %d error records",
-            len(self.records),
-            len(self.error_records),
+        self.info(
+            lambda: f"Processed {len(self.records)} successful records and {len(self.error_records)} error records"
         )
 
         profile_results = await self.post_process_records()
-        self.logger.info("Profile results: %s", profile_results)
+        self.info(lambda: f"Profile results: {profile_results}")
 
         if profile_results:
             await self.pub_client.publish(
                 profile_results,
             )
+
+            if self.user_config:
+                await ExporterManager(
+                    results=profile_results, input_config=self.user_config
+                ).export_all()
+
         else:
-            self.logger.error("No profile results to publish")
+            self.error("No profile results to publish")
             await self.pub_client.publish(
                 ProfileResultsMessage(
                     service_id=self.service_id,
@@ -271,10 +278,10 @@ class RecordsManager(BaseComponentService):
 
     async def post_process_records(self) -> ProfileResultsMessage | None:
         """Post process the records."""
-        self.logger.debug("Post processing records")
+        self.trace("Post processing records")
 
         if not self.records:
-            self.logger.warning("No successful records to process")
+            self.warning("No successful records to process")
             return ProfileResultsMessage(
                 service_id=self.service_id,
                 total=len(self.records),
@@ -286,7 +293,7 @@ class RecordsManager(BaseComponentService):
                 was_cancelled=self.was_cancelled,
             )
 
-        self.logger.debug(
+        self.trace(
             lambda: f"Token counts: {', '.join([str(r.token_count) for r in self.records])}"
         )
         metric_summary = MetricSummary()

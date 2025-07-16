@@ -157,8 +157,8 @@ class CreditIssuingStrategy(AsyncTaskManagerMixin, AIPerfLoggerMixin, ABC):
             )
 
             if phase_stats.type == CreditPhase.PROFILING:
-                self.all_phases_complete_event.set()
                 self.execute_async(self.credit_manager.publish_credits_complete())
+                self.all_phases_complete_event.set()
 
             # We don't need to keep track of the phase stats anymore
             self.phase_stats.pop(message.phase)

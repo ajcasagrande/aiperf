@@ -44,6 +44,9 @@ __all__ = [
     "ZMQTCPConfig",
     "load_service_config",
     "load_user_config",
+    "ServiceDefaults",
+    "LoadGeneratorDefaults",
+    "MeasurementDefaults",
 ]
 
 
@@ -57,11 +60,14 @@ from aiperf.common.config.config_defaults import (
     ImageDefaults,
     InputDefaults,
     InputTokensDefaults,
+    LoadGeneratorDefaults,
+    MeasurementDefaults,
     OutputDefaults,
     OutputTokenDefaults,
     OutputTokensDefaults,
     PrefixPromptDefaults,
     PromptDefaults,
+    ServiceDefaults,
     TokenizerDefaults,
     TurnDefaults,
     TurnDelayDefaults,

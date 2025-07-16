@@ -323,9 +323,11 @@ class SystemController(
         self.progress_tracker.on_message(message)
         await self.ui.on_message(message)
         if message.message_type == MessageType.CREDIT_PHASE_SENDING_COMPLETE:
-            self.info("Credit phase sending complete")
+            self.info(
+                lambda: f"Received credit phase sending complete message: {message}"
+            )
         if message.message_type == MessageType.CREDIT_PHASE_COMPLETE:
-            self.info("Credit phase complete")
+            self.info(lambda: f"Received credit phase complete message: {message}")
 
     @on_message(MessageType.PROCESSING_STATS)
     async def _process_processing_stats_message(

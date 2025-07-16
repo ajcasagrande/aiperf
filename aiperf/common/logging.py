@@ -42,9 +42,6 @@ def setup_child_process_logging(
         service_config: The service configuration used to determine the log level.
         user_config: The user configuration used to determine the log folder.
     """
-    if log_queue is None:
-        log_queue = get_global_log_queue()
-
     root_logger = logging.getLogger()
     level = ServiceDefaults.LOG_LEVEL.upper()
     if service_config:
@@ -70,10 +67,26 @@ def setup_child_process_logging(
     for existing_handler in root_logger.handlers[:]:
         root_logger.removeHandler(existing_handler)
 
-    # Set up handler for child process
-    queue_handler = MultiProcessLogHandler(log_queue, service_id)
-    queue_handler.setLevel(level)
-    root_logger.addHandler(queue_handler)
+    if log_queue is not None:
+        # Set up handler for child process
+        queue_handler = MultiProcessLogHandler(log_queue, service_id)
+        queue_handler.setLevel(level)
+        root_logger.addHandler(queue_handler)
+
+    if service_config and not service_config.ui_type.is_graphical:
+        # Set up rich logging to the console
+        rich_handler = RichHandler(
+            rich_tracebacks=True,
+            show_path=True,
+            console=Console(),
+            show_time=True,
+            show_level=True,
+            tracebacks_show_locals=False,
+            log_time_format="%H:%M:%S.%f",
+            omit_repeated_times=False,
+        )
+        rich_handler.setLevel(level)
+        root_logger.addHandler(rich_handler)
 
     if user_config and user_config.output.artifact_directory:
         file_handler = create_file_handler(
@@ -93,6 +106,8 @@ def setup_rich_logging(user_config: UserConfig, service_config: ServiceConfig) -
         rich_tracebacks=True,
         show_path=True,
         console=Console(),
+        show_time=True,
+        show_level=True,
         tracebacks_show_locals=False,
         log_time_format="%H:%M:%S.%f",
         omit_repeated_times=False,
