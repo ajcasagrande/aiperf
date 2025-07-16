@@ -32,15 +32,15 @@ from aiperf.common.messages import (
     DatasetTimingResponse,
 )
 from aiperf.common.service.base_component_service import BaseComponentService
-from aiperf.services.timing_manager.concurrency_strategy import ConcurrencyStrategy
 from aiperf.services.timing_manager.config import (
     TimingManagerConfig,
     TimingMode,
 )
-from aiperf.services.timing_manager.credit_issuing_strategy import CreditIssuingStrategy
+from aiperf.services.timing_manager.credit_issuing_strategy import (
+    CreditIssuingStrategy,
+    CreditIssuingStrategyFactory,
+)
 from aiperf.services.timing_manager.credit_manager import CreditPhaseMessagesMixin
-from aiperf.services.timing_manager.fixed_schedule_strategy import FixedScheduleStrategy
-from aiperf.services.timing_manager.request_rate_strategy import RequestRateStrategy
 
 
 @ServiceFactory.register(ServiceType.TIMING_MANAGER)
@@ -68,13 +68,17 @@ class TimingManager(BaseComponentService, CreditPhaseMessagesMixin):
                 CommunicationClientAddressType.DATASET_MANAGER_PROXY_FRONTEND,
             )
         )
-        self.credit_drop_client: PushClientProtocol = self.comms.create_push_client(
-            CommunicationClientAddressType.CREDIT_DROP,
-            bind=True,
+        self.credit_drop_push_client: PushClientProtocol = (
+            self.comms.create_push_client(
+                CommunicationClientAddressType.CREDIT_DROP,
+                bind=True,
+            )
         )
-        self.credit_return_client: PullClientProtocol = self.comms.create_pull_client(
-            CommunicationClientAddressType.CREDIT_RETURN,
-            bind=True,
+        self.credit_return_pull_client: PullClientProtocol = (
+            self.comms.create_pull_client(
+                CommunicationClientAddressType.CREDIT_RETURN,
+                bind=True,
+            )
         )
 
         self.user_config = user_config
@@ -90,7 +94,7 @@ class TimingManager(BaseComponentService, CreditPhaseMessagesMixin):
         """Initialize timing manager-specific components."""
         self.debug("Initializing timing manager")
         self.config = TimingManagerConfig.from_user_config(self.user_config)
-        await self.credit_return_client.register_pull_callback(
+        await self.credit_return_pull_client.register_pull_callback(
             message_type=MessageType.CREDIT_RETURN,
             callback=self._on_credit_return,
         )
@@ -113,22 +117,31 @@ class TimingManager(BaseComponentService, CreditPhaseMessagesMixin):
                 lambda: f"TM: Received dataset timing response: {dataset_timing_response}"
             )
             self.info("TM: Using fixed schedule strategy")
-            self._credit_issuing_strategy = FixedScheduleStrategy(
-                config=self.config,
-                credit_manager=self,
-                schedule=dataset_timing_response.timing_data,
+            self._credit_issuing_strategy = (
+                CreditIssuingStrategyFactory.create_instance(
+                    TimingMode.FIXED_SCHEDULE,
+                    config=self.config,
+                    credit_manager=self,
+                    schedule=dataset_timing_response.timing_data,
+                )
             )
         elif self.config.timing_mode == TimingMode.CONCURRENCY:
             self.info("TM: Using concurrency strategy")
-            self._credit_issuing_strategy = ConcurrencyStrategy(
-                config=self.config,
-                credit_manager=self,
+            self._credit_issuing_strategy = (
+                CreditIssuingStrategyFactory.create_instance(
+                    TimingMode.CONCURRENCY,
+                    config=self.config,
+                    credit_manager=self,
+                )
             )
         elif self.config.timing_mode == TimingMode.REQUEST_RATE:
             self.info("TM: Using request rate strategy")
-            self._credit_issuing_strategy = RequestRateStrategy(
-                config=self.config,
-                credit_manager=self,
+            self._credit_issuing_strategy = (
+                CreditIssuingStrategyFactory.create_instance(
+                    TimingMode.REQUEST_RATE,
+                    config=self.config,
+                    credit_manager=self,
+                )
             )
 
         if not self._credit_issuing_strategy:
@@ -166,7 +179,7 @@ class TimingManager(BaseComponentService, CreditPhaseMessagesMixin):
     ) -> None:
         """Drop a credit."""
         self.execute_async(
-            self.credit_drop_client.push(
+            self.credit_drop_push_client.push(
                 message=CreditDropMessage(
                     service_id=self.service_id,
                     phase=credit_phase,

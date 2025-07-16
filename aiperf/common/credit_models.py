@@ -101,7 +101,7 @@ class CreditPhaseStats(CreditPhaseConfig):
 
     @property
     def progress_percent(self) -> float | None:
-        if not self.is_started:
+        if self.start_ns is None:
             return None
 
         if self.is_complete:
@@ -109,8 +109,6 @@ class CreditPhaseStats(CreditPhaseConfig):
 
         if self.is_time_based:
             # Time based, so progress is the percentage of time elapsed compared to the duration
-            if not self.is_started:
-                return 0
 
             return (
                 (time.time_ns() - self.start_ns)

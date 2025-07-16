@@ -16,9 +16,6 @@ class TimingManagerConfig(AIPerfBaseModel):
     request_rate_mode: RequestRateMode = LoadGeneratorDefaults.REQUEST_RATE_MODE
     request_count: int = LoadGeneratorDefaults.REQUEST_COUNT
     warmup_request_count: int = LoadGeneratorDefaults.WARMUP_REQUEST_COUNT
-    concurrency_ramp_up_time_seconds: float | None = (
-        LoadGeneratorDefaults.CONCURRENCY_RAMP_UP_TIME
-    )
     random_seed: int | None = None
     progress_report_interval_sec: float = (
         ServiceDefaults.PROGRESS_REPORT_INTERVAL_SECONDS
@@ -28,7 +25,7 @@ class TimingManagerConfig(AIPerfBaseModel):
     def from_user_config(cls, user_config: UserConfig) -> "TimingManagerConfig":
         """Create a TimingManagerConfig from a UserConfig."""
 
-        if user_config.input.file is not None:
+        if user_config.input.fixed_schedule:
             timing_mode = TimingMode.FIXED_SCHEDULE
         elif user_config.loadgen.request_rate is not None:
             timing_mode = TimingMode.REQUEST_RATE
@@ -43,6 +40,5 @@ class TimingManagerConfig(AIPerfBaseModel):
             request_rate_mode=user_config.loadgen.request_rate_mode,
             request_count=user_config.loadgen.request_count,
             warmup_request_count=user_config.loadgen.warmup_request_count,
-            # concurrency_ramp_up_time=user_config.loadgen.concurrency_ramp_up_time,
             random_seed=user_config.input.random_seed,
         )

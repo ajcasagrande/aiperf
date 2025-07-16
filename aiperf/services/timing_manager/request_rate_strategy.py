@@ -6,16 +6,18 @@ import random
 import time
 
 from aiperf.common.credit_models import CreditPhaseStats
-from aiperf.common.enums import RequestRateMode
+from aiperf.common.enums import RequestRateMode, TimingMode
 from aiperf.common.exceptions import InvalidStateError
 from aiperf.common.mixins import AsyncTaskManagerMixin
 from aiperf.services.timing_manager.config import TimingManagerConfig
 from aiperf.services.timing_manager.credit_issuing_strategy import (
     CreditIssuingStrategy,
+    CreditIssuingStrategyFactory,
     CreditManagerProtocol,
 )
 
 
+@CreditIssuingStrategyFactory.register(TimingMode.REQUEST_RATE)
 class RequestRateStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
     """
     Strategy for issuing credits based on a specified request rate.

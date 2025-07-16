@@ -6,7 +6,7 @@ import time
 from collections import defaultdict
 
 from aiperf.common.constants import NANOS_PER_SECOND
-from aiperf.common.enums import CreditPhase
+from aiperf.common.enums import CreditPhase, TimingMode
 from aiperf.common.exceptions import InvalidStateError
 from aiperf.common.messages import CreditReturnMessage
 from aiperf.common.mixins.async_task_manager import AsyncTaskManagerMixin
@@ -14,10 +14,12 @@ from aiperf.progress.progress_models import CreditPhaseStats
 from aiperf.services.timing_manager.config import TimingManagerConfig
 from aiperf.services.timing_manager.credit_issuing_strategy import (
     CreditIssuingStrategy,
+    CreditIssuingStrategyFactory,
     CreditManagerProtocol,
 )
 
 
+@CreditIssuingStrategyFactory.register(TimingMode.FIXED_SCHEDULE)
 class FixedScheduleStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
     """
     Class for fixed schedule credit issuing strategy.
@@ -71,8 +73,9 @@ class FixedScheduleStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
             for _, conversation_id in timestamp_groups[unique_timestamp]:
                 self.execute_async(
                     self.credit_manager.drop_credit(
+                        credit_phase=CreditPhase.PROFILING,
                         conversation_id=conversation_id,
-                        credit_drop_ns=time.time_ns(),
+                        credit_drop_ns=None,
                     )
                 )
                 self.active_phase.sent += 1

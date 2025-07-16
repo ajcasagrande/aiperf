@@ -51,6 +51,7 @@ class InputDefaults:
     GOODPUT = {}
     HEADERS = {}
     FILE = None
+    FIXED_SCHEDULE = False
     CUSTOM_DATASET_TYPE = CustomDatasetType.TRACE
     RANDOM_SEED = None
     NUM_DATASET_ENTRIES = 100

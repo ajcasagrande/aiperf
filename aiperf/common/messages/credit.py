@@ -48,7 +48,7 @@ class CreditReturnMessage(BaseServiceMessage):
     )
     delayed_ns: int | None = Field(
         default=None,
-        ge=0,
+        ge=1,
         description="The number of nanoseconds the credit drop was delayed by, or None if the credit was sent on time. "
         "NOTE: This is only applicable if credit_drop_ns is not None.",
     )
