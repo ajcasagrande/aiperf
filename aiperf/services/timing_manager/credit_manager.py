@@ -42,7 +42,7 @@ class CreditManagerProtocol(Protocol):
         phase: CreditPhase,
         start_ns: int,
         total_expected_requests: int | None,
-        expected_duration_ns: int | None,
+        expected_duration_sec: float | None,
     ) -> None: ...
 
     async def publish_phase_sending_complete(
@@ -82,7 +82,7 @@ class CreditPhaseMessagesMixin(AsyncTaskManagerMixin, CreditPhaseMessagesRequire
         phase: CreditPhase,
         start_ns: int,
         total_expected_requests: int | None,
-        expected_duration_ns: int | None,
+        expected_duration_sec: float | None,
     ) -> None:
         """Publish the phase start message."""
         self.execute_async(
@@ -91,8 +91,9 @@ class CreditPhaseMessagesMixin(AsyncTaskManagerMixin, CreditPhaseMessagesRequire
                     service_id=self.service_id,
                     phase=phase,
                     start_ns=start_ns,
+                    # Only one of the below will be set, this is already validated in the strategy
                     total_expected_requests=total_expected_requests,
-                    expected_duration_ns=expected_duration_ns,
+                    expected_duration_sec=expected_duration_sec,
                 )
             )
         )

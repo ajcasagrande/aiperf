@@ -73,7 +73,7 @@ class ServiceConfig(BaseSettings):
             description="Type of service run (process, k8s)",
         ),
         cyclopts.Parameter(
-            name=("--run-type"),
+            name=("--service-run-type", "--run-type"),
             group=_GROUP_NAME,
         ),
     ] = ServiceDefaults.SERVICE_RUN_TYPE
@@ -129,7 +129,7 @@ class ServiceConfig(BaseSettings):
             description="Default timeout for command responses",
         ),
         cyclopts.Parameter(
-            name=("--command-timeout"),
+            name=("--command-timeout", "--command-timeout-seconds"),
             group=_GROUP_NAME,
         ),
     ] = ServiceDefaults.COMMAND_TIMEOUT
@@ -140,7 +140,7 @@ class ServiceConfig(BaseSettings):
             description="Interval in seconds between heartbeat messages",
         ),
         cyclopts.Parameter(
-            name=("--heartbeat-interval-seconds"),
+            name=("--heartbeat-interval-seconds", "--heartbeat-interval"),
             group=_GROUP_NAME,
         ),
     ] = ServiceDefaults.HEARTBEAT_INTERVAL_SECONDS

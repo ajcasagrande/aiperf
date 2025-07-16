@@ -156,7 +156,7 @@ class TimingManager(BaseComponentService, CreditPhaseMessagesMixin):
         """Handle the credit return message."""
         self.debug(lambda: f"Timing manager received credit return message: {message}")
         if self._credit_issuing_strategy:
-            await self._credit_issuing_strategy.on_credit_return(message)
+            await self._credit_issuing_strategy._on_credit_return(message)
 
     async def drop_credit(
         self,

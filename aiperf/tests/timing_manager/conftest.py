@@ -42,7 +42,7 @@ class MockCreditManager:
             self.logger.warning("Credit strategy not set, skipping credit return")
             return
 
-        await self.credit_strategy.on_credit_return(
+        await self.credit_strategy._on_credit_return(
             CreditReturnMessage(
                 service_id="test-service",
                 conversation_id=conversation_id,

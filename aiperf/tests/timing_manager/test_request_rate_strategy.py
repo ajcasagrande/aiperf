@@ -347,7 +347,7 @@ class TestRequestRateStrategy:
 
         # Process a credit return
         message = CreditReturnMessage(service_id="test-service")
-        await strategy.on_credit_return(message)
+        await strategy._on_credit_return(message)
 
         # Verify credit was processed
         assert strategy.active_phase.completed == 1
@@ -366,9 +366,9 @@ class TestRequestRateStrategy:
 
         # Process credit returns
         message = CreditReturnMessage(service_id="test-service")
-        await strategy.on_credit_return(message)
-        await strategy.on_credit_return(message)
-        await strategy.on_credit_return(message)
+        await strategy._on_credit_return(message)
+        await strategy._on_credit_return(message)
+        await strategy._on_credit_return(message)
 
         # Wait for pending tasks
         await asyncio.gather(*strategy.tasks)
@@ -392,8 +392,8 @@ class TestRequestRateStrategy:
 
         # Process some credit returns
         message = CreditReturnMessage(service_id="test-service")
-        await strategy.on_credit_return(message)
-        await strategy.on_credit_return(message)
+        await strategy._on_credit_return(message)
+        await strategy._on_credit_return(message)
 
         # Wait for pending tasks
         await asyncio.gather(*strategy.tasks)
@@ -428,9 +428,9 @@ class TestRequestRateStrategy:
 
             # Process credit returns
             message = CreditReturnMessage(service_id="test-service")
-            await strategy.on_credit_return(message)
-            await strategy.on_credit_return(message)
-            await strategy.on_credit_return(message)
+            await strategy._on_credit_return(message)
+            await strategy._on_credit_return(message)
+            await strategy._on_credit_return(message)
 
             # Verify final state
             assert strategy.profiling.sent == 3
@@ -464,13 +464,13 @@ class TestRequestRateStrategy:
 
             # Process credit returns (warmup + profiling)
             message = CreditReturnMessage(service_id="test-service")
-            await strategy.on_credit_return(message)  # warmup credit 1
-            await strategy.on_credit_return(
+            await strategy._on_credit_return(message)  # warmup credit 1
+            await strategy._on_credit_return(
                 message
             )  # warmup credit 2 (completes warmup)
-            await strategy.on_credit_return(message)  # profiling credit 1
-            await strategy.on_credit_return(message)  # profiling credit 2
-            await strategy.on_credit_return(
+            await strategy._on_credit_return(message)  # profiling credit 1
+            await strategy._on_credit_return(message)  # profiling credit 2
+            await strategy._on_credit_return(
                 message
             )  # profiling credit 3 (completes profiling)
 
@@ -732,7 +732,7 @@ class TestRequestRateStrategyEdgeCases:
         messages = [CreditReturnMessage(service_id="test-service") for _ in range(5)]
 
         # Process all credit returns concurrently
-        await asyncio.gather(*[strategy.on_credit_return(msg) for msg in messages])
+        await asyncio.gather(*[strategy._on_credit_return(msg) for msg in messages])
 
         # Wait for pending tasks
         await asyncio.gather(*strategy.tasks)

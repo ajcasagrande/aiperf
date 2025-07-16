@@ -72,8 +72,9 @@ def bootstrap_and_run_service(
             random.seed(user_config.input.random_seed)
             # TODO: Should we add support for numpy random seed?
             # https://numpy.org/doc/stable/reference/random/index.html#random-quick-start
-            # import numpy as np
-            # np.random.seed(user_config.input.random_seed)
+            import numpy as np
+
+            np.random.seed(user_config.input.random_seed)
 
         with contextlib.suppress(asyncio.CancelledError):
             await service.run_forever()

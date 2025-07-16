@@ -162,6 +162,7 @@ class ServiceDefaults:
     DEBUG_SERVICES = None
     PLUGIN_DIRS = []
     UI_TYPE = AIPerfUIType.RICH
+    PROGRESS_REPORT_INTERVAL_SECONDS = 1.0
 
 
 @dataclass(frozen=True)

@@ -5,6 +5,7 @@ import time
 
 from pydantic import Field
 
+from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import CreditPhase
 from aiperf.common.exceptions import InvalidStateError
 from aiperf.common.pydantic_utils import AIPerfBaseModel
@@ -19,7 +20,7 @@ class CreditPhaseConfig(AIPerfBaseModel):
         ge=1,
         description="The total number of expected credits. If None, the phase is not request count based.",
     )
-    expected_duration_ns: int | None = Field(
+    expected_duration_sec: float | None = Field(
         default=None,
         ge=1,
         description="The expected duration of the credit phase in seconds. If None, the phase is not time based.",
@@ -27,19 +28,16 @@ class CreditPhaseConfig(AIPerfBaseModel):
 
     @property
     def is_time_based(self) -> bool:
-        return self.expected_duration_ns is not None and self.expected_duration_ns > 0
+        return self.expected_duration_sec is not None
 
     @property
     def is_request_count_based(self) -> bool:
-        return (
-            self.total_expected_requests is not None
-            and self.total_expected_requests > 0
-        )
+        return self.total_expected_requests is not None
 
     @property
     def is_valid(self) -> bool:
         """A phase config is valid if it is exactly one of the following:
-        - is_time_based (expected_duration_ns is set and > 0)
+        - is_time_based (expected_duration_sec is set and > 0)
         - is_request_count_based (total_expected_requests is set and > 0)
         """
         is_time_based = self.is_time_based
@@ -91,9 +89,11 @@ class CreditPhaseStats(CreditPhaseConfig):
 
     @property
     def should_send(self) -> bool:
+        """Whether the phase should send more credits."""
         if self.is_time_based:
             return (
-                time.time_ns() - (self.start_ns or 0) <= self.expected_duration_ns  # type: ignore
+                time.time_ns() - (self.start_ns or 0)
+                <= (self.expected_duration_sec * NANOS_PER_SECOND)  # type: ignore
             )
         elif self.is_request_count_based:
             return self.sent < self.total_expected_requests  # type: ignore
@@ -113,7 +113,8 @@ class CreditPhaseStats(CreditPhaseConfig):
                 return 0
 
             return (
-                (time.time_ns() - self.start_ns) / self.expected_duration_ns  # type: ignore
+                (time.time_ns() - self.start_ns)
+                / (self.expected_duration_sec * NANOS_PER_SECOND)  # type: ignore
             ) * 100
 
         elif self.total_expected_requests is not None:
@@ -126,7 +127,11 @@ class CreditPhaseStats(CreditPhaseConfig):
     @classmethod
     def from_phase_config(cls, phase_config: CreditPhaseConfig) -> "CreditPhaseStats":
         """Create a CreditPhaseStats from a CreditPhaseConfig. This is used to initialize the stats for a phase."""
-        return cls(**phase_config.model_dump())
+        return cls(
+            type=phase_config.type,
+            total_expected_requests=phase_config.total_expected_requests,
+            expected_duration_sec=phase_config.expected_duration_sec,
+        )
 
 
 class PhaseProcessingStats(AIPerfBaseModel):

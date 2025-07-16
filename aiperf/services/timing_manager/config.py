@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from aiperf.common.config.config_defaults import LoadGeneratorDefaults
+from aiperf.common.config.config_defaults import LoadGeneratorDefaults, ServiceDefaults
 from aiperf.common.config.user_config import UserConfig
 from aiperf.common.enums import RequestRateMode, TimingMode
 from aiperf.common.pydantic_utils import AIPerfBaseModel
@@ -20,6 +20,9 @@ class TimingManagerConfig(AIPerfBaseModel):
         LoadGeneratorDefaults.CONCURRENCY_RAMP_UP_TIME
     )
     random_seed: int | None = None
+    progress_report_interval_sec: float = (
+        ServiceDefaults.PROGRESS_REPORT_INTERVAL_SECONDS
+    )
 
     @classmethod
     def from_user_config(cls, user_config: UserConfig) -> "TimingManagerConfig":

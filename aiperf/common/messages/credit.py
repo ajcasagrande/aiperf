@@ -80,10 +80,10 @@ class CreditPhaseStartMessage(BaseServiceMessage):
         ge=1,
         description="The total number of expected requests. If None, the phase is not request count based.",
     )
-    expected_duration_ns: int | None = Field(
+    expected_duration_sec: float | None = Field(
         default=None,
         ge=1,
-        description="The expected duration of the credit phase in nanoseconds. If None, the phase is not time based.",
+        description="The expected duration of the credit phase in seconds. If None, the phase is not time based.",
     )
 
 

@@ -81,7 +81,7 @@ class FixedScheduleStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
         # Wait for all credits to be returned
         await self.active_phase.completed_event.wait()  # TODO: Remove this
 
-    async def on_credit_return(self, message: CreditReturnMessage) -> None:
+    async def _on_credit_return(self, message: CreditReturnMessage) -> None:
         """Process a credit return message."""
         self.active_phase.completed += 1
 

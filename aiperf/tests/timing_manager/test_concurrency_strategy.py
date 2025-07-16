@@ -116,7 +116,7 @@ class TestConcurrencyStrategy:
 
         message = CreditReturnMessage(service_id="test-service")
 
-        await strategy.on_credit_return(message)
+        await strategy._on_credit_return(message)
 
         # Wait for the pending tasks to complete before checking the results
         await asyncio.gather(*strategy.tasks)
@@ -140,7 +140,7 @@ class TestConcurrencyStrategy:
 
         message = CreditReturnMessage(service_id="test-service")
 
-        await strategy.on_credit_return(message)
+        await strategy._on_credit_return(message)
 
         # Wait for the pending tasks to complete before checking the results
         await asyncio.gather(*strategy.tasks)
@@ -172,8 +172,8 @@ class TestConcurrencyStrategy:
         message1 = CreditReturnMessage(service_id="test-service")
         message2 = CreditReturnMessage(service_id="test-service")
 
-        await strategy.on_credit_return(message1)
-        await strategy.on_credit_return(message2)
+        await strategy._on_credit_return(message1)
+        await strategy._on_credit_return(message2)
 
         # Wait for the pending tasks to complete before checking the results
         await asyncio.gather(*strategy.tasks)
@@ -219,9 +219,9 @@ class TestConcurrencyStrategy:
         message2 = CreditReturnMessage(service_id="test-service")
         message3 = CreditReturnMessage(service_id="test-service")
 
-        await strategy.on_credit_return(message1)
-        await strategy.on_credit_return(message2)
-        await strategy.on_credit_return(message3)
+        await strategy._on_credit_return(message1)
+        await strategy._on_credit_return(message2)
+        await strategy._on_credit_return(message3)
 
         # Wait for the pending tasks to complete before checking the results
         await asyncio.gather(*strategy.tasks)
@@ -355,7 +355,7 @@ class TestConcurrencyStrategyWarmup:
 
         # Simulate credit returns for warmup phase
         for _ in range(2):
-            await strategy.on_credit_return(
+            await strategy._on_credit_return(
                 CreditReturnMessage(service_id="test-service")
             )
 
@@ -384,8 +384,8 @@ class TestConcurrencyStrategyWarmup:
         strategy.warmup.start_time_ns = seconds_to_ns(1)
 
         # Process credit returns
-        await strategy.on_credit_return(CreditReturnMessage(service_id="test-service"))
-        await strategy.on_credit_return(CreditReturnMessage(service_id="test-service"))
+        await strategy._on_credit_return(CreditReturnMessage(service_id="test-service"))
+        await strategy._on_credit_return(CreditReturnMessage(service_id="test-service"))
 
         # Wait for tasks to complete
         await asyncio.gather(*strategy.tasks)
@@ -460,7 +460,7 @@ class TestConcurrencyStrategyWarmup:
         await strategy._execute_phase(strategy.warmup)
 
         # Complete warmup by processing returns
-        await strategy.on_credit_return(CreditReturnMessage(service_id="test-service"))
+        await strategy._on_credit_return(CreditReturnMessage(service_id="test-service"))
 
         # Wait for warmup completion
         await asyncio.gather(*strategy.tasks)
@@ -503,13 +503,13 @@ class TestConcurrencyStrategyWarmup:
         await strategy.start()
 
         # Process warmup credit returns
-        await strategy.on_credit_return(CreditReturnMessage(service_id="test-service"))
-        await strategy.on_credit_return(CreditReturnMessage(service_id="test-service"))
+        await strategy._on_credit_return(CreditReturnMessage(service_id="test-service"))
+        await strategy._on_credit_return(CreditReturnMessage(service_id="test-service"))
 
         # Process profiling credit returns
-        await strategy.on_credit_return(CreditReturnMessage(service_id="test-service"))
-        await strategy.on_credit_return(CreditReturnMessage(service_id="test-service"))
-        await strategy.on_credit_return(CreditReturnMessage(service_id="test-service"))
+        await strategy._on_credit_return(CreditReturnMessage(service_id="test-service"))
+        await strategy._on_credit_return(CreditReturnMessage(service_id="test-service"))
+        await strategy._on_credit_return(CreditReturnMessage(service_id="test-service"))
 
         # Wait for all tasks to complete
         await asyncio.gather(*strategy.tasks)
