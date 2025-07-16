@@ -51,7 +51,7 @@ def analyze(
     warn_command_not_implemented("analyze")
 
 
-@app.command(name="create-template", help="Create a template configuration file")
+@app.command(name="create-template")
 def create_template(
     template_filename: Annotated[
         str,
@@ -70,7 +70,7 @@ def create_template(
     warn_command_not_implemented("create-template")
 
 
-@app.command(name="validate-config", help="Validate the configuration file")
+@app.command(name="validate-config")
 def validate_config(
     user_config: UserConfig | None = None,
     service_config: ServiceConfig | None = None,
