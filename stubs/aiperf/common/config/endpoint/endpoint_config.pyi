@@ -5,9 +5,9 @@ from typing import Annotated
 from pydantic import BeforeValidator as BeforeValidator
 from pydantic import Field as Field
 
-from aiperf.common.config.base_config import BaseConfig as BaseConfig
-from aiperf.common.config.config_defaults import EndPointDefaults as EndPointDefaults
-from aiperf.common.config.config_validators import (
+from aiperf.common.config._base import BaseConfig as BaseConfig
+from aiperf.common.config._defaults import EndPointDefaults as EndPointDefaults
+from aiperf.common.config._validators import (
     parse_str_or_list as parse_str_or_list,
 )
 from aiperf.common.enums import EndpointType as EndpointType

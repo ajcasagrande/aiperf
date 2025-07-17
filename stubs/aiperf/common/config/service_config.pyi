@@ -8,18 +8,18 @@ from pydantic import Field as Field
 from pydantic_settings import BaseSettings
 from typing_extensions import Self
 
-from aiperf.common.config.base_config import ADD_TO_TEMPLATE as ADD_TO_TEMPLATE
-from aiperf.common.config.config_defaults import ServiceDefaults as ServiceDefaults
-from aiperf.common.config.config_validators import (
+from aiperf.common.config._base import ADD_TO_TEMPLATE as ADD_TO_TEMPLATE
+from aiperf.common.config._defaults import ServiceDefaults as ServiceDefaults
+from aiperf.common.config._validators import (
     parse_service_types as parse_service_types,
 )
-from aiperf.common.config.config_validators import parse_ui_type as parse_ui_type
-from aiperf.common.config.worker_config import WorkersConfig as WorkersConfig
-from aiperf.common.config.zmq_config import (
+from aiperf.common.config._validators import parse_ui_type as parse_ui_type
+from aiperf.common.config._workers import WorkersConfig as WorkersConfig
+from aiperf.common.config._zmq import (
     BaseZMQCommunicationConfig as BaseZMQCommunicationConfig,
 )
-from aiperf.common.config.zmq_config import ZMQIPCConfig as ZMQIPCConfig
-from aiperf.common.config.zmq_config import ZMQTCPConfig as ZMQTCPConfig
+from aiperf.common.config._zmq import ZMQIPCConfig as ZMQIPCConfig
+from aiperf.common.config._zmq import ZMQTCPConfig as ZMQTCPConfig
 from aiperf.common.enums import AIPerfLogLevel as AIPerfLogLevel
 from aiperf.common.enums import AIPerfUIType as AIPerfUIType
 from aiperf.common.enums import CommunicationBackend as CommunicationBackend

@@ -11,7 +11,7 @@ from aiperf.common.comms.zmq.zmq_proxy_base import (
     ProxySocketClient,
     ZMQProxyFactory,
 )
-from aiperf.common.config.zmq_config import BaseZMQProxyConfig
+from aiperf.common.config._zmq import BaseZMQProxyConfig
 from aiperf.common.enums import ZMQProxyType
 
 ################################################################################

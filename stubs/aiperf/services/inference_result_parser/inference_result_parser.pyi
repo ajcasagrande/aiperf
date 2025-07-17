@@ -10,7 +10,7 @@ from aiperf.common.comms.base import PullClientProtocol as PullClientProtocol
 from aiperf.common.comms.base import PushClientProtocol as PushClientProtocol
 from aiperf.common.comms.base import RequestClientProtocol as RequestClientProtocol
 from aiperf.common.config import ServiceConfig as ServiceConfig
-from aiperf.common.config.user_config import UserConfig as UserConfig
+from aiperf.common.config._user import UserConfig as UserConfig
 from aiperf.common.enums import (
     CommunicationClientAddressType as CommunicationClientAddressType,
 )

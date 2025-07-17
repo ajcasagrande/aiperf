@@ -4,7 +4,7 @@ from typing import ClassVar
 
 from _typeshed import Incomplete
 
-from aiperf.common.config.service_config import ServiceConfig as ServiceConfig
+from aiperf.common.config._service import ServiceConfig as ServiceConfig
 from aiperf.common.enums import MessageType as MessageType
 from aiperf.common.enums import ServiceType as ServiceType
 from aiperf.common.hooks import on_cleanup as on_cleanup

@@ -4,7 +4,7 @@ from typing import Any, Literal
 
 from pydantic import SerializeAsAny as SerializeAsAny
 
-from aiperf.common.config.user_config import UserConfig as UserConfig
+from aiperf.common.config._user import UserConfig as UserConfig
 from aiperf.common.enums import CommandType as CommandType
 from aiperf.common.enums import MessageType as MessageType
 from aiperf.common.enums._command import CommandResponseStatus as CommandResponseStatus

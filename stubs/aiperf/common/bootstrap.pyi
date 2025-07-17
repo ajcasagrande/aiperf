@@ -3,7 +3,7 @@
 import multiprocessing
 
 from aiperf.common.config import ServiceConfig as ServiceConfig
-from aiperf.common.config.user_config import UserConfig as UserConfig
+from aiperf.common.config._user import UserConfig as UserConfig
 from aiperf.common.service.base_service import BaseService as BaseService
 
 def bootstrap_and_run_service(

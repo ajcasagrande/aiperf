@@ -10,7 +10,7 @@ from aiperf.common.comms.zmq.zmq_proxy_base import (
     ProxySocketClient as ProxySocketClient,
 )
 from aiperf.common.comms.zmq.zmq_proxy_base import ZMQProxyFactory as ZMQProxyFactory
-from aiperf.common.config.zmq_config import BaseZMQProxyConfig as BaseZMQProxyConfig
+from aiperf.common.config._zmq import BaseZMQProxyConfig as BaseZMQProxyConfig
 from aiperf.common.enums import ZMQProxyType as ZMQProxyType
 
 def create_proxy_socket_class(

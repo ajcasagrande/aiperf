@@ -10,9 +10,9 @@ from rich.console import Console
 from rich.logging import RichHandler
 
 from aiperf.common.aiperf_logger import _DEBUG, _TRACE, AIPerfLogger
-from aiperf.common.config.config_defaults import ServiceDefaults
-from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.config.user_config import UserConfig
+from aiperf.common.config._defaults import ServiceDefaults
+from aiperf.common.config._service import ServiceConfig
+from aiperf.common.config._user import UserConfig
 from aiperf.common.enums import ServiceType
 
 LOG_QUEUE_MAXSIZE = 1000

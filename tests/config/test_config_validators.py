@@ -3,7 +3,7 @@
 
 import pytest
 
-from aiperf.common.config.config_validators import parse_str_or_dict
+from aiperf.common.config._validators import parse_str_or_dict
 
 
 class TestParseStrOrDict:

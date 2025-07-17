@@ -4,17 +4,17 @@ from typing import Annotated
 
 from pydantic import Field as Field
 
-from aiperf.common.config.base_config import BaseConfig as BaseConfig
-from aiperf.common.config.config_defaults import (
+from aiperf.common.config._base import BaseConfig as BaseConfig
+from aiperf.common.config._defaults import (
     InputTokensDefaults as InputTokensDefaults,
 )
-from aiperf.common.config.config_defaults import (
+from aiperf.common.config._defaults import (
     OutputTokensDefaults as OutputTokensDefaults,
 )
-from aiperf.common.config.config_defaults import (
+from aiperf.common.config._defaults import (
     PrefixPromptDefaults as PrefixPromptDefaults,
 )
-from aiperf.common.config.config_defaults import PromptDefaults as PromptDefaults
+from aiperf.common.config._defaults import PromptDefaults as PromptDefaults
 
 class InputTokensConfig(BaseConfig):
     mean: Annotated[int, None, None]

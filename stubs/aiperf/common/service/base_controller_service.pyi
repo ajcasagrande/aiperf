@@ -3,7 +3,7 @@
 import abc
 
 from aiperf.common.config import ServiceConfig as ServiceConfig
-from aiperf.common.config.user_config import UserConfig as UserConfig
+from aiperf.common.config._user import UserConfig as UserConfig
 from aiperf.common.enums import CommandType as CommandType
 from aiperf.common.enums import ServiceType as ServiceType
 from aiperf.common.hooks import on_run as on_run

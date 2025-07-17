@@ -2,22 +2,16 @@
 #  SPDX-License-Identifier: Apache-2.0
 from typing import Annotated
 
-from pydantic import BeforeValidator as BeforeValidator
-from pydantic import Field as Field
-
-from aiperf.common.config.base_config import BaseConfig as BaseConfig
-from aiperf.common.config.config_validators import (
-    parse_str_or_list as parse_str_or_list,
-)
-from aiperf.common.config.endpoint.endpoint_config import (
+from aiperf.common.config._base import BaseConfig as BaseConfig
+from aiperf.common.config._endpoint import (
     EndPointConfig as EndPointConfig,
 )
-from aiperf.common.config.input.input_config import InputConfig as InputConfig
-from aiperf.common.config.loadgen_config import (
+from aiperf.common.config._input import InputConfig as InputConfig
+from aiperf.common.config._loadgen import (
     LoadGeneratorConfig as LoadGeneratorConfig,
 )
-from aiperf.common.config.output.output_config import OutputConfig as OutputConfig
-from aiperf.common.config.tokenizer.tokenizer_config import (
+from aiperf.common.config._output import OutputConfig as OutputConfig
+from aiperf.common.config._tokenizer import (
     TokenizerConfig as TokenizerConfig,
 )
 

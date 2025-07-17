@@ -6,7 +6,7 @@ import sys
 import time
 
 from aiperf.common.config import ServiceConfig
-from aiperf.common.config.user_config import UserConfig
+from aiperf.common.config._user import UserConfig
 from aiperf.common.enums import (
     BenchmarkSuiteType,
     CommandResponseStatus,

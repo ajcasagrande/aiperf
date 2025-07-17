@@ -1,7 +1,7 @@
 #  SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #  SPDX-License-Identifier: Apache-2.0
 from aiperf.common.config import ServiceConfig as ServiceConfig
-from aiperf.common.config.user_config import UserConfig as UserConfig
+from aiperf.common.config._user import UserConfig as UserConfig
 from aiperf.common.enums import BenchmarkSuiteType as BenchmarkSuiteType
 from aiperf.common.enums import CommandResponseStatus as CommandResponseStatus
 from aiperf.common.enums import CommandType as CommandType

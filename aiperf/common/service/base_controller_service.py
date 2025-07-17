@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from aiperf.common.config import ServiceConfig
-from aiperf.common.config.user_config import UserConfig
+from aiperf.common.config._user import UserConfig
 from aiperf.common.enums import CommandType, ServiceType
 from aiperf.common.hooks import on_run
 from aiperf.common.messages import CommandMessage

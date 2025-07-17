@@ -9,7 +9,7 @@ from aiperf.common.comms.base import PullClientProtocol as PullClientProtocol
 from aiperf.common.comms.base import PushClientProtocol as PushClientProtocol
 from aiperf.common.comms.base import RequestClientProtocol as RequestClientProtocol
 from aiperf.common.config import ServiceConfig as ServiceConfig
-from aiperf.common.config.user_config import UserConfig as UserConfig
+from aiperf.common.config._user import UserConfig as UserConfig
 from aiperf.common.enums import CreditPhase as CreditPhase
 from aiperf.common.enums import MessageType as MessageType
 from aiperf.common.enums import ServiceType as ServiceType

@@ -2,8 +2,8 @@
 #  SPDX-License-Identifier: Apache-2.0
 from typing import Any
 
-from aiperf.common.config.config_defaults import EndPointDefaults as EndPointDefaults
-from aiperf.common.config.user_config import UserConfig as UserConfig
+from aiperf.common.config._defaults import EndPointDefaults as EndPointDefaults
+from aiperf.common.config._user import UserConfig as UserConfig
 from aiperf.common.enums import EndpointType as EndpointType
 from aiperf.common.enums import Modality as Modality
 from aiperf.common.enums import ModelSelectionStrategy as ModelSelectionStrategy

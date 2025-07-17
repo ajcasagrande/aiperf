@@ -1,7 +1,7 @@
 #  SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #  SPDX-License-Identifier: Apache-2.0
 from aiperf.common.config import ServiceConfig as ServiceConfig
-from aiperf.common.config.user_config import UserConfig as UserConfig
+from aiperf.common.config._user import UserConfig as UserConfig
 from aiperf.common.enums._service import ServiceRunType as ServiceRunType
 from aiperf.common.enums._service import ServiceType as ServiceType
 from aiperf.common.logging import get_global_log_queue as get_global_log_queue

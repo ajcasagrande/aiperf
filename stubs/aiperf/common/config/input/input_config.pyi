@@ -3,24 +3,15 @@
 from typing import Annotated, Any
 
 from _typeshed import Incomplete
-from pydantic import BeforeValidator as BeforeValidator
-from pydantic import Field as Field
 from typing_extensions import Self
 
-from aiperf.common.aiperf_logger import AIPerfLogger as AIPerfLogger
-from aiperf.common.config.base_config import BaseConfig as BaseConfig
-from aiperf.common.config.config_defaults import InputDefaults as InputDefaults
-from aiperf.common.config.config_validators import parse_file as parse_file
-from aiperf.common.config.config_validators import parse_goodput as parse_goodput
-from aiperf.common.config.config_validators import (
-    parse_str_or_dict as parse_str_or_dict,
-)
-from aiperf.common.config.input.audio_config import AudioConfig as AudioConfig
-from aiperf.common.config.input.conversation_config import (
+from aiperf.common.config._audio import AudioConfig as AudioConfig
+from aiperf.common.config._base import BaseConfig as BaseConfig
+from aiperf.common.config._conversation import (
     ConversationConfig as ConversationConfig,
 )
-from aiperf.common.config.input.image_config import ImageConfig as ImageConfig
-from aiperf.common.config.input.prompt_config import PromptConfig as PromptConfig
+from aiperf.common.config._image import ImageConfig as ImageConfig
+from aiperf.common.config._prompt import PromptConfig as PromptConfig
 from aiperf.common.enums import CustomDatasetType as CustomDatasetType
 
 logger: Incomplete

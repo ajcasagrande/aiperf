@@ -4,12 +4,12 @@ from typing import Annotated
 
 from pydantic import Field as Field
 
-from aiperf.common.config.base_config import BaseConfig as BaseConfig
-from aiperf.common.config.config_defaults import (
+from aiperf.common.config._base import BaseConfig as BaseConfig
+from aiperf.common.config._defaults import (
     ConversationDefaults as ConversationDefaults,
 )
-from aiperf.common.config.config_defaults import TurnDefaults as TurnDefaults
-from aiperf.common.config.config_defaults import TurnDelayDefaults as TurnDelayDefaults
+from aiperf.common.config._defaults import TurnDefaults as TurnDefaults
+from aiperf.common.config._defaults import TurnDelayDefaults as TurnDelayDefaults
 
 class TurnDelayConfig(BaseConfig):
     mean: Annotated[float, None, None]

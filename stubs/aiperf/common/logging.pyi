@@ -8,9 +8,9 @@ from _typeshed import Incomplete
 from rich.logging import RichHandler
 
 from aiperf.common.aiperf_logger import AIPerfLogger as AIPerfLogger
-from aiperf.common.config.config_defaults import ServiceDefaults as ServiceDefaults
-from aiperf.common.config.service_config import ServiceConfig as ServiceConfig
-from aiperf.common.config.user_config import UserConfig as UserConfig
+from aiperf.common.config._defaults import ServiceDefaults as ServiceDefaults
+from aiperf.common.config._service import ServiceConfig as ServiceConfig
+from aiperf.common.config._user import UserConfig as UserConfig
 from aiperf.common.enums import ServiceType as ServiceType
 
 LOG_QUEUE_MAXSIZE: int

@@ -1,10 +1,10 @@
 #  SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #  SPDX-License-Identifier: Apache-2.0
-from aiperf.common.config.config_defaults import (
+from aiperf.common.config._defaults import (
     LoadGeneratorDefaults as LoadGeneratorDefaults,
 )
-from aiperf.common.config.config_defaults import ServiceDefaults as ServiceDefaults
-from aiperf.common.config.user_config import UserConfig as UserConfig
+from aiperf.common.config._defaults import ServiceDefaults as ServiceDefaults
+from aiperf.common.config._user import UserConfig as UserConfig
 from aiperf.common.enums import RequestRateMode as RequestRateMode
 from aiperf.common.enums import TimingMode as TimingMode
 from aiperf.common.pydantic_utils import AIPerfBaseModel as AIPerfBaseModel

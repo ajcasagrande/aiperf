@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 
 from _typeshed import Incomplete
 
-from aiperf.common.config.input.input_config import InputConfig as InputConfig
+from aiperf.common.config._input import InputConfig as InputConfig
 from aiperf.common.dataset_models import Conversation as Conversation
 from aiperf.common.tokenizer import Tokenizer as Tokenizer
 from aiperf.services.dataset.generator import AudioGenerator as AudioGenerator

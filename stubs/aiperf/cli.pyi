@@ -7,7 +7,7 @@ from pydantic import Field as Field
 
 from aiperf.common.config import ServiceConfig as ServiceConfig
 from aiperf.common.config import UserConfig as UserConfig
-from aiperf.common.config.config_defaults import CLIDefaults as CLIDefaults
+from aiperf.common.config._defaults import CLIDefaults as CLIDefaults
 
 app: Incomplete
 
