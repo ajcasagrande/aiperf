@@ -127,7 +127,7 @@ class RecordsManager(BaseComponentService):
             callback=self._on_parsed_inference_results,
             max_concurrency=100_000,
         )
-        self.sub_client.subscribe(
+        await self.sub_client.subscribe(
             MessageType.CREDIT_PHASE_START,
             self._on_credit_phase_start,
         )

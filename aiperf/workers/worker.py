@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+import asyncio
 import sys
 
 from aiperf.clients import InferenceClientFactory
@@ -20,6 +21,7 @@ from aiperf.common.enums import (
 )
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
+    aiperf_task,
     on_configure,
     on_init,
     on_stop,
@@ -28,15 +30,16 @@ from aiperf.common.messages import (
     CommandMessage,
     CreditDropMessage,
     CreditReturnMessage,
+    WorkerHealthMessage,
 )
+from aiperf.common.mixins import ProcessHealthMixin
 from aiperf.common.models import WorkerPhaseTaskStats
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.workers.credit_processor_mixin import CreditProcessorMixin
-from aiperf.workers.worker_health_mixin import WorkerHealthMixin
 
 
 @ServiceFactory.register(ServiceType.WORKER)
-class Worker(BaseComponentService, WorkerHealthMixin, CreditProcessorMixin):
+class Worker(BaseComponentService, ProcessHealthMixin, CreditProcessorMixin):
     """Worker is primarily responsible for making API calls to the inference server.
     It also manages the conversation between turns and returns the results to the Inference Results Parsers.
     """
@@ -144,6 +147,28 @@ class Worker(BaseComponentService, WorkerHealthMixin, CreditProcessorMixin):
         self.debug("Shutting down worker")
         if self.inference_client:
             await self.inference_client.close()
+
+    @aiperf_task
+    async def _health_check_task(self) -> None:
+        """Task to report the health of the worker to the worker manager."""
+        while True:
+            try:
+                health_message = self.create_health_message()
+                await self.pub_client.publish(health_message)
+            except Exception as e:
+                self.exception(f"Error reporting health: {e}")
+            except asyncio.CancelledError:
+                self.debug("Health check task cancelled")
+                break
+
+            await asyncio.sleep(self.health_check_interval)
+
+    def create_health_message(self) -> WorkerHealthMessage:
+        return WorkerHealthMessage(
+            service_id=self.service_id,
+            process=self.get_process_health(),
+            task_stats=self.task_stats,
+        )
 
 
 def main() -> None:

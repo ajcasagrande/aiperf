@@ -56,9 +56,7 @@ class CreditProcessorMixinRequirements(AIPerfLoggerMixinProtocol, Protocol):
         ...
 
     async def _execute_single_credit_internal(
-        self,
-        message: CreditDropMessage,
-        timestamp_ns: int,
+        self, message: CreditDropMessage
     ) -> RequestRecord:
         """Execute a single credit drop. Return the RequestRecord."""
         ...
@@ -67,7 +65,6 @@ class CreditProcessorMixinRequirements(AIPerfLoggerMixinProtocol, Protocol):
         self,
         message: CreditDropMessage,
         turn: Turn,
-        timestamp_ns: int,
     ) -> RequestRecord:
         """Make a single call to the inference API. Will return an error record if the call fails."""
         ...
@@ -83,7 +80,7 @@ class CreditProcessorMixin(CreditProcessorMixinRequirements):
             )
 
     async def _process_credit_drop_internal(
-        self: CreditProcessorMixinRequirements, message: CreditDropMessage
+        self, message: CreditDropMessage
     ) -> CreditReturnMessage:
         """Process a credit drop message. Return the CreditReturnMessage.
 
@@ -105,7 +102,7 @@ class CreditProcessorMixin(CreditProcessorMixinRequirements):
 
         record: RequestRecord = RequestRecord()
         try:
-            record = await self._execute_single_credit_internal(message, time.time_ns())
+            record = await self._execute_single_credit_internal(message)
 
         except Exception as e:
             self.exception(f"Error processing credit drop: {e}")
@@ -144,9 +141,7 @@ class CreditProcessorMixin(CreditProcessorMixinRequirements):
                 return return_message  # noqa: B012
 
     async def _execute_single_credit_internal(
-        self,
-        message: CreditDropMessage,
-        timestamp_ns: int,
+        self, message: CreditDropMessage
     ) -> RequestRecord:
         """Run a credit task for a single credit."""
 
@@ -170,14 +165,14 @@ class CreditProcessorMixin(CreditProcessorMixinRequirements):
                 model_name=self.model_endpoint.primary_model_name,
                 conversation_id=message.conversation_id,
                 turn_index=0,
-                timestamp_ns=timestamp_ns,
+                timestamp_ns=time.time_ns(),
                 start_perf_ns=time.perf_counter_ns(),
                 end_perf_ns=time.perf_counter_ns(),
                 error=conversation_response.error,
             )
 
         record = await self._call_inference_api_internal(
-            message, conversation_response.conversation.turns[0], timestamp_ns
+            message, conversation_response.conversation.turns[0]
         )
         record.model_name = self.model_endpoint.primary_model_name
         record.conversation_id = conversation_response.conversation.session_id
@@ -185,15 +180,15 @@ class CreditProcessorMixin(CreditProcessorMixinRequirements):
         return record
 
     async def _call_inference_api_internal(
-        self: CreditProcessorMixinRequirements,
+        self,
         message: CreditDropMessage,
         turn: Turn,
-        timestamp_ns: int,
     ) -> RequestRecord:
         """Make a single call to the inference API. Will return an error record if the call fails."""
         self.trace(lambda: f"Calling inference API for turn: {turn}")
         formatted_payload = None
         pre_send_perf_ns = None
+        timestamp_ns = None
         try:
             # Format payload for the API request
             formatted_payload = await self.request_converter.format_payload(
@@ -219,6 +214,7 @@ class CreditProcessorMixin(CreditProcessorMixinRequirements):
             # Save the current perf_ns before sending the request so it can be used to calculate
             # the start_perf_ns of the request in case of an exception.
             pre_send_perf_ns = time.perf_counter_ns()
+            timestamp_ns = time.time_ns()
 
             # Send the request to the Inference Server API and wait for the response
             result: RequestRecord = await self.inference_client.send_request(
@@ -239,7 +235,7 @@ class CreditProcessorMixin(CreditProcessorMixinRequirements):
             )
             return RequestRecord(
                 request=formatted_payload,
-                timestamp_ns=timestamp_ns,
+                timestamp_ns=timestamp_ns or time.time_ns(),
                 # Try and use the pre_send_perf_ns if it is available, otherwise use the current time.
                 start_perf_ns=pre_send_perf_ns or time.perf_counter_ns(),
                 end_perf_ns=time.perf_counter_ns(),
