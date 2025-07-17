@@ -52,5 +52,5 @@ repos:
       entry: mkinit
       language: system
       types: [python]
-      files: ^aiperf/common/enums/__init__.py$
-      args: [--write, --black, --nomods, --norespect_all]
+      files: ^aiperf/common/enums/__init__.py$|^aiperf/common/messages/__init__.py$
+      args: [--write, --black, --nomods]
