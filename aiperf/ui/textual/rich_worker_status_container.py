@@ -64,6 +64,46 @@ class WorkerStatusData(AIPerfBaseModel):
     io_read_display: str = Field(default="0 B", description="Formatted read I/O")
     io_write_display: str = Field(default="0 B", description="Formatted write I/O")
 
+    @property
+    def memory_value(self) -> float:
+        """Get numeric memory value for sorting."""
+        if "GB" in self.memory_display:
+            return float(self.memory_display.split()[0]) * 1024
+        return float(self.memory_display.split()[0])
+
+    @property
+    def io_read_value(self) -> float:
+        """Get numeric I/O read value for sorting."""
+        return self._parse_bytes_value(self.io_read_display)
+
+    @property
+    def io_write_value(self) -> float:
+        """Get numeric I/O write value for sorting."""
+        return self._parse_bytes_value(self.io_write_display)
+
+    def _parse_bytes_value(self, bytes_str: str) -> float:
+        """Parse bytes string into numeric value for sorting."""
+        if bytes_str == "0 B":
+            return 0.0
+
+        parts = bytes_str.split()
+        if len(parts) != 2:
+            return 0.0
+
+        value, unit = parts
+        try:
+            num_value = float(value)
+            multipliers = {
+                "B": 1,
+                "KB": 1024,
+                "MB": 1024**2,
+                "GB": 1024**3,
+                "TB": 1024**4,
+            }
+            return num_value * multipliers.get(unit, 1)
+        except ValueError:
+            return 0.0
+
 
 class WorkerStatusTable(Widget):
     """Table widget for displaying worker status information."""
@@ -105,18 +145,10 @@ class WorkerStatusTable(Widget):
         super().__init__()
         self.data_table: DataTable | None = None
         self._columns_setup = False
-
-    def compose(self) -> ComposeResult:
-        """Compose the table widget."""
-        self.data_table = DataTable()
-        yield self.data_table
-
-    def _setup_columns(self) -> None:
-        """Setup table columns after mounting."""
-        if not self.data_table or self._columns_setup:
-            return
-
-        self.data_table.add_columns(
+        self._workers_data: list[WorkerStatusData] = []
+        self._sort_column = 5  # CPU column index (0-based)
+        self._sort_reverse = True  # Sort CPU descending by default
+        self._column_names = [
             "Worker ID",
             "Status",
             "Active",
@@ -126,12 +158,128 @@ class WorkerStatusTable(Widget):
             "Memory",
             "Read",
             "Write",
-        )
+        ]
+
+    def compose(self) -> ComposeResult:
+        """Compose the table widget."""
+        self.data_table = DataTable(cursor_type="row")
+        yield self.data_table
+
+    def _setup_columns(self) -> None:
+        """Setup table columns after mounting."""
+        if not self.data_table or self._columns_setup:
+            return
+
+        self._add_columns_with_indicators()
         self._columns_setup = True
+
+    def _add_columns_with_indicators(self) -> None:
+        """Add columns with sort indicators."""
+        if not self.data_table:
+            return
+
+        # Clear existing columns
+        self.data_table.clear(columns=True)
+
+        # Add columns with appropriate indicators
+        for i, column_name in enumerate(self._column_names):
+            if i == self._sort_column:
+                # Add sort indicator to the sorted column
+                indicator = " ↓" if self._sort_reverse else " ↑"
+                header_text = column_name + indicator
+            else:
+                # No indicator for other columns
+                header_text = column_name + "  "
+
+            self.data_table.add_column(header_text)
+
+    def _update_column_headers(self) -> None:
+        """Update column headers with sort indicators."""
+        if not self.data_table:
+            return
+
+        # Recreate columns with new indicators
+        self._add_columns_with_indicators()
+
+        # Repopulate with current data if available
+        if self._workers_data:
+            self._populate_table(self._sort_workers_data(self._workers_data))
 
     def on_mount(self) -> None:
         """Handle widget mounting."""
         self._setup_columns()
+
+    def on_data_table_header_selected(self, event: DataTable.HeaderSelected) -> None:
+        """Handle column header clicks for sorting."""
+        if not self.data_table:
+            return
+
+        column_index = event.column_index
+
+        # Toggle sort direction if clicking the same column
+        if column_index == self._sort_column:
+            self._sort_reverse = not self._sort_reverse
+        else:
+            self._sort_column = column_index
+            # Default sort directions for different columns
+            if column_index in [2, 3, 4, 5]:  # Active, Completed, Failed, CPU
+                self._sort_reverse = True  # Descending for numeric columns
+            else:
+                self._sort_reverse = False  # Ascending for text columns
+
+        # Update column headers with new sort indicators
+        self._update_column_headers()
+
+        # Sort and update the table
+        self._sort_and_update_table()
+
+    def _sort_and_update_table(self) -> None:
+        """Sort the workers data and update the table display."""
+        if not self._workers_data:
+            return
+
+        # Sort the data based on current sort column
+        sorted_data = self._sort_workers_data(self._workers_data)
+
+        # Update the table with sorted data
+        self._populate_table(sorted_data)
+
+    def _sort_workers_data(
+        self, workers_data: list[WorkerStatusData]
+    ) -> list[WorkerStatusData]:
+        """Sort workers data by the current sort column."""
+
+        def get_sort_key(worker: WorkerStatusData):
+            if self._sort_column == 0:  # Worker ID
+                return worker.worker_id
+            elif self._sort_column == 1:  # Status
+                # Sort by status priority: ERROR > HIGH_LOAD > HEALTHY > IDLE > STALE
+                status_priority = {
+                    WorkerStatus.ERROR: 0,
+                    WorkerStatus.HIGH_LOAD: 1,
+                    WorkerStatus.HEALTHY: 2,
+                    WorkerStatus.IDLE: 3,
+                    WorkerStatus.STALE: 4,
+                }
+                return status_priority.get(worker.status, 99)
+            elif self._sort_column == 2:  # Active
+                return worker.in_progress_tasks
+            elif self._sort_column == 3:  # Completed
+                return worker.completed_tasks
+            elif self._sort_column == 4:  # Failed
+                return worker.failed_tasks
+            elif self._sort_column == 5:  # CPU
+                return worker.cpu_usage
+            elif self._sort_column == 6:  # Memory
+                return worker.memory_value
+            elif self._sort_column == 7:  # Read
+                return worker.io_read_value
+            elif self._sort_column == 8:  # Write
+                return worker.io_write_value
+            else:
+                return worker.worker_id
+
+        return sorted(workers_data, key=get_sort_key, reverse=self._sort_reverse)
 
     def update_workers(self, workers_data: list[WorkerStatusData]) -> None:
         """Update the table with new worker data."""
@@ -140,6 +288,17 @@ class WorkerStatusTable(Widget):
 
         # Ensure columns are setup
         self._setup_columns()
+
+        # Store the data for sorting
+        self._workers_data = workers_data
+
+        # Sort and display the data
+        self._sort_and_update_table()
+
+    def _populate_table(self, workers_data: list[WorkerStatusData]) -> None:
+        """Populate the table with worker data."""
+        if not self.data_table:
+            return
 
         # Clear existing data
         self.data_table.clear()
