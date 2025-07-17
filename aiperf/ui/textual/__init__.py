@@ -28,7 +28,6 @@ from aiperf.ui.textual.rich_worker_status_container import (
     WorkerStatus,
     WorkerStatusData,
     WorkerStatusSummary,
-    WorkerStatusSummaryWidget,
     WorkerStatusTable,
 )
 from aiperf.ui.textual.textual_ui import (
@@ -75,7 +74,6 @@ __all__ = [
     "WorkerStatus",
     "WorkerStatusData",
     "WorkerStatusSummary",
-    "WorkerStatusSummaryWidget",
     "WorkerStatusTable",
     "WorkerTable",
 ]

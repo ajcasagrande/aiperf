@@ -55,7 +55,6 @@ from aiperf.ui.textual import (
     WorkerStatus,
     WorkerStatusData,
     WorkerStatusSummary,
-    WorkerStatusSummaryWidget,
     WorkerStatusTable,
     WorkerTable,
 )
@@ -105,7 +104,6 @@ __all__ = [
     "WorkerStatusData",
     "WorkerStatusElement",
     "WorkerStatusSummary",
-    "WorkerStatusSummaryWidget",
     "WorkerStatusTable",
     "WorkerTable",
 ]

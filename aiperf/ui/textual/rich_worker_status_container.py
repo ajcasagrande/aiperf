@@ -71,8 +71,6 @@ class WorkerStatusTable(Widget):
     DEFAULT_CSS = """
     WorkerStatusTable {
         height: 1fr;
-        border: solid $accent;
-        border-title-color: $accent;
     }
 
     DataTable {
@@ -106,7 +104,6 @@ class WorkerStatusTable(Widget):
     def __init__(self) -> None:
         super().__init__()
         self.data_table: DataTable | None = None
-        self.border_title = "Worker Status Table"
         self._columns_setup = False
 
     def compose(self) -> ComposeResult:
@@ -149,9 +146,9 @@ class WorkerStatusTable(Widget):
 
         # Add worker rows
         for worker in workers_data:
-            # Map status to Rich style strings (same as Rich implementation)
+            # Map status to Rich style strings
             status_styles = {
-                WorkerStatus.HEALTHY: "bold green",
+                WorkerStatus.HEALTHY: "bold #6fbc76",
                 WorkerStatus.HIGH_LOAD: "bold yellow",
                 WorkerStatus.ERROR: "bold red",
                 WorkerStatus.IDLE: "dim",
@@ -161,7 +158,7 @@ class WorkerStatusTable(Widget):
             status_style = status_styles.get(worker.status, "white")
 
             self.data_table.add_row(
-                worker.worker_id,
+                Text(worker.worker_id, style="bold cyan"),
                 Text(
                     worker.status.value.replace("_", " ").title(),
                     style=status_style,
@@ -177,25 +174,31 @@ class WorkerStatusTable(Widget):
             )
 
 
-class WorkerStatusSummaryWidget(Widget):
-    """Widget for displaying worker status summary."""
+class RichWorkerStatusContainer(Container):
+    """Textual container that displays worker status information in a single panel."""
 
     DEFAULT_CSS = """
-    WorkerStatusSummaryWidget {
-        height: 3;
-        border: solid $primary;
+    RichWorkerStatusContainer {
+        border: round $primary;
         border-title-color: $primary;
+        border-title-background: $surface;
+        height: 1fr;
+        layout: vertical;
     }
 
     #summary-content {
+        height: 1;
         layout: horizontal;
-        height: 1fr;
-        align: center middle;
+        align: left middle;
+        margin: 0 1 1 1;
     }
 
     .summary-item {
         margin: 0 1;
-        text-align: center;
+    }
+
+    .summary-title {
+        text-style: bold;
     }
 
     .summary-healthy {
@@ -220,78 +223,10 @@ class WorkerStatusSummaryWidget(Widget):
     .summary-stale {
         color: $surface-darken-1;
     }
-    """
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.border_title = "Worker Summary"
-
-    def compose(self) -> ComposeResult:
-        """Compose the summary widget."""
-        with Horizontal(id="summary-content"):
-            yield Label("Summary: ", classes="summary-item")
-            yield Label(
-                "0 healthy", id="healthy-count", classes="summary-item summary-healthy"
-            )
-            yield Label("•", classes="summary-item")
-            yield Label(
-                "0 high load",
-                id="warning-count",
-                classes="summary-item summary-warning",
-            )
-            yield Label("•", classes="summary-item")
-            yield Label(
-                "0 errors", id="error-count", classes="summary-item summary-error"
-            )
-            yield Label("•", classes="summary-item")
-            yield Label("0 idle", id="idle-count", classes="summary-item summary-idle")
-            yield Label("•", classes="summary-item")
-            yield Label(
-                "0 stale", id="stale-count", classes="summary-item summary-stale"
-            )
-
-    def update_summary(self, summary: WorkerStatusSummary) -> None:
-        """Update the summary display."""
-        try:
-            self.query_one("#healthy-count", Label).update(
-                f"{summary.healthy_count} healthy"
-            )
-            self.query_one("#warning-count", Label).update(
-                f"{summary.warning_count} high load"
-            )
-            self.query_one("#error-count", Label).update(
-                f"{summary.error_count} errors"
-            )
-            self.query_one("#idle-count", Label).update(f"{summary.idle_count} idle")
-            self.query_one("#stale-count", Label).update(f"{summary.stale_count} stale")
-        except Exception:
-            pass  # Silently handle cases where widgets aren't mounted yet
-
-
-class RichWorkerStatusContainer(Container):
-    """Textual container that encapsulates the Rich workers dashboard functionality.
-
-    This container replicates the functionality of the Rich WorkerStatusElement,
-    providing the same table layout, status determination logic, and summary statistics.
-    """
-
-    DEFAULT_CSS = """
-    RichWorkerStatusContainer {
-        border: round $primary;
-        border-title-color: $primary;
-        border-title-background: $surface;
-        height: 1fr;
-        layout: vertical;
-    }
-
-    #summary-section {
-        height: auto;
-        margin: 0 0 1 0;
-    }
 
     #table-section {
         height: 1fr;
-        margin: 0;
+        margin: 0 1 1 1;
     }
 
     #no-workers-message {
@@ -317,17 +252,38 @@ class RichWorkerStatusContainer(Container):
         self.error_rate_threshold = error_rate_threshold
         self.high_cpu_threshold = high_cpu_threshold
 
-        self.summary_widget: WorkerStatusSummaryWidget | None = None
         self.table_widget: WorkerStatusTable | None = None
 
-        self.border_title = "Worker Status Monitor"
+        self.border_title = "Worker Status"
 
     def compose(self) -> ComposeResult:
         """Compose the container layout."""
         with Vertical():
-            with Container(id="summary-section"):
-                self.summary_widget = WorkerStatusSummaryWidget()
-                yield self.summary_widget
+            with Horizontal(id="summary-content"):
+                yield Label("Summary: ", classes="summary-item summary-title")
+                yield Label(
+                    "0 healthy",
+                    id="healthy-count",
+                    classes="summary-item summary-healthy",
+                )
+                yield Label("•", classes="summary-item")
+                yield Label(
+                    "0 high load",
+                    id="warning-count",
+                    classes="summary-item summary-warning",
+                )
+                yield Label("•", classes="summary-item")
+                yield Label(
+                    "0 errors", id="error-count", classes="summary-item summary-error"
+                )
+                yield Label("•", classes="summary-item")
+                yield Label(
+                    "0 idle", id="idle-count", classes="summary-item summary-idle"
+                )
+                yield Label("•", classes="summary-item")
+                yield Label(
+                    "0 stale", id="stale-count", classes="summary-item summary-stale"
+                )
 
             with Container(id="table-section"):
                 if not self.worker_health:
@@ -343,13 +299,6 @@ class RichWorkerStatusContainer(Container):
         """Update the container with new worker health data."""
         self.worker_health[message.service_id] = message
         self.worker_last_seen[message.service_id] = time.time()
-
-        # # Update last seen time for current workers
-        # current_time = time.time()
-        # for worker_id in self.worker_health:
-        #     if worker_id not in self.worker_last_seen:
-        #         self.worker_last_seen[worker_id] = current_time
-
         self._refresh_display()
 
     def update_worker_last_seen(
@@ -369,8 +318,7 @@ class RichWorkerStatusContainer(Container):
         workers_data, summary = self._process_worker_data()
 
         # Update summary
-        if self.summary_widget:
-            self.summary_widget.update_summary(summary)
+        self._update_summary_display(summary)
 
         # Update table
         if self.table_widget:
@@ -379,9 +327,29 @@ class RichWorkerStatusContainer(Container):
             # Create table if it doesn't exist
             self._create_table_widget()
 
+    def _update_summary_display(self, summary: WorkerStatusSummary) -> None:
+        """Update the summary display with colored labels."""
+        try:
+            self.query_one("#healthy-count", Label).update(
+                f"{summary.healthy_count} healthy"
+            )
+            self.query_one("#warning-count", Label).update(
+                f"{summary.warning_count} high load"
+            )
+            self.query_one("#error-count", Label).update(
+                f"{summary.error_count} errors"
+            )
+            self.query_one("#idle-count", Label).update(f"{summary.idle_count} idle")
+            self.query_one("#stale-count", Label).update(f"{summary.stale_count} stale")
+        except Exception:
+            pass  # Silently handle cases where widgets aren't mounted yet
+
     def _show_no_workers_message(self) -> None:
         """Show the no workers message."""
         try:
+            # Update summary to show no workers
+            self._update_summary_display(WorkerStatusSummary())
+
             # Remove table if it exists
             if self.table_widget:
                 self.table_widget.remove()
@@ -462,18 +430,7 @@ class RichWorkerStatusContainer(Container):
 
             if health.process.io_counters:
                 try:
-                    # Check if it's an IOCounters named tuple with the expected attributes
                     if isinstance(health.process.io_counters, IOCounters):
-                        io_read_display = format_bytes(
-                            health.process.io_counters.read_chars
-                        )
-                        io_write_display = format_bytes(
-                            health.process.io_counters.write_chars
-                        )
-                    elif hasattr(health.process.io_counters, "read_chars") and hasattr(
-                        health.process.io_counters, "write_chars"
-                    ):
-                        # Fallback for other named tuple-like objects
                         io_read_display = format_bytes(
                             health.process.io_counters.read_chars
                         )
