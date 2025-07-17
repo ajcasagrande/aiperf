@@ -18,7 +18,7 @@ from aiperf.common.models import AIPerfBaseModel as AIPerfBaseModel
 from aiperf.services.service_manager.base import (
     BaseServiceManager as BaseServiceManager,
 )
-from aiperf.services.service_registry import (
+from aiperf.services.service_manager.service_registry import (
     GlobalServiceRegistry as GlobalServiceRegistry,
 )
 

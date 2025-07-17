@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from aiperf.common.config import ServiceConfig
+from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.constants import (
     DEFAULT_WAIT_FOR_REGISTRATION_SECONDS,
     DEFAULT_WAIT_FOR_START_SECONDS,
@@ -11,7 +11,6 @@ from aiperf.common.enums import ServiceType
 from aiperf.common.messages import BaseServiceMessage
 from aiperf.common.models import AIPerfBaseModel
 from aiperf.services.service_manager.base import BaseServiceManager
-from aiperf.services.service_registry import GlobalServiceRegistry
 
 
 class ServiceKubernetesRunInfo(AIPerfBaseModel):
@@ -30,10 +29,14 @@ class KubernetesServiceManager(BaseServiceManager):
     def __init__(
         self,
         required_services: dict[ServiceType, int],
-        config: ServiceConfig,
+        service_config: ServiceConfig,
+        user_config: UserConfig | None = None,
     ):
-        super().__init__(required_services, config)
-        self.registry = GlobalServiceRegistry
+        super().__init__(
+            required_services=required_services,
+            service_config=service_config,
+            user_config=user_config,
+        )
 
     async def run_all_services(self) -> None:
         """Initialize all required services as Kubernetes pods."""
@@ -90,4 +93,6 @@ class KubernetesServiceManager(BaseServiceManager):
         )
 
     async def on_message(self, message: BaseServiceMessage) -> None:
-        raise NotImplementedError
+        """Handle a message from a service."""
+        # TODO: Implement Kubernetes
+        raise NotImplementedError("KubernetesServiceManager.on_message not implemented")

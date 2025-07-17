@@ -12,7 +12,6 @@ from aiperf.common.enums import (
     CommandResponseStatus,
     CommandType,
     MessageType,
-    ServiceState,
     ServiceType,
     SystemState,
 )
@@ -30,7 +29,7 @@ from aiperf.common.messages import (
 )
 from aiperf.common.messages._progress import ProfileResultsMessage
 from aiperf.common.mixins import AIPerfMessageHandlerMixin
-from aiperf.common.models import AIPerfBaseModel, ServiceRegistrationInfo
+from aiperf.common.models import AIPerfBaseModel
 from aiperf.common.service.base_controller_service import BaseControllerService
 from aiperf.data_exporter.exporter_manager import ExporterManager
 from aiperf.progress.progress_tracker import (
@@ -51,8 +50,8 @@ class SystemController(
     BaseControllerService,
     SignalHandlerMixin,
     ProxyMixin,
-    ServiceManagerMixin,
     AIPerfMessageHandlerMixin,
+    ServiceManagerMixin,
 ):
     """System Controller service.
 
@@ -74,8 +73,6 @@ class SystemController(
             **kwargs,
         )
         self.debug("Creating System Controller")
-        self.service_config: ServiceConfig = service_config
-        self.user_config: UserConfig = user_config
         self._system_state: SystemState = SystemState.INITIALIZING
 
         self.progress_tracker: ProgressTracker = ProgressTracker()
@@ -175,11 +172,6 @@ class SystemController(
         self.progress_tracker.configure(
             suite=suite,
             current_profile_run=suite.profile_runs[0],
-        )
-
-        self.create_service_manager(
-            service_config=self.service_config,
-            user_config=self.user_config,
         )
 
         self._system_state = SystemState.CONFIGURING
@@ -318,7 +310,7 @@ class SystemController(
     )
     async def _forward_generic_message(self, message: Message) -> None:
         """Generic message handler for all messages that don't have or need a specific handler."""
-        self.trace("SC: Received message: %s", message)
+        self.trace(lambda: f"Received message: {message}")
         self.progress_tracker.on_message(message)
         await self.ui.on_message(message)
         if message.message_type == MessageType.CREDIT_PHASE_SENDING_COMPLETE:
@@ -377,47 +369,27 @@ class SystemController(
         Args:
             message: The registration message to process
         """
-        service_id = message.service_id
-        service_type = message.service_type
-
-        self.debug(
-            lambda: f"Processing registration from {service_type} with ID: {service_id}"
-        )
-
         await self.service_manager.on_message(message)
 
-        service_info = ServiceRegistrationInfo(
-            service_type=service_type,
-            service_id=service_id,
-            first_seen=time.time_ns(),
-            state=ServiceState.READY,
-            last_seen=time.time_ns(),
-        )
-
-        self.service_manager.service_id_map[service_id] = service_info
-        if service_type not in self.service_manager.service_map:
-            self.service_manager.service_map[service_type] = []
-        self.service_manager.service_map[service_type].append(service_info)
-
-        is_required = service_type in self.required_services
+        is_required = message.service_type in self.service_manager.required_services
         self.info(
-            lambda: f"Registered {'required' if is_required else 'non-required'} service: {service_type} with ID: {service_id}"
+            lambda: f"Registered {'required' if is_required else 'non-required'} service: {message.service_type} with ID: {message.service_id}"
         )
 
         # Send configure command to the newly registered service
         try:
             await self.send_command_to_service(
-                target_service_id=service_id,
+                target_service_id=message.service_id,
                 command=CommandType.PROFILE_CONFIGURE,
                 data=self.user_config,
             )
         except Exception as e:
             raise self._service_error(
-                f"Failed to send configure command to {service_type} (ID: {service_id})",
+                f"Failed to send configure command to {message.service_type} (ID: {message.service_id})",
             ) from e
 
         self.debug(
-            lambda: f"Sent configure command to {service_type} (ID: {service_id})"
+            lambda: f"Sent configure command to {message.service_type} (ID: {message.service_id})"
         )
 
     @on_message(MessageType.HEARTBEAT)
@@ -428,30 +400,10 @@ class SystemController(
         Args:
             message: The heartbeat message to process
         """
-        service_id = message.service_id
-        service_type = message.service_type
-        timestamp = message.request_ns
-
-        self.trace(lambda: f"Received heartbeat from {service_type} (ID: {service_id})")
+        self.trace(
+            lambda: f"Received heartbeat from {message.service_type} (ID: {message.service_id})"
+        )
         await self.service_manager.on_message(message)
-
-        # Update the last heartbeat timestamp if the component exists
-        try:
-            service_info = self.service_manager.service_id_map[service_id]
-            service_info.last_seen = timestamp
-            service_info.state = message.state
-            self.trace(lambda: f"Updated heartbeat for {service_id} to {timestamp}")
-        except Exception:
-            self.warning(
-                lambda: f"Received heartbeat from unknown service: {service_id} ({service_type})"
-            )
-            # HACK: If the service is not registered, we need to register it
-            await self._process_registration_message(
-                RegistrationMessage(
-                    service_id=service_id,
-                    service_type=service_type,
-                )
-            )
 
     @on_message(MessageType.STATUS)
     async def _process_status_message(self, message: StatusMessage) -> None:
@@ -461,45 +413,25 @@ class SystemController(
         Args:
             message: The status message to process
         """
-        await self.service_manager.on_message(message)
-
-        service_id = message.service_id
-        service_type = message.service_type
-        state = message.state
-
-        self.debug(
-            lambda: f"Received status update from {service_type} (ID: {service_id}): {state}"
+        self.trace(
+            lambda: f"Received status update from {message.service_type} (ID: {message.service_id}): {message.state}"
         )
-
-        # Update the component state if the component exists
-        if service_id not in self.service_manager.service_id_map:
-            self.trace(
-                lambda: f"Received status update from un-registered service: {service_id} ({service_type})"
-            )
-            return
-
-        service_info = self.service_manager.service_id_map.get(service_id)
-        if service_info is None:
-            return
-
-        service_info.state = message.state
-
-        self.trace(lambda: f"Updated state for {service_id} to {message.state}")
+        await self.service_manager.on_message(message)
 
     @on_message(MessageType.COMMAND_RESPONSE)
     async def _process_command_response_message(
         self, message: CommandResponseMessage
     ) -> None:
         """Process a command response message."""
-        self.trace(lambda: f"SC: Received command response message: {message}")
+        self.trace(lambda: f"Received command response message: {message}")
         if message.status == CommandResponseStatus.SUCCESS:
             self.debug(
-                lambda: f"SC: Command {message.command} succeeded with data: {message.data}"
+                lambda: f"Command {message.command} succeeded with data: {message.data}"
             )
         else:
-            self.error(lambda: f"SC: Command {message.command} failed: {message.error}")
+            self.error(lambda: f"Command {message.command} failed: {message.error}")
             if message.error:
-                self.error(lambda: f"SC: Error details: {message.error}")
+                self.error(lambda: f"Error details: {message.error}")
 
     async def send_command_to_service(
         self,

@@ -31,7 +31,6 @@ from aiperf.common.messages._service import (
 )
 from aiperf.common.models import AIPerfBaseModel
 from aiperf.services.service_manager.base import BaseServiceManager
-from aiperf.services.service_registry import GlobalServiceRegistry
 
 
 class MultiProcessRunInfo(AIPerfBaseModel):
@@ -54,15 +53,17 @@ class MultiProcessServiceManager(BaseServiceManager):
     def __init__(
         self,
         required_services: dict[ServiceType, int],
-        config: ServiceConfig,
+        service_config: ServiceConfig,
         user_config: UserConfig | None = None,
         log_queue: "multiprocessing.Queue | None" = None,
     ):
-        super().__init__(required_services, config)
+        super().__init__(
+            required_services=required_services,
+            service_config=service_config,
+            user_config=user_config,
+        )
         self.multi_process_info: list[MultiProcessRunInfo] = []
         self.log_queue = log_queue
-        self.user_config = user_config
-        self.registry = GlobalServiceRegistry
         self.registered_events: dict[ServiceType, asyncio.Event] = {
             service_type: asyncio.Event() for service_type in required_services
         }
@@ -85,7 +86,7 @@ class MultiProcessServiceManager(BaseServiceManager):
                     kwargs={
                         "service_class": service_class,
                         "service_id": service_type.value if count == 1 else None,
-                        "service_config": self.config,
+                        "service_config": self.service_config,
                         "user_config": self.user_config,
                         "log_queue": self.log_queue,
                     },

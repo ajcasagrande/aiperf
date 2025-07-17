@@ -89,7 +89,7 @@ class BaseComponentService(BaseService):
         will continue to send heartbeats even if an error occurs until the stop
         event is set.
         """
-        while not self.stop_event.is_set():
+        while True:
             # Sleep first to avoid sending a heartbeat before the registration
             # message has been published
             await asyncio.sleep(self._heartbeat_interval_seconds)
@@ -97,15 +97,18 @@ class BaseComponentService(BaseService):
             try:
                 await self.send_heartbeat()
             except Exception as e:
-                self.logger.exception("Exception sending heartbeat: %s", e)
+                self.exception("Exception sending heartbeat: %s", e)
                 # continue to keep sending heartbeats regardless of the error
+            except asyncio.CancelledError:
+                self.debug("Heartbeat task cancelled")
+                break
 
-        self.logger.debug("Heartbeat task stopped")
+        self.debug("Heartbeat task stopped")
 
     async def send_heartbeat(self) -> None:
         """Send a heartbeat notification to the system controller."""
         heartbeat_message = self.create_heartbeat_message()
-        self.logger.debug("Sending heartbeat: %s", heartbeat_message)
+        self.debug(lambda: f"Sending heartbeat: {heartbeat_message}")
         try:
             await self.pub_client.publish(
                 message=heartbeat_message,
@@ -119,10 +122,8 @@ class BaseComponentService(BaseService):
         This method should be called after the service has been initialized and is
         ready to start processing messages.
         """
-        self.logger.debug(
-            "Attempting to register service %s (%s) with system controller",
-            self.service_type,
-            self.service_id,
+        self.debug(
+            lambda: f"Attempting to register service {self.service_type} ({self.service_id}) with system controller"
         )
         try:
             await self.pub_client.publish(
@@ -144,9 +145,7 @@ class BaseComponentService(BaseService):
         ):
             return  # Ignore commands meant for other services
 
-        self.logger.debug(
-            "%s: Processing command message: %s", self.service_id, message
-        )
+        self.debug(lambda: f"{self.service_id}: Processing command message: {message}")
         cmd = message.command
         response_data = None
         try:
@@ -154,7 +153,7 @@ class BaseComponentService(BaseService):
                 response_data = await self.start()
 
             elif cmd == CommandType.SHUTDOWN:
-                self.logger.debug("%s: Received stop command", self.service_id)
+                self.debug(lambda: f"{self.service_id}: Received stop command")
                 self.stop_event.set()
 
             elif cmd == CommandType.PROFILE_CONFIGURE:

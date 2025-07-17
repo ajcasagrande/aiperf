@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 from abc import ABC, abstractmethod
 
-from aiperf.common.config import ServiceConfig
+from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.constants import (
     DEFAULT_WAIT_FOR_START_SECONDS,
     DEFAULT_WAIT_FOR_STOP_SECONDS,
@@ -11,6 +11,7 @@ from aiperf.common.enums import ServiceType
 from aiperf.common.messages import BaseServiceMessage
 from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.common.models import ServiceRegistrationInfo
+from aiperf.services.service_manager.service_registry import ServiceRegistry
 
 
 class BaseServiceManager(AIPerfLoggerMixin, ABC):
@@ -22,11 +23,14 @@ class BaseServiceManager(AIPerfLoggerMixin, ABC):
     def __init__(
         self,
         required_services: dict[ServiceType, int],
-        config: ServiceConfig,
+        service_config: ServiceConfig,
+        user_config: UserConfig | None = None,
     ):
         super().__init__(logger_name="service_manager")
         self.required_services = required_services
-        self.config = config
+        self.service_config = service_config
+        self.user_config = user_config
+        self.registry = ServiceRegistry()
 
         # Maps to track service information
         self.service_map: dict[ServiceType, list[ServiceRegistrationInfo]] = {}

@@ -82,31 +82,6 @@ class ServiceRegistry:
         )
         return True
 
-    def __contains__(self, service_id: str) -> bool:
-        return service_id in self._services_by_id
-
-    def __getitem__(self, service_id: str) -> ServiceRegistrationInfo:
-        return self._services_by_id[service_id]
-
-    def __len__(self) -> int:
-        return len(self._services_by_id)
-
-    def __iter__(self) -> Iterator[ServiceRegistrationInfo]:
-        return iter(self._services_by_id.values())
-
-    async def __aiter__(self) -> AsyncIterator[ServiceRegistrationInfo]:
-        for service_info in list(self._services_by_id.values()):
-            yield service_info
-
-    def service_ids_by_type(self, service_type: ServiceType) -> set[str]:
-        return self._services_by_type.get(service_type, set())
-
-    def all_service_types(self) -> set[ServiceType]:
-        return set(self._services_by_type.keys())
-
-    def all_service_ids(self) -> set[str]:
-        return set(self._services_by_id.keys())
-
     def num_replicas(self, service_type: ServiceType) -> int:
         """Get the number of replicas of a specific service type."""
         return len(self._services_by_type.get(service_type, set()))
@@ -153,6 +128,27 @@ class ServiceRegistry:
         self._services_by_id.clear()
         self.logger.debug("Cleared all services from registry")
 
+    def __contains__(self, service_id: str) -> bool:
+        return service_id in self._services_by_id
 
-# Create a global instance
-GlobalServiceRegistry = ServiceRegistry()
+    def __getitem__(self, service_id: str) -> ServiceRegistrationInfo:
+        return self._services_by_id[service_id]
+
+    def __len__(self) -> int:
+        return len(self._services_by_id)
+
+    def __iter__(self) -> Iterator[ServiceRegistrationInfo]:
+        return iter(self._services_by_id.values())
+
+    async def __aiter__(self) -> AsyncIterator[ServiceRegistrationInfo]:
+        for service_info in list(self._services_by_id.values()):
+            yield service_info
+
+    def service_ids_by_type(self, service_type: ServiceType) -> set[str]:
+        return self._services_by_type.get(service_type, set())
+
+    def all_service_types(self) -> set[ServiceType]:
+        return set(self._services_by_type.keys())
+
+    def all_service_ids(self) -> set[str]:
+        return set(self._services_by_id.keys())

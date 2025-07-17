@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
-import multiprocessing
+import uuid
 from abc import ABC
 
 from aiperf.common.config import ServiceConfig, UserConfig
@@ -59,8 +59,13 @@ class BaseService(
         **kwargs,
     ) -> None:
         self.service_id: str = (
-            service_id or f"{self.service_type}_{multiprocessing.current_process().pid}"
+            service_id or f"{self.service_type}_{uuid.uuid4().hex[:8]}"
         )
+        self.service_config = service_config
+        self.user_config = user_config
+
+        self._state: ServiceState = ServiceState.UNKNOWN
+
         super().__init__(
             service_id=service_id,
             service_config=service_config,
@@ -68,14 +73,10 @@ class BaseService(
             logger_name=self.service_id,
             **kwargs,
         )
-        self.service_config = service_config
-        self.user_config = user_config
 
         self.debug(
-            lambda: f"Initializing {self.service_type} service (id: {self.service_id})"
+            lambda: f"__init__ {self.service_type} service (id: {self.service_id})"
         )
-
-        self._state: ServiceState = ServiceState.UNKNOWN
 
         self.stop_event = asyncio.Event()
         self.initialized_event = asyncio.Event()
