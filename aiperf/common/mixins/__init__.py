@@ -28,7 +28,7 @@ from aiperf.common.mixins._aiperf_lifecycle import (
 )
 from aiperf.common.mixins._aiperf_logger import (
     AIPerfLoggerMixin,
-    AIPerfLoggerProtocol,
+    AIPerfLoggerMixinProtocol,
 )
 from aiperf.common.mixins._aiperf_message_handler import (
     AIPerfMessageHandlerMixin,
@@ -55,6 +55,7 @@ from aiperf.common.mixins._hooks import (
 )
 from aiperf.common.mixins._process_health import (
     ProcessHealthMixin,
+    ProcessHealthMixinProtocol,
 )
 from aiperf.common.mixins._progress_tracker_mixin import (
     ProgressTrackerMixin,
@@ -64,7 +65,7 @@ __all__ = [
     "AIPerfLifeCycleProtocol",
     "AIPerfLifecycleMixin",
     "AIPerfLoggerMixin",
-    "AIPerfLoggerProtocol",
+    "AIPerfLoggerMixinProtocol",
     "AIPerfMessageHandlerMixin",
     "AIPerfProfileMixin",
     "AIPerfTaskMixin",
@@ -74,6 +75,7 @@ __all__ = [
     "EventBusClientMixin",
     "HooksMixin",
     "ProcessHealthMixin",
+    "ProcessHealthMixinProtocol",
     "ProgressTrackerMixin",
     "supports_hooks",
 ]

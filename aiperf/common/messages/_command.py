@@ -7,9 +7,12 @@ from typing import Any, Literal
 from pydantic import Field, SerializeAsAny
 
 from aiperf.common.config._user import UserConfig
-from aiperf.common.enums import CommandType, MessageType
-from aiperf.common.enums._command import CommandResponseStatus
-from aiperf.common.enums._service import ServiceType
+from aiperf.common.enums import (
+    CommandResponseStatus,
+    CommandType,
+    MessageType,
+    ServiceType,
+)
 from aiperf.common.messages._base import BaseServiceMessage
 from aiperf.common.models import AIPerfBaseModel, ErrorDetails
 

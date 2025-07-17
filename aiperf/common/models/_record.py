@@ -118,16 +118,16 @@ class RequestRecord(AIPerfBaseModel):
 
     request: Any | None = Field(
         default=None,
-        description="The raw request payload formatted for the inference API.",
+        description="The request payload formatted for the inference API.",
     )
     conversation_id: str | None = Field(
         default=None,
-        description="The ID of the conversation.",
+        description="The ID of the conversation (if applicable).",
     )
     turn_index: int | None = Field(
         default=None,
         ge=0,
-        description="The index of the turn in the conversation.",
+        description="The index of the turn in the conversation (if applicable).",
     )
     model_name: str | None = Field(
         default=None,

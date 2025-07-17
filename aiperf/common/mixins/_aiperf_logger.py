@@ -107,7 +107,7 @@ aiperf_logger._ignored_files.append(_srcfile)
 
 
 @runtime_checkable
-class AIPerfLoggerProtocol(Protocol):
+class AIPerfLoggerMixinProtocol(Protocol):
     """Protocol to provide lazy evaluated logging for f-strings."""
 
     def __init__(self, logger_name: str | None = None, **kwargs) -> None: ...

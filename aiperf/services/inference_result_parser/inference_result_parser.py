@@ -52,7 +52,7 @@ class InferenceResultParser(BaseComponentService):
             user_config=user_config,
             service_id=service_id,
         )
-        self.logger.debug("Initializing inference result parser")
+        self.debug("Initializing inference result parser")
         self.inference_results_client: PullClientProtocol = (
             self.comms.create_pull_client(
                 CommunicationClientAddressType.RAW_INFERENCE_PROXY_BACKEND,
@@ -81,7 +81,7 @@ class InferenceResultParser(BaseComponentService):
     @on_init
     async def _initialize(self) -> None:
         """Initialize inference result parser-specific components."""
-        self.logger.debug("Initializing inference result parser")
+        self.debug("Initializing inference result parser")
 
         await self.inference_results_client.register_pull_callback(
             message_type=MessageType.INFERENCE_RESULTS,
@@ -104,9 +104,7 @@ class InferenceResultParser(BaseComponentService):
                 )
                 for model in self.model_endpoint.models.models
             }
-            self.logger.info(
-                "Initialized tokenizers for %d models", len(self.tokenizers)
-            )
+            self.info("Initialized tokenizers for %d models", len(self.tokenizers))
 
     async def get_tokenizer(self, model: str) -> Tokenizer:
         """Get the tokenizer for a given model."""
@@ -125,7 +123,7 @@ class InferenceResultParser(BaseComponentService):
 
     async def _on_inference_results(self, message: InferenceResultsMessage) -> None:
         """Handle an inference results message."""
-        self.logger.debug("Received inference results message: %s", message)
+        self.debug(lambda: f"Received inference results message: {message}")
 
         if message.record.has_error:
             await self.records_push_client.push(
@@ -143,7 +141,7 @@ class InferenceResultParser(BaseComponentService):
             try:
                 record = await self.process_valid_record(message)
                 self.debug(
-                    f"Received {len(record.request.responses)} responses, isl: {record.isl}, osl: {record.token_count}"
+                    lambda: f"Received {len(record.request.responses)} responses, isl: {record.isl}, osl: {record.token_count}"
                 )
                 await self.records_push_client.push(
                     ParsedInferenceResultsMessage(

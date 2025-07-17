@@ -8,7 +8,7 @@ from aiperf.common.mixins._aiperf_lifecycle import (
 )
 from aiperf.common.mixins._aiperf_logger import AIPerfLoggerMixin as AIPerfLoggerMixin
 from aiperf.common.mixins._aiperf_logger import (
-    AIPerfLoggerProtocol as AIPerfLoggerProtocol,
+    AIPerfLoggerMixinProtocol as AIPerfLoggerMixinProtocol,
 )
 from aiperf.common.mixins._aiperf_message_handler import (
     AIPerfMessageHandlerMixin as AIPerfMessageHandlerMixin,
@@ -40,7 +40,7 @@ __all__ = [
     "AIPerfLifeCycleProtocol",
     "AIPerfLifecycleMixin",
     "AIPerfLoggerMixin",
-    "AIPerfLoggerProtocol",
+    "AIPerfLoggerMixinProtocol",
     "AIPerfMessageHandlerMixin",
     "AIPerfProfileMixin",
     "AIPerfTaskMixin",

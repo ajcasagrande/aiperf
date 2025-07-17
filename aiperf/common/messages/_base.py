@@ -5,8 +5,7 @@ from typing import Any, ClassVar
 
 from pydantic import Field
 
-from aiperf.common.enums import MessageType
-from aiperf.common.enums._service import ServiceState, ServiceType
+from aiperf.common.enums import MessageType, ServiceState, ServiceType
 from aiperf.common.pydantic_utils import ExcludeIfNoneMixin, exclude_if_none
 
 

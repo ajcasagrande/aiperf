@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import time
+from typing import Protocol, runtime_checkable
 
 import psutil
 
@@ -46,3 +47,12 @@ class ProcessHealthMixin:
             num_threads=self.process.num_threads(),
         )
         return self.process_health
+
+
+@runtime_checkable
+class ProcessHealthMixinProtocol(Protocol):
+    """ProcessHealthMixinProtocol is a protocol that provides the public interface for the ProcessHealthMixin."""
+
+    def get_process_health(self) -> ProcessHealth:
+        """Get the process health information for the current process."""
+        ...

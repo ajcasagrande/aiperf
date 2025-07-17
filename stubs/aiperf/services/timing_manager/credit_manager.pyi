@@ -16,7 +16,7 @@ from aiperf.common.messages import (
 )
 from aiperf.common.messages import CreditPhaseStartMessage as CreditPhaseStartMessage
 from aiperf.common.messages import CreditsCompleteMessage as CreditsCompleteMessage
-from aiperf.common.mixins import AIPerfLoggerProtocol as AIPerfLoggerProtocol
+from aiperf.common.mixins import AIPerfLoggerMixinProtocol as AIPerfLoggerMixinProtocol
 from aiperf.common.mixins import AsyncTaskManagerMixin as AsyncTaskManagerMixin
 from aiperf.common.mixins import AsyncTaskManagerProtocol as AsyncTaskManagerProtocol
 
@@ -46,7 +46,7 @@ class CreditManagerProtocol(Protocol):
     ) -> None: ...
 
 class CreditPhaseMessagesRequirements(
-    AsyncTaskManagerProtocol, AIPerfLoggerProtocol, Protocol
+    AsyncTaskManagerProtocol, AIPerfLoggerMixinProtocol, Protocol
 ):
     pub_client: PubClientProtocol
     service_id: str
