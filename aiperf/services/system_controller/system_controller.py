@@ -29,7 +29,7 @@ from aiperf.common.messages import (
     StatusMessage,
 )
 from aiperf.common.messages.progress import ProfileResultsMessage
-from aiperf.common.mixins.aiperf_message_handler import AIPerfMessageHandlerMixin
+from aiperf.common.mixins import AIPerfMessageHandlerMixin
 from aiperf.common.pydantic_utils import AIPerfBaseModel
 from aiperf.common.service.base_controller_service import BaseControllerService
 from aiperf.common.service_models import ServiceRegistrationInfo
@@ -553,12 +553,14 @@ class SystemController(
         await self.comms.shutdown()
 
 
-def main() -> None:
+def main() -> int:
     """Main entry point for the system controller."""
 
     from aiperf.common.bootstrap import bootstrap_and_run_service
 
     bootstrap_and_run_service(SystemController)
+
+    return 0
 
 
 if __name__ == "__main__":

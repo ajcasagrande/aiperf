@@ -6,44 +6,57 @@
 #########################################################
 # mkinit flags
 __ignore__ = ["logger"]
+__submodules__ = [
+    "_aiperf_lifecycle",
+    "_aiperf_logger",
+    "_aiperf_message_handler",
+    "_aiperf_profile",
+    "_aiperf_task",
+    "_async_task_manager",
+    "_comms",
+    "_event_bus_client",
+    "_hooks",
+    "_process_health",
+    "_progress_tracker_mixin",
+]
 #########################################################
 
 
-from aiperf.common.mixins.aiperf_lifecycle import (
+from aiperf.common.mixins._aiperf_lifecycle import (
     AIPerfLifecycleMixin,
     AIPerfLifeCycleProtocol,
 )
-from aiperf.common.mixins.aiperf_logger import (
+from aiperf.common.mixins._aiperf_logger import (
     AIPerfLoggerMixin,
     AIPerfLoggerProtocol,
 )
-from aiperf.common.mixins.aiperf_message_handler import (
+from aiperf.common.mixins._aiperf_message_handler import (
     AIPerfMessageHandlerMixin,
 )
-from aiperf.common.mixins.aiperf_profile import (
+from aiperf.common.mixins._aiperf_profile import (
     AIPerfProfileMixin,
 )
-from aiperf.common.mixins.aiperf_task import (
+from aiperf.common.mixins._aiperf_task import (
     AIPerfTaskMixin,
 )
-from aiperf.common.mixins.async_task_manager import (
+from aiperf.common.mixins._async_task_manager import (
     AsyncTaskManagerMixin,
     AsyncTaskManagerProtocol,
 )
-from aiperf.common.mixins.comms import (
+from aiperf.common.mixins._comms import (
     CommunicationsMixin,
 )
-from aiperf.common.mixins.event_bus_client import (
+from aiperf.common.mixins._event_bus_client import (
     EventBusClientMixin,
 )
-from aiperf.common.mixins.hooks import (
+from aiperf.common.mixins._hooks import (
     HooksMixin,
     supports_hooks,
 )
-from aiperf.common.mixins.process_health import (
+from aiperf.common.mixins._process_health import (
     ProcessHealthMixin,
 )
-from aiperf.common.mixins.progress_tracker_mixin import (
+from aiperf.common.mixins._progress_tracker_mixin import (
     ProgressTrackerMixin,
 )
 

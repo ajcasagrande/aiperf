@@ -8,7 +8,7 @@ from aiperf.clients.client_interfaces import RequestConverterFactory
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.dataset_models import Turn
 from aiperf.common.enums import EndpointType
-from aiperf.common.mixins.aiperf_logger import AIPerfLoggerMixin
+from aiperf.common.mixins import AIPerfLoggerMixin
 
 DEFAULT_ROLE = "user"
 

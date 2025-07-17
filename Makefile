@@ -17,7 +17,7 @@
 
 .PHONY: ruff lint ruff-fix lint-fix format fmt check-format check-fmt \
 		test coverage cov clean install docker docker-run first-time-setup \
-		test-verbose init-files \
+		test-verbose init-files type-check mypy stubgen type-tools \
 		internal-help help
 
 
@@ -96,6 +96,16 @@ init-files: #? run mkinit to generate the __init__.py files.
 	$(activate_venv) && mkinit --write --black --nomods aiperf/common/mixins
 	$(activate_venv) && mkinit --write --black --nomods aiperf/progress
 	$(activate_venv) && mkinit --write --black --nomods --recursive aiperf/ui
+
+type-check mypy: #? run MyPy type checking on the project.
+	$(activate_venv) && mypy aiperf/
+
+stubgen: #? generate .pyi stub files for the package.
+	@mkdir -p stubs
+	$(activate_venv) && stubgen -p aiperf -o stubs/
+
+type-tools: #? run comprehensive type checking and stub generation tools.
+	$(activate_venv) && python tools/type_tools.py
 
 ruff lint: #? run the ruff linters
 	$(activate_venv) && ruff check . $(args)

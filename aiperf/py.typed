@@ -1,0 +1,8 @@
+# This file indicates that the aiperf package supports type hints
+# as defined in PEP 561: https://www.python.org/dev/peps/pep-0561/
+
+# Options (uncomment as needed):
+# partial\n# Use this if only some modules have type hints
+
+# For most packages with comprehensive type hints, leave this file empty
+# or with just comments like this one.

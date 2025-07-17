@@ -30,6 +30,7 @@ class InputTokensConfig(BaseConfig):
         ),
         cyclopts.Parameter(
             name=(
+                "--prompt-input-tokens-mean",
                 "--synthetic-input-tokens-mean",  # GenAI-Perf
                 "--isl",  # GenAI-Perf
             ),
@@ -45,6 +46,7 @@ class InputTokensConfig(BaseConfig):
         ),
         cyclopts.Parameter(
             name=(
+                "--prompt-input-tokens-stddev",
                 "--synthetic-input-tokens-stddev",  # GenAI-Perf
             ),
             group=_GROUP_NAME,
@@ -59,7 +61,10 @@ class InputTokensConfig(BaseConfig):
             description="The block size of the prompt.",
         ),
         cyclopts.Parameter(
-            name=("--synthetic-input-tokens-block-size"),
+            name=(
+                "--prompt-input-tokens-block-size",
+                "--synthetic-input-tokens-block-size",  # GenAI-Perf
+            ),
             group=_GROUP_NAME,
         ),
     ] = InputTokensDefaults.BLOCK_SIZE
@@ -80,6 +85,7 @@ class OutputTokensConfig(BaseConfig):
         ),
         cyclopts.Parameter(
             name=(
+                "--prompt-output-tokens-mean",
                 "--output-tokens-mean",  # GenAI-Perf
                 "--osl",  # GenAI-Perf
             ),
@@ -98,6 +104,7 @@ class OutputTokensConfig(BaseConfig):
         ),
         cyclopts.Parameter(
             name=(
+                "--prompt-output-tokens-deterministic",
                 "--output-tokens-mean-deterministic",  # GenAI-Perf
             ),
             group=_GROUP_NAME,
@@ -112,6 +119,7 @@ class OutputTokensConfig(BaseConfig):
         ),
         cyclopts.Parameter(
             name=(
+                "--prompt-output-tokens-stddev",
                 "--output-tokens-stddev",  # GenAI-Perf
             ),
             group=_GROUP_NAME,
@@ -138,6 +146,7 @@ class PrefixPromptConfig(BaseConfig):
         ),
         cyclopts.Parameter(
             name=(
+                "--prompt-prefix-pool-size",
                 "--prefix-prompt-pool-size",
                 "--num-prefix-prompts",  # GenAI-Perf
             ),
@@ -158,6 +167,7 @@ class PrefixPromptConfig(BaseConfig):
         ),
         cyclopts.Parameter(
             name=(
+                "--prompt-prefix-length",
                 "--prefix-prompt-length",  # GenAI-Perf
             ),
             group=_GROUP_NAME,

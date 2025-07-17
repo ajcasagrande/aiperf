@@ -30,7 +30,7 @@ class ProfileRunner:
         self.logger = logging.getLogger(self.__class__.__name__)
         self.was_cancelled = False
 
-    async def run(self):
+    async def run(self) -> None:
         self.controller._system_state = SystemState.PROFILING
 
         if self.tracker.suite is None:

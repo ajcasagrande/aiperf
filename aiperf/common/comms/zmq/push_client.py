@@ -10,7 +10,7 @@ from aiperf.common.comms.zmq.zmq_base_client import BaseZMQClient
 from aiperf.common.enums import CommunicationClientType
 from aiperf.common.exceptions import CommunicationError
 from aiperf.common.messages import Message
-from aiperf.common.mixins.async_task_manager import AsyncTaskManagerMixin
+from aiperf.common.mixins import AsyncTaskManagerMixin
 
 MAX_PUSH_RETRIES = 2
 """Maximum number of retries for pushing a message."""

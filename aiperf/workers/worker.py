@@ -76,27 +76,32 @@ class Worker(BaseComponentService, ProcessHealthMixin):
 
         self.task_stats: dict[CreditPhase, WorkerPhaseTaskStats] = {}
 
-        self.credit_drop_client: PullClientProtocol = self.comms.create_pull_client(
-            CommunicationClientAddressType.CREDIT_DROP,
-        )  # type: ignore
-        self.credit_return_client: PushClientProtocol = self.comms.create_push_client(
-            CommunicationClientAddressType.CREDIT_RETURN,
-        )  # type: ignore
-        self.inference_results_client: PushClientProtocol = (
+        self.credit_drop_pull_client: PullClientProtocol = (
+            self.comms.create_pull_client(
+                CommunicationClientAddressType.CREDIT_DROP,
+            )
+        )
+        self.credit_return_push_client: PushClientProtocol = (
+            self.comms.create_push_client(
+                CommunicationClientAddressType.CREDIT_RETURN,
+            )
+        )
+        self.inference_results_push_client: PushClientProtocol = (
             self.comms.create_push_client(
                 CommunicationClientAddressType.RAW_INFERENCE_PROXY_FRONTEND,
             )
-        )  # type: ignore
-        self.conversation_data_client: RequestClientProtocol = (
+        )
+        self.conversation_request_client: RequestClientProtocol = (
             self.comms.create_request_client(
                 CommunicationClientAddressType.DATASET_MANAGER_PROXY_FRONTEND,
             )
-        )  # type: ignore
+        )
 
         self.model_endpoint = ModelEndpointInfo.from_user_config(self.user_config)
 
         self.debug(
-            lambda: f"Creating inference client for {self.model_endpoint.endpoint.type}, class: {InferenceClientFactory.get_class_from_type(self.model_endpoint.endpoint.type).__name__}",
+            lambda: f"Creating inference client for {self.model_endpoint.endpoint.type}, "
+            f"class: {InferenceClientFactory.get_class_from_type(self.model_endpoint.endpoint.type).__name__}",
         )
         self.request_converter = RequestConverterFactory.create_instance(
             self.model_endpoint.endpoint.type,
@@ -111,17 +116,19 @@ class Worker(BaseComponentService, ProcessHealthMixin):
         return ServiceType.WORKER
 
     @on_init
-    async def _do_initialize(self) -> None:
+    async def _initialize_worker(self) -> None:
         self.debug("Initializing worker")
 
-        await self.credit_drop_client.register_pull_callback(
+        await self.credit_drop_pull_client.register_pull_callback(
             MessageType.CREDIT_DROP, self._process_credit_drop
         )
 
         self.debug("Worker initialized")
 
     @on_configure
-    async def _configure(self, message: CommandMessage) -> None:
+    async def _configure_worker(self, message: CommandMessage) -> None:
+        # NOTE: Right now we are configuring the worker in the __init__ method,
+        #       but that may change based on how we implement sweeps.
         pass
 
     async def _process_credit_drop(self, message: CreditDropMessage) -> None:
@@ -158,32 +165,29 @@ class Worker(BaseComponentService, ProcessHealthMixin):
                 record=record,
             )
 
+            # Note that we already ensured that the phase exists in the task_stats dict in the above code.
             if not record.valid:
                 self.task_stats[message.phase].failed += 1
             else:
                 self.task_stats[message.phase].completed += 1
 
             try:
-                await self.inference_results_client.push(message=msg)
+                await self.inference_results_push_client.push(message=msg)
             except Exception as e:
                 # If we fail to push the record, log the error and continue
                 self.exception(f"Error pushing request record: {e}")
             finally:
-                # Calculate the latency of the credit drop
+                # Calculate the latency of the credit drop (from when the credit was dropped to when the request was sent)
                 pre_inference_ns = record.start_perf_ns - drop_perf_ns
                 # Always return the credits
                 return_message = CreditReturnMessage(
                     service_id=self.service_id,
-                    conversation_id=message.conversation_id,
-                    credit_drop_ns=message.credit_drop_ns,
-                    delayed_ns=None,
+                    delayed_ns=record.delayed_ns,
                     pre_inference_ns=pre_inference_ns,
                     phase=message.phase,
                 )
                 self.trace(lambda: f"Returning credit {return_message}")
-                await self.credit_return_client.push(
-                    message=return_message,
-                )
+                await self.credit_return_push_client.push(message=return_message)
 
     async def _execute_single_credit(
         self, message: CreditDropMessage, timestamp_ns: int
@@ -194,8 +198,8 @@ class Worker(BaseComponentService, ProcessHealthMixin):
             raise NotInitializedError("Inference server client not initialized.")
 
         # retrieve the prompt from the dataset
-        response: ConversationResponseMessage = (
-            await self.conversation_data_client.request(
+        conversation_response: ConversationResponseMessage = (
+            await self.conversation_request_client.request(
                 ConversationRequestMessage(
                     service_id=self.service_id,
                     conversation_id=message.conversation_id,
@@ -203,26 +207,27 @@ class Worker(BaseComponentService, ProcessHealthMixin):
                 )
             )
         )
-        self.trace(lambda: f"Received response message: {response}")
+        self.trace(lambda: f"Received response message: {conversation_response}")
 
-        if isinstance(response, ErrorMessage):
+        if isinstance(conversation_response, ErrorMessage):
             return RequestRecord(
                 timestamp_ns=timestamp_ns,
                 start_perf_ns=time.perf_counter_ns(),
                 end_perf_ns=time.perf_counter_ns(),
-                error=response.error,
+                error=conversation_response.error,
             )
 
         return await self._call_inference_api(
-            message, response.conversation.turns[0], timestamp_ns
+            message, conversation_response.conversation.turns[0], timestamp_ns
         )
 
     async def _call_inference_api(
         self, message: CreditDropMessage, turn: Turn, timestamp_ns: int
     ) -> RequestRecord:
         """Make a single call to the inference API. Will return an error record if the call fails."""
-        self.trace("Calling inference API")
+        self.trace(lambda: f"Calling inference API for turn: {turn}")
         formatted_payload = None
+        pre_send_perf_ns = None
         try:
             # Format payload for the API request
             formatted_payload = await self.request_converter.format_payload(
@@ -238,9 +243,16 @@ class Worker(BaseComponentService, ProcessHealthMixin):
             drop_ns = message.credit_drop_ns
             now_ns = time.time_ns()
             if drop_ns and drop_ns > now_ns:
+                self.trace(
+                    lambda: f"Waiting for credit drop expected time: {(drop_ns - now_ns) / NANOS_PER_SECOND:.2f} s"
+                )
                 await asyncio.sleep((drop_ns - now_ns) / NANOS_PER_SECOND)
             elif drop_ns and drop_ns < now_ns:
                 delayed_ns = now_ns - drop_ns
+
+            # Save the current perf_ns before sending the request so it can be used to calculate
+            # the start_perf_ns of the request in case of an exception.
+            pre_send_perf_ns = time.perf_counter_ns()
 
             # Send the request to the Inference Server API and wait for the response
             result: RequestRecord = await self.inference_client.send_request(
@@ -248,7 +260,10 @@ class Worker(BaseComponentService, ProcessHealthMixin):
                 payload=formatted_payload,
             )
 
-            result.turn = turn
+            self.debug(
+                lambda: f"pre_send_perf_ns to start_perf_ns latency: {result.start_perf_ns - pre_send_perf_ns} ns"
+            )
+
             result.delayed_ns = delayed_ns
             return result
 
@@ -257,10 +272,10 @@ class Worker(BaseComponentService, ProcessHealthMixin):
                 f"Error calling inference server API at {self.model_endpoint.url}: {e}"
             )
             return RequestRecord(
-                # Use the formatted payload if it is available, otherwise use the turn.
-                request=formatted_payload or turn,
+                request=formatted_payload,
                 timestamp_ns=timestamp_ns,
-                start_perf_ns=time.perf_counter_ns(),
+                # Try and use the pre_send_perf_ns if it is available, otherwise use the current time.
+                start_perf_ns=pre_send_perf_ns or time.perf_counter_ns(),
                 end_perf_ns=time.perf_counter_ns(),
                 error=ErrorDetails.from_exception(e),
             )
@@ -288,7 +303,7 @@ class Worker(BaseComponentService, ProcessHealthMixin):
         )
 
     @on_stop
-    async def _do_shutdown(self) -> None:
+    async def _shutdown_worker(self) -> None:
         self.debug("Shutting down worker")
         if self.inference_client:
             await self.inference_client.close()

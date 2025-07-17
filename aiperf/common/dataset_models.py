@@ -71,3 +71,10 @@ class Conversation(AIPerfBaseModel):
         default=[], description="List of turns in the conversation."
     )
     session_id: str = Field(default="", description="Session ID of the conversation.")
+
+
+class TurnInfo(AIPerfBaseModel):
+    """Identifier for a turn in a conversation."""
+
+    conversation_id: str = Field(description="The ID of the conversation.")
+    turn_index: int = Field(description="The index of the turn in the conversation.")

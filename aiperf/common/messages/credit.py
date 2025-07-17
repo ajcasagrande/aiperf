@@ -37,21 +37,15 @@ class CreditReturnMessage(BaseServiceMessage):
 
     phase: CreditPhase = Field(
         ...,
-        description="The type of credit phase",
-    )
-    conversation_id: str | None = Field(
-        default=None, description="The ID of the conversation, if applicable."
-    )
-    credit_drop_ns: int | None = Field(
-        default=None,
-        description="Timestamp of the original credit drop, if applicable.",
+        description="The Credit Phase of the credit drop. This is so the TimingManager can track the progress of the credit phase.",
     )
     delayed_ns: int | None = Field(
         default=None,
         ge=1,
         description="The number of nanoseconds the credit drop was delayed by, or None if the credit was sent on time. "
-        "NOTE: This is only applicable if credit_drop_ns is not None.",
+        "NOTE: This is only applicable if the original credit_drop_ns was not None.",
     )
+    # TODO: Does it make more sense for this to be part of the RequestRecord?
     pre_inference_ns: int | None = Field(
         default=None,
         description="The latency of the credit in nanoseconds from when it was first received to when the inference request was sent. "

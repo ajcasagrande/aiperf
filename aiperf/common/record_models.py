@@ -9,7 +9,6 @@ from typing import Any
 from pydantic import Field, SerializeAsAny
 
 from aiperf.common.constants import NANOS_PER_SECOND
-from aiperf.common.dataset_models import Turn
 from aiperf.common.enums import CreditPhase, SSEFieldType
 from aiperf.common.pydantic_utils import AIPerfBaseModel
 
@@ -165,13 +164,22 @@ class SSEMessage(InferenceServerResponse):
 class RequestRecord(AIPerfBaseModel):
     """Record of a request with its associated responses."""
 
-    request: Any = Field(
+    request: Any | None = Field(
         default=None,
         description="The raw request payload formatted for the inference API.",
     )
-    turn: Turn | None = Field(
+    conversation_id: str | None = Field(
         default=None,
-        description="The turn used to generate the request. This will be used for metrics.",
+        description="The ID of the conversation.",
+    )
+    turn_index: int | None = Field(
+        default=None,
+        ge=0,
+        description="The index of the turn in the conversation.",
+    )
+    model_name: str | None = Field(
+        default=None,
+        description="The name of the model targeted by the request.",
     )
     timestamp_ns: int = Field(
         default_factory=time.time_ns,
@@ -194,7 +202,8 @@ class RequestRecord(AIPerfBaseModel):
         description="The HTTP status code of the response.",
     )
     # NOTE: We need to use SerializeAsAny to allow for generic subclass support
-    # NOTE: Order of the types is important, as that is the order they are type checked.
+    # NOTE: The order of the types is important, as that is the order they are type checked.
+    #       Start with the most specific types and work towards the most general types.
     responses: SerializeAsAny[
         list[SSEMessage | TextResponse | InferenceServerResponse | Any]
     ] = Field(
@@ -339,6 +348,10 @@ class ParsedResponseRecord(AIPerfBaseModel):
     )
     request: RequestRecord = Field(description="The original request record")
     responses: list[ResponseData] = Field(description="The parsed response data.")
+    isl: int | None = Field(
+        default=None,
+        description="The Input Sequence Length (ISL) of the request. If None, the ISL was not available or able to be computed.",
+    )
 
     @cached_property
     def token_count(self) -> int | None:

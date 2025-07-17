@@ -67,7 +67,7 @@ class InferenceClientFactory(FactoryMixin[EndpointType, InferenceClientProtocol]
 
 @runtime_checkable
 class RequestConverterProtocol(Protocol, Generic[RequestOutputT]):
-    """Protocol for a request converter that converts a raw request to a formatted request for the inference server."""
+    """Protocol for a request converter that converts a Turn to a formatted request for the inference server."""
 
     async def format_payload(
         self, model_endpoint: ModelEndpointInfo, turn: Turn

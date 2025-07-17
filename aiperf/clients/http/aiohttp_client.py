@@ -11,7 +11,7 @@ from aiperf.clients.http.defaults import AioHttpDefaults, SocketDefaults
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.aiperf_logger import AIPerfLogger
 from aiperf.common.enums import SSEFieldType
-from aiperf.common.mixins.aiperf_logger import AIPerfLoggerMixin
+from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.common.record_models import (
     ErrorDetails,
     RequestRecord,
@@ -71,6 +71,8 @@ class AioHttpClientMixin(AIPerfLoggerMixin):
         self.debug(lambda url=url: f"Sending POST request to {url}")
 
         record: RequestRecord = RequestRecord(
+            # Record the current perf_ns in case of any errors. Otherwise,
+            # this will be overridden once the client session is created.
             start_perf_ns=time.perf_counter_ns(),
         )
 

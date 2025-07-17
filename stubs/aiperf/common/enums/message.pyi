@@ -1,0 +1,43 @@
+#  SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+#  SPDX-License-Identifier: Apache-2.0
+from aiperf.common.enums.base import CaseInsensitiveStrEnum as CaseInsensitiveStrEnum
+
+class MessageType(CaseInsensitiveStrEnum):
+    UNKNOWN = "unknown"
+    REGISTRATION = "registration"
+    HEARTBEAT = "heartbeat"
+    COMMAND = "command"
+    COMMAND_RESPONSE = "command_response"
+    STATUS = "status"
+    ERROR = "error"
+    SERVICE_ERROR = "service_error"
+    CONVERSATION_REQUEST = "conversation_request"
+    CONVERSATION_RESPONSE = "conversation_response"
+    CONVERSATION_TURN_REQUEST = "conversation_turn_request"
+    CONVERSATION_TURN_RESPONSE = "conversation_turn_response"
+    INFERENCE_RESULTS = "inference_results"
+    PARSED_INFERENCE_RESULTS = "parsed_inference_results"
+    SWEEP_CONFIGURE = "sweep_configure"
+    SWEEP_BEGIN = "sweep_begin"
+    SWEEP_PROGRESS = "sweep_progress"
+    SWEEP_END = "sweep_end"
+    SWEEP_RESULTS = "sweep_results"
+    SWEEP_ERROR = "sweep_error"
+    PROFILE_PROGRESS = "profile_progress"
+    PROCESSING_STATS = "processing_stats"
+    PROFILE_RESULTS = "profile_results"
+    PROFILE_ERROR = "profile_error"
+    NOTIFICATION = "notification"
+    DATASET_TIMING_REQUEST = "dataset_timing_request"
+    DATASET_TIMING_RESPONSE = "dataset_timing_response"
+    WORKER_HEALTH = "worker_health"
+    CREDIT_DROP = "credit_drop"
+    CREDIT_RETURN = "credit_return"
+    CREDIT_PHASE_START = "credit_phase_start"
+    CREDIT_PHASE_PROGRESS = "credit_phase_progress"
+    CREDIT_PHASE_SENDING_COMPLETE = "credit_phase_sending_complete"
+    CREDIT_PHASE_COMPLETE = "credit_phase_complete"
+    CREDITS_COMPLETE = "credits_complete"
+
+class NotificationType(CaseInsensitiveStrEnum):
+    DATASET_CONFIGURED = "dataset_configured"

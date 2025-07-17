@@ -31,6 +31,8 @@ from aiperf.common.messages.credit import (
 from aiperf.common.messages.dataset import (
     ConversationRequestMessage,
     ConversationResponseMessage,
+    ConversationTurnRequestMessage,
+    ConversationTurnResponseMessage,
     DatasetTimingRequest,
     DatasetTimingResponse,
 )
@@ -66,6 +68,8 @@ __all__ = [
     "CommandResponseMessage",
     "ConversationRequestMessage",
     "ConversationResponseMessage",
+    "ConversationTurnRequestMessage",
+    "ConversationTurnResponseMessage",
     "CreditDropMessage",
     "CreditPhaseCompleteMessage",
     "CreditPhaseProgressMessage",

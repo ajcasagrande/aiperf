@@ -5,7 +5,11 @@ import sys
 
 from aiperf.clients.client_interfaces import ResponseExtractorFactory
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
-from aiperf.common.comms.base import PullClientProtocol, PushClientProtocol
+from aiperf.common.comms.base import (
+    PullClientProtocol,
+    PushClientProtocol,
+    RequestClientProtocol,
+)
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
 from aiperf.common.enums import CommunicationClientAddressType, MessageType, ServiceType
@@ -16,6 +20,9 @@ from aiperf.common.hooks import (
 )
 from aiperf.common.messages import (
     CommandMessage,
+    ConversationTurnRequestMessage,
+    ConversationTurnResponseMessage,
+    ErrorMessage,
     InferenceResultsMessage,
     ParsedInferenceResultsMessage,
 )
@@ -52,6 +59,11 @@ class InferenceResultParser(BaseComponentService):
                 CommunicationClientAddressType.RECORDS,
             )
         )
+        self.conversation_request_client: RequestClientProtocol = (
+            self.comms.create_request_client(
+                CommunicationClientAddressType.DATASET_MANAGER_PROXY_FRONTEND,
+            )
+        )
         self.tokenizers: dict[str, Tokenizer] = {}
         self.user_config: UserConfig = user_config
         self.tokenizer_lock: asyncio.Lock = asyncio.Lock()
@@ -81,7 +93,6 @@ class InferenceResultParser(BaseComponentService):
             model_endpoint=self.model_endpoint,
         )
 
-        self.model_endpoint = ModelEndpointInfo.from_user_config(self.user_config)
         async with self.tokenizer_lock:
             self.tokenizers = {
                 model.name: Tokenizer.from_pretrained(
@@ -127,8 +138,26 @@ class InferenceResultParser(BaseComponentService):
             )
 
         elif message.record.valid:
-            tokenizer = await self.get_tokenizer(message.record.request["model"])
+            tokenizer = await self.get_tokenizer(message.record.model_name)
             resp = await self.extractor.extract_response_data(message.record, tokenizer)
+
+            turn_response: ConversationTurnResponseMessage = (
+                await self.conversation_request_client.request(
+                    ConversationTurnRequestMessage(
+                        service_id=self.service_id,
+                        conversation_id=message.record.conversation_id,
+                        turn_index=message.record.turn_index,
+                    )
+                )
+            )
+            if isinstance(turn_response, ErrorMessage):
+                self.error(lambda: f"Error getting turn response: {turn_response}")
+                isl = None
+            else:
+                # TODO: Parse the turn to get the ISL
+                # turn = turn_response.turn
+                # isl = parse_isl(tokenizer, turn)
+                isl = None  # TODO: Implement this
 
             result = ParsedInferenceResultsMessage(
                 service_id=self.service_id,
@@ -136,7 +165,9 @@ class InferenceResultParser(BaseComponentService):
                     worker_id=message.service_id,
                     request=message.record,
                     responses=resp,
+                    isl=isl,
                 ),
+                credit_phase=message.credit_phase,
             )
             self.logger.debug(
                 "Received %d responses, %d total tokens",
