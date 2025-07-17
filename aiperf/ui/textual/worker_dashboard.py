@@ -10,20 +10,17 @@ from textual.css.query import NoMatches
 from textual.widget import Widget
 from textual.widgets import Label
 
-from aiperf.common.aiperf_logger import AIPerfLogger
 from aiperf.common.config import ServiceConfig
 from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import ServiceType
 from aiperf.common.hooks import aiperf_task, on_init
 from aiperf.common.messages import WorkerHealthMessage
-from aiperf.common.mixins import AIPerfLifecycleMixin
+from aiperf.common.mixins import AIPerfLifecycleMixin, AIPerfLoggerMixin
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.ui.textual.widgets import StatusIndicator
 
-logger = AIPerfLogger(__name__)
 
-
-class WorkerRow(Widget):
+class WorkerRow(Widget, AIPerfLoggerMixin):
     """A single row in the worker table showing worker name and metrics."""
 
     DEFAULT_CSS = """
@@ -158,7 +155,7 @@ class WorkerRow(Widget):
         except NoMatches:
             pass
         except Exception as e:
-            logger.error(f"Error updating worker {self.worker_id} health: {e}")
+            self.error(f"Error updating worker {self.worker_id} health: {e}")
 
     def check_stale(self, current_time: float, stale_threshold: float = 30.0) -> None:
         """Check if worker data is stale and update styling accordingly."""
@@ -177,12 +174,10 @@ class WorkerRow(Widget):
         except NoMatches:
             pass
         except Exception as e:
-            logger.error(
-                f"Error updating stale status for worker {self.worker_id}: {e}"
-            )
+            self.error(f"Error updating stale status for worker {self.worker_id}: {e}")
 
 
-class WorkerTable(Widget):
+class WorkerTable(Widget, AIPerfLoggerMixin):
     """Table widget for displaying worker information."""
 
     DEFAULT_CSS = """
@@ -262,7 +257,7 @@ class WorkerTable(Widget):
                 table_body = self.query_one("#table-body")
                 table_body.mount(self.worker_rows[worker_id])
             except Exception as e:
-                logger.error(f"Error mounting worker {worker_id}: {e}")
+                self.error(f"Error mounting worker {worker_id}: {e}")
 
     def update_worker(
         self, worker_id: str, health_message: WorkerHealthMessage
@@ -279,7 +274,7 @@ class WorkerTable(Widget):
             worker_row.check_stale(current_time)
 
 
-class WorkerDashboard(Container):
+class WorkerDashboard(Container, AIPerfLoggerMixin):
     """Dashboard displaying the status of all workers in a table format."""
 
     DEFAULT_CSS = """
@@ -374,7 +369,7 @@ class WorkerDashboard(Container):
             workers_container.mount(self.worker_table)
 
         except Exception as e:
-            logger.exception(
+            self.exception(
                 f"Error initializing worker table: {e.__class__.__name__}: {e}"
             )
 
@@ -427,7 +422,7 @@ class WorkerDashboard(Container):
         except NoMatches:
             pass
         except Exception as e:
-            logger.error(f"Error updating summary: {e.__class__.__name__}: {e}")
+            self.error(f"Error updating summary: {e.__class__.__name__}: {e}")
 
     @aiperf_task
     async def _periodic_update_task(self) -> None:
@@ -441,7 +436,7 @@ class WorkerDashboard(Container):
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(f"Error in periodic update task: {e}")
+                self.error(f"Error in periodic update task: {e}")
                 await asyncio.sleep(10)
 
 
@@ -462,7 +457,7 @@ class WorkerDashboardMixin(AIPerfLifecycleMixin):
     def update_worker_health(self, message: WorkerHealthMessage) -> None:
         """Handle incoming worker health messages."""
         try:
-            logger.debug(f"Received worker health message from {message.service_id}")
+            self.debug(f"Received worker health message from {message.service_id}")
 
             # Store the health data
             self.worker_health_data[message.service_id] = message
@@ -472,7 +467,7 @@ class WorkerDashboardMixin(AIPerfLifecycleMixin):
                 self.worker_dashboard.update_worker_health(message)
 
         except Exception as e:
-            logger.error(f"Error handling worker health message: {e}")
+            self.error(f"Error handling worker health message: {e}")
 
     def get_worker_health_summary(self) -> dict[str, int]:
         """Get a summary of worker health status."""
@@ -523,19 +518,19 @@ class WorkerHealthService(BaseComponentService):
     @on_init
     async def _initialize(self) -> None:
         """Initialize worker health service."""
-        logger.debug("Initializing worker health service")
+        self.debug("Initializing worker health service")
 
         # Subscribe to worker health messages
         try:
             await self.sub_client.subscribe(self._on_worker_health_message)
-            logger.debug("Subscribed to WORKER_HEALTH topic")
+            self.debug("Subscribed to WORKER_HEALTH topic")
         except Exception as e:
-            logger.error(f"Failed to subscribe to WORKER_HEALTH topic: {e}")
+            self.error(f"Failed to subscribe to WORKER_HEALTH topic: {e}")
 
     async def _on_worker_health_message(self, message: WorkerHealthMessage) -> None:
         """Handle incoming worker health messages."""
         try:
-            logger.debug(f"Received worker health message from {message.service_id}")
+            self.debug(f"Received worker health message from {message.service_id}")
 
             # Store the health data
             self.worker_health_data[message.service_id] = message
@@ -545,7 +540,7 @@ class WorkerHealthService(BaseComponentService):
                 self.health_callback(message)
 
         except Exception as e:
-            logger.error(f"Error handling worker health message: {e}")
+            self.error(f"Error handling worker health message: {e}")
 
     def set_health_callback(
         self, callback: Callable[[WorkerHealthMessage], None]

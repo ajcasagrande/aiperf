@@ -84,11 +84,11 @@ class AIPerfRichDashboard(LogsDashboardMixin, AIPerfLifecycleMixin):
             for element in self.elements.values():
                 self.layout[element.key].update(element.get_panel())
         except Exception as e:
-            logger.error("Error updating dashboard display: %s", e)
+            self.error("Error updating dashboard display: %s", e)
 
     def refresh_element(self, element_key: str) -> None:
         """Refresh the specified element."""
-        logger.debug("Refreshing ui element: %s", element_key)
+        self.debug("Refreshing ui element: %s", element_key)
         self.layout[element_key].update(self.elements[element_key].get_panel())
 
     def update_worker_health(self, health_message: WorkerHealthMessage) -> None:

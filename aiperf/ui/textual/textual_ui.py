@@ -155,18 +155,18 @@ class TextualUI(AIPerfLifecycleMixin):
     async def _on_stop(self) -> None:
         """Stop the Textual application gracefully."""
         if self.app:
-            logger.debug("Shutting down Textual UI")
+            self.debug("Shutting down Textual UI")
             self.app.exit()
 
     @aiperf_task
     async def _run_app(self) -> None:
         """Run the enhanced Textual application."""
-        logger.debug("Starting AIPerf Textual UI...")
+        self.debug("Starting AIPerf Textual UI...")
         await self.app.run_async()
 
     async def on_profile_results_update(self) -> None:
         """Process the final results with enhanced logging."""
-        logger.info("Performance testing completed successfully!")
+        self.info("Performance testing completed successfully!")
 
         try:
             # Force refresh the display
@@ -174,11 +174,11 @@ class TextualUI(AIPerfLifecycleMixin):
                 self.app.dashboard.update_display()
 
             if self.app.is_running:
-                logger.debug("Closing dashboard...")
+                self.debug("Closing dashboard...")
                 self.app.exit()
 
         except Exception as e:
-            logger.debug("App cleanup handled: %s", e)
+            self.debug(f"App cleanup handled: {e}")
 
     async def on_profile_progress_update(self) -> None:
         """Update the profile progress with enhanced calculations and debugging."""
@@ -193,7 +193,7 @@ class TextualUI(AIPerfLifecycleMixin):
             self.app.dashboard.update_display()
 
         except Exception as e:
-            logger.warning("Progress update error: %s", e)
+            self.warning(f"Progress update error: {e}")
 
     async def on_profile_stats_update(self) -> None:
         """Update the profile statistics with enhanced error tracking."""
@@ -209,7 +209,7 @@ class TextualUI(AIPerfLifecycleMixin):
             self.app.dashboard.update_display()
 
         except Exception as e:
-            logger.warning("Stats update error: %s", e)
+            self.warning(f"Stats update error: {e}")
 
     async def on_worker_health_update(self, message: WorkerHealthMessage) -> None:
         """Update the worker health with enhanced error tracking."""
@@ -220,7 +220,7 @@ class TextualUI(AIPerfLifecycleMixin):
             self.app.worker_dashboard.update_worker_health(message)
 
         except Exception as e:
-            logger.warning("Worker health update error: %s", e)
+            self.warning(f"Worker health update error: {e}")
 
     async def on_message(self, message: Message) -> None:
         """Handle a message from the system controller."""

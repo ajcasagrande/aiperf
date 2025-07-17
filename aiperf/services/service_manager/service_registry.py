@@ -4,15 +4,15 @@
 Service Registry for tracking and managing services by type and ID.
 """
 
-import logging
 import time
 from collections.abc import AsyncIterator, Iterator
 
 from aiperf.common.enums import ServiceState, ServiceType
+from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.common.models import ServiceRegistrationInfo
 
 
-class ServiceRegistry:
+class ServiceRegistry(AIPerfLoggerMixin):
     """
     Centralized registry for tracking services by type and ID.
 
@@ -21,7 +21,7 @@ class ServiceRegistry:
     """
 
     def __init__(self):
-        self.logger = logging.getLogger(self.__class__.__name__)
+        super().__init__()
 
         # Services organized by type -> set of service IDs
         self._services_by_type: dict[ServiceType, set[str]] = {}
@@ -55,14 +55,14 @@ class ServiceRegistry:
         self._services_by_type[service_type].add(service_id)
         self._services_by_id[service_id] = service_info
 
-        self.logger.debug("Registered service %s of type %s", service_id, service_type)
+        self.debug(lambda: f"Registered service {service_id} of type {service_type}")
         return service_info
 
     def unregister_service(self, service_id: str) -> bool:
         """Unregister a service from the registry and return True if successful."""
         if service_id not in self._services_by_id:
-            self.logger.warning(
-                "Attempted to unregister unknown service %s", service_id
+            self.warning(
+                lambda: f"Attempted to unregister unknown service {service_id}"
             )
             return False
 
@@ -77,9 +77,7 @@ class ServiceRegistry:
         if not self._services_by_type[service_type]:
             del self._services_by_type[service_type]
 
-        self.logger.debug(
-            "Unregistered service %s of type %s", service_id, service_type
-        )
+        self.debug(lambda: f"Unregistered service {service_id} of type {service_type}")
         return True
 
     def num_replicas(self, service_type: ServiceType) -> int:
@@ -98,8 +96,8 @@ class ServiceRegistry:
         """Update the state of a registered service and return True if successful."""
         if service_id not in self._services_by_id:
             # TODO: Should this automatically register the service?
-            self.logger.warning(
-                "Attempted to update state of unknown service %s", service_id
+            self.warning(
+                lambda: f"Attempted to update state of unknown service {service_id}"
             )
             return False
 
@@ -107,14 +105,14 @@ class ServiceRegistry:
         service_info.state = state
         service_info.last_seen = time.time_ns()
 
-        self.logger.debug("Updated service %s state to %s", service_id, state)
+        self.debug(lambda: f"Updated service {service_id} state to {state}")
         return True
 
     def update_service_heartbeat(self, service_id: str) -> bool:
         """Update the last seen timestamp for a service (heartbeat) and return True if successful."""
         if service_id not in self._services_by_id:
             # TODO: Should this automatically register the service?
-            self.logger.debug("Received heartbeat from unknown service %s", service_id)
+            self.debug(lambda: f"Received heartbeat from unknown service {service_id}")
             return False
 
         service_info = self._services_by_id[service_id]
@@ -126,7 +124,7 @@ class ServiceRegistry:
         """Clear all registered services from the registry."""
         self._services_by_type.clear()
         self._services_by_id.clear()
-        self.logger.debug("Cleared all services from registry")
+        self.debug(lambda: "Cleared all services from registry")
 
     def __contains__(self, service_id: str) -> bool:
         return service_id in self._services_by_id

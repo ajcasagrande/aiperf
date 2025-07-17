@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-import logging
 from datetime import datetime
 
 import aiofiles
@@ -10,6 +9,7 @@ from aiperf.common.config import UserConfig
 from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import DataExporterType
 from aiperf.common.factories import DataExporterFactory
+from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.common.models import AIPerfBaseModel, ErrorDetailsCount, MetricResult
 from aiperf.data_exporter.exporter_config import ExporterConfig
 
@@ -26,14 +26,14 @@ class JsonExportData(AIPerfBaseModel):
 
 
 @DataExporterFactory.register(DataExporterType.JSON)
-class JsonExporter:
+class JsonExporter(AIPerfLoggerMixin):
     """
     A class to export records to a JSON file.
     """
 
     def __init__(self, exporter_config: ExporterConfig) -> None:
-        self.logger = logging.getLogger(self.__class__.__name__)
-        self.logger.debug("Initializing JsonExporter with config: %s", exporter_config)
+        super().__init__()
+        self.debug(lambda: f"Initializing JsonExporter with config: {exporter_config}")
         self._results = exporter_config.results
         self._output_directory = exporter_config.input_config.output.artifact_directory
         self._input_config = exporter_config.input_config
@@ -62,7 +62,7 @@ class JsonExporter:
             end_time=end_time,
         )
 
-        self.logger.debug("Exporting data to JSON file: %s", export_data)
+        self.debug(lambda: f"Exporting data to JSON file: {export_data}")
         export_data_json = export_data.model_dump_json(indent=2, exclude_unset=True)
         async with aiofiles.open(filename, "w") as f:
             await f.write(export_data_json)

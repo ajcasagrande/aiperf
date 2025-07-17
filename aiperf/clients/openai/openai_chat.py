@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-import logging
 from typing import Any
 
 from aiperf.clients.client_interfaces import RequestConverterFactory
@@ -19,7 +18,6 @@ class OpenAIChatCompletionRequestConverter(AIPerfLoggerMixin):
 
     def __init__(self) -> None:
         super().__init__()
-        self.logger = logging.getLogger(self.__class__.__name__)
 
     async def format_payload(
         self,
@@ -49,5 +47,5 @@ class OpenAIChatCompletionRequestConverter(AIPerfLoggerMixin):
         if model_endpoint.endpoint.extra:
             payload.update(model_endpoint.endpoint.extra)
 
-        self.logger.debug("Formatted payload: %s", payload)
+        self.debug(lambda: f"Formatted payload: {payload}")
         return payload

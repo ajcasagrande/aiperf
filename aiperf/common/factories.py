@@ -1,9 +1,9 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-import logging
 from collections.abc import Callable
 from typing import Any, Generic, TypeVar
 
+from aiperf.common.aiperf_logger import AIPerfLogger
 from aiperf.common.enums import (
     CaseInsensitiveStrEnum,
     PromptSource,
@@ -66,7 +66,7 @@ class FactoryMixin(Generic[ClassEnumT, ClassProtocolT]):
     ```
     """
 
-    logger = logging.getLogger(__name__)
+    logger = AIPerfLogger(__name__)
 
     _registry: dict[ClassEnumT | str, type[ClassProtocolT]]
     _override_priorities: dict[ClassEnumT | str, int]
@@ -74,7 +74,7 @@ class FactoryMixin(Generic[ClassEnumT, ClassProtocolT]):
     def __init_subclass__(cls) -> None:
         cls._registry = {}
         cls._override_priorities = {}
-        cls.logger = logging.getLogger(cls.__name__)
+        cls.logger = AIPerfLogger(cls.__name__)
         super().__init_subclass__()
 
     @classmethod
@@ -112,34 +112,21 @@ class FactoryMixin(Generic[ClassEnumT, ClassProtocolT]):
             existing_priority = cls._override_priorities.get(class_type, -1)
             if class_type in cls._registry and existing_priority >= override_priority:
                 cls.logger.warning(
-                    "%r class %s already registered with same or higher priority "
-                    "(%s). The new registration of class %s with priority "
-                    "%s will be ignored.",
-                    class_type,
-                    cls._registry[class_type].__name__,
-                    existing_priority,
-                    class_cls.__name__,
-                    override_priority,
+                    lambda: f"{class_type} class {class_cls.__name__} already registered with same or higher priority ({existing_priority}). "
+                    f"The new registration of class {class_cls.__name__} with priority {override_priority} will be ignored."
                 )
                 return class_cls
 
             if class_type not in cls._registry:
                 cls.logger.debug(
-                    "%r class %s registered with priority %s.",
-                    class_type,
-                    class_cls.__name__,
-                    override_priority,
+                    lambda: f"{class_type} class {class_cls.__name__} registered with priority {override_priority}."
                 )
             else:
                 cls.logger.warning(
-                    "%r class %s with priority %s overrides "
-                    "already registered class %s with lower priority (%s).",
-                    class_type,
-                    class_cls.__name__,
-                    override_priority,
-                    cls._registry[class_type].__name__,
-                    existing_priority,
+                    lambda: f"{class_type} class {class_cls.__name__} with priority {override_priority} overrides already "
+                    f"registered class {cls._registry[class_type].__name__} with lower priority ({existing_priority})."
                 )
+
             cls._registry[class_type] = class_cls
             cls._override_priorities[class_type] = override_priority
             return class_cls

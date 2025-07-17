@@ -14,11 +14,8 @@ from aiperf.common.enums import CommandType, CreditPhase, MessageType, ServiceTy
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
     aiperf_task,
-    on_cleanup,
     on_configure,
     on_init,
-    on_start,
-    on_stop,
 )
 from aiperf.common.messages import (
     CommandMessage,
@@ -61,7 +58,6 @@ class RecordsManager(BaseComponentService):
             user_config=user_config,
             service_id=service_id,
         )
-        self.logger.debug("Initializing records manager")
         self.user_config: UserConfig | None = None
         self.configured_event = asyncio.Event()
 
@@ -111,7 +107,7 @@ class RecordsManager(BaseComponentService):
     @on_init
     async def _initialize(self) -> None:
         """Initialize records manager-specific components."""
-        self.logger.debug("Initializing records manager")
+        self.debug("Initializing records manager")
         self.register_command_callback(
             CommandType.PROCESS_RECORDS,
             self.process_records,
@@ -132,32 +128,10 @@ class RecordsManager(BaseComponentService):
             self._on_credit_phase_start,
         )
 
-    @on_start
-    async def _start(self) -> None:
-        """Start the records manager."""
-        self.logger.debug("Starting records manager")
-        self.start_time_ns = time.time_ns()
-        # TODO: Implement records manager start
-
-    @on_stop
-    async def _stop(self) -> None:
-        """Stop the records manager."""
-        self.logger.debug("Stopping records manager")
-        # TODO: Implement records manager stop
-
-    @on_cleanup
-    async def _cleanup(self) -> None:
-        """Clean up records manager-specific components."""
-        self.logger.debug("Cleaning up records manager")
-        # TODO: Implement records manager cleanup
-
     @on_configure
     async def _configure(self, message: CommandMessage) -> None:
         """Configure the records manager."""
-        self.logger.debug("Configuring records manager with message: %s", message)
-        self.user_config = (
-            message.data if isinstance(message.data, UserConfig) else None
-        )
+        pass
 
     @aiperf_task
     async def _report_records_task(self) -> None:

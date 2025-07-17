@@ -1,14 +1,13 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-import logging
-
 from textual.app import ComposeResult
 from textual.containers import Container, Vertical
 from textual.css.query import NoMatches
 from textual.widgets import Label, ProgressBar
 
 from aiperf.common.enums._timing import CreditPhase
+from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.progress.progress_tracker import ProgressTracker
 from aiperf.ui.textual.widgets import (
     DashboardField,
@@ -17,10 +16,8 @@ from aiperf.ui.textual.widgets import (
     StatusIndicator,
 )
 
-logger = logging.getLogger(__name__)
 
-
-class ProgressDashboard(Container):
+class ProgressDashboard(Container, AIPerfLoggerMixin):
     """Main progress dashboard widget with clean, simplified styling."""
 
     DEFAULT_CSS = """
@@ -194,12 +191,10 @@ class ProgressDashboard(Container):
                         widget = self.query_one(f"#{field.field_id}", StatusIndicator)
                         widget.update_value("--", "status-idle")
                     except Exception as e:
-                        logger.debug(
-                            f"Error updating {field.field_id} with default: {e}"
-                        )
+                        self.debug(f"Error updating {field.field_id} with default: {e}")
 
             except Exception as e:
-                logger.debug(f"Error updating display with defaults: {e}")
+                self.debug(f"Error updating display with defaults: {e}")
             return
 
         try:
@@ -248,7 +243,7 @@ class ProgressDashboard(Container):
         except NoMatches:
             pass
         except Exception as e:
-            logger.exception(f"Display update error: {e.__class__.__name__}: {e}")
+            self.exception(f"Display update error: {e.__class__.__name__}: {e}")
 
         # Force a refresh of the entire dashboard
         self.refresh()

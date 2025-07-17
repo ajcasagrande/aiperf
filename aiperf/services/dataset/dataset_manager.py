@@ -56,7 +56,7 @@ class DatasetManager(BaseComponentService):
             user_config=user_config,
             service_id=service_id,
         )
-        self.logger.debug("Dataset manager __init__")
+        self.debug("Dataset manager __init__")
         self.user_config = user_config
         self.tokenizer: Tokenizer | None = None
         self.dataset: dict[str, Conversation] = {}  # session ID -> Conversation mapping
@@ -73,7 +73,7 @@ class DatasetManager(BaseComponentService):
     @on_init
     async def _initialize(self) -> None:
         """Initialize dataset manager-specific components."""
-        self.logger.debug("Initializing dataset manager %s", self.service_id)
+        self.debug(lambda: f"Initializing dataset manager {self.service_id}")
 
         self.router_reply_client.register_request_handler(
             service_id=self.service_id,
@@ -91,7 +91,7 @@ class DatasetManager(BaseComponentService):
             handler=self._handle_conversation_turn_request,
         )
 
-        self.logger.debug("Dataset manager %s initialized", self.service_id)
+        self.debug(lambda: f"Dataset manager {self.service_id} initialized")
 
     async def _configure_dataset(self) -> None:
         if self.user_config is None:
@@ -99,16 +99,13 @@ class DatasetManager(BaseComponentService):
 
         if self.user_config.input.file:
             composer_type = ComposerType.CUSTOM
-            self.logger.debug(
-                "Detected input file '%s'. Setting the composer type to %s.",
-                self.user_config.input.file,
-                ComposerType.CUSTOM,
+            self.debug(
+                lambda: f"Detected input file '{self.user_config.input.file}'. Setting the composer type to {ComposerType.CUSTOM}."
             )
         else:
             composer_type = ComposerType.SYNTHETIC
-            self.logger.debug(
-                "No input file detected. Setting the composer type to %s.",
-                ComposerType.SYNTHETIC,
+            self.debug(
+                lambda: f"No input file detected. Setting the composer type to {ComposerType.SYNTHETIC}."
             )
 
         tokenizer_name = self.user_config.tokenizer.name

@@ -6,6 +6,7 @@ import uuid
 from aiperf.common.config import InputConfig
 from aiperf.common.enums import ComposerType
 from aiperf.common.factories import ComposerFactory
+from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.common.models import Audio, Conversation, Image, Text, Turn
 from aiperf.common.tokenizer import Tokenizer
 from aiperf.services.dataset import utils
@@ -13,7 +14,7 @@ from aiperf.services.dataset.composer.base import BaseDatasetComposer
 
 
 @ComposerFactory.register(ComposerType.SYNTHETIC)
-class SyntheticDatasetComposer(BaseDatasetComposer):
+class SyntheticDatasetComposer(BaseDatasetComposer, AIPerfLoggerMixin):
     def __init__(self, config: InputConfig, tokenizer: Tokenizer):
         super().__init__(config, tokenizer)
 
@@ -45,7 +46,9 @@ class SyntheticDatasetComposer(BaseDatasetComposer):
                 self.config.conversation.turn.mean,
                 self.config.conversation.turn.stddev,
             )
-            self.logger.debug("Creating conversation with %d turns", num_turns)
+            self.debug(
+                lambda num_turns=num_turns: f"Creating conversation with {num_turns} turns"
+            )
 
             for turn_idx in range(num_turns):
                 turn = self._create_turn(is_first=(turn_idx == 0))
@@ -83,7 +86,7 @@ class SyntheticDatasetComposer(BaseDatasetComposer):
 
         # TODO: complete the warning message
         if not turn.text and not turn.image and not turn.audio:
-            self.logger.warning("There was no payload generated for turn %s", turn)
+            self.warning(f"There was no payload generated for turn {turn}")
 
         return turn
 

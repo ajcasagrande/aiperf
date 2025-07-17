@@ -47,17 +47,15 @@ class RichUI(AIPerfLifecycleMixin):
         }
 
         if message.message_type in _message_mappings:
-            self.logger.debug(
-                "UI: Refreshing element (%s) for message (%s)",
-                _message_mappings[message.message_type],
-                message.message_type,
+            self.debug(
+                lambda: f"UI: Refreshing element ({_message_mappings[message.message_type]}) for message ({message.message_type})"
             )
             if message.message_type == MessageType.WORKER_HEALTH:
                 self.dashboard.update_worker_health(cast(WorkerHealthMessage, message))
             self.try_refresh_element(_message_mappings[message.message_type])
         else:
-            self.logger.debug(
-                "UI: No element mapping found for message (%s)", message.message_type
+            self.debug(
+                lambda: f"UI: No element mapping found for message ({message.message_type})"
             )
 
     def try_refresh_element(self, element_key: str) -> None:
@@ -67,10 +65,8 @@ class RichUI(AIPerfLifecycleMixin):
             if self.dashboard.running and self.progress_tracker.current_profile_run:
                 self.dashboard.refresh_element(element_key)
             else:
-                self.logger.debug(
-                    "Dashboard not running (%s) or no current profile run (%s)",
-                    self.dashboard.running,
-                    self.progress_tracker.current_profile_run,
+                self.debug(
+                    lambda: f"Dashboard not running ({self.dashboard.running}) or no current profile run ({self.progress_tracker.current_profile_run})"
                 )
         except Exception as e:
             self.logger.exception("Error refreshing element (%s): %s", element_key, e)
