@@ -12,7 +12,6 @@ from aiperf.common.exceptions import (
     InvalidStateError,
     NotInitializedError,
 )
-from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.common.tokenizer import Tokenizer
 from aiperf.services.dataset import utils
 from aiperf.services.dataset.generator.base import BaseGenerator
@@ -20,7 +19,7 @@ from aiperf.services.dataset.generator.base import BaseGenerator
 DEFAULT_CORPUS_FILE = "assets/shakespeare.txt"
 
 
-class PromptGenerator(BaseGenerator, AIPerfLoggerMixin):
+class PromptGenerator(BaseGenerator):
     """A class for generating synthetic prompts from a text corpus.
 
     This class loads a text corpus (e.g., Shakespearean text), tokenizes it,

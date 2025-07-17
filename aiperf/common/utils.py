@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import inspect
-import logging
 import os
 import random
 import traceback
@@ -13,7 +12,7 @@ import orjson
 from aiperf.common import aiperf_logger
 from aiperf.common.exceptions import AIPerfError, AIPerfMultiError
 
-logger = logging.getLogger(__name__)
+logger = aiperf_logger.AIPerfLogger(__name__)
 
 
 async def call_all_functions_self(
@@ -70,8 +69,7 @@ async def call_all_functions(funcs: list[Callable], *args, **kwargs) -> None:
             else:
                 func(*args, **kwargs)
         except Exception as e:
-            # TODO: error handling, logging
-            logger.exception("Error calling function %s: %s", func.__name__, e)
+            logger.exception(f"Error calling function {func.__name__}: {e}")
             exceptions.append(
                 AIPerfError(f"Error calling function {func.__name__}: {e}")
             )

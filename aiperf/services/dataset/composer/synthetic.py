@@ -6,7 +6,6 @@ import uuid
 from aiperf.common.config import InputConfig
 from aiperf.common.enums import ComposerType
 from aiperf.common.factories import ComposerFactory
-from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.common.models import Audio, Conversation, Image, Text, Turn
 from aiperf.common.tokenizer import Tokenizer
 from aiperf.services.dataset import utils
@@ -14,7 +13,7 @@ from aiperf.services.dataset.composer.base import BaseDatasetComposer
 
 
 @ComposerFactory.register(ComposerType.SYNTHETIC)
-class SyntheticDatasetComposer(BaseDatasetComposer, AIPerfLoggerMixin):
+class SyntheticDatasetComposer(BaseDatasetComposer):
     def __init__(self, config: InputConfig, tokenizer: Tokenizer):
         super().__init__(config, tokenizer)
 

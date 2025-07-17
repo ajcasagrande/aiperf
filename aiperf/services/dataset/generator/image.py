@@ -9,12 +9,11 @@ from PIL import Image
 
 from aiperf.common.config import ImageConfig
 from aiperf.common.enums import ImageFormat
-from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.services.dataset import utils
 from aiperf.services.dataset.generator.base import BaseGenerator
 
 
-class ImageGenerator(BaseGenerator, AIPerfLoggerMixin):
+class ImageGenerator(BaseGenerator):
     """A class that generates images from source images.
 
     This class provides methods to create synthetic images by resizing
