@@ -7,7 +7,7 @@ from aiperf.common.config._user import UserConfig as UserConfig
 from aiperf.common.enums import EndpointType as EndpointType
 from aiperf.common.enums import Modality as Modality
 from aiperf.common.enums import ModelSelectionStrategy as ModelSelectionStrategy
-from aiperf.common.pydantic_utils import AIPerfBaseModel as AIPerfBaseModel
+from aiperf.common.models import AIPerfBaseModel as AIPerfBaseModel
 
 class ModelInfo(AIPerfBaseModel):
     name: str

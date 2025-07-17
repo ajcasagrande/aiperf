@@ -12,8 +12,8 @@ from aiperf.clients.openai.openai_convert import (
     OpenAIEmbeddingsRequestConverter,
     OpenAIResponsesRequestConverter,
 )
-from aiperf.common.dataset_models import Image, Text, Turn
 from aiperf.common.enums import EndpointType
+from aiperf.common.models import Image, Text, Turn
 
 
 class TestOpenAIChatCompletionRequestConverter:

@@ -11,8 +11,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from aiperf.common.constants import NANOS_PER_SECOND
-from aiperf.common.credit_models import CreditReturnMessage
 from aiperf.common.exceptions import InvalidStateError
+from aiperf.common.models import CreditReturnMessage
 from aiperf.services.timing_manager.config import TimingManagerConfig
 from aiperf.services.timing_manager.request_rate_strategy import RequestRateStrategy
 from aiperf.tests.timing_manager.conftest import MockCreditManager

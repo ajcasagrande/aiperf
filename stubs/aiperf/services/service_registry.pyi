@@ -6,9 +6,7 @@ from _typeshed import Incomplete
 
 from aiperf.common.enums import ServiceState as ServiceState
 from aiperf.common.enums import ServiceType as ServiceType
-from aiperf.common.service_models import (
-    ServiceRegistrationInfo as ServiceRegistrationInfo,
-)
+from aiperf.common.models import ServiceRegistrationInfo as ServiceRegistrationInfo
 
 class ServiceRegistry:
     logger: Incomplete

@@ -2,11 +2,11 @@
 #  SPDX-License-Identifier: Apache-2.0
 from _typeshed import Incomplete
 
-from aiperf.common.dataset_models import Conversation as Conversation
-from aiperf.common.dataset_models import Text as Text
-from aiperf.common.dataset_models import Turn as Turn
 from aiperf.common.enums import CustomDatasetType as CustomDatasetType
 from aiperf.common.factories import CustomDatasetFactory as CustomDatasetFactory
+from aiperf.common.models import Conversation as Conversation
+from aiperf.common.models import Text as Text
+from aiperf.common.models import Turn as Turn
 from aiperf.services.dataset.generator import PromptGenerator as PromptGenerator
 from aiperf.services.dataset.loader.models import CustomData as CustomData
 from aiperf.services.dataset.loader.models import TraceCustomData as TraceCustomData

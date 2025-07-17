@@ -15,9 +15,7 @@ from aiperf.common.constants import (
 from aiperf.common.enums import ServiceType as ServiceType
 from aiperf.common.messages import BaseServiceMessage as BaseServiceMessage
 from aiperf.common.mixins import AIPerfLoggerMixin as AIPerfLoggerMixin
-from aiperf.common.service_models import (
-    ServiceRegistrationInfo as ServiceRegistrationInfo,
-)
+from aiperf.common.models import ServiceRegistrationInfo as ServiceRegistrationInfo
 
 class BaseServiceManager(AIPerfLoggerMixin, ABC, metaclass=abc.ABCMeta):
     required_services: Incomplete

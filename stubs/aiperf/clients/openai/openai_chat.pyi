@@ -4,13 +4,9 @@ from typing import Any
 
 from _typeshed import Incomplete
 
-from aiperf.clients.client_interfaces import (
-    RequestConverterFactory as RequestConverterFactory,
-)
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo as ModelEndpointInfo
-from aiperf.common.dataset_models import Turn as Turn
-from aiperf.common.enums import EndpointType as EndpointType
 from aiperf.common.mixins import AIPerfLoggerMixin as AIPerfLoggerMixin
+from aiperf.common.models import Turn as Turn
 
 DEFAULT_ROLE: str
 

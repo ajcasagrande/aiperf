@@ -5,16 +5,16 @@ from pydantic import Field
 
 from aiperf.common.aiperf_logger import AIPerfLogger
 from aiperf.common.constants import NANOS_PER_SECOND
-from aiperf.common.credit_models import (
-    CreditPhaseStats,
-    PhaseProcessingStats,
-)
 from aiperf.common.enums import BenchmarkSuiteType, CreditPhase
 from aiperf.common.messages import (
     ProfileResultsMessage,
 )
-from aiperf.common.pydantic_utils import AIPerfBaseModel
-from aiperf.common.worker_models import WorkerPhaseTaskStats
+from aiperf.common.models import (
+    AIPerfBaseModel,
+    CreditPhaseStats,
+    PhaseProcessingStats,
+    WorkerPhaseTaskStats,
+)
 
 logger = AIPerfLogger(__name__)
 

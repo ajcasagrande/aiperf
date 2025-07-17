@@ -13,10 +13,9 @@ from aiperf.clients.client_interfaces import (
     ResponseExtractorProtocol,
 )
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
-from aiperf.common.dataset_models import Turn
 from aiperf.common.enums import EndpointType
 from aiperf.common.exceptions import FactoryCreationError
-from aiperf.common.record_models import RequestRecord, ResponseData
+from aiperf.common.models import RequestRecord, ResponseData, Turn
 from aiperf.common.tokenizer import Tokenizer
 
 
@@ -36,8 +35,8 @@ class TestInferenceClientFactory:
 
             async def send_request(
                 self, model_endpoint: ModelEndpointInfo, payload: Any
-            ) -> BaseRequestRecord:
-                return BaseRequestRecord()
+            ) -> RequestRecord:
+                return RequestRecord()
 
             async def close(self):
                 pass

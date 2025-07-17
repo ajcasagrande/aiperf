@@ -7,7 +7,7 @@ from pydantic import Field, SerializeAsAny
 
 from aiperf.common.enums import MessageType
 from aiperf.common.messages._base import BaseServiceMessage
-from aiperf.common.record_models import ParsedResponseRecord, RequestRecord
+from aiperf.common.models import ParsedResponseRecord, RequestRecord
 
 
 class InferenceResultsMessage(BaseServiceMessage):

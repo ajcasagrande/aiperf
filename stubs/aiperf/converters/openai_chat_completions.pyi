@@ -6,11 +6,11 @@ from aiperf.clients.converters.base_converter import (
     BaseRequestConverter as BaseRequestConverter,
 )
 from aiperf.common.config import OutputTokenDefaults as OutputTokenDefaults
-from aiperf.common.dataset_models import DataRow as DataRow
-from aiperf.common.dataset_models import GenericDataset as GenericDataset
 from aiperf.common.enums import EndpointType as EndpointType
 from aiperf.common.exceptions import AIPerfError as AIPerfError
 from aiperf.common.factories import RequestConverterFactory as RequestConverterFactory
+from aiperf.common.models import DataRow as DataRow
+from aiperf.common.models import GenericDataset as GenericDataset
 
 class OpenAIChatCompletionsRequestConverter(BaseRequestConverter):
     def convert(self, generic_dataset: GenericDataset) -> dict[Any, Any]: ...

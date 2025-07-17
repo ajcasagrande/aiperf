@@ -30,9 +30,8 @@ from aiperf.common.messages import (
 )
 from aiperf.common.messages._progress import ProfileResultsMessage
 from aiperf.common.mixins import AIPerfMessageHandlerMixin
-from aiperf.common.pydantic_utils import AIPerfBaseModel
+from aiperf.common.models import AIPerfBaseModel, ServiceRegistrationInfo
 from aiperf.common.service.base_controller_service import BaseControllerService
-from aiperf.common.service_models import ServiceRegistrationInfo
 from aiperf.data_exporter.exporter_manager import ExporterManager
 from aiperf.progress.progress_tracker import (
     BenchmarkSuiteProgress,

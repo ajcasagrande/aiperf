@@ -10,9 +10,9 @@ from textual.widgets import DataTable
 
 from aiperf.common.enums import CreditPhase as CreditPhase
 from aiperf.common.messages import WorkerHealthMessage as WorkerHealthMessage
-from aiperf.common.pydantic_utils import AIPerfBaseModel as AIPerfBaseModel
+from aiperf.common.models import AIPerfBaseModel as AIPerfBaseModel
+from aiperf.common.models import WorkerPhaseTaskStats as WorkerPhaseTaskStats
 from aiperf.common.utils import format_bytes as format_bytes
-from aiperf.common.worker_models import WorkerPhaseTaskStats as WorkerPhaseTaskStats
 
 class WorkerStatus(str, Enum):
     HEALTHY = "healthy"

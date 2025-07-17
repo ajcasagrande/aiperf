@@ -9,7 +9,7 @@ from aiperf.common.enums import NotificationType as NotificationType
 from aiperf.common.enums import ServiceState as ServiceState
 from aiperf.common.messages._base import BaseServiceMessage as BaseServiceMessage
 from aiperf.common.messages._base import BaseStatusMessage as BaseStatusMessage
-from aiperf.common.pydantic_utils import AIPerfBaseModel as AIPerfBaseModel
+from aiperf.common.models import AIPerfBaseModel as AIPerfBaseModel
 
 class StatusMessage(BaseStatusMessage):
     message_type: Literal[MessageType.STATUS]

@@ -11,7 +11,7 @@ from pydantic import Field
 from aiperf.common.comms.zmq import BaseZMQCommunication
 from aiperf.common.enums import MessageType, ServiceState, ServiceType
 from aiperf.common.messages import Message, StatusMessage
-from aiperf.common.pydantic_utils import AIPerfBaseModel
+from aiperf.common.models import AIPerfBaseModel
 
 
 class MockCommunicationData(AIPerfBaseModel):

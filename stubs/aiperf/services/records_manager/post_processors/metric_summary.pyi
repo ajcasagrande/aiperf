@@ -7,8 +7,8 @@ from aiperf.common.constants import NANOS_PER_MILLIS as NANOS_PER_MILLIS
 from aiperf.common.enums import MetricType as MetricType
 from aiperf.common.enums import PostProcessorType as PostProcessorType
 from aiperf.common.factories import PostProcessorFactory as PostProcessorFactory
-from aiperf.common.record_models import MetricResult as MetricResult
-from aiperf.common.record_models import ParsedResponseRecord as ParsedResponseRecord
+from aiperf.common.models import MetricResult as MetricResult
+from aiperf.common.models import ParsedResponseRecord as ParsedResponseRecord
 from aiperf.services.records_manager.metrics.base_metric import BaseMetric as BaseMetric
 
 logger: Incomplete

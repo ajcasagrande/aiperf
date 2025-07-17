@@ -5,8 +5,6 @@ from abc import ABC
 
 from _typeshed import Incomplete
 
-from aiperf.common.credit_models import CreditPhaseConfig as CreditPhaseConfig
-from aiperf.common.credit_models import CreditPhaseStats as CreditPhaseStats
 from aiperf.common.enums import CreditPhase as CreditPhase
 from aiperf.common.enums._timing import TimingMode as TimingMode
 from aiperf.common.exceptions import ConfigurationError as ConfigurationError
@@ -14,6 +12,8 @@ from aiperf.common.factories import FactoryMixin as FactoryMixin
 from aiperf.common.messages import CreditReturnMessage as CreditReturnMessage
 from aiperf.common.mixins import AIPerfLoggerMixin as AIPerfLoggerMixin
 from aiperf.common.mixins import AsyncTaskManagerMixin as AsyncTaskManagerMixin
+from aiperf.common.models import CreditPhaseConfig as CreditPhaseConfig
+from aiperf.common.models import CreditPhaseStats as CreditPhaseStats
 from aiperf.services.timing_manager.config import (
     TimingManagerConfig as TimingManagerConfig,
 )

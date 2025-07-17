@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from aiperf.common.constants import NANOS_PER_SECOND
-from aiperf.common.credit_models import CreditReturnMessage
+from aiperf.common.models import CreditReturnMessage
 from aiperf.services.timing_manager.concurrency_strategy import (
     ConcurrencyStrategy,
 )

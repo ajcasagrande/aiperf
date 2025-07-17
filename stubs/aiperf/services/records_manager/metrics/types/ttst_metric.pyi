@@ -4,7 +4,7 @@ from _typeshed import Incomplete
 
 from aiperf.common.enums import MetricTimeType as MetricTimeType
 from aiperf.common.enums import MetricType as MetricType
-from aiperf.common.record_models import ParsedResponseRecord as ParsedResponseRecord
+from aiperf.common.models import ParsedResponseRecord as ParsedResponseRecord
 from aiperf.services.records_manager.metrics.base_metric import BaseMetric as BaseMetric
 
 class TTSTMetric(BaseMetric):

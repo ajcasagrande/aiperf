@@ -95,6 +95,7 @@ init-files: #? run mkinit to generate the __init__.py files.
 	$(activate_venv) && mkinit --write --black --nomods aiperf/common/enums
 	$(activate_venv) && mkinit --write --black --nomods aiperf/common/messages
 	$(activate_venv) && mkinit --write --black --nomods aiperf/common/mixins
+	$(activate_venv) && mkinit --write --black --nomods aiperf/common/models
 	$(activate_venv) && mkinit --write --black --nomods aiperf/progress
 	$(activate_venv) && mkinit --write --black --nomods --recursive aiperf/ui
 

@@ -5,7 +5,7 @@ import time
 import psutil
 
 from aiperf.common.constants import BYTES_PER_MIB
-from aiperf.common.health_models import CPUTimes, CtxSwitches, ProcessHealth
+from aiperf.common.models import CPUTimes, CtxSwitches, ProcessHealth
 
 
 class ProcessHealthMixin:

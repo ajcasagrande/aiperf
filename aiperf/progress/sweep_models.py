@@ -7,7 +7,7 @@
 
 # from aiperf.common.enums import CaseInsensitiveStrEnum, MessageType
 # from aiperf.common.messages import BaseServiceMessage
-# from aiperf.common.pydantic_utils import AIPerfBaseModel
+# from aiperf.common.models import AIPerfBaseModel
 # from aiperf.progress.progress_models import ProfileProgress
 
 

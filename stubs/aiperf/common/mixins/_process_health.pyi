@@ -2,10 +2,7 @@
 #  SPDX-License-Identifier: Apache-2.0
 import psutil
 
-from aiperf.common.constants import BYTES_PER_MIB as BYTES_PER_MIB
-from aiperf.common.health_models import CPUTimes as CPUTimes
-from aiperf.common.health_models import CtxSwitches as CtxSwitches
-from aiperf.common.health_models import ProcessHealth as ProcessHealth
+from aiperf.common.models import ProcessHealth as ProcessHealth
 
 class ProcessHealthMixin:
     process: psutil.Process

@@ -14,9 +14,10 @@ from aiperf.clients.openai.openai_convert import (
     OpenAIResponsesRequestConverter,
 )
 from aiperf.common.enums import EndpointType
-from aiperf.common.record_models import (
+from aiperf.common.models import (
     SSEField,
     SSEMessage,
+    Text,
 )
 
 
@@ -427,7 +428,7 @@ def expected_embeddings_payload():
 def expected_responses_payload():
     """Expected payload for responses."""
     return {
-        "input": [Text(name="text", role="user", content=["Hello, how are you?"])],
+        "input": [Text(name="text", content=["Hello, how are you?"])],
         "model": "gpt-4",
         "max_output_tokens": 1000,
         "stream": False,

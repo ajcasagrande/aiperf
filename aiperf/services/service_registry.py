@@ -9,7 +9,7 @@ import time
 from collections.abc import AsyncIterator, Iterator
 
 from aiperf.common.enums import ServiceState, ServiceType
-from aiperf.common.service_models import ServiceRegistrationInfo
+from aiperf.common.models import ServiceRegistrationInfo
 
 
 class ServiceRegistry:

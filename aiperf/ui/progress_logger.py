@@ -14,7 +14,7 @@ from aiperf.common.messages import (
     WorkerHealthMessage,
 )
 from aiperf.common.mixins import AIPerfLifecycleMixin
-from aiperf.common.pydantic_utils import AIPerfBaseModel
+from aiperf.common.models import AIPerfBaseModel
 from aiperf.common.utils import format_duration
 from aiperf.progress.progress_tracker import ProgressTracker
 from aiperf.ui.ui_protocol import AIPerfUIFactory

@@ -5,13 +5,13 @@ import asyncio
 import time
 from abc import ABC, abstractmethod
 
-from aiperf.common.credit_models import CreditPhaseConfig, CreditPhaseStats
 from aiperf.common.enums import CreditPhase
 from aiperf.common.enums._timing import TimingMode
 from aiperf.common.exceptions import ConfigurationError
 from aiperf.common.factories import FactoryMixin
 from aiperf.common.messages import CreditReturnMessage
 from aiperf.common.mixins import AIPerfLoggerMixin, AsyncTaskManagerMixin
+from aiperf.common.models import CreditPhaseConfig, CreditPhaseStats
 from aiperf.services.timing_manager.config import TimingManagerConfig
 from aiperf.services.timing_manager.credit_manager import CreditManagerProtocol
 

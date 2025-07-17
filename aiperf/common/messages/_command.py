@@ -11,8 +11,7 @@ from aiperf.common.enums import CommandType, MessageType
 from aiperf.common.enums._command import CommandResponseStatus
 from aiperf.common.enums._service import ServiceType
 from aiperf.common.messages._base import BaseServiceMessage
-from aiperf.common.pydantic_utils import AIPerfBaseModel
-from aiperf.common.record_models import ErrorDetails
+from aiperf.common.models import AIPerfBaseModel, ErrorDetails
 
 
 class ProcessRecordsCommandData(AIPerfBaseModel):

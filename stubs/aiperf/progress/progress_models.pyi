@@ -4,13 +4,13 @@ from _typeshed import Incomplete
 
 from aiperf.common.aiperf_logger import AIPerfLogger as AIPerfLogger
 from aiperf.common.constants import NANOS_PER_SECOND as NANOS_PER_SECOND
-from aiperf.common.credit_models import CreditPhaseStats as CreditPhaseStats
-from aiperf.common.credit_models import PhaseProcessingStats as PhaseProcessingStats
 from aiperf.common.enums import BenchmarkSuiteType as BenchmarkSuiteType
 from aiperf.common.enums import CreditPhase as CreditPhase
 from aiperf.common.messages import ProfileResultsMessage as ProfileResultsMessage
-from aiperf.common.pydantic_utils import AIPerfBaseModel as AIPerfBaseModel
-from aiperf.common.worker_models import WorkerPhaseTaskStats as WorkerPhaseTaskStats
+from aiperf.common.models import AIPerfBaseModel as AIPerfBaseModel
+from aiperf.common.models import CreditPhaseStats as CreditPhaseStats
+from aiperf.common.models import PhaseProcessingStats as PhaseProcessingStats
+from aiperf.common.models import WorkerPhaseTaskStats as WorkerPhaseTaskStats
 
 logger: Incomplete
 

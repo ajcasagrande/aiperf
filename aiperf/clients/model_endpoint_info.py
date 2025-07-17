@@ -7,7 +7,7 @@ from pydantic import Field
 from aiperf.common.config._defaults import EndPointDefaults
 from aiperf.common.config._user import UserConfig
 from aiperf.common.enums import EndpointType, Modality, ModelSelectionStrategy
-from aiperf.common.pydantic_utils import AIPerfBaseModel
+from aiperf.common.models import AIPerfBaseModel
 
 
 class ModelInfo(AIPerfBaseModel):

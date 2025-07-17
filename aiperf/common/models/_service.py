@@ -10,9 +10,9 @@ from aiperf.common.enums import (
     ServiceState,
     ServiceType,
 )
-from aiperf.common.health_models import ProcessHealth
-from aiperf.common.pydantic_utils import AIPerfBaseModel
-from aiperf.common.record_models import ErrorDetails
+from aiperf.common.models._base import AIPerfBaseModel
+from aiperf.common.models._error import ErrorDetails
+from aiperf.common.models._health import ProcessHealth
 
 
 class ServiceRegistrationInfo(AIPerfBaseModel):

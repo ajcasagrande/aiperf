@@ -1,10 +1,10 @@
 #  SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #  SPDX-License-Identifier: Apache-2.0
-from aiperf.common.credit_models import CreditPhaseStats as CreditPhaseStats
 from aiperf.common.enums import RequestRateMode as RequestRateMode
 from aiperf.common.enums import TimingMode as TimingMode
 from aiperf.common.exceptions import InvalidStateError as InvalidStateError
 from aiperf.common.mixins import AsyncTaskManagerMixin as AsyncTaskManagerMixin
+from aiperf.common.models import CreditPhaseStats as CreditPhaseStats
 from aiperf.services.timing_manager.config import (
     TimingManagerConfig as TimingManagerConfig,
 )

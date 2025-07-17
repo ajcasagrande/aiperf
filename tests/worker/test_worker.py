@@ -10,7 +10,6 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from aiperf.common.credit_models import CreditDropMessage, CreditReturnMessage
 from aiperf.common.enums import MessageType, ServiceState, ServiceType
 from aiperf.common.exceptions import NotInitializedError
 from aiperf.common.messages import (
@@ -20,7 +19,12 @@ from aiperf.common.messages import (
     InferenceResultsMessage,
     WorkerHealthMessage,
 )
-from aiperf.common.record_models import ErrorDetails, RequestRecord
+from aiperf.common.models import (
+    CreditDropMessage,
+    CreditReturnMessage,
+    ErrorDetails,
+    RequestRecord,
+)
 from aiperf.services.worker.worker import Worker
 from aiperf.tests.utils.async_test_utils import async_fixture
 
@@ -820,7 +824,7 @@ class TestWorkerEdgeCases:
         worker = await async_fixture(initialized_worker)
 
         # Mock conversation response with empty turns
-        from aiperf.common.dataset_models import Conversation
+        from aiperf.common.models import Conversation
 
         empty_conversation_response = ConversationResponseMessage(
             service_id="test-service",

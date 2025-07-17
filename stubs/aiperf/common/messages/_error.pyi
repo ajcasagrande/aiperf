@@ -5,7 +5,7 @@ from typing import Literal
 from aiperf.common.enums import MessageType as MessageType
 from aiperf.common.messages._base import BaseServiceMessage as BaseServiceMessage
 from aiperf.common.messages._base import Message as Message
-from aiperf.common.record_models import ErrorDetails as ErrorDetails
+from aiperf.common.models import ErrorDetails as ErrorDetails
 
 class ErrorMessage(Message):
     message_type: Literal[MessageType.ERROR]

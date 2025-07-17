@@ -2,7 +2,7 @@
 #  SPDX-License-Identifier: Apache-2.0
 from typing import Protocol
 
-from aiperf.common.dataset_models import Conversation as Conversation
+from aiperf.common.models import Conversation as Conversation
 from aiperf.services.dataset.loader.models import CustomData as CustomData
 
 class CustomDatasetLoaderProtocol(Protocol):

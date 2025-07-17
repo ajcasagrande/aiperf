@@ -8,13 +8,11 @@ from typing import Any
 
 import pytest
 
-from aiperf.common.credit_models import CreditDropMessage
-from aiperf.common.dataset_models import Conversation
-from aiperf.common.health_models import WorkerHealthMessage
 from aiperf.common.messages import (
     ConversationResponseMessage,
     InferenceResultsMessage,
 )
+from aiperf.common.models import Conversation, CreditDropMessage, WorkerHealthMessage
 from aiperf.services.worker.protocols import WorkerCommunicationsProtocol
 
 
@@ -74,7 +72,7 @@ class TestWorkerCommunicationsProtocol:
     @pytest.fixture
     def sample_inference_results_message(self) -> InferenceResultsMessage:
         """Create a sample inference results message."""
-        from aiperf.common.record_models import RequestRecord
+        from aiperf.common.models import RequestRecord
 
         return InferenceResultsMessage(
             service_id="test-service",
@@ -89,7 +87,7 @@ class TestWorkerCommunicationsProtocol:
     @pytest.fixture
     def sample_health_message(self) -> WorkerHealthMessage:
         """Create a sample worker health message."""
-        from aiperf.common.health_models import (
+        from aiperf.common.models import (
             CPUTimes,
             CtxSwitches,
             IOCounters,
@@ -393,7 +391,7 @@ class TestProtocolUsage:
             await mock_comm.request_conversation_data(message.conversation_id)
 
             # Create and push inference results
-            from aiperf.common.record_models import RequestRecord
+            from aiperf.common.models import RequestRecord
 
             record = RequestRecord(
                 timestamp_ns=1000000000,
@@ -410,7 +408,7 @@ class TestProtocolUsage:
             await mock_comm.return_credits(1)
 
             # Publish health message
-            from aiperf.common.health_models import (
+            from aiperf.common.models import (
                 CPUTimes,
                 CtxSwitches,
                 IOCounters,
@@ -557,7 +555,7 @@ class TestProtocolEdgeCases:
         with pytest.raises(ValueError):
             await exception_comm.push_inference_results(test_message)
 
-        from aiperf.common.health_models import ProcessHealth
+        from aiperf.common.models import ProcessHealth
 
         health_message = WorkerHealthMessage(
             service_id="test",

@@ -14,7 +14,7 @@ from aiperf.common.constants import (
 )
 from aiperf.common.enums import ServiceType as ServiceType
 from aiperf.common.messages import BaseServiceMessage as BaseServiceMessage
-from aiperf.common.pydantic_utils import AIPerfBaseModel as AIPerfBaseModel
+from aiperf.common.models import AIPerfBaseModel as AIPerfBaseModel
 from aiperf.services.service_manager.base import (
     BaseServiceManager as BaseServiceManager,
 )

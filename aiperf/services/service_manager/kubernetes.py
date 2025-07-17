@@ -9,7 +9,7 @@ from aiperf.common.constants import (
 )
 from aiperf.common.enums import ServiceType
 from aiperf.common.messages import BaseServiceMessage
-from aiperf.common.pydantic_utils import AIPerfBaseModel
+from aiperf.common.models import AIPerfBaseModel
 from aiperf.services.service_manager.base import BaseServiceManager
 from aiperf.services.service_registry import GlobalServiceRegistry
 

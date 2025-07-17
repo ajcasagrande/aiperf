@@ -6,8 +6,8 @@ from pydantic import SerializeAsAny as SerializeAsAny
 
 from aiperf.common.enums import MessageType as MessageType
 from aiperf.common.messages._base import BaseServiceMessage as BaseServiceMessage
-from aiperf.common.record_models import ParsedResponseRecord as ParsedResponseRecord
-from aiperf.common.record_models import RequestRecord as RequestRecord
+from aiperf.common.models import ParsedResponseRecord as ParsedResponseRecord
+from aiperf.common.models import RequestRecord as RequestRecord
 
 class InferenceResultsMessage(BaseServiceMessage):
     message_type: Literal[MessageType.INFERENCE_RESULTS]

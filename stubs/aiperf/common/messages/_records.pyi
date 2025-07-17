@@ -2,9 +2,9 @@
 #  SPDX-License-Identifier: Apache-2.0
 from typing import Literal
 
-from aiperf.common.credit_models import PhaseProcessingStats as PhaseProcessingStats
 from aiperf.common.enums import MessageType as MessageType
 from aiperf.common.messages._base import BaseServiceMessage as BaseServiceMessage
+from aiperf.common.models import PhaseProcessingStats as PhaseProcessingStats
 
 class RecordsProcessingStatsMessage(BaseServiceMessage):
     message_type: Literal[MessageType.PROCESSING_STATS]

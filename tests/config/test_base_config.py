@@ -6,7 +6,7 @@ from enum import Enum
 from pydantic.fields import FieldInfo
 
 from aiperf.common.config import BaseConfig
-from aiperf.common.pydantic_utils import AIPerfBaseModel
+from aiperf.common.models import AIPerfBaseModel
 
 
 class NestedConfig(AIPerfBaseModel):

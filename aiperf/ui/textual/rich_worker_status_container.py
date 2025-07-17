@@ -13,9 +13,8 @@ from textual.widgets import DataTable, Label, Static
 
 from aiperf.common.enums import CreditPhase
 from aiperf.common.messages import WorkerHealthMessage
-from aiperf.common.pydantic_utils import AIPerfBaseModel
+from aiperf.common.models import AIPerfBaseModel, WorkerPhaseTaskStats
 from aiperf.common.utils import format_bytes
-from aiperf.common.worker_models import WorkerPhaseTaskStats
 
 
 class WorkerStatus(str, Enum):

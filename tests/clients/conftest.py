@@ -15,15 +15,19 @@ from aiperf.common.config._defaults import EndPointDefaults
 from aiperf.common.config._endpoint import EndPointConfig
 from aiperf.common.config._input import InputConfig
 from aiperf.common.config._user import UserConfig
-from aiperf.common.dataset_models import Audio, Conversation, Image, Text, Turn
 from aiperf.common.enums import EndpointType, Modality, ModelSelectionStrategy
-from aiperf.common.record_models import (
+from aiperf.common.models import (
+    Audio,
+    Conversation,
     ErrorDetails,
+    Image,
     RequestRecord,
     ResponseData,
     SSEField,
     SSEMessage,
+    Text,
     TextResponse,
+    Turn,
 )
 from aiperf.common.tokenizer import Tokenizer
 

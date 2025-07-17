@@ -4,7 +4,7 @@ from _typeshed import Incomplete
 
 from aiperf.common.enums import DataExporterType as DataExporterType
 from aiperf.common.factories import DataExporterFactory as DataExporterFactory
-from aiperf.common.record_models import MetricResult as MetricResult
+from aiperf.common.models import MetricResult as MetricResult
 from aiperf.data_exporter.exporter_config import ExporterConfig as ExporterConfig
 
 class ConsoleExporter:

@@ -8,9 +8,9 @@ from aiperf.common.config import UserConfig as UserConfig
 from aiperf.common.constants import NANOS_PER_SECOND as NANOS_PER_SECOND
 from aiperf.common.enums import DataExporterType as DataExporterType
 from aiperf.common.factories import DataExporterFactory as DataExporterFactory
-from aiperf.common.pydantic_utils import AIPerfBaseModel as AIPerfBaseModel
-from aiperf.common.record_models import ErrorDetailsCount as ErrorDetailsCount
-from aiperf.common.record_models import MetricResult as MetricResult
+from aiperf.common.models import AIPerfBaseModel as AIPerfBaseModel
+from aiperf.common.models import ErrorDetailsCount as ErrorDetailsCount
+from aiperf.common.models import MetricResult as MetricResult
 from aiperf.data_exporter.exporter_config import ExporterConfig as ExporterConfig
 
 class JsonExportData(AIPerfBaseModel):

@@ -5,7 +5,7 @@ from typing import Literal
 from _typeshed import Incomplete
 
 from aiperf.common.enums import CustomDatasetType as CustomDatasetType
-from aiperf.common.pydantic_utils import AIPerfBaseModel as AIPerfBaseModel
+from aiperf.common.models import AIPerfBaseModel as AIPerfBaseModel
 
 class TraceCustomData(AIPerfBaseModel):
     type: Literal[CustomDatasetType.TRACE]

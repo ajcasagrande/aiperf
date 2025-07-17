@@ -12,7 +12,7 @@ from aiperf.clients.client_interfaces import (
 from aiperf.clients.http.aiohttp_client import AioHttpClientMixin
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.mixins import AIPerfLoggerMixin
-from aiperf.common.record_models import (
+from aiperf.common.models import (
     ErrorDetails,
     RequestRecord,
 )

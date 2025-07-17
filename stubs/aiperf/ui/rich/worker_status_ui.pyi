@@ -5,8 +5,8 @@ from rich.console import RenderableType as RenderableType
 
 from aiperf.common.enums import CreditPhase as CreditPhase
 from aiperf.common.messages import WorkerHealthMessage as WorkerHealthMessage
+from aiperf.common.models import WorkerPhaseTaskStats as WorkerPhaseTaskStats
 from aiperf.common.utils import format_bytes as format_bytes
-from aiperf.common.worker_models import WorkerPhaseTaskStats as WorkerPhaseTaskStats
 from aiperf.ui.rich.dashboard_element import DashboardElement as DashboardElement
 
 class WorkerStatusElement(DashboardElement):

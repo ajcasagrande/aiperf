@@ -6,8 +6,8 @@ from pydantic import SerializeAsAny as SerializeAsAny
 
 from aiperf.common.enums import MessageType as MessageType
 from aiperf.common.messages._base import BaseServiceMessage as BaseServiceMessage
-from aiperf.common.record_models import ErrorDetailsCount as ErrorDetailsCount
-from aiperf.common.record_models import MetricResult as MetricResult
+from aiperf.common.models import ErrorDetailsCount as ErrorDetailsCount
+from aiperf.common.models import MetricResult as MetricResult
 
 class ProfileResultsMessage(BaseServiceMessage):
     message_type: Literal[MessageType.PROFILE_RESULTS]

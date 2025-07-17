@@ -13,7 +13,6 @@ from aiperf.common.comms.base import RequestClientProtocol as RequestClientProto
 from aiperf.common.config import ServiceConfig as ServiceConfig
 from aiperf.common.config import UserConfig as UserConfig
 from aiperf.common.constants import NANOS_PER_SECOND as NANOS_PER_SECOND
-from aiperf.common.dataset_models import Turn as Turn
 from aiperf.common.enums import (
     CommunicationClientAddressType as CommunicationClientAddressType,
 )
@@ -39,12 +38,13 @@ from aiperf.common.messages import ErrorMessage as ErrorMessage
 from aiperf.common.messages import InferenceResultsMessage as InferenceResultsMessage
 from aiperf.common.messages import WorkerHealthMessage as WorkerHealthMessage
 from aiperf.common.mixins import ProcessHealthMixin as ProcessHealthMixin
-from aiperf.common.record_models import ErrorDetails as ErrorDetails
-from aiperf.common.record_models import RequestRecord as RequestRecord
+from aiperf.common.models import ErrorDetails as ErrorDetails
+from aiperf.common.models import RequestRecord as RequestRecord
+from aiperf.common.models import Turn as Turn
+from aiperf.common.models import WorkerPhaseTaskStats as WorkerPhaseTaskStats
 from aiperf.common.service.base_component_service import (
     BaseComponentService as BaseComponentService,
 )
-from aiperf.common.worker_models import WorkerPhaseTaskStats as WorkerPhaseTaskStats
 
 class Worker(BaseComponentService, ProcessHealthMixin):
     health_check_interval: Incomplete

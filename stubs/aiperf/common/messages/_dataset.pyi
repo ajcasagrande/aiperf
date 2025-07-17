@@ -2,11 +2,11 @@
 #  SPDX-License-Identifier: Apache-2.0
 from typing import Literal
 
-from aiperf.common.dataset_models import Conversation as Conversation
-from aiperf.common.dataset_models import Turn as Turn
 from aiperf.common.enums import CreditPhase as CreditPhase
 from aiperf.common.enums import MessageType as MessageType
 from aiperf.common.messages._base import BaseServiceMessage as BaseServiceMessage
+from aiperf.common.models import Conversation as Conversation
+from aiperf.common.models import Turn as Turn
 
 class ConversationRequestMessage(BaseServiceMessage):
     message_type: Literal[MessageType.CONVERSATION_REQUEST]

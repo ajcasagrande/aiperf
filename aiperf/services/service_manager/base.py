@@ -10,7 +10,7 @@ from aiperf.common.constants import (
 from aiperf.common.enums import ServiceType
 from aiperf.common.messages import BaseServiceMessage
 from aiperf.common.mixins import AIPerfLoggerMixin
-from aiperf.common.service_models import ServiceRegistrationInfo
+from aiperf.common.models import ServiceRegistrationInfo
 
 
 class BaseServiceManager(AIPerfLoggerMixin, ABC):

@@ -5,10 +5,10 @@ from typing import Any
 
 from aiperf.clients.converters.base_converter import BaseRequestConverter
 from aiperf.common.config import OutputTokenDefaults
-from aiperf.common.dataset_models import DataRow, GenericDataset
 from aiperf.common.enums import EndpointType
 from aiperf.common.exceptions import AIPerfError
 from aiperf.common.factories import RequestConverterFactory
+from aiperf.common.models import DataRow, GenericDataset
 
 # TODO: This file needs heavy cleanup and refactoring after bringing in from GAP
 

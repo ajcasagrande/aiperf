@@ -7,8 +7,7 @@ import time
 from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import CreditPhase
 from aiperf.common.enums._benchmark import BenchmarkSuiteType
-from aiperf.common.health_models import ProcessHealth
-from aiperf.common.worker_models import WorkerHealthMessage
+from aiperf.common.models import ProcessHealth, WorkerHealthMessage
 from aiperf.progress.progress_models import (
     CreditPhaseCompleteMessage,
     CreditPhaseProgressMessage,

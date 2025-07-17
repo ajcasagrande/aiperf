@@ -1,5 +1,7 @@
 #  SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #  SPDX-License-Identifier: Apache-2.0
+import abc
+
 from _typeshed import Incomplete
 
 from aiperf.common.comms.base import (
@@ -41,7 +43,9 @@ from aiperf.services.timing_manager.credit_manager import (
     CreditPhaseMessagesMixin as CreditPhaseMessagesMixin,
 )
 
-class TimingManager(BaseComponentService, CreditPhaseMessagesMixin):
+class TimingManager(
+    BaseComponentService, CreditPhaseMessagesMixin, metaclass=abc.ABCMeta
+):
     dataset_request_client: RequestClientProtocol
     credit_drop_push_client: PushClientProtocol
     credit_return_pull_client: PullClientProtocol

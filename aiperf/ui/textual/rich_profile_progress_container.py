@@ -12,7 +12,7 @@ from textual.widget import Widget
 from textual.widgets import DataTable, Label, Static
 
 from aiperf.common.enums import CreditPhase
-from aiperf.common.pydantic_utils import AIPerfBaseModel
+from aiperf.common.models import AIPerfBaseModel
 from aiperf.common.utils import format_duration
 from aiperf.progress.progress_tracker import ProfileRunProgress, ProgressTracker
 

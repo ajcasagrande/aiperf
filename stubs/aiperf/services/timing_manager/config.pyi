@@ -7,7 +7,7 @@ from aiperf.common.config._defaults import ServiceDefaults as ServiceDefaults
 from aiperf.common.config._user import UserConfig as UserConfig
 from aiperf.common.enums import RequestRateMode as RequestRateMode
 from aiperf.common.enums import TimingMode as TimingMode
-from aiperf.common.pydantic_utils import AIPerfBaseModel as AIPerfBaseModel
+from aiperf.common.models import AIPerfBaseModel as AIPerfBaseModel
 
 class TimingManagerConfig(AIPerfBaseModel):
     timing_mode: TimingMode

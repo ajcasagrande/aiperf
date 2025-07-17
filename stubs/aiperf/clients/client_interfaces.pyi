@@ -3,11 +3,11 @@
 from typing import Generic, Protocol
 
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo as ModelEndpointInfo
-from aiperf.common.dataset_models import Turn as Turn
 from aiperf.common.enums import EndpointType as EndpointType
 from aiperf.common.factories import FactoryMixin as FactoryMixin
-from aiperf.common.record_models import RequestRecord as RequestRecord
-from aiperf.common.record_models import ResponseData as ResponseData
+from aiperf.common.models import RequestRecord as RequestRecord
+from aiperf.common.models import ResponseData as ResponseData
+from aiperf.common.models import Turn as Turn
 from aiperf.common.tokenizer import Tokenizer as Tokenizer
 from aiperf.common.types import RequestInputT as RequestInputT
 from aiperf.common.types import RequestOutputT as RequestOutputT

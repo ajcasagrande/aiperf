@@ -3,7 +3,8 @@
 
 from pydantic import Field
 
-from aiperf.common.pydantic_utils import AIPerfBaseModel, exclude_if_none
+from aiperf.common.models._base import AIPerfBaseModel
+from aiperf.common.pydantic_utils import exclude_if_none
 
 
 class Text(AIPerfBaseModel):

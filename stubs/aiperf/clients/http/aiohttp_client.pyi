@@ -6,17 +6,10 @@ from typing import Any
 import aiohttp
 from _typeshed import Incomplete
 
-from aiperf.clients.http.defaults import AioHttpDefaults as AioHttpDefaults
-from aiperf.clients.http.defaults import SocketDefaults as SocketDefaults
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo as ModelEndpointInfo
-from aiperf.common.aiperf_logger import AIPerfLogger as AIPerfLogger
-from aiperf.common.enums import SSEFieldType as SSEFieldType
 from aiperf.common.mixins import AIPerfLoggerMixin as AIPerfLoggerMixin
-from aiperf.common.record_models import ErrorDetails as ErrorDetails
-from aiperf.common.record_models import RequestRecord as RequestRecord
-from aiperf.common.record_models import SSEField as SSEField
-from aiperf.common.record_models import SSEMessage as SSEMessage
-from aiperf.common.record_models import TextResponse as TextResponse
+from aiperf.common.models import RequestRecord as RequestRecord
+from aiperf.common.models import SSEMessage as SSEMessage
 
 logger: Incomplete
 

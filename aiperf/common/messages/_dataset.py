@@ -5,9 +5,9 @@ from typing import Literal
 
 from pydantic import Field
 
-from aiperf.common.dataset_models import Conversation, Turn
 from aiperf.common.enums import CreditPhase, MessageType
 from aiperf.common.messages._base import BaseServiceMessage
+from aiperf.common.models import Conversation, Turn
 
 
 class ConversationRequestMessage(BaseServiceMessage):

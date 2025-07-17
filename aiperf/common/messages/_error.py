@@ -7,7 +7,7 @@ from pydantic import Field
 
 from aiperf.common.enums import MessageType
 from aiperf.common.messages._base import BaseServiceMessage, Message
-from aiperf.common.record_models import ErrorDetails
+from aiperf.common.models import ErrorDetails
 
 
 class ErrorMessage(Message):

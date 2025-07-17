@@ -31,9 +31,9 @@ from aiperf.common.messages import InferenceResultsMessage as InferenceResultsMe
 from aiperf.common.messages import (
     ParsedInferenceResultsMessage as ParsedInferenceResultsMessage,
 )
-from aiperf.common.record_models import ErrorDetails as ErrorDetails
-from aiperf.common.record_models import ParsedResponseRecord as ParsedResponseRecord
-from aiperf.common.record_models import RequestRecord as RequestRecord
+from aiperf.common.models import ErrorDetails as ErrorDetails
+from aiperf.common.models import ParsedResponseRecord as ParsedResponseRecord
+from aiperf.common.models import RequestRecord as RequestRecord
 from aiperf.common.service.base_component_service import (
     BaseComponentService as BaseComponentService,
 )

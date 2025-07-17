@@ -39,7 +39,7 @@ from aiperf.common.messages._error import (
 from aiperf.common.messages._service import HeartbeatMessage as HeartbeatMessage
 from aiperf.common.messages._service import RegistrationMessage as RegistrationMessage
 from aiperf.common.messages._service import StatusMessage as StatusMessage
-from aiperf.common.pydantic_utils import AIPerfBaseModel as AIPerfBaseModel
+from aiperf.common.models import AIPerfBaseModel as AIPerfBaseModel
 from aiperf.services.service_manager.base import (
     BaseServiceManager as BaseServiceManager,
 )

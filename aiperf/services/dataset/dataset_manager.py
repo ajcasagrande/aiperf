@@ -9,7 +9,6 @@ from aiperf.common.comms.base import (
     CommunicationClientAddressType,
 )
 from aiperf.common.config import ServiceConfig, UserConfig
-from aiperf.common.dataset_models import Conversation
 from aiperf.common.enums import (
     ComposerType,
     MessageType,
@@ -31,6 +30,7 @@ from aiperf.common.messages import (
     Message,
     NotificationMessage,
 )
+from aiperf.common.models import Conversation
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.common.tokenizer import Tokenizer
 

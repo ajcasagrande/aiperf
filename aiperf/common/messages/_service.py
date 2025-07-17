@@ -8,7 +8,7 @@ from pydantic import Field, SerializeAsAny
 
 from aiperf.common.enums import MessageType, NotificationType, ServiceState
 from aiperf.common.messages._base import BaseServiceMessage, BaseStatusMessage
-from aiperf.common.pydantic_utils import AIPerfBaseModel
+from aiperf.common.models import AIPerfBaseModel
 
 
 class StatusMessage(BaseStatusMessage):

@@ -10,7 +10,7 @@ from aiperf.clients.client_interfaces import InferenceClientFactory
 from aiperf.clients.model_endpoint_info import EndpointInfo, ModelEndpointInfo
 from aiperf.clients.openai.openai_aiohttp import OpenAIClientAioHttp
 from aiperf.common.enums import EndpointType
-from aiperf.common.record_models import (
+from aiperf.common.models import (
     RequestRecord,
     SSEMessage,
     TextResponse,

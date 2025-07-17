@@ -2,21 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 from typing import Any, ClassVar, TypeVar
 
-from pydantic import BaseModel, ConfigDict, model_serializer
+from pydantic import model_serializer
+
+from aiperf.common.models import AIPerfBaseModel
 
 BaseModelT = TypeVar("BaseModelT", bound="AIPerfBaseModel")
-
-
-class AIPerfBaseModel(BaseModel):
-    """Base model for all AIPerf Pydantic models. This class is configured to allow
-    arbitrary types to be used as fields as to allow for more flexible model definitions
-    by end users without breaking the existing code.
-    """
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
 
 
 def exclude_if_none(field_names: list[str]):

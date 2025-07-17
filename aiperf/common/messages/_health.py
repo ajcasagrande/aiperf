@@ -5,11 +5,9 @@ from typing import Literal
 
 from pydantic import Field
 
-from aiperf.common.credit_models import CreditPhase
 from aiperf.common.enums import MessageType
-from aiperf.common.health_models import ProcessHealth
 from aiperf.common.messages._base import BaseServiceMessage
-from aiperf.common.worker_models import WorkerPhaseTaskStats
+from aiperf.common.models import CreditPhase, ProcessHealth, WorkerPhaseTaskStats
 
 
 class WorkerHealthMessage(BaseServiceMessage):

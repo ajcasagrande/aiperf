@@ -21,7 +21,7 @@ from aiperf.common.hooks import on_cleanup as on_cleanup
 from aiperf.common.hooks import on_init as on_init
 from aiperf.common.hooks import on_stop as on_stop
 from aiperf.common.messages import WorkerHealthMessage as WorkerHealthMessage
-from aiperf.common.pydantic_utils import AIPerfBaseModel as AIPerfBaseModel
+from aiperf.common.models import AIPerfBaseModel as AIPerfBaseModel
 from aiperf.common.service.base_component_service import (
     BaseComponentService as BaseComponentService,
 )

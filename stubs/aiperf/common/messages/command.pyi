@@ -10,8 +10,8 @@ from aiperf.common.enums import MessageType as MessageType
 from aiperf.common.enums._command import CommandResponseStatus as CommandResponseStatus
 from aiperf.common.enums._service import ServiceType as ServiceType
 from aiperf.common.messages._base import BaseServiceMessage as BaseServiceMessage
-from aiperf.common.pydantic_utils import AIPerfBaseModel as AIPerfBaseModel
-from aiperf.common.record_models import ErrorDetails as ErrorDetails
+from aiperf.common.models import AIPerfBaseModel as AIPerfBaseModel
+from aiperf.common.models import ErrorDetails as ErrorDetails
 
 class ProcessRecordsCommandData(AIPerfBaseModel):
     cancelled: bool

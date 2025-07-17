@@ -6,7 +6,7 @@ from typing import Any, ClassVar
 
 from aiperf.common.enums import MetricTimeType as MetricTimeType
 from aiperf.common.exceptions import MetricTypeError as MetricTypeError
-from aiperf.common.record_models import ParsedResponseRecord as ParsedResponseRecord
+from aiperf.common.models import ParsedResponseRecord as ParsedResponseRecord
 
 class BaseMetric(ABC, metaclass=abc.ABCMeta):
     tag: ClassVar[str]

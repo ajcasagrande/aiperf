@@ -33,7 +33,7 @@ from aiperf.common.enums import (
     ServiceType,
 )
 from aiperf.common.messages import Message, StatusMessage
-from aiperf.common.pydantic_utils import AIPerfBaseModel
+from aiperf.common.models import AIPerfBaseModel
 
 
 class _TestMessage(Message):

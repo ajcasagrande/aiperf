@@ -12,7 +12,7 @@ from aiperf.clients.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.aiperf_logger import AIPerfLogger
 from aiperf.common.enums import SSEFieldType
 from aiperf.common.mixins import AIPerfLoggerMixin
-from aiperf.common.record_models import (
+from aiperf.common.models import (
     ErrorDetails,
     RequestRecord,
     SSEField,

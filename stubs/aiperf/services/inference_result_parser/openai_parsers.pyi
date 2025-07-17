@@ -9,13 +9,11 @@ from aiperf.clients.client_interfaces import (
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo as ModelEndpointInfo
 from aiperf.common.enums import CaseInsensitiveStrEnum as CaseInsensitiveStrEnum
 from aiperf.common.enums import EndpointType as EndpointType
-from aiperf.common.record_models import (
-    InferenceServerResponse as InferenceServerResponse,
-)
-from aiperf.common.record_models import RequestRecord as RequestRecord
-from aiperf.common.record_models import ResponseData as ResponseData
-from aiperf.common.record_models import SSEMessage as SSEMessage
-from aiperf.common.record_models import TextResponse as TextResponse
+from aiperf.common.models import InferenceServerResponse as InferenceServerResponse
+from aiperf.common.models import RequestRecord as RequestRecord
+from aiperf.common.models import ResponseData as ResponseData
+from aiperf.common.models import SSEMessage as SSEMessage
+from aiperf.common.models import TextResponse as TextResponse
 from aiperf.common.tokenizer import Tokenizer as Tokenizer
 from aiperf.common.utils import load_json_str as load_json_str
 

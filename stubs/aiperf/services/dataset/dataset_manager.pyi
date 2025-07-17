@@ -8,7 +8,6 @@ from aiperf.common.comms.base import (
 )
 from aiperf.common.config import ServiceConfig as ServiceConfig
 from aiperf.common.config import UserConfig as UserConfig
-from aiperf.common.dataset_models import Conversation as Conversation
 from aiperf.common.enums import ComposerType as ComposerType
 from aiperf.common.enums import MessageType as MessageType
 from aiperf.common.enums import NotificationType as NotificationType
@@ -33,6 +32,7 @@ from aiperf.common.messages import DatasetTimingRequest as DatasetTimingRequest
 from aiperf.common.messages import DatasetTimingResponse as DatasetTimingResponse
 from aiperf.common.messages import Message as Message
 from aiperf.common.messages import NotificationMessage as NotificationMessage
+from aiperf.common.models import Conversation as Conversation
 from aiperf.common.service.base_component_service import (
     BaseComponentService as BaseComponentService,
 )

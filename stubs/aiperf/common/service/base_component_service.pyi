@@ -19,7 +19,7 @@ from aiperf.common.messages import CommandResponseMessage as CommandResponseMess
 from aiperf.common.messages import HeartbeatMessage as HeartbeatMessage
 from aiperf.common.messages import RegistrationMessage as RegistrationMessage
 from aiperf.common.messages import StatusMessage as StatusMessage
-from aiperf.common.record_models import ErrorDetails as ErrorDetails
+from aiperf.common.models import ErrorDetails as ErrorDetails
 from aiperf.common.service.base_service import BaseService as BaseService
 
 class BaseComponentService(BaseService, metaclass=abc.ABCMeta):

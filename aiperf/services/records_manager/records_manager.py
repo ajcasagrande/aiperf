@@ -10,7 +10,6 @@ from aiperf.common.comms.base import (
     PullClientProtocol,
 )
 from aiperf.common.config import ServiceConfig, ServiceDefaults, UserConfig
-from aiperf.common.credit_models import PhaseProcessingStats
 from aiperf.common.enums import CommandType, CreditPhase, MessageType, ServiceType
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
@@ -33,10 +32,11 @@ from aiperf.common.messages._credit import (
     CreditPhaseCompleteMessage,
     CreditPhaseStartMessage,
 )
-from aiperf.common.record_models import (
+from aiperf.common.models import (
     ErrorDetails,
     ErrorDetailsCount,
     ParsedResponseRecord,
+    PhaseProcessingStats,
 )
 from aiperf.common.service import BaseComponentService
 from aiperf.data_exporter.exporter_manager import ExporterManager

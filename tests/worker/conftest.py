@@ -25,8 +25,6 @@ from aiperf.clients.model_endpoint_info import (
 )
 from aiperf.common.comms.base import BaseCommunication
 from aiperf.common.config import ServiceConfig, UserConfig
-from aiperf.common.credit_models import CreditDropMessage
-from aiperf.common.dataset_models import Conversation, Turn
 from aiperf.common.enums import (
     CommunicationBackend,
     CommunicationClientAddressType,
@@ -39,7 +37,7 @@ from aiperf.common.messages import (
     CommandMessage,
     ConversationResponseMessage,
 )
-from aiperf.common.record_models import RequestRecord
+from aiperf.common.models import Conversation, CreditDropMessage, RequestRecord, Turn
 from aiperf.services.worker.worker import Worker
 
 
@@ -214,7 +212,7 @@ def sample_request_record() -> RequestRecord:
 @pytest.fixture
 def sample_failed_request_record() -> RequestRecord:
     """Create a sample failed request record for testing."""
-    from aiperf.common.record_models import ErrorDetails
+    from aiperf.common.models import ErrorDetails
 
     return RequestRecord(
         timestamp_ns=time.time_ns(),

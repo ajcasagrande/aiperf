@@ -17,7 +17,6 @@ from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.constants import (
     NANOS_PER_SECOND,
 )
-from aiperf.common.dataset_models import Turn
 from aiperf.common.enums import (
     CommunicationClientAddressType,
     CreditPhase,
@@ -43,9 +42,8 @@ from aiperf.common.messages import (
     WorkerHealthMessage,
 )
 from aiperf.common.mixins import ProcessHealthMixin
-from aiperf.common.record_models import ErrorDetails, RequestRecord
+from aiperf.common.models import ErrorDetails, RequestRecord, Turn, WorkerPhaseTaskStats
 from aiperf.common.service.base_component_service import BaseComponentService
-from aiperf.common.worker_models import WorkerPhaseTaskStats
 
 
 @ServiceFactory.register(ServiceType.WORKER)
