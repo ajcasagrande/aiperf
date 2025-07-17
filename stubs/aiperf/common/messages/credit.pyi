@@ -4,7 +4,7 @@ from typing import Literal
 
 from aiperf.common.enums import CreditPhase as CreditPhase
 from aiperf.common.enums import MessageType as MessageType
-from aiperf.common.messages.base import BaseServiceMessage as BaseServiceMessage
+from aiperf.common.messages._base import BaseServiceMessage as BaseServiceMessage
 
 class CreditDropMessage(BaseServiceMessage):
     message_type: Literal[MessageType.CREDIT_DROP]

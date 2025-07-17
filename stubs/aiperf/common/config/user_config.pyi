@@ -16,9 +16,6 @@ from aiperf.common.config.input.input_config import InputConfig as InputConfig
 from aiperf.common.config.loadgen_config import (
     LoadGeneratorConfig as LoadGeneratorConfig,
 )
-from aiperf.common.config.measurement_config import (
-    MeasurementConfig as MeasurementConfig,
-)
 from aiperf.common.config.output.output_config import OutputConfig as OutputConfig
 from aiperf.common.config.tokenizer.tokenizer_config import (
     TokenizerConfig as TokenizerConfig,
@@ -31,4 +28,3 @@ class UserConfig(BaseConfig):
     output: Annotated[OutputConfig, None]
     tokenizer: Annotated[TokenizerConfig, None]
     loadgen: Annotated[LoadGeneratorConfig, None]
-    measurement: Annotated[MeasurementConfig, None]

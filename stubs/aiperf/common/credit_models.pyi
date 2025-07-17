@@ -40,5 +40,6 @@ class CreditPhaseStats(CreditPhaseConfig):
 class PhaseProcessingStats(AIPerfBaseModel):
     processed: int
     errors: int
+    total_expected_requests: int | None
     @property
     def total_records(self) -> int: ...

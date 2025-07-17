@@ -52,7 +52,9 @@ class CreditManagerProtocol(Protocol):
         self, phase: CreditPhase, sent_end_ns: int
     ) -> None: ...
 
-    async def publish_phase_complete(self, phase: CreditPhase, end_ns: int) -> None: ...
+    async def publish_phase_complete(
+        self, phase: CreditPhase, completed: int, end_ns: int
+    ) -> None: ...
 
 
 @runtime_checkable
@@ -117,13 +119,16 @@ class CreditPhaseMessagesMixin(AsyncTaskManagerMixin, CreditPhaseMessagesRequire
             )
         )
 
-    async def publish_phase_complete(self, phase: CreditPhase, end_ns: int) -> None:
+    async def publish_phase_complete(
+        self, phase: CreditPhase, completed: int, end_ns: int
+    ) -> None:
         """Publish the phase complete message."""
         self.execute_async(
             self.pub_client.publish(
                 CreditPhaseCompleteMessage(
                     service_id=self.service_id,
                     phase=phase,
+                    completed=completed,
                     end_ns=end_ns,
                 )
             )

@@ -13,7 +13,7 @@ from aiperf.common.messages import (
     RecordsProcessingStatsMessage,
     WorkerHealthMessage,
 )
-from aiperf.common.messages.credit import CreditPhaseSendingCompleteMessage
+from aiperf.common.messages._credit import CreditPhaseSendingCompleteMessage
 from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.progress.progress_models import (
     BenchmarkSuiteProgress,

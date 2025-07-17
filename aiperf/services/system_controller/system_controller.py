@@ -28,7 +28,7 @@ from aiperf.common.messages import (
     RegistrationMessage,
     StatusMessage,
 )
-from aiperf.common.messages.progress import ProfileResultsMessage
+from aiperf.common.messages._progress import ProfileResultsMessage
 from aiperf.common.mixins import AIPerfMessageHandlerMixin
 from aiperf.common.pydantic_utils import AIPerfBaseModel
 from aiperf.common.service.base_controller_service import BaseControllerService

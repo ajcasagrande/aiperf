@@ -5,7 +5,7 @@ from typing import Literal
 from aiperf.common.credit_models import PhaseProcessingStats as PhaseProcessingStats
 from aiperf.common.enums import CreditPhase as CreditPhase
 from aiperf.common.enums import MessageType as MessageType
-from aiperf.common.messages.base import BaseServiceMessage as BaseServiceMessage
+from aiperf.common.messages._base import BaseServiceMessage as BaseServiceMessage
 
 class RecordsProcessingStatsMessage(BaseServiceMessage):
     message_type: Literal[MessageType.PROCESSING_STATS]

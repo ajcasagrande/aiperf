@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 
 from aiperf.common.credit_models import CreditPhaseConfig, CreditPhaseStats
 from aiperf.common.enums import CreditPhase
-from aiperf.common.enums.timing import TimingMode
+from aiperf.common.enums._timing import TimingMode
 from aiperf.common.exceptions import ConfigurationError
 from aiperf.common.factories import FactoryMixin
 from aiperf.common.messages import CreditReturnMessage
@@ -152,7 +152,7 @@ class CreditIssuingStrategy(AsyncTaskManagerMixin, AIPerfLoggerMixin, ABC):
 
             self.execute_async(
                 self.credit_manager.publish_phase_complete(
-                    message.phase, phase_stats.end_ns
+                    message.phase, phase_stats.completed, phase_stats.end_ns
                 )
             )
 

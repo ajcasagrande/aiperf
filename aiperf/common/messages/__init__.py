@@ -6,20 +6,32 @@
 #########################################################
 # mkinit flags
 __ignore__ = ["logger"]
+__submodules__ = [
+    "_base",
+    "_command",
+    "_credit",
+    "_dataset",
+    "_error",
+    "_health",
+    "_inference",
+    "_progress",
+    "_records",
+    "_service",
+]
 #########################################################
 
 
-from aiperf.common.messages.base import (
+from aiperf.common.messages._base import (
     BaseServiceMessage,
     BaseStatusMessage,
     Message,
 )
-from aiperf.common.messages.command import (
+from aiperf.common.messages._command import (
     CommandMessage,
     CommandResponseMessage,
     ProcessRecordsCommandData,
 )
-from aiperf.common.messages.credit import (
+from aiperf.common.messages._credit import (
     CreditDropMessage,
     CreditPhaseCompleteMessage,
     CreditPhaseProgressMessage,
@@ -28,7 +40,7 @@ from aiperf.common.messages.credit import (
     CreditReturnMessage,
     CreditsCompleteMessage,
 )
-from aiperf.common.messages.dataset import (
+from aiperf.common.messages._dataset import (
     ConversationRequestMessage,
     ConversationResponseMessage,
     ConversationTurnRequestMessage,
@@ -36,24 +48,24 @@ from aiperf.common.messages.dataset import (
     DatasetTimingRequest,
     DatasetTimingResponse,
 )
-from aiperf.common.messages.error import (
+from aiperf.common.messages._error import (
     BaseServiceErrorMessage,
     ErrorMessage,
 )
-from aiperf.common.messages.health import (
+from aiperf.common.messages._health import (
     WorkerHealthMessage,
 )
-from aiperf.common.messages.inference import (
+from aiperf.common.messages._inference import (
     InferenceResultsMessage,
     ParsedInferenceResultsMessage,
 )
-from aiperf.common.messages.progress import (
+from aiperf.common.messages._progress import (
     ProfileResultsMessage,
 )
-from aiperf.common.messages.records import (
+from aiperf.common.messages._records import (
     RecordsProcessingStatsMessage,
 )
-from aiperf.common.messages.service import (
+from aiperf.common.messages._service import (
     HeartbeatMessage,
     NotificationMessage,
     RegistrationMessage,

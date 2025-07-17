@@ -8,6 +8,7 @@ from textual.containers import Container, Vertical
 from textual.css.query import NoMatches
 from textual.widgets import Label, ProgressBar
 
+from aiperf.common.enums._timing import CreditPhase
 from aiperf.progress.progress_tracker import ProgressTracker
 from aiperf.ui.textual.widgets import (
     DashboardField,
@@ -78,10 +79,8 @@ class ProgressDashboard(Container):
                 "progress-indicator",
                 "Progress",
                 lambda _, profile: (
-                    profile.phase_infos[self.progress_tracker.active_phase].processed,
-                    profile.phase_infos[
-                        self.progress_tracker.active_phase
-                    ].total_records,
+                    profile.phase_infos[CreditPhase.PROFILING].processed,
+                    profile.phase_infos[CreditPhase.PROFILING].total_records,
                 ),
                 lambda data: DashboardFormatter.format_count_with_total(
                     data[0], data[1]
@@ -93,22 +92,13 @@ class ProgressDashboard(Container):
                 "Completion",
                 lambda _, profile: (
                     (
-                        profile.phase_infos[
-                            self.progress_tracker.active_phase
-                        ].processed
-                        / profile.phase_infos[
-                            self.progress_tracker.active_phase
-                        ].total_records
+                        profile.phase_infos[CreditPhase.PROFILING].processed
+                        / profile.phase_infos[CreditPhase.PROFILING].total_records
                         * 100
                     )
-                    if profile.phase_infos[
-                        self.progress_tracker.active_phase
-                    ].total_records
+                    if profile.phase_infos[CreditPhase.PROFILING].total_records
                     is not None
-                    and profile.phase_infos[
-                        self.progress_tracker.active_phase
-                    ].total_records
-                    > 0
+                    and profile.phase_infos[CreditPhase.PROFILING].total_records > 0
                     else 0
                 ),
                 DashboardFormatter.format_percentage,
@@ -118,17 +108,14 @@ class ProgressDashboard(Container):
                 "error-indicator",
                 "Errors",
                 lambda _, profile: (
-                    profile.phase_infos[self.progress_tracker.active_phase].errors,
-                    profile.phase_infos[self.progress_tracker.active_phase].processed,
+                    profile.phase_infos[CreditPhase.PROFILING].errors,
+                    profile.phase_infos[CreditPhase.PROFILING].processed,
                     (
-                        profile.phase_infos[self.progress_tracker.active_phase].errors
-                        / profile.phase_infos[
-                            self.progress_tracker.active_phase
-                        ].processed
+                        profile.phase_infos[CreditPhase.PROFILING].errors
+                        / profile.phase_infos[CreditPhase.PROFILING].processed
                     )
                     * 100
-                    if profile.phase_infos[self.progress_tracker.active_phase].processed
-                    > 0
+                    if profile.phase_infos[CreditPhase.PROFILING].processed > 0
                     else 0.0,
                 ),
                 lambda data: DashboardFormatter.format_error_stats(
@@ -219,11 +206,11 @@ class ProgressDashboard(Container):
             # Update progress bar
             if (
                 self.progress_tracker.current_profile_run.phase_infos[
-                    self.progress_tracker.active_phase
+                    CreditPhase.PROFILING
                 ].total_records
                 is not None
                 and self.progress_tracker.current_profile_run.phase_infos[
-                    self.progress_tracker.active_phase
+                    CreditPhase.PROFILING
                 ].total_records
                 > 0
             ):
@@ -231,10 +218,10 @@ class ProgressDashboard(Container):
                     100,
                     (
                         self.progress_tracker.current_profile_run.phase_infos[
-                            self.progress_tracker.active_phase
+                            CreditPhase.PROFILING
                         ].processed
                         / self.progress_tracker.current_profile_run.phase_infos[
-                            self.progress_tracker.active_phase
+                            CreditPhase.PROFILING
                         ].total_records
                     )
                     * 100,
@@ -245,8 +232,8 @@ class ProgressDashboard(Container):
                 # Update progress label
                 progress_label = self.query_one("#progress-label", Label)
                 progress_text = (
-                    f"Processing: {self.progress_tracker.current_profile_run.phase_infos[self.progress_tracker.active_phase].processed:,} "
-                    f"/ {self.progress_tracker.current_profile_run.phase_infos[self.progress_tracker.active_phase].total_expected_requests:,} requests"
+                    f"Processing: {self.progress_tracker.current_profile_run.phase_infos[CreditPhase.PROFILING].processed:,} "
+                    f"/ {self.progress_tracker.current_profile_run.phase_infos[CreditPhase.PROFILING].total_expected_requests:,} requests"
                 )
                 progress_label.update(progress_text)
 

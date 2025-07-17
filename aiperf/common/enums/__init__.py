@@ -6,80 +6,100 @@
 #########################################################
 # mkinit flags
 __ignore__ = ["logger"]
+__submodules__ = [
+    "_base",
+    "_benchmark",
+    "_command",
+    "_communication",
+    "_data_exporter",
+    "_dataset",
+    "_endpoints",
+    "_logging",
+    "_measurement",
+    "_message",
+    "_metric",
+    "_model",
+    "_post_processor",
+    "_service",
+    "_sse",
+    "_system",
+    "_timing",
+    "_ui",
+]
 #########################################################
 
-from aiperf.common.enums.base import (
+from aiperf.common.enums._base import (
     CaseInsensitiveStrEnum,
 )
-from aiperf.common.enums.benchmark import (
+from aiperf.common.enums._benchmark import (
     BenchmarkSuiteCompletionTrigger,
     BenchmarkSuiteType,
     ProfileCompletionTrigger,
 )
-from aiperf.common.enums.command import (
+from aiperf.common.enums._command import (
     CommandResponseStatus,
     CommandType,
 )
-from aiperf.common.enums.communication import (
+from aiperf.common.enums._communication import (
     CommunicationBackend,
     CommunicationClientAddressType,
     CommunicationClientType,
     ZMQProxyType,
 )
-from aiperf.common.enums.data_exporter import (
+from aiperf.common.enums._data_exporter import (
     DataExporterType,
 )
-from aiperf.common.enums.dataset import (
+from aiperf.common.enums._dataset import (
     AudioFormat,
     ComposerType,
     CustomDatasetType,
     ImageFormat,
     PromptSource,
 )
-from aiperf.common.enums.endpoints import (
+from aiperf.common.enums._endpoints import (
     EndpointType,
     ResponsePayloadType,
 )
-from aiperf.common.enums.logging import (
+from aiperf.common.enums._logging import (
     AIPerfLogLevel,
 )
-from aiperf.common.enums.measurement import (
+from aiperf.common.enums._measurement import (
     MeasurementMode,
 )
-from aiperf.common.enums.message import (
+from aiperf.common.enums._message import (
     MessageType,
     NotificationType,
 )
-from aiperf.common.enums.metric import (
+from aiperf.common.enums._metric import (
     MetricTimeType,
     MetricType,
 )
-from aiperf.common.enums.model import (
+from aiperf.common.enums._model import (
     Modality,
     ModelSelectionStrategy,
 )
-from aiperf.common.enums.post_processor import (
+from aiperf.common.enums._post_processor import (
     PostProcessorType,
 )
-from aiperf.common.enums.service import (
+from aiperf.common.enums._service import (
     ServiceRegistrationStatus,
     ServiceRunType,
     ServiceState,
     ServiceType,
 )
-from aiperf.common.enums.sse import (
+from aiperf.common.enums._sse import (
     SSEEventType,
     SSEFieldType,
 )
-from aiperf.common.enums.system import (
+from aiperf.common.enums._system import (
     SystemState,
 )
-from aiperf.common.enums.timing import (
+from aiperf.common.enums._timing import (
     CreditPhase,
     RequestRateMode,
     TimingMode,
 )
-from aiperf.common.enums.ui import (
+from aiperf.common.enums._ui import (
     AIPerfUIType,
 )
 

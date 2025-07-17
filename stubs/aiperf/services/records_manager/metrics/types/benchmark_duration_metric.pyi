@@ -1,0 +1,29 @@
+#  SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+#  SPDX-License-Identifier: Apache-2.0
+from _typeshed import Incomplete
+
+from aiperf.common.enums import MetricTimeType as MetricTimeType
+from aiperf.common.enums import MetricType as MetricType
+from aiperf.common.record_models import ParsedResponseRecord as ParsedResponseRecord
+from aiperf.services.records_manager.metrics.base_metric import BaseMetric as BaseMetric
+from aiperf.services.records_manager.metrics.types.max_response_metric import (
+    MaxResponseMetric as MaxResponseMetric,
+)
+from aiperf.services.records_manager.metrics.types.min_request_metric import (
+    MinRequestMetric as MinRequestMetric,
+)
+
+class BenchmarkDurationMetric(BaseMetric):
+    tag: str
+    unit: Incomplete
+    larger_is_better: bool
+    header: str
+    type: Incomplete
+    metric: float
+    def __init__(self) -> None: ...
+    def update_value(
+        self,
+        record: ParsedResponseRecord | None = None,
+        metrics: dict[BaseMetric] | None = None,
+    ) -> None: ...
+    def values(self) -> float: ...

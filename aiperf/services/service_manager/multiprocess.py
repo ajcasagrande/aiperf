@@ -18,13 +18,13 @@ from aiperf.common.constants import (
     TASK_CANCEL_TIMEOUT_SHORT,
 )
 from aiperf.common.enums import ServiceType
-from aiperf.common.enums.message import MessageType
-from aiperf.common.enums.service import ServiceState
+from aiperf.common.enums._message import MessageType
+from aiperf.common.enums._service import ServiceState
 from aiperf.common.exceptions import ServiceTimeoutError
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.messages import BaseServiceMessage
-from aiperf.common.messages.error import BaseServiceErrorMessage
-from aiperf.common.messages.service import (
+from aiperf.common.messages._error import BaseServiceErrorMessage
+from aiperf.common.messages._service import (
     HeartbeatMessage,
     RegistrationMessage,
     StatusMessage,

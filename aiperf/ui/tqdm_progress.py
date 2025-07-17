@@ -4,7 +4,7 @@
 from tqdm import tqdm
 
 from aiperf.common.enums import CreditPhase, MessageType
-from aiperf.common.enums.ui import AIPerfUIType
+from aiperf.common.enums._ui import AIPerfUIType
 from aiperf.common.messages import (
     CreditPhaseCompleteMessage,
     CreditPhaseProgressMessage,

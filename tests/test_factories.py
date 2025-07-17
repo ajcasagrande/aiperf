@@ -29,7 +29,7 @@ from aiperf.common.comms.zmq.push_client import ZMQPushClient
 from aiperf.common.comms.zmq.router_reply_client import ZMQRouterReplyClient
 from aiperf.common.comms.zmq.sub_client import ZMQSubClient
 from aiperf.common.enums import CommunicationClientType, DataExporterType, EndpointType
-from aiperf.common.enums.post_processor import PostProcessorType
+from aiperf.common.enums._post_processor import PostProcessorType
 from aiperf.common.factories import DataExporterFactory, PostProcessorFactory
 from aiperf.data_exporter.console_error_exporter import ConsoleErrorExporter
 from aiperf.data_exporter.console_exporter import ConsoleExporter

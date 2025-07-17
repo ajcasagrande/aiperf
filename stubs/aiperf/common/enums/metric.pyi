@@ -2,7 +2,7 @@
 #  SPDX-License-Identifier: Apache-2.0
 from enum import Enum
 
-from aiperf.common.enums.base import CaseInsensitiveStrEnum as CaseInsensitiveStrEnum
+from aiperf.common.enums._base import CaseInsensitiveStrEnum as CaseInsensitiveStrEnum
 
 class MetricTimeType(CaseInsensitiveStrEnum):
     NANOSECONDS = "nanoseconds"

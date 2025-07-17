@@ -29,7 +29,10 @@ from aiperf.common.messages import (
     ProfileResultsMessage,
     RecordsProcessingStatsMessage,
 )
-from aiperf.common.messages.credit import CreditPhaseStartMessage
+from aiperf.common.messages._credit import (
+    CreditPhaseCompleteMessage,
+    CreditPhaseStartMessage,
+)
 from aiperf.common.record_models import (
     ErrorDetails,
     ErrorDetailsCount,
@@ -69,6 +72,7 @@ class RecordsManager(BaseComponentService):
         self.total_expected_requests: int | None = None
         self.error_records_count: int = 0
         self.records_count: int = 0
+        self.final_request_count: int | None = None
 
         # Track per-worker statistics
         self.worker_success_counts: dict[str, int] = {}
@@ -188,6 +192,13 @@ class RecordsManager(BaseComponentService):
         if message.phase == CreditPhase.PROFILING:
             self.total_expected_requests = message.total_expected_requests
 
+    async def _on_credit_phase_complete(
+        self, message: CreditPhaseCompleteMessage
+    ) -> None:
+        """Handle a credit phase complete message."""
+        if message.phase == CreditPhase.PROFILING:
+            self.final_request_count = message.completed
+
     async def _on_parsed_inference_results(
         self, message: ParsedInferenceResultsMessage
     ) -> None:
@@ -223,6 +234,16 @@ class RecordsManager(BaseComponentService):
             self.error_records.append(message.record)
             self.worker_error_counts[worker_id] += 1
             self.error_records_count += 1
+
+        if (
+            self.final_request_count is not None
+            and self.records_count >= self.final_request_count
+        ):
+            self.info(
+                lambda: f"Processed {self.records_count} requests and {self.error_records_count} errors."
+            )
+            await self.publish_processing_stats()
+            # TODO: Publish PROFILE_RESULTS_COMPLETE message
 
     async def get_error_summary(self) -> list[ErrorDetailsCount]:
         """Generate a summary of the error records."""

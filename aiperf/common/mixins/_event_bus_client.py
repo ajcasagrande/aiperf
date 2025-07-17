@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from aiperf.common.enums.communication import CommunicationClientAddressType
+from aiperf.common.enums._communication import CommunicationClientAddressType
 from aiperf.common.hooks import AIPerfHook
 from aiperf.common.mixins._comms import CommunicationsMixin
 from aiperf.common.mixins._hooks import HooksMixin, supports_hooks

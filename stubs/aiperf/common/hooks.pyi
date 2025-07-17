@@ -5,7 +5,7 @@ from collections.abc import Callable as Callable
 from _typeshed import Incomplete
 
 from aiperf.common.enums import CaseInsensitiveStrEnum as CaseInsensitiveStrEnum
-from aiperf.common.enums.message import MessageType as MessageType
+from aiperf.common.enums._message import MessageType as MessageType
 from aiperf.common.exceptions import AIPerfError as AIPerfError
 from aiperf.common.exceptions import AIPerfMultiError as AIPerfMultiError
 from aiperf.common.exceptions import UnsupportedHookError as UnsupportedHookError
