@@ -19,8 +19,8 @@ from aiperf.common.mixins import AIPerfLifecycleMixin
 from aiperf.progress.progress_tracker import ProgressTracker
 from aiperf.ui.textual.logging_ui import LogViewer
 from aiperf.ui.textual.progress_dashboard import ProgressDashboard
+from aiperf.ui.textual.rich_worker_status_container import RichWorkerStatusContainer
 from aiperf.ui.textual.widgets import Header
-from aiperf.ui.textual.worker_dashboard import WorkerDashboard
 from aiperf.ui.ui_protocol import AIPerfUIFactory
 
 logger = AIPerfLogger(__name__)
@@ -103,7 +103,7 @@ class AIPerfTextualApp(App):
         self.progress_tracker = progress_tracker
         self.dashboard: ProgressDashboard | None = None
         self.log_viewer: LogViewer | None = None
-        self.worker_dashboard: WorkerDashboard | None = None
+        self.worker_dashboard: RichWorkerStatusContainer | None = None
         self.title = "AIPerf Performance Monitor"
         self.sub_title = "Real-time AI Performance Testing Dashboard"
 
@@ -119,7 +119,7 @@ class AIPerfTextualApp(App):
                         yield self.dashboard
 
                     with TabPane("Worker Status", id="workers"):
-                        self.worker_dashboard = WorkerDashboard()
+                        self.worker_dashboard = RichWorkerStatusContainer()
                         yield self.worker_dashboard
 
             with Container(id="logs-section"):

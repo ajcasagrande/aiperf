@@ -14,6 +14,7 @@ from textual.widgets import DataTable, Label, Static
 from aiperf.common.enums import CreditPhase
 from aiperf.common.messages import WorkerHealthMessage
 from aiperf.common.models import AIPerfBaseModel, WorkerPhaseTaskStats
+from aiperf.common.models._health import IOCounters
 from aiperf.common.utils import format_bytes
 
 
@@ -106,10 +107,18 @@ class WorkerStatusTable(Widget):
         super().__init__()
         self.data_table: DataTable | None = None
         self.border_title = "Worker Status Table"
+        self._columns_setup = False
 
     def compose(self) -> ComposeResult:
         """Compose the table widget."""
         self.data_table = DataTable()
+        yield self.data_table
+
+    def _setup_columns(self) -> None:
+        """Setup table columns after mounting."""
+        if not self.data_table or self._columns_setup:
+            return
+
         self.data_table.add_columns(
             "Worker ID",
             "Status",
@@ -121,19 +130,36 @@ class WorkerStatusTable(Widget):
             "Read",
             "Write",
         )
-        yield self.data_table
+        self._columns_setup = True
+
+    def on_mount(self) -> None:
+        """Handle widget mounting."""
+        self._setup_columns()
 
     def update_workers(self, workers_data: list[WorkerStatusData]) -> None:
         """Update the table with new worker data."""
         if not self.data_table:
             return
 
+        # Ensure columns are setup
+        self._setup_columns()
+
         # Clear existing data
         self.data_table.clear()
 
         # Add worker rows
         for worker in workers_data:
-            status_style = f"status-{worker.status.value.replace('_', '-')}"
+            # Map status to Rich style strings (same as Rich implementation)
+            status_styles = {
+                WorkerStatus.HEALTHY: "bold green",
+                WorkerStatus.HIGH_LOAD: "bold yellow",
+                WorkerStatus.ERROR: "bold red",
+                WorkerStatus.IDLE: "dim",
+                WorkerStatus.STALE: "dim white",
+            }
+
+            status_style = status_styles.get(worker.status, "white")
+
             self.data_table.add_row(
                 worker.worker_id,
                 Text(
@@ -312,19 +338,17 @@ class RichWorkerStatusContainer(Container):
 
     def update_worker_health(
         self,
-        worker_health: dict[str, WorkerHealthMessage],
-        worker_last_seen: dict[str, float] | None = None,
+        message: WorkerHealthMessage,
     ) -> None:
         """Update the container with new worker health data."""
-        self.worker_health = worker_health
-        if worker_last_seen:
-            self.worker_last_seen = worker_last_seen
+        self.worker_health[message.service_id] = message
+        self.worker_last_seen[message.service_id] = time.time()
 
-        # Update last seen time for current workers
-        current_time = time.time()
-        for worker_id in worker_health:
-            if worker_id not in self.worker_last_seen:
-                self.worker_last_seen[worker_id] = current_time
+        # # Update last seen time for current workers
+        # current_time = time.time()
+        # for worker_id in self.worker_health:
+        #     if worker_id not in self.worker_last_seen:
+        #         self.worker_last_seen[worker_id] = current_time
 
         self._refresh_display()
 
@@ -438,11 +462,21 @@ class RichWorkerStatusContainer(Container):
 
             if health.process.io_counters:
                 try:
-                    if hasattr(health.process.io_counters, "read_chars"):
+                    # Check if it's an IOCounters named tuple with the expected attributes
+                    if isinstance(health.process.io_counters, IOCounters):
                         io_read_display = format_bytes(
                             health.process.io_counters.read_chars
                         )
-                    if hasattr(health.process.io_counters, "write_chars"):
+                        io_write_display = format_bytes(
+                            health.process.io_counters.write_chars
+                        )
+                    elif hasattr(health.process.io_counters, "read_chars") and hasattr(
+                        health.process.io_counters, "write_chars"
+                    ):
+                        # Fallback for other named tuple-like objects
+                        io_read_display = format_bytes(
+                            health.process.io_counters.read_chars
+                        )
                         io_write_display = format_bytes(
                             health.process.io_counters.write_chars
                         )
