@@ -3,7 +3,7 @@
 
 from aiperf.common.comms.base import BaseCommunication, CommunicationFactory
 from aiperf.common.hooks import AIPerfHook
-from aiperf.common.mixins.hooks import HooksMixin, supports_hooks
+from aiperf.common.mixins._hooks import HooksMixin, supports_hooks
 
 
 @supports_hooks(AIPerfHook.ON_MESSAGE)

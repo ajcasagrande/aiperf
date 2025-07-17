@@ -83,6 +83,7 @@ class OpenAIClientAioHttp(AioHttpClientMixin, AIPerfLoggerMixin):
                 json.dumps(payload),
                 self.get_headers(model_endpoint),
             )
+            record.model_name = model_endpoint.primary_model_name
             record.request = payload
 
         except Exception as e:

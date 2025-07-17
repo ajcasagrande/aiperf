@@ -29,6 +29,7 @@ from aiperf.common.messages import (
     ProfileResultsMessage,
     RecordsProcessingStatsMessage,
 )
+from aiperf.common.messages.credit import CreditPhaseStartMessage
 from aiperf.common.record_models import (
     ErrorDetails,
     ErrorDetailsCount,
@@ -65,8 +66,10 @@ class RecordsManager(BaseComponentService):
         self.records: deque[ParsedResponseRecord] = deque()
         self.error_records: deque[ParsedResponseRecord] = deque()
 
+        self.total_expected_requests: int | None = None
         self.error_records_count: int = 0
         self.records_count: int = 0
+
         # Track per-worker statistics
         self.worker_success_counts: dict[str, int] = {}
         self.worker_error_counts: dict[str, int] = {}
@@ -96,8 +99,6 @@ class RecordsManager(BaseComponentService):
             )
         )
 
-        self.active_credit_phase: CreditPhase | None = None
-
     @property
     def service_type(self) -> ServiceType:
         """The type of service."""
@@ -121,6 +122,10 @@ class RecordsManager(BaseComponentService):
             message_type=MessageType.PARSED_INFERENCE_RESULTS,
             callback=self._on_parsed_inference_results,
             max_concurrency=100_000,
+        )
+        self.sub_client.subscribe(
+            MessageType.CREDIT_PHASE_START,
+            self._on_credit_phase_start,
         )
 
     @on_start
@@ -159,16 +164,13 @@ class RecordsManager(BaseComponentService):
 
     async def publish_processing_stats(self) -> None:
         """Publish the profile stats."""
-        if self.active_credit_phase is None:
-            return
-
         await self.pub_client.publish(
             RecordsProcessingStatsMessage(
                 service_id=self.service_id,
-                phase=self.active_credit_phase,
                 processing_stats=PhaseProcessingStats(
                     processed=self.records_count,
                     errors=self.error_records_count,
+                    total_expected_requests=self.total_expected_requests,
                 ),
                 worker_stats={
                     worker_id: PhaseProcessingStats(
@@ -181,16 +183,22 @@ class RecordsManager(BaseComponentService):
             ),
         )
 
+    async def _on_credit_phase_start(self, message: CreditPhaseStartMessage) -> None:
+        """Handle a credit phase start message."""
+        if message.phase == CreditPhase.PROFILING:
+            self.total_expected_requests = message.total_expected_requests
+
     async def _on_parsed_inference_results(
         self, message: ParsedInferenceResultsMessage
     ) -> None:
         """Handle a parsed inference results message."""
 
-        self.active_credit_phase = message.record.request.credit_phase
-        if self.active_credit_phase != CreditPhase.PROFILING:
-            return
-
         self.trace(lambda: f"Received parsed inference results: {message}")
+        if message.record.request.credit_phase != CreditPhase.PROFILING:
+            self.debug(
+                lambda: f"Skipping non-profiling record: {message.record.request.credit_phase}"
+            )
+            return
 
         worker_id = message.record.worker_id
         if worker_id not in self.worker_success_counts:

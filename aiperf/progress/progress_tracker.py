@@ -44,29 +44,35 @@ class ProgressTracker(AIPerfLoggerMixin):
         return self.suite.current_profile_run
 
     @property
-    def active_credit_phase(self) -> CreditPhase | None:
+    def active_phase(self) -> CreditPhase | None:
         if self.current_profile_run is None:
             return None
         return self.current_profile_run.active_phase
 
-    @active_credit_phase.setter
-    def active_credit_phase(self, value: CreditPhase):
+    @active_phase.setter
+    def active_phase(self, value: CreditPhase):
         if self.current_profile_run is None:
             return
         self.current_profile_run.active_phase = value
 
     @property
-    def phases(self) -> dict[CreditPhase, FullCreditPhaseProgressInfo]:
-        if self.current_profile_run is None or self.current_profile_run.phases is None:
+    def phase_infos(self) -> dict[CreditPhase, FullCreditPhaseProgressInfo]:
+        if (
+            self.current_profile_run is None
+            or self.current_profile_run.phase_infos is None
+        ):
             raise ValueError("Profile run is not started")
-        return self.current_profile_run.phases
+        return self.current_profile_run.phase_infos
 
     def get_phase_progress_info(
         self, phase: CreditPhase
     ) -> FullCreditPhaseProgressInfo | None:
-        if self.current_profile_run is None or self.current_profile_run.phases is None:
+        if (
+            self.current_profile_run is None
+            or self.current_profile_run.phase_infos is None
+        ):
             return None
-        return self.current_profile_run.phases.get(phase)
+        return self.current_profile_run.phase_infos.get(phase)
 
     def get_phase_progress_info_or_warn(
         self, phase: CreditPhase
@@ -111,7 +117,7 @@ class ProgressTracker(AIPerfLoggerMixin):
             total_expected_requests=message.total_expected_requests,
             expected_duration_sec=message.expected_duration_sec,
         )
-        self.phases[message.phase] = phase_info
+        self.phase_infos[message.phase] = phase_info
         self.update_requests_stats(phase_info, message.start_ns)
 
     def on_credit_phase_progress(self, message: CreditPhaseProgressMessage):
@@ -148,7 +154,7 @@ class ProgressTracker(AIPerfLoggerMixin):
 
     def on_phase_processing_stats(self, message: RecordsProcessingStatsMessage):
         """Update the progress from a phase processing stats message."""
-        phase_info = self.get_phase_progress_info_or_warn(message.phase)
+        phase_info = self.get_phase_progress_info_or_warn(CreditPhase.PROFILING)
         if phase_info is None:
             return
 
@@ -183,7 +189,7 @@ class ProgressTracker(AIPerfLoggerMixin):
         phase_info.requests_update_ns = request_ns or time.time_ns()
 
         self.debug(
-            lambda: f"Updating requests stats for phase {phase_info.type} {request_ns} {phase_info.start_ns} {time.time_ns()}"
+            lambda: f"Updating requests stats for {phase_info.type=}: {phase_info.sent=}, {phase_info.completed=}, {phase_info.total_expected_requests=}"
         )
 
         if (

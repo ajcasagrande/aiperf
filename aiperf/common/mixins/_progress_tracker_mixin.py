@@ -1,7 +1,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from aiperf.common.mixins import AIPerfLoggerMixin, AIPerfMessageHandlerMixin
+from aiperf.common.mixins._aiperf_logger import AIPerfLoggerMixin
+from aiperf.common.mixins._aiperf_message_handler import AIPerfMessageHandlerMixin
 
 # from aiperf.progress.progress_tracker import ProgressTracker
 

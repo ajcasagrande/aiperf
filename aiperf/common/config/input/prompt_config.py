@@ -48,6 +48,7 @@ class InputTokensConfig(BaseConfig):
             name=(
                 "--prompt-input-tokens-stddev",
                 "--synthetic-input-tokens-stddev",  # GenAI-Perf
+                "--isl-stddev",
             ),
             group=_GROUP_NAME,
         ),
@@ -64,6 +65,7 @@ class InputTokensConfig(BaseConfig):
             name=(
                 "--prompt-input-tokens-block-size",
                 "--synthetic-input-tokens-block-size",  # GenAI-Perf
+                "--isl-block-size",
             ),
             group=_GROUP_NAME,
         ),
@@ -106,6 +108,7 @@ class OutputTokensConfig(BaseConfig):
             name=(
                 "--prompt-output-tokens-deterministic",
                 "--output-tokens-mean-deterministic",  # GenAI-Perf
+                "--osl-deterministic",
             ),
             group=_GROUP_NAME,
         ),
@@ -121,6 +124,7 @@ class OutputTokensConfig(BaseConfig):
             name=(
                 "--prompt-output-tokens-stddev",
                 "--output-tokens-stddev",  # GenAI-Perf
+                "--osl-stddev",
             ),
             group=_GROUP_NAME,
         ),

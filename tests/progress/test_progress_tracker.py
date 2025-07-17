@@ -34,7 +34,7 @@ class TestProgressTracker:
 
         assert tracker.suite is None
         assert tracker.current_profile_run is None
-        assert tracker.active_credit_phase is None
+        assert tracker.active_phase is None
         assert tracker.logger is not None
 
     def test_configure_with_suite_and_profile_run(self):
@@ -42,6 +42,7 @@ class TestProgressTracker:
         tracker = ProgressTracker()
         profile_run = ProfileRunProgress(profile_id="test-profile")
         suite = BenchmarkSuiteProgress(
+            type=BenchmarkSuiteType.SINGLE_PROFILE,
             profile_runs=[profile_run],
             current_profile_run=profile_run,
         )
@@ -57,7 +58,7 @@ class TestProgressTracker:
         tracker = ProgressTracker()
 
         # Initially None
-        assert tracker.active_credit_phase is None
+        assert tracker.active_phase is None
 
         # Configure with profile run
         profile_run = ProfileRunProgress(
@@ -71,7 +72,7 @@ class TestProgressTracker:
         )
         tracker.configure(suite, profile_run)
 
-        assert tracker.active_credit_phase == CreditPhase.PROFILING
+        assert tracker.active_phase == CreditPhase.PROFILING
 
     def test_on_credit_phase_start(self, credit_phase_start_message):
         """Test handling credit phase start message."""
@@ -87,8 +88,8 @@ class TestProgressTracker:
         tracker.on_credit_phase_start(credit_phase_start_message)
 
         assert tracker.current_profile_run.active_phase == CreditPhase.PROFILING
-        assert CreditPhase.PROFILING in tracker.current_profile_run.phases
-        assert tracker.current_profile_run.phases[CreditPhase.PROFILING].is_started
+        assert CreditPhase.PROFILING in tracker.current_profile_run.phase_infos
+        assert tracker.current_profile_run.phase_infos[CreditPhase.PROFILING].is_started
 
     def test_on_credit_phase_progress(self, credit_phase_progress_message):
         """Test handling credit phase progress message."""
@@ -103,8 +104,8 @@ class TestProgressTracker:
 
         tracker.on_credit_phase_progress(credit_phase_progress_message)
 
-        assert CreditPhase.PROFILING in tracker.current_profile_run.phases
-        phase = tracker.current_profile_run.phases[CreditPhase.PROFILING]
+        assert CreditPhase.PROFILING in tracker.current_profile_run.phase_infos
+        phase = tracker.current_profile_run.phase_infos[CreditPhase.PROFILING]
         assert phase.sent == 50
         assert phase.completed == 25
 
@@ -121,8 +122,8 @@ class TestProgressTracker:
 
         tracker.on_credit_phase_complete(credit_phase_complete_message)
 
-        assert CreditPhase.PROFILING in tracker.current_profile_run.phases
-        phase = tracker.current_profile_run.phases[CreditPhase.PROFILING]
+        assert CreditPhase.PROFILING in tracker.current_profile_run.phase_infos
+        phase = tracker.current_profile_run.phase_infos[CreditPhase.PROFILING]
         assert phase.is_complete
 
     def test_on_phase_processing_stats(self, records_processing_stats_message):
@@ -176,6 +177,7 @@ class TestProgressTracker:
         tracker = ProgressTracker()
         profile_run = ProfileRunProgress(profile_id="test-profile")
         suite = BenchmarkSuiteProgress(
+            type=BenchmarkSuiteType.SINGLE_PROFILE,
             profile_runs=[profile_run],
             current_profile_run=profile_run,
         )
@@ -220,7 +222,7 @@ class TestProgressTracker:
             sent=100,
             completed=50,
         )
-        tracker.current_profile_run.phases[CreditPhase.PROFILING] = phase_stats
+        tracker.current_profile_run.phase_infos[CreditPhase.PROFILING] = phase_stats
 
         # Create processing stats
         processing_stats = PhaseProcessingStats(processed=30, errors=5)
@@ -254,7 +256,7 @@ class TestProgressTracker:
             sent=50,
             completed=25,
         )
-        profile_run.phases[CreditPhase.PROFILING] = phase_stats
+        profile_run.phase_infos[CreditPhase.PROFILING] = phase_stats
 
         assert profile_run.is_started
         assert not profile_run.is_complete

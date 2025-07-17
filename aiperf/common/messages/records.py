@@ -7,7 +7,7 @@ from typing import Literal
 from pydantic import Field
 
 from aiperf.common.credit_models import PhaseProcessingStats
-from aiperf.common.enums import CreditPhase, MessageType
+from aiperf.common.enums import MessageType
 from aiperf.common.messages.base import BaseServiceMessage
 
 
@@ -17,7 +17,6 @@ class RecordsProcessingStatsMessage(BaseServiceMessage):
 
     message_type: Literal[MessageType.PROCESSING_STATS] = MessageType.PROCESSING_STATS
 
-    phase: CreditPhase = Field(..., description="The credit phase")
     processing_stats: PhaseProcessingStats = Field(
         ..., description="The stats for the credit phase"
     )

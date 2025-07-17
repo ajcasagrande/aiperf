@@ -3,7 +3,8 @@
 
 from aiperf.common.enums.communication import CommunicationClientAddressType
 from aiperf.common.hooks import AIPerfHook
-from aiperf.common.mixins import CommunicationsMixin, HooksMixin, supports_hooks
+from aiperf.common.mixins._comms import CommunicationsMixin
+from aiperf.common.mixins._hooks import HooksMixin, supports_hooks
 
 
 @supports_hooks(AIPerfHook.ON_MESSAGE)

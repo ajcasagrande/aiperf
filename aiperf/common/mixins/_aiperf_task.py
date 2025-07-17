@@ -10,8 +10,8 @@ from aiperf.common.hooks import (
     on_init,
     on_stop,
 )
-from aiperf.common.mixins.async_task_manager import AsyncTaskManagerMixin
-from aiperf.common.mixins.hooks import HooksMixin, supports_hooks
+from aiperf.common.mixins._async_task_manager import AsyncTaskManagerMixin
+from aiperf.common.mixins._hooks import HooksMixin, supports_hooks
 
 
 @supports_hooks(

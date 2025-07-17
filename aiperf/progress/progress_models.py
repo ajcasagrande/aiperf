@@ -86,10 +86,12 @@ class ProfileRunProgress(AIPerfBaseModel):
     # TODO: implement the profile_id
     profile_id: str | None = Field(default=None, description="The ID of the profile")
     start_ns: int | None = Field(
-        default=None, description="The start time of the profile run in nanoseconds"
+        default=None,
+        description="The start time of the profile run in nanoseconds. If None, the profile run has not started yet.",
     )
     end_ns: int | None = Field(
-        default=None, description="The end time of the profile run in nanoseconds"
+        default=None,
+        description="The end time of the profile run in nanoseconds. If None, the profile run has not ended yet.",
     )
     last_update_ns: int | None = Field(
         default=None,
@@ -98,7 +100,7 @@ class ProfileRunProgress(AIPerfBaseModel):
     active_phase: CreditPhase | None = Field(
         default=None, description="The active credit phase"
     )
-    phases: dict[CreditPhase, FullCreditPhaseProgressInfo] = Field(
+    phase_infos: dict[CreditPhase, FullCreditPhaseProgressInfo] = Field(
         default_factory=dict,
         description="The full credit stats for each credit phase as reported by the TimingManager and RecordsManager.",
     )
@@ -113,55 +115,57 @@ class ProfileRunProgress(AIPerfBaseModel):
     @property
     def is_started(self) -> bool:
         """Check if the profile run is started."""
-        return any(phase.is_started for phase in self.phases.values())
+        return any(phase.is_started for phase in self.phase_infos.values())
 
     @property
     def is_complete(self) -> bool:
         """Check if the profile run is complete."""
-        if not self.phases:
+        if not self.phase_infos:
             return False
-        return all(phase.is_complete for phase in self.phases.values())
+        return all(phase.is_complete for phase in self.phase_infos.values())
 
-    @property
-    def total_expected_requests(self) -> int | None:
-        """Get the total number of requests."""
-        if not self.phases:
-            return None
-        return sum(
-            phase.total_expected_requests
-            for phase in self.phases.values()
-            if phase.total_expected_requests is not None
-        )
+    # @property
+    # def total_expected_requests(self) -> int | None:
+    #     """Get the total number of requests."""
+    #     if not self.phase_infos:
+    #         return None
+    #     return sum(
+    #         phase.total_expected_requests
+    #         for phase in self.phase_infos.values()
+    #         if phase.total_expected_requests is not None
+    #     )
 
     @property
     def requests_completed(self) -> int | None:
         """Get the number of requests completed."""
-        if not self.phases:
+        if not self.phase_infos:
             return None
         return sum(
             phase.completed
-            for phase in self.phases.values()
+            for phase in self.phase_infos.values()
             if phase.completed is not None
         )
 
     @property
     def requests_processed(self) -> int | None:
         """Get the number of requests processed."""
-        if not self.phases:
+        if not self.phase_infos:
             return None
         return sum(
             phase.processed
-            for phase in self.phases.values()
+            for phase in self.phase_infos.values()
             if phase.processed is not None
         )
 
     @property
     def request_errors(self) -> int | None:
         """Get the number of requests with errors."""
-        if not self.phases:
+        if not self.phase_infos:
             return None
         return sum(
-            phase.errors for phase in self.phases.values() if phase.errors is not None
+            phase.errors
+            for phase in self.phase_infos.values()
+            if phase.errors is not None
         )
 
     @property
@@ -169,36 +173,36 @@ class ProfileRunProgress(AIPerfBaseModel):
         """Get the requests per second."""
         if not self.active_phase:
             return None
-        if not self.phases:
+        if not self.phase_infos:
             return None
-        return self.phases[self.active_phase].requests_per_second
+        return self.phase_infos[self.active_phase].requests_per_second
 
     @property
     def requests_eta(self) -> float | None:
         """Get the requests eta."""
         if not self.active_phase:
             return None
-        if not self.phases:
+        if not self.phase_infos:
             return None
-        return self.phases[self.active_phase].requests_eta
+        return self.phase_infos[self.active_phase].requests_eta
 
     @property
     def processed_per_second(self) -> float | None:
         """Get the processed per second."""
         if not self.active_phase:
             return None
-        if not self.phases:
+        if not self.phase_infos:
             return None
-        return self.phases[self.active_phase].records_per_second
+        return self.phase_infos[self.active_phase].records_per_second
 
     @property
     def processing_eta(self) -> float | None:
         """Get the processed eta."""
         if not self.active_phase:
             return None
-        if not self.phases:
+        if not self.phase_infos:
             return None
-        return self.phases[self.active_phase].records_eta
+        return self.phase_infos[self.active_phase].records_eta
 
     @property
     def elapsed_time(self) -> float | None:

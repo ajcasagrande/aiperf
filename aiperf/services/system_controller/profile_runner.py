@@ -91,7 +91,7 @@ class ProfileRunner:
             return
 
         # Check if active_credit_phase is None (profile hasn't started yet)
-        if self.tracker.active_credit_phase is None:
+        if self.tracker.active_phase is None:
             self.logger.warning(
                 "Profile cancellation requested but no active credit phase found"
             )
@@ -100,12 +100,12 @@ class ProfileRunner:
 
         # Check if the active phase exists in the phases dict
         if (
-            self.tracker.active_credit_phase
-            not in self.tracker.current_profile_run.phases
+            self.tracker.active_phase
+            not in self.tracker.current_profile_run.phase_infos
         ):
             self.logger.warning(
                 "Active credit phase %s not found in phases dict",
-                self.tracker.active_credit_phase,
+                self.tracker.active_phase,
             )
             self.controller.stop_event.set()
             return

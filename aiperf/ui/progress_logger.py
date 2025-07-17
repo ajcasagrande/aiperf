@@ -58,7 +58,7 @@ class SimpleProgressLogger(AIPerfLifecycleMixin):
         if current_profile_run is None:
             return
 
-        for phase, phase_stats in current_profile_run.phases.items():
+        for phase, phase_stats in current_profile_run.phase_infos.items():
             total_requests = phase_stats.total_expected_requests or 0
             completed_requests = phase_stats.completed
             requests_delta = self.tracker.update_requests(phase, completed_requests)
@@ -81,7 +81,7 @@ class SimpleProgressLogger(AIPerfLifecycleMixin):
         if current_profile_run is None:
             return
 
-        for phase, phase_stats in current_profile_run.phases.items():
+        for phase, phase_stats in current_profile_run.phase_infos.items():
             processed_records = phase_stats.processed
             total_records = phase_stats.total_expected_requests or 0
             records_delta = self.tracker.update_records(phase, processed_records)

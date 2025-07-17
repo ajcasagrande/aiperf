@@ -120,7 +120,7 @@ class Worker(BaseComponentService, ProcessHealthMixin):
         self.debug("Initializing worker")
 
         await self.credit_drop_pull_client.register_pull_callback(
-            MessageType.CREDIT_DROP, self._process_credit_drop
+            MessageType.CREDIT_DROP, self._on_credit_drop
         )
 
         self.debug("Worker initialized")
@@ -131,14 +131,33 @@ class Worker(BaseComponentService, ProcessHealthMixin):
         #       but that may change based on how we implement sweeps.
         pass
 
-    async def _process_credit_drop(self, message: CreditDropMessage) -> None:
-        """Process a credit drop message.
+    async def _on_credit_drop(self, message: CreditDropMessage) -> None:
+        """Handle an incoming credit drop message. Every credit must be returned after processing."""
+
+        try:
+            credit_return_message = await self._process_credit_drop(message)
+        except Exception as e:
+            self.exception(f"Error processing credit drop: {e}")
+            credit_return_message = CreditReturnMessage(
+                service_id=self.service_id,
+                phase=message.phase,
+            )
+        finally:
+            self.execute_async(
+                self.credit_return_push_client.push(credit_return_message)
+            )
+
+    async def _process_credit_drop(
+        self, message: CreditDropMessage
+    ) -> CreditReturnMessage:
+        """Process a credit drop message. Return the CreditReturnMessage.
 
         - Every credit must be returned after processing
         - All results or errors should be converted to a RequestRecord and pushed to the inference results client.
 
         NOTE: This function MUST NOT return until the credit drop is fully processed.
         This is to ensure that the max concurrency is respected via the semaphore of the pull client.
+        The way this is enforced is by requiring that this method returns a CreditReturnMessage.
         """
         # TODO: Add tests to ensure that the above note is never violated in the future
 
@@ -172,7 +191,7 @@ class Worker(BaseComponentService, ProcessHealthMixin):
                 self.task_stats[message.phase].completed += 1
 
             try:
-                await self.inference_results_push_client.push(message=msg)
+                await self.inference_results_push_client.push(msg)
             except Exception as e:
                 # If we fail to push the record, log the error and continue
                 self.exception(f"Error pushing request record: {e}")
@@ -187,7 +206,7 @@ class Worker(BaseComponentService, ProcessHealthMixin):
                     phase=message.phase,
                 )
                 self.trace(lambda: f"Returning credit {return_message}")
-                await self.credit_return_push_client.push(message=return_message)
+                return return_message  # noqa: B012
 
     async def _execute_single_credit(
         self, message: CreditDropMessage, timestamp_ns: int
@@ -211,15 +230,22 @@ class Worker(BaseComponentService, ProcessHealthMixin):
 
         if isinstance(conversation_response, ErrorMessage):
             return RequestRecord(
+                model_name=self.model_endpoint.primary_model_name,
+                conversation_id=message.conversation_id,
+                turn_index=0,
                 timestamp_ns=timestamp_ns,
                 start_perf_ns=time.perf_counter_ns(),
                 end_perf_ns=time.perf_counter_ns(),
                 error=conversation_response.error,
             )
 
-        return await self._call_inference_api(
+        record = await self._call_inference_api(
             message, conversation_response.conversation.turns[0], timestamp_ns
         )
+        record.model_name = self.model_endpoint.primary_model_name
+        record.conversation_id = conversation_response.conversation.session_id
+        record.turn_index = 0
+        return record
 
     async def _call_inference_api(
         self, message: CreditDropMessage, turn: Turn, timestamp_ns: int

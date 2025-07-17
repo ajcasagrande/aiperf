@@ -480,7 +480,7 @@ class RichProfileProgressContainer(Container):
 
         # Get active phase
         active_phase = (
-            self.progress_tracker.active_credit_phase if self.progress_tracker else None
+            self.progress_tracker.active_phase if self.progress_tracker else None
         )
 
         # Initialize progress data
@@ -491,8 +491,8 @@ class RichProfileProgressContainer(Container):
         )
 
         # Process phase-specific stats
-        if active_phase and active_phase in profile_run.phases:
-            phase_stats = profile_run.phases[active_phase]
+        if active_phase and active_phase in profile_run.phase_infos:
+            phase_stats = profile_run.phase_infos[active_phase]
 
             # Request statistics
             progress_data.requests_completed = phase_stats.completed
@@ -548,8 +548,8 @@ class RichProfileProgressContainer(Container):
                 )
 
         # Phase timing
-        if active_phase and active_phase in profile_run.phases:
-            phase_stats = profile_run.phases[active_phase]
+        if active_phase and active_phase in profile_run.phase_infos:
+            phase_stats = profile_run.phase_infos[active_phase]
             if phase_stats.start_ns:
                 elapsed_ns = time.time_ns() - phase_stats.start_ns
                 elapsed_sec = elapsed_ns / 1_000_000_000
@@ -564,8 +564,8 @@ class RichProfileProgressContainer(Container):
         phases_data = []
 
         for phase in CreditPhase:
-            if phase in profile_run.phases:
-                phase_stats = profile_run.phases[phase]
+            if phase in profile_run.phase_infos:
+                phase_stats = profile_run.phase_infos[phase]
 
                 # Status
                 if phase_stats.is_complete:

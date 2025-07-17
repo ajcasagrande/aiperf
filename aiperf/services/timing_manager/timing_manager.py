@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+import asyncio
 import sys
 
 from aiperf.common.comms.base import (
@@ -155,6 +156,7 @@ class TimingManager(BaseComponentService, CreditPhaseMessagesMixin):
         if not self._credit_issuing_strategy:
             raise InvalidStateError("No credit issuing strategy configured")
 
+        await asyncio.sleep(2)
         self.execute_async(self._credit_issuing_strategy.start())
 
     @on_stop

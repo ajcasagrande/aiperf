@@ -78,7 +78,7 @@ class ProfileProgressElement(DashboardElement):
                 vertical="middle",
             )
 
-        phase = profile.phases.get(self.current_phase)
+        phase = profile.phase_infos.get(self.current_phase)
         if phase is None:
             return Align.center(
                 Text("Waiting for benchmark data...", style="dim yellow"),
@@ -92,7 +92,7 @@ class ProfileProgressElement(DashboardElement):
         ):
             self.progress_task_ids[phase.type] = [
                 self.progress_bar.add_task(
-                    f"Executing {'warmup ' if phase.type != CreditPhase.PROFILING else ''}requests...",
+                    f"Executing {phase.type.capitalize()} requests...",
                     total=phase.total_expected_requests,
                 )
             ]

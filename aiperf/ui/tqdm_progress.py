@@ -36,7 +36,7 @@ class TqdmProgressUI(AIPerfLifecycleMixin):
         if current_profile_run is None:
             return
 
-        for phase, phase_stats in current_profile_run.phases.items():
+        for phase, phase_stats in current_profile_run.phase_infos.items():
             total_requests = phase_stats.total_expected_requests or 0
             completed_requests = phase_stats.completed
 
@@ -69,7 +69,7 @@ class TqdmProgressUI(AIPerfLifecycleMixin):
         if current_profile_run is None:
             return
 
-        for phase, processing_stats in current_profile_run.phases.items():
+        for phase, processing_stats in current_profile_run.phase_infos.items():
             processed_records = processing_stats.processed
             total_records = processing_stats.total_records
 

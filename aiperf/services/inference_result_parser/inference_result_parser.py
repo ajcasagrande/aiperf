@@ -26,7 +26,11 @@ from aiperf.common.messages import (
     InferenceResultsMessage,
     ParsedInferenceResultsMessage,
 )
-from aiperf.common.record_models import ErrorDetails, ParsedResponseRecord
+from aiperf.common.record_models import (
+    ErrorDetails,
+    ParsedResponseRecord,
+    RequestRecord,
+)
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.common.tokenizer import Tokenizer
 
@@ -54,10 +58,8 @@ class InferenceResultParser(BaseComponentService):
                 CommunicationClientAddressType.RAW_INFERENCE_PROXY_BACKEND,
             )
         )
-        self.response_results_client: PushClientProtocol = (
-            self.comms.create_push_client(
-                CommunicationClientAddressType.RECORDS,
-            )
+        self.records_push_client: PushClientProtocol = self.comms.create_push_client(
+            CommunicationClientAddressType.RECORDS,
         )
         self.conversation_request_client: RequestClientProtocol = (
             self.comms.create_request_client(
@@ -85,7 +87,7 @@ class InferenceResultParser(BaseComponentService):
             message_type=MessageType.INFERENCE_RESULTS,
             callback=self._on_inference_results,
             # TODO: Support for unbounded concurrency in the future by setting to None or 0?
-            max_concurrency=1000000,
+            max_concurrency=1_000_000,
         )
 
         self.extractor = ResponseExtractorFactory.create_instance(
@@ -126,7 +128,7 @@ class InferenceResultParser(BaseComponentService):
         self.logger.debug("Received inference results message: %s", message)
 
         if message.record.has_error:
-            await self.response_results_client.push(
+            await self.records_push_client.push(
                 ParsedInferenceResultsMessage(
                     service_id=self.service_id,
                     record=ParsedResponseRecord(
@@ -138,53 +140,37 @@ class InferenceResultParser(BaseComponentService):
             )
 
         elif message.record.valid:
-            tokenizer = await self.get_tokenizer(message.record.model_name)
-            resp = await self.extractor.extract_response_data(message.record, tokenizer)
-
-            turn_response: ConversationTurnResponseMessage = (
-                await self.conversation_request_client.request(
-                    ConversationTurnRequestMessage(
+            try:
+                record = await self.process_valid_record(message)
+                self.debug(
+                    f"Received {len(record.request.responses)} responses, isl: {record.isl}, osl: {record.token_count}"
+                )
+                await self.records_push_client.push(
+                    ParsedInferenceResultsMessage(
                         service_id=self.service_id,
-                        conversation_id=message.record.conversation_id,
-                        turn_index=message.record.turn_index,
+                        record=record,
                     )
                 )
-            )
-            if isinstance(turn_response, ErrorMessage):
-                self.error(lambda: f"Error getting turn response: {turn_response}")
-                isl = None
-            else:
-                # TODO: Parse the turn to get the ISL
-                # turn = turn_response.turn
-                # isl = parse_isl(tokenizer, turn)
-                isl = None  # TODO: Implement this
-
-            result = ParsedInferenceResultsMessage(
-                service_id=self.service_id,
-                record=ParsedResponseRecord(
-                    worker_id=message.service_id,
-                    request=message.record,
-                    responses=resp,
-                    isl=isl,
-                ),
-                credit_phase=message.credit_phase,
-            )
-            self.logger.debug(
-                "Received %d responses, %d total tokens",
-                len(resp),
-                result.record.token_count,
-            )
-            await self.response_results_client.push(result)
+            except Exception as e:
+                self.exception(f"Error processing valid record: {e}")
+                await self.records_push_client.push(
+                    ParsedInferenceResultsMessage(
+                        service_id=self.service_id,
+                        record=ParsedResponseRecord(
+                            worker_id=message.service_id,
+                            request=message.record,
+                            responses=[],
+                        ),
+                    )
+                )
         else:
-            self.logger.warning(
-                "Received invalid inference results: %s", message.record
-            )
+            self.warning(f"Received invalid inference results: {message.record}")
             message.record.error = ErrorDetails(
                 code=None,
                 message="Invalid inference results",
                 type="InvalidInferenceResults",
             )
-            await self.response_results_client.push(
+            await self.records_push_client.push(
                 ParsedInferenceResultsMessage(
                     service_id=self.service_id,
                     record=ParsedResponseRecord(
@@ -194,6 +180,62 @@ class InferenceResultParser(BaseComponentService):
                     ),
                 )
             )
+
+    async def process_valid_record(
+        self, message: InferenceResultsMessage
+    ) -> ParsedResponseRecord:
+        """Process a valid request record."""
+        if message.record.model_name is None:
+            self.warning(
+                lambda: f"Model name is None, unable to process record: {message.record}"
+            )
+            return ParsedResponseRecord(
+                worker_id=message.service_id,
+                request=message.record,
+                responses=[],
+                isl=None,
+            )
+
+        tokenizer = await self.get_tokenizer(message.record.model_name)
+        resp = await self.extractor.extract_response_data(message.record, tokenizer)
+        isl = await self.compute_isl(message.record, tokenizer)
+
+        return ParsedResponseRecord(
+            worker_id=message.service_id,
+            request=message.record,
+            responses=resp,
+            isl=isl,
+        )
+
+    async def compute_isl(
+        self, record: RequestRecord, tokenizer: Tokenizer
+    ) -> int | None:
+        """Compute the ISL for a given request record."""
+        if record.conversation_id is None or record.turn_index is None:
+            self.warning(
+                lambda: f"Conversation ID or turn index is None: {record.conversation_id=} {record.turn_index=}"
+            )
+            return None
+
+        turn_response: ConversationTurnResponseMessage = (
+            await self.conversation_request_client.request(
+                ConversationTurnRequestMessage(
+                    service_id=self.service_id,
+                    conversation_id=record.conversation_id,
+                    turn_index=record.turn_index,
+                )
+            )
+        )
+        if isinstance(turn_response, ErrorMessage):
+            self.error(lambda: f"Error getting turn response: {turn_response}")
+            return None
+
+        turn = turn_response.turn
+        return sum(
+            len(tokenizer.encode(content))
+            for text in turn.text
+            for content in text.content
+        )
 
 
 def main() -> None:
