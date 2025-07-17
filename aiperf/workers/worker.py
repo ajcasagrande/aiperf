@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import asyncio
-import sys
 
 from aiperf.clients import InferenceClientFactory
 from aiperf.clients.client_interfaces import RequestConverterFactory
@@ -178,4 +177,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()
