@@ -30,6 +30,14 @@ class MessageType(CaseInsensitiveStrEnum):
     """A message sent by a component service to the system controller to respond
     to a command."""
 
+    PROCESS_RECORDS_REQUEST = "process_records_request"
+    """A message sent by the system controller to a component service to request
+    that it process records."""
+
+    PROCESS_RECORDS_RESPONSE = "process_records_response"
+    """A message sent by a component service to the system controller to respond
+    to a process records request."""
+
     STATUS = "status"
     """A notification sent by a component service to the system controller to
     report its status."""

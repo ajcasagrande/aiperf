@@ -31,6 +31,8 @@ from aiperf.common.messages._command import (
     CommandMessage,
     CommandResponseMessage,
     ProcessRecordsCommandData,
+    ProcessRecordsRequestMessage,
+    ProcessRecordsResponseMessage,
 )
 from aiperf.common.messages._credit import (
     CreditDropMessage,
@@ -99,6 +101,8 @@ __all__ = [
     "NotificationMessage",
     "ParsedInferenceResultsMessage",
     "ProcessRecordsCommandData",
+    "ProcessRecordsRequestMessage",
+    "ProcessRecordsResponseMessage",
     "ProfileResultsMessage",
     "RecordsProcessingStatsMessage",
     "RegistrationMessage",

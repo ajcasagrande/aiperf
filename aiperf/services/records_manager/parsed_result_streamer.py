@@ -4,19 +4,35 @@
 import asyncio
 from abc import abstractmethod
 
+from aiperf.common.comms import PubClientProtocol, SubClientProtocol
+from aiperf.common.config import UserConfig
 from aiperf.common.hooks import aiperf_task
-from aiperf.common.mixins import AIPerfLifecycleMixin
+from aiperf.common.mixins import AIPerfMessagePubSubMixin
 from aiperf.common.models import ParsedResponseRecord
 
 
-class ParsedResponseStreamer(AIPerfLifecycleMixin):
+class ParsedResponseStreamer(AIPerfMessagePubSubMixin):
     """
     ParsedResponseStreamer is a base class for all classes that wish to stream the incoming
     ParsedResponseRecords.
     """
 
-    def __init__(self, max_queue_size: int = 100_000, **kwargs) -> None:
-        super().__init__(**kwargs)
+    def __init__(
+        self,
+        pub_client: PubClientProtocol,
+        sub_client: SubClientProtocol,
+        service_id: str,
+        user_config: UserConfig,
+        max_queue_size: int = 100_000,
+        **kwargs,
+    ) -> None:
+        self.service_id = service_id
+        self.user_config = user_config
+        super().__init__(
+            pub_client=pub_client,
+            sub_client=sub_client,
+            **kwargs,
+        )
         self.debug(
             lambda: f"Initializing ParsedResponseStreamer: {self.__class__.__name__} with max_queue_size: {max_queue_size}"
         )

@@ -28,7 +28,7 @@ from aiperf.common.messages import (
     StatusMessage,
 )
 from aiperf.common.messages._progress import ProfileResultsMessage
-from aiperf.common.mixins import AIPerfMessageHandlerMixin
+from aiperf.common.mixins import EventBusClientMixin
 from aiperf.common.models import AIPerfBaseModel
 from aiperf.common.service.base_controller_service import BaseControllerService
 from aiperf.data_exporter.exporter_manager import ExporterManager
@@ -50,7 +50,7 @@ class SystemController(
     BaseControllerService,
     SignalHandlerMixin,
     ProxyMixin,
-    AIPerfMessageHandlerMixin,
+    EventBusClientMixin,
     ServiceManagerMixin,
 ):
     """System Controller service.

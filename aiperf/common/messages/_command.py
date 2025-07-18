@@ -87,3 +87,34 @@ class CommandResponseMessage(BaseServiceMessage):
     error: ErrorDetails | None = Field(
         default=None, description="Error information if the command failed"
     )
+
+
+class ProcessRecordsRequestMessage(BaseServiceMessage):
+    """This message is sent by the system controller to a component service to request
+    that it process records.
+    """
+
+    message_type: Literal[MessageType.PROCESS_RECORDS_REQUEST] = (
+        MessageType.PROCESS_RECORDS_REQUEST
+    )
+
+    cancelled: bool = Field(
+        default=False,
+        description="Whether the profile run was cancelled",
+    )
+
+
+class ProcessRecordsResponseMessage(BaseServiceMessage):
+    """This message is sent by a component service to the system controller to respond
+    to a process records request.
+    """
+
+    message_type: Literal[MessageType.PROCESS_RECORDS_RESPONSE] = (
+        MessageType.PROCESS_RECORDS_RESPONSE
+    )
+
+    # TODO: Better way to handle results data
+    results: SerializeAsAny[AIPerfBaseModel | None] = Field(
+        default=None,
+        description="Data returned from the process records request",
+    )

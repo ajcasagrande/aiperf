@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from aiperf.common.mixins._aiperf_logger import AIPerfLoggerMixin
-from aiperf.common.mixins._aiperf_message_handler import AIPerfMessageHandlerMixin
+from aiperf.common.mixins._aiperf_message_mixins import AIPerfMessageHandlerMixin
 
 # from aiperf.progress.progress_tracker import ProgressTracker
 

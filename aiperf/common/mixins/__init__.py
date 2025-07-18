@@ -9,7 +9,7 @@ __ignore__ = ["logger"]
 __submodules__ = [
     "_aiperf_lifecycle",
     "_aiperf_logger",
-    "_aiperf_message_handler",
+    "_aiperf_message_mixins",
     "_aiperf_profile",
     "_aiperf_task",
     "_async_task_manager",
@@ -30,8 +30,13 @@ from aiperf.common.mixins._aiperf_logger import (
     AIPerfLoggerMixin,
     AIPerfLoggerMixinProtocol,
 )
-from aiperf.common.mixins._aiperf_message_handler import (
+from aiperf.common.mixins._aiperf_message_mixins import (
     AIPerfMessageHandlerMixin,
+    AIPerfMessageHandlerProtocol,
+    AIPerfMessagePublisherMixin,
+    AIPerfMessagePublisherProtocol,
+    AIPerfMessagePubSubMixin,
+    AIPerfMessagePubSubProtocol,
 )
 from aiperf.common.mixins._aiperf_profile import (
     AIPerfProfileMixin,
@@ -67,6 +72,11 @@ __all__ = [
     "AIPerfLoggerMixin",
     "AIPerfLoggerMixinProtocol",
     "AIPerfMessageHandlerMixin",
+    "AIPerfMessageHandlerProtocol",
+    "AIPerfMessagePubSubMixin",
+    "AIPerfMessagePubSubProtocol",
+    "AIPerfMessagePublisherMixin",
+    "AIPerfMessagePublisherProtocol",
     "AIPerfProfileMixin",
     "AIPerfTaskMixin",
     "AsyncTaskManagerMixin",
