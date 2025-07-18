@@ -13,5 +13,5 @@ class PostProcessorType(CaseInsensitiveStrEnum):
 class ResponseStreamerType(CaseInsensitiveStrEnum):
     """Type of response streamer."""
 
-    RECORDS_MANAGER = "records_manager"
+    PROCESSING_STATS = "processing_stats"
     BASIC_METRICS = "basic_metrics"

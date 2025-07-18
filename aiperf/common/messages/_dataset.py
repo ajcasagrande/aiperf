@@ -82,3 +82,11 @@ class DatasetTimingResponse(BaseServiceMessage):
         ...,
         description="The timing data of the dataset. Tuple of (timestamp, conversation_id)",
     )
+
+
+class DatasetConfiguredNotification(BaseServiceMessage):
+    """Notification sent to notify other services that the dataset has been configured."""
+
+    message_type: Literal[MessageType.DATASET_CONFIGURED_NOTIFICATION] = (
+        MessageType.DATASET_CONFIGURED_NOTIFICATION
+    )

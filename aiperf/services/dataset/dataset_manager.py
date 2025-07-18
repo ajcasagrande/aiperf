@@ -12,7 +12,6 @@ from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.enums import (
     ComposerType,
     MessageType,
-    NotificationType,
     ServiceType,
 )
 from aiperf.common.factories import ComposerFactory, ServiceFactory
@@ -25,10 +24,10 @@ from aiperf.common.messages import (
     ConversationResponseMessage,
     ConversationTurnRequestMessage,
     ConversationTurnResponseMessage,
+    DatasetConfiguredNotification,
     DatasetTimingRequest,
     DatasetTimingResponse,
     Message,
-    NotificationMessage,
 )
 from aiperf.common.models import Conversation
 from aiperf.common.service.base_component_service import BaseComponentService
@@ -128,11 +127,8 @@ class DatasetManager(BaseComponentService):
 
         self.dataset_configured.set()
         await self.pub_client.publish(
-            NotificationMessage(
+            DatasetConfiguredNotification(
                 service_id=self.service_id,
-                message_type=MessageType.NOTIFICATION,
-                notification_type=NotificationType.DATASET_CONFIGURED,
-                data=None,
             ),
         )
 

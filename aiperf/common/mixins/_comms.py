@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from aiperf.common.comms.base import BaseCommunication, CommunicationFactory
+from aiperf.common.config._service import ServiceConfig
 from aiperf.common.hooks import AIPerfHook
 from aiperf.common.mixins._hooks import HooksMixin, supports_hooks
 
@@ -10,14 +11,10 @@ from aiperf.common.mixins._hooks import HooksMixin, supports_hooks
 class CommunicationsMixin(HooksMixin):
     """Mixin that provides a communications instance."""
 
-    def __init__(self, **kwargs):
-        self._service_config = kwargs.get("service_config")
-        if not self._service_config:
-            raise ValueError("CommunicationsMixin requires a service_config attribute")
-
+    def __init__(self, service_config: ServiceConfig, **kwargs) -> None:
         self.comms: BaseCommunication = CommunicationFactory.create_instance(
-            self._service_config.comm_backend,
-            config=self._service_config.comm_config,
+            service_config.comm_backend,
+            config=service_config.comm_config,
         )
 
         super().__init__(**kwargs)

@@ -209,7 +209,7 @@ class BaseService(
 
             except Exception as e:
                 self.exception(
-                    lambda e=e: f"Caught unexpected exception {e} in service {self.service_type} execution"
+                    f"Caught unexpected exception {e} in service {self.service_type} execution"
                 )
 
         # Shutdown the service
@@ -217,7 +217,7 @@ class BaseService(
             await self.stop()
         except Exception as e:
             self.exception(
-                lambda e=e: f"Caught unexpected exception {e} in service {self.service_type} stop"
+                f"Caught unexpected exception {e} in service {self.service_type} stop"
             )
 
     async def start(self) -> None:
@@ -298,9 +298,7 @@ class BaseService(
             # publish a status message
             self._state = ServiceState.STOPPED
 
-            self.debug(
-                lambda: f"Service {self.service_type} (id: {self.service_id}) stopped"
-            )
+            self.debug(f"Service {self.service_type} (id: {self.service_id}) stopped")
 
             # Re-raise the cancelled error if it was raised during the stop hooks
             if cancelled_error:

@@ -24,9 +24,11 @@ from aiperf.services.records_manager.parsed_result_streamer import (
 )
 
 
-@ParsedResponseStreamerFactory.register(ResponseStreamerType.RECORDS_MANAGER)
-class RecordsManagerStreamer(ParsedResponseStreamer):
-    """Streamer for records manager."""
+@ParsedResponseStreamerFactory.register(ResponseStreamerType.PROCESSING_STATS)
+class ProcessingStatsStreamer(ParsedResponseStreamer):
+    """This streamer is used to track the number of records processed and the number of errors.
+    It is also used to track the number of requests expected and the number of requests completed.
+    """
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
