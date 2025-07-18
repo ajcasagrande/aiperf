@@ -176,7 +176,7 @@ def aiperf_task(func: Callable) -> Callable:
 def aiperf_auto_task(
     interval_sec: float | Callable[["AIPerfLifecycleMixin"], float] | None,
 ) -> Callable[[Callable], Callable]:
-    """Decorator to indicate that the function is a task function. It will be started
+    """Decorator to indicate that the function is an auto-managed task function. It will be started
     and stopped automatically by the base class lifecycle.
     See :func:`aiperf.common.hooks.hook_decorator`.
 

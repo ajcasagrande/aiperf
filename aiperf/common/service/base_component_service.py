@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-import asyncio
 from collections.abc import Awaitable, Callable
 
 from aiperf.common.config import ServiceConfig, UserConfig
@@ -10,7 +9,7 @@ from aiperf.common.enums import (
     MessageType,
     ServiceState,
 )
-from aiperf.common.hooks import AIPerfHook, aiperf_task, on_init, on_set_state
+from aiperf.common.hooks import AIPerfHook, aiperf_auto_task, on_init, on_set_state
 from aiperf.common.messages import (
     CommandMessage,
     CommandResponseMessage,
@@ -83,27 +82,12 @@ class BaseComponentService(BaseService):
         except Exception as e:
             raise self._service_error("Failed to register service") from e
 
-    @aiperf_task
+    @aiperf_auto_task(interval_sec=lambda self: self.heartbeat_interval_seconds)
     async def _heartbeat_task(self) -> None:
         """Starts a background task to send heartbeats at regular intervals. It
-        will continue to send heartbeats even if an error occurs until the stop
-        event is set.
+        will continue to send heartbeats even if an error occurs until cancelled.
         """
-        while True:
-            # Sleep first to avoid sending a heartbeat before the registration
-            # message has been published
-            await asyncio.sleep(self._heartbeat_interval_seconds)
-
-            try:
-                await self.send_heartbeat()
-            except Exception as e:
-                self.exception("Exception sending heartbeat: %s", e)
-                # continue to keep sending heartbeats regardless of the error
-            except asyncio.CancelledError:
-                self.debug("Heartbeat task cancelled")
-                break
-
-        self.debug("Heartbeat task stopped")
+        await self.send_heartbeat()
 
     async def send_heartbeat(self) -> None:
         """Send a heartbeat notification to the system controller."""

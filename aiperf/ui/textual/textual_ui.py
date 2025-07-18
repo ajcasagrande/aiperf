@@ -11,7 +11,7 @@ from textual.widgets import (
 from aiperf.common.aiperf_logger import AIPerfLogger
 from aiperf.common.enums import AIPerfUIType, MessageType
 from aiperf.common.hooks import (
-    aiperf_task,
+    on_start,
     on_stop,
 )
 from aiperf.common.messages import Message, WorkerHealthMessage
@@ -158,7 +158,7 @@ class TextualUI(AIPerfLifecycleMixin):
             self.debug("Shutting down Textual UI")
             self.app.exit()
 
-    @aiperf_task
+    @on_start
     async def _run_app(self) -> None:
         """Run the enhanced Textual application."""
         self.debug("Starting AIPerf Textual UI...")

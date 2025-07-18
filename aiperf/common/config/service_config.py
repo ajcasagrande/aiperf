@@ -284,6 +284,17 @@ class ServiceConfig(BaseSettings):
         BeforeValidator(parse_service_types),
     ] = ServiceDefaults.TRACE_SERVICES
 
+    progress_report_interval_seconds: Annotated[
+        float,
+        Field(
+            description="Interval in seconds to report progress. This is used to report the progress of the profile to the user.",
+        ),
+        cyclopts.Parameter(
+            name=("--progress-report-interval-seconds", "--progress-report-interval"),
+            group=_GROUP_NAME,
+        ),
+    ] = ServiceDefaults.PROGRESS_REPORT_INTERVAL_SECONDS
+
     # plugin_dirs: Annotated[
     #     list[Path],
     #     Field(

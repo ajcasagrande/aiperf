@@ -6,7 +6,6 @@
 # mkinit flags
 __ignore__ = ["logger"]
 #########################################################
-
 from aiperf.ui.rich.dashboard_element import (
     DashboardElement,
     HeaderElement,

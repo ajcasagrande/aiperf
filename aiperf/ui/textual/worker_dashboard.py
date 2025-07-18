@@ -13,7 +13,7 @@ from textual.widgets import Label
 from aiperf.common.config import ServiceConfig
 from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import ServiceType
-from aiperf.common.hooks import aiperf_task, on_init
+from aiperf.common.hooks import on_init
 from aiperf.common.messages import WorkerHealthMessage
 from aiperf.common.mixins import AIPerfLifecycleMixin, AIPerfLoggerMixin
 from aiperf.common.service.base_component_service import BaseComponentService
@@ -424,7 +424,6 @@ class WorkerDashboard(Container, AIPerfLoggerMixin):
         except Exception as e:
             self.error(f"Error updating summary: {e.__class__.__name__}: {e}")
 
-    @aiperf_task
     async def _periodic_update_task(self) -> None:
         """Periodic task to update stale worker status."""
         import asyncio

@@ -1,14 +1,12 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-import asyncio
 import time
 
-from aiperf.common.config import ServiceDefaults
 from aiperf.common.enums import CreditPhase, StreamingPostProcessorType
 from aiperf.common.enums.message_enums import MessageType
 from aiperf.common.factories import StreamingPostProcessorFactory
-from aiperf.common.hooks import aiperf_task, on_message
+from aiperf.common.hooks import aiperf_auto_task, on_message
 from aiperf.common.messages import (
     ProcessRecordsRequestMessage,
     RecordsProcessingStatsMessage,
@@ -95,18 +93,14 @@ class ProcessingStatsStreamer(StreamingPostProcessor):
             self.final_request_count = message.completed
             self.info(f"Updating final request count to {self.final_request_count}")
 
-    @aiperf_task
+    @aiperf_auto_task(
+        interval_sec=lambda self: self.service_config.progress_report_interval_seconds
+    )
     async def _report_records_task(self) -> None:
         """Report the records."""
-        while True:
-            try:
-                await asyncio.sleep(ServiceDefaults.PROGRESS_REPORT_INTERVAL_SECONDS)
-                if self.records_count > 0 or self.error_records_count > 0:
-                    # Only publish stats if there are records to report
-                    await self.publish_processing_stats()
-            except asyncio.CancelledError:
-                self.debug("Cancelled report records task")
-                break
+        if self.records_count > 0 or self.error_records_count > 0:
+            # Only publish stats if there are records to report
+            await self.publish_processing_stats()
 
     async def publish_processing_stats(self) -> None:
         """Publish the profile stats."""

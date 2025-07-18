@@ -7,6 +7,7 @@
 # mkinit flags
 __ignore__ = ["logger"]
 
+# This will re-export all the submodules directly into here.
 __submodules__ = [
     "rich",
     "textual",
@@ -36,6 +37,12 @@ from aiperf.ui.textual import (
     DashboardFormatter,
     Header,
     LogViewer,
+    PhaseData,
+    PhaseOverviewWidget,
+    ProfileData,
+    ProfileProgressStatusWidget,
+    ProfileStatus,
+    ProgressDashboard,
     RichProfileProgressContainer,
     RichWorkerStatusContainer,
     StatusClassifier,
@@ -44,6 +51,7 @@ from aiperf.ui.textual import (
     TextualUI,
     WorkerDashboard,
     WorkerDashboardMixin,
+    WorkerData,
     WorkerHealthService,
     WorkerRow,
     WorkerStatus,
@@ -73,7 +81,13 @@ __all__ = [
     "LoggerTracker",
     "LogsDashboardElement",
     "LogsDashboardMixin",
+    "PhaseData",
+    "PhaseOverviewWidget",
+    "ProfileData",
     "ProfileProgressElement",
+    "ProfileProgressStatusWidget",
+    "ProfileStatus",
+    "ProgressDashboard",
     "RichProfileProgressContainer",
     "RichUI",
     "RichWorkerStatusContainer",
@@ -85,6 +99,7 @@ __all__ = [
     "TqdmProgressUI",
     "WorkerDashboard",
     "WorkerDashboardMixin",
+    "WorkerData",
     "WorkerHealthService",
     "WorkerRow",
     "WorkerStatus",
