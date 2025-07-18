@@ -10,8 +10,13 @@ from aiperf.common.comms.base import (
     PullClientProtocol,
 )
 from aiperf.common.config import ServiceConfig, ServiceDefaults, UserConfig
-from aiperf.common.enums import CommandType, CreditPhase, MessageType, ServiceType
-from aiperf.common.factories import ServiceFactory
+from aiperf.common.enums import (
+    CommandType,
+    CreditPhase,
+    MessageType,
+    ServiceType,
+)
+from aiperf.common.factories import ParsedResponseStreamerFactory, ServiceFactory
 from aiperf.common.hooks import (
     aiperf_task,
     on_configure,
@@ -19,7 +24,6 @@ from aiperf.common.hooks import (
 )
 from aiperf.common.messages import (
     CommandMessage,
-    InferenceResultsMessage,
     ParsedInferenceResultsMessage,
     ProcessRecordsCommandData,
     ProfileResultsMessage,
@@ -37,6 +41,9 @@ from aiperf.common.models import (
 )
 from aiperf.common.service import BaseComponentService
 from aiperf.data_exporter.exporter_manager import ExporterManager
+from aiperf.services.records_manager.parsed_result_streamer import (
+    ParsedResponseStreamer,
+)
 from aiperf.services.records_manager.post_processors.metric_summary import MetricSummary
 
 
@@ -52,45 +59,29 @@ class RecordsManager(BaseComponentService):
         service_config: ServiceConfig,
         user_config: UserConfig,
         service_id: str | None = None,
+        **kwargs,
     ) -> None:
         super().__init__(
             service_config=service_config,
             user_config=user_config,
             service_id=service_id,
+            **kwargs,
         )
-        self.user_config: UserConfig | None = None
-        self.configured_event = asyncio.Event()
+        self.total_expected_requests: int | None = None
+        self.final_request_count: int | None = None
+
+        self.start_time_ns: int = time.time_ns()
+        self.end_time_ns: int | None = None
 
         # TODO: we do not want to keep all the data forever
         self.records: deque[ParsedResponseRecord] = deque()
         self.error_records: deque[ParsedResponseRecord] = deque()
-
-        self.total_expected_requests: int | None = None
         self.error_records_count: int = 0
         self.records_count: int = 0
-        self.final_request_count: int | None = None
 
         # Track per-worker statistics
         self.worker_success_counts: dict[str, int] = {}
         self.worker_error_counts: dict[str, int] = {}
-
-        self.start_time_ns: int = time.time_ns()
-        self.end_time_ns: int | None = None
-
-        self.records: deque[ParsedResponseRecord] = deque()
-        self.error_records: deque[ParsedResponseRecord] = deque()
-        self.error_records_count: int = 0
-        self.records_count: int = 0
-        # Track per-worker statistics
-        self.worker_success_counts: dict[str, int] = {}
-        self.worker_error_counts: dict[str, int] = {}
-
-        self.start_time_ns: int = time.time_ns()
-        self.end_time_ns: int | None = None
-
-        self.user_config: UserConfig | None = None
-
-        self.incoming_records: asyncio.Queue[InferenceResultsMessage] = asyncio.Queue()
 
         self.response_results_client: PullClientProtocol = (
             self.comms.create_pull_client(
@@ -98,6 +89,7 @@ class RecordsManager(BaseComponentService):
                 bind=True,
             )
         )
+        self.response_streamers: list[ParsedResponseStreamer] = []
 
     @property
     def service_type(self) -> ServiceType:
@@ -128,6 +120,19 @@ class RecordsManager(BaseComponentService):
             self._on_credit_phase_start,
         )
 
+        # Initialize the all of the response streamers
+        self.response_streamers: list[ParsedResponseStreamer] = [
+            ParsedResponseStreamerFactory.create_instance(streamer_type)
+            for streamer_type in ParsedResponseStreamerFactory.get_all_class_types()
+        ]
+        self.info(
+            lambda: f"Initialized {len(self.response_streamers)} response streamers"
+        )
+        # Start the lifecycle for all response streamers
+        for streamer in self.response_streamers:
+            self.debug(f"Starting lifecycle for {streamer.__class__.__name__}")
+            streamer.run_async()
+
     @on_configure
     async def _configure(self, message: CommandMessage) -> None:
         """Configure the records manager."""
@@ -138,7 +143,9 @@ class RecordsManager(BaseComponentService):
         """Report the records."""
         while not self.stop_event.is_set():
             await asyncio.sleep(ServiceDefaults.PROGRESS_REPORT_INTERVAL_SECONDS)
-            await self.publish_processing_stats()
+            if self.records_count > 0 or self.error_records_count > 0:
+                # Only publish stats if there are records to report
+                await self.publish_processing_stats()
 
     async def publish_processing_stats(self) -> None:
         """Publish the profile stats."""
@@ -177,6 +184,14 @@ class RecordsManager(BaseComponentService):
         self, message: ParsedInferenceResultsMessage
     ) -> None:
         """Handle a parsed inference results message."""
+        for streamer in self.response_streamers:
+            self.execute_async(streamer.stream_record(message.record))
+
+    async def _on_parsed_inference_results_internal(
+        self, message: ParsedInferenceResultsMessage
+    ) -> None:
+        """Handle a parsed inference results message."""
+        pass
 
         self.trace(lambda: f"Received parsed inference results: {message}")
         if message.record.request.credit_phase != CreditPhase.PROFILING:
@@ -297,7 +312,7 @@ class RecordsManager(BaseComponentService):
             )
 
         self.trace(
-            lambda: f"Token counts: {', '.join([str(r.token_count) for r in self.records])}"
+            lambda: f"Token counts: {', '.join([str(r.output_token_count) for r in self.records])}"
         )
         metric_summary = MetricSummary()
         metric_summary.process(list(self.records))

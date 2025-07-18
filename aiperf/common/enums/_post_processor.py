@@ -5,4 +5,13 @@ from aiperf.common.enums._base import CaseInsensitiveStrEnum
 
 
 class PostProcessorType(CaseInsensitiveStrEnum):
+    """Type of post processor."""
+
     METRIC_SUMMARY = "metric_summary"
+
+
+class ResponseStreamerType(CaseInsensitiveStrEnum):
+    """Type of response streamer."""
+
+    RECORDS_MANAGER = "records_manager"
+    BASIC_METRICS = "basic_metrics"

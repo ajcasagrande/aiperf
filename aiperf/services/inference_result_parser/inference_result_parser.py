@@ -141,7 +141,7 @@ class InferenceResultParser(BaseComponentService):
             try:
                 record = await self.process_valid_record(message)
                 self.debug(
-                    lambda: f"Received {len(record.request.responses)} responses, isl: {record.isl}, osl: {record.token_count}"
+                    lambda: f"Received {len(record.request.responses)} responses, input token count: {record.input_token_count}, output token count: {record.output_token_count}"
                 )
                 await self.records_push_client.push(
                     ParsedInferenceResultsMessage(
@@ -191,24 +191,36 @@ class InferenceResultParser(BaseComponentService):
                 worker_id=message.service_id,
                 request=message.record,
                 responses=[],
-                isl=None,
+                input_token_count=None,
+                output_token_count=None,
             )
 
         tokenizer = await self.get_tokenizer(message.record.model_name)
-        resp = await self.extractor.extract_response_data(message.record, tokenizer)
-        isl = await self.compute_isl(message.record, tokenizer)
+        responses = await self.extractor.extract_response_data(
+            message.record, tokenizer
+        )
+        input_token_count = await self.compute_input_token_count(
+            message.record, tokenizer
+        )
+
+        output_token_count = sum(
+            response.token_count
+            for response in responses
+            if response.token_count is not None
+        )
 
         return ParsedResponseRecord(
             worker_id=message.service_id,
             request=message.record,
-            responses=resp,
-            isl=isl,
+            responses=responses,
+            input_token_count=input_token_count,
+            output_token_count=output_token_count,
         )
 
-    async def compute_isl(
+    async def compute_input_token_count(
         self, record: RequestRecord, tokenizer: Tokenizer
     ) -> int | None:
-        """Compute the ISL for a given request record."""
+        """Compute the input token count for a given request record."""
         if record.conversation_id is None or record.turn_index is None:
             self.warning(
                 lambda: f"Conversation ID or turn index is None: {record.conversation_id=} {record.turn_index=}"

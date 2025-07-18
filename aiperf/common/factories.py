@@ -7,6 +7,7 @@ from aiperf.common.aiperf_logger import AIPerfLogger
 from aiperf.common.enums import (
     CaseInsensitiveStrEnum,
     PromptSource,
+    ResponseStreamerType,
     ServiceType,
     ZMQProxyType,
 )
@@ -324,3 +325,9 @@ class ZMQProxyFactory(FactoryMixin[ZMQProxyType, "BaseZMQProxy"]):
         proxy.run()
     ```
     """
+
+
+class ParsedResponseStreamerFactory(
+    FactoryMixin[ResponseStreamerType, "ParsedResponseStreamer"]
+):
+    """Factory for creating ParsedResponseStreamer instances."""

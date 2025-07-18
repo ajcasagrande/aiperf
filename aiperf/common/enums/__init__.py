@@ -80,6 +80,7 @@ from aiperf.common.enums._model import (
 )
 from aiperf.common.enums._post_processor import (
     PostProcessorType,
+    ResponseStreamerType,
 )
 from aiperf.common.enums._service import (
     ServiceRegistrationStatus,
@@ -133,6 +134,7 @@ __all__ = [
     "PromptSource",
     "RequestRateMode",
     "ResponsePayloadType",
+    "ResponseStreamerType",
     "SSEEventType",
     "SSEFieldType",
     "ServiceRegistrationStatus",

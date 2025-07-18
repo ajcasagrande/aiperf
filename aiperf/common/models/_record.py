@@ -300,21 +300,14 @@ class ParsedResponseRecord(AIPerfBaseModel):
     )
     request: RequestRecord = Field(description="The original request record")
     responses: list[ResponseData] = Field(description="The parsed response data.")
-    isl: int | None = Field(
+    input_token_count: int | None = Field(
         default=None,
-        description="The Input Sequence Length (ISL) of the request. If None, the ISL was not available or able to be computed.",
+        description="The input token count of the request. If None, the input token count was not available or able to be computed.",
     )
-
-    @cached_property
-    def token_count(self) -> int | None:
-        """Get the total number of tokens across all responses, if applicable."""
-        if not self.valid:
-            return None
-        return sum(
-            response.token_count
-            for response in self.responses
-            if response.token_count is not None
-        )
+    output_token_count: int | None = Field(
+        default=None,
+        description="The output token count of the request. If None, the output token count was not available or able to be computed.",
+    )
 
     @cached_property
     def start_perf_ns(self) -> int:
@@ -350,9 +343,9 @@ class ParsedResponseRecord(AIPerfBaseModel):
     @cached_property
     def tokens_per_second(self) -> float | None:
         """Get the number of tokens per second of the request."""
-        if self.token_count is None or self.request_duration_ns == 0:
+        if self.output_token_count is None or self.request_duration_ns == 0:
             return None
-        return self.token_count / (self.request_duration_ns / NANOS_PER_SECOND)
+        return self.output_token_count / (self.request_duration_ns / NANOS_PER_SECOND)
 
     @cached_property
     def has_error(self) -> bool:
