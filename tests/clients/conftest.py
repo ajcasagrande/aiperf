@@ -11,10 +11,10 @@ from aiperf.clients.model_endpoint_info import (
     ModelInfo,
     ModelListInfo,
 )
-from aiperf.common.config._defaults import EndPointDefaults
-from aiperf.common.config._endpoint import EndPointConfig
-from aiperf.common.config._input import InputConfig
-from aiperf.common.config._user import UserConfig
+from aiperf.common.config.config_defaults import EndPointDefaults
+from aiperf.common.config.endpoint_config import EndPointConfig
+from aiperf.common.config.input_config import InputConfig
+from aiperf.common.config.user_config import UserConfig
 from aiperf.common.enums import EndpointType, Modality, ModelSelectionStrategy
 from aiperf.common.models import (
     Audio,

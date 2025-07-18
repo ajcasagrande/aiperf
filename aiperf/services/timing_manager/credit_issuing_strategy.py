@@ -6,7 +6,7 @@ import time
 from abc import ABC, abstractmethod
 
 from aiperf.common.enums import CreditPhase
-from aiperf.common.enums._timing import TimingMode
+from aiperf.common.enums.timing_enums import TimingMode
 from aiperf.common.exceptions import ConfigurationError
 from aiperf.common.factories import FactoryMixin
 from aiperf.common.messages import CreditReturnMessage

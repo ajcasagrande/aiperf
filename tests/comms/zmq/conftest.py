@@ -27,7 +27,7 @@ from aiperf.common.comms.zmq import (
     ZMQSubClient,
     ZMQTCPCommunication,
 )
-from aiperf.common.config._zmq import ZMQIPCConfig, ZMQTCPConfig
+from aiperf.common.config.zmq_config import ZMQIPCConfig, ZMQTCPConfig
 from aiperf.common.enums import CommunicationClientAddressType, CommunicationClientType
 from aiperf.tests.comms.conftest import _TestMessage
 

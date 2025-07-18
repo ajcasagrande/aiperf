@@ -3,7 +3,7 @@
 
 from abc import ABC, abstractmethod
 
-from aiperf.common.config._input import InputConfig
+from aiperf.common.config.input_config import InputConfig
 from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.common.models import Conversation
 from aiperf.common.tokenizer import Tokenizer

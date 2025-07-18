@@ -4,7 +4,7 @@ import logging
 import uuid
 from typing import ClassVar
 
-from aiperf.common.config._service import ServiceConfig
+from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import MessageType, ServiceType
 from aiperf.common.hooks import (
     on_cleanup,

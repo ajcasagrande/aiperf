@@ -7,7 +7,7 @@ import multiprocessing
 import random
 
 from aiperf.common.config import ServiceConfig
-from aiperf.common.config._user import UserConfig
+from aiperf.common.config.user_config import UserConfig
 from aiperf.common.service.base_service import BaseService
 
 

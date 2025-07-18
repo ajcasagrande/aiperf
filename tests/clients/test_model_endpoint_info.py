@@ -10,7 +10,7 @@ from aiperf.clients.model_endpoint_info import (
     ModelInfo,
     ModelListInfo,
 )
-from aiperf.common.config._defaults import EndPointDefaults
+from aiperf.common.config.config_defaults import EndPointDefaults
 from aiperf.common.enums import EndpointType, Modality, ModelSelectionStrategy
 
 

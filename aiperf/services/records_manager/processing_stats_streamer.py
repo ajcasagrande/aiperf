@@ -6,19 +6,19 @@ import time
 
 from aiperf.common.config import ServiceDefaults
 from aiperf.common.enums import CreditPhase, ResponseStreamerType
-from aiperf.common.enums._message import MessageType
+from aiperf.common.enums.message_enums import MessageType
 from aiperf.common.factories import ParsedResponseStreamerFactory
 from aiperf.common.hooks import aiperf_task, on_message
 from aiperf.common.messages import (
     ProcessRecordsRequestMessage,
     RecordsProcessingStatsMessage,
 )
-from aiperf.common.messages._credit import (
+from aiperf.common.messages.credit_messages import (
     CreditPhaseCompleteMessage,
     CreditPhaseStartMessage,
 )
 from aiperf.common.models import PhaseProcessingStats
-from aiperf.common.models._record import ParsedResponseRecord
+from aiperf.common.models.record_models import ParsedResponseRecord
 from aiperf.services.records_manager.parsed_result_streamer import (
     ParsedResponseStreamer,
 )

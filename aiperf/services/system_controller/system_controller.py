@@ -6,7 +6,7 @@ import sys
 import time
 
 from aiperf.common.config import ServiceConfig
-from aiperf.common.config._user import UserConfig
+from aiperf.common.config.user_config import UserConfig
 from aiperf.common.enums import (
     BenchmarkSuiteType,
     CommandResponseStatus,
@@ -27,7 +27,7 @@ from aiperf.common.messages import (
     RegistrationMessage,
     StatusMessage,
 )
-from aiperf.common.messages._progress import ProfileResultsMessage
+from aiperf.common.messages.progress_messages import ProfileResultsMessage
 from aiperf.common.mixins import EventBusClientMixin
 from aiperf.common.models import AIPerfBaseModel
 from aiperf.common.service.base_controller_service import BaseControllerService

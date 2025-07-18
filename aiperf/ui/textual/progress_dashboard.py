@@ -6,7 +6,7 @@ from textual.containers import Container, Vertical
 from textual.css.query import NoMatches
 from textual.widgets import Label, ProgressBar
 
-from aiperf.common.enums._timing import CreditPhase
+from aiperf.common.enums.timing_enums import CreditPhase
 from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.progress.progress_tracker import ProgressTracker
 from aiperf.ui.textual.widgets import (

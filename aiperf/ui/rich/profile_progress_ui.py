@@ -17,7 +17,7 @@ from rich.progress import (
 from rich.table import Table
 from rich.text import Text
 
-from aiperf.common.enums._timing import CreditPhase
+from aiperf.common.enums.timing_enums import CreditPhase
 from aiperf.common.utils import format_duration
 from aiperf.progress.progress_tracker import ProgressTracker
 from aiperf.ui.rich.dashboard_element import DashboardElement

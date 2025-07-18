@@ -5,11 +5,11 @@ import time
 from collections import deque
 
 from aiperf.common.enums import ResponseStreamerType
-from aiperf.common.enums._message import MessageType
+from aiperf.common.enums.message_enums import MessageType
 from aiperf.common.factories import ParsedResponseStreamerFactory
 from aiperf.common.hooks import on_message
 from aiperf.common.messages import ProcessRecordsRequestMessage
-from aiperf.common.messages._progress import ProfileResultsMessage
+from aiperf.common.messages.progress_messages import ProfileResultsMessage
 from aiperf.common.models import ErrorDetails, ErrorDetailsCount, ParsedResponseRecord
 from aiperf.data_exporter.exporter_manager import ExporterManager
 from aiperf.services.records_manager.parsed_result_streamer import (

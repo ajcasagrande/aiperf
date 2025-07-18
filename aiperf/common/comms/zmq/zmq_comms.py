@@ -17,7 +17,7 @@ from aiperf.common.comms.base import (
 )
 from aiperf.common.comms.zmq.zmq_base_client import BaseZMQClient
 from aiperf.common.config import BaseZMQCommunicationConfig
-from aiperf.common.config._zmq import ZMQIPCConfig, ZMQTCPConfig
+from aiperf.common.config.zmq_config import ZMQIPCConfig, ZMQTCPConfig
 from aiperf.common.enums import (
     CommunicationBackend,
     CommunicationClientAddressType,

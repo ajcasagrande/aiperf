@@ -14,8 +14,7 @@ from typing import Annotated
 import cyclopts
 from pydantic import Field
 
-from aiperf.common.config import ServiceConfig, UserConfig
-from aiperf.common.config._defaults import CLIDefaults
+from aiperf.common.config import CLIDefaults, ServiceConfig, UserConfig
 
 app = cyclopts.App(name="aiperf", help="NVIDIA AIPerf")
 

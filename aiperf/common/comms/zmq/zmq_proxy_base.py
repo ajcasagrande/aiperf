@@ -11,7 +11,7 @@ import zmq.asyncio
 from zmq import SocketType
 
 from aiperf.common.comms.zmq.zmq_base_client import BaseZMQClient
-from aiperf.common.config._zmq import BaseZMQProxyConfig
+from aiperf.common.config.zmq_config import BaseZMQProxyConfig
 from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
 from aiperf.common.enums import CaseInsensitiveStrEnum, ZMQProxyType
 from aiperf.common.exceptions import ProxyError

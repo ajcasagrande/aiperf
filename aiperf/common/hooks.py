@@ -24,7 +24,7 @@ import logging
 from collections.abc import Awaitable, Callable
 
 from aiperf.common.enums import CaseInsensitiveStrEnum
-from aiperf.common.enums._message import MessageType
+from aiperf.common.enums.message_enums import MessageType
 from aiperf.common.exceptions import AIPerfError, AIPerfMultiError, UnsupportedHookError
 
 ################################################################################
