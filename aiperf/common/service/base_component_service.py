@@ -82,7 +82,9 @@ class BaseComponentService(BaseService):
         except Exception as e:
             raise self._service_error("Failed to register service") from e
 
-    @aiperf_auto_task(interval_sec=lambda self: self.heartbeat_interval_seconds)
+    @aiperf_auto_task(
+        interval_sec=lambda self: self.service_config.heartbeat_interval_seconds
+    )
     async def _heartbeat_task(self) -> None:
         """Starts a background task to send heartbeats at regular intervals. It
         will continue to send heartbeats even if an error occurs until cancelled.

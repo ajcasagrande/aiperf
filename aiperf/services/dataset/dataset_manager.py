@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
 import random
-import sys
 
 from aiperf.common.comms import ReplyClientProtocol
 from aiperf.common.comms.base import (
@@ -258,4 +257,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()

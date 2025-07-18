@@ -176,9 +176,7 @@ class BaseService(
             raise  # re-raise it up the stack
 
         except Exception as e:
-            self.exception(
-                lambda e=e: f"Service {self.service_type} execution failed: {e}"
-            )
+            self.exception(f"Service {self.service_type} execution failed: {e}")
             _ = await self.set_state(ServiceState.ERROR)
             raise self._service_error("Service execution failed") from e
 

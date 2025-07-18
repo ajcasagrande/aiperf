@@ -22,7 +22,7 @@ from aiperf.common.messages import (
     ErrorMessage,
     InferenceResultsMessage,
 )
-from aiperf.common.mixins import AIPerfLoggerMixinProtocol
+from aiperf.common.mixins import AIPerfLoggerProtocol
 from aiperf.common.models import ErrorDetails, RequestRecord, Turn, WorkerPhaseTaskStats
 
 
@@ -38,7 +38,7 @@ class CreditProcessorProtocol(Protocol):
 
 
 @runtime_checkable
-class CreditProcessorMixinRequirements(AIPerfLoggerMixinProtocol, Protocol):
+class CreditProcessorMixinRequirements(AIPerfLoggerProtocol, Protocol):
     """CreditProcessorMixinRequirements is a protocol that provides the requirements needed for the CreditProcessorMixin."""
 
     service_id: str

@@ -52,10 +52,8 @@ from aiperf.common.messages.inference_messages import (
     InferenceResultsMessage,
     ParsedInferenceResultsMessage,
 )
-from aiperf.common.messages.progress_messages import (
-    ProfileResultsMessage,
-)
 from aiperf.common.messages.records_messages import (
+    ProfileResultsMessage,
     RecordsProcessingStatsMessage,
 )
 from aiperf.common.messages.service_messages import (

@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-import logging
 from collections.abc import AsyncIterator, Iterator
 
 from aiperf.common.messages import WorkerHealthMessage
@@ -8,7 +7,6 @@ from aiperf.common.messages import WorkerHealthMessage
 
 class HealthTracker:
     def __init__(self):
-        self.logger = logging.getLogger(self.__class__.__name__)
         self.worker_health: dict[str, WorkerHealthMessage] = {}
 
     def __contains__(self, worker_id: str) -> bool:

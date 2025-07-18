@@ -85,7 +85,7 @@ class ZMQDealerRequestClient(BaseZMQClient, AsyncTaskManagerMixin):
                 raise  # re-raise the cancelled error
 
             except Exception as e:
-                self.exception(lambda e=e: f"Exception receiving responses: {e}")
+                self.exception(f"Exception receiving responses: {e}")
                 await asyncio.sleep(0)  # yield to the event loop
                 continue
 

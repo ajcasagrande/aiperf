@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-import logging
 import uuid
 from typing import ClassVar
 
@@ -12,21 +11,21 @@ from aiperf.common.hooks import (
 )
 from aiperf.common.mixins import (
     AIPerfLifecycleMixin,
+    AIPerfLoggerMixin,
     AIPerfProfileMixin,
     EventBusClientMixin,
 )
 
 
-class AIPerfServiceMixin(AIPerfLifecycleMixin, EventBusClientMixin):
+class AIPerfServiceMixin(AIPerfLifecycleMixin, EventBusClientMixin, AIPerfLoggerMixin):
     service_type: ClassVar[ServiceType]
 
     def __init__(self, service_config: ServiceConfig, service_id: str | None = None):
         super().__init__(service_config)
         self.service_config = service_config
         self.service_id = service_id or f"{self.service_type}_{uuid.uuid4().hex[:8]}"
-        self.logger = logging.getLogger(self.service_id)
-        self.logger.debug(
-            f"Initializing {self.service_type} service (id: {self.service_id})"
+        self.debug(
+            lambda: f"Initializing {self.service_type} service (id: {self.service_id})"
         )
 
     @on_init

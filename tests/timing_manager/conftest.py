@@ -1,20 +1,19 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-import logging
-
 import pytest
 
 from aiperf.common.enums import CreditPhase
-from aiperf.common.models import CreditPhaseStats, CreditReturnMessage
+from aiperf.common.messages import CreditReturnMessage
+from aiperf.common.mixins import AIPerfLoggerMixin
+from aiperf.common.models import CreditPhaseStats
 from aiperf.services.timing_manager.config import TimingManagerConfig
 from aiperf.services.timing_manager.credit_issuing_strategy import CreditIssuingStrategy
 
 
-class MockCreditManager:
+class MockCreditManager(AIPerfLoggerMixin):
     """Mock implementation of CreditManagerProtocol for testing."""
 
     def __init__(self):
-        self.logger = logging.getLogger(self.__class__.__name__)
         self.dropped_credits = []
         self.progress_calls = []
         self.credits_complete_calls = []
@@ -45,9 +44,7 @@ class MockCreditManager:
         await self.credit_strategy._on_credit_return(
             CreditReturnMessage(
                 service_id="test-service",
-                conversation_id=conversation_id,
-                credit_drop_ns=credit_drop_ns,
-                delayed_ns=None,
+                phase=CreditPhase.PROFILING,
             )
         )
 

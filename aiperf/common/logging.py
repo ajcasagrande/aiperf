@@ -10,10 +10,9 @@ from rich.console import Console
 from rich.logging import RichHandler
 
 from aiperf.common.aiperf_logger import _DEBUG, _TRACE, AIPerfLogger
-from aiperf.common.config.config_defaults import ServiceDefaults
-from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.config.user_config import UserConfig
+from aiperf.common.config import ServiceConfig, ServiceDefaults, UserConfig
 from aiperf.common.enums import ServiceType
+from aiperf.common.factories import ServiceFactory
 
 LOG_QUEUE_MAXSIZE = 1000
 
@@ -38,6 +37,10 @@ def _is_service_in_types(service_id: str, service_types: set[ServiceType]) -> bo
             and service_id
             != f"{service_type.value}_manager"  # for worker vs worker_manager, etc.
         ):
+            return True
+
+        # Check if the provided logger name is the same as the service's class name
+        if ServiceFactory.get_class_from_type(service_type).__name__ == service_id:
             return True
     return False
 

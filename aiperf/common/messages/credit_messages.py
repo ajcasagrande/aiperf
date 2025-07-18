@@ -6,7 +6,7 @@ from typing import Literal
 from pydantic import Field
 
 from aiperf.common.enums import CreditPhase, MessageType
-from aiperf.common.messages.base_messages import BaseServiceMessage
+from aiperf.common.messages.service_messages import BaseServiceMessage
 
 
 class CreditDropMessage(BaseServiceMessage):

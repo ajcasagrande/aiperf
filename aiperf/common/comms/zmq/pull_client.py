@@ -111,9 +111,7 @@ class ZMQPullClient(BaseZMQClient, AsyncTaskManagerMixin):
                 break
 
             except Exception as e:
-                self.exception(
-                    lambda e=e: f"Exception receiving data from pull socket: {e}"
-                )
+                self.exception(f"Exception receiving data from pull socket: {e}")
                 await asyncio.sleep(0.1)
 
     @on_stop

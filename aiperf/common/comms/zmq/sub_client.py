@@ -180,6 +180,6 @@ class ZMQSubClient(BaseZMQClient, AsyncTaskManagerMixin):
 
             except Exception as e:
                 self.exception(
-                    lambda e=e: f"Exception receiving message from subscription: {e}, {type(e)}"
+                    f"Exception receiving message from subscription: {e}, {type(e)}"
                 )
                 await asyncio.sleep(0.1)

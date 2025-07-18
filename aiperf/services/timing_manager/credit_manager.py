@@ -13,7 +13,7 @@ from aiperf.common.messages import (
     CreditsCompleteMessage,
 )
 from aiperf.common.mixins import (
-    AIPerfLoggerMixinProtocol,
+    AIPerfLoggerProtocol,
     AsyncTaskManagerMixin,
     AsyncTaskManagerProtocol,
 )
@@ -59,7 +59,7 @@ class CreditManagerProtocol(Protocol):
 
 @runtime_checkable
 class CreditPhaseMessagesRequirements(
-    AsyncTaskManagerProtocol, AIPerfLoggerMixinProtocol, Protocol
+    AsyncTaskManagerProtocol, AIPerfLoggerProtocol, Protocol
 ):
     """Requirements for the CreditPhaseMessagesMixin. This is the list of attributes that must
     be provided by the class that uses this mixin."""

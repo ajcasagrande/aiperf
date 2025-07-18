@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-import logging
 import time
 from typing import TYPE_CHECKING
 
@@ -10,13 +9,14 @@ from aiperf.common.enums import (
     CommandType,
     SystemState,
 )
+from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.progress.progress_tracker import BenchmarkSuiteProgress, ProfileRunProgress
 
 if TYPE_CHECKING:
     from aiperf.services.system_controller.system_controller import SystemController
 
 
-class ProfileRunner:
+class ProfileRunner(AIPerfLoggerMixin):
     """
     A class that manages the lifecycle of profile runs.
     """
@@ -27,7 +27,6 @@ class ProfileRunner:
     ):
         self.controller = controller
         self.tracker = self.controller.progress_tracker
-        self.logger = logging.getLogger(self.__class__.__name__)
         self.was_cancelled = False
 
     async def run(self) -> None:

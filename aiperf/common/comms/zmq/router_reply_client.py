@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
-import logging
 from collections.abc import Callable, Coroutine
 from typing import Any
 
@@ -66,7 +65,6 @@ class ZMQRouterReplyClient(BaseZMQClient, AsyncTaskManagerMixin):
         """
         super().__init__(context, zmq.SocketType.ROUTER, address, bind, socket_ops)
 
-        self.logger = logging.getLogger(self.__class__.__name__)
         self._request_handlers: dict[
             MessageType,
             tuple[str, Callable[[Message], Coroutine[Any, Any, Message | None]]],
@@ -124,10 +122,7 @@ class ZMQRouterReplyClient(BaseZMQClient, AsyncTaskManagerMixin):
             response = await handler(request)
 
         except Exception as e:
-            self.exception(
-                lambda typ=message_type,
-                e=e: f"Exception calling handler for {typ}: {e}"
-            )
+            self.exception(f"Exception calling handler for {message_type}: {e}")
             response = ErrorMessage(
                 request_id=request_id,
                 error=ErrorDetails.from_exception(e),
@@ -173,8 +168,7 @@ class ZMQRouterReplyClient(BaseZMQClient, AsyncTaskManagerMixin):
             )
         except Exception as e:
             self.exception(
-                lambda req_id=request_id,
-                e=e: f"Exception waiting for response for request {req_id}: {e}"
+                f"Exception waiting for response for request {request_id}: {e}"
             )
 
     @aiperf_task
@@ -200,9 +194,7 @@ class ZMQRouterReplyClient(BaseZMQClient, AsyncTaskManagerMixin):
 
                     request = Message.from_json(data[-1])
                     if not request.request_id:
-                        self.exception(
-                            lambda msg=data: f"Request ID is missing from request: {msg}"
-                        )
+                        self.exception(f"Request ID is missing from request: {data}")
                         continue
 
                     routing_envelope: tuple[bytes] = (
@@ -229,5 +221,5 @@ class ZMQRouterReplyClient(BaseZMQClient, AsyncTaskManagerMixin):
                 self.trace(lambda: "Router reply client receiver task cancelled")
                 break
             except Exception as e:
-                self.exception(lambda e=e: f"Exception receiving request: {e}")
+                self.exception(f"Exception receiving request: {e}")
                 await asyncio.sleep(0.1)

@@ -115,7 +115,7 @@ class MultiProcessServiceManager(BaseServiceManager):
         try:
             await self._run_services(self.required_services)
         except Exception as e:
-            self.exception(lambda e=e: f"Error starting services: {e}")
+            self.exception(f"Error starting services: {e}")
             raise e
 
     async def shutdown_all_services(self) -> None:

@@ -13,7 +13,7 @@ from aiperf.common.enums import (
     MessageType,
     ServiceType,
 )
-from aiperf.common.messages.base_messages import BaseServiceMessage
+from aiperf.common.messages.service_messages import BaseServiceMessage
 from aiperf.common.models import AIPerfBaseModel, ErrorDetails
 
 

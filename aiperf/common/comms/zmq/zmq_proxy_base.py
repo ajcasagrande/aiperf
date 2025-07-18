@@ -189,7 +189,7 @@ class BaseZMQProxy(AIPerfLoggerMixin, ABC):
                 self.debug(lambda: f"Capture socket bound to: {self.capture_address}")
 
         except Exception as e:
-            self.exception(lambda e=e: f"Proxy Socket Initialization Failed: {e}")
+            self.exception(f"Proxy Socket Initialization Failed: {e}")
             raise
 
     async def stop(self) -> None:
@@ -206,7 +206,7 @@ class BaseZMQProxy(AIPerfLoggerMixin, ABC):
                     )
 
         except Exception as e:
-            self.exception(lambda e=e: f"Proxy Stop Error: {e}")
+            self.exception(f"Proxy Stop Error: {e}")
 
     async def run(self) -> None:
         """Start the Base ZMQ Proxy.
@@ -239,7 +239,7 @@ class BaseZMQProxy(AIPerfLoggerMixin, ABC):
             return
 
         except Exception as e:
-            self.exception(lambda e=e: f"Proxy Error: {e}")
+            self.exception(f"Proxy Error: {e}")
             raise ProxyError(f"Proxy failed: {e}") from e
 
     async def _monitor_messages(self) -> None:
@@ -264,7 +264,7 @@ class BaseZMQProxy(AIPerfLoggerMixin, ABC):
                 recv_msg = await capture_socket.recv_multipart()
                 self.trace(lambda msg=recv_msg: f"Proxy Monitor Received: {msg}")
         except Exception as e:
-            self.exception(lambda e=e: f"Proxy Monitor Error - {e}")
+            self.exception(f"Proxy Monitor Error - {e}")
             raise
         finally:
             capture_socket.close()
