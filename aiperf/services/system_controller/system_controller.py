@@ -23,11 +23,11 @@ from aiperf.common.messages import (
     HeartbeatMessage,
     Message,
     ProcessRecordsCommandData,
+    ProfileResultsMessage,
     RecordsProcessingStatsMessage,
     RegistrationMessage,
     StatusMessage,
 )
-from aiperf.common.messages.progress_messages import ProfileResultsMessage
 from aiperf.common.mixins import EventBusClientMixin
 from aiperf.common.models import AIPerfBaseModel
 from aiperf.common.service.base_controller_service import BaseControllerService

@@ -10,6 +10,7 @@ __ignore__ = []
 ########################################################################
 from aiperf.common.models.base_models import (
     AIPerfBaseModel,
+    ExcludeIfNoneModel,
 )
 from aiperf.common.models.credit_models import (
     CreditPhaseConfig,
@@ -38,6 +39,7 @@ from aiperf.common.models.progress_models import (
     BenchmarkSuiteProgress,
     CreditPhaseComputedStats,
     FullCreditPhaseProgressInfo,
+    ProfileResultsData,
     ProfileRunProgress,
     logger,
 )
@@ -70,6 +72,7 @@ __all__ = [
     "CtxSwitches",
     "ErrorDetails",
     "ErrorDetailsCount",
+    "ExcludeIfNoneModel",
     "FullCreditPhaseProgressInfo",
     "IOCounters",
     "Image",
@@ -78,6 +81,7 @@ __all__ = [
     "ParsedResponseRecord",
     "PhaseProcessingStats",
     "ProcessHealth",
+    "ProfileResultsData",
     "ProfileRunProgress",
     "RequestRecord",
     "ResponseData",

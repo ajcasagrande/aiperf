@@ -1,22 +1,47 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from pydantic import Field
+from pydantic import Field, SerializeAsAny
 
 from aiperf.common.aiperf_logger import AIPerfLogger
 from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import BenchmarkSuiteType, CreditPhase
-from aiperf.common.messages import (
-    ProfileResultsMessage,
-)
-from aiperf.common.models import (
-    AIPerfBaseModel,
-    CreditPhaseStats,
-    PhaseProcessingStats,
-    WorkerPhaseTaskStats,
-)
+from aiperf.common.models.base_models import AIPerfBaseModel
+from aiperf.common.models.credit_models import CreditPhaseStats, PhaseProcessingStats
+from aiperf.common.models.error_models import ErrorDetailsCount
+from aiperf.common.models.record_models import MetricResult
+from aiperf.common.models.worker_models import WorkerPhaseTaskStats
 
 logger = AIPerfLogger(__name__)
+
+
+class ProfileResultsData(AIPerfBaseModel):
+    """Data for the profile results."""
+
+    records: SerializeAsAny[list[MetricResult]] = Field(
+        ..., description="The records of the profile results"
+    )
+    total: int = Field(
+        ...,
+        description="The total number of inference requests expected to be made (if known)",
+    )
+    completed: int = Field(
+        ..., description="The number of inference requests completed"
+    )
+    start_ns: int = Field(
+        ..., description="The start time of the profile run in nanoseconds"
+    )
+    end_ns: int = Field(
+        ..., description="The end time of the profile run in nanoseconds"
+    )
+    was_cancelled: bool = Field(
+        default=False,
+        description="Whether the profile run was cancelled early",
+    )
+    errors_by_type: list[ErrorDetailsCount] = Field(
+        default_factory=list,
+        description="A list of the unique error details and their counts",
+    )
 
 
 class CreditPhaseComputedStats(AIPerfBaseModel):
@@ -104,7 +129,7 @@ class ProfileRunProgress(AIPerfBaseModel):
         default_factory=dict,
         description="The full credit stats for each credit phase as reported by the TimingManager and RecordsManager.",
     )
-    profile_results: ProfileResultsMessage | None = Field(
+    profile_results: ProfileResultsData | None = Field(
         default=None, description="The profile results"
     )
     was_cancelled: bool = Field(

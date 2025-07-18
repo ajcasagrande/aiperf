@@ -15,7 +15,7 @@ from aiperf.common.messages import (
 )
 from aiperf.common.messages.credit_messages import CreditPhaseSendingCompleteMessage
 from aiperf.common.mixins import AIPerfLoggerMixin
-from aiperf.common.models.progress_models import (
+from aiperf.common.models import (
     BenchmarkSuiteProgress,
     FullCreditPhaseProgressInfo,
     PhaseProcessingStats,

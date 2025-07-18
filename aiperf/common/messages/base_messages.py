@@ -6,11 +6,12 @@ from typing import Any, ClassVar
 from pydantic import Field
 
 from aiperf.common.enums import MessageType
-from aiperf.common.pydantic_utils import ExcludeIfNoneMixin, exclude_if_none
+from aiperf.common.models import ExcludeIfNoneModel
+from aiperf.common.pydantic_utils import exclude_if_none
 
 
 @exclude_if_none(["request_id"])
-class Message(ExcludeIfNoneMixin):
+class Message(ExcludeIfNoneModel):
     """Base message class for optimized message handling.
 
     This class provides a base for all messages, including common fields like message_type,

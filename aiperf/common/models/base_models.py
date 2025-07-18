@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-from pydantic import BaseModel, ConfigDict
+from typing import Any, ClassVar
+
+from pydantic import BaseModel, ConfigDict, model_serializer
 
 
 class AIPerfBaseModel(BaseModel):
@@ -10,3 +12,29 @@ class AIPerfBaseModel(BaseModel):
     """
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
+
+
+class ExcludeIfNoneModel(AIPerfBaseModel):
+    """Mixin to exclude fields from the serialized model if they are None.
+
+    The @exclude_if_none decorator can be used to specify which fields
+    should be excluded from the serialized model if they are None.
+    """
+
+    _exclude_if_none_fields: ClassVar[set[str]] = set()
+    """Set of field names that should be excluded from the serialized model if they
+    are None. This is set by the @exclude_if_none decorator.
+    """
+
+    @model_serializer
+    def _serialize_model(self) -> dict[str, Any]:
+        """Serialize the model to a dictionary.
+
+        This method overrides the default serializer to exclude fields that with a
+        value of None and were marked with the @exclude_if_none decorator.
+        """
+        return {
+            k: v
+            for k, v in self
+            if not (k in self._exclude_if_none_fields and v is None)
+        }
