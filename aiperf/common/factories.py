@@ -209,125 +209,48 @@ class InputConverterFactory(FactoryMixin[PromptSource, "InputConverterProtocol"]
 
 class ServiceFactory(FactoryMixin[ServiceType, "BaseService"]):
     """Factory for registering and creating BaseService instances based on the specified service type.
-
-    Example:
-    ```python
-        # Register a new service type
-        @ServiceFactory.register(ServiceType.DATASET_MANAGER)
-        class DatasetManager(BaseService):
-            pass
-
-        # Create a new service instance in a separate process
-        service_class = ServiceFactory.get_class_from_type(service_type)
-
-        process = Process(
-            target=bootstrap_and_run_service,
-            name=f"{service_type}_process",
-            args=(service_class, self.config),
-            daemon=False,
-        )
-    ```
+    see: :class:`FactoryMixin` for more details.
     """
 
 
 class DataExporterFactory(FactoryMixin["DataExporterType", "DataExporterProtocol"]):
     """Factory for registering and creating DataExporterInterface instances.
-
-    Example:
-    ```python
-        # Iterate over all registered data exporter types
-        for exporter_class in DataExporterFactory.get_all_classes():
-            exporter = exporter_class(endpoint_config)
-
-            exporter.export()
-    ```
+    see: :class:`FactoryMixin` for more details.
     """
 
 
 class PostProcessorFactory(FactoryMixin["PostProcessorType", "PostProcessorProtocol"]):
     """Factory for registering and creating PostProcessor instances based on the specified post-processor type.
-
-    Example:
-    ```python
-        # Register a new post-processor type
-        @PostProcessorFactory.register(PostProcessorType.METRIC_SUMMARY)
-        class MetricSummary:
-            pass
-
-        # Create a new post-processor instance
-        post_processor = PostProcessorFactory.create_instance(
-            PostProcessorType.METRIC_SUMMARY,
-        )
+    see: :class:`FactoryMixin` for more details.
     """
 
 
 class ComposerFactory(FactoryMixin["ComposerType", "BaseDatasetComposer"]):
     """Factory for registering and creating BaseDatasetComposer instances
     based on the specified composer type.
-
-    Example:
-    ```python
-        # Register a new composer type
-        @ComposerFactory.register(ComposerType.SYNTHETIC)
-        class SyntheticDatasetComposer(BaseDatasetComposer):
-            pass
-
-        # Create a new composer instance
-        composer = ComposerFactory.create_instance(
-            ComposerType.SYNTHETIC,
-            config=InputConfig(
-                conversation=ConversationConfig(num=10),
-                prompt=PromptConfig(batch_size=10),
-            )
-        )
-    ```
+    see: :class:`FactoryMixin` for more details.
     """
 
 
 class CustomDatasetFactory(
     FactoryMixin["CustomDatasetType", "CustomDatasetLoaderProtocol"]
 ):
-    """
-    Factory for registering and creating CustomDatasetLoader instances
+    """Factory for registering and creating CustomDatasetLoader instances
     based on the specified custom dataset type.
-
-    Example:
-    ```python
-        # Register a new custom dataset type
-        @CustomDatasetFactory.register(CustomDatasetType.TRACE)
-        class TraceDatasetLoader(CustomDatasetLoader):
-            pass
-
-        # Create a new custom dataset loader instance
-        custom_dataset_loader = CustomDatasetFactory.create_instance(
-            CustomDatasetType.TRACE, **kwargs
-        )
-    ```
+    see: :class:`FactoryMixin` for more details.
     """
 
 
 class ZMQProxyFactory(FactoryMixin[ZMQProxyType, "BaseZMQProxy"]):
     """
     A factory for creating ZMQ proxies.
-
-    Example:
-    ```python
-        # Register a new ZMQ proxy type
-        @ZMQProxyFactory.register(ZMQProxyType.DEALER_ROUTER)
-        class DealerRouterProxy(BaseZMQProxy):
-            pass
-
-        # Create a new ZMQ proxy instance
-        proxy = ZMQProxyFactory.create_instance(
-            ZMQProxyType.DEALER_ROUTER,
-            config=ZMQTCPProxyConfig(host="localhost", frontend_port=5555, backend_port=5556),
-        )
-        proxy.run()
-    ```
+    see: :class:`FactoryMixin` for more details.
     """
 
 
 class ParsedResponseStreamerFactory(
     FactoryMixin[ResponseStreamerType, "ParsedResponseStreamer"]
 ):
-    """Factory for creating ParsedResponseStreamer instances."""
+    """Factory for creating ParsedResponseStreamer instances.
+    see: :class:`FactoryMixin` for more details.
+    """
