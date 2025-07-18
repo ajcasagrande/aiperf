@@ -18,14 +18,15 @@ More than one hook can be registered for a given hook type, and classes that inh
 classes with existing hooks will inherit the hooks from the base classes as well.
 """
 
-import asyncio
-import inspect
-import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 from aiperf.common.enums import CaseInsensitiveStrEnum
 from aiperf.common.enums.message_enums import MessageType
-from aiperf.common.exceptions import AIPerfError, AIPerfMultiError, UnsupportedHookError
+
+if TYPE_CHECKING:
+    # Prevent circular import
+    from aiperf.common.mixins import AIPerfLifecycleMixin
 
 ################################################################################
 # Hook Types
@@ -78,119 +79,6 @@ HookType = AIPerfHook | AIPerfTaskHook | str
 
 AIPERF_HOOK_TYPE = "__aiperf_hook_type__"
 """Constant attribute name that marks a function's hook type."""
-
-
-################################################################################
-# Hook System
-################################################################################
-
-
-class HookSystem:
-    """
-    System for managing hooks.
-
-    This class is responsible for managing the hooks for a class. It will
-    store the hooks in a dictionary, and provide methods to register and run
-    the hooks.
-    """
-
-    def __init__(self, supported_hooks: set[HookType]):
-        """
-        Initialize the hook system.
-
-        Args:
-            supported_hooks: The hook types that the class supports.
-        """
-        self.logger = logging.getLogger(self.__class__.__name__)
-        self.supported_hooks: set[HookType] = supported_hooks
-        self._hooks: dict[HookType, list[Callable]] = {}
-
-    def register_hook(self, hook_type: HookType, func: Callable):
-        """Register a hook function for a given hook type.
-
-        Args:
-            hook_type: The hook type to register the function for.
-            func: The function to register.
-        """
-        if hook_type not in self.supported_hooks:
-            raise UnsupportedHookError(
-                f"Hook {hook_type} is not supported by class for func {func.__qualname__}."
-            )
-
-        self._hooks.setdefault(hook_type, []).append(func)
-
-    def get_hooks(self, hook_type: HookType) -> list[Callable]:
-        """Get all the registered hooks for the given hook type.
-
-        Args:
-            hook_type: The hook type to get the hooks for.
-
-        Returns:
-            A list of the hooks for the given hook type.
-        """
-        return self._hooks.get(hook_type, [])
-
-    async def run_hooks(self, hook_type: HookType, *args, **kwargs):
-        """
-        Run all the hooks for a given hook type serially. This will wait for each
-        hook to complete before running the next one.
-
-        Args:
-            hook_type: The hook type to run.
-            *args: The arguments to pass to the hooks.
-            **kwargs: The keyword arguments to pass to the hooks.
-        """
-        if hook_type not in self.supported_hooks:
-            raise UnsupportedHookError(
-                f"Hook {hook_type} is not supported by class for {self.__qualname__}."
-            )
-
-        exceptions: list[Exception] = []
-        for func in self.get_hooks(hook_type):
-            try:
-                if inspect.iscoroutinefunction(func):
-                    await func(*args, **kwargs)
-                else:
-                    await asyncio.to_thread(func, *args, **kwargs)
-            except Exception as e:
-                self.logger.exception("Error running hook %s: %s", func.__qualname__, e)
-                exceptions.append(
-                    AIPerfError(
-                        f"Error running hook {func.__qualname__}: {e.__class__.__name__} {e}"
-                    )
-                )
-
-        if exceptions:
-            raise AIPerfMultiError("Errors running hooks", exceptions)
-
-    async def run_hooks_async(self, hook_type: HookType, *args, **kwargs):
-        """
-        Run all the hooks for a given hook type concurrently. This will run all
-        the hooks at the same time and return when all the hooks have completed.
-
-        Args:
-            hook_type: The hook type to run.
-            *args: The arguments to pass to the hooks.
-            **kwargs: The keyword arguments to pass to the hooks.
-        """
-        if hook_type not in self.supported_hooks:
-            raise UnsupportedHookError(
-                f"Hook {hook_type} is not supported by class for {self.__qualname__}."
-            )
-
-        coroutines: list[Awaitable] = []
-        for func in self.get_hooks(hook_type):
-            if inspect.iscoroutinefunction(func):
-                coroutines.append(func(*args, **kwargs))
-            else:
-                coroutines.append(asyncio.to_thread(func, *args, **kwargs))
-
-        if coroutines:
-            results = await asyncio.gather(*coroutines, return_exceptions=True)
-
-            exceptions = [result for result in results if isinstance(result, Exception)]
-            if exceptions:
-                raise AIPerfMultiError("Errors running hooks", exceptions)
 
 
 ################################################################################
@@ -285,13 +173,16 @@ def aiperf_task(func: Callable) -> Callable:
     return hook_decorator(AIPerfTaskHook.AIPERF_TASK, func)
 
 
-def aiperf_auto_task(interval_sec: float) -> Callable[[Callable], Callable]:
+def aiperf_auto_task(
+    interval_sec: float | Callable[["AIPerfLifecycleMixin"], float] | None,
+) -> Callable[[Callable], Callable]:
     """Decorator to indicate that the function is a task function. It will be started
     and stopped automatically by the base class lifecycle.
     See :func:`aiperf.common.hooks.hook_decorator`.
 
     Args:
-        interval_sec: The interval in seconds to sleep between runs.
+        interval_sec: The interval in seconds to sleep between runs. Can be a callable that returns a float.
+                    If None, the task will run once and then stop.
     """
 
     def decorator(func: Callable) -> Callable:

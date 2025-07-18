@@ -16,8 +16,8 @@ from aiperf.common.hooks import (
 )
 from aiperf.common.messages import Message
 from aiperf.common.mixins import (
+    AIPerfLifecycleMixin,
     AIPerfLoggerMixin,
-    AIPerfTaskMixin,
     EventBusClientMixin,
     ProcessHealthMixin,
     supports_hooks,
@@ -37,7 +37,7 @@ from aiperf.common.service.base_service_interface import BaseServiceInterface
 )
 class BaseService(
     BaseServiceInterface,
-    AIPerfTaskMixin,
+    AIPerfLifecycleMixin,
     ProcessHealthMixin,
     EventBusClientMixin,
     AIPerfLoggerMixin,

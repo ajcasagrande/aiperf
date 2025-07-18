@@ -1,10 +1,127 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from collections.abc import Callable
+import asyncio
+import inspect
+from collections.abc import Awaitable, Callable
 from typing import ClassVar
 
-from aiperf.common.hooks import AIPERF_HOOK_TYPE, HookSystem, HookType
+from aiperf.common.exceptions import AIPerfError, AIPerfMultiError, UnsupportedHookError
+from aiperf.common.hooks import AIPERF_HOOK_TYPE, HookType
+from aiperf.common.mixins.aiperf_logger_mixin import AIPerfLoggerMixin
+
+################################################################################
+# Hook System
+################################################################################
+
+
+class HookSystem(AIPerfLoggerMixin):
+    """
+    System for managing hooks.
+
+    This class is responsible for managing the hooks for a class. It will
+    store the hooks in a dictionary, and provide methods to register and run
+    the hooks.
+    """
+
+    def __init__(self, supported_hooks: set[HookType], **kwargs):
+        """
+        Initialize the hook system.
+
+        Args:
+            supported_hooks: The hook types that the class supports.
+            **kwargs: Passthrough kwargs for composability.
+        """
+        super().__init__(**kwargs)
+        self.supported_hooks: set[HookType] = supported_hooks
+        self._hooks: dict[HookType, list[Callable]] = {}
+
+    def register_hook(self, hook_type: HookType, func: Callable):
+        """Register a hook function for a given hook type.
+
+        Args:
+            hook_type: The hook type to register the function for.
+            func: The function to register.
+        """
+        if hook_type not in self.supported_hooks:
+            raise UnsupportedHookError(
+                f"Hook {hook_type} is not supported by class for func {func.__qualname__}."
+            )
+
+        self._hooks.setdefault(hook_type, []).append(func)
+
+    def get_hooks(self, hook_type: HookType) -> list[Callable]:
+        """Get all the registered hooks for the given hook type.
+
+        Args:
+            hook_type: The hook type to get the hooks for.
+
+        Returns:
+            A list of the hooks for the given hook type.
+        """
+        return self._hooks.get(hook_type, [])
+
+    async def run_hooks(self, hook_type: HookType, *args, **kwargs):
+        """
+        Run all the hooks for a given hook type serially. This will wait for each
+        hook to complete before running the next one.
+
+        Args:
+            hook_type: The hook type to run.
+            *args: The arguments to pass to the hooks.
+            **kwargs: The keyword arguments to pass to the hooks.
+        """
+        if hook_type not in self.supported_hooks:
+            raise UnsupportedHookError(
+                f"Hook {hook_type} is not supported by class for {self.__qualname__}."
+            )
+
+        exceptions: list[Exception] = []
+        for func in self.get_hooks(hook_type):
+            try:
+                if inspect.iscoroutinefunction(func):
+                    await func(*args, **kwargs)
+                else:
+                    await asyncio.to_thread(func, *args, **kwargs)
+            except Exception as e:
+                self.logger.exception("Error running hook %s: %s", func.__qualname__, e)
+                exceptions.append(
+                    AIPerfError(
+                        f"Error running hook {func.__qualname__}: {e.__class__.__name__} {e}"
+                    )
+                )
+
+        if exceptions:
+            raise AIPerfMultiError("Errors running hooks", exceptions)
+
+    async def run_hooks_async(self, hook_type: HookType, *args, **kwargs):
+        """
+        Run all the hooks for a given hook type concurrently. This will run all
+        the hooks at the same time and return when all the hooks have completed.
+
+        Args:
+            hook_type: The hook type to run.
+            *args: The arguments to pass to the hooks.
+            **kwargs: The keyword arguments to pass to the hooks.
+        """
+        if hook_type not in self.supported_hooks:
+            raise UnsupportedHookError(
+                f"Hook {hook_type} is not supported by class for {self.__qualname__}."
+            )
+
+        coroutines: list[Awaitable] = []
+        for func in self.get_hooks(hook_type):
+            if inspect.iscoroutinefunction(func):
+                coroutines.append(func(*args, **kwargs))
+            else:
+                coroutines.append(asyncio.to_thread(func, *args, **kwargs))
+
+        if coroutines:
+            results = await asyncio.gather(*coroutines, return_exceptions=True)
+
+            exceptions = [result for result in results if isinstance(result, Exception)]
+            if exceptions:
+                raise AIPerfMultiError("Errors running hooks", exceptions)
 
 
 class HooksMixin:
@@ -21,7 +138,7 @@ class HooksMixin:
         Initialize the hook system and register all functions that are decorated with a hook decorator.
         """
         # Initialize the hook system
-        self._hook_system = HookSystem(self.supported_hooks)
+        self._hook_system = HookSystem(self.supported_hooks, **kwargs)
 
         # Register all functions that are decorated with a hook decorator
         # Iterate through MRO in reverse order to ensure base class hooks are registered first

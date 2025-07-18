@@ -91,12 +91,6 @@ class LogViewer(Container):
             root_logger = logging.getLogger()
             root_logger.addHandler(self.log_handler)
 
-            # Add a welcome message
-            if self.log_widget:
-                self.log_widget.write(
-                    "[bold green]AIPerf Log Viewer Initialized[/bold green]"
-                )
-
     def on_unmount(self) -> None:
         """Clean up logging when the widget is unmounted."""
         if self.log_handler:

@@ -126,7 +126,7 @@ class AIPerfLifecycleMixin(HooksMixin, AsyncTaskManagerMixin, AIPerfLoggerMixin)
             interval = getattr(
                 hook, AIPerfHookParams.AIPERF_AUTO_TASK_INTERVAL_SEC, None
             )
-            self.execute_async(self._task_wrapper(hook, interval))
+            self.execute_async(self._auto_task_wrapper(hook, interval))
 
     @on_stop
     async def _stop_tasks(self):
@@ -146,11 +146,13 @@ class AIPerfLifecycleMixin(HooksMixin, AsyncTaskManagerMixin, AIPerfLoggerMixin)
         #     self.lifecycle_task.cancel()
         #     await asyncio.wait_for(self.lifecycle_task, timeout=TASK_CANCEL_TIMEOUT_SHORT)
 
-    async def _task_wrapper(
-        self, func: Callable, interval: float | None = None
+    async def _auto_task_wrapper(
+        self,
+        func: Callable,
+        interval: float | Callable[["AIPerfLifecycleMixin"], float] | None = None,
     ) -> None:
-        """Wrapper to run a task in a loop until the stop_requested event is set."""
-        while not self.stop_requested.is_set():
+        """Wrapper to run a task in a loop until cancelled."""
+        while True:
             try:
                 if inspect.iscoroutinefunction(func):
                     await func()
@@ -163,7 +165,14 @@ class AIPerfLifecycleMixin(HooksMixin, AsyncTaskManagerMixin, AIPerfLoggerMixin)
 
             if interval is None:
                 break
-            await asyncio.sleep(interval)
+
+            if callable(interval):
+                # Call the interval function with the self instance to get the interval
+                # This allows the interval function to access the self instance and its attributes
+                # in order to dynamically determine the interval.
+                await asyncio.sleep(interval(self))
+            else:
+                await asyncio.sleep(interval)
 
 
 @runtime_checkable

@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-import asyncio
 
 from aiperf.clients import InferenceClientFactory
 from aiperf.clients.client_interfaces import RequestConverterFactory
@@ -20,7 +19,7 @@ from aiperf.common.enums import (
 )
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
-    aiperf_task,
+    aiperf_auto_task,
     on_configure,
     on_init,
     on_stop,
@@ -147,20 +146,11 @@ class Worker(BaseComponentService, ProcessHealthMixin, CreditProcessorMixin):
         if self.inference_client:
             await self.inference_client.close()
 
-    @aiperf_task
+    @aiperf_auto_task(interval_sec=lambda self: self.health_check_interval)
     async def _health_check_task(self) -> None:
         """Task to report the health of the worker to the worker manager."""
-        while True:
-            try:
-                health_message = self.create_health_message()
-                await self.pub_client.publish(health_message)
-            except Exception as e:
-                self.exception(f"Error reporting health: {e}")
-            except asyncio.CancelledError:
-                self.debug("Health check task cancelled")
-                break
-
-            await asyncio.sleep(self.health_check_interval)
+        health_message = self.create_health_message()
+        await self.pub_client.publish(health_message)
 
     def create_health_message(self) -> WorkerHealthMessage:
         return WorkerHealthMessage(
