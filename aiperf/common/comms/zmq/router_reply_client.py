@@ -137,7 +137,7 @@ class ZMQRouterReplyClient(BaseZMQClient, AsyncTaskManagerMixin):
             )
 
     async def _wait_for_response(
-        self, request_id: str, routing_envelope: tuple[bytes]
+        self, request_id: str, routing_envelope: tuple[bytes, ...]
     ) -> None:
         """Wait for a response to a request.
 
@@ -197,7 +197,7 @@ class ZMQRouterReplyClient(BaseZMQClient, AsyncTaskManagerMixin):
                         self.exception(f"Request ID is missing from request: {data}")
                         continue
 
-                    routing_envelope: tuple[bytes] = (
+                    routing_envelope: tuple[bytes, ...] = (
                         tuple(data[:-1])
                         if len(data) > 1
                         else (request.request_id.encode(),)

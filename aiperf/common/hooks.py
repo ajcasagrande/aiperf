@@ -86,6 +86,46 @@ AIPERF_HOOK_TYPE = "__aiperf_hook_type__"
 ################################################################################
 
 
+def supports_hooks(
+    *supported_hook_types: HookType,
+) -> Callable[[type], type]:
+    """Decorator to indicate that a class supports hooks and sets the
+    supported hook types.
+
+    Args:
+        supported_hook_types: The hook types that the class supports.
+
+    Returns:
+        The decorated class
+    """
+
+    def decorator(cls: type) -> type:
+        # TODO: We can consider creating a HooksMixinProtocol, but it would still
+        #       need to exist somewhere both hooks.py and mixins module can access.
+        # Import this here to prevent circular imports. Also make sure you use
+        # fully qualified import name to avoid partial loaded module errors.
+        from aiperf.common.mixins.hooks_mixin import HooksMixin
+
+        # Ensure the class inherits from HooksMixin
+        if not issubclass(cls, HooksMixin):
+            raise TypeError(f"Class {cls.__name__} does not inherit from HooksMixin.")
+
+        # Inherit any hooks defined by base classes in the MRO (Method Resolution Order).
+        base_hooks = [
+            base.supported_hooks
+            for base in cls.__mro__[1:]  # Skip this class itself (cls)
+            if issubclass(
+                base, HooksMixin
+            )  # Only include classes that inherit from HooksMixin
+        ]
+
+        # Set the supported hooks to be the union of the existing base hooks and the new supported hook types.
+        cls.supported_hooks = set.union(*base_hooks, set(supported_hook_types))
+        return cls
+
+    return decorator
+
+
 def hook_decorator(hook_type: HookType, func: Callable) -> Callable:
     """Generic decorator to specify that the function should be called during
     a specific hook.

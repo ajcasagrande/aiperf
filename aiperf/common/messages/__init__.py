@@ -12,8 +12,6 @@ __ignore__ = []
 
 
 from aiperf.common.messages.base_messages import (
-    BaseServiceMessage,
-    BaseStatusMessage,
     Message,
 )
 from aiperf.common.messages.command_messages import (
@@ -57,6 +55,8 @@ from aiperf.common.messages.records_messages import (
     RecordsProcessingStatsMessage,
 )
 from aiperf.common.messages.service_messages import (
+    BaseServiceMessage,
+    BaseStatusMessage,
     HeartbeatMessage,
     NotificationMessage,
     RegistrationMessage,

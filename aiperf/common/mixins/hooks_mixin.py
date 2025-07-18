@@ -179,35 +179,3 @@ class HooksMixin:
     def get_hooks(self, hook_type: HookType) -> list[Callable]:
         """Get all the registered hooks for the given hook type. See :meth:`HookSystem.get_hooks`."""
         return self._hook_system.get_hooks(hook_type)
-
-
-def supports_hooks(*supported_hook_types: HookType) -> Callable[[type], type]:
-    """Decorator to indicate that a class supports hooks and sets the
-    supported hook types.
-
-    Args:
-        supported_hook_types: The hook types that the class supports.
-
-    Returns:
-        The decorated class
-    """
-
-    def decorator(cls: type) -> type:
-        # Ensure the class inherits from HooksMixin
-        if not issubclass(cls, HooksMixin):
-            raise TypeError(f"Class {cls.__name__} does not inherit from HooksMixin.")
-
-        # Inherit any hooks defined by base classes in the MRO (Method Resolution Order).
-        base_hooks = [
-            base.supported_hooks
-            for base in cls.__mro__[1:]  # Skip this class itself (cls)
-            if issubclass(
-                base, HooksMixin
-            )  # Only include classes that inherit from HooksMixin
-        ]
-
-        # Set the supported hooks to be the union of the existing base hooks and the new supported hook types.
-        cls.supported_hooks = set.union(*base_hooks, set(supported_hook_types))
-        return cls
-
-    return decorator

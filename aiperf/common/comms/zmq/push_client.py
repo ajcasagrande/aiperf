@@ -95,9 +95,7 @@ class ZMQPushClient(BaseZMQClient, AsyncTaskManagerMixin):
             await asyncio.sleep(0.1)
             return await self._push_message(message, retry_count + 1, max_retries)
         except Exception as e:
-            raise CommunicationError(
-                f"Failed to push data: {e}",
-            ) from e
+            raise CommunicationError(f"Failed to push data: {e}") from e
 
     async def push(self, message: Message) -> None:
         """Push data to a target. The message will be routed automatically

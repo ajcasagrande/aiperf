@@ -42,10 +42,9 @@ from aiperf.common.mixins.comms_mixins import (
 from aiperf.common.mixins.event_bus_client_mixin import (
     EventBusClientMixin,
 )
-from aiperf.common.mixins.hooks_mixins import (
+from aiperf.common.mixins.hooks_mixin import (
     HooksMixin,
     HookSystem,
-    supports_hooks,
 )
 from aiperf.common.mixins.process_health_mixin import (
     ProcessHealthMixin,
@@ -77,5 +76,4 @@ __all__ = [
     "ProcessHealthMixin",
     "ProcessHealthMixinProtocol",
     "ProgressTrackerMixin",
-    "supports_hooks",
 ]
