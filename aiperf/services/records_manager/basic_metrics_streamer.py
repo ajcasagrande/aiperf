@@ -41,6 +41,7 @@ class BasicMetricsStreamer(ParsedResponseStreamer):
             # TODO: we do not want to keep all the data forever
             self.error_records.append(record)
 
+    # TODO: This could be done on the fly as we process the records
     async def get_error_summary(self) -> list[ErrorDetailsCount]:
         """Generate a summary of the error records."""
         summary: dict[ErrorDetails, int] = {}
