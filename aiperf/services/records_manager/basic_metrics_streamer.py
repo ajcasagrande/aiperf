@@ -4,22 +4,22 @@
 import time
 from collections import deque
 
-from aiperf.common.enums import ResponseStreamerType
+from aiperf.common.enums import StreamingPostProcessorType
 from aiperf.common.enums.message_enums import MessageType
-from aiperf.common.factories import ParsedResponseStreamerFactory
+from aiperf.common.factories import StreamingPostProcessorFactory
 from aiperf.common.hooks import on_message
 from aiperf.common.messages import ProcessRecordsRequestMessage
 from aiperf.common.messages.progress_messages import ProfileResultsMessage
 from aiperf.common.models import ErrorDetails, ErrorDetailsCount, ParsedResponseRecord
 from aiperf.data_exporter.exporter_manager import ExporterManager
-from aiperf.services.records_manager.parsed_result_streamer import (
-    ParsedResponseStreamer,
-)
 from aiperf.services.records_manager.post_processors.metric_summary import MetricSummary
+from aiperf.services.records_manager.streaming_post_processor import (
+    StreamingPostProcessor,
+)
 
 
-@ParsedResponseStreamerFactory.register(ResponseStreamerType.BASIC_METRICS)
-class BasicMetricsStreamer(ParsedResponseStreamer):
+@StreamingPostProcessorFactory.register(StreamingPostProcessorType.BASIC_METRICS)
+class BasicMetricsStreamer(StreamingPostProcessor):
     """Streamer for basic metrics."""
 
     def __init__(self, **kwargs) -> None:

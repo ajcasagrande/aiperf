@@ -8,10 +8,17 @@ class PostProcessorType(CaseInsensitiveStrEnum):
     """Type of post processor."""
 
     METRIC_SUMMARY = "metric_summary"
+    """Post processor that provides the summary of the metrics of the records."""
 
 
-class ResponseStreamerType(CaseInsensitiveStrEnum):
+class StreamingPostProcessorType(CaseInsensitiveStrEnum):
     """Type of response streamer."""
 
     PROCESSING_STATS = "processing_stats"
+    """Streamer that provides the processing stats of the records."""
+
     BASIC_METRICS = "basic_metrics"
+    """Streamer that handles the basic metrics of the records."""
+
+    JSONL = "jsonl"
+    """Streams all parsed records to a JSONL file."""

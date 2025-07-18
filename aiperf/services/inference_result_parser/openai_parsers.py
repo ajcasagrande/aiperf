@@ -66,7 +66,7 @@ class OpenAIObject(CaseInsensitiveStrEnum):
             raise ValueError(f"Invalid OpenAI object type: {obj_type}")
 
         try:
-            return _object_mapping[obj_type](**obj)
+            return _object_mapping[obj_type].model_validate(obj)
         except Exception as e:
             raise ValueError(f"Invalid OpenAI object: {text}") from e
 

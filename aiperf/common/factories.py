@@ -7,8 +7,8 @@ from aiperf.common.aiperf_logger import AIPerfLogger
 from aiperf.common.enums import (
     CaseInsensitiveStrEnum,
     PromptSource,
-    ResponseStreamerType,
     ServiceType,
+    StreamingPostProcessorType,
     ZMQProxyType,
 )
 from aiperf.common.exceptions import FactoryCreationError
@@ -248,9 +248,9 @@ class ZMQProxyFactory(FactoryMixin[ZMQProxyType, "BaseZMQProxy"]):
     """
 
 
-class ParsedResponseStreamerFactory(
-    FactoryMixin[ResponseStreamerType, "ParsedResponseStreamer"]
+class StreamingPostProcessorFactory(
+    FactoryMixin[StreamingPostProcessorType, "StreamingPostProcessor"]
 ):
-    """Factory for creating ParsedResponseStreamer instances.
+    """Factory for creating StreamingPostProcessor instances.
     see: :class:`FactoryMixin` for more details.
     """

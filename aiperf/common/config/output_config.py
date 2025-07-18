@@ -32,6 +32,20 @@ class OutputConfig(BaseConfig):
         ),
     ] = OutputDefaults.ARTIFACT_DIRECTORY
 
+    processed_records_file: Annotated[
+        Path,
+        Field(
+            description="The path where the processed records will be exported.",
+        ),
+        cyclopts.Parameter(
+            name=(
+                "--output-processed-records-file",
+                "--processed-records-file",
+            ),
+            group=_GROUP_NAME,
+        ),
+    ] = OutputDefaults.PROCESSED_RECORDS_FILE
+
     # profile_export_file: Annotated[
     #     Path,
     #     Field(

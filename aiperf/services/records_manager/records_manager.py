@@ -12,14 +12,14 @@ from aiperf.common.enums import (
     MessageType,
     ServiceType,
 )
-from aiperf.common.factories import ParsedResponseStreamerFactory, ServiceFactory
+from aiperf.common.factories import ServiceFactory, StreamingPostProcessorFactory
 from aiperf.common.hooks import on_init
 from aiperf.common.messages import (
     ParsedInferenceResultsMessage,
 )
 from aiperf.common.service import BaseComponentService
-from aiperf.services.records_manager.parsed_result_streamer import (
-    ParsedResponseStreamer,
+from aiperf.services.records_manager.streaming_post_processor import (
+    StreamingPostProcessor,
 )
 
 
@@ -53,7 +53,7 @@ class RecordsManager(BaseComponentService):
                 bind=True,
             )
         )
-        self.response_streamers: list[ParsedResponseStreamer] = []
+        self.response_streamers: list[StreamingPostProcessor] = []
 
     @property
     def service_type(self) -> ServiceType:
@@ -72,15 +72,15 @@ class RecordsManager(BaseComponentService):
         )
 
         # Initialize the all of the response streamers
-        self.response_streamers: list[ParsedResponseStreamer] = [
-            ParsedResponseStreamerFactory.create_instance(
+        self.response_streamers: list[StreamingPostProcessor] = [
+            StreamingPostProcessorFactory.create_instance(
                 class_type=streamer_type,
                 pub_client=self.pub_client,
                 sub_client=self.sub_client,
                 service_id=self.service_id,
                 user_config=self.user_config,
             )
-            for streamer_type in ParsedResponseStreamerFactory.get_all_class_types()
+            for streamer_type in StreamingPostProcessorFactory.get_all_class_types()
         ]
         self.info(
             lambda: f"Initialized {len(self.response_streamers)} response streamers"

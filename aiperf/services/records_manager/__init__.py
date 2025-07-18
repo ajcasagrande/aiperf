@@ -5,16 +5,18 @@ __all__ = [
     "RecordsManager",
     "ProcessingStatsStreamer",
     "BasicMetricsStreamer",
-    "ParsedResponseStreamer",
+    "StreamingPostProcessor",
+    "JSONLStreamer",
 ]
 
 from aiperf.services.records_manager.basic_metrics_streamer import (
     BasicMetricsStreamer,
 )
-from aiperf.services.records_manager.parsed_result_streamer import (
-    ParsedResponseStreamer,
-)
+from aiperf.services.records_manager.jsonl_streamer import JSONLStreamer
 from aiperf.services.records_manager.processing_stats_streamer import (
     ProcessingStatsStreamer,
 )
 from aiperf.services.records_manager.records_manager import RecordsManager
+from aiperf.services.records_manager.streaming_post_processor import (
+    StreamingPostProcessor,
+)

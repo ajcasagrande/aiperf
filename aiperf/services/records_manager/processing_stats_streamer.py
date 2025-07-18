@@ -5,9 +5,9 @@ import asyncio
 import time
 
 from aiperf.common.config import ServiceDefaults
-from aiperf.common.enums import CreditPhase, ResponseStreamerType
+from aiperf.common.enums import CreditPhase, StreamingPostProcessorType
 from aiperf.common.enums.message_enums import MessageType
-from aiperf.common.factories import ParsedResponseStreamerFactory
+from aiperf.common.factories import StreamingPostProcessorFactory
 from aiperf.common.hooks import aiperf_task, on_message
 from aiperf.common.messages import (
     ProcessRecordsRequestMessage,
@@ -19,13 +19,13 @@ from aiperf.common.messages.credit_messages import (
 )
 from aiperf.common.models import PhaseProcessingStats
 from aiperf.common.models.record_models import ParsedResponseRecord
-from aiperf.services.records_manager.parsed_result_streamer import (
-    ParsedResponseStreamer,
+from aiperf.services.records_manager.streaming_post_processor import (
+    StreamingPostProcessor,
 )
 
 
-@ParsedResponseStreamerFactory.register(ResponseStreamerType.PROCESSING_STATS)
-class ProcessingStatsStreamer(ParsedResponseStreamer):
+@StreamingPostProcessorFactory.register(StreamingPostProcessorType.PROCESSING_STATS)
+class ProcessingStatsStreamer(StreamingPostProcessor):
     """This streamer is used to track the number of records processed and the number of errors.
     It is also used to track the number of requests expected and the number of requests completed.
     """

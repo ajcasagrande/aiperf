@@ -11,9 +11,9 @@ from aiperf.common.mixins import AIPerfMessagePubSubMixin
 from aiperf.common.models import ParsedResponseRecord
 
 
-class ParsedResponseStreamer(AIPerfMessagePubSubMixin):
+class StreamingPostProcessor(AIPerfMessagePubSubMixin):
     """
-    ParsedResponseStreamer is a base class for all classes that wish to stream the incoming
+    StreamingPostProcessor is a base class for all classes that wish to stream the incoming
     ParsedResponseRecords.
     """
 
@@ -34,7 +34,7 @@ class ParsedResponseStreamer(AIPerfMessagePubSubMixin):
             **kwargs,
         )
         self.debug(
-            lambda: f"Initializing ParsedResponseStreamer: {self.__class__.__name__} with max_queue_size: {max_queue_size}"
+            lambda: f"Initializing StreamingPostProcessor: {self.__class__.__name__} with max_queue_size: {max_queue_size}"
         )
         self.records_queue: asyncio.Queue[ParsedResponseRecord] = asyncio.Queue(
             maxsize=max_queue_size
@@ -53,5 +53,5 @@ class ParsedResponseStreamer(AIPerfMessagePubSubMixin):
     async def stream_record(self, record: ParsedResponseRecord) -> None:
         """Handle the incoming record. This method should be implemented by the subclass."""
         raise NotImplementedError(
-            "ParsedResponseStreamer.stream_record method must be implemented by the subclass."
+            "StreamingPostProcessor.stream_record method must be implemented by the subclass."
         )
