@@ -456,7 +456,9 @@ class WorkerDashboardMixin(AIPerfLifecycleMixin):
     def update_worker_health(self, message: WorkerHealthMessage) -> None:
         """Handle incoming worker health messages."""
         try:
-            self.debug(f"Received worker health message from {message.service_id}")
+            self.debug(
+                lambda: f"Received worker health message from {message.service_id}"
+            )
 
             # Store the health data
             self.worker_health_data[message.service_id] = message
@@ -529,7 +531,9 @@ class WorkerHealthService(BaseComponentService):
     async def _on_worker_health_message(self, message: WorkerHealthMessage) -> None:
         """Handle incoming worker health messages."""
         try:
-            self.debug(f"Received worker health message from {message.service_id}")
+            self.debug(
+                lambda: f"Received worker health message from {message.service_id}"
+            )
 
             # Store the health data
             self.worker_health_data[message.service_id] = message

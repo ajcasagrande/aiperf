@@ -4,7 +4,7 @@
 
 from pydantic import Field
 
-from aiperf.common.models.base_models import AIPerfBaseModel
+from aiperf.common.models import AIPerfBaseModel
 
 
 class WorkerPhaseTaskStats(AIPerfBaseModel):

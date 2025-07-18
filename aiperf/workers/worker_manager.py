@@ -212,8 +212,7 @@ class WorkerManager(BaseComponentService):
             )
         except asyncio.TimeoutError:
             self.warning(
-                lambda id=worker_id,
-                pid=process.pid: f"Worker process {id} (pid: {pid}) did not terminate gracefully, killing"
+                f"Worker process {worker_id} (pid: {process.pid}) did not terminate gracefully, killing"
             )
             process.kill()
 

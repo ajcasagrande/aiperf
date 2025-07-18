@@ -429,9 +429,9 @@ class SystemController(
                 lambda: f"Command {message.command} succeeded with data: {message.data}"
             )
         else:
-            self.error(lambda: f"Command {message.command} failed: {message.error}")
+            self.error(f"Command {message.command} failed: {message.error}")
             if message.error:
-                self.error(lambda: f"Error details: {message.error}")
+                self.error(f"Error details: {message.error}")
 
     async def send_command_to_service(
         self,

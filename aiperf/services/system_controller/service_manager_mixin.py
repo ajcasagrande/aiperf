@@ -5,7 +5,7 @@ from typing import Protocol, runtime_checkable
 
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
-from aiperf.common.enums.service_enums import ServiceRunType, ServiceType
+from aiperf.common.enums import ServiceRunType, ServiceType
 from aiperf.common.logging import get_global_log_queue
 from aiperf.services.service_manager import BaseServiceManager
 from aiperf.services.service_manager.kubernetes import KubernetesServiceManager

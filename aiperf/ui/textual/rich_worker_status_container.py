@@ -13,8 +13,7 @@ from textual.widgets import DataTable, Label, Static
 
 from aiperf.common.enums import CaseInsensitiveStrEnum, CreditPhase
 from aiperf.common.messages import WorkerHealthMessage
-from aiperf.common.models import AIPerfBaseModel, WorkerPhaseTaskStats
-from aiperf.common.models.health_models import IOCounters
+from aiperf.common.models import AIPerfBaseModel, IOCounters, WorkerPhaseTaskStats
 from aiperf.common.utils import format_bytes
 
 

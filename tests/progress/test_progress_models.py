@@ -4,7 +4,7 @@
 
 import time
 
-from aiperf.progress.progress_models import (
+from aiperf.common.models.progress_models import (
     BenchmarkSuiteCompletionTrigger,
     BenchmarkSuiteType,
     ProfileCompletionTrigger,

@@ -149,9 +149,7 @@ class ZMQRouterReplyClient(BaseZMQClient, AsyncTaskManagerMixin):
             response = await self._response_futures[request_id]
 
             if response is None:
-                self.warning(
-                    lambda req_id=request_id: f"Got None as response for request {req_id}"
-                )
+                self.warning(f"Got None as response for request {request_id}")
                 response = ErrorMessage(
                     request_id=request_id,
                     error=ErrorDetails(

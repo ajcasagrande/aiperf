@@ -61,9 +61,7 @@ class ServiceRegistry(AIPerfLoggerMixin):
     def unregister_service(self, service_id: str) -> bool:
         """Unregister a service from the registry and return True if successful."""
         if service_id not in self._services_by_id:
-            self.warning(
-                lambda: f"Attempted to unregister unknown service {service_id}"
-            )
+            self.warning(f"Attempted to unregister unknown service {service_id}")
             return False
 
         service_info = self._services_by_id[service_id]
@@ -96,9 +94,7 @@ class ServiceRegistry(AIPerfLoggerMixin):
         """Update the state of a registered service and return True if successful."""
         if service_id not in self._services_by_id:
             # TODO: Should this automatically register the service?
-            self.warning(
-                lambda: f"Attempted to update state of unknown service {service_id}"
-            )
+            self.warning(f"Attempted to update state of unknown service {service_id}")
             return False
 
         service_info = self._services_by_id[service_id]

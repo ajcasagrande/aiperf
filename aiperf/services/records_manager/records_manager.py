@@ -87,7 +87,9 @@ class RecordsManager(BaseComponentService):
         )
         # Start the lifecycle for all response streamers
         for streamer in self.response_streamers:
-            self.debug(f"Starting lifecycle for {streamer.__class__.__name__}")
+            self.debug(
+                lambda streamer=streamer: f"Starting lifecycle for {streamer.__class__.__name__}"
+            )
             await streamer.run_async()
 
     async def _on_parsed_inference_results(

@@ -7,7 +7,7 @@ from textual.app import ComposeResult
 from textual.containers import Container, Vertical
 from textual.widgets import Label, ProgressBar
 
-from aiperf.common.enums.timing_enums import CreditPhase
+from aiperf.common.enums import CreditPhase
 from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.common.utils import format_duration
 from aiperf.progress.progress_tracker import ProgressTracker
@@ -173,7 +173,7 @@ class ProgressDashboard(Container, AIPerfLoggerMixin):
             self._update_metrics(profile_run, phase_info)
 
         except Exception as e:
-            self.debug(f"Display update error: {e}")
+            self.debug(lambda e=e: f"Display update error: {e}")
 
         self.refresh()
 

@@ -21,8 +21,7 @@ classes with existing hooks will inherit the hooks from the base classes as well
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
-from aiperf.common.enums import CaseInsensitiveStrEnum
-from aiperf.common.enums.message_enums import MessageType
+from aiperf.common.enums import CaseInsensitiveStrEnum, MessageType
 
 if TYPE_CHECKING:
     # Prevent circular import

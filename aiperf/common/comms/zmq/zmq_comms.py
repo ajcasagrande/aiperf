@@ -46,7 +46,9 @@ class BaseZMQCommunication(BaseCommunication, AIPerfLoggerMixin, ABC):
         self.context = zmq.asyncio.Context.instance()
         self.clients: list[BaseZMQClient] = []
 
-        self.debug(f"ZMQ communication using protocol: {type(self.config).__name__}")
+        self.debug(
+            lambda: f"ZMQ communication using protocol: {type(self.config).__name__}"
+        )
 
     @property
     def is_initialized(self) -> bool:
@@ -198,12 +200,16 @@ class ZMQIPCCommunication(BaseZMQCommunication):
         self._ipc_socket_dir = Path(self.config.path)
         if not self._ipc_socket_dir.exists():
             self.debug(
-                f"IPC socket directory does not exist, creating: {self._ipc_socket_dir}"
+                lambda dir=self._ipc_socket_dir: f"IPC socket directory does not exist, creating: {dir}"
             )
             self._ipc_socket_dir.mkdir(parents=True, exist_ok=True)
-            self.debug(f"Created IPC socket directory: {self._ipc_socket_dir}")
+            self.debug(
+                lambda dir=self._ipc_socket_dir: f"Created IPC socket directory: {dir}"
+            )
         else:
-            self.debug(f"IPC socket directory already exists: {self._ipc_socket_dir}")
+            self.debug(
+                lambda dir=self._ipc_socket_dir: f"IPC socket directory already exists: {dir}"
+            )
 
     def _cleanup_ipc_sockets(self) -> None:
         """Clean up IPC socket files."""
@@ -214,10 +220,11 @@ class ZMQIPCCommunication(BaseZMQCommunication):
                 try:
                     if os.path.exists(ipc_file):
                         os.unlink(ipc_file)
-                        self.debug(f"Removed IPC socket file: {ipc_file}")
+                        self.debug(
+                            lambda ipc_file=ipc_file: f"Removed IPC socket file: {ipc_file}"
+                        )
                 except OSError as e:
                     if e.errno != errno.ENOENT:
                         self.warning(
-                            lambda ipc_file=ipc_file,
-                            e=e: f"Failed to remove IPC socket file {ipc_file}: {e}"
+                            f"Failed to remove IPC socket file {ipc_file}: {e}"
                         )

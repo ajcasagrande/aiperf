@@ -13,6 +13,7 @@ from aiperf.common.exceptions import (
 from aiperf.common.hooks import (
     AIPerfHook,
     AIPerfTaskHook,
+    supports_hooks,
 )
 from aiperf.common.messages import Message
 from aiperf.common.mixins import (
@@ -20,7 +21,6 @@ from aiperf.common.mixins import (
     AIPerfLoggerMixin,
     EventBusClientMixin,
     ProcessHealthMixin,
-    supports_hooks,
 )
 from aiperf.common.service.base_service_interface import BaseServiceInterface
 
@@ -262,7 +262,7 @@ class BaseService(
         try:
             if self.state == ServiceState.STOPPED:
                 self.warning(
-                    lambda: f"Service {self.service_type} state {self.state} is already STOPPED, ignoring stop request"
+                    f"Service {self.service_type} state {self.state} is already STOPPED, ignoring stop request"
                 )
                 return
 
@@ -296,7 +296,9 @@ class BaseService(
             # publish a status message
             self._state = ServiceState.STOPPED
 
-            self.debug(f"Service {self.service_type} (id: {self.service_id}) stopped")
+            self.debug(
+                lambda: f"Service {self.service_type} (id: {self.service_id}) stopped"
+            )
 
             # Re-raise the cancelled error if it was raised during the stop hooks
             if cancelled_error:

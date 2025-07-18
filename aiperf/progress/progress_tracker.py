@@ -15,7 +15,7 @@ from aiperf.common.messages import (
 )
 from aiperf.common.messages.credit_messages import CreditPhaseSendingCompleteMessage
 from aiperf.common.mixins import AIPerfLoggerMixin
-from aiperf.progress.progress_models import (
+from aiperf.common.models.progress_models import (
     BenchmarkSuiteProgress,
     FullCreditPhaseProgressInfo,
     PhaseProcessingStats,
@@ -80,7 +80,7 @@ class ProgressTracker(AIPerfLoggerMixin):
         """Get phase progress info, logging a warning if not found."""
         phase_info = self.get_phase_progress_info(phase)
         if phase_info is None:
-            self.warning(lambda: f"Phase {phase} not found in current profile run")
+            self.warning(f"Phase {phase} not found in current profile run")
         return phase_info
 
     def on_message(self, message: Message):

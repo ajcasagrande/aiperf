@@ -4,12 +4,10 @@
 import time
 from collections import deque
 
-from aiperf.common.enums import StreamingPostProcessorType
-from aiperf.common.enums.message_enums import MessageType
+from aiperf.common.enums import MessageType, StreamingPostProcessorType
 from aiperf.common.factories import StreamingPostProcessorFactory
 from aiperf.common.hooks import on_message
-from aiperf.common.messages import ProcessRecordsRequestMessage
-from aiperf.common.messages.progress_messages import ProfileResultsMessage
+from aiperf.common.messages import ProcessRecordsRequestMessage, ProfileResultsMessage
 from aiperf.common.models import ErrorDetails, ErrorDetailsCount, ParsedResponseRecord
 from aiperf.data_exporter.exporter_manager import ExporterManager
 from aiperf.services.records_manager.post_processors.metric_summary import MetricSummary
@@ -37,7 +35,7 @@ class BasicMetricsStreamer(StreamingPostProcessor):
             # TODO: we do not want to keep all the data forever
             self.records.append(record)
         else:
-            self.warning(lambda: f"Received invalid inference results: {record}")
+            self.warning(f"Received invalid inference results: {record}")
             # TODO: we do not want to keep all the data forever
             self.error_records.append(record)
 

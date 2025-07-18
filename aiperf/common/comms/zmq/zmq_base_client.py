@@ -11,8 +11,8 @@ from aiperf.common.exceptions import (
     CommunicationError,
     InitializationError,
 )
-from aiperf.common.hooks import AIPerfHook, AIPerfTaskHook
-from aiperf.common.mixins import AIPerfLoggerMixin, AIPerfTaskMixin, supports_hooks
+from aiperf.common.hooks import AIPerfHook, AIPerfTaskHook, supports_hooks
+from aiperf.common.mixins import AIPerfLoggerMixin, AIPerfTaskMixin
 
 ################################################################################
 # Base ZMQ Client Class

@@ -178,7 +178,7 @@ class TextualUI(AIPerfLifecycleMixin):
                 self.app.exit()
 
         except Exception as e:
-            self.debug(f"App cleanup handled: {e}")
+            self.debug(lambda e=e: f"App cleanup handled: {e}")
 
     async def on_profile_progress_update(self) -> None:
         """Update the profile progress with enhanced calculations and debugging."""

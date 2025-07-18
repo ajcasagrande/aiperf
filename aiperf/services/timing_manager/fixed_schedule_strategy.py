@@ -10,7 +10,7 @@ from aiperf.common.enums import CreditPhase, TimingMode
 from aiperf.common.exceptions import InvalidStateError
 from aiperf.common.messages import CreditReturnMessage
 from aiperf.common.mixins import AsyncTaskManagerMixin
-from aiperf.progress.progress_models import CreditPhaseStats
+from aiperf.common.models.progress_models import CreditPhaseStats
 from aiperf.services.timing_manager.config import TimingManagerConfig
 from aiperf.services.timing_manager.credit_issuing_strategy import (
     CreditIssuingStrategy,

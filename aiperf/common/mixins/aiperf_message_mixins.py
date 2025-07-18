@@ -8,10 +8,9 @@ from typing_extensions import Protocol
 
 from aiperf.common.comms.base import PubClientProtocol, SubClientProtocol
 from aiperf.common.enums import MessageType
-from aiperf.common.hooks import AIPerfHook, AIPerfHookParams, on_init
+from aiperf.common.hooks import AIPerfHook, AIPerfHookParams, on_init, supports_hooks
 from aiperf.common.messages import Message
 from aiperf.common.mixins.aiperf_lifecycle_mixin import AIPerfLifecycleMixin
-from aiperf.common.mixins.hooks_mixin import supports_hooks
 
 
 @supports_hooks(AIPerfHook.ON_MESSAGE)

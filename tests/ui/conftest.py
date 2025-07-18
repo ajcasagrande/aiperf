@@ -14,7 +14,7 @@ import pytest
 
 from aiperf.common.enums import MessageType
 from aiperf.common.messages import IOCounters, ProcessHealth, WorkerHealthMessage
-from aiperf.progress.progress_models import ProfileProgress
+from aiperf.common.models.progress_models import ProfileProgress
 from aiperf.progress.progress_tracker import ProgressTracker
 from aiperf.ui.aiperf_ui import AIPerfUI
 from aiperf.ui.dashboard_element import DashboardElement

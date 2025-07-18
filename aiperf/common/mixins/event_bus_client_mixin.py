@@ -2,10 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.enums.communication_enums import CommunicationClientAddressType
-from aiperf.common.hooks import AIPerfHook
+from aiperf.common.enums import CommunicationClientAddressType
+from aiperf.common.hooks import AIPerfHook, supports_hooks
 from aiperf.common.mixins.comms_mixins import CommunicationsMixin
-from aiperf.common.mixins.hooks_mixin import HooksMixin, supports_hooks
+from aiperf.common.mixins.hooks_mixin import HooksMixin
 
 
 @supports_hooks(AIPerfHook.ON_MESSAGE)

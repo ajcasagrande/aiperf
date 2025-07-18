@@ -3,10 +3,10 @@
 
 import asyncio
 
-from aiperf.common.hooks import AIPerfHook
+from aiperf.common.hooks import AIPerfHook, supports_hooks
 from aiperf.common.messages import Message
 from aiperf.common.mixins.aiperf_logger_mixin import AIPerfLoggerMixin
-from aiperf.common.mixins.hooks_mixin import HooksMixin, supports_hooks
+from aiperf.common.mixins.hooks_mixin import HooksMixin
 
 
 @supports_hooks(

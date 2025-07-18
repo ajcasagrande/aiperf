@@ -5,23 +5,23 @@
 import time
 
 from aiperf.common.constants import NANOS_PER_SECOND
-from aiperf.common.enums import CreditPhase
-from aiperf.common.enums.benchmark_enums import BenchmarkSuiteType
-from aiperf.common.models import ProcessHealth, WorkerHealthMessage
-from aiperf.progress.progress_models import (
+from aiperf.common.enums import BenchmarkSuiteType, CreditPhase
+from aiperf.common.messages import (
     CreditPhaseCompleteMessage,
     CreditPhaseProgressMessage,
     CreditPhaseStartMessage,
-    CreditPhaseStats,
-    PhaseProcessingStats,
     RecordsProcessingStatsMessage,
+    WorkerHealthMessage,
 )
-from aiperf.progress.progress_tracker import (
+from aiperf.common.models import (
     BenchmarkSuiteProgress,
     CreditPhaseComputedStats,
+    CreditPhaseStats,
+    PhaseProcessingStats,
+    ProcessHealth,
     ProfileRunProgress,
-    ProgressTracker,
 )
+from aiperf.progress.progress_tracker import ProgressTracker
 
 
 class TestProgressTracker:

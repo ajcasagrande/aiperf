@@ -6,7 +6,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from aiperf.progress.progress_models import (
+from aiperf.common.models.progress_models import (
     BenchmarkSuiteType,
 )
 from aiperf.progress.progress_tracker import ProgressTracker

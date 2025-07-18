@@ -7,13 +7,13 @@ from unittest.mock import Mock
 
 import pytest
 
-from aiperf.common.enums import CreditPhase
-from aiperf.common.enums.benchmark_suite import BenchmarkSuiteType
+from aiperf.common.enums import BenchmarkSuiteType, CreditPhase
 from aiperf.common.messages import (
     CreditPhaseCompleteMessage,
     CreditPhaseProgressMessage,
     CreditPhaseStartMessage,
     RecordsProcessingStatsMessage,
+    WorkerHealthMessage,
 )
 from aiperf.common.models import (
     CPUTimes,
@@ -22,10 +22,9 @@ from aiperf.common.models import (
     IOCounters,
     PhaseProcessingStats,
     ProcessHealth,
-    WorkerHealthMessage,
     WorkerPhaseTaskStats,
 )
-from aiperf.progress.progress_models import ProfileResultsMessage
+from aiperf.common.models.progress_models import ProfileResultsMessage
 from aiperf.progress.progress_tracker import (
     BenchmarkSuiteProgress,
     ProfileRunProgress,

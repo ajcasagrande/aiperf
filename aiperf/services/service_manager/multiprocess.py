@@ -17,9 +17,7 @@ from aiperf.common.constants import (
     GRACEFUL_SHUTDOWN_TIMEOUT_SECONDS,
     TASK_CANCEL_TIMEOUT_SHORT,
 )
-from aiperf.common.enums import ServiceType
-from aiperf.common.enums.message_enums import MessageType
-from aiperf.common.enums.service_enums import ServiceState
+from aiperf.common.enums import MessageType, ServiceState, ServiceType
 from aiperf.common.exceptions import ServiceTimeoutError
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.messages import BaseServiceMessage
@@ -220,8 +218,7 @@ class MultiProcessServiceManager(BaseServiceManager):
             )
         except asyncio.TimeoutError:
             self.warning(
-                lambda pid=info.process.pid,
-                type=info.service_type: f"Service {type} process (pid: {pid}) did not terminate gracefully, killing"
+                f"Service {info.service_type} process (pid: {info.process.pid}) did not terminate gracefully, killing"
             )
             info.process.kill()
 

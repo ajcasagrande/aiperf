@@ -134,7 +134,7 @@ class ZMQPullClient(BaseZMQClient, AsyncTaskManagerMixin):
                 await self._pull_callbacks[message.message_type](message)
             else:
                 self.warning(
-                    lambda typ=message.message_type: f"Pull message received for message type {typ} without callback"
+                    f"Pull message received for message type {message.message_type} without callback"
                 )
         finally:
             # always release the semaphore to allow receiving more messages

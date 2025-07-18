@@ -3,8 +3,7 @@
 
 import time
 
-from aiperf.common.enums import CreditPhase, StreamingPostProcessorType
-from aiperf.common.enums.message_enums import MessageType
+from aiperf.common.enums import CreditPhase, MessageType, StreamingPostProcessorType
 from aiperf.common.factories import StreamingPostProcessorFactory
 from aiperf.common.hooks import aiperf_auto_task, on_message
 from aiperf.common.messages import (
@@ -15,8 +14,7 @@ from aiperf.common.messages.credit_messages import (
     CreditPhaseCompleteMessage,
     CreditPhaseStartMessage,
 )
-from aiperf.common.models import PhaseProcessingStats
-from aiperf.common.models.record_models import ParsedResponseRecord
+from aiperf.common.models import ParsedResponseRecord, PhaseProcessingStats
 from aiperf.services.records_manager.streaming_post_processor import (
     StreamingPostProcessor,
 )
@@ -58,7 +56,7 @@ class ProcessingStatsStreamer(StreamingPostProcessor):
             self.worker_success_counts[worker_id] += 1
             self.records_count += 1
         else:
-            self.warning(lambda: f"Received invalid inference results: {record}")
+            self.warning(f"Received invalid inference results: {record}")
             self.worker_error_counts[worker_id] += 1
             self.error_records_count += 1
 

@@ -185,7 +185,7 @@ class InferenceResultParser(BaseComponentService):
         """Process a valid request record."""
         if message.record.model_name is None:
             self.warning(
-                lambda: f"Model name is None, unable to process record: {message.record}"
+                f"Model name is None, unable to process record: {message.record}"
             )
             return ParsedResponseRecord(
                 worker_id=message.service_id,
@@ -223,7 +223,7 @@ class InferenceResultParser(BaseComponentService):
         """Compute the input token count for a given request record."""
         if record.conversation_id is None or record.turn_index is None:
             self.warning(
-                lambda: f"Conversation ID or turn index is None: {record.conversation_id=} {record.turn_index=}"
+                f"Conversation ID or turn index is None: {record.conversation_id=} {record.turn_index=}"
             )
             return None
 
@@ -237,7 +237,7 @@ class InferenceResultParser(BaseComponentService):
             )
         )
         if isinstance(turn_response, ErrorMessage):
-            self.error(lambda: f"Error getting turn response: {turn_response}")
+            self.error(f"Error getting turn response: {turn_response}")
             return None
 
         turn = turn_response.turn

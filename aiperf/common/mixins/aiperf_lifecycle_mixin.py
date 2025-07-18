@@ -12,13 +12,14 @@ from aiperf.common.hooks import (
     AIPerfTaskHook,
     on_start,
     on_stop,
+    supports_hooks,
 )
 from aiperf.common.mixins.aiperf_logger_mixin import AIPerfLoggerMixin
 from aiperf.common.mixins.async_task_manager_mixin import (
     AsyncTaskManagerMixin,
     AsyncTaskManagerProtocol,
 )
-from aiperf.common.mixins.hooks_mixin import HooksMixin, supports_hooks
+from aiperf.common.mixins.hooks_mixin import HooksMixin
 
 
 @supports_hooks(
