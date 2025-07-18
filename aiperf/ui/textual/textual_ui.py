@@ -18,7 +18,9 @@ from aiperf.common.messages import Message, WorkerHealthMessage
 from aiperf.common.mixins import AIPerfLifecycleMixin
 from aiperf.progress.progress_tracker import ProgressTracker
 from aiperf.ui.textual.logging_ui import LogViewer
-from aiperf.ui.textual.progress_dashboard import ProgressDashboard
+from aiperf.ui.textual.rich_profile_progress_container import (
+    RichProfileProgressContainer,
+)
 from aiperf.ui.textual.rich_worker_status_container import RichWorkerStatusContainer
 from aiperf.ui.textual.widgets import Header
 from aiperf.ui.ui_protocol import AIPerfUIFactory
@@ -101,7 +103,7 @@ class AIPerfTextualApp(App):
     def __init__(self, progress_tracker: ProgressTracker) -> None:
         super().__init__()
         self.progress_tracker = progress_tracker
-        self.dashboard: ProgressDashboard | None = None
+        self.dashboard: RichProfileProgressContainer | None = None
         self.log_viewer: LogViewer | None = None
         self.worker_dashboard: RichWorkerStatusContainer | None = None
         self.title = "AIPerf Performance Monitor"
@@ -115,7 +117,9 @@ class AIPerfTextualApp(App):
             with Container(id="dashboard-section"):  # noqa: SIM117
                 with TabbedContent(initial="performance"):  # noqa: SIM117
                     with TabPane("Performance Dashboard", id="performance"):  # noqa: SIM117
-                        self.dashboard = ProgressDashboard(self.progress_tracker)
+                        self.dashboard = RichProfileProgressContainer(
+                            self.progress_tracker, show_phase_overview=True
+                        )
                         yield self.dashboard
 
                     with TabPane("Worker Status", id="workers"):
@@ -171,7 +175,7 @@ class TextualUI(AIPerfLifecycleMixin):
         try:
             # Force refresh the display
             if self.app.dashboard:
-                self.app.dashboard.update_display()
+                self.app.dashboard.update_progress(self.progress_tracker)
 
             if self.app.is_running:
                 self.debug("Closing dashboard...")
@@ -190,7 +194,7 @@ class TextualUI(AIPerfLifecycleMixin):
             if profile is None:
                 return
             # Force refresh the display
-            self.app.dashboard.update_display()
+            self.app.dashboard.update_progress(self.progress_tracker)
 
         except Exception as e:
             self.warning(f"Progress update error: {e}")
@@ -206,7 +210,7 @@ class TextualUI(AIPerfLifecycleMixin):
                 return
 
             # Force refresh the display
-            self.app.dashboard.update_display()
+            self.app.dashboard.update_progress(self.progress_tracker)
 
         except Exception as e:
             self.warning(f"Stats update error: {e}")
@@ -233,4 +237,4 @@ class TextualUI(AIPerfLifecycleMixin):
         else:
             if not self.app.dashboard:
                 return
-            self.app.dashboard.update_display()
+            self.app.dashboard.update_progress(self.progress_tracker)
