@@ -4,19 +4,22 @@
 from aiperf.common.enums.base_enums import CaseInsensitiveStrEnum
 
 
-class ErrorMessageType(CaseInsensitiveStrEnum):
+class MessageType(CaseInsensitiveStrEnum):
     """The various types of messages that can be sent between services.
 
     The message type is used to determine what Pydantic model the message maps to,
     based on the message_type field in the message model.
     """
 
+    TEST = "test"
+    """A test message."""
+
     ERROR = "error"
     """A generic error message."""
 
-
-class SystemMessageType(CaseInsensitiveStrEnum):
-    """The various types of system messages that can be sent between services."""
+    ########################################
+    # Service messages
+    ########################################
 
     REGISTRATION = "registration"
     """A message sent by a service to register itself with the SystemController."""
@@ -33,16 +36,16 @@ class SystemMessageType(CaseInsensitiveStrEnum):
     SERVICE_HEALTH = "service_health"
     """A message sent by a service to the SystemController to report its health."""
 
-
-class WorkerMessageType(CaseInsensitiveStrEnum):
-    """The various types of worker messages that can be sent between services."""
+    ########################################
+    # Worker messages
+    ########################################
 
     WORKER_HEALTH = "worker_health"
     """A message sent by a worker to the WorkerManager to report its health."""
 
-
-class SweepMessageType(CaseInsensitiveStrEnum):
-    """The various types of sweep messages that can be sent between services."""
+    ########################################
+    # Sweep messages
+    ########################################
 
     SWEEP_CONFIGURE = "sweep_configure"
     """A message sent to configure a sweep run."""
@@ -62,9 +65,9 @@ class SweepMessageType(CaseInsensitiveStrEnum):
     SWEEP_ERROR = "sweep_error"
     """A message containing an error from a sweep run."""
 
-
-class ProfileMessageType(CaseInsensitiveStrEnum):
-    """The various types of profile messages that can be sent between services."""
+    ########################################
+    # Profile messages
+    ########################################
 
     PROFILE_PROGRESS = "profile_progress"
     """A message containing profile run progress."""
@@ -78,9 +81,9 @@ class ProfileMessageType(CaseInsensitiveStrEnum):
     PROFILE_ERROR = "profile_error"
     """A message containing an error from a profile run."""
 
-
-class CreditMessageType(CaseInsensitiveStrEnum):
-    """The various types of credit messages that can be sent between services."""
+    ########################################
+    # Credit messages
+    ########################################
 
     CREDIT_DROP = "credit_drop"
     """A message sent by the Timing Manager service to allocate credits
@@ -108,9 +111,9 @@ class CreditMessageType(CaseInsensitiveStrEnum):
     """A message sent by a worker to the TimingManager to indicate that the first byte of a credit has been received.
     This can be used to track the latency of the credit, or to perform various synchronizations."""
 
-
-class DatasetMessageType(CaseInsensitiveStrEnum):
-    """The various types of dataset messages that can be sent between services."""
+    ########################################
+    # Dataset messages
+    ########################################
 
     DATASET_CONFIGURED_NOTIFICATION = "dataset_configured_notification"
     """A notification sent to notify other services that the dataset has been configured."""
@@ -133,9 +136,9 @@ class DatasetMessageType(CaseInsensitiveStrEnum):
     CONVERSATION_TURN_RESPONSE = "conversation_turn_response"
     """A message sent by the DatasetManager to a service, containing the requested turn data."""
 
-
-class InferenceMessageType(CaseInsensitiveStrEnum):
-    """The various types of inference messages that can be sent between services."""
+    ########################################
+    # Inference messages
+    ########################################
 
     INFERENCE_RESULTS = "inference_results"
     """A message containing inference results from a worker."""
@@ -144,68 +147,41 @@ class InferenceMessageType(CaseInsensitiveStrEnum):
     """A message containing parsed inference results from a post processor."""
 
 
-class CommandMessageType(CaseInsensitiveStrEnum):
+class CommandType(CaseInsensitiveStrEnum):
     """The various types of command messages that can be sent between services."""
 
     PROCESS_RECORDS = "process_records"
     """A message sent to request that a service process records."""
 
-    PROFILE_CONFIGURE = "profile_configure"
-    """A message sent to configure a profile run."""
-
-    PROFILE_START = "profile_start"
-    """A message sent to start a profile run."""
-
-    PROFILE_CANCEL = "profile_cancel"
-    """A message sent to cancel a profile run."""
-
-    PROFILE_STOP = "profile_stop"
-    """A message sent to stop a profile run."""
-
-    SHUTDOWN = "shutdown"
-    """A message sent by the SystemController to a service to request that it shutdown."""
-
-
-class CommandResponseMessageType(CaseInsensitiveStrEnum):
-    """The various types of command response messages that can be sent between services."""
-
     PROCESS_RECORDS_RESPONSE = "process_records_response"
     """A message sent to respond to a process records command."""
+
+    PROFILE_CONFIGURE = "profile_configure"
+    """A message sent to configure a profile run."""
 
     PROFILE_CONFIGURE_RESPONSE = "profile_configure_response"
     """A message sent to respond to a profile configure request."""
 
+    PROFILE_START = "profile_start"
+    """A message sent to start a profile run."""
+
     PROFILE_START_RESPONSE = "profile_start_response"
     """A message sent to respond to a profile start request."""
+
+    PROFILE_CANCEL = "profile_cancel"
+    """A message sent to cancel a profile run."""
 
     PROFILE_CANCEL_RESPONSE = "profile_cancel_response"
     """A message sent to respond to a profile cancel request."""
 
+    PROFILE_STOP = "profile_stop"
+    """A message sent to stop a profile run."""
+
     PROFILE_STOP_RESPONSE = "profile_stop_response"
     """A message sent to respond to a profile stop request."""
 
+    SHUTDOWN = "shutdown"
+    """A message sent by the SystemController to a service to request that it shutdown."""
+
     SHUTDOWN_RESPONSE = "shutdown_response"
     """A message sent by a service to the SystemController to respond to a shutdown request."""
-
-
-class TestMessageType(CaseInsensitiveStrEnum):
-    """Used for testing purposes."""
-
-    TEST = "test"
-    """A test message."""
-
-
-MessageType = (
-    ErrorMessageType
-    | TestMessageType
-    | SystemMessageType
-    | WorkerMessageType
-    | SweepMessageType
-    | ProfileMessageType
-    | CreditMessageType
-    | DatasetMessageType
-    | InferenceMessageType
-    | CommandMessageType
-    | CommandResponseMessageType
-)
-"""A quick way to reference any message type regardless of the specific enum."""

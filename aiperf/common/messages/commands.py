@@ -7,7 +7,8 @@ from pydantic import BaseModel, Field, SerializeAsAny
 from pydantic.fields import FieldInfo
 
 from aiperf.common.config.user_config import UserConfig
-from aiperf.common.enums import MessageType, ServiceType
+from aiperf.common.enums import CommandType, ServiceType
+from aiperf.common.enums.message_enums import CommandResponseMessageType
 from aiperf.common.messages.message import AutoRequestID, RequiresRequestID
 from aiperf.common.messages.service_messages import BaseServiceMessage
 from aiperf.common.models import AIPerfBaseModel, ErrorDetails
@@ -60,7 +61,7 @@ class ProcessRecordsCommand(CommandMessage):
     that it process records.
     """
 
-    message_type = MessageType.PROCESS_RECORDS
+    message_type = CommandType.PROCESS_RECORDS
 
     cancelled: bool = Field(
         default=False,
@@ -69,7 +70,7 @@ class ProcessRecordsCommand(CommandMessage):
 
 
 def _command_message_type(
-    message_type: MessageType,
+    message_type: CommandType,
     data_type: type[BaseModel] | None = None,
     data_field: FieldInfo | None = None,
 ) -> type[CommandMessage]:
@@ -93,7 +94,7 @@ def _command_message_type(
 
 
 def _command_response_type(
-    message_type: MessageType,
+    message_type: CommandResponseMessageType,
     data_type: type[BaseModel] | None = None,
     data_field: FieldInfo | None = None,
 ) -> type[CommandResponseMessage]:
@@ -120,25 +121,31 @@ def _command_response_type(
 
 # On the fly generated command message types
 ProfileConfigureCommand = _command_message_type(
-    MessageType.PROFILE_CONFIGURE,
+    CommandType.PROFILE_CONFIGURE,
     data_type=UserConfig,
     data_field=Field(
         default=None,
         description="The data of the command message. This can be overridden in the subclasses.",
     ),
 )
-ProfileStartCommand = _command_message_type(MessageType.PROFILE_START)
-ProfileStopCommand = _command_message_type(MessageType.PROFILE_STOP)
-ProfileCancelCommand = _command_message_type(MessageType.PROFILE_CANCEL)
-ShutdownCommand = _command_message_type(MessageType.SHUTDOWN)
+ProfileStartCommand = _command_message_type(CommandType.PROFILE_START)
+ProfileStopCommand = _command_message_type(CommandType.PROFILE_STOP)
+ProfileCancelCommand = _command_message_type(CommandType.PROFILE_CANCEL)
+ShutdownCommand = _command_message_type(CommandType.SHUTDOWN)
 
 # On the fly generated command response types
-ProfileStartResponse = _command_response_type(MessageType.PROFILE_START_RESPONSE)
-ProfileStopResponse = _command_response_type(MessageType.PROFILE_STOP_RESPONSE)
-ProfileCancelResponse = _command_response_type(MessageType.PROFILE_CANCEL_RESPONSE)
-ShutdownResponse = _command_response_type(MessageType.SHUTDOWN_RESPONSE)
+ProfileStartResponse = _command_response_type(
+    CommandResponseMessageType.PROFILE_START_RESPONSE
+)
+ProfileStopResponse = _command_response_type(
+    CommandResponseMessageType.PROFILE_STOP_RESPONSE
+)
+ProfileCancelResponse = _command_response_type(
+    CommandResponseMessageType.PROFILE_CANCEL_RESPONSE
+)
+ShutdownResponse = _command_response_type(CommandResponseMessageType.SHUTDOWN_RESPONSE)
 ProcessRecordsResponse = _command_response_type(
-    MessageType.PROCESS_RECORDS_RESPONSE,
+    CommandResponseMessageType.PROCESS_RECORDS_RESPONSE,
     data_type=AIPerfBaseModel,
     data_field=Field(
         default=None,

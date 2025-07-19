@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from aiperf.common.comms.base_comms import SubClientProtocol
-from aiperf.common.enums import CommandMessageType
+from aiperf.common.enums import CommandType
 from aiperf.common.hooks import AIPerfHook, AIPerfHookParams, on_init, supports_hooks
 from aiperf.common.messages.commands import CommandMessage
 from aiperf.common.mixins.aiperf_lifecycle_mixin import AIPerfLifecycleMixin
@@ -20,7 +20,7 @@ class AIPerfCommandMessageHandlerMixin(AIPerfLifecycleMixin):
         self.sub_client = sub_client
         super().__init__(sub_client=sub_client, **kwargs)
         self._command_message_handlers: dict[
-            CommandMessageType,
+            CommandType,
             list[MessageHandlerT],
         ] = {}
 
@@ -62,7 +62,7 @@ class AIPerfCommandMessageHandlerMixin(AIPerfLifecycleMixin):
 
     def _register_command_message_handler(
         self,
-        message_type: CommandMessageType,
+        message_type: CommandType,
         handler: MessageHandlerT,
     ) -> None:
         """Register a command message handler for a given message type."""
@@ -78,7 +78,7 @@ class AIPerfCommandMessageHandlerMixin(AIPerfLifecycleMixin):
 
     async def subscribe(
         self,
-        message_type: CommandMessageType,
+        message_type: CommandType,
         handler: MessageHandlerT,
     ) -> None:
         """Manually subscribe to a command message type. Prefer using the :meth:`AIPerfHook.ON_COMMAND_MESSAGE` hooks and @on_command_message decorators."""

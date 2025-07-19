@@ -9,7 +9,8 @@ from textual.widgets import (
 )
 
 from aiperf.common.aiperf_logger import AIPerfLogger
-from aiperf.common.enums import AIPerfUIType, MessageType
+from aiperf.common.enums import AIPerfUIType
+from aiperf.common.enums.message_enums import MessageType
 from aiperf.common.hooks import (
     on_start,
     on_stop,

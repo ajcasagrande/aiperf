@@ -3,7 +3,8 @@
 
 import time
 
-from aiperf.common.enums import CreditPhase, MessageType, StreamingPostProcessorType
+from aiperf.common.enums import CreditPhase, StreamingPostProcessorType
+from aiperf.common.enums.message_enums import MessageType
 from aiperf.common.factories import StreamingPostProcessorFactory
 from aiperf.common.hooks import aiperf_auto_task, on_message
 from aiperf.common.messages import (

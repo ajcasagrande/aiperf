@@ -2,7 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 from typing import cast
 
-from aiperf.common.enums import AIPerfUIType, MessageType
+from aiperf.common.enums import (
+    AIPerfUIType,
+    MessageType,
+)
 from aiperf.common.hooks import on_start, on_stop
 from aiperf.common.messages import Message, WorkerHealthMessage
 from aiperf.common.mixins import AIPerfLifecycleMixin

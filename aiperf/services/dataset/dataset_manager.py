@@ -9,10 +9,11 @@ from aiperf.common.comms.base_comms import (
 )
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.enums import (
+    CommandType,
     ComposerType,
-    MessageType,
     ServiceType,
 )
+from aiperf.common.enums.message_enums import MessageType
 from aiperf.common.exceptions import BadRequestError, ConfigurationError
 from aiperf.common.factories import ComposerFactory, ServiceFactory
 from aiperf.common.hooks import (
@@ -27,8 +28,8 @@ from aiperf.common.messages import (
     DatasetConfiguredNotification,
     DatasetTimingRequest,
     DatasetTimingResponse,
-    Message,
 )
+from aiperf.common.messages.commands import ProfileConfigureCommand
 from aiperf.common.models import Conversation
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.common.tokenizer import Tokenizer
@@ -92,8 +93,8 @@ class DatasetManager(BaseComponentService):
 
         self.debug(lambda: f"Dataset manager {self.service_id} initialized")
 
-    @on_command_message(MessageType.PROFILE_CONFIGURE)
-    async def _configure(self, message: Message) -> None:
+    @on_command_message(CommandType.PROFILE_CONFIGURE)
+    async def _configure(self, message: ProfileConfigureCommand) -> None:
         """Configure the dataset manager."""
         # TODO: This is a temporary hack with the changes to user config loading
         self.dataset_configured.clear()

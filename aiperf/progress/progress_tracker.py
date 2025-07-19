@@ -3,7 +3,8 @@
 import time
 
 from aiperf.common.constants import NANOS_PER_SECOND
-from aiperf.common.enums import CreditPhase, MessageType
+from aiperf.common.enums import CreditPhase
+from aiperf.common.enums.message_enums import MessageType
 from aiperf.common.messages import (
     CreditPhaseCompleteMessage,
     CreditPhaseProgressMessage,

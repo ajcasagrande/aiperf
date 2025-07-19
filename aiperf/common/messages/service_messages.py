@@ -4,7 +4,8 @@
 
 from pydantic import Field
 
-from aiperf.common.enums import MessageType, ServiceState, ServiceType
+from aiperf.common.enums import ServiceState, ServiceType
+from aiperf.common.enums.message_enums import MessageType
 from aiperf.common.messages.message import Message
 
 

@@ -4,9 +4,9 @@
 import time
 from collections import deque
 
-from aiperf.common.enums import MessageType, StreamingPostProcessorType
+from aiperf.common.enums import CommandType, StreamingPostProcessorType
 from aiperf.common.factories import StreamingPostProcessorFactory
-from aiperf.common.hooks import on_message
+from aiperf.common.hooks import on_command_message
 from aiperf.common.messages import ProcessRecordsCommand, ProfileResultsMessage
 from aiperf.common.models import ErrorDetails, ErrorDetailsCount, ParsedResponseRecord
 from aiperf.data_exporter.exporter_manager import ExporterManager
@@ -55,7 +55,7 @@ class BasicMetricsStreamer(StreamingPostProcessor):
             for error_details, count in summary.items()
         ]
 
-    @on_message(MessageType.PROCESS_RECORDS)
+    @on_command_message(CommandType.PROCESS_RECORDS)
     async def _on_process_records_request(self, message: ProcessRecordsCommand) -> None:
         """Process the records.
 

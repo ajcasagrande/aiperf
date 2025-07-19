@@ -22,6 +22,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from aiperf.common.enums import CaseInsensitiveStrEnum, MessageType
+from aiperf.common.enums.message_enums import CommandType
 
 if TYPE_CHECKING:
     # Prevent circular import
@@ -251,7 +252,7 @@ def on_message(*message_types: MessageType) -> Callable:
     return decorator
 
 
-def on_command_message(*message_types: MessageType) -> Callable:
+def on_command_message(*message_types: CommandType) -> Callable:
     """Decorator to indicate that the function is a command message handler. It will be called
     when a command message of the given type is received.
     See :func:`aiperf.common.hooks.hook_decorator`.

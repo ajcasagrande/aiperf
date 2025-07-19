@@ -3,7 +3,11 @@
 
 from pydantic import Field
 
-from aiperf.common.enums import AIPerfUIType, CreditPhase, MessageType
+from aiperf.common.enums import (
+    AIPerfUIType,
+    CreditPhase,
+    MessageType,
+)
 from aiperf.common.messages import (
     CreditPhaseCompleteMessage,
     CreditPhaseProgressMessage,
