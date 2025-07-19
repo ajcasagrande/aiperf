@@ -139,6 +139,12 @@ class CreditIssuingStrategy(AsyncTaskManagerMixin, AIPerfLoggerMixin, ABC):
     async def _on_credit_return(self, message: CreditReturnMessage) -> None:
         """This is called by the credit manager when a credit is returned. It can be
         overridden in subclasses to handle the credit return."""
+        if message.phase not in self.phase_stats:
+            # self.warning(
+            #     lambda: f"Credit return message received for phase {message.phase} but no phase stats found"
+            # )
+            return
+
         phase_stats = self.phase_stats[message.phase]
         phase_stats.completed += 1
 
@@ -161,6 +167,9 @@ class CreditIssuingStrategy(AsyncTaskManagerMixin, AIPerfLoggerMixin, ABC):
                 self.all_phases_complete_event.set()
 
             # We don't need to keep track of the phase stats anymore
+            self.notice(
+                lambda: f"Phase {message.phase} completed, removing phase stats"
+            )
             self.phase_stats.pop(message.phase)
 
     async def _progress_report_loop(self) -> None:
@@ -184,11 +193,15 @@ class CreditIssuingStrategy(AsyncTaskManagerMixin, AIPerfLoggerMixin, ABC):
 
     async def _on_first_byte_received(self, message: FirstByteReceivedMessage) -> None:
         """Handle the first byte received message."""
-        self.debug(
-            lambda: f"Credit issuing strategy received first byte received message: {message}"
-        )
-        phase_stats = self.phase_stats[message.phase]
-        phase_stats.first_byte_received_ns = message.first_byte_received_ns  # type: ignore[attr-defined]
+        self.notice(lambda: f"First byte received for phase {message.phase}")
+        if message.phase not in self.phase_stats:
+            self.warning(
+                lambda: f"Credit return message received for phase {message.phase} but no phase stats found"
+            )
+            return
+
+        # phase_stats = self.phase_stats[message.phase]
+        # phase_stats.first_byte_received_ns = message.first_byte_received_ns
 
 
 class CreditIssuingStrategyFactory(FactoryMixin[TimingMode, CreditIssuingStrategy]):

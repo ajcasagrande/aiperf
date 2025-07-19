@@ -25,6 +25,7 @@ class ProfileRunner(AIPerfLoggerMixin):
         self,
         controller: "SystemController",
     ):
+        super().__init__()
         self.controller = controller
         self.tracker = self.controller.progress_tracker
         self.was_cancelled = False
