@@ -2,8 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-from typing import Literal
-
 from pydantic import Field
 
 from aiperf.common.enums import MessageType, ServiceState, ServiceType
@@ -40,7 +38,7 @@ class StatusMessage(BaseStatusMessage):
     This message is sent by a service to the system controller to report its status.
     """
 
-    message_type: Literal[MessageType.STATUS] = MessageType.STATUS
+    message_type = MessageType.STATUS
 
 
 class RegistrationMessage(BaseStatusMessage):
@@ -48,7 +46,7 @@ class RegistrationMessage(BaseStatusMessage):
     This message is sent by a service to the system controller to register itself.
     """
 
-    message_type: Literal[MessageType.REGISTRATION] = MessageType.REGISTRATION
+    message_type = MessageType.REGISTRATION
 
     state: ServiceState = ServiceState.READY
 
@@ -59,4 +57,4 @@ class HeartbeatMessage(BaseStatusMessage):
     still running.
     """
 
-    message_type: Literal[MessageType.HEARTBEAT] = MessageType.HEARTBEAT
+    message_type = MessageType.HEARTBEAT

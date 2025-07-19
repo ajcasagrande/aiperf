@@ -2,76 +2,16 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from abc import ABC
-from typing import Literal
+from types import UnionType
+from typing import Annotated
 
-from pydantic import Field, SerializeAsAny
+from pydantic import BaseModel, Field, SerializeAsAny
 
+from aiperf.common.config.user_config import UserConfig
 from aiperf.common.enums import MessageType, ServiceType
 from aiperf.common.messages.message import AutoRequestID, RequiresRequestID
 from aiperf.common.messages.service_messages import BaseServiceMessage
 from aiperf.common.models import AIPerfBaseModel, ErrorDetails
-
-# class CommandMessage(BaseServiceMessage):
-#     """Message containing command data.
-#     This message is sent by the system controller to a service to command it to do something.
-#     """
-
-#     message_type: Literal[MessageType.COMMAND] = MessageType.COMMAND
-
-#     command: CommandType = Field(
-#         ...,
-#         description="Command to execute",
-#     )
-#     command_id: str = Field(
-#         default_factory=lambda: str(uuid.uuid4()),
-#         description="Unique identifier for this command. If not provided, a random UUID will be generated.",
-#     )
-#     require_response: bool = Field(
-#         default=False,
-#         description="Whether a response is required for this command",
-#     )
-#     target_service_type: ServiceType | None = Field(
-#         default=None,
-#         description="Type of the service to send the command to. "
-#         "If both `target_service_type` and `target_service_id` are None, the command is "
-#         "sent to all services.",
-#     )
-#     target_service_id: str | None = Field(
-#         default=None,
-#         description="ID of the target service to send the command to. "
-#         "If both `target_service_type` and `target_service_id` are None, the command is "
-#         "sent to all services.",
-#     )
-#     # TODO: I'm not sure if SerializeAsAny actually works as expected
-#     data: SerializeAsAny[
-#         UserConfig | ProcessRecordsCommandData | AIPerfBaseModel | Any
-#     ] = Field(
-#         default=None,
-#         description="Data to send with the command",
-#     )
-
-
-# class CommandResponseMessage(BaseServiceMessage):
-#     """Message containing a command response.
-#     This message is sent by a component service to the system controller to respond to a command.
-#     """
-
-#     message_type: Literal[MessageType.COMMAND_RESPONSE] = MessageType.COMMAND_RESPONSE
-
-#     command: CommandType = Field(
-#         ..., description="Command type that is being responded to"
-#     )
-#     command_id: str = Field(
-#         ..., description="The ID of the command that is being responded to"
-#     )
-#     status: CommandResponseStatus = Field(..., description="The status of the command")
-#     data: SerializeAsAny[AIPerfBaseModel | None] = Field(
-#         default=None,
-#         description="Data to send with the command response if the command succeeded",
-#     )
-#     error: ErrorDetails | None = Field(
-#         default=None, description="Error information if the command failed"
-#     )
 
 
 class CommandMessage(BaseServiceMessage, AutoRequestID, ABC):  # type: ignore
@@ -94,9 +34,19 @@ class CommandMessage(BaseServiceMessage, AutoRequestID, ABC):  # type: ignore
         "sent to all services.",
     )
 
+    data: SerializeAsAny[BaseModel] | None = Field(
+        default=None,
+        description="The data of the command message. This can be overridden in the subclasses.",
+    )
+
 
 class CommandResponseMessage(BaseServiceMessage, RequiresRequestID, ABC):  # type: ignore
     """Base class for all command response messages."""
+
+    data: SerializeAsAny[BaseModel] | None = Field(
+        default=None,
+        description="The data of the command message. This can be overridden in the subclasses.",
+    )
 
     origin_service_id: str = Field(
         ..., description="The ID of the service that sent the request"
@@ -111,9 +61,7 @@ class ProcessRecordsCommand(CommandMessage):
     that it process records.
     """
 
-    message_type: Literal[MessageType.PROCESS_RECORDS_COMMAND] = (
-        MessageType.PROCESS_RECORDS_COMMAND
-    )
+    message_type = MessageType.PROCESS_RECORDS
 
     cancelled: bool = Field(
         default=False,
@@ -121,17 +69,63 @@ class ProcessRecordsCommand(CommandMessage):
     )
 
 
-class ProcessRecordsResponse(CommandResponseMessage):
-    """This message is sent by a component service to the system controller to respond
-    to a process records request.
-    """
+def _command_message_type(
+    message_type: MessageType,
+    data: type[BaseModel] | Annotated | UnionType | None = None,
+) -> type[CommandMessage]:
+    """Create a generic command message class for a given message type."""
 
-    message_type: Literal[MessageType.PROCESS_RECORDS_RESPONSE] = (
-        MessageType.PROCESS_RECORDS_RESPONSE
-    )
+    # Need to save the message type here for use below in the class definition
+    _message_type = message_type
+    _data = data
 
-    # TODO: Better way to handle results data
-    results: SerializeAsAny[AIPerfBaseModel | None] = Field(
-        default=None,
-        description="Data returned from the process records request",
+    class GenericCommandMessage(CommandMessage):
+        message_type = _message_type
+        data = _data
+
+    # Set the class name and docstring
+    GenericCommandMessage.__doc__ = f"Message for the {message_type.name} command."
+    GenericCommandMessage.__name__ = f"{message_type.name.title()}Command"
+    GenericCommandMessage.__qualname__ = GenericCommandMessage.__name__
+    return GenericCommandMessage
+
+
+def _command_response_type(
+    message_type: MessageType, data: Field | None = None
+) -> type[CommandResponseMessage]:
+    """Create a generic command response class for a given message type."""
+
+    # Need to save the message type here for use below in the class definition
+    _message_type = message_type
+    _data = data
+
+    class GenericCommandResponseMessage(CommandResponseMessage):
+        message_type = _message_type
+        data = _data
+
+    # Set the class name and docstring
+    GenericCommandResponseMessage.__doc__ = (
+        f"Response to the {message_type.name} command."
     )
+    GenericCommandResponseMessage.__name__ = f"{message_type.name.title()}Message"
+    GenericCommandResponseMessage.__qualname__ = GenericCommandResponseMessage.__name__
+    return GenericCommandResponseMessage
+
+
+# On the fly generated command message types
+ProfileConfigureCommand = _command_message_type(
+    MessageType.PROFILE_CONFIGURE, data=UserConfig
+)
+ProfileStartCommand = _command_message_type(MessageType.PROFILE_START)
+ProfileStopCommand = _command_message_type(MessageType.PROFILE_STOP)
+ProfileCancelCommand = _command_message_type(MessageType.PROFILE_CANCEL)
+ShutdownCommand = _command_message_type(MessageType.SHUTDOWN)
+
+# On the fly generated command response types
+ProfileStartResponse = _command_response_type(MessageType.PROFILE_START_RESPONSE)
+ProfileStopResponse = _command_response_type(MessageType.PROFILE_STOP_RESPONSE)
+ProfileCancelResponse = _command_response_type(MessageType.PROFILE_CANCEL_RESPONSE)
+ShutdownResponse = _command_response_type(MessageType.SHUTDOWN_RESPONSE)
+ProcessRecordsResponse = _command_response_type(
+    MessageType.PROCESS_RECORDS_RESPONSE, data=SerializeAsAny[AIPerfBaseModel]
+)

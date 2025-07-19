@@ -1,16 +1,12 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-from collections.abc import Awaitable, Callable
 
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.enums import (
-    CommandResponseStatus,
-    CommandType,
-    MessageType,
     ServiceState,
 )
-from aiperf.common.exceptions import AIPerfError, CommandError, InitializationError
-from aiperf.common.hooks import AIPerfHook, aiperf_auto_task, on_init, on_set_state
+from aiperf.common.exceptions import InitializationError
+from aiperf.common.hooks import aiperf_auto_task, on_init, on_set_state
 from aiperf.common.messages import (
     CommandMessage,
     CommandResponseMessage,
@@ -50,40 +46,23 @@ class BaseComponentService(BaseService):
             service_id=service_id,
             **kwargs,
         )
-
-        self._command_callbacks: dict[
-            CommandType, Callable[[CommandMessage], Awaitable[None]]
-        ] = {}
         self._heartbeat_interval_seconds = (
             self.service_config.heartbeat_interval_seconds
         )
 
+    # TODO: Should this be a new post-init? Or is that already handled by the base mixins?
     @on_init
-    async def _on_init(self) -> None:
-        """Automatically subscribe to the command message_type and register the service
-        with the system controller when the run hook is called.
+    async def register(self) -> None:
+        """Publish a registration request to the system controller.
 
-        This method will:
-        - Subscribe to the command message_type
-        - Wait for the communication to be fully initialized
-        - Register the service with the system controller
+        This method should be called after the service has been initialized and is
+        ready to start processing messages.
         """
-        # Subscribe to the command message_type
+        self.debug(
+            lambda: f"Attempting to register service {self.service_type} ({self.service_id}) with system controller"
+        )
         try:
-            await self.sub_client.subscribe(
-                MessageType.COMMAND,
-                self.process_command_message,
-            )
-        except AIPerfError:
-            raise  # re-raise it up the stack
-        except Exception as e:
-            raise InitializationError("Failed to subscribe to command topic") from e
-
-        # Register the service
-        try:
-            await self.register()
-        except AIPerfError:
-            raise  # re-raise it up the stack
+            await self.pub_client.publish(self.create_registration_message())
         except Exception as e:
             raise InitializationError("Failed to register service") from e
 
@@ -101,27 +80,9 @@ class BaseComponentService(BaseService):
         heartbeat_message = self.create_heartbeat_message()
         self.debug(lambda: f"Sending heartbeat: {heartbeat_message}")
         try:
-            await self.pub_client.publish(
-                message=heartbeat_message,
-            )
+            await self.pub_client.publish(heartbeat_message)
         except Exception as e:
             raise InitializationError("Failed to send heartbeat") from e
-
-    async def register(self) -> None:
-        """Publish a registration request to the system controller.
-
-        This method should be called after the service has been initialized and is
-        ready to start processing messages.
-        """
-        self.debug(
-            lambda: f"Attempting to register service {self.service_type} ({self.service_id}) with system controller"
-        )
-        try:
-            await self.pub_client.publish(
-                message=self.create_registration_message(),
-            )
-        except Exception as e:
-            raise InitializationError("Failed to register service") from e
 
     async def process_command_message(self, message: CommandMessage) -> None:
         """Process a command message received from the controller.
@@ -134,37 +95,36 @@ class BaseComponentService(BaseService):
             message.target_service_type
             and message.target_service_type != self.service_type
         ):
+            # TODO: Better way to handle this?
             return  # Ignore commands meant for other services
 
         self.debug(lambda: f"{self.service_id}: Processing command message: {message}")
-        cmd = message.command
+        # cmd = message.command
         response_data = None
         try:
-            if cmd == CommandType.PROFILE_START:
-                response_data = await self.start()
+            # if cmd == CommandType.PROFILE_START:
+            #     response_data = await self.start()
 
-            elif cmd == CommandType.SHUTDOWN:
-                self.debug(lambda: f"{self.service_id}: Received stop command")
-                self.stop_event.set()
+            # elif cmd == CommandType.SHUTDOWN:
+            #     self.debug(lambda: f"{self.service_id}: Received stop command")
+            #     self.stop_event.set()
 
-            elif cmd == CommandType.PROFILE_CONFIGURE:
-                await self.run_hooks(AIPerfHook.ON_CONFIGURE, message)
+            # elif cmd == CommandType.PROFILE_CONFIGURE:
+            #     await self.run_hooks(AIPerfHook.ON_CONFIGURE, message)
 
-            elif cmd in self._command_callbacks:
-                response_data = await self._command_callbacks[cmd](message)
+            # elif cmd in self._command_callbacks:
+            #     response_data = await self._command_callbacks[cmd](message)
 
-            else:
-                raise CommandError(
-                    f"Received unknown command: {cmd}",
-                )
+            # else:
+            #     raise CommandError(
+            #         f"Received unknown command: {cmd}",
+            #     )
 
             # Publish the success response
             await self.pub_client.publish(
                 CommandResponseMessage(
                     service_id=self.service_id,
-                    command=cmd,
-                    command_id=message.command_id,
-                    status=CommandResponseStatus.SUCCESS,
+                    origin_service_id=message.service_id,
                     data=response_data,
                 ),
             )
@@ -174,20 +134,10 @@ class BaseComponentService(BaseService):
             await self.pub_client.publish(
                 CommandResponseMessage(
                     service_id=self.service_id,
-                    command=cmd,
-                    command_id=message.command_id,
-                    status=CommandResponseStatus.FAILURE,
+                    origin_service_id=message.service_id,
                     error=ErrorDetails.from_exception(e),
                 ),
             )
-
-    def register_command_callback(
-        self,
-        cmd: CommandType,
-        callback: Callable[[CommandMessage], Awaitable[None]],
-    ) -> None:
-        """Register a single callback for a command."""
-        self._command_callbacks[cmd] = callback
 
     @on_set_state
     async def _on_set_state(self, state: ServiceState) -> None:

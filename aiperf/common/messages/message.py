@@ -2,7 +2,7 @@
 import json
 import time
 import uuid
-from typing import Any, ClassVar
+from typing import ClassVar
 
 from pydantic import Field
 
@@ -45,10 +45,8 @@ class Message(ExcludeIfNoneModel):
         if hasattr(cls, "message_type"):
             cls._message_type_lookup[cls.message_type] = cls
 
-    message_type: MessageType | Any = Field(
-        ...,
-        description="Type of the message",
-    )
+    message_type: ClassVar[MessageType]
+    """The type of the message. Must be set in the subclass."""
 
     request_ns: int = Field(
         default_factory=time.time_ns,

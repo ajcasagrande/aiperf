@@ -1,8 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Literal
-
 from pydantic import Field
 
 from aiperf.common.enums import CreditPhase, MessageType
@@ -13,9 +11,7 @@ from aiperf.common.models import Conversation, Turn
 class ConversationRequestMessage(BaseServiceMessage):
     """Message to request a full conversation by ID."""
 
-    message_type: Literal[MessageType.CONVERSATION_REQUEST] = (
-        MessageType.CONVERSATION_REQUEST
-    )
+    message_type = MessageType.CONVERSATION_REQUEST
 
     conversation_id: str | None = Field(
         default=None, description="The session ID of the conversation"
@@ -29,18 +25,14 @@ class ConversationRequestMessage(BaseServiceMessage):
 class ConversationResponseMessage(BaseServiceMessage):
     """Message containing a full conversation."""
 
-    message_type: Literal[MessageType.CONVERSATION_RESPONSE] = (
-        MessageType.CONVERSATION_RESPONSE
-    )
+    message_type = MessageType.CONVERSATION_RESPONSE
     conversation: Conversation = Field(..., description="The conversation data")
 
 
 class ConversationTurnRequestMessage(BaseServiceMessage):
     """Message to request a single turn from a conversation."""
 
-    message_type: Literal[MessageType.CONVERSATION_TURN_REQUEST] = (
-        MessageType.CONVERSATION_TURN_REQUEST
-    )
+    message_type = MessageType.CONVERSATION_TURN_REQUEST
 
     conversation_id: str = Field(
         ...,
@@ -56,9 +48,7 @@ class ConversationTurnRequestMessage(BaseServiceMessage):
 class ConversationTurnResponseMessage(BaseServiceMessage):
     """Message containing a single turn from a conversation."""
 
-    message_type: Literal[MessageType.CONVERSATION_TURN_RESPONSE] = (
-        MessageType.CONVERSATION_TURN_RESPONSE
-    )
+    message_type = MessageType.CONVERSATION_TURN_RESPONSE
 
     turn: Turn = Field(..., description="The turn data")
 
@@ -66,17 +56,13 @@ class ConversationTurnResponseMessage(BaseServiceMessage):
 class DatasetTimingRequest(BaseServiceMessage):
     """Message for a dataset timing request."""
 
-    message_type: Literal[MessageType.DATASET_TIMING_REQUEST] = (
-        MessageType.DATASET_TIMING_REQUEST
-    )
+    message_type = MessageType.DATASET_TIMING_REQUEST
 
 
 class DatasetTimingResponse(BaseServiceMessage):
     """Message for a dataset timing response."""
 
-    message_type: Literal[MessageType.DATASET_TIMING_RESPONSE] = (
-        MessageType.DATASET_TIMING_RESPONSE
-    )
+    message_type = MessageType.DATASET_TIMING_RESPONSE
 
     timing_data: list[tuple[int, str]] = Field(
         ...,
@@ -87,6 +73,4 @@ class DatasetTimingResponse(BaseServiceMessage):
 class DatasetConfiguredNotification(BaseServiceMessage):
     """Notification sent to notify other services that the dataset has been configured."""
 
-    message_type: Literal[MessageType.DATASET_CONFIGURED_NOTIFICATION] = (
-        MessageType.DATASET_CONFIGURED_NOTIFICATION
-    )
+    message_type = MessageType.DATASET_CONFIGURED_NOTIFICATION

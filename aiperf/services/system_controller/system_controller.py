@@ -2,15 +2,14 @@
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
 import signal
-import sys
 import time
+
+from pydantic import BaseModel
 
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
 from aiperf.common.enums import (
     BenchmarkSuiteType,
-    CommandResponseStatus,
-    CommandType,
     MessageType,
     ServiceType,
     SystemState,
@@ -18,24 +17,25 @@ from aiperf.common.enums import (
 from aiperf.common.exceptions import (
     AIPerfError,
     CommandError,
-    CommunicationError,
     InitializationError,
-    NotInitializedError,
 )
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import on_cleanup, on_message, on_start, on_stop
 from aiperf.common.messages import (
-    CommandResponseMessage,
     HeartbeatMessage,
     Message,
-    ProcessRecordsCommandData,
     ProfileResultsMessage,
     RecordsProcessingStatsMessage,
     RegistrationMessage,
     StatusMessage,
 )
+from aiperf.common.messages.commands import (
+    ProcessRecordsCommand,
+    ProcessRecordsResponse,
+    ProfileConfigureCommand,
+    ShutdownCommand,
+)
 from aiperf.common.mixins import EventBusClientMixin
-from aiperf.common.models import AIPerfBaseModel
 from aiperf.common.service.base_controller_service import BaseControllerService
 from aiperf.data_exporter.exporter_manager import ExporterManager
 from aiperf.progress.progress_tracker import (
@@ -229,17 +229,20 @@ class SystemController(
 
         # TODO: This is a hack to force printing results again
         # Process records command
-        await self.send_command_to_service(
-            target_service_id=None,
-            target_service_type=ServiceType.RECORDS_MANAGER,
-            command=CommandType.PROCESS_RECORDS,
-            data=ProcessRecordsCommandData(cancelled=False),
+        await self.pub_client.publish(
+            ProcessRecordsCommand(
+                service_id=self.service_id,
+                target_service_type=ServiceType.RECORDS_MANAGER,
+                cancelled=False,
+            )
         )
 
         # Broadcast a stop command to all services
-        await self.send_command_to_service(
-            target_service_id=None,
-            command=CommandType.SHUTDOWN,
+        await self.pub_client.publish(
+            ShutdownCommand(
+                service_id=self.service_id,
+                data=None,
+            )
         )
 
         try:
@@ -273,7 +276,6 @@ class SystemController(
     @on_message(
         MessageType.CREDITS_COMPLETE,
         MessageType.WORKER_HEALTH,
-        MessageType.NOTIFICATION,
         MessageType.CREDIT_PHASE_PROGRESS,
         MessageType.CREDIT_PHASE_START,
         MessageType.CREDIT_PHASE_COMPLETE,
@@ -303,11 +305,12 @@ class SystemController(
             and self.progress_tracker.current_profile_run.is_complete
         ):
             self.info("Profile completed, sending process records command")
-            await self.send_command_to_service(
-                target_service_id=None,
-                target_service_type=ServiceType.RECORDS_MANAGER,
-                command=CommandType.PROCESS_RECORDS,
-                data=ProcessRecordsCommandData(cancelled=False),
+            await self.pub_client.publish(
+                ProcessRecordsResponse(
+                    service_id=self.service_id,
+                    origin_service_id=message.service_id,
+                    data=BaseModel(cancelled=False),
+                )
             )
             if self.profile_runner:
                 await self.profile_runner.profile_completed()
@@ -349,10 +352,11 @@ class SystemController(
 
         # Send configure command to the newly registered service
         try:
-            await self.send_command_to_service(
-                target_service_id=message.service_id,
-                command=CommandType.PROFILE_CONFIGURE,
-                data=self.user_config,
+            await self.pub_client.publish(
+                ProfileConfigureCommand(
+                    service_id=message.service_id,
+                    data=self.user_config,
+                )
             )
         except AIPerfError:
             raise  # re-raise it up the stack
@@ -391,61 +395,61 @@ class SystemController(
         )
         await self.service_manager.on_message(message)
 
-    @on_message(MessageType.COMMAND_RESPONSE)
-    async def _process_command_response_message(
-        self, message: CommandResponseMessage
-    ) -> None:
-        """Process a command response message."""
-        self.trace(lambda: f"Received command response message: {message}")
-        if message.status == CommandResponseStatus.SUCCESS:
-            self.debug(
-                lambda: f"Command {message.command} succeeded with data: {message.data}"
-            )
-        else:
-            self.error(f"Command {message.command} failed: {message.error}")
-            if message.error:
-                self.error(f"Error details: {message.error}")
+    # @on_message(MessageType.COMMAND_RESPONSE)
+    # async def _process_command_response_message(
+    #     self, message: CommandResponseMessage
+    # ) -> None:
+    #     """Process a command response message."""
+    #     self.trace(lambda: f"Received command response message: {message}")
+    #     if message.status == CommandResponseStatus.SUCCESS:
+    #         self.debug(
+    #             lambda: f"Command {message.command} succeeded with data: {message.data}"
+    #         )
+    #     else:
+    #         self.error(f"Command {message.command} failed: {message.error}")
+    #         if message.error:
+    #             self.error(f"Error details: {message.error}")
 
-    async def send_command_to_service(
-        self,
-        target_service_id: str | None,
-        command: CommandType,
-        data: AIPerfBaseModel | None = None,
-        target_service_type: ServiceType | None = None,
-    ) -> None:
-        """Send a command to a specific service.
+    # async def send_command_to_service(
+    #     self,
+    #     target_service_id: str | None,
+    #     command: MessageType,
+    #     data: AIPerfBaseModel | None = None,
+    #     target_service_type: ServiceType | None = None,
+    # ) -> None:
+    #     """Send a command to a specific service.
 
-        Args:
-            target_service_id: ID of the target service, or None to send to all services
-            target_service_type: Type of the target service, or None to send to all services
-            command: The command to send (from CommandType enum).
-            data: Optional data to send with the command.
+    #     Args:
+    #         target_service_id: ID of the target service, or None to send to all services
+    #         target_service_type: Type of the target service, or None to send to all services
+    #         command: The command to send (from CommandType enum).
+    #         data: Optional data to send with the command.
 
-        Raises:
-            CommunicationError: If the communication is not initialized
-                or the command was not sent successfully
-        """
-        if not self.comms:
-            self.error("Cannot send command: Communication is not initialized")
-            raise NotInitializedError(
-                "Communication channels are not initialized",
-            )
+    #     Raises:
+    #         CommunicationError: If the communication is not initialized
+    #             or the command was not sent successfully
+    #     """
+    #     if not self.comms:
+    #         self.error("Cannot send command: Communication is not initialized")
+    #         raise NotInitializedError(
+    #             "Communication channels are not initialized",
+    #         )
 
-        # Publish command message
-        try:
-            await self.pub_client.publish(
-                self.create_command_message(
-                    command=command,
-                    target_service_id=target_service_id,
-                    target_service_type=target_service_type,
-                    data=data,
-                )
-            )
-        except Exception as e:
-            self.exception(f"Exception publishing command: {e}")
-            raise CommunicationError(
-                f"Failed to publish command: {e}",
-            ) from e
+    #     # Publish command message
+    #     try:
+    #         await self.pub_client.publish(
+    #             self.create_command_message(
+    #                 command=command,
+    #                 target_service_id=target_service_id,
+    #                 target_service_type=target_service_type,
+    #                 data=data,
+    #             )
+    #         )
+    #     except Exception as e:
+    #         self.exception(f"Exception publishing command: {e}")
+    #         raise CommunicationError(
+    #             f"Failed to publish command: {e}",
+    #         ) from e
 
     async def kill(self):
         """Kill the system controller."""
@@ -459,15 +463,13 @@ class SystemController(
         await self.comms.shutdown()
 
 
-def main() -> int:
+def main() -> None:
     """Main entry point for the system controller."""
 
     from aiperf.common.bootstrap import bootstrap_and_run_service
 
     bootstrap_and_run_service(SystemController)
 
-    return 0
-
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()

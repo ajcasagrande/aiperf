@@ -33,7 +33,7 @@ class MessageType(CaseInsensitiveStrEnum):
     SERVICE_ERROR = "service_error"
     """A message sent by a service to the SystemController to report an error."""
 
-    SHUTDOWN_COMMAND = "shutdown_command"
+    SHUTDOWN = "shutdown"
     """A message sent by the SystemController to a service to request that it shutdown."""
 
     SHUTDOWN_RESPONSE = "shutdown_response"
@@ -87,25 +87,25 @@ class MessageType(CaseInsensitiveStrEnum):
     PROFILE_ERROR = "profile_error"
     """A message containing an error from a profile run."""
 
-    PROFILE_CONFIGURE_COMMAND = "profile_configure_command"
+    PROFILE_CONFIGURE = "profile_configure"
     """A message sent to configure a profile run."""
 
     PROFILE_CONFIGURE_RESPONSE = "profile_configure_response"
     """A message sent to respond to a profile configure request."""
 
-    PROFILE_START_COMMAND = "profile_start_command"
+    PROFILE_START = "profile_start"
     """A message sent to start a profile run."""
 
     PROFILE_START_RESPONSE = "profile_start_response"
     """A message sent to respond to a profile start request."""
 
-    PROFILE_CANCEL_COMMAND = "profile_cancel_command"
+    PROFILE_CANCEL = "profile_cancel"
     """A message sent to cancel a profile run."""
 
     PROFILE_CANCEL_RESPONSE = "profile_cancel_response"
     """A message sent to respond to a profile cancel request."""
 
-    PROFILE_STOP_COMMAND = "profile_stop_command"
+    PROFILE_STOP = "profile_stop"
     """A message sent to stop a profile run."""
 
     PROFILE_STOP_RESPONSE = "profile_stop_response"
@@ -170,7 +170,7 @@ class MessageType(CaseInsensitiveStrEnum):
     # Post processor / Records manager messages
     #########################################################
 
-    PROCESS_RECORDS_COMMAND = "process_records_command"
+    PROCESS_RECORDS = "process_records"
     """A message sent to request that a service process records."""
 
     PROCESS_RECORDS_RESPONSE = "process_records_response"

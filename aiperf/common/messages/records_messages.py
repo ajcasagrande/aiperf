@@ -2,8 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-from typing import Literal
-
 from pydantic import Field
 
 from aiperf.common.enums import MessageType
@@ -15,7 +13,7 @@ class RecordsProcessingStatsMessage(BaseServiceMessage):
     """Message for processing stats. Sent by the RecordsManager to report the stats of the profile run.
     This contains the stats for a single credit phase only."""
 
-    message_type: Literal[MessageType.PROCESSING_STATS] = MessageType.PROCESSING_STATS
+    message_type = MessageType.PROCESSING_STATS
 
     processing_stats: PhaseProcessingStats = Field(
         ..., description="The stats for the credit phase"
@@ -30,4 +28,4 @@ class RecordsProcessingStatsMessage(BaseServiceMessage):
 class ProfileResultsMessage(BaseServiceMessage, ProfileResultsData):
     """Message for profile results."""
 
-    message_type: Literal[MessageType.PROFILE_RESULTS] = MessageType.PROFILE_RESULTS
+    message_type = MessageType.PROFILE_RESULTS
