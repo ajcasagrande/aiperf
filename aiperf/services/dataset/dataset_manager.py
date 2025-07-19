@@ -16,7 +16,7 @@ from aiperf.common.enums import (
 from aiperf.common.exceptions import BadRequestError, ConfigurationError
 from aiperf.common.factories import ComposerFactory, ServiceFactory
 from aiperf.common.hooks import (
-    on_configure,
+    on_command_message,
     on_init,
 )
 from aiperf.common.messages import (
@@ -92,11 +92,12 @@ class DatasetManager(BaseComponentService):
 
         self.debug(lambda: f"Dataset manager {self.service_id} initialized")
 
-    @on_configure
+    @on_command_message(MessageType.PROFILE_CONFIGURE)
     async def _configure(self, message: Message) -> None:
         """Configure the dataset manager."""
         # TODO: This is a temporary hack with the changes to user config loading
         self.dataset_configured.clear()
+        self.debug(lambda: f"Dataset manager got configure message: {message}")
         await self._configure_dataset()
 
     async def _handle_conversation_request(

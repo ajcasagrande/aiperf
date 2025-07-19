@@ -17,7 +17,7 @@ class SignalHandlerMixin(BaseMixin):
         super().__init__(**kwargs)
 
     def setup_signal_handlers(self, handler: Callable[[int], CoroutineT]) -> None:
-        """This method will set up signal handlers for the SIGTERM, SIGINT, SIGABRT, SIGQUIT, SIGKILL, SIGTRAP, and SIGHUP signals
+        """This method will set up signal handlers for the SIGTERM, SIGINT, and SIGABRT signals
         in order to trigger a graceful shutdown of the service.
 
         Args:
@@ -34,11 +34,5 @@ class SignalHandlerMixin(BaseMixin):
             self._signal_tasks.add(task)
             task.add_done_callback(self._signal_tasks.discard)
 
-        signal_set = {signal.SIGTERM, signal.SIGINT, signal.SIGABRT}
-        if hasattr(signal, "SIGKILL"):
-            signal_set.update(
-                {signal.SIGQUIT, signal.SIGKILL, signal.SIGTRAP, signal.SIGHUP}
-            )
-
-        for sig in signal_set:
+        for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGABRT):
             loop.add_signal_handler(sig, lambda s=sig: signal_handler(s))

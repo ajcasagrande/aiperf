@@ -4,7 +4,7 @@
 from aiperf.common.enums.base_enums import CaseInsensitiveStrEnum
 
 
-class MessageType(CaseInsensitiveStrEnum):
+class ErrorMessageType(CaseInsensitiveStrEnum):
     """The various types of messages that can be sent between services.
 
     The message type is used to determine what Pydantic model the message maps to,
@@ -14,12 +14,9 @@ class MessageType(CaseInsensitiveStrEnum):
     ERROR = "error"
     """A generic error message."""
 
-    TEST = "test"
-    """A test message."""
 
-    #########################################################
-    # Service messages
-    #########################################################
+class SystemMessageType(CaseInsensitiveStrEnum):
+    """The various types of system messages that can be sent between services."""
 
     REGISTRATION = "registration"
     """A message sent by a service to register itself with the SystemController."""
@@ -33,25 +30,19 @@ class MessageType(CaseInsensitiveStrEnum):
     SERVICE_ERROR = "service_error"
     """A message sent by a service to the SystemController to report an error."""
 
-    SHUTDOWN = "shutdown"
-    """A message sent by the SystemController to a service to request that it shutdown."""
-
-    SHUTDOWN_RESPONSE = "shutdown_response"
-    """A message sent by a service to the SystemController to respond to a shutdown request."""
-
     SERVICE_HEALTH = "service_health"
     """A message sent by a service to the SystemController to report its health."""
 
-    #########################################################
-    # Worker messages
-    #########################################################
+
+class WorkerMessageType(CaseInsensitiveStrEnum):
+    """The various types of worker messages that can be sent between services."""
 
     WORKER_HEALTH = "worker_health"
     """A message sent by a worker to the WorkerManager to report its health."""
 
-    #########################################################
-    # Sweep run messages
-    #########################################################
+
+class SweepMessageType(CaseInsensitiveStrEnum):
+    """The various types of sweep messages that can be sent between services."""
 
     SWEEP_CONFIGURE = "sweep_configure"
     """A message sent to configure a sweep run."""
@@ -71,9 +62,9 @@ class MessageType(CaseInsensitiveStrEnum):
     SWEEP_ERROR = "sweep_error"
     """A message containing an error from a sweep run."""
 
-    #########################################################
-    # Profile run messages
-    #########################################################
+
+class ProfileMessageType(CaseInsensitiveStrEnum):
+    """The various types of profile messages that can be sent between services."""
 
     PROFILE_PROGRESS = "profile_progress"
     """A message containing profile run progress."""
@@ -87,33 +78,9 @@ class MessageType(CaseInsensitiveStrEnum):
     PROFILE_ERROR = "profile_error"
     """A message containing an error from a profile run."""
 
-    PROFILE_CONFIGURE = "profile_configure"
-    """A message sent to configure a profile run."""
 
-    PROFILE_CONFIGURE_RESPONSE = "profile_configure_response"
-    """A message sent to respond to a profile configure request."""
-
-    PROFILE_START = "profile_start"
-    """A message sent to start a profile run."""
-
-    PROFILE_START_RESPONSE = "profile_start_response"
-    """A message sent to respond to a profile start request."""
-
-    PROFILE_CANCEL = "profile_cancel"
-    """A message sent to cancel a profile run."""
-
-    PROFILE_CANCEL_RESPONSE = "profile_cancel_response"
-    """A message sent to respond to a profile cancel request."""
-
-    PROFILE_STOP = "profile_stop"
-    """A message sent to stop a profile run."""
-
-    PROFILE_STOP_RESPONSE = "profile_stop_response"
-    """A message sent to respond to a profile stop request."""
-
-    #########################################################
-    # Credit messages
-    #########################################################
+class CreditMessageType(CaseInsensitiveStrEnum):
+    """The various types of credit messages that can be sent between services."""
 
     CREDIT_DROP = "credit_drop"
     """A message sent by the Timing Manager service to allocate credits
@@ -141,9 +108,9 @@ class MessageType(CaseInsensitiveStrEnum):
     """A message sent by a worker to the TimingManager to indicate that the first byte of a credit has been received.
     This can be used to track the latency of the credit, or to perform various synchronizations."""
 
-    #########################################################
-    # Dataset messages
-    #########################################################
+
+class DatasetMessageType(CaseInsensitiveStrEnum):
+    """The various types of dataset messages that can be sent between services."""
 
     DATASET_CONFIGURED_NOTIFICATION = "dataset_configured_notification"
     """A notification sent to notify other services that the dataset has been configured."""
@@ -166,18 +133,79 @@ class MessageType(CaseInsensitiveStrEnum):
     CONVERSATION_TURN_RESPONSE = "conversation_turn_response"
     """A message sent by the DatasetManager to a service, containing the requested turn data."""
 
-    #########################################################
-    # Post processor / Records manager messages
-    #########################################################
 
-    PROCESS_RECORDS = "process_records"
-    """A message sent to request that a service process records."""
-
-    PROCESS_RECORDS_RESPONSE = "process_records_response"
-    """A message sent to respond to a process records command."""
+class InferenceMessageType(CaseInsensitiveStrEnum):
+    """The various types of inference messages that can be sent between services."""
 
     INFERENCE_RESULTS = "inference_results"
     """A message containing inference results from a worker."""
 
     PARSED_INFERENCE_RESULTS = "parsed_inference_results"
     """A message containing parsed inference results from a post processor."""
+
+
+class CommandMessageType(CaseInsensitiveStrEnum):
+    """The various types of command messages that can be sent between services."""
+
+    PROCESS_RECORDS = "process_records"
+    """A message sent to request that a service process records."""
+
+    PROFILE_CONFIGURE = "profile_configure"
+    """A message sent to configure a profile run."""
+
+    PROFILE_START = "profile_start"
+    """A message sent to start a profile run."""
+
+    PROFILE_CANCEL = "profile_cancel"
+    """A message sent to cancel a profile run."""
+
+    PROFILE_STOP = "profile_stop"
+    """A message sent to stop a profile run."""
+
+    SHUTDOWN = "shutdown"
+    """A message sent by the SystemController to a service to request that it shutdown."""
+
+
+class CommandResponseMessageType(CaseInsensitiveStrEnum):
+    """The various types of command response messages that can be sent between services."""
+
+    PROCESS_RECORDS_RESPONSE = "process_records_response"
+    """A message sent to respond to a process records command."""
+
+    PROFILE_CONFIGURE_RESPONSE = "profile_configure_response"
+    """A message sent to respond to a profile configure request."""
+
+    PROFILE_START_RESPONSE = "profile_start_response"
+    """A message sent to respond to a profile start request."""
+
+    PROFILE_CANCEL_RESPONSE = "profile_cancel_response"
+    """A message sent to respond to a profile cancel request."""
+
+    PROFILE_STOP_RESPONSE = "profile_stop_response"
+    """A message sent to respond to a profile stop request."""
+
+    SHUTDOWN_RESPONSE = "shutdown_response"
+    """A message sent by a service to the SystemController to respond to a shutdown request."""
+
+
+class TestMessageType(CaseInsensitiveStrEnum):
+    """Used for testing purposes."""
+
+    TEST = "test"
+    """A test message."""
+
+
+MessageType = (
+    ErrorMessageType
+    | TestMessageType
+    | SystemMessageType
+    | WorkerMessageType
+    | SweepMessageType
+    | ProfileMessageType
+    | CreditMessageType
+    | DatasetMessageType
+    | InferenceMessageType
+    | CommandMessageType
+    | CommandResponseMessageType
+)
+"""A quick way to reference any message type regardless of the specific enum."""

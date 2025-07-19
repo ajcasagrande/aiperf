@@ -20,7 +20,7 @@ class AIPerfMessageHandlerMixin(AIPerfLifecycleMixin):
 
     def __init__(self, sub_client: SubClientProtocol, **kwargs):
         self.sub_client = sub_client
-        super().__init__(**kwargs)
+        super().__init__(sub_client=sub_client, **kwargs)
         self._message_handlers: dict[
             MessageType,
             list[MessageHandlerT],

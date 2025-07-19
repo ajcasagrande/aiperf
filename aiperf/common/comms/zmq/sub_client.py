@@ -150,7 +150,7 @@ class ZMQSubClient(BaseZMQClient, AsyncTaskManagerMixin):
             lambda: f"Received message from message_type: '{message_type}', message: {message_json}"
         )
 
-        message = Message.from_json(message_json)
+        message = Message.from_json_with_type(MessageType(message_type), message_json)
 
         # Call callbacks with the parsed message object
         if message_type in self._subscribers:

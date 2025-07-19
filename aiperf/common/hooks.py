@@ -52,6 +52,7 @@ class AIPerfHook(CaseInsensitiveStrEnum):
     ON_SET_STATE = "__aiperf_on_set_state__"
 
     ON_MESSAGE = "__aiperf_on_message__"
+    ON_COMMAND_MESSAGE = "__aiperf_on_command_message__"
 
 
 class AIPerfTaskHook(CaseInsensitiveStrEnum):
@@ -70,6 +71,9 @@ class AIPerfTaskHook(CaseInsensitiveStrEnum):
 class AIPerfHookParams:
     AIPERF_AUTO_TASK_INTERVAL_SEC = "__aiperf_auto_task_interval_sec__"
     ON_MESSAGE_MESSAGE_TYPES = "__aiperf_message_handler_message_types__"
+    ON_COMMAND_MESSAGE_MESSAGE_TYPES = (
+        "__aiperf_command_message_handler_message_types__"
+    )
 
 
 HookType = AIPerfHook | AIPerfTaskHook | str
@@ -237,11 +241,27 @@ def on_message(*message_types: MessageType) -> Callable:
     See :func:`aiperf.common.hooks.hook_decorator`.
 
     Args:
-        message_type: The message type to handle.
+        message_types: The message types to handle.
     """
 
     def decorator(func: Callable) -> Callable:
         setattr(func, AIPerfHookParams.ON_MESSAGE_MESSAGE_TYPES, message_types)
         return hook_decorator(AIPerfHook.ON_MESSAGE, func)
+
+    return decorator
+
+
+def on_command_message(*message_types: MessageType) -> Callable:
+    """Decorator to indicate that the function is a command message handler. It will be called
+    when a command message of the given type is received.
+    See :func:`aiperf.common.hooks.hook_decorator`.
+
+    Args:
+        message_types: The message types to handle.
+    """
+
+    def decorator(func: Callable) -> Callable:
+        setattr(func, AIPerfHookParams.ON_COMMAND_MESSAGE_MESSAGE_TYPES, message_types)
+        return hook_decorator(AIPerfHook.ON_COMMAND_MESSAGE, func)
 
     return decorator

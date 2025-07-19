@@ -355,6 +355,7 @@ class SystemController(
             await self.pub_client.publish(
                 ProfileConfigureCommand(
                     service_id=message.service_id,
+                    target_service_id=message.service_id,
                     data=self.user_config,
                 )
             )

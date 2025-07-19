@@ -45,7 +45,10 @@ class Message(ExcludeIfNoneModel):
         if hasattr(cls, "message_type"):
             cls._message_type_lookup[cls.message_type] = cls
 
-    message_type: ClassVar[MessageType]
+    message_type: ClassVar[MessageType] = Field(
+        ...,
+        description="The type of the message. Must be set in the subclass.",
+    )
     """The type of the message. Must be set in the subclass."""
 
     request_ns: int = Field(
@@ -64,17 +67,27 @@ class Message(ExcludeIfNoneModel):
 
     @classmethod
     def from_json(cls, json_str: str | bytes | bytearray) -> "Message":
-        """Fast deserialization without full validation"""
         data = json.loads(json_str)
         message_type = data.get("message_type")
         if not message_type:
-            raise ValueError("Missing message_type")
+            raise ValueError(f"Missing message_type: {json_str}")
 
         # Use cached message type lookup
         message_class = cls._message_type_lookup[message_type]
         if not message_class:
             raise ValueError(f"Unknown message type: {message_type}")
 
+        return message_class.model_validate(data)
+
+    @classmethod
+    def from_json_with_type(
+        cls, message_type: MessageType, json_str: str | bytes | bytearray
+    ) -> "Message":
+        data = json.loads(json_str)
+        # Use cached message type lookup
+        message_class = cls._message_type_lookup[message_type]
+        if not message_class:
+            raise ValueError(f"Unknown message type: {message_type}")
         return message_class.model_validate(data)
 
     def to_json(self) -> str:
