@@ -137,7 +137,12 @@ class SystemController(
         )
         self.progress_tracker.configure(
             suite=suite,
-            current_profile_run=suite.profile_runs[0],
+            current_profile_run=suite.  # It looks like the code snippet is a comment in Python. The `#`
+            # symbol is used to indicate a comment in Python, which means
+            # that the line is not executed as code but is there for human
+            # readability. The text `profile_runs` seems to be a placeholder
+            # or a reminder for the programmer.
+            profile_runs[0],
         )
 
         self._system_state = SystemState.CONFIGURING

@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 import json
 import time
+import uuid
 from typing import Any, ClassVar
 
 from pydantic import Field
@@ -39,7 +40,7 @@ class Message(ExcludeIfNoneModel):
 
     _message_type_lookup: ClassVar[dict[MessageType, type["Message"]]] = {}
 
-    def __init_subclass__(cls, **kwargs: dict[str, Any]):
+    def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
         if hasattr(cls, "message_type"):
             cls._message_type_lookup[cls.message_type] = cls
@@ -76,7 +77,26 @@ class Message(ExcludeIfNoneModel):
         if not message_class:
             raise ValueError(f"Unknown message type: {message_type}")
 
-        return message_class.model_validate_json(json_str)
+        return message_class.model_validate(data)
 
     def to_json(self) -> str:
         return self.model_dump_json()
+
+
+class AutoRequestID:
+    """Mixin to make request_id field required for a message, with a default value of a random UUID4."""
+
+    request_id: str = Field(
+        default_factory=lambda: str(uuid.uuid4()),
+        description="The ID of the request. If not provided, a random UUID4 will be generated.",
+    )
+
+
+class RequiresRequestID:
+    """Mixin to make request_id field required for a message.
+    This one does not generate a random UUID4, so it is useful for things like command responses."""
+
+    request_id: str = Field(
+        ...,
+        description="The ID of the request.",
+    )

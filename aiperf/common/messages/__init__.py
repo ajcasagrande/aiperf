@@ -10,16 +10,11 @@ __ignore__ = []
 ## ⚠️             Do not edit below this line                      ⚠️ ##
 ########################################################################
 
-
-from aiperf.common.messages.base_messages import (
-    Message,
-)
-from aiperf.common.messages.command_messages import (
+from aiperf.common.messages.commands import (
     CommandMessage,
     CommandResponseMessage,
-    ProcessRecordsCommandData,
-    ProcessRecordsRequestMessage,
-    ProcessRecordsResponseMessage,
+    ProcessRecordsCommand,
+    ProcessRecordsResponse,
 )
 from aiperf.common.messages.credit_messages import (
     CreditDropMessage,
@@ -51,6 +46,11 @@ from aiperf.common.messages.inference_messages import (
     InferenceResultsMessage,
     ParsedInferenceResultsMessage,
 )
+from aiperf.common.messages.message import (
+    AutoRequestID,
+    Message,
+    RequiresRequestID,
+)
 from aiperf.common.messages.records_messages import (
     ProfileResultsMessage,
     RecordsProcessingStatsMessage,
@@ -59,12 +59,12 @@ from aiperf.common.messages.service_messages import (
     BaseServiceMessage,
     BaseStatusMessage,
     HeartbeatMessage,
-    NotificationMessage,
     RegistrationMessage,
     StatusMessage,
 )
 
 __all__ = [
+    "AutoRequestID",
     "BaseServiceErrorMessage",
     "BaseServiceMessage",
     "BaseStatusMessage",
@@ -89,14 +89,13 @@ __all__ = [
     "HeartbeatMessage",
     "InferenceResultsMessage",
     "Message",
-    "NotificationMessage",
     "ParsedInferenceResultsMessage",
-    "ProcessRecordsCommandData",
-    "ProcessRecordsRequestMessage",
-    "ProcessRecordsResponseMessage",
+    "ProcessRecordsCommand",
+    "ProcessRecordsResponse",
     "ProfileResultsMessage",
     "RecordsProcessingStatsMessage",
     "RegistrationMessage",
+    "RequiresRequestID",
     "StatusMessage",
     "WorkerHealthMessage",
 ]

@@ -4,11 +4,10 @@
 
 from typing import Literal
 
-from pydantic import Field, SerializeAsAny
+from pydantic import Field
 
-from aiperf.common.enums import MessageType, NotificationType, ServiceState, ServiceType
-from aiperf.common.messages.base_messages import Message
-from aiperf.common.models import AIPerfBaseModel
+from aiperf.common.enums import MessageType, ServiceState, ServiceType
+from aiperf.common.messages.message import Message
 
 
 class BaseServiceMessage(Message):
@@ -61,18 +60,3 @@ class HeartbeatMessage(BaseStatusMessage):
     """
 
     message_type: Literal[MessageType.HEARTBEAT] = MessageType.HEARTBEAT
-
-
-class NotificationMessage(BaseServiceMessage):
-    """Message containing a notification from a service. This is used to notify other services of events."""
-
-    message_type: Literal[MessageType.NOTIFICATION] = MessageType.NOTIFICATION
-
-    notification_type: NotificationType = Field(
-        ..., description="The type of notification"
-    )
-
-    data: SerializeAsAny[AIPerfBaseModel | None] = Field(
-        default=None,
-        description="Data to send with the notification",
-    )

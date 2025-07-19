@@ -7,7 +7,7 @@ from aiperf.common.enums import CreditPhase, MessageType, StreamingPostProcessor
 from aiperf.common.factories import StreamingPostProcessorFactory
 from aiperf.common.hooks import aiperf_auto_task, on_message
 from aiperf.common.messages import (
-    ProcessRecordsRequestMessage,
+    ProcessRecordsCommand,
     RecordsProcessingStatsMessage,
 )
 from aiperf.common.messages.credit_messages import (
@@ -70,7 +70,7 @@ class ProcessingStatsStreamer(StreamingPostProcessor):
             await self.publish_processing_stats()
             # TODO: Publish PROFILE_RESULTS_COMPLETE message
             await self.publish(
-                ProcessRecordsRequestMessage(
+                ProcessRecordsCommand(
                     service_id=self.service_id,
                     cancelled=False,
                 )

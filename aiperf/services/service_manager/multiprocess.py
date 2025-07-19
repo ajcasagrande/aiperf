@@ -18,6 +18,7 @@ from aiperf.common.constants import (
     TASK_CANCEL_TIMEOUT_SHORT,
 )
 from aiperf.common.enums import MessageType, ServiceState, ServiceType
+from aiperf.common.enums.service_enums import ServiceRunType
 from aiperf.common.exceptions import ServiceTimeoutError
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.messages import BaseServiceMessage
@@ -28,7 +29,10 @@ from aiperf.common.messages.service_messages import (
     StatusMessage,
 )
 from aiperf.common.models import AIPerfBaseModel
-from aiperf.services.service_manager.base import BaseServiceManager
+from aiperf.services.service_manager.base import (
+    BaseServiceManager,
+    ServiceManagerFactory,
+)
 
 
 class MultiProcessRunInfo(AIPerfBaseModel):
@@ -43,6 +47,7 @@ class MultiProcessRunInfo(AIPerfBaseModel):
     )
 
 
+@ServiceManagerFactory.register(ServiceRunType.MULTIPROCESSING)
 class MultiProcessServiceManager(BaseServiceManager):
     """
     Service Manager for starting and stopping services as multiprocessing processes.

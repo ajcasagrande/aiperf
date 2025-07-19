@@ -8,9 +8,13 @@ from aiperf.common.constants import (
     DEFAULT_WAIT_FOR_STOP_SECONDS,
 )
 from aiperf.common.enums import ServiceType
+from aiperf.common.enums.service_enums import ServiceRunType
 from aiperf.common.messages import BaseServiceMessage
 from aiperf.common.models import AIPerfBaseModel
-from aiperf.services.service_manager.base import BaseServiceManager
+from aiperf.services.service_manager.base import (
+    BaseServiceManager,
+    ServiceManagerFactory,
+)
 
 
 class ServiceKubernetesRunInfo(AIPerfBaseModel):
@@ -21,6 +25,7 @@ class ServiceKubernetesRunInfo(AIPerfBaseModel):
     namespace: str
 
 
+@ServiceManagerFactory.register(ServiceRunType.KUBERNETES)
 class KubernetesServiceManager(BaseServiceManager):
     """
     Service Manager for starting and stopping services in a Kubernetes cluster.

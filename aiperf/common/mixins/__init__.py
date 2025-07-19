@@ -36,6 +36,9 @@ from aiperf.common.mixins.async_task_manager_mixin import (
     AsyncTaskManagerMixin,
     AsyncTaskManagerProtocol,
 )
+from aiperf.common.mixins.base_mixin import (
+    BaseMixin,
+)
 from aiperf.common.mixins.comms_mixins import (
     CommunicationsMixin,
 )
@@ -69,6 +72,7 @@ __all__ = [
     "AIPerfTaskMixin",
     "AsyncTaskManagerMixin",
     "AsyncTaskManagerProtocol",
+    "BaseMixin",
     "CommunicationsMixin",
     "EventBusClientMixin",
     "HookSystem",

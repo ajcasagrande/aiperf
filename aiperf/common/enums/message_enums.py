@@ -11,39 +11,43 @@ class MessageType(CaseInsensitiveStrEnum):
     based on the message_type field in the message model.
     """
 
-    UNKNOWN = "unknown"
-    """A placeholder value for when the message type is not known."""
-
     ERROR = "error"
     """A generic error message."""
+
+    TEST = "test"
+    """A test message."""
 
     #########################################################
     # Service messages
     #########################################################
 
     REGISTRATION = "registration"
-    """A message sent by a component service to register itself with the
-    system controller."""
+    """A message sent by a service to register itself with the SystemController."""
 
     HEARTBEAT = "heartbeat"
-    """A message sent by a component service to the system controller to indicate it
-    is still running."""
-
-    COMMAND = "command"
-    """A message sent by the system controller to a component service to command it
-    to do something."""
-
-    COMMAND_RESPONSE = "command_response"
-    """A message sent by a component service to the system controller to respond
-    to a command."""
+    """A message sent by a service to the SystemController to indicate it is still running."""
 
     STATUS = "status"
-    """A notification sent by a component service to the system controller to
-    report its status."""
+    """A notification sent by a service to the SystemController to report its status."""
 
     SERVICE_ERROR = "service_error"
-    """A message sent by a component service to the system controller to
-    report an error."""
+    """A message sent by a service to the SystemController to report an error."""
+
+    SHUTDOWN_COMMAND = "shutdown_command"
+    """A message sent by the SystemController to a service to request that it shutdown."""
+
+    SHUTDOWN_RESPONSE = "shutdown_response"
+    """A message sent by a service to the SystemController to respond to a shutdown request."""
+
+    SERVICE_HEALTH = "service_health"
+    """A message sent by a service to the SystemController to report its health."""
+
+    #########################################################
+    # Worker messages
+    #########################################################
+
+    WORKER_HEALTH = "worker_health"
+    """A message sent by a worker to the WorkerManager to report its health."""
 
     #########################################################
     # Sweep run messages
@@ -75,7 +79,7 @@ class MessageType(CaseInsensitiveStrEnum):
     """A message containing profile run progress."""
 
     PROCESSING_STATS = "processing_stats"
-    """A message containing processing stats from the records manager."""
+    """A message containing processing stats from the RecordsManager."""
 
     PROFILE_RESULTS = "profile_results"
     """A message containing profile run results."""
@@ -83,11 +87,29 @@ class MessageType(CaseInsensitiveStrEnum):
     PROFILE_ERROR = "profile_error"
     """A message containing an error from a profile run."""
 
-    NOTIFICATION = "notification"
-    """A message containing a notification from a service. This is used to notify other services of events."""
+    PROFILE_CONFIGURE_COMMAND = "profile_configure_command"
+    """A message sent to configure a profile run."""
 
-    WORKER_HEALTH = "worker_health"
-    """A message sent by a worker to the worker manager to report its health."""
+    PROFILE_CONFIGURE_RESPONSE = "profile_configure_response"
+    """A message sent to respond to a profile configure request."""
+
+    PROFILE_START_COMMAND = "profile_start_command"
+    """A message sent to start a profile run."""
+
+    PROFILE_START_RESPONSE = "profile_start_response"
+    """A message sent to respond to a profile start request."""
+
+    PROFILE_CANCEL_COMMAND = "profile_cancel_command"
+    """A message sent to cancel a profile run."""
+
+    PROFILE_CANCEL_RESPONSE = "profile_cancel_response"
+    """A message sent to respond to a profile cancel request."""
+
+    PROFILE_STOP_COMMAND = "profile_stop_command"
+    """A message sent to stop a profile run."""
+
+    PROFILE_STOP_RESPONSE = "profile_stop_response"
+    """A message sent to respond to a profile stop request."""
 
     #########################################################
     # Credit messages
@@ -148,23 +170,14 @@ class MessageType(CaseInsensitiveStrEnum):
     # Post processor / Records manager messages
     #########################################################
 
-    PROCESS_RECORDS_REQUEST = "process_records_request"
-    """A message sent by the system controller to a component service to request
-    that it process records."""
+    PROCESS_RECORDS_COMMAND = "process_records_command"
+    """A message sent to request that a service process records."""
 
     PROCESS_RECORDS_RESPONSE = "process_records_response"
-    """A message sent by a component service to the system controller to respond
-    to a process records request."""
+    """A message sent to respond to a process records command."""
 
     INFERENCE_RESULTS = "inference_results"
     """A message containing inference results from a worker."""
 
     PARSED_INFERENCE_RESULTS = "parsed_inference_results"
     """A message containing parsed inference results from a post processor."""
-
-
-class NotificationType(CaseInsensitiveStrEnum):
-    """Types of notifications that can be sent to other services."""
-
-    DATASET_CONFIGURED = "dataset_configured"
-    """A notification sent to notify other services that the dataset has been configured."""

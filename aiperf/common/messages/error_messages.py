@@ -6,7 +6,7 @@ from typing import Literal
 from pydantic import Field
 
 from aiperf.common.enums import MessageType
-from aiperf.common.messages.base_messages import Message
+from aiperf.common.messages.message import Message
 from aiperf.common.messages.service_messages import BaseServiceMessage
 from aiperf.common.models import ErrorDetails
 

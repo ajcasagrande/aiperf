@@ -7,7 +7,7 @@ from collections import deque
 from aiperf.common.enums import MessageType, StreamingPostProcessorType
 from aiperf.common.factories import StreamingPostProcessorFactory
 from aiperf.common.hooks import on_message
-from aiperf.common.messages import ProcessRecordsRequestMessage, ProfileResultsMessage
+from aiperf.common.messages import ProcessRecordsCommand, ProfileResultsMessage
 from aiperf.common.models import ErrorDetails, ErrorDetailsCount, ParsedResponseRecord
 from aiperf.data_exporter.exporter_manager import ExporterManager
 from aiperf.services.records_manager.post_processors.metric_summary import MetricSummary
@@ -55,10 +55,8 @@ class BasicMetricsStreamer(StreamingPostProcessor):
             for error_details, count in summary.items()
         ]
 
-    @on_message(MessageType.PROCESS_RECORDS_REQUEST)
-    async def _on_process_records_request(
-        self, message: ProcessRecordsRequestMessage
-    ) -> None:
+    @on_message(MessageType.PROCESS_RECORDS_COMMAND)
+    async def _on_process_records_request(self, message: ProcessRecordsCommand) -> None:
         """Process the records.
 
         This method is called when the records manager receives a command to process the records.

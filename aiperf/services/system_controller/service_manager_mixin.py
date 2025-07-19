@@ -32,7 +32,7 @@ class ServiceManagerMixin(ServiceManagerMixinRequirements):
                 "ServiceManagerMixin can only be used with a class that provides the ServiceManagerMixinRequirements protocol"
             )
 
-        self.service_manager: BaseServiceManager | None = None
+        self.service_manager: BaseServiceManager
         self._required_services: dict[ServiceType, int]
 
         # List of required service types, in no particular order

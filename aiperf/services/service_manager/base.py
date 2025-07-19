@@ -8,6 +8,8 @@ from aiperf.common.constants import (
     DEFAULT_WAIT_FOR_STOP_SECONDS,
 )
 from aiperf.common.enums import ServiceType
+from aiperf.common.enums.service_enums import ServiceRunType
+from aiperf.common.factories import FactoryMixin
 from aiperf.common.messages import BaseServiceMessage
 from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.common.models import ServiceRegistrationInfo
@@ -25,8 +27,8 @@ class BaseServiceManager(AIPerfLoggerMixin, ABC):
         required_services: dict[ServiceType, int],
         service_config: ServiceConfig,
         user_config: UserConfig | None = None,
+        **kwargs,
     ):
-        super().__init__(logger_name="service_manager")
         self.required_services = required_services
         self.service_config = service_config
         self.user_config = user_config
@@ -37,6 +39,13 @@ class BaseServiceManager(AIPerfLoggerMixin, ABC):
 
         # Create service ID map for component lookups
         self.service_id_map: dict[str, ServiceRegistrationInfo] = {}
+
+        super().__init__(
+            required_services=required_services,
+            service_config=service_config,
+            user_config=user_config,
+            **kwargs,
+        )
 
     @abstractmethod
     async def run_all_services(self) -> None:
@@ -80,3 +89,9 @@ class BaseServiceManager(AIPerfLoggerMixin, ABC):
     async def on_message(self, message: BaseServiceMessage) -> None:
         """Handle a message from a service."""
         pass
+
+
+class ServiceManagerFactory(FactoryMixin[ServiceRunType, BaseServiceManager]):
+    """Factory for creating service managers for different service run types.
+    see :class:`aiperf.common.factories.FactoryMixin` for more details.
+    """

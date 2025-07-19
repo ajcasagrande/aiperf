@@ -5,9 +5,14 @@ from collections.abc import Callable, Coroutine
 from typing import TYPE_CHECKING, Any, TypeVar
 
 if TYPE_CHECKING:
-    from aiperf.common.messages.base_messages import Message
+    from pydantic import BaseModel
+
     from aiperf.common.messages.credit_messages import CreditDropMessage
+    from aiperf.common.messages.message import Message
     from aiperf.common.models.record_models import SSEMessage
+
+
+BaseModelT = TypeVar("BaseModelT", bound="BaseModel")
 
 MessageT = TypeVar("MessageT", bound="Message")
 MessageOutputT = TypeVar("MessageOutputT", bound="Message")
