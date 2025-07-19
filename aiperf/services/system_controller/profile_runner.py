@@ -56,7 +56,6 @@ class ProfileRunner(AIPerfLoggerMixin):
         except Exception as e:
             self.logger.warning("Failed to start services: %s", e)
             # TODO: should we have some sort of retries?
-            # raise self._service_error("Failed to start service") from e
 
     @property
     def is_complete(self) -> bool:

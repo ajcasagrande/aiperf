@@ -180,7 +180,7 @@ class BaseService(
         except Exception as e:
             self.exception(f"Service {self.service_type} execution failed: {e}")
             _ = await self.set_state(ServiceState.ERROR)
-            raise self._service_error("Service execution failed") from e
+            raise AIPerfError("Service execution failed") from e
 
         await self._forever_loop()
 
@@ -244,11 +244,15 @@ class BaseService(
             _ = await self.set_state(ServiceState.RUNNING)
 
         except asyncio.CancelledError:
-            pass
-
+            self.debug(
+                lambda: f"Service {self.service_id} received CancelledError, exiting"
+            )
+            return
+        except AIPerfError:
+            raise  # re-raise it up the stack
         except Exception as e:
             self._state = ServiceState.ERROR
-            raise self._service_error("Failed to start service") from e
+            raise AIPerfError("Failed to start service") from e
 
     async def stop(self) -> None:
         """Stop the service and clean up its components. This method implements
@@ -306,9 +310,11 @@ class BaseService(
             if cancelled_error:
                 raise cancelled_error
 
+        except AIPerfError:
+            raise  # re-raise it up the stack
         except Exception as e:
             self._state = ServiceState.ERROR
-            raise self._service_error("Failed to stop service") from e
+            raise AIPerfError("Failed to stop service") from e
 
     async def configure(self, message: Message) -> None:
         """Configure the service with the given configuration. This method implements

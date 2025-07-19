@@ -92,6 +92,43 @@ class DatasetManager(BaseComponentService):
 
         self.debug(lambda: f"Dataset manager {self.service_id} initialized")
 
+    @on_configure
+    async def _configure(self, message: Message) -> None:
+        """Configure the dataset manager."""
+        # TODO: This is a temporary hack with the changes to user config loading
+        self.dataset_configured.clear()
+        await self._configure_dataset()
+
+    async def _handle_conversation_request(
+        self, message: ConversationRequestMessage
+    ) -> ConversationResponseMessage:
+        """Handle a conversation request."""
+        self.debug(lambda: f"Handling conversation request: {message}")
+
+        # Wait for the dataset to be configured if it is not already
+        if not self.dataset_configured.is_set():
+            self.debug(
+                "Dataset not configured. Waiting for dataset to be configured..."
+            )
+            await asyncio.wait_for(
+                self.dataset_configured.wait(), timeout=DATASET_CONFIGURATION_TIMEOUT
+            )
+
+        if not self.dataset:
+            raise BadRequestError(
+                "Dataset is empty and must be configured before handling requests.",
+            )
+
+        if message.conversation_id is None:
+            return self._return_any_conversation(
+                request_id=message.request_id,
+            )
+        else:
+            return self._return_conversation_by_id(
+                request_id=message.request_id,
+                conversation_id=message.conversation_id,
+            )
+
     async def _configure_dataset(self) -> None:
         if self.user_config is None:
             raise ConfigurationError("User config is required for dataset manager")
@@ -131,43 +168,6 @@ class DatasetManager(BaseComponentService):
                 service_id=self.service_id,
             ),
         )
-
-    @on_configure
-    async def _configure(self, message: Message) -> None:
-        """Configure the dataset manager."""
-        # TODO: This is a temporary hack with the changes to user config loading
-        self.dataset_configured.clear()
-        await self._configure_dataset()
-
-    async def _handle_conversation_request(
-        self, message: ConversationRequestMessage
-    ) -> ConversationResponseMessage:
-        """Handle a conversation request."""
-        self.debug(lambda: f"Handling conversation request: {message}")
-
-        # Wait for the dataset to be configured if it is not already
-        if not self.dataset_configured.is_set():
-            self.debug(
-                "Dataset not configured. Waiting for dataset to be configured..."
-            )
-            await asyncio.wait_for(
-                self.dataset_configured.wait(), timeout=DATASET_CONFIGURATION_TIMEOUT
-            )
-
-        if not self.dataset:
-            raise BadRequestError(
-                "Dataset is empty and must be configured before handling requests.",
-            )
-
-        if message.conversation_id is None:
-            return self._return_any_conversation(
-                request_id=message.request_id,
-            )
-        else:
-            return self._return_conversation_by_id(
-                request_id=message.request_id,
-                conversation_id=message.conversation_id,
-            )
 
     def _return_any_conversation(
         self, request_id: str | None

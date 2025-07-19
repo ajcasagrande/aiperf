@@ -1,8 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from aiperf.common.utils import supports_method_kwargs
-
 
 class BaseMixin:
     """Base mixin class.
@@ -14,7 +12,10 @@ class BaseMixin:
     """
 
     def __init__(self, **kwargs):
-        print(f"BaseMixin __init__ {self.__class__.__name__}, {kwargs=}")
-        if supports_method_kwargs(super(), "__init__", kwargs):
-            # Keep calling super as long as we are not at the end of the MRO
-            super().__init__(**kwargs)
+        super().__init__()
+        # if len(self.__class__.__bases__) > 0:
+        #     print(f"BaseMixin __init__ {self.__class__.__name__}, {self.__class__.__bases__}")
+        #     # Keep calling super as long as we are not at the end of the MRO
+        #     super().__init__(**kwargs)
+        # else:
+        #     print(f"BaseMixin __init__ {self.__class__.__name__}, did not call super: {self.__class__.__bases__}")

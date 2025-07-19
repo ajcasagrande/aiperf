@@ -16,7 +16,11 @@ class AIPerfError(Exception):
 
     def __str__(self) -> str:
         """Return the string representation of the exception with the class name."""
-        return f"{self.__class__.__name__}: {super().__str__()}"
+        return (
+            f"{self.__class__.__name__}: {self.raw_str()}"
+            if not isinstance(super(), AIPerfError)
+            else self.raw_str()
+        )
 
 
 class AIPerfMultiError(AIPerfError):

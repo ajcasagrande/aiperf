@@ -15,7 +15,13 @@ from aiperf.common.enums import (
     ServiceType,
     SystemState,
 )
-from aiperf.common.exceptions import CommunicationError, NotInitializedError
+from aiperf.common.exceptions import (
+    AIPerfError,
+    CommandError,
+    CommunicationError,
+    InitializationError,
+    NotInitializedError,
+)
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import on_cleanup, on_message, on_start, on_stop
 from aiperf.common.messages import (
@@ -97,7 +103,6 @@ class SystemController(
         """
         await self._pre_initialize()
         await super().initialize()
-        await self._setup_subscriptions()
         await self._post_initialize()
 
     async def _pre_initialize(self) -> None:
@@ -116,45 +121,6 @@ class SystemController(
         if not self.service_config or not self.service_config.comm_config:
             raise ValueError("Communication configuration is not set")
         await self.run_proxies(self.service_config.comm_config)
-
-    async def _setup_subscriptions(self) -> None:
-        """Setup subscriptions for the system controller."""
-        # Subscribe to relevant messages
-        subscribe_callbacks = [
-            # Specific handlers
-            (MessageType.REGISTRATION, self._process_registration_message),
-            (MessageType.HEARTBEAT, self._process_heartbeat_message),
-            (MessageType.STATUS, self._process_status_message),
-            (MessageType.PROCESSING_STATS, self._process_processing_stats_message),
-            (MessageType.PROFILE_RESULTS, self._process_profile_results_message),
-            (MessageType.COMMAND_RESPONSE, self._process_command_response_message),
-            # Generic handlers
-            (MessageType.CREDITS_COMPLETE, self._forward_generic_message),
-            (MessageType.WORKER_HEALTH, self._forward_generic_message),
-            (MessageType.NOTIFICATION, self._forward_generic_message),
-            (
-                MessageType.CREDIT_PHASE_PROGRESS,
-                self._forward_generic_message,
-            ),
-            (MessageType.CREDIT_PHASE_START, self._forward_generic_message),
-            (
-                MessageType.CREDIT_PHASE_COMPLETE,
-                self._forward_generic_message,
-            ),
-            (MessageType.CREDIT_PHASE_SENDING_COMPLETE, self._forward_generic_message),
-        ]
-        for message_type, callback in subscribe_callbacks:
-            try:
-                await self.sub_client.subscribe(
-                    message_type=message_type, callback=callback
-                )
-            except Exception as e:
-                self.exception(
-                    f"Failed to subscribe to message_type {message_type}: {e}"
-                )
-                raise CommunicationError(
-                    f"Failed to subscribe to message_type {message_type}: {e}",
-                ) from e
 
     async def _post_initialize(self) -> None:
         """Post-initialize the system controller."""
@@ -190,10 +156,10 @@ class SystemController(
         # Start all required services
         try:
             await self.service_manager.run_all_services()
+        except AIPerfError:
+            raise  # re-raise it up the stack
         except Exception as e:
-            raise self._service_error(
-                "Failed to initialize all services",
-            ) from e
+            raise InitializationError("Failed to initialize all services") from e
 
         try:
             # Wait for all required services to be registered
@@ -383,8 +349,10 @@ class SystemController(
                 command=CommandType.PROFILE_CONFIGURE,
                 data=self.user_config,
             )
+        except AIPerfError:
+            raise  # re-raise it up the stack
         except Exception as e:
-            raise self._service_error(
+            raise CommandError(
                 f"Failed to send configure command to {message.service_type} (ID: {message.service_id})",
             ) from e
 
@@ -478,8 +446,10 @@ class SystemController(
         """Kill the system controller."""
         try:
             await self.service_manager.kill_all_services()
+        except AIPerfError:
+            raise  # re-raise it up the stack
         except Exception as e:
-            raise self._service_error("Failed to stop all services") from e
+            raise AIPerfError("Failed to stop all services") from e
 
         await self.comms.shutdown()
 

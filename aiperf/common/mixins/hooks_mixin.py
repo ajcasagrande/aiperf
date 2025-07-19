@@ -85,11 +85,9 @@ class HookSystem(AIPerfLoggerMixin):
                 else:
                     await asyncio.to_thread(func, *args, **kwargs)
             except Exception as e:
-                self.logger.exception("Error running hook %s: %s", func.__qualname__, e)
+                self.exception(f"Error running hook {func.__qualname__}: {e}")
                 exceptions.append(
-                    AIPerfError(
-                        f"Error running hook {func.__qualname__}: {e.__class__.__name__} {e}"
-                    )
+                    AIPerfError(f"Error running hook {func.__qualname__}: {e}")
                 )
 
         if exceptions:
