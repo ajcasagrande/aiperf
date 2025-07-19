@@ -1,13 +1,34 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, TypeVar
+from collections.abc import Callable, Coroutine
+from typing import TYPE_CHECKING, Any, TypeVar
 
-ConfigT = TypeVar("ConfigT", bound=Any, covariant=True)
+if TYPE_CHECKING:
+    from aiperf.common.messages.base_messages import Message
+    from aiperf.common.messages.credit_messages import CreditDropMessage
+    from aiperf.common.models.record_models import SSEMessage
+
+MessageT = TypeVar("MessageT", bound="Message")
+MessageOutputT = TypeVar("MessageOutputT", bound="Message")
+
 RequestInputT = TypeVar("RequestInputT", bound=Any, contravariant=True)
 RequestOutputT = TypeVar("RequestOutputT", bound=Any, covariant=True)
-ResponseT = TypeVar("ResponseT", bound=Any, covariant=True)
-RawResponseT = TypeVar("RawResponseT", bound=Any, contravariant=True)
+
 InputT = TypeVar("InputT", bound=Any)
 OutputT = TypeVar("OutputT", bound=Any)
-RawRequestT = TypeVar("RawRequestT", bound=Any, contravariant=True)
+
+# Type for coroutines that return None.
+CoroutineT = Coroutine[Any, Any, None]
+
+# Type for SSE callbacks.
+SSECallbackT = Callable[["SSEMessage"], CoroutineT]
+
+# Type for message handlers.
+MessageHandlerT = Callable[[MessageT], CoroutineT]
+
+# Type for credit drop handlers.
+CreditDropHandlerT = Callable[["CreditDropMessage"], CoroutineT]
+
+# Type callables that return a string.
+StrFuncT = Callable[..., str]

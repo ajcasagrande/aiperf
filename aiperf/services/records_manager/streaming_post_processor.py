@@ -4,8 +4,8 @@
 import asyncio
 from abc import abstractmethod
 
-from aiperf.common.comms import PubClientProtocol, SubClientProtocol
-from aiperf.common.config import UserConfig
+from aiperf.common.comms.base import PubClientProtocol, SubClientProtocol
+from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.hooks import aiperf_task
 from aiperf.common.mixins import AIPerfMessagePubSubMixin
 from aiperf.common.models import ParsedResponseRecord
@@ -22,12 +22,14 @@ class StreamingPostProcessor(AIPerfMessagePubSubMixin):
         pub_client: PubClientProtocol,
         sub_client: SubClientProtocol,
         service_id: str,
+        service_config: ServiceConfig,
         user_config: UserConfig,
         max_queue_size: int = 100_000,
         **kwargs,
     ) -> None:
         self.service_id = service_id
         self.user_config = user_config
+        self.service_config = service_config
         super().__init__(
             pub_client=pub_client,
             sub_client=sub_client,

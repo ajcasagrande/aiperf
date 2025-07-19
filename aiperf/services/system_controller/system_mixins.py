@@ -2,8 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
 import signal
-from collections.abc import Callable, Coroutine
-from typing import Any
+from collections.abc import Callable
+
+from aiperf.common.types import CoroutineT
 
 
 class SignalHandlerMixin:
@@ -14,20 +15,18 @@ class SignalHandlerMixin:
         self._signal_tasks = set()
         super().__init__(*args, **kwargs)
 
-    def setup_signal_handlers(
-        self, callback: Callable[[int], Coroutine[Any, Any, None]]
-    ) -> None:
+    def setup_signal_handlers(self, handler: Callable[[int], CoroutineT]) -> None:
         """This method will set up signal handlers for the SIGTERM and SIGINT signals
         in order to trigger a graceful shutdown of the service.
 
         Args:
-            callback: The callback to call when a signal is received
+            handler: The handler to call when a signal is received
         """
         loop = asyncio.get_running_loop()
 
         def signal_handler(sig: int) -> None:
             # Create a task and store it so it doesn't get garbage collected
-            task = asyncio.create_task(callback(sig))
+            task = asyncio.create_task(handler(sig))
 
             # Store the task somewhere to prevent it from being garbage collected
             # before it completes

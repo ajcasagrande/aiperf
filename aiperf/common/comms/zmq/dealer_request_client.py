@@ -2,8 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
 import uuid
-from collections.abc import Callable, Coroutine
-from typing import Any
 
 import zmq.asyncio
 
@@ -15,6 +13,7 @@ from aiperf.common.exceptions import CommunicationError
 from aiperf.common.hooks import aiperf_task, on_stop
 from aiperf.common.messages import Message
 from aiperf.common.mixins import AsyncTaskManagerMixin
+from aiperf.common.types import MessageHandlerT
 
 
 @CommunicationClientFactory.register(CommunicationClientType.REQUEST)
@@ -58,9 +57,7 @@ class ZMQDealerRequestClient(BaseZMQClient, AsyncTaskManagerMixin):
         """
         super().__init__(context, zmq.SocketType.DEALER, address, bind, socket_ops)
 
-        self.request_callbacks: dict[
-            str, Callable[[Message], Coroutine[Any, Any, None]]
-        ] = {}
+        self.request_handlers: dict[str, MessageHandlerT] = {}
 
     @aiperf_task
     async def _request_async_task(self) -> None:
@@ -72,8 +69,8 @@ class ZMQDealerRequestClient(BaseZMQClient, AsyncTaskManagerMixin):
                 response_message = Message.from_json(message)
 
                 # Call the callback if it exists
-                if response_message.request_id in self.request_callbacks:
-                    callback = self.request_callbacks.pop(response_message.request_id)
+                if response_message.request_id in self.request_handlers:
+                    callback = self.request_handlers.pop(response_message.request_id)
                     self.execute_async(callback(response_message))
 
             except zmq.Again:
@@ -97,7 +94,7 @@ class ZMQDealerRequestClient(BaseZMQClient, AsyncTaskManagerMixin):
     async def request_async(
         self,
         message: Message,
-        callback: Callable[[Message], Coroutine[Any, Any, None]],
+        handler: MessageHandlerT,
     ) -> None:
         """Send a request and be notified when the response is received."""
         await self._ensure_initialized()
@@ -111,7 +108,7 @@ class ZMQDealerRequestClient(BaseZMQClient, AsyncTaskManagerMixin):
         if not message.request_id:
             message.request_id = str(uuid.uuid4())
 
-        self.request_callbacks[message.request_id] = callback
+        self.request_handlers[message.request_id] = handler
 
         request_json = message.model_dump_json()
         self.trace(lambda msg=request_json: f"Sending request: {msg}")
@@ -144,8 +141,8 @@ class ZMQDealerRequestClient(BaseZMQClient, AsyncTaskManagerMixin):
         """
         future = asyncio.Future[Message]()
 
-        async def callback(response_message: Message) -> None:
+        async def handler(response_message: Message) -> None:
             future.set_result(response_message)
 
-        await self.request_async(message, callback)
+        await self.request_async(message, handler)
         return await asyncio.wait_for(future, timeout=timeout)

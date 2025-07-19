@@ -9,6 +9,7 @@ from aiperf.common.enums import CreditPhase, TimingMode
 from aiperf.common.exceptions import ConfigurationError
 from aiperf.common.factories import FactoryMixin
 from aiperf.common.messages import CreditReturnMessage
+from aiperf.common.messages.credit_messages import FirstByteReceivedMessage
 from aiperf.common.mixins import AIPerfLoggerMixin, AsyncTaskManagerMixin
 from aiperf.common.models import CreditPhaseConfig, CreditPhaseStats
 from aiperf.services.timing_manager.config import TimingManagerConfig
@@ -180,6 +181,14 @@ class CreditIssuingStrategy(AsyncTaskManagerMixin, AIPerfLoggerMixin, ABC):
                     return
 
         self.debug("All credits completed, stopping credit progress reporting loop")
+
+    async def _on_first_byte_received(self, message: FirstByteReceivedMessage) -> None:
+        """Handle the first byte received message."""
+        self.debug(
+            lambda: f"Credit issuing strategy received first byte received message: {message}"
+        )
+        phase_stats = self.phase_stats[message.phase]
+        phase_stats.first_byte_received_ns = message.first_byte_received_ns  # type: ignore[attr-defined]
 
 
 class CreditIssuingStrategyFactory(FactoryMixin[TimingMode, CreditIssuingStrategy]):

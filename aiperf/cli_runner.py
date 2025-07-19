@@ -13,7 +13,7 @@ def run_system_controller(
     from aiperf.common.bootstrap import bootstrap_and_run_service
     from aiperf.services import SystemController
 
-    logger = AIPerfLogger(__name__)
+    _logger = AIPerfLogger(__name__)
 
     log_queue = None
     # if service_config.ui_type.is_graphical:
@@ -28,7 +28,7 @@ def run_system_controller(
     #     # setup_rich_logging(user_config, service_config)
 
     # Create and start the system controller
-    logger.info("Starting AIPerf System")
+    _logger.info("Starting AIPerf System")
 
     try:
         bootstrap_and_run_service(
@@ -39,10 +39,10 @@ def run_system_controller(
             log_queue=log_queue,
         )
     except Exception:
-        logger.exception("Error starting AIPerf System")
+        _logger.exception("Error starting AIPerf System")
         raise
     finally:
-        logger.info("AIPerf System exited")
+        _logger.info("AIPerf System exited")
 
 
 def warn_command_not_implemented(command: str) -> None:

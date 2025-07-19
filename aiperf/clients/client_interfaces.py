@@ -8,7 +8,7 @@ from aiperf.common.enums import EndpointType
 from aiperf.common.factories import FactoryMixin
 from aiperf.common.models import RequestRecord, ResponseData, Turn
 from aiperf.common.tokenizer import Tokenizer
-from aiperf.common.types import RequestInputT, RequestOutputT
+from aiperf.common.types import RequestInputT, RequestOutputT, SSECallbackT
 
 ################################################################################
 # Inference Clients
@@ -35,6 +35,7 @@ class InferenceClientProtocol(Protocol, Generic[RequestInputT]):
         self,
         model_endpoint: ModelEndpointInfo,
         payload: RequestInputT,
+        sse_callback: SSECallbackT | None = None,
     ) -> RequestRecord:
         """Send a request to the inference server.
 
@@ -43,6 +44,8 @@ class InferenceClientProtocol(Protocol, Generic[RequestInputT]):
         Args:
             model_endpoint: The endpoint to send the request to.
             payload: The payload to send to the inference server.
+            sse_callback: An optional async callback to be called for each SSE message in the streaming response.
+                This callback will be called in a separate asyncio task.
         Returns:
             The raw response from the inference server.
         """

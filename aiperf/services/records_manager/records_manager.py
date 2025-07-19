@@ -78,6 +78,7 @@ class RecordsManager(BaseComponentService):
                 pub_client=self.pub_client,
                 sub_client=self.sub_client,
                 service_id=self.service_id,
+                service_config=self.service_config,
                 user_config=self.user_config,
             )
             for streamer_type in StreamingPostProcessorFactory.get_all_class_types()

@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
-from collections.abc import Callable
 from typing import Protocol, runtime_checkable
 
 from aiperf.common import aiperf_logger
@@ -17,6 +16,7 @@ from aiperf.common.aiperf_logger import (
     _WARNING,
     AIPerfLogger,
 )
+from aiperf.common.types import StrFuncT
 
 
 class AIPerfLoggerMixin:
@@ -46,54 +46,52 @@ class AIPerfLoggerMixin:
         self._log = self.logger._log
         self.is_enabled_for = self.logger._logger.isEnabledFor
 
-    def log(
-        self, level: int, message: str | Callable[..., str], *args, **kwargs
-    ) -> None:
+    def log(self, level: int, message: str | StrFuncT, *args, **kwargs) -> None:
         """Log a message at a specified level with lazy evaluation."""
         if self.is_enabled_for(level):
             self._log(level, message, *args, **kwargs)
 
-    def trace(self, message: str | Callable[..., str], *args, **kwargs) -> None:
+    def trace(self, message: str | StrFuncT, *args, **kwargs) -> None:
         """Log a trace message with lazy evaluation."""
         if self.is_enabled_for(_TRACE):
             self._log(_TRACE, message, *args, **kwargs)
 
-    def debug(self, message: str | Callable[..., str], *args, **kwargs) -> None:
+    def debug(self, message: str | StrFuncT, *args, **kwargs) -> None:
         """Log a debug message with lazy evaluation."""
         if self.is_enabled_for(_DEBUG):
             self._log(_DEBUG, message, *args, **kwargs)
 
-    def info(self, message: str | Callable[..., str], *args, **kwargs) -> None:
+    def info(self, message: str | StrFuncT, *args, **kwargs) -> None:
         """Log an info message with lazy evaluation."""
         if self.is_enabled_for(_INFO):
             self._log(_INFO, message, *args, **kwargs)
 
-    def notice(self, message: str | Callable[..., str], *args, **kwargs) -> None:
+    def notice(self, message: str | StrFuncT, *args, **kwargs) -> None:
         """Log a notice message with lazy evaluation."""
         if self.is_enabled_for(_NOTICE):
             self._log(_NOTICE, message, *args, **kwargs)
 
-    def warning(self, message: str | Callable[..., str], *args, **kwargs) -> None:
+    def warning(self, message: str | StrFuncT, *args, **kwargs) -> None:
         """Log a warning message with lazy evaluation."""
         if self.is_enabled_for(_WARNING):
             self._log(_WARNING, message, *args, **kwargs)
 
-    def success(self, message: str | Callable[..., str], *args, **kwargs) -> None:
+    def success(self, message: str | StrFuncT, *args, **kwargs) -> None:
         """Log a success message with lazy evaluation."""
         if self.is_enabled_for(_SUCCESS):
             self._log(_SUCCESS, message, *args, **kwargs)
 
-    def error(self, message: str | Callable[..., str], *args, **kwargs) -> None:
+    def error(self, message: str | StrFuncT, *args, **kwargs) -> None:
         """Log an error message with lazy evaluation."""
         if self.is_enabled_for(_ERROR):
             self._log(_ERROR, message, *args, **kwargs)
 
-    def exception(self, message: str | Callable[..., str], *args, **kwargs) -> None:
+    def exception(self, message: str | StrFuncT, *args, **kwargs) -> None:
         """Log an exception message with lazy evaluation."""
         if self.is_enabled_for(_ERROR):
             self._log(_ERROR, message, *args, exc_info=True, **kwargs)
 
-    def critical(self, message: str | Callable[..., str], *args, **kwargs) -> None:
+    def critical(self, message: str | StrFuncT, *args, **kwargs) -> None:
         """Log a critical message with lazy evaluation."""
         if self.is_enabled_for(_CRITICAL):
             self._log(_CRITICAL, message, *args, **kwargs)
@@ -111,16 +109,14 @@ class AIPerfLoggerProtocol(Protocol):
     """Protocol to provide lazy evaluated logging for f-strings."""
 
     def __init__(self, logger_name: str | None = None, **kwargs) -> None: ...
-    def log(
-        self, level: int, message: str | Callable[..., str], *args, **kwargs
-    ) -> None: ...
-    def trace(self, message: str | Callable[..., str], *args, **kwargs) -> None: ...
-    def debug(self, message: str | Callable[..., str], *args, **kwargs) -> None: ...
-    def info(self, message: str | Callable[..., str], *args, **kwargs) -> None: ...
-    def notice(self, message: str | Callable[..., str], *args, **kwargs) -> None: ...
-    def warning(self, message: str | Callable[..., str], *args, **kwargs) -> None: ...
-    def success(self, message: str | Callable[..., str], *args, **kwargs) -> None: ...
-    def error(self, message: str | Callable[..., str], *args, **kwargs) -> None: ...
-    def exception(self, message: str | Callable[..., str], *args, **kwargs) -> None: ...
-    def critical(self, message: str | Callable[..., str], *args, **kwargs) -> None: ...
+    def log(self, level: int, message: str | StrFuncT, *args, **kwargs) -> None: ...
+    def trace(self, message: str | StrFuncT, *args, **kwargs) -> None: ...
+    def debug(self, message: str | StrFuncT, *args, **kwargs) -> None: ...
+    def info(self, message: str | StrFuncT, *args, **kwargs) -> None: ...
+    def notice(self, message: str | StrFuncT, *args, **kwargs) -> None: ...
+    def warning(self, message: str | StrFuncT, *args, **kwargs) -> None: ...
+    def success(self, message: str | StrFuncT, *args, **kwargs) -> None: ...
+    def error(self, message: str | StrFuncT, *args, **kwargs) -> None: ...
+    def exception(self, message: str | StrFuncT, *args, **kwargs) -> None: ...
+    def critical(self, message: str | StrFuncT, *args, **kwargs) -> None: ...
     def is_enabled_for(self, level: int) -> bool: ...

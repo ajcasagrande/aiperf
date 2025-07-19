@@ -2,8 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
 import os
-from collections.abc import Callable, Coroutine
-from typing import Any
 
 import zmq.asyncio
 
@@ -13,6 +11,7 @@ from aiperf.common.enums import CommunicationClientType, MessageType
 from aiperf.common.hooks import aiperf_task, on_stop
 from aiperf.common.messages import Message
 from aiperf.common.mixins import AsyncTaskManagerMixin
+from aiperf.common.types import MessageHandlerT
 
 
 @CommunicationClientFactory.register(CommunicationClientType.PULL)
@@ -67,9 +66,7 @@ class ZMQPullClient(BaseZMQClient, AsyncTaskManagerMixin):
             max_concurrency (int, optional): The maximum number of concurrent requests to allow.
         """
         super().__init__(context, zmq.SocketType.PULL, address, bind, socket_ops)
-        self._pull_callbacks: dict[
-            MessageType, Callable[[Message], Coroutine[Any, Any, None]]
-        ] = {}
+        self._pull_callbacks: dict[MessageType, MessageHandlerT] = {}
 
         if max_concurrency is not None:
             self.semaphore = asyncio.Semaphore(value=max_concurrency)
@@ -143,7 +140,7 @@ class ZMQPullClient(BaseZMQClient, AsyncTaskManagerMixin):
     async def register_pull_callback(
         self,
         message_type: MessageType,
-        callback: Callable[[Message], Coroutine[Any, Any, None]],
+        callback: MessageHandlerT,
         max_concurrency: int | None = None,
     ) -> None:
         """Register a ZMQ Pull data callback for a given message type.

@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Coroutine
+from collections.abc import Callable, Coroutine, Mapping
 from typing import Any, Protocol, TypeVar, cast, runtime_checkable
 
 from aiperf.common.constants import DEFAULT_COMMS_REQUEST_TIMEOUT
@@ -12,11 +12,7 @@ from aiperf.common.enums import (
     MessageType,
 )
 from aiperf.common.factories import FactoryMixin
-from aiperf.common.messages import Message
-
-MessageT = TypeVar("MessageT", bound=Message)
-MessageOutputT = TypeVar("MessageOutputT", bound=Message)
-
+from aiperf.common.types import CoroutineT, MessageHandlerT, MessageOutputT, MessageT
 
 ################################################################################
 # Base Communication Client Interfaces
@@ -47,7 +43,7 @@ class CommunicationClientProtocolFactory(
 class PushClientProtocol(CommunicationClientProtocol, Protocol):
     """Interface for push clients."""
 
-    async def push(self, message: Message) -> None:
+    async def push(self, message: MessageT) -> None:
         """Push data to a target. The message will be routed automatically
         based on the message type.
 
@@ -66,7 +62,7 @@ class PullClientProtocol(CommunicationClientProtocol, Protocol):
     async def register_pull_callback(
         self,
         message_type: MessageType,
-        callback: Callable[[MessageT], Coroutine[Any, Any, None]],
+        callback: MessageHandlerT,
         max_concurrency: int | None = None,
     ) -> None:
         """Register a callback for a pull client. The callback will be called when
@@ -106,7 +102,7 @@ class RequestClientProtocol(CommunicationClientProtocol, Protocol):
     async def request_async(
         self,
         message: MessageT,
-        callback: Callable[[MessageOutputT], Coroutine[Any, Any, None]],
+        callback: Callable[[MessageOutputT], CoroutineT],
     ) -> None:
         """Send a request and be notified when the response is received. The message will be routed automatically
         based on the message type.
@@ -148,7 +144,7 @@ class SubClientProtocol(CommunicationClientProtocol, Protocol):
     async def subscribe(
         self,
         message_type: MessageType,
-        callback: Callable[[MessageT], Coroutine[Any, Any, None]],
+        callback: MessageHandlerT,
     ) -> None:
         """Subscribe to a specific message type. The callback will be called when
         a message is received for the given message type."""
@@ -156,11 +152,13 @@ class SubClientProtocol(CommunicationClientProtocol, Protocol):
 
     async def subscribe_all(
         self,
-        message_callback_map: dict[
-            MessageType, Callable[[MessageT], Coroutine[Any, Any, None]]
+        message_callback_map: Mapping[
+            MessageType, MessageHandlerT | list[MessageHandlerT]
         ],
     ) -> None:
-        """Subscribe to each message type in the map with the corresponding callback."""
+        """Subscribe to each message type in the map with the corresponding callback(s).
+        The callback can be a single callback or a list of callbacks.
+        """
         ...
 
 

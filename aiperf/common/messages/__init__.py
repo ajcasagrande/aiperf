@@ -29,6 +29,7 @@ from aiperf.common.messages.credit_messages import (
     CreditPhaseStartMessage,
     CreditReturnMessage,
     CreditsCompleteMessage,
+    FirstByteReceivedMessage,
 )
 from aiperf.common.messages.dataset_messages import (
     ConversationRequestMessage,
@@ -84,6 +85,7 @@ __all__ = [
     "DatasetTimingRequest",
     "DatasetTimingResponse",
     "ErrorMessage",
+    "FirstByteReceivedMessage",
     "HeartbeatMessage",
     "InferenceResultsMessage",
     "Message",

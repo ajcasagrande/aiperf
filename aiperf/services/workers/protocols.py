@@ -1,14 +1,14 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-from collections.abc import Callable, Coroutine
+from collections.abc import Coroutine
 from typing import Any, Protocol
 
 from aiperf.common.messages import (
     ConversationResponseMessage,
-    CreditDropMessage,
     InferenceResultsMessage,
     WorkerHealthMessage,
 )
+from aiperf.common.types import CreditDropHandlerT
 
 
 class WorkerCommunicationsProtocol(Protocol):
@@ -18,7 +18,7 @@ class WorkerCommunicationsProtocol(Protocol):
 
     def register_credit_drop_handler(
         self,
-        handler: Callable[[CreditDropMessage], Coroutine[Any, Any, None]],
+        handler: CreditDropHandlerT,
     ) -> None:
         """Register a handler for credit drop messages."""
         ...

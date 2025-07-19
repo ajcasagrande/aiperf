@@ -32,6 +32,7 @@ from aiperf.common.messages import (
     DatasetTimingRequest,
     DatasetTimingResponse,
 )
+from aiperf.common.messages.credit_messages import FirstByteReceivedMessage
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.services.timing_manager.config import (
     TimingManagerConfig,
@@ -98,6 +99,10 @@ class TimingManager(BaseComponentService, CreditPhaseMessagesMixin):
         await self.credit_return_pull_client.register_pull_callback(
             message_type=MessageType.CREDIT_RETURN,
             callback=self._on_credit_return,
+        )
+        await self.credit_return_pull_client.register_pull_callback(
+            message_type=MessageType.FIRST_BYTE_RECEIVED,
+            callback=self._on_first_byte_received,
         )
 
     @on_configure
@@ -172,6 +177,14 @@ class TimingManager(BaseComponentService, CreditPhaseMessagesMixin):
         self.debug(lambda: f"Timing manager received credit return message: {message}")
         if self._credit_issuing_strategy:
             await self._credit_issuing_strategy._on_credit_return(message)
+
+    async def _on_first_byte_received(self, message: FirstByteReceivedMessage) -> None:
+        """Handle the first byte received message."""
+        self.debug(
+            lambda: f"Timing manager received first byte received message: {message}"
+        )
+        if self._credit_issuing_strategy:
+            await self._credit_issuing_strategy._on_first_byte_received(message)
 
     async def drop_credit(
         self,

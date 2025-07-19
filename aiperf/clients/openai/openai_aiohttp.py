@@ -16,6 +16,7 @@ from aiperf.common.models import (
     ErrorDetails,
     RequestRecord,
 )
+from aiperf.common.types import SSECallbackT
 
 
 @InferenceClientFactory.register_all(
@@ -67,6 +68,7 @@ class OpenAIClientAioHttp(AioHttpClientMixin, AIPerfLoggerMixin):
         self,
         model_endpoint: ModelEndpointInfo,
         payload: dict[str, Any],
+        sse_callback: SSECallbackT | None = None,
     ) -> RequestRecord:
         """Send OpenAI request using aiohttp."""
 
@@ -82,6 +84,7 @@ class OpenAIClientAioHttp(AioHttpClientMixin, AIPerfLoggerMixin):
                 self.get_url(model_endpoint),
                 json.dumps(payload),
                 self.get_headers(model_endpoint),
+                sse_callback=sse_callback,
             )
             record.model_name = model_endpoint.primary_model_name
             record.request = payload

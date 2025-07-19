@@ -80,12 +80,21 @@ class ZMQSubClient(BaseZMQClient, AsyncTaskManagerMixin):
         await self.cancel_all_tasks()
 
     async def subscribe_all(
-        self, message_callback_map: dict[MessageType, Callable[[Message], Any]]
+        self,
+        message_callback_map: dict[
+            MessageType,
+            Callable[[Message], Any] | list[Callable[[Message], Any]],
+        ],
     ) -> None:
         """Subscribe to all message_types in the map."""
         await self._ensure_initialized()
-        for message_type, callback in message_callback_map.items():
-            await self._subscribe_internal(message_type, callback)
+        for message_type, callbacks in message_callback_map.items():
+            if isinstance(callbacks, list):
+                for callback in callbacks:
+                    await self._subscribe_internal(message_type, callback)
+            else:
+                await self._subscribe_internal(message_type, callbacks)
+        # TODO: Remove this sleep once we have a better way to handle subscription confirmation
         await asyncio.sleep(0.1)
 
     async def subscribe(
@@ -102,6 +111,7 @@ class ZMQSubClient(BaseZMQClient, AsyncTaskManagerMixin):
         """
         await self._ensure_initialized()
         await self._subscribe_internal(message_type, callback)
+        # TODO: Remove this sleep once we have a better way to handle subscription confirmation
         await asyncio.sleep(0.1)
 
     async def _subscribe_internal(

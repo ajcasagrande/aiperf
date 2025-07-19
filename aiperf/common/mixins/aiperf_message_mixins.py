@@ -1,9 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from collections.abc import Callable, Coroutine
-from typing import Any
-
 from typing_extensions import Protocol
 
 from aiperf.common.comms.base import PubClientProtocol, SubClientProtocol
@@ -11,6 +8,7 @@ from aiperf.common.enums import MessageType
 from aiperf.common.hooks import AIPerfHook, AIPerfHookParams, on_init, supports_hooks
 from aiperf.common.messages import Message
 from aiperf.common.mixins.aiperf_lifecycle_mixin import AIPerfLifecycleMixin
+from aiperf.common.types import MessageHandlerT
 
 
 @supports_hooks(AIPerfHook.ON_MESSAGE)
@@ -23,14 +21,21 @@ class AIPerfMessageHandlerMixin(AIPerfLifecycleMixin):
     def __init__(self, sub_client: SubClientProtocol, **kwargs):
         self.sub_client = sub_client
         super().__init__(**kwargs)
-        self._message_handlers: dict[MessageType, list[Callable]] = {}
+        self._message_handlers: dict[
+            MessageType,
+            list[MessageHandlerT],
+        ] = {}
 
         for hook in self.get_hooks(AIPerfHook.ON_MESSAGE):
             message_types = getattr(hook, AIPerfHookParams.ON_MESSAGE_MESSAGE_TYPES, [])
             for message_type in message_types:
                 self._register_message_handler(message_type, hook)
 
-    def _register_message_handler(self, message_type: MessageType, handler: Callable):
+    def _register_message_handler(
+        self,
+        message_type: MessageType,
+        handler: MessageHandlerT,
+    ) -> None:
         """Register a message handler for a given message type."""
         if message_type in self._message_handlers:
             self._message_handlers[message_type].append(handler)
@@ -40,17 +45,15 @@ class AIPerfMessageHandlerMixin(AIPerfLifecycleMixin):
     @on_init
     async def _initialize_message_handler_subscriptions(self) -> None:
         """Subscribe to all message types that have handlers registered from the @on_message decorators."""
-        for message_type, handlers in self._message_handlers.items():
-            for handler in handlers:
-                await self.sub_client.subscribe(message_type, handler)
+        await self.sub_client.subscribe_all(self._message_handlers)
 
     async def subscribe(
         self,
         message_type: MessageType,
-        callback: Callable[[Message], Coroutine[Any, Any, None]],
+        handler: MessageHandlerT,
     ) -> None:
         """Manually subscribe to a message type. Prefer using the :meth:`AIPerfHook.ON_MESSAGE` hooks and @on_message decorators."""
-        await self.sub_client.subscribe(message_type, callback)
+        await self.sub_client.subscribe(message_type, handler)
 
     # TODO: Unsubscribe not yet supported in the sub client
     # @on_stop
@@ -95,7 +98,7 @@ class AIPerfMessageHandlerProtocol(Protocol):
     async def subscribe(
         self,
         message_type: MessageType,
-        callback: Callable[[Message], Coroutine[Any, Any, None]],
+        handler: MessageHandlerT,
     ) -> None:
         """Subscribe to a message type."""
         ...

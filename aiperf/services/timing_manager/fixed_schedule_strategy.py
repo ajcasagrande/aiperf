@@ -100,7 +100,11 @@ class FixedScheduleStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
     async def _report_progress(self) -> None:
         """Report the progress of the active phase."""
         try:
-            await self.credit_manager.publish_progress(self.active_phase)
+            await self.credit_manager.publish_progress(
+                self.active_phase.type,
+                self.active_phase.sent,
+                self.active_phase.completed,
+            )
         except asyncio.CancelledError:
             raise
         except Exception as e:

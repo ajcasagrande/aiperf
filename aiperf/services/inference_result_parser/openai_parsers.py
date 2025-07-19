@@ -25,7 +25,7 @@ from aiperf.common.models import (
 from aiperf.common.tokenizer import Tokenizer
 from aiperf.common.utils import load_json_str
 
-logger = logging.getLogger(__name__)
+_logger = logging.getLogger(__name__)
 
 
 class OpenAIObject(CaseInsensitiveStrEnum):

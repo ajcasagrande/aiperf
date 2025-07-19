@@ -3,10 +3,7 @@
 import asyncio
 import random
 
-from aiperf.common.comms import ReplyClientProtocol
-from aiperf.common.comms.base import (
-    CommunicationClientAddressType,
-)
+from aiperf.common.comms.base import CommunicationClientAddressType, ReplyClientProtocol
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.enums import (
     ComposerType,

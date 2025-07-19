@@ -58,6 +58,19 @@ class CreditReturnMessage(BaseServiceMessage):
         return self.delayed_ns is not None
 
 
+class FirstByteReceivedMessage(BaseServiceMessage):
+    """Message sent to the TimingManager to indicate that the first byte of a credit has been received."""
+
+    message_type: Literal[MessageType.FIRST_BYTE_RECEIVED] = (
+        MessageType.FIRST_BYTE_RECEIVED
+    )
+    phase: CreditPhase = Field(..., description="The type of credit phase")
+    first_byte_ns: int = Field(
+        ge=1,
+        description="The time of the first byte of the credit in nanoseconds.",
+    )
+
+
 class CreditPhaseStartMessage(BaseServiceMessage):
     """Message for credit phase start. Sent by the TimingManager to report that a credit phase has started."""
 

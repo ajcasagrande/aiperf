@@ -9,7 +9,7 @@ from aiperf.common.enums import EndpointType
 from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.common.models import Turn
 
-DEFAULT_ROLE = "user"
+_DEFAULT_ROLE = "user"
 
 
 @RequestConverterFactory.register(EndpointType.OPENAI_CHAT_COMPLETIONS)
@@ -29,7 +29,7 @@ class OpenAIChatCompletionRequestConverter(AIPerfLoggerMixin):
         # TODO: Do we need to support image and audio inputs?
         messages = [
             {
-                "role": turn.role or DEFAULT_ROLE,
+                "role": turn.role or _DEFAULT_ROLE,
                 "name": text.name,
                 "content": content,
             }

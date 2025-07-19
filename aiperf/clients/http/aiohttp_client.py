@@ -9,9 +9,8 @@ import aiohttp
 
 from aiperf.clients.http.defaults import AioHttpDefaults, SocketDefaults
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
-from aiperf.common.aiperf_logger import AIPerfLogger
 from aiperf.common.enums import SSEFieldType
-from aiperf.common.mixins import AIPerfLoggerMixin
+from aiperf.common.mixins import AIPerfLoggerMixin, AsyncTaskManagerMixin
 from aiperf.common.models import (
     ErrorDetails,
     RequestRecord,
@@ -19,8 +18,7 @@ from aiperf.common.models import (
     SSEMessage,
     TextResponse,
 )
-
-logger = AIPerfLogger(__name__)
+from aiperf.common.types import SSECallbackT
 
 ################################################################################
 # AioHTTP Client
@@ -60,12 +58,16 @@ class AioHttpClientMixin(AIPerfLoggerMixin):
         url: str,
         payload: str,
         headers: dict[str, str],
+        sse_callback: SSECallbackT | None = None,
         **kwargs: Any,
     ) -> RequestRecord:
         """Send a streaming or non-streaming POST request to the specified URL with the given payload and headers.
 
         If the response is an SSE stream, the response will be parsed into a list of SSE messages.
         Otherwise, the response will be parsed into a TextResponse object.
+
+        Optionally, an async callback can be provided to be called for each SSE message in the streaming response.
+        This callback will be called in a separate asyncio task.
         """
 
         self.debug(lambda url=url: f"Sending POST request to {url}")
@@ -110,7 +112,7 @@ class AioHttpClientMixin(AIPerfLoggerMixin):
                         # Parse SSE stream with optimal performance
                         messages = await AioHttpSSEStreamReader(
                             response
-                        ).read_complete_stream()
+                        ).read_complete_stream(callback=sse_callback)
                         record.responses.extend(messages)
                     else:
                         raw_response = await response.text()
@@ -132,7 +134,7 @@ class AioHttpClientMixin(AIPerfLoggerMixin):
         return record
 
 
-class AioHttpSSEStreamReader:
+class AioHttpSSEStreamReader(AsyncTaskManagerMixin, AIPerfLoggerMixin):
     """A helper class for reading an SSE stream from an aiohttp.ClientResponse object.
 
     This class is optimized for maximum performance and accurate timing measurements,
@@ -140,11 +142,17 @@ class AioHttpSSEStreamReader:
     """
 
     def __init__(self, response: aiohttp.ClientResponse):
+        super().__init__()
         self.response = response
 
-    async def read_complete_stream(self) -> list[SSEMessage]:
+    async def read_complete_stream(
+        self, callback: SSECallbackT | None = None
+    ) -> list[SSEMessage]:
         """Read the complete SSE stream in a performant manner and return a list of
         SSE messages that contain the most accurate timestamp data possible.
+
+        Args:
+            callback (optional): An async callback to be called for each SSE message.
 
         Returns:
             A list of SSE messages.
@@ -155,7 +163,9 @@ class AioHttpSSEStreamReader:
             # Parse the raw SSE message into a SSEMessage object
             message = parse_sse_message(raw_message, first_byte_ns)
             messages.append(message)
-            logger.trace(lambda msg=message: f"Parsed SSE message: {msg}")
+            if callback:
+                # Execute the callback in a separate task to avoid blocking the main task
+                self.execute_async(callback(message))
 
         return messages
 

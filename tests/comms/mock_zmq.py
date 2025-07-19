@@ -1,8 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 # Create mock modules to prevent actual ZMQ imports before any real imports happen
-from collections.abc import Callable, Coroutine
-from typing import Any
+from collections.abc import Callable
 from unittest.mock import MagicMock
 
 import pytest
@@ -12,13 +11,14 @@ from aiperf.common.comms.zmq import BaseZMQCommunication
 from aiperf.common.enums import MessageType, ServiceState, ServiceType
 from aiperf.common.messages import Message, StatusMessage
 from aiperf.common.models import AIPerfBaseModel
+from aiperf.common.types import CoroutineT
 
 
 class MockCommunicationData(AIPerfBaseModel):
     """Data structure to hold state information for mock communication objects."""
 
     published_messages: dict[MessageType, list[Message]] = Field(default_factory=dict)
-    subscriptions: dict[str, Callable[[Message], Coroutine[Any, Any, None]]] = Field(
+    subscriptions: dict[str, Callable[[Message], CoroutineT]] = Field(
         default_factory=dict
     )
     pull_callbacks: dict[MessageType, Callable[[Message], None]] = Field(
@@ -66,18 +66,18 @@ def mock_zmq_communication() -> MagicMock:
     mock_comm.publish.side_effect = mock_publish
 
     async def mock_subscribe(
-        message_type: str, callback: Callable[[Message], Coroutine[Any, Any, None]]
+        message_type: str, handler: Callable[[Message], CoroutineT]
     ) -> None:
         """Mock implementation of subscribe that stores callbacks by message_type."""
-        mock_comm.mock_data.subscriptions[message_type] = callback
+        mock_comm.mock_data.subscriptions[message_type] = handler
 
     mock_comm.subscribe.side_effect = mock_subscribe
 
     async def mock_pull(
-        message_type: MessageType, callback: Callable[[Message], None]
+        message_type: MessageType, handler: Callable[[Message], None]
     ) -> None:
         """Mock implementation of pull that stores callbacks by message_type."""
-        mock_comm.mock_data.pull_callbacks[message_type] = callback
+        mock_comm.mock_data.pull_callbacks[message_type] = handler
 
     mock_comm.register_pull_callback.side_effect = mock_pull
 

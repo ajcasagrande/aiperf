@@ -115,6 +115,10 @@ class MessageType(CaseInsensitiveStrEnum):
     CREDITS_COMPLETE = "credits_complete"
     """A message sent by the Timing Manager services to signify all requests have completed."""
 
+    FIRST_BYTE_RECEIVED = "first_byte_received"
+    """A message sent by a worker to the TimingManager to indicate that the first byte of a credit has been received.
+    This can be used to track the latency of the credit, or to perform various synchronizations."""
+
     #########################################################
     # Dataset messages
     #########################################################

@@ -4,8 +4,9 @@ import io
 import logging
 import os
 import traceback
-from collections.abc import Callable
 from inspect import currentframe
+
+from aiperf.common.types import StrFuncT
 
 _TRACE = logging.DEBUG - 5
 _DEBUG = logging.DEBUG
@@ -69,7 +70,7 @@ class AIPerfLogger:
         self.hasHandlers = self._logger.hasHandlers
         self.root = self._logger.root
 
-    def _log(self, level: int, msg: str | Callable[..., str], *args, **kwargs) -> None:
+    def _log(self, level: int, msg: str | StrFuncT, *args, **kwargs) -> None:
         """Internal log method that handles lazy evaluation of f-strings."""
         if callable(msg):
             # NOTE: Internal python logging _log method requires a tuple for the args, even if there are no args
@@ -154,52 +155,52 @@ class AIPerfLogger:
             break
         return rv
 
-    def log(self, level: int, msg: str | Callable[..., str], *args, **kwargs) -> None:
+    def log(self, level: int, msg: str | StrFuncT, *args, **kwargs) -> None:
         """Log a message with support for lazy evaluation using lambdas."""
         if self.is_enabled_for(level):
             self._log(level, msg, args, **kwargs)
 
-    def trace(self, msg: str | Callable[..., str], *args, **kwargs) -> None:
+    def trace(self, msg: str | StrFuncT, *args, **kwargs) -> None:
         """Log a trace message with support for lazy evaluation using lambdas."""
         if self.is_enabled_for(_TRACE):
             self._log(_TRACE, msg, *args, **kwargs)
 
-    def debug(self, msg: str | Callable[..., str], *args, **kwargs) -> None:
+    def debug(self, msg: str | StrFuncT, *args, **kwargs) -> None:
         """Log a debug message with support for lazy evaluation using lambdas."""
         if self.is_enabled_for(_DEBUG):
             self._log(_DEBUG, msg, *args, **kwargs)
 
-    def info(self, msg: str | Callable[..., str], *args, **kwargs) -> None:
+    def info(self, msg: str | StrFuncT, *args, **kwargs) -> None:
         """Log an info message with support for lazy evaluation using lambdas."""
         if self.is_enabled_for(_INFO):
             self._log(_INFO, msg, *args, **kwargs)
 
-    def notice(self, msg: str | Callable[..., str], *args, **kwargs) -> None:
+    def notice(self, msg: str | StrFuncT, *args, **kwargs) -> None:
         """Log a notice message with support for lazy evaluation using lambdas."""
         if self.is_enabled_for(_NOTICE):
             self._log(_NOTICE, msg, *args, **kwargs)
 
-    def warning(self, msg: str | Callable[..., str], *args, **kwargs) -> None:
+    def warning(self, msg: str | StrFuncT, *args, **kwargs) -> None:
         """Log a warning message with support for lazy evaluation using lambdas."""
         if self.is_enabled_for(_WARNING):
             self._log(_WARNING, msg, *args, **kwargs)
 
-    def success(self, msg: str | Callable[..., str], *args, **kwargs) -> None:
+    def success(self, msg: str | StrFuncT, *args, **kwargs) -> None:
         """Log a success message with support for lazy evaluation using lambdas."""
         if self.is_enabled_for(_SUCCESS):
             self._log(_SUCCESS, msg, *args, **kwargs)
 
-    def error(self, msg: str | Callable[..., str], *args, **kwargs) -> None:
+    def error(self, msg: str | StrFuncT, *args, **kwargs) -> None:
         """Log an error message with support for lazy evaluation using lambdas."""
         if self.is_enabled_for(_ERROR):
             self._log(_ERROR, msg, *args, **kwargs)
 
-    def exception(self, msg: str | Callable[..., str], *args, **kwargs) -> None:
+    def exception(self, msg: str | StrFuncT, *args, **kwargs) -> None:
         """Log an exception message with support for lazy evaluation using lambdas."""
         if self.is_enabled_for(_ERROR):
             self._log(_ERROR, msg, *args, exc_info=True, **kwargs)
 
-    def critical(self, msg: str | Callable[..., str], *args, **kwargs) -> None:
+    def critical(self, msg: str | StrFuncT, *args, **kwargs) -> None:
         """Log a critical message with support for lazy evaluation using lambdas."""
         if self.is_enabled_for(_CRITICAL):
             self._log(_CRITICAL, msg, *args, **kwargs)

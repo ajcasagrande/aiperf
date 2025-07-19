@@ -32,8 +32,9 @@ from aiperf.common.messages import (
 )
 from aiperf.common.mixins import ProcessHealthMixin
 from aiperf.common.models import WorkerPhaseTaskStats
+from aiperf.common.models.record_models import SSEMessage
 from aiperf.common.service.base_component_service import BaseComponentService
-from aiperf.workers.credit_processor_mixin import CreditProcessorMixin
+from aiperf.services.workers.credit_processor_mixin import CreditProcessorMixin
 
 
 @ServiceFactory.register(ServiceType.WORKER)
@@ -119,7 +120,10 @@ class Worker(BaseComponentService, ProcessHealthMixin, CreditProcessorMixin):
         #       but that may change based on how we implement sweeps.
         pass
 
-    async def _credit_drop_callback(self, message: CreditDropMessage) -> None:
+    async def _credit_drop_callback(
+        self,
+        message: CreditDropMessage,
+    ) -> None:
         """Handle an incoming credit drop message. Every credit must be returned after processing."""
 
         # Create a default credit return message in case of an exception
@@ -128,9 +132,14 @@ class Worker(BaseComponentService, ProcessHealthMixin, CreditProcessorMixin):
             phase=message.phase,
         )
 
+        async def _sse_callback(sse_message: SSEMessage) -> None:
+            await self.credit_return_push_client.push(credit_return_message)
+
         try:
             # NOTE: This must be awaited to ensure that the max concurrency is respected
-            credit_return_message = await self._process_credit_drop_internal(message)
+            credit_return_message = await self._process_credit_drop_internal(
+                message, _sse_callback
+            )
         except Exception as e:
             self.exception(f"Error processing credit drop: {e}")
         finally:

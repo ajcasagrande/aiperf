@@ -1,12 +1,28 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-__all__ = [
-    "PromptGenerator",
-    "ImageGenerator",
-    "AudioGenerator",
-]
+from aiperf.services.dataset.generator.audio import (
+    MP3_SUPPORTED_SAMPLE_RATES,
+    SUPPORTED_BIT_DEPTHS,
+    AudioGenerator,
+)
+from aiperf.services.dataset.generator.base import (
+    BaseGenerator,
+)
+from aiperf.services.dataset.generator.image import (
+    ImageGenerator,
+)
+from aiperf.services.dataset.generator.prompt import (
+    DEFAULT_CORPUS_FILE,
+    PromptGenerator,
+)
 
-from aiperf.services.dataset.generator.audio import AudioGenerator
-from aiperf.services.dataset.generator.image import ImageGenerator
-from aiperf.services.dataset.generator.prompt import PromptGenerator
+__all__ = [
+    "AudioGenerator",
+    "BaseGenerator",
+    "DEFAULT_CORPUS_FILE",
+    "ImageGenerator",
+    "MP3_SUPPORTED_SAMPLE_RATES",
+    "PromptGenerator",
+    "SUPPORTED_BIT_DEPTHS",
+]
