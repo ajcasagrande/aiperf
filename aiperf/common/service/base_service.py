@@ -17,11 +17,12 @@ from aiperf.common.hooks import (
 )
 from aiperf.common.messages import Message
 from aiperf.common.mixins import (
-    AIPerfLifecycleMixin,
     AIPerfLoggerMixin,
+    AIPerfMessagePubSubMixin,
     EventBusClientMixin,
     ProcessHealthMixin,
 )
+from aiperf.common.mixins.comms_mixins import CommunicationsMixin
 from aiperf.common.service.base_service_interface import BaseServiceInterface
 
 
@@ -37,9 +38,10 @@ from aiperf.common.service.base_service_interface import BaseServiceInterface
 )
 class BaseService(
     BaseServiceInterface,
-    AIPerfLifecycleMixin,
-    ProcessHealthMixin,
+    CommunicationsMixin,
     EventBusClientMixin,
+    AIPerfMessagePubSubMixin,
+    ProcessHealthMixin,
     AIPerfLoggerMixin,
     ABC,
 ):

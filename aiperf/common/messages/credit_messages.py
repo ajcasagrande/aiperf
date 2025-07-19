@@ -65,9 +65,9 @@ class FirstByteReceivedMessage(BaseServiceMessage):
         MessageType.FIRST_BYTE_RECEIVED
     )
     phase: CreditPhase = Field(..., description="The type of credit phase")
-    first_byte_ns: int = Field(
+    latency_ns: int = Field(
         ge=1,
-        description="The time of the first byte of the credit in nanoseconds.",
+        description="The latency of the request in nanoseconds from when it was first sent to when the first byte was received.",
     )
 
 

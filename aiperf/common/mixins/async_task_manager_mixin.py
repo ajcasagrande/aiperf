@@ -7,14 +7,15 @@ from collections.abc import Coroutine
 from typing import Protocol, runtime_checkable
 
 from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
+from aiperf.common.mixins.base_mixin import BaseMixin
 
 
-class AsyncTaskManagerMixin:
+class AsyncTaskManagerMixin(BaseMixin):
     """Mixin to manage a set of async tasks."""
 
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
         self.tasks: set[asyncio.Task] = set()
+        super().__init__(**kwargs)
 
     def execute_async(self, coro: Coroutine) -> asyncio.Task:
         """Create a task from a coroutine and add it to the set of tasks, and return immediately.

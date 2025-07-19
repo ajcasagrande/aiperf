@@ -5,7 +5,7 @@ import uuid
 
 import zmq.asyncio
 
-from aiperf.common.comms.base import CommunicationClientFactory
+from aiperf.common.comms.base_comms import CommunicationClientFactory
 from aiperf.common.comms.zmq.zmq_base_client import BaseZMQClient
 from aiperf.common.constants import DEFAULT_COMMS_REQUEST_TIMEOUT
 from aiperf.common.enums import CommunicationClientType

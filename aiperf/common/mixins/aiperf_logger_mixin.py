@@ -16,10 +16,11 @@ from aiperf.common.aiperf_logger import (
     _WARNING,
     AIPerfLogger,
 )
+from aiperf.common.mixins.base_mixin import BaseMixin
 from aiperf.common.types import StrFuncT
 
 
-class AIPerfLoggerMixin:
+class AIPerfLoggerMixin(BaseMixin):
     """Mixin to provide lazy evaluated logging for f-strings.
 
     This mixin provides a logger with lazy evaluation support for f-strings,
@@ -41,10 +42,10 @@ class AIPerfLoggerMixin:
     """
 
     def __init__(self, logger_name: str | None = None, **kwargs) -> None:
-        super().__init__()
         self.logger = AIPerfLogger(logger_name or self.__class__.__name__)
         self._log = self.logger._log
         self.is_enabled_for = self.logger._logger.isEnabledFor
+        super().__init__(**kwargs)
 
     def log(self, level: int, message: str | StrFuncT, *args, **kwargs) -> None:
         """Log a message at a specified level with lazy evaluation."""

@@ -16,15 +16,17 @@ from aiperf.services.service_manager.multiprocess import MultiProcessServiceMana
 class ServiceManagerMixinRequirements(Protocol):
     """Requirements for a class that wishes to subclass the Service Manager Mixin."""
 
-    service_config: ServiceConfig | None = None
-    user_config: UserConfig | None = None
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    service_config: ServiceConfig
+    user_config: UserConfig
 
 
 class ServiceManagerMixin(ServiceManagerMixinRequirements):
     """Mixin for the System Controller to manage services."""
 
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
         if not isinstance(self, ServiceManagerMixinRequirements):
             raise TypeError(
                 "ServiceManagerMixin can only be used with a class that provides the ServiceManagerMixinRequirements protocol"
@@ -62,6 +64,8 @@ class ServiceManagerMixin(ServiceManagerMixinRequirements):
             raise ValueError(
                 f"Unsupported service run type: {self.service_config.service_run_type}"
             )
+
+        super().__init__(service_manager=self.service_manager, **kwargs)
 
     async def run_all_services(self) -> None:
         """Run all services."""

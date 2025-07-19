@@ -4,7 +4,7 @@
 import asyncio
 import sys
 
-from aiperf.common.comms.base import (
+from aiperf.common.comms.base_comms import (
     CommunicationClientAddressType,
     PullClientProtocol,
     PushClientProtocol,
@@ -82,8 +82,6 @@ class TimingManager(BaseComponentService, CreditPhaseMessagesMixin):
                 bind=True,
             )
         )
-
-        self.user_config = user_config
         self._credit_issuing_strategy: CreditIssuingStrategy | None = None
 
     @property

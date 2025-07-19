@@ -34,7 +34,7 @@ class TestBaseZMQCommunication:
 
     def test_inheritance(self):
         """Test BaseZMQCommunication inheritance."""
-        from aiperf.common.comms.base import BaseCommunication
+        from aiperf.common.comms.base_comms import BaseCommunication
 
         assert issubclass(BaseZMQCommunication, BaseCommunication)
 
@@ -71,7 +71,7 @@ class TestZMQTCPCommunication:
 
     def test_factory_registration(self):
         """Test that ZMQTCPCommunication is properly registered."""
-        from aiperf.common.comms.base import CommunicationFactory
+        from aiperf.common.comms.base_comms import CommunicationFactory
 
         # Should be able to create via factory
         comm = CommunicationFactory.create_instance(
@@ -346,7 +346,7 @@ class TestZMQIPCCommunication:
 
     def test_factory_registration(self):
         """Test that ZMQIPCCommunication is properly registered."""
-        from aiperf.common.comms.base import CommunicationFactory
+        from aiperf.common.comms.base_comms import CommunicationFactory
 
         # Should be able to create via factory
         comm = CommunicationFactory.create_instance(

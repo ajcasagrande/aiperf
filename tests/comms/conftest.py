@@ -18,7 +18,10 @@ import zmq
 import zmq.asyncio
 from pydantic import Field
 
-from aiperf.common.comms.base import BaseCommunication, CommunicationClientProtocol
+from aiperf.common.comms.base_comms import (
+    BaseCommunication,
+    CommunicationClientProtocol,
+)
 from aiperf.common.comms.zmq import (
     BaseZMQClient,
     ZMQIPCCommunication,

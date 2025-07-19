@@ -4,12 +4,10 @@
 from aiperf.common.mixins.aiperf_logger_mixin import AIPerfLoggerMixin
 from aiperf.common.mixins.aiperf_message_mixins import AIPerfMessageHandlerMixin
 
-# from aiperf.progress.progress_tracker import ProgressTracker
-
 
 class ProgressTrackerMixin(AIPerfMessageHandlerMixin, AIPerfLoggerMixin):
     """Mixin for the System Controller to track progress."""
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         # self.progress_tracker: ProgressTracker = ProgressTracker()

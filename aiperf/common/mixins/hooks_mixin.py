@@ -9,6 +9,7 @@ from typing import ClassVar
 from aiperf.common.exceptions import AIPerfError, AIPerfMultiError, UnsupportedHookError
 from aiperf.common.hooks import AIPERF_HOOK_TYPE, HookType
 from aiperf.common.mixins.aiperf_logger_mixin import AIPerfLoggerMixin
+from aiperf.common.mixins.base_mixin import BaseMixin
 
 ################################################################################
 # Hook System
@@ -32,9 +33,9 @@ class HookSystem(AIPerfLoggerMixin):
             supported_hooks: The hook types that the class supports.
             **kwargs: Passthrough kwargs for composability.
         """
-        super().__init__(**kwargs)
         self.supported_hooks: set[HookType] = supported_hooks
         self._hooks: dict[HookType, list[Callable]] = {}
+        super().__init__(**kwargs)
 
     def register_hook(self, hook_type: HookType, func: Callable):
         """Register a hook function for a given hook type.
@@ -124,7 +125,7 @@ class HookSystem(AIPerfLoggerMixin):
                 raise AIPerfMultiError("Errors running hooks", exceptions)
 
 
-class HooksMixin:
+class HooksMixin(BaseMixin):
     """
     Mixin to add hook support to a class. It abstracts away the details of the
     :class:`HookSystem` and provides a simple interface for registering and running hooks.

@@ -10,8 +10,8 @@ from aiperf.clients.client_interfaces import (
     RequestConverterProtocol,
 )
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
-from aiperf.common.comms.base import PushClientProtocol, RequestClientProtocol
-from aiperf.common.constants import NANOS_PER_SECOND
+from aiperf.common.comms.base_comms import PushClientProtocol, RequestClientProtocol
+from aiperf.common.constants import NANOS_PER_MILLIS, NANOS_PER_SECOND
 from aiperf.common.enums import CreditPhase
 from aiperf.common.exceptions import NotInitializedError
 from aiperf.common.messages import (
@@ -22,9 +22,15 @@ from aiperf.common.messages import (
     ErrorMessage,
     InferenceResultsMessage,
 )
+from aiperf.common.messages.credit_messages import FirstByteReceivedMessage
 from aiperf.common.mixins import AIPerfLoggerProtocol
-from aiperf.common.models import ErrorDetails, RequestRecord, Turn, WorkerPhaseTaskStats
-from aiperf.common.types import SSECallbackT
+from aiperf.common.models import (
+    ErrorDetails,
+    RequestRecord,
+    SSEMessage,
+    Turn,
+    WorkerPhaseTaskStats,
+)
 
 
 @runtime_checkable
@@ -49,11 +55,11 @@ class CreditProcessorMixinRequirements(AIPerfLoggerProtocol, Protocol):
     request_converter: RequestConverterProtocol
     model_endpoint: ModelEndpointInfo
     task_stats: dict[CreditPhase, WorkerPhaseTaskStats]
+    credit_return_push_client: PushClientProtocol
 
     async def _process_credit_drop_internal(
         self,
         message: CreditDropMessage,
-        sse_callback: SSECallbackT | None = None,
     ) -> CreditReturnMessage:
         """Process a credit drop message. Return the CreditReturnMessage."""
         ...
@@ -61,7 +67,6 @@ class CreditProcessorMixinRequirements(AIPerfLoggerProtocol, Protocol):
     async def _execute_single_credit_internal(
         self,
         message: CreditDropMessage,
-        sse_callback: SSECallbackT | None = None,
     ) -> RequestRecord:
         """Execute a single credit drop. Return the RequestRecord."""
         ...
@@ -70,7 +75,6 @@ class CreditProcessorMixinRequirements(AIPerfLoggerProtocol, Protocol):
         self,
         message: CreditDropMessage,
         turn: Turn,
-        sse_callback: SSECallbackT | None = None,
     ) -> RequestRecord:
         """Make a single call to the inference API. Will return an error record if the call fails."""
         ...
@@ -88,7 +92,6 @@ class CreditProcessorMixin(CreditProcessorMixinRequirements):
     async def _process_credit_drop_internal(
         self,
         message: CreditDropMessage,
-        sse_callback: SSECallbackT | None = None,
     ) -> CreditReturnMessage:
         """Process a credit drop message. Return the CreditReturnMessage.
 
@@ -110,7 +113,7 @@ class CreditProcessorMixin(CreditProcessorMixinRequirements):
 
         record: RequestRecord = RequestRecord()
         try:
-            record = await self._execute_single_credit_internal(message, sse_callback)
+            record = await self._execute_single_credit_internal(message)
 
         except Exception as e:
             self.exception(f"Error processing credit drop: {e}")
@@ -151,7 +154,6 @@ class CreditProcessorMixin(CreditProcessorMixinRequirements):
     async def _execute_single_credit_internal(
         self,
         message: CreditDropMessage,
-        sse_callback: SSECallbackT | None = None,
     ) -> RequestRecord:
         """Run a credit task for a single credit."""
 
@@ -184,7 +186,6 @@ class CreditProcessorMixin(CreditProcessorMixinRequirements):
         record = await self._call_inference_api_internal(
             message,
             conversation_response.conversation.turns[0],
-            sse_callback=sse_callback,
         )
         record.model_name = self.model_endpoint.primary_model_name
         record.conversation_id = conversation_response.conversation.session_id
@@ -195,7 +196,6 @@ class CreditProcessorMixin(CreditProcessorMixinRequirements):
         self,
         message: CreditDropMessage,
         turn: Turn,
-        sse_callback: SSECallbackT | None = None,
     ) -> RequestRecord:
         """Make a single call to the inference API. Will return an error record if the call fails."""
         self.trace(lambda: f"Calling inference API for turn: {turn}")
@@ -229,11 +229,31 @@ class CreditProcessorMixin(CreditProcessorMixinRequirements):
             pre_send_perf_ns = time.perf_counter_ns()
             timestamp_ns = time.time_ns()
 
+            first_byte_received = False
+
+            async def _sse_callback(sse_message: SSEMessage) -> None:
+                """Callback to detect when the first byte of the credit drop is received, and report it to the Timing Manager."""
+                nonlocal first_byte_received
+                if first_byte_received:
+                    return
+
+                first_byte_received = True
+                self.debug(
+                    lambda: f"First byte received for credit drop. Latency: {(sse_message.perf_ns - pre_send_perf_ns) / NANOS_PER_MILLIS:.2f} ms"
+                )
+                await self.credit_return_push_client.push(
+                    FirstByteReceivedMessage(
+                        service_id=self.service_id,
+                        phase=message.phase,
+                        latency_ns=sse_message.perf_ns - pre_send_perf_ns,
+                    )
+                )
+
             # Send the request to the Inference Server API and wait for the response
             result: RequestRecord = await self.inference_client.send_request(
                 model_endpoint=self.model_endpoint,
                 payload=formatted_payload,
-                sse_callback=sse_callback,
+                sse_callback=_sse_callback,
             )
 
             self.debug(

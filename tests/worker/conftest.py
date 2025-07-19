@@ -23,7 +23,7 @@ from aiperf.clients.model_endpoint_info import (
     ModelInfo,
     ModelListInfo,
 )
-from aiperf.common.comms.base import BaseCommunication
+from aiperf.common.comms.base_comms import BaseCommunication
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.enums import (
     CommunicationBackend,

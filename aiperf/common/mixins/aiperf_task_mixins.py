@@ -28,12 +28,6 @@ class AIPerfTaskMixin(HooksMixin, AsyncTaskManagerMixin):
     start and stop the tasks.
     """
 
-    # TODO: Once we create a Mixin for `self.stop_event`, we can avoid
-    # having the user to call `while not self.stop_event.is_set()`
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
     async def initialize(self) -> None:
         """Initialize the task."""
         await self.run_hooks(AIPerfHook.ON_INIT)

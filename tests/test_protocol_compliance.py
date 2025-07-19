@@ -12,7 +12,7 @@ from aiperf.clients.openai.openai_aiohttp import OpenAIClientAioHttp
 from aiperf.clients.openai.openai_chat import OpenAIChatCompletionRequestConverter
 from aiperf.clients.openai.openai_completions import OpenAICompletionRequestConverter
 from aiperf.clients.openai.openai_responses import OpenAIResponsesRequestConverter
-from aiperf.common.comms.base import (
+from aiperf.common.comms.base_comms import (
     CommunicationClientProtocol,
     PubClientProtocol,
     PullClientProtocol,

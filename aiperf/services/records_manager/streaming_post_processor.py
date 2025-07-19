@@ -4,7 +4,7 @@
 import asyncio
 from abc import abstractmethod
 
-from aiperf.common.comms.base import PubClientProtocol, SubClientProtocol
+from aiperf.common.comms.base_comms import PubClientProtocol, SubClientProtocol
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.hooks import aiperf_task
 from aiperf.common.mixins import AIPerfMessagePubSubMixin

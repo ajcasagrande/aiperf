@@ -4,10 +4,10 @@
 import asyncio
 import time
 
-from aiperf.common.constants import NANOS_PER_SECOND
+from aiperf.common.constants import NANOS_PER_MILLIS, NANOS_PER_SECOND
 from aiperf.common.enums import TimingMode
 from aiperf.common.exceptions import InvalidStateError
-from aiperf.common.messages import CreditReturnMessage
+from aiperf.common.messages import CreditReturnMessage, FirstByteReceivedMessage
 from aiperf.common.mixins import AIPerfLoggerMixin, AsyncTaskManagerMixin
 from aiperf.common.models import CreditPhaseStats
 from aiperf.services.timing_manager.config import TimingManagerConfig
@@ -32,9 +32,16 @@ class ConcurrencyStrategy(
         # If the concurrency is larger than the total number of requests, it does not matter
         # as it is simply an upper bound that will never be reached
         self._semaphore = asyncio.Semaphore(value=config.concurrency)
+        self._first_byte_semaphore = asyncio.Semaphore(value=1)
 
     async def _execute_single_phase(self, phase_stats: CreditPhaseStats) -> None:
         """Execute a single credit phase. This will not return until the phase sending is complete."""
+
+        if self.config.first_byte_ramp_up_enabled:
+            await self._execute_first_byte_ramp_up(phase_stats)
+            if not phase_stats.should_send:
+                return
+
         if phase_stats.is_time_based:
             await self._execute_time_based_phase(phase_stats)
         elif phase_stats.is_request_count_based:
@@ -43,6 +50,28 @@ class ConcurrencyStrategy(
             raise InvalidStateError(
                 "Phase must have either a valid total or expected_duration_ns set"
             )
+
+    async def _execute_first_byte_ramp_up(self, phase_stats: CreditPhaseStats) -> None:
+        """Execute a first byte ramp up phase."""
+        self.trace(lambda: f"_execute_first_byte_ramp_up loop entered: {phase_stats}")
+        self.info(
+            lambda: f"First byte ramp up enabled. Executing {self.config.concurrency} credits"
+        )
+
+        start_ns = time.time_ns()
+        while True:
+            await self._first_byte_semaphore.acquire()
+            self.execute_async(
+                self.credit_manager.drop_credit(
+                    credit_phase=phase_stats.type,
+                )
+            )
+            phase_stats.sent += 1
+            if phase_stats.sent >= self.config.concurrency:
+                self.info(
+                    lambda: f"First byte ramp up complete. Sent {phase_stats.sent} credits in {(time.time_ns() - start_ns) / NANOS_PER_MILLIS:,.2f} ms"
+                )
+                break
 
     async def _execute_time_based_phase(self, phase_stats: CreditPhaseStats) -> None:
         """Execute a time-based phase."""
@@ -125,3 +154,10 @@ class ConcurrencyStrategy(
         self._semaphore.release()
         self.trace(lambda: f"Credit return released semaphore: {self._semaphore}")
         await super()._on_credit_return(message)
+
+    async def _on_first_byte_received(self, message: FirstByteReceivedMessage) -> None:
+        """Handle the first byte received message."""
+        self.trace(
+            lambda: f"First byte received for phase {message.phase}. Latency: {message.latency_ns / NANOS_PER_MILLIS:.2f} ms"
+        )
+        self._first_byte_semaphore.release()

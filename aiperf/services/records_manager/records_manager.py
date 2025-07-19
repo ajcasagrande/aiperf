@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 import time
 
-from aiperf.common.comms.base import (
+from aiperf.common.comms.base_comms import (
     CommunicationClientAddressType,
     PullClientProtocol,
 )

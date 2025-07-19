@@ -1,6 +1,9 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+from abc import ABC
+from typing import ClassVar, Protocol, runtime_checkable
+
 from aiperf.common.enums import ServiceType
 
 
@@ -27,6 +30,69 @@ class AIPerfMultiError(AIPerfError):
         self.exceptions = exceptions
 
 
+################################################################################
+# HTTP Errors
+################################################################################
+
+
+@runtime_checkable
+class HTTPErrorProtocol(Protocol):
+    """Protocol for HTTP errors that have a code and reason."""
+
+    code: int
+    reason: str
+
+
+class HTTPError(AIPerfError):
+    """Generic exception raised when a HTTP error occurs. The code and reason are set by the caller."""
+
+    def __init__(self, message: str, code: int, reason: str) -> None:
+        super().__init__(message)
+        self.code = code
+        self.reason = reason
+
+
+class HTTPErrorClass(AIPerfError, ABC):
+    """A base class for static pre-defined HTTP errors with a code and reason."""
+
+    code: ClassVar[int]
+    reason: ClassVar[str]
+
+    def __eq__(self, other: object) -> bool:
+        """Check if an HTTPError is an instance of this class."""
+        if isinstance(other, self.__class__):
+            return True
+        if not isinstance(other, HTTPError):
+            return False
+        return other.code == self.code and other.reason == self.reason
+
+
+class BadRequestError(HTTPErrorClass):
+    """Exception raised when a request is invalid."""
+
+    code = 400
+    reason = "Bad Request"
+
+
+class NotFoundError(HTTPErrorClass):
+    """Exception raised when a resource is not found."""
+
+    code = 404
+    reason = "Not Found"
+
+
+class InternalServerError(HTTPErrorClass):
+    """Exception raised when an internal server error occurs."""
+
+    code = 500
+    reason = "Internal Server Error"
+
+
+################################################################################
+# Service and Runtime Errors
+################################################################################
+
+
 class ServiceError(AIPerfError):
     """Generic service error."""
 
@@ -41,6 +107,10 @@ class ServiceError(AIPerfError):
         )
         self.service_type = service_type
         self.service_id = service_id
+
+
+class CommandError(AIPerfError):
+    """Exception raised when a command encounters an error."""
 
 
 class InitializationError(AIPerfError):
@@ -61,10 +131,6 @@ class InvalidStateError(AIPerfError):
 
 class ValidationError(AIPerfError):
     """Exception raised when something fails validation."""
-
-
-class NotFoundError(AIPerfError):
-    """Exception raised when something is not found or not available."""
 
 
 class CommunicationError(AIPerfError):

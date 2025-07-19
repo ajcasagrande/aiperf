@@ -8,13 +8,13 @@ import zmq.asyncio
 from aiperf.common.comms.zmq import BaseZMQProxy, ZMQProxyFactory
 from aiperf.common.config import BaseZMQCommunicationConfig
 from aiperf.common.enums import ZMQProxyType
+from aiperf.common.mixins.base_mixin import BaseMixin
 
 
-class ProxyMixin:
+class ProxyMixin(BaseMixin):
     """Mixin for the System Controller to manage proxies."""
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, **kwargs):
         self.event_bus_proxy: BaseZMQProxy | None = None
         self.event_bus_proxy_task: asyncio.Task | None = None
 
@@ -23,6 +23,8 @@ class ProxyMixin:
 
         self.raw_inference_proxy: BaseZMQProxy | None = None
         self.raw_inference_proxy_task: asyncio.Task | None = None
+
+        super().__init__(**kwargs)
 
     async def run_proxies(self, comm_config: BaseZMQCommunicationConfig) -> None:
         """Run the proxies."""

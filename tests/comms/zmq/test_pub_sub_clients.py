@@ -36,7 +36,7 @@ class TestZMQPubClient:
 
     def test_factory_registration(self, mock_zmq_context_instance: MagicMock):
         """Test that ZMQPubClient is properly registered with the factory."""
-        from aiperf.common.comms.base import CommunicationClientFactory
+        from aiperf.common.comms.base_comms import CommunicationClientFactory
         from aiperf.common.enums import CommunicationClientType
 
         client = CommunicationClientFactory.create_instance(
@@ -202,7 +202,7 @@ class TestZMQSubClient:
 
     def test_factory_registration(self, zmq_sub_connect_client: ZMQSubClient):
         """Test that ZMQSubClient is properly registered with the factory."""
-        from aiperf.common.comms.base import CommunicationClientFactory
+        from aiperf.common.comms.base_comms import CommunicationClientFactory
         from aiperf.common.enums import CommunicationClientType
 
         client = CommunicationClientFactory.create_instance(

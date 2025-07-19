@@ -3,13 +3,17 @@
 import asyncio
 import random
 
-from aiperf.common.comms.base import CommunicationClientAddressType, ReplyClientProtocol
+from aiperf.common.comms.base_comms import (
+    CommunicationClientAddressType,
+    ReplyClientProtocol,
+)
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.enums import (
     ComposerType,
     MessageType,
     ServiceType,
 )
+from aiperf.common.exceptions import BadRequestError, ConfigurationError
 from aiperf.common.factories import ComposerFactory, ServiceFactory
 from aiperf.common.hooks import (
     on_configure,
@@ -90,7 +94,7 @@ class DatasetManager(BaseComponentService):
 
     async def _configure_dataset(self) -> None:
         if self.user_config is None:
-            raise self._service_error("User config is required for dataset manager")
+            raise ConfigurationError("User config is required for dataset manager")
 
         if self.user_config.input.file:
             composer_type = ComposerType.CUSTOM
@@ -151,7 +155,7 @@ class DatasetManager(BaseComponentService):
             )
 
         if not self.dataset:
-            raise self._service_error(
+            raise BadRequestError(
                 "Dataset is empty and must be configured before handling requests.",
             )
 
@@ -185,7 +189,7 @@ class DatasetManager(BaseComponentService):
         """Return a conversation if it exists, otherwise raise an error."""
 
         if conversation_id not in self.dataset:
-            raise self._service_error(
+            raise BadRequestError(
                 f"Conversation {conversation_id} not found in dataset.",
             )
 
@@ -204,13 +208,13 @@ class DatasetManager(BaseComponentService):
         self.debug(lambda: f"Handling turn request: {message}")
 
         if message.conversation_id not in self.dataset:
-            raise self._service_error(
+            raise BadRequestError(
                 f"Conversation {message.conversation_id} not found in dataset.",
             )
 
         conversation = self.dataset[message.conversation_id]
         if message.turn_index >= len(conversation.turns):
-            raise self._service_error(
+            raise BadRequestError(
                 f"Turn index {message.turn_index} is out of range for conversation {message.conversation_id}.",
             )
 
@@ -229,7 +233,7 @@ class DatasetManager(BaseComponentService):
         """Handle a dataset timing request."""
         self.debug(lambda: f"Handling dataset timing request: {message}")
         if not self.dataset:
-            raise self._service_error(
+            raise BadRequestError(
                 "Dataset is empty and must be configured before handling timing requests.",
             )
 

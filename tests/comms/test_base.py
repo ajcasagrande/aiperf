@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from aiperf.common.comms.base import (
+from aiperf.common.comms.base_comms import (
     BaseCommunication,
     CommunicationClientFactory,
     CommunicationClientProtocol,

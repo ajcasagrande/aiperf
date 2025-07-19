@@ -7,7 +7,7 @@ from typing import Any
 
 import aiohttp
 
-from aiperf.clients.http.defaults import AioHttpDefaults, SocketDefaults
+from aiperf.clients.http.http_defaults import AioHttpDefaults, SocketDefaults
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.enums import SSEFieldType
 from aiperf.common.mixins import AIPerfLoggerMixin, AsyncTaskManagerMixin

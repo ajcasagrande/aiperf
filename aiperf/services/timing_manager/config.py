@@ -20,6 +20,8 @@ class TimingManagerConfig(AIPerfBaseModel):
     progress_report_interval_sec: float = (
         ServiceDefaults.PROGRESS_REPORT_INTERVAL_SECONDS
     )
+    first_byte_ramp_up_enabled: bool = True
+    first_byte_ramp_as_warmup: bool = False
 
     @classmethod
     def from_user_config(cls, user_config: UserConfig) -> "TimingManagerConfig":

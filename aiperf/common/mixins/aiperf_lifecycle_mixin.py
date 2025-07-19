@@ -38,16 +38,20 @@ class AIPerfLifecycleMixin(HooksMixin, AsyncTaskManagerMixin, AIPerfLoggerMixin)
     """
 
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
         self.initialized_event: asyncio.Event = asyncio.Event()
         self.started_event: asyncio.Event = asyncio.Event()
-        self.stop_requested: asyncio.Event = asyncio.Event()
         self.shutdown_event: asyncio.Event = asyncio.Event()
         self.lifecycle_task: asyncio.Task | None = None
+
+        super().__init__(**kwargs)
 
     def is_initialized(self) -> bool:
         """Check if the lifecycle has been initialized."""
         return self.initialized_event.is_set()
+
+    def cancelled(self) -> bool:
+        """Check if the lifecycle has been cancelled."""
+        return self.lifecycle_task is None or self.lifecycle_task.cancelled()
 
     async def _run_lifecycle(self) -> None:
         """Run the internal lifecycle."""
@@ -59,34 +63,42 @@ class AIPerfLifecycleMixin(HooksMixin, AsyncTaskManagerMixin, AIPerfLoggerMixin)
         await self.run_hooks_async(AIPerfHook.ON_START)
         self.started_event.set()
 
-        # Wait forever until the stop_requested event is set
-        await self.stop_requested.wait()
-
         try:
-            # Run all the stop hooks
-            await self.run_hooks_async(AIPerfHook.ON_STOP)
-        except Exception as e:
-            self.logger.exception("Unhandled exception in lifecycle: %s", e)
+            # Wait forever until the stop_requested event is set
+            while True:
+                await asyncio.sleep(100_000)
         except asyncio.CancelledError:
-            self.logger.info("Lifecycle cancelled")
+            self.info("Lifecycle cancelled by user")
 
-        try:
-            # Run all the cleanup hooks and set the shutdown_event
-            await self.run_hooks(AIPerfHook.ON_CLEANUP)
-        except Exception as e:
-            self.logger.exception("Unhandled exception in lifecycle: %s", e)
+            try:
+                # Run all the stop hooks
+                await self.run_hooks_async(AIPerfHook.ON_STOP)
+            except Exception as e:
+                self.exception(
+                    f"Unhandled exception in lifecycle: {e.__class__.__name__} {e}"
+                )
+
+            try:
+                # Run all the cleanup hooks and set the shutdown_event
+                await self.run_hooks(AIPerfHook.ON_CLEANUP)
+            except Exception as e:
+                self.exception(
+                    f"Unhandled exception in lifecycle: {e.__class__.__name__} {e}"
+                )
         finally:
             self.shutdown_event.set()
 
     async def run_async(self) -> None:
         """Start the lifecycle in the background. Will call the :meth:`HooksMixin.on_init` hooks,
         followed by the :meth:`HooksMixin.on_start` hooks. Will return immediately."""
+        # NOTE: Do not use execute_async here, as we want to track the lifecycle task
+        # differently, so we can properly run cleanup hooks.
         self.lifecycle_task = asyncio.create_task(self._run_lifecycle())
 
     async def run_and_wait_for_start(self) -> None:
         """Start the lifecycle in the background and wait until the lifecycle is initialized and started.
         Will call the :meth:`HooksMixin.on_init` hooks, followed by the :meth:`HooksMixin.on_start` hooks."""
-        self.lifecycle_task = asyncio.create_task(self._run_lifecycle())
+        await self.run_async()
 
         await self.initialized_event.wait()
         await self.started_event.wait()
@@ -109,7 +121,11 @@ class AIPerfLifecycleMixin(HooksMixin, AsyncTaskManagerMixin, AIPerfLoggerMixin)
     async def shutdown(self) -> None:
         """Shutdown the lifecycle. Will call the :meth:`HooksMixin.on_stop` hooks,
         followed by the :meth:`HooksMixin.on_cleanup` hooks."""
-        self.stop_requested.set()
+        if self.lifecycle_task and not self.cancelled():
+            self.lifecycle_task.cancel()
+            await self.lifecycle_task
+        else:
+            self.debug("Lifecycle already cancelled or not running")
 
     @on_start
     async def _start_tasks(self):
@@ -133,19 +149,6 @@ class AIPerfLifecycleMixin(HooksMixin, AsyncTaskManagerMixin, AIPerfLoggerMixin)
     async def _stop_tasks(self):
         """Stop all the background tasks. This will wait for all the tasks to complete."""
         await self.cancel_all_tasks()
-
-    @on_stop
-    async def _stop_lifecycle(self):
-        """Stop the lifecycle."""
-        # NOTE: This appears to cause a deadlock
-        # if (
-        #     self.lifecycle_task
-        #     and not self.lifecycle_task.done()
-        #     and not self.lifecycle_task.cancelled()
-        #     and self.lifecycle_task != asyncio.current_task()
-        # ):
-        #     self.lifecycle_task.cancel()
-        #     await asyncio.wait_for(self.lifecycle_task, timeout=TASK_CANCEL_TIMEOUT_SHORT)
 
     async def _auto_task_wrapper(
         self,
@@ -207,3 +210,7 @@ class AIPerfLifeCycleProtocol(AsyncTaskManagerProtocol, Protocol):
     async def shutdown(self) -> None:
         """Shutdown the lifecycle. Will call the :meth:`HooksMixin.on_stop` hooks,
         followed by the :meth:`HooksMixin.on_cleanup` hooks."""
+
+    def cancelled(self) -> bool:
+        """Check if the lifecycle has been cancelled."""
+        ...

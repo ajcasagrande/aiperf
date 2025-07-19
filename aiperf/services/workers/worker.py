@@ -5,7 +5,7 @@
 from aiperf.clients import InferenceClientFactory
 from aiperf.clients.client_interfaces import RequestConverterFactory
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
-from aiperf.common.comms.base import (
+from aiperf.common.comms.base_comms import (
     PullClientProtocol,
     PushClientProtocol,
     RequestClientProtocol,
@@ -32,7 +32,6 @@ from aiperf.common.messages import (
 )
 from aiperf.common.mixins import ProcessHealthMixin
 from aiperf.common.models import WorkerPhaseTaskStats
-from aiperf.common.models.record_models import SSEMessage
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.services.workers.credit_processor_mixin import CreditProcessorMixin
 
@@ -132,14 +131,9 @@ class Worker(BaseComponentService, ProcessHealthMixin, CreditProcessorMixin):
             phase=message.phase,
         )
 
-        async def _sse_callback(sse_message: SSEMessage) -> None:
-            await self.credit_return_push_client.push(credit_return_message)
-
         try:
             # NOTE: This must be awaited to ensure that the max concurrency is respected
-            credit_return_message = await self._process_credit_drop_internal(
-                message, _sse_callback
-            )
+            credit_return_message = await self._process_credit_drop_internal(message)
         except Exception as e:
             self.exception(f"Error processing credit drop: {e}")
         finally:

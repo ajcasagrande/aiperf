@@ -6,7 +6,7 @@ from aiperf.clients.http.aiohttp_client import (
     create_tcp_connector,
     parse_sse_message,
 )
-from aiperf.clients.http.defaults import (
+from aiperf.clients.http.http_defaults import (
     AioHttpDefaults,
     SocketDefaults,
 )

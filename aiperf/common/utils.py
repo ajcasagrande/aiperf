@@ -12,7 +12,27 @@ import orjson
 from aiperf.common import aiperf_logger
 from aiperf.common.exceptions import AIPerfError, AIPerfMultiError
 
-logger = aiperf_logger.AIPerfLogger(__name__)
+_logger = aiperf_logger.AIPerfLogger(__name__)
+
+
+def supports_method_kwargs(
+    obj: object, method_name: str, kwargs: dict[str, Any]
+) -> bool:
+    """Check if the given object has a method with the specified name
+    that accepts a keyword argument with the specified name.
+
+    Args:
+        obj: The object to check.
+        method_name: The name of the method to check.
+        kwargs: The keyword arguments to check.
+    """
+    method = getattr(obj, method_name, None)
+    if not method:
+        return False
+    return all(
+        param.kind == inspect.Parameter.KEYWORD_ONLY
+        for param in inspect.signature(method).parameters.values()
+    )
 
 
 async def call_all_functions_self(
@@ -69,7 +89,7 @@ async def call_all_functions(funcs: list[Callable], *args, **kwargs) -> None:
             else:
                 func(*args, **kwargs)
         except Exception as e:
-            logger.exception(f"Error calling function {func.__name__}: {e}")
+            _logger.exception(f"Error calling function {func.__name__}: {e}")
             exceptions.append(
                 AIPerfError(f"Error calling function {func.__name__}: {e}")
             )
@@ -137,7 +157,7 @@ def load_json_str(json_str: str, func: Callable = lambda x: x) -> dict[str, Any]
         return func(orjson.loads(json_str))
     except orjson.JSONDecodeError:
         snippet = json_str[:200] + ("..." if len(json_str) > 200 else "")
-        logger.error("Failed to parse JSON string: '%s'", snippet)
+        _logger.error("Failed to parse JSON string: '%s'", snippet)
         raise
 
 

@@ -9,6 +9,7 @@ from aiperf.common.enums import (
     MessageType,
     ServiceState,
 )
+from aiperf.common.exceptions import AIPerfError, CommandError, InitializationError
 from aiperf.common.hooks import AIPerfHook, aiperf_auto_task, on_init, on_set_state
 from aiperf.common.messages import (
     CommandMessage,
@@ -73,14 +74,18 @@ class BaseComponentService(BaseService):
                 MessageType.COMMAND,
                 self.process_command_message,
             )
+        except AIPerfError:
+            raise  # re-raise it up the stack
         except Exception as e:
-            raise self._service_error("Failed to subscribe to command topic") from e
+            raise InitializationError("Failed to subscribe to command topic") from e
 
         # Register the service
         try:
             await self.register()
+        except AIPerfError:
+            raise  # re-raise it up the stack
         except Exception as e:
-            raise self._service_error("Failed to register service") from e
+            raise InitializationError("Failed to register service") from e
 
     @aiperf_auto_task(
         interval_sec=lambda self: self.service_config.heartbeat_interval_seconds
@@ -100,7 +105,7 @@ class BaseComponentService(BaseService):
                 message=heartbeat_message,
             )
         except Exception as e:
-            raise self._service_error("Failed to send heartbeat") from e
+            raise InitializationError("Failed to send heartbeat") from e
 
     async def register(self) -> None:
         """Publish a registration request to the system controller.
@@ -116,7 +121,7 @@ class BaseComponentService(BaseService):
                 message=self.create_registration_message(),
             )
         except Exception as e:
-            raise self._service_error("Failed to register service") from e
+            raise InitializationError("Failed to register service") from e
 
     async def process_command_message(self, message: CommandMessage) -> None:
         """Process a command message received from the controller.
@@ -149,7 +154,7 @@ class BaseComponentService(BaseService):
                 response_data = await self._command_callbacks[cmd](message)
 
             else:
-                raise self._service_error(
+                raise CommandError(
                     f"Received unknown command: {cmd}",
                 )
 
