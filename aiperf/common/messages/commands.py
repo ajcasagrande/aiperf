@@ -8,7 +8,6 @@ from pydantic.fields import FieldInfo
 
 from aiperf.common.config.user_config import UserConfig
 from aiperf.common.enums import CommandType, ServiceType
-from aiperf.common.enums.message_enums import CommandResponseMessageType
 from aiperf.common.messages.message import AutoRequestID, RequiresRequestID
 from aiperf.common.messages.service_messages import BaseServiceMessage
 from aiperf.common.models import AIPerfBaseModel, ErrorDetails
@@ -94,7 +93,7 @@ def _command_message_type(
 
 
 def _command_response_type(
-    message_type: CommandResponseMessageType,
+    message_type: CommandType,
     data_type: type[BaseModel] | None = None,
     data_field: FieldInfo | None = None,
 ) -> type[CommandResponseMessage]:
@@ -134,18 +133,12 @@ ProfileCancelCommand = _command_message_type(CommandType.PROFILE_CANCEL)
 ShutdownCommand = _command_message_type(CommandType.SHUTDOWN)
 
 # On the fly generated command response types
-ProfileStartResponse = _command_response_type(
-    CommandResponseMessageType.PROFILE_START_RESPONSE
-)
-ProfileStopResponse = _command_response_type(
-    CommandResponseMessageType.PROFILE_STOP_RESPONSE
-)
-ProfileCancelResponse = _command_response_type(
-    CommandResponseMessageType.PROFILE_CANCEL_RESPONSE
-)
-ShutdownResponse = _command_response_type(CommandResponseMessageType.SHUTDOWN_RESPONSE)
+ProfileStartResponse = _command_response_type(CommandType.PROFILE_START_RESPONSE)
+ProfileStopResponse = _command_response_type(CommandType.PROFILE_STOP_RESPONSE)
+ProfileCancelResponse = _command_response_type(CommandType.PROFILE_CANCEL_RESPONSE)
+ShutdownResponse = _command_response_type(CommandType.SHUTDOWN_RESPONSE)
 ProcessRecordsResponse = _command_response_type(
-    CommandResponseMessageType.PROCESS_RECORDS_RESPONSE,
+    CommandType.PROCESS_RECORDS_RESPONSE,
     data_type=AIPerfBaseModel,
     data_field=Field(
         default=None,

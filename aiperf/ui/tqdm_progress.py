@@ -27,10 +27,10 @@ class TqdmProgressUI(AIPerfLifecycleMixin):
     """Tqdm progress UI."""
 
     def __init__(self, progress_tracker: ProgressTracker, **kwargs):
-        super().__init__(**kwargs)
         self.progress_tracker = progress_tracker
         self.tqdm_requests: dict[CreditPhase, tqdm] = {}
         self.tqdm_records: dict[CreditPhase, tqdm] = {}
+        super().__init__(progress_tracker=progress_tracker, **kwargs)
 
     async def update_progress(self):
         """Update progress bars based on current credit phase."""
