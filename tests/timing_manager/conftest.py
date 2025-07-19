@@ -3,9 +3,13 @@
 import pytest
 
 from aiperf.common.enums import CreditPhase
-from aiperf.common.messages import CreditReturnMessage
+from aiperf.common.messages import (
+    CreditDropMessage,
+    CreditPhaseCompleteMessage,
+    CreditPhaseProgressMessage,
+    CreditReturnMessage,
+)
 from aiperf.common.mixins import AIPerfLoggerMixin
-from aiperf.common.models import CreditPhaseStats
 from aiperf.services.timing_manager.config import TimingManagerConfig
 from aiperf.services.timing_manager.credit_issuing_strategy import CreditIssuingStrategy
 
@@ -22,17 +26,18 @@ class MockCreditManager(AIPerfLoggerMixin):
 
     async def drop_credit(
         self,
-        phase_type: CreditPhase,
+        credit_phase: CreditPhase,
         conversation_id: str | None = None,
         credit_drop_ns: int | None = None,
     ) -> None:
         """Mock drop_credit method."""
         self.dropped_credits.append(
-            {
-                "phase_type": phase_type,
-                "conversation_id": conversation_id,
-                "credit_drop_ns": credit_drop_ns,
-            }
+            CreditDropMessage(
+                service_id="test-service",
+                phase=credit_phase,
+                conversation_id=conversation_id,
+                credit_drop_ns=credit_drop_ns,
+            )
         )
         if not self.auto_credit_return:
             return
@@ -44,27 +49,36 @@ class MockCreditManager(AIPerfLoggerMixin):
         await self.credit_strategy._on_credit_return(
             CreditReturnMessage(
                 service_id="test-service",
-                phase=CreditPhase.PROFILING,
+                phase=credit_phase,
             )
         )
 
     async def publish_progress(
         self,
-        phase_stats: dict[CreditPhase, CreditPhaseStats],
+        credit_phase: CreditPhase,
+        sent: int,
+        completed: int,
     ) -> None:
         """Mock publish_progress method."""
         self.progress_calls.append(
-            {
-                "phase_stats": phase_stats,
-            }
+            CreditPhaseProgressMessage(
+                phase=credit_phase,
+                sent=sent,
+                completed=completed,
+                service_id="test-service",
+            )
         )
 
     async def publish_credits_complete(
-        self, phase_type: CreditPhase, cancelled: bool = False
+        self, credit_phase: CreditPhase, completed: int
     ) -> None:
         """Mock publish_credits_complete method."""
         self.credits_complete_calls.append(
-            {"phase_type": phase_type, "cancelled": cancelled}
+            CreditPhaseCompleteMessage(
+                phase=credit_phase,
+                completed=completed,
+                service_id="test-service",
+            )
         )
 
 
