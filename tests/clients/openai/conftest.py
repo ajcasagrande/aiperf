@@ -6,13 +6,12 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
-from aiperf.clients.openai.openai_aiohttp import OpenAIClientAioHttp
-from aiperf.clients.openai.openai_convert import (
+from aiperf.clients.openai import (
     OpenAIChatCompletionRequestConverter,
     OpenAICompletionRequestConverter,
-    OpenAIEmbeddingsRequestConverter,
     OpenAIResponsesRequestConverter,
 )
+from aiperf.clients.openai.openai_aiohttp import OpenAIClientAioHttp
 from aiperf.common.enums import EndpointType
 from aiperf.common.models import (
     SSEField,

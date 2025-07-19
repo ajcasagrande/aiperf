@@ -8,10 +8,10 @@ import pytest
 
 from aiperf.common.enums import ServiceState, ServiceType
 from aiperf.common.models import AIPerfBaseModel
-from aiperf.common.service.base_service import BaseService
-from aiperf.services.worker.worker import Worker
-from aiperf.tests.base_test_service import BaseTestService
-from aiperf.tests.utils.async_test_utils import async_fixture
+from aiperf.common.service import BaseService
+from aiperf.services.workers.worker import Worker
+from tests.base_test_service import BaseTestService
+from tests.utils.async_test_utils import async_fixture
 
 
 class WorkerTestConfig(AIPerfBaseModel):

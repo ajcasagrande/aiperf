@@ -15,7 +15,7 @@ from aiperf.common.config.config_defaults import EndPointDefaults
 from aiperf.common.config.endpoint_config import EndPointConfig
 from aiperf.common.config.input_config import InputConfig
 from aiperf.common.config.user_config import UserConfig
-from aiperf.common.enums import EndpointType, Modality, ModelSelectionStrategy
+from aiperf.common.enums import EndpointType, ModelSelectionStrategy
 from aiperf.common.models import (
     Audio,
     Conversation,
@@ -268,7 +268,6 @@ def mock_streaming_response():
     params=[
         EndpointType.OPENAI_CHAT_COMPLETIONS,
         EndpointType.OPENAI_COMPLETIONS,
-        EndpointType.OPENAI_EMBEDDINGS,
         EndpointType.OPENAI_RESPONSES,
     ]
 )
@@ -283,7 +282,6 @@ def all_endpoint_types():
     return [
         EndpointType.OPENAI_CHAT_COMPLETIONS,
         EndpointType.OPENAI_COMPLETIONS,
-        EndpointType.OPENAI_EMBEDDINGS,
         EndpointType.OPENAI_RESPONSES,
     ]
 
@@ -301,14 +299,6 @@ def valid_payload_data():
         EndpointType.OPENAI_COMPLETIONS: {
             "prompt": "Hello",
             "model": "gpt-4",
-            "stream": False,
-        },
-        EndpointType.OPENAI_EMBEDDINGS: {
-            "input": "Hello",
-            "model": "text-embedding-ada-002",
-            "dimensions": 1536,
-            "encoding_format": "float",
-            "user": "",
             "stream": False,
         },
         EndpointType.OPENAI_RESPONSES: {

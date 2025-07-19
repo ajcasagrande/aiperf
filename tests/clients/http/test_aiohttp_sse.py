@@ -13,7 +13,7 @@ import pytest
 
 from aiperf.clients.http.aiohttp_client import AioHttpSSEStreamReader
 from aiperf.common.models import SSEMessage
-from aiperf.tests.clients.http.conftest import (
+from tests.clients.http.conftest import (
     create_sse_chunk_list,
     setup_single_sse_chunk,
     setup_sse_content_mock,

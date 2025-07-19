@@ -12,8 +12,8 @@ Tests for the worker manager service.
 # from aiperf.common.enums import ServiceType
 # from aiperf.common.service.base_service import BaseService
 # from aiperf.services.worker_manager.worker_manager import WorkerManager
-# from aiperf.tests.base_test_component_service import BaseTestComponentService
-# from aiperf.tests.utils.async_test_utils import async_fixture
+# from tests.base_test_component_service import BaseTestComponentService
+# from tests.utils.async_test_utils import async_fixture
 
 
 # class WorkerManagerTestConfig(BaseModel):

@@ -10,10 +10,12 @@ import pytest
 
 from aiperf.common.messages import (
     ConversationResponseMessage,
+    CreditDropMessage,
     InferenceResultsMessage,
+    WorkerHealthMessage,
 )
-from aiperf.common.models import Conversation, CreditDropMessage, WorkerHealthMessage
-from aiperf.services.worker.protocols import WorkerCommunicationsProtocol
+from aiperf.common.models import Conversation
+from aiperf.services.workers.protocols import WorkerCommunicationsProtocol
 
 
 class MockWorkerCommunication:

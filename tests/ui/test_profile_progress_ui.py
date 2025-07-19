@@ -11,7 +11,7 @@ from rich.progress import Progress
 from rich.table import Table
 from rich.text import Text
 
-from aiperf.ui.profile_progress_ui import ProfileProgressElement
+from aiperf.ui import ProfileProgressElement
 
 
 class TestProfileProgressElement:
@@ -359,7 +359,7 @@ class TestProfileProgressElement:
 
     def test_progress_element_inheritance(self, profile_progress_element):
         """Test that ProfileProgressElement inherits from DashboardElement."""
-        from aiperf.ui.dashboard_element import DashboardElement
+        from aiperf.ui import DashboardElement
 
         assert isinstance(profile_progress_element, DashboardElement)
         assert hasattr(profile_progress_element, "get_panel")

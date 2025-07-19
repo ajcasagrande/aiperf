@@ -12,7 +12,7 @@ from rich.console import Group
 from rich.table import Table
 from rich.text import Text
 
-from aiperf.ui.worker_status_ui import WorkerStatusElement
+from aiperf.ui import WorkerStatusElement
 
 
 class TestWorkerStatusElement:

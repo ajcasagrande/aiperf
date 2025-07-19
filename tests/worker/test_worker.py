@@ -15,18 +15,18 @@ from aiperf.common.exceptions import NotInitializedError
 from aiperf.common.messages import (
     CommandMessage,
     ConversationResponseMessage,
+    CreditDropMessage,
+    CreditReturnMessage,
     ErrorMessage,
     InferenceResultsMessage,
     WorkerHealthMessage,
 )
 from aiperf.common.models import (
-    CreditDropMessage,
-    CreditReturnMessage,
     ErrorDetails,
     RequestRecord,
 )
-from aiperf.services.worker.worker import Worker
-from aiperf.tests.utils.async_test_utils import async_fixture
+from aiperf.services.workers.worker import Worker
+from tests.utils.async_test_utils import async_fixture
 
 
 @pytest.mark.asyncio

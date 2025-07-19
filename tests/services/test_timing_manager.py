@@ -9,14 +9,18 @@ from unittest.mock import patch
 
 import pytest
 
-from aiperf.common.enums import CommandType, MessageType, ServiceType
-from aiperf.common.messages import CommandMessage
-from aiperf.common.models import CreditReturnMessage
-from aiperf.common.service.base_service import BaseService
-from aiperf.services.timing_manager.config import TimingManagerConfig, TimingMode
-from aiperf.services.timing_manager.timing_manager import TimingManager
-from aiperf.tests.base_test_component_service import BaseTestComponentService
-from aiperf.tests.utils.async_test_utils import async_fixture
+from aiperf.common.enums import (
+    CommandType,
+    CreditPhase,
+    MessageType,
+    ServiceType,
+    TimingMode,
+)
+from aiperf.common.messages import CommandMessage, CreditReturnMessage
+from aiperf.common.service import BaseService
+from aiperf.services.timing_manager import TimingManager, TimingManagerConfig
+from tests.base_test_component_service import BaseTestComponentService
+from tests.utils.async_test_utils import async_fixture
 
 
 @pytest.mark.asyncio
@@ -120,7 +124,9 @@ class TestTimingManager(BaseTestComponentService):
             pushed_messages.append((message_type, message))
 
             # Create and process a return message
-            return_message = CreditReturnMessage(service_id="test-consumer")
+            return_message = CreditReturnMessage(
+                service_id="test-consumer", phase=CreditPhase.PROFILING
+            )
             await service._on_credit_return(return_message)
 
         # 6. Mock necessary functions

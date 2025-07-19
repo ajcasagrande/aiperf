@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 
 from aiperf.common.enums import CommandType, MessageType
 from aiperf.common.service.base_controller_service import BaseControllerService
-from aiperf.tests.base_test_service import BaseTestService, async_fixture
+from tests.base_test_service import BaseTestService, async_fixture
 
 
 class BaseTestControllerService(BaseTestService):

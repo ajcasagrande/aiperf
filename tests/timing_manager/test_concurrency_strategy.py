@@ -10,13 +10,10 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from aiperf.common.constants import NANOS_PER_SECOND
-from aiperf.common.models import CreditReturnMessage
-from aiperf.services.timing_manager.concurrency_strategy import (
-    ConcurrencyStrategy,
-)
-from aiperf.services.timing_manager.config import TimingManagerConfig
-from aiperf.tests.timing_manager.conftest import MockCreditManager
-from aiperf.tests.utils.async_test_utils import MockSemaphore
+from aiperf.common.messages import CreditReturnMessage
+from aiperf.services.timing_manager import ConcurrencyStrategy, TimingManagerConfig
+from tests.timing_manager.conftest import MockCreditManager
+from tests.utils.async_test_utils import MockSemaphore
 
 
 def seconds_to_ns(seconds: float) -> int:

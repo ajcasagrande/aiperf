@@ -13,15 +13,16 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from aiperf.common.enums import MessageType
-from aiperf.common.messages import IOCounters, ProcessHealth, WorkerHealthMessage
-from aiperf.common.models.progress_models import ProfileProgress
+from aiperf.common.messages import WorkerHealthMessage
+from aiperf.common.models import IOCounters, ProcessHealth
 from aiperf.progress.progress_tracker import ProgressTracker
-from aiperf.ui.aiperf_ui import AIPerfUI
-from aiperf.ui.dashboard_element import DashboardElement
-from aiperf.ui.logs_mixin import LogsDashboardMixin
-from aiperf.ui.profile_progress_ui import ProfileProgressElement
-from aiperf.ui.rich_dashboard import AIPerfRichDashboard
-from aiperf.ui.worker_status_ui import WorkerStatusElement
+from aiperf.ui import (
+    AIPerfRichDashboard,
+    DashboardElement,
+    LogsDashboardMixin,
+    ProfileProgressElement,
+    WorkerStatusElement,
+)
 
 
 @pytest.fixture

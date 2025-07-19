@@ -6,11 +6,10 @@ import timeit
 
 sys.path.append("/home/anthony/nvidia/projects/aiperf3/aiperf")
 
-from aiperf.common.aiperf_logger import AIPerfLogger2
+from aiperf.common.aiperf_logger import AIPerfLogger
 
 standard_logger = logging.getLogger("test")
-aiperf_logger = AIPerfLogger2("test")
-
+aiperf_logger = AIPerfLogger("test")
 
 test_value = "test_value"
 iterations = 1000000

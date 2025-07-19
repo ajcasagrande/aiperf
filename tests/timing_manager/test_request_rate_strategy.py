@@ -6,17 +6,20 @@ Comprehensive unit tests for the RequestRateStrategy class.
 
 import asyncio
 import contextlib
+import math
+import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import numpy as np
 import pytest
 
 from aiperf.common.constants import NANOS_PER_SECOND
+from aiperf.common.enums import RequestRateMode
 from aiperf.common.exceptions import InvalidStateError
-from aiperf.common.models import CreditReturnMessage
 from aiperf.services.timing_manager.config import TimingManagerConfig
 from aiperf.services.timing_manager.request_rate_strategy import RequestRateStrategy
-from aiperf.tests.timing_manager.conftest import MockCreditManager
-from aiperf.tests.utils.async_test_utils import real_sleep
+from tests.timing_manager.conftest import MockCreditManager
+from tests.utils.async_test_utils import real_sleep
 
 
 def seconds_to_ns(seconds: float) -> int:
@@ -741,3 +744,224 @@ class TestRequestRateStrategyEdgeCases:
         assert strategy.active_phase.completed == 5
         assert len(mock_credit_manager.credits_complete_calls) == 1
         assert mock_credit_manager.credits_complete_calls[0]["cancelled"] is False
+
+
+@pytest.mark.asyncio
+class TestRequestRateStrategyPoissonDistribution:
+    """Tests for verifying Poisson distribution behavior in RequestRateStrategy."""
+
+    async def test_poisson_rate_follows_exponential_distribution(
+        self, config, mock_credit_manager
+    ):
+        """Test that _execute_poisson_rate generates inter-arrival times following exponential distribution."""
+        # Set up strategy with Poisson mode
+        request_rate = 20.0  # 20 requests per second
+        expected_mean_interval = 1.0 / request_rate  # 0.05 seconds
+        request_count = 200  # Collect enough samples for statistical analysis
+
+        config.request_rate = request_rate
+        config.request_count = request_count
+        config.warmup_request_count = 0
+        config.request_rate_mode = RequestRateMode.POISSON
+        config.random_seed = 42  # For reproducible results
+
+        # Create strategy
+        strategy = RequestRateStrategy(config, mock_credit_manager)
+
+        # Track precise timestamps when credits are dropped
+        credit_drop_times = []
+        original_drop_credit = mock_credit_manager.drop_credit
+
+        async def timestamp_drop_credit(*args, **kwargs):
+            credit_drop_times.append(time.perf_counter())
+            await original_drop_credit(*args, **kwargs)
+
+        mock_credit_manager.drop_credit = timestamp_drop_credit
+
+        # Run the Poisson rate execution
+        start_time = time.perf_counter()
+        await strategy._execute_poisson_rate(strategy.profiling)
+
+        # Calculate inter-arrival times
+        assert len(credit_drop_times) == request_count, (
+            f"Expected {request_count} credits, got {len(credit_drop_times)}"
+        )
+
+        inter_arrival_times = []
+        for i in range(1, len(credit_drop_times)):
+            interval = credit_drop_times[i] - credit_drop_times[i - 1]
+            inter_arrival_times.append(interval)
+
+        inter_arrival_times = np.array(inter_arrival_times)
+
+        # Statistical tests for exponential distribution
+        # 1. Test mean: For exponential distribution with rate λ, mean = 1/λ
+        actual_mean = np.mean(inter_arrival_times)
+        assert (
+            abs(actual_mean - expected_mean_interval) < expected_mean_interval * 0.2
+        ), (
+            f"Mean inter-arrival time {actual_mean:.4f} deviates too much from expected {expected_mean_interval:.4f}"
+        )
+
+        # 2. Test standard deviation: For exponential distribution, std = mean
+        actual_std = np.std(inter_arrival_times)
+        expected_std = expected_mean_interval
+        assert abs(actual_std - expected_std) < expected_std * 0.3, (
+            f"Standard deviation {actual_std:.4f} deviates too much from expected {expected_std:.4f}"
+        )
+
+        # 3. Test coefficient of variation: For exponential distribution, CV = 1
+        cv = actual_std / actual_mean
+        assert abs(cv - 1.0) < 0.2, (
+            f"Coefficient of variation {cv:.4f} should be close to 1.0 for exponential distribution"
+        )
+
+        # 4. Test that ~63.2% of values are less than the mean (exponential CDF property)
+        values_below_mean = np.sum(inter_arrival_times < actual_mean)
+        proportion_below_mean = values_below_mean / len(inter_arrival_times)
+        expected_proportion = 1 - math.exp(-1)  # ≈ 0.632
+        assert abs(proportion_below_mean - expected_proportion) < 0.1, (
+            f"Proportion below mean {proportion_below_mean:.3f} should be close to {expected_proportion:.3f}"
+        )
+
+    async def test_poisson_rate_independence_of_intervals(
+        self, config, mock_credit_manager
+    ):
+        """Test that inter-arrival times in Poisson process are independent (low correlation)."""
+        # Set up strategy with Poisson mode
+        request_rate = 15.0
+        request_count = 150
+
+        config.request_rate = request_rate
+        config.request_count = request_count
+        config.warmup_request_count = 0
+        config.request_rate_mode = RequestRateMode.POISSON
+        config.random_seed = 123  # For reproducible results
+
+        strategy = RequestRateStrategy(config, mock_credit_manager)
+
+        # Track timestamps
+        credit_drop_times = []
+        original_drop_credit = mock_credit_manager.drop_credit
+
+        async def timestamp_drop_credit(*args, **kwargs):
+            credit_drop_times.append(time.perf_counter())
+            await original_drop_credit(*args, **kwargs)
+
+        mock_credit_manager.drop_credit = timestamp_drop_credit
+
+        # Run the Poisson rate execution
+        await strategy._execute_poisson_rate(strategy.profiling)
+
+        # Calculate inter-arrival times
+        inter_arrival_times = []
+        for i in range(1, len(credit_drop_times)):
+            interval = credit_drop_times[i] - credit_drop_times[i - 1]
+            inter_arrival_times.append(interval)
+
+        inter_arrival_times = np.array(inter_arrival_times)
+
+        # Test independence by checking correlation between consecutive intervals
+        # For independent events, correlation should be close to 0
+        if len(inter_arrival_times) > 2:
+            correlation = np.corrcoef(
+                inter_arrival_times[:-1], inter_arrival_times[1:]
+            )[0, 1]
+            # Allow for some variance due to finite sample size, but correlation should be low
+            assert abs(correlation) < 0.2, (
+                f"Correlation between consecutive intervals {correlation:.4f} indicates lack of independence"
+            )
+
+    async def test_poisson_rate_with_different_rates(self, config, mock_credit_manager):
+        """Test that Poisson process works correctly with different request rates."""
+        test_rates = [5.0, 10.0, 50.0]
+
+        for request_rate in test_rates:
+            config.request_rate = request_rate
+            config.request_count = 100
+            config.warmup_request_count = 0
+            config.request_rate_mode = RequestRateMode.POISSON
+            config.random_seed = 42
+
+            strategy = RequestRateStrategy(config, mock_credit_manager)
+
+            # Track timestamps
+            credit_drop_times = []
+            original_drop_credit = mock_credit_manager.drop_credit
+
+            async def timestamp_drop_credit(*args, **kwargs):
+                credit_drop_times.append(time.perf_counter())
+                await original_drop_credit(*args, **kwargs)
+
+            mock_credit_manager.drop_credit = timestamp_drop_credit
+
+            # Reset for each test
+            credit_drop_times.clear()
+            mock_credit_manager.dropped_credits.clear()
+            strategy.profiling.sent = 0
+
+            # Run the test
+            await strategy._execute_poisson_rate(strategy.profiling)
+
+            # Calculate actual rate
+            if len(credit_drop_times) >= 2:
+                total_time = credit_drop_times[-1] - credit_drop_times[0]
+                actual_rate = (len(credit_drop_times) - 1) / total_time
+
+                # Allow for some variance, but rate should be approximately correct
+                assert abs(actual_rate - request_rate) < request_rate * 0.3, (
+                    f"For rate {request_rate}, actual rate {actual_rate:.2f} deviates too much"
+                )
+
+    async def test_poisson_memoryless_property(self, config, mock_credit_manager):
+        """Test the memoryless property of exponential distribution in Poisson process."""
+        request_rate = 25.0
+        request_count = 200
+
+        config.request_rate = request_rate
+        config.request_count = request_count
+        config.warmup_request_count = 0
+        config.request_rate_mode = RequestRateMode.POISSON
+        config.random_seed = 456
+
+        strategy = RequestRateStrategy(config, mock_credit_manager)
+
+        # Track timestamps
+        credit_drop_times = []
+        original_drop_credit = mock_credit_manager.drop_credit
+
+        async def timestamp_drop_credit(*args, **kwargs):
+            credit_drop_times.append(time.perf_counter())
+            await original_drop_credit(*args, **kwargs)
+
+        mock_credit_manager.drop_credit = timestamp_drop_credit
+
+        # Run the test
+        await strategy._execute_poisson_rate(strategy.profiling)
+
+        # Calculate inter-arrival times
+        inter_arrival_times = []
+        for i in range(1, len(credit_drop_times)):
+            interval = credit_drop_times[i] - credit_drop_times[i - 1]
+            inter_arrival_times.append(interval)
+
+        inter_arrival_times = np.array(inter_arrival_times)
+
+        # Test memoryless property: P(X > s + t | X > s) = P(X > t)
+        # We'll test this by checking that conditioning on larger values doesn't change the distribution
+        threshold = np.median(inter_arrival_times)
+        above_threshold = inter_arrival_times[inter_arrival_times > threshold]
+
+        if len(above_threshold) > 10:
+            # For values above threshold, subtract threshold (memoryless property)
+            shifted_values = above_threshold - threshold
+
+            # These shifted values should have the same exponential distribution
+            # Test by comparing means (approximately)
+            original_mean = np.mean(inter_arrival_times)
+            shifted_mean = np.mean(shifted_values)
+
+            # Due to memoryless property, shifted mean should be close to original mean
+            assert abs(shifted_mean - original_mean) < original_mean * 0.4, (
+                f"Memoryless property violated: shifted mean {shifted_mean:.4f} vs original {original_mean:.4f}"
+            )

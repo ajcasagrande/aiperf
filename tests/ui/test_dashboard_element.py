@@ -9,7 +9,7 @@ from rich.align import Align
 from rich.panel import Panel
 from rich.text import Text
 
-from aiperf.ui.dashboard_element import DashboardElement, HeaderElement
+from aiperf.ui import DashboardElement, HeaderElement
 
 
 class TestDashboardElementBase:

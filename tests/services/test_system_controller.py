@@ -13,8 +13,8 @@ from aiperf.common.enums import MessageType, ServiceType
 from aiperf.common.service.base_service import BaseService
 from aiperf.services.service_manager.multiprocess import MultiProcessServiceManager
 from aiperf.services.system_controller.system_controller import SystemController
-from aiperf.tests.base_test_controller_service import BaseTestControllerService
-from aiperf.tests.base_test_service import async_fixture
+from tests.base_test_controller_service import BaseTestControllerService
+from tests.base_test_service import async_fixture
 
 
 class SystemControllerTestConfig(BaseModel):

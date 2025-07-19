@@ -29,7 +29,7 @@ from aiperf.common.comms.zmq import (
 )
 from aiperf.common.config.zmq_config import ZMQIPCConfig, ZMQTCPConfig
 from aiperf.common.enums import CommunicationClientAddressType, CommunicationClientType
-from aiperf.tests.comms.conftest import _TestMessage
+from tests.comms.conftest import _TestMessage
 
 
 @pytest.fixture

@@ -8,10 +8,11 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from aiperf.ui.aiperf_ui import AIPerfUI
-from aiperf.ui.profile_progress_ui import ProfileProgressElement
-from aiperf.ui.rich_dashboard import AIPerfRichDashboard
-from aiperf.ui.worker_status_ui import WorkerStatusElement
+from aiperf.ui import (
+    AIPerfRichDashboard,
+    ProfileProgressElement,
+    WorkerStatusElement,
+)
 
 
 class TestAIPerfUI:

@@ -4,19 +4,10 @@
 
 import time
 
-from aiperf.common.models.progress_models import (
+from aiperf.common.enums import (
     BenchmarkSuiteCompletionTrigger,
     BenchmarkSuiteType,
     ProfileCompletionTrigger,
-    ProfileProgress,
-    ProfileProgressMessage,
-    ProfileResultsMessage,
-    ProfileSuiteProgress,
-    RecordProcessingStatsMessage,
-    SweepCompletionTrigger,
-    SweepProgress,
-    SweepProgressMessage,
-    SweepSuiteProgress,
 )
 
 

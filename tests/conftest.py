@@ -15,10 +15,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from aiperf.common.tokenizer import Tokenizer
-from aiperf.tests.comms.mock_zmq import (
+from tests.comms.mock_zmq import (
     mock_zmq_communication,  # noqa: F401 : used as a fixture
 )
-from aiperf.tests.utils.async_test_utils import MockSemaphore
+from tests.utils.async_test_utils import MockSemaphore
 
 logging.basicConfig(level=logging.DEBUG)
 

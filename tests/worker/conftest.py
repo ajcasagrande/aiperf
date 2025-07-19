@@ -36,9 +36,10 @@ from aiperf.common.enums import (
 from aiperf.common.messages import (
     CommandMessage,
     ConversationResponseMessage,
+    CreditDropMessage,
 )
-from aiperf.common.models import Conversation, CreditDropMessage, RequestRecord, Turn
-from aiperf.services.worker.worker import Worker
+from aiperf.common.models import Conversation, RequestRecord, Turn
+from aiperf.services.workers.worker import Worker
 
 
 @pytest.fixture

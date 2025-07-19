@@ -11,7 +11,7 @@ import pytest
 from aiperf.common.enums import MessageType, ServiceState
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.common.service.base_service import BaseService
-from aiperf.tests.base_test_service import BaseTestService, async_fixture
+from tests.base_test_service import BaseTestService, async_fixture
 
 
 class BaseTestComponentService(BaseTestService):

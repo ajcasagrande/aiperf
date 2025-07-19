@@ -13,7 +13,7 @@ import zmq
 from aiperf.common.comms.zmq import ZMQDealerRequestClient, ZMQRouterReplyClient
 from aiperf.common.enums import MessageType
 from aiperf.common.exceptions import CommunicationError
-from aiperf.tests.comms.conftest import _TestMessage
+from tests.comms.conftest import _TestMessage
 
 
 class TestZMQDealerRequestClient:

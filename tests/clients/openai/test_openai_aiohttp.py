@@ -35,7 +35,6 @@ class TestOpenAIClientAioHttp:
         openai_endpoints = [
             EndpointType.OPENAI_CHAT_COMPLETIONS,
             EndpointType.OPENAI_COMPLETIONS,
-            EndpointType.OPENAI_EMBEDDINGS,
             EndpointType.OPENAI_RESPONSES,
         ]
 
@@ -435,7 +434,6 @@ class TestOpenAIClientAioHttp:
         [
             EndpointType.OPENAI_CHAT_COMPLETIONS,
             EndpointType.OPENAI_COMPLETIONS,
-            EndpointType.OPENAI_EMBEDDINGS,
             EndpointType.OPENAI_RESPONSES,
         ],
     )
@@ -457,7 +455,6 @@ class TestOpenAIClientAioHttp:
         expected_paths = {
             EndpointType.OPENAI_CHAT_COMPLETIONS: "/v1/chat/completions",
             EndpointType.OPENAI_COMPLETIONS: "/v1/completions",
-            EndpointType.OPENAI_EMBEDDINGS: "/v1/embeddings",
             EndpointType.OPENAI_RESPONSES: "/v1/responses",
         }
 

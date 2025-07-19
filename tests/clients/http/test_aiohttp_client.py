@@ -23,7 +23,7 @@ from aiperf.common.enums import EndpointType, ModelSelectionStrategy
 from aiperf.common.models import (
     SSEMessage,
 )
-from aiperf.tests.clients.http.conftest import (
+from tests.clients.http.conftest import (
     assert_error_request_record,
     assert_successful_request_record,
     create_aiohttp_exception,

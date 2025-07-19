@@ -6,10 +6,9 @@ import pytest
 
 from aiperf.clients.client_interfaces import RequestConverterFactory
 from aiperf.clients.model_endpoint_info import EndpointInfo, ModelEndpointInfo
-from aiperf.clients.openai.openai_convert import (
+from aiperf.clients.openai import (
     OpenAIChatCompletionRequestConverter,
     OpenAICompletionRequestConverter,
-    OpenAIEmbeddingsRequestConverter,
     OpenAIResponsesRequestConverter,
 )
 from aiperf.common.enums import EndpointType
@@ -436,7 +435,6 @@ class TestConverterIntegration:
                 OpenAIChatCompletionRequestConverter,
             ),
             (EndpointType.OPENAI_COMPLETIONS, OpenAICompletionRequestConverter),
-            (EndpointType.OPENAI_EMBEDDINGS, OpenAIEmbeddingsRequestConverter),
             (EndpointType.OPENAI_RESPONSES, OpenAIResponsesRequestConverter),
         ]
 
@@ -542,7 +540,6 @@ class TestConverterIntegration:
                 OpenAIChatCompletionRequestConverter,
             ),
             (EndpointType.OPENAI_COMPLETIONS, OpenAICompletionRequestConverter),
-            (EndpointType.OPENAI_EMBEDDINGS, OpenAIEmbeddingsRequestConverter),
             (EndpointType.OPENAI_RESPONSES, OpenAIResponsesRequestConverter),
         ],
     )

@@ -11,10 +11,12 @@ from rich.layout import Layout
 from rich.panel import Panel
 from rich.text import Text
 
-from aiperf.ui.dashboard_element import HeaderElement
-from aiperf.ui.profile_progress_ui import ProfileProgressElement
-from aiperf.ui.rich_dashboard import AIPerfRichDashboard
-from aiperf.ui.worker_status_ui import WorkerStatusElement
+from aiperf.ui import (
+    AIPerfRichDashboard,
+    HeaderElement,
+    ProfileProgressElement,
+    WorkerStatusElement,
+)
 
 
 class TestAIPerfRichDashboard:
@@ -211,7 +213,7 @@ class TestAIPerfRichDashboard:
     def test_dashboard_inheritance(self, aiperf_rich_dashboard):
         """Test dashboard inheritance from mixins."""
         from aiperf.common.hooks import AIPerfLifecycleMixin
-        from aiperf.ui.logs_mixin import LogsDashboardMixin
+        from aiperf.ui import LogsDashboardMixin
 
         assert isinstance(aiperf_rich_dashboard, LogsDashboardMixin)
         assert isinstance(aiperf_rich_dashboard, AIPerfLifecycleMixin)

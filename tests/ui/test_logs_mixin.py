@@ -10,7 +10,7 @@ from collections import deque
 import pytest
 from rich.table import Table
 
-from aiperf.ui.logs_mixin import LogsDashboardElement, LogsDashboardMixin
+from aiperf.ui import LogsDashboardElement, LogsDashboardMixin
 
 
 class TestLogsDashboardMixin:

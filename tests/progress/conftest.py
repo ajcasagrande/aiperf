@@ -12,6 +12,7 @@ from aiperf.common.messages import (
     CreditPhaseCompleteMessage,
     CreditPhaseProgressMessage,
     CreditPhaseStartMessage,
+    ProfileResultsMessage,
     RecordsProcessingStatsMessage,
     WorkerHealthMessage,
 )
@@ -24,7 +25,6 @@ from aiperf.common.models import (
     ProcessHealth,
     WorkerPhaseTaskStats,
 )
-from aiperf.common.models.progress_models import ProfileResultsMessage
 from aiperf.progress.progress_tracker import (
     BenchmarkSuiteProgress,
     ProfileRunProgress,
@@ -82,7 +82,9 @@ def credit_phase_progress_message(credit_phase_stats):
     """Create a CreditPhaseProgressMessage instance."""
     return CreditPhaseProgressMessage(
         service_id="test-service",
-        phase_progress_map={CreditPhase.PROFILING: credit_phase_stats},
+        phase=CreditPhase.PROFILING,
+        sent=50,
+        completed=25,
     )
 
 
@@ -91,7 +93,8 @@ def credit_phase_start_message(credit_phase_stats):
     """Create a CreditPhaseStartMessage instance."""
     return CreditPhaseStartMessage(
         service_id="test-service",
-        phase_stats=credit_phase_stats,
+        phase=CreditPhase.PROFILING,
+        start_ns=time.time_ns(),
     )
 
 
@@ -101,7 +104,8 @@ def credit_phase_complete_message(credit_phase_stats):
     credit_phase_stats.end_ns = time.time_ns()
     return CreditPhaseCompleteMessage(
         service_id="test-service",
-        phase_stats=credit_phase_stats,
+        phase=CreditPhase.PROFILING,
+        completed=25,
     )
 
 
@@ -119,7 +123,6 @@ def records_processing_stats_message(phase_processing_stats):
     """Create a RecordsProcessingStatsMessage instance."""
     return RecordsProcessingStatsMessage(
         service_id="test-service",
-        phase=CreditPhase.PROFILING,
         processing_stats=phase_processing_stats,
         worker_stats={
             "worker-1": PhaseProcessingStats(processed=25, errors=3),

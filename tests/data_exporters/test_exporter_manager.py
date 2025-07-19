@@ -6,9 +6,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from aiperf.common.config import EndPointConfig, OutputConfig, UserConfig
+from aiperf.common.messages import ProfileResultsMessage
 from aiperf.common.models import MetricResult
 from aiperf.data_exporter.exporter_manager import ExporterManager
-from aiperf.progress import ProfileResultsMessage
 
 
 @pytest.fixture
