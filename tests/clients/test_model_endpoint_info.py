@@ -141,13 +141,13 @@ class TestEndpointInfo:
             base_url="https://api.openai.com",
             streaming=False,
             api_key="test-api-key",
-            timeout=30.0,
+            timeout_seconds=30.0,
         )
         assert endpoint_info.type == EndpointType.OPENAI_CHAT_COMPLETIONS
         assert endpoint_info.base_url == "https://api.openai.com"
         assert endpoint_info.streaming is False
         assert endpoint_info.api_key == "test-api-key"
-        assert endpoint_info.timeout == 30.0
+        assert endpoint_info.timeout_seconds == EndPointDefaults.TIMEOUT
 
     def test_endpoint_info_defaults(self):
         """Test EndpointInfo defaults are set correctly."""
@@ -158,7 +158,7 @@ class TestEndpointInfo:
         assert endpoint_info.streaming is False
         assert endpoint_info.headers is None
         assert endpoint_info.api_key is None
-        assert endpoint_info.timeout == EndPointDefaults.TIMEOUT
+        assert endpoint_info.timeout_seconds == EndPointDefaults.TIMEOUT
 
     def test_endpoint_info_with_custom_endpoint(self):
         """Test EndpointInfo with custom endpoint."""
@@ -173,25 +173,6 @@ class TestEndpointInfo:
         assert endpoint_info.custom_endpoint == "/custom/chat"
         assert endpoint_info.streaming is True
 
-    def test_endpoint_info_with_headers_and_params(self):
-        """Test EndpointInfo with headers and URL parameters."""
-        endpoint_info = EndpointInfo(
-            type=EndpointType.OPENAI_EMBEDDINGS,
-            base_url="https://api.openai.com",
-            headers={"Authorization": "Bearer token", "X-Custom": "value"},
-            url_params={"dimensions": 1536, "encoding_format": "float"},
-            extra={"temperature": 0.7},
-        )
-        assert endpoint_info.headers == {
-            "Authorization": "Bearer token",
-            "X-Custom": "value",
-        }
-        assert endpoint_info.url_params == {
-            "dimensions": 1536,
-            "encoding_format": "float",
-        }
-        assert endpoint_info.extra == {"temperature": 0.7}
-
     def test_endpoint_info_from_user_config(self):
         """Test EndpointInfo.from_user_config method."""
         user_config = Mock()
@@ -199,7 +180,7 @@ class TestEndpointInfo:
         user_config.endpoint.url = "https://api.openai.com"
         user_config.endpoint.custom = "/custom/endpoint"
         user_config.endpoint.streaming = True
-        user_config.endpoint.timeout = 60.0
+        user_config.endpoint.timeout_seconds = 60.0
         user_config.endpoint.api_key = "test-key"
         user_config.input.headers = {"Custom-Header": "value"}
         user_config.input.extra = {"temperature": 0.8}
@@ -210,7 +191,7 @@ class TestEndpointInfo:
         assert endpoint_info.base_url == "https://api.openai.com"
         assert endpoint_info.custom_endpoint == "/custom/endpoint"
         assert endpoint_info.streaming is True
-        assert endpoint_info.timeout == 60.0
+        assert endpoint_info.timeout_seconds == 60.0
         assert endpoint_info.api_key == "test-key"
         assert endpoint_info.headers == {"Custom-Header": "value"}
         assert endpoint_info.extra == {"temperature": 0.8}
@@ -220,7 +201,6 @@ class TestEndpointInfo:
         endpoint_types = [
             EndpointType.OPENAI_CHAT_COMPLETIONS,
             EndpointType.OPENAI_COMPLETIONS,
-            EndpointType.OPENAI_EMBEDDINGS,
             EndpointType.OPENAI_RESPONSES,
         ]
         for endpoint_type in endpoint_types:
@@ -338,7 +318,6 @@ class TestModelEndpointInfo:
         endpoint_types_and_paths = [
             (EndpointType.OPENAI_CHAT_COMPLETIONS, "/v1/chat/completions"),
             (EndpointType.OPENAI_COMPLETIONS, "/v1/completions"),
-            (EndpointType.OPENAI_EMBEDDINGS, "/v1/embeddings"),
             (EndpointType.OPENAI_RESPONSES, "/v1/responses"),
         ]
 

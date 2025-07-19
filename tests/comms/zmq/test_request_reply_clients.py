@@ -13,7 +13,7 @@ import zmq
 from aiperf.common.comms.zmq import ZMQDealerRequestClient, ZMQRouterReplyClient
 from aiperf.common.enums import MessageType
 from aiperf.common.exceptions import CommunicationError
-from tests.comms.conftest import _TestMessage
+from tests.comms.conftest import MockTestMessage
 
 
 class TestZMQDealerRequestClient:
@@ -76,7 +76,7 @@ class TestZMQDealerRequestClient:
 
     @pytest.mark.asyncio
     async def test_request_basic(
-        self, mock_zmq_context_instance: MagicMock, test_message: _TestMessage
+        self, mock_zmq_context_instance: MagicMock, test_message: MockTestMessage
     ):
         """Test basic request functionality."""
         client = ZMQDealerRequestClient(
@@ -106,7 +106,7 @@ class TestZMQDealerRequestClient:
 
     @pytest.mark.asyncio
     async def test_request_not_initialized(
-        self, mock_zmq_context_instance: MagicMock, test_message: _TestMessage
+        self, mock_zmq_context_instance: MagicMock, test_message: MockTestMessage
     ):
         """Test request when not initialized."""
         client = ZMQDealerRequestClient(
@@ -125,7 +125,7 @@ class TestZMQDealerRequestClient:
 
     @pytest.mark.asyncio
     async def test_request_with_timeout(
-        self, mock_zmq_context_instance: MagicMock, test_message: _TestMessage
+        self, mock_zmq_context_instance: MagicMock, test_message: MockTestMessage
     ):
         """Test request with custom timeout."""
         client = ZMQDealerRequestClient(
@@ -151,7 +151,7 @@ class TestZMQDealerRequestClient:
 
     @pytest.mark.asyncio
     async def test_request_timeout_error(
-        self, mock_zmq_context_instance: MagicMock, test_message: _TestMessage
+        self, mock_zmq_context_instance: MagicMock, test_message: MockTestMessage
     ):
         """Test request timeout handling."""
         client = ZMQDealerRequestClient(
@@ -173,7 +173,7 @@ class TestZMQDealerRequestClient:
 
     @pytest.mark.asyncio
     async def test_request_async(
-        self, mock_zmq_context_instance: MagicMock, test_message: _TestMessage
+        self, mock_zmq_context_instance: MagicMock, test_message: MockTestMessage
     ):
         """Test asynchronous request functionality."""
         client = ZMQDealerRequestClient(
@@ -199,7 +199,7 @@ class TestZMQDealerRequestClient:
     async def test_multiple_concurrent_requests(
         self,
         mock_zmq_context_instance: MagicMock,
-        multiple_test_messages: list[_TestMessage],
+        multiple_test_messages: list[MockTestMessage],
     ):
         """Test multiple concurrent requests."""
         client = ZMQDealerRequestClient(
@@ -225,7 +225,7 @@ class TestZMQDealerRequestClient:
 
     @pytest.mark.asyncio
     async def test_request_error_handling(
-        self, mock_zmq_context_instance: MagicMock, test_message: _TestMessage
+        self, mock_zmq_context_instance: MagicMock, test_message: MockTestMessage
     ):
         """Test error handling during request."""
         client = ZMQDealerRequestClient(
@@ -247,7 +247,7 @@ class TestZMQDealerRequestClient:
 
     @pytest.mark.asyncio
     async def test_request_context_terminated(
-        self, mock_zmq_context_instance: MagicMock, test_message: _TestMessage
+        self, mock_zmq_context_instance: MagicMock, test_message: MockTestMessage
     ):
         """Test request when context is terminated."""
         client = ZMQDealerRequestClient(
@@ -270,9 +270,7 @@ class TestZMQDealerRequestClient:
         [
             MessageType.STATUS,
             MessageType.HEARTBEAT,
-            MessageType.COMMAND,
             MessageType.ERROR,
-            MessageType.NOTIFICATION,
         ],
     )
     @pytest.mark.asyncio
@@ -286,7 +284,7 @@ class TestZMQDealerRequestClient:
             bind=False,
         )
 
-        message = _TestMessage(message_type=message_type, test_data="test")
+        message = MockTestMessage(test_data="test")
 
         await client.initialize()
 
@@ -390,7 +388,6 @@ class TestZMQRouterReplyClient:
         handlers = {
             ("service1", MessageType.STATUS): AsyncMock(),
             ("service1", MessageType.HEARTBEAT): AsyncMock(),
-            ("service2", MessageType.COMMAND): AsyncMock(),
         }
 
         for (service_id, message_type), handler in handlers.items():
@@ -464,9 +461,7 @@ class TestZMQRouterReplyClient:
         [
             MessageType.STATUS,
             MessageType.HEARTBEAT,
-            MessageType.COMMAND,
             MessageType.ERROR,
-            MessageType.NOTIFICATION,
         ],
     )
     def test_register_different_message_types(
@@ -514,7 +509,7 @@ class TestZMQRouterReplyClient:
 
     @pytest.mark.asyncio
     async def test_request_handler_with_response(
-        self, mock_zmq_context_instance: MagicMock, test_message: _TestMessage
+        self, mock_zmq_context_instance: MagicMock, test_message: MockTestMessage
     ):
         """Test request handler that returns a response."""
         client = ZMQRouterReplyClient(
@@ -524,9 +519,7 @@ class TestZMQRouterReplyClient:
         )
 
         # Create a handler that returns a response
-        response_message = _TestMessage(
-            message_type=MessageType.STATUS, test_data="response"
-        )
+        response_message = MockTestMessage(test_data="response")
 
         async def handler(request):
             return response_message
@@ -548,7 +541,7 @@ class TestZMQRouterReplyClient:
 
     @pytest.mark.asyncio
     async def test_request_handler_no_response(
-        self, mock_zmq_context_instance: MagicMock, test_message: _TestMessage
+        self, mock_zmq_context_instance: MagicMock, test_message: MockTestMessage
     ):
         """Test request handler that returns no response."""
         client = ZMQRouterReplyClient(
@@ -574,7 +567,7 @@ class TestZMQRouterReplyClient:
 
     @pytest.mark.asyncio
     async def test_request_handler_error(
-        self, mock_zmq_context_instance: MagicMock, test_message: _TestMessage
+        self, mock_zmq_context_instance: MagicMock, test_message: MockTestMessage
     ):
         """Test request handler that raises an error."""
         client = ZMQRouterReplyClient(
@@ -604,7 +597,7 @@ class TestRequestReplyIntegration:
 
     @pytest.mark.asyncio
     async def test_request_reply_message_flow(
-        self, mock_zmq_context_instance: MagicMock, test_message: _TestMessage
+        self, mock_zmq_context_instance: MagicMock, test_message: MockTestMessage
     ):
         """Test message flow from REQUEST to REPLY."""
         request_client = ZMQDealerRequestClient(
@@ -645,7 +638,7 @@ class TestRequestReplyIntegration:
     async def test_multiple_clients_single_server(
         self,
         mock_zmq_context_instance: MagicMock,
-        multiple_test_messages: list[_TestMessage],
+        multiple_test_messages: list[MockTestMessage],
     ):
         """Test multiple request clients connecting to a single reply server."""
         request_clients = []
@@ -669,7 +662,7 @@ class TestRequestReplyIntegration:
 
             async def create_handler(msg_type):
                 async def _handler(request):
-                    return _TestMessage(message_type=msg_type, test_data="response")
+                    return MockTestMessage(test_data="response")
 
                 return _handler
 
@@ -705,7 +698,7 @@ class TestRequestReplyIntegration:
 
     @pytest.mark.asyncio
     async def test_request_reply_timeout_handling(
-        self, mock_zmq_context_instance: MagicMock, test_message: _TestMessage
+        self, mock_zmq_context_instance: MagicMock, test_message: MockTestMessage
     ):
         """Test timeout handling in request-reply flow."""
         request_client = ZMQDealerRequestClient(
@@ -746,7 +739,7 @@ class TestRequestReplyIntegration:
 
     @pytest.mark.asyncio
     async def test_request_reply_error_isolation(
-        self, mock_zmq_context_instance: MagicMock, test_message: _TestMessage
+        self, mock_zmq_context_instance: MagicMock, test_message: MockTestMessage
     ):
         """Test that errors in one request don't affect others."""
         request_client = ZMQDealerRequestClient(
@@ -790,7 +783,7 @@ class TestRequestReplyIntegration:
 
     @pytest.mark.asyncio
     async def test_async_request_callback(
-        self, mock_zmq_context_instance: MagicMock, test_message: _TestMessage
+        self, mock_zmq_context_instance: MagicMock, test_message: MockTestMessage
     ):
         """Test asynchronous request with callback."""
         request_client = ZMQDealerRequestClient(
@@ -851,7 +844,7 @@ class TestRequestReplyIntegration:
 
         # Create many messages
         messages = [
-            _TestMessage(
+            MockTestMessage(
                 message_type=MessageType.STATUS, test_data=f"msg_{i}", counter=i
             )
             for i in range(50)

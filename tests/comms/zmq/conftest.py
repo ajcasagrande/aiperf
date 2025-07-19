@@ -29,7 +29,7 @@ from aiperf.common.comms.zmq import (
 )
 from aiperf.common.config.zmq_config import ZMQIPCConfig, ZMQTCPConfig
 from aiperf.common.enums import CommunicationClientAddressType, CommunicationClientType
-from tests.comms.conftest import _TestMessage
+from tests.comms.conftest import MockTestMessage
 
 
 @pytest.fixture
@@ -362,24 +362,24 @@ def client_id_generator() -> Generator[str, None, None]:
 
 
 @pytest.fixture
-def test_messages_batch() -> list[_TestMessage]:
+def test_messages_batch() -> list[MockTestMessage]:
     """Fixture providing a batch of test messages."""
     from aiperf.common.enums import MessageType
 
     return [
-        _TestMessage(
+        MockTestMessage(
             message_type=MessageType.STATUS, test_data="batch_msg_1", counter=1
         ),
-        _TestMessage(
+        MockTestMessage(
             message_type=MessageType.HEARTBEAT, test_data="batch_msg_2", counter=2
         ),
-        _TestMessage(
+        MockTestMessage(
             message_type=MessageType.COMMAND, test_data="batch_msg_3", counter=3
         ),
-        _TestMessage(
+        MockTestMessage(
             message_type=MessageType.ERROR, test_data="batch_msg_4", counter=4
         ),
-        _TestMessage(
+        MockTestMessage(
             message_type=MessageType.NOTIFICATION, test_data="batch_msg_5", counter=5
         ),
     ]

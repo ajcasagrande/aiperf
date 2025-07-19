@@ -2,10 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from abc import ABC
-from types import UnionType
-from typing import Annotated
 
 from pydantic import BaseModel, Field, SerializeAsAny
+from pydantic.fields import FieldInfo
 
 from aiperf.common.config.user_config import UserConfig
 from aiperf.common.enums import MessageType, ServiceType
@@ -71,17 +70,20 @@ class ProcessRecordsCommand(CommandMessage):
 
 def _command_message_type(
     message_type: MessageType,
-    data: type[BaseModel] | Annotated | UnionType | None = None,
+    data_type: type[BaseModel] | None = None,
+    data_field: FieldInfo | None = None,
 ) -> type[CommandMessage]:
     """Create a generic command message class for a given message type."""
 
     # Need to save the message type here for use below in the class definition
     _message_type = message_type
-    _data = data
+    _data_type = data_type
+    _data_field = data_field
 
     class GenericCommandMessage(CommandMessage):
         message_type = _message_type
-        data = _data
+        if _data_type is not None:
+            data: _data_type = _data_field
 
     # Set the class name and docstring
     GenericCommandMessage.__doc__ = f"Message for the {message_type.name} command."
@@ -91,17 +93,21 @@ def _command_message_type(
 
 
 def _command_response_type(
-    message_type: MessageType, data: Field | None = None
+    message_type: MessageType,
+    data_type: type[BaseModel] | None = None,
+    data_field: FieldInfo | None = None,
 ) -> type[CommandResponseMessage]:
     """Create a generic command response class for a given message type."""
 
     # Need to save the message type here for use below in the class definition
     _message_type = message_type
-    _data = data
+    _data_type = data_type
+    _data_field = data_field
 
     class GenericCommandResponseMessage(CommandResponseMessage):
         message_type = _message_type
-        data = _data
+        if _data_type is not None:
+            data: _data_type = _data_field
 
     # Set the class name and docstring
     GenericCommandResponseMessage.__doc__ = (
@@ -114,7 +120,12 @@ def _command_response_type(
 
 # On the fly generated command message types
 ProfileConfigureCommand = _command_message_type(
-    MessageType.PROFILE_CONFIGURE, data=UserConfig
+    MessageType.PROFILE_CONFIGURE,
+    data_type=UserConfig,
+    data_field=Field(
+        default=None,
+        description="The data of the command message. This can be overridden in the subclasses.",
+    ),
 )
 ProfileStartCommand = _command_message_type(MessageType.PROFILE_START)
 ProfileStopCommand = _command_message_type(MessageType.PROFILE_STOP)
@@ -127,5 +138,10 @@ ProfileStopResponse = _command_response_type(MessageType.PROFILE_STOP_RESPONSE)
 ProfileCancelResponse = _command_response_type(MessageType.PROFILE_CANCEL_RESPONSE)
 ShutdownResponse = _command_response_type(MessageType.SHUTDOWN_RESPONSE)
 ProcessRecordsResponse = _command_response_type(
-    MessageType.PROCESS_RECORDS_RESPONSE, data=SerializeAsAny[AIPerfBaseModel]
+    MessageType.PROCESS_RECORDS_RESPONSE,
+    data_type=AIPerfBaseModel,
+    data_field=Field(
+        default=None,
+        description="The data of the command message. This can be overridden in the subclasses.",
+    ),
 )

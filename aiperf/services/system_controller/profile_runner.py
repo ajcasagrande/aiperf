@@ -6,9 +6,9 @@ from typing import TYPE_CHECKING
 
 from aiperf.common.enums import (
     BenchmarkSuiteType,
-    CommandType,
     SystemState,
 )
+from aiperf.common.messages.commands import ProfileStartCommand
 from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.progress.progress_tracker import BenchmarkSuiteProgress, ProfileRunProgress
 
@@ -49,9 +49,10 @@ class ProfileRunner(AIPerfLoggerMixin):
         self.tracker.suite.current_profile_run.start_ns = time.time_ns()
 
         try:
-            await self.controller.send_command_to_service(
-                target_service_id=None,
-                command=CommandType.PROFILE_START,
+            await self.controller.pub_client.publish(
+                ProfileStartCommand(
+                    service_id=self.controller.service_id,
+                )
             )
         except Exception as e:
             self.logger.warning("Failed to start services: %s", e)

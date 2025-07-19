@@ -10,13 +10,13 @@ from unittest.mock import patch
 import pytest
 
 from aiperf.common.enums import (
-    CommandType,
     CreditPhase,
     MessageType,
     ServiceType,
     TimingMode,
 )
-from aiperf.common.messages import CommandMessage, CreditReturnMessage
+from aiperf.common.messages import CreditReturnMessage
+from aiperf.common.messages.commands import ProfileConfigureCommand
 from aiperf.common.service import BaseService
 from aiperf.services.timing_manager import TimingManager, TimingManagerConfig
 from tests.base_test_component_service import BaseTestComponentService
@@ -68,11 +68,8 @@ class TestTimingManager(BaseTestComponentService):
         config.timing_mode = TimingMode.FIXED_SCHEDULE
 
         # Create a Message object with the test file path
-        config_message = CommandMessage(
+        config_message = ProfileConfigureCommand(
             service_id="test-service-id",  # Required - who is sending the command
-            command=CommandType.PROFILE_CONFIGURE,  # Required - what command to execute
-            target_service_id="target-service",  # Optional - who should receive it
-            require_response=True,  # Optional - default is False
             data=config,  # Using TimingManagerConfig as data
         )
 

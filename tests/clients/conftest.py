@@ -15,7 +15,7 @@ from aiperf.common.config.config_defaults import EndPointDefaults
 from aiperf.common.config.endpoint_config import EndPointConfig
 from aiperf.common.config.input_config import InputConfig
 from aiperf.common.config.user_config import UserConfig
-from aiperf.common.enums import EndpointType, ModelSelectionStrategy
+from aiperf.common.enums import EndpointType, Modality, ModelSelectionStrategy
 from aiperf.common.models import (
     Audio,
     Conversation,

@@ -39,10 +39,10 @@ from aiperf.common.messages import Message, StatusMessage
 from aiperf.common.models import AIPerfBaseModel
 
 
-class _TestMessage(Message):
+class MockTestMessage(Message):
     """Test message for communication testing."""
 
-    message_type: MessageType = MessageType.UNKNOWN
+    message_type = MessageType.TEST
     test_data: str = Field(default="test")
     counter: int = Field(default=0)
 
@@ -105,10 +105,11 @@ def mock_zmq_socket() -> Generator[MagicMock, None, None]:
 
 
 @pytest.fixture
-def test_message() -> _TestMessage:
+def test_message() -> MockTestMessage:
     """Fixture providing a test message."""
-    return _TestMessage(
-        message_type=MessageType.STATUS, test_data="test_data", counter=1
+    return MockTestMessage(
+        test_data="test_data",
+        counter=1,
     )
 
 
@@ -227,11 +228,9 @@ def message_types() -> list[MessageType]:
     return [
         MessageType.STATUS,
         MessageType.HEARTBEAT,
-        MessageType.COMMAND,
         MessageType.ERROR,
         MessageType.CREDIT_DROP,
         MessageType.CREDIT_RETURN,
-        MessageType.NOTIFICATION,
     ]
 
 
@@ -288,13 +287,13 @@ def test_timeout() -> float:
 
 
 @pytest.fixture
-def multiple_test_messages() -> list[_TestMessage]:
+def multiple_test_messages() -> list[MockTestMessage]:
     """Fixture providing multiple test messages."""
     return [
-        _TestMessage(message_type=MessageType.STATUS, test_data="msg1", counter=1),
-        _TestMessage(message_type=MessageType.HEARTBEAT, test_data="msg2", counter=2),
-        _TestMessage(message_type=MessageType.COMMAND, test_data="msg3", counter=3),
-        _TestMessage(message_type=MessageType.ERROR, test_data="msg4", counter=4),
+        MockTestMessage(test_data="msg1", counter=1),
+        MockTestMessage(test_data="msg2", counter=2),
+        MockTestMessage(test_data="msg3", counter=3),
+        MockTestMessage(test_data="msg4", counter=4),
     ]
 
 

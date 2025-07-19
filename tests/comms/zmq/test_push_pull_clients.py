@@ -14,7 +14,7 @@ import zmq
 from aiperf.common.comms.zmq import ZMQPullClient, ZMQPushClient
 from aiperf.common.enums import MessageType
 from aiperf.common.exceptions import CommunicationError
-from tests.comms.conftest import _TestMessage
+from tests.comms.conftest import MockTestMessage
 
 
 class TestZMQPushClient:
@@ -55,7 +55,7 @@ class TestZMQPushClient:
     async def test_push_message(
         self,
         zmq_push_bind_client: ZMQPushClient,
-        test_message: _TestMessage,
+        test_message: MockTestMessage,
         mock_zmq_context_instance: MagicMock,
     ):
         """Test pushing a message."""
@@ -77,7 +77,7 @@ class TestZMQPushClient:
 
     @pytest.mark.asyncio
     async def test_push_not_initialized(
-        self, mock_zmq_context_instance: MagicMock, test_message: _TestMessage
+        self, mock_zmq_context_instance: MagicMock, test_message: MockTestMessage
     ):
         """Test pushing when not initialized."""
         client = ZMQPushClient(
@@ -97,7 +97,7 @@ class TestZMQPushClient:
     async def test_push_multiple_messages(
         self,
         mock_zmq_context_instance: MagicMock,
-        multiple_test_messages: list[_TestMessage],
+        multiple_test_messages: list[MockTestMessage],
     ):
         """Test pushing multiple messages."""
         client = ZMQPushClient(
@@ -118,7 +118,7 @@ class TestZMQPushClient:
 
     @pytest.mark.asyncio
     async def test_push_error_handling(
-        self, mock_zmq_context_instance: MagicMock, test_message: _TestMessage
+        self, mock_zmq_context_instance: MagicMock, test_message: MockTestMessage
     ):
         """Test error handling during push."""
         client = ZMQPushClient(
@@ -140,7 +140,7 @@ class TestZMQPushClient:
 
     @pytest.mark.asyncio
     async def test_push_context_terminated(
-        self, mock_zmq_context_instance: MagicMock, test_message: _TestMessage
+        self, mock_zmq_context_instance: MagicMock, test_message: MockTestMessage
     ):
         """Test push when context is terminated."""
         client = ZMQPushClient(
@@ -160,7 +160,7 @@ class TestZMQPushClient:
 
     @pytest.mark.asyncio
     async def test_push_cancelled(
-        self, mock_zmq_context_instance: MagicMock, test_message: _TestMessage
+        self, mock_zmq_context_instance: MagicMock, test_message: MockTestMessage
     ):
         """Test push when cancelled."""
         client = ZMQPushClient(
@@ -183,9 +183,7 @@ class TestZMQPushClient:
         [
             MessageType.STATUS,
             MessageType.HEARTBEAT,
-            MessageType.COMMAND,
             MessageType.ERROR,
-            MessageType.NOTIFICATION,
         ],
     )
     @pytest.mark.asyncio
@@ -199,7 +197,7 @@ class TestZMQPushClient:
             bind=True,
         )
 
-        message = _TestMessage(message_type=message_type, test_data="test")
+        message = MockTestMessage(test_data="test")
 
         await client.initialize()
         await client.push(message)
@@ -214,7 +212,7 @@ class TestZMQPushClient:
     async def test_push_load_balancing(
         self,
         mock_zmq_context_instance: MagicMock,
-        multiple_test_messages: list[_TestMessage],
+        multiple_test_messages: list[MockTestMessage],
     ):
         """Test that push distributes messages (load balancing behavior)."""
         client = ZMQPushClient(
@@ -368,7 +366,6 @@ class TestZMQPullClient:
         callbacks = {
             MessageType.STATUS: AsyncMock(),
             MessageType.HEARTBEAT: AsyncMock(),
-            MessageType.COMMAND: AsyncMock(),
         }
 
         await client.initialize()
@@ -417,9 +414,7 @@ class TestZMQPullClient:
         [
             MessageType.STATUS,
             MessageType.HEARTBEAT,
-            MessageType.COMMAND,
             MessageType.ERROR,
-            MessageType.NOTIFICATION,
         ],
     )
     @pytest.mark.asyncio
@@ -459,9 +454,7 @@ class TestZMQPullClient:
         message_types = [
             MessageType.STATUS,
             MessageType.HEARTBEAT,
-            MessageType.COMMAND,
             MessageType.ERROR,
-            MessageType.NOTIFICATION,
         ]
 
         # Register callbacks concurrently
@@ -503,7 +496,10 @@ class TestPushPullIntegration:
 
     @pytest.mark.asyncio
     async def test_push_pull_message_flow(
-        self, zmq_push_bind_client, zmq_pull_connect_client, test_message: _TestMessage
+        self,
+        zmq_push_bind_client,
+        zmq_pull_connect_client,
+        test_message: MockTestMessage,
     ):
         """Test message flow from PUSH to PULL."""
         push_client = zmq_push_bind_client
@@ -529,7 +525,7 @@ class TestPushPullIntegration:
     async def test_multiple_pushers_single_puller(
         self,
         mock_zmq_context_instance: MagicMock,
-        multiple_test_messages: list[_TestMessage],
+        multiple_test_messages: list[MockTestMessage],
     ):
         """Test multiple pushers sending to a single puller."""
         push_clients = []
@@ -576,7 +572,7 @@ class TestPushPullIntegration:
     async def test_single_pusher_multiple_pullers(
         self,
         mock_zmq_context_instance: MagicMock,
-        multiple_test_messages: list[_TestMessage],
+        multiple_test_messages: list[MockTestMessage],
     ):
         """Test single pusher sending to multiple pullers (load balancing)."""
         push_client = ZMQPushClient(
@@ -626,7 +622,10 @@ class TestPushPullIntegration:
 
     @pytest.mark.asyncio
     async def test_push_pull_error_isolation(
-        self, zmq_push_bind_client, zmq_pull_connect_client, test_message: _TestMessage
+        self,
+        zmq_push_bind_client,
+        zmq_pull_connect_client,
+        test_message: MockTestMessage,
     ):
         """Test that errors in one client don't affect others."""
         push_client = zmq_push_bind_client
@@ -654,7 +653,7 @@ class TestPushPullIntegration:
     async def test_pipeline_pattern(
         self,
         mock_zmq_context_instance: MagicMock,
-        multiple_test_messages: list[_TestMessage],
+        multiple_test_messages: list[MockTestMessage],
     ):
         """Test pipeline pattern with multiple pushers and pullers."""
         # Create multiple pushers (producers)
@@ -716,8 +715,9 @@ class TestPushPullIntegration:
 
         # Create many messages
         messages = [
-            _TestMessage(
-                message_type=MessageType.STATUS, test_data=f"msg_{i}", counter=i
+            MockTestMessage(
+                test_data=f"msg_{i}",
+                counter=i,
             )
             for i in range(100)
         ]

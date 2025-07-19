@@ -14,7 +14,7 @@ import zmq
 from aiperf.common.comms.zmq import ZMQPubClient, ZMQSubClient
 from aiperf.common.enums import MessageType
 from aiperf.common.exceptions import CommunicationError
-from tests.comms.conftest import _TestMessage
+from tests.comms.conftest import MockTestMessage
 
 
 class TestZMQPubClient:
@@ -50,7 +50,7 @@ class TestZMQPubClient:
 
     @pytest.mark.asyncio
     async def test_publish_message(
-        self, zmq_pub_bind_client: ZMQPubClient, test_message: _TestMessage
+        self, zmq_pub_bind_client: ZMQPubClient, test_message: MockTestMessage
     ):
         """Test publishing a message."""
         client = zmq_pub_bind_client
@@ -69,7 +69,7 @@ class TestZMQPubClient:
 
     @pytest.mark.asyncio
     async def test_publish_not_initialized(
-        self, zmq_pub_bind_client: ZMQPubClient, test_message: _TestMessage
+        self, zmq_pub_bind_client: ZMQPubClient, test_message: MockTestMessage
     ):
         """Test publishing when not initialized."""
         client = zmq_pub_bind_client
@@ -85,7 +85,7 @@ class TestZMQPubClient:
     async def test_publish_multiple_messages(
         self,
         zmq_pub_bind_client: ZMQPubClient,
-        multiple_test_messages: list[_TestMessage],
+        multiple_test_messages: list[MockTestMessage],
     ):
         """Test publishing multiple messages."""
         client = zmq_pub_bind_client
@@ -100,7 +100,7 @@ class TestZMQPubClient:
 
     @pytest.mark.asyncio
     async def test_publish_error_handling(
-        self, zmq_pub_bind_client: ZMQPubClient, test_message: _TestMessage
+        self, zmq_pub_bind_client: ZMQPubClient, test_message: MockTestMessage
     ):
         """Test error handling during publish."""
         client = zmq_pub_bind_client
@@ -118,7 +118,7 @@ class TestZMQPubClient:
 
     @pytest.mark.asyncio
     async def test_publish_context_terminated(
-        self, zmq_pub_bind_client: ZMQPubClient, test_message: _TestMessage
+        self, zmq_pub_bind_client: ZMQPubClient, test_message: MockTestMessage
     ):
         """Test publish when context is terminated."""
         client = zmq_pub_bind_client
@@ -134,7 +134,7 @@ class TestZMQPubClient:
 
     @pytest.mark.asyncio
     async def test_publish_cancelled(
-        self, zmq_pub_bind_client: ZMQPubClient, test_message: _TestMessage
+        self, zmq_pub_bind_client: ZMQPubClient, test_message: MockTestMessage
     ):
         """Test publish when cancelled."""
         client = zmq_pub_bind_client
@@ -153,9 +153,7 @@ class TestZMQPubClient:
         [
             MessageType.STATUS,
             MessageType.HEARTBEAT,
-            MessageType.COMMAND,
             MessageType.ERROR,
-            MessageType.NOTIFICATION,
         ],
     )
     @pytest.mark.asyncio
@@ -167,7 +165,7 @@ class TestZMQPubClient:
         """Test publishing different message types."""
         client = zmq_pub_bind_client
 
-        message = _TestMessage(message_type=message_type, test_data="test")
+        message = MockTestMessage(test_data="test")
 
         await client.initialize()
         await client.publish(message)
@@ -347,9 +345,7 @@ class TestZMQSubClient:
         [
             MessageType.STATUS,
             MessageType.HEARTBEAT,
-            MessageType.COMMAND,
             MessageType.ERROR,
-            MessageType.NOTIFICATION,
         ],
     )
     @pytest.mark.asyncio
@@ -409,7 +405,7 @@ class TestPubSubIntegration:
         self,
         zmq_pub_bind_client: ZMQPubClient,
         zmq_sub_connect_client: ZMQSubClient,
-        test_message: _TestMessage,
+        test_message: MockTestMessage,
     ):
         """Test message flow from PUB to SUB."""
         pub_client = zmq_pub_bind_client
@@ -437,7 +433,7 @@ class TestPubSubIntegration:
         self,
         zmq_pub_bind_client: ZMQPubClient,
         zmq_sub_connect_client: ZMQSubClient,
-        multiple_test_messages: list[_TestMessage],
+        multiple_test_messages: list[MockTestMessage],
     ):
         """Test multiple publishers sending to a single subscriber."""
         pub_clients = []
@@ -471,7 +467,7 @@ class TestPubSubIntegration:
         self,
         zmq_pub_bind_client: ZMQPubClient,
         zmq_sub_connect_client: ZMQSubClient,
-        test_message: _TestMessage,
+        test_message: MockTestMessage,
     ):
         """Test single publisher sending to multiple subscribers."""
         pub_client = zmq_pub_bind_client
@@ -511,7 +507,7 @@ class TestPubSubIntegration:
         self,
         zmq_pub_bind_client: ZMQPubClient,
         zmq_sub_connect_client: ZMQSubClient,
-        test_message: _TestMessage,
+        test_message: MockTestMessage,
     ):
         """Test that errors in one client don't affect others."""
         pub_client = zmq_pub_bind_client

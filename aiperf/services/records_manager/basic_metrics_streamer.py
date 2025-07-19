@@ -55,7 +55,7 @@ class BasicMetricsStreamer(StreamingPostProcessor):
             for error_details, count in summary.items()
         ]
 
-    @on_message(MessageType.PROCESS_RECORDS_COMMAND)
+    @on_message(MessageType.PROCESS_RECORDS)
     async def _on_process_records_request(self, message: ProcessRecordsCommand) -> None:
         """Process the records.
 
