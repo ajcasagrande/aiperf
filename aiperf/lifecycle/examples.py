@@ -42,22 +42,22 @@ class SimpleDataService(AIPerf):
         self.data: list[str] = []
         self.processed_count = 0
 
-    async def on_init(self):
+    async def initialize(self):
         """Override and call super() - simple inheritance!"""
-        await super().on_init()  # Always call super()
+        await super().initialize()  # Always call super()
         self.logger.info("Initializing data service...")
         # Simulate database connection
         await asyncio.sleep(0.1)
         self.logger.info("Database connected!")
 
-    async def on_start(self):
+    async def start(self):
         """Override and call super() - simple inheritance!"""
-        await super().on_start()  # Always call super()
+        await super().start()  # Always call super()
         self.logger.info("Data service is now running!")
 
-    async def on_stop(self):
+    async def stop(self):
         """Override and call super() - simple inheritance!"""
-        await super().on_stop()  # Always call super()
+        await super().stop()  # Always call super()
         self.logger.info(
             f"Stopping data service. Processed {self.processed_count} items."
         )
@@ -81,14 +81,14 @@ class MessageHandlingService(AIPerf):
         super().__init__(service_id="message_service")
         self.received_messages: list[dict] = []
 
-    async def on_init(self):
+    async def initialize(self):
         """Simple inheritance - just call super()"""
-        await super().on_init()
+        await super().initialize()
         self.logger.info("Message handling service initializing...")
 
-    async def on_start(self):
+    async def start(self):
         """Simple inheritance - just call super()"""
-        await super().on_start()
+        await super().start()
         self._start_time = time.time()
         self.logger.info("Message handling service started!")
 
@@ -151,14 +151,14 @@ class StatisticsService(AIPerf):
             "start_time": time.time(),
         }
 
-    async def on_init(self):
+    async def initialize(self):
         """Simple inheritance pattern"""
-        await super().on_init()
+        await super().initialize()
         self.logger.info("Statistics service initializing...")
 
-    async def on_start(self):
+    async def start(self):
         """Simple inheritance pattern"""
-        await super().on_start()
+        await super().start()
         self.logger.info("Statistics service ready!")
 
     # Command handlers use decorators - dynamic behavior
@@ -208,20 +208,20 @@ class BackgroundTaskService(AIPerf):
         self.processed_items = 0
         self.health_status = "excellent"
 
-    async def on_init(self):
+    async def initialize(self):
         """Simple inheritance - setup data"""
-        await super().on_init()  # Always call super()
+        await super().initialize()  # Always call super()
         self.work_queue = [f"task_{i}" for i in range(100)]
         self.logger.info(f"Initialized with {len(self.work_queue)} work items")
 
-    async def on_start(self):
+    async def start(self):
         """Simple inheritance - background tasks start automatically"""
-        await super().on_start()  # Always call super() - this starts background tasks!
+        await super().start()  # Always call super() - this starts background tasks!
         self.logger.info("Background task service is running!")
 
-    async def on_stop(self):
+    async def stop(self):
         """Simple inheritance - background tasks stop automatically"""
-        await super().on_stop()  # Always call super() - this stops background tasks!
+        await super().stop()  # Always call super() - this stops background tasks!
         self.logger.info("Background task service stopped!")
 
     # Background tasks use decorators - started/stopped automatically
@@ -312,14 +312,14 @@ class DataProcessorService(AIPerf):
         self.batch_size = 10
         self.processing_enabled = True
 
-    async def on_init(self):
+    async def initialize(self):
         """Initialize the data processor."""
         self.logger.info("Initializing data processor...")
         # Simulate connecting to external services
         await asyncio.sleep(0.1)
         self.logger.info("Connected to external data sources")
 
-    async def on_start(self):
+    async def start(self):
         """Service started notification."""
         self.logger.info("Data processor is now active and processing data!")
         await self.publish_message(

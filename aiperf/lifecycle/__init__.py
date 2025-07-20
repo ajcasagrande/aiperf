@@ -10,7 +10,7 @@ message handling, and background task management. You can use exactly what you n
 Building Blocks:
 - BackgroundTasks: Just background task management
 - Messaging: Just messaging with decorators
-- Lifecycle: Just lifecycle with on_init/on_start/on_stop
+- Lifecycle: Just lifecycle with initialize/start/stop
 
 Combinations:
 - LifecycleWithTasks: Lifecycle + background tasks
@@ -42,13 +42,13 @@ Example - Just messaging:
 
 Example - Just lifecycle:
     class MyComponent(Lifecycle):
-        async def on_init(self):
-            await super().on_init()
+        async def initialize(self):
+            await super().initialize()
 
 Example - Lifecycle + tasks:
     class MyService(LifecycleWithTasks):
-        async def on_init(self):
-            await super().on_init()
+        async def initialize(self):
+            await super().initialize()
 
         @background_task(interval=10.0)
         async def periodic_work(self):
@@ -56,8 +56,8 @@ Example - Lifecycle + tasks:
 
 Example - Everything:
     class MyFullService(Service):  # or AIPerf
-        async def on_init(self):
-            await super().on_init()
+        async def initialize(self):
+            await super().initialize()
 
         @message_handler("DATA")
         async def handle_data(self, message):

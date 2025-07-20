@@ -116,8 +116,8 @@ class MessageTriggerDemo(Service):
         super().__init__(component_id=service_id)
         self.received_messages = []
 
-    async def on_start(self):
-        await super().on_start()
+    async def start(self):
+        await super().start()
         print(f"📡 {self.service_id} is listening for messages")
 
     @message_handler("BROADCAST_EVENT")
@@ -207,8 +207,8 @@ class SyncedCounterService(Service):
         self.global_counter = 0  # Synced across all instances
         self.peer_counters: dict[str, int] = {}  # Track other instances
 
-    async def on_start(self):
-        await super().on_start()
+    async def start(self):
+        await super().start()
         print(f"🔄 {self.instance_id} ready for sync")
 
         # Announce ourselves to other instances
@@ -290,8 +290,8 @@ class DistributedTaskCoordinator(Service):
         self.current_task: str | None = None
         self.completed_tasks: set[str] = set()
 
-    async def on_start(self):
-        await super().on_start()
+    async def start(self):
+        await super().start()
         print(f"⚡ Worker {self.instance_id} ready for coordination")
 
     @message_handler("WORKER_STATUS")
@@ -459,8 +459,8 @@ class LeaderElectionService(Service):
         self.known_nodes: set[str] = set()
         self.leader_id: str | None = None
 
-    async def on_start(self):
-        await super().on_start()
+    async def start(self):
+        await super().start()
 
         # Start election process
         await self.publish_message(

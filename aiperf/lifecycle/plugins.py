@@ -156,9 +156,9 @@ class PluginManager(Service):
         # File monitoring for hot reload
         self._last_scan_time = 0
 
-    async def on_init(self):
+    async def initialize(self):
         """Initialize the plugin manager."""
-        await super().on_init()
+        await super().initialize()
 
         # Create plugins directory if it doesn't exist
         self.plugins_dir.mkdir(exist_ok=True)
@@ -168,9 +168,9 @@ class PluginManager(Service):
 
         self.logger.info(f"Plugin manager initialized - watching {self.plugins_dir}")
 
-    async def on_start(self):
+    async def start(self):
         """Start the plugin manager and all plugins."""
-        await super().on_start()
+        await super().start()
 
         # Discover and load all plugins
         await self.discover_and_load_plugins()
@@ -182,12 +182,12 @@ class PluginManager(Service):
             f"Plugin manager started - {len(self.loaded_plugins)} plugins active"
         )
 
-    async def on_stop(self):
+    async def stop(self):
         """Stop the plugin manager and all plugins."""
         # Stop all plugins in reverse order
         await self.stop_all_plugins()
 
-        await super().on_stop()
+        await super().stop()
         self.logger.info("Plugin manager stopped")
 
     # =================================================================
@@ -559,12 +559,12 @@ class HelloWorldService(Service):
         super().__init__(**kwargs)
         self.greeting_count = 0
 
-    async def on_init(self):
-        await super().on_init()
+    async def initialize(self):
+        await super().initialize()
         self.logger.info("Hello World plugin initialized!")
 
-    async def on_start(self):
-        await super().on_start()
+    async def start(self):
+        await super().start()
         self.logger.info("Hello World plugin started!")
 
     @message_handler("HELLO")
@@ -620,8 +620,8 @@ class DataProcessorService(Service):
         self.processed_items = 0
         self.processing = False
 
-    async def on_init(self):
-        await super().on_init()
+    async def initialize(self):
+        await super().initialize()
         self.logger.info("Data processor plugin initialized!")
 
     @message_handler("PROCESS_DATA")

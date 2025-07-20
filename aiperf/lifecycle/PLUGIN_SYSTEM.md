@@ -69,8 +69,8 @@ class MyPluginService(Service):
         super().__init__(**kwargs)
         self.data_count = 0
 
-    async def on_init(self):
-        await super().on_init()
+    async def initialize(self):
+        await super().initialize()
         self.logger.info("My plugin initialized!")
 
     @message_handler("PROCESS_DATA")
@@ -240,9 +240,9 @@ PLUGIN_METADATA = {
 ### Error Handling
 ```python
 class RobustPlugin(Service):
-    async def on_start(self):
+    async def start(self):
         try:
-            await super().on_start()
+            await super().start()
             await self.setup_external_connections()
         except Exception as e:
             self.logger.error(f"Plugin startup failed: {e}")
@@ -314,14 +314,14 @@ class RobustPlugin(Service):
 ### 3. Proper Lifecycle Management
 ```python
 class DatabasePlugin(Service):
-    async def on_init(self):
-        await super().on_init()
+    async def initialize(self):
+        await super().initialize()
         self.db = await self.connect_database()
 
-    async def on_stop(self):
+    async def stop(self):
         if self.db:
             await self.db.close()
-        await super().on_stop()
+        await super().stop()
 ```
 
 ### 4. Documentation

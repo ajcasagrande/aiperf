@@ -38,16 +38,16 @@ class ManagedLifecycleService(LifecycleService):
                 super().__init__(service_id="my_service")
                 self.data = []
 
-            async def on_init(self):
-                await super().on_init()  # Always call super()
+            async def initialize(self):
+                await super().initialize()  # Always call super()
                 self.db = await connect_database()
 
-            async def on_start(self):
-                await super().on_start()  # Always call super()
+            async def start(self):
+                await super().start()  # Always call super()
                 self.logger.info("Service ready!")
 
-            async def on_stop(self):
-                await super().on_stop()  # Always call super()
+            async def stop(self):
+                await super().stop()  # Always call super()
                 await self.db.close()  # Stop and cleanup together
 
             @message_handler("DATA_RECEIVED")
@@ -82,9 +82,9 @@ class ManagedLifecycleService(LifecycleService):
     # Simple Lifecycle Methods - Override and Call super()
     # =================================================================
 
-    async def on_init(self):
-        """Initialize messaging. Override and call super().on_init()"""
-        await super().on_init()
+    async def initialize(self):
+        """Initialize messaging. Override and call super().initialize()"""
+        await super().initialize()
 
         # Start message bus if not already running
         if not self.message_bus._running:
@@ -98,9 +98,9 @@ class ManagedLifecycleService(LifecycleService):
         # Subscribe to message types this service handles
         self._subscribe_to_messages()
 
-    async def on_stop(self):
-        """Stop and cleanup messaging. Override and call super().on_stop()"""
-        await super().on_stop()
+    async def stop(self):
+        """Stop and cleanup messaging. Override and call super().stop()"""
+        await super().stop()
 
         # Unregister from message bus
         self.message_bus.unregister_service(self.service_id)

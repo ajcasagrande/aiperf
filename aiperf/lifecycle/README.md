@@ -13,12 +13,12 @@ The new system has a clear separation of concerns:
 ### 📦 **Simple Inheritance for Lifecycle**
 ```python
 class MyService(AIPerf):
-    async def on_init(self):
-        await super().on_init()  # Always call super()
+    async def initialize(self):
+        await super().initialize()  # Always call super()
         # Your initialization logic here
 
-    async def on_start(self):
-        await super().on_start()  # Always call super()
+    async def start(self):
+        await super().start()  # Always call super()
         # Your start logic here
 ```
 
@@ -43,7 +43,7 @@ class MyService(AIPerf):
 ```python
 # OLD WAY - Complex multiple inheritance
 class OldService(BaseService, AIPerfMessagePubSubMixin, CommandMessageHandlerMixin, ProcessHealthMixin):
-    @supports_hooks(AIPerfHook.ON_INIT, AIPerfHook.ON_START)
+    @supports_hooks(AIPerfHook.initialize, AIPerfHook.start)
     def __init__(self, service_config, user_config, sub_client, pub_client, **kwargs):
         super().__init__(service_config=service_config, **kwargs)
 
@@ -52,27 +52,27 @@ class NewService(AIPerf):
     def __init__(self):
         super().__init__(service_id="my_service")
 
-    async def on_init(self):
-        await super().on_init()  # Just call super()!
+    async def initialize(self):
+        await super().initialize()  # Just call super()!
         # Your logic here
 ```
 
 ### 🚀 **No Configuration or Auto-Discovery Complexity**
 ```python
 # OLD WAY - Complex auto-discovery and method binding
-@supports_hooks(AIPerfHook.ON_INIT, AIPerfHook.ON_MESSAGE)
+@supports_hooks(AIPerfHook.initialize, AIPerfHook.ON_MESSAGE)
 class OldService(HooksMixin):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)  # Complex initialization
 
-    @on_init  # Auto-discovered through complex introspection
+    @initialize  # Auto-discovered through complex introspection
     async def _initialize(self):
         pass
 
 # NEW WAY - Simple inheritance, decorators only where needed
 class NewService(AIPerf):
-    async def on_init(self):  # Simple inheritance, no decorators needed
-        await super().on_init()
+    async def initialize(self):  # Simple inheritance, no decorators needed
+        await super().initialize()
         # Your logic
 
     @message_handler("DATA")  # Decorators only for dynamic behavior
@@ -87,16 +87,16 @@ class MyService(AIPerf):
     # Simple Lifecycle - Just override and call super()
     # =================================================================
 
-    async def on_init(self):
-        await super().on_init()
+    async def initialize(self):
+        await super().initialize()
         self.db = await connect_database()
 
-    async def on_start(self):
-        await super().on_start()  # This starts background tasks automatically
+    async def start(self):
+        await super().start()  # This starts background tasks automatically
         self.logger.info("Service ready!")
 
-    async def on_stop(self):
-        await super().on_stop()  # This stops background tasks automatically
+    async def stop(self):
+        await super().stop()  # This stops background tasks automatically
         await self.db.close()
 
     # =================================================================
@@ -139,10 +139,10 @@ object
 
 ```mermaid
 graph TD
-    A[Create Service] --> B[on_init]
-    B --> C[on_start]
+    A[Create Service] --> B[initialize]
+    B --> C[start]
     C --> D[Running]
-    D --> E[on_stop]
+    D --> E[stop]
     E --> F[on_cleanup]
     F --> G[Stopped]
 
@@ -164,17 +164,17 @@ class MyService(AIPerf):
         super().__init__(service_id="my_service")
         self.data = []
 
-    async def on_init(self):
-        await super().on_init()  # Always call super()
+    async def initialize(self):
+        await super().initialize()  # Always call super()
         self.logger.info("Setting up resources...")
         self.db = await connect_database()
 
-    async def on_start(self):
-        await super().on_start()  # Always call super()
+    async def start(self):
+        await super().start()  # Always call super()
         self.logger.info("Service is ready!")
 
-    async def on_stop(self):
-        await super().on_stop()  # Always call super()
+    async def stop(self):
+        await super().stop()  # Always call super()
         await self.db.close()
 
     async def on_cleanup(self):
@@ -194,8 +194,8 @@ class DataService(AIPerf):
         super().__init__(service_id="data_service")
         self.processed_count = 0
 
-    async def on_init(self):
-        await super().on_init()
+    async def initialize(self):
+        await super().initialize()
         # Simple initialization
 
     @message_handler("PROCESS_DATA")
@@ -215,8 +215,8 @@ class DataService(AIPerf):
 
 ```python
 class StatusService(AIPerf):
-    async def on_init(self):
-        await super().on_init()
+    async def initialize(self):
+        await super().initialize()
         self.start_time = time.time()
 
     @command_handler("GET_STATUS")
@@ -241,12 +241,12 @@ response = await service.send_command("GET_STATUS", "status_service")
 
 ```python
 class MonitoringService(AIPerf):
-    async def on_init(self):
-        await super().on_init()
+    async def initialize(self):
+        await super().initialize()
         self.metrics = {}
 
-    async def on_start(self):
-        await super().on_start()  # This automatically starts background tasks!
+    async def start(self):
+        await super().start()  # This automatically starts background tasks!
         # No need to manually start tasks
 
     @background_task(interval=10.0)
@@ -267,8 +267,8 @@ class MonitoringService(AIPerf):
 class BaseBusinessService(AIPerf):
     """Base service with common business logic."""
 
-    async def on_init(self):
-        await super().on_init()  # Call LifecycleService.on_init()
+    async def initialize(self):
+        await super().initialize()  # Call LifecycleService.initialize()
         await self.setup_common_business_logic()
 
     async def setup_common_business_logic(self):
@@ -278,8 +278,8 @@ class BaseBusinessService(AIPerf):
 class SpecificBusinessService(BaseBusinessService):
     """Specific business service."""
 
-    async def on_init(self):
-        await super().on_init()  # Call BaseBusinessService.on_init()
+    async def initialize(self):
+        await super().initialize()  # Call BaseBusinessService.initialize()
         await self.setup_specific_logic()
 
     async def setup_specific_logic(self):
@@ -306,8 +306,8 @@ See [`examples.py`](./examples.py) for comprehensive examples including:
 ### Before (Complex System)
 ```python
 @supports_hooks(
-    AIPerfHook.ON_INIT,
-    AIPerfHook.ON_START,
+    AIPerfHook.initialize,
+    AIPerfHook.start,
     AIPerfHook.ON_MESSAGE,
     AIPerfTaskHook.AIPERF_AUTO_TASK
 )
@@ -324,7 +324,7 @@ class OldService(
             **kwargs
         )
 
-    @on_init
+    @initialize
     async def _initialize(self):
         # Complex setup
         pass
@@ -347,8 +347,8 @@ class NewService(AIPerf):
     def __init__(self):
         super().__init__(service_id="my_service")
 
-    async def on_init(self):
-        await super().on_init()  # Simple inheritance
+    async def initialize(self):
+        await super().initialize()  # Simple inheritance
         # Your setup logic
 
     @message_handler("DATA")
@@ -399,12 +399,12 @@ class TestService(AIPerf):
         self.init_called = False
         self.start_called = False
 
-    async def on_init(self):
-        await super().on_init()
+    async def initialize(self):
+        await super().initialize()
         self.init_called = True
 
-    async def on_start(self):
-        await super().on_start()
+    async def start(self):
+        await super().start()
         self.start_called = True
 
     @message_handler("TEST_MESSAGE")

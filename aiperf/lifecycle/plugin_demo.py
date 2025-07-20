@@ -44,12 +44,12 @@ class MainApplication(Service):
         self.plugin_responses = []
         self.data_sent = 0
 
-    async def on_init(self):
-        await super().on_init()
+    async def initialize(self):
+        await super().initialize()
         self.logger.info("🚀 Main application initialized")
 
-    async def on_start(self):
-        await super().on_start()
+    async def start(self):
+        await super().start()
         self.logger.info("🎯 Main application started - ready to work with plugins")
 
     @message_handler("HELLO_RESPONSE")
@@ -134,8 +134,8 @@ class CustomMonitorService(Service):
         self.metrics = {"cpu": 0.0, "memory": 0.0, "network": 0.0}
         self.alert_count = 0
 
-    async def on_init(self):
-        await super().on_init()
+    async def initialize(self):
+        await super().initialize()
         self.logger.info("🔍 Custom monitor plugin initialized!")
 
     @message_handler("DATA_PROCESSED")

@@ -32,25 +32,20 @@ class DemoService(AIPerf):
     # Simple Lifecycle Methods - Just override and call super()
     # =================================================================
 
-    async def on_init(self):
+    async def initialize(self):
         """Simple inheritance - just call super()"""
-        await super().on_init()  # Always call super()
+        await super().initialize()  # Always call super()
         self.logger.info("🚀 Demo service initializing...")
 
-    async def on_start(self):
+    async def start(self):
         """Simple inheritance - just call super()"""
-        await super().on_start()  # Always call super()
+        await super().start()  # Always call super()
         self.logger.info("✅ Demo service started!")
 
-    async def on_stop(self):
+    async def stop(self):
         """Simple inheritance - just call super()"""
-        await super().on_stop()  # Always call super()
+        await super().stop()  # Always call super()
         self.logger.info("⏹️  Demo service stopping...")
-
-    async def on_cleanup(self):
-        """Simple inheritance - just call super()"""
-        await super().on_cleanup()  # Always call super()
-        self.logger.info("🧹 Demo service cleanup complete")
 
     # =================================================================
     # Dynamic Handlers - Use decorators

@@ -38,9 +38,9 @@ class LifecycleService:
     Just override the lifecycle methods you need and call super() to chain properly.
 
     Lifecycle Methods (override and call super()):
-        - async def on_init(self): Initialize resources
-        - async def on_start(self): Start the service
-        - async def on_stop(self): Stop the service and clean up resources
+        - async def initialize(self): Initialize resources
+        - async def start(self): Start the service
+        - async def stop(self): Stop the service and clean up resources
 
     Dynamic Handlers (use decorators):
         - @message_handler("TYPE") for message handling
@@ -52,16 +52,16 @@ class LifecycleService:
             def __init__(self):
                 super().__init__(service_id="my_service")
 
-            async def on_init(self):
-                await super().on_init()  # Always call super()
+            async def initialize(self):
+                await super().initialize()  # Always call super()
                 self.db = await connect_database()
 
-            async def on_start(self):
-                await super().on_start()  # Always call super()
+            async def start(self):
+                await super().start()  # Always call super()
                 self.logger.info("Service ready!")
 
-            async def on_stop(self):
-                await super().on_stop()  # Always call super()
+            async def stop(self):
+                await super().stop()  # Always call super()
                 await self.db.close()  # Stop AND cleanup in one step
 
             @message_handler("DATA")
@@ -109,17 +109,17 @@ class LifecycleService:
     # Simple Lifecycle Methods - Override and Call super()
     # =================================================================
 
-    async def on_init(self):
-        """Override this method to add initialization logic. Always call super().on_init()"""
+    async def initialize(self):
+        """Override this method to add initialization logic. Always call super().initialize()"""
         pass
 
-    async def on_start(self):
-        """Override this method to add start logic. Always call super().on_start()"""
+    async def start(self):
+        """Override this method to add start logic. Always call super().start()"""
         # Start background tasks
         await self._start_background_tasks()
 
-    async def on_stop(self):
-        """Override this method to add stop and cleanup logic. Always call super().on_stop()"""
+    async def stop(self):
+        """Override this method to add stop and cleanup logic. Always call super().stop()"""
         # Stop background tasks
         await self._stop_background_tasks()
 
@@ -135,7 +135,7 @@ class LifecycleService:
         self._state = LifecycleState.INITIALIZING
 
         try:
-            await self.on_init()
+            await self.initialize()
             self._state = LifecycleState.INITIALIZED
             self.logger.info(f"Service {self.service_id} initialized successfully")
 
@@ -152,7 +152,7 @@ class LifecycleService:
         self._state = LifecycleState.STARTING
 
         try:
-            await self.on_start()
+            await self.start()
             self._state = LifecycleState.RUNNING
             self.logger.info(f"Service {self.service_id} started successfully")
 
@@ -170,7 +170,7 @@ class LifecycleService:
 
         try:
             self._stop_event.set()
-            await self.on_stop()  # Does both stop and cleanup in one step
+            await self.stop()  # Does both stop and cleanup in one step
             self._state = LifecycleState.STOPPED
             self.logger.info(f"Service {self.service_id} stopped successfully")
 

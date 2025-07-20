@@ -10,7 +10,7 @@ through single inheritance. Each class adds exactly one responsibility.
 Available Components:
 - BackgroundTasks: Just background task management with decorators
 - Messaging: Just messaging with decorators
-- Lifecycle: Just lifecycle with on_init/on_start/on_stop
+- Lifecycle: Just lifecycle with initialize/start/stop
 - LifecycleWithTasks: Lifecycle + background tasks
 - LifecycleWithMessaging: Lifecycle + messaging
 - Service: Everything (lifecycle + tasks + messaging)
@@ -306,7 +306,7 @@ class Messaging:
 
 class Lifecycle:
     """
-    Just lifecycle with on_init/on_start/on_stop.
+    Just lifecycle with initialize/start/stop.
 
     Use this when you need structured lifecycle but no messaging or tasks.
 
@@ -315,16 +315,16 @@ class Lifecycle:
             def __init__(self):
                 super().__init__(component_id="my_component")
 
-            async def on_init(self):
-                await super().on_init()
+            async def initialize(self):
+                await super().initialize()
                 self.db = await connect_database()
 
-            async def on_start(self):
-                await super().on_start()
+            async def start(self):
+                await super().start()
                 self.logger.info("Component ready!")
 
-            async def on_stop(self):
-                await super().on_stop()
+            async def stop(self):
+                await super().stop()
                 await self.db.close()
 
         component = MyComponent()
@@ -345,16 +345,16 @@ class Lifecycle:
         self.logger = logger or logging.getLogger(self.component_id)
         self._lifecycle_state = "created"
 
-    async def on_init(self):
-        """Override this method to add initialization logic. Always call super().on_init()"""
+    async def initialize(self):
+        """Override this method to add initialization logic. Always call super().initialize()"""
         pass
 
-    async def on_start(self):
-        """Override this method to add start logic. Always call super().on_start()"""
+    async def start(self):
+        """Override this method to add start logic. Always call super().start()"""
         pass
 
-    async def on_stop(self):
-        """Override this method to add stop and cleanup logic. Always call super().on_stop()"""
+    async def stop(self):
+        """Override this method to add stop and cleanup logic. Always call super().stop()"""
         pass
 
     async def initialize(self) -> None:
@@ -365,7 +365,7 @@ class Lifecycle:
         self._lifecycle_state = "initializing"
 
         try:
-            await self.on_init()
+            await self.initialize()
             self._lifecycle_state = "initialized"
             self.logger.info(f"Component {self.component_id} initialized successfully")
         except Exception as e:
@@ -383,7 +383,7 @@ class Lifecycle:
         self._lifecycle_state = "starting"
 
         try:
-            await self.on_start()
+            await self.start()
             self._lifecycle_state = "running"
             self.logger.info(f"Component {self.component_id} started successfully")
         except Exception as e:
@@ -399,7 +399,7 @@ class Lifecycle:
         self._lifecycle_state = "stopping"
 
         try:
-            await self.on_stop()
+            await self.stop()
             self._lifecycle_state = "stopped"
             self.logger.info(f"Component {self.component_id} stopped successfully")
         except Exception as e:
@@ -437,12 +437,12 @@ class LifecycleWithTasks(Lifecycle, BackgroundTasks):
             def __init__(self):
                 super().__init__(component_id="worker")
 
-            async def on_init(self):
-                await super().on_init()
+            async def initialize(self):
+                await super().initialize()
                 self.work_queue = []
 
-            async def on_start(self):
-                await super().on_start()  # This starts background tasks automatically
+            async def start(self):
+                await super().start()  # This starts background tasks automatically
                 self.logger.info("Worker service ready!")
 
             @background_task(interval=5.0)
@@ -455,15 +455,15 @@ class LifecycleWithTasks(Lifecycle, BackgroundTasks):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-    async def on_start(self):
+    async def start(self):
         """Start lifecycle and background tasks."""
-        await super().on_start()
+        await super().start()
         await self.start_tasks()
 
-    async def on_stop(self):
+    async def stop(self):
         """Stop background tasks and lifecycle."""
         await self.stop_tasks()
-        await super().on_stop()
+        await super().stop()
 
 
 class LifecycleWithMessaging(Lifecycle, Messaging):
@@ -478,12 +478,12 @@ class LifecycleWithMessaging(Lifecycle, Messaging):
             def __init__(self):
                 super().__init__(component_id="message_service")
 
-            async def on_init(self):
-                await super().on_init()
+            async def initialize(self):
+                await super().initialize()
                 self.data_store = {}
 
-            async def on_start(self):
-                await super().on_start()  # This starts messaging automatically
+            async def start(self):
+                await super().start()  # This starts messaging automatically
                 self.logger.info("Message service ready!")
 
             @message_handler("STORE_DATA")
@@ -501,15 +501,15 @@ class LifecycleWithMessaging(Lifecycle, Messaging):
             kwargs["service_id"] = kwargs["component_id"]
         super().__init__(**kwargs)
 
-    async def on_start(self):
+    async def start(self):
         """Start lifecycle and messaging."""
-        await super().on_start()
+        await super().start()
         await self.start_messaging()
 
-    async def on_stop(self):
+    async def stop(self):
         """Stop messaging and lifecycle."""
         await self.stop_messaging()
-        await super().on_stop()
+        await super().stop()
 
 
 class Service(LifecycleWithTasks, LifecycleWithMessaging):
@@ -524,12 +524,12 @@ class Service(LifecycleWithTasks, LifecycleWithMessaging):
             def __init__(self):
                 super().__init__(component_id="full_service")
 
-            async def on_init(self):
-                await super().on_init()
+            async def initialize(self):
+                await super().initialize()
                 self.db = await connect_database()
 
-            async def on_start(self):
-                await super().on_start()  # Starts messaging and tasks
+            async def start(self):
+                await super().start()  # Starts messaging and tasks
                 self.logger.info("Full service ready!")
 
             @message_handler("PROCESS_DATA")

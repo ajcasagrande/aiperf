@@ -172,23 +172,23 @@ class DatabaseConnection(Lifecycle):
         self.connection = None
         self.is_connected = False
 
-    async def on_init(self):
+    async def initialize(self):
         """Initialize database connection."""
-        await super().on_init()
+        await super().initialize()
         print("Connecting to database...")
         await asyncio.sleep(0.1)  # Simulate connection time
         self.connection = "mock_db_connection"
         self.is_connected = True
         print("Database connected!")
 
-    async def on_start(self):
+    async def start(self):
         """Start database operations."""
-        await super().on_start()
+        await super().start()
         print("Database ready for operations")
 
-    async def on_stop(self):
+    async def stop(self):
         """Stop and cleanup database."""
-        await super().on_stop()
+        await super().stop()
         print("Closing database connection...")
         self.connection = None
         self.is_connected = False
@@ -236,20 +236,20 @@ class MonitoringService(LifecycleWithTasks):
         self.metrics: dict[str, float] = {}
         self.alert_count = 0
 
-    async def on_init(self):
+    async def initialize(self):
         """Initialize monitoring."""
-        await super().on_init()
+        await super().initialize()
         print("Initializing monitoring system...")
         self.metrics = {"cpu": 0.0, "memory": 0.0, "disk": 0.0}
 
-    async def on_start(self):
+    async def start(self):
         """Start monitoring (automatically starts background tasks)."""
-        await super().on_start()
+        await super().start()
         print("Monitoring service is active!")
 
-    async def on_stop(self):
+    async def stop(self):
         """Stop monitoring (automatically stops background tasks)."""
-        await super().on_stop()
+        await super().stop()
         print("Monitoring stopped. Final metrics:", self.metrics)
 
     @background_task(interval=3.0)
@@ -309,9 +309,9 @@ class ConfigurationService(LifecycleWithMessaging):
         super().__init__(component_id="config_service")
         self.config: dict[str, str] = {}
 
-    async def on_init(self):
+    async def initialize(self):
         """Initialize configuration service."""
-        await super().on_init()
+        await super().initialize()
         print("Loading configuration...")
         self.config = {
             "database_url": "localhost:5432",
@@ -320,14 +320,14 @@ class ConfigurationService(LifecycleWithMessaging):
         }
         print(f"Loaded {len(self.config)} configuration items")
 
-    async def on_start(self):
+    async def start(self):
         """Start configuration service (automatically starts messaging)."""
-        await super().on_start()
+        await super().start()
         print("Configuration service ready for requests!")
 
-    async def on_stop(self):
+    async def stop(self):
         """Stop configuration service (automatically stops messaging)."""
-        await super().on_stop()
+        await super().stop()
         print("Configuration service stopped")
 
     @message_handler("CONFIG_CHANGED")
@@ -416,23 +416,23 @@ class FullDataService(Service):
         self.processed_count = 0
         self.start_time = time.time()
 
-    async def on_init(self):
+    async def initialize(self):
         """Initialize the full service."""
-        await super().on_init()
+        await super().initialize()
         print("Initializing full data service...")
         print("✓ Database connections established")
         print("✓ Cache initialized")
         print("✓ Security configured")
 
-    async def on_start(self):
+    async def start(self):
         """Start the full service (messaging + tasks automatically start)."""
-        await super().on_start()
+        await super().start()
         self.start_time = time.time()
         print("🚀 Full data service is ready!")
 
-    async def on_stop(self):
+    async def stop(self):
         """Stop the full service (messaging + tasks automatically stop)."""
-        await super().on_stop()
+        await super().stop()
         uptime = time.time() - self.start_time
         print(
             f"📊 Service stopped after {uptime:.1f}s, processed {self.processed_count} items"
