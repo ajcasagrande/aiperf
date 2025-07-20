@@ -1,58 +1,20 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-import contextlib
-import logging
+import multiprocessing
+from collections import deque
+from datetime import datetime
 
 from textual.app import ComposeResult
 from textual.containers import Container
 from textual.widgets import RichLog
 
-
-class TextualLogHandler(logging.Handler):
-    """Custom logging handler that sends log messages to a Textual log widget."""
-
-    DEFAULT_CSS = """
-    TextualLogHandler {
-        border: solid $accent;
-        border-title-color: $accent;
-        border-title-background: $surface;
-        height: 100%;
-    }
-    """
-
-    # Map log levels to Rich formatting
-    LOG_LEVEL_STYLES = {
-        logging.ERROR: "bold red",
-        logging.WARNING: "bold yellow",
-        logging.INFO: "bold cyan",
-        logging.DEBUG: "dim",
-    }
-
-    def __init__(self, log_widget: RichLog) -> None:
-        super().__init__()
-        self.log_widget = log_widget
-        # Set a more visually appealing format for the logs
-        formatter = logging.Formatter(
-            "[dim][%(asctime)s][/dim] [bold][%(levelname)s][/bold] [%(name)s]: %(message)s",
-            datefmt="%H:%M:%S.%s",
-        )
-        self.setFormatter(formatter)
-        self.log_widget.border_title = "System Logs"
-
-    def emit(self, record: logging.LogRecord) -> None:
-        """Emit a log record to the Textual log widget with color coding."""
-
-        # Silently ignore errors in log handling to avoid recursion
-        with contextlib.suppress(Exception):
-            if not self.log_widget.display:
-                return
-
-            # style = self.LOG_LEVEL_STYLES.get(record.levelno, "dim")
-            self.log_widget.write(f"{self.format(record)}")
+from aiperf.common.hooks import aiperf_auto_task
+from aiperf.common.logging import get_global_log_queue
+from aiperf.common.mixins import AIPerfLifecycleMixin
 
 
-class LogViewer(Container):
-    """Clean log viewer widget that displays application logs."""
+class LogViewer(Container, AIPerfLifecycleMixin):
+    """Clean log viewer widget that displays application logs using global log queue."""
 
     DEFAULT_CSS = """
     #log-content {
@@ -66,12 +28,31 @@ class LogViewer(Container):
     }
     """
 
-    border_title = "Application Logs"
+    border_title = "System Logs"
 
-    def __init__(self) -> None:
-        super().__init__()
+    # Configuration constants (same as logs_mixin)
+    MAX_LOG_RECORDS = 100
+    MAX_LOG_MESSAGE_LENGTH = 400
+    LOG_REFRESH_INTERVAL_SEC = 0.1
+    MAX_LOG_LOGGER_NAME_LENGTH = 25
+
+    # Color styles for log levels (matching logs_mixin)
+    LOG_LEVEL_STYLES = {
+        "TRACE": "dim",
+        "DEBUG": "dim",
+        "INFO": "green",
+        "NOTICE": "blue",
+        "WARNING": "yellow",
+        "SUCCESS": "bold green",
+        "ERROR": "red",
+        "CRITICAL": "bold red",
+    }
+
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.log_queue: multiprocessing.Queue = get_global_log_queue()
+        self.log_records: deque[dict] = deque(maxlen=self.MAX_LOG_RECORDS)
         self.log_widget: RichLog | None = None
-        self.log_handler: TextualLogHandler | None = None
 
     def compose(self) -> ComposeResult:
         """Compose the clean log viewer layout."""
@@ -80,25 +61,41 @@ class LogViewer(Container):
         )
         yield self.log_widget
 
-    def on_mount(self) -> None:
-        """Set up logging when the widget is mounted."""
-        if self.log_widget:
-            # Create and configure the log handler
-            self.log_handler = TextualLogHandler(self.log_widget)
-            self.log_handler.setLevel(logging.DEBUG)
+    @aiperf_auto_task(interval_sec=LOG_REFRESH_INTERVAL_SEC)
+    async def _consume_logs(self) -> None:
+        """Consume log records from the queue and display them.
 
-            # Add handler to the root logger to capture all logs
-            root_logger = logging.getLogger()
-            root_logger.addHandler(self.log_handler)
+        This is a background task that runs every LOG_REFRESH_INTERVAL_SEC seconds
+        to consume log records from the queue and display them in the log widget.
+        """
+        if self.log_widget is None:
+            return
 
-    def on_unmount(self) -> None:
-        """Clean up logging when the widget is unmounted."""
-        if self.log_handler:
-            # Remove handler from loggers
-            root_logger = logging.getLogger()
-            root_logger.removeHandler(self.log_handler)
+        # Process all pending log records
+        while not self.log_queue.empty():
+            try:
+                log_data = self.log_queue.get_nowait()
+                self.log_records.append(log_data)
+                self._display_log_record(log_data)
+            except Exception:
+                # Silently ignore queue errors to avoid recursion
+                break
 
-            aiperf_logger = logging.getLogger("aiperf")
-            aiperf_logger.removeHandler(self.log_handler)
+    def _display_log_record(self, log_data: dict) -> None:
+        """Display a single log record in the log widget."""
+        if not self.log_widget:
+            return
 
-            self.log_handler = None
+        timestamp = datetime.fromtimestamp(log_data["created"]).strftime("%H:%M:%S.%f")[
+            :-3
+        ]
+        level_style = self.LOG_LEVEL_STYLES.get(log_data["levelname"], "white")
+
+        formatted_log = (
+            f"[dim]{timestamp}[/dim] "
+            f"[blue]{log_data['name']}[/blue] "
+            f"[{level_style}]{log_data['levelname']}[/{level_style}] "
+            f"{log_data['msg']}"
+        )
+
+        self.log_widget.write(formatted_log)

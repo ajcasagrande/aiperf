@@ -34,8 +34,9 @@ def _is_service_in_types(service_id: str, service_types: set[ServiceType]) -> bo
         if (
             service_id == service_type.value
             or service_id.startswith(f"{service_type.value}_")
-            and service_id
-            != f"{service_type.value}_manager"  # for worker vs worker_manager, etc.
+            and not service_id.startswith(
+                f"{service_type.value}_manager"
+            )  # for worker vs worker_manager, etc.
         ):
             return True
 
