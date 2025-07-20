@@ -29,11 +29,12 @@ class AIPerfCommandMessageHandlerMixin(AIPerfLifecycleMixin):
                 hook, AIPerfHookParams.ON_COMMAND_MESSAGE_MESSAGE_TYPES, []
             )
             for message_type in message_types:
+                self.info(
+                    lambda typ=message_type,
+                    hook=hook: f"Registering command message handler for '{typ}': {self.__class__.__name__}.{hook.__name__}"
+                )
                 self._register_command_message_handler(
                     message_type, self._command_handler_wrapper(hook)
-                )
-                self.debug(
-                    lambda typ=message_type: f"Registered command message handler for {typ}"
                 )
 
     def _command_handler_wrapper(self, handler: MessageHandlerT) -> MessageHandlerT:

@@ -11,6 +11,7 @@ from aiperf.common.enums import CommandType, ServiceType
 from aiperf.common.messages.message import AutoRequestID, RequiresRequestID
 from aiperf.common.messages.service_messages import BaseServiceMessage
 from aiperf.common.models import AIPerfBaseModel, ErrorDetails
+from aiperf.common.types import MessageTypeT
 
 
 class CommandMessage(BaseServiceMessage, AutoRequestID, ABC):  # type: ignore
@@ -42,6 +43,11 @@ class CommandMessage(BaseServiceMessage, AutoRequestID, ABC):  # type: ignore
 class CommandResponseMessage(BaseServiceMessage, RequiresRequestID, ABC):  # type: ignore
     """Base class for all command response messages."""
 
+    message_type: MessageTypeT = Field(
+        ...,
+        description="The type of the message. Must be set in the subclass.",
+    )
+
     data: SerializeAsAny[BaseModel] | None = Field(
         default=None,
         description="The data of the command message. This can be overridden in the subclasses.",
@@ -60,7 +66,7 @@ class ProcessRecordsCommand(CommandMessage):
     that it process records.
     """
 
-    message_type = CommandType.PROCESS_RECORDS
+    message_type: MessageTypeT = CommandType.PROCESS_RECORDS
 
     cancelled: bool = Field(
         default=False,
@@ -81,7 +87,7 @@ def _command_message_type(
     _data_field = data_field
 
     class GenericCommandMessage(CommandMessage):
-        message_type = _message_type
+        message_type: MessageTypeT = _message_type
         if _data_type is not None:
             data: _data_type = _data_field
 
@@ -105,7 +111,7 @@ def _command_response_type(
     _data_field = data_field
 
     class GenericCommandResponseMessage(CommandResponseMessage):
-        message_type = _message_type
+        message_type: MessageTypeT = _message_type
         if _data_type is not None:
             data: _data_type = _data_field
 

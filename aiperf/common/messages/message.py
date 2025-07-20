@@ -9,6 +9,7 @@ from pydantic import Field
 from aiperf.common.enums import CommandType, MessageType
 from aiperf.common.models import ExcludeIfNoneModel
 from aiperf.common.pydantic_utils import exclude_if_none
+from aiperf.common.types import MessageTypeT
 
 
 @exclude_if_none(["request_id"])
@@ -47,7 +48,7 @@ class Message(ExcludeIfNoneModel):
         if hasattr(cls, "message_type"):
             cls._message_type_lookup[cls.message_type] = cls
 
-    message_type: ClassVar[MessageType | CommandType] = Field(
+    message_type: MessageTypeT = Field(
         ...,
         description="The type of the message. Must be set in the subclass.",
     )

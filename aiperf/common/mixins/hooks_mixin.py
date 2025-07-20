@@ -44,10 +44,10 @@ class HookSystem(AIPerfLoggerMixin):
             hook_type: The hook type to register the function for.
             func: The function to register.
         """
-        if hook_type not in self.supported_hooks:
-            raise UnsupportedHookError(
-                f"Hook {hook_type} is not supported by class for func {func.__qualname__}."
-            )
+        # if hook_type not in self.supported_hooks:
+        #     raise UnsupportedHookError(
+        #         f"Hook {hook_type} is not supported by class for func {func.__qualname__}."
+        #     )
 
         self._hooks.setdefault(hook_type, []).append(func)
 
@@ -136,6 +136,8 @@ class HooksMixin(BaseMixin):
         """
         Initialize the hook system and register all functions that are decorated with a hook decorator.
         """
+        super().__init__(**kwargs)
+
         # Initialize the hook system
         self._hook_system = HookSystem(self.supported_hooks, **kwargs)
 
@@ -155,8 +157,6 @@ class HooksMixin(BaseMixin):
                     bound_method = attr.__get__(self, cls)
                     # Register the function with the hook type
                     self.register_hook(hook_type, bound_method)
-
-        super().__init__(**kwargs)
 
     def register_hook(self, hook_type: HookType, func: Callable):
         """Register a hook function for a given hook type.

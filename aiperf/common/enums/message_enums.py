@@ -185,3 +185,10 @@ class CommandType(CaseInsensitiveStrEnum):
 
     SHUTDOWN_RESPONSE = "shutdown_response"
     """A message sent by a service to the SystemController to respond to a shutdown request."""
+
+
+def determine_message_type(value: object) -> MessageType | CommandType:
+    try:
+        return MessageType(value)
+    except ValueError:
+        return CommandType(value)

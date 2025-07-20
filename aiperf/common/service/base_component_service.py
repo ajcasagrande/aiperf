@@ -5,8 +5,15 @@ from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.enums import (
     ServiceState,
 )
+from aiperf.common.enums.message_enums import CommandType
 from aiperf.common.exceptions import InitializationError
-from aiperf.common.hooks import aiperf_auto_task, on_init, on_set_state
+from aiperf.common.hooks import (
+    AIPerfHook,
+    aiperf_auto_task,
+    on_command_message,
+    on_init,
+    on_set_state,
+)
 from aiperf.common.messages import (
     CommandMessage,
     CommandResponseMessage,
@@ -84,45 +91,42 @@ class BaseComponentService(BaseService):
         except Exception as e:
             raise InitializationError("Failed to send heartbeat") from e
 
+    @on_command_message(
+        CommandType.PROFILE_CONFIGURE,
+        CommandType.PROFILE_START,
+        CommandType.PROFILE_STOP,
+        CommandType.PROFILE_CANCEL,
+        CommandType.SHUTDOWN,
+    )
     async def process_command_message(self, message: CommandMessage) -> None:
         """Process a command message received from the controller.
 
         This method will process the command message and execute the appropriate action.
         """
-        if message.target_service_id and message.target_service_id != self.service_id:
-            return  # Ignore commands meant for other services
-        if (
-            message.target_service_type
-            and message.target_service_type != self.service_type
-        ):
-            # TODO: Better way to handle this?
-            return  # Ignore commands meant for other services
-
         self.debug(lambda: f"{self.service_id}: Processing command message: {message}")
-        # cmd = message.command
         response_data = None
         try:
-            # if cmd == CommandType.PROFILE_START:
-            #     response_data = await self.start()
+            if message.message_type == CommandType.PROFILE_START:
+                response_data = await self.start()
 
-            # elif cmd == CommandType.SHUTDOWN:
-            #     self.debug(lambda: f"{self.service_id}: Received stop command")
-            #     self.stop_event.set()
+            elif message.message_type == CommandType.SHUTDOWN:
+                self.debug(lambda: f"{self.service_id}: Received shutdown command")
+                await self.stop()
 
-            # elif cmd == CommandType.PROFILE_CONFIGURE:
-            #     await self.run_hooks(AIPerfHook.ON_CONFIGURE, message)
+            elif message.message_type == CommandType.PROFILE_CONFIGURE:
+                response_data = await self.run_hooks(AIPerfHook.ON_CONFIGURE, message)
 
-            # elif cmd in self._command_callbacks:
-            #     response_data = await self._command_callbacks[cmd](message)
-
-            # else:
-            #     raise CommandError(
-            #         f"Received unknown command: {cmd}",
-            #     )
+            else:
+                self.warning(
+                    lambda: f"{self.service_id}: Received unknown command: {message.message_type}"
+                )
+                return
 
             # Publish the success response
             await self.pub_client.publish(
                 CommandResponseMessage(
+                    message_type=message.message_type + "_response",
+                    request_id=message.request_id,
                     service_id=self.service_id,
                     origin_service_id=message.service_id,
                     data=response_data,
@@ -133,6 +137,8 @@ class BaseComponentService(BaseService):
             # Publish the failure response
             await self.pub_client.publish(
                 CommandResponseMessage(
+                    message_type=message.message_type + "_response",
+                    request_id=message.request_id,
                     service_id=self.service_id,
                     origin_service_id=message.service_id,
                     error=ErrorDetails.from_exception(e),

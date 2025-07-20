@@ -80,7 +80,7 @@ class ZMQPubClient(BaseZMQClient):
 
             # Publish message
             await self.socket.send_multipart(
-                [message.message_type.encode(), message_json.encode()]
+                [str(message.message_type).encode(), message_json.encode()]
             )
 
         except (asyncio.CancelledError, zmq.ContextTerminated):

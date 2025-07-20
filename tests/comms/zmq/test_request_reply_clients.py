@@ -13,6 +13,7 @@ import zmq
 from aiperf.common.comms.zmq import ZMQDealerRequestClient, ZMQRouterReplyClient
 from aiperf.common.enums import MessageType
 from aiperf.common.exceptions import CommunicationError
+from aiperf.common.types import MessageTypeT
 from tests.comms.conftest import MockTestMessage
 
 
@@ -367,7 +368,7 @@ class TestZMQRouterReplyClient:
         )
 
         service_id = "test_service"
-        message_type = MessageType.STATUS
+        message_type: MessageTypeT = MessageType.STATUS
 
         client.register_request_handler(service_id, message_type, mock_async_callback)
 
@@ -409,7 +410,7 @@ class TestZMQRouterReplyClient:
         )
 
         service_id = "test_service"
-        message_type = MessageType.STATUS
+        message_type: MessageTypeT = MessageType.STATUS
 
         client.register_request_handler(service_id, message_type, mock_async_callback)
 

@@ -89,6 +89,8 @@ class AIPerfMessagePubSubMixin(AIPerfMessageHandlerMixin, AIPerfMessagePublisher
     def __init__(
         self, sub_client: SubClientProtocol, pub_client: PubClientProtocol, **kwargs
     ) -> None:
+        self.sub_client = sub_client
+        self.pub_client = pub_client
         super().__init__(sub_client=sub_client, pub_client=pub_client, **kwargs)
 
 

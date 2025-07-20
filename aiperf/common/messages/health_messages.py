@@ -6,12 +6,13 @@ from pydantic import Field
 from aiperf.common.enums import CreditPhase, MessageType
 from aiperf.common.messages.service_messages import BaseServiceMessage
 from aiperf.common.models import ProcessHealth, WorkerPhaseTaskStats
+from aiperf.common.types import MessageTypeT
 
 
 class WorkerHealthMessage(BaseServiceMessage):
     """Message for a worker health check."""
 
-    message_type = MessageType.WORKER_HEALTH
+    message_type: MessageTypeT = MessageType.WORKER_HEALTH
 
     process: ProcessHealth = Field(..., description="The health of the worker process")
 

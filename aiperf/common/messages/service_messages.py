@@ -7,6 +7,7 @@ from pydantic import Field
 from aiperf.common.enums import ServiceState, ServiceType
 from aiperf.common.enums.message_enums import MessageType
 from aiperf.common.messages.message import Message
+from aiperf.common.types import MessageTypeT
 
 
 class BaseServiceMessage(Message):
@@ -39,7 +40,7 @@ class StatusMessage(BaseStatusMessage):
     This message is sent by a service to the system controller to report its status.
     """
 
-    message_type = MessageType.STATUS
+    message_type: MessageTypeT = MessageType.STATUS
 
 
 class RegistrationMessage(BaseStatusMessage):
@@ -47,7 +48,7 @@ class RegistrationMessage(BaseStatusMessage):
     This message is sent by a service to the system controller to register itself.
     """
 
-    message_type = MessageType.REGISTRATION
+    message_type: MessageTypeT = MessageType.REGISTRATION
 
     state: ServiceState = ServiceState.READY
 
@@ -58,4 +59,4 @@ class HeartbeatMessage(BaseStatusMessage):
     still running.
     """
 
-    message_type = MessageType.HEARTBEAT
+    message_type: MessageTypeT = MessageType.HEARTBEAT

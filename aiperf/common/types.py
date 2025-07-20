@@ -4,6 +4,8 @@
 from collections.abc import Callable, Coroutine
 from typing import TYPE_CHECKING, Any, TypeVar
 
+from aiperf.common.enums.message_enums import CommandType, MessageType
+
 if TYPE_CHECKING:
     from pydantic import BaseModel
 
@@ -37,3 +39,5 @@ CreditDropHandlerT = Callable[["CreditDropMessage"], CoroutineT]
 
 # Type callables that return a string.
 StrFuncT = Callable[..., str]
+
+MessageTypeT = MessageType | CommandType

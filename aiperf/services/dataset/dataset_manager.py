@@ -29,7 +29,7 @@ from aiperf.common.messages import (
     DatasetTimingRequest,
     DatasetTimingResponse,
 )
-from aiperf.common.messages.commands import ProfileConfigureCommand
+from aiperf.common.messages.commands import CommandMessage
 from aiperf.common.models import Conversation
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.common.tokenizer import Tokenizer
@@ -94,12 +94,15 @@ class DatasetManager(BaseComponentService):
         self.debug(lambda: f"Dataset manager {self.service_id} initialized")
 
     @on_command_message(CommandType.PROFILE_CONFIGURE)
-    async def _configure(self, message: ProfileConfigureCommand) -> None:
+    async def _configure(self, message: CommandMessage) -> None:
         """Configure the dataset manager."""
         # TODO: This is a temporary hack with the changes to user config loading
         self.dataset_configured.clear()
         self.debug(lambda: f"Dataset manager got configure message: {message}")
         await self._configure_dataset()
+        self.debug(
+            lambda: f"Dataset manager '{self.service_id}' successfully configured"
+        )
 
     async def _handle_conversation_request(
         self, message: ConversationRequestMessage

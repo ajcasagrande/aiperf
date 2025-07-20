@@ -37,12 +37,13 @@ from aiperf.common.enums import (
 )
 from aiperf.common.messages import Message, StatusMessage
 from aiperf.common.models import AIPerfBaseModel
+from aiperf.common.types import MessageTypeT
 
 
 class MockTestMessage(Message):
     """Test message for communication testing."""
 
-    message_type = MessageType.TEST
+    message_type: MessageTypeT = MessageType.TEST
     test_data: str = Field(default="test")
     counter: int = Field(default=0)
 
