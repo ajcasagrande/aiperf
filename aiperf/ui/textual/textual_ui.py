@@ -156,85 +156,22 @@ class TextualUI(AIPerfLifecycleMixin):
 
 class AIPerfTextualApp(App):
     CSS = """
-    Screen {
-        background: $surface;
-    }
-
-    Footer {
-        background: $secondary;
-        color: $text;
-    }
-
     #main-container {
         height: 100%;
     }
 
     #dashboard-section {
         height: 3fr;
-        min-height: 15;
+        min-height: 14;
+    }
+
+    Tab {
+        text-style: bold;
     }
 
     #logs-section {
         height: 2fr;
-    }
-
-    Widget {
-        scrollbar-size-vertical: 1;
-        scrollbar-size-horizontal: 1;
-    }
-
-    TabbedContent {
-        height: 1fr;
-        width: 100%;
-    }
-
-    TabPane {
-        height: 1fr;
-        width: 100%;
-        padding: 0;
-    }
-
-    /* Ensure dashboard widgets inside tabs are properly sized */
-    TabPane > ProgressDashboard {
-        height: 1fr;
-        width: 100%;
-    }
-
-    TabPane > WorkerDashboard {
-        height: 1fr;
-        width: 100%;
-    }
-
-    /* Fix for content containers within tabs */
-    TabPane Container {
-        height: auto;
-    }
-
-    TabbedContent ContentSwitcher {
-        height: 1fr;
-    }
-
-    Placeholder {
-        height: 1fr;
-    }
-
-    TabPane Vertical {
-        height: 1fr;
-    }
-
-    /* Horizontal layout for overview tab */
-    TabPane Horizontal {
-        height: 1fr;
-    }
-
-    TabPane Horizontal > ProgressDashboard {
-        width: 1fr;
-        height: 1fr;
-    }
-
-    TabPane Horizontal > WorkerDashboard {
-        width: 1fr;
-        height: 1fr;
+        max-height: 16;
     }
     """
 
@@ -307,8 +244,6 @@ class AIPerfTextualApp(App):
 
     async def action_toggle_log_auto_scroll(self) -> None:
         """Toggle the auto scroll of the log viewer."""
-        if self.log_viewer is None or self.log_viewer.log_widget is None:
+        if self.log_viewer is None:
             return
-        self.log_viewer.log_widget.auto_scroll = (
-            not self.log_viewer.log_widget.auto_scroll
-        )
+        self.log_viewer.auto_scroll = not self.log_viewer.auto_scroll

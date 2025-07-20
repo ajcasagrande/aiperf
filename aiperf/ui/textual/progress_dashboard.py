@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+from rich.align import Align
 from rich.console import RenderableType
 from rich.progress import (
     BarColumn,
@@ -32,21 +33,29 @@ class ProgressDashboard(Container):
         height: 1fr;
         border: round $primary;
         border-title-color: $primary;
-        padding: 1;
+        border-title-style: bold;
+        padding: 0 1 0 1;
     }
 
     #status-display {
         height: auto;
-        margin: 0 0 1 0;
+        margin: 0 1 0 1;
     }
 
     #progress-display {
         height: auto;
-        margin: 0 0 1 0;
+        margin: 0 1 0 1;
     }
 
     #stats-display {
         height: auto;
+    }
+
+    #no-stats-message {
+        height: 1fr;
+        content-align: center middle;
+        color: $warning;
+        text-style: italic;
     }
     """
 
@@ -201,7 +210,10 @@ class ProgressDashboard(Container):
     def _get_stats_table(self) -> RenderableType:
         """Create a statistics table similar to the rich version."""
         if not self.progress_tracker or not self.progress_tracker.current_profile_run:
-            return Text("No statistics available", style="dim")
+            return Align(
+                Text("No profile data available", style="bold italic orange"),
+                align="center",
+            )
 
         profile = self.progress_tracker.current_profile_run
 
@@ -214,7 +226,10 @@ class ProgressDashboard(Container):
                 phase_stats = profile.phase_infos[current_phase]
 
         if not phase_stats:
-            return Text("No phase statistics available", style="dim")
+            return Align(
+                Text("No profile data available", style="bold italic orange"),
+                align="center",
+            )
 
         # Create table with padding (same as rich version)
         stats_table = Table.grid(padding=(0, 1, 0, 0))

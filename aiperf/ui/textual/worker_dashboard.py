@@ -66,17 +66,16 @@ class WorkerStatusTable(Widget):
     }
     DataTable {
         height: 1fr;
-        &:focus {
-            background-tint: $primary 0%;
-        }
+        scrollbar-size-vertical: 1;
+        scrollbar-size-horizontal: 1;
     }
     """
 
     def __init__(self) -> None:
         super().__init__()
         self.data_table: DataTable | None = None
-        self._sort_column = 5  # CPU column
-        self._sort_reverse = True
+        self._sort_column = 0  # Worker ID column
+        self._sort_reverse = False
 
     def compose(self) -> ComposeResult:
         self.data_table = DataTable(cursor_type="row", show_cursor=False)
@@ -170,7 +169,7 @@ class WorkerDashboard(Container):
     WorkerDashboard {
         border: round $primary;
         border-title-color: $primary;
-        border-title-background: $surface;
+        border-title-style: bold;
         height: 1fr;
         layout: vertical;
     }
@@ -179,7 +178,7 @@ class WorkerDashboard(Container):
         height: 1;
         layout: horizontal;
         align: left middle;
-        margin: 0 1 1 1;
+        margin: 0 1 0 1;
     }
 
     .summary-item { margin: 0 1; }
@@ -192,7 +191,7 @@ class WorkerDashboard(Container):
 
     #table-section {
         height: 1fr;
-        margin: 0 1 1 1;
+        margin: 0 0 0 1;
     }
 
     #no-workers-message {

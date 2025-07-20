@@ -2,30 +2,25 @@
 # SPDX-License-Identifier: Apache-2.0
 from datetime import datetime
 
-from textual.app import ComposeResult
-from textual.containers import Container
 from textual.widgets import RichLog
 
 
-class LogViewer(Container):
+class LogViewer(RichLog):
     DEFAULT_CSS = """
-    #log-content {
+    LogViewer {
         border: round $primary;
         border-title-color: $primary;
-        height: 100%;
-        padding: 0;
-        margin: 0;
+        border-title-style: bold;
+        layout: vertical;
         scrollbar-gutter: stable;
         &:focus {
-            background-tint: $foreground 0%;
+            background-tint: $primary 0%;
         }
     }
     """
 
     MAX_LOG_LINES = 1000
     MAX_LOG_MESSAGE_LENGTH = 250
-
-    border_title = "System Logs"
 
     LOG_LEVEL_STYLES = {
         "TRACE": "dim",
@@ -39,24 +34,17 @@ class LogViewer(Container):
     }
 
     def __init__(self, **kwargs) -> None:
-        super().__init__(**kwargs)
-        self.log_widget: RichLog | None = None
-
-    def compose(self) -> ComposeResult:
-        self.log_widget = RichLog(
+        super().__init__(
             highlight=True,
             markup=True,
             wrap=True,
             auto_scroll=True,
-            id="log-content",
             max_lines=self.MAX_LOG_LINES,
+            **kwargs,
         )
-        yield self.log_widget
+        self.border_title = "System Logs"
 
     def display_log_record(self, log_data: dict) -> None:
-        if not self.log_widget:
-            return
-
         timestamp = datetime.fromtimestamp(log_data["created"]).strftime("%H:%M:%S.%f")[
             :-3
         ]
@@ -69,4 +57,4 @@ class LogViewer(Container):
             f"{log_data['msg'][: self.MAX_LOG_MESSAGE_LENGTH]}"
         )
 
-        self.log_widget.write(formatted_log)
+        self.write(formatted_log)
