@@ -13,12 +13,14 @@ from rich.progress import (
     TimeElapsedColumn,
     TimeRemainingColumn,
 )
+from rich.table import Table
 from rich.text import Text
 from textual.app import ComposeResult
 from textual.widget import Widget
 from textual.widgets import Static
 
 from aiperf.common.enums import CreditPhase
+from aiperf.common.utils import format_duration
 from aiperf.progress.progress_tracker import ProgressTracker
 
 
@@ -39,7 +41,12 @@ class SimpleProfileProgressWidget(Widget):
     }
 
     #progress-display {
-        height: 1fr;
+        height: auto;
+        margin: 0 0 1 0;
+    }
+
+    #stats-display {
+        height: auto;
     }
     """
 
@@ -63,15 +70,18 @@ class SimpleProfileProgressWidget(Widget):
         self.profiling_task_id: TaskID | None = None
         self.processing_task_id: TaskID | None = None
 
-        self.status_widget: Static | None = None
+        # self.status_widget: Static | None = None
         self.progress_widget: Static | None = None
+        self.stats_widget: Static | None = None
 
     def compose(self) -> ComposeResult:
-        self.status_widget = Static(self._get_status_text(), id="status-display")
+        # self.status_widget = Static(self._get_status_text(), id="status-display")
         self.progress_widget = Static(self.progress, id="progress-display")
+        self.stats_widget = Static(self._get_stats_table(), id="stats-display")
 
-        yield self.status_widget
+        # yield self.status_widget
         yield self.progress_widget
+        yield self.stats_widget
 
     def set_progress_tracker(self, progress_tracker: ProgressTracker) -> None:
         """Set the progress tracker and reset progress bars."""
@@ -81,38 +91,41 @@ class SimpleProfileProgressWidget(Widget):
 
     def update_display(self) -> None:
         """Update the progress display."""
-        if not self.status_widget or not self.progress_widget:
+        if not self.progress_widget or not self.stats_widget:
             return
 
         # Update status text
-        self.status_widget.update(self._get_status_text())
+        # self.status_widget.update(self._get_status_text())
 
         # Update progress bars
         self._update_progress_bars()
 
-        # Update border title
-        if self.progress_tracker and self.progress_tracker.current_profile_run:
-            profile_id = self.progress_tracker.current_profile_run.profile_id
-            self.border_title = f"Profile Progress: {profile_id or 'Unknown'}"
-        else:
-            self.border_title = "Profile Progress"
+        # Update statistics table
+        self.stats_widget.update(self._get_stats_table())
 
-    def _get_status_text(self) -> RenderableType:
-        """Get current status as Rich text."""
-        if not self.progress_tracker or not self.progress_tracker.current_profile_run:
-            return Text("Waiting for profile run...", style="dim yellow")
+        # # Update border title
+        # if self.progress_tracker and self.progress_tracker.current_profile_run:
+        #     profile_id = self.progress_tracker.current_profile_run.profile_id
+        #     self.border_title = f"Profile Progress: {profile_id or 'Unknown'}"
+        # else:
+        #     self.border_title = "Profile Progress"
 
-        profile = self.progress_tracker.current_profile_run
+    # def _get_status_text(self) -> RenderableType:
+    #     """Get current status as Rich text."""
+    #     if not self.progress_tracker or not self.progress_tracker.current_profile_run:
+    #         return Text("Waiting for profile run...", style="dim yellow")
 
-        if profile.is_complete:
-            return Text("Profile complete", style="bold green")
-        elif profile.is_started:
-            active_phase = self.progress_tracker.active_phase
-            if active_phase:
-                return Text(f"Running {active_phase.value}", style="bold cyan")
-            return Text("Running", style="bold yellow")
-        else:
-            return Text("Preparing...", style="dim")
+    #     profile = self.progress_tracker.current_profile_run
+
+    #     if profile.is_complete:
+    #         return Text("Profile complete", style="bold green")
+    #     elif profile.is_started:
+    #         active_phase = self.progress_tracker.active_phase
+    #         if active_phase:
+    #             return Text(f"Running {active_phase.value}", style="bold cyan")
+    #         return Text("Running", style="bold yellow")
+    #     else:
+    #         return Text("Preparing...", style="dim")
 
     def _update_progress_bars(self) -> None:
         """Update progress bars based on current tracker state."""
@@ -184,6 +197,79 @@ class SimpleProfileProgressWidget(Widget):
         # Refresh the progress widget
         if self.progress_widget:
             self.progress_widget.update(self.progress)
+
+    def _get_stats_table(self) -> RenderableType:
+        """Create a statistics table similar to the rich version."""
+        if not self.progress_tracker or not self.progress_tracker.current_profile_run:
+            return Text("No statistics available", style="dim")
+
+        profile = self.progress_tracker.current_profile_run
+
+        # Get current phase for detailed stats
+        current_phase = None
+        phase_stats = None
+        if self.progress_tracker.active_phase:
+            current_phase = self.progress_tracker.active_phase
+            if current_phase in profile.phase_infos:
+                phase_stats = profile.phase_infos[current_phase]
+
+        if not phase_stats:
+            return Text("No phase statistics available", style="dim")
+
+        # Create table with padding (same as rich version)
+        stats_table = Table.grid(padding=(0, 1, 0, 0))
+        stats_table.add_column(style="bold cyan", justify="right")
+        stats_table.add_column(style="bold white")
+
+        # Status
+        if phase_stats.is_complete:
+            status = Text("Complete", style="bold green")
+        else:
+            status = Text("Processing", style="bold yellow")
+
+        # Error calculations
+        error_percent = 0.0
+        if phase_stats.processed and phase_stats.processed > 0:
+            error_percent = (phase_stats.errors or 0) / phase_stats.processed * 100
+
+        error_color = (
+            "green" if error_percent == 0 else "red" if error_percent > 10 else "yellow"
+        )
+
+        # Add rows to table
+        stats_table.add_row("Status:", status)
+
+        # Progress information
+        if phase_stats.total_expected_requests:
+            progress_percent = (
+                (phase_stats.sent or 0) / phase_stats.total_expected_requests * 100
+            )
+            stats_table.add_row(
+                "Progress:",
+                f"{phase_stats.sent or 0:,} / {phase_stats.total_expected_requests:,} requests "
+                f"({progress_percent:.1f}%)",
+            )
+
+        # Error information
+        stats_table.add_row(
+            "Errors:",
+            f"[{error_color}]{phase_stats.errors or 0:,} / {phase_stats.processed or 0:,} ({error_percent:.1f}%)[/{error_color}]",
+        )
+
+        # Rates
+        stats_table.add_row(
+            "Request Rate:", f"{phase_stats.records_per_second or 0:.1f} req/s"
+        )
+        stats_table.add_row(
+            "Processing Rate:", f"{phase_stats.records_per_second or 0:.1f} req/s"
+        )
+
+        # Timing information
+        stats_table.add_row("Elapsed:", format_duration(phase_stats.elapsed_time))
+        stats_table.add_row("Request ETA:", format_duration(phase_stats.requests_eta))
+        stats_table.add_row("Results ETA:", format_duration(phase_stats.records_eta))
+
+        return stats_table
 
     def _reset_progress_bars(self) -> None:
         """Reset all progress bars."""
