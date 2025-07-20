@@ -96,12 +96,8 @@ class WorkerStatusTable(Widget):
             self._sort_reverse = not self._sort_reverse
         else:
             self._sort_column = event.column_index
-            self._sort_reverse = event.column_index in [
-                2,
-                3,
-                4,
-                5,
-            ]  # Active, Completed, Failed, CPU
+            # Active, Completed, Failed, CPU
+            self._sort_reverse = event.column_index in [2, 3, 4, 5]
 
         # Simple rebuild on sort
         current_data = getattr(self, "_last_data", [])

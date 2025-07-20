@@ -52,7 +52,6 @@ class Message(ExcludeIfNoneModel):
         ...,
         description="The type of the message. Must be set in the subclass.",
     )
-    """The type of the message. Must be set in the subclass."""
 
     request_ns: int = Field(
         default_factory=time.time_ns,
@@ -70,6 +69,8 @@ class Message(ExcludeIfNoneModel):
 
     @classmethod
     def from_json(cls, json_str: str | bytes | bytearray) -> "Message":
+        """Deserialize a message from a JSON string, attempting to auto-detect the message type.
+        NOTE: If you already know the message type, use the more performant :meth:`from_json_with_type` instead."""
         data = json.loads(json_str)
         message_type = data.get("message_type")
         if not message_type:
@@ -86,12 +87,14 @@ class Message(ExcludeIfNoneModel):
     def from_json_with_type(
         cls, message_type: MessageType | CommandType, json_str: str | bytes | bytearray
     ) -> "Message":
-        data = json.loads(json_str)
+        """Deserialize a message from a JSON string with a specific message type.
+        NOTE: This is more performant than :meth:`from_json` because it does not need to
+        convert the JSON string to a dictionary first."""
         # Use cached message type lookup
         message_class = cls._message_type_lookup[message_type]
         if not message_class:
             raise ValueError(f"Unknown message type: {message_type}")
-        return message_class.model_validate(data)
+        return message_class.model_validate_json(json_str)
 
     def to_json(self) -> str:
         return self.model_dump_json()

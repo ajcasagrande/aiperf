@@ -23,6 +23,9 @@ from aiperf.ui.rich.rich_dashboard import (
 from aiperf.ui.rich.rich_ui import (
     RichUI,
 )
+from aiperf.ui.rich.simple_profile_progress import (
+    SimpleProfileProgress,
+)
 from aiperf.ui.rich.worker_status_ui import (
     WorkerStatusElement,
 )
@@ -35,5 +38,6 @@ __all__ = [
     "LogsDashboardMixin",
     "ProfileProgressElement",
     "RichUI",
+    "SimpleProfileProgress",
     "WorkerStatusElement",
 ]

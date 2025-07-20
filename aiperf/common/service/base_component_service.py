@@ -125,7 +125,7 @@ class BaseComponentService(BaseService):
             # Publish the success response
             await self.pub_client.publish(
                 CommandResponseMessage(
-                    message_type=message.message_type + "_response",
+                    message_type=f"{message.message_type}_response",
                     request_id=message.request_id,
                     service_id=self.service_id,
                     origin_service_id=message.service_id,
@@ -137,7 +137,7 @@ class BaseComponentService(BaseService):
             # Publish the failure response
             await self.pub_client.publish(
                 CommandResponseMessage(
-                    message_type=message.message_type + "_response",
+                    message_type=f"{message.message_type}_response",
                     request_id=message.request_id,
                     service_id=self.service_id,
                     origin_service_id=message.service_id,

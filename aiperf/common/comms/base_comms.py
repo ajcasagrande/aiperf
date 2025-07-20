@@ -12,7 +12,13 @@ from aiperf.common.enums import (
     MessageType,
 )
 from aiperf.common.factories import FactoryMixin
-from aiperf.common.types import CoroutineT, MessageHandlerT, MessageOutputT, MessageT
+from aiperf.common.types import (
+    CoroutineT,
+    MessageHandlerT,
+    MessageOutputT,
+    MessageT,
+    MessageTypeT,
+)
 
 ################################################################################
 # Base Communication Client Interfaces
@@ -143,7 +149,7 @@ class SubClientProtocol(CommunicationClientProtocol, Protocol):
 
     async def subscribe(
         self,
-        message_type: MessageType,
+        message_type: MessageTypeT,
         callback: MessageHandlerT,
     ) -> None:
         """Subscribe to a specific message type. The callback will be called when
@@ -153,7 +159,7 @@ class SubClientProtocol(CommunicationClientProtocol, Protocol):
     async def subscribe_all(
         self,
         message_callback_map: Mapping[
-            MessageType, MessageHandlerT | list[MessageHandlerT]
+            MessageTypeT, MessageHandlerT | list[MessageHandlerT]
         ],
     ) -> None:
         """Subscribe to each message type in the map with the corresponding callback(s).

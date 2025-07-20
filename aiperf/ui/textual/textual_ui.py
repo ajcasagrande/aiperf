@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from textual.app import App, ComposeResult
-from textual.containers import Container, Vertical
+from textual.containers import Container, Horizontal, Vertical
 from textual.widgets import (
     TabbedContent,
     TabPane,
@@ -19,8 +19,8 @@ from aiperf.common.messages import Message, WorkerHealthMessage
 from aiperf.common.mixins import AIPerfLifecycleMixin
 from aiperf.progress.progress_tracker import ProgressTracker
 from aiperf.ui.textual.logging_ui import LogViewer
-from aiperf.ui.textual.progress_dashboard import ProgressDashboard
 from aiperf.ui.textual.rich_worker_status_container import RichWorkerStatusContainer
+from aiperf.ui.textual.simple_profile_progress_widget import SimpleProfileProgressWidget
 from aiperf.ui.textual.widgets import Header
 from aiperf.ui.ui_protocol import AIPerfUIFactory
 
@@ -91,20 +91,39 @@ class AIPerfTextualApp(App):
     TabPane Vertical {
         height: 1fr;
     }
+
+    /* Horizontal layout for overview tab */
+    TabPane Horizontal {
+        height: 1fr;
+    }
+
+    TabPane Horizontal > SimpleProfileProgressWidget {
+        width: 1fr;
+        height: 1fr;
+    }
+
+    TabPane Horizontal > RichWorkerStatusContainer {
+        width: 1fr;
+        height: 1fr;
+    }
     """
 
     BINDINGS = [
         ("ctrl+c", "quit", "Quit"),
-        ("1", "switch_tab('performance')", "Performance"),
-        ("2", "switch_tab('workers')", "Workers"),
+        ("1", "switch_tab('overview')", "Overview"),
+        ("2", "switch_tab('performance')", "Performance"),
+        ("3", "switch_tab('workers')", "Workers"),
     ]
 
     def __init__(self, progress_tracker: ProgressTracker) -> None:
         super().__init__()
         self.progress_tracker = progress_tracker
-        self.dashboard: ProgressDashboard | None = None
+        self.dashboard: SimpleProfileProgressWidget | None = None
         self.log_viewer: LogViewer | None = None
         self.worker_dashboard: RichWorkerStatusContainer | None = None
+        # Separate instances for the combined view
+        self.overview_progress: SimpleProfileProgressWidget | None = None
+        self.overview_workers: RichWorkerStatusContainer | None = None
         self.title = "AIPerf Performance Monitor"
         self.sub_title = "Real-time AI Performance Testing Dashboard"
 
@@ -114,9 +133,20 @@ class AIPerfTextualApp(App):
 
         with Vertical(id="main-container"):  # noqa: SIM117 - textual ui layout
             with Container(id="dashboard-section"):  # noqa: SIM117
-                with TabbedContent(initial="performance"):  # noqa: SIM117
+                with TabbedContent(initial="overview"):  # noqa: SIM117
+                    with TabPane("Overview", id="overview"):  # noqa: SIM117
+                        with Horizontal():  # noqa: SIM117
+                            self.overview_progress = SimpleProfileProgressWidget(
+                                self.progress_tracker
+                            )
+                            yield self.overview_progress
+                            self.overview_workers = RichWorkerStatusContainer()
+                            yield self.overview_workers
+
                     with TabPane("Performance Dashboard", id="performance"):  # noqa: SIM117
-                        self.dashboard = ProgressDashboard(self.progress_tracker)
+                        self.dashboard = SimpleProfileProgressWidget(
+                            self.progress_tracker
+                        )
                         yield self.dashboard
 
                     with TabPane("Worker Status", id="workers"):
@@ -170,9 +200,11 @@ class TextualUI(AIPerfLifecycleMixin):
         self.info("Performance testing completed successfully!")
 
         try:
-            # Force refresh the display
+            # Force refresh all displays
             if self.app.dashboard:
                 self.app.dashboard.update_display()
+            if self.app.overview_progress:
+                self.app.overview_progress.update_display()
 
             if self.app.is_running:
                 self.debug("Closing dashboard...")
@@ -183,55 +215,59 @@ class TextualUI(AIPerfLifecycleMixin):
 
     async def on_profile_progress_update(self) -> None:
         """Update the profile progress with enhanced calculations and debugging."""
-        if not self.app.dashboard:
-            return
-
         try:
             profile = self.progress_tracker.current_profile_run
             if profile is None:
                 return
-            # Force refresh the display
-            self.app.dashboard.update_display()
+            # Force refresh all progress displays
+            if self.app.dashboard:
+                self.app.dashboard.update_display()
+            if self.app.overview_progress:
+                self.app.overview_progress.update_display()
 
         except Exception as e:
             self.warning(f"Progress update error: {e}")
 
     async def on_profile_stats_update(self) -> None:
         """Update the profile statistics with enhanced error tracking."""
-        if not self.app.dashboard:
-            return
-
         try:
             profile = self.progress_tracker.current_profile_run
             if profile is None:
                 return
 
-            # Force refresh the display
-            self.app.dashboard.update_display()
+            # Force refresh all progress displays
+            if self.app.dashboard:
+                self.app.dashboard.update_display()
+            if self.app.overview_progress:
+                self.app.overview_progress.update_display()
 
         except Exception as e:
             self.warning(f"Stats update error: {e}")
 
     async def on_worker_health_update(self, message: WorkerHealthMessage) -> None:
         """Update the worker health with enhanced error tracking."""
-        if not self.app.worker_dashboard:
-            return
-
         try:
-            self.app.worker_dashboard.update_worker_health(message)
+            # Update both worker dashboards
+            if self.app.worker_dashboard:
+                self.app.worker_dashboard.update_worker_health(message)
+            if self.app.overview_workers:
+                self.app.overview_workers.update_worker_health(message)
 
         except Exception as e:
             self.warning(f"Worker health update error: {e}")
 
     async def on_message(self, message: Message) -> None:
         """Handle a message from the system controller."""
-        _message_mappings = {
-            MessageType.WORKER_HEALTH: self.on_worker_health_update,
-        }
-
-        if message.message_type in _message_mappings:
-            await _message_mappings[message.message_type](message)
-        else:
-            if not self.app.dashboard:
-                return
-            self.app.dashboard.update_display()
+        try:
+            if message.message_type == MessageType.WORKER_HEALTH:
+                # Type check the message before passing it
+                if isinstance(message, WorkerHealthMessage):
+                    await self.on_worker_health_update(message)
+            else:
+                # Update all progress displays for other message types
+                if self.app.dashboard:
+                    self.app.dashboard.update_display()
+                if self.app.overview_progress:
+                    self.app.overview_progress.update_display()
+        except Exception as e:
+            self.warning(f"Message handling error: {e}")

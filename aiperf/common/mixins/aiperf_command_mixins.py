@@ -19,10 +19,7 @@ class AIPerfCommandMessageHandlerMixin(AIPerfLifecycleMixin):
     def __init__(self, sub_client: SubClientProtocol, **kwargs):
         self.sub_client = sub_client
         super().__init__(sub_client=sub_client, **kwargs)
-        self._command_message_handlers: dict[
-            CommandType,
-            list[MessageHandlerT],
-        ] = {}
+        self._command_message_handlers: dict[CommandType, list[MessageHandlerT]] = {}
 
         for hook in self.get_hooks(AIPerfHook.ON_COMMAND_MESSAGE):
             message_types = getattr(

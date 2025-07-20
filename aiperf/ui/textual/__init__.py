@@ -30,6 +30,9 @@ from aiperf.ui.textual.rich_worker_status_container import (
     WorkerStatusSummary,
     WorkerStatusTable,
 )
+from aiperf.ui.textual.simple_profile_progress_widget import (
+    SimpleProfileProgressWidget,
+)
 from aiperf.ui.textual.textual_ui import (
     AIPerfTextualApp,
     TextualUI,
@@ -63,6 +66,7 @@ __all__ = [
     "ProgressDashboard",
     "RichProfileProgressContainer",
     "RichWorkerStatusContainer",
+    "SimpleProfileProgressWidget",
     "StatusClassifier",
     "StatusIndicator",
     "TextualLogHandler",
