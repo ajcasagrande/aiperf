@@ -61,13 +61,13 @@ class WorkerStatusTable(Widget):
     WorkerStatusTable {
         height: 1fr;
         &:focus {
-            background-tint: $primary 100%;
+            background-tint: $primary 0%;
         }
     }
     DataTable {
         height: 1fr;
         &:focus {
-            background-tint: $primary 100%;
+            background-tint: $primary 0%;
         }
     }
     """

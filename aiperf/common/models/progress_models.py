@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+import time
+
 from pydantic import Field, SerializeAsAny
 
 from aiperf.common.aiperf_logger import AIPerfLogger
@@ -95,9 +97,9 @@ class FullCreditPhaseProgressInfo(
     @property
     def elapsed_time(self) -> float | None:
         """Get the elapsed time."""
-        if not self.start_ns or not self.last_request_update_ns:
+        if not self.start_ns:
             return None
-        return (self.last_request_update_ns - self.start_ns) / NANOS_PER_SECOND
+        return (time.time_ns() - self.start_ns) / NANOS_PER_SECOND
 
 
 class ProfileRunProgress(AIPerfBaseModel):
@@ -232,9 +234,9 @@ class ProfileRunProgress(AIPerfBaseModel):
     @property
     def elapsed_time(self) -> float | None:
         """Get the elapsed time."""
-        if not self.start_ns or not self.last_update_ns:
+        if not self.start_ns:
             return None
-        return (self.last_update_ns - self.start_ns) / NANOS_PER_SECOND
+        return (time.time_ns() - self.start_ns) / NANOS_PER_SECOND
 
     @property
     def eta(self) -> float | None:

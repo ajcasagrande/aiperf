@@ -16,7 +16,7 @@ from rich.progress import (
 from rich.table import Table
 from rich.text import Text
 from textual.app import ComposeResult
-from textual.widget import Widget
+from textual.containers import Container
 from textual.widgets import Static
 
 from aiperf.common.enums import CreditPhase
@@ -24,7 +24,7 @@ from aiperf.common.utils import format_duration
 from aiperf.progress.progress_tracker import ProgressTracker
 
 
-class ProgressDashboard(Widget):
+class ProgressDashboard(Container):
     """Simple textual widget that displays Rich progress bars for profile execution."""
 
     DEFAULT_CSS = """

@@ -23,6 +23,7 @@ class LogViewer(Container):
     """
 
     MAX_LOG_LINES = 1000
+    MAX_LOG_MESSAGE_LENGTH = 250
 
     border_title = "System Logs"
 
@@ -65,7 +66,7 @@ class LogViewer(Container):
             f"[dim]{timestamp}[/dim] "
             f"[blue]{log_data['name']}[/blue] "
             f"[{level_style}]{log_data['levelname']}[/{level_style}] "
-            f"{log_data['msg']}"
+            f"{log_data['msg'][: self.MAX_LOG_MESSAGE_LENGTH]}"
         )
 
         self.log_widget.write(formatted_log)
