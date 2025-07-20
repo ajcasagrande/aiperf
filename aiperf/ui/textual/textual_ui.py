@@ -19,12 +19,12 @@ from aiperf.common.messages import Message, WorkerHealthMessage
 from aiperf.common.mixins import AIPerfLifecycleMixin
 from aiperf.progress.progress_tracker import ProgressTracker
 from aiperf.ui.textual.logging_ui import LogViewer
-from aiperf.ui.textual.rich_worker_status_container import RichWorkerStatusContainer
-from aiperf.ui.textual.simple_profile_progress_widget import SimpleProfileProgressWidget
+from aiperf.ui.textual.progress_dashboard import ProgressDashboard
 from aiperf.ui.textual.widgets import Header
+from aiperf.ui.textual.worker_dashboard import WorkerDashboard
 from aiperf.ui.ui_protocol import AIPerfUIFactory
 
-logger = AIPerfLogger(__name__)
+_logger = AIPerfLogger(__name__)
 
 
 class AIPerfTextualApp(App):
@@ -97,12 +97,12 @@ class AIPerfTextualApp(App):
         height: 1fr;
     }
 
-    TabPane Horizontal > SimpleProfileProgressWidget {
+    TabPane Horizontal > ProgressDashboard {
         width: 1fr;
         height: 1fr;
     }
 
-    TabPane Horizontal > RichWorkerStatusContainer {
+    TabPane Horizontal > WorkerDashboard {
         width: 1fr;
         height: 1fr;
     }
@@ -118,12 +118,12 @@ class AIPerfTextualApp(App):
     def __init__(self, progress_tracker: ProgressTracker) -> None:
         super().__init__()
         self.progress_tracker = progress_tracker
-        self.dashboard: SimpleProfileProgressWidget | None = None
+        self.dashboard: ProgressDashboard | None = None
         self.log_viewer: LogViewer | None = None
-        self.worker_dashboard: RichWorkerStatusContainer | None = None
+        self.worker_dashboard: WorkerDashboard | None = None
         # Separate instances for the combined view
-        self.overview_progress: SimpleProfileProgressWidget | None = None
-        self.overview_workers: RichWorkerStatusContainer | None = None
+        self.overview_progress: ProgressDashboard | None = None
+        self.overview_workers: WorkerDashboard | None = None
         self.title = "AIPerf Performance Monitor"
         self.sub_title = "Real-time AI Performance Testing Dashboard"
 
@@ -136,21 +136,19 @@ class AIPerfTextualApp(App):
                 with TabbedContent(initial="overview"):  # noqa: SIM117
                     with TabPane("Overview", id="overview"):  # noqa: SIM117
                         with Horizontal():  # noqa: SIM117
-                            self.overview_progress = SimpleProfileProgressWidget(
+                            self.overview_progress = ProgressDashboard(
                                 self.progress_tracker
                             )
                             yield self.overview_progress
-                            self.overview_workers = RichWorkerStatusContainer()
+                            self.overview_workers = WorkerDashboard()
                             yield self.overview_workers
 
                     with TabPane("Performance Dashboard", id="performance"):  # noqa: SIM117
-                        self.dashboard = SimpleProfileProgressWidget(
-                            self.progress_tracker
-                        )
+                        self.dashboard = ProgressDashboard(self.progress_tracker)
                         yield self.dashboard
 
                     with TabPane("Worker Status", id="workers"):
-                        self.worker_dashboard = RichWorkerStatusContainer()
+                        self.worker_dashboard = WorkerDashboard()
                         yield self.worker_dashboard
 
             with Container(id="logs-section"):
@@ -165,7 +163,7 @@ class AIPerfTextualApp(App):
             tabbed_content = self.query_one(TabbedContent)
             tabbed_content.active = tab_id
         except Exception as e:
-            logger.error(f"Error switching to tab {tab_id}: {e}")
+            _logger.error(f"Error switching to tab {tab_id}: {e}")
 
     async def action_quit(self) -> None:
         """Show confirmation dialog as an overlay."""

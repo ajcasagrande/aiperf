@@ -1,282 +1,161 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+import contextlib
 import time
-from collections.abc import Callable
+from typing import NamedTuple
 
+from rich.text import Text
 from textual.app import ComposeResult
-from textual.containers import Container, ScrollableContainer, Vertical
-from textual.css.query import NoMatches
+from textual.containers import Container, Horizontal, Vertical
 from textual.widget import Widget
-from textual.widgets import Label
+from textual.widgets import DataTable, Label, Static
 
-from aiperf.common.config import ServiceConfig
-from aiperf.common.constants import NANOS_PER_SECOND
-from aiperf.common.enums import ServiceType
-from aiperf.common.hooks import on_init
+from aiperf.common.enums import CaseInsensitiveStrEnum, CreditPhase
 from aiperf.common.messages import WorkerHealthMessage
-from aiperf.common.mixins import AIPerfLifecycleMixin, AIPerfLoggerMixin
-from aiperf.common.service.base_component_service import BaseComponentService
-from aiperf.ui.textual.widgets import StatusIndicator
+from aiperf.common.models import AIPerfBaseModel, IOCounters, WorkerPhaseTaskStats
+from aiperf.common.utils import format_bytes
 
 
-class WorkerRow(Widget, AIPerfLoggerMixin):
-    """A single row in the worker table showing worker name and metrics."""
+class WorkerStatus(CaseInsensitiveStrEnum):
+    HEALTHY = "healthy"
+    HIGH_LOAD = "high_load"
+    ERROR = "error"
+    IDLE = "idle"
+    STALE = "stale"
 
+    @property
+    def style(self) -> str:
+        styles = {
+            self.HEALTHY: "bold #6fbc76",
+            self.HIGH_LOAD: "bold yellow",
+            self.ERROR: "bold red",
+            self.IDLE: "dim",
+            self.STALE: "dim white",
+        }
+        return styles[self]
+
+
+class WorkerStatusSummary(AIPerfBaseModel):
+    healthy_count: int = 0
+    warning_count: int = 0
+    error_count: int = 0
+    idle_count: int = 0
+    stale_count: int = 0
+
+
+class WorkerData(NamedTuple):
+    worker_id: str
+    status: WorkerStatus
+    in_progress: int
+    completed: int
+    failed: int
+    cpu_usage: float
+    memory_mb: float
+    io_read_bytes: int
+    io_write_bytes: int
+
+
+class WorkerStatusTable(Widget):
     DEFAULT_CSS = """
-    WorkerRow {
-        height: 1;
-        layout: grid;
-        grid-size: 7;
-        grid-columns: 3fr 2fr 1fr 1fr 1fr 1fr 1fr;
-        margin: 0;
-        padding: 0 1 0 0;
-    }
-
-    WorkerRow:hover {
-        background: $surface-lighten-1;
-    }
-
-    WorkerRow > Label {
-        margin: 0;
-        padding: 0;
-        text-align: left;
-        overflow: hidden;
-    }
-
-    .worker-name {
-        text-style: bold;
-    }
-
-    .status-healthy {
-        color: $success;
-        text-style: bold;
-    }
-
-    .status-warning {
-        color: $warning;
-        text-style: bold;
-    }
-
-    .status-error {
-        color: $error;
-        text-style: bold;
-    }
-
-    .status-idle {
-        color: $text-muted;
-    }
-
-    .status-stale {
-        color: $surface-darken-1;
-    }
-    """
-
-    def __init__(self, worker_id: str) -> None:
-        super().__init__()
-        self.worker_id = worker_id
-        self.health_message: WorkerHealthMessage | None = None
-        self.last_update_time = time.time()
-
-    def compose(self) -> ComposeResult:
-        """Compose the worker row with name and metrics."""
-        yield Label(self.worker_id, classes="worker-name", id="worker-name")
-        yield Label("Unknown", id="status")
-        yield Label("0", id="in-progress-tasks")
-        yield Label("0", id="completed-tasks")
-        yield Label("0", id="failed-tasks")
-        yield Label("0.0%", id="cpu")
-        yield Label("0.0 MB", id="memory")
-
-    def update_health(self, health_message: WorkerHealthMessage) -> None:
-        """Update the worker health display."""
-        self.health_message = health_message
-        self.last_update_time = time.time()
-
-        if not self.is_mounted:
-            return
-
-        try:
-            # Calculate worker status
-            error_rate = (
-                health_message.failed_tasks / health_message.total_tasks
-                if health_message.total_tasks > 0
-                else 0
-            )
-
-            # Determine overall status and styling
-            if error_rate > 0.1:  # More than 10% error rate
-                status_text = "Error"
-                status_class = "status-error"
-            elif health_message.process.cpu_usage > 75:  # High CPU usage
-                status_text = "High Load"
-                status_class = "status-warning"
-            elif health_message.total_tasks == 0:  # No tasks processed
-                status_text = "Idle"
-                status_class = "status-idle"
-            else:
-                status_text = "Healthy"
-                status_class = "status-healthy"
-
-            # Update labels
-            self.query_one("#status", Label).update(status_text)
-            self.query_one("#status", Label).remove_class(
-                "status-healthy",
-                "status-warning",
-                "status-error",
-                "status-idle",
-                "status-stale",
-            )
-            self.query_one("#status", Label).add_class(status_class)
-
-            self.query_one("#in-progress-tasks", Label).update(
-                f"{health_message.in_progress_tasks}"
-            )
-            self.query_one("#completed-tasks", Label).update(
-                f"{health_message.completed_tasks}"
-            )
-            self.query_one("#failed-tasks", Label).update(
-                f"{health_message.failed_tasks}"
-            )
-
-            self.query_one("#cpu", Label).update(
-                f"{health_message.process.cpu_usage:.1f}%"
-            )
-
-            # Format memory in MB for cleaner display
-            memory_mb = health_message.process.memory_usage
-            if memory_mb >= 1024:
-                memory_display = f"{memory_mb / 1024:.1f} GB"
-            else:
-                memory_display = f"{memory_mb:.0f} MB"
-
-            self.query_one("#memory", Label).update(memory_display)
-
-        except NoMatches:
-            pass
-        except Exception as e:
-            self.error(f"Error updating worker {self.worker_id} health: {e}")
-
-    def check_stale(self, current_time: float, stale_threshold: float = 30.0) -> None:
-        """Check if worker data is stale and update styling accordingly."""
-        if (
-            current_time - self.last_update_time <= stale_threshold
-            or not self.is_mounted
-        ):
-            return
-
-        try:
-            self.query_one("#status", Label).update("Stale")
-            self.query_one("#status", Label).remove_class(
-                "status-healthy", "status-warning", "status-error", "status-idle"
-            )
-            self.query_one("#status", Label).add_class("status-stale")
-        except NoMatches:
-            pass
-        except Exception as e:
-            self.error(f"Error updating stale status for worker {self.worker_id}: {e}")
-
-
-class WorkerTable(Widget, AIPerfLoggerMixin):
-    """Table widget for displaying worker information."""
-
-    DEFAULT_CSS = """
-    WorkerTable {
-        height: auto;
-        layout: vertical;
-        margin: 0;
-        min-height: 0;
-    }
-
-    #table-header {
-        height: 1;
-
-        background: $surface-lighten-1;
-        border-bottom: round $primary;
-        padding: 0 0;
-        margin: 0 0 0 0;
-    }
-
-    #table-header Label {
-        text-style: bold;
-        text-align: left;
-        margin: 0;
-        padding: 0;
-    }
-
-    #table-body {
-        height: auto;
-        layout: vertical;
-        margin: 0;
-        min-height: 0;
-    }
+    WorkerStatusTable { height: 1fr; }
+    DataTable { height: 1fr; }
     """
 
     def __init__(self) -> None:
         super().__init__()
-        self.worker_rows: dict[str, WorkerRow] = {}
-        self.pending_workers: list[str] = []
+        self.data_table: DataTable | None = None
+        self._sort_column = 5  # CPU column
+        self._sort_reverse = True
 
     def compose(self) -> ComposeResult:
-        """Compose the table with header and body."""
-        yield Container(
-            Label("Worker ID"),
-            Label("Status"),
-            Label("In Progress"),
-            Label("Completed"),
-            Label("Failed"),
-            Label("CPU"),
-            Label("Memory"),
-            id="table-header",
-        )
-        yield Vertical(id="table-body")
+        self.data_table = DataTable(cursor_type="row", show_cursor=False)
+        yield self.data_table
 
     def on_mount(self) -> None:
-        """Handle mounting and add any pending workers."""
-        # Add any workers that were queued before mounting
-        for worker_id in self.pending_workers:
-            self._mount_worker(worker_id)
-        self.pending_workers.clear()
+        if self.data_table:
+            columns = [
+                "Worker ID",
+                "Status",
+                "Active",
+                "Completed",
+                "Failed",
+                "CPU",
+                "Memory",
+                "Read",
+                "Write",
+            ]
+            for col in columns:
+                self.data_table.add_column(col)
 
-    def add_worker(self, worker_id: str) -> None:
-        """Add a new worker row to the table."""
-        if worker_id not in self.worker_rows:
-            worker_row = WorkerRow(worker_id)
-            self.worker_rows[worker_id] = worker_row
+    def on_data_table_header_selected(self, event: DataTable.HeaderSelected) -> None:
+        if not self.data_table:
+            return
 
-            if self.is_mounted:
-                self._mount_worker(worker_id)
-            else:
-                # Queue for later mounting
-                self.pending_workers.append(worker_id)
+        if event.column_index == self._sort_column:
+            self._sort_reverse = not self._sort_reverse
+        else:
+            self._sort_column = event.column_index
+            # Active, Completed, Failed, CPU
+            self._sort_reverse = event.column_index in [2, 3, 4, 5]
 
-    def _mount_worker(self, worker_id: str) -> None:
-        """Mount a worker row to the table body."""
-        if worker_id in self.worker_rows:
-            try:
-                table_body = self.query_one("#table-body")
-                table_body.mount(self.worker_rows[worker_id])
-            except Exception as e:
-                self.error(f"Error mounting worker {worker_id}: {e}")
+        # Simple rebuild on sort
+        current_data = getattr(self, "_last_data", [])
+        if current_data:
+            self.update_workers(current_data)
 
-    def update_worker(
-        self, worker_id: str, health_message: WorkerHealthMessage
-    ) -> None:
-        """Update a worker's information."""
-        if worker_id not in self.worker_rows:
-            self.add_worker(worker_id)
+    def update_workers(self, workers_data: list[WorkerData]) -> None:
+        if not self.data_table:
+            return
 
-        self.worker_rows[worker_id].update_health(health_message)
+        self._last_data = workers_data
+        self.data_table.clear()
 
-    def check_stale_workers(self, current_time: float) -> None:
-        """Check all workers for stale data."""
-        for worker_row in self.worker_rows.values():
-            worker_row.check_stale(current_time)
+        # Sort data
+        if workers_data:
+            sort_key_funcs = [
+                lambda w: w.worker_id,
+                lambda w: w.status.value,
+                lambda w: w.in_progress,
+                lambda w: w.completed,
+                lambda w: w.failed,
+                lambda w: w.cpu_usage,
+                lambda w: w.memory_mb,
+                lambda w: w.io_read_bytes,
+                lambda w: w.io_write_bytes,
+            ]
+            workers_data = sorted(
+                workers_data,
+                key=sort_key_funcs[self._sort_column],
+                reverse=self._sort_reverse,
+            )
+
+        # Add rows
+        for worker in workers_data:
+            memory_display = (
+                f"{worker.memory_mb / 1024:.1f} GB"
+                if worker.memory_mb >= 1024
+                else f"{worker.memory_mb:.0f} MB"
+            )
+
+            row = [
+                Text(worker.worker_id, style="bold cyan"),
+                Text(
+                    worker.status.value.replace("_", " ").title(),
+                    style=worker.status.style,
+                ),
+                f"{worker.in_progress:,}",
+                f"{worker.completed:,}",
+                f"{worker.failed:,}",
+                f"{worker.cpu_usage:.1f}%",
+                memory_display,
+                format_bytes(worker.io_read_bytes),
+                format_bytes(worker.io_write_bytes),
+            ]
+            self.data_table.add_row(*row)
 
 
-class WorkerDashboard(Container, AIPerfLoggerMixin):
-    """Dashboard displaying the status of all workers in a table format."""
-
+class WorkerDashboard(Container):
     DEFAULT_CSS = """
     WorkerDashboard {
         border: round $primary;
@@ -286,267 +165,223 @@ class WorkerDashboard(Container, AIPerfLoggerMixin):
         layout: vertical;
     }
 
-    #worker-summary {
-        height: 3;
-        margin: 0;
+    #summary-content {
+        height: 1;
         layout: horizontal;
+        align: left middle;
+        margin: 0 1 1 1;
     }
 
-    #workers-scroll {
+    .summary-item { margin: 0 1; }
+    .summary-title { text-style: bold; }
+    .summary-healthy { color: $success; text-style: bold; }
+    .summary-warning { color: $warning; text-style: bold; }
+    .summary-error { color: $error; text-style: bold; }
+    .summary-idle { color: $text-muted; }
+    .summary-stale { color: $surface-darken-1; }
+
+    #table-section {
         height: 1fr;
-        margin: 0;
-        scrollbar-gutter: stable;
-        overflow-y: auto;
-        max-height: 1fr;
+        margin: 0 1 1 1;
     }
 
-    #workers-container {
-        height: auto;
-        layout: vertical;
-        min-height: 0;
+    #no-workers-message {
+        height: 1fr;
+        content-align: center middle;
+        color: $warning;
+        text-style: italic;
     }
     """
 
-    border_title = "Worker Monitor"
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.worker_table: WorkerTable | None = None
-        self.worker_health_data: dict[str, WorkerHealthMessage] = {}
-        self.total_workers = 0
-        self.healthy_workers = 0
-        self.warning_workers = 0
-        self.error_workers = 0
-        self.stale_workers = 0
-
-    def compose(self) -> ComposeResult:
-        """Compose the simplified worker dashboard layout."""
-        yield Container(
-            StatusIndicator("Total", "0", show_dot=False, id="total-workers"),
-            StatusIndicator("Healthy", "0", show_dot=False, id="healthy-workers"),
-            StatusIndicator("Issues", "0", show_dot=False, id="issue-workers"),
-            id="worker-summary",
-        )
-
-        yield ScrollableContainer(
-            Vertical(
-                Label("No workers detected", id="no-workers-label"),
-                id="workers-container",
-            ),
-            id="workers-scroll",
-        )
-
-    def update_worker_health(self, health_message: WorkerHealthMessage) -> None:
-        """Update a specific worker's health status."""
-        worker_id = health_message.service_id
-        self.worker_health_data[worker_id] = health_message
-
-        if not self.worker_table:
-            self._initialize_table()
-
-        if self.worker_table:
-            self.worker_table.update_worker(worker_id, health_message)
-
-        # Update summary statistics
-        self._update_summary()
-
-    def _initialize_table(self) -> None:
-        """Initialize the worker table."""
-        if not self.is_mounted:
-            return
-
-        try:
-            # Remove "no workers" label if it exists
-            try:
-                no_workers_label = self.query_one("#no-workers-label")
-                no_workers_label.remove()
-            except Exception:
-                pass  # Label might not exist
-
-            # Create and add worker table
-            self.worker_table = WorkerTable()
-            workers_container = self.query_one("#workers-container")
-            workers_container.mount(self.worker_table)
-
-        except Exception as e:
-            self.exception(
-                f"Error initializing worker table: {e.__class__.__name__}: {e}"
-            )
-
-    def _update_summary(self) -> None:
-        """Update the summary statistics."""
-        if not self.is_mounted:
-            return
-
-        try:
-            current_time = time.time()
-            self.total_workers = len(self.worker_health_data)
-            self.healthy_workers = 0
-            self.warning_workers = 0
-            self.error_workers = 0
-            self.stale_workers = 0
-
-            # Check each worker and update stale status
-            if self.worker_table:
-                self.worker_table.check_stale_workers(current_time)
-
-            for worker_id, health_message in self.worker_health_data.items():
-                if self.worker_table and worker_id in self.worker_table.worker_rows:
-                    worker_row = self.worker_table.worker_rows[worker_id]
-                    time_since_update = current_time - worker_row.last_update_time
-
-                    if time_since_update > 30:  # Stale data
-                        self.stale_workers += 1
-                    elif (
-                        health_message.failed_tasks / max(health_message.total_tasks, 1)
-                        > 0.1
-                    ):  # High error rate
-                        self.error_workers += 1
-                    elif health_message.process.cpu_usage > 75:  # High CPU
-                        self.warning_workers += 1
-                    else:
-                        self.healthy_workers += 1
-
-            # Update summary indicators
-            self.query_one("#total-workers", StatusIndicator).update_value(
-                str(self.total_workers)
-            )
-            self.query_one("#healthy-workers", StatusIndicator).update_value(
-                str(self.healthy_workers)
-            )
-
-            issue_count = self.warning_workers + self.error_workers + self.stale_workers
-            self.query_one("#issue-workers", StatusIndicator).update_value(
-                str(issue_count)
-            )
-        except NoMatches:
-            pass
-        except Exception as e:
-            self.error(f"Error updating summary: {e.__class__.__name__}: {e}")
-
-    async def _periodic_update_task(self) -> None:
-        """Periodic task to update stale worker status."""
-        import asyncio
-
-        while True:
-            try:
-                self._update_summary()
-                await asyncio.sleep(1)  # Update every 10 seconds
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                self.error(f"Error in periodic update task: {e}")
-                await asyncio.sleep(10)
-
-
-class WorkerDashboardMixin(AIPerfLifecycleMixin):
-    """Mixin that provides worker health monitoring functionality to UI components."""
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.worker_dashboard: WorkerDashboard | None = None
-        self.worker_health_data: dict[str, WorkerHealthMessage] = {}
-
-    def get_worker_dashboard(self) -> WorkerDashboard:
-        """Get or create the worker dashboard widget."""
-        if not self.worker_dashboard:
-            self.worker_dashboard = WorkerDashboard()
-        return self.worker_dashboard
-
-    def update_worker_health(self, message: WorkerHealthMessage) -> None:
-        """Handle incoming worker health messages."""
-        try:
-            self.debug(
-                lambda: f"Received worker health message from {message.service_id}"
-            )
-
-            # Store the health data
-            self.worker_health_data[message.service_id] = message
-
-            # Update the dashboard if it exists
-            if self.worker_dashboard:
-                self.worker_dashboard.update_worker_health(message)
-
-        except Exception as e:
-            self.error(f"Error handling worker health message: {e}")
-
-    def get_worker_health_summary(self) -> dict[str, int]:
-        """Get a summary of worker health status."""
-        current_time = time.time()
-        summary = {
-            "total": len(self.worker_health_data),
-            "healthy": 0,
-            "warning": 0,
-            "error": 0,
-            "stale": 0,
-        }
-
-        for _, health_msg in self.worker_health_data.items():
-            age = current_time - (health_msg.request_ns / NANOS_PER_SECOND)
-
-            if age > 30:  # Stale data (30 seconds)
-                summary["stale"] += 1
-            elif (
-                health_msg.failed_tasks / max(health_msg.total_tasks, 1) > 0.1
-            ):  # High error rate
-                summary["error"] += 1
-            elif health_msg.process.cpu_usage > 75:  # High CPU
-                summary["warning"] += 1
-            else:
-                summary["healthy"] += 1
-
-        return summary
-
-
-class WorkerHealthService(BaseComponentService):
-    """Service that subscribes to worker health messages and provides callbacks for UI updates."""
-
     def __init__(
         self,
-        service_config: ServiceConfig,
-        service_id: str | None = None,
-        health_callback: Callable[[WorkerHealthMessage], None] | None = None,
+        worker_health: dict[str, WorkerHealthMessage] | None = None,
+        worker_last_seen: dict[str, float] | None = None,
+        stale_threshold: float = 30.0,
+        error_rate_threshold: float = 0.1,
+        high_cpu_threshold: float = 75.0,
     ) -> None:
-        super().__init__(service_config=service_config, service_id=service_id)
-        self.health_callback = health_callback
-        self.worker_health_data: dict[str, WorkerHealthMessage] = {}
+        super().__init__()
+        self.worker_health = worker_health or {}
+        self.worker_last_seen = worker_last_seen or {}
+        self.stale_threshold = stale_threshold
+        self.error_rate_threshold = error_rate_threshold
+        self.high_cpu_threshold = high_cpu_threshold
+        self.table_widget: WorkerStatusTable | None = None
+        self.border_title = "Worker Status"
 
-    @property
-    def service_type(self) -> ServiceType:
-        """The type of service."""
-        return ServiceType.SYSTEM_CONTROLLER  # Use existing service type
+    def compose(self) -> ComposeResult:
+        with Vertical():
+            with Horizontal(id="summary-content"):
+                yield Label("Summary: ", classes="summary-item summary-title")
+                yield Label(
+                    "0 healthy",
+                    id="healthy-count",
+                    classes="summary-item summary-healthy",
+                )
+                yield Label("•", classes="summary-item")
+                yield Label(
+                    "0 high load",
+                    id="warning-count",
+                    classes="summary-item summary-warning",
+                )
+                yield Label("•", classes="summary-item")
+                yield Label(
+                    "0 errors", id="error-count", classes="summary-item summary-error"
+                )
+                yield Label("•", classes="summary-item")
+                yield Label(
+                    "0 idle", id="idle-count", classes="summary-item summary-idle"
+                )
+                yield Label("•", classes="summary-item")
+                yield Label(
+                    "0 stale", id="stale-count", classes="summary-item summary-stale"
+                )
 
-    @on_init
-    async def _initialize(self) -> None:
-        """Initialize worker health service."""
-        self.debug("Initializing worker health service")
+            with Container(id="table-section"):
+                if self.worker_health:
+                    self.table_widget = WorkerStatusTable()
+                    yield self.table_widget
+                else:
+                    yield Static("No worker data available", id="no-workers-message")
 
-        # Subscribe to worker health messages
-        try:
-            await self.sub_client.subscribe(self._on_worker_health_message)
-            self.debug("Subscribed to WORKER_HEALTH topic")
-        except Exception as e:
-            self.error(f"Failed to subscribe to WORKER_HEALTH topic: {e}")
+    def update_worker_health(self, message: WorkerHealthMessage) -> None:
+        self.worker_health[message.service_id] = message
+        self.worker_last_seen[message.service_id] = time.time()
+        self._refresh_display()
 
-    async def _on_worker_health_message(self, message: WorkerHealthMessage) -> None:
-        """Handle incoming worker health messages."""
-        try:
-            self.debug(
-                lambda: f"Received worker health message from {message.service_id}"
+    def update_worker_last_seen(
+        self, worker_id: str, timestamp: float | None = None
+    ) -> None:
+        self.worker_last_seen[worker_id] = timestamp or time.time()
+        self._refresh_display()
+
+    def _refresh_display(self) -> None:
+        if not self.worker_health:
+            self._update_summary(WorkerStatusSummary())
+            return
+
+        workers_data, summary = self._process_worker_data()
+        self._update_summary(summary)
+
+        if self.table_widget:
+            self.table_widget.update_workers(workers_data)
+        elif workers_data:
+            self._create_table()
+
+    def _update_summary(self, summary: WorkerStatusSummary) -> None:
+        updates = [
+            ("healthy-count", f"{summary.healthy_count} healthy"),
+            ("warning-count", f"{summary.warning_count} high load"),
+            ("error-count", f"{summary.error_count} errors"),
+            ("idle-count", f"{summary.idle_count} idle"),
+            ("stale-count", f"{summary.stale_count} stale"),
+        ]
+
+        for label_id, text in updates:
+            with contextlib.suppress(Exception):
+                self.query_one(f"#{label_id}", Label).update(text)
+
+    def _create_table(self) -> None:
+        table_section = self.query_one("#table-section")
+
+        # Remove no workers message
+        with contextlib.suppress(Exception):
+            table_section.query_one("#no-workers-message").remove()
+
+        # Create table
+        self.table_widget = WorkerStatusTable()
+        table_section.mount(self.table_widget)
+
+        # Update with data
+        workers_data, _ = self._process_worker_data()
+        self.table_widget.update_workers(workers_data)
+
+    def _process_worker_data(self) -> tuple[list[WorkerData], WorkerStatusSummary]:
+        current_time = time.time()
+        workers_data = []
+        summary = WorkerStatusSummary()
+
+        for service_id, health in sorted(self.worker_health.items()):
+            last_seen = self.worker_last_seen.get(service_id, current_time)
+
+            # Get task stats
+            task_stats = health.task_stats.get(
+                CreditPhase.PROFILING, WorkerPhaseTaskStats()
             )
 
-            # Store the health data
-            self.worker_health_data[message.service_id] = message
+            # Determine status
+            status = self._get_worker_status(
+                health, task_stats, last_seen, current_time
+            )
 
-            # Call the callback if provided
-            if self.health_callback:
-                self.health_callback(message)
+            # Update summary
+            if status == WorkerStatus.HEALTHY:
+                summary.healthy_count += 1
+            elif status == WorkerStatus.HIGH_LOAD:
+                summary.warning_count += 1
+            elif status == WorkerStatus.ERROR:
+                summary.error_count += 1
+            elif status == WorkerStatus.IDLE:
+                summary.idle_count += 1
+            elif status == WorkerStatus.STALE:
+                summary.stale_count += 1
 
-        except Exception as e:
-            self.error(f"Error handling worker health message: {e}")
+            # Get I/O data
+            io_read = io_write = 0
+            if health.process.io_counters and isinstance(
+                health.process.io_counters, IOCounters
+            ):
+                io_read = health.process.io_counters.read_chars or 0
+                io_write = health.process.io_counters.write_chars or 0
 
-    def set_health_callback(
-        self, callback: Callable[[WorkerHealthMessage], None]
-    ) -> None:
-        """Set the callback for worker health updates."""
-        self.health_callback = callback
+            worker_data = WorkerData(
+                worker_id=service_id,
+                status=status,
+                in_progress=task_stats.in_progress,
+                completed=task_stats.completed,
+                failed=task_stats.failed,
+                cpu_usage=health.process.cpu_usage,
+                memory_mb=health.process.memory_usage,
+                io_read_bytes=io_read,
+                io_write_bytes=io_write,
+            )
+            workers_data.append(worker_data)
+
+        return workers_data, summary
+
+    def _get_worker_status(
+        self,
+        health: WorkerHealthMessage,
+        task_stats: WorkerPhaseTaskStats,
+        last_seen: float,
+        current_time: float,
+    ) -> WorkerStatus:
+        if current_time - last_seen > self.stale_threshold:
+            return WorkerStatus.STALE
+
+        error_rate = task_stats.failed / task_stats.total if task_stats.total > 0 else 0
+        if error_rate > self.error_rate_threshold:
+            return WorkerStatus.ERROR
+
+        if health.process.cpu_usage > self.high_cpu_threshold:
+            return WorkerStatus.HIGH_LOAD
+
+        if task_stats.total == 0:
+            return WorkerStatus.IDLE
+
+        return WorkerStatus.HEALTHY
+
+    def clear_workers(self) -> None:
+        self.worker_health.clear()
+        self.worker_last_seen.clear()
+        self._refresh_display()
+
+    def get_worker_count(self) -> int:
+        return len(self.worker_health)
+
+    def get_summary(self) -> WorkerStatusSummary:
+        if not self.worker_health:
+            return WorkerStatusSummary()
+        _, summary = self._process_worker_data()
+        return summary

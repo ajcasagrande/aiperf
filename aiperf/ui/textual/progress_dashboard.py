@@ -1,324 +1,286 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-import contextlib
-
+from rich.console import RenderableType
+from rich.progress import (
+    BarColumn,
+    MofNCompleteColumn,
+    Progress,
+    SpinnerColumn,
+    TaskID,
+    TaskProgressColumn,
+    TextColumn,
+    TimeElapsedColumn,
+    TimeRemainingColumn,
+)
+from rich.table import Table
+from rich.text import Text
 from textual.app import ComposeResult
-from textual.containers import Container, Vertical
-from textual.widgets import Label, ProgressBar
+from textual.widget import Widget
+from textual.widgets import Static
 
 from aiperf.common.enums import CreditPhase
-from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.common.utils import format_duration
 from aiperf.progress.progress_tracker import ProgressTracker
 
 
-class ProgressDashboard(Container, AIPerfLoggerMixin):
-    """Profile progress dashboard with Rich-inspired styling."""
+class ProgressDashboard(Widget):
+    """Simple textual widget that displays Rich progress bars for profile execution."""
 
     DEFAULT_CSS = """
     ProgressDashboard {
-        border: round cyan;
-        border-title-color: cyan;
-        border-title-background: $surface;
-        border-title-style: bold;
-        height: 100%;
-        layout: vertical;
+        height: 1fr;
+        border: round $primary;
+        border-title-color: $primary;
         padding: 1;
     }
 
-    #progress-section {
+    #status-display {
         height: auto;
         margin: 0 0 1 0;
     }
 
-    #metrics-section {
+    #progress-display {
         height: auto;
-        layout: vertical;
-        border: solid $primary-lighten-1;
-        padding: 1;
-        margin: 1 0 0 0;
-    }
-
-    .metric-line {
-        height: 1;
-        layout: horizontal;
-        margin: 0 0 0 0;
-        padding: 0 1 0 0;
-    }
-
-    .metric-label {
-        text-style: bold;
-        color: cyan;
-        width: 18;
-        text-align: right;
-        padding: 0 1 0 0;
-    }
-
-    .metric-value {
-        text-style: bold;
-        color: white;
-        padding: 0 0 0 0;
-    }
-
-    .status-complete { color: green; }
-    .status-processing { color: yellow; }
-    .status-cancelled { color: red; }
-    .status-idle { color: $text-muted; }
-    .error-none { color: green; }
-    .error-medium { color: yellow; }
-    .error-high { color: red; }
-
-    #progress-label, #records-label {
-        text-align: center;
-        text-style: bold;
-        color: $text;
-        margin: 0 0 0 0;
-    }
-
-    #records-label {
         margin: 0 0 1 0;
     }
 
-    #status-header {
-        text-align: center;
-        text-style: bold;
-        color: cyan;
-        margin: 0 0 1 0;
+    #stats-display {
+        height: auto;
     }
     """
 
-    border_title = "Profile Progress"
-
-    def __init__(self, progress_tracker: ProgressTracker) -> None:
+    def __init__(self, progress_tracker: ProgressTracker | None = None) -> None:
         super().__init__()
         self.progress_tracker = progress_tracker
+        self.border_title = "Profile Progress"
+
+        self.progress = Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            MofNCompleteColumn(),
+            TimeElapsedColumn(),
+            TimeRemainingColumn(),
+            expand=True,
+        )
+
+        self.warmup_task_id: TaskID | None = None
+        self.profiling_task_id: TaskID | None = None
+        self.processing_task_id: TaskID | None = None
+
+        # self.status_widget: Static | None = None
+        self.progress_widget: Static | None = None
+        self.stats_widget: Static | None = None
 
     def compose(self) -> ComposeResult:
-        with Vertical():
-            # Progress bars section
-            with Container(id="progress-section"):
-                yield ProgressBar(
-                    total=100, show_eta=True, show_percentage=True, id="main-progress"
-                )
-                yield Label("Executing requests...", id="progress-label")
-                yield ProgressBar(
-                    total=100,
-                    show_eta=True,
-                    show_percentage=True,
-                    id="records-progress",
-                )
-                yield Label("Processing results...", id="records-label")
+        # self.status_widget = Static(self._get_status_text(), id="status-display")
+        self.progress_widget = Static(self.progress, id="progress-display")
+        self.stats_widget = Static(self._get_stats_table(), id="stats-display")
 
-            # Status and metrics section
-            with Container(id="metrics-section"):
-                yield Label("Benchmark Status", id="status-header")
+        # yield self.status_widget
+        yield self.progress_widget
+        yield self.stats_widget
 
-                with Container(classes="metric-line"):
-                    yield Label("Status:", classes="metric-label")
-                    yield Label(
-                        "Idle", classes="metric-value status-idle", id="status-value"
-                    )
-
-                with Container(classes="metric-line"):
-                    yield Label("Progress:", classes="metric-label")
-                    yield Label("--", classes="metric-value", id="progress-value")
-
-                with Container(classes="metric-line"):
-                    yield Label("Errors:", classes="metric-label")
-                    yield Label("--", classes="metric-value", id="errors-value")
-
-                with Container(classes="metric-line"):
-                    yield Label("Request Rate:", classes="metric-label")
-                    yield Label("--", classes="metric-value", id="request-rate-value")
-
-                with Container(classes="metric-line"):
-                    yield Label("Processing Rate:", classes="metric-label")
-                    yield Label(
-                        "--", classes="metric-value", id="processing-rate-value"
-                    )
-
-                with Container(classes="metric-line"):
-                    yield Label("Elapsed:", classes="metric-label")
-                    yield Label("--", classes="metric-value", id="elapsed-value")
-
-                with Container(classes="metric-line"):
-                    yield Label("Request ETA:", classes="metric-label")
-                    yield Label("--", classes="metric-value", id="request-eta-value")
-
-                with Container(classes="metric-line"):
-                    yield Label("Results ETA:", classes="metric-label")
-                    yield Label("--", classes="metric-value", id="results-eta-value")
-
-    def on_mount(self) -> None:
+    def set_progress_tracker(self, progress_tracker: ProgressTracker) -> None:
+        """Set the progress tracker and reset progress bars."""
+        self.progress_tracker = progress_tracker
+        self._reset_progress_bars()
         self.update_display()
 
     def update_display(self) -> None:
-        if not self.is_mounted:
+        """Update the progress display."""
+        if not self.progress_widget or not self.stats_widget:
             return
 
-        profile_run = self.progress_tracker.current_profile_run
-        if not profile_run:
-            self._show_idle_state()
+        # Update status text
+        # self.status_widget.update(self._get_status_text())
+
+        # Update progress bars
+        self._update_progress_bars()
+
+        # Update statistics table
+        self.stats_widget.update(self._get_stats_table())
+
+        # # Update border title
+        # if self.progress_tracker and self.progress_tracker.current_profile_run:
+        #     profile_id = self.progress_tracker.current_profile_run.profile_id
+        #     self.border_title = f"Profile Progress: {profile_id or 'Unknown'}"
+        # else:
+        #     self.border_title = "Profile Progress"
+
+    # def _get_status_text(self) -> RenderableType:
+    #     """Get current status as Rich text."""
+    #     if not self.progress_tracker or not self.progress_tracker.current_profile_run:
+    #         return Text("Waiting for profile run...", style="dim yellow")
+
+    #     profile = self.progress_tracker.current_profile_run
+
+    #     if profile.is_complete:
+    #         return Text("Profile complete", style="bold green")
+    #     elif profile.is_started:
+    #         active_phase = self.progress_tracker.active_phase
+    #         if active_phase:
+    #             return Text(f"Running {active_phase.value}", style="bold cyan")
+    #         return Text("Running", style="bold yellow")
+    #     else:
+    #         return Text("Preparing...", style="dim")
+
+    def _update_progress_bars(self) -> None:
+        """Update progress bars based on current tracker state."""
+        if not self.progress_tracker or not self.progress_tracker.current_profile_run:
             return
 
-        try:
-            phase_info = profile_run.phase_infos.get(CreditPhase.PROFILING)
-            if not phase_info:
-                self._show_idle_state()
-                return
+        profile = self.progress_tracker.current_profile_run
 
-            self._update_progress(phase_info)
-            self._update_status(profile_run, phase_info)
-            self._update_metrics(profile_run, phase_info)
+        # Handle warmup phase
+        if CreditPhase.WARMUP in profile.phase_infos:
+            warmup_phase = profile.phase_infos[CreditPhase.WARMUP]
+            if self.warmup_task_id is None and warmup_phase.total_expected_requests:
+                self.warmup_task_id = self.progress.add_task(
+                    "Warmup requests", total=warmup_phase.total_expected_requests
+                )
+            elif self.warmup_task_id is not None:
+                self.progress.update(
+                    self.warmup_task_id, completed=warmup_phase.completed or 0
+                )
+                if warmup_phase.is_complete:
+                    self.progress.update(
+                        self.warmup_task_id,
+                        description="[green]Warmup complete[/green]",
+                    )
 
-        except Exception as e:
-            self.debug(lambda e=e: f"Display update error: {e}")
-
-        self.refresh()
-
-    def _show_idle_state(self) -> None:
-        """Show idle state for all widgets."""
-        updates = [
-            ("main-progress", lambda w: w.update(progress=0)),
-            ("records-progress", lambda w: w.update(progress=0)),
-            ("progress-label", lambda w: w.update("Waiting for benchmark data...")),
-            ("records-label", lambda w: w.update("Processing results...")),
-            (
-                "status-value",
-                lambda w: w.update("Idle") or w.set_classes("metric-value status-idle"),
-            ),
-            ("progress-value", lambda w: w.update("--")),
-            ("request-rate-value", lambda w: w.update("--")),
-            ("processing-rate-value", lambda w: w.update("--")),
-            ("errors-value", lambda w: w.update("--")),
-            ("elapsed-value", lambda w: w.update("--")),
-            ("request-eta-value", lambda w: w.update("--")),
-            ("results-eta-value", lambda w: w.update("--")),
-        ]
-
-        for widget_id, update_func in updates:
-            with contextlib.suppress(Exception):
-                widget = self.query_one(f"#{widget_id}")
-                update_func(widget)
-
-    def _update_progress(self, phase_info) -> None:
-        """Update progress bars and labels."""
-        with contextlib.suppress(Exception):
+        # Handle profiling phase
+        if CreditPhase.PROFILING in profile.phase_infos:
+            profiling_phase = profile.phase_infos[CreditPhase.PROFILING]
             if (
-                phase_info.total_expected_requests
-                and phase_info.total_expected_requests > 0
+                self.profiling_task_id is None
+                and profiling_phase.total_expected_requests
             ):
-                # Update request progress bar
-                progress_value = min(
-                    100,
-                    (phase_info.completed / phase_info.total_expected_requests) * 100,
+                self.profiling_task_id = self.progress.add_task(
+                    "Profiling requests", total=profiling_phase.total_expected_requests
                 )
-                self.query_one("#main-progress", ProgressBar).update(
-                    progress=progress_value
+            elif self.profiling_task_id is not None:
+                self.progress.update(
+                    self.profiling_task_id, completed=profiling_phase.completed or 0
                 )
+                if profiling_phase.is_complete:
+                    self.progress.update(
+                        self.profiling_task_id,
+                        description="[green]Profiling complete[/green]",
+                    )
 
-                progress_text = (
-                    f"Executing {CreditPhase.PROFILING.value.capitalize()} requests..."
+            # Add processing progress for profiling phase
+            if (
+                self.processing_task_id is None
+                and profiling_phase.total_expected_requests
+                and profiling_phase.is_started
+            ):
+                self.processing_task_id = self.progress.add_task(
+                    "Processing results", total=profiling_phase.total_expected_requests
                 )
-                self.query_one("#progress-label", Label).update(progress_text)
-
-                # Update records progress bar
-                processed_count = phase_info.processed or 0
-                records_progress_value = min(
-                    100, (processed_count / phase_info.total_expected_requests) * 100
+            elif self.processing_task_id is not None:
+                self.progress.update(
+                    self.processing_task_id, completed=profiling_phase.processed or 0
                 )
-                self.query_one("#records-progress", ProgressBar).update(
-                    progress=records_progress_value
-                )
+                if (
+                    profiling_phase.is_complete
+                    and profiling_phase.processed
+                    == profiling_phase.total_expected_requests
+                ):
+                    self.progress.update(
+                        self.processing_task_id,
+                        description="[green]Processing complete[/green]",
+                    )
 
-    def _update_status(self, profile_run, phase_info) -> None:
-        """Update status indicator."""
-        with contextlib.suppress(Exception):
-            status_widget = self.query_one("#status-value", Label)
+        # Refresh the progress widget
+        if self.progress_widget:
+            self.progress_widget.update(self.progress)
 
-            if phase_info.is_complete:
-                status_widget.update("Complete")
-                status_widget.set_classes("metric-value status-complete")
-            elif profile_run.was_cancelled:
-                status_widget.update("Cancelled")
-                status_widget.set_classes("metric-value status-cancelled")
-            elif phase_info.is_started:
-                status_widget.update("Processing")
-                status_widget.set_classes("metric-value status-processing")
-            else:
-                status_widget.update("Idle")
-                status_widget.set_classes("metric-value status-idle")
+    def _get_stats_table(self) -> RenderableType:
+        """Create a statistics table similar to the rich version."""
+        if not self.progress_tracker or not self.progress_tracker.current_profile_run:
+            return Text("No statistics available", style="dim")
 
-    def _update_metrics(self, profile_run, phase_info) -> None:
-        """Update all metrics with Rich-style formatting."""
-        with contextlib.suppress(Exception):
-            # Progress count
-            if phase_info.total_expected_requests:
-                sent = phase_info.sent or 0
-                total = phase_info.total_expected_requests
-                progress_pct = (sent / total) * 100 if total > 0 else 0
-                progress_text = f"{sent:,} / {total:,} requests ({progress_pct:.1f}%)"
-            else:
-                progress_text = f"{phase_info.completed:,} requests"
-            self.query_one("#progress-value", Label).update(progress_text)
+        profile = self.progress_tracker.current_profile_run
 
-            # Errors with color coding
-            error_count = phase_info.errors or 0
-            processed_count = phase_info.processed or 0
-            if processed_count > 0:
-                error_percent = (error_count / processed_count) * 100
-                error_text = (
-                    f"{error_count:,} / {processed_count:,} ({error_percent:.1f}%)"
-                )
-                error_class = "metric-value " + (
-                    "error-none"
-                    if error_percent == 0
-                    else "error-high"
-                    if error_percent > 10
-                    else "error-medium"
-                )
-            else:
-                error_text = f"{error_count:,} / {processed_count:,} (0.0%)"
-                error_class = "metric-value error-none"
+        # Get current phase for detailed stats
+        current_phase = None
+        phase_stats = None
+        if self.progress_tracker.active_phase:
+            current_phase = self.progress_tracker.active_phase
+            if current_phase in profile.phase_infos:
+                phase_stats = profile.phase_infos[current_phase]
 
-            error_widget = self.query_one("#errors-value", Label)
-            error_widget.update(error_text)
-            error_widget.set_classes(error_class)
+        if not phase_stats:
+            return Text("No phase statistics available", style="dim")
 
-            # Rates
-            rate_text = (
-                f"{profile_run.requests_per_second:.1f} req/s"
-                if profile_run.requests_per_second
-                else "0.0 req/s"
+        # Create table with padding (same as rich version)
+        stats_table = Table.grid(padding=(0, 1, 0, 0))
+        stats_table.add_column(style="bold cyan", justify="right")
+        stats_table.add_column(style="bold white")
+
+        # Status
+        if phase_stats.is_complete:
+            status = Text("Complete", style="bold green")
+        else:
+            status = Text("Processing", style="bold yellow")
+
+        # Error calculations
+        error_percent = 0.0
+        if phase_stats.processed and phase_stats.processed > 0:
+            error_percent = (phase_stats.errors or 0) / phase_stats.processed * 100
+
+        error_color = (
+            "green" if error_percent == 0 else "red" if error_percent > 10 else "yellow"
+        )
+
+        # Add rows to table
+        stats_table.add_row("Status:", status)
+
+        # Progress information
+        if phase_stats.total_expected_requests:
+            progress_percent = (
+                (phase_stats.sent or 0) / phase_stats.total_expected_requests * 100
             )
-            self.query_one("#request-rate-value", Label).update(rate_text)
-
-            proc_rate_text = (
-                f"{profile_run.processed_per_second:.1f} req/s"
-                if profile_run.processed_per_second
-                else "0.0 req/s"
+            stats_table.add_row(
+                "Progress:",
+                f"{phase_stats.sent or 0:,} / {phase_stats.total_expected_requests:,} requests "
+                f"({progress_percent:.1f}%)",
             )
-            self.query_one("#processing-rate-value", Label).update(proc_rate_text)
 
-            # Time metrics
-            elapsed_text = (
-                format_duration(profile_run.elapsed_time)
-                if profile_run.elapsed_time
-                else "00:00:00"
-            )
-            self.query_one("#elapsed-value", Label).update(elapsed_text)
+        # Error information
+        stats_table.add_row(
+            "Errors:",
+            f"[{error_color}]{phase_stats.errors or 0:,} / {phase_stats.processed or 0:,} ({error_percent:.1f}%)[/{error_color}]",
+        )
 
-            request_eta_text = (
-                format_duration(profile_run.requests_eta)
-                if profile_run.requests_eta
-                else "--"
-            )
-            self.query_one("#request-eta-value", Label).update(request_eta_text)
+        # Rates
+        stats_table.add_row(
+            "Request Rate:", f"{phase_stats.records_per_second or 0:.1f} req/s"
+        )
+        stats_table.add_row(
+            "Processing Rate:", f"{phase_stats.records_per_second or 0:.1f} req/s"
+        )
 
-            results_eta_text = (
-                format_duration(profile_run.processing_eta)
-                if profile_run.processing_eta
-                else "--"
-            )
-            self.query_one("#results-eta-value", Label).update(results_eta_text)
+        # Timing information
+        stats_table.add_row("Elapsed:", format_duration(phase_stats.elapsed_time))
+        stats_table.add_row("Request ETA:", format_duration(phase_stats.requests_eta))
+        stats_table.add_row("Results ETA:", format_duration(phase_stats.records_eta))
+
+        return stats_table
+
+    def _reset_progress_bars(self) -> None:
+        """Reset all progress bars."""
+        if self.warmup_task_id is not None:
+            self.progress.remove_task(self.warmup_task_id)
+            self.warmup_task_id = None
+
+        if self.profiling_task_id is not None:
+            self.progress.remove_task(self.profiling_task_id)
+            self.profiling_task_id = None
+
+        if self.processing_task_id is not None:
+            self.progress.remove_task(self.processing_task_id)
+            self.processing_task_id = None

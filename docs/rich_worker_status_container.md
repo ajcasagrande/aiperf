@@ -2,9 +2,9 @@
 #  SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #  SPDX-License-Identifier: Apache-2.0
 -->
-# RichWorkerStatusContainer
+# WorkerDashboard
 
-The `RichWorkerStatusContainer` is a new Textual container that encapsulates the existing Rich workers dashboard functionality. This container provides a modern, interactive interface for monitoring worker status in the AIPerf system.
+The `WorkerDashboard` is a new Textual container that encapsulates the existing Rich workers dashboard functionality. This container provides a modern, interactive interface for monitoring worker status in the AIPerf system.
 
 ## Features
 
@@ -19,7 +19,7 @@ The `RichWorkerStatusContainer` is a new Textual container that encapsulates the
 ## Components
 
 ### Main Container
-- `RichWorkerStatusContainer`: The main container that encapsulates all functionality
+- `WorkerDashboard`: The main container that encapsulates all functionality
 
 ### Data Models
 - `WorkerStatus`: Enum for worker status classifications
@@ -35,10 +35,10 @@ The `RichWorkerStatusContainer` is a new Textual container that encapsulates the
 ### Basic Usage
 
 ```python
-from aiperf.ui.textual.rich_worker_status_container import RichWorkerStatusContainer
+from aiperf.ui.textual.rich_worker_status_container import WorkerDashboard
 
 # Create the container
-container = RichWorkerStatusContainer()
+container = WorkerDashboard()
 
 # Add to your Textual app
 class MyApp(App):
@@ -49,7 +49,7 @@ class MyApp(App):
 ### With Custom Thresholds
 
 ```python
-container = RichWorkerStatusContainer(
+container = WorkerDashboard(
     stale_threshold=60.0,        # Worker is stale after 60 seconds
     error_rate_threshold=0.2,    # Error status at 20% failure rate
     high_cpu_threshold=85.0,     # High load status at 85% CPU usage
