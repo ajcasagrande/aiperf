@@ -251,6 +251,13 @@ class AIPerfService:
             self._state = LifecycleState.STOPPED
             self.logger.info(f"Service {self.service_id} stopped successfully")
 
+        except asyncio.CancelledError:
+            # If stop is cancelled, still mark as stopped since we attempted cleanup
+            self._state = LifecycleState.STOPPED
+            self.logger.warning(
+                f"Service {self.service_id} stop was cancelled during cleanup"
+            )
+            raise  # Re-raise to maintain cancellation semantics
         except Exception as e:
             self._state = LifecycleState.ERROR
             self.logger.error(f"Failed to stop service {self.service_id}: {e}")
@@ -534,20 +541,26 @@ class AIPerfService:
 
     async def _run_background_task(self, method: Callable, interval: float) -> None:
         """Run a single background task with interval."""
-        while not self._stop_event.is_set():
-            try:
-                if inspect.iscoroutinefunction(method):
-                    await method()
-                else:
-                    method()
-            except Exception as e:
-                self.logger.error(f"Error in background task {method.__name__}: {e}")
+        try:
+            while not self._stop_event.is_set():
+                try:
+                    if inspect.iscoroutinefunction(method):
+                        await method()
+                    else:
+                        method()
+                except Exception as e:
+                    self.logger.error(
+                        f"Error in background task {method.__name__}: {e}"
+                    )
 
-            try:
-                await asyncio.wait_for(self._stop_event.wait(), timeout=interval)
-                break  # Stop event was set
-            except asyncio.TimeoutError:
-                continue  # Continue with next iteration
+                try:
+                    await asyncio.wait_for(self._stop_event.wait(), timeout=interval)
+                    break  # Stop event was set
+                except asyncio.TimeoutError:
+                    continue  # Continue with next iteration
+        except asyncio.CancelledError:
+            self.logger.debug(f"Background task {method.__name__} cancelled")
+            raise  # Re-raise to complete cancellation
 
     async def _stop_background_tasks(self) -> None:
         """Stop all background tasks."""
@@ -627,8 +640,16 @@ class AIPerfService:
             await self._stop_event.wait()
         except KeyboardInterrupt:
             self.logger.info("Received keyboard interrupt, stopping service...")
+        except asyncio.CancelledError:
+            self.logger.info("Service task cancelled, stopping service...")
+            raise  # Re-raise to maintain cancellation semantics
         finally:
-            await self.stop()
+            # Ensure cleanup happens even if cancelled
+            try:
+                await self.stop()
+            except asyncio.CancelledError:
+                # If stop() itself is cancelled, log but don't re-raise to avoid suppressing the original cancellation
+                self.logger.warning("Service stop() was cancelled during cleanup")
 
     def get_handler_info(self) -> dict:
         """Get information about registered handlers (debugging)."""
