@@ -4,8 +4,8 @@
 """
 Enhanced LifecycleService with integrated messaging and task management.
 
-This module provides the ultimate user-friendly service class that combines
-lifecycle management, messaging, and task management in a single, clean interface.
+This module provides a user-friendly service class that combines
+lifecycle management, messaging, and task management using simple inheritance.
 """
 
 import asyncio
@@ -19,54 +19,49 @@ from .tasks import TaskManager, get_task_manager
 
 class ManagedLifecycleService(LifecycleService):
     """
-    The ultimate user-friendly service class with everything built-in.
+    User-friendly service class with messaging and task management built-in.
 
     This class combines lifecycle management, messaging, and task management
-    into a single, easy-to-use interface. It's designed to be the best possible
-    experience for AIPerf service developers.
+    using simple inheritance patterns. Just override lifecycle methods and
+    use decorators for handlers.
 
     Features:
+    - Simple inheritance for lifecycle (just call super())
     - Automatic message bus integration
     - Built-in task management
-    - Publish/subscribe messaging made simple
+    - Publish/subscribe messaging
     - Command/response patterns
-    - Background task management
-    - Clean inheritance-based lifecycle
-    - No complex configuration required
 
     Example:
         class MyService(ManagedLifecycleService):
             def __init__(self):
                 super().__init__(service_id="my_service")
-                self.data_store = []
+                self.data = []
 
             async def on_init(self):
-                self.logger.info("Connecting to database...")
+                await super().on_init()  # Always call super()
                 self.db = await connect_database()
 
             async def on_start(self):
-                self.logger.info("Service is ready!")
+                await super().on_start()  # Always call super()
+                self.logger.info("Service ready!")
 
-            # Message handling is automatic with decorators
+            async def on_stop(self):
+                await super().on_stop()  # Always call super()
+                await self.db.close()  # Stop and cleanup together
+
             @message_handler("DATA_RECEIVED")
             async def handle_data(self, message):
-                self.data_store.append(message.content)
-                await self.publish_message("DATA_PROCESSED", {"count": len(self.data_store)})
+                self.data.append(message.content)
+                await self.publish_message("DATA_PROCESSED", len(self.data))
 
             @command_handler("GET_STATS")
-            async def get_statistics(self, command):
-                return {
-                    "total_items": len(self.data_store),
-                    "service_status": "running",
-                    "uptime": self.get_uptime()
-                }
+            async def get_stats(self, command):
+                return {"total_items": len(self.data)}
 
             @background_task(interval=30.0)
-            async def periodic_cleanup(self):
-                old_count = len(self.data_store)
-                self.data_store = self.data_store[-1000:]  # Keep last 1000
-                if old_count != len(self.data_store):
-                    self.logger.info(f"Cleaned up {old_count - len(self.data_store)} old items")
+            async def cleanup(self):
+                self.data = self.data[-1000:]  # Keep last 1000
     """
 
     def __init__(
@@ -83,39 +78,44 @@ class ManagedLifecycleService(LifecycleService):
         self.message_bus = message_bus or get_message_bus()
         self.task_manager = task_manager or get_task_manager()
 
+    # =================================================================
+    # Simple Lifecycle Methods - Override and Call super()
+    # =================================================================
+
+    async def on_init(self):
+        """Initialize messaging. Override and call super().on_init()"""
+        await super().on_init()
+
+        # Start message bus if not already running
+        if not self.message_bus._running:
+            await self.message_bus.start()
+
         # Register this service with the message bus
         self.message_bus.register_service(
             self.service_id, self._handle_targeted_message
         )
 
-        # Subscribe to all message types this service handles
+        # Subscribe to message types this service handles
         self._subscribe_to_messages()
 
-    async def on_init(self):
-        """Default initialization - can be overridden by subclasses."""
-        # Start message bus if not already running
-        if not self.message_bus._running:
-            await self.message_bus.start()
+    async def on_stop(self):
+        """Stop and cleanup messaging. Override and call super().on_stop()"""
+        await super().on_stop()
 
-    async def on_cleanup(self):
-        """Default cleanup - can be overridden by subclasses."""
         # Unregister from message bus
         self.message_bus.unregister_service(self.service_id)
 
         # Shutdown task manager
         await self.task_manager.shutdown()
 
+    # =================================================================
+    # Messaging Methods
+    # =================================================================
+
     async def publish_message(
         self, message_type: str, content: Any = None, target_id: str | None = None
     ) -> None:
-        """
-        Publish a message to the message bus.
-
-        Args:
-            message_type: Type of message to publish
-            content: Message content/payload
-            target_id: Optional target service ID (None for broadcast)
-        """
+        """Publish a message to the message bus."""
         message = Message(
             type=message_type,
             content=content,
@@ -131,18 +131,7 @@ class ManagedLifecycleService(LifecycleService):
         content: Any = None,
         timeout: float = 30.0,
     ) -> Any:
-        """
-        Send a command and wait for response.
-
-        Args:
-            command_type: Type of command to send
-            target_id: ID of target service
-            content: Command content/payload
-            timeout: Response timeout in seconds
-
-        Returns:
-            Response content
-        """
+        """Send a command and wait for response."""
         command = Command(
             type=command_type,
             content=content,
@@ -153,49 +142,32 @@ class ManagedLifecycleService(LifecycleService):
         return await self.message_bus.send_command(command, timeout)
 
     async def reply_to_message(self, original_message: Message, content: Any) -> None:
-        """
-        Send a reply to a message.
-
-        Args:
-            original_message: Message being replied to
-            content: Reply content
-        """
+        """Send a reply to a message."""
         await self.message_bus.send_response(original_message, content)
+
+    # =================================================================
+    # Task Management Methods
+    # =================================================================
 
     def create_background_task(
         self, coro: Any, name: str | None = None
     ) -> asyncio.Task:
-        """
-        Create a background task managed by the task manager.
-
-        Args:
-            coro: Coroutine to run
-            name: Optional task name
-
-        Returns:
-            Created task
-        """
+        """Create a background task managed by the task manager."""
         return self.task_manager.create_task(coro, name)
 
     def create_periodic_task(
         self, func: Any, interval: float, name: str | None = None
     ) -> asyncio.Task:
-        """
-        Create a periodic task managed by the task manager.
-
-        Args:
-            func: Function to call periodically
-            interval: Interval in seconds
-            name: Optional task name
-
-        Returns:
-            Created task
-        """
+        """Create a periodic task managed by the task manager."""
         return self.task_manager.create_periodic_task(func, interval, name)
 
     def get_task_status(self) -> dict:
         """Get status of all background tasks."""
         return self.task_manager.get_task_status()
+
+    # =================================================================
+    # Internal Message Handling
+    # =================================================================
 
     async def _handle_targeted_message(self, message: Message) -> None:
         """Handle messages targeted specifically to this service."""

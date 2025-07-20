@@ -2,118 +2,159 @@
 #  SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #  SPDX-License-Identifier: Apache-2.0
 -->
-# AIPerf Lifecycle - Simple, Powerful Service Management
+# AIPerf Lifecycle - Dramatically Simplified Service Management
 
-Welcome to the **brand new AIPerf Lifecycle system** - a complete ground-up rewrite designed to make service development simple, intuitive, and powerful.
+Welcome to the **dramatically simplified AIPerf Lifecycle system** - a ground-up rewrite that makes service development **intuitive and clean**.
 
-## 🎯 Why This New System?
+## 🎯 The New Simplified Approach
 
-The previous AIPerf system, while functional, had significant complexity issues:
+The new system has a clear separation of concerns:
 
-- **Complex Mixin Hierarchies**: Required inheriting from multiple mixins (`HooksMixin`, `AIPerfLifecycleMixin`, `AIPerfMessageHandlerMixin`, etc.)
-- **Configuration Overhead**: Had to declare supported hooks with `@supports_hooks` decorator
-- **Complex Method Binding**: Intricate logic for binding methods to instances
-- **Hard to Debug**: Complex inheritance chains made debugging difficult
-- **Decorator Proliferation**: Many specialized decorators and configurations
+### 📦 **Simple Inheritance for Lifecycle**
+```python
+class MyService(AIPerf):
+    async def on_init(self):
+        await super().on_init()  # Always call super()
+        # Your initialization logic here
 
-## ✨ Key Benefits of the New System
+    async def on_start(self):
+        await super().on_start()  # Always call super()
+        # Your start logic here
+```
 
-### 🔧 **Simple Inheritance**
+### 🎯 **Decorators Only for Dynamic Behavior**
+```python
+    @message_handler("DATA_MESSAGE")
+    async def handle_data(self, message):
+        # Dynamic message handling
+
+    @command_handler("GET_STATUS")
+    async def get_status(self, command):
+        # Dynamic command handling
+
+    @background_task(interval=5.0)
+    async def periodic_work(self):
+        # Dynamic background tasks
+```
+
+## ✨ Key Benefits
+
+### 🔧 **Dramatically Simpler Inheritance**
 ```python
 # OLD WAY - Complex multiple inheritance
 class OldService(BaseService, AIPerfMessagePubSubMixin, CommandMessageHandlerMixin, ProcessHealthMixin):
-    # Need to configure supported hooks
-    pass
+    @supports_hooks(AIPerfHook.ON_INIT, AIPerfHook.ON_START)
+    def __init__(self, service_config, user_config, sub_client, pub_client, **kwargs):
+        super().__init__(service_config=service_config, **kwargs)
 
 # NEW WAY - Simple single inheritance
 class NewService(AIPerf):
-    # Just inherit and implement what you need!
-    pass
+    def __init__(self):
+        super().__init__(service_id="my_service")
+
+    async def on_init(self):
+        await super().on_init()  # Just call super()!
+        # Your logic here
 ```
 
-### 🚀 **No Configuration Required**
+### 🚀 **No Configuration or Auto-Discovery Complexity**
 ```python
-# OLD WAY - Must declare supported hooks
-@supports_hooks(AIPerfHook.ON_INIT, AIPerfHook.ON_START, AIPerfHook.ON_MESSAGE)
+# OLD WAY - Complex auto-discovery and method binding
+@supports_hooks(AIPerfHook.ON_INIT, AIPerfHook.ON_MESSAGE)
 class OldService(HooksMixin):
-    pass
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)  # Complex initialization
 
-# NEW WAY - Automatic discovery, no configuration
+    @on_init  # Auto-discovered through complex introspection
+    async def _initialize(self):
+        pass
+
+# NEW WAY - Simple inheritance, decorators only where needed
 class NewService(AIPerf):
-    # Decorators are automatically discovered!
-    @message_handler("DATA_MESSAGE")
+    async def on_init(self):  # Simple inheritance, no decorators needed
+        await super().on_init()
+        # Your logic
+
+    @message_handler("DATA")  # Decorators only for dynamic behavior
     async def handle_data(self, message):
         pass
 ```
 
-### 🎛️ **Clean Message Handling**
+### 🎛️ **Crystal Clear Patterns**
 ```python
-# OLD WAY - Complex setup
-@supports_hooks(AIPerfHook.ON_MESSAGE)
-class OldService(AIPerfMessageHandlerMixin):
-    def __init__(self, sub_client, **kwargs):
-        super().__init__(sub_client=sub_client, **kwargs)
+class MyService(AIPerf):
+    # =================================================================
+    # Simple Lifecycle - Just override and call super()
+    # =================================================================
 
-    @on_message(MessageType.USER_DATA)
-    async def handle_user_data(self, message):
-        pass
+    async def on_init(self):
+        await super().on_init()
+        self.db = await connect_database()
 
-# NEW WAY - Simple and clean
-class NewService(AIPerf):
+    async def on_start(self):
+        await super().on_start()  # This starts background tasks automatically
+        self.logger.info("Service ready!")
+
+    async def on_stop(self):
+        await super().on_stop()  # This stops background tasks automatically
+        await self.db.close()
+
+    # =================================================================
+    # Dynamic Handlers - Use decorators
+    # =================================================================
+
     @message_handler("USER_DATA")
     async def handle_user_data(self, message):
-        # Send response easily
-        await self.publish_message("DATA_PROCESSED", result)
-```
+        await self.process_user_data(message.content)
 
-### ⚡ **Effortless Background Tasks**
-```python
-# OLD WAY - Complex task management
-@supports_hooks(AIPerfTaskHook.AIPERF_AUTO_TASK)
-class OldService(AIPerfLifecycleMixin):
-    @aiperf_auto_task(interval_sec=5.0)
-    async def periodic_task(self):
-        while not self.stop_requested.is_set():
-            # Manual loop management
-            pass
+    @command_handler("GET_STATUS")
+    async def get_status(self, command):
+        return {"status": "healthy", "uptime": self.get_uptime()}
 
-# NEW WAY - Automatic task management
-class NewService(AIPerf):
-    @background_task(interval=5.0)
-    async def periodic_task(self):
-        # Just write your logic - no loop management needed!
-        await self.do_work()
+    @background_task(interval=10.0)
+    async def health_check(self):
+        await self.send_heartbeat()
 ```
 
 ## 🏗️ Architecture Overview
 
 ### Core Components
 
-1. **`LifecycleService`** - Base class with simple lifecycle management
-2. **`AIPerf` (ManagedLifecycleService)** - Full-featured service with messaging and tasks
-3. **`MessageBus`** - Simple, clean messaging system
-4. **`TaskManager`** - Straightforward background task management
-5. **Decorators** - `@message_handler`, `@command_handler`, `@background_task`
+1. **`LifecycleService`** - Simple base class with inheritance-based lifecycle
+2. **`AIPerf` (ManagedLifecycleService)** - Full-featured service with messaging built-in
+3. **`MessageBus`** - Clean messaging system
+4. **`TaskManager`** - Background task management
+5. **Simple Decorators** - Only for dynamic handlers
+
+### Inheritance Chain
+
+```
+object
+  └── LifecycleService       # Simple lifecycle management
+      └── ManagedLifecycleService (AIPerf)  # + messaging & tasks
+          └── YourService    # Your business logic
+```
 
 ### Lifecycle Flow
 
 ```mermaid
 graph TD
-    A[Create Service] --> B[Initialize]
-    B --> C[Start]
+    A[Create Service] --> B[on_init]
+    B --> C[on_start]
     C --> D[Running]
-    D --> E[Stop]
-    E --> F[Cleanup]
+    D --> E[on_stop]
+    E --> F[on_cleanup]
     F --> G[Stopped]
 
-    D --> H[Handle Messages]
-    D --> I[Run Background Tasks]
+    C --> H[Start Background Tasks]
+    D --> I[Handle Messages]
     D --> J[Process Commands]
+    E --> K[Stop Background Tasks]
 ```
 
 ## 🚀 Quick Start Guide
 
-### 1. Basic Service
+### 1. Basic Service with Simple Inheritance
 
 ```python
 from aiperf.lifecycle import AIPerf
@@ -124,30 +165,38 @@ class MyService(AIPerf):
         self.data = []
 
     async def on_init(self):
-        self.logger.info("Service initializing...")
-        # Setup databases, connections, etc.
+        await super().on_init()  # Always call super()
+        self.logger.info("Setting up resources...")
+        self.db = await connect_database()
 
     async def on_start(self):
-        self.logger.info("Service started!")
+        await super().on_start()  # Always call super()
+        self.logger.info("Service is ready!")
 
     async def on_stop(self):
-        self.logger.info("Service stopping...")
+        await super().on_stop()  # Always call super()
+        await self.db.close()
 
     async def on_cleanup(self):
-        self.logger.info("Cleaning up resources...")
+        await super().on_cleanup()  # Always call super()
+        self.logger.info("Cleaned up!")
 
 # Usage
 service = MyService()
-await service.run_until_stopped()  # Handles full lifecycle
+await service.run_until_stopped()
 ```
 
-### 2. Message Handling
+### 2. Adding Message Handling
 
 ```python
-class DataProcessor(AIPerf):
+class DataService(AIPerf):
     def __init__(self):
-        super().__init__(service_id="processor")
+        super().__init__(service_id="data_service")
         self.processed_count = 0
+
+    async def on_init(self):
+        await super().on_init()
+        # Simple initialization
 
     @message_handler("PROCESS_DATA")
     async def handle_data(self, message):
@@ -155,62 +204,56 @@ class DataProcessor(AIPerf):
         result = await self.process(message.content)
         self.processed_count += 1
 
-        # Send result
+        # Send result easily
         await self.publish_message("DATA_PROCESSED", {
             "result": result,
             "count": self.processed_count
         })
-
-    @message_handler("STATUS_REQUEST", "HEALTH_CHECK")
-    async def handle_status(self, message):
-        await self.publish_message("STATUS_RESPONSE", {
-            "status": "healthy",
-            "processed": self.processed_count
-        })
 ```
 
-### 3. Command Handling
+### 3. Adding Command Handling
 
 ```python
-class ControlService(AIPerf):
-    def __init__(self):
-        super().__init__(service_id="controller")
-        self.settings = {"enabled": True}
+class StatusService(AIPerf):
+    async def on_init(self):
+        await super().on_init()
+        self.start_time = time.time()
 
-    @command_handler("GET_SETTINGS")
-    async def get_settings(self, command):
-        return self.settings.copy()
+    @command_handler("GET_STATUS")
+    async def get_status(self, command):
+        return {
+            "status": "running",
+            "uptime": time.time() - self.start_time,
+            "state": self.state.value
+        }
 
-    @command_handler("UPDATE_SETTINGS")
-    async def update_settings(self, command):
-        self.settings.update(command.content)
-        return {"success": True, "new_settings": self.settings}
+    @command_handler("RESTART")
+    async def restart(self, command):
+        await self.stop()
+        await self.start()
+        return {"result": "restarted"}
 
-# Usage - send commands to services
-response = await service.send_command(
-    "GET_SETTINGS",
-    target_id="controller"
-)
+# Send commands to services
+response = await service.send_command("GET_STATUS", "status_service")
 ```
 
-### 4. Background Tasks
+### 4. Adding Background Tasks
 
 ```python
 class MonitoringService(AIPerf):
-    def __init__(self):
-        super().__init__(service_id="monitor")
+    async def on_init(self):
+        await super().on_init()
         self.metrics = {}
+
+    async def on_start(self):
+        await super().on_start()  # This automatically starts background tasks!
+        # No need to manually start tasks
 
     @background_task(interval=10.0)
     async def collect_metrics(self):
-        # Runs every 10 seconds
+        # Runs every 10 seconds automatically
         self.metrics = await self.gather_system_metrics()
         await self.publish_message("METRICS_UPDATE", self.metrics)
-
-    @background_task(interval=60.0)
-    async def cleanup_old_data(self):
-        # Runs every minute
-        await self.cleanup_old_metrics()
 
     @background_task(run_once=True)
     async def startup_check(self):
@@ -218,19 +261,49 @@ class MonitoringService(AIPerf):
         await self.verify_system_health()
 ```
 
+### 5. Inheritance Chain Example
+
+```python
+class BaseBusinessService(AIPerf):
+    """Base service with common business logic."""
+
+    async def on_init(self):
+        await super().on_init()  # Call LifecycleService.on_init()
+        await self.setup_common_business_logic()
+
+    async def setup_common_business_logic(self):
+        # Common setup that all business services need
+        pass
+
+class SpecificBusinessService(BaseBusinessService):
+    """Specific business service."""
+
+    async def on_init(self):
+        await super().on_init()  # Call BaseBusinessService.on_init()
+        await self.setup_specific_logic()
+
+    async def setup_specific_logic(self):
+        # Specific setup for this service
+        pass
+
+    @message_handler("BUSINESS_DATA")
+    async def handle_business_data(self, message):
+        await self.process_business_data(message.content)
+```
+
 ## 📚 Complete Examples
 
 See [`examples.py`](./examples.py) for comprehensive examples including:
 
-- **Simple Service**: Basic lifecycle management
-- **Message Handling**: Pub/sub messaging patterns
+- **Simple Service**: Basic lifecycle management with inheritance
+- **Message Handling**: Clean pub/sub patterns
 - **Command/Response**: Request/response patterns
-- **Background Tasks**: Various task patterns
-- **Complete Service**: Real-world example combining all features
+- **Background Tasks**: Automatic task management
+- **Inheritance Chains**: Multi-level inheritance examples
 
-## 🔄 Migration from Old System
+## 🔄 Migration from Complex System
 
-### Before (Old System)
+### Before (Complex System)
 ```python
 @supports_hooks(
     AIPerfHook.ON_INIT,
@@ -238,7 +311,7 @@ See [`examples.py`](./examples.py) for comprehensive examples including:
     AIPerfHook.ON_MESSAGE,
     AIPerfTaskHook.AIPERF_AUTO_TASK
 )
-class OldRecordsManager(
+class OldService(
     BaseService,
     AIPerfMessagePubSubMixin,
     CommandMessageHandlerMixin,
@@ -253,141 +326,103 @@ class OldRecordsManager(
 
     @on_init
     async def _initialize(self):
-        # Complex initialization
+        # Complex setup
         pass
 
-    @on_message(MessageType.PARSED_INFERENCE_RESULTS)
-    async def _on_parsed_results(self, message):
-        # Handle message
+    @on_message(MessageType.DATA)
+    async def _handle_data(self, message):
+        # Complex message handling
         pass
 
     @aiperf_auto_task(interval_sec=30.0)
     async def _health_check(self):
         while not self.stop_requested.is_set():
-            # Manual loop and error handling
+            # Manual loop management
             pass
 ```
 
-### After (New System)
+### After (Simplified System)
 ```python
-class NewRecordsManager(AIPerf):
-    def __init__(self, service_config=None, user_config=None):
-        super().__init__(service_id="records_manager")
-        self.service_config = service_config
-        self.user_config = user_config
+class NewService(AIPerf):
+    def __init__(self):
+        super().__init__(service_id="my_service")
 
     async def on_init(self):
-        # Simple initialization
-        pass
+        await super().on_init()  # Simple inheritance
+        # Your setup logic
 
-    @message_handler("PARSED_INFERENCE_RESULTS")
-    async def handle_results(self, message):
-        # Handle message - no complex setup needed
-        pass
+    @message_handler("DATA")
+    async def handle_data(self, message):
+        # Simple message handling
+        await self.publish_message("RESULT", processed_data)
 
     @background_task(interval=30.0)
     async def health_check(self):
-        # Just write the logic - no manual loops!
+        # Simple background task - no manual loops!
         await self.check_health()
 ```
 
 ## 🎨 Design Principles
 
-### 1. **Simplicity First**
-- Single inheritance instead of complex mixins
-- Automatic discovery instead of manual configuration
-- Clear, readable code patterns
+### 1. **Inheritance for Structure**
+- Use simple Python inheritance for lifecycle methods
+- Always call `super()` to maintain the chain
+- Clear, predictable execution order
 
-### 2. **Pythonic Design**
+### 2. **Decorators for Dynamics**
+- Use decorators only for dynamic behavior
+- Message handlers, command handlers, background tasks
+- Auto-discovery only where it adds value
+
+### 3. **Separation of Concerns**
+- Lifecycle management: inheritance
+- Dynamic behavior: decorators
+- No mixing of concerns
+
+### 4. **Pythonic Patterns**
 - Follow standard Python conventions
-- Use familiar patterns (decorators, inheritance)
-- Clear error messages and debugging
-
-### 3. **Powerful but Simple**
-- Support all current use cases
-- Add new capabilities easily
-- Maintain backward compatibility where possible
-
-### 4. **Developer Experience**
-- Easy to learn and use
-- Great documentation and examples
-- Excellent debugging experience
-
-## 🔧 Advanced Features
-
-### Custom Message Bus
-```python
-from aiperf.lifecycle import MessageBus, set_message_bus
-
-# Create custom message bus with special configuration
-custom_bus = MessageBus(logger=my_logger)
-set_message_bus(custom_bus)
-
-# All services will now use the custom bus
-service = MyService()  # Uses custom_bus automatically
-```
-
-### Custom Task Manager
-```python
-from aiperf.lifecycle import TaskManager, set_task_manager
-
-# Create custom task manager
-custom_manager = TaskManager(logger=my_logger)
-set_task_manager(custom_manager)
-
-# All services will use the custom manager
-service = MyService()  # Uses custom_manager automatically
-```
-
-### Manual Task Creation
-```python
-class MyService(AIPerf):
-    async def on_start(self):
-        # Create tasks manually if needed
-        task = self.create_background_task(
-            self.my_custom_coroutine(),
-            name="custom_task"
-        )
-
-        # Create periodic tasks manually
-        periodic_task = self.create_periodic_task(
-            self.my_function,
-            interval=5.0,
-            name="periodic_work"
-        )
-```
+- Use familiar inheritance patterns
+- Clear, readable code
 
 ## 🧪 Testing
 
-The new system is designed to be easy to test:
+The simplified system is easy to test:
 
 ```python
 import pytest
-from aiperf.lifecycle import AIPerf, MessageBus, TaskManager
+from aiperf.lifecycle import AIPerf
 
 class TestService(AIPerf):
     def __init__(self):
         super().__init__(service_id="test_service")
         self.messages_received = []
+        self.init_called = False
+        self.start_called = False
+
+    async def on_init(self):
+        await super().on_init()
+        self.init_called = True
+
+    async def on_start(self):
+        await super().on_start()
+        self.start_called = True
 
     @message_handler("TEST_MESSAGE")
     async def handle_test(self, message):
         self.messages_received.append(message)
 
 @pytest.mark.asyncio
-async def test_service_messaging():
-    # Create isolated test environment
-    test_bus = MessageBus()
-    test_manager = TaskManager()
-
+async def test_simple_lifecycle():
     service = TestService()
-    service.message_bus = test_bus
-    service.task_manager = test_manager
 
-    # Test the service
+    # Test lifecycle
     await service.initialize()
-    await service.start()
+    assert service.init_called
 
+    await service.start()
+    assert service.start_called
+
+    # Test messaging
     await service.publish_message("TEST_MESSAGE", "hello")
     await asyncio.sleep(0.1)  # Let message process
 
@@ -399,16 +434,15 @@ async def test_service_messaging():
 
 ## 🎯 Summary
 
-The new AIPerf Lifecycle system provides:
+The dramatically simplified AIPerf Lifecycle system provides:
 
-✅ **Simple inheritance-based design** - No complex mixins
-✅ **Automatic hook discovery** - No manual configuration
-✅ **Clean message handling** - Easy pub/sub and command/response
-✅ **Effortless background tasks** - Automatic lifecycle management
-✅ **Excellent debugging** - Clear, readable execution flow
-✅ **Powerful capabilities** - All current features plus more
-✅ **Great developer experience** - Easy to learn and use
+✅ **Simple inheritance** - Standard Python patterns, no complex mixins
+✅ **Clear separation** - Lifecycle uses inheritance, handlers use decorators
+✅ **Easy to understand** - No auto-discovery complexity for lifecycle
+✅ **Powerful where needed** - Decorators for dynamic behavior
+✅ **Excellent debugging** - Clear execution flow, predictable inheritance
+✅ **Pythonic design** - Familiar patterns, standard conventions
 
-**The new system is everything the old system was, but simpler, cleaner, and more powerful.**
+**The result: All the power you need, with dramatically less complexity.**
 
-Ready to get started? Check out the [examples](./examples.py) and start building amazing services! 🚀
+Ready to build amazing services? Check out the [examples](./examples.py) and [test demo](./test_demo.py)! 🚀

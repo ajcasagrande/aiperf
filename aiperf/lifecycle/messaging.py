@@ -9,6 +9,7 @@ easy to use and understand, without the complexity of the current system.
 """
 
 import asyncio
+import contextlib
 import logging
 import time
 from collections.abc import Callable
@@ -110,10 +111,8 @@ class MessageBus:
 
         if self._processor_task:
             self._processor_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._processor_task
-            except asyncio.CancelledError:
-                pass
 
         self.logger.debug("Message bus stopped")
 

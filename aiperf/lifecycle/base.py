@@ -4,13 +4,15 @@
 """
 Core lifecycle management for AIPerf services.
 
-This module provides the fundamental LifecycleService class that offers
-clean, inheritance-based lifecycle management without complex mixins or decorators.
+This module provides a simple, inheritance-based lifecycle service that uses
+standard Python inheritance patterns for lifecycle methods and decorators only
+for dynamic handlers (messages, commands, background tasks).
 """
 
 import asyncio
 import inspect
 import logging
+from collections.abc import Callable
 from enum import Enum
 from typing import Any
 
@@ -30,45 +32,45 @@ class LifecycleState(Enum):
 
 class LifecycleService:
     """
-    A simple, powerful base class for service lifecycle management.
+    Simple lifecycle service with inheritance-based lifecycle management.
 
-    This class provides clean lifecycle management through simple method overrides.
-    No complex mixins, decorators, or configuration required - just inherit and implement
-    the lifecycle methods you need.
+    This class provides clean lifecycle management through simple method inheritance.
+    Just override the lifecycle methods you need and call super() to chain properly.
 
-    Lifecycle Methods (override as needed):
-        - on_init(): Called during initialization
-        - on_start(): Called when service starts
-        - on_stop(): Called when service stops
-        - on_cleanup(): Called during final cleanup
-        - on_state_change(old_state, new_state): Called on state transitions
+    Lifecycle Methods (override and call super()):
+        - async def on_init(self): Initialize resources
+        - async def on_start(self): Start the service
+        - async def on_stop(self): Stop the service and clean up resources
 
-    Message Handling:
-        Use @message_handler and @command_handler decorators on methods.
-
-    Background Tasks:
-        Use @background_task decorator on methods.
+    Dynamic Handlers (use decorators):
+        - @message_handler("TYPE") for message handling
+        - @command_handler("TYPE") for command handling
+        - @background_task(interval=5.0) for background tasks
 
     Example:
         class MyService(LifecycleService):
-            def __init__(self, name: str):
-                super().__init__(service_id=name)
-                self.data = []
+            def __init__(self):
+                super().__init__(service_id="my_service")
 
             async def on_init(self):
-                self.logger.info("Setting up database connection...")
+                await super().on_init()  # Always call super()
                 self.db = await connect_database()
 
             async def on_start(self):
-                self.logger.info("Service is now running!")
+                await super().on_start()  # Always call super()
+                self.logger.info("Service ready!")
 
-            @message_handler("DATA_MESSAGE")
+            async def on_stop(self):
+                await super().on_stop()  # Always call super()
+                await self.db.close()  # Stop AND cleanup in one step
+
+            @message_handler("DATA")
             async def handle_data(self, message):
-                self.data.append(message.content)
+                await self.process(message.content)
 
             @background_task(interval=10.0)
-            async def periodic_cleanup(self):
-                await self.cleanup_old_data()
+            async def health_check(self):
+                await self.send_heartbeat()
     """
 
     def __init__(
@@ -82,11 +84,11 @@ class LifecycleService:
         self._state = LifecycleState.CREATED
         self._stop_event = asyncio.Event()
         self._tasks: set[asyncio.Task] = set()
-        self._message_handlers: dict[str, list[callable]] = {}
-        self._command_handlers: dict[str, list[callable]] = {}
+        self._message_handlers: dict[str, list[Callable]] = {}
+        self._command_handlers: dict[str, list[Callable]] = {}
 
-        # Auto-discover decorated methods
-        self._discover_handlers()
+        # Discover only decorated handlers (not lifecycle methods)
+        self._discover_decorated_handlers()
 
     @property
     def state(self) -> LifecycleState:
@@ -103,25 +105,42 @@ class LifecycleService:
         """True if service is stopped."""
         return self._state == LifecycleState.STOPPED
 
+    # =================================================================
+    # Simple Lifecycle Methods - Override and Call super()
+    # =================================================================
+
+    async def on_init(self):
+        """Override this method to add initialization logic. Always call super().on_init()"""
+        pass
+
+    async def on_start(self):
+        """Override this method to add start logic. Always call super().on_start()"""
+        # Start background tasks
+        await self._start_background_tasks()
+
+    async def on_stop(self):
+        """Override this method to add stop and cleanup logic. Always call super().on_stop()"""
+        # Stop background tasks
+        await self._stop_background_tasks()
+
+    # =================================================================
+    # Main Lifecycle Control Methods
+    # =================================================================
+
     async def initialize(self) -> None:
         """Initialize the service."""
         if self._state != LifecycleState.CREATED:
             raise ValueError(f"Cannot initialize from state {self._state}")
 
-        await self._change_state(LifecycleState.INITIALIZING)
+        self._state = LifecycleState.INITIALIZING
 
         try:
-            # Call user's initialization logic
-            if hasattr(self, "on_init") and inspect.iscoroutinefunction(self.on_init):
-                await self.on_init()
-            elif hasattr(self, "on_init"):
-                self.on_init()
-
-            await self._change_state(LifecycleState.INITIALIZED)
+            await self.on_init()
+            self._state = LifecycleState.INITIALIZED
             self.logger.info(f"Service {self.service_id} initialized successfully")
 
         except Exception as e:
-            await self._change_state(LifecycleState.ERROR)
+            self._state = LifecycleState.ERROR
             self.logger.error(f"Failed to initialize service {self.service_id}: {e}")
             raise
 
@@ -130,59 +149,33 @@ class LifecycleService:
         if self._state != LifecycleState.INITIALIZED:
             raise ValueError(f"Cannot start from state {self._state}")
 
-        await self._change_state(LifecycleState.STARTING)
+        self._state = LifecycleState.STARTING
 
         try:
-            # Start background tasks
-            await self._start_background_tasks()
-
-            # Call user's start logic
-            if hasattr(self, "on_start") and inspect.iscoroutinefunction(self.on_start):
-                await self.on_start()
-            elif hasattr(self, "on_start"):
-                self.on_start()
-
-            await self._change_state(LifecycleState.RUNNING)
+            await self.on_start()
+            self._state = LifecycleState.RUNNING
             self.logger.info(f"Service {self.service_id} started successfully")
 
         except Exception as e:
-            await self._change_state(LifecycleState.ERROR)
+            self._state = LifecycleState.ERROR
             self.logger.error(f"Failed to start service {self.service_id}: {e}")
             raise
 
     async def stop(self) -> None:
-        """Stop the service."""
+        """Stop the service and clean up resources."""
         if self._state in (LifecycleState.STOPPED, LifecycleState.STOPPING):
             return
 
-        await self._change_state(LifecycleState.STOPPING)
+        self._state = LifecycleState.STOPPING
 
         try:
-            # Signal stop to background tasks
             self._stop_event.set()
-
-            # Call user's stop logic
-            if hasattr(self, "on_stop") and inspect.iscoroutinefunction(self.on_stop):
-                await self.on_stop()
-            elif hasattr(self, "on_stop"):
-                self.on_stop()
-
-            # Stop background tasks
-            await self._stop_background_tasks()
-
-            # Call user's cleanup logic
-            if hasattr(self, "on_cleanup") and inspect.iscoroutinefunction(
-                self.on_cleanup
-            ):
-                await self.on_cleanup()
-            elif hasattr(self, "on_cleanup"):
-                self.on_cleanup()
-
-            await self._change_state(LifecycleState.STOPPED)
+            await self.on_stop()  # Does both stop and cleanup in one step
+            self._state = LifecycleState.STOPPED
             self.logger.info(f"Service {self.service_id} stopped successfully")
 
         except Exception as e:
-            await self._change_state(LifecycleState.ERROR)
+            self._state = LifecycleState.ERROR
             self.logger.error(f"Failed to stop service {self.service_id}: {e}")
             raise
 
@@ -192,12 +185,15 @@ class LifecycleService:
         await self.start()
 
         try:
-            # Wait until stopped
             await self._stop_event.wait()
         except KeyboardInterrupt:
             self.logger.info("Received keyboard interrupt, stopping service...")
         finally:
             await self.stop()
+
+    # =================================================================
+    # Message and Command Handling
+    # =================================================================
 
     async def handle_message(self, message_type: str, message: Any) -> None:
         """Handle an incoming message."""
@@ -229,6 +225,10 @@ class LifecycleService:
 
         return responses[0] if len(responses) == 1 else responses
 
+    # =================================================================
+    # Task Management
+    # =================================================================
+
     def create_task(self, coro) -> asyncio.Task:
         """Create and track a background task."""
         task = asyncio.create_task(coro)
@@ -236,36 +236,23 @@ class LifecycleService:
         task.add_done_callback(self._tasks.discard)
         return task
 
-    async def _change_state(self, new_state: LifecycleState) -> None:
-        """Change the service state and notify."""
-        old_state = self._state
-        self._state = new_state
+    # =================================================================
+    # Internal Implementation
+    # =================================================================
 
-        self.logger.debug(f"State changed from {old_state.value} to {new_state.value}")
-
-        # Call user's state change handler if it exists
-        if hasattr(self, "on_state_change"):
-            try:
-                if inspect.iscoroutinefunction(self.on_state_change):
-                    await self.on_state_change(old_state, new_state)
-                else:
-                    self.on_state_change(old_state, new_state)
-            except Exception as e:
-                self.logger.error(f"Error in state change handler: {e}")
-
-    def _discover_handlers(self) -> None:
-        """Automatically discover message and command handlers from decorators."""
+    def _discover_decorated_handlers(self) -> None:
+        """Discover message and command handlers from decorators."""
         for name in dir(self):
             method = getattr(self, name)
             if not callable(method):
                 continue
 
-            # Check for message handler decorator
+            # Message handlers
             if hasattr(method, "_message_types"):
                 for msg_type in method._message_types:
                     self._message_handlers.setdefault(msg_type, []).append(method)
 
-            # Check for command handler decorator
+            # Command handlers
             if hasattr(method, "_command_types"):
                 for cmd_type in method._command_types:
                     self._command_handlers.setdefault(cmd_type, []).append(method)
@@ -276,12 +263,29 @@ class LifecycleService:
             method = getattr(self, name)
             if hasattr(method, "_is_background_task"):
                 interval = getattr(method, "_interval", None)
-                task_coro = self._create_background_task_wrapper(method, interval)
-                self.create_task(task_coro)
+                run_once = getattr(method, "_run_once", False)
+
+                if run_once:
+                    # Run once then exit
+                    self.create_task(self._run_once_task(method))
+                else:
+                    # Run with interval
+                    self.create_task(self._run_interval_task(method, interval))
+
                 self.logger.debug(f"Started background task: {name}")
 
-    async def _create_background_task_wrapper(self, method, interval):
-        """Wrapper for background tasks with interval support."""
+    async def _run_once_task(self, method):
+        """Run a task once."""
+        try:
+            if inspect.iscoroutinefunction(method):
+                await method()
+            else:
+                method()
+        except Exception as e:
+            self.logger.error(f"Error in one-time task {method.__name__}: {e}")
+
+    async def _run_interval_task(self, method, interval):
+        """Run a task with interval."""
         while not self._stop_event.is_set():
             try:
                 if inspect.iscoroutinefunction(method):
@@ -290,14 +294,11 @@ class LifecycleService:
                     method()
 
                 if interval is None:
-                    break  # Run once
-
-                if callable(interval):
-                    sleep_time = interval()
+                    # Run continuously with no delay
+                    await asyncio.sleep(0)
                 else:
-                    sleep_time = float(interval)
-
-                await asyncio.sleep(sleep_time)
+                    sleep_time = interval() if callable(interval) else float(interval)
+                    await asyncio.sleep(sleep_time)
 
             except asyncio.CancelledError:
                 break

@@ -4,8 +4,9 @@
 """
 Comprehensive examples of the new AIPerf Lifecycle system.
 
-This module demonstrates how much simpler and more user-friendly the new
-system is compared to the old complex mixin-based approach.
+This module demonstrates the simplified inheritance-based approach where:
+- Lifecycle methods use simple inheritance with super() calls
+- Only message handlers, command handlers, and background tasks use decorators
 """
 
 import asyncio
@@ -30,10 +31,10 @@ class SimpleDataService(AIPerf):
     """
     A simple data processing service.
 
-    This demonstrates how easy it is to create a service with:
-    - Lifecycle management (init, start, stop, cleanup)
-    - No complex mixins or decorators required
-    - Just inherit from AIPerf and override what you need
+    This demonstrates the new simplified approach:
+    - Lifecycle methods use simple inheritance (just call super())
+    - No decorators needed for lifecycle methods
+    - Clean, readable inheritance pattern
     """
 
     def __init__(self):
@@ -42,24 +43,24 @@ class SimpleDataService(AIPerf):
         self.processed_count = 0
 
     async def on_init(self):
-        """Called during service initialization."""
+        """Override and call super() - simple inheritance!"""
+        await super().on_init()  # Always call super()
         self.logger.info("Initializing data service...")
         # Simulate database connection
         await asyncio.sleep(0.1)
         self.logger.info("Database connected!")
 
     async def on_start(self):
-        """Called when service starts."""
+        """Override and call super() - simple inheritance!"""
+        await super().on_start()  # Always call super()
         self.logger.info("Data service is now running!")
 
     async def on_stop(self):
-        """Called when service stops."""
+        """Override and call super() - simple inheritance!"""
+        await super().on_stop()  # Always call super()
         self.logger.info(
             f"Stopping data service. Processed {self.processed_count} items."
         )
-
-    async def on_cleanup(self):
-        """Called during cleanup."""
         self.logger.info("Cleaning up data service resources...")
         self.data.clear()
 
@@ -73,14 +74,25 @@ class MessageHandlingService(AIPerf):
     """
     Service that demonstrates simple message handling.
 
-    No complex message type enums or configuration needed.
-    Just use the @message_handler decorator!
+    Lifecycle methods use inheritance, message handlers use decorators.
     """
 
     def __init__(self):
         super().__init__(service_id="message_service")
         self.received_messages: list[dict] = []
 
+    async def on_init(self):
+        """Simple inheritance - just call super()"""
+        await super().on_init()
+        self.logger.info("Message handling service initializing...")
+
+    async def on_start(self):
+        """Simple inheritance - just call super()"""
+        await super().on_start()
+        self._start_time = time.time()
+        self.logger.info("Message handling service started!")
+
+    # Message handlers still use decorators - that's the dynamic part!
     @message_handler("USER_DATA")
     async def handle_user_data(self, message: Message):
         """Handle user data messages."""
@@ -116,11 +128,6 @@ class MessageHandlingService(AIPerf):
                 },
             )
 
-    async def on_start(self):
-        """Track start time for uptime calculation."""
-        self._start_time = time.time()
-        self.logger.info("Message handling service started!")
-
 
 # =============================================================================
 # Example 3: Command/Response Patterns
@@ -131,7 +138,9 @@ class StatisticsService(AIPerf):
     """
     Service that handles commands and returns responses.
 
-    This shows how easy command/response patterns are with the new system.
+    Shows the clean separation:
+    - Lifecycle: simple inheritance
+    - Commands: decorators for dynamic behavior
     """
 
     def __init__(self):
@@ -142,6 +151,17 @@ class StatisticsService(AIPerf):
             "start_time": time.time(),
         }
 
+    async def on_init(self):
+        """Simple inheritance pattern"""
+        await super().on_init()
+        self.logger.info("Statistics service initializing...")
+
+    async def on_start(self):
+        """Simple inheritance pattern"""
+        await super().on_start()
+        self.logger.info("Statistics service ready!")
+
+    # Command handlers use decorators - dynamic behavior
     @command_handler("GET_STATS")
     async def get_statistics(self, command: Command):
         """Return current statistics."""
@@ -176,10 +196,10 @@ class StatisticsService(AIPerf):
 
 class BackgroundTaskService(AIPerf):
     """
-    Service demonstrating various background task patterns.
+    Service demonstrating background task patterns.
 
-    Background tasks are automatically started and stopped with the service.
-    No manual task management needed!
+    Background tasks start automatically when service starts.
+    Lifecycle methods use simple inheritance.
     """
 
     def __init__(self):
@@ -189,10 +209,22 @@ class BackgroundTaskService(AIPerf):
         self.health_status = "excellent"
 
     async def on_init(self):
-        """Initialize with some work items."""
+        """Simple inheritance - setup data"""
+        await super().on_init()  # Always call super()
         self.work_queue = [f"task_{i}" for i in range(100)]
         self.logger.info(f"Initialized with {len(self.work_queue)} work items")
 
+    async def on_start(self):
+        """Simple inheritance - background tasks start automatically"""
+        await super().on_start()  # Always call super() - this starts background tasks!
+        self.logger.info("Background task service is running!")
+
+    async def on_stop(self):
+        """Simple inheritance - background tasks stop automatically"""
+        await super().on_stop()  # Always call super() - this stops background tasks!
+        self.logger.info("Background task service stopped!")
+
+    # Background tasks use decorators - started/stopped automatically
     @background_task(interval=2.0)
     async def process_work_queue(self):
         """Process work items every 2 seconds."""
