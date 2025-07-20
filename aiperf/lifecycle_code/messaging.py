@@ -150,7 +150,7 @@ class MessageBus:
             self.logger.error(f"Failed to start message bus: {e}")
             raise
 
-    async def stop(self) -> None:
+    async def _stop(self) -> None:
         """Stop the message bus and cleanup real aiperf infrastructure."""
         if not self._running:
             return

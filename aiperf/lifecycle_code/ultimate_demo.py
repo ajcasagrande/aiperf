@@ -45,7 +45,7 @@ from aiperf.common.enums import (
 from aiperf.common.messages import CommandMessage, Message
 
 # Import the ULTIMATE API - everything you need!
-from aiperf.lifecycle import (
+from aiperf.lifecycle_code import (
     AIPerfService,
     MessageBus,
     background_task,

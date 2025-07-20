@@ -11,7 +11,7 @@ showing the flexibility and power of the composable design.
 import asyncio
 import time
 
-from aiperf.lifecycle import (
+from aiperf.lifecycle_code import (
     BackgroundTasks,
     Lifecycle,
     LifecycleWithMessaging,

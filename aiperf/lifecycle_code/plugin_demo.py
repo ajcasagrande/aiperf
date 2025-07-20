@@ -21,7 +21,7 @@ import asyncio
 import time
 from pathlib import Path
 
-from aiperf.lifecycle import (
+from aiperf.lifecycle_code import (
     PluginManager,
     Service,
     background_task,

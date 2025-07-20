@@ -100,12 +100,9 @@ class AIPerfMessagePubSubMixin(AIPerfMessageHandlerMixin, AIPerfMessagePublisher
     Inherits from :class:`AIPerfLifecycleMixin` to provide lifecycle management, auto-tasks, and logging.
     """
 
-    def __init__(
-        self, sub_client: SubClientProtocol, pub_client: PubClientProtocol, **kwargs
-    ) -> None:
-        self.sub_client = sub_client
-        self.pub_client = pub_client
-        super().__init__(sub_client=sub_client, pub_client=pub_client, **kwargs)
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.sub_cl
 
 
 class AIPerfMessageHandlerProtocol(Protocol):
