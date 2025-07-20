@@ -4,13 +4,12 @@
 from abc import ABC
 
 from pydantic import BaseModel, Field, SerializeAsAny
-from pydantic.fields import FieldInfo
 
 from aiperf.common.config.user_config import UserConfig
 from aiperf.common.enums import CommandType, ServiceType
 from aiperf.common.messages.message import AutoRequestID, RequiresRequestID
 from aiperf.common.messages.service_messages import BaseServiceMessage
-from aiperf.common.models import AIPerfBaseModel, ErrorDetails
+from aiperf.common.models import ErrorDetails
 from aiperf.common.types import MessageTypeT
 
 
@@ -47,14 +46,12 @@ class CommandResponseMessage(BaseServiceMessage, RequiresRequestID, ABC):  # typ
         ...,
         description="The type of the message. Must be set in the subclass.",
     )
-
+    origin_service_id: str = Field(
+        ..., description="The ID of the service that sent the request"
+    )
     data: SerializeAsAny[BaseModel] | None = Field(
         default=None,
         description="The data of the command message. This can be overridden in the subclasses.",
-    )
-
-    origin_service_id: str = Field(
-        ..., description="The ID of the service that sent the request"
     )
     error: ErrorDetails | None = Field(
         default=None, description="Error information if the command failed"
@@ -74,80 +71,49 @@ class ProcessRecordsCommand(CommandMessage):
     )
 
 
-def _command_message_type(
-    message_type: CommandType,
-    data_type: type[BaseModel] | None = None,
-    data_field: FieldInfo | None = None,
-) -> type[CommandMessage]:
-    """Create a generic command message class for a given message type."""
-
-    # Need to save the message type here for use below in the class definition
-    _message_type = message_type
-    _data_type = data_type
-    _data_field = data_field
-
-    class GenericCommandMessage(CommandMessage):
-        message_type: MessageTypeT = _message_type
-        if _data_type is not None:
-            data: _data_type = _data_field
-
-    # Set the class name and docstring
-    GenericCommandMessage.__doc__ = f"Message for the {message_type.name} command."
-    GenericCommandMessage.__name__ = f"{message_type.name.title()}Command"
-    GenericCommandMessage.__qualname__ = GenericCommandMessage.__name__
-    return GenericCommandMessage
+class ProcessRecordsResponse(CommandResponseMessage):
+    message_type: MessageTypeT = CommandType.PROCESS_RECORDS_RESPONSE
 
 
-def _command_response_type(
-    message_type: CommandType,
-    data_type: type[BaseModel] | None = None,
-    data_field: FieldInfo | None = None,
-) -> type[CommandResponseMessage]:
-    """Create a generic command response class for a given message type."""
+class ShutdownCommand(CommandMessage):
+    message_type: MessageTypeT = CommandType.SHUTDOWN
 
-    # Need to save the message type here for use below in the class definition
-    _message_type = message_type
-    _data_type = data_type
-    _data_field = data_field
 
-    class GenericCommandResponseMessage(CommandResponseMessage):
-        message_type: MessageTypeT = _message_type
-        if _data_type is not None:
-            data: _data_type = _data_field
+class ShutdownResponse(CommandResponseMessage):
+    message_type: MessageTypeT = CommandType.SHUTDOWN_RESPONSE
 
-    # Set the class name and docstring
-    GenericCommandResponseMessage.__doc__ = (
-        f"Response to the {message_type.name} command."
+
+class ProfileConfigureCommand(CommandMessage):
+    message_type: MessageTypeT = CommandType.PROFILE_CONFIGURE
+    data: UserConfig = Field(  # type: ignore[override]
+        ...,
+        description="The configuration data for the profile",
     )
-    GenericCommandResponseMessage.__name__ = f"{message_type.name.title()}Message"
-    GenericCommandResponseMessage.__qualname__ = GenericCommandResponseMessage.__name__
-    return GenericCommandResponseMessage
 
 
-# On the fly generated command message types
-ProfileConfigureCommand = _command_message_type(
-    CommandType.PROFILE_CONFIGURE,
-    data_type=UserConfig,
-    data_field=Field(
-        default=None,
-        description="The data of the command message. This can be overridden in the subclasses.",
-    ),
-)
-ProfileStartCommand = _command_message_type(CommandType.PROFILE_START)
-ProfileStopCommand = _command_message_type(CommandType.PROFILE_STOP)
-ProfileCancelCommand = _command_message_type(CommandType.PROFILE_CANCEL)
-ShutdownCommand = _command_message_type(CommandType.SHUTDOWN)
+class ProfileConfigureResponse(CommandResponseMessage):
+    message_type: MessageTypeT = CommandType.PROFILE_CONFIGURE_RESPONSE
 
-# On the fly generated command response types
-ProfileStartResponse = _command_response_type(CommandType.PROFILE_START_RESPONSE)
-ProfileStopResponse = _command_response_type(CommandType.PROFILE_STOP_RESPONSE)
-ProfileCancelResponse = _command_response_type(CommandType.PROFILE_CANCEL_RESPONSE)
-ShutdownResponse = _command_response_type(CommandType.SHUTDOWN_RESPONSE)
-ProcessRecordsResponse = _command_response_type(
-    CommandType.PROCESS_RECORDS_RESPONSE,
-    data_type=AIPerfBaseModel,
-    data_field=Field(
-        default=None,
-        description="The data of the command message. This can be overridden in the subclasses.",
-    ),
-)
+
+class ProfileStartCommand(CommandMessage):
+    message_type: MessageTypeT = CommandType.PROFILE_START
+
+
+class ProfileStartResponse(CommandResponseMessage):
+    message_type: MessageTypeT = CommandType.PROFILE_START_RESPONSE
+
+
+class ProfileStopCommand(CommandMessage):
+    message_type: MessageTypeT = CommandType.PROFILE_STOP
+
+
+class ProfileStopResponse(CommandResponseMessage):
+    message_type: MessageTypeT = CommandType.PROFILE_STOP_RESPONSE
+
+
+class ProfileCancelCommand(CommandMessage):
+    message_type: MessageTypeT = CommandType.PROFILE_CANCEL
+
+
+class ProfileCancelResponse(CommandResponseMessage):
+    message_type: MessageTypeT = CommandType.PROFILE_CANCEL_RESPONSE

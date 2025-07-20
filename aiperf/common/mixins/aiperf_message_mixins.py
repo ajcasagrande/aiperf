@@ -30,6 +30,10 @@ class AIPerfMessageHandlerMixin(AIPerfLifecycleMixin):
             message_types = getattr(hook, AIPerfHookParams.ON_MESSAGE_MESSAGE_TYPES, [])
             for message_type in message_types:
                 self._register_message_handler(message_type, hook)
+                self.debug(
+                    lambda typ=message_type,
+                    hook=hook: f"Registering message handler for '{typ}': {self.__class__.__name__}.{hook.__name__}"
+                )
 
     def _register_message_handler(
         self,
