@@ -155,7 +155,7 @@ class SystemController(
 
         # Start all required services
         try:
-            await self.service_manager.run_all_services()
+            await self.service_manager.run_all_required_services()
         except AIPerfError:
             raise  # re-raise it up the stack
         except Exception as e:
@@ -163,7 +163,7 @@ class SystemController(
 
         try:
             # Wait for all required services to be registered
-            await self.service_manager.wait_for_all_services_registration()
+            await self.service_manager.wait_for_all_required_services_registration()
 
             if self.stop_event.is_set():
                 self.debug("System Controller stopped before all services registered")
@@ -178,7 +178,7 @@ class SystemController(
         self._system_state = SystemState.READY
 
         try:
-            await self.service_manager.wait_for_all_services_to_start()
+            await self.service_manager.wait_for_all_required_services_to_start()
         except Exception as e:
             raise asyncio.CancelledError() from e
 

@@ -22,9 +22,9 @@ from aiperf.common.hooks import (
 )
 from aiperf.common.messages import Message
 from aiperf.common.mixins import (
-    AIPerfCommandMessageHandlerMixin,
     AIPerfLoggerMixin,
     AIPerfMessagePubSubMixin,
+    CommandMessageHandlerMixin,
     CommunicationsMixin,
     EventBusClientMixin,
     ProcessHealthMixin,
@@ -47,7 +47,7 @@ class BaseService(
     CommunicationsMixin,
     EventBusClientMixin,
     AIPerfMessagePubSubMixin,
-    AIPerfCommandMessageHandlerMixin,
+    CommandMessageHandlerMixin,
     ProcessHealthMixin,
     AIPerfLoggerMixin,
     ABC,

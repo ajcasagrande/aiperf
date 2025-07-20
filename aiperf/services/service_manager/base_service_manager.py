@@ -7,16 +7,22 @@ from aiperf.common.constants import (
     DEFAULT_WAIT_FOR_START_SECONDS,
     DEFAULT_WAIT_FOR_STOP_SECONDS,
 )
-from aiperf.common.enums import ServiceType
+from aiperf.common.enums import MessageType, ServiceType
+from aiperf.common.enums.message_enums import CommandType
 from aiperf.common.enums.service_enums import ServiceRunType
 from aiperf.common.factories import FactoryMixin
-from aiperf.common.messages import BaseServiceMessage
-from aiperf.common.mixins import AIPerfLoggerMixin
+from aiperf.common.hooks import on_command_message, on_message
+from aiperf.common.messages import RegistrationMessage
+from aiperf.common.messages.commands import StartWorkersCommand
+from aiperf.common.messages.error_messages import BaseServiceErrorMessage
+from aiperf.common.messages.service_messages import HeartbeatMessage, StatusMessage
+from aiperf.common.mixins.aiperf_message_mixins import AIPerfMessageHandlerMixin
+from aiperf.common.mixins.command_mixins import CommandMessageHandlerMixin
 from aiperf.common.models import ServiceRegistrationInfo
 from aiperf.services.service_manager.service_registry import ServiceRegistry
 
 
-class BaseServiceManager(AIPerfLoggerMixin, ABC):
+class BaseServiceManager(CommandMessageHandlerMixin, AIPerfMessageHandlerMixin, ABC):
     """
     Base class for service managers. It provides a common interface for
     managing services and a way to look up service information by service ID.
@@ -48,7 +54,7 @@ class BaseServiceManager(AIPerfLoggerMixin, ABC):
         )
 
     @abstractmethod
-    async def run_all_services(self) -> None:
+    async def run_all_required_services(self) -> None:
         """Run all required services."""
         pass
 
@@ -63,14 +69,14 @@ class BaseServiceManager(AIPerfLoggerMixin, ABC):
         pass
 
     @abstractmethod
-    async def wait_for_all_services_registration(
+    async def wait_for_all_required_services_registration(
         self, timeout_seconds: float = DEFAULT_WAIT_FOR_START_SECONDS
     ) -> None:
         """Wait for all required services to be registered."""
         pass
 
     @abstractmethod
-    async def wait_for_all_services_to_start(
+    async def wait_for_all_required_services_to_start(
         self,
         timeout_seconds: float = DEFAULT_WAIT_FOR_START_SECONDS,
     ) -> None:
@@ -85,10 +91,31 @@ class BaseServiceManager(AIPerfLoggerMixin, ABC):
         """Wait for all services to stop."""
         pass
 
-    @abstractmethod
-    async def on_message(self, message: BaseServiceMessage) -> None:
-        """Handle a message from a service."""
-        pass
+    @on_command_message(CommandType.START_WORKERS)
+    async def _on_start_workers_command(self, message: StartWorkersCommand) -> None:
+        """Handle a command message from a service."""
+        self.debug(lambda: f"Received start workers command: {message}")
+
+    # TODO: How does on_message work with overriding in child classes?
+    @on_message(MessageType.REGISTRATION)
+    async def _on_registration_message(self, message: RegistrationMessage) -> None:
+        self.registry.register_service(
+            message.service_id,
+            message.service_type,
+            message.state,
+        )
+
+    @on_message(MessageType.HEARTBEAT)
+    async def _on_heartbeat_message(self, message: HeartbeatMessage) -> None:
+        self.registry.update_service_heartbeat(message.service_id)
+
+    @on_message(MessageType.STATUS)
+    async def _on_status_message(self, message: StatusMessage) -> None:
+        self.registry.update_service_state(message.service_id, message.state)
+
+    @on_message(MessageType.SERVICE_ERROR)
+    async def _on_service_error_message(self, message: BaseServiceErrorMessage) -> None:
+        self.registry[message.service_id].errors.append(message.error)
 
 
 class ServiceManagerFactory(FactoryMixin[ServiceRunType, BaseServiceManager]):

@@ -5,11 +5,9 @@ from typing import Protocol, runtime_checkable
 
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
-from aiperf.common.enums import ServiceRunType, ServiceType
+from aiperf.common.enums import ServiceType
 from aiperf.common.logging import get_global_log_queue
-from aiperf.services.service_manager import BaseServiceManager
-from aiperf.services.service_manager.kubernetes import KubernetesServiceManager
-from aiperf.services.service_manager.multiprocess import MultiProcessServiceManager
+from aiperf.services.service_manager import BaseServiceManager, ServiceManagerFactory
 
 
 @runtime_checkable
@@ -45,35 +43,23 @@ class ServiceManagerMixin(ServiceManagerMixinRequirements):
             ServiceType.INFERENCE_RESULT_PARSER: self.service_config.result_parser_service_count,
         }
 
-        if self.service_config.service_run_type == ServiceRunType.MULTIPROCESSING:
-            self.service_manager = MultiProcessServiceManager(
-                required_services=self._required_services,
-                service_config=self.service_config,
-                user_config=self.user_config,
-                log_queue=get_global_log_queue(),
-            )
-
-        elif self.service_config.service_run_type == ServiceRunType.KUBERNETES:
-            self.service_manager = KubernetesServiceManager(
-                required_services=self._required_services,
-                service_config=self.service_config,
-                user_config=self.user_config,
-            )
-
-        else:
-            raise ValueError(
-                f"Unsupported service run type: {self.service_config.service_run_type}"
-            )
-
+        self.service_manager = ServiceManagerFactory.get_class_from_type(
+            self.service_config.service_run_type
+        )(
+            required_services=self._required_services,
+            service_config=self.service_config,
+            user_config=self.user_config,
+            log_queue=get_global_log_queue(),
+        )
         super().__init__(service_manager=self.service_manager, **kwargs)
 
     async def run_all_services(self) -> None:
         """Run all services."""
         if self.service_manager is None:
             raise ValueError("Service manager not created")
-        await self.service_manager.run_all_services()
-        await self.service_manager.wait_for_all_services_registration()
-        await self.service_manager.wait_for_all_services_to_start()
+        await self.service_manager.run_all_required_services()
+        await self.service_manager.wait_for_all_required_services_registration()
+        await self.service_manager.wait_for_all_required_services_to_start()
 
     async def stop_all_services(self) -> None:
         """Stop all services."""

@@ -9,9 +9,8 @@ from aiperf.common.constants import (
 )
 from aiperf.common.enums import ServiceType
 from aiperf.common.enums.service_enums import ServiceRunType
-from aiperf.common.messages import BaseServiceMessage
 from aiperf.common.models import AIPerfBaseModel
-from aiperf.services.service_manager.base import (
+from aiperf.services.service_manager.base_service_manager import (
     BaseServiceManager,
     ServiceManagerFactory,
 )
@@ -43,7 +42,7 @@ class KubernetesServiceManager(BaseServiceManager):
             user_config=user_config,
         )
 
-    async def run_all_services(self) -> None:
+    async def run_all_required_services(self) -> None:
         """Initialize all required services as Kubernetes pods."""
         self.debug("Initializing all required services as Kubernetes pods")
         # TODO: Implement Kubernetes
@@ -67,7 +66,7 @@ class KubernetesServiceManager(BaseServiceManager):
             "KubernetesServiceManager.kill_all_services not implemented"
         )
 
-    async def wait_for_all_services_registration(
+    async def wait_for_all_required_services_registration(
         self, timeout_seconds: float = DEFAULT_WAIT_FOR_REGISTRATION_SECONDS
     ) -> None:
         """Wait for all required services to be registered in Kubernetes."""
@@ -77,7 +76,7 @@ class KubernetesServiceManager(BaseServiceManager):
             "KubernetesServiceManager.wait_for_all_services_registration not implemented"
         )
 
-    async def wait_for_all_services_to_start(
+    async def wait_for_all_required_services_to_start(
         self, timeout_seconds: float = DEFAULT_WAIT_FOR_START_SECONDS
     ) -> None:
         """Wait for all required services to be started in Kubernetes."""
@@ -96,8 +95,3 @@ class KubernetesServiceManager(BaseServiceManager):
         raise NotImplementedError(
             "KubernetesServiceManager.wait_for_all_services_to_stop not implemented"
         )
-
-    async def on_message(self, message: BaseServiceMessage) -> None:
-        """Handle a message from a service."""
-        # TODO: Implement Kubernetes
-        raise NotImplementedError("KubernetesServiceManager.on_message not implemented")

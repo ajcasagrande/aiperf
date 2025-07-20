@@ -10,7 +10,7 @@ from aiperf.common.types import MessageHandlerT
 
 
 @supports_hooks(AIPerfHook.ON_COMMAND_MESSAGE)
-class AIPerfCommandMessageHandlerMixin(AIPerfLifecycleMixin):
+class CommandMessageHandlerMixin(AIPerfLifecycleMixin):
     """Mixin to automatically subscribe to messages based on the :meth:`AIPerfHook.ON_COMMAND_MESSAGE` hooks and @on_command_message decorators.
 
     Inherits from :class:`AIPerfLifecycleMixin` to provide lifecycle management, auto-tasks, and logging.

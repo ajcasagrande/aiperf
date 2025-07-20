@@ -8,15 +8,13 @@ from aiperf.common.comms.base_comms import PubClientProtocol, SubClientProtocol
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.hooks import aiperf_task
 from aiperf.common.mixins import (
-    AIPerfCommandMessageHandlerMixin,
     AIPerfMessagePubSubMixin,
+    CommandMessageHandlerMixin,
 )
 from aiperf.common.models import ParsedResponseRecord
 
 
-class StreamingPostProcessor(
-    AIPerfMessagePubSubMixin, AIPerfCommandMessageHandlerMixin
-):
+class StreamingPostProcessor(AIPerfMessagePubSubMixin, CommandMessageHandlerMixin):
     """
     StreamingPostProcessor is a base class for all classes that wish to stream the incoming
     ParsedResponseRecords.

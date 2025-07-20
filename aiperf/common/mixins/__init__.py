@@ -10,9 +10,6 @@ __ignore__ = []
 ## ⚠️             Do not edit below this line                      ⚠️ ##
 ########################################################################
 
-from aiperf.common.mixins.aiperf_command_mixins import (
-    AIPerfCommandMessageHandlerMixin,
-)
 from aiperf.common.mixins.aiperf_lifecycle_mixin import (
     AIPerfLifecycleMixin,
     AIPerfLifeCycleProtocol,
@@ -42,6 +39,9 @@ from aiperf.common.mixins.async_task_manager_mixin import (
 from aiperf.common.mixins.base_mixin import (
     BaseMixin,
 )
+from aiperf.common.mixins.command_mixins import (
+    CommandMessageHandlerMixin,
+)
 from aiperf.common.mixins.comms_mixins import (
     CommunicationsMixin,
 )
@@ -61,7 +61,7 @@ from aiperf.common.mixins.progress_tracker_mixin import (
 )
 
 __all__ = [
-    "AIPerfCommandMessageHandlerMixin",
+    "CommandMessageHandlerMixin",
     "AIPerfLifeCycleProtocol",
     "AIPerfLifecycleMixin",
     "AIPerfLoggerMixin",

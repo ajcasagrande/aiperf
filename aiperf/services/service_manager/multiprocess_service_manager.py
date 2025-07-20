@@ -16,19 +16,16 @@ from aiperf.common.constants import (
     DEFAULT_WAIT_FOR_STOP_SECONDS,
     TASK_CANCEL_TIMEOUT_SHORT,
 )
-from aiperf.common.enums import MessageType, ServiceState, ServiceType
+from aiperf.common.enums import ServiceState, ServiceType
 from aiperf.common.enums.service_enums import ServiceRunType
 from aiperf.common.exceptions import ServiceTimeoutError
-from aiperf.common.messages import BaseServiceMessage
-from aiperf.common.messages.error_messages import BaseServiceErrorMessage
 from aiperf.common.messages.service_messages import (
-    HeartbeatMessage,
     RegistrationMessage,
     StatusMessage,
 )
 from aiperf.common.models import AIPerfBaseModel
 from aiperf.common.service.base_service import ServiceFactory
-from aiperf.services.service_manager.base import (
+from aiperf.services.service_manager.base_service_manager import (
     BaseServiceManager,
     ServiceManagerFactory,
 )
@@ -110,7 +107,7 @@ class MultiProcessServiceManager(BaseServiceManager):
                     MultiProcessRunInfo(process=process, service_type=service_type)
                 )
 
-    async def run_all_services(self) -> None:
+    async def run_all_required_services(self) -> None:
         """Start all required services as multiprocessing processes."""
         self.debug("Starting all required services as multiprocessing processes")
 
@@ -151,7 +148,7 @@ class MultiProcessServiceManager(BaseServiceManager):
             *[self._wait_for_process(info) for info in self.multi_process_info]
         )
 
-    async def wait_for_all_services_registration(
+    async def wait_for_all_required_services_registration(
         self, timeout_seconds: float = DEFAULT_WAIT_FOR_REGISTRATION_SECONDS
     ) -> None:
         """Wait for all required services to be registered.
@@ -184,7 +181,7 @@ class MultiProcessServiceManager(BaseServiceManager):
                 "Some services failed to register within timeout"
             ) from e
 
-    async def wait_for_all_services_to_start(
+    async def wait_for_all_required_services_to_start(
         self,
         timeout_seconds: float = DEFAULT_WAIT_FOR_START_SECONDS,
     ) -> None:
@@ -232,35 +229,13 @@ class MultiProcessServiceManager(BaseServiceManager):
             )
             info.process.kill()
 
-    async def on_message(self, message: BaseServiceMessage) -> None:
-        """Handle a message from a service."""
-        _handlers = {
-            MessageType.REGISTRATION: self._on_registration_message,
-            MessageType.HEARTBEAT: self._on_heartbeat_message,
-            MessageType.STATUS: self._on_status_message,
-            MessageType.SERVICE_ERROR: self._on_service_error_message,
-        }
-        if message.message_type in _handlers:
-            await _handlers[message.message_type](message)
-
     async def _on_registration_message(self, message: RegistrationMessage) -> None:
-        self.registry.register_service(
-            message.service_id,
-            message.service_type,
-            message.state,
-        )
+        await super()._on_registration_message(message)
         if message.service_type in self.required_services:
             self.debug(lambda: f"Service {message.service_type} registered event set")
             self.registered_events[message.service_type].set()
             self.debug(lambda: f"Registered events: {self.registered_events}")
 
-    async def _on_heartbeat_message(self, message: HeartbeatMessage) -> None:
-        self.registry.update_service_heartbeat(message.service_id)
-
     async def _on_status_message(self, message: StatusMessage) -> None:
-        self.registry.update_service_state(message.service_id, message.state)
+        await super()._on_status_message(message)
         self.state_events[message.service_type][message.state].set()
-        self.trace(lambda: f"State events: {self.state_events}")
-
-    async def _on_service_error_message(self, message: BaseServiceErrorMessage) -> None:
-        self.registry[message.service_id].errors.append(message.error)
