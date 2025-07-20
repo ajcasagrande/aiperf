@@ -7,6 +7,7 @@ import zmq.asyncio
 
 from aiperf.common.comms.zmq import BaseZMQProxy, ZMQProxyFactory
 from aiperf.common.config import BaseZMQCommunicationConfig
+from aiperf.common.constants import DEFAULT_PROXY_STOP_TIMEOUT_SECONDS
 from aiperf.common.enums import ZMQProxyType
 from aiperf.common.mixins.base_mixin import BaseMixin
 
@@ -79,6 +80,12 @@ class ProxyMixin(BaseMixin):
         for task in tasks:
             task.cancel()
 
-        self.zmq_context.term()
+        await asyncio.wait_for(
+            asyncio.gather(*[*stop_tasks, *tasks], return_exceptions=True),
+            timeout=DEFAULT_PROXY_STOP_TIMEOUT_SECONDS,
+        )
 
-        await asyncio.gather(*[*stop_tasks, *tasks], return_exceptions=True)
+        if self.zmq_context:
+            self.zmq_context.term()
+
+        self.zmq_context = None

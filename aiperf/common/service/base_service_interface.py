@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 from abc import ABC, abstractmethod
+from typing import ClassVar
 
 from aiperf.common.enums import ServiceState, ServiceType
 from aiperf.common.messages import Message
@@ -14,15 +15,9 @@ class BaseServiceInterface(ABC):
     meant to be implemented by the base class.
     """
 
-    @property
-    @abstractmethod
-    def service_type(self) -> ServiceType:
-        """The type/name of the service.
-
-        This property should be implemented by derived classes to specify the
-        type/name of the service."""
-        # TODO: We can do this better by using a decorator to set the service type
-        pass
+    service_type: ClassVar[ServiceType]
+    """The type/name of the service.
+    This is set by the ServiceFactory.register decorator."""
 
     @abstractmethod
     async def set_state(self, state: ServiceState) -> None:

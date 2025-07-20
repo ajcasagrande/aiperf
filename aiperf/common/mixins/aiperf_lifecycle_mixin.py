@@ -6,6 +6,7 @@ import inspect
 from collections.abc import Callable
 from typing import Protocol, runtime_checkable
 
+from aiperf.common.constants import DEFAULT_LIFECYCLE_SHUTDOWN_TIMEOUT_SECONDS
 from aiperf.common.hooks import (
     AIPerfHook,
     AIPerfHookParams,
@@ -38,6 +39,7 @@ class AIPerfLifecycleMixin(HooksMixin, AsyncTaskManagerMixin, AIPerfLoggerMixin)
     """
 
     def __init__(self, **kwargs):
+        self.stop_requested: asyncio.Event = asyncio.Event()
         self.initialized_event: asyncio.Event = asyncio.Event()
         self.started_event: asyncio.Event = asyncio.Event()
         self.shutdown_event: asyncio.Event = asyncio.Event()
@@ -121,9 +123,14 @@ class AIPerfLifecycleMixin(HooksMixin, AsyncTaskManagerMixin, AIPerfLoggerMixin)
     async def shutdown(self) -> None:
         """Shutdown the lifecycle. Will call the :meth:`HooksMixin.on_stop` hooks,
         followed by the :meth:`HooksMixin.on_cleanup` hooks."""
+        self.stop_requested.set()
+
         if self.lifecycle_task and not self.cancelled():
             self.lifecycle_task.cancel()
-            await self.lifecycle_task
+            await asyncio.wait_for(
+                self.lifecycle_task,
+                timeout=DEFAULT_LIFECYCLE_SHUTDOWN_TIMEOUT_SECONDS,
+            )
         else:
             self.debug("Lifecycle already cancelled or not running")
 
@@ -156,7 +163,7 @@ class AIPerfLifecycleMixin(HooksMixin, AsyncTaskManagerMixin, AIPerfLoggerMixin)
         interval: float | Callable[["AIPerfLifecycleMixin"], float] | None = None,
     ) -> None:
         """Wrapper to run a task in a loop until cancelled."""
-        while True:
+        while not self.stop_requested.is_set():
             try:
                 if inspect.iscoroutinefunction(func):
                     await func()

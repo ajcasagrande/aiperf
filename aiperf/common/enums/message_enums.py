@@ -186,6 +186,18 @@ class CommandType(CaseInsensitiveStrEnum):
     SHUTDOWN_RESPONSE = "shutdown_response"
     """A message sent by a service to the SystemController to respond to a shutdown request."""
 
+    START_WORKERS = "start_workers"
+    """A message sent from the WorkerManager to the SystemController to start workers."""
+
+    START_WORKERS_RESPONSE = "start_workers_response"
+    """A message sent to respond to a start workers request."""
+
+    STOP_WORKERS = "stop_workers"
+    """A message sent from the WorkerManager to the SystemController to stop workers."""
+
+    STOP_WORKERS_RESPONSE = "stop_workers_response"
+    """A message sent to respond to a stop workers request."""
+
 
 def determine_message_type(value: object) -> MessageType | CommandType:
     try:

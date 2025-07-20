@@ -3,13 +3,18 @@
 import asyncio
 import uuid
 from abc import ABC
+from collections.abc import Callable
+from typing import Any, ClassVar
 
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.enums import ServiceState
+from aiperf.common.enums.service_enums import ServiceType
 from aiperf.common.exceptions import (
     AIPerfError,
+    InvalidOperationError,
     ServiceError,
 )
+from aiperf.common.factories import FactoryMixin
 from aiperf.common.hooks import (
     AIPerfHook,
     AIPerfTaskHook,
@@ -54,6 +59,9 @@ class BaseService(
     AIPerf system. Some of the abstract methods are implemented here, while others
     are still required to be implemented by derived classes.
     """
+
+    # This gets set by the ServiceFactory.register decorator
+    service_type: ClassVar[ServiceType]
 
     def __init__(
         self,
@@ -326,3 +334,31 @@ class BaseService(
         - Call all registered AIPerfHook.ON_CONFIGURE hooks
         """
         await self.run_hooks(AIPerfHook.ON_CONFIGURE, message)
+
+
+class ServiceFactory(FactoryMixin[ServiceType, BaseService]):
+    """Factory for registering and creating BaseService instances based on the specified service type.
+    see: :class:`FactoryMixin` for more details.
+    """
+
+    @classmethod
+    def register_all(
+        cls, *class_types: ServiceType | str, override_priority: int = 0
+    ) -> Callable[..., Any]:
+        raise InvalidOperationError(
+            "ServiceFactory.register_all is not supported. A single service can only be registered with a single type."
+        )
+
+    @classmethod
+    def register(
+        cls, class_type: ServiceType | str, override_priority: int = 0
+    ) -> Callable[..., Any]:
+        # Override the register method to set the service_type on the class
+        original_decorator = super().register(class_type, override_priority)
+
+        def decorator(class_cls: type[BaseService]) -> type[BaseService]:
+            class_cls.service_type = class_type
+            original_decorator(class_cls)
+            return class_cls
+
+        return decorator

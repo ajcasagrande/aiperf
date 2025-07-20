@@ -111,7 +111,7 @@ class BaseComponentService(BaseService):
 
             elif message.message_type == CommandType.SHUTDOWN:
                 self.debug(lambda: f"{self.service_id}: Received shutdown command")
-                await self.stop()
+                await self.shutdown()
 
             elif message.message_type == CommandType.PROFILE_CONFIGURE:
                 response_data = await self.run_hooks(AIPerfHook.ON_CONFIGURE, message)

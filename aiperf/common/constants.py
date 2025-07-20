@@ -24,3 +24,12 @@ DEFAULT_WAIT_FOR_START_SECONDS = 10.0
 
 DEFAULT_WAIT_FOR_STOP_SECONDS = 10.0
 """Default timeout for waiting for services to stop in seconds."""
+
+DEFAULT_PROXY_STOP_TIMEOUT_SECONDS = 10.0
+"""Default timeout for stopping proxies in seconds."""
+
+DEFAULT_UI_SHUTDOWN_TIMEOUT_SECONDS = 2.0
+"""Default timeout for shutting down the UI in seconds."""
+
+DEFAULT_LIFECYCLE_SHUTDOWN_TIMEOUT_SECONDS = 5.0
+"""Default timeout for shutting down the lifecycle in seconds."""

@@ -12,12 +12,13 @@ from aiperf.common.enums import (
     MessageType,
     ServiceType,
 )
-from aiperf.common.factories import ServiceFactory, StreamingPostProcessorFactory
+from aiperf.common.factories import StreamingPostProcessorFactory
 from aiperf.common.hooks import on_init
 from aiperf.common.messages import (
     ParsedInferenceResultsMessage,
 )
 from aiperf.common.service import BaseComponentService
+from aiperf.common.service.base_service import ServiceFactory
 from aiperf.services.records_manager.streaming_post_processor import (
     StreamingPostProcessor,
 )
@@ -54,11 +55,6 @@ class RecordsManager(BaseComponentService):
             )
         )
         self.response_streamers: list[StreamingPostProcessor] = []
-
-    @property
-    def service_type(self) -> ServiceType:
-        """The type of service."""
-        return ServiceType.RECORDS_MANAGER
 
     @on_init
     async def _initialize(self) -> None:

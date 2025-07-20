@@ -9,12 +9,12 @@
             "program": "${workspaceFolder}/aiperf/cli.py",
             "args": [
                 "profile",
-                "-m",
-                "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
-                "--max-workers",
-                "1",
-                "--concurrency",
-                "10"
+                "-m", "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
+                "--max-workers", "1",
+                "--concurrency", "10",
+                "--ui", "none",
+                "--log-level", "DEBUG",
+                "--num-requests", "10000"
             ],
             "env": {
             }
@@ -29,13 +29,6 @@
                 "-m", "deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
             ],
             "env": {
-                "AIPERF_ENABLE_UVLOOP": "True",
-                "AIPERF_LOG_LEVEL": "DEBUG",
-                "AIPERF_MAX_WORKERS": "1",
-                "AIPERF_MIN_WORKERS": "1",
-                "AIPERF_CONCURRENCY": "1",
-                "AIPERF_TOTAL_REQUESTS": "10000",
-                "AIPERF_DISABLE_UI": "true"
             }
         },
         {

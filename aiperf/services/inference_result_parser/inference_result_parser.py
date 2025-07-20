@@ -13,7 +13,6 @@ from aiperf.common.comms.base_comms import (
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
 from aiperf.common.enums import CommunicationClientAddressType, MessageType, ServiceType
-from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
     on_configure,
     on_init,
@@ -32,6 +31,7 @@ from aiperf.common.models import (
     RequestRecord,
 )
 from aiperf.common.service.base_component_service import BaseComponentService
+from aiperf.common.service.base_service import ServiceFactory
 from aiperf.common.tokenizer import Tokenizer
 
 
@@ -72,11 +72,6 @@ class InferenceResultParser(BaseComponentService):
         self.model_endpoint: ModelEndpointInfo = ModelEndpointInfo.from_user_config(
             user_config
         )
-
-    @property
-    def service_type(self) -> ServiceType:
-        """The type of service."""
-        return ServiceType.INFERENCE_RESULT_PARSER
 
     @on_init
     async def _initialize(self) -> None:

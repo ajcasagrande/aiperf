@@ -46,14 +46,18 @@ class AIPerfCommandMessageHandlerMixin(AIPerfLifecycleMixin):
                     lambda msg=message: f"Skipping command message for {msg.target_service_id} because it is not for this service {self.service_id}"
                 )
                 return
-            if (
-                message.target_service_type is not None
-                and message.target_service_type != self.service_type
-            ):
-                self.trace(
-                    lambda msg=message: f"Skipping command message for {msg.target_service_type} because it is not for this service {self.service_type}"
-                )
-                return
+            if message.target_service_type is not None:
+                if not hasattr(self, "service_type"):
+                    self.debug(
+                        lambda msg=message: f"Skipping command message for {msg.target_service_type} because this is not a service"
+                    )
+                    return
+                if message.target_service_type != self.service_type:
+                    self.trace(
+                        lambda msg=message: f"Skipping command message for {msg.target_service_type} because it is not for this service {self.service_type}"
+                    )
+                    return
+
             await handler(message)
 
         return handle

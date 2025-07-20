@@ -8,7 +8,8 @@
 # will cause a performance penalty during this process.
 ################################################################################
 
-import sys
+import asyncio
+import contextlib
 from typing import Annotated
 
 import cyclopts
@@ -82,4 +83,5 @@ def validate_config(
 
 
 if __name__ == "__main__":
-    sys.exit(app())
+    with contextlib.suppress(asyncio.CancelledError, KeyboardInterrupt):
+        app()

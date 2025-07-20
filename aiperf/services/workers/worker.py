@@ -17,7 +17,6 @@ from aiperf.common.enums import (
     MessageType,
     ServiceType,
 )
-from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
     aiperf_auto_task,
     on_configure,
@@ -33,6 +32,7 @@ from aiperf.common.messages import (
 from aiperf.common.mixins import ProcessHealthMixin
 from aiperf.common.models import WorkerPhaseTaskStats
 from aiperf.common.service.base_component_service import BaseComponentService
+from aiperf.common.service.base_service import ServiceFactory
 from aiperf.services.workers.credit_processor_mixin import CreditProcessorMixin
 
 
@@ -98,10 +98,6 @@ class Worker(BaseComponentService, ProcessHealthMixin, CreditProcessorMixin):
             self.model_endpoint.endpoint.type,
             model_endpoint=self.model_endpoint,
         )
-
-    @property
-    def service_type(self) -> ServiceType:
-        return ServiceType.WORKER
 
     @on_init
     async def _initialize_worker(self) -> None:

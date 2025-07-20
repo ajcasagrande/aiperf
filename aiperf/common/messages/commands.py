@@ -117,3 +117,47 @@ class ProfileCancelCommand(CommandMessage):
 
 class ProfileCancelResponse(CommandResponseMessage):
     message_type: MessageTypeT = CommandType.PROFILE_CANCEL_RESPONSE
+
+
+class StartWorkersData(BaseModel):
+    """The data for the start workers command."""
+
+    worker_count: int = Field(
+        ...,
+        description="The number of workers to start",
+    )
+
+
+class StartWorkersCommand(CommandMessage):
+    message_type: MessageTypeT = CommandType.START_WORKERS
+
+    data: StartWorkersData = Field(  # type: ignore[override]
+        ...,
+        description="The data for the start workers command",
+    )
+
+
+class StartWorkersResponse(CommandResponseMessage):
+    message_type: MessageTypeT = CommandType.START_WORKERS_RESPONSE
+
+
+class StopWorkersData(BaseModel):
+    """The data for the stop workers command."""
+
+    service_ids: list[str] | None = Field(
+        default=None,
+        description="The IDs of the workers to stop. If None, all workers will be stopped.",
+    )
+
+
+class StopWorkersCommand(CommandMessage):
+    message_type: MessageTypeT = CommandType.STOP_WORKERS
+
+    data: StopWorkersData = Field(  # type: ignore[override]
+        ...,
+        description="The data for the stop workers command",
+    )
+
+
+class StopWorkersResponse(CommandResponseMessage):
+    message_type: MessageTypeT = CommandType.STOP_WORKERS_RESPONSE

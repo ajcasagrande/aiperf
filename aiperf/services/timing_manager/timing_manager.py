@@ -18,7 +18,6 @@ from aiperf.common.enums import (
     ServiceType,
 )
 from aiperf.common.exceptions import InvalidStateError
-from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
     on_configure,
     on_init,
@@ -34,6 +33,7 @@ from aiperf.common.messages import (
 )
 from aiperf.common.messages.credit_messages import FirstByteReceivedMessage
 from aiperf.common.service.base_component_service import BaseComponentService
+from aiperf.common.service.base_service import ServiceFactory
 from aiperf.services.timing_manager.config import (
     TimingManagerConfig,
     TimingMode,
@@ -83,11 +83,6 @@ class TimingManager(BaseComponentService, CreditPhaseMessagesMixin):
             )
         )
         self._credit_issuing_strategy: CreditIssuingStrategy | None = None
-
-    @property
-    def service_type(self) -> ServiceType:
-        """The type of service."""
-        return ServiceType.TIMING_MANAGER
 
     @on_init
     async def _timing_manager_initialize(self) -> None:

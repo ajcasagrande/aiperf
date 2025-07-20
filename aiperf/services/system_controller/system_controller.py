@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
+from aiperf.common.constants import DEFAULT_UI_SHUTDOWN_TIMEOUT_SECONDS
 from aiperf.common.enums import (
     BenchmarkSuiteType,
     MessageType,
@@ -19,8 +20,7 @@ from aiperf.common.exceptions import (
     CommandError,
     InitializationError,
 )
-from aiperf.common.factories import ServiceFactory
-from aiperf.common.hooks import on_cleanup, on_message, on_start, on_stop
+from aiperf.common.hooks import on_cleanup, on_message, on_run, on_start
 from aiperf.common.messages import (
     HeartbeatMessage,
     Message,
@@ -36,7 +36,7 @@ from aiperf.common.messages.commands import (
     ShutdownCommand,
 )
 from aiperf.common.mixins import EventBusClientMixin
-from aiperf.common.service.base_controller_service import BaseControllerService
+from aiperf.common.service.base_service import BaseService, ServiceFactory
 from aiperf.data_exporter.exporter_manager import ExporterManager
 from aiperf.progress.progress_tracker import (
     BenchmarkSuiteProgress,
@@ -53,7 +53,7 @@ from aiperf.ui.ui_protocol import AIPerfUIFactory
 
 @ServiceFactory.register(ServiceType.SYSTEM_CONTROLLER)
 class SystemController(
-    BaseControllerService,
+    BaseService,
     SignalHandlerMixin,
     ProxyMixin,
     EventBusClientMixin,
@@ -91,10 +91,10 @@ class SystemController(
 
         self.debug("System Controller created")
 
-    @property
-    def service_type(self) -> ServiceType:
-        """The type of service."""
-        return ServiceType.SYSTEM_CONTROLLER
+    @on_run
+    async def _on_run(self) -> None:
+        """Automatically start the service when the run hook is called."""
+        await self.start()
 
     async def initialize(self) -> None:
         """Override the base initialize method to add pre-initialization and
@@ -198,6 +198,7 @@ class SystemController(
         Args:
             sig: The signal number received
         """
+        self.info(lambda: f"Received signal {sig}, initiating graceful shutdown")
         self.debug(lambda: f"Received signal {sig}, initiating graceful shutdown")
         if sig == signal.SIGINT:
             if self.stop_event.is_set():
@@ -208,10 +209,9 @@ class SystemController(
             if self.profile_runner and not self.profile_runner.is_complete:
                 await self.profile_runner.cancel_profile()
 
-        self.stop_event.set()
+        await self._graceful_shutdown()
 
-    @on_stop
-    async def _stop(self) -> None:
+    async def _graceful_shutdown(self) -> None:
         """Stop the system controller and all running services.
 
         This method will:
@@ -232,6 +232,7 @@ class SystemController(
             )
         )
 
+        self.info("Sending shutdown command to all services")
         # Broadcast a stop command to all services
         await self.pub_client.publish(
             ShutdownCommand(
@@ -239,7 +240,9 @@ class SystemController(
                 data=None,
             )
         )
-
+        self.stop_event.set()
+        await self.shutdown()
+        self.info("Shutting down all services")
         try:
             await self.service_manager.shutdown_all_services()
         except Exception as e:
@@ -256,7 +259,10 @@ class SystemController(
         self.debug("Cleaning up System Controller")
 
         await self.ui.shutdown()
-        await self.ui.wait_for_shutdown()
+        await asyncio.wait_for(
+            self.ui.wait_for_shutdown(),
+            timeout=DEFAULT_UI_SHUTDOWN_TIMEOUT_SECONDS,
+        )
 
         await self.kill()
 

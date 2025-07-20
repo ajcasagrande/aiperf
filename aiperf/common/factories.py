@@ -7,7 +7,6 @@ from aiperf.common.aiperf_logger import AIPerfLogger
 from aiperf.common.enums import (
     CaseInsensitiveStrEnum,
     PromptSource,
-    ServiceType,
     StreamingPostProcessorType,
     ZMQProxyType,
 )
@@ -203,12 +202,6 @@ class FactoryMixin(Generic[ClassEnumT, ClassProtocolT]):
 
 class InputConverterFactory(FactoryMixin[PromptSource, "InputConverterProtocol"]):
     """Factory for registering and creating InputConverterProtocol instances based on the specified prompt source.
-    see: :class:`FactoryMixin` for more details.
-    """
-
-
-class ServiceFactory(FactoryMixin[ServiceType, "BaseService"]):
-    """Factory for registering and creating BaseService instances based on the specified service type.
     see: :class:`FactoryMixin` for more details.
     """
 

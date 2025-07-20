@@ -14,7 +14,7 @@ from aiperf.common.enums import (
 )
 from aiperf.common.enums.message_enums import MessageType
 from aiperf.common.exceptions import BadRequestError, ConfigurationError
-from aiperf.common.factories import ComposerFactory, ServiceFactory
+from aiperf.common.factories import ComposerFactory
 from aiperf.common.hooks import (
     on_configure,
     on_init,
@@ -31,6 +31,7 @@ from aiperf.common.messages import (
 from aiperf.common.messages.commands import ProfileConfigureCommand
 from aiperf.common.models import Conversation
 from aiperf.common.service.base_component_service import BaseComponentService
+from aiperf.common.service.base_service import ServiceFactory
 from aiperf.common.tokenizer import Tokenizer
 
 DATASET_CONFIGURATION_TIMEOUT = 30.0
@@ -63,11 +64,6 @@ class DatasetManager(BaseComponentService):
             CommunicationClientAddressType.DATASET_MANAGER_PROXY_BACKEND
         )
         self.dataset_configured = asyncio.Event()
-
-    @property
-    def service_type(self) -> ServiceType:
-        """The type of service."""
-        return ServiceType.DATASET_MANAGER
 
     @on_init
     async def _initialize(self) -> None:

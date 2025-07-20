@@ -187,3 +187,7 @@ class PluginError(AIPerfError):
 
 class PluginNotFoundError(PluginError):
     """Exception raised when a plugin is not found."""
+
+
+class InvalidOperationError(AIPerfError):
+    """Exception raised when an operation is invalid."""
