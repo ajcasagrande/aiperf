@@ -41,6 +41,7 @@ class ProxySocketClient(BaseZMQClient):
         end_type: ProxyEndType,
         socket_ops: dict | None = None,
         proxy_uuid: str | None = None,
+        **kwargs,
     ) -> None:
         self.client_id = f"proxy_{end_type}_{socket_type.name.lower()}_{proxy_uuid or uuid.uuid4().hex[:8]}"
         super().__init__(
@@ -50,6 +51,7 @@ class ProxySocketClient(BaseZMQClient):
             bind=True,
             socket_ops=socket_ops,
             client_id=self.client_id,
+            **kwargs,
         )
         self.debug(
             lambda: f"ZMQ Proxy {end_type.name} {socket_type.name} - Address: {address}"
@@ -77,6 +79,7 @@ class BaseZMQProxy(AIPerfLoggerMixin, ABC):
         zmq_proxy_config: BaseZMQProxyConfig,
         socket_ops: dict | None = None,
         proxy_uuid: str | None = None,
+        **kwargs,
     ) -> None:
         """Initialize the ZMQ Proxy. This is a base class for all ZMQ Proxies.
 
@@ -92,7 +95,7 @@ class BaseZMQProxy(AIPerfLoggerMixin, ABC):
 
         self.proxy_uuid = proxy_uuid or uuid.uuid4().hex[:8]
         self.proxy_id = f"{self.__class__.__name__.lower()}_{self.proxy_uuid}"
-        super().__init__()
+        super().__init__(**kwargs)
         self.context = context
         self.socket_ops = socket_ops
 

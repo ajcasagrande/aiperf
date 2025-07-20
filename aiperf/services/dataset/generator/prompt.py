@@ -31,8 +31,8 @@ class PromptGenerator(BaseGenerator):
     prompts that can be randomly selected.
     """
 
-    def __init__(self, config: PromptConfig, tokenizer: Tokenizer):
-        super().__init__()
+    def __init__(self, config: PromptConfig, tokenizer: Tokenizer, **kwargs):
+        super().__init__(**kwargs)
         self.config = config
         self.tokenizer = tokenizer
         self._tokenized_corpus = None

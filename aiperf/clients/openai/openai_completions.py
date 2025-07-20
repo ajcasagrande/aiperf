@@ -15,8 +15,8 @@ from aiperf.common.models import Turn
 class OpenAICompletionRequestConverter(AIPerfLoggerMixin):
     """Request converter for OpenAI completion requests."""
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
 
     async def format_payload(
         self,

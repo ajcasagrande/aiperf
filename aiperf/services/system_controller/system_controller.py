@@ -22,12 +22,10 @@ from aiperf.common.exceptions import (
 )
 from aiperf.common.hooks import on_cleanup, on_message, on_run, on_start
 from aiperf.common.messages import (
-    HeartbeatMessage,
     Message,
     ProfileResultsMessage,
     RecordsProcessingStatsMessage,
     RegistrationMessage,
-    StatusMessage,
 )
 from aiperf.common.messages.commands import (
     ProcessRecordsCommand,
@@ -344,7 +342,7 @@ class SystemController(
         Args:
             message: The registration message to process
         """
-        await self.service_manager.on_message(message)
+        # await self.service_manager.on_message(message)
 
         is_required = message.service_type in self.service_manager.required_services
         self.info(
@@ -371,31 +369,31 @@ class SystemController(
             lambda: f"Sent configure command to {message.service_type} (ID: {message.service_id})"
         )
 
-    @on_message(MessageType.HEARTBEAT)
-    async def _process_heartbeat_message(self, message: HeartbeatMessage) -> None:
-        """Process a heartbeat message from a service. It will
-        update the last seen timestamp and state of the service.
+    # @on_message(MessageType.HEARTBEAT)
+    # async def _process_heartbeat_message(self, message: HeartbeatMessage) -> None:
+    #     """Process a heartbeat message from a service. It will
+    #     update the last seen timestamp and state of the service.
 
-        Args:
-            message: The heartbeat message to process
-        """
-        self.trace(
-            lambda: f"Received heartbeat from {message.service_type} (ID: {message.service_id})"
-        )
-        await self.service_manager.on_message(message)
+    #     Args:
+    #         message: The heartbeat message to process
+    #     """
+    #     self.trace(
+    #         lambda: f"Received heartbeat from {message.service_type} (ID: {message.service_id})"
+    #     )
+    #     await self.service_manager.on_message(message)
 
-    @on_message(MessageType.STATUS)
-    async def _process_status_message(self, message: StatusMessage) -> None:
-        """Process a status message from a service. It will
-        update the state of the service with the service manager.
+    # @on_message(MessageType.STATUS)
+    # async def _process_status_message(self, message: StatusMessage) -> None:
+    #     """Process a status message from a service. It will
+    #     update the state of the service with the service manager.
 
-        Args:
-            message: The status message to process
-        """
-        self.trace(
-            lambda: f"Received status update from {message.service_type} (ID: {message.service_id}): {message.state}"
-        )
-        await self.service_manager.on_message(message)
+    #     Args:
+    #         message: The status message to process
+    #     """
+    #     self.trace(
+    #         lambda: f"Received status update from {message.service_type} (ID: {message.service_id}): {message.state}"
+    #     )
+    #     await self.service_manager.on_message(message)
 
     # @on_message(MessageType.COMMAND_RESPONSE)
     # async def _process_command_response_message(

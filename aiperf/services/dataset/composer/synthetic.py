@@ -14,8 +14,8 @@ from aiperf.services.dataset.composer.base import BaseDatasetComposer
 
 @ComposerFactory.register(ComposerType.SYNTHETIC)
 class SyntheticDatasetComposer(BaseDatasetComposer):
-    def __init__(self, config: InputConfig, tokenizer: Tokenizer):
-        super().__init__(config, tokenizer)
+    def __init__(self, config: InputConfig, tokenizer: Tokenizer, **kwargs):
+        super().__init__(config, tokenizer, **kwargs)
 
         if (
             not self.include_prompt

@@ -18,12 +18,12 @@ class AIPerfProfileMixin(HooksMixin, AIPerfLoggerMixin):
     """Mixin to add profile support to a class. It abstracts away the details of the
     :class:`AIPerfProfile` and provides a simple interface for registering and running profiles."""
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, **kwargs):
         self.profile_started_event: asyncio.Event = asyncio.Event()
         self.profile_stopped_event: asyncio.Event = asyncio.Event()
         self.request_profile_stop_event: asyncio.Event = asyncio.Event()
         self.profile_configured_event: asyncio.Event = asyncio.Event()
+        super().__init__(**kwargs)
 
     async def configure_profile(self, message: Message):
         """Configure the profile."""

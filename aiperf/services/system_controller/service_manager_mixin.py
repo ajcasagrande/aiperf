@@ -3,9 +3,11 @@
 
 from typing import Protocol, runtime_checkable
 
+from aiperf.common.comms.base_comms import PubClientProtocol, SubClientProtocol
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
 from aiperf.common.enums import ServiceType
+from aiperf.common.hooks import on_start
 from aiperf.common.logging import get_global_log_queue
 from aiperf.services.service_manager import BaseServiceManager, ServiceManagerFactory
 
@@ -19,6 +21,8 @@ class ServiceManagerMixinRequirements(Protocol):
 
     service_config: ServiceConfig
     user_config: UserConfig
+    sub_client: SubClientProtocol
+    pub_client: PubClientProtocol
 
 
 class ServiceManagerMixin(ServiceManagerMixinRequirements):
@@ -49,9 +53,15 @@ class ServiceManagerMixin(ServiceManagerMixinRequirements):
             required_services=self._required_services,
             service_config=self.service_config,
             user_config=self.user_config,
+            sub_client=self.sub_client,
+            pub_client=self.pub_client,
             log_queue=get_global_log_queue(),
         )
         super().__init__(service_manager=self.service_manager, **kwargs)
+
+    @on_start
+    async def _on_start(self) -> None:
+        await self.service_manager.run_async()
 
     async def run_all_services(self) -> None:
         """Run all services."""

@@ -50,7 +50,6 @@ from aiperf.common.mixins.event_bus_client_mixin import (
 )
 from aiperf.common.mixins.hooks_mixin import (
     HooksMixin,
-    HookSystem,
 )
 from aiperf.common.mixins.process_health_mixin import (
     ProcessHealthMixin,
@@ -79,7 +78,6 @@ __all__ = [
     "BaseMixin",
     "CommunicationsMixin",
     "EventBusClientMixin",
-    "HookSystem",
     "HooksMixin",
     "ProcessHealthMixin",
     "ProcessHealthMixinProtocol",

@@ -29,9 +29,9 @@ from aiperf.common.types import SSECallbackT
 class OpenAIClientAioHttp(AioHttpClientMixin, AIPerfLoggerMixin):
     """Inference client for OpenAI based requests using aiohttp."""
 
-    def __init__(self, model_endpoint: ModelEndpointInfo) -> None:
-        super().__init__(model_endpoint)
+    def __init__(self, model_endpoint: ModelEndpointInfo, **kwargs) -> None:
         self.model_endpoint = model_endpoint
+        super().__init__(model_endpoint, **kwargs)
 
     def get_headers(self, model_endpoint: ModelEndpointInfo) -> dict[str, str]:
         """Get the headers for the given endpoint."""

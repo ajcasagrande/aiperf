@@ -57,11 +57,13 @@ class TimingManager(BaseComponentService, CreditPhaseMessagesMixin):
         service_config: ServiceConfig,
         user_config: UserConfig | None,
         service_id: str | None = None,
+        **kwargs,
     ) -> None:
         super().__init__(
             service_config=service_config,
             user_config=user_config,
             service_id=service_id,
+            **kwargs,
         )
         self.debug("Initializing timing manager")
 

@@ -62,6 +62,7 @@ class ZMQSubClient(BaseZMQClient, AsyncTaskManagerMixin):
         address: str,
         bind: bool,
         socket_ops: dict | None = None,
+        **kwargs,
     ) -> None:
         """
         Initialize the ZMQ Subscriber class.
@@ -72,7 +73,9 @@ class ZMQSubClient(BaseZMQClient, AsyncTaskManagerMixin):
             bind (bool): Whether to bind or connect the socket.
             socket_ops (dict, optional): Additional socket options to set.
         """
-        super().__init__(context, zmq.SocketType.SUB, address, bind, socket_ops)
+        super().__init__(
+            context, zmq.SocketType.SUB, address, bind, socket_ops, **kwargs
+        )
 
         self._subscribers: dict[MessageType | str, list[Callable[[Message], Any]]] = {}
 

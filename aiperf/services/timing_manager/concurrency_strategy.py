@@ -25,9 +25,12 @@ class ConcurrencyStrategy(
     """Class for concurrency credit issuing strategy."""
 
     def __init__(
-        self, config: TimingManagerConfig, credit_manager: CreditManagerProtocol
+        self,
+        config: TimingManagerConfig,
+        credit_manager: CreditManagerProtocol,
+        **kwargs,
     ):
-        super().__init__(config=config, credit_manager=credit_manager)
+        super().__init__(config=config, credit_manager=credit_manager, **kwargs)
 
         # If the concurrency is larger than the total number of requests, it does not matter
         # as it is simply an upper bound that will never be reached

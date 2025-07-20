@@ -12,8 +12,8 @@ from aiperf.services.dataset.composer.base import BaseDatasetComposer
 
 @ComposerFactory.register(ComposerType.CUSTOM)
 class CustomDatasetComposer(BaseDatasetComposer):
-    def __init__(self, config: InputConfig, tokenizer: Tokenizer):
-        super().__init__(config, tokenizer)
+    def __init__(self, config: InputConfig, tokenizer: Tokenizer, **kwargs):
+        super().__init__(config, tokenizer, **kwargs)
 
     def create_dataset(self) -> list[Conversation]:
         """Create conversations from a file or directory.

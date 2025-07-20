@@ -23,9 +23,12 @@ class CreditIssuingStrategy(AsyncTaskManagerMixin, AIPerfLoggerMixin, ABC):
     """
 
     def __init__(
-        self, config: TimingManagerConfig, credit_manager: CreditManagerProtocol
+        self,
+        config: TimingManagerConfig,
+        credit_manager: CreditManagerProtocol,
+        **kwargs,
     ):
-        super().__init__()
+        super().__init__(**kwargs)
         self.config = config
         self.credit_manager = credit_manager
 

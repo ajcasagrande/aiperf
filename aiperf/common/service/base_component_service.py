@@ -47,14 +47,12 @@ class BaseComponentService(BaseService):
         service_id: str | None = None,
         **kwargs,
     ) -> None:
+        self._heartbeat_interval_seconds = service_config.heartbeat_interval_seconds
         super().__init__(
             service_config=service_config,
             user_config=user_config,
             service_id=service_id,
             **kwargs,
-        )
-        self._heartbeat_interval_seconds = (
-            self.service_config.heartbeat_interval_seconds
         )
 
     # TODO: Should this be a new post-init? Or is that already handled by the base mixins?

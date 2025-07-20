@@ -53,6 +53,7 @@ class ZMQRouterReplyClient(BaseZMQClient, AsyncTaskManagerMixin):
         address: str,
         bind: bool,
         socket_ops: dict | None = None,
+        **kwargs,
     ) -> None:
         """
         Initialize the ZMQ Router (Rep) client class.
@@ -63,7 +64,9 @@ class ZMQRouterReplyClient(BaseZMQClient, AsyncTaskManagerMixin):
             bind (bool): Whether to bind or connect the socket.
             socket_ops (dict, optional): Additional socket options to set.
         """
-        super().__init__(context, zmq.SocketType.ROUTER, address, bind, socket_ops)
+        super().__init__(
+            context, zmq.SocketType.ROUTER, address, bind, socket_ops, **kwargs
+        )
 
         self._request_handlers: dict[
             MessageType,

@@ -46,11 +46,13 @@ class InferenceResultParser(BaseComponentService):
         service_config: ServiceConfig,
         user_config: UserConfig,
         service_id: str | None = None,
+        **kwargs,
     ) -> None:
         super().__init__(
             service_config=service_config,
             user_config=user_config,
             service_id=service_id,
+            **kwargs,
         )
         self.debug("Initializing inference result parser")
         self.inference_results_client: PullClientProtocol = (

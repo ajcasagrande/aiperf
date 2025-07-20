@@ -35,11 +35,13 @@ class KubernetesServiceManager(BaseServiceManager):
         required_services: dict[ServiceType, int],
         service_config: ServiceConfig,
         user_config: UserConfig | None = None,
+        **kwargs,
     ):
         super().__init__(
             required_services=required_services,
             service_config=service_config,
             user_config=user_config,
+            **kwargs,
         )
 
     async def run_all_required_services(self) -> None:

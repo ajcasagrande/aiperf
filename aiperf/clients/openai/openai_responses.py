@@ -15,8 +15,8 @@ from aiperf.common.models import Turn
 class OpenAIResponsesRequestConverter(AIPerfLoggerMixin):
     """Request converter for OpenAI Responses requests."""
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
 
     async def format_payload(
         self,

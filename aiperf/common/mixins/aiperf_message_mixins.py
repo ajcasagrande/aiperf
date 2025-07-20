@@ -3,12 +3,18 @@
 
 from typing_extensions import Protocol
 
+from aiperf.common.aiperf_logger import AIPerfLogger
 from aiperf.common.comms.base_comms import PubClientProtocol, SubClientProtocol
 from aiperf.common.enums import MessageType
 from aiperf.common.hooks import AIPerfHook, AIPerfHookParams, on_init, supports_hooks
 from aiperf.common.messages import Message
 from aiperf.common.mixins.aiperf_lifecycle_mixin import AIPerfLifecycleMixin
 from aiperf.common.types import MessageHandlerT
+
+_logger = AIPerfLogger(__name__)
+import logging
+
+logging.basicConfig(level=logging.INFO)
 
 
 @supports_hooks(AIPerfHook.ON_MESSAGE)
@@ -18,37 +24,53 @@ class AIPerfMessageHandlerMixin(AIPerfLifecycleMixin):
     Inherits from :class:`AIPerfLifecycleMixin` to provide lifecycle management, auto-tasks, and logging.
     """
 
-    def __init__(self, sub_client: SubClientProtocol, **kwargs):
-        self.sub_client = sub_client
-        super().__init__(sub_client=sub_client, **kwargs)
-        self._message_handlers: dict[
-            MessageType,
-            list[MessageHandlerT],
-        ] = {}
+    def __init_subclass__(cls, **kwargs):
+        _logger.info(
+            lambda: f"AIPerfMessageHandlerMixin __init_subclass__ for {cls.__name__}"
+        )
 
-        for hook in self.get_hooks(AIPerfHook.ON_MESSAGE):
+        super().__init_subclass__(**kwargs)
+
+        if not hasattr(cls, "_aiperf_message_handlers"):
+            cls._aiperf_message_handlers: dict[
+                MessageType,
+                list[MessageHandlerT],
+            ] = {}
+
+        for hook in cls.get_class_hooks(AIPerfHook.ON_MESSAGE):
             message_types = getattr(hook, AIPerfHookParams.ON_MESSAGE_MESSAGE_TYPES, [])
             for message_type in message_types:
-                self._register_message_handler(message_type, hook)
-                self.debug(
+                cls._register_message_handler(message_type, hook)
+                _logger.info(
                     lambda typ=message_type,
-                    hook=hook: f"Registering message handler for '{typ}': {self.__class__.__name__}.{hook.__name__}"
+                    hook=hook: f"Registering message handler for '{typ}': {cls.__name__}.{hook.__name__}"
                 )
 
+    def __init__(self, sub_client: SubClientProtocol, **kwargs):
+        _logger.info(
+            lambda: f"AIPerfMessageHandlerMixin __init__ for {self.__class__.__name__}"
+        )
+        self.sub_client = sub_client
+        super().__init__(sub_client=sub_client, **kwargs)
+
+    @classmethod
     def _register_message_handler(
-        self,
+        cls,
         message_type: MessageType,
         handler: MessageHandlerT,
     ) -> None:
         """Register a message handler for a given message type."""
-        if message_type in self._message_handlers:
-            self._message_handlers[message_type].append(handler)
+        if message_type in cls._aiperf_message_handlers:
+            cls._aiperf_message_handlers[message_type].append(handler)
         else:
-            self._message_handlers[message_type] = [handler]
+            cls._aiperf_message_handlers[message_type] = [handler]
 
     @on_init
     async def _initialize_message_handler_subscriptions(self) -> None:
         """Subscribe to all message types that have handlers registered from the @on_message decorators."""
+        self.info(
+            lambda: f"Subscribing to {self._message_handlers} message types for {self.__class__.__name__}"
+        )
         await self.sub_client.subscribe_all(self._message_handlers)
 
     async def subscribe(

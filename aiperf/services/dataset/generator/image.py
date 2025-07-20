@@ -22,8 +22,8 @@ class ImageGenerator(BaseGenerator):
     The dimensions can be randomized based on mean and standard deviation values.
     """
 
-    def __init__(self, config: ImageConfig):
-        super().__init__()
+    def __init__(self, config: ImageConfig, **kwargs):
+        super().__init__(**kwargs)
         self.config = config
 
     def generate(self, *args, **kwargs) -> str:

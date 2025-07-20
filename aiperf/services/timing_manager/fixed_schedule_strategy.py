@@ -28,8 +28,9 @@ class FixedScheduleStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
         config: TimingManagerConfig,
         credit_manager: CreditManagerProtocol,
         schedule: list[tuple[int, str]],
+        **kwargs,
     ):
-        super().__init__(config=config, credit_manager=credit_manager)
+        super().__init__(config=config, credit_manager=credit_manager, **kwargs)
 
         self._schedule: list[tuple[int, str]] = schedule
 

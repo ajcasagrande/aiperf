@@ -16,8 +16,8 @@ _DEFAULT_ROLE = "user"
 class OpenAIChatCompletionRequestConverter(AIPerfLoggerMixin):
     """Request converter for OpenAI chat completion requests."""
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
 
     async def format_payload(
         self,

@@ -55,6 +55,7 @@ class ZMQPushClient(BaseZMQClient, AsyncTaskManagerMixin):
         address: str,
         bind: bool,
         socket_ops: dict | None = None,
+        **kwargs,
     ) -> None:
         """
         Initialize the ZMQ Push client class.
@@ -65,7 +66,9 @@ class ZMQPushClient(BaseZMQClient, AsyncTaskManagerMixin):
             bind (bool): Whether to bind or connect the socket.
             socket_ops (dict, optional): Additional socket options to set.
         """
-        super().__init__(context, zmq.SocketType.PUSH, address, bind, socket_ops)
+        super().__init__(
+            context, zmq.SocketType.PUSH, address, bind, socket_ops, **kwargs
+        )
 
     async def _push_message(
         self,

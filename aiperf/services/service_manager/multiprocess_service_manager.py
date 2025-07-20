@@ -23,6 +23,8 @@ from aiperf.common.messages.service_messages import (
     RegistrationMessage,
     StatusMessage,
 )
+from aiperf.common.mixins.aiperf_message_mixins import AIPerfMessageHandlerMixin
+from aiperf.common.mixins.command_mixins import CommandMessageHandlerMixin
 from aiperf.common.models import AIPerfBaseModel
 from aiperf.common.service.base_service import ServiceFactory
 from aiperf.services.service_manager.base_service_manager import (
@@ -44,7 +46,9 @@ class MultiProcessRunInfo(AIPerfBaseModel):
 
 
 @ServiceManagerFactory.register(ServiceRunType.MULTIPROCESSING)
-class MultiProcessServiceManager(BaseServiceManager):
+class MultiProcessServiceManager(
+    BaseServiceManager, CommandMessageHandlerMixin, AIPerfMessageHandlerMixin
+):
     """
     Service Manager for starting and stopping services as multiprocessing processes.
     """
@@ -55,11 +59,13 @@ class MultiProcessServiceManager(BaseServiceManager):
         service_config: ServiceConfig,
         user_config: UserConfig | None = None,
         log_queue: "multiprocessing.Queue | None" = None,
+        **kwargs,
     ):
         super().__init__(
             required_services=required_services,
             service_config=service_config,
             user_config=user_config,
+            **kwargs,
         )
         self.multi_process_info: list[MultiProcessRunInfo] = []
         self.log_queue = log_queue

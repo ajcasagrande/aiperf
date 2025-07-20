@@ -15,8 +15,8 @@ from aiperf.services.dataset.generator import (
 
 
 class BaseDatasetComposer(AIPerfLoggerMixin, ABC):
-    def __init__(self, config: InputConfig, tokenizer: Tokenizer):
-        super().__init__()
+    def __init__(self, config: InputConfig, tokenizer: Tokenizer, **kwargs):
+        super().__init__(**kwargs)
         self.config = config
 
         self.prompt_generator = PromptGenerator(config.prompt, tokenizer)

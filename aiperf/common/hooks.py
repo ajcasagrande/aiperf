@@ -19,6 +19,7 @@ classes with existing hooks will inherit the hooks from the base classes as well
 """
 
 from collections.abc import Callable
+from functools import wraps
 from typing import TYPE_CHECKING
 
 from aiperf.common.enums import CaseInsensitiveStrEnum, MessageType
@@ -116,15 +117,13 @@ def supports_hooks(
 
         # Inherit any hooks defined by base classes in the MRO (Method Resolution Order).
         base_hooks = [
-            base.supported_hooks
+            base._supported_hooks
             for base in cls.__mro__[1:]  # Skip this class itself (cls)
-            if issubclass(
-                base, HooksMixin
-            )  # Only include classes that inherit from HooksMixin
+            if hasattr(base, "_supported_hooks")
         ]
 
         # Set the supported hooks to be the union of the existing base hooks and the new supported hook types.
-        cls.supported_hooks = set.union(*base_hooks, set(supported_hook_types))
+        cls._supported_hooks = set.union(*base_hooks, set(supported_hook_types))
         return cls
 
     return decorator
@@ -231,6 +230,7 @@ def aiperf_auto_task(
 
     def decorator(func: Callable) -> Callable:
         setattr(func, AIPerfHookParams.AIPERF_AUTO_TASK_INTERVAL_SEC, interval_sec)
+        wraps(func)
         return hook_decorator(AIPerfTaskHook.AIPERF_AUTO_TASK, func)
 
     return decorator
@@ -247,6 +247,7 @@ def on_message(*message_types: MessageType) -> Callable:
 
     def decorator(func: Callable) -> Callable:
         setattr(func, AIPerfHookParams.ON_MESSAGE_MESSAGE_TYPES, message_types)
+        wraps(func)
         return hook_decorator(AIPerfHook.ON_MESSAGE, func)
 
     return decorator
@@ -263,6 +264,7 @@ def on_command_message(*message_types: CommandType) -> Callable:
 
     def decorator(func: Callable) -> Callable:
         setattr(func, AIPerfHookParams.ON_COMMAND_MESSAGE_MESSAGE_TYPES, message_types)
+        wraps(func)
         return hook_decorator(AIPerfHook.ON_COMMAND_MESSAGE, func)
 
     return decorator

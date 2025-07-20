@@ -75,6 +75,8 @@ class BaseService(
         )
         self.service_config = service_config
         self.user_config = user_config
+        self.stop_event = asyncio.Event()
+        self.initialized_event = asyncio.Event()
 
         self._state: ServiceState = ServiceState.UNKNOWN
 
@@ -89,9 +91,6 @@ class BaseService(
         self.debug(
             lambda: f"__init__ {self.service_type} service (id: {self.service_id})"
         )
-
-        self.stop_event = asyncio.Event()
-        self.initialized_event = asyncio.Event()
 
         try:
             import setproctitle

@@ -18,8 +18,8 @@ class MetricSummary(AIPerfLoggerMixin):
     It processes the records to extract relevant metrics and returns them in a structured format.
     """
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.debug("Initializing MetricSummary post-processor")
 
         self._metrics = []

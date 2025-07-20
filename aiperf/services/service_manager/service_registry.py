@@ -20,8 +20,8 @@ class ServiceRegistry(AIPerfLoggerMixin):
     services in the AIPerf system.
     """
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
         # Services organized by type -> set of service IDs
         self._services_by_type: dict[ServiceType, set[str]] = {}

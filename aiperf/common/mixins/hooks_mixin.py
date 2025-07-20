@@ -9,14 +9,13 @@ from typing import ClassVar
 from aiperf.common.exceptions import AIPerfError, AIPerfMultiError, UnsupportedHookError
 from aiperf.common.hooks import AIPERF_HOOK_TYPE, HookType
 from aiperf.common.mixins.aiperf_logger_mixin import AIPerfLoggerMixin
-from aiperf.common.mixins.base_mixin import BaseMixin
 
 ################################################################################
 # Hook System
 ################################################################################
 
 
-class HookSystem(AIPerfLoggerMixin):
+class HooksMixin(AIPerfLoggerMixin):
     """
     System for managing hooks.
 
@@ -25,7 +24,33 @@ class HookSystem(AIPerfLoggerMixin):
     the hooks.
     """
 
-    def __init__(self, supported_hooks: set[HookType], **kwargs):
+    # Class attributes that are set by the :func:`supports_hooks` decorator
+    _supported_hooks: ClassVar[set[HookType]]
+    _class_hooks: ClassVar[dict[HookType, list[Callable]]]
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+
+        if not hasattr(cls, "_supported_hooks"):
+            cls._supported_hooks = set()
+        if not hasattr(cls, "_class_hooks"):
+            cls._class_hooks = {}
+
+        # Register all functions that are decorated with a hook decorator
+        # Iterate through MRO in reverse order to ensure base class hooks are registered first
+        for super_cls in reversed(cls.__mro__):
+            # Skip object and other non-hook classes
+            if not issubclass(super_cls, HooksMixin):
+                continue
+
+            # Get methods defined directly in this class (not inherited)
+            for _, attr in super_cls.__dict__.items():
+                if callable(attr) and hasattr(attr, AIPERF_HOOK_TYPE):
+                    # Get the hook type from the function
+                    hook_type = getattr(attr, AIPERF_HOOK_TYPE)
+                    cls._class_hooks.setdefault(hook_type, []).append(attr)
+
+    def __init__(self, **kwargs):
         """
         Initialize the hook system.
 
@@ -33,9 +58,20 @@ class HookSystem(AIPerfLoggerMixin):
             supported_hooks: The hook types that the class supports.
             **kwargs: Passthrough kwargs for composability.
         """
-        self.supported_hooks: set[HookType] = supported_hooks
         self._hooks: dict[HookType, list[Callable]] = {}
+        for hook_type, hooks in self._class_hooks.items():
+            for hook in hooks:
+                if hook_type not in self._supported_hooks:
+                    raise UnsupportedHookError(
+                        f"Hook '@{hook_type.name.lower()}' is not supported by class '{self.__class__.__name__}' for func '{hook.__qualname__}'."
+                    )
+                self.register_hook(hook_type, hook)
         super().__init__(**kwargs)
+
+    @classmethod
+    def get_class_hooks(cls, hook_type: HookType) -> list[Callable]:
+        """Get the class hooks."""
+        return cls._class_hooks.get(hook_type, [])
 
     def register_hook(self, hook_type: HookType, func: Callable):
         """Register a hook function for a given hook type.
@@ -44,22 +80,14 @@ class HookSystem(AIPerfLoggerMixin):
             hook_type: The hook type to register the function for.
             func: The function to register.
         """
-        # if hook_type not in self.supported_hooks:
-        #     raise UnsupportedHookError(
-        #         f"Hook {hook_type} is not supported by class for func {func.__qualname__}."
-        #     )
 
-        self._hooks.setdefault(hook_type, []).append(func)
+        # Bind the method to the instance
+        bound_method = func.__get__(self, self.__class__)
+        # Register the function with the hook type
+        self._hooks.setdefault(hook_type, []).append(bound_method)
 
     def get_hooks(self, hook_type: HookType) -> list[Callable]:
-        """Get all the registered hooks for the given hook type.
-
-        Args:
-            hook_type: The hook type to get the hooks for.
-
-        Returns:
-            A list of the hooks for the given hook type.
-        """
+        """Get all the registered hooks for the given hook type."""
         return self._hooks.get(hook_type, [])
 
     async def run_hooks(self, hook_type: HookType, *args, **kwargs):
@@ -72,7 +100,7 @@ class HookSystem(AIPerfLoggerMixin):
             *args: The arguments to pass to the hooks.
             **kwargs: The keyword arguments to pass to the hooks.
         """
-        if hook_type not in self.supported_hooks:
+        if hook_type not in self._supported_hooks:
             raise UnsupportedHookError(
                 f"Hook {hook_type} is not supported by class for {self.__qualname__}."
             )
@@ -103,7 +131,7 @@ class HookSystem(AIPerfLoggerMixin):
             *args: The arguments to pass to the hooks.
             **kwargs: The keyword arguments to pass to the hooks.
         """
-        if hook_type not in self.supported_hooks:
+        if hook_type not in self._supported_hooks:
             raise UnsupportedHookError(
                 f"Hook {hook_type} is not supported by class for {self.__qualname__}."
             )
@@ -123,58 +151,59 @@ class HookSystem(AIPerfLoggerMixin):
                 raise AIPerfMultiError("Errors running hooks", exceptions)
 
 
-class HooksMixin(BaseMixin):
-    """
-    Mixin to add hook support to a class. It abstracts away the details of the
-    :class:`HookSystem` and provides a simple interface for registering and running hooks.
-    """
+# class HooksMixin(BaseMixin):
+#     """
+#     Mixin to add hook support to a class. It abstracts away the details of the
+#     :class:`HookSystem` and provides a simple interface for registering and running hooks.
+#     """
 
-    # Class attributes that are set by the :func:`supports_hooks` decorator
-    supported_hooks: ClassVar[set[HookType]] = set()
+#     def __init_subclass__(cls, **kwargs):
+#         super().__init_subclass__(**kwargs)
 
-    def __init__(self, **kwargs):
-        """
-        Initialize the hook system and register all functions that are decorated with a hook decorator.
-        """
-        super().__init__(**kwargs)
 
-        # Initialize the hook system
-        self._hook_system = HookSystem(self.supported_hooks, **kwargs)
+#     def __init__(self, **kwargs):
+#         """
+#         Initialize the hook system and register all functions that are decorated with a hook decorator.
+#         """
+#         super().__init__(**kwargs)
 
-        # Register all functions that are decorated with a hook decorator
-        # Iterate through MRO in reverse order to ensure base class hooks are registered first
-        for cls in reversed(self.__class__.__mro__):
-            # Skip object and other non-hook classes
-            if not issubclass(cls, HooksMixin):
-                continue
+#         # Initialize the hook system
+#         self._hook_system = HookSystem(self.supported_hooks, **kwargs)
 
-            # Get methods defined directly in this class (not inherited)
-            for _, attr in cls.__dict__.items():
-                if callable(attr) and hasattr(attr, AIPERF_HOOK_TYPE):
-                    # Get the hook type from the function
-                    hook_type = getattr(attr, AIPERF_HOOK_TYPE)
-                    # Bind the method to the instance
-                    bound_method = attr.__get__(self, cls)
-                    # Register the function with the hook type
-                    self.register_hook(hook_type, bound_method)
+#         # Register all functions that are decorated with a hook decorator
+#         # Iterate through MRO in reverse order to ensure base class hooks are registered first
+#         for cls in reversed(self.__class__.__mro__):
+#             # Skip object and other non-hook classes
+#             if not issubclass(cls, HooksMixin):
+#                 continue
 
-    def register_hook(self, hook_type: HookType, func: Callable):
-        """Register a hook function for a given hook type.
+#             # Get methods defined directly in this class (not inherited)
+#             for _, attr in cls.__dict__.items():
+#                 if callable(attr) and hasattr(attr, AIPERF_HOOK_TYPE):
+#                     # Get the hook type from the function
+#                     hook_type = getattr(attr, AIPERF_HOOK_TYPE)
+#                     # Bind the method to the instance
+#                     bound_method = attr.__get__(self, cls)
+#                     # Register the function with the hook type
+#                     self.register_hook(hook_type, bound_method)
 
-        Args:
-            hook_type: The hook type to register the function for.
-            func: The function to register.
-        """
-        self._hook_system.register_hook(hook_type, func)
+#     # def register_hook(self, hook_type: HookType, func: Callable):
+#     #     """Register a hook function for a given hook type.
 
-    async def run_hooks(self, hook_type: HookType, *args, **kwargs):
-        """Run all the hooks serially. See :meth:`HookSystem.run_hooks`."""
-        await self._hook_system.run_hooks(hook_type, *args, **kwargs)
+#     #     Args:
+#     #         hook_type: The hook type to register the function for.
+#     #         func: The function to register.
+#     #     """
+#     #     self._hook_system.register_hook(hook_type, func)
 
-    async def run_hooks_async(self, hook_type: HookType, *args, **kwargs):
-        """Run all the hooks concurrently. See :meth:`HookSystem.run_hooks_async`."""
-        await self._hook_system.run_hooks_async(hook_type, *args, **kwargs)
+#     # async def run_hooks(self, hook_type: HookType, *args, **kwargs):
+#     #     """Run all the hooks serially. See :meth:`HookSystem.run_hooks`."""
+#     #     await self._hook_system.run_hooks(hook_type, *args, **kwargs)
 
-    def get_hooks(self, hook_type: HookType) -> list[Callable]:
-        """Get all the registered hooks for the given hook type. See :meth:`HookSystem.get_hooks`."""
-        return self._hook_system.get_hooks(hook_type)
+#     # async def run_hooks_async(self, hook_type: HookType, *args, **kwargs):
+#     #     """Run all the hooks concurrently. See :meth:`HookSystem.run_hooks_async`."""
+#     #     await self._hook_system.run_hooks_async(hook_type, *args, **kwargs)
+
+#     # def get_hooks(self, hook_type: HookType) -> list[Callable]:
+#     #     """Get all the registered hooks for the given hook type. See :meth:`HookSystem.get_hooks`."""
+#     #     return self._hook_system.get_hooks(hook_type)

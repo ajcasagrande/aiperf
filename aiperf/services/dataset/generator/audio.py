@@ -45,8 +45,8 @@ class AudioGenerator(BaseGenerator):
     parameters to ensure compatibility with chosen formats.
     """
 
-    def __init__(self, config: AudioConfig):
-        super().__init__()
+    def __init__(self, config: AudioConfig, **kwargs):
+        super().__init__(**kwargs)
         self.config = config
 
     def _validate_sampling_rate(

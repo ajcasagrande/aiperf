@@ -37,6 +37,7 @@ def create_proxy_socket_class(
             address: str,
             socket_ops: dict | None = None,
             proxy_uuid: str | None = None,
+            **kwargs,
         ):
             """Initialize the ZMQ Proxy socket class."""
 
@@ -47,6 +48,7 @@ def create_proxy_socket_class(
                 end_type=end_type,
                 socket_ops=socket_ops,
                 proxy_uuid=proxy_uuid,
+                **kwargs,
             )
 
     # Dynamically set the class name and qualname based on the socket and end type
@@ -83,6 +85,7 @@ def define_proxy_class(
             context: zmq.asyncio.Context,
             zmq_proxy_config: BaseZMQProxyConfig,
             socket_ops: dict | None = None,
+            **kwargs,
         ) -> None:
             super().__init__(
                 frontend_socket_class=frontend_socket_class,
@@ -90,6 +93,7 @@ def define_proxy_class(
                 context=context,
                 zmq_proxy_config=zmq_proxy_config,
                 socket_ops=socket_ops,
+                **kwargs,
             )
 
         @classmethod

@@ -45,6 +45,7 @@ class ZMQDealerRequestClient(BaseZMQClient, AsyncTaskManagerMixin):
         address: str,
         bind: bool,
         socket_ops: dict | None = None,
+        **kwargs,
     ) -> None:
         """
         Initialize the ZMQ Dealer (Req) client class.
@@ -55,7 +56,9 @@ class ZMQDealerRequestClient(BaseZMQClient, AsyncTaskManagerMixin):
             bind (bool): Whether to bind or connect the socket.
             socket_ops (dict, optional): Additional socket options to set.
         """
-        super().__init__(context, zmq.SocketType.DEALER, address, bind, socket_ops)
+        super().__init__(
+            context, zmq.SocketType.DEALER, address, bind, socket_ops, **kwargs
+        )
 
         self.request_handlers: dict[str, MessageHandlerT] = {}
 

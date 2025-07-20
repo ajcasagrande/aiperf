@@ -41,6 +41,7 @@ class BaseZMQClient(AIPerfTaskMixin, AIPerfLoggerMixin):
         bind: bool,
         socket_ops: dict | None = None,
         client_id: str | None = None,
+        **kwargs,
     ) -> None:
         """
         Initialize the ZMQ Base class.
@@ -64,7 +65,7 @@ class BaseZMQClient(AIPerfTaskMixin, AIPerfLoggerMixin):
             client_id
             or f"{self.socket_type.name.lower()}_client_{uuid.uuid4().hex[:8]}"
         )
-        super().__init__(logger_name=self.client_id)
+        super().__init__(logger_name=self.client_id, **kwargs)
         self.trace(lambda: f"ZMQ client __init__: {self.client_id}")
 
     @property

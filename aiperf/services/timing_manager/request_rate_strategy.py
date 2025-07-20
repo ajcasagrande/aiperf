@@ -28,9 +28,12 @@ class RequestRateStrategy(CreditIssuingStrategy, AsyncTaskManagerMixin):
     """
 
     def __init__(
-        self, config: TimingManagerConfig, credit_manager: CreditManagerProtocol
+        self,
+        config: TimingManagerConfig,
+        credit_manager: CreditManagerProtocol,
+        **kwargs,
     ):
-        super().__init__(config=config, credit_manager=credit_manager)
+        super().__init__(config=config, credit_manager=credit_manager, **kwargs)
 
         if config.request_rate is None:
             raise InvalidStateError("Request rate is not set")
