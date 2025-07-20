@@ -58,8 +58,18 @@ class WorkerData(NamedTuple):
 
 class WorkerStatusTable(Widget):
     DEFAULT_CSS = """
-    WorkerStatusTable { height: 1fr; }
-    DataTable { height: 1fr; }
+    WorkerStatusTable {
+        height: 1fr;
+        &:focus {
+            background-tint: $primary 100%;
+        }
+    }
+    DataTable {
+        height: 1fr;
+        &:focus {
+            background-tint: $primary 100%;
+        }
+    }
     """
 
     def __init__(self) -> None:
