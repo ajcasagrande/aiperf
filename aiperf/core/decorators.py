@@ -1,48 +1,16 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""
-Ultimate type-safe decorators for AIPerf lifecycle system.
-
-These decorators work with REAL aiperf MessageType and CommandType enums
-for full type safety and integration with the actual aiperf infrastructure.
-
-Key Features:
-- Real aiperf types: MessageType, CommandType from aiperf.common.enums
-- Full type safety and IDE support
-- Automatic handler discovery and registration
-- Clean, pythonic decorator patterns
-- Integration with real aiperf message infrastructure
-
-Usage:
-    from aiperf.common.enums import MessageType, CommandType
-
-    @message_handler(MessageType.STATUS, MessageType.HEARTBEAT)
-    async def handle_status_messages(self, message: Message):
-        # Handle real aiperf messages with full type safety
-        pass
-
-    @command_handler(CommandType.PROFILE_START)
-    async def handle_profile_start(self, command: CommandMessage):
-        # Handle real aiperf commands with full type safety
-        return {"result": "started"}
-
-    @background_task(interval=30.0)
-    async def periodic_cleanup(self):
-        # Automatic background task management
-        pass
-"""
-
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
-from aiperf.common.enums import MessageType
+from aiperf.common.types import MessageTypeT
 
 if TYPE_CHECKING:
     from aiperf.core.background_tasks import BackgroundTasksMixin
 
 
-def message_handler(*message_types: MessageType | str) -> Callable:
+def message_handler(*message_types: MessageTypeT) -> Callable:
     """
     Decorator to mark a method as a message handler. The decorated method will be called
     whenever a message of the specified type(s) is received.
@@ -58,7 +26,7 @@ def message_handler(*message_types: MessageType | str) -> Callable:
     return decorator
 
 
-def command_handler(*message_types: MessageType | str) -> Callable:
+def command_handler(*message_types: MessageTypeT) -> Callable:
     """
     Decorator to mark a method as a command handler. The decorated method will be called
     whenever a command of the specified type(s) is received.
@@ -77,7 +45,7 @@ def command_handler(*message_types: MessageType | str) -> Callable:
     return decorator
 
 
-def request_handler(*message_types: MessageType | str) -> Callable:
+def request_handler(*message_types: MessageTypeT) -> Callable:
     """
     Decorator to mark a method as a request handler. The decorated method will be called
     whenever a request of the specified type(s) is received.
@@ -91,6 +59,22 @@ def request_handler(*message_types: MessageType | str) -> Callable:
 
     def decorator(func: Callable) -> Callable:
         setattr(func, attrs.request_handler_types, list(message_types))
+        return func
+
+    return decorator
+
+
+def pull_handler(*message_types: MessageTypeT) -> Callable:
+    """
+    Decorator to mark a method as a pull handler. The decorated method will be called
+    whenever a pull message of the specified type(s) is received.
+
+    Args:
+        *message_types: One or more MessageType enums, or message type strings to handle
+    """
+
+    def decorator(func: Callable) -> Callable:
+        setattr(func, attrs.pull_handler_types, list(message_types))
         return func
 
     return decorator
@@ -135,3 +119,4 @@ class attrs:
     message_handler_types = "_message_handler_types"
     command_handler_types = "_command_handler_types"
     request_handler_types = "_request_handler_types"
+    pull_handler_types = "_pull_handler_types"

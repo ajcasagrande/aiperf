@@ -32,6 +32,9 @@ from .communication_mixins import (
     CommunicationMixin,
     DatasetRequestHandler,
     MessageBusMixin,
+    PullHandlerMixin,
+    PushClientMixin,
+    RequestHandlerMixin,
 )
 
 # Decorators for dynamic behavior
@@ -39,6 +42,7 @@ from .decorators import (
     background_task,
     command_handler,
     message_handler,
+    pull_handler,
     request_handler,
 )
 from .lifecycle import LifecycleMixin, LifecycleState
@@ -62,6 +66,9 @@ __all__ = [
     "MessageBusMixin",
     "BackgroundTasksMixin",
     "DatasetRequestHandler",
+    "RequestHandlerMixin",
+    "PushClientMixin",
+    "PullHandlerMixin",
     # Base service
     "BaseService",
     # Plugin system
@@ -77,4 +84,5 @@ __all__ = [
     "command_handler",
     "background_task",
     "request_handler",
+    "pull_handler",
 ]

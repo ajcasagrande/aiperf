@@ -8,12 +8,30 @@ from typing import cast
 from aiperf.common.comms.base_comms import (
     BaseCommunication,
     CommunicationFactory,
+    PullClientProtocol,
+    PushClientProtocol,
     ReplyClientProtocol,
+    RequestClientProtocol,
 )
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums.communication_enums import CommunicationClientAddressType
-from aiperf.common.messages.commands import CommandMessage, CommandResponseMessage
-from aiperf.common.messages.message import Message
+from aiperf.common.messages import (
+    CommandMessage,
+    CommandResponseMessage,
+    CreditDropMessage,
+    CreditReturnMessage,
+    ErrorMessage,
+    Message,
+)
+from aiperf.common.messages.dataset_messages import (
+    ConversationRequestMessage,
+    ConversationResponseMessage,
+    ConversationTurnRequestMessage,
+    ConversationTurnResponseMessage,
+    DatasetTimingRequest,
+    DatasetTimingResponse,
+)
+from aiperf.common.messages.inference_messages import InferenceResultsMessage
 from aiperf.common.models.error_models import ErrorDetails
 from aiperf.common.types import (
     Any,
@@ -180,65 +198,198 @@ class MessageBusMixin(LifecycleMixin):
         return command_handler
 
 
-def _create_request_handler_mixin(
-    name: str, address_type: CommunicationClientAddressType
-) -> type[LifecycleMixin]:
-    """Create a request handler mixin for a given address type."""
+class RequestHandlerMixin(CommunicationMixin):
+    """Mixin that provides an interface to handle requests."""
 
-    class RequestHandlerMixin(LifecycleMixin):
-        """Mixin that provides an interface to handle requests."""
+    def __init__(
+        self,
+        comms: BaseCommunication,
+        request_client_address_type: CommunicationClientAddressType,
+        **kwargs,
+    ) -> None:
+        self.router_reply_client: ReplyClientProtocol = comms.create_reply_client(
+            request_client_address_type
+        )  # type: ignore
+        super().__init__(
+            comms=comms, router_reply_client=self.router_reply_client, **kwargs
+        )
 
-        def __init__(self, comms: BaseCommunication, **kwargs) -> None:
-            self.router_reply_client: ReplyClientProtocol = comms.create_reply_client(
-                address_type
-            )  # type: ignore
-            super().__init__(
-                comms=comms, router_reply_client=self.router_reply_client, **kwargs
+    async def _initialize(self) -> None:
+        await super()._initialize()
+        self._discover_request_handlers()
+        self._register_request_handlers()
+
+    def _discover_request_handlers(self) -> None:
+        """Discover request handlers from decorators."""
+        for name in dir(self):
+            method = getattr(self, name)
+            if not callable(method):
+                continue
+
+            # Request handlers (@request_handler)
+            if hasattr(method, attrs.request_handler_types):
+                for message_type in getattr(method, attrs.request_handler_types):
+                    getattr(self, attrs.request_handler_types).setdefault(
+                        message_type, []
+                    ).append(method)
+
+    def _register_request_handlers(self) -> None:
+        """Register all of the discovered request handlers."""
+        for message_type, handlers in getattr(
+            self, attrs.request_handler_types
+        ).items():
+            for handler in handlers:
+                self.debug(
+                    lambda type=message_type,
+                    method=handler: f"{self}: Registering request handler for {type}: {method}"
+                )
+                # NOTE: The router reply client will handle errors and return a response message.
+                self.router_reply_client.register_request_handler(
+                    self.id, message_type, handler
+                )
+
+
+class DatasetRequestHandler(RequestHandlerMixin):
+    """Mixin that provides an interface to handle dataset requests."""
+
+    def __init__(self, comms: BaseCommunication, **kwargs) -> None:
+        super().__init__(
+            comms=comms,
+            request_client_address_type=CommunicationClientAddressType.DATASET_MANAGER_PROXY_BACKEND,
+            **kwargs,
+        )
+
+
+class DatasetRequestClientMixin(CommunicationMixin):
+    """Mixin that provides an interface make dataset requests."""
+
+    def __init__(self, comms: BaseCommunication, **kwargs) -> None:
+        self.conversation_request_client: RequestClientProtocol = (
+            comms.create_request_client(
+                CommunicationClientAddressType.DATASET_MANAGER_PROXY_FRONTEND
             )
+        )  # type: ignore
+        super().__init__(
+            comms=comms,
+            conversation_request_client=self.conversation_request_client,
+            **kwargs,
+        )
 
-        async def _initialize(self) -> None:
-            await super()._initialize()
-            self._discover_request_handlers()
-            self._register_request_handlers()
+    async def request_conversation(
+        self, message: ConversationRequestMessage
+    ) -> ConversationResponseMessage | ErrorMessage:
+        return await self.conversation_request_client.request(message)
 
-        def _discover_request_handlers(self) -> None:
-            """Discover request handlers from decorators."""
-            for name in dir(self):
-                method = getattr(self, name)
-                if not callable(method):
-                    continue
+    async def request_conversation_turn(
+        self, message: ConversationTurnRequestMessage
+    ) -> ConversationTurnResponseMessage | ErrorMessage:
+        return await self.conversation_request_client.request(message)
 
-                # Request handlers (@request_handler)
-                if hasattr(method, attrs.request_handler_types):
-                    for message_type in getattr(method, attrs.request_handler_types):
-                        getattr(self, attrs.request_handler_types).setdefault(
-                            message_type, []
-                        ).append(method)
-
-        def _register_request_handlers(self) -> None:
-            """Register all of the discovered request handlers."""
-            for message_type, handlers in getattr(
-                self, attrs.request_handler_types
-            ).items():
-                for handler in handlers:
-                    self.debug(
-                        lambda type=message_type,
-                        method=handler: f"{self}: Registering request handler for {type}: {method}"
-                    )
-                    # NOTE: The router reply client will handle errors and return a response message.
-                    self.router_reply_client.register_request_handler(
-                        self.id, message_type, handler
-                    )
-
-    RequestHandlerMixin.__name__ = name
-    RequestHandlerMixin.__qualname__ = name
-    RequestHandlerMixin.__doc__ = (
-        f"Mixin that provides an interface to handle {name} requests."  # noqa: E501
-    )
-    return RequestHandlerMixin
+    async def request_dataset_timing(
+        self, message: DatasetTimingRequest
+    ) -> DatasetTimingResponse | ErrorMessage:
+        return await self.conversation_request_client.request(message)
 
 
-DatasetRequestHandler = _create_request_handler_mixin(
-    name="DatasetRequestHandler",
-    address_type=CommunicationClientAddressType.DATASET_MANAGER_PROXY_BACKEND,
-)
+class PullHandlerMixin(CommunicationMixin):
+    """Mixin that provides an interface to handle pull messages."""
+
+    def __init__(
+        self,
+        comms: BaseCommunication,
+        pull_client_address_type: CommunicationClientAddressType,
+        **kwargs,
+    ) -> None:
+        self.pull_client: PullClientProtocol = comms.create_pull_client(
+            pull_client_address_type
+        )  # type: ignore
+        super().__init__(comms=comms, pull_client=self.pull_client, **kwargs)
+
+    async def _initialize(self) -> None:
+        await super()._initialize()
+        self._discover_pull_handlers()
+        await self._register_pull_handlers()
+
+    def _discover_pull_handlers(self) -> None:
+        """Discover pull handlers from decorators."""
+        for name in dir(self):
+            method = getattr(self, name)
+            if not callable(method):
+                continue
+
+            # Pull handlers (@pull_handler)
+            if hasattr(method, attrs.pull_handler_types):
+                for message_type in getattr(method, attrs.pull_handler_types):
+                    getattr(self, attrs.pull_handler_types).setdefault(
+                        message_type, []
+                    ).append(method)
+
+    async def _register_pull_handlers(self) -> None:
+        """Register all of the discovered pull handlers."""
+        for message_type, handlers in getattr(self, attrs.pull_handler_types).items():
+            for handler in handlers:
+                self.debug(
+                    lambda type=message_type,
+                    method=handler: f"{self}: Registering pull handler for {type}: {method}"
+                )
+                await self.pull_client.register_pull_callback(
+                    self.id, message_type, handler
+                )
+
+
+class RawInferencePullHandlerMixin(PullHandlerMixin):
+    """Mixin that provides an interface to handle raw inference messages."""
+
+    def __init__(self, comms: BaseCommunication, **kwargs) -> None:
+        super().__init__(
+            comms=comms,
+            pull_client_address_type=CommunicationClientAddressType.RAW_INFERENCE_PROXY_BACKEND,
+            **kwargs,
+        )
+
+
+class CreditDropPushClientMixin(CommunicationMixin):
+    """Mixin that provides an interface to handle credit drop messages."""
+
+    def __init__(self, comms: BaseCommunication, **kwargs) -> None:
+        self.credit_drop_client: PushClientProtocol = comms.create_push_client(
+            CommunicationClientAddressType.CREDIT_DROP
+        )  # type: ignore
+        super().__init__(
+            comms=comms, credit_drop_client=self.credit_drop_client, **kwargs
+        )
+
+    async def push_credit_drop(self, message: CreditDropMessage) -> None:
+        await self.credit_drop_client.push(message)
+
+
+class CreditReturnPushClientMixin(CommunicationMixin):
+    """Mixin that provides an interface to handle credit return messages."""
+
+    def __init__(self, comms: BaseCommunication, **kwargs) -> None:
+        self.credit_return_client: PushClientProtocol = comms.create_push_client(
+            CommunicationClientAddressType.CREDIT_RETURN
+        )  # type: ignore
+        super().__init__(
+            comms=comms, credit_return_client=self.credit_return_client, **kwargs
+        )
+
+    async def push_credit_return(self, message: CreditReturnMessage) -> None:
+        await self.credit_return_client.push(message)
+
+
+class RawInferencePushClientMixin(CommunicationMixin):
+    """Mixin that provides an interface to handle raw inference messages."""
+
+    def __init__(self, comms: BaseCommunication, **kwargs) -> None:
+        self.raw_inference_push_client: PushClientProtocol = comms.create_push_client(
+            CommunicationClientAddressType.RAW_INFERENCE_PROXY_FRONTEND
+        )  # type: ignore
+        super().__init__(
+            comms=comms,
+            raw_inference_push_client=self.raw_inference_push_client,
+            **kwargs,
+        )
+
+    async def push_inference_results(self, message: InferenceResultsMessage) -> None:
+        await self.raw_inference_push_client.push(message)
