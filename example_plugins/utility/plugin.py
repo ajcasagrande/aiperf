@@ -72,7 +72,7 @@ class UtilityPlugin(BasePlugin):
     # Message Handlers - Count and log system activity
     # =================================================================
 
-    @message_handler(MessageType.DATA_UPDATE, MessageType.STATUS, MessageType.HEARTBEAT)
+    @message_handler(MessageType.DATA_UPDATE, MessageType.Status, MessageType.Heartbeat)
     async def count_system_messages(self, message: Any) -> None:
         """
         Count various types of system messages.
@@ -117,7 +117,7 @@ class UtilityPlugin(BasePlugin):
             "timestamp": current_time,
         }
 
-    @command_handler(CommandType.PROFILE_START, CommandType.PROFILE_STOP)
+    @command_handler(CommandType.ProfileStart, CommandType.ProfileStop)
     async def handle_profiling_commands(self, command: Any) -> dict:
         """
         Handle profiling commands with utility support.
@@ -126,7 +126,7 @@ class UtilityPlugin(BasePlugin):
         """
         command_type = getattr(command, "message_type", "unknown")
 
-        if command_type == CommandType.PROFILE_START:
+        if command_type == CommandType.ProfileStart:
             self.info("🎯 Utility plugin: Profiling started - resetting counters")
             # Reset counters for clean profiling
             self.message_count = 0
@@ -139,7 +139,7 @@ class UtilityPlugin(BasePlugin):
                 "timestamp": time.time(),
             }
 
-        elif command_type == CommandType.PROFILE_STOP:
+        elif command_type == CommandType.ProfileStop:
             uptime = time.time() - self.start_time
             self.info("🏁 Utility plugin: Profiling stopped - generating report")
 
@@ -182,7 +182,7 @@ class UtilityPlugin(BasePlugin):
             }
 
             # Publish summary using the mixin messaging capabilities
-            await self.publish(MessageType.STATUS, summary)
+            await self.publish(MessageType.Status, summary)
 
             self.debug(
                 f"Published system summary: {self.message_count} messages in {uptime:.1f}s"

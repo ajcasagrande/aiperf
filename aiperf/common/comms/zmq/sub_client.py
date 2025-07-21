@@ -10,7 +10,6 @@ import zmq.asyncio
 from aiperf.common.comms.base_comms import CommunicationClientFactory
 from aiperf.common.comms.zmq.zmq_base_client import BaseZMQClient
 from aiperf.common.enums import CommunicationClientType, MessageType
-from aiperf.common.enums.message_enums import determine_message_type
 from aiperf.common.exceptions import CommunicationError
 from aiperf.common.hooks import aiperf_task, on_stop
 from aiperf.common.messages import Message
@@ -154,9 +153,7 @@ class ZMQSubClient(BaseZMQClient, AsyncTaskManagerMixin):
             lambda: f"Received message from message_type: '{message_type}', message: {message_json}"
         )
 
-        message = Message.from_json_with_type(
-            determine_message_type(message_type), message_json
-        )
+        message = Message.from_json_with_type(MessageType(message_type), message_json)
 
         # Call callbacks with the parsed message object
         if message_type in self._subscribers:

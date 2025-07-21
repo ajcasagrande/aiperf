@@ -13,7 +13,7 @@ from aiperf.common.types import MessageTypeT
 class ErrorMessage(Message):
     """Message containing error data."""
 
-    message_type: MessageTypeT = MessageType.ERROR
+    message_type: MessageTypeT = MessageType.Error
 
     error: ErrorDetails = Field(..., description="Error information")
 
@@ -21,6 +21,6 @@ class ErrorMessage(Message):
 class BaseServiceErrorMessage(BaseServiceMessage):
     """Base message containing error data."""
 
-    message_type: MessageTypeT = MessageType.SERVICE_ERROR
+    message_type: MessageTypeT = MessageType.ServiceError
 
     error: ErrorDetails = Field(..., description="Error information")

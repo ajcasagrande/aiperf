@@ -33,7 +33,7 @@ infrastructure while being dramatically simpler than the current complex system.
             # Handle REAL aiperf messages with full type safety
             pass
 
-        @command_handler(CommandType.PROFILE_START)
+        @command_handler(CommandType.ProfileStart)
         async def handle_profile_start(self, command: CommandMessage):
             # Handle REAL aiperf commands with full type safety
             return {"result": "started"}
@@ -214,7 +214,7 @@ __all__ = [
         async def handle_status(self, message):
             await self.publish(MessageType.HEARTBEAT, service_id=self.service_id)
 
-        @command_handler(CommandType.PROFILE_START)
+        @command_handler(CommandType.ProfileStart)
         async def handle_start(self, command):
             return {"status": "started"}
 
@@ -247,7 +247,7 @@ __all__ = [
         async def handle_data_ready(self, message):
             self.logger.info("Dataset is ready for processing")
 
-        @command_handler(CommandType.PROFILE_START)
+        @command_handler(CommandType.ProfileStart)
         async def start_profiling(self, command):
             self.profiling_active = True
             return {"status": "profiling_started"}

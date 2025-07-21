@@ -60,7 +60,6 @@ from aiperf.common.mixins.progress_tracker_mixin import (
 )
 
 __all__ = [
-    "CommandMessageHandlerMixin",
     "AIPerfLifeCycleProtocol",
     "AIPerfLifecycleMixin",
     "AIPerfLoggerMixin",
@@ -76,6 +75,7 @@ __all__ = [
     "AsyncTaskManagerMixin",
     "AsyncTaskManagerProtocol",
     "BaseMixin",
+    "CommandMessageHandlerMixin",
     "CommunicationsMixin",
     "EventBusClientMixin",
     "HooksMixin",

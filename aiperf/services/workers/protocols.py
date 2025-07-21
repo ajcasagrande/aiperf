@@ -4,7 +4,7 @@ from collections.abc import Coroutine
 from typing import Any, Protocol
 
 from aiperf.common.messages import (
-    ConversationResponseMessage,
+    ConversationResponse,
     InferenceResultsMessage,
     WorkerHealthMessage,
 )
@@ -30,7 +30,7 @@ class WorkerCommunicationsProtocol(Protocol):
     def request_conversation_data(
         self,
         conversation_id: str | None = None,
-    ) -> Coroutine[Any, Any, ConversationResponseMessage]:
+    ) -> Coroutine[Any, Any, ConversationResponse]:
         """Request conversation data for a given conversation ID."""
         ...
 

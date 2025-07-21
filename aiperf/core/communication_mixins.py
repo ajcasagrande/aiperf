@@ -3,7 +3,6 @@
 
 
 from collections.abc import Callable, Coroutine
-from typing import cast
 
 from aiperf.common.comms.base_comms import (
     BaseCommunication,
@@ -14,7 +13,9 @@ from aiperf.common.comms.base_comms import (
     RequestClientProtocol,
 )
 from aiperf.common.config.service_config import ServiceConfig
+from aiperf.common.config.user_config import UserConfig
 from aiperf.common.enums.communication_enums import CommunicationClientAddressType
+from aiperf.common.enums.message_enums import MessageType
 from aiperf.common.messages import (
     CommandMessage,
     CommandResponseMessage,
@@ -24,10 +25,10 @@ from aiperf.common.messages import (
     Message,
 )
 from aiperf.common.messages.dataset_messages import (
-    ConversationRequestMessage,
-    ConversationResponseMessage,
-    ConversationTurnRequestMessage,
-    ConversationTurnResponseMessage,
+    ConversationRequest,
+    ConversationResponse,
+    ConversationTurnRequest,
+    ConversationTurnResponse,
     DatasetTimingRequest,
     DatasetTimingResponse,
 )
@@ -47,12 +48,9 @@ from aiperf.core.lifecycle import LifecycleMixin
 class CommunicationMixin(LifecycleMixin):
     """Mixin that provides an interface to the communication layer."""
 
-    def __init__(self, service_config: ServiceConfig, **kwargs) -> None:
-        self.comms: BaseCommunication = CommunicationFactory.create_instance(
-            service_config.comm_backend,
-            config=service_config.comm_config,
-        )
-        super().__init__(service_config=service_config, comms=self.comms, **kwargs)
+    def __init__(self, comms: BaseCommunication, **kwargs) -> None:
+        self.comms = comms
+        super().__init__(comms=comms, **kwargs)
 
     async def _initialize(self) -> None:
         await super()._initialize()
@@ -63,26 +61,35 @@ class CommunicationMixin(LifecycleMixin):
         await self.comms.shutdown()
 
 
-class MessageBusMixin(LifecycleMixin):
-    """Mixin that provides an interface to the message bus."""
+class MessageBusMixin(CommunicationMixin):
+    """Mixin that provide`s an interface to the message bus."""
 
-    def __init__(self, comms: BaseCommunication, **kwargs) -> None:
-        self.sub_client = comms.create_sub_client(
+    def __init__(
+        self, service_config: ServiceConfig, user_config: UserConfig, **kwargs
+    ) -> None:
+        self.comms = CommunicationFactory.create_instance(
+            service_config.comm_backend,
+            config=service_config.comm_config,
+        )
+        self.sub_client = self.comms.create_sub_client(
             CommunicationClientAddressType.EVENT_BUS_PROXY_BACKEND
         )  # type: ignore
-        self.pub_client = comms.create_pub_client(
+        self.pub_client = self.comms.create_pub_client(
             CommunicationClientAddressType.EVENT_BUS_PROXY_FRONTEND
         )  # type: ignore
-
+        self.service_config = service_config
+        self.user_config = user_config
         # Handler discovery and management
         setattr(self, attrs.message_handler_types, {})
         setattr(self, attrs.command_handler_types, {})
 
         # Pass through the comms and clients to base classes
         super().__init__(
-            comms=comms,
+            comms=self.comms,
             pub_client=self.pub_client,
             sub_client=self.sub_client,
+            service_config=self.service_config,
+            user_config=self.user_config,
             **kwargs,
         )
 
@@ -173,7 +180,7 @@ class MessageBusMixin(LifecycleMixin):
                 # Publish the success response
                 await self.publish(
                     CommandResponseMessage(
-                        message_type=f"{message.message_type}_response",
+                        message_type=MessageType.CommandResponse,
                         request_id=message.request_id,
                         service_id=self.id,
                         origin_service_id=message.service_id,
@@ -188,9 +195,7 @@ class MessageBusMixin(LifecycleMixin):
                 # Publish the failure response
                 await self.publish(
                     CommandResponseMessage(
-                        message_type=cast(
-                            MessageTypeT, f"{message.message_type}_response"
-                        ),
+                        message_type=MessageType.CommandResponse,
                         request_id=message.request_id,
                         service_id=self.id,
                         origin_service_id=message.service_id,
@@ -210,6 +215,7 @@ class RequestHandlerMixin(CommunicationMixin):
         request_client_address_type: CommunicationClientAddressType,
         **kwargs,
     ) -> None:
+        setattr(self, attrs.request_handler_types, {})
         self.router_reply_client: ReplyClientProtocol = comms.create_reply_client(
             request_client_address_type
         )  # type: ignore
@@ -279,13 +285,13 @@ class DatasetRequestClientMixin(CommunicationMixin):
         )
 
     async def request_conversation(
-        self, message: ConversationRequestMessage
-    ) -> ConversationResponseMessage | ErrorMessage:
+        self, message: ConversationRequest
+    ) -> ConversationResponse | ErrorMessage:
         return await self.conversation_request_client.request(message)
 
     async def request_conversation_turn(
-        self, message: ConversationTurnRequestMessage
-    ) -> ConversationTurnResponseMessage | ErrorMessage:
+        self, message: ConversationTurnRequest
+    ) -> ConversationTurnResponse | ErrorMessage:
         return await self.conversation_request_client.request(message)
 
     async def request_dataset_timing(
@@ -304,6 +310,7 @@ class PullHandlerMixin(CommunicationMixin):
         pull_client_bind: bool = False,
         **kwargs,
     ) -> None:
+        setattr(self, attrs.pull_handler_types, {})
         self.pull_client: PullClientProtocol = comms.create_pull_client(
             pull_client_address_type,
             bind=pull_client_bind,  # type: ignore

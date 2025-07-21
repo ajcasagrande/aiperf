@@ -13,15 +13,12 @@ from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
 from aiperf.common.enums import MessageType, ServiceRunType, ServiceType
 from aiperf.common.exceptions import ConfigurationError
-from aiperf.common.hooks import (
-    on_cleanup,
-    on_init,
-    on_stop,
-)
+from aiperf.common.hooks import on_cleanup, on_init, on_stop
 from aiperf.common.messages import WorkerHealthMessage
 from aiperf.common.models import AIPerfBaseModel
 from aiperf.common.service.base_service import ServiceFactory
 from aiperf.core.component_service import ComponentService
+from aiperf.core.decorators import message_handler
 from aiperf.services.workers.worker import Worker
 
 
@@ -87,10 +84,6 @@ class WorkerManager(ComponentService):
         """Initialize worker manager-specific components."""
         self.debug("WorkerManager initializing")
 
-        await self.sub_client.subscribe(
-            MessageType.WORKER_HEALTH, self._on_worker_health
-        )
-
         # Spawn workers
         # TODO: This logic can be refactored to make use of the ServiceManager class
         if self.service_config.service_run_type == ServiceRunType.MULTIPROCESSING:
@@ -104,8 +97,9 @@ class WorkerManager(ComponentService):
                 f"Unsupported run type: {self.service_config.service_run_type}",
             )
 
+    @message_handler(MessageType.WorkerHealth)
     async def _on_worker_health(self, message: WorkerHealthMessage) -> None:
-        self.debug("Received worker health message: %s", message)
+        self.debug(lambda: f"Received worker health message: {message}")
         self.worker_health[message.service_id] = message
 
     @on_stop

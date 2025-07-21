@@ -487,7 +487,7 @@ def print_plugin_status(service):
     for name, info in status['loaded_plugins'].items():
         state = info['state']
         error = info['error']
-        print(f"  {name}: {state}" + (f" (ERROR: {error})" if error else ""))
+        print(f"  {name}: {state}" + (f" (Error: {error})" if error else ""))
 
     if status['failed_plugins']:
         print(f"\nFailed Plugins:")

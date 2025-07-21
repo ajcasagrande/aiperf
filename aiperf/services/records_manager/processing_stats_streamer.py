@@ -77,13 +77,13 @@ class ProcessingStatsStreamer(StreamingPostProcessor):
                 )
             )
 
-    @on_message(MessageType.CREDIT_PHASE_START)
+    @on_message(MessageType.CreditPhaseStart)
     async def _on_credit_phase_start(self, message: CreditPhaseStartMessage) -> None:
         """Handle a credit phase start message."""
         if message.phase == CreditPhase.PROFILING:
             self.total_expected_requests = message.total_expected_requests
 
-    @on_message(MessageType.CREDIT_PHASE_COMPLETE)
+    @on_message(MessageType.CreditPhaseComplete)
     async def _on_credit_phase_complete(
         self, message: CreditPhaseCompleteMessage
     ) -> None:

@@ -4,7 +4,7 @@
 import pytest
 
 from aiperf.common.messages import (
-    ConversationRequestMessage,
+    ConversationRequest,
     DatasetTimingRequest,
 )
 from aiperf.common.models import Conversation, Text, Turn
@@ -43,7 +43,7 @@ def sample_conversations():
 @pytest.fixture
 def conversation_request_message():
     """Valid ConversationRequestMessage instances for testing."""
-    return ConversationRequestMessage(
+    return ConversationRequest(
         service_id="test-requester", request_id="req-123", conversation_id="session-1"
     )
 

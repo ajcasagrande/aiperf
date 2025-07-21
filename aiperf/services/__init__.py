@@ -64,7 +64,6 @@ from aiperf.services.system_controller import (
     ProfileRunner,
     ProxyMixin,
     ServiceManagerMixin,
-    ServiceManagerMixinRequirements,
     SignalHandlerMixin,
     SystemController,
 )
@@ -140,7 +139,6 @@ __all__ = [
     "SUPPORTED_BIT_DEPTHS",
     "ServiceKubernetesRunInfo",
     "ServiceManagerMixin",
-    "ServiceManagerMixinRequirements",
     "ServiceRegistry",
     "SignalHandlerMixin",
     "SingleTurnDatasetLoader",

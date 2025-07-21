@@ -93,12 +93,12 @@ class ProgressTracker(AIPerfLoggerMixin):
             return
 
         _message_mappings = {
-            MessageType.CREDIT_PHASE_START: self.on_credit_phase_start,
-            MessageType.CREDIT_PHASE_PROGRESS: self.on_credit_phase_progress,
-            MessageType.CREDIT_PHASE_COMPLETE: self.on_credit_phase_complete,
-            MessageType.PROCESSING_STATS: self.on_phase_processing_stats,
-            MessageType.WORKER_HEALTH: self.on_worker_health,
-            MessageType.PROFILE_RESULTS: self.on_profile_results,
+            MessageType.CreditPhaseStart: self.on_credit_phase_start,
+            MessageType.CreditPhaseProgress: self.on_credit_phase_progress,
+            MessageType.CreditPhaseComplete: self.on_credit_phase_complete,
+            MessageType.ProcessingStats: self.on_phase_processing_stats,
+            MessageType.WorkerHealth: self.on_worker_health,
+            MessageType.ProfileResults: self.on_profile_results,
         }
 
         if message.message_type in _message_mappings:

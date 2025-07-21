@@ -22,7 +22,7 @@ Usage:
         # Handle real aiperf messages with full type safety
         pass
 
-    @command_handler(CommandType.PROFILE_START)
+    @command_handler(CommandType.ProfileStart)
     async def handle_profile_start(self, command: CommandMessage):
         # Handle real aiperf commands with full type safety
         return {"result": "started"}
@@ -83,23 +83,23 @@ def command_handler(*command_types: CommandType | MessageTypeT | str) -> Callabl
         *command_types: One or more CommandType enums, MessageTypeT, or command type strings to handle
 
     Example:
-        @command_handler(CommandType.PROFILE_START)
+        @command_handler(CommandType.ProfileStart)
         async def handle_profile_start(self, command: CommandMessage):
             # Start profiling logic
             await self.start_profiling(command.data)
             return {"status": "started", "timestamp": time.time()}
 
-        @command_handler(CommandType.SHUTDOWN)
+        @command_handler(CommandType.Shutdown)
         async def handle_shutdown(self, command: CommandMessage):
             # Cleanup and shutdown
             await self.cleanup()
             return {"status": "shutting_down"}
 
-        @command_handler(CommandType.PROFILE_CONFIGURE, CommandType.PROFILE_STOP)
+        @command_handler(CommandType.ProfileConfigure, CommandType.ProfileStop)
         def handle_profile_commands(self, command: CommandMessage):  # Can be sync or async
-            if command.message_type == CommandType.PROFILE_CONFIGURE:
+            if command.message_type == CommandType.ProfileConfigure:
                 return self.configure_profile(command.data)
-            elif command.message_type == CommandType.PROFILE_STOP:
+            elif command.message_type == CommandType.ProfileStop:
                 return self.stop_profile()
     """
 

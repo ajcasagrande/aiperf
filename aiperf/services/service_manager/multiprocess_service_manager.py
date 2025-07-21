@@ -23,10 +23,10 @@ from aiperf.common.messages.service_messages import (
     RegistrationMessage,
     StatusMessage,
 )
-from aiperf.common.mixins.aiperf_message_mixins import AIPerfMessageHandlerMixin
-from aiperf.common.mixins.command_mixins import CommandMessageHandlerMixin
 from aiperf.common.models import AIPerfBaseModel
 from aiperf.common.service.base_service import ServiceFactory
+from aiperf.common.types import ServiceTypeT
+from aiperf.core.background_tasks import BackgroundTasksMixin
 from aiperf.services.service_manager.base_service_manager import (
     BaseServiceManager,
     ServiceManagerFactory,
@@ -39,25 +39,23 @@ class MultiProcessRunInfo(AIPerfBaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     process: Process | SpawnProcess | ForkProcess | None = Field(default=None)
-    service_type: ServiceType = Field(
+    service_type: ServiceTypeT = Field(
         ...,
         description="Type of service running in the process",
     )
 
 
 @ServiceManagerFactory.register(ServiceRunType.MULTIPROCESSING)
-class MultiProcessServiceManager(
-    BaseServiceManager, CommandMessageHandlerMixin, AIPerfMessageHandlerMixin
-):
+class MultiProcessServiceManager(BaseServiceManager, BackgroundTasksMixin):
     """
     Service Manager for starting and stopping services as multiprocessing processes.
     """
 
     def __init__(
         self,
-        required_services: dict[ServiceType, int],
+        required_services: dict[ServiceTypeT, int],
         service_config: ServiceConfig,
-        user_config: UserConfig | None = None,
+        user_config: UserConfig,
         log_queue: "multiprocessing.Queue | None" = None,
         **kwargs,
     ):
@@ -69,15 +67,15 @@ class MultiProcessServiceManager(
         )
         self.multi_process_info: list[MultiProcessRunInfo] = []
         self.log_queue = log_queue
-        self.registered_events: dict[ServiceType, asyncio.Event] = {
+        self.registered_events: dict[ServiceTypeT, asyncio.Event] = {
             service_type: asyncio.Event() for service_type in required_services
         }
-        self.state_events: dict[ServiceType, dict[ServiceState, asyncio.Event]] = {
+        self.state_events: dict[ServiceTypeT, dict[ServiceState, asyncio.Event]] = {
             service_type: {state: asyncio.Event() for state in ServiceState}
             for service_type in ServiceType
         }
 
-    async def _run_services(self, service_types: dict[ServiceType, int]) -> None:
+    async def _run_services(self, service_types: dict[ServiceTypeT, int]) -> None:
         """Run a list of services as multiprocessing processes."""
 
         # Create and start all service processes
@@ -90,7 +88,7 @@ class MultiProcessServiceManager(
                     name=f"{service_type}_process",
                     kwargs={
                         "service_class": service_class,
-                        "service_id": service_type.value if count == 1 else None,
+                        "service_id": service_type if count == 1 else None,
                         "service_config": self.service_config,
                         "user_config": self.user_config,
                         "log_queue": self.log_queue,

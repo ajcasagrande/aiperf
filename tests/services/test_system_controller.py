@@ -55,9 +55,9 @@ class TestSystemController(BaseTestControllerService):
 
         # A SystemController should subscribe to registration, status, and heartbeat topics
         expected_topics = [
-            MessageType.REGISTRATION,
-            MessageType.STATUS,
-            MessageType.HEARTBEAT,
+            MessageType.Registration,
+            MessageType.Status,
+            MessageType.Heartbeat,
         ]
 
         for message_type in expected_topics:

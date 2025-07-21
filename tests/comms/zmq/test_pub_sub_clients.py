@@ -151,9 +151,9 @@ class TestZMQPubClient:
     @pytest.mark.parametrize(
         "message_type",
         [
-            MessageType.STATUS,
-            MessageType.HEARTBEAT,
-            MessageType.ERROR,
+            MessageType.Status,
+            MessageType.Heartbeat,
+            MessageType.Error,
         ],
     )
     @pytest.mark.asyncio
@@ -226,13 +226,13 @@ class TestZMQSubClient:
         client = zmq_sub_connect_client
 
         await client.initialize()
-        await client.subscribe(MessageType.STATUS, mock_async_callback)
+        await client.subscribe(MessageType.Status, mock_async_callback)
 
         mock_socket = zmq_sub_connect_client.socket
-        mock_socket.subscribe.assert_called_once_with(MessageType.STATUS.encode())
+        mock_socket.subscribe.assert_called_once_with(MessageType.Status.encode())
 
-        assert MessageType.STATUS in client._subscribers
-        assert mock_async_callback in client._subscribers[MessageType.STATUS]
+        assert MessageType.Status in client._subscribers
+        assert mock_async_callback in client._subscribers[MessageType.Status]
 
     @pytest.mark.asyncio
     async def test_subscribe_not_initialized(
@@ -242,11 +242,11 @@ class TestZMQSubClient:
         client = zmq_sub_connect_client
 
         # Should initialize automatically
-        await client.subscribe(MessageType.STATUS, mock_async_callback)
+        await client.subscribe(MessageType.Status, mock_async_callback)
 
         assert client.is_initialized
         mock_socket = zmq_sub_connect_client.socket
-        mock_socket.subscribe.assert_called_once_with(MessageType.STATUS.encode())
+        mock_socket.subscribe.assert_called_once_with(MessageType.Status.encode())
 
     @pytest.mark.asyncio
     async def test_subscribe_multiple_message_types(
@@ -257,7 +257,7 @@ class TestZMQSubClient:
 
         await client.initialize()
 
-        message_types = [MessageType.STATUS, MessageType.HEARTBEAT, MessageType.COMMAND]
+        message_types = [MessageType.Status, MessageType.Heartbeat, MessageType.Command]
 
         for msg_type in message_types:
             await client.subscribe(msg_type, mock_async_callback)
@@ -281,17 +281,17 @@ class TestZMQSubClient:
         callback2 = AsyncMock()
 
         await client.initialize()
-        await client.subscribe(MessageType.STATUS, callback1)
-        await client.subscribe(MessageType.STATUS, callback2)
+        await client.subscribe(MessageType.Status, callback1)
+        await client.subscribe(MessageType.Status, callback2)
 
         mock_socket = zmq_sub_connect_client.socket
         # Subscribe should only be called once per message type
-        mock_socket.subscribe.assert_called_once_with(MessageType.STATUS.encode())
+        mock_socket.subscribe.assert_called_once_with(MessageType.Status.encode())
 
-        assert MessageType.STATUS in client._subscribers
-        assert callback1 in client._subscribers[MessageType.STATUS]
-        assert callback2 in client._subscribers[MessageType.STATUS]
-        assert len(client._subscribers[MessageType.STATUS]) == 2
+        assert MessageType.Status in client._subscribers
+        assert callback1 in client._subscribers[MessageType.Status]
+        assert callback2 in client._subscribers[MessageType.Status]
+        assert len(client._subscribers[MessageType.Status]) == 2
 
     @pytest.mark.asyncio
     async def test_subscribe_error_handling(
@@ -311,7 +311,7 @@ class TestZMQSubClient:
         with pytest.raises(
             CommunicationError, match="Failed to subscribe to message_type"
         ):
-            await client.subscribe(MessageType.STATUS, mock_async_callback)
+            await client.subscribe(MessageType.Status, mock_async_callback)
 
     @pytest.mark.asyncio
     async def test_message_receiving_task(
@@ -321,7 +321,7 @@ class TestZMQSubClient:
         client = zmq_sub_connect_client
 
         await client.initialize()
-        await client.subscribe(MessageType.STATUS, mock_async_callback)
+        await client.subscribe(MessageType.Status, mock_async_callback)
 
         # Should have started a receiving task
         assert hasattr(client, "tasks")
@@ -343,9 +343,9 @@ class TestZMQSubClient:
     @pytest.mark.parametrize(
         "message_type",
         [
-            MessageType.STATUS,
-            MessageType.HEARTBEAT,
-            MessageType.ERROR,
+            MessageType.Status,
+            MessageType.Heartbeat,
+            MessageType.Error,
         ],
     )
     @pytest.mark.asyncio
@@ -376,10 +376,10 @@ class TestZMQSubClient:
 
         callbacks = [AsyncMock() for _ in range(5)]
         message_types = [
-            MessageType.STATUS,
-            MessageType.HEARTBEAT,
-            MessageType.COMMAND,
-            MessageType.ERROR,
+            MessageType.Status,
+            MessageType.Heartbeat,
+            MessageType.Command,
+            MessageType.Error,
             MessageType.NOTIFICATION,
         ]
 

@@ -86,7 +86,7 @@ class MonitoringPlugin(BasePlugin):
     # Message Handlers - Monitor All System Activity
     # =================================================================
 
-    @message_handler(MessageType.HEARTBEAT)
+    @message_handler(MessageType.Heartbeat)
     async def monitor_heartbeats(self, message: Any) -> None:
         """
         Monitor service heartbeats for health tracking.
@@ -121,7 +121,7 @@ class MonitoringPlugin(BasePlugin):
         except Exception as e:
             self.exception(f"Error monitoring heartbeat: {e}")
 
-    @message_handler(MessageType.STATUS, MessageType.DATA_PROCESSED)
+    @message_handler(MessageType.Status, MessageType.DATA_PROCESSED)
     async def monitor_system_activity(self, message: Any) -> None:
         """
         Monitor general system activity and performance.
@@ -158,7 +158,7 @@ class MonitoringPlugin(BasePlugin):
         except Exception as e:
             self.exception(f"Error monitoring system activity: {e}")
 
-    @message_handler(MessageType.SERVICE_ERROR)
+    @message_handler(MessageType.ServiceError)
     async def monitor_errors(self, message: Any) -> None:
         """
         Monitor and track system errors.
@@ -218,7 +218,7 @@ class MonitoringPlugin(BasePlugin):
             },
         }
 
-    @command_handler(CommandType.SHUTDOWN)
+    @command_handler(CommandType.Shutdown)
     async def prepare_shutdown(self, command: Any) -> dict:
         """Handle shutdown preparation - generate final report."""
         self.info("Generating final monitoring report before shutdown")

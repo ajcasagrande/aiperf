@@ -43,7 +43,7 @@ class CommandMessage(BaseServiceMessage, AutoRequestID, ABC):  # type: ignore
 class CommandResponseMessage(BaseServiceMessage, RequiresRequestID, ABC):  # type: ignore
     """Base class for all command response messages."""
 
-    message_type: MessageTypeT = MessageType.COMMAND_RESPONSE
+    message_type: MessageTypeT = MessageType.CommandResponse
     origin_service_id: str = Field(
         ..., description="The ID of the service that sent the request"
     )
@@ -61,7 +61,7 @@ class ProcessRecordsCommand(CommandMessage):
     that it process records.
     """
 
-    message_type: MessageTypeT = MessageType.PROCESS_RECORDS
+    message_type: MessageTypeT = MessageType.ProcessRecords
 
     cancelled: bool = Field(
         default=False,
@@ -70,11 +70,11 @@ class ProcessRecordsCommand(CommandMessage):
 
 
 class ShutdownCommand(CommandMessage):
-    message_type: MessageTypeT = MessageType.SHUTDOWN
+    message_type: MessageTypeT = MessageType.Shutdown
 
 
 class ProfileConfigureCommand(CommandMessage):
-    message_type: MessageTypeT = MessageType.PROFILE_CONFIGURE
+    message_type: MessageTypeT = MessageType.ProfileConfigure
     data: UserConfig = Field(  # type: ignore[override]
         ...,
         description="The configuration data for the profile",
@@ -82,15 +82,15 @@ class ProfileConfigureCommand(CommandMessage):
 
 
 class ProfileStartCommand(CommandMessage):
-    message_type: MessageTypeT = MessageType.PROFILE_START
+    message_type: MessageTypeT = MessageType.ProfileStart
 
 
 class ProfileStopCommand(CommandMessage):
-    message_type: MessageTypeT = MessageType.PROFILE_STOP
+    message_type: MessageTypeT = MessageType.ProfileStop
 
 
 class ProfileCancelCommand(CommandMessage):
-    message_type: MessageTypeT = MessageType.PROFILE_CANCEL
+    message_type: MessageTypeT = MessageType.ProfileCancel
 
 
 class StartWorkersData(BaseModel):
@@ -103,7 +103,7 @@ class StartWorkersData(BaseModel):
 
 
 class StartWorkersCommand(CommandMessage):
-    message_type: MessageTypeT = MessageType.START_WORKERS
+    message_type: MessageTypeT = MessageType.StartWorkers
 
     data: StartWorkersData = Field(  # type: ignore[override]
         ...,
@@ -121,7 +121,7 @@ class StopWorkersData(BaseModel):
 
 
 class StopWorkersCommand(CommandMessage):
-    message_type: MessageTypeT = MessageType.STOP_WORKERS
+    message_type: MessageTypeT = MessageType.StopWorkers
 
     data: StopWorkersData = Field(  # type: ignore[override]
         ...,

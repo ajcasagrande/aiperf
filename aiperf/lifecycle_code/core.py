@@ -48,7 +48,7 @@ Usage:
             # Handle real aiperf messages with full type safety
             await self.publish(MessageType.STATUS, {"status": "processed"})
 
-        @command_handler(CommandType.PROFILE_START)
+        @command_handler(CommandType.ProfileStart)
         async def handle_profile_start(self, command: CommandMessage):
             # Handle real aiperf commands with full type safety
             return {"result": "started"}
@@ -68,7 +68,6 @@ from aiperf.common.comms.base_comms import (
 )
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.enums import (
-    CommandType,
     CommunicationClientAddressType,
     MessageType,
     ServiceType,
@@ -297,9 +296,9 @@ class AIPerfService:
 
     async def send_command(
         self,
-        command_type: CommandType,
+        command_type: MessageTypeT,
         target_service_id: str | None = None,
-        target_service_type: ServiceType | None = None,
+        target_service_type: ServiceTypeT | None = None,
         data: Any = None,
         timeout: float = 30.0,
         **kwargs,
@@ -320,7 +319,7 @@ class AIPerfService:
 
         Example:
             status = await self.send_command(
-                CommandType.PROFILE_START,
+                CommandType.ProfileStart,
                 target_service_id="worker_1"
             )
         """
@@ -379,7 +378,7 @@ class AIPerfService:
             raise RuntimeError("Service not initialized - call initialize() first")
 
         response = CommandResponseMessage(
-            message_type=f"{original_command.message_type}_response",
+            message_type=MessageType.CommandResponse,
             request_id=original_command.request_id,
             service_id=self.service_id,
             origin_service_id=original_command.service_id,
@@ -468,18 +467,10 @@ class AIPerfService:
                 subscription_map[command_type] = self._handle_command
 
         # Always subscribe to command responses for our commands
-        subscription_map[f"{CommandType.PROFILE_START}_response"] = (
-            self._handle_command_response
-        )
-        subscription_map[f"{CommandType.PROFILE_STOP}_response"] = (
-            self._handle_command_response
-        )
-        subscription_map[f"{CommandType.PROFILE_CONFIGURE}_response"] = (
-            self._handle_command_response
-        )
-        subscription_map[f"{CommandType.SHUTDOWN}_response"] = (
-            self._handle_command_response
-        )
+        subscription_map[MessageType.CommandResponse] = self._handle_command_response
+        subscription_map[MessageType.CommandResponse] = self._handle_command_response
+        subscription_map[MessageType.CommandResponse] = self._handle_command_response
+        subscription_map[MessageType.CommandResponse] = self._handle_command_response
 
         if subscription_map:
             await self.sub_client.subscribe_all(subscription_map)
@@ -578,11 +569,11 @@ class AIPerfService:
     ) -> Message:
         """Create a real aiperf message."""
         # Map to specific message class based on type
-        if message_type == MessageType.HEARTBEAT:
+        if message_type == MessageType.Heartbeat:
             return HeartbeatMessage(
                 service_id=self.service_id, service_type=self.service_type, **kwargs
             )
-        elif message_type == MessageType.REGISTRATION:
+        elif message_type == MessageType.Registration:
             return RegistrationMessage(
                 service_id=self.service_id, service_type=self.service_type, **kwargs
             )

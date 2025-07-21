@@ -138,7 +138,7 @@ class TestAIPerfLogger:
             ("DEBUG", True),
             ("INFO", True),
             ("WARNING", True),
-            ("ERROR", True),
+            ("Error", True),
             ("CRITICAL", True),
             (_DEBUG, True),
             (_INFO, True),

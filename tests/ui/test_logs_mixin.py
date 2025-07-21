@@ -41,7 +41,7 @@ class TestLogsDashboardMixin:
             "DEBUG": "dim",
             "INFO": "green",
             "WARNING": "yellow",
-            "ERROR": "red",
+            "Error": "red",
             "CRITICAL": "bold red",
         }
         assert expected_styles == LogsDashboardElement.LOG_LEVEL_STYLES
@@ -52,7 +52,7 @@ class TestLogsDashboardMixin:
             "DEBUG": "dim",
             "INFO": "white",
             "WARNING": "yellow",
-            "ERROR": "red",
+            "Error": "red",
             "CRITICAL": "bold red",
         }
         assert expected_styles == LogsDashboardElement.LOG_MSG_STYLES
@@ -122,7 +122,7 @@ class TestLogsDashboardMixin:
         log_data_2 = {
             "created": time.time(),
             "name": "logger2",
-            "levelname": "ERROR",
+            "levelname": "Error",
             "msg": "Message 2",
         }
 
@@ -187,7 +187,7 @@ class TestLogsDashboardMixin:
         assert len(table.rows) >= 1
         # The actual truncation is done in the table rendering
 
-    @pytest.mark.parametrize("level", ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"])
+    @pytest.mark.parametrize("level", ["DEBUG", "INFO", "WARNING", "Error", "CRITICAL"])
     def test_create_logs_table_log_level_styles(self, logs_mixin_instance, level):
         """Test that log levels have correct styles."""
         log_data = {
@@ -241,7 +241,7 @@ class TestLogsDashboardMixin:
         log_data = {
             "created": time.time(),
             "name": "test_logger",
-            "levelname": "ERROR",
+            "levelname": "Error",
             "msg": "Test error message",
         }
 

@@ -30,16 +30,15 @@ from .background_tasks import BackgroundTasksMixin
 from .base_service import BaseService
 from .communication_mixins import (
     CommunicationMixin,
+    DatasetRequestClientMixin,
     DatasetRequestHandler,
     MessageBusMixin,
     PullHandlerMixin,
-    PushClientMixin,
     RequestHandlerMixin,
 )
 
 # Decorators for dynamic behavior
 from .decorators import (
-    background_task,
     command_handler,
     message_handler,
     pull_handler,
@@ -66,8 +65,8 @@ __all__ = [
     "MessageBusMixin",
     "BackgroundTasksMixin",
     "DatasetRequestHandler",
+    "DatasetRequestClientMixin",
     "RequestHandlerMixin",
-    "PushClientMixin",
     "PullHandlerMixin",
     # Base service
     "BaseService",
@@ -82,7 +81,6 @@ __all__ = [
     # Decorators
     "message_handler",
     "command_handler",
-    "background_task",
     "request_handler",
     "pull_handler",
 ]

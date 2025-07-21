@@ -9,7 +9,7 @@ from typing import Any
 import pytest
 
 from aiperf.common.messages import (
-    ConversationResponseMessage,
+    ConversationResponse,
     CreditDropMessage,
     InferenceResultsMessage,
     WorkerHealthMessage,
@@ -39,7 +39,7 @@ class MockWorkerCommunication:
     async def request_conversation_data(self, conversation_id: str | None = None):
         """Request conversation data for a given conversation ID."""
         self.conversation_requests.append(conversation_id)
-        return ConversationResponseMessage(
+        return ConversationResponse(
             service_id="test-service",
             conversation=Conversation(session_id="test-session"),
         )
@@ -208,7 +208,7 @@ class TestWorkerCommunicationsProtocol:
         assert "test-conversation-123" in mock_worker_comm.conversation_requests
 
         # Verify response structure
-        assert isinstance(response, ConversationResponseMessage)
+        assert isinstance(response, ConversationResponse)
         assert response.service_id == "test-service"
 
     @pytest.mark.asyncio
@@ -223,7 +223,7 @@ class TestWorkerCommunicationsProtocol:
         assert None in mock_worker_comm.conversation_requests
 
         # Verify response structure
-        assert isinstance(response, ConversationResponseMessage)
+        assert isinstance(response, ConversationResponse)
 
     @pytest.mark.asyncio
     async def test_push_inference_results(

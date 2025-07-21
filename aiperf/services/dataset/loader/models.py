@@ -18,9 +18,9 @@ class TraceCustomData(AIPerfBaseModel):
     json_string = '{"timestamp": 1000, "input_length": 10, "output_length": 4, "hash_ids": [123, 456]}'
     custom_data = TraceCustomData.model_validate_json(json_string)
 
-    # ERROR: timestamp and session_id (or delay)cannot be set together
+    # Error: timestamp and session_id (or delay)cannot be set together
     json_string = '{"timestamp": 1000, "session_id": "12345", "delay": 1000, "input_length": 300, "output_length": 40, "hash_ids": [123, 456]}'
-    custom_data = TraceCustomData.model_validate_json(json_string)  # ERROR
+    custom_data = TraceCustomData.model_validate_json(json_string)  # Error
     ```
     """
 

@@ -36,6 +36,11 @@ class BaseService(MessageBusMixin, BackgroundTasksMixin):
             **kwargs,
         )
 
+    async def run_forever(self) -> None:
+        await self.initialize()
+        await self.start()
+        await self.stopped_event.wait()
+
     def __str__(self) -> str:
         return f"{self.service_type} {self.service_id}"
 

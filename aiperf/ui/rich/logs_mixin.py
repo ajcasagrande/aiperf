@@ -40,7 +40,7 @@ class LogsDashboardElement(DashboardElement):
         "NOTICE": "blue",
         "WARNING": "yellow",
         "SUCCESS": "bold green",
-        "ERROR": "red",
+        "Error": "red",
         "CRITICAL": "bold red",
     }
 
@@ -52,7 +52,7 @@ class LogsDashboardElement(DashboardElement):
         "NOTICE": "blue",
         "WARNING": "yellow",
         "SUCCESS": "bold green",
-        "ERROR": "red",
+        "Error": "red",
         "CRITICAL": "bold red",
     }
 

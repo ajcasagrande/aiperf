@@ -330,7 +330,7 @@ FOR AIPERF SERVICES, I RECOMMEND THE HYBRID APPROACH:
 ✅ SIMPLE PUBLIC API:
    - STOPPED (not running, includes created/initialized)
    - RUNNING (actively running)
-   - ERROR (something failed)
+   - Error (something failed)
 
 ✅ DETAILED INTERNAL TRACKING:
    - Log the detailed phases internally

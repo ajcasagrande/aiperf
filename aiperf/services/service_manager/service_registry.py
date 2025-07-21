@@ -7,9 +7,10 @@ Service Registry for tracking and managing services by type and ID.
 import time
 from collections.abc import AsyncIterator, Iterator
 
-from aiperf.common.enums import ServiceState, ServiceType
+from aiperf.common.enums import ServiceState
 from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.common.models import ServiceRegistrationInfo
+from aiperf.common.types import ServiceTypeT
 
 
 class ServiceRegistry(AIPerfLoggerMixin):
@@ -24,14 +25,14 @@ class ServiceRegistry(AIPerfLoggerMixin):
         super().__init__(**kwargs)
 
         # Services organized by type -> set of service IDs
-        self._services_by_type: dict[ServiceType, set[str]] = {}
+        self._services_by_type: dict[ServiceTypeT, set[str]] = {}
         # Direct lookup by service ID -> service info
         self._services_by_id: dict[str, ServiceRegistrationInfo] = {}
 
     def register_service(
         self,
         service_id: str,
-        service_type: ServiceType,
+        service_type: ServiceTypeT,
         state: ServiceState = ServiceState.READY,
     ) -> ServiceRegistrationInfo:
         """Register a new service in the registry and return the service info."""
@@ -78,7 +79,7 @@ class ServiceRegistry(AIPerfLoggerMixin):
         self.debug(lambda: f"Unregistered service {service_id} of type {service_type}")
         return True
 
-    def num_replicas(self, service_type: ServiceType) -> int:
+    def num_replicas(self, service_type: ServiceTypeT) -> int:
         """Get the number of replicas of a specific service type."""
         return len(self._services_by_type.get(service_type, set()))
 
@@ -138,10 +139,10 @@ class ServiceRegistry(AIPerfLoggerMixin):
         for service_info in list(self._services_by_id.values()):
             yield service_info
 
-    def service_ids_by_type(self, service_type: ServiceType) -> set[str]:
+    def service_ids_by_type(self, service_type: ServiceTypeT) -> set[str]:
         return self._services_by_type.get(service_type, set())
 
-    def all_service_types(self) -> set[ServiceType]:
+    def all_service_types(self) -> set[ServiceTypeT]:
         return set(self._services_by_type.keys())
 
     def all_service_ids(self) -> set[str]:

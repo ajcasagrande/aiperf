@@ -145,7 +145,7 @@ class TestTimingManager(BaseTestComponentService):
 
             # 10. Check details of the pushed messages
             for message_type, message in pushed_messages:
-                assert message_type == MessageType.CREDIT_DROP
+                assert message_type == MessageType.CreditDrop
                 assert message.service_id == service.service_id
                 assert message.amount == 1
                 # You could also verify the timestamp corresponds to the schedule

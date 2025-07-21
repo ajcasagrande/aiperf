@@ -48,15 +48,15 @@ class BaseTestComponentService(BaseTestService):
         await service.send_heartbeat()
 
         # Check that a heartbeat message was published
-        assert MessageType.HEARTBEAT in mock_communication.mock_data.published_messages
+        assert MessageType.Heartbeat in mock_communication.mock_data.published_messages
         assert (
-            len(mock_communication.mock_data.published_messages[MessageType.HEARTBEAT])
+            len(mock_communication.mock_data.published_messages[MessageType.Heartbeat])
             > 0
         )
 
         # Verify heartbeat message contents
         heartbeat_msg = mock_communication.mock_data.published_messages[
-            MessageType.HEARTBEAT
+            MessageType.Heartbeat
         ][0]
         assert heartbeat_msg.service_id == service.service_id
         assert heartbeat_msg.service_type == service.service_type
@@ -78,12 +78,12 @@ class BaseTestComponentService(BaseTestService):
 
         # Check that a registration message was published
         assert (
-            MessageType.REGISTRATION in mock_communication.mock_data.published_messages
+            MessageType.Registration in mock_communication.mock_data.published_messages
         )
 
         # Verify registration message contents
         registration_msg = mock_communication.mock_data.published_messages[
-            MessageType.REGISTRATION
+            MessageType.Registration
         ][0]
         assert registration_msg.service_id == service.service_id
         assert registration_msg.service_type == service.service_type
@@ -104,11 +104,11 @@ class BaseTestComponentService(BaseTestService):
         await service.set_state(ServiceState.READY)
 
         # Check that a status message was published
-        assert MessageType.STATUS in mock_communication.mock_data.published_messages
+        assert MessageType.Status in mock_communication.mock_data.published_messages
 
         # Verify status message contents
         status_msg = mock_communication.mock_data.published_messages[
-            MessageType.STATUS
+            MessageType.Status
         ][0]
         assert status_msg.service_id == service.service_id
         assert status_msg.service_type == service.service_type

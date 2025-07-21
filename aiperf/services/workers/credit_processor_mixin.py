@@ -15,8 +15,8 @@ from aiperf.common.constants import NANOS_PER_MILLIS, NANOS_PER_SECOND
 from aiperf.common.enums import CreditPhase
 from aiperf.common.exceptions import NotInitializedError
 from aiperf.common.messages import (
-    ConversationRequestMessage,
-    ConversationResponseMessage,
+    ConversationRequest,
+    ConversationResponse,
     CreditDropMessage,
     CreditReturnMessage,
     ErrorMessage,
@@ -161,9 +161,9 @@ class CreditProcessorMixin(CreditProcessorMixinRequirements):
             raise NotInitializedError("Inference server client not initialized.")
 
         # retrieve the prompt from the dataset
-        conversation_response: ConversationResponseMessage = (
+        conversation_response: ConversationResponse = (
             await self.conversation_request_client.request(
-                ConversationRequestMessage(
+                ConversationRequest(
                     service_id=self.service_id,
                     conversation_id=message.conversation_id,
                     credit_phase=message.phase,

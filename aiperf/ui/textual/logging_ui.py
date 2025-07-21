@@ -29,7 +29,7 @@ class LogViewer(RichLog):
         "NOTICE": "blue",
         "WARNING": "yellow",
         "SUCCESS": "bold green",
-        "ERROR": "red",
+        "Error": "red",
         "CRITICAL": "bold red",
     }
 

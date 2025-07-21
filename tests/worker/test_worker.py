@@ -14,7 +14,7 @@ from aiperf.common.enums import MessageType, ServiceState, ServiceType
 from aiperf.common.exceptions import NotInitializedError
 from aiperf.common.messages import (
     CommandMessage,
-    ConversationResponseMessage,
+    ConversationResponse,
     CreditDropMessage,
     CreditReturnMessage,
     ErrorMessage,
@@ -82,7 +82,7 @@ class TestWorkerInitialization:
         assert worker.is_initialized
         worker.comms.initialize.assert_called_once()
         worker.credit_drop_client.register_pull_callback.assert_called_once_with(
-            MessageType.CREDIT_DROP, worker._process_credit_drop
+            MessageType.CreditDrop, worker._process_credit_drop
         )
 
     async def test_worker_configuration(
@@ -123,7 +123,7 @@ class TestCreditDropProcessing:
         self,
         initialized_worker: Worker,
         sample_credit_drop_message: CreditDropMessage,
-        sample_conversation_response: ConversationResponseMessage,
+        sample_conversation_response: ConversationResponse,
         sample_request_record: RequestRecord,
         mock_time_functions: dict[str, MagicMock],
     ) -> None:
@@ -166,7 +166,7 @@ class TestCreditDropProcessing:
         self,
         initialized_worker: Worker,
         sample_warmup_credit_drop_message: CreditDropMessage,
-        sample_conversation_response: ConversationResponseMessage,
+        sample_conversation_response: ConversationResponse,
         sample_request_record: RequestRecord,
     ) -> None:
         """Test warmup credit drop processing."""
@@ -231,7 +231,7 @@ class TestCreditDropProcessing:
         self,
         initialized_worker: Worker,
         sample_credit_drop_message: CreditDropMessage,
-        sample_conversation_response: ConversationResponseMessage,
+        sample_conversation_response: ConversationResponse,
         sample_request_record: RequestRecord,
     ) -> None:
         """Test credit drop processing when inference results push fails."""
@@ -298,7 +298,7 @@ class TestInferenceApiCalls:
         self,
         initialized_worker: Worker,
         sample_credit_drop_message: CreditDropMessage,
-        sample_conversation_response: ConversationResponseMessage,
+        sample_conversation_response: ConversationResponse,
         sample_request_record: RequestRecord,
     ) -> None:
         """Test successful execution of single credit."""
@@ -568,7 +568,7 @@ class TestWorkerMetrics:
         self,
         initialized_worker: Worker,
         sample_credit_drop_message: CreditDropMessage,
-        sample_conversation_response: ConversationResponseMessage,
+        sample_conversation_response: ConversationResponse,
         sample_request_record: RequestRecord,
     ) -> None:
         """Test metrics update on successful task completion."""
@@ -594,7 +594,7 @@ class TestWorkerMetrics:
         self,
         initialized_worker: Worker,
         sample_credit_drop_message: CreditDropMessage,
-        sample_conversation_response: ConversationResponseMessage,
+        sample_conversation_response: ConversationResponse,
         sample_failed_request_record: RequestRecord,
     ) -> None:
         """Test metrics update on failed task completion."""
@@ -620,7 +620,7 @@ class TestWorkerMetrics:
         self,
         initialized_worker: Worker,
         sample_warmup_credit_drop_message: CreditDropMessage,
-        sample_conversation_response: ConversationResponseMessage,
+        sample_conversation_response: ConversationResponse,
         sample_request_record: RequestRecord,
         sample_failed_request_record: RequestRecord,
     ) -> None:
@@ -826,7 +826,7 @@ class TestWorkerEdgeCases:
         # Mock conversation response with empty turns
         from aiperf.common.models import Conversation
 
-        empty_conversation_response = ConversationResponseMessage(
+        empty_conversation_response = ConversationResponse(
             service_id="test-service",
             conversation=Conversation(turns=[]),
         )
@@ -862,7 +862,7 @@ class TestWorkerEdgeCases:
     async def test_worker_concurrent_credit_drops(
         self,
         initialized_worker: Worker,
-        sample_conversation_response: ConversationResponseMessage,
+        sample_conversation_response: ConversationResponse,
         sample_request_record: RequestRecord,
     ) -> None:
         """Test worker handles concurrent credit drops."""

@@ -35,10 +35,6 @@ class LifecycleMixin(AIPerfLoggerMixin, AsyncTaskManagerMixin):
         self.stopped_event = asyncio.Event()  # set on stop or failure
         super().__init__(logger_name=self.id, **kwargs)
 
-    ###########################################################################
-    # Properties
-    ###########################################################################
-
     @property
     def state(self) -> LifecycleState:
         return self._state
@@ -51,10 +47,6 @@ class LifecycleMixin(AIPerfLoggerMixin, AsyncTaskManagerMixin):
         self._state = state
         self.debug(lambda: f"State changed from {old_state} to {state} for {self}")
         self.execute_async(self._state_changed(old_state, state))
-
-    ###########################################################################
-    # Public methods - call these externally, but do not override
-    ###########################################################################
 
     async def initialize(self) -> None:
         if self.state != LifecycleState.CREATED:
@@ -107,10 +99,6 @@ class LifecycleMixin(AIPerfLoggerMixin, AsyncTaskManagerMixin):
         self.stopped_event.set()
         raise asyncio.CancelledError(f"Failed for {self}: {e}") from e
 
-    ###########################################################################
-    # Utility methods
-    ###########################################################################
-
     def __str__(self) -> str:
         state = self.state
         return f"{self.__class__.__name__} {self.id} ({state=})"
@@ -118,10 +106,6 @@ class LifecycleMixin(AIPerfLoggerMixin, AsyncTaskManagerMixin):
     def __repr__(self) -> str:
         state = self.state
         return f"<{self.__class__.__qualname__} {self.id} ({state=})>"
-
-    ###########################################################################
-    # Implementation methods - override these in subclasses
-    ###########################################################################
 
     async def _initialize(self) -> None:
         """Hook method for initialization logic. Make sure to call super()._initialize()"""

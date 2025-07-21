@@ -43,7 +43,7 @@ class DemoData(BaseModel):
 class DemoStatusMessage(Message):
     """Demo status message."""
 
-    message_type: MessageType = MessageType.STATUS
+    message_type: MessageType = MessageType.Status
     service_id: str = Field(description="Service ID")
     data: DemoData = Field(description="Status data")
 
@@ -51,7 +51,7 @@ class DemoStatusMessage(Message):
 class DemoHeartbeatMessage(Message):
     """Demo heartbeat message."""
 
-    message_type: MessageType = MessageType.HEARTBEAT
+    message_type: MessageType = MessageType.Heartbeat
     service_id: str = Field(description="Service ID")
     timestamp: float = Field(
         default_factory=time.time, description="Heartbeat timestamp"
@@ -61,7 +61,7 @@ class DemoHeartbeatMessage(Message):
 class DemoCommandMessage(CommandMessage):
     """Demo command message."""
 
-    message_type: CommandType = CommandType.PROFILE_START
+    message_type: CommandType = CommandType.ProfileStart
     data: DemoData | None = None
 
 
@@ -105,7 +105,7 @@ class DemoService(MessageBusMixin):
     # Message Handlers using @message_handler decorator
     # =================================================================
 
-    @message_handler(MessageType.STATUS)
+    @message_handler(MessageType.Status)
     async def handle_status_message(self, message: DemoStatusMessage) -> None:
         """Handle status messages."""
         self.message_count += 1
@@ -119,25 +119,25 @@ class DemoService(MessageBusMixin):
         # You could publish a response here
         # await self.publish(some_response_message)
 
-    @message_handler(MessageType.HEARTBEAT)
+    @message_handler(MessageType.Heartbeat)
     async def handle_heartbeat(self, message: DemoHeartbeatMessage) -> None:
         """Handle heartbeat messages."""
         self.heartbeat_count += 1
         self.debug(f"Heartbeat #{self.heartbeat_count} received at {message.timestamp}")
 
-    @message_handler(MessageType.STATUS, MessageType.HEARTBEAT)
+    @message_handler(MessageType.Status, MessageType.Heartbeat)
     async def handle_multiple_types(self, message: Message) -> None:
         """Handler for multiple message types - this demonstrates decorator flexibility."""
-        if message.message_type == MessageType.STATUS:
+        if message.message_type == MessageType.Status:
             self.debug("Multi-handler: Processing status message")
-        elif message.message_type == MessageType.HEARTBEAT:
+        elif message.message_type == MessageType.Heartbeat:
             self.debug("Multi-handler: Processing heartbeat message")
 
     # =================================================================
     # Command Handlers using @command_handler decorator
     # =================================================================
 
-    @command_handler(CommandType.PROFILE_START)
+    @command_handler(CommandType.ProfileStart)
     async def handle_profile_start(self, command: DemoCommandMessage) -> dict[str, Any]:
         """Handle profile start commands."""
         self.command_count += 1
@@ -155,7 +155,7 @@ class DemoService(MessageBusMixin):
             "message": "Profile started successfully",
         }
 
-    @command_handler(CommandType.PROFILE_STOP)
+    @command_handler(CommandType.ProfileStop)
     async def handle_profile_stop(self, command: CommandMessage) -> dict[str, Any]:
         """Handle profile stop commands."""
         self.info("Stopping profile")
@@ -170,7 +170,7 @@ class DemoService(MessageBusMixin):
             "message": "Profile stopped successfully",
         }
 
-    @command_handler(CommandType.SHUTDOWN)
+    @command_handler(CommandType.Shutdown)
     async def handle_shutdown(self, command: CommandMessage) -> dict[str, Any]:
         """Handle shutdown commands."""
         self.warning("Shutdown command received")
@@ -258,7 +258,7 @@ class DemoService(MessageBusMixin):
         await asyncio.sleep(1.0)
 
         stop_cmd = CommandMessage(
-            message_type=CommandType.PROFILE_STOP,
+            message_type=CommandType.ProfileStop,
             service_id="controller",
             request_id="req-002",
         )
@@ -309,7 +309,7 @@ async def main():
         try:
             # Simulate a command that might fail
             error_cmd = CommandMessage(
-                message_type=CommandType.PROFILE_START,
+                message_type=CommandType.ProfileStart,
                 service_id="error-test",
                 request_id="error-001",
             )

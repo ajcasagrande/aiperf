@@ -37,7 +37,7 @@ Usage:
 
     # Send real commands
     response = await bus.send_command(
-        CommandType.PROFILE_START,
+        CommandType.ProfileStart,
         target_service_id="worker_1"
     )
 """
@@ -237,7 +237,7 @@ class MessageBus:
 
         Example:
             response = await bus.send_command(
-                CommandType.PROFILE_START,
+                CommandType.ProfileStart,
                 target_service_id="worker_1",
                 service_id="controller"
             )
@@ -370,7 +370,7 @@ class MessageBus:
         Decorator for registering command handlers directly on the bus.
 
         Example:
-            @bus.command_handler(CommandType.PROFILE_START)
+            @bus.command_handler(CommandType.ProfileStart)
             async def handle_profile_start(command: CommandMessage):
                 # Process command
                 return {"status": "started"}
@@ -440,7 +440,7 @@ class MessageBus:
                 # Send response if command expects one
                 if command.require_response and command.service_id:
                     response = CommandResponseMessage(
-                        message_type=f"{command.message_type}_response",
+                        message_type=MessageType.CommandResponse,
                         request_id=command.request_id,
                         service_id=command.target_service_id,  # We're responding
                         origin_service_id=command.service_id,
@@ -454,7 +454,7 @@ class MessageBus:
                 # Send error response
                 if command.require_response and command.service_id:
                     error_response = CommandResponseMessage(
-                        message_type=f"{command.message_type}_response",
+                        message_type=MessageType.CommandResponse,
                         request_id=command.request_id,
                         service_id=command.target_service_id,  # We're responding
                         origin_service_id=command.service_id,
@@ -482,15 +482,15 @@ class MessageBus:
     ) -> Message:
         """Create the appropriate real aiperf message based on type."""
         # Create specific message classes based on the message type
-        if message_type == MessageType.HEARTBEAT:
+        if message_type == MessageType.Heartbeat:
             return HeartbeatMessage(
                 service_id=service_id, service_type=service_type, **kwargs
             )
-        elif message_type == MessageType.REGISTRATION:
+        elif message_type == MessageType.Registration:
             return RegistrationMessage(
                 service_id=service_id, service_type=service_type, **kwargs
             )
-        elif message_type == MessageType.STATUS:
+        elif message_type == MessageType.Status:
             return StatusMessage(
                 service_id=service_id,
                 service_type=service_type,

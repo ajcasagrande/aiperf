@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-trap 'echo "❌ ERROR: Command failed at line $LINENO: $BASH_COMMAND"; echo "⚠️ This was unexpected and setup was not completed. Can try to resolve yourself and then manually run the rest of the commands in this file or file a bug."' ERR
+trap 'echo "❌ Error: Command failed at line $LINENO: $BASH_COMMAND"; echo "⚠️ This was unexpected and setup was not completed. Can try to resolve yourself and then manually run the rest of the commands in this file or file a bug."' ERR
 
 retry() {
     # retries for connectivity issues in installs

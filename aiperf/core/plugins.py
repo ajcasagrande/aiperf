@@ -130,7 +130,7 @@ class PluginMetadata:
         return f"PluginMetadata(name='{self.name}', version='{self.version}')"
 
 
-class BasePlugin(LifecycleMixin, MessageBusMixin, BackgroundTasksMixin):
+class BasePlugin(MessageBusMixin, BackgroundTasksMixin):
     """
     Base class for all AIPerf plugins using the amazing mixin architecture.
 

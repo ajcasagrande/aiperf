@@ -101,12 +101,12 @@ class Message(BaseModel):
         """Map simple message types to legacy message types."""
         # Common mappings
         mapping = {
-            "DATA_MESSAGE": LegacyMessageType.TEST,
-            "STATUS": LegacyMessageType.STATUS,
-            "ERROR": LegacyMessageType.ERROR,
-            "HEARTBEAT": LegacyMessageType.HEARTBEAT,
-            "REGISTRATION": LegacyMessageType.REGISTRATION,
-            "HEALTH_CHECK": LegacyMessageType.SERVICE_HEALTH,
+            "DATA_MESSAGE": LegacyMessageType.Test,
+            "STATUS": LegacyMessageType.Status,
+            "Error": LegacyMessageType.Error,
+            "HEARTBEAT": LegacyMessageType.Heartbeat,
+            "REGISTRATION": LegacyMessageType.Registration,
+            "HEALTH_CHECK": LegacyMessageType.ServiceHealth,
             # Generic mapping for unknown types
         }
 
@@ -120,7 +120,7 @@ class Message(BaseModel):
                 return legacy_type
 
         # Default to TEST for unknown types
-        return LegacyMessageType.TEST
+        return LegacyMessageType.Test
 
 
 class Command(Message):
@@ -137,11 +137,11 @@ class Command(Message):
         """Map simple command types to legacy command types."""
         # Command-specific mappings
         mapping = {
-            "GET_STATUS": LegacyCommandType.PROFILE_START,
-            "CONFIGURE": LegacyCommandType.PROFILE_CONFIGURE,
-            "START": LegacyCommandType.PROFILE_START,
-            "STOP": LegacyCommandType.PROFILE_STOP,
-            "SHUTDOWN": LegacyCommandType.SHUTDOWN,
+            "GET_STATUS": LegacyCommandType.ProfileStart,
+            "CONFIGURE": LegacyCommandType.ProfileConfigure,
+            "START": LegacyCommandType.ProfileStart,
+            "STOP": LegacyCommandType.ProfileStop,
+            "Shutdown": LegacyCommandType.Shutdown,
         }
 
         # Try direct mapping first
@@ -153,8 +153,8 @@ class Command(Message):
             if legacy_type.value.upper() == simple_type.upper():
                 return legacy_type
 
-        # Default to PROFILE_START for unknown command types
-        return LegacyCommandType.PROFILE_START
+        # Default to ProfileStart for unknown command types
+        return LegacyCommandType.ProfileStart
 
 
 class MessageBus:

@@ -23,7 +23,7 @@ class AIPerfLogLevel(CaseInsensitiveStrEnum):
     NOTICE = "NOTICE"
     WARNING = "WARNING"
     SUCCESS = "SUCCESS"
-    ERROR = "ERROR"
+    ERROR = "Error"
     CRITICAL = "CRITICAL"
 
     @property

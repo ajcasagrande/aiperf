@@ -9,7 +9,6 @@ from aiperf.services.system_controller.proxy_mixins import (
 )
 from aiperf.services.system_controller.service_manager_mixin import (
     ServiceManagerMixin,
-    ServiceManagerMixinRequirements,
 )
 from aiperf.services.system_controller.system_controller import (
     SystemController,
@@ -23,7 +22,6 @@ __all__ = [
     "ProfileRunner",
     "ProxyMixin",
     "ServiceManagerMixin",
-    "ServiceManagerMixinRequirements",
     "SignalHandlerMixin",
     "SystemController",
     "main",

@@ -32,7 +32,7 @@ class AIPerfLogger:
     It also extends the standard logging module with additional log levels:
         - TRACE    (TRACE < DEBUG)
         - NOTICE   (INFO < NOTICE < WARNING)
-        - SUCCESS  (WARNING < SUCCESS < ERROR)
+        - SUCCESS  (WARNING < SUCCESS < Error)
 
     Usage:
         logger = AIPerfLogger("my_logger")
@@ -89,7 +89,7 @@ class AIPerfLogger:
                 "NOTICE",
                 "WARNING",
                 "SUCCESS",
-                "ERROR",
+                "Error",
                 "CRITICAL",
             ]
         else:

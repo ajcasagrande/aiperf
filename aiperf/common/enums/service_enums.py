@@ -87,7 +87,7 @@ class ServiceRegistrationStatus(CaseInsensitiveStrEnum):
 
     WAITING = "waiting"
     """The service is waiting for the SystemController to register it.
-    This is a temporary state that should be followed by REGISTERED, TIMEOUT, or ERROR."""
+    This is a temporary state that should be followed by REGISTERED, TIMEOUT, or Error."""
 
     REGISTERED = "registered"
     """The service is registered with the SystemController."""

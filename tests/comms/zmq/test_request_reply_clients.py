@@ -269,9 +269,9 @@ class TestZMQDealerRequestClient:
     @pytest.mark.parametrize(
         "message_type",
         [
-            MessageType.STATUS,
-            MessageType.HEARTBEAT,
-            MessageType.ERROR,
+            MessageType.Status,
+            MessageType.Heartbeat,
+            MessageType.Error,
         ],
     )
     @pytest.mark.asyncio
@@ -368,7 +368,7 @@ class TestZMQRouterReplyClient:
         )
 
         service_id = "test_service"
-        message_type: MessageTypeT = MessageType.STATUS
+        message_type: MessageTypeT = MessageType.Status
 
         client.register_request_handler(service_id, message_type, mock_async_callback)
 
@@ -387,8 +387,8 @@ class TestZMQRouterReplyClient:
         )
 
         handlers = {
-            ("service1", MessageType.STATUS): AsyncMock(),
-            ("service1", MessageType.HEARTBEAT): AsyncMock(),
+            ("service1", MessageType.Status): AsyncMock(),
+            ("service1", MessageType.Heartbeat): AsyncMock(),
         }
 
         for (service_id, message_type), handler in handlers.items():
@@ -410,7 +410,7 @@ class TestZMQRouterReplyClient:
         )
 
         service_id = "test_service"
-        message_type: MessageTypeT = MessageType.STATUS
+        message_type: MessageTypeT = MessageType.Status
 
         client.register_request_handler(service_id, message_type, mock_async_callback)
 
@@ -432,7 +432,7 @@ class TestZMQRouterReplyClient:
 
         await client.initialize()
         client.register_request_handler(
-            "test_service", MessageType.STATUS, mock_async_callback
+            "test_service", MessageType.Status, mock_async_callback
         )
 
         # Should have started a receiving task
@@ -460,9 +460,9 @@ class TestZMQRouterReplyClient:
     @pytest.mark.parametrize(
         "message_type",
         [
-            MessageType.STATUS,
-            MessageType.HEARTBEAT,
-            MessageType.ERROR,
+            MessageType.Status,
+            MessageType.Heartbeat,
+            MessageType.Error,
         ],
     )
     def test_register_different_message_types(
@@ -500,8 +500,8 @@ class TestZMQRouterReplyClient:
 
         for service_id in services:
             handler = AsyncMock()
-            client.register_request_handler(service_id, MessageType.STATUS, handler)
-            handlers[(service_id, MessageType.STATUS)] = handler
+            client.register_request_handler(service_id, MessageType.Status, handler)
+            handlers[(service_id, MessageType.Status)] = handler
 
         # All handlers should be registered
         for key, handler in handlers.items():
@@ -526,13 +526,13 @@ class TestZMQRouterReplyClient:
             return response_message
 
         service_id = "test_service"
-        client.register_request_handler(service_id, MessageType.STATUS, handler)
+        client.register_request_handler(service_id, MessageType.Status, handler)
 
         await client.initialize()
 
         # Mock receiving a request and test handler invocation
         # This would normally be done by the receiving task
-        key = (service_id, MessageType.STATUS)
+        key = (service_id, MessageType.Status)
         assert key in client._request_handlers
 
         result = await client._request_handlers[key](test_message)
@@ -556,11 +556,11 @@ class TestZMQRouterReplyClient:
             return None
 
         service_id = "test_service"
-        client.register_request_handler(service_id, MessageType.STATUS, handler)
+        client.register_request_handler(service_id, MessageType.Status, handler)
 
         await client.initialize()
 
-        key = (service_id, MessageType.STATUS)
+        key = (service_id, MessageType.Status)
         result = await client._request_handlers[key](test_message)
         assert result is None
 
@@ -582,11 +582,11 @@ class TestZMQRouterReplyClient:
             raise ValueError("Handler error")
 
         service_id = "test_service"
-        client.register_request_handler(service_id, MessageType.STATUS, handler)
+        client.register_request_handler(service_id, MessageType.Status, handler)
 
         await client.initialize()
 
-        key = (service_id, MessageType.STATUS)
+        key = (service_id, MessageType.Status)
         with pytest.raises(ValueError, match="Handler error"):
             await client._request_handlers[key](test_message)
 
@@ -846,7 +846,7 @@ class TestRequestReplyIntegration:
         # Create many messages
         messages = [
             MockTestMessage(
-                message_type=MessageType.STATUS, test_data=f"msg_{i}", counter=i
+                message_type=MessageType.Status, test_data=f"msg_{i}", counter=i
             )
             for i in range(50)
         ]
@@ -856,7 +856,7 @@ class TestRequestReplyIntegration:
             return request
 
         reply_client.register_request_handler(
-            "test_service", MessageType.STATUS, echo_handler
+            "test_service", MessageType.Status, echo_handler
         )
 
         # Make many concurrent requests

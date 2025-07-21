@@ -126,19 +126,19 @@ class UltimateDataProcessor(AIPerfService):
     # Real aiperf Message Handling - Type Safe!
     # =================================================================
 
-    @message_handler(MessageType.DATASET_CONFIGURED_NOTIFICATION)
+    @message_handler(MessageType.DatasetConfiguredNotification)
     async def handle_dataset_ready(self, message: Message) -> None:
         """Handle real aiperf dataset notification - fully type safe!"""
         self.logger.info("📋 Dataset is ready for processing!")
 
         # Publish real aiperf status update
         await self.publish(
-            MessageType.STATUS,
+            MessageType.Status,
             service_id=self.service_id,
             service_type=self.service_type,
         )
 
-    @message_handler(MessageType.STATUS)
+    @message_handler(MessageType.Status)
     async def handle_status_updates(self, message: Message) -> None:
         """Handle real aiperf status messages from other services."""
         sender = getattr(message, "service_id", "unknown")
@@ -148,7 +148,7 @@ class UltimateDataProcessor(AIPerfService):
     # Real aiperf Command Handling - Type Safe with Responses!
     # =================================================================
 
-    @command_handler(CommandType.PROFILE_START)
+    @command_handler(CommandType.ProfileStart)
     async def handle_profile_start(self, command: CommandMessage) -> dict[str, Any]:
         """Handle real aiperf profile start command - returns response automatically!"""
         self.logger.info("🎯 Starting profiling session")
@@ -165,7 +165,7 @@ class UltimateDataProcessor(AIPerfService):
             "active": self.processing_active,
         }
 
-    @command_handler(CommandType.PROFILE_STOP)
+    @command_handler(CommandType.ProfileStop)
     async def handle_profile_stop(self, command: CommandMessage) -> dict[str, Any]:
         """Handle real aiperf profile stop command."""
         self.logger.info("⏹️ Stopping profiling session")
@@ -181,7 +181,7 @@ class UltimateDataProcessor(AIPerfService):
             "total_processed": self.processed_count,
         }
 
-    @command_handler(CommandType.PROFILE_CONFIGURE)
+    @command_handler(CommandType.ProfileConfigure)
     async def handle_configure(self, command: CommandMessage) -> dict[str, Any]:
         """Handle real aiperf configuration command."""
         config_data = command.data or {}
@@ -224,7 +224,7 @@ class UltimateDataProcessor(AIPerfService):
     async def send_heartbeat(self) -> None:
         """Send periodic heartbeat - runs automatically every 30 seconds!"""
         await self.publish(
-            MessageType.HEARTBEAT,
+            MessageType.Heartbeat,
             service_id=self.service_id,
             service_type=self.service_type,
         )
@@ -284,14 +284,14 @@ class UltimateMonitor(AIPerfService):
     # Real aiperf Message Monitoring - Type Safe!
     # =================================================================
 
-    @message_handler(MessageType.HEARTBEAT)
+    @message_handler(MessageType.Heartbeat)
     async def track_heartbeats(self, message: Message) -> None:
         """Track heartbeats from other services."""
         sender = getattr(message, "service_id", "unknown")
         self.monitored_services.add(sender)
         self.logger.debug(f"💓 Heartbeat from {sender}")
 
-    @message_handler(MessageType.STATUS)
+    @message_handler(MessageType.Status)
     async def track_status_updates(self, message: Message) -> None:
         """Track status updates from other services."""
         sender = getattr(message, "service_id", "unknown")
@@ -302,7 +302,7 @@ class UltimateMonitor(AIPerfService):
     # Cross-Service Communication - Real aiperf Commands!
     # =================================================================
 
-    @command_handler(CommandType.PROFILE_START)
+    @command_handler(CommandType.ProfileStart)
     async def handle_system_profile_start(
         self, command: CommandMessage
     ) -> dict[str, Any]:
@@ -314,7 +314,7 @@ class UltimateMonitor(AIPerfService):
         # Check health of data processor using REAL aiperf command!
         try:
             response = await self.send_command(
-                CommandType.PROFILE_START,
+                CommandType.ProfileStart,
                 target_service_id="ultimate_data_processor",
                 timeout=10.0,
             )
@@ -363,7 +363,7 @@ class UltimateMonitor(AIPerfService):
             try:
                 # Send real aiperf command to check configuration
                 response = await self.send_command(
-                    CommandType.PROFILE_CONFIGURE,
+                    CommandType.ProfileConfigure,
                     target_service_id="ultimate_data_processor",
                     data={"health_check": True},
                     timeout=5.0,
@@ -415,10 +415,10 @@ class DemoOrchestrator:
             await demo_bus.start()
 
             # Send real aiperf commands to services
-            logger.info("Sending PROFILE_START command to data processor...")
+            logger.info("Sending ProfileStart command to data processor...")
 
             start_response = await demo_bus.send_command(
-                CommandType.PROFILE_START,
+                CommandType.ProfileStart,
                 target_service_id="ultimate_data_processor",
                 service_id="demo_orchestrator",
                 timeout=10.0,
@@ -428,10 +428,10 @@ class DemoOrchestrator:
             # Wait for some processing
             await asyncio.sleep(5.0)
 
-            logger.info("Sending PROFILE_CONFIGURE command...")
+            logger.info("Sending ProfileConfigure command...")
 
             config_response = await demo_bus.send_command(
-                CommandType.PROFILE_CONFIGURE,
+                CommandType.ProfileConfigure,
                 target_service_id="ultimate_data_processor",
                 data={"batch_size": 100, "timeout": 30},
                 service_id="demo_orchestrator",
@@ -443,7 +443,7 @@ class DemoOrchestrator:
 
             # Monitor coordinates system-wide profiling
             monitor_response = await demo_bus.send_command(
-                CommandType.PROFILE_START,
+                CommandType.ProfileStart,
                 target_service_id="ultimate_monitor",
                 service_id="demo_orchestrator",
                 timeout=15.0,
@@ -460,7 +460,7 @@ class DemoOrchestrator:
 
             # Stop everything gracefully
             await demo_bus.send_command(
-                CommandType.PROFILE_STOP,
+                CommandType.ProfileStop,
                 target_service_id="ultimate_data_processor",
                 service_id="demo_orchestrator",
                 timeout=10.0,

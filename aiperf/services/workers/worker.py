@@ -104,7 +104,7 @@ class Worker(BaseComponentService, ProcessHealthMixin, CreditProcessorMixin):
         self.debug("Initializing worker")
 
         await self.credit_drop_pull_client.register_pull_callback(
-            MessageType.CREDIT_DROP, self._credit_drop_callback
+            MessageType.CreditDrop, self._credit_drop_callback
         )
 
         self.debug("Worker initialized")

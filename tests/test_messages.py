@@ -81,7 +81,7 @@ def test_status_message():
         request_id="test",
     )
     assert message.model_dump() == {
-        "message_type": MessageType.STATUS,
+        "message_type": MessageType.Status,
         "state": ServiceState.READY,
         "service_id": "test",
         "service_type": ServiceType.WORKER,
@@ -100,7 +100,7 @@ def test_status_message():
         service_type=ServiceType.WORKER,
     )
     assert message.model_dump() == {
-        "message_type": MessageType.STATUS,
+        "message_type": MessageType.Status,
         "state": ServiceState.READY,
         "service_id": "test",
         "service_type": ServiceType.WORKER,

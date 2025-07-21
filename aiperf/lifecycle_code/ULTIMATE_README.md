@@ -74,6 +74,7 @@ The **AIPerfService** class is the ONLY class you need:
 from aiperf.lifecycle import AIPerfService, message_handler, command_handler, background_task
 from aiperf.common.enums import MessageType, CommandType, ServiceType
 
+
 class MyService(AIPerfService):
     def __init__(self, service_config):
         super().__init__(
@@ -98,9 +99,9 @@ class MyService(AIPerfService):
     async def handle_status_messages(self, message: Message):
         # Handle REAL aiperf messages with full type safety!
         await self.publish(MessageType.SERVICE_HEALTH,
-                          service_id=self.service_id)
+                           service_id=self.service_id)
 
-    @command_handler(CommandType.PROFILE_START)
+    @command_handler(CommandType.ProfileStart)
     async def handle_profile_start(self, command: CommandMessage):
         # Handle REAL aiperf commands - response sent automatically!
         return {"status": "started", "timestamp": time.time()}
@@ -207,7 +208,7 @@ await self.publish(
 
 # Send commands and get responses
 response = await self.send_command(
-    CommandType.PROFILE_START,
+    CommandType.ProfileStart,
     target_service_id="worker_1",
     data={"config": "value"},
     timeout=30.0
@@ -225,10 +226,12 @@ async def handle_status_messages(self, message: Message):
     """Handle real aiperf messages with full type safety."""
     pass
 
-@command_handler(CommandType.PROFILE_START, CommandType.PROFILE_STOP)
+
+@command_handler(CommandType.ProfileStart, CommandType.ProfileStop)
 async def handle_profile_commands(self, command: CommandMessage):
     """Handle real aiperf commands - return response data."""
     return {"status": "processed"}
+
 
 @background_task(interval=30.0, start_immediately=True)
 async def periodic_cleanup(self):
@@ -251,6 +254,7 @@ from aiperf.common.config import ServiceConfig, CommunicationBackend
 ```
 
 ### 2. Create Your Service
+
 ```python
 class DataProcessor(AIPerfService):
     def __init__(self, service_config):
@@ -278,7 +282,7 @@ class DataProcessor(AIPerfService):
         self.logger.info("Dataset ready for processing!")
         await self.publish(MessageType.STATUS, service_id=self.service_id)
 
-    @command_handler(CommandType.PROFILE_START)
+    @command_handler(CommandType.ProfileStart)
     async def start_profiling(self, command: CommandMessage):
         self.profiling_active = True
         return {"status": "profiling_started"}
@@ -324,8 +328,9 @@ async def handle_multiple_types(self, message: Message):
 ```
 
 ### Cross-Service Communication
+
 ```python
-@command_handler(CommandType.PROFILE_START)
+@command_handler(CommandType.ProfileStart)
 async def coordinate_profiling(self, command: CommandMessage):
     # Send commands to other services
     responses = []
@@ -333,7 +338,7 @@ async def coordinate_profiling(self, command: CommandMessage):
     for worker_id in self.worker_ids:
         try:
             response = await self.send_command(
-                CommandType.PROFILE_START,
+                CommandType.ProfileStart,
                 target_service_id=worker_id,
                 timeout=10.0
             )
@@ -456,15 +461,17 @@ async def handle_status(self, message: Message):
 ```
 
 ### 5. Update Command Handlers
+
 ```python
 # OLD
-@on_command_message(CommandType.PROFILE_START)
+@on_command_message(CommandType.ProfileStart)
 async def _handle_profile_start(self, message):
     # Manual response handling
     await self.pub_client.publish(CommandResponseMessage(...))
 
+
 # NEW
-@command_handler(CommandType.PROFILE_START)
+@command_handler(CommandType.ProfileStart)
 async def handle_profile_start(self, command: CommandMessage):
     # Response sent automatically!
     return {"status": "started"}

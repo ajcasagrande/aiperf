@@ -19,8 +19,8 @@ from aiperf.common.hooks import (
 )
 from aiperf.common.messages import (
     CommandMessage,
-    ConversationTurnRequestMessage,
-    ConversationTurnResponseMessage,
+    ConversationTurnRequest,
+    ConversationTurnResponse,
     ErrorMessage,
     InferenceResultsMessage,
     ParsedInferenceResultsMessage,
@@ -81,7 +81,7 @@ class InferenceResultParser(BaseComponentService):
         self.debug("Initializing inference result parser")
 
         await self.inference_results_client.register_pull_callback(
-            message_type=MessageType.INFERENCE_RESULTS,
+            message_type=MessageType.InferenceResults,
             callback=self._on_inference_results,
             # TODO: Support for unbounded concurrency in the future by setting to None or 0?
             max_concurrency=1_000_000,
@@ -224,9 +224,9 @@ class InferenceResultParser(BaseComponentService):
             )
             return None
 
-        turn_response: ConversationTurnResponseMessage = (
+        turn_response: ConversationTurnResponse = (
             await self.conversation_request_client.request(
-                ConversationTurnRequestMessage(
+                ConversationTurnRequest(
                     service_id=self.service_id,
                     conversation_id=record.conversation_id,
                     turn_index=record.turn_index,

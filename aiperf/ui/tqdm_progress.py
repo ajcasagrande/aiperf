@@ -105,12 +105,12 @@ class TqdmProgressUI(AIPerfLifecycleMixin):
     async def on_message(self, message: Message) -> None:
         """Handle a message from the system controller."""
         _message_mappings = {
-            MessageType.CREDIT_PHASE_PROGRESS: self.update_credit_phase_progress,
-            MessageType.CREDIT_PHASE_COMPLETE: self.update_credit_phase_complete,
-            MessageType.CREDIT_PHASE_START: self.update_credit_phase_start,
-            MessageType.PROCESSING_STATS: self.update_stats,
-            MessageType.WORKER_HEALTH: self.update_worker_health,
-            MessageType.PROFILE_RESULTS: self.update_results,
+            MessageType.CreditPhaseProgress: self.update_credit_phase_progress,
+            MessageType.CreditPhaseComplete: self.update_credit_phase_complete,
+            MessageType.CreditPhaseStart: self.update_credit_phase_start,
+            MessageType.ProcessingStats: self.update_stats,
+            MessageType.WorkerHealth: self.update_worker_health,
+            MessageType.ProfileResults: self.update_results,
         }
 
         if message.message_type in _message_mappings:

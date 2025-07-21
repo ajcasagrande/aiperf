@@ -140,7 +140,7 @@ class TextualUI(AIPerfLifecycleMixin):
     async def on_message(self, message: Message) -> None:
         """Handle a message from the system controller."""
         try:
-            if message.message_type == MessageType.WORKER_HEALTH:
+            if message.message_type == MessageType.WorkerHealth:
                 # Type check the message before passing it
                 if isinstance(message, WorkerHealthMessage):
                     await self.on_worker_health_update(message)

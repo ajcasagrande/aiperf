@@ -6,20 +6,18 @@ from typing import Any
 
 from pydantic import Field
 
-from aiperf.common.enums import (
-    ServiceState,
-    ServiceType,
-)
+from aiperf.common.enums import ServiceState
 from aiperf.common.models.base_models import AIPerfBaseModel
 from aiperf.common.models.error_models import ErrorDetails
 from aiperf.common.models.health_models import ProcessHealth
+from aiperf.common.types import ServiceTypeT
 
 
 class ServiceRegistrationInfo(AIPerfBaseModel):
     """Base model for tracking service registration information."""
 
     service_id: str = Field(..., description="The ID of the service")
-    service_type: ServiceType = Field(..., description="The type of service")
+    service_type: ServiceTypeT = Field(..., description="The type of service")
     address: str | None = Field(
         default=None, description="The address of the service (if known)"
     )

@@ -140,7 +140,7 @@ class DataProcessorPlugin(BasePlugin):
             self.processing_stats["total_errors"] += 1
             self.exception(f"Error handling data update: {e}")
 
-    @message_handler(MessageType.HEARTBEAT, MessageType.STATUS)
+    @message_handler(MessageType.Heartbeat, MessageType.Status)
     async def handle_system_messages(self, message: Any) -> None:
         """
         Handle system messages for monitoring.
@@ -154,7 +154,7 @@ class DataProcessorPlugin(BasePlugin):
         self.debug(f"Received {message_type} from {service_id}")
 
         # If analytics enabled, track system health
-        if self.enable_analytics and message_type == MessageType.HEARTBEAT:
+        if self.enable_analytics and message_type == MessageType.Heartbeat:
             # Could aggregate system health data here
             pass
 
@@ -185,7 +185,7 @@ class DataProcessorPlugin(BasePlugin):
             },
         }
 
-    @command_handler(CommandType.PROFILE_START)
+    @command_handler(CommandType.ProfileStart)
     async def start_profiling(self, command: Any) -> dict:
         """Handle profiling start command."""
         self.info("Starting enhanced profiling mode")
@@ -207,7 +207,7 @@ class DataProcessorPlugin(BasePlugin):
             "timestamp": time.time(),
         }
 
-    @command_handler(CommandType.PROFILE_STOP)
+    @command_handler(CommandType.ProfileStop)
     async def stop_profiling(self, command: Any) -> dict:
         """Handle profiling stop command."""
         self.info("Stopping profiling mode")
@@ -260,7 +260,7 @@ class DataProcessorPlugin(BasePlugin):
             # Publish statistics using real aiperf messaging
             try:
                 await self.publish(
-                    MessageType.STATUS,
+                    MessageType.Status,
                     {
                         "plugin": self.plugin_name,
                         "statistics": self.processing_stats.copy(),

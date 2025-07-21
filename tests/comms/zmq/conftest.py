@@ -368,16 +368,16 @@ def test_messages_batch() -> list[MockTestMessage]:
 
     return [
         MockTestMessage(
-            message_type=MessageType.STATUS, test_data="batch_msg_1", counter=1
+            message_type=MessageType.Status, test_data="batch_msg_1", counter=1
         ),
         MockTestMessage(
-            message_type=MessageType.HEARTBEAT, test_data="batch_msg_2", counter=2
+            message_type=MessageType.Heartbeat, test_data="batch_msg_2", counter=2
         ),
         MockTestMessage(
-            message_type=MessageType.COMMAND, test_data="batch_msg_3", counter=3
+            message_type=MessageType.Command, test_data="batch_msg_3", counter=3
         ),
         MockTestMessage(
-            message_type=MessageType.ERROR, test_data="batch_msg_4", counter=4
+            message_type=MessageType.Error, test_data="batch_msg_4", counter=4
         ),
         MockTestMessage(
             message_type=MessageType.NOTIFICATION, test_data="batch_msg_5", counter=5

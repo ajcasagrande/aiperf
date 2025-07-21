@@ -44,9 +44,7 @@ from aiperf.common.enums.measurement_enums import (
     MeasurementMode,
 )
 from aiperf.common.enums.message_enums import (
-    CommandType,
     MessageType,
-    determine_message_type,
 )
 from aiperf.common.enums.metric_enums import (
     MetricTimeType,
@@ -89,7 +87,6 @@ __all__ = [
     "BenchmarkSuiteCompletionTrigger",
     "BenchmarkSuiteType",
     "CaseInsensitiveStrEnum",
-    "CommandType",
     "CommunicationBackend",
     "CommunicationClientAddressType",
     "CommunicationClientType",
@@ -120,5 +117,4 @@ __all__ = [
     "SystemState",
     "TimingMode",
     "ZMQProxyType",
-    "determine_message_type",
 ]

@@ -7,22 +7,21 @@ from aiperf.common.constants import (
     DEFAULT_WAIT_FOR_START_SECONDS,
     DEFAULT_WAIT_FOR_STOP_SECONDS,
 )
-from aiperf.common.enums import MessageType, ServiceType
-from aiperf.common.enums.message_enums import CommandType
+from aiperf.common.enums import MessageType
 from aiperf.common.enums.service_enums import ServiceRunType
 from aiperf.common.factories import FactoryMixin
-from aiperf.common.hooks import on_command_message, on_message
 from aiperf.common.messages import RegistrationMessage
 from aiperf.common.messages.commands import StartWorkersCommand
 from aiperf.common.messages.error_messages import BaseServiceErrorMessage
 from aiperf.common.messages.service_messages import HeartbeatMessage, StatusMessage
-from aiperf.common.mixins.aiperf_message_mixins import AIPerfMessageHandlerMixin
-from aiperf.common.mixins.command_mixins import CommandMessageHandlerMixin
 from aiperf.common.models import ServiceRegistrationInfo
+from aiperf.common.types import ServiceTypeT
+from aiperf.core import command_handler, message_handler
+from aiperf.core.communication_mixins import MessageBusMixin
 from aiperf.services.service_manager.service_registry import ServiceRegistry
 
 
-class BaseServiceManager(CommandMessageHandlerMixin, AIPerfMessageHandlerMixin, ABC):
+class BaseServiceManager(MessageBusMixin, ABC):
     """
     Base class for service managers. It provides a common interface for
     managing services and a way to look up service information by service ID.
@@ -30,9 +29,9 @@ class BaseServiceManager(CommandMessageHandlerMixin, AIPerfMessageHandlerMixin, 
 
     def __init__(
         self,
-        required_services: dict[ServiceType, int],
+        required_services: dict[ServiceTypeT, int],
         service_config: ServiceConfig,
-        user_config: UserConfig | None = None,
+        user_config: UserConfig,
         **kwargs,
     ):
         self.required_services = required_services
@@ -41,7 +40,7 @@ class BaseServiceManager(CommandMessageHandlerMixin, AIPerfMessageHandlerMixin, 
         self.registry = ServiceRegistry()
 
         # Maps to track service information
-        self.service_map: dict[ServiceType, list[ServiceRegistrationInfo]] = {}
+        self.service_map: dict[ServiceTypeT, list[ServiceRegistrationInfo]] = {}
 
         # Create service ID map for component lookups
         self.service_id_map: dict[str, ServiceRegistrationInfo] = {}
@@ -91,13 +90,12 @@ class BaseServiceManager(CommandMessageHandlerMixin, AIPerfMessageHandlerMixin, 
         """Wait for all services to stop."""
         pass
 
-    @on_command_message(CommandType.START_WORKERS)
+    @command_handler(MessageType.StartWorkers)
     async def _on_start_workers_command(self, message: StartWorkersCommand) -> None:
         """Handle a command message from a service."""
         self.debug(lambda: f"Received start workers command: {message}")
 
-    # TODO: How does on_message work with overriding in child classes?
-    @on_message(MessageType.REGISTRATION)
+    @message_handler(MessageType.Registration)
     async def _on_registration_message(self, message: RegistrationMessage) -> None:
         self.registry.register_service(
             message.service_id,
@@ -105,15 +103,15 @@ class BaseServiceManager(CommandMessageHandlerMixin, AIPerfMessageHandlerMixin, 
             message.state,
         )
 
-    @on_message(MessageType.HEARTBEAT)
+    @message_handler(MessageType.Heartbeat)
     async def _on_heartbeat_message(self, message: HeartbeatMessage) -> None:
         self.registry.update_service_heartbeat(message.service_id)
 
-    @on_message(MessageType.STATUS)
+    @message_handler(MessageType.Status)
     async def _on_status_message(self, message: StatusMessage) -> None:
         self.registry.update_service_state(message.service_id, message.state)
 
-    @on_message(MessageType.SERVICE_ERROR)
+    @message_handler(MessageType.ServiceError)
     async def _on_service_error_message(self, message: BaseServiceErrorMessage) -> None:
         self.registry[message.service_id].errors.append(message.error)
 

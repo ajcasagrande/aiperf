@@ -3,10 +3,6 @@
 import asyncio
 import random
 
-from aiperf.common.comms.base_comms import (
-    CommunicationClientAddressType,
-    ReplyClientProtocol,
-)
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.enums import (
     ComposerType,
@@ -15,30 +11,27 @@ from aiperf.common.enums import (
 from aiperf.common.enums.message_enums import MessageType
 from aiperf.common.exceptions import BadRequestError, ConfigurationError
 from aiperf.common.factories import ComposerFactory
-from aiperf.common.hooks import (
-    on_configure,
-    on_init,
-)
 from aiperf.common.messages import (
-    ConversationRequestMessage,
-    ConversationResponseMessage,
-    ConversationTurnRequestMessage,
-    ConversationTurnResponseMessage,
+    ConversationRequest,
+    ConversationResponse,
+    ConversationTurnRequest,
+    ConversationTurnResponse,
     DatasetConfiguredNotification,
     DatasetTimingRequest,
     DatasetTimingResponse,
 )
 from aiperf.common.messages.commands import ProfileConfigureCommand
 from aiperf.common.models import Conversation
-from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.common.service.base_service import ServiceFactory
 from aiperf.common.tokenizer import Tokenizer
+from aiperf.core import DatasetRequestHandler, command_handler, request_handler
+from aiperf.core.component_service import ComponentService
 
 DATASET_CONFIGURATION_TIMEOUT = 30.0
 
 
 @ServiceFactory.register(ServiceType.DATASET_MANAGER)
-class DatasetManager(BaseComponentService):
+class DatasetManager(ComponentService, DatasetRequestHandler):
     """
     The DatasetManager primary responsibility is to manage the data generation or acquisition.
     For synthetic generation, it contains the code to generate the prompts or tokens.
@@ -48,7 +41,7 @@ class DatasetManager(BaseComponentService):
     def __init__(
         self,
         service_config: ServiceConfig,
-        user_config: UserConfig | None = None,
+        user_config: UserConfig,
         service_id: str | None = None,
         **kwargs,
     ) -> None:
@@ -62,36 +55,10 @@ class DatasetManager(BaseComponentService):
         self.user_config = user_config
         self.tokenizer: Tokenizer | None = None
         self.dataset: dict[str, Conversation] = {}  # session ID -> Conversation mapping
-        self.router_reply_client: ReplyClientProtocol = self.comms.create_reply_client(
-            CommunicationClientAddressType.DATASET_MANAGER_PROXY_BACKEND
-        )
         self.dataset_configured = asyncio.Event()
 
-    @on_init
-    async def _initialize(self) -> None:
-        """Initialize dataset manager-specific components."""
-        self.debug(lambda: f"Initializing dataset manager {self.service_id}")
-
-        self.router_reply_client.register_request_handler(
-            service_id=self.service_id,
-            message_type=MessageType.CONVERSATION_REQUEST,
-            handler=self._handle_conversation_request,
-        )
-        self.router_reply_client.register_request_handler(
-            service_id=self.service_id,
-            message_type=MessageType.DATASET_TIMING_REQUEST,
-            handler=self._handle_dataset_timing_request,
-        )
-        self.router_reply_client.register_request_handler(
-            service_id=self.service_id,
-            message_type=MessageType.CONVERSATION_TURN_REQUEST,
-            handler=self._handle_conversation_turn_request,
-        )
-
-        self.debug(lambda: f"Dataset manager {self.service_id} initialized")
-
-    @on_configure
-    async def _configure(self, message: ProfileConfigureCommand) -> None:
+    @command_handler(MessageType.ProfileConfigure)
+    async def _handle_profile_configure(self, message: ProfileConfigureCommand) -> bool:
         """Configure the dataset manager."""
         # TODO: This is a temporary hack with the changes to user config loading
         self.dataset_configured.clear()
@@ -100,10 +67,12 @@ class DatasetManager(BaseComponentService):
         self.debug(
             lambda: f"Dataset manager '{self.service_id}' successfully configured"
         )
+        return True
 
+    @request_handler(MessageType.ConversationRequest)
     async def _handle_conversation_request(
-        self, message: ConversationRequestMessage
-    ) -> ConversationResponseMessage:
+        self, message: ConversationRequest
+    ) -> ConversationResponse:
         """Handle a conversation request."""
         self.debug(lambda: f"Handling conversation request: {message}")
 
@@ -171,15 +140,13 @@ class DatasetManager(BaseComponentService):
             ),
         )
 
-    def _return_any_conversation(
-        self, request_id: str | None
-    ) -> ConversationResponseMessage:
+    def _return_any_conversation(self, request_id: str | None) -> ConversationResponse:
         """Return any conversation from the dataset based on the user specified method."""
 
         # TODO: Implement the user specified method (random, round robin, etc.)
         conversation = random.choice(list(self.dataset.values()))
         self.debug(lambda: f"Sending random conversation response: {conversation}")
-        return ConversationResponseMessage(
+        return ConversationResponse(
             service_id=self.service_id,
             request_id=request_id,
             conversation=conversation,
@@ -187,7 +154,7 @@ class DatasetManager(BaseComponentService):
 
     def _return_conversation_by_id(
         self, request_id: str | None, conversation_id: str
-    ) -> ConversationResponseMessage:
+    ) -> ConversationResponse:
         """Return a conversation if it exists, otherwise raise an error."""
 
         if conversation_id not in self.dataset:
@@ -197,15 +164,16 @@ class DatasetManager(BaseComponentService):
 
         conversation = self.dataset[conversation_id]
         self.debug(lambda: f"Sending conversation response: {conversation}")
-        return ConversationResponseMessage(
+        return ConversationResponse(
             service_id=self.service_id,
             request_id=request_id,
             conversation=conversation,
         )
 
+    @request_handler(MessageType.ConversationTurnRequest)
     async def _handle_conversation_turn_request(
-        self, message: ConversationTurnRequestMessage
-    ) -> ConversationTurnResponseMessage:
+        self, message: ConversationTurnRequest
+    ) -> ConversationTurnResponse:
         """Handle a turn request."""
         self.debug(lambda: f"Handling turn request: {message}")
 
@@ -223,12 +191,13 @@ class DatasetManager(BaseComponentService):
         turn = conversation.turns[message.turn_index]
 
         self.debug(lambda: f"Sending turn response: {turn}")
-        return ConversationTurnResponseMessage(
+        return ConversationTurnResponse(
             service_id=self.service_id,
             request_id=message.request_id,
             turn=turn,
         )
 
+    @request_handler(MessageType.DatasetTimingRequest)
     async def _handle_dataset_timing_request(
         self, message: DatasetTimingRequest
     ) -> DatasetTimingResponse:

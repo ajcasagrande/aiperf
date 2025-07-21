@@ -9,10 +9,10 @@ from aiperf.common.models import Conversation, Turn
 from aiperf.common.types import MessageTypeT
 
 
-class ConversationRequestMessage(BaseServiceMessage):
+class ConversationRequest(BaseServiceMessage):
     """Message to request a full conversation by ID."""
 
-    message_type: MessageTypeT = MessageType.CONVERSATION_REQUEST
+    message_type: MessageTypeT = MessageType.ConversationRequest
 
     conversation_id: str | None = Field(
         default=None, description="The session ID of the conversation"
@@ -23,17 +23,17 @@ class ConversationRequestMessage(BaseServiceMessage):
     )
 
 
-class ConversationResponseMessage(BaseServiceMessage):
+class ConversationResponse(BaseServiceMessage):
     """Message containing a full conversation."""
 
-    message_type: MessageTypeT = MessageType.CONVERSATION_RESPONSE
+    message_type: MessageTypeT = MessageType.ConversationResponse
     conversation: Conversation = Field(..., description="The conversation data")
 
 
-class ConversationTurnRequestMessage(BaseServiceMessage):
+class ConversationTurnRequest(BaseServiceMessage):
     """Message to request a single turn from a conversation."""
 
-    message_type: MessageTypeT = MessageType.CONVERSATION_TURN_REQUEST
+    message_type: MessageTypeT = MessageType.ConversationTurnRequest
 
     conversation_id: str = Field(
         ...,
@@ -46,10 +46,10 @@ class ConversationTurnRequestMessage(BaseServiceMessage):
     )
 
 
-class ConversationTurnResponseMessage(BaseServiceMessage):
+class ConversationTurnResponse(BaseServiceMessage):
     """Message containing a single turn from a conversation."""
 
-    message_type: MessageTypeT = MessageType.CONVERSATION_TURN_RESPONSE
+    message_type: MessageTypeT = MessageType.ConversationTurnResponse
 
     turn: Turn = Field(..., description="The turn data")
 
@@ -57,13 +57,13 @@ class ConversationTurnResponseMessage(BaseServiceMessage):
 class DatasetTimingRequest(BaseServiceMessage):
     """Message for a dataset timing request."""
 
-    message_type: MessageTypeT = MessageType.DATASET_TIMING_REQUEST
+    message_type: MessageTypeT = MessageType.DatasetTimingRequest
 
 
 class DatasetTimingResponse(BaseServiceMessage):
     """Message for a dataset timing response."""
 
-    message_type: MessageTypeT = MessageType.DATASET_TIMING_RESPONSE
+    message_type: MessageTypeT = MessageType.DatasetTimingResponse
 
     timing_data: list[tuple[int, str]] = Field(
         ...,
@@ -74,4 +74,4 @@ class DatasetTimingResponse(BaseServiceMessage):
 class DatasetConfiguredNotification(BaseServiceMessage):
     """Notification sent to notify other services that the dataset has been configured."""
 
-    message_type: MessageTypeT = MessageType.DATASET_CONFIGURED_NOTIFICATION
+    message_type: MessageTypeT = MessageType.DatasetConfiguredNotification

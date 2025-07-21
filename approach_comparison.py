@@ -235,7 +235,7 @@ class AIPerfService:
             await self._initialize_impl()  # Subclass hook
             self._state = LifecycleState.INITIALIZED
         except Exception:
-            self._state = LifecycleState.ERROR
+            self._state = LifecycleState.Error
             raise
 
     async def _initialize_impl(self):

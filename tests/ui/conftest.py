@@ -104,7 +104,7 @@ def sample_process_health(sample_io_counters):
 def sample_worker_health_message(sample_process_health):
     """Sample WorkerHealthMessage for testing."""
     return WorkerHealthMessage(
-        message_type=MessageType.WORKER_HEALTH,
+        message_type=MessageType.WorkerHealth,
         service_id="worker_001",
         process=sample_process_health,
         total_tasks=1000,
@@ -133,7 +133,7 @@ def multiple_worker_health_messages(sample_io_counters):
         )
 
         message = WorkerHealthMessage(
-            message_type=MessageType.WORKER_HEALTH,
+            message_type=MessageType.WorkerHealth,
             service_id=f"worker_{i:03d}",
             process=process_health,
             total_tasks=1000 + i * 100,

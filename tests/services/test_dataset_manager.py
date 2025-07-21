@@ -12,8 +12,8 @@ from aiperf.common.enums import (
 )
 from aiperf.common.exceptions import ServiceError
 from aiperf.common.messages import (
-    ConversationRequestMessage,
-    ConversationResponseMessage,
+    ConversationRequest,
+    ConversationResponse,
     DatasetTimingResponse,
 )
 from aiperf.common.service.base_service import BaseService
@@ -145,26 +145,26 @@ class TestDatasetManager(BaseTestComponentService):
         Test conversation retrieval with multiple conversations in dataset.
         """
         # first conversation
-        request1 = ConversationRequestMessage(
+        request1 = ConversationRequest(
             service_id="test-requester", request_id="req-1", conversation_id="session-1"
         )
 
         response1 = await populated_dataset_manager._handle_conversation_request(
             request1
         )
-        assert isinstance(response1, ConversationResponseMessage)
+        assert isinstance(response1, ConversationResponse)
         assert response1.conversation.session_id == request1.conversation_id
         assert response1.conversation.turns[0].timestamp == 1000
 
         # second conversation
-        request2 = ConversationRequestMessage(
+        request2 = ConversationRequest(
             service_id="test-requester", request_id="req-2", conversation_id="session-2"
         )
 
         response2 = await populated_dataset_manager._handle_conversation_request(
             request2
         )
-        assert isinstance(response2, ConversationResponseMessage)
+        assert isinstance(response2, ConversationResponse)
         assert response2.conversation.session_id == request2.conversation_id
         assert response2.conversation.turns[0].timestamp == 2000
         assert response2.conversation.turns[1].timestamp == 2500

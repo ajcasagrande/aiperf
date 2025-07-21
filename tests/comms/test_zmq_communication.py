@@ -86,11 +86,11 @@ class TestZMQCommunication:
         zmq_communication.initialized_event.set()
 
         # Publish a message
-        result = await zmq_communication.publish(MessageType.STATUS, test_message)
+        result = await zmq_communication.publish(MessageType.Status, test_message)
 
         # Verify the message was published
         assert result is None
-        mock_client.publish.assert_called_once_with(MessageType.STATUS, test_message)
+        mock_client.publish.assert_called_once_with(MessageType.Status, test_message)
 
     @pytest.mark.asyncio
     async def test_subscribe_to_topic(self, zmq_communication):
@@ -108,11 +108,11 @@ class TestZMQCommunication:
             pass
 
         # Subscribe to a message_type
-        result = await zmq_communication.subscribe(MessageType.STATUS, callback)
+        result = await zmq_communication.subscribe(MessageType.Status, callback)
 
         # Verify subscription was set up
         assert result is None
-        mock_client.subscribe.assert_called_once_with(MessageType.STATUS, callback)
+        mock_client.subscribe.assert_called_once_with(MessageType.Status, callback)
 
     @pytest.mark.asyncio
     async def test_shutdown(self, zmq_communication):

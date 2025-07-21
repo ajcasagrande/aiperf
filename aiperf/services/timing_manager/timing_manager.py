@@ -4,12 +4,6 @@
 import asyncio
 import sys
 
-from aiperf.common.comms.base_comms import (
-    CommunicationClientAddressType,
-    PullClientProtocol,
-    PushClientProtocol,
-    RequestClientProtocol,
-)
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
 from aiperf.common.enums import (
@@ -19,10 +13,7 @@ from aiperf.common.enums import (
 )
 from aiperf.common.exceptions import InvalidStateError
 from aiperf.common.hooks import (
-    on_configure,
     on_init,
-    on_start,
-    on_stop,
 )
 from aiperf.common.messages import (
     CommandMessage,
@@ -32,8 +23,14 @@ from aiperf.common.messages import (
     DatasetTimingResponse,
 )
 from aiperf.common.messages.credit_messages import FirstByteReceivedMessage
-from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.common.service.base_service import ServiceFactory
+from aiperf.core.communication_mixins import (
+    CreditDropPushClientMixin,
+    CreditReturnPullHandlerMixin,
+    DatasetRequestClientMixin,
+)
+from aiperf.core.component_service import ComponentService
+from aiperf.core.decorators import command_handler, pull_handler
 from aiperf.services.timing_manager.config import (
     TimingManagerConfig,
     TimingMode,
@@ -46,7 +43,13 @@ from aiperf.services.timing_manager.credit_manager import CreditPhaseMessagesMix
 
 
 @ServiceFactory.register(ServiceType.TIMING_MANAGER)
-class TimingManager(BaseComponentService, CreditPhaseMessagesMixin):
+class TimingManager(
+    ComponentService,
+    CreditDropPushClientMixin,
+    CreditReturnPullHandlerMixin,
+    DatasetRequestClientMixin,
+    CreditPhaseMessagesMixin,
+):
     """
     The TimingManager service is responsible to generate the schedule and issuing
     timing credits for requests.
@@ -55,7 +58,7 @@ class TimingManager(BaseComponentService, CreditPhaseMessagesMixin):
     def __init__(
         self,
         service_config: ServiceConfig,
-        user_config: UserConfig | None,
+        user_config: UserConfig,
         service_id: str | None = None,
         **kwargs,
     ) -> None:
@@ -67,23 +70,6 @@ class TimingManager(BaseComponentService, CreditPhaseMessagesMixin):
         )
         self.debug("Initializing timing manager")
 
-        self.dataset_request_client: RequestClientProtocol = (
-            self.comms.create_request_client(
-                CommunicationClientAddressType.DATASET_MANAGER_PROXY_FRONTEND,
-            )
-        )
-        self.credit_drop_push_client: PushClientProtocol = (
-            self.comms.create_push_client(
-                CommunicationClientAddressType.CREDIT_DROP,
-                bind=True,
-            )
-        )
-        self.credit_return_pull_client: PullClientProtocol = (
-            self.comms.create_pull_client(
-                CommunicationClientAddressType.CREDIT_RETURN,
-                bind=True,
-            )
-        )
         self._credit_issuing_strategy: CreditIssuingStrategy | None = None
 
     @on_init
@@ -91,17 +77,9 @@ class TimingManager(BaseComponentService, CreditPhaseMessagesMixin):
         """Initialize timing manager-specific components."""
         self.debug("Initializing timing manager")
         self.config = TimingManagerConfig.from_user_config(self.user_config)
-        await self.credit_return_pull_client.register_pull_callback(
-            message_type=MessageType.CREDIT_RETURN,
-            callback=self._on_credit_return,
-        )
-        await self.credit_return_pull_client.register_pull_callback(
-            message_type=MessageType.FIRST_BYTE_RECEIVED,
-            callback=self._on_first_byte_received,
-        )
 
-    @on_configure
-    async def _timing_manager_configure(self, message: CommandMessage) -> None:
+    @command_handler(MessageType.ProfileConfigure)
+    async def _handle_profile_configure(self, message: CommandMessage) -> None:
         """Configure the timing manager."""
         self.debug(lambda: f"Configuring timing manager with message: {message}")
 
@@ -148,8 +126,7 @@ class TimingManager(BaseComponentService, CreditPhaseMessagesMixin):
         if not self._credit_issuing_strategy:
             raise InvalidStateError("No credit issuing strategy configured")
 
-    @on_start
-    async def _timing_manager_start(self) -> None:
+    async def _start(self) -> None:
         """Start the timing manager and issue credit drops according to the configured strategy."""
         self.debug("Starting timing manager")
 
@@ -159,20 +136,21 @@ class TimingManager(BaseComponentService, CreditPhaseMessagesMixin):
         await asyncio.sleep(2)
         self.execute_async(self._credit_issuing_strategy.start())
 
-    @on_stop
-    async def _timing_manager_stop(self) -> None:
+    async def _stop(self) -> None:
         """Stop the timing manager."""
         self.debug("Stopping timing manager")
         if self._credit_issuing_strategy:
             await self._credit_issuing_strategy.stop()
         await self.cancel_all_tasks()
 
+    @pull_handler(MessageType.CreditReturn)
     async def _on_credit_return(self, message: CreditReturnMessage) -> None:
         """Handle the credit return message."""
         self.debug(lambda: f"Timing manager received credit return message: {message}")
         if self._credit_issuing_strategy:
             await self._credit_issuing_strategy._on_credit_return(message)
 
+    @pull_handler(MessageType.FirstByteReceived)
     async def _on_first_byte_received(self, message: FirstByteReceivedMessage) -> None:
         """Handle the first byte received message."""
         self.debug(
@@ -189,7 +167,7 @@ class TimingManager(BaseComponentService, CreditPhaseMessagesMixin):
     ) -> None:
         """Drop a credit."""
         self.execute_async(
-            self.credit_drop_push_client.push(
+            self.push_credit_drop(
                 message=CreditDropMessage(
                     service_id=self.service_id,
                     phase=credit_phase,

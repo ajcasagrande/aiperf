@@ -43,7 +43,7 @@ from aiperf.common.types import MessageTypeT
 class MockTestMessage(Message):
     """Test message for communication testing."""
 
-    message_type: MessageTypeT = MessageType.TEST
+    message_type: MessageTypeT = MessageType.Test
     test_data: str = Field(default="test")
     counter: int = Field(default=0)
 
@@ -227,11 +227,11 @@ def sample_addresses() -> dict[CommunicationClientAddressType, str]:
 def message_types() -> list[MessageType]:
     """Fixture providing a list of message types for testing."""
     return [
-        MessageType.STATUS,
-        MessageType.HEARTBEAT,
-        MessageType.ERROR,
-        MessageType.CREDIT_DROP,
-        MessageType.CREDIT_RETURN,
+        MessageType.Status,
+        MessageType.Heartbeat,
+        MessageType.Error,
+        MessageType.CreditDrop,
+        MessageType.CreditReturn,
     ]
 
 

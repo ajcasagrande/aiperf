@@ -2,10 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from aiperf.common.config import ServiceConfig, UserConfig
-from aiperf.common.enums import (
-    ServiceState,
-)
-from aiperf.common.enums.message_enums import CommandType
+from aiperf.common.enums import ServiceState
+from aiperf.common.enums.message_enums import MessageType
 from aiperf.common.exceptions import InitializationError
 from aiperf.common.hooks import (
     AIPerfHook,
@@ -90,11 +88,11 @@ class BaseComponentService(BaseService):
             raise InitializationError("Failed to send heartbeat") from e
 
     @on_command_message(
-        CommandType.PROFILE_CONFIGURE,
-        CommandType.PROFILE_START,
-        CommandType.PROFILE_STOP,
-        CommandType.PROFILE_CANCEL,
-        CommandType.SHUTDOWN,
+        MessageType.ProfileConfigure,
+        MessageType.ProfileStart,
+        MessageType.ProfileStop,
+        MessageType.ProfileCancel,
+        MessageType.Shutdown,
     )
     async def process_command_message(self, message: CommandMessage) -> None:
         """Process a command message received from the controller.
@@ -104,14 +102,14 @@ class BaseComponentService(BaseService):
         self.debug(lambda: f"{self.service_id}: Processing command message: {message}")
         response_data = None
         try:
-            if message.message_type == CommandType.PROFILE_START:
+            if message.message_type == MessageType.ProfileStart:
                 response_data = await self.start()
 
-            elif message.message_type == CommandType.SHUTDOWN:
+            elif message.message_type == MessageType.Shutdown:
                 self.debug(lambda: f"{self.service_id}: Received shutdown command")
                 await self.shutdown()
 
-            elif message.message_type == CommandType.PROFILE_CONFIGURE:
+            elif message.message_type == MessageType.ProfileConfigure:
                 response_data = await self.run_hooks(AIPerfHook.ON_CONFIGURE, message)
 
             else:
@@ -123,7 +121,7 @@ class BaseComponentService(BaseService):
             # Publish the success response
             await self.pub_client.publish(
                 CommandResponseMessage(
-                    message_type=f"{message.message_type}_response",
+                    message_type=MessageType.CommandResponse,
                     request_id=message.request_id,
                     service_id=self.service_id,
                     origin_service_id=message.service_id,
@@ -135,7 +133,7 @@ class BaseComponentService(BaseService):
             # Publish the failure response
             await self.pub_client.publish(
                 CommandResponseMessage(
-                    message_type=f"{message.message_type}_response",
+                    message_type=MessageType.CommandResponse,
                     request_id=message.request_id,
                     service_id=self.service_id,
                     origin_service_id=message.service_id,
@@ -172,12 +170,13 @@ class BaseComponentService(BaseService):
         return RegistrationMessage(
             service_id=self.service_id,
             service_type=self.service_type,
+            state=self.state,
         )
 
     def create_status_message(self, state: ServiceState) -> StatusMessage:
         """Create a status notification message."""
         return StatusMessage(
             service_id=self.service_id,
-            state=state,
             service_type=self.service_type,
+            state=state,
         )

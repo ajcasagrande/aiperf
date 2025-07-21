@@ -84,9 +84,9 @@ class MockServerConfig(BaseSettings):
 
     # Logging settings
     log_level: Annotated[
-        Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        Literal["DEBUG", "INFO", "WARNING", "Error", "CRITICAL"],
         Field(
-            description="Set the logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)",
+            description="Set the logging level (DEBUG, INFO, WARNING, Error, CRITICAL)",
         ),
         cyclopts.Parameter(
             name=("--log-level", "-l"),

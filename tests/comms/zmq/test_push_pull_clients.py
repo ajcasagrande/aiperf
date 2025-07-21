@@ -181,9 +181,9 @@ class TestZMQPushClient:
     @pytest.mark.parametrize(
         "message_type",
         [
-            MessageType.STATUS,
-            MessageType.HEARTBEAT,
-            MessageType.ERROR,
+            MessageType.Status,
+            MessageType.Heartbeat,
+            MessageType.Error,
         ],
     )
     @pytest.mark.asyncio
@@ -288,10 +288,10 @@ class TestZMQPullClient:
         client = zmq_pull_connect_client
 
         await client.initialize()
-        await client.register_pull_callback(MessageType.STATUS, mock_async_callback)
+        await client.register_pull_callback(MessageType.Status, mock_async_callback)
 
-        assert MessageType.STATUS in client._pull_callbacks
-        assert client._pull_callbacks[MessageType.STATUS] == mock_async_callback
+        assert MessageType.Status in client._pull_callbacks
+        assert client._pull_callbacks[MessageType.Status] == mock_async_callback
 
         await client.shutdown()
 
@@ -307,10 +307,10 @@ class TestZMQPullClient:
         )
 
         # Should initialize automatically
-        await client.register_pull_callback(MessageType.STATUS, mock_async_callback)
+        await client.register_pull_callback(MessageType.Status, mock_async_callback)
 
         assert client.is_initialized
-        assert MessageType.STATUS in client._pull_callbacks
+        assert MessageType.Status in client._pull_callbacks
 
     @pytest.mark.asyncio
     async def test_register_pull_callback_duplicate(
@@ -324,11 +324,11 @@ class TestZMQPullClient:
         )
 
         await client.initialize()
-        await client.register_pull_callback(MessageType.STATUS, mock_async_callback)
+        await client.register_pull_callback(MessageType.Status, mock_async_callback)
 
         # Should raise error for duplicate registration
         with pytest.raises(ValueError, match="Callback already registered"):
-            await client.register_pull_callback(MessageType.STATUS, mock_async_callback)
+            await client.register_pull_callback(MessageType.Status, mock_async_callback)
 
     @pytest.mark.asyncio
     async def test_register_pull_callback_with_concurrency(
@@ -343,10 +343,10 @@ class TestZMQPullClient:
 
         await client.initialize()
         await client.register_pull_callback(
-            MessageType.STATUS, mock_async_callback, max_concurrency=5
+            MessageType.Status, mock_async_callback, max_concurrency=5
         )
 
-        assert MessageType.STATUS in client._pull_callbacks
+        assert MessageType.Status in client._pull_callbacks
         assert hasattr(client, "semaphore")
         assert client.semaphore._value == 5
 
@@ -364,8 +364,8 @@ class TestZMQPullClient:
         )
 
         callbacks = {
-            MessageType.STATUS: AsyncMock(),
-            MessageType.HEARTBEAT: AsyncMock(),
+            MessageType.Status: AsyncMock(),
+            MessageType.Heartbeat: AsyncMock(),
         }
 
         await client.initialize()
@@ -388,7 +388,7 @@ class TestZMQPullClient:
         client = zmq_pull_connect_client
 
         await client.initialize()
-        await client.register_pull_callback(MessageType.STATUS, mock_async_callback)
+        await client.register_pull_callback(MessageType.Status, mock_async_callback)
 
         # Should have started a receiving task
         assert hasattr(client, "tasks")
@@ -412,9 +412,9 @@ class TestZMQPullClient:
     @pytest.mark.parametrize(
         "message_type",
         [
-            MessageType.STATUS,
-            MessageType.HEARTBEAT,
-            MessageType.ERROR,
+            MessageType.Status,
+            MessageType.Heartbeat,
+            MessageType.Error,
         ],
     )
     @pytest.mark.asyncio
@@ -452,9 +452,9 @@ class TestZMQPullClient:
 
         callbacks = [AsyncMock() for _ in range(5)]
         message_types = [
-            MessageType.STATUS,
-            MessageType.HEARTBEAT,
-            MessageType.ERROR,
+            MessageType.Status,
+            MessageType.Heartbeat,
+            MessageType.Error,
         ]
 
         # Register callbacks concurrently
@@ -485,7 +485,7 @@ class TestZMQPullClient:
         )
 
         await client.initialize()
-        await client.register_pull_callback(MessageType.STATUS, mock_async_callback)
+        await client.register_pull_callback(MessageType.Status, mock_async_callback)
 
         mock_socket = mock_zmq_context_instance.socket.return_value
         mock_socket.setsockopt.assert_any_call(zmq.RCVHWM, 1000)
@@ -724,7 +724,7 @@ class TestPushPullIntegration:
 
         # Register callback
         callback = AsyncMock()
-        await pull_client.register_pull_callback(MessageType.STATUS, callback)
+        await pull_client.register_pull_callback(MessageType.Status, callback)
 
         # Push all messages
         tasks = [push_client.push(message) for message in messages]

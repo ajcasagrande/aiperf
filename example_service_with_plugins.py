@@ -111,7 +111,7 @@ class ExtensibleDemoService(BaseService, PluginManagerMixin):
     # Message Handlers - Service can handle messages alongside plugins
     # =================================================================
 
-    @message_handler(MessageType.STATUS)
+    @message_handler(MessageType.Status)
     async def handle_status_updates(self, message: Any) -> None:
         """
         Handle status messages from plugins and other services.
@@ -192,7 +192,7 @@ class ExtensibleDemoService(BaseService, PluginManagerMixin):
             "uptime": time.time() - getattr(self, "_start_time", time.time()),
         }
 
-    @command_handler(CommandType.SHUTDOWN)
+    @command_handler(CommandType.Shutdown)
     async def prepare_demo_shutdown(self, command: Any) -> dict:
         """Handle graceful shutdown."""
         self.info("🛑 Preparing demo service for shutdown...")
@@ -247,7 +247,7 @@ class ExtensibleDemoService(BaseService, PluginManagerMixin):
             # Occasionally send other message types for variety
             if self.demo_counter % 5 == 0:
                 await self.publish(
-                    MessageType.HEARTBEAT,
+                    MessageType.Heartbeat,
                     {
                         "service_id": self.service_id,
                         "heartbeat_count": self.demo_counter // 5,

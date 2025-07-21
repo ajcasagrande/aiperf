@@ -174,17 +174,17 @@ The system automatically maps simple message types to legacy message types:
 # Simple type -> Legacy type
 "DATA_MESSAGE" -> MessageType.TEST
 "STATUS" -> MessageType.STATUS
-"ERROR" -> MessageType.ERROR
+"Error" -> MessageType.Error
 "HEARTBEAT" -> MessageType.HEARTBEAT
 "REGISTRATION" -> MessageType.REGISTRATION
 "HEALTH_CHECK" -> MessageType.SERVICE_HEALTH
 
 # Commands
-"GET_STATUS" -> CommandType.PROFILE_START
-"CONFIGURE" -> CommandType.PROFILE_CONFIGURE
-"START" -> CommandType.PROFILE_START
-"STOP" -> CommandType.PROFILE_STOP
-"SHUTDOWN" -> CommandType.SHUTDOWN
+"GET_STATUS" -> CommandType.ProfileStart
+"CONFIGURE" -> CommandType.ProfileConfigure
+"START" -> CommandType.ProfileStart
+"STOP" -> CommandType.ProfileStop
+"Shutdown" -> CommandType.Shutdown
 ```
 
 ### Custom Message Types
@@ -195,7 +195,7 @@ Unknown message types are automatically mapped:
 # If you use "CUSTOM_MESSAGE", it will:
 # 1. Try to find a legacy type with matching name
 # 2. Fall back to MessageType.TEST for messages
-# 3. Fall back to CommandType.PROFILE_START for commands
+# 3. Fall back to CommandType.ProfileStart for commands
 ```
 
 ## Architecture

@@ -35,7 +35,7 @@ from aiperf.common.enums import (
 )
 from aiperf.common.messages import (
     CommandMessage,
-    ConversationResponseMessage,
+    ConversationResponse,
     CreditDropMessage,
 )
 from aiperf.common.models import Conversation, RequestRecord, Turn
@@ -119,7 +119,7 @@ def mock_communication_clients() -> dict[str, AsyncMock]:
 
     # Mock request client for conversation data
     clients["conversation_data"] = AsyncMock()
-    clients["conversation_data"].request.return_value = ConversationResponseMessage(
+    clients["conversation_data"].request.return_value = ConversationResponse(
         service_id="test-service",
         conversation=Conversation(
             turns=[Turn(messages=[{"role": "user", "content": "Test message"}])]
@@ -184,9 +184,9 @@ def sample_warmup_credit_drop_message() -> CreditDropMessage:
 
 
 @pytest.fixture
-def sample_conversation_response() -> ConversationResponseMessage:
+def sample_conversation_response() -> ConversationResponse:
     """Create a sample conversation response message for testing."""
-    return ConversationResponseMessage(
+    return ConversationResponse(
         service_id="test-service",
         conversation=Conversation(
             turns=[Turn(messages=[{"role": "user", "content": "Test prompt"}])]

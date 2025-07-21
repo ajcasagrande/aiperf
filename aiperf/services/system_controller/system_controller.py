@@ -20,7 +20,7 @@ from aiperf.common.exceptions import (
     CommandError,
     InitializationError,
 )
-from aiperf.common.hooks import on_cleanup, on_message, on_run, on_start
+from aiperf.common.hooks import on_message
 from aiperf.common.messages import (
     Message,
     ProfileResultsMessage,
@@ -29,12 +29,12 @@ from aiperf.common.messages import (
 )
 from aiperf.common.messages.commands import (
     ProcessRecordsCommand,
-    ProcessRecordsResponse,
     ProfileConfigureCommand,
     ShutdownCommand,
 )
-from aiperf.common.mixins import EventBusClientMixin
-from aiperf.common.service.base_service import BaseService, ServiceFactory
+from aiperf.common.service.base_service import ServiceFactory
+from aiperf.core import message_handler
+from aiperf.core.base_service import BaseService
 from aiperf.data_exporter.exporter_manager import ExporterManager
 from aiperf.progress.progress_tracker import (
     BenchmarkSuiteProgress,
@@ -54,7 +54,6 @@ class SystemController(
     BaseService,
     SignalHandlerMixin,
     ProxyMixin,
-    EventBusClientMixin,
     ServiceManagerMixin,
 ):
     """System Controller service.
@@ -66,7 +65,7 @@ class SystemController(
     def __init__(
         self,
         service_config: ServiceConfig,
-        user_config: UserConfig | None = None,
+        user_config: UserConfig,
         service_id: str | None = None,
         **kwargs,
     ) -> None:
@@ -89,18 +88,13 @@ class SystemController(
 
         self.debug("System Controller created")
 
-    @on_run
-    async def _on_run(self) -> None:
-        """Automatically start the service when the run hook is called."""
-        await self.start()
-
-    async def initialize(self) -> None:
+    async def _initialize(self) -> None:
         """Override the base initialize method to add pre-initialization and
         post-initialization steps. This allows us to run the UI and progress
         logger before the system is fully initialized.
         """
         await self._pre_initialize()
-        await super().initialize()
+        await super()._initialize()
         await self._post_initialize()
 
     async def _pre_initialize(self) -> None:
@@ -140,9 +134,8 @@ class SystemController(
 
         self._system_state = SystemState.CONFIGURING
 
-    @on_start
-    async def _bootstrap_system(self) -> None:
-        """Bootstrap the system services.
+    async def _start(self) -> None:
+        """Start the system services.
 
         This method will:
         - Initialize all required services
@@ -163,10 +156,6 @@ class SystemController(
             # Wait for all required services to be registered
             await self.service_manager.wait_for_all_required_services_registration()
 
-            if self.stop_event.is_set():
-                self.debug("System Controller stopped before all services registered")
-                raise asyncio.CancelledError()
-
         except Exception as e:
             raise asyncio.CancelledError() from e
 
@@ -184,10 +173,6 @@ class SystemController(
 
         await self.start_profiling_all_services()
 
-        if self.stop_event.is_set():
-            self.debug("System Controller stopped before all services started")
-            raise asyncio.CancelledError()
-
         self.info("AIPerf System is RUNNING")
 
     async def _handle_signal(self, sig: int) -> None:
@@ -199,7 +184,7 @@ class SystemController(
         self.info(lambda: f"Received signal {sig}, initiating graceful shutdown")
         self.debug(lambda: f"Received signal {sig}, initiating graceful shutdown")
         if sig == signal.SIGINT:
-            if self.stop_event.is_set():
+            if self.stopped_event.is_set():
                 self.debug("Stop event is already set, killing all services")
                 await self.kill()
                 return
@@ -238,8 +223,6 @@ class SystemController(
                 data=None,
             )
         )
-        self.stop_event.set()
-        await self.shutdown()
         self.info("Shutting down all services")
         try:
             await self.service_manager.shutdown_all_services()
@@ -251,8 +234,7 @@ class SystemController(
                 await self.comms.shutdown()
             await self.stop_proxies()
 
-    @on_cleanup
-    async def _cleanup(self) -> None:
+    async def _stop(self) -> None:
         """Clean up system controller-specific components."""
         self.debug("Cleaning up System Controller")
 
@@ -272,27 +254,27 @@ class SystemController(
         self.profile_runner = ProfileRunner(self)
         await self.profile_runner.run()
 
-    @on_message(
-        MessageType.CREDITS_COMPLETE,
-        MessageType.WORKER_HEALTH,
-        MessageType.CREDIT_PHASE_PROGRESS,
-        MessageType.CREDIT_PHASE_START,
-        MessageType.CREDIT_PHASE_COMPLETE,
-        MessageType.CREDIT_PHASE_SENDING_COMPLETE,
+    @message_handler(
+        MessageType.CreditsComplete,
+        MessageType.WorkerHealth,
+        MessageType.CreditPhaseProgress,
+        MessageType.CreditPhaseStart,
+        MessageType.CreditPhaseComplete,
+        MessageType.CreditPhaseSendingComplete,
     )
     async def _forward_generic_message(self, message: Message) -> None:
         """Generic message handler for all messages that don't have or need a specific handler."""
         self.trace(lambda: f"Received message: {message}")
         self.progress_tracker.on_message(message)
         await self.ui.on_message(message)
-        if message.message_type == MessageType.CREDIT_PHASE_SENDING_COMPLETE:
+        if message.message_type == MessageType.CreditPhaseSendingComplete:
             self.info(
                 lambda: f"Received credit phase sending complete message: {message}"
             )
-        if message.message_type == MessageType.CREDIT_PHASE_COMPLETE:
+        if message.message_type == MessageType.CreditPhaseComplete:
             self.info(lambda: f"Received credit phase complete message: {message}")
 
-    @on_message(MessageType.PROCESSING_STATS)
+    @on_message(MessageType.ProcessingStats)
     async def _process_processing_stats_message(
         self, message: RecordsProcessingStatsMessage
     ) -> None:
@@ -305,16 +287,16 @@ class SystemController(
         ):
             self.info("Profile completed, sending process records command")
             await self.pub_client.publish(
-                ProcessRecordsResponse(
+                ProcessRecordsCommand(
                     service_id=self.service_id,
-                    origin_service_id=message.service_id,
+                    target_service_id=message.service_id,
                     data=BaseModel(cancelled=False),
                 )
             )
             if self.profile_runner:
                 await self.profile_runner.profile_completed()
 
-    @on_message(MessageType.PROFILE_RESULTS)
+    @on_message(MessageType.ProfileResults)
     async def _process_profile_results_message(
         self, message: ProfileResultsMessage
     ) -> None:
@@ -331,9 +313,9 @@ class SystemController(
         except Exception as e:
             self.exception(f"Failed to export results: {e}")
         finally:
-            self.stop_event.set()
+            await self.stop()
 
-    @on_message(MessageType.REGISTRATION)
+    @on_message(MessageType.Registration)
     async def _process_registration_message(self, message: RegistrationMessage) -> None:
         """Process a registration message from a service. It will
         add the service to the service manager and send a configure command
@@ -395,7 +377,7 @@ class SystemController(
     #     )
     #     await self.service_manager.on_message(message)
 
-    # @on_message(MessageType.COMMAND_RESPONSE)
+    # @on_message(MessageType.CommandResponse)
     # async def _process_command_response_message(
     #     self, message: CommandResponseMessage
     # ) -> None:

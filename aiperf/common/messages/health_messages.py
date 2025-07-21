@@ -12,7 +12,7 @@ from aiperf.common.types import MessageTypeT
 class WorkerHealthMessage(BaseServiceMessage):
     """Message for a worker health check."""
 
-    message_type: MessageTypeT = MessageType.WORKER_HEALTH
+    message_type: MessageTypeT = MessageType.WorkerHealth
 
     process: ProcessHealth = Field(..., description="The health of the worker process")
 

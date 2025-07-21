@@ -62,7 +62,7 @@ class RecordsManager(BaseComponentService):
         self.debug("Initializing records manager")
 
         await self.response_results_client.register_pull_callback(
-            message_type=MessageType.PARSED_INFERENCE_RESULTS,
+            message_type=MessageType.ParsedInferenceResults,
             callback=self._on_parsed_inference_results,
             max_concurrency=100_000,
         )

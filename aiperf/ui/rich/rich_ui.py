@@ -41,19 +41,19 @@ class RichUI(AIPerfLifecycleMixin):
     async def on_message(self, message: Message) -> None:
         """Handle a message from the system controller."""
         _message_mappings = {
-            MessageType.CREDIT_PHASE_PROGRESS: ProfileProgressElement.key,
-            MessageType.CREDIT_PHASE_START: ProfileProgressElement.key,
-            MessageType.CREDIT_PHASE_COMPLETE: ProfileProgressElement.key,
-            MessageType.PROCESSING_STATS: ProfileProgressElement.key,
-            MessageType.WORKER_HEALTH: WorkerStatusElement.key,
-            MessageType.PROFILE_RESULTS: ProfileProgressElement.key,
+            MessageType.CreditPhaseProgress: ProfileProgressElement.key,
+            MessageType.CreditPhaseStart: ProfileProgressElement.key,
+            MessageType.CreditPhaseComplete: ProfileProgressElement.key,
+            MessageType.ProcessingStats: ProfileProgressElement.key,
+            MessageType.WorkerHealth: WorkerStatusElement.key,
+            MessageType.ProfileResults: ProfileProgressElement.key,
         }
 
         if message.message_type in _message_mappings:
             self.debug(
                 lambda: f"UI: Refreshing element ({_message_mappings[message.message_type]}) for message ({message.message_type})"
             )
-            if message.message_type == MessageType.WORKER_HEALTH:
+            if message.message_type == MessageType.WorkerHealth:
                 self.dashboard.update_worker_health(cast(WorkerHealthMessage, message))
             self.try_refresh_element(_message_mappings[message.message_type])
         else:

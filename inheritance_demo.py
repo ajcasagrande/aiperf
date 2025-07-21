@@ -16,13 +16,13 @@ from aiperf.core.decorators import command_handler, message_handler
 class BaseServiceHandler(MessageBusMixin):
     """Base service with fundamental message handling."""
 
-    @message_handler(MessageType.STATUS)
+    @message_handler(MessageType.Status)
     async def handle_base_status(self, message: Message) -> None:
         """Base status handler - ALWAYS called."""
         self.info(f"🏗️  BASE: Processing status {message.message_type}")
         # Base level validation, logging, etc.
 
-    @command_handler(CommandType.SHUTDOWN)
+    @command_handler(CommandType.Shutdown)
     async def handle_base_shutdown(self, command: CommandMessage) -> dict:
         """Base shutdown handler - ALWAYS called."""
         self.info(f"🏗️  BASE: Initiating shutdown for {command.message_type}")
@@ -32,13 +32,13 @@ class BaseServiceHandler(MessageBusMixin):
 class SpecializedService(BaseServiceHandler):
     """Specialized service with additional logic."""
 
-    @message_handler(MessageType.STATUS)
+    @message_handler(MessageType.Status)
     async def handle_specialized_status(self, message: Message) -> None:
         """Specialized status handler - called IN ADDITION to base."""
         self.info(f"⚙️  SPECIALIZED: Enhanced status processing {message.message_type}")
         # Specialized business logic
 
-    @command_handler(CommandType.SHUTDOWN)
+    @command_handler(CommandType.Shutdown)
     async def handle_specialized_shutdown(self, command: CommandMessage) -> dict:
         """Specialized shutdown - called IN ADDITION to base."""
         self.info(f"⚙️  SPECIALIZED: Custom shutdown logic for {command.message_type}")
@@ -48,13 +48,13 @@ class SpecializedService(BaseServiceHandler):
 class ConcreteProductionService(SpecializedService):
     """Concrete service implementation."""
 
-    @message_handler(MessageType.STATUS)
+    @message_handler(MessageType.Status)
     async def handle_concrete_status(self, message: Message) -> None:
         """Concrete status handler - all three handlers will execute!"""
         self.info(f"🎯 CONCRETE: Final status processing {message.message_type}")
         # Final implementation details
 
-    @command_handler(CommandType.SHUTDOWN)
+    @command_handler(CommandType.Shutdown)
     async def handle_concrete_shutdown(self, command: CommandMessage) -> dict:
         """Concrete shutdown - all three handlers execute!"""
         self.info(f"🎯 CONCRETE: Production shutdown sequence {command.message_type}")

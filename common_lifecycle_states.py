@@ -32,7 +32,7 @@ class StandardLifecycleStates:
 
     # Error handling
     ERROR = "error"  # ✅ Universal
-    FAILED = "failed"  # ✅ Alternative to ERROR
+    FAILED = "failed"  # ✅ Alternative to Error
 
 
 # =============================================================================
@@ -46,7 +46,7 @@ class KubernetesStates:
     PENDING = "pending"  # Instead of CREATED
     RUNNING = "running"  # ✅ Same
     SUCCEEDED = "succeeded"  # Instead of STOPPED (for completed jobs)
-    FAILED = "failed"  # ✅ Same as ERROR
+    FAILED = "failed"  # ✅ Same as Error
     UNKNOWN = "unknown"  # Additional error state
 
 
@@ -69,7 +69,7 @@ class SystemdServiceStates:
     ACTIVATING = "activating"  # Instead of STARTING
     ACTIVE = "active"  # Instead of RUNNING
     DEACTIVATING = "deactivating"  # Instead of STOPPING
-    FAILED = "failed"  # ✅ Same as ERROR
+    FAILED = "failed"  # ✅ Same as Error
     RELOADING = "reloading"  # Additional state
 
 
@@ -113,7 +113,7 @@ UNIVERSAL TERMS (used everywhere):
 ✅ RUNNING - Every system uses this
 ✅ STOPPED - Every system uses this
 ✅ CREATED - Very widely used
-✅ ERROR/FAILED - Universal concepts
+✅ Error/FAILED - Universal concepts
 
 VERY COMMON TERMS:
 ✅ STARTING - Most systems use this
@@ -225,13 +225,13 @@ KEEP YOUR CURRENT STATES:
 - RUNNING ✅
 - STOPPING ✅
 - STOPPED ✅
-- ERROR ✅
+- Error ✅
 
 Only consider changes if you need:
 - PAUSED state (for suspendable services)
 - DEGRADED state (for partial failures)
 - RESTARTING state (for auto-restart)
-- FAILED vs ERROR (FAILED = permanent, ERROR = temporary)
+- FAILED vs Error (FAILED = permanent, Error = temporary)
 """
 
 if __name__ == "__main__":

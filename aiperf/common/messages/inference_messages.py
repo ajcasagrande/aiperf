@@ -12,7 +12,7 @@ from aiperf.common.types import MessageTypeT
 class InferenceResultsMessage(BaseServiceMessage):
     """Message for a inference results."""
 
-    message_type: MessageTypeT = MessageType.INFERENCE_RESULTS
+    message_type: MessageTypeT = MessageType.InferenceResults
 
     record: SerializeAsAny[RequestRecord] = Field(
         ..., description="The inference results record"
@@ -22,7 +22,7 @@ class InferenceResultsMessage(BaseServiceMessage):
 class ParsedInferenceResultsMessage(BaseServiceMessage):
     """Message for a parsed inference results."""
 
-    message_type: MessageTypeT = MessageType.PARSED_INFERENCE_RESULTS
+    message_type: MessageTypeT = MessageType.ParsedInferenceResults
 
     record: SerializeAsAny[ParsedResponseRecord] = Field(
         ..., description="The post process results record"
