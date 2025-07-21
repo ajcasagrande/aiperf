@@ -12,9 +12,6 @@ from aiperf.common.enums import (
     ServiceType,
 )
 from aiperf.common.exceptions import InvalidStateError
-from aiperf.common.hooks import (
-    on_init,
-)
 from aiperf.common.messages import (
     CommandMessage,
     CreditDropMessage,
@@ -23,6 +20,7 @@ from aiperf.common.messages import (
     DatasetTimingResponse,
 )
 from aiperf.common.messages.credit_messages import FirstByteReceivedMessage
+from aiperf.common.messages.error_messages import ErrorMessage
 from aiperf.common.service.base_service import ServiceFactory
 from aiperf.core.communication_mixins import (
     CreditDropPushClientMixin,
@@ -72,8 +70,7 @@ class TimingManager(
 
         self._credit_issuing_strategy: CreditIssuingStrategy | None = None
 
-    @on_init
-    async def _timing_manager_initialize(self) -> None:
+    async def _initialize(self) -> None:
         """Initialize timing manager-specific components."""
         self.debug("Initializing timing manager")
         self.config = TimingManagerConfig.from_user_config(self.user_config)
@@ -85,13 +82,17 @@ class TimingManager(
 
         if self.config.timing_mode == TimingMode.FIXED_SCHEDULE:
             # This will block until the dataset is ready and the timing response is received
-            dataset_timing_response: DatasetTimingResponse = (
-                await self.dataset_request_client.request(
-                    message=DatasetTimingRequest(
-                        service_id=self.service_id,
-                    ),
-                )
+            dataset_timing_response: (
+                DatasetTimingResponse | ErrorMessage
+            ) = await self.request_dataset_timing(
+                message=DatasetTimingRequest(
+                    service_id=self.service_id,
+                ),
             )
+            if isinstance(dataset_timing_response, ErrorMessage):
+                raise RuntimeError(
+                    f"Failed to request dataset timing: {dataset_timing_response}"
+                )
             self.debug(
                 lambda: f"TM: Received dataset timing response: {dataset_timing_response}"
             )
@@ -126,7 +127,8 @@ class TimingManager(
         if not self._credit_issuing_strategy:
             raise InvalidStateError("No credit issuing strategy configured")
 
-    async def _start(self) -> None:
+    @command_handler(MessageType.ProfileStart)
+    async def _start_profiling(self) -> None:
         """Start the timing manager and issue credit drops according to the configured strategy."""
         self.debug("Starting timing manager")
 

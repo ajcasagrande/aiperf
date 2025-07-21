@@ -315,7 +315,7 @@ class SystemController(
         finally:
             await self.stop()
 
-    @on_message(MessageType.Registration)
+    @message_handler(MessageType.Registration)
     async def _process_registration_message(self, message: RegistrationMessage) -> None:
         """Process a registration message from a service. It will
         add the service to the service manager and send a configure command

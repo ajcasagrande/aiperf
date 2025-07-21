@@ -158,7 +158,7 @@ class MessageBusMixin(CommunicationMixin):
                 and message.target_service_id != self.id
             ):
                 self.debug(
-                    lambda: f"{self.id}: Ignoring command message from {message.target_service_id}: {message}"
+                    lambda: f"{self.id}: Ignoring command message meant for {message.target_service_id}: {message}"
                 )
                 return
                 # Check service_type if it exists on this instance
@@ -169,7 +169,7 @@ class MessageBusMixin(CommunicationMixin):
                 and service_type != message.target_service_type
             ):
                 self.debug(
-                    lambda: f"{self.id}: Ignoring command message from {message.target_service_type}: {message}"
+                    lambda: f"{self.id}: Ignoring command message meant for {message.target_service_type}: {message}"
                 )
                 return
 
@@ -344,9 +344,7 @@ class PullHandlerMixin(CommunicationMixin):
                     lambda type=message_type,
                     method=handler: f"{self}: Registering pull handler for {type}: {method}"
                 )
-                await self.pull_client.register_pull_callback(
-                    self.id, message_type, handler
-                )
+                await self.pull_client.register_pull_callback(message_type, handler)
 
 
 class CreditDropPushClientMixin(CommunicationMixin):

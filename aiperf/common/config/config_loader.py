@@ -12,5 +12,11 @@ def load_service_config() -> ServiceConfig:
 
 def load_user_config() -> UserConfig:
     """Load the user configuration."""
-    # TODO: implement
-    raise NotImplementedError("User configuration is not implemented")
+    # TODO: implement proper user config loading from files/environment
+    # For now, return a minimal working configuration for development
+    from aiperf.common.config.user_config import UserConfig
+
+    # Create a minimal user config for development/testing with required fields
+    return UserConfig(
+        model_names=["gpt2"],  # Default model for testing
+    )

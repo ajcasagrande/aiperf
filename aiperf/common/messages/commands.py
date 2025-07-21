@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from abc import ABC
+from typing import Any
 
 from pydantic import BaseModel, Field, SerializeAsAny
 
@@ -47,7 +48,7 @@ class CommandResponseMessage(BaseServiceMessage, RequiresRequestID, ABC):  # typ
     origin_service_id: str = Field(
         ..., description="The ID of the service that sent the request"
     )
-    data: SerializeAsAny[BaseModel] | None = Field(
+    data: SerializeAsAny[Any] | None = Field(
         default=None,
         description="The data of the command message. This can be overridden in the subclasses.",
     )
