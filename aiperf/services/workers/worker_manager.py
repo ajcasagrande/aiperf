@@ -20,8 +20,8 @@ from aiperf.common.hooks import (
 )
 from aiperf.common.messages import WorkerHealthMessage
 from aiperf.common.models import AIPerfBaseModel
-from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.common.service.base_service import ServiceFactory
+from aiperf.core.component_service import ComponentService
 from aiperf.services.workers.worker import Worker
 
 
@@ -35,7 +35,7 @@ class WorkerProcessInfo(AIPerfBaseModel):
 
 
 @ServiceFactory.register(ServiceType.WORKER_MANAGER)
-class WorkerManager(BaseComponentService):
+class WorkerManager(ComponentService):
     """
     The WorkerManager service is primary responsibility to manage the worker processes.
     It will spawn the workers, monitor their health, and stop them when the service is stopped.
@@ -45,7 +45,7 @@ class WorkerManager(BaseComponentService):
     def __init__(
         self,
         service_config: ServiceConfig,
-        user_config: UserConfig | None = None,
+        user_config: UserConfig,
         service_id: str | None = None,
         **kwargs,
     ) -> None:
@@ -62,8 +62,8 @@ class WorkerManager(BaseComponentService):
         self.cpu_count = multiprocessing.cpu_count()
         self.debug("Detected %s CPU cores/threads", self.cpu_count)
 
-        self.max_concurrency = self.user_config.loadgen.concurrency
-        self.max_workers = self.service_config.workers.max
+        self.max_concurrency = user_config.loadgen.concurrency
+        self.max_workers = service_config.workers.max
         if self.max_workers is None:
             # Default to the number of CPU cores - 1
             self.max_workers = self.cpu_count - 1
@@ -78,7 +78,7 @@ class WorkerManager(BaseComponentService):
         # Ensure we have at least the min workers
         self.max_workers = max(
             self.max_workers,
-            self.service_config.workers.min or 0,
+            service_config.workers.min or 0,
         )
         self.initial_workers = self.max_workers
 

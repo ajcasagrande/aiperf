@@ -29,10 +29,6 @@ class BaseStatusMessage(BaseServiceMessage):
         ...,
         description="Current state of the service",
     )
-    service_type: ServiceType = Field(
-        ...,
-        description="Type of service",
-    )
 
 
 class StatusMessage(BaseStatusMessage):
@@ -50,7 +46,10 @@ class RegistrationMessage(BaseStatusMessage):
 
     message_type: MessageTypeT = MessageType.REGISTRATION
 
-    state: ServiceState = ServiceState.READY
+    service_type: ServiceType | str = Field(
+        ...,
+        description="Type of service",
+    )
 
 
 class HeartbeatMessage(BaseStatusMessage):
