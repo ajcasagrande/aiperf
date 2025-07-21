@@ -94,11 +94,6 @@ class MultiProcessServiceManager(BaseServiceManager):
                     },
                     daemon=True,
                 )
-                if service_type in [
-                    ServiceType.WORKER_MANAGER,
-                ]:
-                    process.daemon = False  # Worker manager cannot be a daemon because it needs to be able to spawn worker processes
-
                 process.start()
 
                 self.info(
@@ -131,6 +126,7 @@ class MultiProcessServiceManager(BaseServiceManager):
                     type=info.service_type: f"Stopping service {type} process (pid: {pid})"
                 )
                 info.process.terminate()
+                info.process.kill()
             else:
                 self.warning(
                     lambda type=info.service_type: f"Service {type} process not found"
@@ -264,3 +260,16 @@ class MultiProcessServiceManager(BaseServiceManager):
 
     async def _on_service_error_message(self, message: BaseServiceErrorMessage) -> None:
         self.registry[message.service_id].errors.append(message.error)
+
+    async def spawn_workers(self, worker_count: int) -> None:
+        """Spawn a number of workers."""
+        self.info(f"Spawning {worker_count} workers")
+        await self._run_services({ServiceType.WORKER: worker_count})
+
+    async def stop_workers(self, worker_count: int) -> None:
+        """Stop a number of workers."""
+        self.info(lambda: f"Stopping {worker_count} workers")
+
+    async def stop_all_workers(self) -> None:
+        """Stop all workers."""
+        self.info("Stopping all workers")

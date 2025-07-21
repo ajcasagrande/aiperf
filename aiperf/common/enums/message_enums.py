@@ -146,6 +146,28 @@ class MessageType(CaseInsensitiveStrEnum):
     PARSED_INFERENCE_RESULTS = "parsed_inference_results"
     """A message containing parsed inference results from a post processor."""
 
+    ########################################
+    # Worker Manager messages
+    ########################################
+
+    SPAWN_WORKERS = "spawn_workers"
+    """A message sent by the WorkerManager to the SystemController to spawn workers."""
+
+    SPAWN_WORKERS_RESPONSE = "spawn_workers_response"
+    """A message sent by the SystemController to the WorkerManager to respond to a spawn workers request."""
+
+    STOP_WORKERS = "stop_workers"
+    """A message sent by the WorkerManager to the SystemController to stop workers."""
+
+    STOP_WORKERS_RESPONSE = "stop_workers_response"
+    """A message sent by the SystemController to the WorkerManager to respond to a stop workers request."""
+
+    STOP_ALL_WORKERS = "stop_all_workers"
+    """A message sent by the WorkerManager to the SystemController to stop all workers."""
+
+    STOP_ALL_WORKERS_RESPONSE = "stop_all_workers_response"
+    """A message sent by the SystemController to the WorkerManager to respond to a stop all workers request."""
+
 
 class CommandType(CaseInsensitiveStrEnum):
     """The various types of command messages that can be sent between services."""

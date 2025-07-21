@@ -101,3 +101,21 @@ class KubernetesServiceManager(BaseServiceManager):
         """Handle a message from a service."""
         # TODO: Implement Kubernetes
         raise NotImplementedError("KubernetesServiceManager.on_message not implemented")
+
+    async def spawn_workers(self, worker_count: int) -> None:
+        """Spawn a number of workers."""
+        raise NotImplementedError(
+            "KubernetesServiceManager.spawn_workers not implemented"
+        )
+
+    async def stop_workers(self, worker_count: int) -> None:
+        """Stop a number of workers."""
+        raise NotImplementedError(
+            "KubernetesServiceManager.stop_workers not implemented"
+        )
+
+    async def stop_all_workers(self) -> None:
+        """Stop all workers."""
+        raise NotImplementedError(
+            "KubernetesServiceManager.stop_all_workers not implemented"
+        )

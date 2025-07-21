@@ -25,6 +25,12 @@ from aiperf.common.messages.commands import (
     ProfileStopResponse,
     ShutdownCommand,
     ShutdownResponse,
+    StartWorkersCommand,
+    StartWorkersData,
+    StartWorkersResponse,
+    StopWorkersCommand,
+    StopWorkersData,
+    StopWorkersResponse,
 )
 from aiperf.common.messages.credit_messages import (
     CreditDropMessage,
@@ -72,6 +78,14 @@ from aiperf.common.messages.service_messages import (
     RegistrationMessage,
     StatusMessage,
 )
+from aiperf.common.messages.worker_messages import (
+    SpawnWorkersMessage,
+    SpawnWorkersResponseMessage,
+    StopAllWorkersMessage,
+    StopAllWorkersResponseMessage,
+    StopWorkersMessage,
+    StopWorkersResponseMessage,
+)
 
 __all__ = [
     "AutoRequestID",
@@ -116,6 +130,18 @@ __all__ = [
     "RequiresRequestID",
     "ShutdownCommand",
     "ShutdownResponse",
+    "SpawnWorkersMessage",
+    "SpawnWorkersResponseMessage",
+    "StartWorkersCommand",
+    "StartWorkersData",
+    "StartWorkersResponse",
     "StatusMessage",
+    "StopAllWorkersMessage",
+    "StopAllWorkersResponseMessage",
+    "StopWorkersCommand",
+    "StopWorkersData",
+    "StopWorkersMessage",
+    "StopWorkersResponse",
+    "StopWorkersResponseMessage",
     "WorkerHealthMessage",
 ]

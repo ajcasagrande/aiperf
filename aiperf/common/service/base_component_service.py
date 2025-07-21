@@ -1,8 +1,13 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+import asyncio
+import os
+import signal
+
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.enums import (
+    CommandType,
     ServiceState,
 )
 from aiperf.common.enums.message_enums import CommandType
@@ -111,7 +116,10 @@ class BaseComponentService(BaseService):
 
             elif message.message_type == CommandType.SHUTDOWN:
                 self.debug(lambda: f"{self.service_id}: Received shutdown command")
-                await self.shutdown()
+                asyncio.create_task(self.shutdown())
+
+                # TODO: This is a hack to ensure that the service is killed
+                os.kill(os.getpid(), signal.SIGKILL)
 
             elif message.message_type == CommandType.PROFILE_CONFIGURE:
                 response_data = await self.run_hooks(AIPerfHook.ON_CONFIGURE, message)

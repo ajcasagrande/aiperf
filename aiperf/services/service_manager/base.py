@@ -90,6 +90,21 @@ class BaseServiceManager(AIPerfLoggerMixin, ABC):
         """Handle a message from a service."""
         pass
 
+    @abstractmethod
+    async def spawn_workers(self, worker_count: int) -> None:
+        """Spawn a number of workers."""
+        pass
+
+    @abstractmethod
+    async def stop_workers(self, worker_count: int) -> None:
+        """Stop a number of workers."""
+        pass
+
+    @abstractmethod
+    async def stop_all_workers(self) -> None:
+        """Stop all workers."""
+        pass
+
 
 class ServiceManagerFactory(FactoryMixin[ServiceRunType, BaseServiceManager]):
     """Factory for creating service managers for different service run types.

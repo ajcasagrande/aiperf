@@ -71,6 +71,7 @@ class AIPerfLifecycleMixin(HooksMixin, AsyncTaskManagerMixin, AIPerfLoggerMixin)
                 await asyncio.sleep(100_000)
         except asyncio.CancelledError:
             self.info("Lifecycle cancelled by user")
+            raise SystemExit(0)
 
             try:
                 # Run all the stop hooks

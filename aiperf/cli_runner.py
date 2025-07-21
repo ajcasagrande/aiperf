@@ -1,5 +1,8 @@
 #  SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #  SPDX-License-Identifier: Apache-2.0
+import os
+import signal
+
 from aiperf.common.config import ServiceConfig, UserConfig
 
 
@@ -43,6 +46,8 @@ def run_system_controller(
         raise
     finally:
         _logger.info("AIPerf System exited")
+        os.kill(os.getpid(), signal.SIGKILL)
+        raise SystemExit(0)
 
 
 def warn_command_not_implemented(command: str) -> None:

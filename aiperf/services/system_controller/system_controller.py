@@ -27,7 +27,10 @@ from aiperf.common.messages import (
     ProfileResultsMessage,
     RecordsProcessingStatsMessage,
     RegistrationMessage,
+    SpawnWorkersMessage,
     StatusMessage,
+    StopAllWorkersMessage,
+    StopWorkersMessage,
 )
 from aiperf.common.messages.commands import (
     ProcessRecordsCommand,
@@ -240,8 +243,8 @@ class SystemController(
                 data=None,
             )
         )
-        self.stop_event.set()
-        await self.shutdown()
+        # self.stop_event.set()
+        # await self.shutdown()
         self.info("Shutting down all services")
         try:
             await self.service_manager.shutdown_all_services()
@@ -315,6 +318,25 @@ class SystemController(
             )
             if self.profile_runner:
                 await self.profile_runner.profile_completed()
+
+    @on_message(MessageType.SPAWN_WORKERS)
+    async def _process_spawn_workers_message(
+        self, message: SpawnWorkersMessage
+    ) -> None:
+        """Process a spawn workers message."""
+        await self.service_manager.spawn_workers(message.worker_count)
+
+    @on_message(MessageType.STOP_WORKERS)
+    async def _process_stop_workers_message(self, message: StopWorkersMessage) -> None:
+        """Process a stop workers message."""
+        await self.service_manager.stop_workers(message.worker_count)
+
+    @on_message(MessageType.STOP_ALL_WORKERS)
+    async def _process_stop_all_workers_message(
+        self, message: StopAllWorkersMessage
+    ) -> None:
+        """Process a stop all workers message."""
+        await self.service_manager.stop_all_workers()
 
     @on_message(MessageType.PROFILE_RESULTS)
     async def _process_profile_results_message(
