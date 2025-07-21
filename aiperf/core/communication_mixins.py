@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-import asyncio
 from collections.abc import Callable, Mapping
 from typing import cast
 
@@ -17,6 +16,7 @@ from aiperf.common.messages.commands import CommandMessage, CommandResponseMessa
 from aiperf.common.messages.message import Message
 from aiperf.common.models.error_models import ErrorDetails
 from aiperf.common.types import MessageTypeT
+from aiperf.core.decorators import attrs
 from aiperf.core.lifecycle import LifecycleMixin
 
 
@@ -51,9 +51,8 @@ class MessageBusMixin(LifecycleMixin):
         )
 
         # Handler discovery and management
-        self._message_handlers: dict[MessageTypeT, list[Callable]] = {}
-        self._command_handlers: dict[MessageTypeT, list[Callable]] = {}
-        self._command_responses: dict[str, asyncio.Future] = {}
+        setattr(self, attrs.message_handler_types, {})
+        setattr(self, attrs.command_handler_types, {})
 
         # Pass through the comms and clients to base classes
         super().__init__(
@@ -75,24 +74,28 @@ class MessageBusMixin(LifecycleMixin):
                 continue
 
             # Message handlers (@message_handler)
-            if hasattr(method, "_message_types"):
-                for message_type in method._message_types:
+            if hasattr(method, attrs.message_handler_types):
+                for message_type in getattr(method, attrs.message_handler_types):
                     self._register_message_handler(message_type, method)
 
             # Command handlers (@command_handler)
-            if hasattr(method, "_command_types"):
-                for command_type in method._command_types:
+            if hasattr(method, attrs.command_handler_types):
+                for command_type in getattr(method, attrs.command_handler_types):
                     self._register_command_handler(command_type, method)
 
     def _register_message_handler(
         self, message_type: MessageTypeT, handler: Callable
     ) -> None:
-        self._message_handlers.setdefault(message_type, []).append(handler)
+        getattr(self, attrs.message_handler_types).setdefault(message_type, []).append(
+            handler
+        )
 
     def _register_command_handler(
         self, command_type: CommandType, handler: Callable
     ) -> None:
-        self._command_handlers.setdefault(command_type, []).append(handler)
+        getattr(self, attrs.command_handler_types).setdefault(command_type, []).append(
+            handler
+        )
 
     ###########################################################################
     # Lifecycle Implementation
@@ -101,10 +104,10 @@ class MessageBusMixin(LifecycleMixin):
     async def _initialize(self) -> None:
         await super()._initialize()
         self._discover_handlers()
-        await self.subscribe_all(self._message_handlers)
+        await self.subscribe_all(getattr(self, attrs.message_handler_types))
         # For commands, we forward to our internal handler for filtering
-        command_handlers_dict = {}
-        for typ, handlers in self._command_handlers.items():
+        command_handlers_dict: dict[MessageTypeT, list[Callable]] = {}
+        for typ, handlers in getattr(self, attrs.command_handler_types).items():
             command_handlers_dict[typ] = [
                 self._create_command_handler(handler) for handler in handlers
             ]

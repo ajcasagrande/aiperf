@@ -64,7 +64,7 @@ def message_handler(*message_types: MessageType | MessageTypeT | str) -> Callabl
 
     def decorator(func: Callable) -> Callable:
         # Store the message types for discovery
-        func._message_types = list(message_types)  # type: ignore
+        setattr(func, attrs.message_handler_types, list(message_types))
         return func
 
     return decorator
@@ -105,14 +105,17 @@ def command_handler(*command_types: CommandType | MessageTypeT | str) -> Callabl
 
     def decorator(func: Callable) -> Callable:
         # Store the command types for discovery
-        func._command_types = list(command_types)  # type: ignore
+        setattr(func, attrs.command_handler_types, list(command_types))
         return func
 
     return decorator
 
 
 def background_task(
-    interval: float, start_immediately: bool = True, stop_on_error: bool = False
+    interval: float | None = None,
+    immediate: bool = False,
+    stop_on_error: bool = False,
+    run_once: bool = False,
 ) -> Callable:
     """
     Decorator to mark a method as a background task with automatic management.
@@ -123,39 +126,31 @@ def background_task(
 
     Args:
         interval: Time between task executions in seconds
-        start_immediately: If True, run the task immediately on service start
+        immediate: If True, run the task immediately on start, otherwise wait for the interval first
         stop_on_error: If True, stop the task on any exception (default: log and continue)
-
-    Example:
-        @background_task(interval=30.0)
-        async def health_check(self):
-            # This runs every 30 seconds automatically
-            health = await self.check_system_health()
-            await self.publish(MessageType.SERVICE_HEALTH, health)
-
-        @background_task(interval=5.0, start_immediately=False)
-        async def periodic_cleanup(self):
-            # This runs every 5 seconds but waits 5 seconds before first run
-            await self.cleanup_old_data()
-
-        @background_task(interval=60.0, stop_on_error=True)
-        def send_metrics(self):  # Can be sync or async
-            # This stops the task if any exception occurs
-            metrics = self.gather_metrics()
-            self.send_to_monitoring(metrics)
+        run_once: If True, run the task once and then stop (default: False)
     """
 
     def decorator(func: Callable) -> Callable:
         # Store task configuration for discovery
-        func._background_task_interval = interval  # type: ignore
-        func._background_task_start_immediately = start_immediately  # type: ignore
-        func._background_task_stop_on_error = stop_on_error  # type: ignore
+        setattr(func, attrs.is_background_task, True)
+        setattr(func, attrs.background_task_interval, interval)
+        setattr(func, attrs.background_task_immediate, immediate)
+        setattr(func, attrs.background_task_stop_on_error, stop_on_error)
+        setattr(func, attrs.background_task_run_once, run_once)
         return func
 
     return decorator
 
 
-# Legacy aliases for backward compatibility
-message_types = message_handler
-command_types = command_handler
-periodic_task = background_task
+class attrs:
+    """Attributes for the decorators."""
+
+    is_background_task = "_is_background_task"
+    background_task_interval = "_background_task_interval"
+    background_task_immediate = "_background_task_immediate"
+    background_task_stop_on_error = "_background_task_stop_on_error"
+    background_task_run_once = "_background_task_run_once"
+
+    message_handler_types = "_message_handler_types"
+    command_handler_types = "_command_handler_types"
