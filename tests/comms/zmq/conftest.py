@@ -312,7 +312,7 @@ def address_type_combinations() -> list[tuple[CommunicationClientAddressType, st
             CommunicationClientAddressType.CREDIT_RETURN,
             "inproc://test_addr_credit_return",
         ),
-        (CommunicationClientAddressType.RECORDS, "inproc://test_addr_records"),
+        (CommunicationClientAddressType.PARSED_INFERENCE, "inproc://test_addr_records"),
     ]
 
 

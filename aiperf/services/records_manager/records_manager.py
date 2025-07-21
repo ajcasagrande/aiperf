@@ -50,7 +50,7 @@ class RecordsManager(BaseComponentService):
 
         self.response_results_client: PullClientProtocol = (
             self.comms.create_pull_client(
-                CommunicationClientAddressType.RECORDS,
+                CommunicationClientAddressType.PARSED_INFERENCE,
                 bind=True,
             )
         )

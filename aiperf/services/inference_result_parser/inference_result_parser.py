@@ -61,7 +61,7 @@ class InferenceResultParser(BaseComponentService):
             )
         )
         self.records_push_client: PushClientProtocol = self.comms.create_push_client(
-            CommunicationClientAddressType.RECORDS,
+            CommunicationClientAddressType.PARSED_INFERENCE,
         )
         self.conversation_request_client: RequestClientProtocol = (
             self.comms.create_request_client(

@@ -43,8 +43,8 @@ class BaseZMQCommunicationConfig(BaseModel, ABC):
 
     @property
     @abstractmethod
-    def records_push_pull_address(self) -> str:
-        """Get the inference push/pull address based on protocol configuration."""
+    def parsed_inference_push_pull_address(self) -> str:
+        """Get the parsed inference push/pull address based on protocol configuration."""
 
     @property
     @abstractmethod
@@ -65,7 +65,7 @@ class BaseZMQCommunicationConfig(BaseModel, ABC):
             CommunicationClientAddressType.DATASET_MANAGER_PROXY_BACKEND: self.dataset_manager_proxy_config.backend_address,
             CommunicationClientAddressType.CREDIT_DROP: self.credit_drop_address,
             CommunicationClientAddressType.CREDIT_RETURN: self.credit_return_address,
-            CommunicationClientAddressType.RECORDS: self.records_push_pull_address,
+            CommunicationClientAddressType.PARSED_INFERENCE: self.parsed_inference_push_pull_address,
             CommunicationClientAddressType.RAW_INFERENCE_PROXY_FRONTEND: self.raw_inference_proxy_config.frontend_address,
             CommunicationClientAddressType.RAW_INFERENCE_PROXY_BACKEND: self.raw_inference_proxy_config.backend_address,
         }
@@ -161,8 +161,8 @@ class ZMQTCPConfig(BaseZMQCommunicationConfig):
         default="0.0.0.0",
         description="Host address for TCP connections",
     )
-    records_push_pull_port: int = Field(
-        default=5557, description="Port for inference push/pull messages"
+    parsed_inference_push_pull_port: int = Field(
+        default=5557, description="Port for parsed inference push/pull messages"
     )
     credit_drop_port: int = Field(
         default=5562, description="Port for credit drop operations"
@@ -193,9 +193,9 @@ class ZMQTCPConfig(BaseZMQCommunicationConfig):
     )
 
     @property
-    def records_push_pull_address(self) -> str:
-        """Get the records push/pull address based on protocol configuration."""
-        return f"tcp://{self.host}:{self.records_push_pull_port}"
+    def parsed_inference_push_pull_address(self) -> str:
+        """Get the parsed inference push/pull address based on protocol configuration."""
+        return f"tcp://{self.host}:{self.parsed_inference_push_pull_port}"
 
     @property
     def credit_drop_address(self) -> str:
@@ -226,9 +226,9 @@ class ZMQIPCConfig(BaseZMQCommunicationConfig):
     )
 
     @property
-    def records_push_pull_address(self) -> str:
-        """Get the records push/pull address based on protocol configuration."""
-        return f"ipc://{self.path}/records_push_pull.ipc"
+    def parsed_inference_push_pull_address(self) -> str:
+        """Get the parsed inference push/pull address based on protocol configuration."""
+        return f"ipc://{self.path}/parsed_inference_push_pull.ipc"
 
     @property
     def credit_drop_address(self) -> str:

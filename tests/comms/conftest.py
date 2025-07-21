@@ -219,7 +219,7 @@ def sample_addresses() -> dict[CommunicationClientAddressType, str]:
         CommunicationClientAddressType.EVENT_BUS_PROXY_BACKEND: "inproc://test_proxy_backend",
         CommunicationClientAddressType.CREDIT_DROP: "inproc://test_credit_drop",
         CommunicationClientAddressType.CREDIT_RETURN: "inproc://test_credit_return",
-        CommunicationClientAddressType.RECORDS: "inproc://test_records",
+        CommunicationClientAddressType.PARSED_INFERENCE: "inproc://test_records",
     }
 
 

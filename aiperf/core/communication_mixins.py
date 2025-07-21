@@ -31,7 +31,10 @@ from aiperf.common.messages.dataset_messages import (
     DatasetTimingRequest,
     DatasetTimingResponse,
 )
-from aiperf.common.messages.inference_messages import InferenceResultsMessage
+from aiperf.common.messages.inference_messages import (
+    InferenceResultsMessage,
+    ParsedInferenceResultsMessage,
+)
 from aiperf.common.models.error_models import ErrorDetails
 from aiperf.common.types import (
     Any,
@@ -298,10 +301,12 @@ class PullHandlerMixin(CommunicationMixin):
         self,
         comms: BaseCommunication,
         pull_client_address_type: CommunicationClientAddressType,
+        pull_client_bind: bool = False,
         **kwargs,
     ) -> None:
         self.pull_client: PullClientProtocol = comms.create_pull_client(
-            pull_client_address_type
+            pull_client_address_type,
+            bind=pull_client_bind,  # type: ignore
         )  # type: ignore
         super().__init__(comms=comms, pull_client=self.pull_client, **kwargs)
 
@@ -337,23 +342,13 @@ class PullHandlerMixin(CommunicationMixin):
                 )
 
 
-class RawInferencePullHandlerMixin(PullHandlerMixin):
-    """Mixin that provides an interface to handle raw inference messages."""
-
-    def __init__(self, comms: BaseCommunication, **kwargs) -> None:
-        super().__init__(
-            comms=comms,
-            pull_client_address_type=CommunicationClientAddressType.RAW_INFERENCE_PROXY_BACKEND,
-            **kwargs,
-        )
-
-
 class CreditDropPushClientMixin(CommunicationMixin):
     """Mixin that provides an interface to handle credit drop messages."""
 
     def __init__(self, comms: BaseCommunication, **kwargs) -> None:
         self.credit_drop_client: PushClientProtocol = comms.create_push_client(
-            CommunicationClientAddressType.CREDIT_DROP
+            CommunicationClientAddressType.CREDIT_DROP,
+            bind=True,  # type: ignore
         )  # type: ignore
         super().__init__(
             comms=comms, credit_drop_client=self.credit_drop_client, **kwargs
@@ -361,6 +356,18 @@ class CreditDropPushClientMixin(CommunicationMixin):
 
     async def push_credit_drop(self, message: CreditDropMessage) -> None:
         await self.credit_drop_client.push(message)
+
+
+class CreditDropPullHandlerMixin(PullHandlerMixin):
+    """Mixin that provides an interface to handle receiving credit drop messages from the TimingManager."""
+
+    def __init__(self, comms: BaseCommunication, **kwargs) -> None:
+        super().__init__(
+            comms=comms,
+            pull_client_address_type=CommunicationClientAddressType.CREDIT_DROP,
+            pull_client_bind=True,
+            **kwargs,
+        )
 
 
 class CreditReturnPushClientMixin(CommunicationMixin):
@@ -378,8 +385,20 @@ class CreditReturnPushClientMixin(CommunicationMixin):
         await self.credit_return_client.push(message)
 
 
+class CreditReturnPullHandlerMixin(PullHandlerMixin):
+    """Mixin that provides an interface to handle receiving credit return messages from the Worker."""
+
+    def __init__(self, comms: BaseCommunication, **kwargs) -> None:
+        super().__init__(
+            comms=comms,
+            pull_client_address_type=CommunicationClientAddressType.CREDIT_RETURN,
+            pull_client_bind=True,
+            **kwargs,
+        )
+
+
 class RawInferencePushClientMixin(CommunicationMixin):
-    """Mixin that provides an interface to handle raw inference messages."""
+    """Mixin that provides an interface to push raw inference messages to the InferenceParser."""
 
     def __init__(self, comms: BaseCommunication, **kwargs) -> None:
         self.raw_inference_push_client: PushClientProtocol = comms.create_push_client(
@@ -393,3 +412,45 @@ class RawInferencePushClientMixin(CommunicationMixin):
 
     async def push_inference_results(self, message: InferenceResultsMessage) -> None:
         await self.raw_inference_push_client.push(message)
+
+
+class RawInferencePullHandlerMixin(PullHandlerMixin):
+    """Mixin that provides an interface to handle receiving raw inference messages from the Worker."""
+
+    def __init__(self, comms: BaseCommunication, **kwargs) -> None:
+        super().__init__(
+            comms=comms,
+            pull_client_address_type=CommunicationClientAddressType.RAW_INFERENCE_PROXY_BACKEND,
+            **kwargs,
+        )
+
+
+class ParsedInferencePushClientMixin(CommunicationMixin):
+    """Mixin that provides an interface to push parsed inference messages to the RecordManager."""
+
+    def __init__(self, comms: BaseCommunication, **kwargs) -> None:
+        self.parsed_inference_push_client: PushClientProtocol = (
+            comms.create_push_client(CommunicationClientAddressType.PARSED_INFERENCE)
+        )  # type: ignore
+        super().__init__(
+            comms=comms,
+            parsed_inference_push_client=self.parsed_inference_push_client,
+            **kwargs,
+        )
+
+    async def push_parsed_inference_results(
+        self, message: ParsedInferenceResultsMessage
+    ) -> None:
+        await self.parsed_inference_push_client.push(message)
+
+
+class ParsedInferencePullHandlerMixin(PullHandlerMixin):
+    """Mixin that provides an interface to handle receiving parsed inference messages from the InferenceParser."""
+
+    def __init__(self, comms: BaseCommunication, **kwargs) -> None:
+        super().__init__(
+            comms=comms,
+            pull_client_address_type=CommunicationClientAddressType.PARSED_INFERENCE,
+            pull_client_bind=True,
+            **kwargs,
+        )

@@ -41,8 +41,8 @@ class CommunicationClientAddressType(CaseInsensitiveStrEnum):
     CREDIT_RETURN = "credit_return"
     """Address to send CreditReturn messages from the Worker to the TimingManager."""
 
-    RECORDS = "records"
-    """Address to send parsed records from InferenceParser to RecordManager."""
+    PARSED_INFERENCE = "parsed_inference"
+    """Address to send parsed inference messages from InferenceParser to RecordManager."""
 
     DATASET_MANAGER_PROXY_FRONTEND = "dataset_manager_proxy_frontend"
     """Frontend address for sending requests to the DatasetManager."""
