@@ -146,61 +146,36 @@ class MessageType(CaseInsensitiveStrEnum):
     PARSED_INFERENCE_RESULTS = "parsed_inference_results"
     """A message containing parsed inference results from a post processor."""
 
+    ########################################
+    # Command messages
+    ########################################
 
-class CommandType(CaseInsensitiveStrEnum):
-    """The various types of command messages that can be sent between services."""
+    COMMAND = "command"
+    """A message sent to request that a service perform an action."""
+
+    COMMAND_RESPONSE = "command_response"
+    """A message sent to respond to a command request."""
 
     PROCESS_RECORDS = "process_records"
     """A message sent to request that a service process records."""
 
-    PROCESS_RECORDS_RESPONSE = "process_records_response"
-    """A message sent to respond to a process records command."""
-
     PROFILE_CONFIGURE = "profile_configure"
     """A message sent to configure a profile run."""
-
-    PROFILE_CONFIGURE_RESPONSE = "profile_configure_response"
-    """A message sent to respond to a profile configure request."""
 
     PROFILE_START = "profile_start"
     """A message sent to start a profile run."""
 
-    PROFILE_START_RESPONSE = "profile_start_response"
-    """A message sent to respond to a profile start request."""
-
     PROFILE_CANCEL = "profile_cancel"
     """A message sent to cancel a profile run."""
-
-    PROFILE_CANCEL_RESPONSE = "profile_cancel_response"
-    """A message sent to respond to a profile cancel request."""
 
     PROFILE_STOP = "profile_stop"
     """A message sent to stop a profile run."""
 
-    PROFILE_STOP_RESPONSE = "profile_stop_response"
-    """A message sent to respond to a profile stop request."""
-
     SHUTDOWN = "shutdown"
     """A message sent by the SystemController to a service to request that it shutdown."""
-
-    SHUTDOWN_RESPONSE = "shutdown_response"
-    """A message sent by a service to the SystemController to respond to a shutdown request."""
 
     START_WORKERS = "start_workers"
     """A message sent from the WorkerManager to the SystemController to start workers."""
 
-    START_WORKERS_RESPONSE = "start_workers_response"
-    """A message sent to respond to a start workers request."""
-
     STOP_WORKERS = "stop_workers"
     """A message sent from the WorkerManager to the SystemController to stop workers."""
-
-    STOP_WORKERS_RESPONSE = "stop_workers_response"
-    """A message sent to respond to a stop workers request."""
-
-
-def determine_message_type(value: object) -> MessageType | CommandType:
-    try:
-        return MessageType(value)
-    except ValueError:
-        return CommandType(value)

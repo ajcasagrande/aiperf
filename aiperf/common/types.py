@@ -4,20 +4,27 @@
 from collections.abc import Callable, Coroutine
 from typing import TYPE_CHECKING, Any, TypeVar
 
-from aiperf.common.enums.message_enums import CommandType, MessageType
+from aiperf.common.enums.message_enums import MessageType
 
 if TYPE_CHECKING:
     from pydantic import BaseModel
 
-    from aiperf.common.messages.credit_messages import CreditDropMessage
-    from aiperf.common.messages.message import Message
-    from aiperf.common.models.record_models import SSEMessage
+    from aiperf.common.messages import (
+        CommandMessage,
+        CommandResponseMessage,
+        CreditDropMessage,
+        Message,
+    )
+    from aiperf.common.models import SSEMessage
 
 
 BaseModelT = TypeVar("BaseModelT", bound="BaseModel")
 
 MessageT = TypeVar("MessageT", bound="Message")
 MessageOutputT = TypeVar("MessageOutputT", bound="Message")
+
+CommandMessageT = TypeVar("CommandMessageT", bound="CommandMessage")
+CommandResponseT = TypeVar("CommandResponseT", bound="CommandResponseMessage")
 
 RequestInputT = TypeVar("RequestInputT", bound=Any, contravariant=True)
 RequestOutputT = TypeVar("RequestOutputT", bound=Any, covariant=True)
@@ -40,4 +47,4 @@ CreditDropHandlerT = Callable[["CreditDropMessage"], CoroutineT]
 # Type callables that return a string.
 StrFuncT = Callable[..., str]
 
-MessageTypeT = MessageType | CommandType
+MessageTypeT = MessageType | str

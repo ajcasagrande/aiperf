@@ -6,7 +6,8 @@ from abc import ABC
 from pydantic import BaseModel, Field, SerializeAsAny
 
 from aiperf.common.config.user_config import UserConfig
-from aiperf.common.enums import CommandType, ServiceType
+from aiperf.common.enums import ServiceType
+from aiperf.common.enums.message_enums import MessageType
 from aiperf.common.messages.message import AutoRequestID, RequiresRequestID
 from aiperf.common.messages.service_messages import BaseServiceMessage
 from aiperf.common.models import ErrorDetails
@@ -42,10 +43,7 @@ class CommandMessage(BaseServiceMessage, AutoRequestID, ABC):  # type: ignore
 class CommandResponseMessage(BaseServiceMessage, RequiresRequestID, ABC):  # type: ignore
     """Base class for all command response messages."""
 
-    message_type: MessageTypeT = Field(
-        ...,
-        description="The type of the message. Must be set in the subclass.",
-    )
+    message_type: MessageTypeT = MessageType.COMMAND_RESPONSE
     origin_service_id: str = Field(
         ..., description="The ID of the service that sent the request"
     )
@@ -63,7 +61,7 @@ class ProcessRecordsCommand(CommandMessage):
     that it process records.
     """
 
-    message_type: MessageTypeT = CommandType.PROCESS_RECORDS
+    message_type: MessageTypeT = MessageType.PROCESS_RECORDS
 
     cancelled: bool = Field(
         default=False,
@@ -71,52 +69,28 @@ class ProcessRecordsCommand(CommandMessage):
     )
 
 
-class ProcessRecordsResponse(CommandResponseMessage):
-    message_type: MessageTypeT = CommandType.PROCESS_RECORDS_RESPONSE
-
-
 class ShutdownCommand(CommandMessage):
-    message_type: MessageTypeT = CommandType.SHUTDOWN
-
-
-class ShutdownResponse(CommandResponseMessage):
-    message_type: MessageTypeT = CommandType.SHUTDOWN_RESPONSE
+    message_type: MessageTypeT = MessageType.SHUTDOWN
 
 
 class ProfileConfigureCommand(CommandMessage):
-    message_type: MessageTypeT = CommandType.PROFILE_CONFIGURE
+    message_type: MessageTypeT = MessageType.PROFILE_CONFIGURE
     data: UserConfig = Field(  # type: ignore[override]
         ...,
         description="The configuration data for the profile",
     )
 
 
-class ProfileConfigureResponse(CommandResponseMessage):
-    message_type: MessageTypeT = CommandType.PROFILE_CONFIGURE_RESPONSE
-
-
 class ProfileStartCommand(CommandMessage):
-    message_type: MessageTypeT = CommandType.PROFILE_START
-
-
-class ProfileStartResponse(CommandResponseMessage):
-    message_type: MessageTypeT = CommandType.PROFILE_START_RESPONSE
+    message_type: MessageTypeT = MessageType.PROFILE_START
 
 
 class ProfileStopCommand(CommandMessage):
-    message_type: MessageTypeT = CommandType.PROFILE_STOP
-
-
-class ProfileStopResponse(CommandResponseMessage):
-    message_type: MessageTypeT = CommandType.PROFILE_STOP_RESPONSE
+    message_type: MessageTypeT = MessageType.PROFILE_STOP
 
 
 class ProfileCancelCommand(CommandMessage):
-    message_type: MessageTypeT = CommandType.PROFILE_CANCEL
-
-
-class ProfileCancelResponse(CommandResponseMessage):
-    message_type: MessageTypeT = CommandType.PROFILE_CANCEL_RESPONSE
+    message_type: MessageTypeT = MessageType.PROFILE_CANCEL
 
 
 class StartWorkersData(BaseModel):
@@ -129,16 +103,12 @@ class StartWorkersData(BaseModel):
 
 
 class StartWorkersCommand(CommandMessage):
-    message_type: MessageTypeT = CommandType.START_WORKERS
+    message_type: MessageTypeT = MessageType.START_WORKERS
 
     data: StartWorkersData = Field(  # type: ignore[override]
         ...,
         description="The data for the start workers command",
     )
-
-
-class StartWorkersResponse(CommandResponseMessage):
-    message_type: MessageTypeT = CommandType.START_WORKERS_RESPONSE
 
 
 class StopWorkersData(BaseModel):
@@ -151,13 +121,9 @@ class StopWorkersData(BaseModel):
 
 
 class StopWorkersCommand(CommandMessage):
-    message_type: MessageTypeT = CommandType.STOP_WORKERS
+    message_type: MessageTypeT = MessageType.STOP_WORKERS
 
     data: StopWorkersData = Field(  # type: ignore[override]
         ...,
         description="The data for the stop workers command",
     )
-
-
-class StopWorkersResponse(CommandResponseMessage):
-    message_type: MessageTypeT = CommandType.STOP_WORKERS_RESPONSE

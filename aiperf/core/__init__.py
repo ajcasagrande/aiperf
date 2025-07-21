@@ -28,17 +28,18 @@ from .background_tasks import BackgroundTasksMixin
 
 # Complete base service
 from .base_service import BaseService
-from .communication_mixins import CommunicationMixin, MessageBusMixin
+from .communication_mixins import (
+    CommunicationMixin,
+    DatasetRequestHandler,
+    MessageBusMixin,
+)
 
 # Decorators for dynamic behavior
 from .decorators import (
     background_task,
     command_handler,
-    command_types,
     message_handler,
-    # Legacy aliases
-    message_types,
-    periodic_task,
+    request_handler,
 )
 from .lifecycle import LifecycleMixin, LifecycleState
 
@@ -53,9 +54,6 @@ from .plugins import (
     PluginMetadata,
 )
 
-# Profile and service lifecycle
-from .profile_lifecycle import ProfileLifecycle
-
 __all__ = [
     # Core mixins
     "LifecycleMixin",
@@ -63,7 +61,7 @@ __all__ = [
     "CommunicationMixin",
     "MessageBusMixin",
     "BackgroundTasksMixin",
-    "ProfileLifecycle",
+    "DatasetRequestHandler",
     # Base service
     "BaseService",
     # Plugin system
@@ -78,7 +76,5 @@ __all__ = [
     "message_handler",
     "command_handler",
     "background_task",
-    "message_types",
-    "command_types",
-    "periodic_task",
+    "request_handler",
 ]

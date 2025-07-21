@@ -8,11 +8,12 @@ import zmq.asyncio
 
 from aiperf.common.comms.base_comms import CommunicationClientFactory
 from aiperf.common.comms.zmq.zmq_base_client import BaseZMQClient
-from aiperf.common.enums import CommunicationClientType, MessageType
+from aiperf.common.enums import CommunicationClientType
 from aiperf.common.hooks import aiperf_task, on_cleanup, on_stop
 from aiperf.common.messages import ErrorMessage, Message
 from aiperf.common.mixins import AsyncTaskManagerMixin
 from aiperf.common.models import ErrorDetails
+from aiperf.common.types import MessageTypeT
 
 
 @CommunicationClientFactory.register(CommunicationClientType.REPLY)
@@ -69,8 +70,8 @@ class ZMQRouterReplyClient(BaseZMQClient, AsyncTaskManagerMixin):
         )
 
         self._request_handlers: dict[
-            MessageType,
-            tuple[str, Callable[[Message], Coroutine[Any, Any, Message | None]]],
+            MessageTypeT,
+            tuple[str, Callable[[Message], Coroutine[Any, Any, Message]]],
         ] = {}
         self._response_futures: dict[str, asyncio.Future[Message | None]] = {}
 
@@ -85,12 +86,12 @@ class ZMQRouterReplyClient(BaseZMQClient, AsyncTaskManagerMixin):
     def register_request_handler(
         self,
         service_id: str,
-        message_type: MessageType,
-        handler: Callable[[Message], Coroutine[Any, Any, Message | None]],
+        message_type: MessageTypeT,
+        handler: Callable[[Message], Coroutine[Any, Any, Message]],
     ) -> None:
         """Register a request handler. Anytime a request is received that matches the
         message type, the handler will be called. The handler should return a response
-        message. If the handler returns None, the request will be ignored.
+        message.
 
         Note that there is a limit of 1 to 1 mapping between message type and handler.
 

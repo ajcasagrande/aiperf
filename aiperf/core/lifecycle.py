@@ -2,10 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import asyncio
+import contextlib
 import uuid
-from contextlib import suppress
 
-from aiperf.common.constants import DEFAULT_LIFECYCLE_SHUTDOWN_TIMEOUT_SECONDS
 from aiperf.common.enums.base_enums import CaseInsensitiveStrEnum
 from aiperf.common.exceptions import InvalidStateError
 from aiperf.common.mixins.aiperf_logger_mixin import AIPerfLoggerMixin
@@ -34,7 +33,6 @@ class LifecycleMixin(AIPerfLoggerMixin, AsyncTaskManagerMixin):
         self.initialized_event = asyncio.Event()
         self.started_event = asyncio.Event()
         self.stopped_event = asyncio.Event()  # set on stop or failure
-        self.lifecycle_task: asyncio.Task | None = None  # task that runs the lifecycle
         super().__init__(logger_name=self.id, **kwargs)
 
     ###########################################################################
@@ -51,7 +49,7 @@ class LifecycleMixin(AIPerfLoggerMixin, AsyncTaskManagerMixin):
             return
         old_state = self._state
         self._state = state
-        self.debug(lambda: f"State changed from {old_state} to {state}")
+        self.debug(lambda: f"State changed from {old_state} to {state} for {self}")
         self.execute_async(self._state_changed(old_state, state))
 
     ###########################################################################
@@ -81,31 +79,11 @@ class LifecycleMixin(AIPerfLoggerMixin, AsyncTaskManagerMixin):
             self.state = LifecycleState.RUNNING
             self.debug(lambda: f"Started {self}")
             self.started_event.set()
-            # Run this as a separate task so that we can cancel it if needed
-            self.lifecycle_task = asyncio.create_task(self._run_until_stopped())
         except Exception as e:
             self._fail(e)
 
-    async def stop(
-        self, timeout: float | None = DEFAULT_LIFECYCLE_SHUTDOWN_TIMEOUT_SECONDS
-    ) -> None:
-        """Cancel the lifecycle task and wait for it to complete."""
-        if self.lifecycle_task:
-            self.lifecycle_task.cancel()
-            await asyncio.wait_for(self.lifecycle_task, timeout=timeout)
-            self.lifecycle_task = None
-
-    async def _run_until_stopped(self) -> None:
-        try:
-            while True:
-                await asyncio.sleep(10)
-        except asyncio.CancelledError:
-            self.debug(lambda: f"Stop requested for {self}")
-        finally:
-            with suppress(asyncio.CancelledError):
-                await asyncio.shield(self._execute_stop())
-
-    async def _execute_stop(self) -> None:
+    async def stop(self) -> None:
+        """Stop the lifecycle."""
         if self.state != LifecycleState.RUNNING:
             self.warning(f"Attempted to stop {self} in state {self.state}")
             return
@@ -113,7 +91,8 @@ class LifecycleMixin(AIPerfLoggerMixin, AsyncTaskManagerMixin):
         self.state = LifecycleState.STOPPING
         self.debug(lambda: f"Stopping {self}")
         try:
-            await asyncio.shield(self._stop())
+            with contextlib.suppress(asyncio.CancelledError, asyncio.TimeoutError):
+                await asyncio.shield(self._stop())
             self.state = LifecycleState.STOPPED
             self.debug(lambda: f"Stopped {self}")
             self.stopped_event.set()
@@ -121,19 +100,12 @@ class LifecycleMixin(AIPerfLoggerMixin, AsyncTaskManagerMixin):
             self._fail(e)
 
     def _fail(self, e: Exception) -> None:
+        """Set the state to failed and raise an asyncio.CancelledError."""
+        # TODO: Should we actually raise an asyncio.CancelledError?
         self.state = LifecycleState.FAILED
         self.exception(f"Failed for {self}: {e}")
         self.stopped_event.set()
         raise asyncio.CancelledError(f"Failed for {self}: {e}") from e
-
-    async def wait_for_initialized(self) -> None:
-        await self.initialized_event.wait()
-
-    async def wait_for_started(self) -> None:
-        await self.started_event.wait()
-
-    async def wait_for_stopped(self) -> None:
-        await self.stopped_event.wait()
 
     ###########################################################################
     # Utility methods

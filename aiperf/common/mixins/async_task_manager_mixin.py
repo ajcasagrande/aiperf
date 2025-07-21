@@ -3,6 +3,7 @@
 
 import asyncio
 import contextlib
+import warnings
 from collections.abc import Coroutine
 from typing import Protocol, runtime_checkable
 
@@ -12,6 +13,12 @@ from aiperf.common.mixins.base_mixin import BaseMixin
 
 class AsyncTaskManagerMixin(BaseMixin):
     """Mixin to manage a set of async tasks."""
+
+    warnings.warn(
+        "AsyncTaskManagerMixin is deprecated and will be removed in a future version. Use the BackgroundTaskManager class instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
 
     def __init__(self, **kwargs):
         self.tasks: set[asyncio.Task] = set()

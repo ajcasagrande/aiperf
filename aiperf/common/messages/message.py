@@ -6,7 +6,6 @@ from typing import ClassVar
 
 from pydantic import Field
 
-from aiperf.common.enums import CommandType, MessageType
 from aiperf.common.models import ExcludeIfNoneModel
 from aiperf.common.pydantic_utils import exclude_if_none
 from aiperf.common.types import MessageTypeT
@@ -39,9 +38,7 @@ class Message(ExcludeIfNoneModel):
     are None. This is set by the @exclude_if_none decorator.
     """
 
-    _message_type_lookup: ClassVar[
-        dict[MessageType | CommandType, type["Message"]]
-    ] = {}
+    _message_type_lookup: ClassVar[dict[MessageTypeT, type["Message"]]] = {}
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -85,7 +82,7 @@ class Message(ExcludeIfNoneModel):
 
     @classmethod
     def from_json_with_type(
-        cls, message_type: MessageType | CommandType, json_str: str | bytes | bytearray
+        cls, message_type: MessageTypeT, json_str: str | bytes | bytearray
     ) -> "Message":
         """Deserialize a message from a JSON string with a specific message type.
         NOTE: This is more performant than :meth:`from_json` because it does not need to

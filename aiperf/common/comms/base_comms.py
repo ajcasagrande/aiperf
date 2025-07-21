@@ -9,7 +9,6 @@ from aiperf.common.enums import (
     CommunicationBackend,
     CommunicationClientAddressType,
     CommunicationClientType,
-    MessageType,
 )
 from aiperf.common.factories import FactoryMixin
 from aiperf.common.types import (
@@ -67,7 +66,7 @@ class PullClientProtocol(CommunicationClientProtocol, Protocol):
 
     async def register_pull_callback(
         self,
-        message_type: MessageType,
+        message_type: MessageTypeT,
         callback: MessageHandlerT,
         max_concurrency: int | None = None,
     ) -> None:
@@ -128,8 +127,8 @@ class ReplyClientProtocol(CommunicationClientProtocol, Protocol):
     def register_request_handler(
         self,
         service_id: str,
-        message_type: MessageType,
-        handler: Callable[[MessageT], Coroutine[Any, Any, MessageOutputT | None]],
+        message_type: MessageTypeT,
+        handler: Callable[[MessageT], Coroutine[Any, Any, MessageOutputT]],
     ) -> None:
         """Register a request handler for a message type. The handler will be called when
         a request is received for the given message type.
