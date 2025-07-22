@@ -3,12 +3,12 @@
 import asyncio
 import logging
 
-from aiperf.common.hooks import AIPerfHook, supports_hooks
+from aiperf.common.hooks import AIPerfHook, provides_hooks
 from aiperf.common.messages import Message
 from aiperf.common.mixins.hooks_mixin import HooksMixin
 
 
-@supports_hooks(
+@provides_hooks(
     AIPerfHook.ON_PROFILE_CONFIGURE,
     AIPerfHook.ON_PROFILE_START,
     AIPerfHook.ON_PROFILE_STOP,

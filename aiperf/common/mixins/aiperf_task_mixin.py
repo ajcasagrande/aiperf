@@ -5,17 +5,16 @@ import inspect
 
 from aiperf.common.hooks import (
     AIPerfHook,
-    AIPerfTaskHook,
     on_init,
     on_stop,
-    supports_hooks,
+    provides_hooks,
 )
 from aiperf.common.mixins.async_task_manager_mixin import AsyncTaskManagerMixin
 from aiperf.common.mixins.hooks_mixin import HooksMixin
 
 
-@supports_hooks(
-    AIPerfTaskHook.AIPERF_TASK,
+@provides_hooks(
+    AIPerfHook.AIPERF_TASK,
     AIPerfHook.ON_INIT,
     AIPerfHook.ON_START,
     AIPerfHook.ON_STOP,
@@ -51,7 +50,7 @@ class AIPerfTaskMixin(HooksMixin, AsyncTaskManagerMixin):
     @on_init
     async def _start_tasks(self):
         """Start all the registered tasks in the background."""
-        for hook in self.get_hooks(AIPerfTaskHook.AIPERF_TASK):
+        for hook in self.get_hooks(AIPerfHook.AIPERF_TASK):
             if inspect.iscoroutinefunction(hook):
                 self.execute_async(hook())
             else:

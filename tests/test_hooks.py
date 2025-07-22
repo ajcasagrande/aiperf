@@ -10,12 +10,12 @@ from aiperf.common.hooks import (
     on_cleanup,
     on_init,
     on_start,
-    supports_hooks,
+    provides_hooks,
 )
 from aiperf.common.mixins import HooksMixin
 
 
-@supports_hooks(AIPerfHook.ON_INIT, AIPerfHook.ON_CLEANUP)
+@provides_hooks(AIPerfHook.ON_INIT, AIPerfHook.ON_CLEANUP)
 class BaseClass(HooksMixin):
     def __init__(self):
         super().__init__()
@@ -50,7 +50,7 @@ class MockHooks(BaseClass):
         self.add_called_hook(self.on_cleanup_1)
 
 
-@supports_hooks(AIPerfHook.ON_START)
+@provides_hooks(AIPerfHook.ON_START)
 class MockHooksInheritance(MockHooks):
     @on_init
     async def on_init_4(self):
@@ -159,7 +159,7 @@ def test_unsupported_hook_decorator():
     that does not support it.
     """
 
-    @supports_hooks(AIPerfHook.ON_CLEANUP)
+    @provides_hooks(AIPerfHook.ON_CLEANUP)
     class TestHooksUnsupported(MockHooks):
         @on_start
         async def _on_start_1(self):
@@ -285,7 +285,7 @@ async def test_inheritance_hook_override():
 def test_hook_ordering():
     """Test that the hook ordering is correct."""
 
-    @supports_hooks(AIPerfHook.ON_INIT)
+    @provides_hooks(AIPerfHook.ON_INIT)
     class Hooks(HooksMixin):
         @on_init
         async def on_init_2(self):

@@ -80,12 +80,20 @@ class ZMQSubClient(BaseZMQClient, AsyncTaskManagerMixin):
         await self.cancel_all_tasks()
 
     async def subscribe_all(
-        self, message_callback_map: dict[MessageType, Callable[[Message], Any]]
+        self,
+        message_callback_map: dict[
+            MessageType,
+            Callable[[Message], Any] | list[Callable[[Message], Any]],
+        ],
     ) -> None:
         """Subscribe to all message_types in the map."""
         await self._ensure_initialized()
-        for message_type, callback in message_callback_map.items():
-            await self._subscribe_internal(message_type, callback)
+        for message_type, callbacks in message_callback_map.items():
+            if isinstance(callbacks, list):
+                for callback in callbacks:
+                    await self._subscribe_internal(message_type, callback)
+            else:
+                await self._subscribe_internal(message_type, callbacks)
         # TODO: HACK: This is a hack to ensure that the subscriptions are registered
         # since we do not have any confirmation from the server that the subscriptions
         # are registered, yet.

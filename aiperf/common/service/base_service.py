@@ -18,15 +18,14 @@ from aiperf.common.exceptions import (
 )
 from aiperf.common.hooks import (
     AIPerfHook,
-    AIPerfTaskHook,
-    supports_hooks,
+    provides_hooks,
 )
 from aiperf.common.messages import Message
 from aiperf.common.mixins import AIPerfLoggerMixin, AIPerfTaskMixin
 from aiperf.common.service.base_service_interface import BaseServiceInterface
 
 
-@supports_hooks(
+@provides_hooks(
     AIPerfHook.ON_INIT,
     AIPerfHook.ON_RUN,
     AIPerfHook.ON_CONFIGURE,
@@ -34,7 +33,7 @@ from aiperf.common.service.base_service_interface import BaseServiceInterface
     AIPerfHook.ON_STOP,
     AIPerfHook.ON_CLEANUP,
     AIPerfHook.ON_SET_STATE,
-    AIPerfTaskHook.AIPERF_TASK,
+    AIPerfHook.AIPERF_TASK,
 )
 class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin, AIPerfLoggerMixin):
     """Base class for all AIPerf services, providing common functionality for

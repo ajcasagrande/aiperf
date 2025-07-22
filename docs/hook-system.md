@@ -57,11 +57,11 @@ Hooks can be defined and used by the same class
 
 ```python
 import asyncio
-from aiperf.common.hooks import supports_hooks, on_init, on_cleanup, AIPerfHook
+from aiperf.common.hooks import provides_hooks, on_init, on_cleanup, AIPerfHook
 from aiperf.common.mixins import HooksMixin
 
 
-@supports_hooks(AIPerfHook.ON_INIT, AIPerfHook.ON_CLEANUP)
+@provides_hooks(AIPerfHook.ON_INIT, AIPerfHook.ON_CLEANUP)
 class MyService(HooksMixin):
     def __init__(self):
         self.resources = []
@@ -102,11 +102,11 @@ class MyService(HooksMixin):
 Hooks can also be used to call additional functionality defined in subclasses. By calling `await self.run_hooks_async(AIPerfHook.ON_INIT)`, the base class is able to call all registered init functions no matter the subclass that defined it.
 
 ```python
-from aiperf.common.hooks import supports_hooks, on_init, on_cleanup, AIPerfHook
+from aiperf.common.hooks import provides_hooks, on_init, on_cleanup, AIPerfHook
 from aiperf.common.mixins import HooksMixin
 
 
-@supports_hooks(AIPerfHook.ON_INIT, AIPerfHook.ON_CLEANUP)
+@provides_hooks(AIPerfHook.ON_INIT, AIPerfHook.ON_CLEANUP)
 class MyHookService(HooksMixin):
     """Defines the top-level functionality that will call the registered hooks."""
 
@@ -159,7 +159,7 @@ sequenceDiagram
     participant HM as 🎯 HooksMixin
 
     Note over C, HM: Hook System Setup & Registration
-    MHS-->>HM: 📋 @supports_hooks(AIPerfHook.ON_INIT, ...)
+    MHS-->>HM: 📋 @provides_hooks(AIPerfHook.ON_INIT, ...)
     CS-->>HM: 🔗 @on_init (registration)
 
     Note over C, HM: Hook Execution Flow
@@ -196,13 +196,13 @@ sequenceDiagram
 ### Inheritance and Hook Composition
 
 ```python
-@supports_hooks(AIPerfHook.ON_INIT, AIPerfHook.ON_CLEANUP)
+@provides_hooks(AIPerfHook.ON_INIT, AIPerfHook.ON_CLEANUP)
 class BaseService(HooksMixin):
     @on_init
     async def base_init(self):
         self.logger.info("Base service initializing")
 
-@supports_hooks(AIPerfHook.ON_START)  # Adds ON_START to inherited hooks
+@provides_hooks(AIPerfHook.ON_START)  # Adds ON_START to inherited hooks
 class WebService(BaseService):
     @on_init
     async def web_init(self):
@@ -316,7 +316,7 @@ await self.run_hooks_async(AIPerfHook.ON_INIT)
 When a hook decorator is defined on a function within a class that does not support that hook type, an exception is raised. The reason for this is to cause traceability and prevent users from trying to hook into a functionality that is not implemented.
 
 ```python
-@supports_hooks(AIPerfHook.ON_INIT)
+@provides_hooks(AIPerfHook.ON_INIT)
 class LimitedService(HooksMixin):
     @on_start  # This will raise UnsupportedHookError
     async def invalid_hook(self):

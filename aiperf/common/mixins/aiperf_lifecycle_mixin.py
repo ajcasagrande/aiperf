@@ -7,19 +7,19 @@ from collections.abc import Callable
 from aiperf.common.exceptions import InvalidStateError
 from aiperf.common.hooks import (
     AIPerfHook,
-    AIPerfTaskHook,
+    AIPerfHookAttrs,
     on_start,
     on_stop,
-    supports_hooks,
+    provides_hooks,
 )
 from aiperf.common.mixins.aiperf_logger_mixin import AIPerfLoggerMixin
 from aiperf.common.mixins.async_task_manager_mixin import AsyncTaskManagerMixin
 from aiperf.common.mixins.hooks_mixin import HooksMixin
 
 
-@supports_hooks(
-    AIPerfTaskHook.AIPERF_TASK,
-    AIPerfTaskHook.AIPERF_AUTO_TASK,
+@provides_hooks(
+    AIPerfHook.AIPERF_TASK,
+    AIPerfHook.AIPERF_AUTO_TASK,
     AIPerfHook.ON_INIT,
     AIPerfHook.ON_START,
     AIPerfHook.ON_STOP,
@@ -122,15 +122,17 @@ class AIPerfLifecycleMixin(HooksMixin, AsyncTaskManagerMixin, AIPerfLoggerMixin)
         """Start all the registered tasks in the background."""
 
         # Start all the non-auto tasks
-        for hook in self.get_hooks(AIPerfTaskHook.AIPERF_TASK):
+        for hook in self.get_hooks(AIPerfHook.AIPERF_TASK):
             if inspect.iscoroutinefunction(hook):
                 self.execute_async(hook())
             else:
                 self.execute_async(asyncio.to_thread(hook))
 
         # Start all the auto tasks
-        for hook in self.get_hooks(AIPerfTaskHook.AIPERF_AUTO_TASK):
-            interval = getattr(hook, AIPerfTaskHook.AIPERF_AUTO_TASK_INTERVAL, None)
+        for hook in self.get_hooks(AIPerfHook.AIPERF_AUTO_TASK):
+            interval = getattr(
+                hook, AIPerfHookAttrs.AIPERF_AUTO_TASK_INTERVAL_SEC, None
+            )
             self.execute_async(self._task_wrapper(hook, interval))
 
     @on_stop

@@ -196,14 +196,14 @@ from aiperf.common.factories import (
     StreamingPostProcessorFactory,
 )
 from aiperf.common.hooks import (
-    AIPERF_HOOK_TYPE,
     AIPerfHook,
-    AIPerfTaskHook,
+    AIPerfHookAttrs,
     HookSystem,
     HookType,
     aiperf_auto_task,
     aiperf_task,
     hook_decorator,
+    hook_kwargs_decorator,
     on_cleanup,
     on_configure,
     on_init,
@@ -214,7 +214,7 @@ from aiperf.common.hooks import (
     on_set_state,
     on_start,
     on_stop,
-    supports_hooks,
+    provides_hooks,
 )
 from aiperf.common.interfaces import (
     DataExporterProtocol,
@@ -336,10 +336,10 @@ from aiperf.common.utils import (
 
 __all__ = [
     "ADD_TO_TEMPLATE",
-    "AIPERF_HOOK_TYPE",
     "AIPerfBaseModel",
     "AIPerfError",
     "AIPerfHook",
+    "AIPerfHookAttrs",
     "AIPerfLifecycleMixin",
     "AIPerfLogLevel",
     "AIPerfLogger",
@@ -347,7 +347,6 @@ __all__ = [
     "AIPerfLoggerProtocol",
     "AIPerfMultiError",
     "AIPerfProfileMixin",
-    "AIPerfTaskHook",
     "AIPerfTaskMixin",
     "AsyncTaskManagerMixin",
     "AsyncTaskManagerProtocol",
@@ -599,6 +598,7 @@ __all__ = [
     "exclude_if_none",
     "get_global_log_queue",
     "hook_decorator",
+    "hook_kwargs_decorator",
     "load_json_str",
     "load_service_config",
     "load_user_config",
@@ -620,8 +620,8 @@ __all__ = [
     "parse_str_or_list",
     "parse_str_or_list_of_positive_values",
     "print_str_or_list",
+    "provides_hooks",
     "setup_child_process_logging",
     "setup_rich_logging",
-    "supports_hooks",
     "yield_to_event_loop",
 ]

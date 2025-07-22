@@ -3,7 +3,7 @@
 from collections.abc import Callable
 from typing import ClassVar
 
-from aiperf.common.hooks import AIPERF_HOOK_TYPE, HookSystem, HookType
+from aiperf.common.hooks import AIPerfHookAttrs, HookSystem, HookType
 from aiperf.common.mixins.base_mixin import BaseMixin
 
 
@@ -13,15 +13,15 @@ class HooksMixin(BaseMixin):
     :class:`HookSystem` and provides a simple interface for registering and running hooks.
     """
 
-    # Class attributes that are set by the :func:`supports_hooks` decorator
-    supported_hooks: ClassVar[set[HookType]] = set()
+    # Class attributes that are set by the :func:`provides_hooks` decorator
+    provided_hook_types: ClassVar[set[HookType]] = set()
 
     def __init__(self, **kwargs):
         """
         Initialize the hook system and register all functions that are decorated with a hook decorator.
         """
         # Initialize the hook system
-        self._hook_system = HookSystem(self.supported_hooks)
+        self._hook_system = HookSystem(self._provided_hook_types)
 
         # Register all functions that are decorated with a hook decorator
         # Iterate through MRO in reverse order to ensure base class hooks are registered first
@@ -32,9 +32,9 @@ class HooksMixin(BaseMixin):
 
             # Get methods defined directly in this class (not inherited)
             for _, attr in cls.__dict__.items():
-                if callable(attr) and hasattr(attr, AIPERF_HOOK_TYPE):
+                if callable(attr) and hasattr(attr, AIPerfHookAttrs.AIPERF_HOOK_TYPE):
                     # Get the hook type from the function
-                    hook_type = getattr(attr, AIPERF_HOOK_TYPE)
+                    hook_type = getattr(attr, AIPerfHookAttrs.AIPERF_HOOK_TYPE)
                     # Bind the method to the instance
                     bound_method = attr.__get__(self, cls)
                     # Register the function with the hook type

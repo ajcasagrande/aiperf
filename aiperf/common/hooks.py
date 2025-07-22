@@ -6,7 +6,7 @@ used as a mixin for classes that support hooks. It provides a simple interface
 for registering and running hooks.
 
 Classes should inherit from the :class:`HooksMixin`, and specify the supported
-hook types by decorating the class with the :func:`supports_hooks` decorator.
+hook types by decorating the class with the :func:`provides_hooks` decorator.
 
 The hook functions are registered by decorating functions with the various hook
 decorators such as :func:`on_init`, :func:`on_start`, :func:`on_stop`, etc.
@@ -22,6 +22,8 @@ import asyncio
 import inspect
 import logging
 from collections.abc import Awaitable, Callable
+from types import MethodType
+from typing import TYPE_CHECKING
 
 from aiperf.common.enums import CaseInsensitiveStrEnum
 from aiperf.common.exceptions import (
@@ -29,6 +31,9 @@ from aiperf.common.exceptions import (
     AIPerfMultiError,
     UnsupportedHookError,
 )
+
+if TYPE_CHECKING:
+    from aiperf.common.mixins.aiperf_lifecycle_mixin import AIPerfLifecycleMixin
 
 ################################################################################
 # Hook Types
@@ -38,7 +43,7 @@ from aiperf.common.exceptions import (
 class AIPerfHook(CaseInsensitiveStrEnum):
     """Enum for the various AIPerf hooks.
 
-    Note: If you add a new hook, you must also add it to the @supports_hooks
+    Note: If you add a new hook, you must also add it to the @provides_hooks
     decorator of the class you wish to use the hook in.
     """
 
@@ -54,21 +59,28 @@ class AIPerfHook(CaseInsensitiveStrEnum):
 
     ON_SET_STATE = "__aiperf_on_set_state__"
 
-
-class AIPerfTaskHook(CaseInsensitiveStrEnum):
-    """Enum for the various AIPerf task hooks."""
-
     AIPERF_TASK = "__aiperf_task__"
+    """A task that is run by the base class.
+    It will be started and stopped automatically by the base class lifecycle."""
+
     AIPERF_AUTO_TASK = "__aiperf_auto_task__"
-    AIPERF_AUTO_TASK_INTERVAL = "__aiperf_auto_task_interval__"
+    """Converts a function into a task that is run by the base class at a regular interval.
+    Batteries included, error handling, and exit conditions. Simply write the inner functionality, n
+    It will be started and stopped automatically by the base class lifecycle."""
 
 
-HookType = AIPerfHook | AIPerfTaskHook | str
-"""Type alias for valid hook types. This is a union of the AIPerfHook enum, the AIPerfTaskHook enum, and any user-defined custom strings."""
+class AIPerfHookAttrs:
+    """Constants for the various AIPerf hook attributes."""
+
+    AIPERF_HOOK_TYPE = "__aiperf_hook_type__"
+    """Constant attribute name that marks a function's hook type."""
+
+    AIPERF_AUTO_TASK_INTERVAL_SEC = "__aiperf_auto_task_interval_sec__"
+    """Constant attribute name that marks a function's auto task interval."""
 
 
-AIPERF_HOOK_TYPE = "__aiperf_hook_type__"
-"""Constant attribute name that marks a function's hook type."""
+HookType = AIPerfHook | str
+"""Type alias for valid hook types. This is a union of the AIPerfHook enum and any user-defined custom strings."""
 
 
 ################################################################################
@@ -85,15 +97,15 @@ class HookSystem:
     the hooks.
     """
 
-    def __init__(self, supported_hooks: set[HookType]):
+    def __init__(self, provided_hook_types: set[HookType]):
         """
         Initialize the hook system.
 
         Args:
-            supported_hooks: The hook types that the class supports.
+            provided_hook_types: The hook types that the class provides for subclasses to utilize.
         """
         self.logger = logging.getLogger(__class__.__name__)
-        self.supported_hooks: set[HookType] = supported_hooks
+        self._provided_hook_types: set[HookType] = provided_hook_types
         self._hooks: dict[HookType, list[Callable]] = {}
 
     def register_hook(self, hook_type: HookType, func: Callable):
@@ -103,8 +115,10 @@ class HookSystem:
             hook_type: The hook type to register the function for.
             func: The function to register.
         """
-        if hook_type not in self.supported_hooks:
-            raise UnsupportedHookError(f"Hook {hook_type} is not supported by class.")
+        if hook_type not in self._provided_hook_types:
+            raise UnsupportedHookError(
+                f"Hook '{hook_type}' is not provided by any of its base classes."
+            )
 
         self._hooks.setdefault(hook_type, []).append(func)
 
@@ -117,6 +131,11 @@ class HookSystem:
         Returns:
             A list of the hooks for the given hook type.
         """
+        if hook_type not in self._provided_hook_types:
+            raise UnsupportedHookError(
+                f"Hook '{hook_type}' is not provided by any of its base classes."
+            )
+
         return self._hooks.get(hook_type, [])
 
     async def run_hooks(self, hook_type: HookType, *args, **kwargs):
@@ -129,9 +148,6 @@ class HookSystem:
             *args: The arguments to pass to the hooks.
             **kwargs: The keyword arguments to pass to the hooks.
         """
-        if hook_type not in self.supported_hooks:
-            raise UnsupportedHookError(f"Hook {hook_type} is not supported by class.")
-
         exceptions: list[Exception] = []
         for func in self.get_hooks(hook_type):
             try:
@@ -160,9 +176,6 @@ class HookSystem:
             *args: The arguments to pass to the hooks.
             **kwargs: The keyword arguments to pass to the hooks.
         """
-        if hook_type not in self.supported_hooks:
-            raise UnsupportedHookError(f"Hook {hook_type} is not supported by class.")
-
         coroutines: list[Awaitable] = []
         for func in self.get_hooks(hook_type):
             if inspect.iscoroutinefunction(func):
@@ -183,17 +196,12 @@ class HookSystem:
 ################################################################################
 
 
-def supports_hooks(
-    *supported_hook_types: HookType,
-) -> Callable[[type], type]:
+def provides_hooks(*provided_hook_types: HookType) -> Callable[[type], type]:
     """Decorator to indicate that a class supports hooks and sets the
     supported hook types.
 
     Args:
-        supported_hook_types: The hook types that the class supports.
-
-    Returns:
-        The decorated class
+        provided_hook_types: The hook types that the class provides for subclasses to utilize.
     """
 
     def decorator(cls: type) -> type:
@@ -209,15 +217,15 @@ def supports_hooks(
 
         # Inherit any hooks defined by base classes in the MRO (Method Resolution Order).
         base_hooks = [
-            base.supported_hooks
+            base.provided_hook_types
             for base in cls.__mro__[1:]  # Skip this class itself (cls)
             if issubclass(
                 base, HooksMixin
             )  # Only include classes that inherit from HooksMixin
         ]
 
-        # Set the supported hooks to be the union of the existing base hooks and the new supported hook types.
-        cls.supported_hooks = set.union(*base_hooks, set(supported_hook_types))
+        # Set the provided hooks to be the union of the existing base hooks and the new provided hook types.
+        cls.provided_hook_types = set.union(*base_hooks, set(provided_hook_types))
         return cls
 
     return decorator
@@ -230,11 +238,28 @@ def hook_decorator(hook_type: HookType, func: Callable) -> Callable:
     Args:
         hook_type: The hook type to decorate the function with.
         func: The function to decorate.
-    Returns:
-        The decorated function.
     """
-    setattr(func, AIPERF_HOOK_TYPE, hook_type)
+    setattr(func, AIPerfHookAttrs.AIPERF_HOOK_TYPE, hook_type)
     return func
+
+
+def hook_kwargs_decorator(
+    hook_type: HookType, **kwargs
+) -> Callable[[Callable], Callable]:
+    """Generic decorator to specify that the function should be called during
+    a specific hook. The keyword arguments provided are set on the function as attributes.
+
+    Args:
+        hook_type: The hook type to decorate the function with.
+        **kwargs: The keyword arguments to set on the function.
+    """
+
+    def decorator(func: Callable) -> Callable:
+        for key, value in kwargs.items():
+            setattr(func, key, value)
+        return hook_decorator(hook_type, func)
+
+    return decorator
 
 
 ################################################################################
@@ -242,89 +267,71 @@ def hook_decorator(hook_type: HookType, func: Callable) -> Callable:
 ################################################################################
 
 
-def on_init(func: Callable) -> Callable:
-    """Decorator to specify that the function should be called during initialization.
-    See :func:`aiperf.common.hooks.hook_decorator`."""
-    return hook_decorator(AIPerfHook.ON_INIT, func)
+on_init = MethodType(hook_decorator, AIPerfHook.ON_INIT)
+"""Decorator to specify that the function should be called during initialization.
+See :func:`aiperf.common.hooks.hook_decorator`."""
 
 
-def on_start(func: Callable) -> Callable:
-    """Decorator to specify that the function should be called during start.
-    See :func:`aiperf.common.hooks.hook_decorator`."""
-    return hook_decorator(AIPerfHook.ON_START, func)
+on_start = MethodType(hook_decorator, AIPerfHook.ON_START)
+"""Decorator to specify that the function should be called during start.
+See :func:`aiperf.common.hooks.hook_decorator`."""
 
 
-def on_stop(func: Callable) -> Callable:
-    """Decorator to specify that the function should be called during stop.
-    See :func:`aiperf.common.hooks.hook_decorator`."""
-    return hook_decorator(AIPerfHook.ON_STOP, func)
+on_stop = MethodType(hook_decorator, AIPerfHook.ON_STOP)
+"""Decorator to specify that the function should be called during stop.
+See :func:`aiperf.common.hooks.hook_decorator`."""
 
 
-def on_configure(func: Callable) -> Callable:
-    """Decorator to specify that the function should be called during the service configuration.
-    See :func:`aiperf.common.hooks.hook_decorator`."""
-    return hook_decorator(AIPerfHook.ON_CONFIGURE, func)
+on_configure = MethodType(hook_decorator, AIPerfHook.ON_CONFIGURE)
+"""Decorator to specify that the function should be called during the service configuration.
+See :func:`aiperf.common.hooks.hook_decorator`."""
 
 
-def on_cleanup(func: Callable) -> Callable:
-    """Decorator to specify that the function should be called during cleanup.
-    See :func:`aiperf.common.hooks.hook_decorator`."""
-    return hook_decorator(AIPerfHook.ON_CLEANUP, func)
+on_cleanup = MethodType(hook_decorator, AIPerfHook.ON_CLEANUP)
+"""Decorator to specify that the function should be called during cleanup.
+See :func:`aiperf.common.hooks.hook_decorator`."""
 
 
-def on_run(func: Callable) -> Callable:
-    """Decorator to specify that the function should be called during run.
-    See :func:`aiperf.common.hooks.hook_decorator`."""
-    return hook_decorator(AIPerfHook.ON_RUN, func)
+on_run = MethodType(hook_decorator, AIPerfHook.ON_RUN)
+"""Decorator to specify that the function should be called during run.
+See :func:`aiperf.common.hooks.hook_decorator`."""
 
 
-def on_set_state(
-    func: Callable,
-) -> Callable:
-    """Decorator to specify that the function should be called when the service state is set.
-    See :func:`aiperf.common.hooks.hook_decorator`."""
-    return hook_decorator(AIPerfHook.ON_SET_STATE, func)
+on_set_state = MethodType(hook_decorator, AIPerfHook.ON_SET_STATE)
+"""Decorator to specify that the function should be called when the service state is set.
+See :func:`aiperf.common.hooks.hook_decorator`."""
 
 
-def on_profile_configure(func: Callable) -> Callable:
-    """Decorator to specify that the function should be called during the service profile configuration.
-    See :func:`aiperf.common.hooks.hook_decorator`."""
-    return hook_decorator(AIPerfHook.ON_PROFILE_CONFIGURE, func)
+on_profile_configure = MethodType(hook_decorator, AIPerfHook.ON_PROFILE_CONFIGURE)
+"""Decorator to specify that the function should be called during the service profile configuration.
+See :func:`aiperf.common.hooks.hook_decorator`."""
 
 
-def on_profile_start(func: Callable) -> Callable:
-    """Decorator to specify that the function should be called during the service profile start.
-    See :func:`aiperf.common.hooks.hook_decorator`."""
-    return hook_decorator(AIPerfHook.ON_PROFILE_START, func)
+on_profile_start = MethodType(hook_decorator, AIPerfHook.ON_PROFILE_START)
+"""Decorator to specify that the function should be called during the service profile start.
+See :func:`aiperf.common.hooks.hook_decorator`."""
 
 
-def on_profile_stop(func: Callable) -> Callable:
-    """Decorator to specify that the function should be called during the service profile stop.
-    See :func:`aiperf.common.hooks.hook_decorator`."""
-    return hook_decorator(AIPerfHook.ON_PROFILE_STOP, func)
+on_profile_stop = MethodType(hook_decorator, AIPerfHook.ON_PROFILE_STOP)
+"""Decorator to specify that the function should be called during the service profile stop.
+See :func:`aiperf.common.hooks.hook_decorator`."""
 
 
-def aiperf_task(
-    func: Callable,
-) -> Callable:
-    """Decorator to indicate that the function is a task function. It will be started
-    and stopped automatically by the base class lifecycle.
-    See :func:`aiperf.common.hooks.hook_decorator`.
-    """
-    return hook_decorator(AIPerfTaskHook.AIPERF_TASK, func)
+aiperf_task = MethodType(hook_decorator, AIPerfHook.AIPERF_TASK)
+"""Decorator to indicate that the function is a task function. It will be started
+and stopped automatically by the base class lifecycle.
+See :func:`aiperf.common.hooks.hook_decorator`."""
 
 
-def aiperf_auto_task(interval: float) -> Callable[[Callable], Callable]:
-    """Decorator to indicate that the function is a task function. It will be started
-    and stopped automatically by the base class lifecycle.
-    See :func:`aiperf.common.hooks.hook_decorator`.
+def aiperf_auto_task(
+    interval_sec: float | Callable[["AIPerfLifecycleMixin"], float] | None,
+) -> Callable[[Callable], Callable]:
+    """Decorator to indicate that the function is an auto-managed task function. It will be started
+    and stopped automatically by the base class lifecycle, and will run at the specified interval.
+    See :func:`aiperf.common.hooks.hook_kwargs_decorator`.
 
     Args:
-        interval: The interval in seconds to sleep between runs.
+        interval_sec: The interval in seconds to sleep between runs. Can be a callable that returns a float.
+                    If None, the task will run once and then stop.
     """
-
-    def decorator(func: Callable) -> Callable:
-        setattr(func, AIPerfTaskHook.AIPERF_AUTO_TASK_INTERVAL, interval)
-        return hook_decorator(AIPerfTaskHook.AIPERF_AUTO_TASK, func)
-
-    return decorator
+    return hook_kwargs_decorator(AIPerfHook.AIPERF_AUTO_TASK, interval_sec=interval_sec)

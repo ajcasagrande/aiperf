@@ -24,6 +24,7 @@ from aiperf.services.records_manager.metrics import (
 from aiperf.services.records_manager.post_processors import (
     DEFAULT_MAX_QUEUE_SIZE,
     MetricSummary,
+    ProcessingStatsStreamer,
     StreamingPostProcessor,
     record_from_dataframe,
 )
@@ -43,6 +44,7 @@ __all__ = [
     "MinRequestMetric",
     "OutputSequenceLengthMetric",
     "OutputTokenThroughputPerUserMetric",
+    "ProcessingStatsStreamer",
     "RecordsManager",
     "RequestLatencyMetric",
     "RequestThroughputMetric",
