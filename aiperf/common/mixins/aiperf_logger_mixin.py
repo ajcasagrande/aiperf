@@ -98,6 +98,24 @@ class AIPerfLoggerMixin(BaseMixin):
         if self.is_enabled_for(_CRITICAL):
             self._log(_CRITICAL, message, *args, **kwargs)
 
+    def debug_or_trace(
+        self, debug: Callable[..., str], trace: Callable[..., str]
+    ) -> None:
+        """Log a single trace or debug message with lazy evaluation.
+        At most only one of the messages will be logged, depending on the logging level.
+        This allows you to change the verbosity of the message you are logging without
+        the boilerplate code of checking the logging level.
+
+        Args:
+            debug: The message to log if debug is enabled.
+            trace: The message to log if trace is enabled.
+        """
+        if self.is_enabled_for(_TRACE):
+            # Since we are already checking the logging level, we can just log the message directly
+            self._log(_TRACE, trace)
+        elif self.is_enabled_for(_DEBUG):
+            self._log(_DEBUG, debug)
+
 
 # Add this file to the list of ignored files to avoid this file from being the source of the log messages
 # in the AIPerfLogger class to skip it when determining the caller.
