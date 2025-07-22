@@ -127,6 +127,7 @@ class BaseZMQCommunication(BaseCommunication, AIPerfLoggerMixin, ABC):
         self,
         client_type: CommunicationClientType,
         address: CommunicationClientAddressType | str,
+        service_id: str | None = None,
         bind: bool = False,
         socket_ops: dict | None = None,
     ) -> CommunicationClientProtocol:
@@ -135,6 +136,7 @@ class BaseZMQCommunication(BaseCommunication, AIPerfLoggerMixin, ABC):
         Args:
             client_type: The type of client to create.
             address: The type of address to use when looking up in the communication config, or the address itself.
+            service_id: The service ID to use for the client.
             bind: Whether to bind or connect the socket.
             socket_ops: Additional socket options to set.
         """
@@ -144,6 +146,7 @@ class BaseZMQCommunication(BaseCommunication, AIPerfLoggerMixin, ABC):
             address=self.get_address(address),
             bind=bind,
             socket_ops=socket_ops,
+            service_id=service_id,
         )
 
         self.clients.append(client)

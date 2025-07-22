@@ -41,6 +41,7 @@ class BaseZMQClient(AIPerfTaskMixin, AIPerfLoggerMixin):
         bind: bool,
         socket_ops: dict | None = None,
         client_id: str | None = None,
+        service_id: str | None = None,
     ) -> None:
         """
         Initialize the ZMQ Base class.
@@ -51,6 +52,8 @@ class BaseZMQClient(AIPerfTaskMixin, AIPerfLoggerMixin):
             bind (bool): Whether to BIND or CONNECT the socket.
             socket_type (SocketType): The type of ZMQ socket (eg. PUB, SUB, ROUTER, DEALER, etc.).
             socket_ops (dict, optional): Additional socket options to set.
+            client_id (str, optional): The client ID to use for the client.
+            service_id (str, optional): The service ID to use for the client.
         """
         self.stop_event: asyncio.Event = asyncio.Event()
         self.initialized_event: asyncio.Event = asyncio.Event()
@@ -62,8 +65,11 @@ class BaseZMQClient(AIPerfTaskMixin, AIPerfLoggerMixin):
         self.socket_ops: dict = socket_ops or {}
         self.client_id: str = (
             client_id
+            or service_id
             or f"{self.socket_type.name.lower()}_client_{uuid.uuid4().hex[:8]}"
         )
+        self.identity: str | None = service_id
+
         super().__init__(logger_name=self.client_id)
         self.trace(lambda: f"ZMQ client __init__: {self.client_id}")
 
@@ -129,6 +135,9 @@ class BaseZMQClient(AIPerfTaskMixin, AIPerfLoggerMixin):
                     lambda: f"ZMQ {self.socket_type_name} socket initialized, try CONNECT to {self.address} ({self.client_id})"
                 )
                 self._socket.connect(self.address)
+
+            if self.identity:
+                self._socket.setsockopt(zmq.IDENTITY, self.identity.encode())
 
             # Set default timeouts
             self._socket.setsockopt(zmq.RCVTIMEO, ZMQSocketDefaults.RCVTIMEO)
