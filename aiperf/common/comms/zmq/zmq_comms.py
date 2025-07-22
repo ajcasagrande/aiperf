@@ -37,12 +37,13 @@ class BaseZMQCommunication(BaseCommunication, AIPerfLoggerMixin, ABC):
     def __init__(
         self,
         config: BaseZMQCommunicationConfig,
+        service_id: str | None = None,
     ) -> None:
         super().__init__()
         self.stop_event: asyncio.Event = asyncio.Event()
         self.initialized_event: asyncio.Event = asyncio.Event()
         self.config = config
-
+        self.service_id = service_id
         self.context = zmq.asyncio.Context.instance()
         self.clients: list[BaseZMQClient] = []
 
@@ -127,7 +128,6 @@ class BaseZMQCommunication(BaseCommunication, AIPerfLoggerMixin, ABC):
         self,
         client_type: CommunicationClientType,
         address: CommunicationClientAddressType | str,
-        service_id: str | None = None,
         bind: bool = False,
         socket_ops: dict | None = None,
     ) -> CommunicationClientProtocol:
@@ -136,7 +136,6 @@ class BaseZMQCommunication(BaseCommunication, AIPerfLoggerMixin, ABC):
         Args:
             client_type: The type of client to create.
             address: The type of address to use when looking up in the communication config, or the address itself.
-            service_id: The service ID to use for the client.
             bind: Whether to bind or connect the socket.
             socket_ops: Additional socket options to set.
         """
@@ -146,7 +145,7 @@ class BaseZMQCommunication(BaseCommunication, AIPerfLoggerMixin, ABC):
             address=self.get_address(address),
             bind=bind,
             socket_ops=socket_ops,
-            service_id=service_id,
+            service_id=self.service_id,
         )
 
         self.clients.append(client)
@@ -157,26 +156,36 @@ class BaseZMQCommunication(BaseCommunication, AIPerfLoggerMixin, ABC):
 class ZMQTCPCommunication(BaseZMQCommunication):
     """ZeroMQ-based implementation of the Communication interface using TCP transport."""
 
-    def __init__(self, config: ZMQTCPConfig | None = None) -> None:
+    def __init__(
+        self,
+        config: ZMQTCPConfig | None = None,
+        service_id: str | None = None,
+        **kwargs,
+    ) -> None:
         """Initialize ZMQ TCP communication.
 
         Args:
             config: ZMQTCPTransportConfig object with configuration parameters
         """
-        super().__init__(config or ZMQTCPConfig())
+        super().__init__(config or ZMQTCPConfig(), service_id, **kwargs)
 
 
 @CommunicationFactory.register(CommunicationBackend.ZMQ_IPC)
 class ZMQIPCCommunication(BaseZMQCommunication):
     """ZeroMQ-based implementation of the Communication interface using IPC transport."""
 
-    def __init__(self, config: ZMQIPCConfig | None = None) -> None:
+    def __init__(
+        self,
+        config: ZMQIPCConfig | None = None,
+        service_id: str | None = None,
+        **kwargs,
+    ) -> None:
         """Initialize ZMQ IPC communication.
 
         Args:
             config: ZMQIPCConfig object with configuration parameters
         """
-        super().__init__(config or ZMQIPCConfig())
+        super().__init__(config or ZMQIPCConfig(), service_id, **kwargs)
         # call after super init so that way self.config is set
         self._setup_ipc_directory()
 

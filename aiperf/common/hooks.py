@@ -63,7 +63,21 @@ class AIPerfTaskHook(CaseInsensitiveStrEnum):
     AIPERF_AUTO_TASK_INTERVAL = "__aiperf_auto_task_interval__"
 
 
-HookType = AIPerfHook | AIPerfTaskHook | str
+class AIPerfCommunicationHook(CaseInsensitiveStrEnum):
+    """Enum for the various AIPerf communication hooks."""
+
+    REQUEST_HANDLER = "__aiperf_request_handler__"
+    MESSAGE_HANDLER = "__aiperf_message_handler__"
+
+
+class AIPerfCommunicationHookParams(CaseInsensitiveStrEnum):
+    """Enum for the various AIPerf communication hook parameters."""
+
+    MESSAGE_HANDLER_MESSAGE_TYPES = "__aiperf_message_handler_message_types__"
+    REQUEST_HANDLER_MESSAGE_TYPES = "__aiperf_request_handler_message_types__"
+
+
+HookType = AIPerfHook | AIPerfTaskHook | AIPerfCommunicationHook | str
 """Type alias for valid hook types. This is a union of the AIPerfHook enum, the AIPerfTaskHook enum, and any user-defined custom strings."""
 
 

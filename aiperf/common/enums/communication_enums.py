@@ -57,6 +57,35 @@ class CommunicationClientAddressType(CaseInsensitiveStrEnum):
     """Backend address for the InferenceParser to receive raw inference messages from Workers."""
 
 
+#     @classmethod
+#     def from_message_type(cls, message_type: MessageType) -> "CommunicationClientAddressType":
+#         """Get the address type for a given message type."""
+#         if message_type in [MessageType.CONVERSATION_REQUEST, MessageType.CONVERSATION_TURN_REQUEST, MessageType.DATASET_TIMING_REQUEST]:
+#             return cls.DATASET_MANAGER_PROXY_BACKEND
+#         elif message_type in [MessageType.INFERENCE_RESULTS, MessageType.PARSED_INFERENCE_RESULTS]:
+#             return cls.RAW_INFERENCE_PROXY_BACKEND
+#         else:
+#             raise ValueError(f"No address type found for message type: {message_type}")
+
+
+# class PubClientType(CaseInsensitiveStrEnum):
+#     """Types of pub clients."""
+#     EVENT_BUS = "event_bus"
+#     DATASET_MANAGER = "dataset_manager"
+#     INFERENCE_PARSER = "inference_parser"
+#     RECORD_MANAGER = "record_manager"
+#     WORKER = "worker"
+
+
+# class PullClientType(CaseInsensitiveStrEnum):
+#     """Types of pull clients."""
+#     EVENT_BUS = "event_bus"
+#     DATASET_MANAGER = "dataset_manager"
+#     INFERENCE_PARSER = "inference_parser"
+#     RECORD_MANAGER = "record_manager"
+#     WORKER = "worker"
+
+
 class ZMQProxyType(CaseInsensitiveStrEnum):
     """Types of ZMQ proxies."""
 

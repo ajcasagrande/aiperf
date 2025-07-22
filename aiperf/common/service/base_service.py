@@ -17,6 +17,7 @@ from aiperf.common.exceptions import (
     ServiceError,
 )
 from aiperf.common.hooks import (
+    AIPerfCommunicationHook,
     AIPerfHook,
     AIPerfTaskHook,
     supports_hooks,
@@ -35,6 +36,7 @@ from aiperf.common.service.base_service_interface import BaseServiceInterface
     AIPerfHook.ON_CLEANUP,
     AIPerfHook.ON_SET_STATE,
     AIPerfTaskHook.AIPERF_TASK,
+    AIPerfCommunicationHook.REQUEST_HANDLER,
 )
 class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin, AIPerfLoggerMixin):
     """Base class for all AIPerf services, providing common functionality for
@@ -80,12 +82,13 @@ class BaseService(BaseServiceInterface, ABC, AIPerfTaskMixin, AIPerfLoggerMixin)
         self.comms: BaseCommunication = CommunicationFactory.create_instance(
             self.service_config.comm_backend,
             config=self.service_config.comm_config,
+            service_id=self.service_id,
         )
         self.sub_client = self.comms.create_sub_client(
-            CommunicationClientAddressType.EVENT_BUS_PROXY_BACKEND
+            CommunicationClientAddressType.EVENT_BUS_PROXY_BACKEND,
         )  # type: ignore
         self.pub_client = self.comms.create_pub_client(
-            CommunicationClientAddressType.EVENT_BUS_PROXY_FRONTEND
+            CommunicationClientAddressType.EVENT_BUS_PROXY_FRONTEND,
         )  # type: ignore
 
         try:

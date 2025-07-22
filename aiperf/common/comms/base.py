@@ -115,7 +115,7 @@ class RequestClientProtocol(CommunicationClientProtocol):
 
 
 @CommunicationClientProtocolFactory.register(CommunicationClientType.REPLY)
-class ReplyClientProtocol(CommunicationClientProtocol):
+class ReplyClientProtocol(CommunicationClientProtocol, Protocol):
     """Interface for reply clients."""
 
     def register_request_handler(
@@ -131,6 +131,16 @@ class ReplyClientProtocol(CommunicationClientProtocol):
             service_id: The service ID to register the handler for
             message_type: The message type to register the handler for
             handler: The handler to register
+        """
+        ...
+
+    def request_handler(self, *message_types: MessageType) -> Callable:
+        """Decorator to indicate that the function is a message handler. It will be called
+        when a message of the given type is received.
+        See :func:`aiperf.common.hooks.hook_decorator`.
+
+        Args:
+            message_types: The message types to handle.
         """
         ...
 
@@ -212,7 +222,8 @@ def _create_specific_client(
         socket_ops: dict | None = None,
     ) -> ClientProtocolT:
         return cast(
-            ClientProtocolT, self.create_client(client_type, address, bind, socket_ops)
+            ClientProtocolT,
+            self.create_client(client_type, address, bind, socket_ops),
         )
 
     _create_client.__name__ = f"create_{client_type.lower()}_client"

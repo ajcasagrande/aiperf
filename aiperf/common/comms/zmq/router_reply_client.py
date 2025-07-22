@@ -9,7 +9,14 @@ import zmq.asyncio
 from aiperf.common.comms.base import CommunicationClientFactory
 from aiperf.common.comms.zmq.zmq_base_client import BaseZMQClient
 from aiperf.common.enums import CommunicationClientType, MessageType
-from aiperf.common.hooks import aiperf_task, on_cleanup, on_stop
+from aiperf.common.hooks import (
+    AIPerfCommunicationHook,
+    AIPerfCommunicationHookParams,
+    aiperf_task,
+    hook_decorator,
+    on_cleanup,
+    on_stop,
+)
 from aiperf.common.messages import ErrorMessage, Message
 from aiperf.common.mixins import AsyncTaskManagerMixin
 from aiperf.common.models import ErrorDetails
@@ -83,6 +90,25 @@ class ZMQRouterReplyClient(BaseZMQClient, AsyncTaskManagerMixin):
     @on_cleanup
     async def _cleanup(self) -> None:
         self._request_handlers.clear()
+
+    def request_handler(self, *message_types: MessageType) -> Callable:
+        """Decorator to indicate that the function is a message handler. It will be called
+        when a message of the given type is received.
+        See :func:`aiperf.common.hooks.hook_decorator`.
+
+        Args:
+            message_types: The message types to handle.
+        """
+
+        def decorator(func: Callable) -> Callable:
+            setattr(
+                func,
+                AIPerfCommunicationHookParams.REQUEST_HANDLER_MESSAGE_TYPES,
+                message_types,
+            )
+            return hook_decorator(AIPerfCommunicationHook.REQUEST_HANDLER, func)
+
+        return decorator
 
     def register_request_handler(
         self,

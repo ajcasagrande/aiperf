@@ -5,6 +5,7 @@ import asyncio
 import contextlib
 import multiprocessing
 import random
+import uuid
 
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
@@ -48,6 +49,10 @@ def bootstrap_and_run_service(
 
         # TODO: Add support for loading user config from a file/environment variables
         user_config = load_user_config()
+
+    service_id: str = (
+        service_id or f"{service_class.service_type}_{uuid.uuid4().hex[:8]}"
+    )
 
     async def _run_service():
         if service_config.enable_yappi:

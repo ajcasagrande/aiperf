@@ -69,10 +69,12 @@ class FactoryMixin(Generic[ClassEnumT, ClassProtocolT]):
 
     _registry: dict[ClassEnumT | str, type[ClassProtocolT]]
     _override_priorities: dict[ClassEnumT | str, int]
+    _instances: dict[ClassEnumT | str, ClassProtocolT]
 
     def __init_subclass__(cls) -> None:
         cls._registry = {}
         cls._override_priorities = {}
+        cls._instances = {}
         cls.logger = logging.getLogger(cls.__name__)
         super().__init_subclass__()
 
@@ -166,7 +168,9 @@ class FactoryMixin(Generic[ClassEnumT, ClassProtocolT]):
         if class_type not in cls._registry:
             raise FactoryCreationError(f"No implementation found for {class_type!r}.")
         try:
-            return cls._registry[class_type](**kwargs)
+            instance = cls._registry[class_type](**kwargs)
+            cls._instances[class_type] = instance
+            return instance
         except Exception as e:
             raise FactoryCreationError(
                 f"Error creating {class_type!r} instance: {e}"
@@ -211,6 +215,13 @@ class FactoryMixin(Generic[ClassEnumT, ClassProtocolT]):
     ) -> list[tuple[type[ClassProtocolT], ClassEnumT | str]]:
         """Get all registered classes and their corresponding class types."""
         return [(cls, class_type) for class_type, cls in cls._registry.items()]
+
+    @classmethod
+    def instance(cls, class_type: ClassEnumT | str) -> ClassProtocolT:
+        """Get the instance of the factory."""
+        if class_type not in cls._registry or class_type not in cls._instances:
+            raise FactoryCreationError(f"No instance found for {class_type!r}")
+        return cls._instances[class_type]
 
 
 ################################################################################
