@@ -83,7 +83,7 @@ class BasicMetricsStreamer(BaseStreamingPostProcessor):
         try:
             await self.process_records(cancelled=False)
         except Exception as e:
-            self.error(f"Error processing records: {e}")
+            self.exception(f"Error processing records: {e}")
             # TODO: What to do here?
 
     async def on_process_records_command(
@@ -96,7 +96,7 @@ class BasicMetricsStreamer(BaseStreamingPostProcessor):
         try:
             return await self.process_records(cancelled=cancelled)
         except Exception as e:
-            self.error(f"Error processing records: {e}")
+            self.exception(f"Error processing records: {e}")
             return ErrorMessage(error=ErrorDetails.from_exception(e))
 
     async def process_records(self, cancelled: bool) -> None:
@@ -119,11 +119,11 @@ class BasicMetricsStreamer(BaseStreamingPostProcessor):
                 profile_results,
             )
 
-            # TODO: HACK: Figure out a better place to put the exporter logic
-            if self.user_config:
-                await ExporterManager(
-                    results=profile_results, input_config=self.user_config
-                ).export_all()
+            # # TODO: HACK: Figure out a better place to put the exporter logic
+            # if self.user_config:
+            await ExporterManager(
+                results=profile_results, input_config=self.user_config
+            ).export_all()
 
         else:
             self.error("No profile results to publish")

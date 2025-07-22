@@ -45,7 +45,6 @@ class RecordsManager(BaseComponentService):
             user_config=user_config,
             service_id=service_id,
         )
-        self.user_config: UserConfig | None = None
         self.configured_event = asyncio.Event()
 
         self.streaming_post_processors: list[BaseStreamingPostProcessor] = []
@@ -79,6 +78,7 @@ class RecordsManager(BaseComponentService):
     async def _initialize_streaming_post_processors(self) -> None:
         """Initialize the streaming post processors and start their lifecycle."""
         for streamer_type in StreamingPostProcessorFactory.get_all_class_types():
+            self.warning(f"User config: {self.user_config}")
             streamer = StreamingPostProcessorFactory.create_instance(
                 class_type=streamer_type,
                 pub_client=self.pub_client,
