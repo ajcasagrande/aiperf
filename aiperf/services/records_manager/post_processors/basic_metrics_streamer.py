@@ -13,6 +13,7 @@ from aiperf.common.messages import (
     CommandMessage,
     ProfileResultsMessage,
 )
+from aiperf.common.messages.base_messages import ErrorMessage
 from aiperf.common.messages.command_messages import (
     ProcessRecordsCommandData,
 )
@@ -79,16 +80,24 @@ class BasicMetricsStreamer(BaseStreamingPostProcessor):
         # all the records have been processed on our side.
         await self.records_queue.join()
 
-        await self.process_records(cancelled=False)
+        try:
+            await self.process_records(cancelled=False)
+        except Exception as e:
+            self.error(f"Error processing records: {e}")
+            # TODO: What to do here?
 
     async def on_process_records_command(
         self, message: CommandMessage
-    ) -> ProfileResultsMessage | None:
+    ) -> ProfileResultsMessage | ErrorMessage | None:
         """Handle the process records command."""
         cancelled = False
         if isinstance(message.data, ProcessRecordsCommandData):
             cancelled = message.data.cancelled
-        return await self.process_records(cancelled=cancelled)
+        try:
+            return await self.process_records(cancelled=cancelled)
+        except Exception as e:
+            self.error(f"Error processing records: {e}")
+            return ErrorMessage(error=ErrorDetails.from_exception(e))
 
     async def process_records(self, cancelled: bool) -> None:
         """Process the records.
