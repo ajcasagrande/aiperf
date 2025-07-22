@@ -5,7 +5,6 @@ import asyncio
 import time
 from abc import ABC, abstractmethod
 
-from aiperf.common.constants import NANOS_PER_MILLIS
 from aiperf.common.enums import CreditPhase, TimingMode
 from aiperf.common.exceptions import ConfigurationError
 from aiperf.common.factories import FactoryMixin
@@ -194,9 +193,9 @@ class CreditIssuingStrategy(AsyncTaskManagerMixin, AIPerfLoggerMixin, ABC):
 
     async def _on_first_byte_received(self, message: FirstByteReceivedMessage) -> None:
         """Handle the first byte received message."""
-        self.notice(
-            lambda: f"First byte received for phase {message.phase}. Latency: {message.latency_ns / NANOS_PER_MILLIS:.2f} ms"
-        )
+        # self.notice(
+        #     lambda: f"First byte received for phase {message.phase}. Latency: {message.latency_ns / NANOS_PER_MILLIS:.2f} ms"
+        # )
         if message.phase not in self.phase_stats:
             self.warning(
                 lambda: f"Credit return message received for phase {message.phase} but no phase stats found"

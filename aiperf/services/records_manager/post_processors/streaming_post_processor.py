@@ -12,6 +12,9 @@ from aiperf.common.mixins import (
     AIPerfMessagePubSubMixin,
 )
 from aiperf.common.models import ParsedResponseRecord
+from aiperf.common.utils import yield_to_event_loop
+
+DEFAULT_MAX_QUEUE_SIZE = 100_000
 
 
 class StreamingPostProcessor(
@@ -29,7 +32,7 @@ class StreamingPostProcessor(
         service_id: str,
         service_config: ServiceConfig,
         user_config: UserConfig,
-        max_queue_size: int = 100_000,
+        max_queue_size: int = DEFAULT_MAX_QUEUE_SIZE,
         **kwargs,
     ) -> None:
         self.service_id = service_id
@@ -53,6 +56,7 @@ class StreamingPostProcessor(
             try:
                 record = await self.records_queue.get()
                 self.execute_async(self.stream_record(record))
+                await yield_to_event_loop()
             except asyncio.CancelledError:
                 break
 

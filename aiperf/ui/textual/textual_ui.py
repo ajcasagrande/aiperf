@@ -159,19 +159,22 @@ class AIPerfTextualApp(App):
     #main-container {
         height: 100%;
     }
-
     #dashboard-section {
         height: 3fr;
         min-height: 14;
     }
-
     Tab {
         text-style: bold;
     }
-
     #logs-section {
         height: 2fr;
         max-height: 16;
+    }
+    #logs-section.hidden {
+        display: none;
+    }
+    #dashboard-section.logs-hidden {
+        height: 1fr;
     }
     """
 
@@ -180,7 +183,8 @@ class AIPerfTextualApp(App):
         ("1", "switch_tab('overview')", "Overview"),
         ("2", "switch_tab('performance')", "Performance"),
         ("3", "switch_tab('workers')", "Workers"),
-        ("0", "toggle_log_auto_scroll", "Toggle Log Auto Scroll"),
+        ("s", "toggle_log_auto_scroll", "Toggle Log Auto Scroll"),
+        ("l", "toggle_hide_log_viewer", "Toggle Logs"),
     ]
 
     def __init__(self, progress_tracker: ProgressTracker) -> None:
@@ -194,6 +198,7 @@ class AIPerfTextualApp(App):
         self.overview_workers: WorkerDashboard | None = None
         self.title = "NVIDIA AIPerf"
         # self.sub_title = "Real-time AI Performance Testing Dashboard"
+        self.logs_hidden = False
 
     def on_mount(self) -> None:
         self.register_theme(aiperf_theme)
@@ -240,10 +245,24 @@ class AIPerfTextualApp(App):
     async def action_quit(self) -> None:
         """Show confirmation dialog as an overlay."""
         self.exit(return_code=0)
-        raise KeyboardInterrupt()
 
     async def action_toggle_log_auto_scroll(self) -> None:
         """Toggle the auto scroll of the log viewer."""
         if self.log_viewer is None:
             return
         self.log_viewer.auto_scroll = not self.log_viewer.auto_scroll
+
+    async def action_toggle_hide_log_viewer(self) -> None:
+        """Toggle the visibility of the log viewer section."""
+        try:
+            if self.logs_hidden:
+                self.query_one("#logs-section").remove_class("hidden")
+                self.query_one("#dashboard-section").remove_class("logs-hidden")
+            else:
+                self.query_one("#logs-section").add_class("hidden")
+                self.query_one("#dashboard-section").add_class("logs-hidden")
+            self.logs_hidden = not self.logs_hidden
+
+            _logger.debug(f"Logs {'hidden' if self.logs_hidden else 'shown'}")
+        except Exception as e:
+            _logger.exception(f"Error toggling log viewer: {e}")

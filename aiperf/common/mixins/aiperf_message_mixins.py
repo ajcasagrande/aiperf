@@ -4,11 +4,10 @@
 from typing_extensions import Protocol
 
 from aiperf.common.comms.base_comms import PubClientProtocol, SubClientProtocol
-from aiperf.common.enums import MessageType
 from aiperf.common.hooks import AIPerfHook, AIPerfHookParams, on_init, supports_hooks
 from aiperf.common.messages import Message
 from aiperf.common.mixins.aiperf_lifecycle_mixin import AIPerfLifecycleMixin
-from aiperf.common.types import MessageHandlerT
+from aiperf.common.types import MessageHandlerT, MessageTypeT
 
 
 @supports_hooks(AIPerfHook.ON_MESSAGE)
@@ -22,7 +21,7 @@ class AIPerfMessageHandlerMixin(AIPerfLifecycleMixin):
         self.sub_client = sub_client
         super().__init__(sub_client=sub_client, **kwargs)
         self._message_handlers: dict[
-            MessageType,
+            MessageTypeT,
             list[MessageHandlerT],
         ] = {}
 
@@ -37,7 +36,7 @@ class AIPerfMessageHandlerMixin(AIPerfLifecycleMixin):
 
     def _register_message_handler(
         self,
-        message_type: MessageType,
+        message_type: MessageTypeT,
         handler: MessageHandlerT,
     ) -> None:
         """Register a message handler for a given message type."""
@@ -53,18 +52,11 @@ class AIPerfMessageHandlerMixin(AIPerfLifecycleMixin):
 
     async def subscribe(
         self,
-        message_type: MessageType,
+        message_type: MessageTypeT,
         handler: MessageHandlerT,
     ) -> None:
         """Manually subscribe to a message type. Prefer using the :meth:`AIPerfHook.ON_MESSAGE` hooks and @on_message decorators."""
         await self.sub_client.subscribe(message_type, handler)
-
-    # TODO: Unsubscribe not yet supported in the sub client
-    # @on_stop
-    # async def _shutdown_message_handlers(self):
-    #     for message_type, handlers in self._message_handlers.items():
-    #         for handler in handlers:
-    #             await self.sub_client.unsubscribe(message_type, handler)
 
 
 class AIPerfMessagePublisherMixin(AIPerfLifecycleMixin):
@@ -103,7 +95,7 @@ class AIPerfMessageHandlerProtocol(Protocol):
 
     async def subscribe(
         self,
-        message_type: MessageType,
+        message_type: MessageTypeT,
         handler: MessageHandlerT,
     ) -> None:
         """Subscribe to a message type."""

@@ -79,7 +79,7 @@ class TqdmProgressUI(AIPerfLifecycleMixin):
             # Only create tqdm if we have a valid total > 0
             if phase not in self.tqdm_records and total_records > 0:
                 self.tqdm_records[phase] = tqdm(
-                    total=total_records,
+                    total=processing_stats.total_expected_requests,
                     desc=f" Records ({phase.capitalize()})",
                     colour="blue",
                 )

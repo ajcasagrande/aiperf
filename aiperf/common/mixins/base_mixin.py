@@ -7,8 +7,11 @@ class BaseMixin:
 
     This Mixin creates a contract that Mixins should always pass **kwargs to
     super().__init__, regardless of whether they extend another mixin or not.
-    This base mixin will then determine whether to call super().__init__ or not
-    depending on if we are at the end of the MRO.
+
+    This will ensure that the BaseMixin is the last mixin to have its __init__
+    method called, which means that all other mixins will have a proper
+    chain of __init__ methods with the correct arguments and no accidental
+    broken inheritance.
     """
 
     def __init__(self, **kwargs):

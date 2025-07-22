@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+import asyncio
 import inspect
 import os
 import random
@@ -210,6 +211,15 @@ def format_bytes(bytes: int | None, none_str: str = "--") -> str:
             return f"{bytes / factor:.0f} {suffix}"
 
     raise ValueError(f"Bytes value is too large to format: {bytes}")
+
+
+async def yield_to_event_loop() -> None:
+    """Yield to the event loop. This forces the current coroutine to yield and allow
+    other coroutines to run, preventing starvation. Use this when you do not want to
+    delay your coroutine via sleep, but still want to allow other coroutines to run if
+    there is a potential for an infinite loop.
+    """
+    await asyncio.sleep(0)
 
 
 # This is used to identify the source file of the call_all_functions function

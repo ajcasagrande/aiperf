@@ -290,7 +290,11 @@ class ServiceConfig(BaseSettings):
             description="Interval in seconds to report progress. This is used to report the progress of the profile to the user.",
         ),
         cyclopts.Parameter(
-            name=("--progress-report-interval-seconds", "--progress-report-interval"),
+            name=(
+                "--progress-report-interval-seconds",
+                "--progress-report-interval",
+                "--progress-interval",
+            ),
             group=_GROUP_NAME,
         ),
     ] = ServiceDefaults.PROGRESS_REPORT_INTERVAL_SECONDS
