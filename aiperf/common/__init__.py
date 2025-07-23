@@ -329,6 +329,7 @@ from aiperf.common.types import (
     RequestOutputT,
     ResponseDataT,
     ResponseT,
+    TaskManagerProtocolT,
 )
 from aiperf.common.utils import (
     call_all_functions,
@@ -565,6 +566,7 @@ __all__ = [
     "TASK_CANCEL_TIMEOUT_SHORT",
     "TaskManagerMixin",
     "TaskManagerProtocol",
+    "TaskManagerProtocolT",
     "Text",
     "TextResponse",
     "TimingMode",

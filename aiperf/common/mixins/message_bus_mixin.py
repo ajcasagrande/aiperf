@@ -3,18 +3,15 @@
 
 from abc import ABC
 from collections.abc import Callable, Coroutine
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from aiperf.common.config import ServiceConfig
 from aiperf.common.enums.communication_enums import CommAddress
 from aiperf.common.hooks import AIPerfHook, on_init, on_start, on_stop, provides_hooks
-from aiperf.common.interfaces import CommunicationFactory
+from aiperf.common.interfaces import CommunicationFactory, CommunicationProtocol
 from aiperf.common.messages import Message
 from aiperf.common.mixins.aiperf_lifecycle_mixin import AIPerfLifecycleMixin
 from aiperf.common.types import MessageT, MessageTypeT
-
-if TYPE_CHECKING:
-    from aiperf.common.comms.base_comms import BaseCommunication
 
 
 @provides_hooks(AIPerfHook.ON_MESSAGE)
@@ -24,7 +21,7 @@ class MessageBusClientMixin(AIPerfLifecycleMixin, ABC):
 
     def __init__(self, service_config: ServiceConfig, **kwargs) -> None:
         self.service_config = service_config
-        self.comms: BaseCommunication = CommunicationFactory.create_instance(
+        self.comms: CommunicationProtocol = CommunicationFactory.create_instance(
             self.service_config.comm_backend,
             config=self.service_config.comm_config,
         )

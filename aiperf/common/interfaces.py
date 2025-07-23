@@ -5,6 +5,7 @@ import asyncio
 from collections.abc import Callable, Coroutine
 from typing import Any, Protocol, runtime_checkable
 
+from aiperf.common.constants import DEFAULT_COMMS_REQUEST_TIMEOUT
 from aiperf.common.enums import (
     CommClientType,
     CommunicationBackend,
@@ -23,34 +24,8 @@ from aiperf.common.types import (
     MessageTypeT,
     ParsedResponseRecordT,
     ResponseDataT,
+    TaskManagerProtocolT,
 )
-
-# if TYPE_CHECKING:
-#     from aiperf.common.enums import (
-#         CommClientType,
-#         CommunicationBackend,
-#         ComposerType,
-#         CustomDatasetType,
-#         DataExporterType,
-#         MessageType,
-#         PostProcessorType,
-#         ServiceType,
-#         StreamingPostProcessorType,
-#     )
-#     from aiperf.common.messages import Message
-#     from aiperf.common.models import ParsedResponseRecord, ResponseData
-#     from aiperf.common.service.base_service import BaseService
-#     from aiperf.common.types import (
-#         CommAddressType,
-#         MessageOutputT,
-#         MessageT,
-#         MessageTypeT,
-#     )
-#     from aiperf.services.dataset.composer.base import BaseDatasetComposer
-#     from aiperf.services.dataset.loader.protocol import CustomDatasetLoaderProtocol
-#     from aiperf.services.records_manager.post_processors.streaming_post_processor import (
-#         BaseStreamingPostProcessor,
-#     )
 
 
 class CommunicationFactory(
@@ -101,7 +76,7 @@ class TaskManagerProtocol(Protocol):
     def start_background_task(
         self,
         method: Callable,
-        interval: float | Callable[["TaskManagerProtocol"], float] | None = None,
+        interval: float | Callable[[TaskManagerProtocolT], float] | None = None,
         immediate: bool = False,
         stop_on_error: bool = False,
     ) -> None: ...
@@ -169,15 +144,15 @@ class AIPerfLoggerProtocol(Protocol):
 
 @CommunicationClientProtocolFactory.register(CommClientType.PUSH)
 class PushClientProtocol(CommunicationClientProtocol, Protocol):
-    async def push(self, message: "MessageT") -> None: ...
+    async def push(self, message: MessageT) -> None: ...
 
 
 @CommunicationClientProtocolFactory.register(CommClientType.PULL)
 class PullClientProtocol(CommunicationClientProtocol, Protocol):
     async def register_pull_callback(
         self,
-        message_type: "MessageTypeT",
-        callback: Callable[["MessageT"], Coroutine[Any, Any, None]],
+        message_type: MessageTypeT,
+        callback: Callable[[MessageT], Coroutine[Any, Any, None]],
         max_concurrency: int | None,
     ) -> None: ...
 
@@ -187,14 +162,14 @@ class PullClientProtocol(CommunicationClientProtocol, Protocol):
 class RequestClientProtocol(CommunicationClientProtocol, Protocol):
     async def request(
         self,
-        message: "MessageT",
-        timeout: float,
-    ) -> "MessageOutputT": ...
+        message: MessageT,
+        timeout: float = DEFAULT_COMMS_REQUEST_TIMEOUT,
+    ) -> MessageOutputT: ...
 
     async def request_async(
         self,
-        message: "MessageT",
-        callback: Callable[["MessageOutputT"], Coroutine[Any, Any, None]],
+        message: MessageT,
+        callback: Callable[[MessageOutputT], Coroutine[Any, Any, None]],
     ) -> None: ...
 
 
@@ -204,8 +179,8 @@ class ReplyClientProtocol(CommunicationClientProtocol, Protocol):
     def register_request_handler(
         self,
         service_id: str,
-        message_type: "MessageTypeT",
-        handler: Callable[["MessageT"], Coroutine[Any, Any, "MessageOutputT | None"]],
+        message_type: MessageTypeT,
+        handler: Callable[[MessageT], Coroutine[Any, Any, MessageOutputT | None]],
     ) -> None: ...
 
 
@@ -214,15 +189,15 @@ class ReplyClientProtocol(CommunicationClientProtocol, Protocol):
 class SubClientProtocol(CommunicationClientProtocol, Protocol):
     async def subscribe(
         self,
-        message_type: "MessageTypeT",
-        callback: Callable[["MessageT"], Coroutine[Any, Any, None]],
+        message_type: MessageTypeT,
+        callback: Callable[[MessageT], Coroutine[Any, Any, None]],
     ) -> None: ...
 
     async def subscribe_all(
         self,
         message_callback_map: dict[
-            "MessageTypeT",
-            Callable[["MessageT"], Any] | list[Callable[["MessageT"], Any]],
+            MessageTypeT,
+            Callable[[MessageT], Any] | list[Callable[[MessageT], Any]],
         ],
     ) -> None: ...
 
@@ -230,7 +205,7 @@ class SubClientProtocol(CommunicationClientProtocol, Protocol):
 @CommunicationClientProtocolFactory.register(CommClientType.PUB)
 @runtime_checkable
 class PubClientProtocol(CommunicationClientProtocol, Protocol):
-    async def publish(self, message: "MessageT") -> None: ...
+    async def publish(self, message: MessageT) -> None: ...
 
 
 @runtime_checkable
@@ -239,32 +214,53 @@ class MessageBusProtocol(PubClientProtocol, SubClientProtocol, Protocol): ...
 
 @runtime_checkable
 class CommunicationProtocol(AIPerfLifecycleProtocol, Protocol):
-    def get_address(self, address_type: "CommAddressType") -> str: ...
+    def get_address(self, address_type: CommAddressType) -> str: ...
 
     def create_client(
-        self, address: "CommAddressType", bind: bool, socket_ops: dict | None
+        self,
+        address: CommAddressType,
+        bind: bool = False,
+        socket_ops: dict | None = None,
     ) -> CommunicationClientProtocol: ...
 
     def create_pub_client(
-        self, address: "CommAddressType", bind: bool, socket_ops: dict | None
+        self,
+        address: CommAddressType,
+        bind: bool = False,
+        socket_ops: dict | None = None,
     ) -> PubClientProtocol: ...
 
     def create_sub_client(
-        self, address: "CommAddressType", bind: bool, socket_ops: dict | None
+        self,
+        address: CommAddressType,
+        bind: bool = False,
+        socket_ops: dict | None = None,
     ) -> SubClientProtocol: ...
 
     def create_push_client(
-        self, address: "CommAddressType", bind: bool, socket_ops: dict | None
+        self,
+        address: CommAddressType,
+        bind: bool = False,
+        socket_ops: dict | None = None,
     ) -> PushClientProtocol: ...
 
     def create_pull_client(
-        self, address: "CommAddressType", bind: bool, socket_ops: dict | None
+        self,
+        address: CommAddressType,
+        bind: bool = False,
+        socket_ops: dict | None = None,
     ) -> PullClientProtocol: ...
 
     def create_request_client(
-        self, address: "CommAddressType", bind: bool, socket_ops: dict | None
+        self,
+        address: CommAddressType,
+        bind: bool = False,
+        socket_ops: dict | None = None,
     ) -> RequestClientProtocol: ...
 
     def create_reply_client(
-        self, address: "CommAddressType", bind: bool, socket_ops: dict | None
+        self,
+        address: CommAddressType,
+        bind: bool = False,
+        socket_ops: dict | None = None,
     ) -> ReplyClientProtocol: ...

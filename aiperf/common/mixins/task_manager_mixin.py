@@ -6,8 +6,8 @@ import inspect
 from collections.abc import Callable, Coroutine
 
 from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
-from aiperf.common.interfaces import TaskManagerProtocol
 from aiperf.common.mixins.aiperf_logger_mixin import AIPerfLoggerMixin
+from aiperf.common.types import TaskManagerProtocolT
 from aiperf.common.utils import yield_to_event_loop
 
 
@@ -56,7 +56,7 @@ class TaskManagerMixin(AIPerfLoggerMixin):
     def start_background_task(
         self,
         method: Callable,
-        interval: float | Callable[["TaskManagerProtocol"], float] | None = None,
+        interval: float | Callable[[TaskManagerProtocolT], float] | None = None,
         immediate: bool = False,
         stop_on_error: bool = False,
     ) -> None:
@@ -68,7 +68,7 @@ class TaskManagerMixin(AIPerfLoggerMixin):
     async def _background_task_loop(
         self,
         method: Callable,
-        interval: float | Callable[["TaskManagerProtocol"], float] | None = None,
+        interval: float | Callable[[TaskManagerProtocolT], float] | None = None,
         immediate: bool = False,
         stop_on_error: bool = False,
     ) -> None:
