@@ -8,7 +8,7 @@ import zmq.asyncio
 from aiperf.common.comms.zmq.zmq_base_client import BaseZMQClient
 from aiperf.common.enums import CommClientType
 from aiperf.common.exceptions import CommunicationError
-from aiperf.common.interfaces import CommunicationClientFactory
+from aiperf.common.factories import CommunicationClientFactory
 from aiperf.common.messages import Message
 
 

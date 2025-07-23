@@ -21,8 +21,8 @@ from aiperf.common.enums import (
     CommunicationBackend,
 )
 from aiperf.common.exceptions import ShutdownError
+from aiperf.common.factories import CommunicationClientFactory, CommunicationFactory
 from aiperf.common.hooks import on_init, on_start, on_stop
-from aiperf.common.interfaces import CommunicationClientFactory, CommunicationFactory
 from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.common.types import CommAddressType
 

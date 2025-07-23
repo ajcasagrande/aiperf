@@ -7,8 +7,9 @@ from typing import Any
 
 from aiperf.common.config import ServiceConfig
 from aiperf.common.enums import CommAddress
+from aiperf.common.factories import CommunicationFactory
 from aiperf.common.hooks import AIPerfHook, on_init, on_start, on_stop, provides_hooks
-from aiperf.common.interfaces import CommunicationFactory, CommunicationProtocol
+from aiperf.common.interfaces import CommunicationProtocol
 from aiperf.common.messages import Message
 from aiperf.common.mixins.aiperf_lifecycle_mixin import AIPerfLifecycleMixin
 from aiperf.common.types import MessageT, MessageTypeT
