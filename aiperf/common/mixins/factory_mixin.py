@@ -2,25 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 import logging
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, Generic, TypeVar
+from typing import Any, Generic
 
-from aiperf.common.enums import (
-    CaseInsensitiveStrEnum,
-)
-from aiperf.common.exceptions import FactoryCreationError
-
-if TYPE_CHECKING:
-    pass
-
-ClassEnumT = TypeVar("ClassEnumT", bound=CaseInsensitiveStrEnum)
-ClassProtocolT = TypeVar("ClassProtocolT", bound=Any)
-
-################################################################################
-# Generic Base Factory Mixin
-################################################################################
+from aiperf.common.types import ClassEnumT, ClassProtocolT
 
 
-class FactoryMixin(Generic[ClassEnumT, ClassProtocolT]):
+class FactoryMixin(Generic["ClassEnumT", "ClassProtocolT"]):
     """Defines a mixin for all factories, which supports registering and creating instances of classes.
 
     This mixin is used to create a factory for a given class type and protocol.
@@ -165,10 +152,14 @@ class FactoryMixin(Generic[ClassEnumT, ClassProtocolT]):
             FactoryCreationError: If the class type is not registered or there is an error creating the instance
         """
         if class_type not in cls._registry:
+            from aiperf.common.exceptions import FactoryCreationError
+
             raise FactoryCreationError(f"No implementation found for {class_type!r}.")
         try:
             return cls._registry[class_type](**kwargs)
         except Exception as e:
+            from aiperf.common.exceptions import FactoryCreationError
+
             raise FactoryCreationError(
                 f"Error creating {class_type!r} instance: {e}"
             ) from e

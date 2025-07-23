@@ -30,7 +30,7 @@ from aiperf.common.messages import (
     DatasetTimingResponse,
 )
 from aiperf.common.messages.command_messages import CommandMessage
-from aiperf.common.mixins.factory_mixins import ServiceFactory
+from aiperf.common.mixins.factory_mixin import ServiceFactory
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.services.timing_manager.config import (
     TimingManagerConfig,

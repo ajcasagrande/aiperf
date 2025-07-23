@@ -12,7 +12,7 @@ from rich.logging import RichHandler
 from aiperf.common.aiperf_logger import _DEBUG, _TRACE, AIPerfLogger
 from aiperf.common.config import ServiceConfig, ServiceDefaults, UserConfig
 from aiperf.common.enums import ServiceType
-from aiperf.common.mixins.factory_mixins import ServiceFactory
+from aiperf.common.mixins.factory_mixin import ServiceFactory
 
 LOG_QUEUE_MAXSIZE = 1000
 

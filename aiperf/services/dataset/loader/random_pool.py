@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import TypeAlias
 
 from aiperf.common.enums import CustomDatasetType
-from aiperf.common.mixins.factory_mixins import CustomDatasetFactory
+from aiperf.common.mixins.factory_mixin import CustomDatasetFactory
 from aiperf.services.dataset.loader.models import RandomPool
 
 # Type aliases

@@ -264,8 +264,6 @@ from aiperf.common.mixins import (
     AIPerfLifecycleMixin,
     AIPerfLoggerMixin,
     BaseMixin,
-    ClassEnumT,
-    ClassProtocolT,
     FactoryMixin,
     Hook,
     HooksMixin,
@@ -313,6 +311,8 @@ from aiperf.common.tokenizer import (
     Tokenizer,
 )
 from aiperf.common.types import (
+    ClassEnumT,
+    ClassProtocolT,
     CommAddressType,
     ConfigT,
     HooksMixinT,

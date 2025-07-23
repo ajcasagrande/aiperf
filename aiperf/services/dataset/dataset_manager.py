@@ -25,7 +25,7 @@ from aiperf.common.messages import (
     DatasetTimingRequest,
     DatasetTimingResponse,
 )
-from aiperf.common.mixins.factory_mixins import ComposerFactory, ServiceFactory
+from aiperf.common.mixins.factory_mixin import ComposerFactory, ServiceFactory
 from aiperf.common.models import Conversation
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.common.tokenizer import Tokenizer

@@ -5,7 +5,7 @@ import asyncio
 
 from aiperf.common.config import UserConfig
 from aiperf.common.messages import ProfileResultsMessage
-from aiperf.common.mixins.factory_mixins import DataExporterFactory
+from aiperf.common.mixins.factory_mixin import DataExporterFactory
 from aiperf.data_exporter.exporter_config import ExporterConfig
 
 

@@ -15,7 +15,7 @@ from aiperf.common.messages import (
     ParsedInferenceResultsMessage,
 )
 from aiperf.common.messages.command_messages import CommandMessage
-from aiperf.common.mixins.factory_mixins import (
+from aiperf.common.mixins.factory_mixin import (
     ServiceFactory,
     StreamingPostProcessorFactory,
 )

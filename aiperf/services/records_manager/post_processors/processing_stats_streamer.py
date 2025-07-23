@@ -15,7 +15,7 @@ from aiperf.common.messages.progress_messages import (
     AllRecordsReceivedMessage,
     RecordsProcessingStatsMessage,
 )
-from aiperf.common.mixins.factory_mixins import StreamingPostProcessorFactory
+from aiperf.common.mixins.factory_mixin import StreamingPostProcessorFactory
 from aiperf.common.models import ParsedResponseRecord, PhaseProcessingStats
 from aiperf.services.records_manager.post_processors.streaming_post_processor import (
     BaseStreamingPostProcessor,

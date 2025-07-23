@@ -15,7 +15,7 @@ from aiperf.common.messages import (
 from aiperf.common.messages.command_messages import (
     ProcessRecordsCommandData,
 )
-from aiperf.common.mixins.factory_mixins import StreamingPostProcessorFactory
+from aiperf.common.mixins.factory_mixin import StreamingPostProcessorFactory
 from aiperf.common.models import ErrorDetails, ErrorDetailsCount, ParsedResponseRecord
 from aiperf.common.models.record_models import MetricResult
 from aiperf.data_exporter.exporter_manager import ExporterManager

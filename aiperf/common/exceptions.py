@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from aiperf.common.enums import ServiceType
+from aiperf.common.enums.service_enums import ServiceType
 
 
 class AIPerfError(Exception):

@@ -23,7 +23,7 @@ from aiperf.common.messages import (
     InferenceResultsMessage,
     ParsedInferenceResultsMessage,
 )
-from aiperf.common.mixins.factory_mixins import ServiceFactory
+from aiperf.common.mixins.factory_mixin import ServiceFactory
 from aiperf.common.models import (
     ErrorDetails,
     ParsedResponseRecord,
