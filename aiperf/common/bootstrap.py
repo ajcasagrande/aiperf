@@ -6,13 +6,12 @@ import contextlib
 import multiprocessing
 import random
 
-from aiperf.common.config import ServiceConfig
-from aiperf.common.config.user_config import UserConfig
-from aiperf.services.base_service import BaseService
+from aiperf.common.config import ServiceConfig, UserConfig
+from aiperf.common.protocols import ServiceProtocol
 
 
 def bootstrap_and_run_service(
-    service_class: type[BaseService],
+    service_class: type[ServiceProtocol],
     service_config: ServiceConfig | None = None,
     user_config: UserConfig | None = None,
     service_id: str | None = None,

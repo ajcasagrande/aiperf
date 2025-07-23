@@ -35,7 +35,7 @@ from aiperf.common.messages import (
 )
 from aiperf.common.messages.command_messages import CommandMessage
 from aiperf.common.models import ServiceRunInfo
-from aiperf.common.service.base_service import BaseService
+from aiperf.services.base_service import BaseService
 from aiperf.services.service_manager import (
     BaseServiceManager,
     KubernetesServiceManager,

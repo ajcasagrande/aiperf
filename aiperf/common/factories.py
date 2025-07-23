@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 import logging
 from collections.abc import Callable
-from typing import Any, Generic
+from typing import TYPE_CHECKING, Any, Generic
 
 from aiperf.common.enums import (
     CommClientType,
@@ -17,8 +17,12 @@ from aiperf.common.enums import (
 )
 from aiperf.common.enums.endpoints_enums import EndpointType
 from aiperf.common.exceptions import InvalidOperationError
-from aiperf.common.protocols import ServiceProtocol
 from aiperf.common.types import ClassEnumT, ClassProtocolT, ServiceTypeT
+
+if TYPE_CHECKING:
+    from aiperf.common.protocols import (
+        ServiceProtocol,
+    )
 
 
 class AIPerfFactory(Generic[ClassEnumT, ClassProtocolT]):
