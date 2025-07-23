@@ -6,7 +6,7 @@ from collections.abc import Callable, Coroutine
 from typing import Any
 
 from aiperf.common.config import ServiceConfig
-from aiperf.common.enums.communication_enums import CommAddress
+from aiperf.common.enums import CommAddress
 from aiperf.common.hooks import AIPerfHook, on_init, on_start, on_stop, provides_hooks
 from aiperf.common.interfaces import CommunicationFactory, CommunicationProtocol
 from aiperf.common.messages import Message

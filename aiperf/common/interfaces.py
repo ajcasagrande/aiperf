@@ -6,17 +6,8 @@ from collections.abc import Callable, Coroutine
 from typing import Any, Protocol, runtime_checkable
 
 from aiperf.common.constants import DEFAULT_COMMS_REQUEST_TIMEOUT
-from aiperf.common.enums import (
-    CommClientType,
-    CommunicationBackend,
-    ComposerType,
-    CustomDatasetType,
-    DataExporterType,
-    PostProcessorType,
-    ServiceType,
-    StreamingPostProcessorType,
-)
-from aiperf.common.mixins.factory_mixin import FactoryMixin
+from aiperf.common.enums import CommClientType
+from aiperf.common.factories import CommunicationClientProtocolFactory
 from aiperf.common.types import (
     CommAddressType,
     MessageOutputT,
@@ -26,45 +17,6 @@ from aiperf.common.types import (
     ResponseDataT,
     TaskManagerProtocolT,
 )
-
-
-class CommunicationFactory(
-    FactoryMixin[CommunicationBackend, "CommunicationProtocol"]
-): ...
-
-
-class ServiceFactory(FactoryMixin[ServiceType, "BaseService"]): ...
-
-
-class DataExporterFactory(FactoryMixin[DataExporterType, "DataExporterProtocol"]): ...
-
-
-class PostProcessorFactory(
-    FactoryMixin[PostProcessorType, "PostProcessorProtocol"]
-): ...
-
-
-class ComposerFactory(FactoryMixin[ComposerType, "BaseDatasetComposer"]): ...
-
-
-class CustomDatasetFactory(
-    FactoryMixin[CustomDatasetType, "CustomDatasetLoaderProtocol"]
-): ...
-
-
-class StreamingPostProcessorFactory(
-    FactoryMixin[StreamingPostProcessorType, "BaseStreamingPostProcessor"]
-): ...
-
-
-class CommunicationClientFactory(
-    FactoryMixin[CommClientType, "CommunicationClientProtocol"]
-): ...
-
-
-class CommunicationClientProtocolFactory(
-    FactoryMixin[CommClientType, "CommunicationClientProtocol"]
-): ...
 
 
 @runtime_checkable

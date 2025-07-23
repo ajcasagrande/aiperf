@@ -4,13 +4,24 @@ import logging
 from collections.abc import Callable
 from typing import Any, Generic
 
+from aiperf.common.enums import (
+    CommClientType,
+    CommunicationBackend,
+    ComposerType,
+    CustomDatasetType,
+    DataExporterType,
+    PostProcessorType,
+    ServiceType,
+    StreamingPostProcessorType,
+    ZMQProxyType,
+)
 from aiperf.common.types import ClassEnumT, ClassProtocolT
 
 
-class FactoryMixin(Generic[ClassEnumT, ClassProtocolT]):
-    """Defines a mixin for all factories, which supports registering and creating instances of classes.
+class AIPerfFactory(Generic[ClassEnumT, ClassProtocolT]):
+    """Defines a custom factory for AIPerf components.
 
-    This mixin is used to create a factory for a given class type and protocol.
+    This class is used to create a factory for a given class type and protocol.
 
     Example:
     ```python
@@ -26,8 +37,7 @@ class FactoryMixin(Generic[ClassEnumT, ClassProtocolT]):
                 pass
 
         # Create a new factory for a given class type and protocol.
-        class DatasetFactory(FactoryMixin[DatasetLoaderType, DatasetLoaderProtocol]):
-            pass
+        class DatasetFactory(AIPerfFactory[DatasetLoaderType, DatasetLoaderProtocol]): ...
 
         # Register a new class type mapping to its corresponding class. It should implement the class protocol.
         @DatasetFactory.register(DatasetLoaderType.FILE)
@@ -203,3 +213,45 @@ class FactoryMixin(Generic[ClassEnumT, ClassProtocolT]):
     ) -> list[tuple[type[ClassProtocolT], ClassEnumT | str]]:
         """Get all registered classes and their corresponding class types."""
         return [(cls, class_type) for class_type, cls in cls._registry.items()]
+
+
+class CommunicationFactory(
+    AIPerfFactory[CommunicationBackend, "CommunicationProtocol"]
+): ...
+
+
+class ServiceFactory(AIPerfFactory[ServiceType, "BaseService"]): ...
+
+
+class DataExporterFactory(AIPerfFactory[DataExporterType, "DataExporterProtocol"]): ...
+
+
+class PostProcessorFactory(
+    AIPerfFactory[PostProcessorType, "PostProcessorProtocol"]
+): ...
+
+
+class ComposerFactory(AIPerfFactory[ComposerType, "BaseDatasetComposer"]): ...
+
+
+class CustomDatasetFactory(
+    AIPerfFactory[CustomDatasetType, "CustomDatasetLoaderProtocol"]
+): ...
+
+
+class StreamingPostProcessorFactory(
+    AIPerfFactory[StreamingPostProcessorType, "BaseStreamingPostProcessor"]
+): ...
+
+
+class CommunicationClientFactory(
+    AIPerfFactory[CommClientType, "CommunicationClientProtocol"]
+): ...
+
+
+class CommunicationClientProtocolFactory(
+    AIPerfFactory[CommClientType, "CommunicationClientProtocol"]
+): ...
+
+
+class ZMQProxyFactory(AIPerfFactory[ZMQProxyType, "BaseZMQProxy"]): ...

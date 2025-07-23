@@ -6,6 +6,7 @@ import time
 from aiperf.common.comms.base_comms import SubClientProtocol
 from aiperf.common.enums import CreditPhase, StreamingPostProcessorType
 from aiperf.common.enums.message_enums import MessageType
+from aiperf.common.factories import StreamingPostProcessorFactory
 from aiperf.common.hooks import background_task, on_init
 from aiperf.common.messages import (
     CreditPhaseCompleteMessage,
@@ -15,7 +16,6 @@ from aiperf.common.messages.progress_messages import (
     AllRecordsReceivedMessage,
     RecordsProcessingStatsMessage,
 )
-from aiperf.common.mixins.factory_mixin import StreamingPostProcessorFactory
 from aiperf.common.models import ParsedResponseRecord, PhaseProcessingStats
 from aiperf.services.records_manager.post_processors.streaming_post_processor import (
     BaseStreamingPostProcessor,

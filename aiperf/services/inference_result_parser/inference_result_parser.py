@@ -13,6 +13,7 @@ from aiperf.common.comms.base_comms import (
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
 from aiperf.common.enums import CommAddress, MessageType, ServiceType
+from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
     on_init,
 )
@@ -23,7 +24,6 @@ from aiperf.common.messages import (
     InferenceResultsMessage,
     ParsedInferenceResultsMessage,
 )
-from aiperf.common.mixins.factory_mixin import ServiceFactory
 from aiperf.common.models import (
     ErrorDetails,
     ParsedResponseRecord,

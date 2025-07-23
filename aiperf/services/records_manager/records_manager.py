@@ -10,15 +10,15 @@ from aiperf.common.comms.base_comms import (
 )
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.enums import CommandType, CreditPhase, MessageType, ServiceType
+from aiperf.common.factories import (
+    ServiceFactory,
+    StreamingPostProcessorFactory,
+)
 from aiperf.common.hooks import on_init, on_stop
 from aiperf.common.messages import (
     ParsedInferenceResultsMessage,
 )
 from aiperf.common.messages.command_messages import CommandMessage
-from aiperf.common.mixins.factory_mixin import (
-    ServiceFactory,
-    StreamingPostProcessorFactory,
-)
 from aiperf.common.service import BaseComponentService
 from aiperf.services.records_manager.post_processors import BaseStreamingPostProcessor
 

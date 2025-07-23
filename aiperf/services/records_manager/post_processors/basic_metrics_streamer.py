@@ -6,6 +6,7 @@ from collections import deque
 
 from aiperf.common.enums import StreamingPostProcessorType
 from aiperf.common.enums.message_enums import MessageType
+from aiperf.common.factories import StreamingPostProcessorFactory
 from aiperf.common.hooks import on_init
 from aiperf.common.messages import (
     AllRecordsReceivedMessage,
@@ -15,7 +16,6 @@ from aiperf.common.messages import (
 from aiperf.common.messages.command_messages import (
     ProcessRecordsCommandData,
 )
-from aiperf.common.mixins.factory_mixin import StreamingPostProcessorFactory
 from aiperf.common.models import ErrorDetails, ErrorDetailsCount, ParsedResponseRecord
 from aiperf.common.models.record_models import MetricResult
 from aiperf.data_exporter.exporter_manager import ExporterManager

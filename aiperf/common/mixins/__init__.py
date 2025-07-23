@@ -17,9 +17,6 @@ from aiperf.common.mixins.aiperf_logger_mixin import (
 from aiperf.common.mixins.base_mixin import (
     BaseMixin,
 )
-from aiperf.common.mixins.factory_mixin import (
-    FactoryMixin,
-)
 from aiperf.common.mixins.hooks_mixin import (
     Hook,
     HooksMixin,
@@ -39,7 +36,6 @@ __all__ = [
     "AIPerfLifecycleMixin",
     "AIPerfLoggerMixin",
     "BaseMixin",
-    "FactoryMixin",
     "Hook",
     "HooksMixin",
     "HooksProtocol",

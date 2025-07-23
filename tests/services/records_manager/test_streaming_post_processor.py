@@ -7,8 +7,8 @@ Tests for the streaming post processor base class.
 import pytest
 
 from aiperf.common.enums.timing_enums import CreditPhase
+from aiperf.common.factories import StreamingPostProcessorFactory
 from aiperf.common.messages.inference_messages import ParsedInferenceResultsMessage
-from aiperf.common.mixins.factory_mixin import StreamingPostProcessorFactory
 from aiperf.common.models import ParsedResponseRecord
 from aiperf.services.records_manager.post_processors.streaming_post_processor import (
     BaseStreamingPostProcessor,

@@ -3,7 +3,7 @@
 
 from aiperf.common.config import InputConfig
 from aiperf.common.enums import ComposerType, CustomDatasetType
-from aiperf.common.mixins.factory_mixin import ComposerFactory, CustomDatasetFactory
+from aiperf.common.factories import ComposerFactory, CustomDatasetFactory
 from aiperf.common.models import Conversation
 from aiperf.common.tokenizer import Tokenizer
 from aiperf.services.dataset import utils

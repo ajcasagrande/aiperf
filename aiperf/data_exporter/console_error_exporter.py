@@ -5,7 +5,7 @@ from rich.console import Console
 from rich.table import Table
 
 from aiperf.common.enums import DataExporterType
-from aiperf.common.mixins.factory_mixin import DataExporterFactory
+from aiperf.common.factories import DataExporterFactory
 from aiperf.common.models import ErrorDetailsCount
 from aiperf.data_exporter.exporter_config import ExporterConfig
 

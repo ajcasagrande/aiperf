@@ -5,7 +5,7 @@ import uuid
 
 from aiperf.common.config import InputConfig
 from aiperf.common.enums import ComposerType
-from aiperf.common.mixins.factory_mixin import ComposerFactory
+from aiperf.common.factories import ComposerFactory
 from aiperf.common.models import Audio, Conversation, Image, Text, Turn
 from aiperf.common.tokenizer import Tokenizer
 from aiperf.services.dataset import utils

@@ -18,6 +18,7 @@ from aiperf.common.enums import (
     MessageType,
     ServiceType,
 )
+from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import background_task, on_init, on_stop
 from aiperf.common.messages import (
     CreditDropMessage,
@@ -25,7 +26,6 @@ from aiperf.common.messages import (
     WorkerHealthMessage,
 )
 from aiperf.common.mixins import ProcessHealthMixin
-from aiperf.common.mixins.factory_mixin import ServiceFactory
 from aiperf.common.models import WorkerPhaseTaskStats
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.services.workers.credit_processor_mixin import CreditProcessorMixin

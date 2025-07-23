@@ -19,6 +19,7 @@ from aiperf.common.enums import (
     ServiceType,
 )
 from aiperf.common.exceptions import InvalidStateError
+from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
     on_init,
     on_stop,
@@ -30,7 +31,6 @@ from aiperf.common.messages import (
     DatasetTimingResponse,
 )
 from aiperf.common.messages.command_messages import CommandMessage
-from aiperf.common.mixins.factory_mixin import ServiceFactory
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.services.timing_manager.config import (
     TimingManagerConfig,

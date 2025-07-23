@@ -15,7 +15,7 @@ from aiperf.common.constants import (
 )
 from aiperf.common.enums import ServiceRegistrationStatus, ServiceType
 from aiperf.common.exceptions import ServiceError
-from aiperf.common.mixins.factory_mixin import ServiceFactory
+from aiperf.common.factories import ServiceFactory
 from aiperf.services.service_manager.base import BaseServiceManager
 
 

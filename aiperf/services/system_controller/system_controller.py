@@ -25,6 +25,7 @@ from aiperf.common.enums import (
     ZMQProxyType,
 )
 from aiperf.common.exceptions import CommunicationError, NotInitializedError
+from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import on_stop
 from aiperf.common.messages import (
     CommandResponseMessage,
@@ -36,7 +37,6 @@ from aiperf.common.messages import (
     StatusMessage,
 )
 from aiperf.common.messages.command_messages import CommandMessage
-from aiperf.common.mixins.factory_mixin import ServiceFactory
 from aiperf.common.models import ServiceRunInfo
 from aiperf.common.service.base_service import BaseService
 from aiperf.services.service_manager import (
