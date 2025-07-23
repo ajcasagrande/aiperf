@@ -5,7 +5,10 @@ import asyncio
 from collections.abc import Callable, Coroutine
 from typing import Any, Protocol, runtime_checkable
 
-from aiperf.common.constants import DEFAULT_COMMS_REQUEST_TIMEOUT
+from aiperf.common.constants import (
+    DEFAULT_COMMS_REQUEST_TIMEOUT,
+    DEFAULT_PULL_CLIENT_MAX_CONCURRENCY,
+)
 from aiperf.common.enums import CommClientType
 from aiperf.common.factories import CommunicationClientProtocolFactory
 from aiperf.common.types import (
@@ -105,7 +108,7 @@ class PullClientProtocol(CommunicationClientProtocol, Protocol):
         self,
         message_type: MessageTypeT,
         callback: Callable[[MessageT], Coroutine[Any, Any, None]],
-        max_concurrency: int | None,
+        max_concurrency: int | None = DEFAULT_PULL_CLIENT_MAX_CONCURRENCY,
     ) -> None: ...
 
 

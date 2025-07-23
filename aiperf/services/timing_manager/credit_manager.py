@@ -12,8 +12,8 @@ from aiperf.common.messages import (
     CreditPhaseStartMessage,
     CreditsCompleteMessage,
 )
-from aiperf.common.mixins import AIPerfLoggerProtocol
-from aiperf.common.mixins.task_manager_mixin import TaskManagerMixin
+from aiperf.common.mixins import TaskManagerMixin
+from aiperf.common.protocols import AIPerfLoggerProtocol
 
 
 @runtime_checkable

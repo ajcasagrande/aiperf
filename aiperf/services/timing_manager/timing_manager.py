@@ -4,15 +4,9 @@
 import asyncio
 import sys
 
-from aiperf.common.comms.base_comms import (
-    CommAddress,
-    PullClientProtocol,
-    PushClientProtocol,
-    RequestClientProtocol,
-)
-from aiperf.common.config import ServiceConfig
-from aiperf.common.config.user_config import UserConfig
+from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.enums import (
+    CommAddress,
     CommandType,
     CreditPhase,
     MessageType,
@@ -25,13 +19,18 @@ from aiperf.common.hooks import (
     on_stop,
 )
 from aiperf.common.messages import (
+    CommandMessage,
     CreditDropMessage,
     CreditReturnMessage,
     DatasetTimingRequest,
     DatasetTimingResponse,
 )
-from aiperf.common.messages.command_messages import CommandMessage
-from aiperf.common.service.base_component_service import BaseComponentService
+from aiperf.common.protocols import (
+    PullClientProtocol,
+    PushClientProtocol,
+    RequestClientProtocol,
+)
+from aiperf.common.service import BaseComponentService
 from aiperf.services.timing_manager.config import (
     TimingManagerConfig,
     TimingMode,
