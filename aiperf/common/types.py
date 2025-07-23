@@ -10,6 +10,9 @@ if TYPE_CHECKING:
     from aiperf.common.messages.base_messages import Message
     from aiperf.common.mixins.aiperf_lifecycle_mixin import AIPerfLifecycleMixin
     from aiperf.common.mixins.hooks_mixin import HooksMixin
+    from aiperf.common.models.record_models import ParsedResponseRecord, ResponseData
+
+# TypeVars
 
 ConfigT = TypeVar("ConfigT", bound=Any, covariant=True)
 RequestInputT = TypeVar("RequestInputT", bound=Any, contravariant=True)
@@ -25,6 +28,11 @@ LifecycleMixinT = TypeVar("LifecycleMixinT", bound="AIPerfLifecycleMixin")
 HooksMixinT = TypeVar("HooksMixinT", bound="HooksMixin")
 ClassEnumT = TypeVar("ClassEnumT", bound="CaseInsensitiveStrEnum")
 ClassProtocolT = TypeVar("ClassProtocolT", bound=Any)
+ResponseDataT = TypeVar("ResponseDataT", bound="ResponseData")
+ParsedResponseRecordT = TypeVar("ParsedResponseRecordT", bound="ParsedResponseRecord")
+
+
+# Union types
 
 MessageTypeT = Union["MessageType", str]
 """Alias for the MessageType being an enum or a custom string for user-defined message types."""

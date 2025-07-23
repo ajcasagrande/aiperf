@@ -7,7 +7,7 @@ from typing import Any, Generic
 from aiperf.common.types import ClassEnumT, ClassProtocolT
 
 
-class FactoryMixin(Generic["ClassEnumT", "ClassProtocolT"]):
+class FactoryMixin(Generic[ClassEnumT, ClassProtocolT]):
     """Defines a mixin for all factories, which supports registering and creating instances of classes.
 
     This mixin is used to create a factory for a given class type and protocol.

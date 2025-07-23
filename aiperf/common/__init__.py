@@ -322,10 +322,12 @@ from aiperf.common.types import (
     MessageT,
     MessageTypeT,
     OutputT,
+    ParsedResponseRecordT,
     RawRequestT,
     RawResponseT,
     RequestInputT,
     RequestOutputT,
+    ResponseDataT,
     ResponseT,
 )
 from aiperf.common.utils import (
@@ -498,6 +500,7 @@ __all__ = [
     "PROVIDES_HOOKS",
     "ParsedInferenceResultsMessage",
     "ParsedResponseRecord",
+    "ParsedResponseRecordT",
     "PhaseProcessingStats",
     "PostProcessorFactory",
     "PostProcessorProtocol",
@@ -532,6 +535,7 @@ __all__ = [
     "RequestRecord",
     "RequiresRequestNSMixin",
     "ResponseData",
+    "ResponseDataT",
     "ResponseExtractor",
     "ResponsePayloadType",
     "ResponseT",

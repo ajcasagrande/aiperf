@@ -3,25 +3,93 @@
 
 import asyncio
 from collections.abc import Callable, Coroutine
-from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
-if TYPE_CHECKING:
-    from aiperf.common.enums import ServiceType
-    from aiperf.common.enums.communication_enums import (
-        CommClientType,
-        CommunicationBackend,
-    )
-    from aiperf.common.enums.post_processor_enums import (
-        StreamingPostProcessorType,
-    )
-    from aiperf.common.messages import Message
-    from aiperf.common.models import ParsedResponseRecord, ResponseData
-    from aiperf.common.types import (
-        CommAddressType,
-        MessageOutputT,
-        MessageT,
-        MessageTypeT,
-    )
+from aiperf.common.enums import (
+    CommClientType,
+    CommunicationBackend,
+    ComposerType,
+    CustomDatasetType,
+    DataExporterType,
+    PostProcessorType,
+    ServiceType,
+    StreamingPostProcessorType,
+)
+from aiperf.common.mixins.factory_mixin import FactoryMixin
+from aiperf.common.types import (
+    CommAddressType,
+    MessageOutputT,
+    MessageT,
+    MessageTypeT,
+    ParsedResponseRecordT,
+    ResponseDataT,
+)
+
+# if TYPE_CHECKING:
+#     from aiperf.common.enums import (
+#         CommClientType,
+#         CommunicationBackend,
+#         ComposerType,
+#         CustomDatasetType,
+#         DataExporterType,
+#         MessageType,
+#         PostProcessorType,
+#         ServiceType,
+#         StreamingPostProcessorType,
+#     )
+#     from aiperf.common.messages import Message
+#     from aiperf.common.models import ParsedResponseRecord, ResponseData
+#     from aiperf.common.service.base_service import BaseService
+#     from aiperf.common.types import (
+#         CommAddressType,
+#         MessageOutputT,
+#         MessageT,
+#         MessageTypeT,
+#     )
+#     from aiperf.services.dataset.composer.base import BaseDatasetComposer
+#     from aiperf.services.dataset.loader.protocol import CustomDatasetLoaderProtocol
+#     from aiperf.services.records_manager.post_processors.streaming_post_processor import (
+#         BaseStreamingPostProcessor,
+#     )
+
+
+class CommunicationFactory(
+    FactoryMixin[CommunicationBackend, "CommunicationProtocol"]
+): ...
+
+
+class ServiceFactory(FactoryMixin[ServiceType, "BaseService"]): ...
+
+
+class DataExporterFactory(FactoryMixin[DataExporterType, "DataExporterProtocol"]): ...
+
+
+class PostProcessorFactory(
+    FactoryMixin[PostProcessorType, "PostProcessorProtocol"]
+): ...
+
+
+class ComposerFactory(FactoryMixin[ComposerType, "BaseDatasetComposer"]): ...
+
+
+class CustomDatasetFactory(
+    FactoryMixin[CustomDatasetType, "CustomDatasetLoaderProtocol"]
+): ...
+
+
+class StreamingPostProcessorFactory(
+    FactoryMixin[StreamingPostProcessorType, "BaseStreamingPostProcessor"]
+): ...
+
+
+class CommunicationClientFactory(
+    FactoryMixin[CommClientType, "CommunicationClientProtocol"]
+): ...
+
+
+class CommunicationClientProtocolFactory(
+    FactoryMixin[CommClientType, "CommunicationClientProtocol"]
+): ...
 
 
 @runtime_checkable
@@ -73,8 +141,8 @@ class PostProcessorProtocol(Protocol):
 
 class ResponseExtractor(Protocol):
     async def extract_response_data(
-        self, record: "ParsedResponseRecord"
-    ) -> list["ResponseData"]: ...
+        self, record: ParsedResponseRecordT
+    ) -> list[ResponseDataT]: ...
 
 
 @runtime_checkable
@@ -99,30 +167,17 @@ class AIPerfLoggerProtocol(Protocol):
     def is_enabled_for(self, level: int) -> bool: ...
 
 
-from aiperf.common.mixins.factory_mixin import FactoryMixin  # noqa: E402
-
-
-class CommunicationClientFactory(
-    FactoryMixin[CommClientType, CommunicationClientProtocol]
-): ...
-
-
-class CommunicationClientProtocolFactory(
-    FactoryMixin[CommClientType, CommunicationClientProtocol]
-): ...
-
-
 @CommunicationClientProtocolFactory.register(CommClientType.PUSH)
 class PushClientProtocol(CommunicationClientProtocol, Protocol):
-    async def push(self, message: Message) -> None: ...
+    async def push(self, message: "MessageT") -> None: ...
 
 
 @CommunicationClientProtocolFactory.register(CommClientType.PULL)
 class PullClientProtocol(CommunicationClientProtocol, Protocol):
     async def register_pull_callback(
         self,
-        message_type: MessageTypeT,
-        callback: Callable[[MessageT], Coroutine[Any, Any, None]],
+        message_type: "MessageTypeT",
+        callback: Callable[["MessageT"], Coroutine[Any, Any, None]],
         max_concurrency: int | None,
     ) -> None: ...
 
@@ -167,7 +222,7 @@ class SubClientProtocol(CommunicationClientProtocol, Protocol):
         self,
         message_callback_map: dict[
             "MessageTypeT",
-            Callable[["Message"], Any] | list[Callable[["Message"], Any]],
+            Callable[["MessageT"], Any] | list[Callable[["MessageT"], Any]],
         ],
     ) -> None: ...
 
@@ -175,7 +230,7 @@ class SubClientProtocol(CommunicationClientProtocol, Protocol):
 @CommunicationClientProtocolFactory.register(CommClientType.PUB)
 @runtime_checkable
 class PubClientProtocol(CommunicationClientProtocol, Protocol):
-    async def publish(self, message: "Message") -> None: ...
+    async def publish(self, message: "MessageT") -> None: ...
 
 
 @runtime_checkable
@@ -184,61 +239,32 @@ class MessageBusProtocol(PubClientProtocol, SubClientProtocol, Protocol): ...
 
 @runtime_checkable
 class CommunicationProtocol(AIPerfLifecycleProtocol, Protocol):
-    def get_address(self, address_type: CommAddressType) -> str: ...
+    def get_address(self, address_type: "CommAddressType") -> str: ...
 
     def create_client(
-        self, address: CommAddressType, bind: bool, socket_ops: dict | None
+        self, address: "CommAddressType", bind: bool, socket_ops: dict | None
     ) -> CommunicationClientProtocol: ...
 
     def create_pub_client(
-        self, address: CommAddressType, bind: bool, socket_ops: dict | None
+        self, address: "CommAddressType", bind: bool, socket_ops: dict | None
     ) -> PubClientProtocol: ...
 
     def create_sub_client(
-        self, address: CommAddressType, bind: bool, socket_ops: dict | None
+        self, address: "CommAddressType", bind: bool, socket_ops: dict | None
     ) -> SubClientProtocol: ...
 
     def create_push_client(
-        self, address: CommAddressType, bind: bool, socket_ops: dict | None
+        self, address: "CommAddressType", bind: bool, socket_ops: dict | None
     ) -> PushClientProtocol: ...
 
     def create_pull_client(
-        self, address: CommAddressType, bind: bool, socket_ops: dict | None
+        self, address: "CommAddressType", bind: bool, socket_ops: dict | None
     ) -> PullClientProtocol: ...
 
     def create_request_client(
-        self, address: CommAddressType, bind: bool, socket_ops: dict | None
+        self, address: "CommAddressType", bind: bool, socket_ops: dict | None
     ) -> RequestClientProtocol: ...
 
     def create_reply_client(
-        self, address: CommAddressType, bind: bool, socket_ops: dict | None
+        self, address: "CommAddressType", bind: bool, socket_ops: dict | None
     ) -> ReplyClientProtocol: ...
-
-
-class CommunicationFactory(
-    FactoryMixin[CommunicationBackend, CommunicationProtocol]
-): ...
-
-
-class ServiceFactory(FactoryMixin[ServiceType, "BaseService"]): ...
-
-
-class DataExporterFactory(FactoryMixin["DataExporterType", "DataExporterProtocol"]): ...
-
-
-class PostProcessorFactory(
-    FactoryMixin["PostProcessorType", "PostProcessorProtocol"]
-): ...
-
-
-class ComposerFactory(FactoryMixin["ComposerType", "BaseDatasetComposer"]): ...
-
-
-class CustomDatasetFactory(
-    FactoryMixin["CustomDatasetType", "CustomDatasetLoaderProtocol"]
-): ...
-
-
-class StreamingPostProcessorFactory(
-    FactoryMixin[StreamingPostProcessorType, "BaseStreamingPostProcessor"]
-): ...
