@@ -7,12 +7,12 @@ import time
 from abc import ABC
 from typing import Any
 
-from aiperf.clients.client_interfaces import (
-    EndpointType,
-    InferenceClientFactory,
-)
 from aiperf.clients.http.aiohttp_client import AioHttpClientMixin
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
+from aiperf.common.enums import (
+    EndpointType,
+)
+from aiperf.common.factories import InferenceClientFactory
 from aiperf.common.models import (
     ErrorDetails,
     RequestRecord,

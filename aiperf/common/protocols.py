@@ -3,7 +3,7 @@
 
 import asyncio
 from collections.abc import Callable, Coroutine
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Generic, Protocol, runtime_checkable
 
 from aiperf.common.constants import (
     DEFAULT_COMMS_REQUEST_TIMEOUT,
@@ -16,9 +16,15 @@ from aiperf.common.types import (
     MessageOutputT,
     MessageT,
     MessageTypeT,
+    ModelEndpointInfoT,
     ParsedResponseRecordT,
+    RequestInputT,
+    RequestOutputT,
+    RequestRecordT,
     ResponseDataT,
     TaskManagerProtocolT,
+    TokenizerT,
+    TurnT,
 )
 
 
@@ -219,3 +225,64 @@ class CommunicationProtocol(AIPerfLifecycleProtocol, Protocol):
         bind: bool = False,
         socket_ops: dict | None = None,
     ) -> ReplyClientProtocol: ...
+
+
+@runtime_checkable
+class InferenceClientProtocol(Protocol, Generic[RequestInputT]):
+    """Protocol for an inference server client.
+
+    This protocol defines the methods that must be implemented by any inference server client
+    implementation that is compatible with the AIPerf framework.
+    """
+
+    def __init__(self, model_endpoint: ModelEndpointInfoT) -> None:
+        """Create a new inference server client based on the provided configuration."""
+        ...
+
+    async def initialize(self) -> None:
+        """Initialize the inference server client in an asynchronous context."""
+        ...
+
+    async def send_request(
+        self,
+        model_endpoint: ModelEndpointInfoT,
+        payload: RequestInputT,
+    ) -> RequestRecordT:
+        """Send a request to the inference server.
+
+        This method is used to send a request to the inference server.
+
+        Args:
+            model_endpoint: The endpoint to send the request to.
+            payload: The payload to send to the inference server.
+        Returns:
+            The raw response from the inference server.
+        """
+        ...
+
+    async def close(self) -> None:
+        """Close the client."""
+        ...
+
+
+@runtime_checkable
+class RequestConverterProtocol(Protocol, Generic[RequestOutputT]):
+    """Protocol for a request converter that converts a raw request to a formatted request for the inference server."""
+
+    async def format_payload(
+        self, model_endpoint: ModelEndpointInfoT, turn: TurnT
+    ) -> RequestOutputT:
+        """Format the turn for the inference server."""
+        ...
+
+
+@runtime_checkable
+class ResponseExtractorProtocol(Protocol):
+    """Protocol for a response extractor that extracts the response data from a raw inference server
+    response and converts it to a list of ResponseData objects."""
+
+    async def extract_response_data(
+        self, record: RequestRecordT, tokenizer: TokenizerT | None
+    ) -> list[ResponseDataT]:
+        """Extract the response data from a raw inference server response and convert it to a list of ResponseData objects."""
+        ...

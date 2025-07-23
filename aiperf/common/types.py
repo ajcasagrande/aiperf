@@ -4,14 +4,21 @@
 from typing import TYPE_CHECKING, Any, TypeVar, Union
 
 if TYPE_CHECKING:
+    from aiperf.clients.model_endpoint_info import ModelEndpointInfo
     from aiperf.common.enums.base_enums import CaseInsensitiveStrEnum
     from aiperf.common.enums.communication_enums import CommAddress
     from aiperf.common.enums.message_enums import MessageType
     from aiperf.common.messages.base_messages import Message
     from aiperf.common.mixins.aiperf_lifecycle_mixin import AIPerfLifecycleMixin
     from aiperf.common.mixins.hooks_mixin import HooksMixin
-    from aiperf.common.models.record_models import ParsedResponseRecord, ResponseData
+    from aiperf.common.models import Turn
+    from aiperf.common.models.record_models import (
+        ParsedResponseRecord,
+        RequestRecord,
+        ResponseData,
+    )
     from aiperf.common.protocols import TaskManagerProtocol
+    from aiperf.common.tokenizer import Tokenizer
 
 # TypeVars
 
@@ -32,6 +39,10 @@ ClassProtocolT = TypeVar("ClassProtocolT", bound=Any)
 ResponseDataT = TypeVar("ResponseDataT", bound="ResponseData")
 ParsedResponseRecordT = TypeVar("ParsedResponseRecordT", bound="ParsedResponseRecord")
 TaskManagerProtocolT = TypeVar("TaskManagerProtocolT", bound="TaskManagerProtocol")
+RequestRecordT = TypeVar("RequestRecordT", bound="RequestRecord")
+ModelEndpointInfoT = TypeVar("ModelEndpointInfoT", bound="ModelEndpointInfo")
+TurnT = TypeVar("TurnT", bound="Turn")
+TokenizerT = TypeVar("TokenizerT", bound="Tokenizer")
 
 
 # Union types

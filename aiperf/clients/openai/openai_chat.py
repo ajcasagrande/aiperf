@@ -4,13 +4,11 @@
 import logging
 from typing import Any
 
-from aiperf.clients.client_interfaces import (
-    RequestConverterFactory,
-    RequestConverterProtocol,
-)
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.enums import EndpointType
+from aiperf.common.factories import RequestConverterFactory
 from aiperf.common.models import Turn
+from aiperf.common.protocols import RequestConverterProtocol
 
 DEFAULT_ROLE = "user"
 

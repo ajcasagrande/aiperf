@@ -15,6 +15,7 @@ from aiperf.common.enums import (
     StreamingPostProcessorType,
     ZMQProxyType,
 )
+from aiperf.common.enums.endpoints_enums import EndpointType
 from aiperf.common.types import ClassEnumT, ClassProtocolT
 
 
@@ -255,3 +256,23 @@ class CommunicationClientProtocolFactory(
 
 
 class ZMQProxyFactory(AIPerfFactory[ZMQProxyType, "BaseZMQProxy"]): ...
+
+
+class InferenceClientFactory(AIPerfFactory[EndpointType, "InferenceClientProtocol"]):
+    """Factory for registering and creating InferenceClientProtocol instances based on the specified endpoint type.
+    see: :class:`AIPerfFactory` for more details.
+    """
+
+
+class RequestConverterFactory(AIPerfFactory[EndpointType, "RequestConverterProtocol"]):
+    """Factory for registering and creating RequestConverterProtocol instances based on the specified request payload type.
+    see: :class:`AIPerfFactory` for more details.
+    """
+
+
+class ResponseExtractorFactory(
+    AIPerfFactory[EndpointType, "ResponseExtractorProtocol"]
+):
+    """Factory for registering and creating ResponseExtractorProtocol instances based on the specified response extractor type.
+    see: :class:`AIPerfFactory` for more details.
+    """

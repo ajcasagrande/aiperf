@@ -10,7 +10,6 @@ from aiperf.clients.client_interfaces import (
     RequestConverterProtocol,
 )
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
-from aiperf.common.comms.base_comms import PushClientProtocol, RequestClientProtocol
 from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import CreditPhase
 from aiperf.common.exceptions import NotInitializedError
@@ -22,8 +21,12 @@ from aiperf.common.messages import (
     ErrorMessage,
     InferenceResultsMessage,
 )
-from aiperf.common.mixins import AIPerfLoggerProtocol
 from aiperf.common.models import ErrorDetails, RequestRecord, Turn, WorkerPhaseTaskStats
+from aiperf.common.protocols import (
+    AIPerfLoggerProtocol,
+    PushClientProtocol,
+    RequestClientProtocol,
+)
 
 
 @runtime_checkable
