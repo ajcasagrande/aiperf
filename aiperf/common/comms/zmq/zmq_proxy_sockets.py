@@ -9,10 +9,10 @@ from aiperf.common.comms.zmq.zmq_proxy_base import (
     BaseZMQProxy,
     ProxyEndType,
     ProxySocketClient,
-    ZMQProxyFactory,
 )
 from aiperf.common.config.zmq_config import BaseZMQProxyConfig
 from aiperf.common.enums import ZMQProxyType
+from aiperf.common.factories import ZMQProxyFactory
 
 ################################################################################
 # Proxy Sockets

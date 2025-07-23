@@ -3,16 +3,14 @@
 import uuid
 from abc import ABC
 
-from aiperf.common.comms.base_comms import (
-    BaseCommunication,
-    CommAddress,
-    CommunicationFactory,
-)
+from aiperf.common.comms.base_comms import BaseCommunication
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
+from aiperf.common.enums import CommAddress
 from aiperf.common.exceptions import (
     ServiceError,
 )
+from aiperf.common.factories import CommunicationFactory
 from aiperf.common.hooks import on_init
 from aiperf.common.mixins.aiperf_lifecycle_mixin import AIPerfLifecycleMixin
 from aiperf.common.service.base_service_interface import BaseServiceInterface

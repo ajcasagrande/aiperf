@@ -7,11 +7,11 @@ if TYPE_CHECKING:
     from aiperf.common.enums.base_enums import CaseInsensitiveStrEnum
     from aiperf.common.enums.communication_enums import CommAddress
     from aiperf.common.enums.message_enums import MessageType
-    from aiperf.common.interfaces import TaskManagerProtocol
     from aiperf.common.messages.base_messages import Message
     from aiperf.common.mixins.aiperf_lifecycle_mixin import AIPerfLifecycleMixin
     from aiperf.common.mixins.hooks_mixin import HooksMixin
     from aiperf.common.models.record_models import ParsedResponseRecord, ResponseData
+    from aiperf.common.protocols import TaskManagerProtocol
 
 # TypeVars
 

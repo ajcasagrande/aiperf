@@ -9,9 +9,8 @@ from typing import Any
 import zmq.asyncio
 from pydantic import BaseModel
 
-from aiperf.common.comms.zmq.zmq_proxy_base import BaseZMQProxy, ZMQProxyFactory
+from aiperf.common.comms.zmq.zmq_proxy_base import BaseZMQProxy
 from aiperf.common.config import ServiceConfig
-from aiperf.common.config.user_config import UserConfig
 from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
 from aiperf.common.enums import (
     CommandResponseStatus,
@@ -19,14 +18,12 @@ from aiperf.common.enums import (
     MessageType,
     ServiceRegistrationStatus,
     ServiceRunType,
-    ServiceState,
     ServiceType,
-    SystemState,
     ZMQProxyType,
 )
 from aiperf.common.exceptions import CommunicationError, NotInitializedError
-from aiperf.common.factories import ServiceFactory
-from aiperf.common.hooks import on_stop
+from aiperf.common.factories import ServiceFactory, ZMQProxyFactory
+from aiperf.common.hooks import on_init, on_start, on_stop
 from aiperf.common.messages import (
     CommandResponseMessage,
     CreditsCompleteMessage,
@@ -58,15 +55,10 @@ class SystemController(SignalHandlerMixin, BaseService):
     def __init__(
         self,
         service_config: ServiceConfig,
-        user_config: UserConfig,
         service_id: str | None = None,
     ) -> None:
         super().__init__(service_config=service_config, service_id=service_id)
-        self.logger.debug("Creating System Controller")
-
-        self._system_state: SystemState = SystemState.INITIALIZING
-        self.user_config = user_config
-
+        self.debug("Creating System Controller")
         # List of required service types, in no particular order
         # These are services that must be running before the system controller can start profiling
         self.required_services = {
@@ -88,34 +80,25 @@ class SystemController(SignalHandlerMixin, BaseService):
         self.raw_inference_proxy: BaseZMQProxy | None = None
         self.raw_inference_proxy_task: asyncio.Task | None = None
 
-        self.logger.debug("System Controller created")
+        self.debug("System Controller created")
 
     @property
     def service_type(self) -> ServiceType:
         """The type of service."""
         return ServiceType.SYSTEM_CONTROLLER
 
-    async def initialize(self) -> None:
-        """Override the base initialize method to add pre-initialization and
-        post-initialization steps. This allows us to run the UI and progress
-        logger before the system is fully initialized.
-        """
-        await self._pre_initialize()
-        await BaseService.initialize(self)
-        await self._post_initialize()
-
-    async def _pre_initialize(self) -> None:
-        """Initialize system controller-specific components.
-
-        This method will:
-        - Initialize the service manager
-        - Subscribe to relevant messages
-        """
-        self.logger.debug("Initializing System Controller")
+    @on_init
+    async def _initialize_system_controller(self) -> None:
+        self.debug("Initializing System Controller")
 
         self.setup_signal_handlers(self._handle_signal)
-        self.logger.debug("Setup signal handlers")
+        self.debug("Setup signal handlers")
 
+        await self._initialize_proxies()
+        await self._initialize_service_manager()
+        await self._setup_subscriptions()
+
+    async def _initialize_proxies(self) -> None:
         self.zmq_context = zmq.asyncio.Context.instance()
 
         self.event_bus_proxy = ZMQProxyFactory.create_instance(
@@ -143,9 +126,7 @@ class SystemController(SignalHandlerMixin, BaseService):
             self.raw_inference_proxy.run()
         )
 
-    async def _post_initialize(self) -> None:
-        """Post-initialize the system controller."""
-
+    async def _initialize_service_manager(self) -> None:
         if self.service_config.service_run_type == ServiceRunType.MULTIPROCESSING:
             self.service_manager = MultiProcessServiceManager(
                 required_services=self.required_services,
@@ -165,6 +146,7 @@ class SystemController(SignalHandlerMixin, BaseService):
                 f"Unsupported service run type: {self.service_config.service_run_type}",
             )
 
+    async def _setup_subscriptions(self) -> None:
         # Subscribe to relevant messages
         subscribe_callbacks = [
             (MessageType.REGISTRATION, self._process_registration_message),
@@ -180,31 +162,15 @@ class SystemController(SignalHandlerMixin, BaseService):
                     message_type=message_type, callback=callback
                 )
             except Exception as e:
-                self.logger.error(
-                    "Failed to subscribe to message_type %s: %s", message_type, e
+                self.exception(
+                    f"Failed to subscribe to message_type {message_type}: {e}"
                 )
                 raise CommunicationError(
                     f"Failed to subscribe to message_type {message_type}: {e}",
                 ) from e
 
-        # TODO: HACK: Wait for 1 second to ensure subscriptions are set up
-        await asyncio.sleep(1)
-
-        self._system_state = SystemState.CONFIGURING
-        await self._bootstrap_system()
-
-    async def _handle_signal(self, sig: int) -> None:
-        """Handle received signals by triggering graceful shutdown.
-
-        Args:
-            sig: The signal number received
-        """
-        self.logger.debug("Received signal %s, initiating graceful shutdown", sig)
-        if sig == signal.SIGINT or sig == signal.SIGTERM:
-            await self.stop()
-            return
-
-    async def _bootstrap_system(self) -> None:
+    @on_start
+    async def _start_services(self) -> None:
         """Bootstrap the system services.
 
         This method will:
@@ -228,9 +194,8 @@ class SystemController(SignalHandlerMixin, BaseService):
         await asyncio.sleep(1)
 
         self.info("AIPerf System is READY")
-        self._system_state = SystemState.READY
 
-        await self.start_profiling_all_services()
+        await self._start_profiling_all_services()
 
         self.debug("All required services started successfully")
         self.info("AIPerf System is RUNNING")
@@ -244,8 +209,6 @@ class SystemController(SignalHandlerMixin, BaseService):
         """
         self.debug("Stopping System Controller")
         self.info("AIPerf System is EXITING")
-
-        self._system_state = SystemState.STOPPING
 
         # TODO: This is a hack to force printing results again
         # Process records command
@@ -270,27 +233,41 @@ class SystemController(SignalHandlerMixin, BaseService):
             ) from e
 
         tasks = []
-        if self.event_bus_proxy_task:
+        if self.event_bus_proxy:
             await self.event_bus_proxy.stop()
-            self.event_bus_proxy_task.cancel()
-            tasks.append(self.event_bus_proxy_task)
+            if self.event_bus_proxy_task:
+                self.event_bus_proxy_task.cancel()
+                tasks.append(self.event_bus_proxy_task)
 
-        if self.dataset_manager_proxy_task:
+        if self.dataset_manager_proxy:
             await self.dataset_manager_proxy.stop()
-            self.dataset_manager_proxy_task.cancel()
-            tasks.append(self.dataset_manager_proxy_task)
+            if self.dataset_manager_proxy_task:
+                self.dataset_manager_proxy_task.cancel()
+                tasks.append(self.dataset_manager_proxy_task)
 
-        if self.raw_inference_proxy_task:
+        if self.raw_inference_proxy:
             await self.raw_inference_proxy.stop()
-            self.raw_inference_proxy_task.cancel()
-            tasks.append(self.raw_inference_proxy_task)
+            if self.raw_inference_proxy_task:
+                self.raw_inference_proxy_task.cancel()
+                tasks.append(self.raw_inference_proxy_task)
 
         await asyncio.wait_for(
             asyncio.gather(*tasks),
             timeout=TASK_CANCEL_TIMEOUT_SHORT,
         )
 
-    async def start_profiling_all_services(self) -> None:
+    async def _handle_signal(self, sig: int) -> None:
+        """Handle received signals by triggering graceful shutdown.
+
+        Args:
+            sig: The signal number received
+        """
+        self.debug(lambda: f"Received signal {sig}, initiating graceful shutdown")
+        if sig == signal.SIGINT or sig == signal.SIGTERM:
+            await self.stop()
+            return
+
+    async def _start_profiling_all_services(self) -> None:
         """Tell all services to start profiling."""
         # TODO: HACK: Wait for 1 second to ensure services are ready
         await asyncio.sleep(1)
@@ -312,8 +289,8 @@ class SystemController(SignalHandlerMixin, BaseService):
         service_id = message.service_id
         service_type = message.service_type
 
-        self.logger.info(
-            "Processing registration from %s with ID: %s", service_type, service_id
+        self.info(
+            lambda: f"Processing registration from {service_type} with ID: {service_id}"
         )
 
         service_info = ServiceRunInfo(
@@ -321,7 +298,7 @@ class SystemController(SignalHandlerMixin, BaseService):
             service_type=service_type,
             service_id=service_id,
             first_seen=time.time_ns(),
-            state=ServiceState.READY,
+            state=message.state,
             last_seen=time.time_ns(),
         )
 
@@ -331,18 +308,15 @@ class SystemController(SignalHandlerMixin, BaseService):
         self.service_manager.service_map[service_type].append(service_info)
 
         is_required = service_type in self.required_services
-        self.logger.info(
-            "Registered %s service: %s with ID: %s",
-            "required" if is_required else "non-required",
-            service_type,
-            service_id,
+        self.info(
+            lambda: f"Registered {is_required} service: {service_type} with ID: {service_id}"
         )
 
         # Send configure command to the newly registered service
         try:
             await self.send_command_to_service(
                 target_service_id=service_id,
-                command=CommandType.PROFILE_CONFIGURE,
+                command=CommandType.CONFIGURE_PROFILING,
                 data=self.user_config,
             )
         except Exception as e:
@@ -350,8 +324,8 @@ class SystemController(SignalHandlerMixin, BaseService):
                 f"Failed to send configure command to {service_type} (ID: {service_id})",
             ) from e
 
-        self.logger.debug(
-            "Sent configure command to %s (ID: %s)", service_type, service_id
+        self.debug(
+            lambda: f"Sent configure command to {service_type} (ID: {service_id})"
         )
 
     async def _process_heartbeat_message(self, message: HeartbeatMessage) -> None:
@@ -365,18 +339,16 @@ class SystemController(SignalHandlerMixin, BaseService):
         service_type = message.service_type
         timestamp = message.request_ns
 
-        self.logger.debug(
-            "Received heartbeat from %s (ID: %s)", service_type, service_id
-        )
+        self.debug(lambda: f"Received heartbeat from {service_type} (ID: {service_id})")
 
         # Update the last heartbeat timestamp if the component exists
         try:
             service_info = self.service_manager.service_id_map[service_id]
             service_info.last_seen = timestamp
             service_info.state = message.state
-            self.logger.debug("Updated heartbeat for %s to %s", service_id, timestamp)
+            self.debug(f"Updated heartbeat for {service_id} to {timestamp}")
         except Exception:
-            self.logger.warning(
+            self.warning(
                 f"Received heartbeat from unknown service: {service_id} ({service_type})"
             )
 
@@ -390,7 +362,7 @@ class SystemController(SignalHandlerMixin, BaseService):
             message: The credits complete message to process
         """
         service_id = message.service_id
-        self.logger.info("Received credits complete from %s", service_id)
+        self.info(f"Received credits complete from {service_id}")
 
     async def _process_status_message(self, message: StatusMessage) -> None:
         """Process a status message from a service. It will
@@ -403,16 +375,14 @@ class SystemController(SignalHandlerMixin, BaseService):
         service_type = message.service_type
         state = message.state
 
-        self.logger.debug(
-            f"Received status update from {service_type} (ID: {service_id}): {state}"
+        self.debug(
+            lambda: f"Received status update from {service_type} (ID: {service_id}): {state}"
         )
 
         # Update the component state if the component exists
         if service_id not in self.service_manager.service_id_map:
-            self.logger.debug(
-                "Received status update from un-registered service: %s (%s)",
-                service_id,
-                service_type,
+            self.debug(
+                lambda: f"Received status update from un-registered service: {service_id} ({service_type})"
             )
             return
 
@@ -422,27 +392,25 @@ class SystemController(SignalHandlerMixin, BaseService):
 
         service_info.state = message.state
 
-        self.logger.debug(f"Updated state for {service_id} to {state}")
+        self.debug(f"Updated state for {service_id} to {message.state}")
 
     async def _process_notification_message(self, message: NotificationMessage) -> None:
         """Process a notification message."""
-        self.logger.info("SC: Received notification message: %s", message)
+        self.info(f"Received notification message: {message}")
 
     async def _process_command_response_message(
         self, message: CommandResponseMessage
     ) -> None:
         """Process a command response message."""
-        self.logger.debug("SC: Received command response message: %s", message)
+        self.debug(lambda: f"Received command response message: {message}")
         if message.status == CommandResponseStatus.SUCCESS:
             self.logger.debug(
-                "SC: Command %s succeeded with data: %s", message.command, message.data
+                f"Command {message.command} succeeded with data: {message.data}"
             )
         else:
-            self.logger.error(
-                "SC: Command %s failed: %s", message.command, message.error
-            )
+            self.error(f"Command {message.command} failed: {message.error}")
             if message.error:
-                self.logger.error("SC: Error details: %s", message.error)
+                self.error(f"Error details: {message.error}")
 
         if message.command == CommandType.PROCESS_RECORDS:
             await self.stop()

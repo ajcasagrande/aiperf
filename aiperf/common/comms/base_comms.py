@@ -6,7 +6,10 @@ from typing import cast
 from aiperf.common.enums import (
     CommClientType,
 )
-from aiperf.common.interfaces import (
+from aiperf.common.mixins.aiperf_lifecycle_mixin import (
+    AIPerfLifecycleMixin,
+)
+from aiperf.common.protocols import (
     CommunicationClientProtocol,
     PubClientProtocol,
     PullClientProtocol,
@@ -14,9 +17,6 @@ from aiperf.common.interfaces import (
     ReplyClientProtocol,
     RequestClientProtocol,
     SubClientProtocol,
-)
-from aiperf.common.mixins.aiperf_lifecycle_mixin import (
-    AIPerfLifecycleMixin,
 )
 from aiperf.common.types import CommAddressType
 

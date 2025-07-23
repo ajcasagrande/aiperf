@@ -4,22 +4,23 @@ import asyncio
 import sys
 from typing import Any
 
-from aiperf.common.comms.base_comms import (
+from aiperf.common import (
+    BaseComponentService,
     CommAddress,
-    PullClientProtocol,
-)
-from aiperf.common.config import ServiceConfig, UserConfig
-from aiperf.common.enums import CommandType, CreditPhase, MessageType, ServiceType
-from aiperf.common.factories import (
-    ServiceFactory,
-    StreamingPostProcessorFactory,
-)
-from aiperf.common.hooks import on_init, on_stop
-from aiperf.common.messages import (
+    CommandMessage,
+    CommandType,
+    CreditPhase,
+    MessageType,
     ParsedInferenceResultsMessage,
+    PullClientProtocol,
+    ServiceConfig,
+    ServiceFactory,
+    ServiceType,
+    StreamingPostProcessorFactory,
+    UserConfig,
+    on_init,
+    on_stop,
 )
-from aiperf.common.messages.command_messages import CommandMessage
-from aiperf.common.service import BaseComponentService
 from aiperf.services.records_manager.post_processors import BaseStreamingPostProcessor
 
 DEFAULT_MAX_RECORDS_CONCURRENCY = 100_000
