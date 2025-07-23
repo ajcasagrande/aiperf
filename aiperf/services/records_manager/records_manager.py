@@ -19,7 +19,7 @@ from aiperf.common.messages import (
     ParsedInferenceResultsMessage,
 )
 from aiperf.common.protocols import PullClientProtocol
-from aiperf.common.service.base_component_service import BaseComponentService
+from aiperf.services.base_component_service import BaseComponentService
 from aiperf.services.records_manager.post_processors import BaseStreamingPostProcessor
 
 DEFAULT_MAX_RECORDS_CONCURRENCY = 100_000
@@ -52,11 +52,6 @@ class RecordsManager(BaseComponentService):
                 bind=True,
             )
         )
-
-    @property
-    def service_type(self) -> ServiceType:
-        """The type of service."""
-        return ServiceType.RECORDS_MANAGER
 
     @on_init
     async def _initialize(self) -> None:

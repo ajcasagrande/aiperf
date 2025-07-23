@@ -30,7 +30,7 @@ from aiperf.common.protocols import (
     PushClientProtocol,
     RequestClientProtocol,
 )
-from aiperf.common.service import BaseComponentService
+from aiperf.services.base_component_service import BaseComponentService
 from aiperf.services.timing_manager.config import (
     TimingManagerConfig,
     TimingMode,
@@ -86,11 +86,6 @@ class TimingManager(BaseComponentService, CreditPhaseMessagesMixin):
             CommandType.START_PROFILING,
             self._on_start_profiling,
         )
-
-    @property
-    def service_type(self) -> ServiceType:
-        """The type of service."""
-        return ServiceType.TIMING_MANAGER
 
     @on_init
     async def _timing_manager_initialize(self) -> None:

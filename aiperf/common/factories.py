@@ -16,7 +16,9 @@ from aiperf.common.enums import (
     ZMQProxyType,
 )
 from aiperf.common.enums.endpoints_enums import EndpointType
-from aiperf.common.types import ClassEnumT, ClassProtocolT
+from aiperf.common.exceptions import InvalidOperationError
+from aiperf.common.protocols import ServiceProtocol
+from aiperf.common.types import ClassEnumT, ClassProtocolT, ServiceTypeT
 
 
 class AIPerfFactory(Generic[ClassEnumT, ClassProtocolT]):
@@ -221,9 +223,6 @@ class CommunicationFactory(
 ): ...
 
 
-class ServiceFactory(AIPerfFactory[ServiceType, "BaseService"]): ...
-
-
 class DataExporterFactory(AIPerfFactory[DataExporterType, "DataExporterProtocol"]): ...
 
 
@@ -276,3 +275,31 @@ class ResponseExtractorFactory(
     """Factory for registering and creating ResponseExtractorProtocol instances based on the specified response extractor type.
     see: :class:`AIPerfFactory` for more details.
     """
+
+
+class ServiceFactory(AIPerfFactory[ServiceType, "ServiceProtocol"]):
+    """Factory for registering and creating BaseService instances based on the specified service type.
+    see: :class:`FactoryMixin` for more details.
+    """
+
+    @classmethod
+    def register_all(
+        cls, *class_types: ServiceTypeT, override_priority: int = 0
+    ) -> Callable[..., Any]:
+        raise InvalidOperationError(
+            "ServiceFactory.register_all is not supported. A single service can only be registered with a single type."
+        )
+
+    @classmethod
+    def register(
+        cls, class_type: ServiceTypeT, override_priority: int = 0
+    ) -> Callable[..., Any]:
+        # Override the register method to set the service_type on the class
+        original_decorator = super().register(class_type, override_priority)
+
+        def decorator(class_cls: type["ServiceProtocol"]) -> type["ServiceProtocol"]:
+            class_cls.service_type = class_type
+            original_decorator(class_cls)
+            return class_cls
+
+        return decorator

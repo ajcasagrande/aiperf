@@ -3,8 +3,6 @@
 
 import asyncio
 
-from aiperf.clients import InferenceClientFactory
-from aiperf.clients.client_interfaces import RequestConverterFactory
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.comms.base_comms import (
     PullClientProtocol,
@@ -18,7 +16,11 @@ from aiperf.common.enums import (
     MessageType,
     ServiceType,
 )
-from aiperf.common.factories import ServiceFactory
+from aiperf.common.factories import (
+    InferenceClientFactory,
+    RequestConverterFactory,
+    ServiceFactory,
+)
 from aiperf.common.hooks import background_task, on_init, on_stop
 from aiperf.common.messages import (
     CreditDropMessage,
@@ -27,7 +29,7 @@ from aiperf.common.messages import (
 )
 from aiperf.common.mixins import ProcessHealthMixin
 from aiperf.common.models import WorkerPhaseTaskStats
-from aiperf.common.service.base_component_service import BaseComponentService
+from aiperf.services.base_component_service import BaseComponentService
 from aiperf.services.workers.credit_processor_mixin import CreditProcessorMixin
 
 
@@ -93,10 +95,6 @@ class Worker(BaseComponentService, ProcessHealthMixin, CreditProcessorMixin):
             self.model_endpoint.endpoint.type,
             model_endpoint=self.model_endpoint,
         )
-
-    @property
-    def service_type(self) -> ServiceType:
-        return ServiceType.WORKER
 
     @on_init
     async def _initialize_worker(self) -> None:

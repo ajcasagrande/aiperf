@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-import asyncio
 import errno
 import glob
 import os
@@ -54,11 +53,15 @@ class BaseZMQCommunication(BaseCommunication, AIPerfLoggerMixin, ABC):
 
     @on_init
     async def _initialize_clients(self) -> None:
-        await asyncio.gather(*[client.initialize() for client in self.clients])
+        for client in self.clients:
+            self.debug(lambda client=client: f"Initializing ZMQ client: {client}")
+            await client.initialize()
 
     @on_start
     async def _start_clients(self) -> None:
-        await asyncio.gather(*[client.start() for client in self.clients])
+        for client in self.clients:
+            self.debug(lambda client=client: f"Starting ZMQ client: {client}")
+            await client.start()
 
     @on_stop
     async def _stop_clients(self) -> None:
@@ -71,7 +74,9 @@ class BaseZMQCommunication(BaseCommunication, AIPerfLoggerMixin, ABC):
             True if shutdown was successful, False otherwise
         """
         try:
-            await asyncio.gather(*[client.stop() for client in self.clients])
+            for client in self.clients:
+                self.debug(lambda client=client: f"Stopping ZMQ client: {client}")
+                await client.stop()
 
         except Exception as e:
             raise ShutdownError(

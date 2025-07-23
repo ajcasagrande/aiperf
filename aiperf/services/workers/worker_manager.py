@@ -18,7 +18,7 @@ from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import on_init, on_stop
 from aiperf.common.messages import WorkerHealthMessage
 from aiperf.common.models import AIPerfBaseModel
-from aiperf.common.service.base_component_service import BaseComponentService
+from aiperf.services.base_component_service import BaseComponentService
 from aiperf.services.workers.worker import Worker
 
 
@@ -76,10 +76,6 @@ class WorkerManager(BaseComponentService):
             self.service_config.workers.min or 0,
         )
         self.initial_workers = self.max_workers
-
-    @property
-    def service_type(self) -> ServiceType:
-        return ServiceType.WORKER_MANAGER
 
     @on_init
     async def _initialize(self) -> None:

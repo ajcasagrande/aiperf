@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from aiperf.common.enums.service_enums import ServiceType
+from aiperf.common.types import ServiceTypeT
 
 
 class AIPerfError(Exception):
@@ -33,7 +33,7 @@ class ServiceError(AIPerfError):
     def __init__(
         self,
         message: str,
-        service_type: ServiceType,
+        service_type: ServiceTypeT,
         service_id: str,
     ) -> None:
         super().__init__(
@@ -105,3 +105,7 @@ class ShutdownError(AIPerfError):
 
 class ProxyError(AIPerfError):
     """Exception raised when a proxy encounters an error."""
+
+
+class InvalidOperationError(AIPerfError):
+    """Exception raised when an operation is invalid."""

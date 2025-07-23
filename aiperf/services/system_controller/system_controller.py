@@ -10,7 +10,7 @@ import zmq.asyncio
 from pydantic import BaseModel
 
 from aiperf.common.comms.zmq.zmq_proxy_base import BaseZMQProxy
-from aiperf.common.config import ServiceConfig
+from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
 from aiperf.common.enums import (
     CommandResponseStatus,
@@ -54,10 +54,15 @@ class SystemController(SignalHandlerMixin, BaseService):
 
     def __init__(
         self,
+        user_config: UserConfig,
         service_config: ServiceConfig,
         service_id: str | None = None,
     ) -> None:
-        super().__init__(service_config=service_config, service_id=service_id)
+        super().__init__(
+            service_config=service_config,
+            user_config=user_config,
+            service_id=service_id,
+        )
         self.debug("Creating System Controller")
         # List of required service types, in no particular order
         # These are services that must be running before the system controller can start profiling
@@ -81,11 +86,6 @@ class SystemController(SignalHandlerMixin, BaseService):
         self.raw_inference_proxy_task: asyncio.Task | None = None
 
         self.debug("System Controller created")
-
-    @property
-    def service_type(self) -> ServiceType:
-        """The type of service."""
-        return ServiceType.SYSTEM_CONTROLLER
 
     @on_init
     async def _initialize_system_controller(self) -> None:
@@ -148,26 +148,21 @@ class SystemController(SignalHandlerMixin, BaseService):
 
     async def _setup_subscriptions(self) -> None:
         # Subscribe to relevant messages
-        subscribe_callbacks = [
-            (MessageType.REGISTRATION, self._process_registration_message),
-            (MessageType.HEARTBEAT, self._process_heartbeat_message),
-            (MessageType.STATUS, self._process_status_message),
-            (MessageType.CREDITS_COMPLETE, self._process_credits_complete_message),
-            (MessageType.NOTIFICATION, self._process_notification_message),
-            (MessageType.COMMAND_RESPONSE, self._process_command_response_message),
-        ]
-        for message_type, callback in subscribe_callbacks:
-            try:
-                await self.sub_client.subscribe(
-                    message_type=message_type, callback=callback
-                )
-            except Exception as e:
-                self.exception(
-                    f"Failed to subscribe to message_type {message_type}: {e}"
-                )
-                raise CommunicationError(
-                    f"Failed to subscribe to message_type {message_type}: {e}",
-                ) from e
+        message_callback_map = {
+            MessageType.REGISTRATION: self._process_registration_message,
+            MessageType.HEARTBEAT: self._process_heartbeat_message,
+            MessageType.STATUS: self._process_status_message,
+            MessageType.CREDITS_COMPLETE: self._process_credits_complete_message,
+            MessageType.NOTIFICATION: self._process_notification_message,
+            MessageType.COMMAND_RESPONSE: self._process_command_response_message,
+        }
+        try:
+            await self.sub_client.subscribe_all(message_callback_map)
+        except Exception as e:
+            self.exception(f"Failed to subscribe to all messages: {e}")
+            raise CommunicationError(
+                f"Failed to subscribe to all messages: {e}",
+            ) from e
 
     @on_start
     async def _start_services(self) -> None:

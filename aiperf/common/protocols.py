@@ -22,6 +22,7 @@ from aiperf.common.types import (
     RequestOutputT,
     RequestRecordT,
     ResponseDataT,
+    ServiceTypeT,
     TaskManagerProtocolT,
     TokenizerT,
     TurnT,
@@ -170,7 +171,7 @@ class PubClientProtocol(CommunicationClientProtocol, Protocol):
 
 
 @runtime_checkable
-class MessageBusProtocol(PubClientProtocol, SubClientProtocol, Protocol): ...
+class MessageBusClientProtocol(PubClientProtocol, SubClientProtocol, Protocol): ...
 
 
 @runtime_checkable
@@ -286,3 +287,10 @@ class ResponseExtractorProtocol(Protocol):
     ) -> list[ResponseDataT]:
         """Extract the response data from a raw inference server response and convert it to a list of ResponseData objects."""
         ...
+
+
+@runtime_checkable
+class ServiceProtocol(MessageBusClientProtocol, Protocol):
+    """Protocol for a service. Essentially a MessageBusClientProtocol with a service_type attribute."""
+
+    service_type: ServiceTypeT

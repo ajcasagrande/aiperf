@@ -25,8 +25,8 @@ from aiperf.common.messages import (
 )
 from aiperf.common.models import Conversation
 from aiperf.common.protocols import ReplyClientProtocol
-from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.common.tokenizer import Tokenizer
+from aiperf.services.base_component_service import BaseComponentService
 
 DATASET_CONFIGURATION_TIMEOUT = 30.0
 
@@ -58,11 +58,6 @@ class DatasetManager(BaseComponentService):
             CommAddress.DATASET_MANAGER_PROXY_BACKEND
         )  # type: ignore
         self.dataset_configured = asyncio.Event()
-
-    @property
-    def service_type(self) -> ServiceType:
-        """The type of service."""
-        return ServiceType.DATASET_MANAGER
 
     @on_init
     async def _initialize(self) -> None:

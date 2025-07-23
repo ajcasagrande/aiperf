@@ -309,11 +309,6 @@ All services inherit from `BaseService` which provides:
     ) -> None:
         super().__init__(service_config=service_config, service_id=service_id)
         self.logger.debug("Initializing records manager")
-
-    @property
-    def service_type(self) -> ServiceType:
-        """The type of service."""
-        return ServiceType.RECORDS_MANAGER
 ```
 
 #### Service Factory Registration

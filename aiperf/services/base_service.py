@@ -2,59 +2,54 @@
 # SPDX-License-Identifier: Apache-2.0
 import uuid
 from abc import ABC
+from typing import ClassVar
 
-from aiperf.common.comms.base_comms import BaseCommunication
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
-from aiperf.common.enums import CommAddress
 from aiperf.common.exceptions import (
     ServiceError,
 )
-from aiperf.common.factories import CommunicationFactory
-from aiperf.common.hooks import on_init
-from aiperf.common.mixins.aiperf_lifecycle_mixin import AIPerfLifecycleMixin
-from aiperf.common.service.base_service_interface import BaseServiceInterface
+from aiperf.common.mixins.message_bus_mixin import MessageBusClientMixin
+from aiperf.common.types import ServiceTypeT
 
 
-class BaseService(AIPerfLifecycleMixin, BaseServiceInterface, ABC):
+class BaseService(MessageBusClientMixin, ABC):
     """Base class for all AIPerf services, providing common functionality for
     communication, state management, and lifecycle operations.
+    This class inherits from the MessageBusClientMixin, which provides the
+    message bus client functionality.
 
     This class provides the foundation for implementing the various services of the
     AIPerf system. Some of the abstract methods are implemented here, while others
     are still required to be implemented by derived classes.
     """
 
+    service_type: ClassVar[ServiceTypeT]
+    """The type of service this class implements. This is set by the ServiceFactory.register decorator."""
+
     def __init__(
         self,
         service_config: ServiceConfig,
-        user_config: UserConfig | None = None,
+        user_config: UserConfig,
         service_id: str | None = None,
         **kwargs,
     ) -> None:
-        self.service_id: str = (
-            service_id or f"{self.service_type}_{uuid.uuid4().hex[:8]}"
-        )
         self.service_config = service_config
         self.user_config = user_config
-
-        super().__init__(id=self.service_id, **kwargs)
-
+        self.service_id = service_id or f"{self.service_type}_{uuid.uuid4().hex[:8]}"
+        super().__init__(
+            service_id=self.service_id,
+            id=self.service_id,
+            service_config=self.service_config,
+            user_config=self.user_config,
+            **kwargs,
+        )
         self.debug(
             lambda: f"__init__ {self.service_type} service (id: {self.service_id})"
         )
+        self._set_process_title()
 
-        self.comms: BaseCommunication = CommunicationFactory.create_instance(
-            self.service_config.comm_backend,
-            config=self.service_config.comm_config,
-        )
-        self.sub_client = self.comms.create_sub_client(
-            CommAddress.EVENT_BUS_PROXY_BACKEND
-        )
-        self.pub_client = self.comms.create_pub_client(
-            CommAddress.EVENT_BUS_PROXY_FRONTEND
-        )
-
+    def _set_process_title(self) -> None:
         try:
             import setproctitle
 
@@ -62,12 +57,6 @@ class BaseService(AIPerfLifecycleMixin, BaseServiceInterface, ABC):
         except Exception:
             # setproctitle is not available on all platforms, so we ignore the error
             self.debug("Failed to set process title, ignoring")
-
-        self.debug("BaseService._init__ finished for %s", self.__class__.__name__)
-
-    @on_init
-    async def _init_comms(self) -> None:
-        await self.comms.initialize()
 
     def _service_error(self, message: str) -> ServiceError:
         return ServiceError(

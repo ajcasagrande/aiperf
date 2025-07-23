@@ -3,7 +3,6 @@
 import asyncio
 import sys
 
-from aiperf.clients.client_interfaces import ResponseExtractorFactory
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.comms.base_comms import (
     PullClientProtocol,
@@ -13,7 +12,7 @@ from aiperf.common.comms.base_comms import (
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
 from aiperf.common.enums import CommAddress, MessageType, ServiceType
-from aiperf.common.factories import ServiceFactory
+from aiperf.common.factories import ResponseExtractorFactory, ServiceFactory
 from aiperf.common.hooks import (
     on_init,
 )
@@ -29,8 +28,8 @@ from aiperf.common.models import (
     ParsedResponseRecord,
     RequestRecord,
 )
-from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.common.tokenizer import Tokenizer
+from aiperf.services.base_component_service import BaseComponentService
 
 
 @ServiceFactory.register(ServiceType.INFERENCE_RESULT_PARSER)
@@ -70,11 +69,6 @@ class InferenceResultParser(BaseComponentService):
         self.model_endpoint: ModelEndpointInfo = ModelEndpointInfo.from_user_config(
             user_config
         )
-
-    @property
-    def service_type(self) -> ServiceType:
-        """The type of service."""
-        return ServiceType.INFERENCE_RESULT_PARSER
 
     @on_init
     async def _initialize(self) -> None:
