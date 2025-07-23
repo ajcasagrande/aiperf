@@ -5,7 +5,7 @@ import uuid
 from collections import defaultdict
 
 from aiperf.common.enums import CustomDatasetType
-from aiperf.common.factories import CustomDatasetFactory
+from aiperf.common.mixins.factory_mixins import CustomDatasetFactory
 from aiperf.services.dataset.loader.models import SingleTurn
 
 

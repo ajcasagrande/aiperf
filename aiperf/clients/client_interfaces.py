@@ -5,7 +5,7 @@ from typing import Generic, Protocol, runtime_checkable
 
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.enums import EndpointType
-from aiperf.common.factories import FactoryMixin
+from aiperf.common.mixins.factory_mixins import FactoryMixin
 from aiperf.common.models import RequestRecord, ResponseData, Turn
 from aiperf.common.tokenizer import Tokenizer
 from aiperf.common.types import RequestInputT, RequestOutputT

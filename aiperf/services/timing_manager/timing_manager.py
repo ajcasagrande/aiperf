@@ -4,8 +4,8 @@
 import asyncio
 import sys
 
-from aiperf.common.comms.base import (
-    CommunicationClientAddressType,
+from aiperf.common.comms.base_comms import (
+    CommAddress,
     PullClientProtocol,
     PushClientProtocol,
     RequestClientProtocol,
@@ -13,25 +13,24 @@ from aiperf.common.comms.base import (
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
 from aiperf.common.enums import (
+    CommandType,
     CreditPhase,
     MessageType,
     ServiceType,
 )
 from aiperf.common.exceptions import InvalidStateError
-from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
-    on_configure,
     on_init,
-    on_start,
     on_stop,
 )
 from aiperf.common.messages import (
-    CommandMessage,
     CreditDropMessage,
     CreditReturnMessage,
     DatasetTimingRequest,
     DatasetTimingResponse,
 )
+from aiperf.common.messages.command_messages import CommandMessage
+from aiperf.common.mixins.factory_mixins import ServiceFactory
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.services.timing_manager.config import (
     TimingManagerConfig,
@@ -62,27 +61,32 @@ class TimingManager(BaseComponentService, CreditPhaseMessagesMixin):
             user_config=user_config,
             service_id=service_id,
         )
-        self.debug("Initializing timing manager")
+        self.config = TimingManagerConfig.from_user_config(self.user_config)
 
         self.dataset_request_client: RequestClientProtocol = (
             self.comms.create_request_client(
-                CommunicationClientAddressType.DATASET_MANAGER_PROXY_FRONTEND,
+                CommAddress.DATASET_MANAGER_PROXY_FRONTEND,
             )
         )
         self.credit_drop_push_client: PushClientProtocol = (
             self.comms.create_push_client(
-                CommunicationClientAddressType.CREDIT_DROP,
+                CommAddress.CREDIT_DROP,
                 bind=True,
             )
         )
         self.credit_return_pull_client: PullClientProtocol = (
             self.comms.create_pull_client(
-                CommunicationClientAddressType.CREDIT_RETURN,
+                CommAddress.CREDIT_RETURN,
                 bind=True,
             )
         )
 
         self._credit_issuing_strategy: CreditIssuingStrategy | None = None
+
+        self.register_command_callback(
+            CommandType.START_PROFILING,
+            self._on_start_profiling,
+        )
 
     @property
     def service_type(self) -> ServiceType:
@@ -93,16 +97,15 @@ class TimingManager(BaseComponentService, CreditPhaseMessagesMixin):
     async def _timing_manager_initialize(self) -> None:
         """Initialize timing manager-specific components."""
         self.debug("Initializing timing manager")
-        self.config = TimingManagerConfig.from_user_config(self.user_config)
         await self.credit_return_pull_client.register_pull_callback(
             message_type=MessageType.CREDIT_RETURN,
             callback=self._on_credit_return,
         )
+        await self._configure()
 
-    @on_configure
-    async def _timing_manager_configure(self, message: CommandMessage) -> None:
+    async def _configure(self) -> None:
         """Configure the timing manager."""
-        self.debug(lambda: f"Configuring timing manager with message: {message}")
+        self.debug("Configuring timing manager")
 
         if self.config.timing_mode == TimingMode.FIXED_SCHEDULE:
             # This will block until the dataset is ready and the timing response is received
@@ -146,11 +149,17 @@ class TimingManager(BaseComponentService, CreditPhaseMessagesMixin):
 
         if not self._credit_issuing_strategy:
             raise InvalidStateError("No credit issuing strategy configured")
+        self.debug(
+            lambda: f"Timing manager configured with credit issuing strategy: {self._credit_issuing_strategy}"
+        )
 
-    @on_start
-    async def _timing_manager_start(self) -> None:
+    async def _on_start_profiling(self, message: CommandMessage) -> None:
         """Start the timing manager and issue credit drops according to the configured strategy."""
-        self.debug("Starting timing manager")
+        self.debug("Starting profiling")
+
+        self.debug("Waiting for timing manager to be initialized")
+        await self.initialized_event.wait()
+        self.debug("Timing manager initialized, starting profiling")
 
         if not self._credit_issuing_strategy:
             raise InvalidStateError("No credit issuing strategy configured")

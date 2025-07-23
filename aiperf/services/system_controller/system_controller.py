@@ -7,6 +7,7 @@ import time
 from typing import Any
 
 import zmq.asyncio
+from pydantic import BaseModel
 
 from aiperf.common.comms.zmq.zmq_proxy_base import BaseZMQProxy, ZMQProxyFactory
 from aiperf.common.config import ServiceConfig
@@ -24,8 +25,7 @@ from aiperf.common.enums import (
     ZMQProxyType,
 )
 from aiperf.common.exceptions import CommunicationError, NotInitializedError
-from aiperf.common.factories import ServiceFactory
-from aiperf.common.hooks import on_cleanup, on_stop
+from aiperf.common.hooks import on_stop
 from aiperf.common.messages import (
     CommandResponseMessage,
     CreditsCompleteMessage,
@@ -35,8 +35,9 @@ from aiperf.common.messages import (
     RegistrationMessage,
     StatusMessage,
 )
+from aiperf.common.messages.command_messages import CommandMessage
+from aiperf.common.mixins.factory_mixins import ServiceFactory
 from aiperf.common.models import ServiceRunInfo
-from aiperf.common.service.base_controller_service import BaseControllerService
 from aiperf.common.service.base_service import BaseService
 from aiperf.services.service_manager import (
     BaseServiceManager,
@@ -47,7 +48,7 @@ from aiperf.services.system_controller.system_mixins import SignalHandlerMixin
 
 
 @ServiceFactory.register(ServiceType.SYSTEM_CONTROLLER)
-class SystemController(SignalHandlerMixin, BaseControllerService):
+class SystemController(SignalHandlerMixin, BaseService):
     """System Controller service.
 
     This service is responsible for managing the lifecycle of all other services.
@@ -200,23 +201,8 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         """
         self.logger.debug("Received signal %s, initiating graceful shutdown", sig)
         if sig == signal.SIGINT or sig == signal.SIGTERM:
-            self.stop_event.set()
+            await self.stop()
             return
-
-        if self.pub_client.is_shutdown:
-            self.logger.error("Pub client is shutdown, killing all services")
-            await self.kill()
-            return
-
-        # TODO: HACK: This should only be sent as a followup from cancelling a profile
-        await self.send_command_to_service(
-            target_service_id=None,
-            target_service_type=ServiceType.RECORDS_MANAGER,
-            command=CommandType.PROCESS_RECORDS,
-            data=ProcessRecordsCommandData(cancelled=True),
-        )
-
-        self.stop_event.set()
 
     async def _bootstrap_system(self) -> None:
         """Bootstrap the system services.
@@ -246,10 +232,6 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
 
         await self.start_profiling_all_services()
 
-        if self.stop_event.is_set():
-            self.debug("System Controller stopped before all services started")
-            return  # Don't continue with the rest of the initialization
-
         self.debug("All required services started successfully")
         self.info("AIPerf System is RUNNING")
 
@@ -262,7 +244,6 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         """
         self.debug("Stopping System Controller")
         self.info("AIPerf System is EXITING")
-        # logging.root.setLevel(logging.DEBUG)
 
         self._system_state = SystemState.STOPPING
 
@@ -309,27 +290,15 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             timeout=TASK_CANCEL_TIMEOUT_SHORT,
         )
 
-        # TODO: This is a hack to give the services time to produce results
-        # await asyncio.sleep(3)
-
-    @on_cleanup
-    async def _cleanup(self) -> None:
-        """Clean up system controller-specific components."""
-        self.debug("Cleaning up System Controller")
-
-        await self.kill()
-
-        self._system_state = SystemState.SHUTDOWN
-
     async def start_profiling_all_services(self) -> None:
         """Tell all services to start profiling."""
         # TODO: HACK: Wait for 1 second to ensure services are ready
         await asyncio.sleep(1)
 
-        self.debug("Sending PROFILE_START command to all services")
+        self.debug("Sending START_PROFILING command to all services")
         await self.send_command_to_service(
             target_service_id=None,
-            command=CommandType.PROFILE_START,
+            command=CommandType.START_PROFILING,
         )
 
     async def _process_registration_message(self, message: RegistrationMessage) -> None:
@@ -475,6 +444,38 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             if message.error:
                 self.logger.error("SC: Error details: %s", message.error)
 
+        if message.command == CommandType.PROCESS_RECORDS:
+            await self.stop()
+
+        if message.command == CommandType.SHUTDOWN:
+            await self.kill()
+
+    def create_command_message(
+        self,
+        command: CommandType,
+        target_service_id: str | None,
+        target_service_type: ServiceType | None = None,
+        data: BaseModel | None = None,
+    ) -> CommandMessage:
+        """Create a command message to be sent to a specific service.
+
+        Args:
+            command: The command to send
+            target_service_id: The ID of the service to send the command to
+            target_service_type: The type of the service to send the command to
+            data: Optional data to send with the command.
+
+        Returns:
+            A command message
+        """
+        return CommandMessage(
+            service_id=self.service_id,
+            command=command,
+            target_service_id=target_service_id,
+            target_service_type=target_service_type,
+            data=data,
+        )
+
     async def send_command_to_service(
         self,
         target_service_id: str | None,
@@ -520,6 +521,8 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             await self.service_manager.kill_all_services()
         except Exception as e:
             raise self._service_error("Failed to stop all services") from e
+
+        await super().kill()
 
 
 def main() -> None:

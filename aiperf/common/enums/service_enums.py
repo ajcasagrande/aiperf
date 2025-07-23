@@ -57,6 +57,19 @@ class ServiceState(CaseInsensitiveStrEnum):
     """The service is currently in an error state."""
 
 
+class LifecycleState(CaseInsensitiveStrEnum):
+    """Simple lifecycle state tracking."""
+
+    CREATED = "created"
+    INITIALIZING = "initializing"
+    INITIALIZED = "initialized"
+    STARTING = "starting"
+    RUNNING = "running"
+    STOPPING = "stopping"
+    STOPPED = "stopped"
+    FAILED = "failed"
+
+
 class ServiceType(CaseInsensitiveStrEnum):
     """Types of services in the AIPerf system.
 

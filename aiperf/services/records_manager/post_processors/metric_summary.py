@@ -6,7 +6,7 @@ import logging
 import pandas as pd
 
 from aiperf.common.enums import MetricType, PostProcessorType
-from aiperf.common.factories import PostProcessorFactory
+from aiperf.common.mixins.factory_mixins import PostProcessorFactory
 from aiperf.common.models import MetricResult, ParsedResponseRecord
 from aiperf.services.records_manager.metrics.base_metric import BaseMetric
 

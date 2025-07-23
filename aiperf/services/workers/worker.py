@@ -6,32 +6,26 @@ import asyncio
 from aiperf.clients import InferenceClientFactory
 from aiperf.clients.client_interfaces import RequestConverterFactory
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
-from aiperf.common.comms.base import (
+from aiperf.common.comms.base_comms import (
     PullClientProtocol,
     PushClientProtocol,
     RequestClientProtocol,
 )
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.enums import (
-    CommunicationClientAddressType,
+    CommAddress,
     CreditPhase,
     MessageType,
     ServiceType,
 )
-from aiperf.common.factories import ServiceFactory
-from aiperf.common.hooks import (
-    aiperf_task,
-    on_configure,
-    on_init,
-    on_stop,
-)
+from aiperf.common.hooks import background_task, on_init, on_stop
 from aiperf.common.messages import (
-    CommandMessage,
     CreditDropMessage,
     CreditReturnMessage,
     WorkerHealthMessage,
 )
 from aiperf.common.mixins import ProcessHealthMixin
+from aiperf.common.mixins.factory_mixins import ServiceFactory
 from aiperf.common.models import WorkerPhaseTaskStats
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.services.workers.credit_processor_mixin import CreditProcessorMixin
@@ -67,22 +61,22 @@ class Worker(BaseComponentService, ProcessHealthMixin, CreditProcessorMixin):
 
         self.credit_drop_pull_client: PullClientProtocol = (
             self.comms.create_pull_client(
-                CommunicationClientAddressType.CREDIT_DROP,
+                CommAddress.CREDIT_DROP,
             )
         )
         self.credit_return_push_client: PushClientProtocol = (
             self.comms.create_push_client(
-                CommunicationClientAddressType.CREDIT_RETURN,
+                CommAddress.CREDIT_RETURN,
             )
         )
         self.inference_results_push_client: PushClientProtocol = (
             self.comms.create_push_client(
-                CommunicationClientAddressType.RAW_INFERENCE_PROXY_FRONTEND,
+                CommAddress.RAW_INFERENCE_PROXY_FRONTEND,
             )
         )
         self.conversation_request_client: RequestClientProtocol = (
             self.comms.create_request_client(
-                CommunicationClientAddressType.DATASET_MANAGER_PROXY_FRONTEND,
+                CommAddress.DATASET_MANAGER_PROXY_FRONTEND,
             )
         )
 
@@ -114,12 +108,6 @@ class Worker(BaseComponentService, ProcessHealthMixin, CreditProcessorMixin):
 
         self.debug("Worker initialized")
 
-    @on_configure
-    async def _configure_worker(self, message: CommandMessage) -> None:
-        # NOTE: Right now we are configuring the worker in the __init__ method,
-        #       but that may change based on how we implement sweeps.
-        pass
-
     async def _credit_drop_callback(self, message: CreditDropMessage) -> None:
         """Handle an incoming credit drop message. Every credit must be returned after processing."""
 
@@ -147,7 +135,10 @@ class Worker(BaseComponentService, ProcessHealthMixin, CreditProcessorMixin):
         if self.inference_client:
             await self.inference_client.close()
 
-    @aiperf_task
+    @background_task(
+        immediate=False,
+        interval=lambda self: self.service_config.workers.health_check_interval_seconds,
+    )
     async def _health_check_task(self) -> None:
         """Task to report the health of the worker to the worker manager."""
         while True:

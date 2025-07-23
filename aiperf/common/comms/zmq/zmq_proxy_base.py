@@ -15,8 +15,8 @@ from aiperf.common.config.zmq_config import BaseZMQProxyConfig
 from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
 from aiperf.common.enums import CaseInsensitiveStrEnum, ZMQProxyType
 from aiperf.common.exceptions import ProxyError
-from aiperf.common.factories import FactoryMixin
 from aiperf.common.mixins import AIPerfLoggerMixin
+from aiperf.common.mixins.factory_mixins import FactoryMixin
 
 
 class ProxyEndType(CaseInsensitiveStrEnum):

@@ -5,12 +5,12 @@ import asyncio
 
 import zmq.asyncio
 
-from aiperf.common.comms.base import CommunicationClientFactory
+from aiperf.common.comms.base_comms import CommunicationClientFactory
 from aiperf.common.comms.zmq.zmq_base_client import BaseZMQClient
-from aiperf.common.enums import CommunicationClientType
+from aiperf.common.enums import CommClientType
 from aiperf.common.exceptions import CommunicationError
 from aiperf.common.messages import Message
-from aiperf.common.mixins import AsyncTaskManagerMixin
+from aiperf.common.mixins import TaskManagerMixin
 
 MAX_PUSH_RETRIES = 2
 """Maximum number of retries for pushing a message."""
@@ -19,8 +19,8 @@ RETRY_DELAY_INTERVAL_SEC = 0.1
 """The interval to wait before retrying to push a message."""
 
 
-@CommunicationClientFactory.register(CommunicationClientType.PUSH)
-class ZMQPushClient(BaseZMQClient, AsyncTaskManagerMixin):
+@CommunicationClientFactory.register(CommClientType.PUSH)
+class ZMQPushClient(BaseZMQClient, TaskManagerMixin):
     """
     ZMQ PUSH socket client for sending work to PULL sockets.
 

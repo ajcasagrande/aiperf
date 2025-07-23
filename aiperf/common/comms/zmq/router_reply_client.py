@@ -6,19 +6,19 @@ from typing import Any
 
 import zmq.asyncio
 
-from aiperf.common.comms.base import CommunicationClientFactory
+from aiperf.common.comms.base_comms import CommunicationClientFactory
 from aiperf.common.comms.zmq.zmq_base_client import BaseZMQClient
-from aiperf.common.enums import CommunicationClientType
-from aiperf.common.hooks import aiperf_task, on_cleanup, on_stop
+from aiperf.common.enums import CommClientType
+from aiperf.common.hooks import background_task, on_stop
 from aiperf.common.messages import ErrorMessage, Message
-from aiperf.common.mixins import AsyncTaskManagerMixin
+from aiperf.common.mixins import TaskManagerMixin
 from aiperf.common.models import ErrorDetails
 from aiperf.common.types import MessageTypeT
 from aiperf.common.utils import yield_to_event_loop
 
 
-@CommunicationClientFactory.register(CommunicationClientType.REPLY)
-class ZMQRouterReplyClient(BaseZMQClient, AsyncTaskManagerMixin):
+@CommunicationClientFactory.register(CommClientType.REPLY)
+class ZMQRouterReplyClient(BaseZMQClient, TaskManagerMixin):
     """
     ZMQ ROUTER socket client for handling requests from DEALER clients.
 
@@ -74,11 +74,7 @@ class ZMQRouterReplyClient(BaseZMQClient, AsyncTaskManagerMixin):
         self._response_futures: dict[str, asyncio.Future[Message | None]] = {}
 
     @on_stop
-    async def _on_stop(self) -> None:
-        await self.cancel_all_tasks()
-
-    @on_cleanup
-    async def _cleanup(self) -> None:
+    async def _clear_request_handlers(self) -> None:
         self._request_handlers.clear()
 
     def register_request_handler(
@@ -172,7 +168,7 @@ class ZMQRouterReplyClient(BaseZMQClient, AsyncTaskManagerMixin):
                 f"Exception waiting for response for request {request_id}: {e}"
             )
 
-    @aiperf_task
+    @background_task(immediate=True)
     async def _rep_router_receiver(self) -> None:
         """Background task for receiving requests and sending responses.
 
@@ -181,12 +177,10 @@ class ZMQRouterReplyClient(BaseZMQClient, AsyncTaskManagerMixin):
         an asynchronous manner.
         """
         self.debug("Waiting for router reply client to be initialized")
-        if not self.is_initialized:
-            await self.initialized_event.wait()
 
         self.debug("Router reply client initialized")
 
-        while not self.stop_event.is_set():
+        while True:
             try:
                 # Receive request
                 try:

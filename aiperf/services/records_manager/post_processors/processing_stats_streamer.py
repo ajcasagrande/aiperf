@@ -1,12 +1,12 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+
 import time
 
-from aiperf.common.comms.base import SubClientProtocol
+from aiperf.common.comms.base_comms import SubClientProtocol
 from aiperf.common.enums import CreditPhase, StreamingPostProcessorType
 from aiperf.common.enums.message_enums import MessageType
-from aiperf.common.factories import StreamingPostProcessorFactory
-from aiperf.common.hooks import aiperf_auto_task, on_init
+from aiperf.common.hooks import background_task, on_init
 from aiperf.common.messages import (
     CreditPhaseCompleteMessage,
     CreditPhaseStartMessage,
@@ -15,6 +15,7 @@ from aiperf.common.messages.progress_messages import (
     AllRecordsReceivedMessage,
     RecordsProcessingStatsMessage,
 )
+from aiperf.common.mixins.factory_mixins import StreamingPostProcessorFactory
 from aiperf.common.models import ParsedResponseRecord, PhaseProcessingStats
 from aiperf.services.records_manager.post_processors.streaming_post_processor import (
     BaseStreamingPostProcessor,
@@ -100,13 +101,14 @@ class ProcessingStatsStreamer(BaseStreamingPostProcessor):
     ) -> None:
         """Handle a credit phase complete message."""
         if phase_complete_msg.phase == CreditPhase.PROFILING:
-            self.info(f"Updating final request count to {phase_complete_msg.completed}")
+            self.info(f"Updating final request count to {self.final_request_count}")
             # This will equate to how many records we expect to receive,
             # and once we receive that many records, we know to stop.
             self.final_request_count = phase_complete_msg.completed
 
-    @aiperf_auto_task(
-        interval_sec=lambda self: self.service_config.progress_report_interval_seconds
+    @background_task(
+        interval=lambda self: self.service_config.progress_report_interval,
+        immediate=False,
     )
     async def _report_records_task(self) -> None:
         """Report the records."""

@@ -4,22 +4,21 @@ import asyncio
 import sys
 from typing import Any
 
-from aiperf.common.comms.base import (
-    CommunicationClientAddressType,
+from aiperf.common.comms.base_comms import (
+    CommAddress,
     PullClientProtocol,
 )
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.enums import CommandType, CreditPhase, MessageType, ServiceType
-from aiperf.common.factories import ServiceFactory, StreamingPostProcessorFactory
-from aiperf.common.hooks import (
-    on_cleanup,
-    on_init,
-    on_stop,
-)
+from aiperf.common.hooks import on_init, on_stop
 from aiperf.common.messages import (
     ParsedInferenceResultsMessage,
 )
 from aiperf.common.messages.command_messages import CommandMessage
+from aiperf.common.mixins.factory_mixins import (
+    ServiceFactory,
+    StreamingPostProcessorFactory,
+)
 from aiperf.common.service import BaseComponentService
 from aiperf.services.records_manager.post_processors import BaseStreamingPostProcessor
 
@@ -49,7 +48,7 @@ class RecordsManager(BaseComponentService):
 
         self.response_results_client: PullClientProtocol = (
             self.comms.create_pull_client(
-                CommunicationClientAddressType.RECORDS,
+                CommAddress.RECORDS,
                 bind=True,
             )
         )
@@ -89,23 +88,13 @@ class RecordsManager(BaseComponentService):
             self.debug(
                 lambda streamer=streamer: f"Starting lifecycle for {streamer.__class__.__name__}"
             )
-            await streamer.run_async()
+            await streamer.initialize_and_start()
 
     @on_stop
     async def _stop_streaming_post_processors(self) -> None:
         """Stop the streaming post processors."""
         await asyncio.gather(
-            *[streamer.shutdown() for streamer in self.streaming_post_processors]
-        )
-
-    @on_cleanup
-    async def _cleanup(self) -> None:
-        """Cleanup the records manager."""
-        await asyncio.gather(
-            *[
-                streamer.wait_for_shutdown()
-                for streamer in self.streaming_post_processors
-            ]
+            *[streamer.stop() for streamer in self.streaming_post_processors]
         )
 
     async def _on_parsed_inference_results(

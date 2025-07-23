@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 from abc import ABC, abstractmethod
 
-from aiperf.common.enums import ServiceState, ServiceType
-from aiperf.common.messages import Message
+from aiperf.common.enums import ServiceType
+from aiperf.common.enums.service_enums import LifecycleState
 
 
 class BaseServiceInterface(ABC):
@@ -24,14 +24,10 @@ class BaseServiceInterface(ABC):
         # TODO: We can do this better by using a decorator to set the service type
         pass
 
+    @property
     @abstractmethod
-    async def set_state(self, state: ServiceState) -> None:
-        """Set the state of the service.
-
-        This method will be implemented by the base class, and extra
-        functionality can be added by derived classes via the `@on_set_state`
-        decorator.
-        """
+    def state(self) -> LifecycleState:
+        """The state of the service."""
         pass
 
     @abstractmethod
@@ -60,37 +56,5 @@ class BaseServiceInterface(ABC):
         This method will be implemented by the base class, and extra
         functionality can be added by derived classes via the `@on_stop`
         decorator.
-        """
-        pass
-
-    @abstractmethod
-    async def configure(self, message: Message) -> None:
-        """Configure the service with the given configuration.
-
-        This method will be implemented by the base class, and extra
-        functionality can be added by derived classes via the `@on_configure`
-        decorator.
-        """
-        pass
-
-    @abstractmethod
-    async def run_forever(self) -> None:
-        """Run the service. This method will be the primary entry point for the service
-        and will be called by the bootstrap script. It should not return until the
-        service is completely shutdown.
-
-        This method will be implemented by the base class. Any additional
-        functionality can be added by derived classes via the `@on_run`
-        decorator.
-        """
-        pass
-
-    @abstractmethod
-    async def _forever_loop(self) -> None:
-        """Run the service in a loop until the stop event is set. This method will be
-        called by the `run` method to allow the service to run indefinitely.
-
-        This method will be implemented by the base class, and is not expected to be
-        overridden by derived classes.
         """
         pass

@@ -5,27 +5,25 @@ import sys
 
 from aiperf.clients.client_interfaces import ResponseExtractorFactory
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
-from aiperf.common.comms.base import (
+from aiperf.common.comms.base_comms import (
     PullClientProtocol,
     PushClientProtocol,
     RequestClientProtocol,
 )
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
-from aiperf.common.enums import CommunicationClientAddressType, MessageType, ServiceType
-from aiperf.common.factories import ServiceFactory
+from aiperf.common.enums import CommAddress, MessageType, ServiceType
 from aiperf.common.hooks import (
-    on_configure,
     on_init,
 )
 from aiperf.common.messages import (
-    CommandMessage,
     ConversationTurnRequestMessage,
     ConversationTurnResponseMessage,
     ErrorMessage,
     InferenceResultsMessage,
     ParsedInferenceResultsMessage,
 )
+from aiperf.common.mixins.factory_mixins import ServiceFactory
 from aiperf.common.models import (
     ErrorDetails,
     ParsedResponseRecord,
@@ -55,15 +53,15 @@ class InferenceResultParser(BaseComponentService):
         self.debug("Initializing inference result parser")
         self.inference_results_client: PullClientProtocol = (
             self.comms.create_pull_client(
-                CommunicationClientAddressType.RAW_INFERENCE_PROXY_BACKEND,
+                CommAddress.RAW_INFERENCE_PROXY_BACKEND,
             )
         )
         self.records_push_client: PushClientProtocol = self.comms.create_push_client(
-            CommunicationClientAddressType.RECORDS,
+            CommAddress.RECORDS,
         )
         self.conversation_request_client: RequestClientProtocol = (
             self.comms.create_request_client(
-                CommunicationClientAddressType.DATASET_MANAGER_PROXY_FRONTEND,
+                CommAddress.DATASET_MANAGER_PROXY_FRONTEND,
             )
         )
         self.tokenizers: dict[str, Tokenizer] = {}
@@ -116,10 +114,6 @@ class InferenceResultParser(BaseComponentService):
                     revision=self.user_config.tokenizer.revision,
                 )
             return self.tokenizers[model]
-
-    @on_configure
-    async def _configure(self, message: CommandMessage) -> None:
-        """Configure the inference result parser."""
 
     async def _on_inference_results(self, message: InferenceResultsMessage) -> None:
         """Handle an inference results message."""

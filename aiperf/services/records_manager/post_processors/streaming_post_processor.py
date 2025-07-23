@@ -7,7 +7,7 @@ from typing import Any
 
 from aiperf.common.comms import PubClientProtocol, SubClientProtocol
 from aiperf.common.config import ServiceConfig, UserConfig
-from aiperf.common.hooks import aiperf_task
+from aiperf.common.hooks import background_task
 from aiperf.common.messages.command_messages import CommandMessage
 from aiperf.common.mixins import AIPerfLifecycleMixin
 from aiperf.common.models import ParsedResponseRecord
@@ -50,7 +50,7 @@ class BaseStreamingPostProcessor(AIPerfLifecycleMixin, ABC):
             maxsize=max_queue_size
         )
 
-    @aiperf_task
+    @background_task(immediate=True)
     async def _stream_records_task(self) -> None:
         """Task that streams records from the queue to the post processor's stream_record method."""
         while True:

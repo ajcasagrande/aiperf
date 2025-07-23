@@ -3,7 +3,7 @@
 
 from typing import Protocol, runtime_checkable
 
-from aiperf.common.comms.base import PubClientProtocol
+from aiperf.common.comms.base_comms import PubClientProtocol
 from aiperf.common.enums import CreditPhase
 from aiperf.common.messages import (
     CreditPhaseCompleteMessage,
@@ -12,11 +12,8 @@ from aiperf.common.messages import (
     CreditPhaseStartMessage,
     CreditsCompleteMessage,
 )
-from aiperf.common.mixins import (
-    AIPerfLoggerProtocol,
-    AsyncTaskManagerMixin,
-    AsyncTaskManagerProtocol,
-)
+from aiperf.common.mixins import AIPerfLoggerProtocol
+from aiperf.common.mixins.task_manager_mixin import TaskManagerMixin
 
 
 @runtime_checkable
@@ -58,9 +55,7 @@ class CreditManagerProtocol(Protocol):
 
 
 @runtime_checkable
-class CreditPhaseMessagesRequirements(
-    AsyncTaskManagerProtocol, AIPerfLoggerProtocol, Protocol
-):
+class CreditPhaseMessagesRequirements(AIPerfLoggerProtocol, Protocol):
     """Requirements for the CreditPhaseMessagesMixin. This is the list of attributes that must
     be provided by the class that uses this mixin."""
 
@@ -68,7 +63,7 @@ class CreditPhaseMessagesRequirements(
     service_id: str
 
 
-class CreditPhaseMessagesMixin(AsyncTaskManagerMixin, CreditPhaseMessagesRequirements):
+class CreditPhaseMessagesMixin(TaskManagerMixin, CreditPhaseMessagesRequirements):
     """Mixin for services to implement the CreditManagerProtocol.
 
     Requirements:

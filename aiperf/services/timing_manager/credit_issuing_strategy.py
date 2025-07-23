@@ -7,15 +7,15 @@ from abc import ABC, abstractmethod
 
 from aiperf.common.enums import CreditPhase, TimingMode
 from aiperf.common.exceptions import ConfigurationError
-from aiperf.common.factories import FactoryMixin
 from aiperf.common.messages import CreditReturnMessage
-from aiperf.common.mixins import AIPerfLoggerMixin, AsyncTaskManagerMixin
+from aiperf.common.mixins import AIPerfLoggerMixin, TaskManagerMixin
+from aiperf.common.mixins.factory_mixins import FactoryMixin
 from aiperf.common.models import CreditPhaseConfig, CreditPhaseStats
 from aiperf.services.timing_manager.config import TimingManagerConfig
 from aiperf.services.timing_manager.credit_manager import CreditManagerProtocol
 
 
-class CreditIssuingStrategy(AsyncTaskManagerMixin, AIPerfLoggerMixin, ABC):
+class CreditIssuingStrategy(TaskManagerMixin, AIPerfLoggerMixin, ABC):
     """
     Base class for credit issuing strategies.
     """

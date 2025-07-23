@@ -7,19 +7,19 @@ from typing import Any
 
 import zmq.asyncio
 
-from aiperf.common.comms.base import CommunicationClientFactory
+from aiperf.common.comms.base_comms import CommunicationClientFactory
 from aiperf.common.comms.zmq.zmq_base_client import BaseZMQClient
-from aiperf.common.enums import CommunicationClientType
+from aiperf.common.enums import CommClientType
 from aiperf.common.exceptions import CommunicationError
-from aiperf.common.hooks import aiperf_task, on_stop
+from aiperf.common.hooks import background_task
 from aiperf.common.messages import Message
-from aiperf.common.mixins import AsyncTaskManagerMixin
+from aiperf.common.mixins import TaskManagerMixin
 from aiperf.common.types import MessageTypeT
 from aiperf.common.utils import call_all_functions, yield_to_event_loop
 
 
-@CommunicationClientFactory.register(CommunicationClientType.SUB)
-class ZMQSubClient(BaseZMQClient, AsyncTaskManagerMixin):
+@CommunicationClientFactory.register(CommClientType.SUB)
+class ZMQSubClient(BaseZMQClient, TaskManagerMixin):
     """
     ZMQ SUB socket client for subscribing to messages from PUB sockets.
     One-to-Many or Many-to-One communication pattern.
@@ -75,10 +75,6 @@ class ZMQSubClient(BaseZMQClient, AsyncTaskManagerMixin):
         super().__init__(context, zmq.SocketType.SUB, address, bind, socket_ops)
 
         self._subscribers: dict[MessageTypeT, list[Callable[[Message], Any]]] = {}
-
-    @on_stop
-    async def _on_stop(self) -> None:
-        await self.cancel_all_tasks()
 
     async def subscribe_all(
         self,
@@ -163,19 +159,14 @@ class ZMQSubClient(BaseZMQClient, AsyncTaskManagerMixin):
             with contextlib.suppress(Exception):  # Ignore errors, they will get logged
                 await call_all_functions(self._subscribers[message_type], message)
 
-    @aiperf_task
+    @background_task(immediate=True)
     async def _sub_receiver(self) -> None:
         """Background task for receiving messages from subscribed topics.
 
         This method is a coroutine that will run indefinitely until the client is
         shutdown. It will wait for messages from the socket and handle them.
         """
-        if not self.is_initialized:
-            self.trace("Sub client %s waiting for initialization", self.client_id)
-            await self.initialized_event.wait()
-            self.trace(lambda: f"Sub client {self.client_id} initialized")
-
-        while not self.stop_event.is_set():
+        while True:
             try:
                 (
                     topic_bytes,

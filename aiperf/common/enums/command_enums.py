@@ -15,19 +15,19 @@ class CommandType(CaseInsensitiveStrEnum):
     """A command sent to process records. This will process the records and return
     the services to their pre-record processing state."""
 
-    PROFILE_CONFIGURE = "profile_configure"
+    CONFIGURE_PROFILING = "configure_profiling"
     """A command sent to configure a service in preparation for a profile run. This will
     override the current configuration."""
 
-    PROFILE_START = "profile_start"
+    START_PROFILING = "start_profiling"
     """A command sent to indicate that a service should begin profiling using the
     current configuration."""
 
-    PROFILE_STOP = "profile_stop"
+    STOP_PROFILING = "stop_profiling"
     """A command sent to indicate that a service should stop doing profile related
     work, as the profile run is complete."""
 
-    PROFILE_CANCEL = "profile_cancel"
+    CANCEL_PROFILING = "cancel_profiling"
     """A command sent to cancel a profile run. This will stop the current profile run and
     process the partial results."""
 
@@ -35,5 +35,6 @@ class CommandType(CaseInsensitiveStrEnum):
 class CommandResponseStatus(CaseInsensitiveStrEnum):
     """Status of a command response."""
 
+    ACKNOWLEDGED = "acknowledged"
     SUCCESS = "success"
     FAILURE = "failure"

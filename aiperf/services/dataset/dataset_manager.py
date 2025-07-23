@@ -4,8 +4,8 @@ import asyncio
 import random
 
 from aiperf.common.comms import ReplyClientProtocol
-from aiperf.common.comms.base import (
-    CommunicationClientAddressType,
+from aiperf.common.comms.base_comms import (
+    CommAddress,
 )
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.enums import (
@@ -13,9 +13,7 @@ from aiperf.common.enums import (
     MessageType,
     ServiceType,
 )
-from aiperf.common.factories import ComposerFactory, ServiceFactory
 from aiperf.common.hooks import (
-    on_configure,
     on_init,
 )
 from aiperf.common.messages import (
@@ -26,8 +24,8 @@ from aiperf.common.messages import (
     DatasetConfiguredNotification,
     DatasetTimingRequest,
     DatasetTimingResponse,
-    Message,
 )
+from aiperf.common.mixins.factory_mixins import ComposerFactory, ServiceFactory
 from aiperf.common.models import Conversation
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.common.tokenizer import Tokenizer
@@ -59,8 +57,8 @@ class DatasetManager(BaseComponentService):
         self.tokenizer: Tokenizer | None = None
         self.dataset: dict[str, Conversation] = {}  # session ID -> Conversation mapping
         self.router_reply_client: ReplyClientProtocol = self.comms.create_reply_client(
-            CommunicationClientAddressType.DATASET_MANAGER_PROXY_BACKEND
-        )
+            CommAddress.DATASET_MANAGER_PROXY_BACKEND
+        )  # type: ignore
         self.dataset_configured = asyncio.Event()
 
     @property
@@ -89,6 +87,8 @@ class DatasetManager(BaseComponentService):
             handler=self._handle_conversation_turn_request,
         )
 
+        self.dataset_configured.clear()
+        await self._configure_dataset()
         self.debug(lambda: f"Dataset manager {self.service_id} initialized")
 
     async def _configure_dataset(self) -> None:
@@ -131,13 +131,6 @@ class DatasetManager(BaseComponentService):
                 service_id=self.service_id,
             ),
         )
-
-    @on_configure
-    async def _configure(self, message: Message) -> None:
-        """Configure the dataset manager."""
-        # TODO: This is a temporary hack with the changes to user config loading
-        self.dataset_configured.clear()
-        await self._configure_dataset()
 
     async def _handle_conversation_request(
         self, message: ConversationRequestMessage

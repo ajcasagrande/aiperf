@@ -7,19 +7,19 @@ from typing import Any
 
 import zmq.asyncio
 
-from aiperf.common.comms.base import CommunicationClientFactory
+from aiperf.common.comms.base_comms import CommunicationClientFactory
 from aiperf.common.comms.zmq.zmq_base_client import BaseZMQClient
 from aiperf.common.constants import DEFAULT_COMMS_REQUEST_TIMEOUT
-from aiperf.common.enums import CommunicationClientType
+from aiperf.common.enums import CommClientType
 from aiperf.common.exceptions import CommunicationError
-from aiperf.common.hooks import aiperf_task, on_stop
+from aiperf.common.hooks import background_task, on_stop
 from aiperf.common.messages import Message
-from aiperf.common.mixins import AsyncTaskManagerMixin
+from aiperf.common.mixins import TaskManagerMixin
 from aiperf.common.utils import yield_to_event_loop
 
 
-@CommunicationClientFactory.register(CommunicationClientType.REQUEST)
-class ZMQDealerRequestClient(BaseZMQClient, AsyncTaskManagerMixin):
+@CommunicationClientFactory.register(CommClientType.REQUEST)
+class ZMQDealerRequestClient(BaseZMQClient, TaskManagerMixin):
     """
     ZMQ DEALER socket client for asynchronous request-response communication.
 
@@ -63,12 +63,12 @@ class ZMQDealerRequestClient(BaseZMQClient, AsyncTaskManagerMixin):
             str, Callable[[Message], Coroutine[Any, Any, None]]
         ] = {}
 
-    @aiperf_task
+    @background_task(immediate=True)
     async def _request_async_task(self) -> None:
         """Task to handle incoming requests."""
-        while not self.stop_event.is_set():
+        while True:
             try:
-                message = await self._socket.recv_string()
+                message = await self.socket.recv_string()
                 self.trace(lambda msg=message: f"Received response: {msg}")
                 response_message = Message.from_json(message)
 
@@ -118,7 +118,7 @@ class ZMQDealerRequestClient(BaseZMQClient, AsyncTaskManagerMixin):
         self.trace(lambda msg=request_json: f"Sending request: {msg}")
 
         try:
-            await self._socket.send_string(request_json)
+            await self.socket.send_string(request_json)
 
         except Exception as e:
             raise CommunicationError(

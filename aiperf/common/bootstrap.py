@@ -75,8 +75,12 @@ def bootstrap_and_run_service(
 
                 np.random.seed(user_config.input.random_seed)
 
-        with contextlib.suppress(asyncio.CancelledError):
-            await service.run_forever()
+        try:
+            await service.initialize()
+            await service.start()
+            await service.stopped_event.wait()
+        except Exception as e:
+            service.exception(f"Unhandled exception in service: {e}")
 
         if service_config.enable_yappi:
             _stop_yappi_profiling(service.service_id, user_config)

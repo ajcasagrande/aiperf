@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-import asyncio
 from collections.abc import Awaitable, Callable
 from typing import Any
 
@@ -8,10 +7,10 @@ from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.enums import (
     CommandResponseStatus,
     CommandType,
+    LifecycleState,
     MessageType,
-    ServiceState,
 )
-from aiperf.common.hooks import AIPerfHook, aiperf_task, on_init, on_set_state
+from aiperf.common.hooks import background_task, on_init, on_state_change
 from aiperf.common.messages import (
     CommandMessage,
     CommandResponseMessage,
@@ -32,11 +31,8 @@ class BaseComponentService(BaseService):
     It extends the BaseService by:
     - Subscribing to the command message_type
     - Processing command messages
-    - Sending registration requests to the system controller
-    - Sending heartbeat notifications to the system controller
     - Sending status notifications to the system controller
-    - Helpers to create heartbeat, registration, and status messages
-    - Request the appropriate communication clients for a component service
+    - Helpers to create status messages
     """
 
     def __init__(
@@ -56,9 +52,6 @@ class BaseComponentService(BaseService):
         self._command_callbacks: dict[
             CommandType, Callable[[CommandMessage], Awaitable[Any]]
         ] = {}
-        self._heartbeat_interval_seconds = (
-            self.service_config.heartbeat_interval_seconds
-        )
 
     @on_init
     async def _on_init(self) -> None:
@@ -85,29 +78,21 @@ class BaseComponentService(BaseService):
         except Exception as e:
             raise self._service_error("Failed to register service") from e
 
-    @aiperf_task
+    @background_task(
+        interval=lambda self: self.service_config.heartbeat_interval_seconds,
+        immediate=False,
+    )
     async def _heartbeat_task(self) -> None:
         """Starts a background task to send heartbeats at regular intervals. It
         will continue to send heartbeats even if an error occurs until the stop
         event is set.
         """
-        while not self.stop_event.is_set():
-            # Sleep first to avoid sending a heartbeat before the registration
-            # message has been published
-            await asyncio.sleep(self._heartbeat_interval_seconds)
-
-            try:
-                await self.send_heartbeat()
-            except Exception as e:
-                self.logger.error("Exception sending heartbeat: %s", e)
-                # continue to keep sending heartbeats regardless of the error
-
-        self.logger.debug("Heartbeat task stopped")
+        await self.send_heartbeat()
 
     async def send_heartbeat(self) -> None:
         """Send a heartbeat notification to the system controller."""
         heartbeat_message = self.create_heartbeat_message()
-        self.logger.debug("Sending heartbeat: %s", heartbeat_message)
+        self.debug(lambda: f"Sending heartbeat: {heartbeat_message}")
         try:
             await self.pub_client.publish(
                 message=heartbeat_message,
@@ -121,10 +106,8 @@ class BaseComponentService(BaseService):
         This method should be called after the service has been initialized and is
         ready to start processing messages.
         """
-        self.logger.info(
-            "Attempting to register service %s (%s) with system controller",
-            self.service_type,
-            self.service_id,
+        self.debug(
+            lambda: f"Attempting to register service {self} ({self.service_id}) with system controller"
         )
         try:
             await self.pub_client.publish(
@@ -146,24 +129,20 @@ class BaseComponentService(BaseService):
         ):
             return  # Ignore commands meant for other services
 
-        self.logger.debug(
-            "%s: Processing command message: %s", self.service_id, message
-        )
+        self.debug(lambda: f"Processing command message: {message}")
         cmd = message.command
         response_data = None
         try:
-            if cmd == CommandType.PROFILE_START:
-                response_data = await self.start()
+            stop_requested = False
 
-            elif cmd == CommandType.SHUTDOWN:
-                self.logger.debug("%s: Received stop command", self.service_id)
-                self.stop_event.set()
-
-            elif cmd == CommandType.PROFILE_CONFIGURE:
-                await self.run_hooks(AIPerfHook.ON_CONFIGURE, message)
+            if cmd == CommandType.SHUTDOWN:
+                self.debug("Received shutdown command")
+                stop_requested = True
+                response_status = CommandResponseStatus.ACKNOWLEDGED
 
             elif cmd in self._command_callbacks:
                 response_data = await self._command_callbacks[cmd](message)
+                response_status = CommandResponseStatus.SUCCESS
 
             else:
                 raise self._service_error(
@@ -176,10 +155,19 @@ class BaseComponentService(BaseService):
                     service_id=self.service_id,
                     command=cmd,
                     command_id=message.command_id,
-                    status=CommandResponseStatus.SUCCESS,
+                    status=response_status,
                     data=response_data,
                 ),
             )
+
+            if stop_requested:
+                try:
+                    await self.stop()
+                except Exception as e:
+                    self.warning(
+                        f"Failed to stop service {self} ({self.service_id}) after receiving shutdown command: {e}. Killing."
+                    )
+                    await self.kill()
 
         except Exception as e:
             # Publish the failure response
@@ -201,20 +189,18 @@ class BaseComponentService(BaseService):
         """Register a single callback for a command."""
         self._command_callbacks[cmd] = callback
 
-    @on_set_state
-    async def _on_set_state(self, state: ServiceState) -> None:
+    @on_state_change
+    async def _on_state_change(
+        self, old_state: LifecycleState, new_state: LifecycleState
+    ) -> None:
         """Action to take when the service state is set.
 
         This method will also publish the status message to the status message_type if the
         communications are initialized.
         """
-        if (
-            self.pub_client
-            and self.pub_client.is_initialized
-            and not self.pub_client.stop_event.is_set()
-        ):
-            await self.pub_client.publish(
-                self.create_status_message(state),
+        if self.pub_client.is_running:
+            self.execute_async(
+                self.pub_client.publish(self.create_status_message(new_state))
             )
 
     def create_heartbeat_message(self) -> HeartbeatMessage:
@@ -230,9 +216,10 @@ class BaseComponentService(BaseService):
         return RegistrationMessage(
             service_id=self.service_id,
             service_type=self.service_type,
+            state=self.state,
         )
 
-    def create_status_message(self, state: ServiceState) -> StatusMessage:
+    def create_status_message(self, state: LifecycleState) -> StatusMessage:
         """Create a status notification message."""
         return StatusMessage(
             service_id=self.service_id,

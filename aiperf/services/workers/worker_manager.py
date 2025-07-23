@@ -14,13 +14,9 @@ from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
 from aiperf.common.enums import MessageType, ServiceRunType, ServiceType
 from aiperf.common.exceptions import ConfigurationError
-from aiperf.common.factories import ServiceFactory
-from aiperf.common.hooks import (
-    on_cleanup,
-    on_init,
-    on_stop,
-)
+from aiperf.common.hooks import on_init, on_stop
 from aiperf.common.messages import WorkerHealthMessage
+from aiperf.common.mixins.factory_mixins import ServiceFactory
 from aiperf.common.models import AIPerfBaseModel
 from aiperf.common.service.base_component_service import BaseComponentService
 from aiperf.services.workers.worker import Worker
@@ -125,11 +121,6 @@ class WorkerManager(BaseComponentService):
             raise ConfigurationError(
                 f"Unsupported run type: {self.service_config.service_run_type}",
             )
-
-    @on_cleanup
-    async def _cleanup(self) -> None:
-        self.debug("WorkerManager cleaning up")
-        self.workers.clear()
 
     async def _spawn_kubernetes_workers(self) -> None:
         self.debug("Spawning %s worker pods", self.initial_workers)

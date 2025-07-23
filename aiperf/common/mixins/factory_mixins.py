@@ -2,14 +2,15 @@
 # SPDX-License-Identifier: Apache-2.0
 import logging
 from collections.abc import Callable
-from typing import Any, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 from aiperf.common.enums import (
     CaseInsensitiveStrEnum,
-    ServiceType,
-    StreamingPostProcessorType,
 )
 from aiperf.common.exceptions import FactoryCreationError
+
+if TYPE_CHECKING:
+    pass
 
 ClassEnumT = TypeVar("ClassEnumT", bound=CaseInsensitiveStrEnum)
 ClassProtocolT = TypeVar("ClassProtocolT", bound=Any)
@@ -211,115 +212,3 @@ class FactoryMixin(Generic[ClassEnumT, ClassProtocolT]):
     ) -> list[tuple[type[ClassProtocolT], ClassEnumT | str]]:
         """Get all registered classes and their corresponding class types."""
         return [(cls, class_type) for class_type, cls in cls._registry.items()]
-
-
-################################################################################
-# Built-in Factories
-################################################################################
-
-
-class ServiceFactory(FactoryMixin[ServiceType, "BaseService"]):
-    """Factory for registering and creating BaseService instances based on the specified service type.
-
-    Example:
-    ```python
-        # Register a new service type
-        @ServiceFactory.register(ServiceType.DATASET_MANAGER)
-        class DatasetManager(BaseService):
-            pass
-
-        # Create a new service instance in a separate process
-        service_class = ServiceFactory.get_class_from_type(service_type)
-
-        process = Process(
-            target=bootstrap_and_run_service,
-            name=f"{service_type}_process",
-            args=(service_class, self.config),
-            daemon=False,
-        )
-    ```
-    """
-
-
-class DataExporterFactory(FactoryMixin["DataExporterType", "DataExporterProtocol"]):
-    """Factory for registering and creating DataExporterInterface instances.
-
-    Example:
-    ```python
-        # Iterate over all registered data exporter types
-        for exporter_class in DataExporterFactory.get_all_classes():
-            exporter = exporter_class(endpoint_config)
-
-            exporter.export()
-    ```
-    """
-
-
-class PostProcessorFactory(FactoryMixin["PostProcessorType", "PostProcessorProtocol"]):
-    """Factory for registering and creating PostProcessor instances based on the specified post-processor type.
-
-    Example:
-    ```python
-        # Register a new post-processor type
-        @PostProcessorFactory.register(PostProcessorType.METRIC_SUMMARY)
-        class MetricSummary:
-            pass
-
-        # Create a new post-processor instance
-        post_processor = PostProcessorFactory.create_instance(
-            PostProcessorType.METRIC_SUMMARY,
-        )
-    """
-
-
-class ComposerFactory(FactoryMixin["ComposerType", "BaseDatasetComposer"]):
-    """Factory for registering and creating BaseDatasetComposer instances
-    based on the specified composer type.
-
-    Example:
-    ```python
-        # Register a new composer type
-        @ComposerFactory.register(ComposerType.SYNTHETIC)
-        class SyntheticDatasetComposer(BaseDatasetComposer):
-            pass
-
-        # Create a new composer instance
-        composer = ComposerFactory.create_instance(
-            ComposerType.SYNTHETIC,
-            config=InputConfig(
-                conversation=ConversationConfig(num=10),
-                prompt=PromptConfig(batch_size=10),
-            )
-        )
-    ```
-    """
-
-
-class CustomDatasetFactory(
-    FactoryMixin["CustomDatasetType", "CustomDatasetLoaderProtocol"]
-):
-    """
-    Factory for registering and creating CustomDatasetLoader instances
-    based on the specified custom dataset type.
-
-    Example:
-    ```python
-        # Register a new custom dataset type
-        @CustomDatasetFactory.register(CustomDatasetType.MOONCAKE_TRACE)
-        class MooncakeTraceDatasetLoader(CustomDatasetLoader):
-            pass
-
-        # Create a new custom dataset loader instance
-        custom_dataset_loader = CustomDatasetFactory.create_instance(
-            CustomDatasetType.MOONCAKE_TRACE, **kwargs
-        )
-    ```
-    """
-
-
-class StreamingPostProcessorFactory(
-    FactoryMixin[StreamingPostProcessorType, "StreamingPostProcessor"]
-):
-    """Factory for creating StreamingPostProcessor instances.
-    see: :class:`FactoryMixin` for more details.
-    """

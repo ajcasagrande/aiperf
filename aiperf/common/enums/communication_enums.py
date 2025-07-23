@@ -14,7 +14,7 @@ class CommunicationBackend(CaseInsensitiveStrEnum):
     """ZeroMQ backend using IPC sockets."""
 
 
-class CommunicationClientType(CaseInsensitiveStrEnum):
+class CommClientType(CaseInsensitiveStrEnum):
     """Enum for specifying the communication client type for communication clients."""
 
     PUB = "pub"
@@ -25,7 +25,7 @@ class CommunicationClientType(CaseInsensitiveStrEnum):
     REPLY = "reply"
 
 
-class CommunicationClientAddressType(CaseInsensitiveStrEnum):
+class CommAddress(CaseInsensitiveStrEnum):
     """Enum for specifying the address type for communication clients.
     This is used to lookup the address in the communication config."""
 

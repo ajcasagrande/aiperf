@@ -10,7 +10,7 @@ from aiperf.clients.client_interfaces import (
     RequestConverterProtocol,
 )
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
-from aiperf.common.comms.base import PushClientProtocol, RequestClientProtocol
+from aiperf.common.comms.base_comms import PushClientProtocol, RequestClientProtocol
 from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import CreditPhase
 from aiperf.common.exceptions import NotInitializedError

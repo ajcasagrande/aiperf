@@ -88,7 +88,7 @@ class InvalidPayloadError(InferenceClientError):
 
 
 class UnsupportedHookError(AIPerfError):
-    """Exception raised when a hook is defined on a class that does not support it."""
+    """Exception raised when a hook is defined on a class that does not have any base classes that provide that hook type."""
 
 
 class FactoryCreationError(AIPerfError):

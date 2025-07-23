@@ -6,7 +6,6 @@ from collections import deque
 
 from aiperf.common.enums import StreamingPostProcessorType
 from aiperf.common.enums.message_enums import MessageType
-from aiperf.common.factories import StreamingPostProcessorFactory
 from aiperf.common.hooks import on_init
 from aiperf.common.messages import (
     AllRecordsReceivedMessage,
@@ -16,6 +15,7 @@ from aiperf.common.messages import (
 from aiperf.common.messages.command_messages import (
     ProcessRecordsCommandData,
 )
+from aiperf.common.mixins.factory_mixins import StreamingPostProcessorFactory
 from aiperf.common.models import ErrorDetails, ErrorDetailsCount, ParsedResponseRecord
 from aiperf.common.models.record_models import MetricResult
 from aiperf.data_exporter.exporter_manager import ExporterManager
@@ -108,8 +108,8 @@ class BasicMetricsStreamer(BaseStreamingPostProcessor):
 
         profile_results = ProfileResultsMessage(
             service_id=self.service_id,
-            total=len(self.records or []),
-            completed=len(self.records or []) + len(self.error_records or []),
+            total=len(self.records),
+            completed=len(self.records) + len(self.error_records),
             start_ns=self.start_time_ns,
             end_ns=self.end_time_ns,
             records=None,
