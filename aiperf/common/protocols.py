@@ -347,31 +347,16 @@ class ServiceManagerProtocol(AIPerfLifecycleProtocol, Protocol):
     ): ...
 
     required_services: dict[ServiceTypeT, int]
-
-    # Maps to track service information
-    service_map: dict[ServiceTypeT, list[ServiceRunInfoT]] = {}
-
-    # Create service ID map for component lookups
-    service_id_map: dict[str, ServiceRunInfoT] = {}
-
-    async def run_services(self, service_types: dict[ServiceTypeT, int]) -> None:
-        await asyncio.gather(
-            *[
-                self.run_service(service_type, num_replicas)
-                for service_type, num_replicas in service_types.items()
-            ],
-            return_exceptions=True,
-        )
-
-    async def run_required_services(self) -> None:
-        await self.run_services(self.required_services)
+    service_map: dict[ServiceTypeT, list[ServiceRunInfoT]]
+    service_id_map: dict[str, ServiceRunInfoT]
 
     async def run_service(
         self, service_type: ServiceTypeT, num_replicas: int = 1
     ) -> None: ...
 
+    async def run_services(self, service_types: dict[ServiceTypeT, int]) -> None: ...
+    async def run_required_services(self) -> None: ...
     async def shutdown_all_services(self) -> None: ...
-
     async def kill_all_services(self) -> None: ...
 
     async def wait_for_all_services_registration(

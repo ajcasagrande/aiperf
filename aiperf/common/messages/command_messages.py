@@ -75,15 +75,6 @@ class ShutdownWorkersCommandData(BaseModel):
     )
 
 
-class KillWorkersCommandData(BaseModel):
-    """Data to send with the kill workers command."""
-
-    worker_ids: list[str] | None = Field(
-        default=None,
-        description="IDs of the workers to kill. If not provided, all workers will be killed.",
-    )
-
-
 class ProcessRecordsCommandData(BaseModel):
     """Data to send with the process records command."""
 
@@ -127,7 +118,6 @@ class CommandMessage(BaseServiceMessage):
     data: SerializeAsAny[
         SpawnWorkersCommandData
         | ShutdownWorkersCommandData
-        | KillWorkersCommandData
         | ProcessRecordsCommandData
         | BaseModel
         | None

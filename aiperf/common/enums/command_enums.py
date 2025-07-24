@@ -9,11 +9,8 @@ class CommandType(CaseInsensitiveStrEnum):
     PROCESS_RECORDS = "process_records"
     CONFIGURE_PROFILING = "configure_profiling"
     START_PROFILING = "start_profiling"
-    STOP_PROFILING = "stop_profiling"
-    CANCEL_PROFILING = "cancel_profiling"
     SPAWN_WORKERS = "spawn_workers"
     SHUTDOWN_WORKERS = "shutdown_workers"
-    KILL_WORKERS = "kill_workers"
 
 
 class CommandResponseStatus(CaseInsensitiveStrEnum):

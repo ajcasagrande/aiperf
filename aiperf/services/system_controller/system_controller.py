@@ -361,13 +361,6 @@ class SystemController(SignalHandlerMixin, BaseService):
             ServiceType.WORKER, message.data.num_workers
         )
 
-    @command_handler(CommandType.KILL_WORKERS)
-    async def _handle_kill_workers_command(self, message: CommandMessage) -> None:
-        """Handle a kill workers command."""
-        self.debug(lambda: f"Received kill workers command: {message}")
-        # TODO: Not implemented currently
-        # await self.service_manager.kill_service(ServiceType.WORKER, message.data.worker_ids)
-
     @on_message(MessageType.PROFILE_RESULTS)
     async def _on_profile_results_message(
         self, profile_results: ProfileResultsMessage

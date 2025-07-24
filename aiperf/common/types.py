@@ -27,7 +27,7 @@ if TYPE_CHECKING:
         ResponseData,
     )
     from aiperf.common.models.service_models import ServiceRunInfo
-    from aiperf.common.protocols import TaskManagerProtocol
+    from aiperf.common.protocols import ServiceProtocol, TaskManagerProtocol
     from aiperf.common.tokenizer import Tokenizer
 
 
@@ -57,6 +57,7 @@ RequestRecordT = TypeVar("RequestRecordT", bound="RequestRecord")
 ResponseDataT = TypeVar("ResponseDataT", bound="ResponseData")
 ResponseT = TypeVar("ResponseT", bound=Any, covariant=True)
 ServiceTypeT = ServiceType | str
+ServiceProtocolT = TypeVar("ServiceProtocolT", bound="ServiceProtocol")
 TaskManagerProtocolT = TypeVar("TaskManagerProtocolT", bound="TaskManagerProtocol")
 ServiceRunInfoT = TypeVar("ServiceRunInfoT", bound="ServiceRunInfo")
 TokenizerT = TypeVar("TokenizerT", bound="Tokenizer")
