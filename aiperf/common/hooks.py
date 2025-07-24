@@ -24,10 +24,10 @@ from typing import TYPE_CHECKING, Any
 from pydantic import BaseModel, Field
 
 from aiperf.common.enums import CaseInsensitiveStrEnum, LifecycleState
-from aiperf.common.types import HooksMixinT
+from aiperf.common.types import HooksMixinT, MessageTypeT
 
 if TYPE_CHECKING:
-    from aiperf.common.mixins.task_manager_mixin import TaskManagerProtocol
+    from aiperf.common.protocols import TaskManagerProtocol
 
 
 class AIPerfHook(CaseInsensitiveStrEnum):
@@ -58,6 +58,10 @@ class BackgroundTaskParams(BaseModel):
     interval: float | Callable[[Any], float] | None = Field(default=None)
     immediate: bool = Field(default=False)
     stop_on_error: bool = Field(default=False)
+
+
+class MessageHookParams(BaseModel):
+    message_types: list[MessageTypeT]
 
 
 def hook_decorator(hook_type: HookType, func: Callable) -> Callable:
@@ -159,4 +163,14 @@ def background_task(
         BackgroundTaskParams(
             interval=interval, immediate=immediate, stop_on_error=stop_on_error
         ),
+    )
+
+
+def on_message(
+    message_types: list[MessageTypeT],
+) -> Callable:
+    """Decorator to specify that the function should be called when messages of the given type(s) are received.
+    See :func:`aiperf.common.hooks.hook_decorator_with_params`."""
+    return hook_decorator_with_params(
+        AIPerfHook.ON_MESSAGE, MessageHookParams(message_types=message_types)
     )

@@ -13,6 +13,7 @@ from aiperf.common.enums import CommClientType
 from aiperf.common.factories import CommunicationClientProtocolFactory
 from aiperf.common.types import (
     CommAddressType,
+    MessageCallbackMapT,
     MessageOutputT,
     MessageT,
     MessageTypeT,
@@ -157,10 +158,7 @@ class SubClientProtocol(CommunicationClientProtocol, Protocol):
 
     async def subscribe_all(
         self,
-        message_callback_map: dict[
-            MessageTypeT,
-            Callable[[MessageT], Any] | list[Callable[[MessageT], Any]],
-        ],
+        message_callback_map: MessageCallbackMapT,
     ) -> None: ...
 
 

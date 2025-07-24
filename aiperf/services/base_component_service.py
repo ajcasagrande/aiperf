@@ -19,6 +19,7 @@ from aiperf.common.messages import (
     StatusMessage,
 )
 from aiperf.common.models import ErrorDetails
+from aiperf.common.types import CommandCallbackMapT
 from aiperf.services.base_service import BaseService
 
 
@@ -38,7 +39,7 @@ class BaseComponentService(BaseService):
     def __init__(
         self,
         service_config: ServiceConfig,
-        user_config: UserConfig | None = None,
+        user_config: UserConfig,
         service_id: str | None = None,
         **kwargs,
     ) -> None:
@@ -49,9 +50,7 @@ class BaseComponentService(BaseService):
             **kwargs,
         )
 
-        self._command_callbacks: dict[
-            CommandType, Callable[[CommandMessage], Awaitable[Any]]
-        ] = {}
+        self._command_callbacks: CommandCallbackMapT = {}
 
     @on_init
     async def _on_init(self) -> None:
@@ -145,9 +144,10 @@ class BaseComponentService(BaseService):
                 response_status = CommandResponseStatus.SUCCESS
 
             else:
-                raise self._service_error(
-                    f"Received unknown command: {cmd}",
+                self.debug(
+                    lambda: f"Received command without an associated callback: {cmd}"
                 )
+                return
 
             # Publish the success response
             await self.pub_client.publish(

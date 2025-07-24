@@ -8,11 +8,18 @@ from typing import Any
 from aiperf.common.config import ServiceConfig
 from aiperf.common.enums import CommAddress
 from aiperf.common.factories import CommunicationFactory
-from aiperf.common.hooks import AIPerfHook, on_init, on_start, on_stop, provides_hooks
+from aiperf.common.hooks import (
+    AIPerfHook,
+    MessageHookParams,
+    on_init,
+    on_start,
+    on_stop,
+    provides_hooks,
+)
 from aiperf.common.messages import Message
 from aiperf.common.mixins.aiperf_lifecycle_mixin import AIPerfLifecycleMixin
 from aiperf.common.protocols import CommunicationProtocol
-from aiperf.common.types import MessageT, MessageTypeT
+from aiperf.common.types import MessageCallbackMapT, MessageT, MessageTypeT
 
 
 @provides_hooks(AIPerfHook.ON_MESSAGE)
@@ -43,6 +50,7 @@ class MessageBusClientMixin(AIPerfLifecycleMixin, ABC):
     @on_init
     async def _init_message_bus(self) -> None:
         await self.comms.initialize()
+        await self._setup_on_message_hooks()
 
     @on_start
     async def _start_message_bus(self) -> None:
@@ -63,10 +71,7 @@ class MessageBusClientMixin(AIPerfLifecycleMixin, ABC):
 
     async def subscribe_all(
         self,
-        message_callback_map: dict[
-            MessageTypeT,
-            Callable[[Message], Any] | list[Callable[[Message], Any]],
-        ],
+        message_callback_map: MessageCallbackMapT,
     ) -> None:
         """Subscribe to all message types in the map. The callback(s) will be called when
         a message is received for the given message type.
@@ -79,3 +84,14 @@ class MessageBusClientMixin(AIPerfLifecycleMixin, ABC):
     async def publish(self, message: Message) -> None:
         """Publish a message. The message will be routed automatically based on the message type."""
         await self.pub_client.publish(message)
+
+    async def _setup_on_message_hooks(self) -> None:
+        """Send subscription requests for all @on_message hook decorators."""
+        subscription_map: MessageCallbackMapT = {}
+        for hook in self.get_hooks(AIPerfHook.ON_MESSAGE):
+            if not isinstance(hook.params, MessageHookParams):
+                raise ValueError(f"Invalid hook params: {hook.params}")
+            for message_type in hook.params.message_types:
+                subscription_map.setdefault(message_type, []).append(hook.func)
+
+        await self.sub_client.subscribe_all(subscription_map)
