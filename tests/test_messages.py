@@ -4,7 +4,7 @@ import json
 
 from pydantic import Field
 
-from aiperf.common.enums import MessageType, ServiceState, ServiceType
+from aiperf.common.enums import LifecycleState, MessageType, ServiceType
 from aiperf.common.messages import Message, StatusMessage
 from aiperf.common.models import exclude_if_none
 
@@ -72,7 +72,7 @@ def test_exclude_if_none_decorator():
 
 def test_status_message():
     message = StatusMessage(
-        state=ServiceState.READY,
+        state=LifecycleState.READY,
         service_id="test",
         service_type=ServiceType.WORKER,
         request_ns=1234567890,
@@ -80,7 +80,7 @@ def test_status_message():
     )
     assert message.model_dump() == {
         "message_type": MessageType.STATUS,
-        "state": ServiceState.READY,
+        "state": LifecycleState.READY,
         "service_id": "test",
         "service_type": ServiceType.WORKER,
         "request_ns": 1234567890,
@@ -91,7 +91,7 @@ def test_status_message():
     )
 
     message = StatusMessage(
-        state=ServiceState.READY,
+        state=LifecycleState.READY,
         request_ns=1234567890,
         request_id=None,
         service_id="test",
@@ -99,7 +99,7 @@ def test_status_message():
     )
     assert message.model_dump() == {
         "message_type": MessageType.STATUS,
-        "state": ServiceState.READY,
+        "state": LifecycleState.READY,
         "service_id": "test",
         "service_type": ServiceType.WORKER,
         "request_ns": 1234567890,

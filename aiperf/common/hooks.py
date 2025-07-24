@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING, Any
 from pydantic import BaseModel, Field
 from typing_extensions import Self
 
-from aiperf.common.enums import CaseInsensitiveStrEnum, LifecycleState
+from aiperf.common.enums import CaseInsensitiveStrEnum, CommandType, LifecycleState
 from aiperf.common.types import HooksMixinT, MessageTypeT
 
 if TYPE_CHECKING:
@@ -33,14 +33,13 @@ if TYPE_CHECKING:
 
 class AIPerfHook(CaseInsensitiveStrEnum):
     BACKGROUND_TASK = "@background_task"
+    COMMAND_HANDLER = "@command_handler"
     ON_INIT = "@on_init"
-    ON_START = "@on_start"
-    ON_STOP = "@on_stop"
-    ON_STATE_CHANGE = "@on_state_change"
-    ON_COMMAND = "@on_command"
     ON_MESSAGE = "@on_message"
-    ON_REQUEST = "@on_request"
-    ON_RESPONSE = "@on_response"
+    ON_START = "@on_start"
+    ON_STATE_CHANGE = "@on_state_change"
+    ON_STOP = "@on_stop"
+    REQUEST_HANDLER = "@request_handler"
 
 
 HookType = AIPerfHook | str
@@ -62,7 +61,11 @@ class BackgroundTaskParams(BaseModel):
 
 
 class MessageHookParams(BaseModel):
-    message_types: list[MessageTypeT]
+    message_types: set[MessageTypeT]
+
+
+class CommandHookParams(BaseModel):
+    command_types: set[CommandType]
 
 
 def hook_decorator(hook_type: HookType, func: Callable) -> Callable:
@@ -168,10 +171,30 @@ def background_task(
 
 
 def on_message(
-    message_types: list[MessageTypeT],
+    *message_types: MessageTypeT,
 ) -> Callable:
     """Decorator to specify that the function should be called when messages of the given type(s) are received.
     See :func:`aiperf.common.hooks.hook_decorator_with_params`."""
     return hook_decorator_with_params(
-        AIPerfHook.ON_MESSAGE, MessageHookParams(message_types=message_types)
+        AIPerfHook.ON_MESSAGE, MessageHookParams(message_types=set(message_types))
+    )
+
+
+def request_handler(
+    *message_types: MessageTypeT,
+) -> Callable:
+    """Decorator to specify that the function should be called when requests of the given type(s) are received.
+    See :func:`aiperf.common.hooks.hook_decorator_with_params`."""
+    return hook_decorator_with_params(
+        AIPerfHook.REQUEST_HANDLER, MessageHookParams(message_types=set(message_types))
+    )
+
+
+def command_handler(
+    *command_types: CommandType,
+) -> Callable:
+    """Decorator to specify that the function should be called when commands of the given type(s) are received.
+    See :func:`aiperf.common.hooks.hook_decorator_with_params`."""
+    return hook_decorator_with_params(
+        AIPerfHook.COMMAND_HANDLER, CommandHookParams(command_types=set(command_types))
     )

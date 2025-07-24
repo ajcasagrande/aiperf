@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-from collections.abc import Awaitable, Callable
 from typing import Any
 
 from aiperf.common.config import ServiceConfig, UserConfig
@@ -10,7 +9,16 @@ from aiperf.common.enums import (
     LifecycleState,
     MessageType,
 )
-from aiperf.common.hooks import background_task, on_init, on_state_change
+from aiperf.common.hooks import (
+    AIPerfHook,
+    CommandHookParams,
+    background_task,
+    command_handler,
+    on_init,
+    on_message,
+    on_state_change,
+    provides_hooks,
+)
 from aiperf.common.messages import (
     CommandMessage,
     CommandResponseMessage,
@@ -19,10 +27,10 @@ from aiperf.common.messages import (
     StatusMessage,
 )
 from aiperf.common.models import ErrorDetails
-from aiperf.common.types import CommandCallbackMapT
 from aiperf.services.base_service import BaseService
 
 
+@provides_hooks(AIPerfHook.COMMAND_HANDLER)
 class BaseComponentService(BaseService):
     """Base class for all Component services.
 
@@ -50,45 +58,11 @@ class BaseComponentService(BaseService):
             **kwargs,
         )
 
-        self._command_callbacks: CommandCallbackMapT = {}
-
-    @on_init
-    async def _on_init(self) -> None:
-        """Automatically subscribe to the command message_type and register the service
-        with the system controller when the run hook is called.
-
-        This method will:
-        - Subscribe to the command message_type
-        - Wait for the communication to be fully initialized
-        - Register the service with the system controller
-        """
-        # Subscribe to the command message_type
-        try:
-            await self.sub_client.subscribe(
-                MessageType.COMMAND,
-                self.process_command_message,
-            )
-        except Exception as e:
-            raise self._service_error("Failed to subscribe to command topic") from e
-
-        # Register the service
-        try:
-            await self.register()
-        except Exception as e:
-            raise self._service_error("Failed to register service") from e
-
     @background_task(
         interval=lambda self: self.service_config.heartbeat_interval_seconds,
         immediate=False,
     )
     async def _heartbeat_task(self) -> None:
-        """Starts a background task to send heartbeats at regular intervals. It
-        will continue to send heartbeats even if an error occurs until the stop
-        event is set.
-        """
-        await self.send_heartbeat()
-
-    async def send_heartbeat(self) -> None:
         """Send a heartbeat notification to the system controller."""
         heartbeat_message = self.create_heartbeat_message()
         self.debug(lambda: f"Sending heartbeat: {heartbeat_message}")
@@ -99,7 +73,8 @@ class BaseComponentService(BaseService):
         except Exception as e:
             raise self._service_error("Failed to send heartbeat") from e
 
-    async def register(self) -> None:
+    @on_init
+    async def _register_service(self) -> None:
         """Publish a registration request to the system controller.
 
         This method should be called after the service has been initialized and is
@@ -115,79 +90,73 @@ class BaseComponentService(BaseService):
         except Exception as e:
             raise self._service_error("Failed to register service") from e
 
-    async def process_command_message(self, message: CommandMessage) -> None:
-        """Process a command message received from the controller.
-
-        This method will process the command message and execute the appropriate action.
+    @on_message(MessageType.COMMAND)
+    async def _process_command_message(self, message: CommandMessage) -> None:
+        """Process a command message received from the controller, and forward it to the appropriate handler.
+        Wait for the handler to complete and publish the response, or handle the error and publish the failure response.
         """
-        if message.target_service_id and message.target_service_id != self.service_id:
-            return  # Ignore commands meant for other services
         if (
+            message.target_service_id and message.target_service_id != self.service_id
+        ) or (
             message.target_service_type
             and message.target_service_type != self.service_type
         ):
-            return  # Ignore commands meant for other services
+            return  # Ignore commands meant for other services, or no target service specified
 
         self.debug(lambda: f"Processing command message: {message}")
-        cmd = message.command
-        response_data = None
-        try:
-            stop_requested = False
 
-            if cmd == CommandType.SHUTDOWN:
-                self.debug("Received shutdown command")
-                stop_requested = True
-                response_status = CommandResponseStatus.ACKNOWLEDGED
-
-            elif cmd in self._command_callbacks:
-                response_data = await self._command_callbacks[cmd](message)
-                response_status = CommandResponseStatus.SUCCESS
-
-            else:
-                self.debug(
-                    lambda: f"Received command without an associated callback: {cmd}"
+        if message.command == CommandType.SHUTDOWN:
+            self.debug("Received shutdown command")
+            await self.pub_client.publish(
+                CommandResponseMessage(
+                    service_id=self.service_id,
+                    command=message.command,
+                    command_id=message.command_id,
+                    status=CommandResponseStatus.ACKNOWLEDGED,
                 )
-                return
-
-            # Publish the success response
-            await self.pub_client.publish(
-                CommandResponseMessage(
-                    service_id=self.service_id,
-                    command=cmd,
-                    command_id=message.command_id,
-                    status=response_status,
-                    data=response_data,
-                ),
             )
 
-            if stop_requested:
+        response_status = CommandResponseStatus.SUCCESS
+        response_error: ErrorDetails | None = None
+        response_data: Any | None = None
+
+        for hook in self.get_hooks(AIPerfHook.COMMAND_HANDLER):
+            if (
+                isinstance(hook.params, CommandHookParams)
+                and message.command in hook.params.command_types
+            ):
                 try:
-                    await self.stop()
+                    response_data = await hook.func(message)
                 except Exception as e:
-                    self.warning(
-                        f"Failed to stop service {self} ({self.service_id}) after receiving shutdown command: {e}. Killing."
+                    self.exception(
+                        f"Failed to handle command {message.command} with hook {hook}: {e}"
                     )
-                    await self.kill()
+                    response_status = CommandResponseStatus.FAILURE
+                    response_error = ErrorDetails.from_exception(e)
 
+                # Break out of the loop after the first successful handler (only 1 handler per command)
+                break
+
+        await self.pub_client.publish(
+            CommandResponseMessage(
+                service_id=self.service_id,
+                command=message.command,
+                command_id=message.command_id,
+                status=response_status,
+                data=response_data,
+                error=response_error,
+            ),
+        )
+
+    @command_handler(CommandType.SHUTDOWN)
+    async def _on_shutdown_command(self, message: CommandMessage) -> None:
+        try:
+            await self.stop()
         except Exception as e:
-            # Publish the failure response
-            await self.pub_client.publish(
-                CommandResponseMessage(
-                    service_id=self.service_id,
-                    command=cmd,
-                    command_id=message.command_id,
-                    status=CommandResponseStatus.FAILURE,
-                    error=ErrorDetails.from_exception(e),
-                ),
+            self.warning(
+                f"Failed to stop service {self} ({self.service_id}) after receiving shutdown command: {e}. Killing."
             )
-
-    def register_command_callback(
-        self,
-        cmd: CommandType,
-        callback: Callable[[CommandMessage], Awaitable[Any]],
-    ) -> None:
-        """Register a single callback for a command."""
-        self._command_callbacks[cmd] = callback
+            await self.kill()
 
     @on_state_change
     async def _on_state_change(

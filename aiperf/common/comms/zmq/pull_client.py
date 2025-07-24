@@ -158,7 +158,7 @@ class ZMQPullClient(BaseZMQClient, TaskManagerMixin):
         Raises:
             CommunicationError: If the client is not initialized
         """
-        await self._ensure_initialized()
+        await self._check_initialized()
 
         # Register callback
         if message_type not in self._pull_callbacks:

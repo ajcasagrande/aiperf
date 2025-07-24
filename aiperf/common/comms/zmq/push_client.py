@@ -107,6 +107,6 @@ class ZMQPushClient(BaseZMQClient, TaskManagerMixin):
         Args:
             message: Message to be sent must be a Message object
         """
-        await self._ensure_initialized()
+        await self._check_initialized()
 
         await self._push_message(message)

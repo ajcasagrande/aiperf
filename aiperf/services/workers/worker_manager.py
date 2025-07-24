@@ -42,7 +42,7 @@ class WorkerManager(BaseComponentService):
     def __init__(
         self,
         service_config: ServiceConfig,
-        user_config: UserConfig | None = None,
+        user_config: UserConfig,
         service_id: str | None = None,
     ) -> None:
         super().__init__(

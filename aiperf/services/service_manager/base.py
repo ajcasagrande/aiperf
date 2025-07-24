@@ -4,9 +4,9 @@ import asyncio
 from abc import ABC, abstractmethod
 
 from aiperf.common.config import ServiceConfig
-from aiperf.common.enums import ServiceType
 from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.common.models import ServiceRunInfo
+from aiperf.common.types import ServiceTypeT
 
 
 class BaseServiceManager(AIPerfLoggerMixin, ABC):
@@ -17,7 +17,7 @@ class BaseServiceManager(AIPerfLoggerMixin, ABC):
 
     def __init__(
         self,
-        required_services: dict[ServiceType, int],
+        required_services: dict[ServiceTypeT, int],
         config: ServiceConfig,
     ):
         super().__init__(logger_name="service_manager")
@@ -25,7 +25,7 @@ class BaseServiceManager(AIPerfLoggerMixin, ABC):
         self.config = config
 
         # Maps to track service information
-        self.service_map: dict[ServiceType, list[ServiceRunInfo]] = {}
+        self.service_map: dict[ServiceTypeT, list[ServiceRunInfo]] = {}
 
         # Create service ID map for component lookups
         self.service_id_map: dict[str, ServiceRunInfo] = {}

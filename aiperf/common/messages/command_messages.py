@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import uuid
+from typing import Any
 
 from pydantic import (
     BaseModel,
@@ -80,7 +81,7 @@ class CommandResponseMessage(BaseServiceMessage):
         ..., description="The ID of the command that is being responded to"
     )
     status: CommandResponseStatus = Field(..., description="The status of the command")
-    data: SerializeAsAny[BaseModel | None] = Field(
+    data: SerializeAsAny[BaseModel | list[Any] | None] = Field(
         default=None,
         description="Data to send with the command response if the command succeeded",
     )

@@ -101,7 +101,7 @@ class ZMQDealerRequestClient(BaseZMQClient, TaskManagerMixin):
         callback: Callable[[Message], Coroutine[Any, Any, None]],
     ) -> None:
         """Send a request and be notified when the response is received."""
-        await self._ensure_initialized()
+        await self._check_initialized()
 
         if not isinstance(message, Message):
             raise TypeError(

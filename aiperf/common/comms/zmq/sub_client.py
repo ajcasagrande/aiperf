@@ -85,7 +85,7 @@ class ZMQSubClient(BaseZMQClient, TaskManagerMixin):
     ) -> None:
         """Subscribe to all message_types in the map. For each MessageType, a single
         callback or a list of callbacks can be provided."""
-        await self._ensure_initialized()
+        await self._check_initialized()
         for message_type, callbacks in message_callback_map.items():
             if isinstance(callbacks, list):
                 for callback in callbacks:
@@ -109,7 +109,7 @@ class ZMQSubClient(BaseZMQClient, TaskManagerMixin):
         Raises:
             Exception if subscription was not successful, None otherwise
         """
-        await self._ensure_initialized()
+        await self._check_initialized()
         await self._subscribe_internal(message_type, callback)
         # TODO: HACK: This is a hack to ensure that the subscriptions are registered
         # since we do not have any confirmation from the server that the subscriptions

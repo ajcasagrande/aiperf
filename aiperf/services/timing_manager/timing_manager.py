@@ -15,6 +15,7 @@ from aiperf.common.enums import (
 from aiperf.common.exceptions import InvalidStateError
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
+    command_handler,
     on_init,
     on_stop,
 )
@@ -52,7 +53,7 @@ class TimingManager(BaseComponentService, CreditPhaseMessagesMixin):
     def __init__(
         self,
         service_config: ServiceConfig,
-        user_config: UserConfig | None,
+        user_config: UserConfig,
         service_id: str | None = None,
     ) -> None:
         super().__init__(
@@ -81,11 +82,6 @@ class TimingManager(BaseComponentService, CreditPhaseMessagesMixin):
         )
 
         self._credit_issuing_strategy: CreditIssuingStrategy | None = None
-
-        self.register_command_callback(
-            CommandType.START_PROFILING,
-            self._on_start_profiling,
-        )
 
     @on_init
     async def _timing_manager_initialize(self) -> None:
@@ -147,6 +143,7 @@ class TimingManager(BaseComponentService, CreditPhaseMessagesMixin):
             lambda: f"Timing manager configured with credit issuing strategy: {self._credit_issuing_strategy}"
         )
 
+    @command_handler(CommandType.START_PROFILING)
     async def _on_start_profiling(self, message: CommandMessage) -> None:
         """Start the timing manager and issue credit drops according to the configured strategy."""
         self.debug("Starting profiling")
@@ -158,6 +155,8 @@ class TimingManager(BaseComponentService, CreditPhaseMessagesMixin):
         if not self._credit_issuing_strategy:
             raise InvalidStateError("No credit issuing strategy configured")
 
+        self.info("Waiting 2 seconds to start profiling...")
+        # TODO: HACK: Remove this once we have a better way to track the state of the system from the controller
         await asyncio.sleep(2)
         self.execute_async(self._credit_issuing_strategy.start())
 

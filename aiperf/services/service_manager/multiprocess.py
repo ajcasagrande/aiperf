@@ -13,9 +13,11 @@ from aiperf.common.constants import (
     GRACEFUL_SHUTDOWN_TIMEOUT_SECONDS,
     TASK_CANCEL_TIMEOUT_SHORT,
 )
-from aiperf.common.enums import ServiceRegistrationStatus, ServiceType
-from aiperf.common.exceptions import ServiceError
+from aiperf.common.enums import ServiceRegistrationStatus
+from aiperf.common.enums.service_enums import ServiceType
+from aiperf.common.exceptions import AIPerfError
 from aiperf.common.factories import ServiceFactory
+from aiperf.common.types import ServiceTypeT
 from aiperf.services.service_manager.base import BaseServiceManager
 
 
@@ -25,7 +27,7 @@ class MultiProcessRunInfo(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     process: Process | SpawnProcess | ForkProcess | None = Field(default=None)
-    service_type: ServiceType = Field(
+    service_type: ServiceTypeT = Field(
         ...,
         description="Type of service running in the process",
     )
@@ -38,7 +40,7 @@ class MultiProcessServiceManager(BaseServiceManager):
 
     def __init__(
         self,
-        required_services: dict[ServiceType, int],
+        required_services: dict[ServiceTypeT, int],
         config: ServiceConfig,
         user_config: UserConfig | None = None,
         log_queue: "multiprocessing.Queue | None" = None,
@@ -48,7 +50,7 @@ class MultiProcessServiceManager(BaseServiceManager):
         self.log_queue = log_queue
         self.user_config = user_config
 
-    async def _run_services(self, service_types: dict[ServiceType, int]) -> None:
+    async def _run_services(self, service_types: dict[ServiceTypeT, int]) -> None:
         """Run a list of services as multiprocessing processes."""
 
         # Create and start all service processes
@@ -61,16 +63,14 @@ class MultiProcessServiceManager(BaseServiceManager):
                     name=f"{service_type}_process",
                     kwargs={
                         "service_class": service_class,
-                        "service_id": service_type.value if count == 1 else None,
+                        "service_id": service_type if count == 1 else None,
                         "service_config": self.config,
                         "user_config": self.user_config,
                         "log_queue": self.log_queue,
                     },
                     daemon=True,
                 )
-                if service_type in [
-                    ServiceType.WORKER_MANAGER,
-                ]:
+                if service_type == ServiceType.WORKER_MANAGER:
                     process.daemon = False  # Worker manager cannot be a daemon because it needs to be able to spawn worker processes
 
                 process.start()
@@ -172,11 +172,7 @@ class MultiProcessServiceManager(BaseServiceManager):
                         f"Service {service_type} failed to register within timeout"
                     )
 
-            raise ServiceError(
-                "Some services failed to register within timeout",
-                ServiceType.SYSTEM_CONTROLLER,
-                "system_controller",  # TODO: Get the service ID from the system controller
-            ) from e
+            raise AIPerfError("Some services failed to register within timeout") from e
 
     async def _wait_for_process(self, info: MultiProcessRunInfo) -> None:
         """Wait for a process to terminate with timeout handling."""

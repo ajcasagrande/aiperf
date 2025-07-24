@@ -13,7 +13,7 @@ from aiperf.common.enums import (
     ServiceType,
 )
 from aiperf.common.factories import ServiceFactory, StreamingPostProcessorFactory
-from aiperf.common.hooks import on_init, on_stop
+from aiperf.common.hooks import command_handler, on_init, on_stop
 from aiperf.common.messages import (
     CommandMessage,
     ParsedInferenceResultsMessage,
@@ -61,9 +61,6 @@ class RecordsManager(BaseComponentService):
             message_type=MessageType.PARSED_INFERENCE_RESULTS,
             callback=self._on_parsed_inference_results,
             max_concurrency=DEFAULT_MAX_RECORDS_CONCURRENCY,
-        )
-        self.register_command_callback(
-            CommandType.PROCESS_RECORDS, self._on_process_records_command
         )
 
     @on_init
@@ -120,9 +117,11 @@ class RecordsManager(BaseComponentService):
                 )
                 await streamer.records_queue.put(message.record)
 
+    @command_handler(CommandType.PROCESS_RECORDS)
     async def _on_process_records_command(self, message: CommandMessage) -> list[Any]:
         """Handle the process records command by forwarding it to all of the streaming post processors, and returning the results."""
         self.debug(lambda: f"Received process records command: {message}")
+        # TODO: Do we need to handle errors from the streaming post processors?
         results = await asyncio.gather(
             *[
                 streamer.on_process_records_command(message)

@@ -12,11 +12,10 @@ from aiperf.common.enums import (
     LifecycleState,
     MessageType,
     NotificationType,
-    ServiceType,
 )
 from aiperf.common.messages.base_messages import Message
 from aiperf.common.models.error_models import ErrorDetails
-from aiperf.common.types import MessageTypeT
+from aiperf.common.types import MessageTypeT, ServiceTypeT
 
 
 class BaseServiceMessage(Message):
@@ -43,7 +42,7 @@ class BaseStatusMessage(BaseServiceMessage):
         ...,
         description="Current state of the service",
     )
-    service_type: ServiceType = Field(
+    service_type: ServiceTypeT = Field(
         ...,
         description="Type of service",
     )

@@ -36,6 +36,7 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
         self._state = LifecycleState.CREATED
         self.initialized_event = asyncio.Event()
         self.started_event = asyncio.Event()
+        self._stop_requested_event = asyncio.Event()
         self.stopped_event = asyncio.Event()  # set on stop or failure
         super().__init__(logger_name=self.id, **kwargs)
 
@@ -72,6 +73,11 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
     def is_running(self) -> bool:
         """Whether the lifecycle's current state is LifecycleState.RUNNING."""
         return self.state == LifecycleState.RUNNING
+
+    @property
+    def stop_requested(self) -> bool:
+        """Whether the lifecycle has been requested to stop."""
+        return self._stop_requested_event.is_set()
 
     async def _execute_state_transition(
         self,
@@ -122,16 +128,13 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
 
     async def stop(self) -> None:
         """Stop the lifecycle and run the on_stop hooks."""
-        if self.state in (
-            LifecycleState.STOPPING,
-            LifecycleState.STOPPED,
-            LifecycleState.FAILED,
-        ):
+        if self.stop_requested:
             # If we are already in a stopping state, we need to kill the process to be safe.
             self.warning(f"Attempted to stop {self} in state {self.state}. Killing.")
             await self.kill()
             return
 
+        self._stop_requested_event.set()
         await self._execute_state_transition(
             LifecycleState.STOPPING,
             LifecycleState.STOPPED,
@@ -152,6 +155,7 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
                 interval=hook.params.interval,
                 immediate=hook.params.immediate,
                 stop_on_error=hook.params.stop_on_error,
+                stop_event=self._stop_requested_event,
             )
 
     @on_stop
@@ -171,6 +175,7 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
         """Set the state to failed and raise an asyncio.CancelledError."""
         self.state = LifecycleState.FAILED
         self.exception(f"Failed for {self}: {e}")
+        self._stop_requested_event.set()
         self.stopped_event.set()
         raise asyncio.CancelledError(f"Failed for {self}: {e}") from e
 

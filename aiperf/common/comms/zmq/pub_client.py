@@ -73,7 +73,7 @@ class ZMQPubClient(BaseZMQClient):
         Args:
             message: Message to publish (must be a Message object)
         """
-        await self._ensure_initialized()
+        await self._check_initialized()
 
         try:
             message_json = message.model_dump_json()

@@ -56,9 +56,9 @@ class BaseZMQClient(AIPerfLifecycleMixin):
         super().__init__(id=self.client_id, **kwargs)
         self.trace(lambda: f"ZMQ client __init__: {self.client_id}")
 
-    async def _ensure_initialized(self) -> None:
-        """Ensure the socket is initialized."""
-        if self.was_stopped:
+    async def _check_initialized(self) -> None:
+        """Raise an exception if the socket is not initialized or closed."""
+        if self.stop_requested:
             raise asyncio.CancelledError("Socket was stopped")
         if not self.socket:
             raise NotInitializedError("Socket not initialized or closed")

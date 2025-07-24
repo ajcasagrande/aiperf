@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from pydantic import BaseModel
 
-from aiperf.common.enums import MessageType, ServiceType
+from aiperf.common.enums import MessageType
 from aiperf.common.service.base_service import BaseService
 from aiperf.services.service_manager.multiprocess import MultiProcessServiceManager
 from aiperf.services.system_controller.system_controller import SystemController
@@ -85,7 +85,7 @@ class SystemControllerServiceTest(BaseTestControllerService):
         )
 
         multiprocess_manager = MultiProcessServiceManager(
-            required_service_types=[ServiceType.TEST],
+            required_services={"test_service": 1},
             config=service_config,
         )
 
