@@ -29,7 +29,7 @@ class TaskManagerMixin(AIPerfLoggerMixin):
 
     async def wait_for_tasks(self) -> None:
         """Wait for all current tasks to complete."""
-        await asyncio.gather(*list(self.tasks))
+        await asyncio.gather(*list(self.tasks), return_exceptions=True)
 
     async def cancel_all_tasks(
         self, timeout: float = TASK_CANCEL_TIMEOUT_SHORT
@@ -47,7 +47,8 @@ class TaskManagerMixin(AIPerfLoggerMixin):
 
         with contextlib.suppress(asyncio.TimeoutError, asyncio.CancelledError):
             await asyncio.wait_for(
-                asyncio.gather(*self.tasks, return_exceptions=True), timeout=timeout
+                asyncio.gather(*self.tasks, return_exceptions=True),
+                timeout=timeout,
             )
 
         # Clear the tasks set after cancellation to avoid memory leaks

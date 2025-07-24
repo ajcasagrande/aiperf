@@ -85,12 +85,13 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
         final_state: LifecycleState,
         hook_type: AIPerfHook,
         event: asyncio.Event,
+        reversed: bool = False,
     ) -> None:
         """Transition to a new state."""
         self.state = transient_state
         self.debug(lambda: f"{transient_state.title()} {self}")
         try:
-            await self.run_hooks(hook_type)
+            await self.run_hooks(hook_type, reversed=reversed)
             self.state = final_state
             self.debug(lambda: f"{self} is now {final_state.title()}")
             event.set()
@@ -140,6 +141,7 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
             LifecycleState.STOPPED,
             AIPerfHook.ON_STOP,
             self.stopped_event,
+            reversed=True,  # run the stop hooks in reverse order
         )
 
     @on_start

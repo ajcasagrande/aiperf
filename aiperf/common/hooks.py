@@ -18,6 +18,7 @@ More than one hook can be registered for a given hook type, and classes that inh
 classes with existing hooks will inherit the hooks from the base classes as well.
 """
 
+import asyncio
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any
 
@@ -57,6 +58,34 @@ AIPERF_HOOK_PARAMS = "__aiperf_hook_params__"
 """Constant attribute name that marks a function's hook parameters."""
 
 PROVIDES_HOOKS = "__provides_hooks__"
+
+
+class Hook(BaseModel):
+    """A hook is a function that is decorated with a hook type and optional parameters."""
+
+    func: Callable
+    params: BaseModel | None = None
+
+    @property
+    def hook_type(self) -> HookType:
+        return getattr(self.func, AIPERF_HOOK_TYPE)
+
+    @property
+    def func_name(self) -> str:
+        return self.func.__name__
+
+    @property
+    def qual_name(self) -> str:
+        return f"{self.func.__module__}.{self.func_name}"
+
+    async def __call__(self, **kwargs) -> None:
+        if asyncio.iscoroutinefunction(self.func):
+            await self.func(**kwargs)
+        else:
+            await asyncio.to_thread(self.func, **kwargs)
+
+    def __str__(self) -> str:
+        return f"{self.qual_name} ({self.hook_type})"
 
 
 class BackgroundTaskParams(BaseModel):
@@ -117,11 +146,6 @@ def provides_hooks(
         return cls
 
     return decorator
-
-
-################################################################################
-# Syntactic sugar for the hook decorators.
-################################################################################
 
 
 def on_init(func: Callable) -> Callable:

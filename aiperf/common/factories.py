@@ -16,6 +16,7 @@ from aiperf.common.enums import (
     ZMQProxyType,
 )
 from aiperf.common.enums.endpoints_enums import EndpointType
+from aiperf.common.enums.service_enums import ServiceRunType
 from aiperf.common.exceptions import InvalidOperationError
 from aiperf.common.types import ClassEnumT, ClassProtocolT, ServiceTypeT
 
@@ -307,3 +308,8 @@ class ServiceFactory(AIPerfFactory[ServiceType, "ServiceProtocol"]):
             return class_cls
 
         return decorator
+
+
+class ServiceManagerFactory(
+    AIPerfFactory[ServiceRunType, "ServiceManagerProtocol"]
+): ...

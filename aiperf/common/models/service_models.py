@@ -8,14 +8,14 @@ from pydantic import BaseModel, Field
 from aiperf.common.enums import (
     LifecycleState,
     ServiceRegistrationStatus,
-    ServiceType,
 )
+from aiperf.common.types import ServiceTypeT
 
 
 class ServiceRunInfo(BaseModel):
     """Base model for tracking service run information."""
 
-    service_type: ServiceType = Field(
+    service_type: ServiceTypeT = Field(
         ...,
         description="The type of service",
     )

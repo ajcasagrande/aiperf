@@ -13,11 +13,10 @@ from aiperf.common.enums import (
     CommandResponseStatus,
     CommandType,
     MessageType,
-    ServiceType,
 )
 from aiperf.common.messages.service_messages import BaseServiceMessage
 from aiperf.common.models.error_models import ErrorDetails
-from aiperf.common.types import MessageTypeT
+from aiperf.common.types import MessageTypeT, ServiceTypeT
 
 
 class ProcessRecordsCommandData(BaseModel):
@@ -48,7 +47,7 @@ class CommandMessage(BaseServiceMessage):
         default=False,
         description="Whether a response is required for this command",
     )
-    target_service_type: ServiceType | None = Field(
+    target_service_type: ServiceTypeT | None = Field(
         default=None,
         description="Type of the service to send the command to. "
         "If both `target_service_type` and `target_service_id` are None, the command is "

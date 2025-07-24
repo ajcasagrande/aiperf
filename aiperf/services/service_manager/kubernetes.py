@@ -5,8 +5,9 @@ import asyncio
 from pydantic import BaseModel
 
 from aiperf.common.config import ServiceConfig
-from aiperf.common.config.user_config import UserConfig
-from aiperf.common.enums import ServiceType
+from aiperf.common.enums.service_enums import ServiceRunType
+from aiperf.common.factories import ServiceManagerFactory
+from aiperf.common.types import ServiceTypeT
 from aiperf.services.service_manager.base import BaseServiceManager
 
 
@@ -18,6 +19,7 @@ class ServiceKubernetesRunInfo(BaseModel):
     namespace: str
 
 
+@ServiceManagerFactory.register(ServiceRunType.KUBERNETES)
 class KubernetesServiceManager(BaseServiceManager):
     """
     Service Manager for starting and stopping services in a Kubernetes cluster.
@@ -25,13 +27,12 @@ class KubernetesServiceManager(BaseServiceManager):
 
     def __init__(
         self,
-        required_services: dict[ServiceType, int],
-        user_config: UserConfig,
-        config: ServiceConfig,
+        required_services: dict[ServiceTypeT, int],
+        service_config: ServiceConfig,
     ):
-        super().__init__(required_services, config)
+        super().__init__(required_services, service_config)
 
-    async def run_all_services(self) -> None:
+    async def run_required_services(self) -> None:
         """Initialize all required services as Kubernetes pods."""
         self.logger.debug("Initializing all required services as Kubernetes pods")
         # TODO: Implement Kubernetes

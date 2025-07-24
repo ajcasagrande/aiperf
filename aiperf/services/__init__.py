@@ -81,6 +81,7 @@ from aiperf.services.service_manager import (
     ServiceKubernetesRunInfo,
 )
 from aiperf.services.system_controller import (
+    ProxyManager,
     SignalHandlerMixin,
     SystemController,
 )
@@ -155,6 +156,7 @@ __all__ = [
     "OutputTokenThroughputPerUserMetric",
     "ProcessingStatsStreamer",
     "PromptGenerator",
+    "ProxyManager",
     "RandomPool",
     "RandomPoolDatasetLoader",
     "RecordsManager",

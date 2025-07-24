@@ -4,7 +4,6 @@
 import asyncio
 import uuid
 from abc import ABC, abstractmethod
-from contextlib import suppress
 
 import zmq
 import zmq.asyncio
@@ -12,10 +11,9 @@ from zmq import SocketType
 
 from aiperf.common.comms.zmq.zmq_base_client import BaseZMQClient
 from aiperf.common.config.zmq_config import BaseZMQProxyConfig
-from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
 from aiperf.common.enums import CaseInsensitiveStrEnum
-from aiperf.common.exceptions import ProxyError
-from aiperf.common.mixins import AIPerfLoggerMixin
+from aiperf.common.hooks import background_task, on_init, on_start, on_stop
+from aiperf.common.mixins import AIPerfLifecycleMixin
 
 
 class ProxyEndType(CaseInsensitiveStrEnum):
@@ -55,7 +53,7 @@ class ProxySocketClient(BaseZMQClient):
         )
 
 
-class BaseZMQProxy(AIPerfLoggerMixin, ABC):
+class BaseZMQProxy(AIPerfLifecycleMixin, ABC):
     """
     A Base ZMQ Proxy class.
 
@@ -155,6 +153,7 @@ class BaseZMQProxy(AIPerfLoggerMixin, ABC):
         """Create a BaseZMQProxy from a BaseZMQProxyConfig, or None if not provided."""
         ...
 
+    @on_init
     async def _initialize(self) -> None:
         """Initialize and start the BaseZMQProxy."""
         self.debug("Proxy Initializing Sockets...")
@@ -178,6 +177,7 @@ class BaseZMQProxy(AIPerfLoggerMixin, ABC):
                     for client in [self.control_client, self.capture_client]
                     if client
                 ],
+                return_exceptions=True,
             )
 
             self.debug("Proxy Sockets Initialized Successfully")
@@ -191,23 +191,8 @@ class BaseZMQProxy(AIPerfLoggerMixin, ABC):
             self.exception(f"Proxy Socket Initialization Failed: {e}")
             raise
 
-    async def stop(self) -> None:
-        """Shutdown the BaseZMQProxy."""
-        self.debug("Proxy Stopping...")
-
-        try:
-            if self.monitor_task is not None:
-                self.debug("Cancelling Monitor Task")
-                self.monitor_task.cancel()
-                with suppress(asyncio.TimeoutError):
-                    await asyncio.wait_for(
-                        self.monitor_task, timeout=TASK_CANCEL_TIMEOUT_SHORT
-                    )
-
-        except Exception as e:
-            self.exception(f"Proxy Stop Error: {e}")
-
-    async def run(self) -> None:
+    @on_start
+    async def _start_proxy(self) -> None:
         """Start the Base ZMQ Proxy.
 
         This method starts the proxy and waits for it to complete asynchronously.
@@ -216,35 +201,24 @@ class BaseZMQProxy(AIPerfLoggerMixin, ABC):
         Raises:
             ProxyError: If the proxy produces an error.
         """
-        try:
-            await self._initialize()
+        self.debug("Starting Proxy...")
 
-            self.debug("Starting Proxy...")
-
-            if self.capture_client:
-                self.monitor_task = asyncio.create_task(self._monitor_messages())
-                self.debug("Proxy Message Monitoring Started")
-
-            await asyncio.to_thread(
+        self.execute_async(
+            asyncio.to_thread(
                 zmq.proxy_steerable,
                 self.frontend_socket.socket,
                 self.backend_socket.socket,
                 capture=self.capture_client.socket if self.capture_client else None,
                 control=self.control_client.socket if self.control_client else None,
             )
+        )
 
-        except zmq.ContextTerminated:
-            self.debug("Proxy Terminated by Context")
-            return
-
-        except Exception as e:
-            self.exception(f"Proxy Error: {e}")
-            raise ProxyError(f"Proxy failed: {e}") from e
-
+    @background_task(interval=None, immediate=True)
     async def _monitor_messages(self) -> None:
         """Monitor messages flowing through the proxy via the capture socket."""
         if not self.capture_client or not self.capture_address:
-            raise ProxyError("Proxy Monitor Not Enabled")
+            self.debug("Proxy Monitor Not Enabled")
+            return
 
         self.debug(
             lambda: f"Proxy Monitor Starting - Capture Address: {self.capture_address}"
@@ -265,5 +239,14 @@ class BaseZMQProxy(AIPerfLoggerMixin, ABC):
         except Exception as e:
             self.exception(f"Proxy Monitor Error - {e}")
             raise
+        except asyncio.CancelledError:
+            return
         finally:
             capture_socket.close()
+
+    @on_stop
+    async def _stop_proxy(self) -> None:
+        """Shutdown the BaseZMQProxy."""
+        self.debug("Proxy Stopping...")
+
+        # TODO: Cancel the proxy tasks

@@ -86,7 +86,8 @@ class RecordsManager(BaseComponentService):
     async def _stop_streaming_post_processors(self) -> None:
         """Stop the streaming post processors."""
         await asyncio.gather(
-            *[streamer.stop() for streamer in self.streaming_post_processors]
+            *[streamer.stop() for streamer in self.streaming_post_processors],
+            return_exceptions=True,
         )
 
     async def _on_parsed_inference_results(
@@ -126,7 +127,8 @@ class RecordsManager(BaseComponentService):
             *[
                 streamer.on_process_records_command(message)
                 for streamer in self.streaming_post_processors
-            ]
+            ],
+            return_exceptions=True,
         )
         return results
 

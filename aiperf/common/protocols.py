@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import asyncio
+import multiprocessing
 from collections.abc import Callable, Coroutine
 from typing import Any, Generic, Protocol, runtime_checkable
 
@@ -12,6 +13,8 @@ from aiperf.common.constants import (
 )
 from aiperf.common.enums import CommClientType, LifecycleState
 from aiperf.common.factories import CommunicationClientProtocolFactory
+from aiperf.common.hooks import HookType
+from aiperf.common.mixins.hooks_mixin import Hook
 from aiperf.common.types import (
     CommAddressType,
     MessageCallbackMapT,
@@ -24,6 +27,7 @@ from aiperf.common.types import (
     RequestOutputT,
     RequestRecordT,
     ResponseDataT,
+    ServiceRunInfoT,
     ServiceTypeT,
     TaskManagerProtocolT,
     TokenizerT,
@@ -307,3 +311,64 @@ class ServiceProtocol(MessageBusClientProtocol, Protocol):
 
     service_type: ServiceTypeT
     service_id: str
+
+
+@runtime_checkable
+class HooksProtocol(Protocol):
+    """Protocol for hooks methods."""
+
+    def get_hooks(self, *hook_types: HookType, reversed: bool = False) -> list[Hook]:
+        """Get the hooks for the given hook type(s), optionally reversed."""
+        ...
+
+    async def run_hooks(
+        self, *hook_types: HookType, reversed: bool = False, **kwargs
+    ) -> None:
+        """Run the hooks for the given hook type, waiting for each hook to complete before running the next one.
+        If reversed is True, the hooks will be run in reverse order. This is useful for stop/cleanup starting with
+        the children and ending with the parent.
+        """
+        ...
+
+
+@runtime_checkable
+class ServiceManagerProtocol(AIPerfLifecycleProtocol, Protocol):
+    def __init__(
+        self,
+        required_services: dict[ServiceTypeT, int],
+        service_config: ServiceConfig,
+        user_config: UserConfig,
+        log_queue: "multiprocessing.Queue | None" = None,
+    ): ...
+
+    required_services: dict[ServiceTypeT, int]
+
+    # Maps to track service information
+    service_map: dict[ServiceTypeT, list[ServiceRunInfoT]] = {}
+
+    # Create service ID map for component lookups
+    service_id_map: dict[str, ServiceRunInfoT] = {}
+
+    async def run_services(self, service_types: dict[ServiceTypeT, int]) -> None:
+        await asyncio.gather(
+            *[
+                self.run_service(service_type, num_replicas)
+                for service_type, num_replicas in service_types.items()
+            ],
+            return_exceptions=True,
+        )
+
+    async def run_required_services(self) -> None:
+        await self.run_services(self.required_services)
+
+    async def run_service(
+        self, service_type: ServiceTypeT, num_replicas: int = 1
+    ) -> None: ...
+
+    async def shutdown_all_services(self) -> None: ...
+
+    async def kill_all_services(self) -> None: ...
+
+    async def wait_for_all_services_registration(
+        self, stop_event: asyncio.Event, timeout_seconds: int = 30
+    ) -> None: ...

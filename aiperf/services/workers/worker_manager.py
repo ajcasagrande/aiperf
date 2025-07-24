@@ -185,7 +185,8 @@ class WorkerManager(BaseComponentService):
                 self._wait_for_process(worker_id, worker_info.process)
                 for worker_id, worker_info in self.workers.items()
                 if worker_info.process
-            ]
+            ],
+            return_exceptions=True,
         )
 
         self.debug("All worker processes stopped")
