@@ -11,7 +11,10 @@ from aiperf.common.utils import yield_to_event_loop
 
 
 class TaskManagerMixin(AIPerfLoggerMixin):
-    """Mixin to manage a set of async tasks."""
+    """Mixin to manage a set of async tasks, and provide background task loop capabilities.
+    Can be used standalone, but it is most useful as part of the :class:`AIPerfLifecycleMixin`
+    mixin, where the lifecycle methods are automatically integrated with the task manager.
+    """
 
     def __init__(self, **kwargs):
         self.tasks: set[asyncio.Task] = set()
@@ -48,12 +51,6 @@ class TaskManagerMixin(AIPerfLoggerMixin):
         task_list = list(self.tasks)
         for task in task_list:
             task.cancel()
-
-        # with contextlib.suppress(asyncio.TimeoutError, asyncio.CancelledError):
-        #     await asyncio.wait_for(
-        #         asyncio.gather(*task_list, return_exceptions=True),
-        #         timeout=timeout,
-        #     )
 
         # Clear the tasks set after cancellation to avoid memory leaks
         self.tasks.clear()
