@@ -52,7 +52,6 @@ class ZMQPullClient(BaseZMQClient, TaskManagerMixin):
 
     def __init__(
         self,
-        context: zmq.asyncio.Context,
         address: str,
         bind: bool,
         socket_ops: dict | None = None,
@@ -62,13 +61,12 @@ class ZMQPullClient(BaseZMQClient, TaskManagerMixin):
         Initialize the ZMQ Puller class.
 
         Args:
-            context (zmq.asyncio.Context): The ZMQ context.
             address (str): The address to bind or connect to.
             bind (bool): Whether to bind or connect the socket.
             socket_ops (dict, optional): Additional socket options to set.
             max_concurrency (int, optional): The maximum number of concurrent requests to allow.
         """
-        super().__init__(context, zmq.SocketType.PULL, address, bind, socket_ops)
+        super().__init__(zmq.SocketType.PULL, address, bind, socket_ops)
         self._pull_callbacks: dict[
             MessageTypeT, Callable[[Message], Coroutine[Any, Any, None]]
         ] = {}

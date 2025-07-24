@@ -58,7 +58,6 @@ class ZMQSubClient(BaseZMQClient, TaskManagerMixin):
 
     def __init__(
         self,
-        context: zmq.asyncio.Context,
         address: str,
         bind: bool,
         socket_ops: dict | None = None,
@@ -67,12 +66,11 @@ class ZMQSubClient(BaseZMQClient, TaskManagerMixin):
         Initialize the ZMQ Subscriber class.
 
         Args:
-            context (zmq.asyncio.Context): The ZMQ context.
             address (str): The address to bind or connect to.
             bind (bool): Whether to bind or connect the socket.
             socket_ops (dict, optional): Additional socket options to set.
         """
-        super().__init__(context, zmq.SocketType.SUB, address, bind, socket_ops)
+        super().__init__(zmq.SocketType.SUB, address, bind, socket_ops)
 
         self._subscribers: dict[MessageTypeT, list[Callable[[Message], Any]]] = {}
 

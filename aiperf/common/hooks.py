@@ -6,13 +6,13 @@ used as a mixin for classes that support hooks. It provides a simple interface
 for registering and running hooks.
 
 Classes should inherit from the :class:`HooksMixin`, and specify the supported
-hook types by decorating the class with the :func:`supports_hooks` decorator.
+hook types by decorating the class with the :func:`provides_hooks` decorator.
 
 The hook functions are registered by decorating functions with the various hook
 decorators such as :func:`on_init`, :func:`on_start`, :func:`on_stop`, etc.
 
-The hooks are run by calling the :meth:`HooksMixin.run_hooks` or
-:meth:`HooksMixin.run_hooks_async` methods on the class.
+The hooks are run by calling the :meth:`HooksMixin.run_hooks` method or retrieved via the
+:meth:`HooksMixin.get_hooks` method on the class.
 
 More than one hook can be registered for a given hook type, and classes that inherit from
 classes with existing hooks will inherit the hooks from the base classes as well.
@@ -29,7 +29,6 @@ from aiperf.common.enums import (
     CaseInsensitiveStrEnum,
     CommandType,
     LifecycleState,
-    MessageType,  # noqa: F401 - needed for pydantic BaseModel
 )
 from aiperf.common.types import HooksMixinT, MessageTypeT
 

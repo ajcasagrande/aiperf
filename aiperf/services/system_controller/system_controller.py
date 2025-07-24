@@ -74,8 +74,18 @@ class SystemController(SignalHandlerMixin, BaseService):
             ServiceType.INFERENCE_RESULT_PARSER: service_config.result_parser_service_count,
         }
 
-        self.service_manager: BaseServiceManager = None  # type: ignore - is set in _initialize
-        self.proxy_manager = ProxyManager(service_config=self.service_config)
+        self.proxy_manager: ProxyManager = ProxyManager(
+            service_config=self.service_config
+        )
+        self.service_manager: BaseServiceManager = (
+            ServiceManagerFactory.create_instance(
+                self.service_config.service_run_type.value,
+                required_services=self.required_services,
+                user_config=self.user_config,
+                service_config=self.service_config,
+                log_queue=get_global_log_queue(),
+            )
+        )
 
         self.debug("System Controller created")
 
@@ -85,18 +95,8 @@ class SystemController(SignalHandlerMixin, BaseService):
 
         self.setup_signal_handlers(self._handle_signal)
         self.debug("Setup signal handlers")
-        await self.proxy_manager.initialize()
-
-        await self._initialize_service_manager()
-
-    async def _initialize_service_manager(self) -> None:
-        self.service_manager = ServiceManagerFactory.create_instance(
-            self.service_config.service_run_type.value,
-            required_services=self.required_services,
-            user_config=self.user_config,
-            service_config=self.service_config,
-            log_queue=get_global_log_queue(),
-        )
+        await self.proxy_manager.initialize_and_start()
+        await self.service_manager.initialize()
 
     @on_start
     async def _start_services(self) -> None:
@@ -111,7 +111,7 @@ class SystemController(SignalHandlerMixin, BaseService):
 
         # Start all required services
         try:
-            await self.service_manager.run_required_services()
+            await self.service_manager.start()
         except Exception as e:
             raise self._service_error(
                 "Failed to initialize all services",
@@ -319,8 +319,10 @@ class SystemController(SignalHandlerMixin, BaseService):
         """Process a command response message."""
         self.debug(lambda: f"Received command response message: {message}")
         if message.status == CommandResponseStatus.SUCCESS:
-            self.logger.debug(
-                f"Command {message.command} succeeded with data: {message.data}"
+            self.debug(f"Command {message.command} succeeded with data: {message.data}")
+        elif message.status == CommandResponseStatus.ACKNOWLEDGED:
+            self.debug(
+                f"Command {message.command} acknowledged with data: {message.data}"
             )
         else:
             self.error(f"Command {message.command} failed: {message.error}")
@@ -353,13 +355,16 @@ class SystemController(SignalHandlerMixin, BaseService):
             raise ValueError(
                 f"Invalid data type for shutdown workers command: {type(message.data)}"
             )
-        await self.service_manager.stop(ServiceType.WORKER, message.data.num_workers)
+        await self.service_manager.stop_service(
+            ServiceType.WORKER, message.data.num_workers
+        )
 
     @command_handler(CommandType.KILL_WORKERS)
     async def _handle_kill_workers_command(self, message: CommandMessage) -> None:
         """Handle a kill workers command."""
         self.debug(lambda: f"Received kill workers command: {message}")
-        await self.service_manager.kill_workers(message.data.worker_ids)
+        # TODO: Not implemented currently
+        # await self.service_manager.kill_service(ServiceType.WORKER, message.data.worker_ids)
 
     async def send_command_to_service(
         self,

@@ -18,7 +18,6 @@ from aiperf.common.messages.command_messages import (
 )
 from aiperf.common.models import ErrorDetails, ErrorDetailsCount, ParsedResponseRecord
 from aiperf.common.models.record_models import MetricResult
-from aiperf.data_exporter.exporter_manager import ExporterManager
 from aiperf.services.records_manager.post_processors.metric_summary import MetricSummary
 from aiperf.services.records_manager.post_processors.streaming_post_processor import (
     BaseStreamingPostProcessor,
@@ -136,8 +135,3 @@ class BasicMetricsStreamer(BaseStreamingPostProcessor):
         finally:
             # always publish the profile results
             self.execute_async(self.pub_client.publish(profile_results))
-            # TODO: HACK: Figure out a better place to put the exporter logic
-            if self.user_config:
-                await ExporterManager(
-                    results=profile_results, input_config=self.user_config
-                ).export_all()

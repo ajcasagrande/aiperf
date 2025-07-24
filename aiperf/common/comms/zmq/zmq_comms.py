@@ -103,7 +103,6 @@ class BaseZMQCommunication(BaseCommunication, AIPerfLoggerMixin, ABC):
         """
         client = CommunicationClientFactory.create_instance(
             client_type,
-            context=self.context,
             address=self.get_address(address),
             bind=bind,
             socket_ops=socket_ops,

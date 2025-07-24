@@ -84,6 +84,8 @@ class BaseService(MessageBusClientMixin, ABC):
     async def _subscribe_to_command_messages(self) -> None:
         """Subscribe to command messages for all services, specifically for the service type,
         and specific to our service id."""
+        # NOTE: These subscriptions are in addition to the @on_message hook, but we need to
+        #       have access to the service type and id, so we can't use the @on_message hook.
         subscription_map: MessageCallbackMapT = {
             f"{MessageType.COMMAND}.{self.service_type}": self._process_command_message,
             f"{MessageType.COMMAND}.{self.service_id}": self._process_command_message,

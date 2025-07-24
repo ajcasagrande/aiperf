@@ -25,7 +25,6 @@ class BaseZMQClient(AIPerfLifecycleMixin):
 
     def __init__(
         self,
-        context: zmq.asyncio.Context,
         socket_type: zmq.SocketType,
         address: str,
         bind: bool,
@@ -37,17 +36,16 @@ class BaseZMQClient(AIPerfLifecycleMixin):
         Initialize the ZMQ Base class.
 
         Args:
-            context (zmq.asyncio.Context): The ZMQ context.
             address (str): The address to bind or connect to.
             bind (bool): Whether to BIND or CONNECT the socket.
             socket_type (SocketType): The type of ZMQ socket (eg. PUB, SUB, ROUTER, DEALER, etc.).
             socket_ops (dict, optional): Additional socket options to set.
         """
-        self.context: zmq.asyncio.Context = context
+        self.context: zmq.asyncio.Context = zmq.asyncio.Context.instance()
+        self.socket_type: zmq.SocketType = socket_type
+        self.socket: zmq.asyncio.Socket = self.context.socket(self.socket_type)
         self.address: str = address
         self.bind: bool = bind
-        self.socket_type: zmq.SocketType = socket_type
-        self.socket: zmq.asyncio.Socket | None = None
         self.socket_ops: dict = socket_ops or {}
         self.client_id: str = (
             client_id
@@ -79,7 +77,6 @@ class BaseZMQClient(AIPerfLifecycleMixin):
         - Run the AIPerfHook.ON_INIT hooks
         """
         try:
-            self.socket = self.context.socket(self.socket_type)
             self.debug(
                 lambda: f"ZMQ {self.socket_type_name} socket initialized, try {'BIND' if self.bind else 'CONNECT'} to {self.address} ({self.client_id})"
             )
@@ -133,5 +130,3 @@ class BaseZMQClient(AIPerfLifecycleMixin):
             self.exception(
                 f"Uncaught exception shutting down ZMQ socket: {e} ({self.client_id})"
             )
-        finally:
-            self.socket = None

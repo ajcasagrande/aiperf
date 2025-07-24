@@ -4,7 +4,8 @@
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any, TypeVar, Union
 
-from aiperf.common.enums.service_enums import (
+from aiperf.common.enums import (
+    MessageType,  # NOTE: Required for pydantic models to work
     ServiceType,  # NOTE: Required for pydantic models to work
 )
 
@@ -14,7 +15,6 @@ if TYPE_CHECKING:
         CaseInsensitiveStrEnum,
         CommAddress,
         CommandType,
-        MessageType,
     )
     from aiperf.common.messages.base_messages import Message
     from aiperf.common.messages.command_messages import CommandMessage
@@ -45,7 +45,7 @@ MessageCallbackMapT = dict[
 ]
 MessageOutputT = TypeVar("MessageOutputT", bound="Message")
 MessageT = TypeVar("MessageT", bound="Message")
-MessageTypeT = Union["MessageType", str]
+MessageTypeT = MessageType | str
 ModelEndpointInfoT = TypeVar("ModelEndpointInfoT", bound="ModelEndpointInfo")
 OutputT = TypeVar("OutputT", bound=Any)
 ParsedResponseRecordT = TypeVar("ParsedResponseRecordT", bound="ParsedResponseRecord")

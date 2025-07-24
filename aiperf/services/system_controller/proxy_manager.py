@@ -2,8 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
 
-import zmq.asyncio
-
 from aiperf.common.comms import BaseZMQProxy
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
@@ -20,26 +18,23 @@ class ProxyManager(AIPerfLifecycleMixin):
 
     @on_init
     async def _initialize_proxies(self) -> None:
-        self.zmq_context = zmq.asyncio.Context.instance()
+        comm_config = self.service_config.comm_config
 
         self.event_bus_proxy: BaseZMQProxy = ZMQProxyFactory.create_instance(
             ZMQProxyType.XPUB_XSUB,
-            context=self.zmq_context,
-            zmq_proxy_config=self.service_config.comm_config.event_bus_proxy_config,
+            zmq_proxy_config=comm_config.event_bus_proxy_config,
         )
         await self.event_bus_proxy.initialize()
 
         self.dataset_manager_proxy: BaseZMQProxy = ZMQProxyFactory.create_instance(
             ZMQProxyType.DEALER_ROUTER,
-            context=self.zmq_context,
-            zmq_proxy_config=self.service_config.comm_config.dataset_manager_proxy_config,
+            zmq_proxy_config=comm_config.dataset_manager_proxy_config,
         )
         await self.dataset_manager_proxy.initialize()
 
         self.raw_inference_proxy: BaseZMQProxy = ZMQProxyFactory.create_instance(
             ZMQProxyType.PUSH_PULL,
-            context=self.zmq_context,
-            zmq_proxy_config=self.service_config.comm_config.raw_inference_proxy_config,
+            zmq_proxy_config=comm_config.raw_inference_proxy_config,
         )
         await self.raw_inference_proxy.initialize()
         self.debug("All proxies initialized successfully")
