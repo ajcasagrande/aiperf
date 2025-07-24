@@ -172,14 +172,16 @@ class AIPerfFactory(Generic[ClassEnumT, ClassProtocolT]):
         if class_type not in cls._registry:
             from aiperf.common.exceptions import FactoryCreationError
 
-            raise FactoryCreationError(f"No implementation found for {class_type!r}.")
+            raise FactoryCreationError(
+                f"No implementation registered for {class_type!r} in {cls.__name__}."
+            )
         try:
             return cls._registry[class_type](**kwargs)
         except Exception as e:
             from aiperf.common.exceptions import FactoryCreationError
 
             raise FactoryCreationError(
-                f"Error creating {class_type!r} instance: {e}"
+                f"Error creating {class_type!r} instance for {cls.__name__}: {e}"
             ) from e
 
     @classmethod

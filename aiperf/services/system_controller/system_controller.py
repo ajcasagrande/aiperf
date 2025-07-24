@@ -12,12 +12,12 @@ from aiperf.common.enums import (
     CommandType,
     MessageType,
     ServiceRegistrationStatus,
-    ServiceRunType,
     ServiceType,
 )
 from aiperf.common.exceptions import CommunicationError, NotInitializedError
-from aiperf.common.factories import ServiceFactory
+from aiperf.common.factories import ServiceFactory, ServiceManagerFactory
 from aiperf.common.hooks import on_init, on_message, on_start, on_stop
+from aiperf.common.logging import get_global_log_queue
 from aiperf.common.messages import (
     CommandResponseMessage,
     CreditsCompleteMessage,
@@ -33,8 +33,6 @@ from aiperf.common.types import ServiceTypeT
 from aiperf.services.base_service import BaseService
 from aiperf.services.service_manager import (
     BaseServiceManager,
-    KubernetesServiceManager,
-    MultiProcessServiceManager,
 )
 from aiperf.services.system_controller.proxy_manager import ProxyManager
 from aiperf.services.system_controller.system_mixins import (
@@ -88,24 +86,13 @@ class SystemController(SignalHandlerMixin, BaseService):
         await self._initialize_service_manager()
 
     async def _initialize_service_manager(self) -> None:
-        if self.service_config.service_run_type == ServiceRunType.MULTIPROCESSING:
-            self.service_manager = MultiProcessServiceManager(
-                required_services=self.required_services,
-                user_config=self.user_config,
-                config=self.service_config,
-            )
-
-        elif self.service_config.service_run_type == ServiceRunType.KUBERNETES:
-            self.service_manager = KubernetesServiceManager(
-                required_services=self.required_services,
-                user_config=self.user_config,
-                config=self.service_config,
-            )
-
-        else:
-            raise self._service_error(
-                f"Unsupported service run type: {self.service_config.service_run_type}",
-            )
+        self.service_manager = ServiceManagerFactory.create_instance(
+            self.service_config.service_run_type.value,
+            required_services=self.required_services,
+            user_config=self.user_config,
+            service_config=self.service_config,
+            log_queue=get_global_log_queue(),
+        )
 
     @on_start
     async def _start_services(self) -> None:
@@ -379,7 +366,7 @@ class SystemController(SignalHandlerMixin, BaseService):
                 )
             )
         except Exception as e:
-            self.logger.error("Exception publishing command: %s", e)
+            self.exception(f"Exception publishing command: {e}")
             raise CommunicationError(f"Failed to publish command: {e}") from e
 
     async def kill(self):

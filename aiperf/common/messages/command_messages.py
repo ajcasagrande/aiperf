@@ -7,7 +7,9 @@ from pydantic import (
     BaseModel,
     Field,
     SerializeAsAny,
+    model_validator,
 )
+from typing_extensions import Self
 
 from aiperf.common.enums import (
     CommandResponseStatus,
@@ -17,6 +19,69 @@ from aiperf.common.enums import (
 from aiperf.common.messages.service_messages import BaseServiceMessage
 from aiperf.common.models.error_models import ErrorDetails
 from aiperf.common.types import MessageTypeT, ServiceTypeT
+
+
+class CommandResponseMessage(BaseServiceMessage):
+    """Message containing a command response.
+    This message is sent by a component service to the system controller to respond to a command.
+    """
+
+    message_type: MessageTypeT = MessageType.COMMAND_RESPONSE
+
+    command: CommandType = Field(
+        ...,
+        description="Command type that is being responded to",
+    )
+    command_id: str = Field(
+        ..., description="The ID of the command that is being responded to"
+    )
+    status: CommandResponseStatus = Field(..., description="The status of the command")
+    data: SerializeAsAny[BaseModel | list[Any] | None] = Field(
+        default=None,
+        description="Data to send with the command response if the command succeeded",
+    )
+    error: ErrorDetails | None = Field(
+        default=None,
+        description="Error information if the command failed",
+    )
+
+
+class SpawnWorkersCommandData(BaseModel):
+    """Data to send with the spawn workers command."""
+
+    num_workers: int = Field(..., description="Number of workers to spawn")
+
+
+class ShutdownWorkersCommandData(BaseModel):
+    """Data to send with the shutdown workers command."""
+
+    @model_validator(mode="after")
+    def validate_worker_ids_or_num_workers(self) -> Self:
+        if self.worker_ids is None and self.num_workers is None:
+            raise ValueError("Either worker_ids or num_workers must be provided")
+        if self.worker_ids is not None and self.num_workers is not None:
+            raise ValueError(
+                "Either worker_ids or num_workers must be provided, not both"
+            )
+        return self
+
+    worker_ids: list[str] | None = Field(
+        default=None,
+        description="IDs of the workers to shutdown. If not provided, will shutdown random workers up to the number of workers to shutdown.",
+    )
+    num_workers: int | None = Field(
+        default=None,
+        description="Number of workers to shutdown if worker_ids is not provided.",
+    )
+
+
+class KillWorkersCommandData(BaseModel):
+    """Data to send with the kill workers command."""
+
+    worker_ids: list[str] | None = Field(
+        default=None,
+        description="IDs of the workers to kill. If not provided, all workers will be killed.",
+    )
 
 
 class ProcessRecordsCommandData(BaseModel):
@@ -59,32 +124,14 @@ class CommandMessage(BaseServiceMessage):
         "If both `target_service_type` and `target_service_id` are None, the command is "
         "sent to all services.",
     )
-    data: SerializeAsAny[ProcessRecordsCommandData | BaseModel | None] = Field(
+    data: SerializeAsAny[
+        SpawnWorkersCommandData
+        | ShutdownWorkersCommandData
+        | KillWorkersCommandData
+        | ProcessRecordsCommandData
+        | BaseModel
+        | None
+    ] = Field(
         default=None,
         description="Data to send with the command",
-    )
-
-
-class CommandResponseMessage(BaseServiceMessage):
-    """Message containing a command response.
-    This message is sent by a component service to the system controller to respond to a command.
-    """
-
-    message_type: MessageTypeT = MessageType.COMMAND_RESPONSE
-
-    command: CommandType = Field(
-        ...,
-        description="Command type that is being responded to",
-    )
-    command_id: str = Field(
-        ..., description="The ID of the command that is being responded to"
-    )
-    status: CommandResponseStatus = Field(..., description="The status of the command")
-    data: SerializeAsAny[BaseModel | list[Any] | None] = Field(
-        default=None,
-        description="Data to send with the command response if the command succeeded",
-    )
-    error: ErrorDetails | None = Field(
-        default=None,
-        description="Error information if the command failed",
     )

@@ -10,11 +10,12 @@ from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.constants import (
     DEFAULT_COMMS_REQUEST_TIMEOUT,
     DEFAULT_PULL_CLIENT_MAX_CONCURRENCY,
+    DEFAULT_SERVICE_REGISTRATION_TIMEOUT,
+    DEFAULT_SERVICE_START_TIMEOUT,
 )
 from aiperf.common.enums import CommClientType, LifecycleState
 from aiperf.common.factories import CommunicationClientProtocolFactory
-from aiperf.common.hooks import HookType
-from aiperf.common.mixins.hooks_mixin import Hook
+from aiperf.common.hooks import Hook, HookType
 from aiperf.common.types import (
     CommAddressType,
     MessageCallbackMapT,
@@ -333,6 +334,10 @@ class HooksProtocol(Protocol):
 
 @runtime_checkable
 class ServiceManagerProtocol(AIPerfLifecycleProtocol, Protocol):
+    """Protocol for a service manager.
+    see :class:`aiperf.services.service_manager.base.BaseServiceManager` for more details.
+    """
+
     def __init__(
         self,
         required_services: dict[ServiceTypeT, int],
@@ -370,5 +375,13 @@ class ServiceManagerProtocol(AIPerfLifecycleProtocol, Protocol):
     async def kill_all_services(self) -> None: ...
 
     async def wait_for_all_services_registration(
-        self, stop_event: asyncio.Event, timeout_seconds: int = 30
+        self,
+        stop_event: asyncio.Event,
+        timeout_seconds: float = DEFAULT_SERVICE_REGISTRATION_TIMEOUT,
+    ) -> None: ...
+
+    async def wait_for_all_services_start(
+        self,
+        stop_event: asyncio.Event,
+        timeout_seconds: float = DEFAULT_SERVICE_START_TIMEOUT,
     ) -> None: ...

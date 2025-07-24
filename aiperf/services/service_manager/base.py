@@ -1,11 +1,14 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
-import multiprocessing
 from abc import ABC, abstractmethod
 
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
+from aiperf.common.constants import (
+    DEFAULT_SERVICE_REGISTRATION_TIMEOUT,
+    DEFAULT_SERVICE_START_TIMEOUT,
+)
 from aiperf.common.hooks import on_start, on_stop
 from aiperf.common.mixins.aiperf_lifecycle_mixin import AIPerfLifecycleMixin
 from aiperf.common.models import ServiceRunInfo
@@ -22,13 +25,13 @@ class BaseServiceManager(AIPerfLifecycleMixin, ABC):
         required_services: dict[ServiceTypeT, int],
         service_config: ServiceConfig,
         user_config: UserConfig,
-        log_queue: "multiprocessing.Queue | None" = None,
+        **kwargs,
     ):
         super().__init__(logger_name="service_manager")
         self.required_services = required_services
         self.service_config = service_config
         self.user_config = user_config
-        self.log_queue = log_queue
+        self.kwargs = kwargs
         # Maps to track service information
         self.service_map: dict[ServiceTypeT, list[ServiceRunInfo]] = {}
 
@@ -71,6 +74,16 @@ class BaseServiceManager(AIPerfLifecycleMixin, ABC):
 
     @abstractmethod
     async def wait_for_all_services_registration(
-        self, stop_event: asyncio.Event, timeout_seconds: int = 30
+        self,
+        stop_event: asyncio.Event,
+        timeout_seconds: float = DEFAULT_SERVICE_REGISTRATION_TIMEOUT,
+    ) -> None:
+        pass
+
+    @abstractmethod
+    async def wait_for_all_services_start(
+        self,
+        stop_event: asyncio.Event,
+        timeout_seconds: float = DEFAULT_SERVICE_START_TIMEOUT,
     ) -> None:
         pass

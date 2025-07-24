@@ -5,6 +5,11 @@ import asyncio
 from pydantic import BaseModel
 
 from aiperf.common.config import ServiceConfig
+from aiperf.common.config.user_config import UserConfig
+from aiperf.common.constants import (
+    DEFAULT_SERVICE_REGISTRATION_TIMEOUT,
+    DEFAULT_SERVICE_START_TIMEOUT,
+)
 from aiperf.common.enums.service_enums import ServiceRunType
 from aiperf.common.factories import ServiceManagerFactory
 from aiperf.common.types import ServiceTypeT
@@ -29,15 +34,19 @@ class KubernetesServiceManager(BaseServiceManager):
         self,
         required_services: dict[ServiceTypeT, int],
         service_config: ServiceConfig,
+        user_config: UserConfig,
+        **kwargs,
     ):
-        super().__init__(required_services, service_config)
+        super().__init__(required_services, service_config, user_config, **kwargs)
 
-    async def run_required_services(self) -> None:
-        """Initialize all required services as Kubernetes pods."""
-        self.logger.debug("Initializing all required services as Kubernetes pods")
+    async def run_service(
+        self, service_type: ServiceTypeT, num_replicas: int = 1
+    ) -> None:
+        """Run a service as a Kubernetes pod."""
+        self.logger.debug(f"Running service {service_type} as a Kubernetes pod")
         # TODO: Implement Kubernetes
         raise NotImplementedError(
-            "KubernetesServiceManager.initialize_all_services not implemented"
+            "KubernetesServiceManager.run_service not implemented"
         )
 
     async def shutdown_all_services(self) -> None:
@@ -57,7 +66,9 @@ class KubernetesServiceManager(BaseServiceManager):
         )
 
     async def wait_for_all_services_registration(
-        self, stop_event: asyncio.Event, timeout_seconds: int = 30
+        self,
+        stop_event: asyncio.Event,
+        timeout_seconds: float = DEFAULT_SERVICE_REGISTRATION_TIMEOUT,
     ) -> None:
         """Wait for all required services to be registered in Kubernetes."""
         self.logger.debug(
@@ -68,7 +79,11 @@ class KubernetesServiceManager(BaseServiceManager):
             "KubernetesServiceManager.wait_for_all_services_registration not implemented"
         )
 
-    async def wait_for_all_services_start(self) -> None:
+    async def wait_for_all_services_start(
+        self,
+        stop_event: asyncio.Event,
+        timeout_seconds: float = DEFAULT_SERVICE_START_TIMEOUT,
+    ) -> None:
         """Wait for all required services to be started in Kubernetes."""
         self.logger.debug(
             "Waiting for all required services to be started in Kubernetes"

@@ -9,10 +9,14 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from aiperf.common.bootstrap import bootstrap_and_run_service
 from aiperf.common.config import ServiceConfig, UserConfig
-from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
-from aiperf.common.enums import ServiceRegistrationStatus
+from aiperf.common.constants import (
+    DEFAULT_SERVICE_REGISTRATION_TIMEOUT,
+    DEFAULT_SERVICE_START_TIMEOUT,
+    TASK_CANCEL_TIMEOUT_SHORT,
+)
+from aiperf.common.enums import ServiceRegistrationStatus, ServiceRunType
 from aiperf.common.exceptions import AIPerfError
-from aiperf.common.factories import ServiceFactory
+from aiperf.common.factories import ServiceFactory, ServiceManagerFactory
 from aiperf.common.types import ServiceTypeT
 from aiperf.services.service_manager.base import BaseServiceManager
 
@@ -29,6 +33,7 @@ class MultiProcessRunInfo(BaseModel):
     )
 
 
+@ServiceManagerFactory.register(ServiceRunType.MULTIPROCESSING)
 class MultiProcessServiceManager(BaseServiceManager):
     """
     Service Manager for starting and stopping services as multiprocessing processes.
@@ -40,9 +45,11 @@ class MultiProcessServiceManager(BaseServiceManager):
         service_config: ServiceConfig,
         user_config: UserConfig,
         log_queue: "multiprocessing.Queue | None" = None,
+        **kwargs,
     ):
-        super().__init__(required_services, service_config, user_config, log_queue)
+        super().__init__(required_services, service_config, user_config, **kwargs)
         self.multi_process_info: list[MultiProcessRunInfo] = []
+        self.log_queue = log_queue
 
     async def run_service(
         self, service_type: ServiceTypeT, num_replicas: int = 1
@@ -101,7 +108,9 @@ class MultiProcessServiceManager(BaseServiceManager):
         )
 
     async def wait_for_all_services_registration(
-        self, stop_event: asyncio.Event, timeout_seconds: int = 30
+        self,
+        stop_event: asyncio.Event,
+        timeout_seconds: float = DEFAULT_SERVICE_REGISTRATION_TIMEOUT,
     ) -> None:
         """Wait for all required services to be registered.
 
@@ -175,3 +184,14 @@ class MultiProcessServiceManager(BaseServiceManager):
                 f"Service {info.service_type} process (pid: {info.process.pid}) did not terminate gracefully, killing"
             )
             info.process.kill()
+
+    async def wait_for_all_services_start(
+        self,
+        stop_event: asyncio.Event,
+        timeout_seconds: float = DEFAULT_SERVICE_START_TIMEOUT,
+    ) -> None:
+        """Wait for all required services to be started."""
+        self.debug("Waiting for all required services to start...")
+        self.warning(
+            "Waiting for all required services to start is not implemented for multiprocessing"
+        )

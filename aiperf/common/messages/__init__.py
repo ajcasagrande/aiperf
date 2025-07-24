@@ -16,7 +16,10 @@ from aiperf.common.messages.base_messages import (
 from aiperf.common.messages.command_messages import (
     CommandMessage,
     CommandResponseMessage,
+    KillWorkersCommandData,
     ProcessRecordsCommandData,
+    ShutdownWorkersCommandData,
+    SpawnWorkersCommandData,
 )
 from aiperf.common.messages.credit_messages import (
     CreditDropMessage,
@@ -85,6 +88,7 @@ __all__ = [
     "ErrorMessage",
     "HeartbeatMessage",
     "InferenceResultsMessage",
+    "KillWorkersCommandData",
     "Message",
     "NotificationMessage",
     "ParsedInferenceResultsMessage",
@@ -95,6 +99,8 @@ __all__ = [
     "RecordsProcessingStatsMessage",
     "RegistrationMessage",
     "RequiresRequestNSMixin",
+    "ShutdownWorkersCommandData",
+    "SpawnWorkersCommandData",
     "StatusMessage",
     "SweepProgressMessage",
     "WorkerHealthMessage",

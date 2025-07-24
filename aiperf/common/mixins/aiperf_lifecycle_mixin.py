@@ -38,7 +38,9 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
         self.started_event = asyncio.Event()
         self._stop_requested_event = asyncio.Event()
         self.stopped_event = asyncio.Event()  # set on stop or failure
-        super().__init__(logger_name=self.id, **kwargs)
+        if "logger_name" not in kwargs:
+            kwargs["logger_name"] = self.id
+        super().__init__(**kwargs)
 
     @property
     def state(self) -> LifecycleState:

@@ -81,9 +81,14 @@ class HooksMixin(AIPerfLoggerMixin):
                 await hook(**kwargs)
             except Exception as e:
                 exceptions.append(e)
-                self.exception(f"Error running hook: {e!r}")
+                self.exception(
+                    f"Error running {hook!r} hook for {self.__class__.__name__}: {e}"
+                )
         if exceptions:
-            raise AIPerfMultiError("Errors running hooks", exceptions)
+            raise AIPerfMultiError(
+                f"Errors running {hook_types} hooks for {self.__class__.__name__}",
+                exceptions,
+            )
 
 
 # Add this file as one to be ignored when finding the caller of aiperf_logger.
