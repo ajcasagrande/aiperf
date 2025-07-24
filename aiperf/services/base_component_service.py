@@ -29,11 +29,8 @@ class BaseComponentService(BaseService):
     This class provides a common interface for all Component services in the AIPerf
     framework such as the Timing Manager, Dataset Manager, etc.
 
-    It extends the BaseService by:
-    - Subscribing to the command message_type
-    - Processing command messages
-    - Sending status notifications to the system controller
-    - Helpers to create status messages
+    It extends the BaseService by adding heartbeat and registration functionality, as well as
+    publishing the current state of the service to the system controller.
     """
 
     def __init__(

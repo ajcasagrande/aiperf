@@ -29,7 +29,13 @@ from aiperf.common.mixins.task_manager_mixin import (
     AIPerfHook.BACKGROUND_TASK,
 )
 class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
-    """Mixin to manage the lifecycle of a component/service."""
+    """This mixin provides a lifecycle state machine, and is the basis for most components in the AIPerf framework.
+    It provides a set of hooks that are run at each state transition, and the ability to define background tasks
+    that are automatically ran on @on_start, and canceled via @on_stop.
+
+    It exposes to the outside world `initialize`, `start`, and `stop` methods, as well as getting the
+    current state of the lifecycle. These simple methods promote a simple interface for users to interact with.
+    """
 
     def __init__(self, id: str | None = None, **kwargs) -> None:
         self.id = id or f"{self.__class__.__name__}_{uuid.uuid4().hex[:8]}"
@@ -90,7 +96,11 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
         event: asyncio.Event,
         reversed: bool = False,
     ) -> None:
-        """Transition to a new state."""
+        """This method wraps the functionality of changing the state of the lifecycle, and running the hooks.
+        It is used to ensure that the state change and hook running are atomic, and that the state change is
+        only made after the hooks have completed. It also take in an event that is set when the state change is complete.
+        This is useful for external code waiting for the state change to complete before continuing.
+        """
         self.state = transient_state
         self.debug(lambda: f"{transient_state.title()} {self}")
         try:
@@ -102,7 +112,7 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
             self._fail(e)
 
     async def initialize(self) -> None:
-        """Initialize the lifecycle and run the on_init hooks."""
+        """Initialize the lifecycle and run the @on_init hooks."""
         if self.state != LifecycleState.CREATED:
             raise InvalidStateError(f"Cannot initialize from state {self.state}")
 
@@ -114,7 +124,7 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
         )
 
     async def start(self) -> None:
-        """Start the lifecycle and run the on_start hooks."""
+        """Start the lifecycle and run the @on_start hooks."""
         if self.state != LifecycleState.INITIALIZED:
             raise InvalidStateError(f"Cannot start from state {self.state}")
 
@@ -126,12 +136,12 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
         )
 
     async def initialize_and_start(self) -> None:
-        """Initialize and start the lifecycle. This is a convenience method that calls initialize() and start() in sequence."""
+        """Initialize and start the lifecycle. This is a convenience method that calls `initialize` and `start` in sequence."""
         await self.initialize()
         await self.start()
 
     async def stop(self) -> None:
-        """Stop the lifecycle and run the on_stop hooks."""
+        """Stop the lifecycle and run the @on_stop hooks."""
         if self.stop_requested:
             # If we are already in a stopping state, we need to kill the process to be safe.
             self.warning(f"Attempted to stop {self} in state {self.state}. Killing.")
@@ -149,7 +159,7 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
 
     @on_start
     async def _start_background_tasks(self) -> None:
-        """Start all tasks in the set."""
+        """Start all tasks that are decorated with the @background_task decorator."""
         for hook in self.get_hooks(AIPerfHook.BACKGROUND_TASK):
             if not isinstance(hook.params, BackgroundTaskParams):
                 raise AttributeError(
@@ -165,11 +175,15 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
 
     @on_stop
     async def _stop_all_tasks(self) -> None:
-        """Stop all tasks in the set and wait for them to complete."""
+        """Stop all tasks that are decorated with the @background_task decorator,
+        and any custom ones that were ran using `self.execute_async()`.
+        """
         await self.cancel_all_tasks()
 
     async def _kill(self) -> None:
-        """Kill the lifecycle."""
+        """Kill the lifecycle. This is used when the lifecycle is requested to stop, but is already in a stopping state.
+        This is a last resort to ensure that the lifecycle is stopped.
+        """
         self.state = LifecycleState.FAILED
         self.debug(lambda: f"Killed {self}")
         self.stopped_event.set()
@@ -177,7 +191,9 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
         raise asyncio.CancelledError(f"Killed {self}")
 
     def _fail(self, e: Exception) -> None:
-        """Set the state to failed and raise an asyncio.CancelledError."""
+        """Set the state to FAILED and raise an asyncio.CancelledError.
+        This is used when the transition from one state to another fails.
+        """
         self.state = LifecycleState.FAILED
         self.exception(f"Failed for {self}: {e}")
         self._stop_requested_event.set()

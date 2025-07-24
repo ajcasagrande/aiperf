@@ -44,9 +44,8 @@ ConfigT = TypeVar("ConfigT", bound=Any, covariant=True)
 HooksMixinT = TypeVar("HooksMixinT", bound="HooksMixin")
 InputT = TypeVar("InputT", bound=Any)
 LifecycleMixinT = TypeVar("LifecycleMixinT", bound="AIPerfLifecycleMixin")
-MessageCallbackMapT = dict["MessageTypeT", Callable[["MessageT"], Any] | list[Callable[["MessageT"], Any]]]  # fmt: skip
+MessageCallbackMapT = dict["MessageTypeT", Callable[["Message"], Any] | list[Callable[["Message"], Any]]]  # fmt: skip
 MessageOutputT = TypeVar("MessageOutputT", bound="Message")
-MessageT = TypeVar("MessageT", bound="Message")
 MessageTypeT = MessageType | str
 ModelEndpointInfoT = TypeVar("ModelEndpointInfoT", bound="ModelEndpointInfo")
 OutputT = TypeVar("OutputT", bound=Any)

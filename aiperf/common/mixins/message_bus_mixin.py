@@ -19,7 +19,7 @@ from aiperf.common.hooks import (
 from aiperf.common.messages import Message
 from aiperf.common.mixins.aiperf_lifecycle_mixin import AIPerfLifecycleMixin
 from aiperf.common.protocols import CommunicationProtocol
-from aiperf.common.types import MessageCallbackMapT, MessageT, MessageTypeT
+from aiperf.common.types import MessageCallbackMapT, MessageTypeT
 
 
 @provides_hooks(AIPerfHook.ON_MESSAGE)
@@ -63,7 +63,7 @@ class MessageBusClientMixin(AIPerfLifecycleMixin, ABC):
     async def subscribe(
         self,
         message_type: MessageTypeT,
-        callback: Callable[[MessageT], Coroutine[Any, Any, None]],
+        callback: Callable[[Message], Coroutine[Any, Any, None]],
     ) -> None:
         """Subscribe to a specific message type. The callback will be called when
         a message is received for the given message type."""

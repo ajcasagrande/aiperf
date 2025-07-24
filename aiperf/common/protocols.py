@@ -13,14 +13,14 @@ from aiperf.common.constants import (
     DEFAULT_SERVICE_REGISTRATION_TIMEOUT,
     DEFAULT_SERVICE_START_TIMEOUT,
 )
-from aiperf.common.enums import CommClientType, LifecycleState
-from aiperf.common.factories import CommunicationClientProtocolFactory
+from aiperf.common.enums import LifecycleState
 from aiperf.common.hooks import Hook, HookType
+from aiperf.common.messages import Message
+from aiperf.common.models import Turn
 from aiperf.common.types import (
     CommAddressType,
     MessageCallbackMapT,
     MessageOutputT,
-    MessageT,
     MessageTypeT,
     ModelEndpointInfoT,
     RequestInputT,
@@ -31,7 +31,6 @@ from aiperf.common.types import (
     ServiceTypeT,
     TaskManagerProtocolT,
     TokenizerT,
-    TurnT,
 )
 
 ################################################################################
@@ -107,63 +106,57 @@ class CommunicationClientProtocol(AIPerfLifecycleProtocol, Protocol): ...
 communication client protocols with the communication client factory."""
 
 
-@CommunicationClientProtocolFactory.register(CommClientType.PUB)
 @runtime_checkable
 class PubClientProtocol(CommunicationClientProtocol, Protocol):
-    async def publish(self, message: MessageT) -> None: ...
+    async def publish(self, message: Message) -> None: ...
 
 
-@CommunicationClientProtocolFactory.register(CommClientType.PULL)
 @runtime_checkable
 class PullClientProtocol(CommunicationClientProtocol, Protocol):
     async def register_pull_callback(
         self,
         message_type: MessageTypeT,
-        callback: Callable[[MessageT], Coroutine[Any, Any, None]],
+        callback: Callable[[Message], Coroutine[Any, Any, None]],
         max_concurrency: int | None = DEFAULT_PULL_CLIENT_MAX_CONCURRENCY,
     ) -> None: ...
 
 
-@CommunicationClientProtocolFactory.register(CommClientType.PUSH)
 @runtime_checkable
 class PushClientProtocol(CommunicationClientProtocol, Protocol):
-    async def push(self, message: MessageT) -> None: ...
+    async def push(self, message: Message) -> None: ...
 
 
-@CommunicationClientProtocolFactory.register(CommClientType.REPLY)
 @runtime_checkable
 class ReplyClientProtocol(CommunicationClientProtocol, Protocol):
     def register_request_handler(
         self,
         service_id: str,
         message_type: MessageTypeT,
-        handler: Callable[[MessageT], Coroutine[Any, Any, MessageOutputT | None]],
+        handler: Callable[[Message], Coroutine[Any, Any, MessageOutputT | None]],
     ) -> None: ...
 
 
-@CommunicationClientProtocolFactory.register(CommClientType.REQUEST)
 @runtime_checkable
 class RequestClientProtocol(CommunicationClientProtocol, Protocol):
     async def request(
         self,
-        message: MessageT,
+        message: Message,
         timeout: float = DEFAULT_COMMS_REQUEST_TIMEOUT,
     ) -> MessageOutputT: ...
 
     async def request_async(
         self,
-        message: MessageT,
+        message: Message,
         callback: Callable[[MessageOutputT], Coroutine[Any, Any, None]],
     ) -> None: ...
 
 
-@CommunicationClientProtocolFactory.register(CommClientType.SUB)
 @runtime_checkable
 class SubClientProtocol(CommunicationClientProtocol, Protocol):
     async def subscribe(
         self,
         message_type: MessageTypeT,
-        callback: Callable[[MessageT], Coroutine[Any, Any, None]],
+        callback: Callable[[Message], Coroutine[Any, Any, None]],
     ) -> None: ...
 
     async def subscribe_all(
@@ -172,8 +165,15 @@ class SubClientProtocol(CommunicationClientProtocol, Protocol):
     ) -> None: ...
 
 
+@runtime_checkable
+class MessageBusClientProtocol(PubClientProtocol, SubClientProtocol, Protocol): ...
+
+
+"""A message bus client is a client that can publish and subscribe to messages on the event bus/message bus."""
+
+
 ################################################################################
-# Communication Protocols (sorted alphabetically)
+# Communication Protocol (must come after the clients)
 ################################################################################
 
 
@@ -231,13 +231,6 @@ class CommunicationProtocol(AIPerfLifecycleProtocol, Protocol):
     ) -> ReplyClientProtocol: ...
 
 
-@runtime_checkable
-class MessageBusClientProtocol(PubClientProtocol, SubClientProtocol, Protocol): ...
-
-
-"""A message bus client is a client that can publish and subscribe to messages on the event bus/message bus."""
-
-
 ################################################################################
 # General Protocols (sorted alphabetically)
 ################################################################################
@@ -273,7 +266,7 @@ class HooksProtocol(Protocol):
 
 
 @runtime_checkable
-class InferenceClientProtocol(Protocol, Generic[RequestInputT]):
+class InferenceClientProtocol(Protocol):
     """Protocol for an inference server client.
 
     This protocol defines the methods that must be implemented by any inference server client
@@ -332,7 +325,7 @@ class RequestConverterProtocol(Protocol, Generic[RequestOutputT]):
     """Protocol for a request converter that converts a raw request to a formatted request for the inference server."""
 
     async def format_payload(
-        self, model_endpoint: ModelEndpointInfoT, turn: TurnT
+        self, model_endpoint: ModelEndpointInfoT, turn: Turn
     ) -> RequestOutputT:
         """Format the turn for the inference server."""
         ...

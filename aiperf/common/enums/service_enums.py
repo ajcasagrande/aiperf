@@ -17,7 +17,7 @@ class ServiceRunType(CaseInsensitiveStrEnum):
 
 
 class LifecycleState(CaseInsensitiveStrEnum):
-    """Simple lifecycle state tracking."""
+    """This is the various states a lifecycle can be in."""
 
     CREATED = "created"
     INITIALIZING = "initializing"

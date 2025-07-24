@@ -1,21 +1,23 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 """
-This module provides an extensive hook system for AIPerf. It is designed to be
-used as a mixin for classes that support hooks. It provides a simple interface
-for registering and running hooks.
+A "hook" is a function that is decorated with a hook type and optional parameters.
 
-Classes should inherit from the :class:`HooksMixin`, and specify the supported
+This module provides an extensive set of hook definitions for AIPerf. It is designed to be
+used in conjunction with the :class:`HooksMixin` for classes to provide support for hooks.
+It provides a simple interface for registering hooks.
+
+Classes should inherit from the :class:`HooksMixin`, and specify the provided
 hook types by decorating the class with the :func:`provides_hooks` decorator.
 
 The hook functions are registered by decorating functions with the various hook
 decorators such as :func:`on_init`, :func:`on_start`, :func:`on_stop`, etc.
 
-The hooks are run by calling the :meth:`HooksMixin.run_hooks` method or retrieved via the
-:meth:`HooksMixin.get_hooks` method on the class.
-
 More than one hook can be registered for a given hook type, and classes that inherit from
 classes with existing hooks will inherit the hooks from the base classes as well.
+
+The hooks are run by calling the :meth:`HooksMixin.run_hooks` method or retrieved via the
+:meth:`HooksMixin.get_hooks` method on the class.
 """
 
 import asyncio
@@ -103,7 +105,8 @@ class CommandHookParams(BaseModel):
 
 def hook_decorator(hook_type: HookType, func: Callable) -> Callable:
     """Generic decorator to specify that the function should be called during
-    a specific hook.
+    a specific hook. See :func:`aiperf.common.hooks.hook_decorator_with_params` for a decorator that
+    can also set parameters on the function.
 
     Args:
         hook_type: The hook type to decorate the function with.
@@ -120,7 +123,7 @@ def hook_decorator_with_params(
 ) -> Callable[[Callable], Callable]:
     """Generic decorator to specify that the function should be called during
     a specific hook, and with the provided parameters. The parameters are set on
-    the function as an attribute.
+    the function as an attribute, that can later be retrieved via the :meth:`HooksMixin.get_hooks` method.
 
     Args:
         hook_type: The hook type to decorate the function with.
@@ -138,7 +141,7 @@ def hook_decorator_with_params(
 def provides_hooks(
     *hook_types: HookType,
 ) -> Callable[[type[HooksMixinT]], type[HooksMixinT]]:
-    """Decorator to specify that the class provides a hook of the given type."""
+    """Decorator to specify that the class provides a hook of the given type to all of its subclasses."""
 
     def decorator(cls: type[HooksMixinT]) -> type[HooksMixinT]:
         setattr(cls, PROVIDES_HOOKS, set(hook_types))
@@ -148,19 +151,19 @@ def provides_hooks(
 
 
 def on_init(func: Callable) -> Callable:
-    """Decorator to specify that the function should be called during initialization.
+    """Decorator to specify that the function is a hook that should be called during initialization.
     See :func:`aiperf.common.hooks.hook_decorator`."""
     return hook_decorator(AIPerfHook.ON_INIT, func)
 
 
 def on_start(func: Callable) -> Callable:
-    """Decorator to specify that the function should be called during start.
+    """Decorator to specify that the function is a hook that should be called during start.
     See :func:`aiperf.common.hooks.hook_decorator`."""
     return hook_decorator(AIPerfHook.ON_START, func)
 
 
 def on_stop(func: Callable) -> Callable:
-    """Decorator to specify that the function should be called during stop.
+    """Decorator to specify that the function is a hook that should be called during stop.
     See :func:`aiperf.common.hooks.hook_decorator`."""
     return hook_decorator(AIPerfHook.ON_STOP, func)
 
@@ -168,7 +171,7 @@ def on_stop(func: Callable) -> Callable:
 def on_state_change(
     func: Callable[["HooksMixinT", LifecycleState, LifecycleState], Awaitable],
 ) -> Callable[["HooksMixinT", LifecycleState, LifecycleState], Awaitable]:
-    """Decorator to specify that the function should be called during the service state change.
+    """Decorator to specify that the function is a hook that should be called during the service state change.
     See :func:`aiperf.common.hooks.hook_decorator`."""
     return hook_decorator(AIPerfHook.ON_STATE_CHANGE, func)
 
@@ -201,7 +204,8 @@ def background_task(
 def on_message(
     *message_types: MessageTypeT,
 ) -> Callable:
-    """Decorator to specify that the function should be called when messages of the given type(s) are received.
+    """Decorator to specify that the function is a hook that should be called when messages of the
+    given type(s) are received from the message bus.
     See :func:`aiperf.common.hooks.hook_decorator_with_params`."""
     return hook_decorator_with_params(
         AIPerfHook.ON_MESSAGE, MessageHookParams(message_types=set(message_types))
@@ -211,7 +215,8 @@ def on_message(
 def request_handler(
     *message_types: MessageTypeT,
 ) -> Callable:
-    """Decorator to specify that the function should be called when requests of the given type(s) are received.
+    """Decorator to specify that the function is a hook that should be called when requests of the
+    given type(s) are received from a ReplyClient.
     See :func:`aiperf.common.hooks.hook_decorator_with_params`."""
     return hook_decorator_with_params(
         AIPerfHook.REQUEST_HANDLER, MessageHookParams(message_types=set(message_types))
@@ -221,7 +226,8 @@ def request_handler(
 def command_handler(
     *command_types: CommandType,
 ) -> Callable:
-    """Decorator to specify that the function should be called when commands of the given type(s) are received.
+    """Decorator to specify that the function is a hook that should be called when a CommandMessage with the given
+    command type(s) is received from the message bus.
     See :func:`aiperf.common.hooks.hook_decorator_with_params`."""
     return hook_decorator_with_params(
         AIPerfHook.COMMAND_HANDLER, CommandHookParams(command_types=set(command_types))

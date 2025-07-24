@@ -10,13 +10,13 @@ from aiperf.common.enums import (
     ComposerType,
     CustomDatasetType,
     DataExporterType,
+    EndpointType,
     PostProcessorType,
+    ServiceRunType,
     ServiceType,
     StreamingPostProcessorType,
     ZMQProxyType,
 )
-from aiperf.common.enums.endpoints_enums import EndpointType
-from aiperf.common.enums.service_enums import ServiceRunType
 from aiperf.common.exceptions import FactoryCreationError, InvalidOperationError
 from aiperf.common.types import (
     ClassEnumT,
@@ -209,14 +209,6 @@ class AIPerfFactory(Generic[ClassEnumT, ClassProtocolT]):
 
 
 class CommunicationClientFactory(
-    AIPerfFactory[CommClientType, "CommunicationClientProtocol"]
-):
-    """Factory for registering and creating CommunicationClientProtocol instances based on the specified communication client type.
-    see: :class:`aiperf.common.factories.AIPerfFactory` for more details.
-    """
-
-
-class CommunicationClientProtocolFactory(
     AIPerfFactory[CommClientType, "CommunicationClientProtocol"]
 ):
     """Factory for registering and creating CommunicationClientProtocol instances based on the specified communication client type.
