@@ -16,7 +16,7 @@ from aiperf.common.enums import (
 )
 from aiperf.common.exceptions import CommunicationError, NotInitializedError
 from aiperf.common.factories import ServiceFactory, ServiceManagerFactory
-from aiperf.common.hooks import on_init, on_message, on_start, on_stop
+from aiperf.common.hooks import command_handler, on_init, on_message, on_start, on_stop
 from aiperf.common.logging import get_global_log_queue
 from aiperf.common.messages import (
     CommandResponseMessage,
@@ -27,7 +27,11 @@ from aiperf.common.messages import (
     RegistrationMessage,
     StatusMessage,
 )
-from aiperf.common.messages.command_messages import CommandMessage
+from aiperf.common.messages.command_messages import (
+    CommandMessage,
+    ShutdownWorkersCommandData,
+    SpawnWorkersCommandData,
+)
 from aiperf.common.models import ServiceRunInfo
 from aiperf.common.types import ServiceTypeT
 from aiperf.services.base_service import BaseService
@@ -328,6 +332,34 @@ class SystemController(SignalHandlerMixin, BaseService):
 
         if message.command == CommandType.SHUTDOWN:
             await self.kill()
+
+    @command_handler(CommandType.SPAWN_WORKERS)
+    async def _handle_spawn_workers_command(self, message: CommandMessage) -> None:
+        """Handle a spawn workers command."""
+        self.debug(lambda: f"Received spawn workers command: {message}")
+        if not isinstance(message.data, SpawnWorkersCommandData):
+            raise ValueError(
+                f"Invalid data type for spawn workers command: {type(message.data)}"
+            )
+        await self.service_manager.run_service(
+            ServiceType.WORKER, message.data.num_workers
+        )
+
+    @command_handler(CommandType.SHUTDOWN_WORKERS)
+    async def _handle_shutdown_workers_command(self, message: CommandMessage) -> None:
+        """Handle a shutdown workers command."""
+        self.debug(lambda: f"Received shutdown workers command: {message}")
+        if not isinstance(message.data, ShutdownWorkersCommandData):
+            raise ValueError(
+                f"Invalid data type for shutdown workers command: {type(message.data)}"
+            )
+        await self.service_manager.stop(ServiceType.WORKER, message.data.num_workers)
+
+    @command_handler(CommandType.KILL_WORKERS)
+    async def _handle_kill_workers_command(self, message: CommandMessage) -> None:
+        """Handle a kill workers command."""
+        self.debug(lambda: f"Received kill workers command: {message}")
+        await self.service_manager.kill_workers(message.data.worker_ids)
 
     async def send_command_to_service(
         self,
