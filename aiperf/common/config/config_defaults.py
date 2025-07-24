@@ -203,4 +203,4 @@ class MeasurementDefaults:
 class WorkersDefaults:
     MIN = None
     MAX = None
-    HEALTH_CHECK_INTERVAL_SECONDS = 1.0
+    HEALTH_CHECK_INTERVAL = 1.0

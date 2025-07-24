@@ -42,7 +42,7 @@ class Worker(BaseComponentService, ProcessHealthMixin, CreditProcessorMixin):
     def __init__(
         self,
         service_config: ServiceConfig,
-        user_config: UserConfig | None = None,
+        user_config: UserConfig,
         service_id: str | None = None,
         **kwargs,
     ):
@@ -53,11 +53,9 @@ class Worker(BaseComponentService, ProcessHealthMixin, CreditProcessorMixin):
             **kwargs,
         )
 
-        self.debug(lambda: f"Initializing worker process: {self.process.pid}")
+        self.debug(lambda: f"Worker process __init__ (pid: {self.process.pid})")
 
-        self.health_check_interval = (
-            self.service_config.workers.health_check_interval_seconds
-        )
+        self.health_check_interval = self.service_config.workers.health_check_interval
 
         self.task_stats: dict[CreditPhase, WorkerPhaseTaskStats] = {}
 
@@ -135,7 +133,7 @@ class Worker(BaseComponentService, ProcessHealthMixin, CreditProcessorMixin):
 
     @background_task(
         immediate=False,
-        interval=lambda self: self.service_config.workers.health_check_interval_seconds,
+        interval=lambda self: self.health_check_interval,
     )
     async def _health_check_task(self) -> None:
         """Task to report the health of the worker to the worker manager."""

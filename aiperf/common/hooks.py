@@ -22,12 +22,13 @@ from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field
+from typing_extensions import Self
 
 from aiperf.common.enums import CaseInsensitiveStrEnum, LifecycleState
 from aiperf.common.types import HooksMixinT, MessageTypeT
 
 if TYPE_CHECKING:
-    from aiperf.common.protocols import TaskManagerProtocol
+    pass
 
 
 class AIPerfHook(CaseInsensitiveStrEnum):
@@ -142,7 +143,7 @@ def on_state_change(
 
 
 def background_task(
-    interval: float | Callable[["TaskManagerProtocol"], float] | None = None,
+    interval: float | Callable[["Self"], float] | None = None,
     immediate: bool = True,
     stop_on_error: bool = False,
 ) -> Callable:
