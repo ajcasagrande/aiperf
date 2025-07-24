@@ -16,7 +16,7 @@ from aiperf.common.models.error_models import ErrorDetails
 from aiperf.common.types import MessageTypeT
 
 
-@exclude_if_none(["request_ns", "request_id"])
+@exclude_if_none("request_ns", "request_id")
 class Message(ExcludeIfNoneMixin):
     """Base message class for optimized message handling.
 
@@ -31,7 +31,7 @@ class Message(ExcludeIfNoneMixin):
 
     Example:
     ```python
-    @exclude_if_none(["some_field"])
+    @exclude_if_none("some_field")
     class ExampleMessage(Message):
         some_field: int | None = Field(default=None)
         other_field: int = Field(default=1)

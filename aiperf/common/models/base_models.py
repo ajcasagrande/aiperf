@@ -14,7 +14,7 @@ class AIPerfBaseModel(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
-def exclude_if_none(field_names: list[str]):
+def exclude_if_none(*field_names: str):
     """Decorator to set the _exclude_if_none_fields class attribute to the set of
     field names that should be excluded if they are None.
     """
@@ -22,7 +22,7 @@ def exclude_if_none(field_names: list[str]):
     def decorator(model: type[AIPerfBaseModel]) -> type[AIPerfBaseModel]:
         if not hasattr(model, "_exclude_if_none_fields"):
             model._exclude_if_none_fields = set()
-        model._exclude_if_none_fields.update(field_names)
+        model._exclude_if_none_fields.update(set(field_names))
         return model
 
     return decorator

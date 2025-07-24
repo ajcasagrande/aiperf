@@ -9,13 +9,13 @@ from aiperf.common.messages import Message, StatusMessage
 from aiperf.common.models import exclude_if_none
 
 
-@exclude_if_none(["b"])
+@exclude_if_none("b")
 class MockMessage(Message):
     a: int
     b: int | None = Field(default=None)
 
 
-@exclude_if_none(["c"])
+@exclude_if_none("c")
 class MockMessageSubclass(MockMessage):
     c: int | None = Field(default=None)
 
@@ -54,7 +54,7 @@ def test_exclude_if_none_subclass():
 
 
 def test_exclude_if_none_decorator():
-    @exclude_if_none(["some_field"])
+    @exclude_if_none("some_field")
     class ExampleMessage(Message):
         some_field: int | None = Field(default=None)
 

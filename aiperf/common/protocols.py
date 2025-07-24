@@ -96,11 +96,9 @@ class AIPerfLifecycleProtocol(TaskManagerProtocol, Protocol):
 
 
 @runtime_checkable
-class CommunicationClientProtocol(AIPerfLifecycleProtocol, Protocol): ...
-
-
-"""Specifically called out differently, as it will be used to register the
-communication client protocols with the communication client factory."""
+class CommunicationClientProtocol(AIPerfLifecycleProtocol, Protocol):
+    """Specifically called out differently, as it will be used to register the
+    communication client protocols with the communication client factory."""
 
 
 @runtime_checkable
@@ -163,10 +161,8 @@ class SubClientProtocol(CommunicationClientProtocol, Protocol):
 
 
 @runtime_checkable
-class MessageBusClientProtocol(PubClientProtocol, SubClientProtocol, Protocol): ...
-
-
-"""A message bus client is a client that can publish and subscribe to messages on the event bus/message bus."""
+class MessageBusClientProtocol(PubClientProtocol, SubClientProtocol, Protocol):
+    """A message bus client is a client that can publish and subscribe to messages on the event bus/message bus."""
 
 
 ################################################################################
