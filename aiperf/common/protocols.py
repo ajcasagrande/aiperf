@@ -23,7 +23,6 @@ from aiperf.common.types import (
     MessageT,
     MessageTypeT,
     ModelEndpointInfoT,
-    ParsedResponseRecordT,
     RequestInputT,
     RequestOutputT,
     RequestRecordT,
@@ -34,6 +33,10 @@ from aiperf.common.types import (
     TokenizerT,
     TurnT,
 )
+
+################################################################################
+# Core Base Protocols (Cannot be sorted)
+################################################################################
 
 
 @runtime_checkable
@@ -91,43 +94,50 @@ class AIPerfLifecycleProtocol(TaskManagerProtocol, Protocol):
     async def kill(self) -> None: ...
 
 
-@runtime_checkable
-class DataExporterProtocol(Protocol):
-    """
-    Protocol for data exporters.
-    Any class implementing this protocol must provide an `export` method
-    that takes a list of Record objects and handles exporting them appropriately.
-    """
-
-    async def export(self) -> None: ...
-
-
-class PostProcessorProtocol(Protocol):
-    def process(self, records: dict) -> dict: ...
-
-
-class ResponseExtractor(Protocol):
-    async def extract_response_data(
-        self, record: ParsedResponseRecordT
-    ) -> list[ResponseDataT]: ...
+################################################################################
+# Communication Client Protocols (sorted alphabetically)
+################################################################################
 
 
 @runtime_checkable
 class CommunicationClientProtocol(AIPerfLifecycleProtocol, Protocol): ...
 
 
-@CommunicationClientProtocolFactory.register(CommClientType.PUSH)
-class PushClientProtocol(CommunicationClientProtocol, Protocol):
-    async def push(self, message: MessageT) -> None: ...
+"""Specifically called out differently, as it will be used to register the
+communication client protocols with the communication client factory."""
+
+
+@CommunicationClientProtocolFactory.register(CommClientType.PUB)
+@runtime_checkable
+class PubClientProtocol(CommunicationClientProtocol, Protocol):
+    async def publish(self, message: MessageT) -> None: ...
 
 
 @CommunicationClientProtocolFactory.register(CommClientType.PULL)
+@runtime_checkable
 class PullClientProtocol(CommunicationClientProtocol, Protocol):
     async def register_pull_callback(
         self,
         message_type: MessageTypeT,
         callback: Callable[[MessageT], Coroutine[Any, Any, None]],
         max_concurrency: int | None = DEFAULT_PULL_CLIENT_MAX_CONCURRENCY,
+    ) -> None: ...
+
+
+@CommunicationClientProtocolFactory.register(CommClientType.PUSH)
+@runtime_checkable
+class PushClientProtocol(CommunicationClientProtocol, Protocol):
+    async def push(self, message: MessageT) -> None: ...
+
+
+@CommunicationClientProtocolFactory.register(CommClientType.REPLY)
+@runtime_checkable
+class ReplyClientProtocol(CommunicationClientProtocol, Protocol):
+    def register_request_handler(
+        self,
+        service_id: str,
+        message_type: MessageTypeT,
+        handler: Callable[[MessageT], Coroutine[Any, Any, MessageOutputT | None]],
     ) -> None: ...
 
 
@@ -147,17 +157,6 @@ class RequestClientProtocol(CommunicationClientProtocol, Protocol):
     ) -> None: ...
 
 
-@CommunicationClientProtocolFactory.register(CommClientType.REPLY)
-@runtime_checkable
-class ReplyClientProtocol(CommunicationClientProtocol, Protocol):
-    def register_request_handler(
-        self,
-        service_id: str,
-        message_type: MessageTypeT,
-        handler: Callable[[MessageT], Coroutine[Any, Any, MessageOutputT | None]],
-    ) -> None: ...
-
-
 @CommunicationClientProtocolFactory.register(CommClientType.SUB)
 @runtime_checkable
 class SubClientProtocol(CommunicationClientProtocol, Protocol):
@@ -173,14 +172,9 @@ class SubClientProtocol(CommunicationClientProtocol, Protocol):
     ) -> None: ...
 
 
-@CommunicationClientProtocolFactory.register(CommClientType.PUB)
-@runtime_checkable
-class PubClientProtocol(CommunicationClientProtocol, Protocol):
-    async def publish(self, message: MessageT) -> None: ...
-
-
-@runtime_checkable
-class MessageBusClientProtocol(PubClientProtocol, SubClientProtocol, Protocol): ...
+################################################################################
+# Communication Protocols (sorted alphabetically)
+################################################################################
 
 
 @runtime_checkable
@@ -238,6 +232,47 @@ class CommunicationProtocol(AIPerfLifecycleProtocol, Protocol):
 
 
 @runtime_checkable
+class MessageBusClientProtocol(PubClientProtocol, SubClientProtocol, Protocol): ...
+
+
+"""A message bus client is a client that can publish and subscribe to messages on the event bus/message bus."""
+
+
+################################################################################
+# General Protocols (sorted alphabetically)
+################################################################################
+
+
+@runtime_checkable
+class DataExporterProtocol(Protocol):
+    """
+    Protocol for data exporters.
+    Any class implementing this protocol must provide an `export` method
+    that takes a list of Record objects and handles exporting them appropriately.
+    """
+
+    async def export(self) -> None: ...
+
+
+@runtime_checkable
+class HooksProtocol(Protocol):
+    """Protocol for hooks methods provided by the HooksMixin."""
+
+    def get_hooks(self, *hook_types: HookType, reversed: bool = False) -> list[Hook]:
+        """Get the hooks for the given hook type(s), optionally reversed."""
+        ...
+
+    async def run_hooks(
+        self, *hook_types: HookType, reversed: bool = False, **kwargs
+    ) -> None:
+        """Run the hooks for the given hook type, waiting for each hook to complete before running the next one.
+        If reversed is True, the hooks will be run in reverse order. This is useful for stop/cleanup starting with
+        the children and ending with the parent.
+        """
+        ...
+
+
+@runtime_checkable
 class InferenceClientProtocol(Protocol, Generic[RequestInputT]):
     """Protocol for an inference server client.
 
@@ -276,14 +311,8 @@ class InferenceClientProtocol(Protocol, Generic[RequestInputT]):
 
 
 @runtime_checkable
-class RequestConverterProtocol(Protocol, Generic[RequestOutputT]):
-    """Protocol for a request converter that converts a raw request to a formatted request for the inference server."""
-
-    async def format_payload(
-        self, model_endpoint: ModelEndpointInfoT, turn: TurnT
-    ) -> RequestOutputT:
-        """Format the turn for the inference server."""
-        ...
+class PostProcessorProtocol(Protocol):
+    def process(self, records: dict) -> dict: ...
 
 
 @runtime_checkable
@@ -299,42 +328,20 @@ class ResponseExtractorProtocol(Protocol):
 
 
 @runtime_checkable
-class ServiceProtocol(MessageBusClientProtocol, Protocol):
-    """Protocol for a service. Essentially a MessageBusClientProtocol with a service_type and service_id attributes."""
+class RequestConverterProtocol(Protocol, Generic[RequestOutputT]):
+    """Protocol for a request converter that converts a raw request to a formatted request for the inference server."""
 
-    def __init__(
-        self,
-        user_config: UserConfig,
-        service_config: ServiceConfig,
-        service_id: str | None = None,
-        **kwargs,
-    ) -> None: ...
-
-    service_type: ServiceTypeT
-    service_id: str
-
-
-@runtime_checkable
-class HooksProtocol(Protocol):
-    """Protocol for hooks methods."""
-
-    def get_hooks(self, *hook_types: HookType, reversed: bool = False) -> list[Hook]:
-        """Get the hooks for the given hook type(s), optionally reversed."""
-        ...
-
-    async def run_hooks(
-        self, *hook_types: HookType, reversed: bool = False, **kwargs
-    ) -> None:
-        """Run the hooks for the given hook type, waiting for each hook to complete before running the next one.
-        If reversed is True, the hooks will be run in reverse order. This is useful for stop/cleanup starting with
-        the children and ending with the parent.
-        """
+    async def format_payload(
+        self, model_endpoint: ModelEndpointInfoT, turn: TurnT
+    ) -> RequestOutputT:
+        """Format the turn for the inference server."""
         ...
 
 
 @runtime_checkable
 class ServiceManagerProtocol(AIPerfLifecycleProtocol, Protocol):
-    """Protocol for a service manager.
+    """Protocol for a service manager that manages the running of services using the specific ServiceRunType.
+    Abstracts away the details of service deployment and management.
     see :class:`aiperf.services.service_manager.base.BaseServiceManager` for more details.
     """
 
@@ -370,3 +377,19 @@ class ServiceManagerProtocol(AIPerfLifecycleProtocol, Protocol):
         stop_event: asyncio.Event,
         timeout_seconds: float = DEFAULT_SERVICE_START_TIMEOUT,
     ) -> None: ...
+
+
+@runtime_checkable
+class ServiceProtocol(MessageBusClientProtocol, Protocol):
+    """Protocol for a service. Essentially a MessageBusClientProtocol with a service_type and service_id attributes."""
+
+    def __init__(
+        self,
+        user_config: UserConfig,
+        service_config: ServiceConfig,
+        service_id: str | None = None,
+        **kwargs,
+    ) -> None: ...
+
+    service_type: ServiceTypeT
+    service_id: str

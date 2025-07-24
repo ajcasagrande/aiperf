@@ -45,7 +45,8 @@ class AIPerfFactory(Generic[ClassEnumT, ClassProtocolT]):
                 pass
 
         # Create a new factory for a given class type and protocol.
-        class DatasetFactory(AIPerfFactory[DatasetLoaderType, DatasetLoaderProtocol]): ...
+        class DatasetFactory(FactoryMixin[DatasetLoaderType, DatasetLoaderProtocol]):
+            pass
 
         # Register a new class type mapping to its corresponding class. It should implement the class protocol.
         @DatasetFactory.register(DatasetLoaderType.FILE)

@@ -1,5 +1,9 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+"""
+This module defines common used alias types for AIPerf. This both helps prevent circular imports and
+helps with type hinting.
+"""
 
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any, TypeVar, Union
@@ -40,9 +44,7 @@ ConfigT = TypeVar("ConfigT", bound=Any, covariant=True)
 HooksMixinT = TypeVar("HooksMixinT", bound="HooksMixin")
 InputT = TypeVar("InputT", bound=Any)
 LifecycleMixinT = TypeVar("LifecycleMixinT", bound="AIPerfLifecycleMixin")
-MessageCallbackMapT = dict[
-    "MessageTypeT", Callable[["MessageT"], Any] | list[Callable[["MessageT"], Any]]
-]
+MessageCallbackMapT = dict["MessageTypeT", Callable[["MessageT"], Any] | list[Callable[["MessageT"], Any]]]  # fmt: skip
 MessageOutputT = TypeVar("MessageOutputT", bound="Message")
 MessageT = TypeVar("MessageT", bound="Message")
 MessageTypeT = MessageType | str
@@ -56,9 +58,9 @@ RequestOutputT = TypeVar("RequestOutputT", bound=Any, covariant=True)
 RequestRecordT = TypeVar("RequestRecordT", bound="RequestRecord")
 ResponseDataT = TypeVar("ResponseDataT", bound="ResponseData")
 ResponseT = TypeVar("ResponseT", bound=Any, covariant=True)
-ServiceTypeT = ServiceType | str
 ServiceProtocolT = TypeVar("ServiceProtocolT", bound="ServiceProtocol")
-TaskManagerProtocolT = TypeVar("TaskManagerProtocolT", bound="TaskManagerProtocol")
 ServiceRunInfoT = TypeVar("ServiceRunInfoT", bound="ServiceRunInfo")
+ServiceTypeT = ServiceType | str
+TaskManagerProtocolT = TypeVar("TaskManagerProtocolT", bound="TaskManagerProtocol")
 TokenizerT = TypeVar("TokenizerT", bound="Tokenizer")
 TurnT = TypeVar("TurnT", bound="Turn")
