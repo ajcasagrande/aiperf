@@ -8,14 +8,11 @@ from aiperf.common.enums import EndpointType
 from aiperf.common.factories import RequestConverterFactory
 from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.common.models import Turn
-from aiperf.common.protocols import RequestConverterProtocol
 
 
 # TODO: Not fully implemented yet.
 @RequestConverterFactory.register(EndpointType.OPENAI_COMPLETIONS)
-class OpenAICompletionRequestConverter(
-    AIPerfLoggerMixin, RequestConverterProtocol[dict[str, Any]]
-):
+class OpenAICompletionRequestConverter(AIPerfLoggerMixin):
     """Request converter for OpenAI completion requests."""
 
     async def format_payload(

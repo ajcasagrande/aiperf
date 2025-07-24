@@ -83,16 +83,17 @@ class MultiProcessServiceManager(BaseServiceManager):
             )
 
     async def stop_service(
-        self, service_type: ServiceTypeT, num_replicas: int = 1
+        self, service_type: ServiceTypeT, num_replicas: int | None = 1
     ) -> None:
         self.debug(lambda: f"Stopping {num_replicas} {service_type} processes")
         for info in self.multi_process_info[:]:
             if info.service_type == service_type:
                 await self._wait_for_process(info)
                 self.multi_process_info.remove(info)
-                num_replicas -= 1
-                if num_replicas == 0:
-                    break
+                if num_replicas is not None:
+                    num_replicas -= 1
+                    if num_replicas == 0:
+                        break
 
     async def shutdown_all_services(self) -> None:
         """Stop all required services as multiprocessing processes."""

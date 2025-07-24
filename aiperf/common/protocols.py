@@ -4,7 +4,7 @@
 import asyncio
 import multiprocessing
 from collections.abc import Callable, Coroutine
-from typing import Any, Generic, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.constants import (
@@ -16,7 +16,9 @@ from aiperf.common.constants import (
 from aiperf.common.enums import LifecycleState
 from aiperf.common.hooks import Hook, HookType
 from aiperf.common.messages import Message
-from aiperf.common.models import Turn
+from aiperf.common.models import RequestRecord, ResponseData, Turn
+from aiperf.common.models.service_models import ServiceRunInfo
+from aiperf.common.tokenizer import Tokenizer
 from aiperf.common.types import (
     CommAddressType,
     MessageCallbackMapT,
@@ -25,12 +27,7 @@ from aiperf.common.types import (
     ModelEndpointInfoT,
     RequestInputT,
     RequestOutputT,
-    RequestRecordT,
-    ResponseDataT,
-    ServiceRunInfoT,
     ServiceTypeT,
-    TaskManagerProtocolT,
-    TokenizerT,
 )
 
 ################################################################################
@@ -65,7 +62,7 @@ class TaskManagerProtocol(AIPerfLoggerProtocol, Protocol):
     def start_background_task(
         self,
         method: Callable,
-        interval: float | Callable[[TaskManagerProtocolT], float] | None = None,
+        interval: float | Callable[["TaskManagerProtocol"], float] | None = None,
         immediate: bool = False,
         stop_on_error: bool = False,
     ) -> None: ...
@@ -285,7 +282,7 @@ class InferenceClientProtocol(Protocol):
         self,
         model_endpoint: ModelEndpointInfoT,
         payload: RequestInputT,
-    ) -> RequestRecordT:
+    ) -> RequestRecord:
         """Send a request to the inference server.
 
         This method is used to send a request to the inference server.
@@ -314,14 +311,14 @@ class ResponseExtractorProtocol(Protocol):
     response and converts it to a list of ResponseData objects."""
 
     async def extract_response_data(
-        self, record: RequestRecordT, tokenizer: TokenizerT | None
-    ) -> list[ResponseDataT]:
+        self, record: RequestRecord, tokenizer: Tokenizer | None
+    ) -> list[ResponseData]:
         """Extract the response data from a raw inference server response and convert it to a list of ResponseData objects."""
         ...
 
 
 @runtime_checkable
-class RequestConverterProtocol(Protocol, Generic[RequestOutputT]):
+class RequestConverterProtocol(Protocol):
     """Protocol for a request converter that converts a raw request to a formatted request for the inference server."""
 
     async def format_payload(
@@ -347,8 +344,8 @@ class ServiceManagerProtocol(AIPerfLifecycleProtocol, Protocol):
     ): ...
 
     required_services: dict[ServiceTypeT, int]
-    service_map: dict[ServiceTypeT, list[ServiceRunInfoT]]
-    service_id_map: dict[str, ServiceRunInfoT]
+    service_map: dict[ServiceTypeT, list[ServiceRunInfo]]
+    service_id_map: dict[str, ServiceRunInfo]
 
     async def run_service(
         self, service_type: ServiceTypeT, num_replicas: int = 1

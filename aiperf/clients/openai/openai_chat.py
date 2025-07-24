@@ -1,25 +1,20 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-import logging
 from typing import Any
 
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.enums import EndpointType
 from aiperf.common.factories import RequestConverterFactory
+from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.common.models import Turn
-from aiperf.common.protocols import RequestConverterProtocol
 
 DEFAULT_ROLE = "user"
 
 
 @RequestConverterFactory.register(EndpointType.OPENAI_CHAT_COMPLETIONS)
-class OpenAIChatCompletionRequestConverter(RequestConverterProtocol[dict[str, Any]]):
+class OpenAIChatCompletionRequestConverter(AIPerfLoggerMixin):
     """Request converter for OpenAI chat completion requests."""
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.logger = logging.getLogger(self.__class__.__name__)
 
     async def format_payload(
         self,

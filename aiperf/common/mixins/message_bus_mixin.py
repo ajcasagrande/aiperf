@@ -90,7 +90,9 @@ class MessageBusClientMixin(AIPerfLifecycleMixin, ABC):
         subscription_map: MessageCallbackMapT = {}
         for hook in self.get_hooks(AIPerfHook.ON_MESSAGE):
             if not isinstance(hook.params, MessageHookParams):
-                raise ValueError(f"Invalid hook params: {hook.params}")
+                raise ValueError(
+                    f"Invalid hook params: {hook.params}. Expected MessageHookParams but got {type(hook.params)}"
+                )
             for message_type in hook.params.message_types:
                 subscription_map.setdefault(message_type, []).append(hook.func)
 

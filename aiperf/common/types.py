@@ -24,18 +24,9 @@ if TYPE_CHECKING:
     from aiperf.common.messages.command_messages import CommandMessage
     from aiperf.common.mixins.aiperf_lifecycle_mixin import AIPerfLifecycleMixin
     from aiperf.common.mixins.hooks_mixin import HooksMixin
-    from aiperf.common.models import AIPerfBaseModel, Turn
-    from aiperf.common.models.record_models import (
-        ParsedResponseRecord,
-        RequestRecord,
-        ResponseData,
-    )
-    from aiperf.common.models.service_models import ServiceRunInfo
-    from aiperf.common.protocols import ServiceProtocol, TaskManagerProtocol
-    from aiperf.common.tokenizer import Tokenizer
+    from aiperf.common.protocols import ServiceProtocol
 
 
-BaseModelT = TypeVar("BaseModelT", bound="AIPerfBaseModel")
 ClassEnumT = TypeVar("ClassEnumT", bound="CaseInsensitiveStrEnum")
 ClassProtocolT = TypeVar("ClassProtocolT", bound=Any)
 CommAddressType = Union["CommAddress", str]
@@ -49,17 +40,10 @@ MessageOutputT = TypeVar("MessageOutputT", bound="Message")
 MessageTypeT = MessageType | str
 ModelEndpointInfoT = TypeVar("ModelEndpointInfoT", bound="ModelEndpointInfo")
 OutputT = TypeVar("OutputT", bound=Any)
-ParsedResponseRecordT = TypeVar("ParsedResponseRecordT", bound="ParsedResponseRecord")
 RawRequestT = TypeVar("RawRequestT", bound=Any, contravariant=True)
 RawResponseT = TypeVar("RawResponseT", bound=Any, contravariant=True)
 RequestInputT = TypeVar("RequestInputT", bound=Any, contravariant=True)
 RequestOutputT = TypeVar("RequestOutputT", bound=Any, covariant=True)
-RequestRecordT = TypeVar("RequestRecordT", bound="RequestRecord")
-ResponseDataT = TypeVar("ResponseDataT", bound="ResponseData")
 ResponseT = TypeVar("ResponseT", bound=Any, covariant=True)
 ServiceProtocolT = TypeVar("ServiceProtocolT", bound="ServiceProtocol")
-ServiceRunInfoT = TypeVar("ServiceRunInfoT", bound="ServiceRunInfo")
 ServiceTypeT = ServiceType | str
-TaskManagerProtocolT = TypeVar("TaskManagerProtocolT", bound="TaskManagerProtocol")
-TokenizerT = TypeVar("TokenizerT", bound="Tokenizer")
-TurnT = TypeVar("TurnT", bound="Turn")

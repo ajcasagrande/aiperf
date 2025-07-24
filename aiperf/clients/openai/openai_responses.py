@@ -8,14 +8,11 @@ from aiperf.common.enums import EndpointType
 from aiperf.common.factories import RequestConverterFactory
 from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.common.models import Turn
-from aiperf.common.protocols import RequestConverterProtocol
 
 
 # TODO: Not fully implemented yet.
 @RequestConverterFactory.register(EndpointType.OPENAI_RESPONSES)
-class OpenAIResponsesRequestConverter(
-    AIPerfLoggerMixin, RequestConverterProtocol[dict[str, Any]]
-):
+class OpenAIResponsesRequestConverter(AIPerfLoggerMixin):
     """Request converter for OpenAI Responses requests."""
 
     async def format_payload(
