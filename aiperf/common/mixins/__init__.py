@@ -32,10 +32,6 @@ from aiperf.common.mixins.aiperf_profile_mixins import (
 from aiperf.common.mixins.aiperf_task_mixins import (
     AIPerfTaskMixin,
 )
-from aiperf.common.mixins.async_task_manager_mixin import (
-    AsyncTaskManagerMixin,
-    AsyncTaskManagerProtocol,
-)
 from aiperf.common.mixins.base_mixin import (
     BaseMixin,
 )
@@ -57,6 +53,10 @@ from aiperf.common.mixins.process_health_mixin import (
 )
 from aiperf.common.mixins.progress_tracker_mixin import (
     ProgressTrackerMixin,
+)
+from aiperf.common.mixins.task_manager_mixin import (
+    AsyncTaskManagerMixin,
+    AsyncTaskManagerProtocol,
 )
 
 __all__ = [

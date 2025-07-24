@@ -7,9 +7,10 @@ import uuid
 
 from aiperf.common.enums.base_enums import CaseInsensitiveStrEnum
 from aiperf.common.exceptions import InvalidStateError
-from aiperf.common.hooks import AIPerfHook
+from aiperf.common.hooks import AIPerfHook, AIPerfTaskHook, supports_hooks
 from aiperf.common.mixins.aiperf_logger_mixin import AIPerfLoggerMixin
-from aiperf.common.mixins.task_manager_mixin import TaskManagerMixin
+from aiperf.common.mixins.hooks_mixin import HooksMixin
+from aiperf.common.mixins.task_manager_mixin import AsyncTaskManagerMixin
 
 
 class LifecycleState(CaseInsensitiveStrEnum):
@@ -25,7 +26,16 @@ class LifecycleState(CaseInsensitiveStrEnum):
     FAILED = "failed"
 
 
-class LifecycleMixin(TaskManagerMixin, AIPerfLoggerMixin):
+@supports_hooks(
+    AIPerfHook.ON_INIT,
+    AIPerfHook.ON_START,
+    AIPerfHook.ON_STOP,
+    AIPerfHook.ON_SET_STATE,
+    AIPerfHook.ON_CLEANUP,
+    AIPerfTaskHook.AIPERF_TASK,
+    AIPerfTaskHook.AIPERF_AUTO_TASK,
+)
+class LifecycleMixin(HooksMixin, AIPerfLoggerMixin, AsyncTaskManagerMixin):
     """Mixin to manage the lifecycle of a component/service."""
 
     def __init__(self, id: str | None = None, **kwargs) -> None:
@@ -59,7 +69,7 @@ class LifecycleMixin(TaskManagerMixin, AIPerfLoggerMixin):
         self.state = LifecycleState.INITIALIZING
         self.debug(lambda: f"Initializing {self}")
         try:
-            await self._initialize()
+            await self.run_hooks(AIPerfHook.ON_INIT)
             self.state = LifecycleState.INITIALIZED
             self.debug(lambda: f"Initialized {self}")
             self.initialized_event.set()
@@ -72,7 +82,7 @@ class LifecycleMixin(TaskManagerMixin, AIPerfLoggerMixin):
         self.state = LifecycleState.STARTING
         self.debug(lambda: f"Starting {self}")
         try:
-            await self._start()
+            await self.run_hooks(AIPerfHook.ON_START)
             self.state = LifecycleState.RUNNING
             self.debug(lambda: f"Started {self}")
             self.started_event.set()
@@ -89,19 +99,26 @@ class LifecycleMixin(TaskManagerMixin, AIPerfLoggerMixin):
         self.debug(lambda: f"Stopping {self}")
         try:
             with contextlib.suppress(asyncio.CancelledError, asyncio.TimeoutError):
-                await asyncio.shield(self._stop())
-            self.state = LifecycleState.STOPPED
-            self.debug(lambda: f"Stopped {self}")
-            self.stopped_event.set()
+                await asyncio.shield(self.run_hooks(AIPerfHook.ON_STOP))
         except Exception as e:
             self._fail(e)
 
+        try:
+            with contextlib.suppress(asyncio.CancelledError, asyncio.TimeoutError):
+                await asyncio.shield(self.run_hooks(AIPerfHook.ON_CLEANUP))
+        except Exception as e:
+            self._fail(e)
+
+        self.state = LifecycleState.STOPPED
+        self.debug(lambda: f"Stopped {self}")
+        self.stopped_event.set()
+
     def _fail(self, e: Exception) -> None:
         """Set the state to failed and raise an asyncio.CancelledError."""
-        # TODO: Should we actually raise an asyncio.CancelledError?
         self.state = LifecycleState.FAILED
         self.exception(f"Failed for {self}: {e}")
         self.stopped_event.set()
+        # TODO: Should we actually raise an asyncio.CancelledError?
         raise asyncio.CancelledError(f"Failed for {self}: {e}") from e
 
     def __str__(self) -> str:
@@ -111,15 +128,3 @@ class LifecycleMixin(TaskManagerMixin, AIPerfLoggerMixin):
     def __repr__(self) -> str:
         state = self.state
         return f"<{self.__class__.__qualname__} {self.id} ({state=})>"
-
-    async def _initialize(self) -> None:
-        """Hook method for initialization logic. Make sure to call super()._initialize()"""
-        pass  # Base implementation does nothing
-
-    async def _start(self) -> None:
-        """Hook method for start logic. Make sure to call super()._start()"""
-        pass  # Base implementation does nothing
-
-    async def _stop(self) -> None:
-        """Hook method for stop logic. Make sure to call super()._stop()"""
-        pass  # Base implementation does nothing

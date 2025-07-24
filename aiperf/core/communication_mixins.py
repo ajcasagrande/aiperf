@@ -48,6 +48,29 @@ from aiperf.core.lifecycle import LifecycleMixin
 class CommunicationMixin(LifecycleMixin):
     """Mixin that provides an interface to the communication layer."""
 
+    def __init__(self, service_config: ServiceConfig, **kwargs) -> None:
+        self.comms = CommunicationFactory.create_instance(
+            service_config.comm_backend,
+            config=service_config.comm_config,
+        )
+        super().__init__(
+            comms=self.comms,
+            service_config=service_config,
+            **kwargs,
+        )
+
+    async def _initialize(self) -> None:
+        await super()._initialize()
+        await self.comms.initialize()
+
+    async def _stop(self) -> None:
+        await super()._stop()
+        await self.comms.shutdown()
+
+
+class CommunicationMixin2(LifecycleMixin):
+    """Mixin that provides an interface to the communication layer."""
+
     def __init__(self, comms: BaseCommunication, **kwargs) -> None:
         self.comms = comms
         super().__init__(comms=comms, **kwargs)
@@ -61,7 +84,7 @@ class CommunicationMixin(LifecycleMixin):
         await self.comms.shutdown()
 
 
-class MessageBusMixin(CommunicationMixin):
+class MessageBusMixin(LifecycleMixin):
     """Mixin that provide`s an interface to the message bus."""
 
     def __init__(

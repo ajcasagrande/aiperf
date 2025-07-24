@@ -18,7 +18,6 @@ class EventBusClientMixin(BaseMixin):
         )
         # Pass through the comms and clients to base classes
         super().__init__(
-            comms=comms,
             pub_client=self.pub_client,
             sub_client=self.sub_client,
             **kwargs,
