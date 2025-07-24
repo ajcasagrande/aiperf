@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+import asyncio
+
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.enums import (
     CommandType,
@@ -54,11 +56,13 @@ class BaseComponentService(BaseService):
     )
     async def _heartbeat_task(self) -> None:
         """Send a heartbeat notification to the system controller."""
-        heartbeat_message = self.create_heartbeat_message()
-        self.debug(lambda: f"Sending heartbeat: {heartbeat_message}")
         try:
             await self.pub_client.publish(
-                message=heartbeat_message,
+                HeartbeatMessage(
+                    service_id=self.service_id,
+                    service_type=self.service_type,
+                    state=self.state,
+                )
             )
         except Exception as e:
             raise self._service_error("Failed to send heartbeat") from e
@@ -75,20 +79,14 @@ class BaseComponentService(BaseService):
         )
         try:
             await self.pub_client.publish(
-                message=self.create_registration_message(),
+                RegistrationMessage(
+                    service_id=self.service_id,
+                    service_type=self.service_type,
+                    state=self.state,
+                )
             )
         except Exception as e:
             raise self._service_error("Failed to register service") from e
-
-    @command_handler(CommandType.SHUTDOWN)
-    async def _on_shutdown_command(self, message: CommandMessage) -> None:
-        try:
-            await self.stop()
-        except Exception as e:
-            self.warning(
-                f"Failed to stop service {self} ({self.service_id}) after receiving shutdown command: {e}. Killing."
-            )
-            await self.kill()
 
     @on_state_change
     async def _on_state_change(
@@ -101,29 +99,23 @@ class BaseComponentService(BaseService):
         """
         if self.pub_client.is_running:
             self.execute_async(
-                self.pub_client.publish(self.create_status_message(new_state))
+                self.pub_client.publish(
+                    StatusMessage(
+                        service_id=self.service_id,
+                        state=new_state,
+                        service_type=self.service_type,
+                    )
+                )
             )
 
-    def create_heartbeat_message(self) -> HeartbeatMessage:
-        """Create a heartbeat notification message."""
-        return HeartbeatMessage(
-            service_id=self.service_id,
-            service_type=self.service_type,
-            state=self.state,
-        )
-
-    def create_registration_message(self) -> RegistrationMessage:
-        """Create a registration request message."""
-        return RegistrationMessage(
-            service_id=self.service_id,
-            service_type=self.service_type,
-            state=self.state,
-        )
-
-    def create_status_message(self, state: LifecycleState) -> StatusMessage:
-        """Create a status notification message."""
-        return StatusMessage(
-            service_id=self.service_id,
-            state=state,
-            service_type=self.service_type,
-        )
+    @command_handler(CommandType.SHUTDOWN)
+    async def _on_shutdown_command(self, message: CommandMessage) -> None:
+        self.warning(f"Received shutdown command: {message}, {self.service_id}")
+        try:
+            await self.stop()
+        except Exception as e:
+            self.warning(
+                f"Failed to stop service {self} ({self.service_id}) after receiving shutdown command: {e}. Killing."
+            )
+            await self.kill()
+        raise asyncio.CancelledError()

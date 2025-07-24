@@ -95,18 +95,10 @@ class BaseService(MessageBusClientMixin, ABC):
         """Process a command message received from the controller, and forward it to the appropriate handler.
         Wait for the handler to complete and publish the response, or handle the error and publish the failure response.
         """
-        if (
-            message.target_service_id and message.target_service_id != self.service_id
-        ) or (
-            message.target_service_type
-            and message.target_service_type != self.service_type
-        ):
-            return  # Ignore commands meant for other services, or no target service specified
-
-        self.debug(lambda: f"Processing command message: {message}")
+        self.debug(lambda: f"Received command message: {message.model_dump_json()}")
 
         if message.command == CommandType.SHUTDOWN:
-            self.debug("Received shutdown command")
+            self.notice("Received shutdown command")
             await self.pub_client.publish(
                 CommandResponseMessage(
                     service_id=self.service_id,

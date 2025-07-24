@@ -11,7 +11,6 @@ from aiperf.common.enums.message_enums import MessageType
 from aiperf.common.exceptions import CommunicationError
 from aiperf.common.factories import CommunicationClientFactory
 from aiperf.common.messages import Message
-from aiperf.common.messages.command_messages import CommandMessage
 
 
 @CommunicationClientFactory.register(CommClientType.PUB)
@@ -79,17 +78,18 @@ class ZMQPubClient(BaseZMQClient):
 
         try:
             topic = message.message_type
-
             # For command messages, we can target a specific service by id or type
-            if isinstance(message, CommandMessage):
-                if message.target_service_id:
-                    topic = f"{MessageType.COMMAND}.{message.target_service_id}"
-                elif message.target_service_type:
-                    topic = f"{MessageType.COMMAND}.{message.target_service_type}"
+            if hasattr(message, "target_service_id") and message.target_service_id:
+                topic = f"{MessageType.COMMAND}.{message.target_service_id}"
+            elif (
+                hasattr(message, "target_service_type") and message.target_service_type
+            ):
+                topic = f"{MessageType.COMMAND}.{message.target_service_type}"
 
             message_json = message.model_dump_json()
 
             # Publish message
+            self.trace(lambda: f"Publishing message {topic=} {message_json=}")
             await self.socket.send_multipart([topic.encode(), message_json.encode()])
 
         except (asyncio.CancelledError, zmq.ContextTerminated):
