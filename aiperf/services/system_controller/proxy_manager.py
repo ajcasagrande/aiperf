@@ -2,13 +2,14 @@
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
 
+import zmq.asyncio
+
 from aiperf.common.comms import BaseZMQProxy
-from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
+from aiperf.common.config import ServiceConfig
 from aiperf.common.enums import ZMQProxyType
 from aiperf.common.factories import ZMQProxyFactory
 from aiperf.common.hooks import on_init, on_start, on_stop
-from aiperf.common.mixins.aiperf_lifecycle_mixin import AIPerfLifecycleMixin
+from aiperf.common.mixins import AIPerfLifecycleMixin
 
 
 class ProxyManager(AIPerfLifecycleMixin):
@@ -53,13 +54,8 @@ class ProxyManager(AIPerfLifecycleMixin):
     @on_stop
     async def _stop_proxies(self) -> None:
         self.debug("Stopping all proxies")
-        await asyncio.wait_for(
-            asyncio.gather(
-                self.event_bus_proxy.stop(),
-                self.dataset_manager_proxy.stop(),
-                self.raw_inference_proxy.stop(),
-                return_exceptions=True,
-            ),
-            timeout=TASK_CANCEL_TIMEOUT_SHORT,
-        )
+        await self.dataset_manager_proxy.stop()
+        await self.raw_inference_proxy.stop()
+        await self.event_bus_proxy.stop()
+        zmq.asyncio.Context.instance().destroy()
         self.debug("All proxies stopped successfully")

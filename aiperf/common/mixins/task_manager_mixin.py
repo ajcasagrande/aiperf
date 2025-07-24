@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
-import contextlib
 import inspect
 from collections.abc import Callable, Coroutine
 
@@ -16,6 +15,7 @@ class TaskManagerMixin(AIPerfLoggerMixin):
 
     def __init__(self, **kwargs):
         self.tasks: set[asyncio.Task] = set()
+        self._shutdown_in_progress = False
         super().__init__(**kwargs)
 
     def execute_async(self, coro: Coroutine) -> asyncio.Task:
@@ -42,14 +42,18 @@ class TaskManagerMixin(AIPerfLoggerMixin):
         if not self.tasks:
             return
 
-        for task in list(self.tasks):
+        # Set shutdown flag to prevent new tasks from being created
+        self._shutdown_in_progress = True
+
+        task_list = list(self.tasks)
+        for task in task_list:
             task.cancel()
 
-        with contextlib.suppress(asyncio.TimeoutError, asyncio.CancelledError):
-            await asyncio.wait_for(
-                asyncio.gather(*self.tasks, return_exceptions=True),
-                timeout=timeout,
-            )
+        # with contextlib.suppress(asyncio.TimeoutError, asyncio.CancelledError):
+        #     await asyncio.wait_for(
+        #         asyncio.gather(*task_list, return_exceptions=True),
+        #         timeout=timeout,
+        #     )
 
         # Clear the tasks set after cancellation to avoid memory leaks
         self.tasks.clear()

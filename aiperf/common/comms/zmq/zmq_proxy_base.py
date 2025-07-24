@@ -195,7 +195,7 @@ class BaseZMQProxy(AIPerfLifecycleMixin, ABC):
         """
         self.debug("Starting Proxy...")
 
-        self.execute_async(
+        self.proxy_task = asyncio.create_task(
             asyncio.to_thread(
                 zmq.proxy_steerable,
                 self.frontend_socket.socket,
@@ -240,5 +240,12 @@ class BaseZMQProxy(AIPerfLifecycleMixin, ABC):
     async def _stop_proxy(self) -> None:
         """Shutdown the BaseZMQProxy."""
         self.debug("Proxy Stopping...")
-
-        # TODO: Cancel the proxy tasks
+        if self.proxy_task:
+            self.proxy_task.cancel()
+            self.proxy_task = None
+        await self.frontend_socket.stop()
+        await self.backend_socket.stop()
+        if self.control_client:
+            await self.control_client.stop()
+        if self.capture_client:
+            await self.capture_client.stop()

@@ -97,25 +97,26 @@ class BaseComponentService(BaseService):
         This method will also publish the status message to the status message_type if the
         communications are initialized.
         """
-        if self.pub_client.is_running:
-            self.execute_async(
-                self.pub_client.publish(
-                    StatusMessage(
-                        service_id=self.service_id,
-                        state=new_state,
-                        service_type=self.service_type,
-                    )
+        if self.stop_requested:
+            return
+        self.execute_async(
+            self.pub_client.publish(
+                StatusMessage(
+                    service_id=self.service_id,
+                    state=new_state,
+                    service_type=self.service_type,
                 )
             )
+        )
 
     @command_handler(CommandType.SHUTDOWN)
     async def _on_shutdown_command(self, message: CommandMessage) -> None:
-        self.warning(f"Received shutdown command: {message}, {self.service_id}")
+        self.debug(f"Received shutdown command: {message}, {self.service_id}")
         try:
             await self.stop()
         except Exception as e:
             self.warning(
                 f"Failed to stop service {self} ({self.service_id}) after receiving shutdown command: {e}. Killing."
             )
-            await self.kill()
+            await self._kill()
         raise asyncio.CancelledError()

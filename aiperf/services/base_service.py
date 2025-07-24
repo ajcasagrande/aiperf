@@ -100,7 +100,7 @@ class BaseService(MessageBusClientMixin, ABC):
         self.debug(lambda: f"Received command message: {message.model_dump_json()}")
 
         if message.command == CommandType.SHUTDOWN:
-            self.notice("Received shutdown command")
+            self.debug("Received shutdown command")
             await self.pub_client.publish(
                 CommandResponseMessage(
                     service_id=self.service_id,

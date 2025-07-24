@@ -53,6 +53,7 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
         old_state = self._state
         self._state = state
         self.debug(lambda: f"State changed from {old_state!r} to {state!r} for {self}")
+
         self.execute_async(
             self.run_hooks(
                 AIPerfHook.ON_STATE_CHANGE, old_state=old_state, new_state=state
@@ -134,7 +135,7 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
         if self.stop_requested:
             # If we are already in a stopping state, we need to kill the process to be safe.
             self.warning(f"Attempted to stop {self} in state {self.state}. Killing.")
-            await self.kill()
+            await self._kill()
             return
 
         self._stop_requested_event.set()
@@ -167,7 +168,7 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
         """Stop all tasks in the set and wait for them to complete."""
         await self.cancel_all_tasks()
 
-    async def kill(self) -> None:
+    async def _kill(self) -> None:
         """Kill the lifecycle."""
         self.state = LifecycleState.FAILED
         self.debug(lambda: f"Killed {self}")
