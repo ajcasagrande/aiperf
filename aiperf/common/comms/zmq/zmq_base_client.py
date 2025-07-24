@@ -1,11 +1,12 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+import asyncio
 import uuid
 
 import zmq.asyncio
 
 from aiperf.common.comms.zmq.zmq_defaults import ZMQSocketDefaults
-from aiperf.common.exceptions import InitializationError
+from aiperf.common.exceptions import InitializationError, NotInitializedError
 from aiperf.common.hooks import on_init, on_stop
 from aiperf.common.mixins.aiperf_lifecycle_mixin import AIPerfLifecycleMixin
 
@@ -57,8 +58,10 @@ class BaseZMQClient(AIPerfLifecycleMixin):
 
     async def _ensure_initialized(self) -> None:
         """Ensure the socket is initialized."""
+        if self.was_stopped:
+            raise asyncio.CancelledError("Socket was stopped")
         if not self.socket:
-            await super().initialize()
+            raise NotInitializedError("Socket not initialized or closed")
 
     @property
     def socket_type_name(self) -> str:
@@ -77,15 +80,13 @@ class BaseZMQClient(AIPerfLifecycleMixin):
         """
         try:
             self.socket = self.context.socket(self.socket_type)
+            self.debug(
+                lambda: f"ZMQ {self.socket_type_name} socket initialized, try {'BIND' if self.bind else 'CONNECT'} to {self.address} ({self.client_id})"
+            )
+
             if self.bind:
-                self.debug(
-                    lambda: f"ZMQ {self.socket_type_name} socket initialized, try BIND to {self.address} ({self.client_id})"
-                )
                 self.socket.bind(self.address)
             else:
-                self.debug(
-                    lambda: f"ZMQ {self.socket_type_name} socket initialized, try CONNECT to {self.address} ({self.client_id})"
-                )
                 self.socket.connect(self.address)
 
             # Set default timeouts

@@ -1,10 +1,10 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-from typing import Any, ClassVar, TypeVar
+from typing import Any, ClassVar
 
 from pydantic import BaseModel, ConfigDict, model_serializer
 
-BaseModelT = TypeVar("BaseModelT", bound="AIPerfBaseModel")
+from aiperf.common.types import BaseModelT
 
 
 class AIPerfBaseModel(BaseModel):

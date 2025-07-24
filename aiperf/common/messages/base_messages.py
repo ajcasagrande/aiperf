@@ -11,11 +11,8 @@ from pydantic import (
 )
 
 from aiperf.common.enums.message_enums import MessageType
-from aiperf.common.models import (
-    ErrorDetails,
-    ExcludeIfNoneMixin,
-    exclude_if_none,
-)
+from aiperf.common.models.base_models import ExcludeIfNoneMixin, exclude_if_none
+from aiperf.common.models.error_models import ErrorDetails
 from aiperf.common.types import MessageTypeT
 
 

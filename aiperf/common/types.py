@@ -4,8 +4,6 @@
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any, TypeVar, Union
 
-from aiperf.common.messages.command_messages import CommandMessage
-
 if TYPE_CHECKING:
     from aiperf.clients.model_endpoint_info import ModelEndpointInfo
     from aiperf.common.enums import (
@@ -16,9 +14,10 @@ if TYPE_CHECKING:
         ServiceType,
     )
     from aiperf.common.messages.base_messages import Message
+    from aiperf.common.messages.command_messages import CommandMessage
     from aiperf.common.mixins.aiperf_lifecycle_mixin import AIPerfLifecycleMixin
     from aiperf.common.mixins.hooks_mixin import HooksMixin
-    from aiperf.common.models import Turn
+    from aiperf.common.models import AIPerfBaseModel, Turn
     from aiperf.common.models.record_models import (
         ParsedResponseRecord,
         RequestRecord,
@@ -27,10 +26,12 @@ if TYPE_CHECKING:
     from aiperf.common.protocols import TaskManagerProtocol
     from aiperf.common.tokenizer import Tokenizer
 
+
+BaseModelT = TypeVar("BaseModelT", bound="AIPerfBaseModel")
 ClassEnumT = TypeVar("ClassEnumT", bound="CaseInsensitiveStrEnum")
 ClassProtocolT = TypeVar("ClassProtocolT", bound=Any)
 CommAddressType = Union["CommAddress", str]
-CommandCallbackMapT = dict[CommandType, Callable[[CommandMessage], Awaitable[Any]]]
+CommandCallbackMapT = dict["CommandType", Callable[["CommandMessage"], Awaitable[Any]]]
 ConfigT = TypeVar("ConfigT", bound=Any, covariant=True)
 HooksMixinT = TypeVar("HooksMixinT", bound="HooksMixin")
 InputT = TypeVar("InputT", bound=Any)

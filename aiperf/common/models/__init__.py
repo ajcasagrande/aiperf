@@ -10,7 +10,6 @@ __ignore__ = []
 ########################################################################
 from aiperf.common.models.base_models import (
     AIPerfBaseModel,
-    BaseModelT,
     ExcludeIfNoneMixin,
     exclude_if_none,
 )
@@ -56,7 +55,6 @@ from aiperf.common.models.worker_models import (
 __all__ = [
     "AIPerfBaseModel",
     "Audio",
-    "BaseModelT",
     "CPUTimes",
     "Conversation",
     "CreditPhaseConfig",
