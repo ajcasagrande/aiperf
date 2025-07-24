@@ -159,6 +159,7 @@ class TimingManager(BaseComponentService, CreditPhaseMessagesMixin):
         # TODO: HACK: Remove this once we have a better way to track the state of the system from the controller
         await asyncio.sleep(2)
         self.execute_async(self._credit_issuing_strategy.start())
+        self.info("Profiling started")
 
     @on_stop
     async def _timing_manager_stop(self) -> None:

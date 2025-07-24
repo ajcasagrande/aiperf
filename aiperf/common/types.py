@@ -4,6 +4,10 @@
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any, TypeVar, Union
 
+from aiperf.common.enums.service_enums import (
+    ServiceType,  # NOTE: Required for pydantic models to work
+)
+
 if TYPE_CHECKING:
     from aiperf.clients.model_endpoint_info import ModelEndpointInfo
     from aiperf.common.enums import (
@@ -11,7 +15,6 @@ if TYPE_CHECKING:
         CommAddress,
         CommandType,
         MessageType,
-        ServiceType,
     )
     from aiperf.common.messages.base_messages import Message
     from aiperf.common.messages.command_messages import CommandMessage
@@ -52,7 +55,7 @@ RequestOutputT = TypeVar("RequestOutputT", bound=Any, covariant=True)
 RequestRecordT = TypeVar("RequestRecordT", bound="RequestRecord")
 ResponseDataT = TypeVar("ResponseDataT", bound="ResponseData")
 ResponseT = TypeVar("ResponseT", bound=Any, covariant=True)
-ServiceTypeT = Union["ServiceType", str]
+ServiceTypeT = ServiceType | str
 TaskManagerProtocolT = TypeVar("TaskManagerProtocolT", bound="TaskManagerProtocol")
 TokenizerT = TypeVar("TokenizerT", bound="Tokenizer")
 TurnT = TypeVar("TurnT", bound="Turn")

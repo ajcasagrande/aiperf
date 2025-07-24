@@ -2,17 +2,32 @@
 # SPDX-License-Identifier: Apache-2.0
 import uuid
 from abc import ABC
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
+from aiperf.common.enums.command_enums import CommandResponseStatus, CommandType
+from aiperf.common.enums.message_enums import MessageType
 from aiperf.common.exceptions import (
     ServiceError,
 )
+from aiperf.common.hooks import (
+    AIPerfHook,
+    CommandHookParams,
+    on_init,
+    on_message,
+    provides_hooks,
+)
+from aiperf.common.messages.command_messages import (
+    CommandMessage,
+    CommandResponseMessage,
+)
 from aiperf.common.mixins.message_bus_mixin import MessageBusClientMixin
-from aiperf.common.types import ServiceTypeT
+from aiperf.common.models.error_models import ErrorDetails
+from aiperf.common.types import MessageCallbackMapT, ServiceTypeT
 
 
+@provides_hooks(AIPerfHook.COMMAND_HANDLER)
 class BaseService(MessageBusClientMixin, ABC):
     """Base class for all AIPerf services, providing common functionality for
     communication, state management, and lifecycle operations.
@@ -63,4 +78,72 @@ class BaseService(MessageBusClientMixin, ABC):
             message=message,
             service_type=self.service_type,
             service_id=self.service_id,
+        )
+
+    @on_init
+    async def _subscribe_to_command_messages(self) -> None:
+        """Subscribe to command messages for all services, specifically for the service type,
+        and specific to our service id."""
+        subscription_map: MessageCallbackMapT = {
+            f"{MessageType.COMMAND}.{self.service_type}": self._process_command_message,
+            f"{MessageType.COMMAND}.{self.service_id}": self._process_command_message,
+        }
+        await self.subscribe_all(subscription_map)
+
+    @on_message(MessageType.COMMAND)
+    async def _process_command_message(self, message: CommandMessage) -> None:
+        """Process a command message received from the controller, and forward it to the appropriate handler.
+        Wait for the handler to complete and publish the response, or handle the error and publish the failure response.
+        """
+        if (
+            message.target_service_id and message.target_service_id != self.service_id
+        ) or (
+            message.target_service_type
+            and message.target_service_type != self.service_type
+        ):
+            return  # Ignore commands meant for other services, or no target service specified
+
+        self.debug(lambda: f"Processing command message: {message}")
+
+        if message.command == CommandType.SHUTDOWN:
+            self.debug("Received shutdown command")
+            await self.pub_client.publish(
+                CommandResponseMessage(
+                    service_id=self.service_id,
+                    command=message.command,
+                    command_id=message.command_id,
+                    status=CommandResponseStatus.ACKNOWLEDGED,
+                )
+            )
+
+        response_status = CommandResponseStatus.SUCCESS
+        response_error: ErrorDetails | None = None
+        response_data: Any | None = None
+
+        for hook in self.get_hooks(AIPerfHook.COMMAND_HANDLER):
+            if (
+                isinstance(hook.params, CommandHookParams)
+                and message.command in hook.params.command_types
+            ):
+                try:
+                    response_data = await hook.func(message)
+                except Exception as e:
+                    self.exception(
+                        f"Failed to handle command {message.command} with hook {hook}: {e}"
+                    )
+                    response_status = CommandResponseStatus.FAILURE
+                    response_error = ErrorDetails.from_exception(e)
+
+                # Break out of the loop after the first successful handler (only 1 handler per command)
+                break
+
+        await self.pub_client.publish(
+            CommandResponseMessage(
+                service_id=self.service_id,
+                command=message.command,
+                command_id=message.command_id,
+                status=response_status,
+                data=response_data,
+                error=response_error,
+            ),
         )

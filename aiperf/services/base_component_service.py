@@ -1,36 +1,26 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-from typing import Any
 
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.enums import (
-    CommandResponseStatus,
     CommandType,
     LifecycleState,
-    MessageType,
 )
 from aiperf.common.hooks import (
-    AIPerfHook,
-    CommandHookParams,
     background_task,
     command_handler,
     on_init,
-    on_message,
     on_state_change,
-    provides_hooks,
 )
 from aiperf.common.messages import (
     CommandMessage,
-    CommandResponseMessage,
     HeartbeatMessage,
     RegistrationMessage,
     StatusMessage,
 )
-from aiperf.common.models import ErrorDetails
 from aiperf.services.base_service import BaseService
 
 
-@provides_hooks(AIPerfHook.COMMAND_HANDLER)
 class BaseComponentService(BaseService):
     """Base class for all Component services.
 
@@ -89,64 +79,6 @@ class BaseComponentService(BaseService):
             )
         except Exception as e:
             raise self._service_error("Failed to register service") from e
-
-    @on_message(MessageType.COMMAND)
-    async def _process_command_message(self, message: CommandMessage) -> None:
-        """Process a command message received from the controller, and forward it to the appropriate handler.
-        Wait for the handler to complete and publish the response, or handle the error and publish the failure response.
-        """
-        if (
-            message.target_service_id and message.target_service_id != self.service_id
-        ) or (
-            message.target_service_type
-            and message.target_service_type != self.service_type
-        ):
-            return  # Ignore commands meant for other services, or no target service specified
-
-        self.debug(lambda: f"Processing command message: {message}")
-
-        if message.command == CommandType.SHUTDOWN:
-            self.debug("Received shutdown command")
-            await self.pub_client.publish(
-                CommandResponseMessage(
-                    service_id=self.service_id,
-                    command=message.command,
-                    command_id=message.command_id,
-                    status=CommandResponseStatus.ACKNOWLEDGED,
-                )
-            )
-
-        response_status = CommandResponseStatus.SUCCESS
-        response_error: ErrorDetails | None = None
-        response_data: Any | None = None
-
-        for hook in self.get_hooks(AIPerfHook.COMMAND_HANDLER):
-            if (
-                isinstance(hook.params, CommandHookParams)
-                and message.command in hook.params.command_types
-            ):
-                try:
-                    response_data = await hook.func(message)
-                except Exception as e:
-                    self.exception(
-                        f"Failed to handle command {message.command} with hook {hook}: {e}"
-                    )
-                    response_status = CommandResponseStatus.FAILURE
-                    response_error = ErrorDetails.from_exception(e)
-
-                # Break out of the loop after the first successful handler (only 1 handler per command)
-                break
-
-        await self.pub_client.publish(
-            CommandResponseMessage(
-                service_id=self.service_id,
-                command=message.command,
-                command_id=message.command_id,
-                status=response_status,
-                data=response_data,
-                error=response_error,
-            ),
-        )
 
     @command_handler(CommandType.SHUTDOWN)
     async def _on_shutdown_command(self, message: CommandMessage) -> None:

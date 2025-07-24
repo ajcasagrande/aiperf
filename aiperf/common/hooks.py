@@ -24,7 +24,12 @@ from typing import TYPE_CHECKING, Any
 from pydantic import BaseModel, Field
 from typing_extensions import Self
 
-from aiperf.common.enums import CaseInsensitiveStrEnum, CommandType, LifecycleState
+from aiperf.common.enums import (
+    CaseInsensitiveStrEnum,
+    CommandType,
+    LifecycleState,
+    MessageType,  # noqa: F401 - needed for pydantic BaseModel
+)
 from aiperf.common.types import HooksMixinT, MessageTypeT
 
 if TYPE_CHECKING:
