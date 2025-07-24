@@ -228,10 +228,7 @@ class SystemController(SignalHandlerMixin, BaseService):
             self.service_manager.service_map[service_type] = []
         self.service_manager.service_map[service_type].append(service_info)
 
-        required = service_type in self.required_services
-        self.info(
-            lambda: f"Registered {required=} service: {service_type=} with ID: {service_id=}"
-        )
+        self.info(lambda: f"Registered service: {service_type=} with ID: {service_id=}")
 
         # Send configure command to the newly registered service
         try:
