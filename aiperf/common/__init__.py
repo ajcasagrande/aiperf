@@ -116,6 +116,8 @@ from aiperf.common.config import (
 from aiperf.common.constants import (
     BYTES_PER_MIB,
     DEFAULT_COMMS_REQUEST_TIMEOUT,
+    DEFAULT_SERVICE_REGISTRATION_TIMEOUT,
+    DEFAULT_SERVICE_START_TIMEOUT,
     GRACEFUL_SHUTDOWN_TIMEOUT_SECONDS,
     NANOS_PER_MILLIS,
     NANOS_PER_SECOND,
@@ -191,6 +193,7 @@ from aiperf.common.factories import (
     FactoryMixin,
     PostProcessorFactory,
     ServiceFactory,
+    ServiceManagerFactory,
     StreamingPostProcessorFactory,
 )
 from aiperf.common.hooks import (
@@ -259,6 +262,8 @@ from aiperf.common.messages import (
     RecordsProcessingStatsMessage,
     RegistrationMessage,
     RequiresRequestNSMixin,
+    ShutdownWorkersCommandData,
+    SpawnWorkersCommandData,
     StatusMessage,
     SweepProgressMessage,
     WorkerHealthMessage,
@@ -304,6 +309,9 @@ from aiperf.common.models import (
     WorkerPhaseTaskStats,
     exclude_if_none,
 )
+from aiperf.common.protocols import (
+    ServiceManagerProtocol,
+)
 from aiperf.common.service import (
     BaseComponentService,
     BaseControllerService,
@@ -326,6 +334,8 @@ from aiperf.common.types import (
     RequestInputT,
     RequestOutputT,
     ResponseT,
+    ServiceRunInfoT,
+    ServiceTypeT,
 )
 from aiperf.common.utils import (
     call_all_functions,
@@ -418,6 +428,8 @@ __all__ = [
     "CustomDatasetFactory",
     "CustomDatasetType",
     "DEFAULT_COMMS_REQUEST_TIMEOUT",
+    "DEFAULT_SERVICE_REGISTRATION_TIMEOUT",
+    "DEFAULT_SERVICE_START_TIMEOUT",
     "DataExporterFactory",
     "DataExporterProtocol",
     "DataExporterType",
@@ -537,12 +549,18 @@ __all__ = [
     "ServiceDefaults",
     "ServiceError",
     "ServiceFactory",
+    "ServiceManagerFactory",
+    "ServiceManagerProtocol",
     "ServiceRegistrationStatus",
     "ServiceRunInfo",
+    "ServiceRunInfoT",
     "ServiceRunType",
     "ServiceState",
     "ServiceType",
+    "ServiceTypeT",
     "ShutdownError",
+    "ShutdownWorkersCommandData",
+    "SpawnWorkersCommandData",
     "StatusMessage",
     "StreamingPostProcessorFactory",
     "StreamingPostProcessorType",

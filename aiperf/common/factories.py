@@ -9,6 +9,7 @@ from aiperf.common.enums import (
     ServiceType,
     StreamingPostProcessorType,
 )
+from aiperf.common.enums.service_enums import ServiceRunType
 from aiperf.common.exceptions import FactoryCreationError
 
 ClassEnumT = TypeVar("ClassEnumT", bound=CaseInsensitiveStrEnum)
@@ -323,3 +324,11 @@ class StreamingPostProcessorFactory(
     """Factory for creating StreamingPostProcessor instances.
     see: :class:`FactoryMixin` for more details.
     """
+
+
+class ServiceManagerFactory(FactoryMixin[ServiceRunType, "ServiceManagerProtocol"]): ...
+
+
+"""Factory for creating ServiceManager instances.
+see: :class:`FactoryMixin` for more details.
+"""

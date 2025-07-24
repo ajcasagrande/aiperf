@@ -24,7 +24,7 @@ from aiperf.common.enums import (
     ZMQProxyType,
 )
 from aiperf.common.exceptions import CommunicationError, NotInitializedError
-from aiperf.common.factories import ServiceFactory
+from aiperf.common.factories import ServiceFactory, ServiceManagerFactory
 from aiperf.common.hooks import on_cleanup, on_stop
 from aiperf.common.messages import (
     CommandResponseMessage,
@@ -34,6 +34,11 @@ from aiperf.common.messages import (
     ProcessRecordsCommandData,
     RegistrationMessage,
     StatusMessage,
+)
+from aiperf.common.messages.command_messages import (
+    CommandMessage,
+    ShutdownWorkersCommandData,
+    SpawnWorkersCommandData,
 )
 from aiperf.common.models import ServiceRunInfo
 from aiperf.common.service.base_controller_service import BaseControllerService
@@ -76,7 +81,15 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
             ServiceType.INFERENCE_RESULT_PARSER: service_config.result_parser_service_count,
         }
 
-        self.service_manager: BaseServiceManager = None  # type: ignore - is set in _initialize
+        self.service_manager: BaseServiceManager = (
+            ServiceManagerFactory.create_instance(
+                self.service_config.service_run_type.value,
+                required_services=self.required_services,
+                user_config=self.user_config,
+                service_config=self.service_config,
+                log_queue=get_global_log_queue(),
+            )
+        )
 
         self.event_bus_proxy: BaseZMQProxy | None = None
         self.event_bus_proxy_task: asyncio.Task | None = None
@@ -513,6 +526,30 @@ class SystemController(SignalHandlerMixin, BaseControllerService):
         except Exception as e:
             self.logger.error("Exception publishing command: %s", e)
             raise CommunicationError(f"Failed to publish command: {e}") from e
+
+    @command_handler(CommandType.SPAWN_WORKERS)
+    async def _handle_spawn_workers_command(self, message: CommandMessage) -> None:
+        """Handle a spawn workers command."""
+        self.debug(lambda: f"Received spawn workers command: {message}")
+        if not isinstance(message.data, SpawnWorkersCommandData):
+            raise ValueError(
+                f"Invalid data type for spawn workers command: {type(message.data)}"
+            )
+        await self.service_manager.run_service(
+            ServiceType.WORKER, message.data.num_workers
+        )
+
+    @command_handler(CommandType.SHUTDOWN_WORKERS)
+    async def _handle_shutdown_workers_command(self, message: CommandMessage) -> None:
+        """Handle a shutdown workers command."""
+        self.debug(lambda: f"Received shutdown workers command: {message}")
+        if not isinstance(message.data, ShutdownWorkersCommandData):
+            raise ValueError(
+                f"Invalid data type for shutdown workers command: {type(message.data)}"
+            )
+        await self.service_manager.stop_service(
+            ServiceType.WORKER, message.data.num_workers
+        )
 
     async def kill(self):
         """Kill the system controller."""
