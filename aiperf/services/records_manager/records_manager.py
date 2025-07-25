@@ -14,8 +14,8 @@ from aiperf.common.enums import (
 )
 from aiperf.common.factories import ServiceFactory, StreamingPostProcessorFactory
 from aiperf.common.hooks import (
-    command_handler,
     implements_protocol,
+    on_command,
     on_init,
     on_pull_message,
     on_start,
@@ -126,7 +126,7 @@ class RecordsManager(PullClientMixin, BaseComponentService):
                 )
                 await streamer.records_queue.put(message.record)
 
-    @command_handler(CommandType.PROCESS_RECORDS)
+    @on_command(CommandType.PROCESS_RECORDS)
     async def _on_process_records_command(self, message: CommandMessage) -> list[Any]:
         """Handle the process records command by forwarding it to all of the streaming post processors, and returning the results."""
         self.debug(lambda: f"Received process records command: {message}")

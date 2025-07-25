@@ -6,19 +6,22 @@ helps with type hinting.
 """
 
 from collections.abc import Awaitable, Callable
+from types import UnionType
 from typing import TYPE_CHECKING, Any, TypeVar, Union
 
 from aiperf.common.enums import (
-    MessageType,  # NOTE: Required for pydantic models to work
-    ServiceType,  # NOTE: Required for pydantic models to work
+    CommandType,
+    MessageType,
+    ServiceType,
 )
 
 if TYPE_CHECKING:
+    from pydantic import BaseModel
+
     from aiperf.clients.model_endpoint_info import ModelEndpointInfo
     from aiperf.common.enums import (
         CaseInsensitiveStrEnum,
         CommAddress,
-        CommandType,
     )
     from aiperf.common.messages.base_messages import Message
     from aiperf.common.messages.command_messages import CommandMessage
@@ -28,13 +31,19 @@ if TYPE_CHECKING:
     from aiperf.common.protocols import ServiceProtocol
 
 
+AnyT = Any
+AnyClassT = type | UnionType
 AIPerfBaseModelT = TypeVar("AIPerfBaseModelT", bound="AIPerfBaseModel")
+BaseModelT = TypeVar("BaseModelT", bound="BaseModel")
 ClassEnumT = TypeVar("ClassEnumT", bound="CaseInsensitiveStrEnum")
 ClassProtocolT = TypeVar("ClassProtocolT", bound=Any)
 CommAddressType = Union["CommAddress", str]
 CommandCallbackMapT = dict["CommandType", Callable[["CommandMessage"], Awaitable[Any]]]
+CommandTypeT = CommandType | str
 ConfigT = TypeVar("ConfigT", bound=Any, covariant=True)
 HooksMixinT = TypeVar("HooksMixinT", bound="HooksMixin")
+HookParamsT = TypeVar("HookParamsT", bound="BaseModel")
+HookCallableParamsT = HookParamsT | Callable[["SelfT"], HookParamsT]
 InputT = TypeVar("InputT", bound=Any)
 LifecycleMixinT = TypeVar("LifecycleMixinT", bound="AIPerfLifecycleMixin")
 MessageCallbackMapT = dict["MessageTypeT", Callable[["Message"], Any] | list[Callable[["Message"], Any]]]  # fmt: skip
@@ -48,5 +57,6 @@ RawResponseT = TypeVar("RawResponseT", bound=Any, contravariant=True)
 RequestInputT = TypeVar("RequestInputT", bound=Any, contravariant=True)
 RequestOutputT = TypeVar("RequestOutputT", bound=Any, covariant=True)
 ResponseT = TypeVar("ResponseT", bound=Any, covariant=True)
+SelfT = TypeVar("SelfT", bound=Any)
 ServiceProtocolT = TypeVar("ServiceProtocolT", bound="ServiceProtocol")
 ServiceTypeT = ServiceType | str

@@ -16,7 +16,7 @@ from aiperf.common.enums import (
 )
 from aiperf.common.exceptions import CommunicationError, NotInitializedError
 from aiperf.common.factories import ServiceFactory, ServiceManagerFactory
-from aiperf.common.hooks import command_handler, on_init, on_message, on_start
+from aiperf.common.hooks import on_command, on_init, on_message, on_start
 from aiperf.common.logging import get_global_log_queue
 from aiperf.common.messages import (
     CommandMessage,
@@ -335,7 +335,7 @@ class SystemController(SignalHandlerMixin, BaseService):
             if message.error:
                 self.error(f"Error details: {message.error}")
 
-    @command_handler(CommandType.SPAWN_WORKERS)
+    @on_command(CommandType.SPAWN_WORKERS)
     async def _handle_spawn_workers_command(self, message: CommandMessage) -> None:
         """Handle a spawn workers command."""
         self.debug(lambda: f"Received spawn workers command: {message}")
@@ -347,7 +347,7 @@ class SystemController(SignalHandlerMixin, BaseService):
             ServiceType.WORKER, message.data.num_workers
         )
 
-    @command_handler(CommandType.SHUTDOWN_WORKERS)
+    @on_command(CommandType.SHUTDOWN_WORKERS)
     async def _handle_shutdown_workers_command(self, message: CommandMessage) -> None:
         """Handle a shutdown workers command."""
         self.debug(lambda: f"Received shutdown workers command: {message}")

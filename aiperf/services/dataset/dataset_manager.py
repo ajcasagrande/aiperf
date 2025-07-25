@@ -14,7 +14,7 @@ from aiperf.common.factories import ComposerFactory, ServiceFactory
 from aiperf.common.hooks import (
     implements_protocol,
     on_init,
-    request_handler,
+    on_request,
 )
 from aiperf.common.messages import (
     ConversationRequestMessage,
@@ -111,7 +111,7 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
             ),
         )
 
-    @request_handler(MessageType.CONVERSATION_REQUEST)
+    @on_request(MessageType.CONVERSATION_REQUEST)
     async def _handle_conversation_request(
         self, message: ConversationRequestMessage
     ) -> ConversationResponseMessage:
@@ -174,7 +174,7 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
             conversation=conversation,
         )
 
-    @request_handler(MessageType.CONVERSATION_TURN_REQUEST)
+    @on_request(MessageType.CONVERSATION_TURN_REQUEST)
     async def _handle_conversation_turn_request(
         self, message: ConversationTurnRequestMessage
     ) -> ConversationTurnResponseMessage:
@@ -201,7 +201,7 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
             turn=turn,
         )
 
-    @request_handler(MessageType.DATASET_TIMING_REQUEST)
+    @on_request(MessageType.DATASET_TIMING_REQUEST)
     async def _handle_dataset_timing_request(
         self, message: DatasetTimingRequest
     ) -> DatasetTimingResponse:

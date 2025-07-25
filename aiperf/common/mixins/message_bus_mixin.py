@@ -7,60 +7,54 @@ from typing import Any
 
 from aiperf.common.config import ServiceConfig
 from aiperf.common.enums import CommAddress
-from aiperf.common.factories import CommunicationFactory
 from aiperf.common.hooks import (
     AIPerfHook,
-    MessageHookParams,
+    Hook,
     implements_protocol,
     on_init,
-    on_start,
-    on_stop,
     provides_hooks,
 )
 from aiperf.common.messages import Message
-from aiperf.common.mixins.aiperf_lifecycle_mixin import AIPerfLifecycleMixin
-from aiperf.common.protocols import CommunicationProtocol, MessageBusClientProtocol
+from aiperf.common.mixins.communication_mixin import CommunicationMixin
+from aiperf.common.protocols import MessageBusClientProtocol
 from aiperf.common.types import MessageCallbackMapT, MessageTypeT
 
 
 @provides_hooks(AIPerfHook.ON_MESSAGE)
 @implements_protocol(MessageBusClientProtocol)
-class MessageBusClientMixin(AIPerfLifecycleMixin, ABC):
-    """Mixin to provide a message bus clients for AIPerf components, as well as
-    a hook to handle messages @on_message."""
+class MessageBusClientMixin(CommunicationMixin, ABC):
+    """Mixin to provide message bus clients (pub and sub)for AIPerf components, as well as
+    a hook to handle messages: @on_message."""
 
     def __init__(self, service_config: ServiceConfig, **kwargs) -> None:
-        self.service_config = service_config
-        self.comms: CommunicationProtocol = CommunicationFactory.get_or_create_instance(
-            self.service_config.comm_backend,
-            config=self.service_config.comm_config,
-        )
+        super().__init__(service_config=service_config, **kwargs)
+        # NOTE: The communication base class will automatically manage the pub/sub clients' lifecycle.
         self.sub_client = self.comms.create_sub_client(
             CommAddress.EVENT_BUS_PROXY_BACKEND
         )
         self.pub_client = self.comms.create_pub_client(
             CommAddress.EVENT_BUS_PROXY_FRONTEND
         )
-        super().__init__(
-            comms=self.comms,
-            service_config=self.service_config,
-            pub_client=self.pub_client,
-            sub_client=self.sub_client,
-            **kwargs,
-        )
 
     @on_init
-    async def _init_message_bus(self) -> None:
-        await self.comms.initialize()
-        await self._setup_on_message_hooks()
+    async def _setup_on_message_hooks(self) -> None:
+        """Send subscription requests for all @on_message hook decorators."""
+        subscription_map: MessageCallbackMapT = {}
 
-    @on_start
-    async def _start_message_bus(self) -> None:
-        await self.comms.start()
+        def _add_to_subscription_map(hook: Hook, message_type: MessageTypeT) -> None:
+            self.debug(
+                lambda: f"Subscribing to message type: {message_type} for hook: {hook}"
+            )
+            subscription_map.setdefault(message_type, []).append(hook.func)
 
-    @on_stop
-    async def _stop_message_bus(self) -> None:
-        await self.comms.stop()
+        # For each @on_message hook, add each message type to the subscription map.
+        self.for_each_hook_param(
+            AIPerfHook.ON_MESSAGE,
+            self_obj=self,
+            param_type=type[MessageTypeT],
+            lambda_func=_add_to_subscription_map,
+        )
+        await self.sub_client.subscribe_all(subscription_map)
 
     async def subscribe(
         self,
@@ -86,16 +80,3 @@ class MessageBusClientMixin(AIPerfLifecycleMixin, ABC):
     async def publish(self, message: Message) -> None:
         """Publish a message. The message will be routed automatically based on the message type."""
         await self.pub_client.publish(message)
-
-    async def _setup_on_message_hooks(self) -> None:
-        """Send subscription requests for all @on_message hook decorators."""
-        subscription_map: MessageCallbackMapT = {}
-        for hook in self.get_hooks(AIPerfHook.ON_MESSAGE):
-            if not isinstance(hook.params, MessageHookParams):
-                raise ValueError(
-                    f"Invalid hook params: {hook.params}. Expected MessageHookParams but got {type(hook.params)}"
-                )
-            for message_type in hook.params.message_types:
-                subscription_map.setdefault(message_type, []).append(hook.func)
-
-        await self.sub_client.subscribe_all(subscription_map)

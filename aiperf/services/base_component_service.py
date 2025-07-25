@@ -10,8 +10,8 @@ from aiperf.common.enums import (
 )
 from aiperf.common.hooks import (
     background_task,
-    command_handler,
     implements_protocol,
+    on_command,
     on_init,
     on_state_change,
 )
@@ -109,7 +109,7 @@ class BaseComponentService(BaseService):
             )
         )
 
-    @command_handler(CommandType.SHUTDOWN)
+    @on_command(CommandType.SHUTDOWN)
     async def _on_shutdown_command(self, message: CommandMessage) -> None:
         self.debug(f"Received shutdown command: {message}, {self.service_id}")
         try:

@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import os
+from collections.abc import Callable, Iterable
+from typing import Any
 
 from aiperf.common import aiperf_logger
 from aiperf.common.exceptions import AIPerfMultiError, UnsupportedHookError
@@ -12,6 +14,7 @@ from aiperf.common.hooks import (
 )
 from aiperf.common.mixins.aiperf_logger_mixin import AIPerfLoggerMixin
 from aiperf.common.protocols import HooksProtocol
+from aiperf.common.types import AnyT
 
 
 @implements_protocol(HooksProtocol)
@@ -96,6 +99,37 @@ class HooksMixin(AIPerfLoggerMixin):
         if reversed:
             hooks.reverse()
         return hooks
+
+    def for_each_hook_param(
+        self,
+        *hook_types: HookType,
+        self_obj: Any,
+        param_type: type[AnyT],
+        lambda_func: Callable[[Hook, AnyT], None],
+        reversed: bool = False,
+    ) -> None:
+        """Iterate over the hooks for the given hook type(s), optionally reversed.
+        If a lambda_func is provided, it will be called for each hook, and the hook will be passed as an argument.
+
+        Args:
+            hook_types: The hook types to iterate over.
+            self_obj: The object to pass to the lambda_func.
+            param_type: The type of the parameter to pass to the lambda_func (for validation).
+            lambda_func: The function to call for each hook.
+            reversed: Whether to iterate over the hooks in reverse order.
+        """
+        for hook in self.get_hooks(*hook_types, reversed=reversed):
+            params = hook.resolve_params(self_obj)
+            if not isinstance(params, Iterable):
+                raise ValueError(
+                    f"Invalid hook params: {params}. Expected Iterable but got {type(params)}"
+                )
+            for param in params:
+                if not isinstance(param, param_type):
+                    raise ValueError(
+                        f"Invalid hook param: {param}. Expected {param_type} but got {type(param)}"
+                    )
+                lambda_func(hook, param)
 
     async def run_hooks(
         self, *hook_types: HookType, reversed: bool = False, **kwargs
