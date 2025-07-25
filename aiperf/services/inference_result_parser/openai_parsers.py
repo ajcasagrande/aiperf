@@ -15,6 +15,7 @@ from pydantic import BaseModel
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.enums import CaseInsensitiveStrEnum, EndpointType
 from aiperf.common.factories import ResponseExtractorFactory
+from aiperf.common.hooks import implements_protocol
 from aiperf.common.models import (
     InferenceServerResponse,
     RequestRecord,
@@ -22,6 +23,7 @@ from aiperf.common.models import (
     SSEMessage,
     TextResponse,
 )
+from aiperf.common.protocols import ResponseExtractorProtocol
 from aiperf.common.tokenizer import Tokenizer
 from aiperf.common.utils import load_json_str
 
@@ -77,6 +79,7 @@ class OpenAIObject(CaseInsensitiveStrEnum):
     EndpointType.OPENAI_COMPLETIONS,
     EndpointType.OPENAI_RESPONSES,
 )
+@implements_protocol(ResponseExtractorProtocol)
 class OpenAIResponseExtractor:
     """Extractor for OpenAI responses."""
 

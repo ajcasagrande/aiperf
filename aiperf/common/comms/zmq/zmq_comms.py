@@ -97,6 +97,7 @@ class BaseZMQCommunication(BaseCommunication, AIPerfLoggerMixin, ABC):
         address: CommAddressType,
         bind: bool = False,
         socket_ops: dict | None = None,
+        **kwargs,
     ) -> CommunicationClientProtocol:
         """Create a communication client for a given client type and address.
 
@@ -114,6 +115,7 @@ class BaseZMQCommunication(BaseCommunication, AIPerfLoggerMixin, ABC):
             address=self.get_address(address),
             bind=bind,
             socket_ops=socket_ops,
+            **kwargs,
         )
 
         self._clients_cache[(client_type, address, bind)] = client

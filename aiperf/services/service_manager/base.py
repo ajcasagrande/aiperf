@@ -27,7 +27,11 @@ class BaseServiceManager(AIPerfLifecycleMixin, ABC):
         user_config: UserConfig,
         **kwargs,
     ):
-        super().__init__(logger_name="service_manager")
+        super().__init__(
+            service_config=service_config,
+            user_config=user_config,
+            **kwargs,
+        )
         self.required_services = required_services
         self.service_config = service_config
         self.user_config = user_config

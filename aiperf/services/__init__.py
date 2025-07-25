@@ -51,7 +51,6 @@ from aiperf.services.inference_result_parser import (
     OpenAIResponseExtractor,
 )
 from aiperf.services.records_manager import (
-    DEFAULT_MAX_QUEUE_SIZE,
     DEFAULT_MAX_RECORDS_CONCURRENCY,
     BaseMetric,
     BaseStreamingPostProcessor,
@@ -133,7 +132,6 @@ __all__ = [
     "CustomDatasetLoaderProtocol",
     "DATASET_CONFIGURATION_TIMEOUT",
     "DEFAULT_CORPUS_FILE",
-    "DEFAULT_MAX_QUEUE_SIZE",
     "DEFAULT_MAX_RECORDS_CONCURRENCY",
     "DatasetManager",
     "FixedScheduleStrategy",

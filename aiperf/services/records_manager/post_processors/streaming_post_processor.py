@@ -6,12 +6,11 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 from aiperf.common.config import ServiceConfig, UserConfig
+from aiperf.common.constants import DEFAULT_STREAMING_MAX_QUEUE_SIZE
 from aiperf.common.hooks import background_task
 from aiperf.common.messages import CommandMessage
 from aiperf.common.mixins.message_bus_mixin import MessageBusClientMixin
 from aiperf.common.models import ParsedResponseRecord
-
-DEFAULT_MAX_QUEUE_SIZE = 100_000
 
 
 class BaseStreamingPostProcessor(MessageBusClientMixin, ABC):
@@ -25,7 +24,7 @@ class BaseStreamingPostProcessor(MessageBusClientMixin, ABC):
         service_id: str,
         service_config: ServiceConfig,
         user_config: UserConfig,
-        max_queue_size: int = DEFAULT_MAX_QUEUE_SIZE,
+        max_queue_size: int = DEFAULT_STREAMING_MAX_QUEUE_SIZE,
         **kwargs,
     ) -> None:
         self.service_id = service_id

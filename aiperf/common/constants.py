@@ -24,3 +24,6 @@ DEFAULT_SERVICE_REGISTRATION_TIMEOUT = 5.0
 
 DEFAULT_SERVICE_START_TIMEOUT = 5.0
 """Default timeout for service start in seconds."""
+
+DEFAULT_STREAMING_MAX_QUEUE_SIZE = 100_000
+"""Default maximum queue size for streaming post processors."""

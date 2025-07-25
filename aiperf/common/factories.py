@@ -3,9 +3,10 @@
 import os
 from collections.abc import Callable
 from threading import Lock
-from typing import Any, Generic
+from typing import TYPE_CHECKING, Any, Generic
 
 from aiperf.common.aiperf_logger import AIPerfLogger
+from aiperf.common.constants import DEFAULT_STREAMING_MAX_QUEUE_SIZE
 from aiperf.common.enums import (
     CommClientType,
     CommunicationBackend,
@@ -30,6 +31,37 @@ from aiperf.common.types import (
     ServiceProtocolT,
     ServiceTypeT,
 )
+
+if TYPE_CHECKING:
+    # NOTE: These imports are for the factory class type hints.
+    #       We do not want to import these classes directly.
+    from aiperf.clients.model_endpoint_info import ModelEndpointInfo
+    from aiperf.common.comms.zmq.zmq_proxy_base import BaseZMQProxy
+    from aiperf.common.config import (
+        BaseZMQCommunicationConfig,
+        BaseZMQProxyConfig,
+        ServiceConfig,
+        UserConfig,
+    )
+    from aiperf.common.protocols import (
+        CommunicationClientProtocol,
+        CommunicationProtocol,
+        DataExporterProtocol,
+        InferenceClientProtocol,
+        PostProcessorProtocol,
+        RequestConverterProtocol,  # noqa: F401
+        ResponseExtractorProtocol,
+        ServiceManagerProtocol,
+        ServiceProtocol,  # noqa: F401
+    )
+    from aiperf.data_exporter.exporter_config import ExporterConfig
+    from aiperf.services.dataset.composer.base import BaseDatasetComposer
+    from aiperf.services.dataset.loader.protocol import (
+        CustomDatasetLoaderProtocol,
+    )
+    from aiperf.services.records_manager.post_processors.streaming_post_processor import (
+        BaseStreamingPostProcessor,
+    )
 
 
 class AIPerfFactory(Generic[ClassEnumT, ClassProtocolT]):
@@ -309,6 +341,19 @@ class CommunicationClientFactory(
     see: :class:`aiperf.common.factories.AIPerfFactory` for more details.
     """
 
+    @classmethod
+    def create_instance(  # type: ignore[override]
+        cls,
+        class_type: CommClientType | str,
+        address: str,
+        bind: bool,
+        socket_ops: dict | None = None,
+        **kwargs,
+    ) -> "CommunicationClientProtocol":
+        return super().create_instance(
+            class_type, address=address, bind=bind, socket_ops=socket_ops, **kwargs
+        )
+
 
 class CommunicationFactory(
     AIPerfSingletonFactory[CommunicationBackend, "CommunicationProtocol"]
@@ -317,11 +362,28 @@ class CommunicationFactory(
     see: :class:`aiperf.common.factories.AIPerfFactory` for more details.
     """
 
+    @classmethod
+    def create_instance(  # type: ignore[override]
+        cls,
+        class_type: CommunicationBackend | str,
+        config: "BaseZMQCommunicationConfig",
+        **kwargs,
+    ) -> "CommunicationProtocol":
+        return super().create_instance(class_type, config=config, **kwargs)
+
 
 class ComposerFactory(AIPerfFactory[ComposerType, "BaseDatasetComposer"]):
     """Factory for registering and creating BaseDatasetComposer instances based on the specified composer type.
     see: :class:`aiperf.common.factories.AIPerfFactory` for more details.
     """
+
+    @classmethod
+    def create_instance(  # type: ignore[override]
+        cls,
+        class_type: ComposerType | str,
+        **kwargs,
+    ) -> "BaseDatasetComposer":
+        return super().create_instance(class_type, **kwargs)
 
 
 class CustomDatasetFactory(
@@ -331,11 +393,30 @@ class CustomDatasetFactory(
     see: :class:`aiperf.common.factories.AIPerfFactory` for more details.
     """
 
+    @classmethod
+    def create_instance(  # type: ignore[override]
+        cls,
+        class_type: CustomDatasetType | str,
+        **kwargs,
+    ) -> "CustomDatasetLoaderProtocol":
+        return super().create_instance(class_type, **kwargs)
+
 
 class DataExporterFactory(AIPerfFactory[DataExporterType, "DataExporterProtocol"]):
     """Factory for registering and creating DataExporterProtocol instances based on the specified data exporter type.
     see: :class:`aiperf.common.factories.AIPerfFactory` for more details.
     """
+
+    @classmethod
+    def create_instance(  # type: ignore[override]
+        cls,
+        class_type: DataExporterType | str,
+        exporter_config: "ExporterConfig",
+        **kwargs,
+    ) -> "DataExporterProtocol":
+        return super().create_instance(
+            class_type, exporter_config=exporter_config, **kwargs
+        )
 
 
 class InferenceClientFactory(AIPerfFactory[EndpointType, "InferenceClientProtocol"]):
@@ -343,14 +424,35 @@ class InferenceClientFactory(AIPerfFactory[EndpointType, "InferenceClientProtoco
     see: :class:`aiperf.common.factories.AIPerfFactory` for more details.
     """
 
+    @classmethod
+    def create_instance(  # type: ignore[override]
+        cls,
+        class_type: EndpointType | str,
+        model_endpoint: "ModelEndpointInfo",
+        **kwargs,
+    ) -> "InferenceClientProtocol":
+        return super().create_instance(
+            class_type, model_endpoint=model_endpoint, **kwargs
+        )
+
 
 class PostProcessorFactory(AIPerfFactory[PostProcessorType, "PostProcessorProtocol"]):
     """Factory for registering and creating PostProcessorProtocol instances based on the specified post processor type.
     see: :class:`aiperf.common.factories.AIPerfFactory` for more details.
     """
 
+    @classmethod
+    def create_instance(  # type: ignore[override]
+        cls,
+        class_type: PostProcessorType | str,
+        **kwargs,
+    ) -> "PostProcessorProtocol":
+        return super().create_instance(class_type, **kwargs)
 
-class RequestConverterFactory(AIPerfFactory[EndpointType, "RequestConverterProtocol"]):
+
+class RequestConverterFactory(
+    AIPerfSingletonFactory[EndpointType, "RequestConverterProtocol"]
+):
     """Factory for registering and creating RequestConverterProtocol instances based on the specified request payload type.
     see: :class:`aiperf.common.factories.AIPerfFactory` for more details.
     """
@@ -363,9 +465,20 @@ class ResponseExtractorFactory(
     see: :class:`aiperf.common.factories.AIPerfFactory` for more details.
     """
 
+    @classmethod
+    def create_instance(  # type: ignore[override]
+        cls,
+        class_type: EndpointType | str,
+        model_endpoint: "ModelEndpointInfo",
+        **kwargs,
+    ) -> "ResponseExtractorProtocol":
+        return super().create_instance(
+            class_type, model_endpoint=model_endpoint, **kwargs
+        )
+
 
 class ServiceFactory(AIPerfFactory[ServiceType, "ServiceProtocol"]):
-    """Factory for registering and creating BaseService instances based on the specified service type.
+    """Factory for registering and creating ServiceProtocol instances based on the specified service type.
     see: :class:`aiperf.common.factories.AIPerfFactory` for more details.
     """
 
@@ -397,6 +510,23 @@ class ServiceManagerFactory(AIPerfFactory[ServiceRunType, "ServiceManagerProtoco
     see: :class:`aiperf.common.factories.AIPerfFactory` for more details.
     """
 
+    @classmethod
+    def create_instance(  # type: ignore[override]
+        cls,
+        class_type: ServiceRunType | str,
+        required_services: dict[ServiceTypeT, int],
+        service_config: ServiceConfig,
+        user_config: UserConfig,
+        **kwargs,
+    ) -> "ServiceManagerProtocol":
+        return super().create_instance(
+            class_type,
+            required_services=required_services,
+            service_config=service_config,
+            user_config=user_config,
+            **kwargs,
+        )
+
 
 class StreamingPostProcessorFactory(
     AIPerfFactory[StreamingPostProcessorType, "BaseStreamingPostProcessor"]
@@ -405,8 +535,38 @@ class StreamingPostProcessorFactory(
     see: :class:`aiperf.common.factories.AIPerfFactory` for more details.
     """
 
+    @classmethod
+    def create_instance(  # type: ignore[override]
+        cls,
+        class_type: StreamingPostProcessorType | str,
+        service_id: str,
+        service_config: "ServiceConfig",
+        user_config: "UserConfig",
+        max_queue_size: int = DEFAULT_STREAMING_MAX_QUEUE_SIZE,
+        **kwargs,
+    ) -> "BaseStreamingPostProcessor":
+        return super().create_instance(
+            class_type,
+            service_id=service_id,
+            service_config=service_config,
+            user_config=user_config,
+            max_queue_size=max_queue_size,
+            **kwargs,
+        )
+
 
 class ZMQProxyFactory(AIPerfFactory[ZMQProxyType, "BaseZMQProxy"]):
     """Factory for registering and creating BaseZMQProxy instances based on the specified ZMQ proxy type.
     see: :class:`aiperf.common.factories.AIPerfFactory` for more details.
     """
+
+    @classmethod
+    def create_instance(  # type: ignore[override]
+        cls,
+        class_type: ZMQProxyType | str,
+        zmq_proxy_config: "BaseZMQProxyConfig",
+        **kwargs,
+    ) -> "BaseZMQProxy":
+        return super().create_instance(
+            class_type, zmq_proxy_config=zmq_proxy_config, **kwargs
+        )

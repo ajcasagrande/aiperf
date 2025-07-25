@@ -1,28 +1,28 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-import logging
-
 import pandas as pd
 
 from aiperf.common.enums import MetricType, PostProcessorType
 from aiperf.common.factories import PostProcessorFactory
+from aiperf.common.hooks import implements_protocol
+from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.common.models import MetricResult, ParsedResponseRecord
+from aiperf.common.protocols import PostProcessorProtocol
 from aiperf.services.records_manager.metrics.base_metric import BaseMetric
-
-logger = logging.getLogger(__name__)
 
 
 @PostProcessorFactory.register(PostProcessorType.METRIC_SUMMARY)
-class MetricSummary:
+@implements_protocol(PostProcessorProtocol)
+class MetricSummary(AIPerfLoggerMixin):
     """
     MetricSummary is a post-processor that generates a summary of metrics from the records.
     It processes the records to extract relevant metrics and returns them in a structured format.
     """
 
-    def __init__(self):
-        self.logger = logging.getLogger(__name__)
-        self.logger.debug("Initializing MetricSummary post-processor")
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.debug("Initializing MetricSummary post-processor")
 
         self._metrics = []
         for metric_cls in BaseMetric.get_all().values():

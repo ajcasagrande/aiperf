@@ -14,7 +14,7 @@ from aiperf.data_exporter.exporter_config import ExporterConfig
 class ConsoleErrorExporter:
     """A class that exports error data to the console"""
 
-    def __init__(self, exporter_config: ExporterConfig):
+    def __init__(self, exporter_config: ExporterConfig, **kwargs):
         self._results = exporter_config.results
 
     async def export(self, width: int | None = None) -> None:

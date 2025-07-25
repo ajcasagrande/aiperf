@@ -55,6 +55,7 @@ class ZMQPubClient(BaseZMQClient):
         address: str,
         bind: bool,
         socket_ops: dict | None = None,
+        **kwargs,
     ) -> None:
         """
         Initialize the ZMQ Publisher client class.
@@ -64,7 +65,7 @@ class ZMQPubClient(BaseZMQClient):
             bind (bool): Whether to bind or connect the socket.
             socket_ops (dict, optional): Additional socket options to set.
         """
-        super().__init__(zmq.SocketType.PUB, address, bind, socket_ops)
+        super().__init__(zmq.SocketType.PUB, address, bind, socket_ops, **kwargs)
 
     async def publish(self, message: Message) -> None:
         """Publish a message. The topic will be set automatically based on the message type.
