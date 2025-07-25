@@ -17,6 +17,7 @@ from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
     command_handler,
     on_init,
+    on_pull_message,
     on_stop,
 )
 from aiperf.common.messages import (
@@ -26,8 +27,8 @@ from aiperf.common.messages import (
     DatasetTimingRequest,
     DatasetTimingResponse,
 )
+from aiperf.common.mixins import PullClientMixin
 from aiperf.common.protocols import (
-    PullClientProtocol,
     PushClientProtocol,
     RequestClientProtocol,
 )
@@ -44,7 +45,7 @@ from aiperf.services.timing_manager.credit_manager import CreditPhaseMessagesMix
 
 
 @ServiceFactory.register(ServiceType.TIMING_MANAGER)
-class TimingManager(BaseComponentService, CreditPhaseMessagesMixin):
+class TimingManager(PullClientMixin, BaseComponentService, CreditPhaseMessagesMixin):
     """
     The TimingManager service is responsible to generate the schedule and issuing
     timing credits for requests.
@@ -60,6 +61,8 @@ class TimingManager(BaseComponentService, CreditPhaseMessagesMixin):
             service_config=service_config,
             user_config=user_config,
             service_id=service_id,
+            pull_client_address=CommAddress.CREDIT_RETURN,
+            pull_client_bind=True,
         )
         self.config = TimingManagerConfig.from_user_config(self.user_config)
 
@@ -74,12 +77,6 @@ class TimingManager(BaseComponentService, CreditPhaseMessagesMixin):
                 bind=True,
             )
         )
-        self.credit_return_pull_client: PullClientProtocol = (
-            self.comms.create_pull_client(
-                CommAddress.CREDIT_RETURN,
-                bind=True,
-            )
-        )
 
         self._credit_issuing_strategy: CreditIssuingStrategy | None = None
 
@@ -87,10 +84,6 @@ class TimingManager(BaseComponentService, CreditPhaseMessagesMixin):
     async def _timing_manager_initialize(self) -> None:
         """Initialize timing manager-specific components."""
         self.debug("Initializing timing manager")
-        await self.credit_return_pull_client.register_pull_callback(
-            message_type=MessageType.CREDIT_RETURN,
-            callback=self._on_credit_return,
-        )
         await self._configure()
 
     async def _configure(self) -> None:
@@ -109,7 +102,7 @@ class TimingManager(BaseComponentService, CreditPhaseMessagesMixin):
             self.debug(
                 lambda: f"TM: Received dataset timing response: {dataset_timing_response}"
             )
-            self.info("TM: Using fixed schedule strategy")
+            self.info("Using fixed schedule strategy")
             self._credit_issuing_strategy = (
                 CreditIssuingStrategyFactory.create_instance(
                     TimingMode.FIXED_SCHEDULE,
@@ -119,7 +112,7 @@ class TimingManager(BaseComponentService, CreditPhaseMessagesMixin):
                 )
             )
         elif self.config.timing_mode == TimingMode.CONCURRENCY:
-            self.info("TM: Using concurrency strategy")
+            self.info("Using concurrency strategy")
             self._credit_issuing_strategy = (
                 CreditIssuingStrategyFactory.create_instance(
                     TimingMode.CONCURRENCY,
@@ -128,7 +121,7 @@ class TimingManager(BaseComponentService, CreditPhaseMessagesMixin):
                 )
             )
         elif self.config.timing_mode == TimingMode.REQUEST_RATE:
-            self.info("TM: Using request rate strategy")
+            self.info("Using request rate strategy")
             self._credit_issuing_strategy = (
                 CreditIssuingStrategyFactory.create_instance(
                     TimingMode.REQUEST_RATE,
@@ -169,6 +162,7 @@ class TimingManager(BaseComponentService, CreditPhaseMessagesMixin):
             await self._credit_issuing_strategy.stop()
         await self.cancel_all_tasks()
 
+    @on_pull_message(MessageType.CREDIT_RETURN)
     async def _on_credit_return(self, message: CreditReturnMessage) -> None:
         """Handle the credit return message."""
         self.debug(lambda: f"Timing manager received credit return message: {message}")

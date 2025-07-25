@@ -5,7 +5,6 @@ import sys
 
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.comms.base_comms import (
-    PullClientProtocol,
     PushClientProtocol,
     RequestClientProtocol,
 )
@@ -15,6 +14,7 @@ from aiperf.common.enums import CommAddress, MessageType, ServiceType
 from aiperf.common.factories import ResponseExtractorFactory, ServiceFactory
 from aiperf.common.hooks import (
     on_init,
+    on_pull_message,
 )
 from aiperf.common.messages import (
     ConversationTurnRequestMessage,
@@ -23,6 +23,7 @@ from aiperf.common.messages import (
     InferenceResultsMessage,
     ParsedInferenceResultsMessage,
 )
+from aiperf.common.mixins import PullClientMixin
 from aiperf.common.models import (
     ErrorDetails,
     ParsedResponseRecord,
@@ -33,7 +34,7 @@ from aiperf.services.base_component_service import BaseComponentService
 
 
 @ServiceFactory.register(ServiceType.INFERENCE_RESULT_PARSER)
-class InferenceResultParser(BaseComponentService):
+class InferenceResultParser(PullClientMixin, BaseComponentService):
     """InferenceResultParser is responsible for parsing the inference results
     and pushing them to the RecordsManager.
     """
@@ -48,13 +49,11 @@ class InferenceResultParser(BaseComponentService):
             service_config=service_config,
             user_config=user_config,
             service_id=service_id,
+            pull_client_address=CommAddress.RAW_INFERENCE_PROXY_BACKEND,
+            pull_client_bind=False,
         )
         self.debug("Initializing inference result parser")
-        self.inference_results_client: PullClientProtocol = (
-            self.comms.create_pull_client(
-                CommAddress.RAW_INFERENCE_PROXY_BACKEND,
-            )
-        )
+
         self.records_push_client: PushClientProtocol = self.comms.create_push_client(
             CommAddress.RECORDS,
         )
@@ -74,13 +73,6 @@ class InferenceResultParser(BaseComponentService):
     async def _initialize(self) -> None:
         """Initialize inference result parser-specific components."""
         self.debug("Initializing inference result parser")
-
-        await self.inference_results_client.register_pull_callback(
-            message_type=MessageType.INFERENCE_RESULTS,
-            callback=self._on_inference_results,
-            # TODO: Support for unbounded concurrency in the future by setting to None or 0?
-            max_concurrency=1_000_000,
-        )
 
         self.extractor = ResponseExtractorFactory.create_instance(
             self.model_endpoint.endpoint.type,
@@ -109,6 +101,7 @@ class InferenceResultParser(BaseComponentService):
                 )
             return self.tokenizers[model]
 
+    @on_pull_message(MessageType.INFERENCE_RESULTS, max_concurrency=1_000_000)
     async def _on_inference_results(self, message: InferenceResultsMessage) -> None:
         """Handle an inference results message."""
         self.debug(lambda: f"Received inference results message: {message}")

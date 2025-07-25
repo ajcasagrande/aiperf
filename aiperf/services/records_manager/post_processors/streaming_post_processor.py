@@ -8,14 +8,13 @@ from typing import Any
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.hooks import background_task
 from aiperf.common.messages import CommandMessage
-from aiperf.common.mixins import AIPerfLifecycleMixin
+from aiperf.common.mixins.message_bus_mixin import MessageBusClientMixin
 from aiperf.common.models import ParsedResponseRecord
-from aiperf.common.protocols import PubClientProtocol, SubClientProtocol
 
 DEFAULT_MAX_QUEUE_SIZE = 100_000
 
 
-class BaseStreamingPostProcessor(AIPerfLifecycleMixin, ABC):
+class BaseStreamingPostProcessor(MessageBusClientMixin, ABC):
     """
     BaseStreamingPostProcessor is a base class for all classes that wish to stream the incoming
     ParsedResponseRecords.
@@ -23,8 +22,6 @@ class BaseStreamingPostProcessor(AIPerfLifecycleMixin, ABC):
 
     def __init__(
         self,
-        pub_client: PubClientProtocol,
-        sub_client: SubClientProtocol,
         service_id: str,
         service_config: ServiceConfig,
         user_config: UserConfig,
@@ -34,11 +31,7 @@ class BaseStreamingPostProcessor(AIPerfLifecycleMixin, ABC):
         self.service_id = service_id
         self.user_config = user_config
         self.service_config = service_config
-        self.pub_client = pub_client
-        self.sub_client = sub_client
         super().__init__(
-            pub_client=pub_client,
-            sub_client=sub_client,
             user_config=user_config,
             service_config=service_config,
             **kwargs,

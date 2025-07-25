@@ -21,11 +21,13 @@ from aiperf.common.enums import (
 )
 from aiperf.common.exceptions import ShutdownError
 from aiperf.common.factories import CommunicationClientFactory, CommunicationFactory
-from aiperf.common.hooks import on_init, on_start, on_stop
+from aiperf.common.hooks import implements_protocol, on_init, on_start, on_stop
 from aiperf.common.mixins import AIPerfLoggerMixin
+from aiperf.common.protocols import CommunicationProtocol
 from aiperf.common.types import CommAddressType
 
 
+@implements_protocol(CommunicationProtocol)
 class BaseZMQCommunication(BaseCommunication, AIPerfLoggerMixin, ABC):
     """ZeroMQ-based implementation of the Communication interface.
 
@@ -42,6 +44,9 @@ class BaseZMQCommunication(BaseCommunication, AIPerfLoggerMixin, ABC):
 
         self.context = zmq.asyncio.Context.instance()
         self.clients: list[CommunicationClientProtocol] = []
+        self._clients_cache: dict[
+            tuple[CommClientType, CommAddressType, bool], CommunicationClientProtocol
+        ] = {}
 
         self.debug(f"ZMQ communication using protocol: {type(self.config).__name__}")
 
@@ -101,6 +106,9 @@ class BaseZMQCommunication(BaseCommunication, AIPerfLoggerMixin, ABC):
             bind: Whether to bind or connect the socket.
             socket_ops: Additional socket options to set.
         """
+        if (client_type, address, bind) in self._clients_cache:
+            return self._clients_cache[(client_type, address, bind)]
+
         client = CommunicationClientFactory.create_instance(
             client_type,
             address=self.get_address(address),
@@ -108,6 +116,7 @@ class BaseZMQCommunication(BaseCommunication, AIPerfLoggerMixin, ABC):
             socket_ops=socket_ops,
         )
 
+        self._clients_cache[(client_type, address, bind)] = client
         self.clients.append(client)
         return client
 

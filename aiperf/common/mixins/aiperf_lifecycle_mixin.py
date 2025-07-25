@@ -122,8 +122,18 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
 
     async def initialize(self) -> None:
         """Initialize the lifecycle and run the @on_init hooks."""
+        if self.state in (
+            LifecycleState.INITIALIZING,
+            LifecycleState.INITIALIZED,
+            LifecycleState.STARTING,
+            LifecycleState.RUNNING,
+        ):
+            return
+
         if self.state != LifecycleState.CREATED:
-            raise InvalidStateError(f"Cannot initialize from state {self.state}")
+            raise InvalidStateError(
+                f"Cannot initialize from state {self.state} for {self}"
+            )
 
         await self._execute_state_transition(
             LifecycleState.INITIALIZING,
@@ -134,8 +144,14 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
 
     async def start(self) -> None:
         """Start the lifecycle and run the @on_start hooks."""
+        if self.state in (
+            LifecycleState.STARTING,
+            LifecycleState.RUNNING,
+        ):
+            return
+
         if self.state != LifecycleState.INITIALIZED:
-            raise InvalidStateError(f"Cannot start from state {self.state}")
+            raise InvalidStateError(f"Cannot start from state {self.state} for {self}")
 
         await self._execute_state_transition(
             LifecycleState.STARTING,
@@ -196,6 +212,8 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
         await self._set_state(LifecycleState.FAILED)
         self.error(lambda: f"Killed {self}")
         self.stopped_event.set()
+        # TODO: This is a hack to ensure that the process is killed.
+        #       We should find a better way to do this.
         os.kill(os.getpid(), signal.SIGKILL)
         raise asyncio.CancelledError(f"Killed {self}")
 
@@ -205,7 +223,7 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
         """
         await self._set_state(LifecycleState.FAILED)
         self.exception(f"Failed for {self}: {e}")
-        self._stop_requested_event.set()
+        self.stop_requested = True
         self.stopped_event.set()
         raise asyncio.CancelledError(f"Failed for {self}: {e}") from e
 

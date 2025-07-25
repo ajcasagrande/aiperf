@@ -3,11 +3,9 @@
 
 import time
 
-from aiperf.common.comms.base_comms import SubClientProtocol
-from aiperf.common.enums import CreditPhase, StreamingPostProcessorType
-from aiperf.common.enums.message_enums import MessageType
+from aiperf.common.enums import CreditPhase, MessageType, StreamingPostProcessorType
 from aiperf.common.factories import StreamingPostProcessorFactory
-from aiperf.common.hooks import background_task, on_init
+from aiperf.common.hooks import background_task, on_message
 from aiperf.common.messages import (
     CreditPhaseCompleteMessage,
     CreditPhaseStartMessage,
@@ -29,23 +27,13 @@ class ProcessingStatsStreamer(BaseStreamingPostProcessor):
     It will send a notification message when all expected requests have been received.
     """
 
-    def __init__(self, sub_client: SubClientProtocol, **kwargs) -> None:
-        self.sub_client = sub_client
-        super().__init__(sub_client=sub_client, **kwargs)
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
         self.processing_stats: PhaseProcessingStats = PhaseProcessingStats()
         self.final_request_count: int | None = None
 
         # Track per-worker statistics
         self.worker_stats: dict[str, PhaseProcessingStats] = {}
-
-    @on_init
-    async def _initialize(self) -> None:
-        """Initialize the processing stats streamer."""
-        _subscriptions = {
-            MessageType.CREDIT_PHASE_START: self._on_credit_phase_start,
-            MessageType.CREDIT_PHASE_COMPLETE: self._on_credit_phase_complete,
-        }
-        await self.sub_client.subscribe_all(_subscriptions)
 
     async def stream_record(self, record: ParsedResponseRecord) -> None:
         """Stream a record."""
@@ -87,6 +75,7 @@ class ProcessingStatsStreamer(BaseStreamingPostProcessor):
                 )
             )
 
+    @on_message(MessageType.CREDIT_PHASE_START)
     async def _on_credit_phase_start(
         self, phase_start_msg: CreditPhaseStartMessage
     ) -> None:
@@ -96,6 +85,7 @@ class ProcessingStatsStreamer(BaseStreamingPostProcessor):
                 phase_start_msg.total_expected_requests
             )
 
+    @on_message(MessageType.CREDIT_PHASE_COMPLETE)
     async def _on_credit_phase_complete(
         self, phase_complete_msg: CreditPhaseCompleteMessage
     ) -> None:

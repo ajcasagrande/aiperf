@@ -39,8 +39,10 @@ if TYPE_CHECKING:
 
 @runtime_checkable
 class AIPerfLoggerProtocol(Protocol):
-    is_trace_enabled: bool
-    is_debug_enabled: bool
+    @property
+    def is_trace_enabled(self) -> bool: ...
+    @property
+    def is_debug_enabled(self) -> bool: ...
 
     def __init__(self, logger_name: str | None = None, **kwargs) -> None: ...
     def log(
@@ -79,14 +81,21 @@ class AIPerfLifecycleProtocol(TaskManagerProtocol, Protocol):
     see :class:`aiperf.common.mixins.aiperf_lifecycle_mixin.AIPerfLifecycleMixin` for more details.
     """
 
-    was_initialized: bool
-    was_started: bool
-    was_stopped: bool
-    is_running: bool
+    @property
+    def was_initialized(self) -> bool: ...
+    @property
+    def was_started(self) -> bool: ...
+    @property
+    def was_stopped(self) -> bool: ...
+    @property
+    def is_running(self) -> bool: ...
+
     initialized_event: asyncio.Event
     started_event: asyncio.Event
     stopped_event: asyncio.Event
-    state: LifecycleState
+
+    @property
+    def state(self) -> LifecycleState: ...
 
     async def initialize(self) -> None: ...
     async def start(self) -> None: ...
@@ -303,6 +312,15 @@ class InferenceClientProtocol(Protocol):
 
 @runtime_checkable
 class PostProcessorProtocol(Protocol):
+    """
+    Protocol for post-processors.
+
+    Any class implementing this protocol must provide a `process` method
+    that takes a dictionary of records as input and returns a processed
+    dictionary. This is typically used to apply transformations or extract
+    relevant information from raw data.
+    """
+
     def process(self, records: dict) -> dict: ...
 
 

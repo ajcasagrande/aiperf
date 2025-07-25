@@ -28,6 +28,7 @@ from typing import TYPE_CHECKING, Any
 from pydantic import BaseModel, Field
 from typing_extensions import Self
 
+from aiperf.common.constants import DEFAULT_PULL_CLIENT_MAX_CONCURRENCY
 from aiperf.common.enums import (
     CaseInsensitiveStrEnum,
     CommandType,
@@ -44,6 +45,7 @@ class AIPerfHook(CaseInsensitiveStrEnum):
     COMMAND_HANDLER = "@command_handler"
     ON_INIT = "@on_init"
     ON_MESSAGE = "@on_message"
+    ON_PULL_MESSAGE = "@on_pull_message"
     ON_START = "@on_start"
     ON_STATE_CHANGE = "@on_state_change"
     ON_STOP = "@on_stop"
@@ -103,6 +105,11 @@ class MessageHookParams(BaseModel):
 
 class CommandHookParams(BaseModel):
     command_types: set[CommandType]
+
+
+class PullHookParams(BaseModel):
+    message_types: set[MessageTypeT]
+    max_concurrency: int | None = DEFAULT_PULL_CLIENT_MAX_CONCURRENCY
 
 
 def hook_decorator(hook_type: HookType, func: Callable) -> Callable:
@@ -242,6 +249,22 @@ def on_message(
     See :func:`aiperf.common.hooks.hook_decorator_with_params`."""
     return hook_decorator_with_params(
         AIPerfHook.ON_MESSAGE, MessageHookParams(message_types=set(message_types))
+    )
+
+
+def on_pull_message(
+    *message_types: MessageTypeT,
+    max_concurrency: int | None = DEFAULT_PULL_CLIENT_MAX_CONCURRENCY,
+) -> Callable:
+    """Decorator to specify that the function is a hook that should be called a pull client
+    receives a message of the given type(s).
+    See :func:`aiperf.common.hooks.hook_decorator_with_params`."""
+    return hook_decorator_with_params(
+        AIPerfHook.ON_PULL_MESSAGE,
+        PullHookParams(
+            message_types=set(message_types),
+            max_concurrency=max_concurrency,
+        ),
     )
 
 

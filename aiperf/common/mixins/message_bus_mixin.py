@@ -19,19 +19,19 @@ from aiperf.common.hooks import (
 )
 from aiperf.common.messages import Message
 from aiperf.common.mixins.aiperf_lifecycle_mixin import AIPerfLifecycleMixin
-from aiperf.common.protocols import CommunicationProtocol
+from aiperf.common.protocols import CommunicationProtocol, MessageBusClientProtocol
 from aiperf.common.types import MessageCallbackMapT, MessageTypeT
 
 
 @provides_hooks(AIPerfHook.ON_MESSAGE)
-@implements_protocol(CommunicationProtocol)
+@implements_protocol(MessageBusClientProtocol)
 class MessageBusClientMixin(AIPerfLifecycleMixin, ABC):
     """Mixin to provide a message bus clients for AIPerf components, as well as
     a hook to handle messages @on_message."""
 
     def __init__(self, service_config: ServiceConfig, **kwargs) -> None:
         self.service_config = service_config
-        self.comms: CommunicationProtocol = CommunicationFactory.create_instance(
+        self.comms: CommunicationProtocol = CommunicationFactory.get_or_create_instance(
             self.service_config.comm_backend,
             config=self.service_config.comm_config,
         )

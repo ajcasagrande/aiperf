@@ -7,7 +7,7 @@ from collections import deque
 from aiperf.common.enums import StreamingPostProcessorType
 from aiperf.common.enums.message_enums import MessageType
 from aiperf.common.factories import StreamingPostProcessorFactory
-from aiperf.common.hooks import on_init
+from aiperf.common.hooks import on_message
 from aiperf.common.messages import (
     AllRecordsReceivedMessage,
     CommandMessage,
@@ -36,13 +36,6 @@ class BasicMetricsStreamer(BaseStreamingPostProcessor):
         self.start_time_ns: int = time.time_ns()
         self.end_time_ns: int | None = None
 
-    @on_init
-    async def _initialize(self) -> None:
-        """Initialize the streamer."""
-        await self.sub_client.subscribe(
-            MessageType.ALL_RECORDS_RECEIVED, self._on_all_records_received
-        )
-
     async def stream_record(self, record: ParsedResponseRecord) -> None:
         """Stream a record."""
         if record.request.valid:
@@ -69,6 +62,7 @@ class BasicMetricsStreamer(BaseStreamingPostProcessor):
             for error_details, count in summary.items()
         ]
 
+    @on_message(MessageType.ALL_RECORDS_RECEIVED)
     async def _on_all_records_received(
         self, message: AllRecordsReceivedMessage
     ) -> None:

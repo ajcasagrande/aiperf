@@ -13,10 +13,12 @@ from aiperf.common.enums import (
     EndpointType,
 )
 from aiperf.common.factories import InferenceClientFactory
+from aiperf.common.hooks import implements_protocol
 from aiperf.common.models import (
     ErrorDetails,
     RequestRecord,
 )
+from aiperf.common.protocols import InferenceClientProtocol
 
 
 @InferenceClientFactory.register_all(
@@ -24,6 +26,7 @@ from aiperf.common.models import (
     EndpointType.OPENAI_COMPLETIONS,
     EndpointType.OPENAI_RESPONSES,
 )
+@implements_protocol(InferenceClientProtocol)
 class OpenAIClientAioHttp(AioHttpClientMixin, ABC):
     """Inference client for OpenAI based requests using aiohttp."""
 

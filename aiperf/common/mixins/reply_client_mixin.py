@@ -3,34 +3,42 @@
 
 from abc import ABC
 
+from aiperf.common.config import ServiceConfig
 from aiperf.common.enums import CommAddress
+from aiperf.common.factories import CommunicationFactory
 from aiperf.common.hooks import (
     AIPerfHook,
     MessageHookParams,
     on_init,
     provides_hooks,
 )
-from aiperf.common.mixins.message_bus_mixin import MessageBusClientMixin
+from aiperf.common.mixins.aiperf_lifecycle_mixin import AIPerfLifecycleMixin
+from aiperf.common.protocols import CommunicationProtocol
 
 
 @provides_hooks(AIPerfHook.REQUEST_HANDLER)
-class ReplyClientMixin(MessageBusClientMixin, ABC):
+class ReplyClientMixin(AIPerfLifecycleMixin, ABC):
     """Mixin to provide a reply client for AIPerf components using a ReplyClient for the specified CommAddress.
     Add the @request_handler hook to specify a function that will be called when a request is received.
+
+    NOTE: This currently only supports a single reply client per service, as that is our current use case.
     """
 
-    # TODO: Once we have a better dependency injection system, we can improve the way this is done.
-    #       Currently, this extends the MessageBusClientMixin, so it can get the comms instance from there.
-    #       I did not want to create a new mixin for just the comms instance
     def __init__(
         self,
+        service_config: ServiceConfig,
         reply_client_address: CommAddress,
         reply_client_bind: bool = False,
         **kwargs,
     ) -> None:
+        self.comms: CommunicationProtocol = CommunicationFactory.get_or_create_instance(
+            service_config.comm_backend,
+            config=service_config.comm_config,
+        )
         self.reply_client_address = reply_client_address
         self.reply_client_bind = reply_client_bind
         super().__init__(
+            service_config=service_config,
             reply_client_address=reply_client_address,
             **kwargs,
         )

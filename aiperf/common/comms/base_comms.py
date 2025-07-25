@@ -6,11 +6,13 @@ from typing import cast
 from aiperf.common.enums import (
     CommClientType,
 )
+from aiperf.common.hooks import implements_protocol
 from aiperf.common.mixins.aiperf_lifecycle_mixin import (
     AIPerfLifecycleMixin,
 )
 from aiperf.common.protocols import (
     CommunicationClientProtocol,
+    CommunicationProtocol,
     PubClientProtocol,
     PullClientProtocol,
     PushClientProtocol,
@@ -21,6 +23,7 @@ from aiperf.common.protocols import (
 from aiperf.common.types import CommAddressType
 
 
+@implements_protocol(CommunicationProtocol)
 class BaseCommunication(AIPerfLifecycleMixin, ABC):
     """Base class for specifying the base communication layer for AIPerf components."""
 

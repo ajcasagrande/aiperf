@@ -5,7 +5,6 @@ import asyncio
 
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.comms.base_comms import (
-    PullClientProtocol,
     PushClientProtocol,
     RequestClientProtocol,
 )
@@ -21,20 +20,22 @@ from aiperf.common.factories import (
     RequestConverterFactory,
     ServiceFactory,
 )
-from aiperf.common.hooks import background_task, on_init, on_stop
+from aiperf.common.hooks import background_task, on_pull_message, on_stop
 from aiperf.common.messages import (
     CreditDropMessage,
     CreditReturnMessage,
     WorkerHealthMessage,
 )
-from aiperf.common.mixins import ProcessHealthMixin
+from aiperf.common.mixins import ProcessHealthMixin, PullClientMixin
 from aiperf.common.models import WorkerPhaseTaskStats
 from aiperf.services.base_component_service import BaseComponentService
 from aiperf.services.workers.credit_processor_mixin import CreditProcessorMixin
 
 
 @ServiceFactory.register(ServiceType.WORKER)
-class Worker(BaseComponentService, ProcessHealthMixin, CreditProcessorMixin):
+class Worker(
+    PullClientMixin, BaseComponentService, ProcessHealthMixin, CreditProcessorMixin
+):
     """Worker is primarily responsible for making API calls to the inference server.
     It also manages the conversation between turns and returns the results to the Inference Results Parsers.
     """
@@ -50,6 +51,8 @@ class Worker(BaseComponentService, ProcessHealthMixin, CreditProcessorMixin):
             service_config=service_config,
             user_config=user_config,
             service_id=service_id,
+            pull_client_address=CommAddress.CREDIT_DROP,
+            pull_client_bind=False,
             **kwargs,
         )
 
@@ -59,11 +62,6 @@ class Worker(BaseComponentService, ProcessHealthMixin, CreditProcessorMixin):
 
         self.task_stats: dict[CreditPhase, WorkerPhaseTaskStats] = {}
 
-        self.credit_drop_pull_client: PullClientProtocol = (
-            self.comms.create_pull_client(
-                CommAddress.CREDIT_DROP,
-            )
-        )
         self.credit_return_push_client: PushClientProtocol = (
             self.comms.create_push_client(
                 CommAddress.CREDIT_RETURN,
@@ -94,18 +92,9 @@ class Worker(BaseComponentService, ProcessHealthMixin, CreditProcessorMixin):
             model_endpoint=self.model_endpoint,
         )
 
-    @on_init
-    async def _initialize_worker(self) -> None:
-        self.debug("Initializing worker")
-
-        await self.credit_drop_pull_client.register_pull_callback(
-            MessageType.CREDIT_DROP, self._credit_drop_callback
-        )
-
-        self.debug("Worker initialized")
-
+    @on_pull_message(MessageType.CREDIT_DROP)
     async def _credit_drop_callback(self, message: CreditDropMessage) -> None:
-        """Handle an incoming credit drop message. Every credit must be returned after processing."""
+        """Handle an incoming credit drop message from the timing manager. Every credit must be returned after processing."""
 
         # Create a default credit return message in case of an exception
         credit_return_message = CreditReturnMessage(

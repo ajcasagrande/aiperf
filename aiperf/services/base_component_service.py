@@ -11,6 +11,7 @@ from aiperf.common.enums import (
 from aiperf.common.hooks import (
     background_task,
     command_handler,
+    implements_protocol,
     on_init,
     on_state_change,
 )
@@ -20,9 +21,11 @@ from aiperf.common.messages import (
     RegistrationMessage,
     StatusMessage,
 )
+from aiperf.common.protocols import ServiceProtocol
 from aiperf.services.base_service import BaseService
 
 
+@implements_protocol(ServiceProtocol)
 class BaseComponentService(BaseService):
     """Base class for all Component services.
 

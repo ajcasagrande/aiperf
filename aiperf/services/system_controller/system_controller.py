@@ -141,7 +141,7 @@ class SystemController(SignalHandlerMixin, BaseService):
         await self.comms.stop()
         await self.proxy_manager.stop()
 
-    async def _handle_signal(self, sig: int) -> None:
+    def _handle_signal(self, sig: int) -> None:
         """Handle received signals by triggering graceful shutdown.
 
         Args:
@@ -150,7 +150,7 @@ class SystemController(SignalHandlerMixin, BaseService):
         if sig == signal.SIGINT:
             if self.stop_requested:
                 # If we are already in a stopping state, we need to kill the process to be safe.
-                self.debug(lambda: f"Received signal {sig}, killing")
+                self.warning(lambda: f"Received signal {sig}, killing")
                 asyncio.create_task(self._kill())
                 return
             self.debug(lambda: f"Received signal {sig}, initiating graceful shutdown")

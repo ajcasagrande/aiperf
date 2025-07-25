@@ -14,6 +14,7 @@ from aiperf.common.exceptions import (
 from aiperf.common.hooks import (
     AIPerfHook,
     CommandHookParams,
+    implements_protocol,
     on_init,
     on_message,
     provides_hooks,
@@ -24,10 +25,12 @@ from aiperf.common.messages.command_messages import (
 )
 from aiperf.common.mixins.message_bus_mixin import MessageBusClientMixin
 from aiperf.common.models.error_models import ErrorDetails
-from aiperf.common.types import MessageCallbackMapT, ServiceTypeT
+from aiperf.common.protocols import ServiceProtocol
+from aiperf.common.types import ServiceTypeT
 
 
 @provides_hooks(AIPerfHook.COMMAND_HANDLER)
+@implements_protocol(ServiceProtocol)
 class BaseService(MessageBusClientMixin, ABC):
     """Base class for all AIPerf services, providing common functionality for
     communication, state management, and lifecycle operations.
@@ -86,7 +89,7 @@ class BaseService(MessageBusClientMixin, ABC):
         and specific to our service id."""
         # NOTE: These subscriptions are in addition to the @on_message hook, but we need to
         #       have access to the service type and id, so we can't use the @on_message hook.
-        subscription_map: MessageCallbackMapT = {
+        subscription_map = {
             f"{MessageType.COMMAND}.{self.service_type}": self._process_command_message,
             f"{MessageType.COMMAND}.{self.service_id}": self._process_command_message,
         }

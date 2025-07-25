@@ -13,12 +13,18 @@ from aiperf.common.enums import (
     ServiceType,
 )
 from aiperf.common.factories import ServiceFactory, StreamingPostProcessorFactory
-from aiperf.common.hooks import command_handler, on_init, on_stop
+from aiperf.common.hooks import (
+    command_handler,
+    on_init,
+    on_pull_message,
+    on_start,
+    on_stop,
+)
 from aiperf.common.messages import (
     CommandMessage,
     ParsedInferenceResultsMessage,
 )
-from aiperf.common.protocols import PullClientProtocol
+from aiperf.common.mixins import PullClientMixin
 from aiperf.services.base_component_service import BaseComponentService
 from aiperf.services.records_manager.post_processors import BaseStreamingPostProcessor
 
@@ -27,7 +33,7 @@ DEFAULT_MAX_RECORDS_CONCURRENCY = 100_000
 
 
 @ServiceFactory.register(ServiceType.RECORDS_MANAGER)
-class RecordsManager(BaseComponentService):
+class RecordsManager(PullClientMixin, BaseComponentService):
     """
     The RecordsManager service is primarily responsible for holding the
     results returned from the workers.
@@ -43,44 +49,39 @@ class RecordsManager(BaseComponentService):
             service_config=service_config,
             user_config=user_config,
             service_id=service_id,
+            pull_client_address=CommAddress.RECORDS,
+            pull_client_bind=True,
         )
         self.streaming_post_processors: list[BaseStreamingPostProcessor] = []
-
-        self.response_results_client: PullClientProtocol = (
-            self.comms.create_pull_client(
-                CommAddress.RECORDS,
-                bind=True,
-            )
-        )
-
-    @on_init
-    async def _initialize(self) -> None:
-        """Initialize records manager-specific components."""
-        self.debug("Initializing records manager")
-        await self.response_results_client.register_pull_callback(
-            message_type=MessageType.PARSED_INFERENCE_RESULTS,
-            callback=self._on_parsed_inference_results,
-            max_concurrency=DEFAULT_MAX_RECORDS_CONCURRENCY,
-        )
 
     @on_init
     async def _initialize_streaming_post_processors(self) -> None:
         """Initialize the streaming post processors and start their lifecycle."""
+        self.debug("Initializing streaming post processors")
         for streamer_type in StreamingPostProcessorFactory.get_all_class_types():
             streamer = StreamingPostProcessorFactory.create_instance(
                 class_type=streamer_type,
-                pub_client=self.pub_client,
-                sub_client=self.sub_client,
                 service_id=self.service_id,
                 service_config=self.service_config,
                 user_config=self.user_config,
             )
-            self.debug(f"Initializing streaming post processor: {streamer_type}")
+            self.debug(
+                f"Initializing streaming post processor: {streamer_type}: {streamer.__class__.__name__}"
+            )
             self.streaming_post_processors.append(streamer)
             self.debug(
                 lambda streamer=streamer: f"Starting lifecycle for {streamer.__class__.__name__}"
             )
-            await streamer.initialize_and_start()
+            await streamer.initialize()
+
+    @on_start
+    async def _start_streaming_post_processors(self) -> None:
+        """Start the streaming post processors."""
+        for streamer in self.streaming_post_processors:
+            self.debug(
+                lambda streamer=streamer: f"Starting {streamer.__class__.__name__}"
+            )
+            await streamer.start()
 
     @on_stop
     async def _stop_streaming_post_processors(self) -> None:
@@ -90,6 +91,10 @@ class RecordsManager(BaseComponentService):
             return_exceptions=True,
         )
 
+    @on_pull_message(
+        MessageType.PARSED_INFERENCE_RESULTS,
+        max_concurrency=DEFAULT_MAX_RECORDS_CONCURRENCY,
+    )
     async def _on_parsed_inference_results(
         self, message: ParsedInferenceResultsMessage
     ) -> None:
