@@ -19,7 +19,8 @@ from aiperf.common.enums import (
     CommClientType,
     CommunicationBackend,
 )
-from aiperf.common.exceptions import ShutdownError
+from aiperf.common.enums.service_enums import LifecycleState
+from aiperf.common.exceptions import InvalidStateError, ShutdownError
 from aiperf.common.factories import CommunicationClientFactory, CommunicationFactory
 from aiperf.common.hooks import implements_protocol, on_init, on_start, on_stop
 from aiperf.common.mixins import AIPerfLoggerMixin
@@ -29,9 +30,9 @@ from aiperf.common.types import CommAddressType
 
 @implements_protocol(CommunicationProtocol)
 class BaseZMQCommunication(BaseCommunication, AIPerfLoggerMixin, ABC):
-    """ZeroMQ-based implementation of the Communication interface.
+    """ZeroMQ-based implementation of the CommunicationProtocol.
 
-    Uses ZeroMQ for publish/subscribe and request/reply patterns to
+    Uses ZeroMQ for publish/subscribe, request/reply, and pull/push patterns to
     facilitate communication between AIPerf components.
     """
 
@@ -110,6 +111,14 @@ class BaseZMQCommunication(BaseCommunication, AIPerfLoggerMixin, ABC):
         if (client_type, address, bind) in self._clients_cache:
             return self._clients_cache[(client_type, address, bind)]
 
+        if self.state != LifecycleState.CREATED:
+            # We require the clients to be created before the communication class is initialized.
+            # This is because this class manages the lifecycle of the clients of as well.
+            raise InvalidStateError(
+                f"Communication clients must be created before the {self.__class__.__name__} "
+                f"class is initialized: {self.state!r}"
+            )
+
         client = CommunicationClientFactory.create_instance(
             client_type,
             address=self.get_address(address),
@@ -124,6 +133,7 @@ class BaseZMQCommunication(BaseCommunication, AIPerfLoggerMixin, ABC):
 
 
 @CommunicationFactory.register(CommunicationBackend.ZMQ_TCP)
+@implements_protocol(CommunicationProtocol)
 class ZMQTCPCommunication(BaseZMQCommunication):
     """ZeroMQ-based implementation of the Communication interface using TCP transport."""
 
@@ -137,6 +147,7 @@ class ZMQTCPCommunication(BaseZMQCommunication):
 
 
 @CommunicationFactory.register(CommunicationBackend.ZMQ_IPC)
+@implements_protocol(CommunicationProtocol)
 class ZMQIPCCommunication(BaseZMQCommunication):
     """ZeroMQ-based implementation of the Communication interface using IPC transport."""
 

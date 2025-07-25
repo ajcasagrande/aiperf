@@ -12,8 +12,8 @@ from aiperf.common.protocols import PostProcessorProtocol
 from aiperf.services.records_manager.metrics.base_metric import BaseMetric
 
 
-@PostProcessorFactory.register(PostProcessorType.METRIC_SUMMARY)
 @implements_protocol(PostProcessorProtocol)
+@PostProcessorFactory.register(PostProcessorType.METRIC_SUMMARY)
 class MetricSummary(AIPerfLoggerMixin):
     """
     MetricSummary is a post-processor that generates a summary of metrics from the records.

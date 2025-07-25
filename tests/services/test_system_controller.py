@@ -11,7 +11,9 @@ from pydantic import BaseModel
 
 from aiperf.common.enums import MessageType
 from aiperf.common.service.base_service import BaseService
-from aiperf.services.service_manager.multiprocess import MultiProcessServiceManager
+from aiperf.services.service_manager.multiprocess_service_manager import (
+    MultiProcessServiceManager,
+)
 from aiperf.services.system_controller.system_controller import SystemController
 from tests.base_test_controller_service import BaseTestControllerService
 from tests.base_test_service import async_fixture

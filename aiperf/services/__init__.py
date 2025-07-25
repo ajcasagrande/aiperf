@@ -74,15 +74,13 @@ from aiperf.services.records_manager import (
     TTSTMetric,
     record_from_dataframe,
 )
-from aiperf.services.service_manager import (
+from aiperf.services.system_controller import (
     BaseServiceManager,
     KubernetesServiceManager,
     MultiProcessRunInfo,
     MultiProcessServiceManager,
-    ServiceKubernetesRunInfo,
-)
-from aiperf.services.system_controller import (
     ProxyManager,
+    ServiceKubernetesRunInfo,
     SignalHandlerMixin,
     SystemController,
 )

@@ -12,6 +12,7 @@ from aiperf.common.enums import (
 )
 from aiperf.common.factories import ComposerFactory, ServiceFactory
 from aiperf.common.hooks import (
+    implements_protocol,
     on_init,
     request_handler,
 )
@@ -26,12 +27,14 @@ from aiperf.common.messages import (
 )
 from aiperf.common.mixins.reply_client_mixin import ReplyClientMixin
 from aiperf.common.models import Conversation
+from aiperf.common.protocols import ServiceProtocol
 from aiperf.common.tokenizer import Tokenizer
 from aiperf.services.base_component_service import BaseComponentService
 
 DATASET_CONFIGURATION_TIMEOUT = 30.0
 
 
+@implements_protocol(ServiceProtocol)
 @ServiceFactory.register(ServiceType.DATASET_MANAGER)
 class DatasetManager(ReplyClientMixin, BaseComponentService):
     """

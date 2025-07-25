@@ -15,6 +15,7 @@ from aiperf.common.enums import (
 from aiperf.common.factories import ServiceFactory, StreamingPostProcessorFactory
 from aiperf.common.hooks import (
     command_handler,
+    implements_protocol,
     on_init,
     on_pull_message,
     on_start,
@@ -25,6 +26,7 @@ from aiperf.common.messages import (
     ParsedInferenceResultsMessage,
 )
 from aiperf.common.mixins import PullClientMixin
+from aiperf.common.protocols import ServiceProtocol
 from aiperf.services.base_component_service import BaseComponentService
 from aiperf.services.records_manager.post_processors import BaseStreamingPostProcessor
 
@@ -32,6 +34,7 @@ DEFAULT_MAX_RECORDS_CONCURRENCY = 100_000
 """The default maximum concurrency for the records manager pull client."""
 
 
+@implements_protocol(ServiceProtocol)
 @ServiceFactory.register(ServiceType.RECORDS_MANAGER)
 class RecordsManager(PullClientMixin, BaseComponentService):
     """

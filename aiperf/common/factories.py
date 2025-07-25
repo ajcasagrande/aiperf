@@ -515,8 +515,8 @@ class ServiceManagerFactory(AIPerfFactory[ServiceRunType, "ServiceManagerProtoco
         cls,
         class_type: ServiceRunType | str,
         required_services: dict[ServiceTypeT, int],
-        service_config: ServiceConfig,
-        user_config: UserConfig,
+        service_config: "ServiceConfig",
+        user_config: "UserConfig",
         **kwargs,
     ) -> "ServiceManagerProtocol":
         return super().create_instance(

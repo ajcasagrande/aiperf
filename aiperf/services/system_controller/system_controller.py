@@ -32,12 +32,10 @@ from aiperf.common.messages import (
     StatusMessage,
 )
 from aiperf.common.models import ServiceRunInfo
+from aiperf.common.protocols import ServiceManagerProtocol
 from aiperf.common.types import ServiceTypeT
 from aiperf.data_exporter.exporter_manager import ExporterManager
 from aiperf.services.base_service import BaseService
-from aiperf.services.service_manager import (
-    BaseServiceManager,
-)
 from aiperf.services.system_controller.proxy_manager import ProxyManager
 from aiperf.services.system_controller.system_mixins import (
     SignalHandlerMixin,
@@ -77,7 +75,7 @@ class SystemController(SignalHandlerMixin, BaseService):
         self.proxy_manager: ProxyManager = ProxyManager(
             service_config=self.service_config
         )
-        self.service_manager: BaseServiceManager = (
+        self.service_manager: ServiceManagerProtocol = (
             ServiceManagerFactory.create_instance(
                 self.service_config.service_run_type.value,
                 required_services=self.required_services,

@@ -12,8 +12,10 @@ from aiperf.common.constants import (
 )
 from aiperf.common.enums.service_enums import ServiceRunType
 from aiperf.common.factories import ServiceManagerFactory
+from aiperf.common.hooks import implements_protocol
+from aiperf.common.protocols import ServiceManagerProtocol
 from aiperf.common.types import ServiceTypeT
-from aiperf.services.service_manager.base import BaseServiceManager
+from aiperf.services.system_controller.base_service_manager import BaseServiceManager
 
 
 class ServiceKubernetesRunInfo(BaseModel):
@@ -24,6 +26,7 @@ class ServiceKubernetesRunInfo(BaseModel):
     namespace: str
 
 
+@implements_protocol(ServiceManagerProtocol)
 @ServiceManagerFactory.register(ServiceRunType.KUBERNETES)
 class KubernetesServiceManager(BaseServiceManager):
     """

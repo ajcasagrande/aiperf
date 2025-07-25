@@ -32,6 +32,7 @@ from aiperf.common.types import (
 if TYPE_CHECKING:
     from aiperf.common.config import ServiceConfig, UserConfig
 
+
 ################################################################################
 # Core Base Protocols (Cannot be sorted)
 ################################################################################
@@ -111,8 +112,13 @@ class AIPerfLifecycleProtocol(TaskManagerProtocol, Protocol):
 
 @runtime_checkable
 class CommunicationClientProtocol(AIPerfLifecycleProtocol, Protocol):
-    """Specifically called out differently, as it will be used to register the
-    communication client protocols with the communication client factory."""
+    def __init__(
+        self,
+        address: str,
+        bind: bool,
+        socket_ops: dict | None = None,
+        **kwargs,
+    ) -> None: ...
 
 
 @runtime_checkable
@@ -174,11 +180,6 @@ class SubClientProtocol(CommunicationClientProtocol, Protocol):
     ) -> None: ...
 
 
-@runtime_checkable
-class MessageBusClientProtocol(PubClientProtocol, SubClientProtocol, Protocol):
-    """A message bus client is a client that can publish and subscribe to messages on the event bus/message bus."""
-
-
 ################################################################################
 # Communication Protocol (must come after the clients)
 ################################################################################
@@ -236,6 +237,16 @@ class CommunicationProtocol(AIPerfLifecycleProtocol, Protocol):
         bind: bool = False,
         socket_ops: dict | None = None,
     ) -> ReplyClientProtocol: ...
+
+
+@runtime_checkable
+class MessageBusClientProtocol(PubClientProtocol, SubClientProtocol, Protocol):
+    """A message bus client is a client that can publish and subscribe to messages
+    on the event bus/message bus."""
+
+    comms: CommunicationProtocol
+    sub_client: SubClientProtocol
+    pub_client: PubClientProtocol
 
 
 ################################################################################

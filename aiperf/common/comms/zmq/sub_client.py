@@ -11,15 +11,16 @@ from aiperf.common.comms.zmq.zmq_base_client import BaseZMQClient
 from aiperf.common.enums import CommClientType
 from aiperf.common.exceptions import CommunicationError
 from aiperf.common.factories import CommunicationClientFactory
-from aiperf.common.hooks import background_task
+from aiperf.common.hooks import background_task, implements_protocol
 from aiperf.common.messages import Message
-from aiperf.common.mixins import TaskManagerMixin
+from aiperf.common.protocols import SubClientProtocol
 from aiperf.common.types import MessageTypeT
 from aiperf.common.utils import call_all_functions, yield_to_event_loop
 
 
 @CommunicationClientFactory.register(CommClientType.SUB)
-class ZMQSubClient(BaseZMQClient, TaskManagerMixin):
+@implements_protocol(SubClientProtocol)
+class ZMQSubClient(BaseZMQClient):
     """
     ZMQ SUB socket client for subscribing to messages from PUB sockets.
     One-to-Many or Many-to-One communication pattern.

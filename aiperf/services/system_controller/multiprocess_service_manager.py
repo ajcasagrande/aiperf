@@ -17,8 +17,10 @@ from aiperf.common.constants import (
 from aiperf.common.enums import ServiceRegistrationStatus, ServiceRunType
 from aiperf.common.exceptions import AIPerfError
 from aiperf.common.factories import ServiceFactory, ServiceManagerFactory
+from aiperf.common.hooks import implements_protocol
+from aiperf.common.protocols import ServiceManagerProtocol
 from aiperf.common.types import ServiceTypeT
-from aiperf.services.service_manager.base import BaseServiceManager
+from aiperf.services.system_controller.base_service_manager import BaseServiceManager
 
 
 class MultiProcessRunInfo(BaseModel):
@@ -33,6 +35,7 @@ class MultiProcessRunInfo(BaseModel):
     )
 
 
+@implements_protocol(ServiceManagerProtocol)
 @ServiceManagerFactory.register(ServiceRunType.MULTIPROCESSING)
 class MultiProcessServiceManager(BaseServiceManager):
     """
