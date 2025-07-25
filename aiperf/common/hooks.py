@@ -156,12 +156,27 @@ def implements_protocol(protocol: type[ProtocolT]) -> Callable:
     """Decorator to specify that the class implements the given protocol."""
 
     def decorator(cls: type[ClassProtocolT]) -> type[ClassProtocolT]:
-        if TYPE_CHECKING and not isinstance(cls, protocol):
-            warnings.warn(
-                f"Class {cls.__name__} does not implement the {protocol.__name__} protocol.",
-                category=DeprecationWarning,
-                stacklevel=2,
-            )
+        if TYPE_CHECKING:
+            if not hasattr(protocol, "_is_runtime_protocol"):
+                warnings.warn(
+                    f"Protocol {protocol.__name__} is not a runtime protocol. "
+                    "Please use the @runtime_checkable decorator to mark it as a runtime protocol.",
+                    category=UserWarning,
+                    stacklevel=2,
+                )
+                raise TypeError(
+                    f"Protocol {protocol.__name__} is not a runtime protocol. "
+                    "Please use the @runtime_checkable decorator to mark it as a runtime protocol."
+                )
+            if not issubclass(cls, protocol):
+                warnings.warn(
+                    f"Class {cls.__name__} does not implement the {protocol.__name__} protocol.",
+                    category=UserWarning,
+                    stacklevel=2,
+                )
+                raise TypeError(
+                    f"Class {cls.__name__} does not implement the {protocol.__name__} protocol."
+                )
         setattr(cls, IMPLEMENTS_PROTOCOL, protocol)
         return cls
 

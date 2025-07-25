@@ -11,6 +11,7 @@ from aiperf.common.exceptions import InvalidStateError
 from aiperf.common.hooks import (
     AIPerfHook,
     BackgroundTaskParams,
+    implements_protocol,
     on_start,
     on_stop,
     provides_hooks,
@@ -19,6 +20,7 @@ from aiperf.common.mixins.hooks_mixin import HooksMixin
 from aiperf.common.mixins.task_manager_mixin import (
     TaskManagerMixin,
 )
+from aiperf.common.protocols import AIPerfLifecycleProtocol
 
 
 @provides_hooks(
@@ -28,6 +30,7 @@ from aiperf.common.mixins.task_manager_mixin import (
     AIPerfHook.ON_STATE_CHANGE,
     AIPerfHook.BACKGROUND_TASK,
 )
+@implements_protocol(AIPerfLifecycleProtocol)
 class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
     """This mixin provides a lifecycle state machine, and is the basis for most components in the AIPerf framework.
     It provides a set of hooks that are run at each state transition, and the ability to define background tasks

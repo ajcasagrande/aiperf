@@ -10,10 +10,13 @@ from aiperf.common.hooks import (
     PROVIDES_HOOKS,
     Hook,
     HookType,
+    implements_protocol,
 )
 from aiperf.common.mixins.aiperf_logger_mixin import AIPerfLoggerMixin
+from aiperf.common.protocols import HooksProtocol
 
 
+@implements_protocol(HooksProtocol)
 class HooksMixin(AIPerfLoggerMixin):
     """Mixin for a class to be able to provide hooks to its subclasses, and to be able to run them. A "hook" is a function
     that is decorated with a hook type (AIPerfHook), and optional parameters.

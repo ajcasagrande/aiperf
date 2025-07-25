@@ -5,11 +5,13 @@ import inspect
 from collections.abc import Callable, Coroutine
 
 from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
+from aiperf.common.hooks import implements_protocol
 from aiperf.common.mixins.aiperf_logger_mixin import AIPerfLoggerMixin
 from aiperf.common.protocols import TaskManagerProtocol
 from aiperf.common.utils import yield_to_event_loop
 
 
+@implements_protocol(TaskManagerProtocol)
 class TaskManagerMixin(AIPerfLoggerMixin):
     """Mixin to manage a set of async tasks, and provide background task loop capabilities.
     Can be used standalone, but it is most useful as part of the :class:`AIPerfLifecycleMixin`

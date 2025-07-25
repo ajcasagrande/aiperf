@@ -11,6 +11,7 @@ from aiperf.common.factories import CommunicationFactory
 from aiperf.common.hooks import (
     AIPerfHook,
     MessageHookParams,
+    implements_protocol,
     on_init,
     on_start,
     on_stop,
@@ -23,6 +24,7 @@ from aiperf.common.types import MessageCallbackMapT, MessageTypeT
 
 
 @provides_hooks(AIPerfHook.ON_MESSAGE)
+@implements_protocol(CommunicationProtocol)
 class MessageBusClientMixin(AIPerfLifecycleMixin, ABC):
     """Mixin to provide a message bus clients for AIPerf components, as well as
     a hook to handle messages @on_message."""

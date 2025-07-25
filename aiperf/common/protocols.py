@@ -42,8 +42,6 @@ class AIPerfLoggerProtocol(Protocol):
     is_trace_enabled: bool
     is_debug_enabled: bool
 
-    def hellow_test(self) -> None: ...
-
     def __init__(self, logger_name: str | None = None, **kwargs) -> None: ...
     def log(
         self, level: int, message: str | Callable[..., str], *args, **kwargs
