@@ -7,11 +7,12 @@ from aiperf.common.config import ServiceConfig
 from aiperf.common.enums import CommAddress
 from aiperf.common.hooks import (
     AIPerfHook,
-    PullHookParams,
+    Hook,
     on_init,
     provides_hooks,
 )
 from aiperf.common.mixins.communication_mixin import CommunicationMixin
+from aiperf.common.types import MessageTypeT
 
 
 @provides_hooks(AIPerfHook.ON_PULL_MESSAGE)
@@ -27,27 +28,34 @@ class PullClientMixin(CommunicationMixin, ABC):
         service_config: ServiceConfig,
         pull_client_address: CommAddress,
         pull_client_bind: bool = False,
+        pull_client_max_concurrency: int | None = None,
         **kwargs,
     ) -> None:
         super().__init__(service_config=service_config, **kwargs)
         # NOTE: The communication base class will automatically manage the pull client's lifecycle.
         self.pull_client = self.comms.create_pull_client(
-            pull_client_address, bind=pull_client_bind
+            pull_client_address,
+            bind=pull_client_bind,
+            max_concurrency=pull_client_max_concurrency,
         )
 
     @on_init
     async def _setup_pull_handler_hooks(self) -> None:
         """Configure the pull client to register callbacks for all @on_pull_message hook decorators."""
-        for hook in self.get_hooks(AIPerfHook.ON_PULL_MESSAGE):
-            params = hook.resolve_params(self)
-            if not isinstance(params, PullHookParams):
-                raise ValueError(
-                    f"Invalid hook params: {params}. Expected PullHookParams but got {type(params)}"
-                )
-            self.debug(lambda hook=hook: f"Registering pull handler {hook!r}")
-            for message_type in params.message_types:
-                await self.pull_client.register_pull_callback(
-                    message_type=message_type,
-                    callback=hook.func,
-                    max_concurrency=params.max_concurrency,
-                )
+
+        def _register_pull_callback(hook: Hook, message_type: MessageTypeT) -> None:
+            self.debug(
+                lambda: f"Registering pull callback for message type: {message_type} for hook: {hook}"
+            )
+            self.pull_client.register_pull_callback(
+                message_type=message_type,
+                callback=hook.func,
+            )
+
+        # For each @on_pull_message hook, register a pull callback for each specified message type.
+        self.for_each_hook_param(
+            AIPerfHook.ON_PULL_MESSAGE,
+            self_obj=self,
+            param_type=type[MessageTypeT],
+            lambda_func=_register_pull_callback,
+        )

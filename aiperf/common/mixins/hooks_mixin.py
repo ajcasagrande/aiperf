@@ -109,7 +109,8 @@ class HooksMixin(AIPerfLoggerMixin):
         reversed: bool = False,
     ) -> None:
         """Iterate over the hooks for the given hook type(s), optionally reversed.
-        If a lambda_func is provided, it will be called for each hook, and the hook will be passed as an argument.
+        If a lambda_func is provided, it will be called for each parameter of the hook,
+        and the hook and parameter will be passed as arguments.
 
         Args:
             hook_types: The hook types to iterate over.
@@ -119,6 +120,7 @@ class HooksMixin(AIPerfLoggerMixin):
             reversed: Whether to iterate over the hooks in reverse order.
         """
         for hook in self.get_hooks(*hook_types, reversed=reversed):
+            # in case the hook params are a callable, we need to resolve them to get the actual params
             params = hook.resolve_params(self_obj)
             if not isinstance(params, Iterable):
                 raise ValueError(
@@ -129,6 +131,7 @@ class HooksMixin(AIPerfLoggerMixin):
                     raise ValueError(
                         f"Invalid hook param: {param}. Expected {param_type} but got {type(param)}"
                     )
+                # Call the lambda_func for each parameter of each hook.
                 lambda_func(hook, param)
 
     async def run_hooks(

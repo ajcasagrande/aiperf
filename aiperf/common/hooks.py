@@ -176,6 +176,9 @@ def implements_protocol(protocol: type[ProtocolT]) -> Callable:
 
     def decorator(cls: type[ClassProtocolT]) -> type[ClassProtocolT]:
         if TYPE_CHECKING:
+            protocol.__doc__ = (
+                cls.__doc__
+            )  # Copy over the docstring from the actual class to the protocol
             if not hasattr(protocol, "_is_runtime_protocol"):
                 warnings.warn(
                     f"Protocol {protocol.__name__} is not a runtime protocol. "

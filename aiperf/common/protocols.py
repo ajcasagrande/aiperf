@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from aiperf.common.constants import (
     DEFAULT_COMMS_REQUEST_TIMEOUT,
-    DEFAULT_PULL_CLIENT_MAX_CONCURRENCY,
     DEFAULT_SERVICE_REGISTRATION_TIMEOUT,
     DEFAULT_SERVICE_START_TIMEOUT,
 )
@@ -128,11 +127,10 @@ class PubClientProtocol(CommunicationClientProtocol, Protocol):
 
 @runtime_checkable
 class PullClientProtocol(CommunicationClientProtocol, Protocol):
-    async def register_pull_callback(
+    def register_pull_callback(
         self,
         message_type: MessageTypeT,
         callback: Callable[[Message], Coroutine[Any, Any, None]],
-        max_concurrency: int | None = DEFAULT_PULL_CLIENT_MAX_CONCURRENCY,
     ) -> None: ...
 
 
@@ -222,6 +220,7 @@ class CommunicationProtocol(AIPerfLifecycleProtocol, Protocol):
         address: CommAddressType,
         bind: bool = False,
         socket_ops: dict | None = None,
+        max_concurrency: int | None = None,
     ) -> PullClientProtocol: ...
 
     def create_request_client(

@@ -140,11 +140,10 @@ class ZMQPullClient(BaseZMQClient):
             # always release the semaphore to allow receiving more messages
             self.semaphore.release()
 
-    async def register_pull_callback(
+    def register_pull_callback(
         self,
         message_type: MessageTypeT,
         callback: Callable[[Message], Coroutine[Any, Any, None]],
-        max_concurrency: int | None = None,
     ) -> None:
         """Register a ZMQ Pull data callback for a given message type.
 
@@ -153,12 +152,9 @@ class ZMQPullClient(BaseZMQClient):
         Args:
             message_type: The message type to register the callback for.
             callback: The function to call when data is received.
-            max_concurrency: The maximum number of concurrent requests to allow.
         Raises:
             CommunicationError: If the client is not initialized
         """
-        await self._check_initialized()
-
         # Register callback
         if message_type not in self._pull_callbacks:
             self._pull_callbacks[message_type] = callback
@@ -166,6 +162,3 @@ class ZMQPullClient(BaseZMQClient):
             raise ValueError(
                 f"Callback already registered for message type {message_type}"
             )
-
-        if max_concurrency is not None:
-            self.semaphore = asyncio.Semaphore(value=max_concurrency)

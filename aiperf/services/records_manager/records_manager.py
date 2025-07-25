@@ -5,6 +5,7 @@ import sys
 from typing import Any
 
 from aiperf.common.config import ServiceConfig, UserConfig
+from aiperf.common.constants import DEFAULT_PULL_CLIENT_MAX_CONCURRENCY
 from aiperf.common.enums import (
     CommAddress,
     CommandType,
@@ -30,9 +31,6 @@ from aiperf.common.protocols import ServiceProtocol
 from aiperf.services.base_component_service import BaseComponentService
 from aiperf.services.records_manager.post_processors import BaseStreamingPostProcessor
 
-DEFAULT_MAX_RECORDS_CONCURRENCY = 100_000
-"""The default maximum concurrency for the records manager pull client."""
-
 
 @implements_protocol(ServiceProtocol)
 @ServiceFactory.register(ServiceType.RECORDS_MANAGER)
@@ -54,6 +52,7 @@ class RecordsManager(PullClientMixin, BaseComponentService):
             service_id=service_id,
             pull_client_address=CommAddress.RECORDS,
             pull_client_bind=True,
+            pull_client_max_concurrency=DEFAULT_PULL_CLIENT_MAX_CONCURRENCY,
         )
         self.streaming_post_processors: list[BaseStreamingPostProcessor] = []
 
@@ -94,10 +93,7 @@ class RecordsManager(PullClientMixin, BaseComponentService):
             return_exceptions=True,
         )
 
-    @on_pull_message(
-        MessageType.PARSED_INFERENCE_RESULTS,
-        max_concurrency=DEFAULT_MAX_RECORDS_CONCURRENCY,
-    )
+    @on_pull_message(MessageType.PARSED_INFERENCE_RESULTS)
     async def _on_parsed_inference_results(
         self, message: ParsedInferenceResultsMessage
     ) -> None:

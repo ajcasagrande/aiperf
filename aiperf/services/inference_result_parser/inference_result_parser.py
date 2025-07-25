@@ -10,6 +10,7 @@ from aiperf.common.comms.base_comms import (
 )
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
+from aiperf.common.constants import DEFAULT_PULL_CLIENT_MAX_CONCURRENCY
 from aiperf.common.enums import CommAddress, MessageType, ServiceType
 from aiperf.common.factories import ResponseExtractorFactory, ServiceFactory
 from aiperf.common.hooks import (
@@ -51,6 +52,7 @@ class InferenceResultParser(PullClientMixin, BaseComponentService):
             service_id=service_id,
             pull_client_address=CommAddress.RAW_INFERENCE_PROXY_BACKEND,
             pull_client_bind=False,
+            pull_client_max_concurrency=DEFAULT_PULL_CLIENT_MAX_CONCURRENCY,
         )
         self.debug("Initializing inference result parser")
 
@@ -101,7 +103,7 @@ class InferenceResultParser(PullClientMixin, BaseComponentService):
                 )
             return self.tokenizers[model]
 
-    @on_pull_message(MessageType.INFERENCE_RESULTS, max_concurrency=1_000_000)
+    @on_pull_message(MessageType.INFERENCE_RESULTS)
     async def _on_inference_results(self, message: InferenceResultsMessage) -> None:
         """Handle an inference results message."""
         self.debug(lambda: f"Received inference results message: {message}")
