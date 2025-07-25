@@ -53,14 +53,12 @@ if TYPE_CHECKING:
         ResponseExtractorProtocol,
         ServiceManagerProtocol,
         ServiceProtocol,  # noqa: F401
+        StreamingPostProcessorProtocol,
     )
     from aiperf.data_exporter.exporter_config import ExporterConfig
     from aiperf.services.dataset.composer.base import BaseDatasetComposer
     from aiperf.services.dataset.loader.protocol import (
         CustomDatasetLoaderProtocol,
-    )
-    from aiperf.services.records_manager.post_processors.streaming_post_processor import (
-        BaseStreamingPostProcessor,
     )
 
 
@@ -529,9 +527,9 @@ class ServiceManagerFactory(AIPerfFactory[ServiceRunType, "ServiceManagerProtoco
 
 
 class StreamingPostProcessorFactory(
-    AIPerfFactory[StreamingPostProcessorType, "BaseStreamingPostProcessor"]
+    AIPerfFactory[StreamingPostProcessorType, "StreamingPostProcessorProtocol"]
 ):
-    """Factory for registering and creating BaseStreamingPostProcessor instances based on the specified streaming post processor type.
+    """Factory for registering and creating StreamingPostProcessorProtocol instances based on the specified streaming post processor type.
     see: :class:`aiperf.common.factories.AIPerfFactory` for more details.
     """
 
@@ -544,7 +542,7 @@ class StreamingPostProcessorFactory(
         user_config: "UserConfig",
         max_queue_size: int = DEFAULT_STREAMING_MAX_QUEUE_SIZE,
         **kwargs,
-    ) -> "BaseStreamingPostProcessor":
+    ) -> "StreamingPostProcessorProtocol":
         return super().create_instance(
             class_type,
             service_id=service_id,

@@ -7,12 +7,14 @@ from typing import Any
 
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.constants import DEFAULT_STREAMING_MAX_QUEUE_SIZE
-from aiperf.common.hooks import background_task
+from aiperf.common.hooks import background_task, implements_protocol
 from aiperf.common.messages import CommandMessage
 from aiperf.common.mixins.message_bus_mixin import MessageBusClientMixin
 from aiperf.common.models import ParsedResponseRecord
+from aiperf.common.protocols import StreamingPostProcessorProtocol
 
 
+@implements_protocol(StreamingPostProcessorProtocol)
 class BaseStreamingPostProcessor(MessageBusClientMixin, ABC):
     """
     BaseStreamingPostProcessor is a base class for all classes that wish to stream the incoming

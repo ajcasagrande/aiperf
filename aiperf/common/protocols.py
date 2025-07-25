@@ -15,7 +15,7 @@ from aiperf.common.constants import (
 from aiperf.common.enums import LifecycleState
 from aiperf.common.hooks import Hook, HookType
 from aiperf.common.messages import Message
-from aiperf.common.models import RequestRecord, ResponseData, Turn
+from aiperf.common.models import ParsedResponseRecord, RequestRecord, ResponseData, Turn
 from aiperf.common.models.service_models import ServiceRunInfo
 from aiperf.common.tokenizer import Tokenizer
 from aiperf.common.types import (
@@ -413,3 +413,10 @@ class ServiceProtocol(MessageBusClientProtocol, Protocol):
 
     service_type: ServiceTypeT
     service_id: str
+
+
+@runtime_checkable
+class StreamingPostProcessorProtocol(Protocol):
+    """Protocol for a streaming post processor that streams the incoming records to the post processor."""
+
+    async def stream_record(self, record: ParsedResponseRecord) -> None: ...

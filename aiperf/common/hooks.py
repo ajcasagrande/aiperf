@@ -1,8 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 """
-A "hook" is a function that is decorated with a hook type and optional parameters.
-
 This module provides an extensive set of hook definitions for AIPerf. It is designed to be
 used in conjunction with the :class:`HooksMixin` for classes to provide support for hooks.
 It provides a simple interface for registering hooks.
@@ -55,14 +53,28 @@ class AIPerfHook(CaseInsensitiveStrEnum):
 HookType = AIPerfHook | str
 """Type alias for valid hook types. This is a union of the AIPerfHook enum and any user-defined custom strings."""
 
-AIPERF_HOOK_TYPE = "__aiperf_hook_type__"
-"""Constant attribute name that marks a function's hook type."""
 
-AIPERF_HOOK_PARAMS = "__aiperf_hook_params__"
-"""Constant attribute name that marks a function's hook parameters."""
+class HookAttrs:
+    """Constant attribute names for hooks.
 
-PROVIDES_HOOKS = "__provides_hooks__"
-IMPLEMENTS_PROTOCOL = "__implements_protocol__"
+    When you decorate a function with a hook decorator, the hook type and parameters are
+    set as attributes on the function or class.
+
+    Example:
+
+    @on_message(MessageType.STATUS)
+    def on_status(self, message: Message) -> None:
+        pass
+
+    # This will look like:
+    on_status.__aiperf_hook_type__ = AIPerfHook.ON_MESSAGE
+    on_status.__aiperf_hook_params__ = MessageHookParams(message_types={MessageType.STATUS})
+    """
+
+    HOOK_TYPE = "__aiperf_hook_type__"
+    HOOK_PARAMS = "__aiperf_hook_params__"
+    PROVIDES_HOOKS = "__provides_hooks__"
+    IMPLEMENTS_PROTOCOL = "__implements_protocol__"
 
 
 class Hook(BaseModel):
@@ -73,7 +85,7 @@ class Hook(BaseModel):
 
     @property
     def hook_type(self) -> HookType:
-        return getattr(self.func, AIPERF_HOOK_TYPE)
+        return getattr(self.func, HookAttrs.HOOK_TYPE)
 
     @property
     def func_name(self) -> str:
@@ -123,7 +135,7 @@ def hook_decorator(hook_type: HookType, func: Callable) -> Callable:
     Returns:
         The decorated function.
     """
-    setattr(func, AIPERF_HOOK_TYPE, hook_type)
+    setattr(func, HookAttrs.HOOK_TYPE, hook_type)
     return func
 
 
@@ -140,8 +152,8 @@ def hook_decorator_with_params(
     """
 
     def decorator(func: Callable) -> Callable:
-        setattr(func, AIPERF_HOOK_TYPE, hook_type)
-        setattr(func, AIPERF_HOOK_PARAMS, params)
+        setattr(func, HookAttrs.HOOK_TYPE, hook_type)
+        setattr(func, HookAttrs.HOOK_PARAMS, params)
         return func
 
     return decorator
@@ -153,7 +165,7 @@ def provides_hooks(
     """Decorator to specify that the class provides a hook of the given type to all of its subclasses."""
 
     def decorator(cls: type[HooksMixinT]) -> type[HooksMixinT]:
-        setattr(cls, PROVIDES_HOOKS, set(hook_types))
+        setattr(cls, HookAttrs.PROVIDES_HOOKS, set(hook_types))
         return cls
 
     return decorator
@@ -184,7 +196,7 @@ def implements_protocol(protocol: type[ProtocolT]) -> Callable:
                 raise TypeError(
                     f"Class {cls.__name__} does not implement the {protocol.__name__} protocol."
                 )
-        setattr(cls, IMPLEMENTS_PROTOCOL, protocol)
+        setattr(cls, HookAttrs.IMPLEMENTS_PROTOCOL, protocol)
         return cls
 
     return decorator
