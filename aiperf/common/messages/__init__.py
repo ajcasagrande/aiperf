@@ -19,6 +19,7 @@ from aiperf.common.messages.command_messages import (
     ProcessRecordsCommandData,
     ShutdownWorkersCommandData,
     SpawnWorkersCommandData,
+    TargetedServiceMessage,
 )
 from aiperf.common.messages.credit_messages import (
     CreditDropMessage,
@@ -101,5 +102,6 @@ __all__ = [
     "SpawnWorkersCommandData",
     "StatusMessage",
     "SweepProgressMessage",
+    "TargetedServiceMessage",
     "WorkerHealthMessage",
 ]

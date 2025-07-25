@@ -21,10 +21,36 @@ from aiperf.common.models.error_models import ErrorDetails
 from aiperf.common.types import MessageTypeT, ServiceTypeT
 
 
-class CommandResponseMessage(BaseServiceMessage):
-    """Message containing a command response.
-    This message is sent by a component service to the system controller to respond to a command.
+class TargetedServiceMessage(BaseServiceMessage):
+    """Message that can be targeted to a specific service by id or type.
+    If both `target_service_type` and `target_service_id` are None, the message is
+    sent to all services that are subscribed to the message type.
     """
+
+    @model_validator(mode="after")
+    def validate_target_service(self) -> Self:
+        if self.target_service_id is not None and self.target_service_type is not None:
+            raise ValueError(
+                "Either target_service_id or target_service_type can be provided, but not both"
+            )
+        return self
+
+    target_service_id: str | None = Field(
+        default=None,
+        description="ID of the target service to send the message to. "
+        "If both `target_service_type` and `target_service_id` are None, the message is "
+        "sent to all services that are subscribed to the message type.",
+    )
+    target_service_type: ServiceTypeT | None = Field(
+        default=None,
+        description="Type of the service to send the message to. "
+        "If both `target_service_type` and `target_service_id` are None, the message is "
+        "sent to all services that are subscribed to the message type.",
+    )
+
+
+class CommandResponseMessage(TargetedServiceMessage):
+    """Message containing a command response."""
 
     message_type: MessageTypeT = MessageType.COMMAND_RESPONSE
 
@@ -84,7 +110,7 @@ class ProcessRecordsCommandData(BaseModel):
     )
 
 
-class CommandMessage(BaseServiceMessage):
+class CommandMessage(TargetedServiceMessage):
     """Message containing command data.
     This message is sent by the system controller to a service to command it to do something.
     """
@@ -102,18 +128,6 @@ class CommandMessage(BaseServiceMessage):
     require_response: bool = Field(
         default=False,
         description="Whether a response is required for this command",
-    )
-    target_service_type: ServiceTypeT | None = Field(
-        default=None,
-        description="Type of the service to send the command to. "
-        "If both `target_service_type` and `target_service_id` are None, the command is "
-        "sent to all services.",
-    )
-    target_service_id: str | None = Field(
-        default=None,
-        description="ID of the target service to send the command to. "
-        "If both `target_service_type` and `target_service_id` are None, the command is "
-        "sent to all services.",
     )
     data: SerializeAsAny[
         SpawnWorkersCommandData

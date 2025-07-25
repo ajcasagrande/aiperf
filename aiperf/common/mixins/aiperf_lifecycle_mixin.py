@@ -52,18 +52,15 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
     def state(self) -> LifecycleState:
         return self._state
 
-    @state.setter
-    def state(self, state: LifecycleState) -> None:
+    async def _set_state(self, state: LifecycleState) -> None:
         if state == self._state:
             return
         old_state = self._state
         self._state = state
-        self.debug(lambda: f"State changed from {old_state!r} to {state!r} for {self}")
-
-        self.execute_async(
-            self.run_hooks(
-                AIPerfHook.ON_STATE_CHANGE, old_state=old_state, new_state=state
-            )
+        if self.is_debug_enabled:
+            self.debug(f"State changed from {old_state!r} to {state!r} for {self}")
+        await self.run_hooks(
+            AIPerfHook.ON_STATE_CHANGE, old_state=old_state, new_state=state
         )
 
     @property
@@ -88,6 +85,13 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
         """Whether the lifecycle has been requested to stop."""
         return self._stop_requested_event.is_set()
 
+    @stop_requested.setter
+    def stop_requested(self, value: bool) -> None:
+        if value:
+            self._stop_requested_event.set()
+        else:
+            self._stop_requested_event.clear()
+
     async def _execute_state_transition(
         self,
         transient_state: LifecycleState,
@@ -100,16 +104,18 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
         It is used to ensure that the state change and hook running are atomic, and that the state change is
         only made after the hooks have completed. It also take in an event that is set when the state change is complete.
         This is useful for external code waiting for the state change to complete before continuing.
+
+        If reversed is True, the hooks are run in reverse order. This is useful for stopping the lifecycle in the reverse order of starting it.
         """
-        self.state = transient_state
+        await self._set_state(transient_state)
         self.debug(lambda: f"{transient_state.title()} {self}")
         try:
             await self.run_hooks(hook_type, reversed=reversed)
-            self.state = final_state
+            await self._set_state(final_state)
             self.debug(lambda: f"{self} is now {final_state.title()}")
             event.set()
         except Exception as e:
-            self._fail(e)
+            await self._fail(e)
 
     async def initialize(self) -> None:
         """Initialize the lifecycle and run the @on_init hooks."""
@@ -144,11 +150,11 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
         """Stop the lifecycle and run the @on_stop hooks."""
         if self.stop_requested:
             # If we are already in a stopping state, we need to kill the process to be safe.
-            self.warning(f"Attempted to stop {self} in state {self.state}. Killing.")
+            self.error(f"Attempted to stop {self} in state {self.state}. Killing.")
             await self._kill()
             return
 
-        self._stop_requested_event.set()
+        self.stop_requested = True
         await self._execute_state_transition(
             LifecycleState.STOPPING,
             LifecycleState.STOPPED,
@@ -163,7 +169,7 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
         for hook in self.get_hooks(AIPerfHook.BACKGROUND_TASK):
             if not isinstance(hook.params, BackgroundTaskParams):
                 raise AttributeError(
-                    f"Invalid hook parameters for {hook}: {hook.params}"
+                    f"Invalid hook parameters for {hook}: {hook.params}. Expected BackgroundTaskParams."
                 )
             self.start_background_task(
                 hook.func,
@@ -184,17 +190,17 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
         """Kill the lifecycle. This is used when the lifecycle is requested to stop, but is already in a stopping state.
         This is a last resort to ensure that the lifecycle is stopped.
         """
-        self.state = LifecycleState.FAILED
-        self.debug(lambda: f"Killed {self}")
+        await self._set_state(LifecycleState.FAILED)
+        self.error(lambda: f"Killed {self}")
         self.stopped_event.set()
         os.kill(os.getpid(), signal.SIGKILL)
         raise asyncio.CancelledError(f"Killed {self}")
 
-    def _fail(self, e: Exception) -> None:
+    async def _fail(self, e: Exception) -> None:
         """Set the state to FAILED and raise an asyncio.CancelledError.
         This is used when the transition from one state to another fails.
         """
-        self.state = LifecycleState.FAILED
+        await self._set_state(LifecycleState.FAILED)
         self.exception(f"Failed for {self}: {e}")
         self._stop_requested_event.set()
         self.stopped_event.set()
@@ -207,8 +213,8 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
         return f"<{self.__class__.__qualname__} {self.id} (state={self.state})>"
 
 
-# # Add this file as one to be ignored when finding the caller of aiperf_logger.
-# # This helps to make it more transparent where the actual function is being called from.
+# Add this file as one to be ignored when finding the caller of aiperf_logger.
+# This helps to make it more transparent where the actual function is being called from.
 from aiperf.common import aiperf_logger  # noqa: E402 I001
 
 _srcfile = os.path.normcase(AIPerfLifecycleMixin.initialize.__code__.co_filename)

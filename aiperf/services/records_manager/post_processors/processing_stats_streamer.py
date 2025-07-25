@@ -101,10 +101,10 @@ class ProcessingStatsStreamer(BaseStreamingPostProcessor):
     ) -> None:
         """Handle a credit phase complete message."""
         if phase_complete_msg.phase == CreditPhase.PROFILING:
-            self.info(f"Updating final request count to {self.final_request_count}")
             # This will equate to how many records we expect to receive,
             # and once we receive that many records, we know to stop.
             self.final_request_count = phase_complete_msg.completed
+            self.info(f"Updating final request count to {self.final_request_count}")
 
     @background_task(
         interval=lambda self: self.service_config.progress_report_interval,

@@ -7,6 +7,9 @@ import traceback
 from collections.abc import Callable
 from inspect import currentframe
 
+from aiperf.common.hooks import implements_protocol
+from aiperf.common.protocols import AIPerfLoggerProtocol
+
 _TRACE = logging.DEBUG - 5
 _DEBUG = logging.DEBUG
 _INFO = logging.INFO
@@ -22,6 +25,7 @@ logging.addLevelName(_NOTICE, "NOTICE")
 logging.addLevelName(_SUCCESS, "SUCCESS")
 
 
+@implements_protocol(AIPerfLoggerProtocol)
 class AIPerfLogger:
     """Logger for AIPerf messages with lazy evaluation support for f-strings.
 
@@ -68,6 +72,14 @@ class AIPerfLogger:
         self.removeHandler = self._logger.removeHandler
         self.hasHandlers = self._logger.hasHandlers
         self.root = self._logger.root
+
+    @property
+    def is_debug_enabled(self) -> bool:
+        return self.is_enabled_for(_DEBUG)
+
+    @property
+    def is_trace_enabled(self) -> bool:
+        return self.is_enabled_for(_TRACE)
 
     def _log(self, level: int, msg: str | Callable[..., str], *args, **kwargs) -> None:
         """Internal log method that handles lazy evaluation of f-strings."""

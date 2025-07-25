@@ -93,7 +93,7 @@ class SystemController(SignalHandlerMixin, BaseService):
     async def _initialize_system_controller(self) -> None:
         self.debug("Initializing System Controller")
 
-        # self.setup_signal_handlers(self._handle_signal)
+        self.setup_signal_handlers(self._handle_signal)
         self.debug("Setup signal handlers")
         await self.proxy_manager.initialize_and_start()
         await self.service_manager.initialize()
@@ -141,7 +141,7 @@ class SystemController(SignalHandlerMixin, BaseService):
         await self.comms.stop()
         await self.proxy_manager.stop()
 
-    def _handle_signal(self, sig: int) -> None:
+    async def _handle_signal(self, sig: int) -> None:
         """Handle received signals by triggering graceful shutdown.
 
         Args:

@@ -1,10 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-import asyncio
-
 import zmq.asyncio
 
-from aiperf.common.comms import BaseZMQProxy
 from aiperf.common.config import ServiceConfig
 from aiperf.common.enums import ZMQProxyType
 from aiperf.common.factories import ZMQProxyFactory
@@ -20,42 +17,35 @@ class ProxyManager(AIPerfLifecycleMixin):
     @on_init
     async def _initialize_proxies(self) -> None:
         comm_config = self.service_config.comm_config
-
-        self.event_bus_proxy: BaseZMQProxy = ZMQProxyFactory.create_instance(
-            ZMQProxyType.XPUB_XSUB,
-            zmq_proxy_config=comm_config.event_bus_proxy_config,
-        )
-        await self.event_bus_proxy.initialize()
-
-        self.dataset_manager_proxy: BaseZMQProxy = ZMQProxyFactory.create_instance(
-            ZMQProxyType.DEALER_ROUTER,
-            zmq_proxy_config=comm_config.dataset_manager_proxy_config,
-        )
-        await self.dataset_manager_proxy.initialize()
-
-        self.raw_inference_proxy: BaseZMQProxy = ZMQProxyFactory.create_instance(
-            ZMQProxyType.PUSH_PULL,
-            zmq_proxy_config=comm_config.raw_inference_proxy_config,
-        )
-        await self.raw_inference_proxy.initialize()
+        self.proxies = [
+            ZMQProxyFactory.create_instance(
+                ZMQProxyType.XPUB_XSUB,
+                zmq_proxy_config=comm_config.event_bus_proxy_config,
+            ),
+            ZMQProxyFactory.create_instance(
+                ZMQProxyType.DEALER_ROUTER,
+                zmq_proxy_config=comm_config.dataset_manager_proxy_config,
+            ),
+            ZMQProxyFactory.create_instance(
+                ZMQProxyType.PUSH_PULL,
+                zmq_proxy_config=comm_config.raw_inference_proxy_config,
+            ),
+        ]
+        for proxy in self.proxies:
+            await proxy.initialize()
         self.debug("All proxies initialized successfully")
 
     @on_start
     async def _start_proxies(self) -> None:
         self.debug("Starting all proxies")
-        await asyncio.gather(
-            self.event_bus_proxy.start(),
-            self.dataset_manager_proxy.start(),
-            self.raw_inference_proxy.start(),
-            return_exceptions=True,
-        )
+        for proxy in self.proxies:
+            await proxy.start()
         self.debug("All proxies started successfully")
 
     @on_stop
     async def _stop_proxies(self) -> None:
         self.debug("Stopping all proxies")
-        await self.dataset_manager_proxy.stop()
-        await self.raw_inference_proxy.stop()
-        await self.event_bus_proxy.stop()
+        for proxy in self.proxies:
+            await proxy.stop()
         zmq.asyncio.Context.instance().destroy()
         self.debug("All proxies stopped successfully")

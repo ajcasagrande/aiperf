@@ -24,9 +24,11 @@ if TYPE_CHECKING:
     from aiperf.common.messages.command_messages import CommandMessage
     from aiperf.common.mixins.aiperf_lifecycle_mixin import AIPerfLifecycleMixin
     from aiperf.common.mixins.hooks_mixin import HooksMixin
+    from aiperf.common.models.base_models import AIPerfBaseModel
     from aiperf.common.protocols import ServiceProtocol
 
 
+AIPerfBaseModelT = TypeVar("AIPerfBaseModelT", bound="AIPerfBaseModel")
 ClassEnumT = TypeVar("ClassEnumT", bound="CaseInsensitiveStrEnum")
 ClassProtocolT = TypeVar("ClassProtocolT", bound=Any)
 CommAddressType = Union["CommAddress", str]
@@ -40,6 +42,7 @@ MessageOutputT = TypeVar("MessageOutputT", bound="Message")
 MessageTypeT = MessageType | str
 ModelEndpointInfoT = TypeVar("ModelEndpointInfoT", bound="ModelEndpointInfo")
 OutputT = TypeVar("OutputT", bound=Any)
+ProtocolT = TypeVar("ProtocolT", bound=Any)
 RawRequestT = TypeVar("RawRequestT", bound=Any, contravariant=True)
 RawResponseT = TypeVar("RawResponseT", bound=Any, contravariant=True)
 RequestInputT = TypeVar("RequestInputT", bound=Any, contravariant=True)

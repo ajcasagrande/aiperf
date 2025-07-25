@@ -103,6 +103,7 @@ class BaseService(MessageBusClientMixin, ABC):
             self.debug("Received shutdown command")
             await self.pub_client.publish(
                 CommandResponseMessage(
+                    target_service_id=message.service_id,  # send it back to the sender
                     service_id=self.service_id,
                     command=message.command,
                     command_id=message.command_id,

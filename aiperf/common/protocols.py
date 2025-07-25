@@ -4,9 +4,8 @@
 import asyncio
 import multiprocessing
 from collections.abc import Callable, Coroutine
-from typing import Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
-from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.constants import (
     DEFAULT_COMMS_REQUEST_TIMEOUT,
     DEFAULT_PULL_CLIENT_MAX_CONCURRENCY,
@@ -30,6 +29,9 @@ from aiperf.common.types import (
     ServiceTypeT,
 )
 
+if TYPE_CHECKING:
+    from aiperf.common.config import ServiceConfig, UserConfig
+
 ################################################################################
 # Core Base Protocols (Cannot be sorted)
 ################################################################################
@@ -37,6 +39,11 @@ from aiperf.common.types import (
 
 @runtime_checkable
 class AIPerfLoggerProtocol(Protocol):
+    is_trace_enabled: bool
+    is_debug_enabled: bool
+
+    def hellow_test(self) -> None: ...
+
     def __init__(self, logger_name: str | None = None, **kwargs) -> None: ...
     def log(
         self, level: int, message: str | Callable[..., str], *args, **kwargs
@@ -334,8 +341,8 @@ class ServiceManagerProtocol(AIPerfLifecycleProtocol, Protocol):
     def __init__(
         self,
         required_services: dict[ServiceTypeT, int],
-        service_config: ServiceConfig,
-        user_config: UserConfig,
+        service_config: "ServiceConfig",
+        user_config: "UserConfig",
         log_queue: "multiprocessing.Queue | None" = None,
     ): ...
 
@@ -371,8 +378,8 @@ class ServiceProtocol(MessageBusClientProtocol, Protocol):
 
     def __init__(
         self,
-        user_config: UserConfig,
-        service_config: ServiceConfig,
+        user_config: "UserConfig",
+        service_config: "ServiceConfig",
         service_id: str | None = None,
         **kwargs,
     ) -> None: ...

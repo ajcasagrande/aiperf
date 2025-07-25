@@ -4,6 +4,8 @@ from typing import Any, ClassVar
 
 from pydantic import BaseModel, ConfigDict, model_serializer
 
+from aiperf.common.types import AIPerfBaseModelT
+
 
 class AIPerfBaseModel(BaseModel):
     """Base model for all AIPerf Pydantic models. This class is configured to allow
@@ -19,7 +21,7 @@ def exclude_if_none(*field_names: str):
     field names that should be excluded if they are None.
     """
 
-    def decorator(model: type[AIPerfBaseModel]) -> type[AIPerfBaseModel]:
+    def decorator(model: type[AIPerfBaseModelT]) -> type[AIPerfBaseModelT]:
         if not hasattr(model, "_exclude_if_none_fields"):
             model._exclude_if_none_fields = set()
         model._exclude_if_none_fields.update(set(field_names))

@@ -7,10 +7,10 @@ import zmq.asyncio
 
 from aiperf.common.comms.zmq.zmq_base_client import BaseZMQClient
 from aiperf.common.enums import CommClientType
-from aiperf.common.enums.message_enums import MessageType
 from aiperf.common.exceptions import CommunicationError
 from aiperf.common.factories import CommunicationClientFactory
 from aiperf.common.messages import Message
+from aiperf.common.messages.command_messages import TargetedServiceMessage
 
 
 @CommunicationClientFactory.register(CommClientType.PUB)
@@ -75,23 +75,14 @@ class ZMQPubClient(BaseZMQClient):
         await self._check_initialized()
 
         try:
-            topic = message.message_type
-            # For command messages, we can target a specific service by id or type
-            if hasattr(message, "target_service_id") and message.target_service_id:
-                topic = f"{MessageType.COMMAND}.{message.target_service_id}"
-            elif (
-                hasattr(message, "target_service_type") and message.target_service_type
-            ):
-                topic = f"{MessageType.COMMAND}.{message.target_service_type}"
-
+            topic = self._determine_topic(message)
             message_json = message.model_dump_json()
-
             # Publish message
             self.trace(lambda: f"Publishing message {topic=} {message_json=}")
             await self.socket.send_multipart([topic.encode(), message_json.encode()])
 
         except (asyncio.CancelledError, zmq.ContextTerminated):
-            self.trace(
+            self.debug(
                 lambda: f"Pub client {self.client_id} cancelled or context terminated"
             )
             return
@@ -100,3 +91,14 @@ class ZMQPubClient(BaseZMQClient):
             raise CommunicationError(
                 f"Failed to publish message {message.message_type}: {e}",
             ) from e
+
+    def _determine_topic(self, message: Message) -> str:
+        """Determine the topic based on the message."""
+        # For targeted messages such as commands, we can set the topic to a specific service by id or type
+
+        if isinstance(message, TargetedServiceMessage):
+            if message.target_service_id:
+                return f"{message.message_type}.{message.target_service_id}"
+            if message.target_service_type:
+                return f"{message.message_type}.{message.target_service_type}"
+        return message.message_type

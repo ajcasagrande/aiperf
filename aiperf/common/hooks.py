@@ -21,6 +21,7 @@ The hooks are run by calling the :meth:`HooksMixin.run_hooks` method or retrieve
 """
 
 import asyncio
+import warnings
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any
 
@@ -32,7 +33,7 @@ from aiperf.common.enums import (
     CommandType,
     LifecycleState,
 )
-from aiperf.common.types import HooksMixinT, MessageTypeT
+from aiperf.common.types import ClassProtocolT, HooksMixinT, MessageTypeT, ProtocolT
 
 if TYPE_CHECKING:
     pass
@@ -59,6 +60,7 @@ AIPERF_HOOK_PARAMS = "__aiperf_hook_params__"
 """Constant attribute name that marks a function's hook parameters."""
 
 PROVIDES_HOOKS = "__provides_hooks__"
+IMPLEMENTS_PROTOCOL = "__implements_protocol__"
 
 
 class Hook(BaseModel):
@@ -145,6 +147,22 @@ def provides_hooks(
 
     def decorator(cls: type[HooksMixinT]) -> type[HooksMixinT]:
         setattr(cls, PROVIDES_HOOKS, set(hook_types))
+        return cls
+
+    return decorator
+
+
+def implements_protocol(protocol: type[ProtocolT]) -> Callable:
+    """Decorator to specify that the class implements the given protocol."""
+
+    def decorator(cls: type[ClassProtocolT]) -> type[ClassProtocolT]:
+        if TYPE_CHECKING and not isinstance(cls, protocol):
+            warnings.warn(
+                f"Class {cls.__name__} does not implement the {protocol.__name__} protocol.",
+                category=DeprecationWarning,
+                stacklevel=2,
+            )
+        setattr(cls, IMPLEMENTS_PROTOCOL, protocol)
         return cls
 
     return decorator

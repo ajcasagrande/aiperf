@@ -20,6 +20,8 @@ class ReplyClientMixin(MessageBusClientMixin, ABC):
     """
 
     # TODO: Once we have a better dependency injection system, we can improve the way this is done.
+    #       Currently, this extends the MessageBusClientMixin, so it can get the comms instance from there.
+    #       I did not want to create a new mixin for just the comms instance
     def __init__(
         self,
         reply_client_address: CommAddress,
