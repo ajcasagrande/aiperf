@@ -45,7 +45,7 @@ class BaseCommunication(AIPerfLifecycleMixin, ABC):
         address: CommAddressType,
         bind: bool = False,
         socket_ops: dict | None = None,
-        pull_max_concurrency: int | None = None,
+        max_pull_concurrency: int | None = None,
     ) -> CommunicationClientProtocol:
         """Create a communication client for a given client type and address.
 
@@ -54,7 +54,7 @@ class BaseCommunication(AIPerfLifecycleMixin, ABC):
             address: The type of address to use when looking up in the communication config, or the address itself.
             bind: Whether to bind or connect the socket.
             socket_ops: Additional socket options to set.
-            pull_max_concurrency: The maximum number of concurrent pull requests to allow. (Only used for pull clients)
+            max_pull_concurrency: The maximum number of concurrent pull requests to allow. (Only used for pull clients)
         """
 
     def create_pub_client(
@@ -95,7 +95,7 @@ class BaseCommunication(AIPerfLifecycleMixin, ABC):
         address: CommAddressType,
         bind: bool = False,
         socket_ops: dict | None = None,
-        max_concurrency: int | None = None,
+        max_pull_concurrency: int | None = None,
     ) -> PullClientProtocol:
         return cast(
             PullClientProtocol,
@@ -104,7 +104,7 @@ class BaseCommunication(AIPerfLifecycleMixin, ABC):
                 address,
                 bind,
                 socket_ops,
-                pull_max_concurrency=max_concurrency,
+                max_pull_concurrency=max_pull_concurrency,
             ),
         )
 

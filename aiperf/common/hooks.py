@@ -30,10 +30,10 @@ from aiperf.common.enums import (
     LifecycleState,
 )
 from aiperf.common.types import (
-    BaseModelT,
     ClassProtocolT,
     CommandTypeT,
     HookCallableParamsT,
+    HookParamsT,
     HooksMixinT,
     MessageTypeT,
     ProtocolT,
@@ -80,11 +80,14 @@ class HookAttrs:
     IMPLEMENTS_PROTOCOL = "__implements_protocol__"
 
 
-class Hook(BaseModel, Generic[BaseModelT]):
-    """A hook is a function that is decorated with a hook type and optional parameters."""
+class Hook(BaseModel, Generic[HookParamsT]):
+    """A hook is a function that is decorated with a hook type and optional parameters.
+    The HookParamsT is the type of the parameters. You can either have a static value,
+    or a callable that returns the parameters.
+    """
 
     func: Callable
-    params: BaseModelT | Callable[[SelfT], BaseModelT] | None = None  # type: ignore
+    params: HookParamsT | Callable[[SelfT], HookParamsT] | None = None  # type: ignore
 
     @property
     def hook_type(self) -> HookType:
@@ -98,14 +101,21 @@ class Hook(BaseModel, Generic[BaseModelT]):
     def qualified_name(self) -> str:
         return f"{self.func.__qualname__}"
 
-    def resolve_params(self, self_obj: SelfT) -> BaseModelT | None:
+    def resolve_params(self, self_obj: SelfT) -> HookParamsT | None:
         """Resolve the parameters for the hook. If the parameters are a callable, it will be called
         with the self_obj as the argument, otherwise the parameters are returned as is."""
         if self.params is None:
             return None
+        # With variable length parameters, you get a tuple with 1 item in it, so we need to check for that.
+        if (
+            isinstance(self.params, Iterable)
+            and len(self.params) == 1
+            and callable(self.params[0])
+        ):  # type: ignore
+            return self.params[0](self_obj)  # type: ignore
         if callable(self.params):
             return self.params(self_obj)
-        return self.params
+        return self.params  # type: ignore
 
     async def __call__(self, **kwargs) -> None:
         if asyncio.iscoroutinefunction(self.func):
@@ -175,10 +185,10 @@ def implements_protocol(protocol: type[ProtocolT]) -> Callable:
     """Decorator to specify that the class implements the given protocol."""
 
     def decorator(cls: type[ClassProtocolT]) -> type[ClassProtocolT]:
+        # Copy over the docstring from the actual class to the protocol
+        # TODO: Not sure if working as hoped, need to test.
+        protocol.__doc__ = cls.__doc__
         if TYPE_CHECKING:
-            protocol.__doc__ = (
-                cls.__doc__
-            )  # Copy over the docstring from the actual class to the protocol
             if not hasattr(protocol, "_is_runtime_protocol"):
                 warnings.warn(
                     f"Protocol {protocol.__name__} is not a runtime protocol. "

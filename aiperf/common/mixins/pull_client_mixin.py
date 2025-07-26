@@ -28,7 +28,7 @@ class PullClientMixin(CommunicationMixin, ABC):
         service_config: ServiceConfig,
         pull_client_address: CommAddress,
         pull_client_bind: bool = False,
-        pull_client_max_concurrency: int | None = None,
+        max_pull_concurrency: int | None = None,
         **kwargs,
     ) -> None:
         super().__init__(service_config=service_config, **kwargs)
@@ -36,7 +36,7 @@ class PullClientMixin(CommunicationMixin, ABC):
         self.pull_client = self.comms.create_pull_client(
             pull_client_address,
             bind=pull_client_bind,
-            max_concurrency=pull_client_max_concurrency,
+            max_pull_concurrency=max_pull_concurrency,
         )
 
     @on_init
@@ -56,6 +56,6 @@ class PullClientMixin(CommunicationMixin, ABC):
         self.for_each_hook_param(
             AIPerfHook.ON_PULL_MESSAGE,
             self_obj=self,
-            param_type=type[MessageTypeT],
+            param_type=MessageTypeT,
             lambda_func=_register_pull_callback,
         )

@@ -41,6 +41,10 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
     """
 
     def __init__(self, id: str | None = None, **kwargs) -> None:
+        """
+        Args:
+            id: The id of the lifecycle. If not provided, a random uuid will be generated.
+        """
         self.id = id or f"{self.__class__.__name__}_{uuid.uuid4().hex[:8]}"
         self._state = LifecycleState.CREATED
         self.initialized_event = asyncio.Event()
@@ -55,6 +59,9 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
     def state(self) -> LifecycleState:
         return self._state
 
+    # NOTE: This was moved to not be a property setter, as we want it to be async so we can
+    # run the hooks and await them. Otherwise there is issues with creating a task when the
+    # lifecycle is trying to stop.
     async def _set_state(self, state: LifecycleState) -> None:
         if state == self._state:
             return
@@ -121,7 +128,10 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
             await self._fail(e)
 
     async def initialize(self) -> None:
-        """Initialize the lifecycle and run the @on_init hooks."""
+        """Initialize the lifecycle and run the @on_init hooks.
+
+        NOTE: It is generally discouraged from overriding this method. Instead, use the @on_init hook to handle your own initialization logic.
+        """
         if self.state in (
             LifecycleState.INITIALIZING,
             LifecycleState.INITIALIZED,
@@ -143,7 +153,10 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
         )
 
     async def start(self) -> None:
-        """Start the lifecycle and run the @on_start hooks."""
+        """Start the lifecycle and run the @on_start hooks.
+
+        NOTE: It is generally discouraged from overriding this method. Instead, use the @on_start hook to handle your own starting logic.
+        """
         if self.state in (
             LifecycleState.STARTING,
             LifecycleState.RUNNING,
@@ -166,11 +179,14 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
         await self.start()
 
     async def stop(self) -> None:
-        """Stop the lifecycle and run the @on_stop hooks."""
+        """Stop the lifecycle and run the @on_stop hooks.
+
+        NOTE: It is generally discouraged from overriding this method. Instead, use the @on_stop hook to handle your own stopping logic.
+        """
         if self.stop_requested:
-            # If we are already in a stopping state, we need to kill the process to be safe.
-            self.error(f"Attempted to stop {self} in state {self.state}. Killing.")
-            await self._kill()
+            self.debug(
+                lambda: f"Ignoring stop request for {self} in state {self.state}"
+            )
             return
 
         self.stop_requested = True
@@ -210,7 +226,8 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
         This is a last resort to ensure that the lifecycle is stopped.
         """
         await self._set_state(LifecycleState.FAILED)
-        self.error(lambda: f"Killed {self}")
+        self.error(lambda: f"Killing {self}")
+        self.stop_requested = True
         self.stopped_event.set()
         # TODO: This is a hack to ensure that the process is killed.
         #       We should find a better way to do this.

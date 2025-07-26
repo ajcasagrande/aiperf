@@ -11,7 +11,7 @@ from aiperf.common.constants import (
     DEFAULT_SERVICE_REGISTRATION_TIMEOUT,
     DEFAULT_SERVICE_START_TIMEOUT,
 )
-from aiperf.common.enums import LifecycleState
+from aiperf.common.enums import CommClientType, LifecycleState
 from aiperf.common.hooks import Hook, HookType
 from aiperf.common.messages import Message
 from aiperf.common.models import ParsedResponseRecord, RequestRecord, ResponseData, Turn
@@ -185,14 +185,24 @@ class SubClientProtocol(CommunicationClientProtocol, Protocol):
 
 @runtime_checkable
 class CommunicationProtocol(AIPerfLifecycleProtocol, Protocol):
+    """Protocol for the base communication layer.
+    see :class:`aiperf.common.comms.base_comms.BaseCommunication` for more details.
+    """
+
     def get_address(self, address_type: CommAddressType) -> str: ...
+
+    """Get the address for the given address type can be an enum value for lookup, or a string for direct use."""
 
     def create_client(
         self,
+        client_type: CommClientType,
         address: CommAddressType,
         bind: bool = False,
         socket_ops: dict | None = None,
     ) -> CommunicationClientProtocol: ...
+
+    """Create a client for the given client type and address, which will be automatically
+    started and stopped with the CommunicationProtocol instance."""
 
     def create_pub_client(
         self,
@@ -201,12 +211,18 @@ class CommunicationProtocol(AIPerfLifecycleProtocol, Protocol):
         socket_ops: dict | None = None,
     ) -> PubClientProtocol: ...
 
+    """Create a PUB client for the given address, which will be automatically
+    started and stopped with the CommunicationProtocol instance."""
+
     def create_sub_client(
         self,
         address: CommAddressType,
         bind: bool = False,
         socket_ops: dict | None = None,
     ) -> SubClientProtocol: ...
+
+    """Create a SUB client for the given address, which will be automatically
+    started and stopped with the CommunicationProtocol instance."""
 
     def create_push_client(
         self,
@@ -215,13 +231,19 @@ class CommunicationProtocol(AIPerfLifecycleProtocol, Protocol):
         socket_ops: dict | None = None,
     ) -> PushClientProtocol: ...
 
+    """Create a PUSH client for the given address, which will be automatically
+    started and stopped with the CommunicationProtocol instance."""
+
     def create_pull_client(
         self,
         address: CommAddressType,
         bind: bool = False,
         socket_ops: dict | None = None,
-        max_concurrency: int | None = None,
+        max_pull_concurrency: int | None = None,
     ) -> PullClientProtocol: ...
+
+    """Create a PULL client for the given address, which will be automatically
+    started and stopped with the CommunicationProtocol instance."""
 
     def create_request_client(
         self,
@@ -230,12 +252,18 @@ class CommunicationProtocol(AIPerfLifecycleProtocol, Protocol):
         socket_ops: dict | None = None,
     ) -> RequestClientProtocol: ...
 
+    """Create a REQUEST client for the given address, which will be automatically
+    started and stopped with the CommunicationProtocol instance."""
+
     def create_reply_client(
         self,
         address: CommAddressType,
         bind: bool = False,
         socket_ops: dict | None = None,
     ) -> ReplyClientProtocol: ...
+
+    """Create a REPLY client for the given address, which will be automatically
+    started and stopped with the CommunicationProtocol instance."""
 
 
 @runtime_checkable

@@ -42,7 +42,7 @@ CommandCallbackMapT = dict["CommandType", Callable[["CommandMessage"], Awaitable
 CommandTypeT = CommandType | str
 ConfigT = TypeVar("ConfigT", bound=Any, covariant=True)
 HooksMixinT = TypeVar("HooksMixinT", bound="HooksMixin")
-HookParamsT = TypeVar("HookParamsT", bound="BaseModel")
+HookParamsT = TypeVar("HookParamsT", bound=Any)
 HookCallableParamsT = HookParamsT | Callable[["SelfT"], HookParamsT]
 InputT = TypeVar("InputT", bound=Any)
 LifecycleMixinT = TypeVar("LifecycleMixinT", bound="AIPerfLifecycleMixin")

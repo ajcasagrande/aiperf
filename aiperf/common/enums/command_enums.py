@@ -15,5 +15,6 @@ class CommandType(CaseInsensitiveStrEnum):
 
 class CommandResponseStatus(CaseInsensitiveStrEnum):
     ACKNOWLEDGED = "acknowledged"
-    SUCCESS = "success"
     FAILURE = "failure"
+    UNHANDLED = "unhandled"  # The command was received but not handled by any hook
+    SUCCESS = "success"

@@ -54,6 +54,6 @@ class ReplyClientMixin(CommunicationMixin, ABC):
         self.for_each_hook_param(
             AIPerfHook.ON_REQUEST,
             self_obj=self,
-            param_type=type[MessageTypeT],
+            param_type=MessageTypeT,
             lambda_func=_register_request_handler,
         )

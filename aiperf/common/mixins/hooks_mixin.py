@@ -104,7 +104,7 @@ class HooksMixin(AIPerfLoggerMixin):
         self,
         *hook_types: HookType,
         self_obj: Any,
-        param_type: type[AnyT],
+        param_type: AnyT,
         lambda_func: Callable[[Hook, AnyT], None],
         reversed: bool = False,
     ) -> None:
@@ -127,6 +127,10 @@ class HooksMixin(AIPerfLoggerMixin):
                     f"Invalid hook params: {params}. Expected Iterable but got {type(params)}"
                 )
             for param in params:
+                self.trace(
+                    lambda param=param,
+                    type=param_type: f"param: {param}, param_type: {type}"
+                )
                 if not isinstance(param, param_type):
                     raise ValueError(
                         f"Invalid hook param: {param}. Expected {param_type} but got {type(param)}"

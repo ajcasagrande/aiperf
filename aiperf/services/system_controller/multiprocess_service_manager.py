@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
 import multiprocessing
+import uuid
 from multiprocessing import Process
 from multiprocessing.context import ForkProcess, SpawnProcess
 
@@ -33,6 +34,10 @@ class MultiProcessRunInfo(BaseModel):
         ...,
         description="Type of service running in the process",
     )
+    service_id: str = Field(
+        ...,
+        description="ID of the service running in the process",
+    )
 
 
 @implements_protocol(ServiceManagerProtocol)
@@ -61,12 +66,13 @@ class MultiProcessServiceManager(BaseServiceManager):
         service_class = ServiceFactory.get_class_from_type(service_type)
 
         for _ in range(num_replicas):
+            service_id = f"{service_type}_{uuid.uuid4().hex[:8]}"
             process = Process(
                 target=bootstrap_and_run_service,
                 name=f"{service_type}_process",
                 kwargs={
                     "service_class": service_class,
-                    "service_id": service_type if num_replicas == 1 else None,
+                    "service_id": service_id,
                     "service_config": self.service_config,
                     "user_config": self.user_config,
                     "log_queue": self.log_queue,
@@ -82,21 +88,23 @@ class MultiProcessServiceManager(BaseServiceManager):
             )
 
             self.multi_process_info.append(
-                MultiProcessRunInfo(process=process, service_type=service_type)
+                MultiProcessRunInfo(
+                    process=process,
+                    service_type=service_type,
+                    service_id=service_id,
+                )
             )
 
     async def stop_service(
-        self, service_type: ServiceTypeT, num_replicas: int | None = 1
+        self, service_type: ServiceTypeT, service_id: str | None = None
     ) -> None:
-        self.debug(lambda: f"Stopping {num_replicas} {service_type} processes")
+        self.debug(lambda: f"Stopping {service_type} process(es) with id: {service_id}")
         for info in self.multi_process_info[:]:
-            if info.service_type == service_type:
+            if info.service_type == service_type and (
+                service_id is None or info.service_id == service_id
+            ):
                 await self._wait_for_process(info)
                 self.multi_process_info.remove(info)
-                if num_replicas is not None:
-                    num_replicas -= 1
-                    if num_replicas == 0:
-                        break
 
     async def shutdown_all_services(self) -> None:
         """Stop all required services as multiprocessing processes."""

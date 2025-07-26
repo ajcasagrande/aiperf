@@ -15,6 +15,7 @@ from aiperf.common.exceptions import (
 from aiperf.common.hooks import (
     AIPerfHook,
     implements_protocol,
+    on_command,
     on_init,
     on_message,
     provides_hooks,
@@ -92,6 +93,24 @@ class BaseService(MessageBusClientMixin, ABC):
         subscription_map = {}
         await self.subscribe_all(subscription_map)
 
+    def _create_command_response_message(
+        self,
+        message: CommandMessage,
+        status: CommandResponseStatus,
+        data: Any | None = None,
+        error: ErrorDetails | None = None,
+    ) -> CommandResponseMessage:
+        """Create a command response message for the given command message. Fills in all the details based on the original command message."""
+        return CommandResponseMessage(
+            target_service_id=message.service_id,  # send it back to the sender
+            service_id=self.service_id,
+            command=message.command,
+            command_id=message.command_id,
+            status=status,
+            data=data,
+            error=error,
+        )
+
     @on_message(
         lambda self: {
             MessageType.COMMAND,
@@ -105,22 +124,6 @@ class BaseService(MessageBusClientMixin, ABC):
         """
         self.debug(lambda: f"Received command message: {message.model_dump_json()}")
 
-        if message.command == CommandType.SHUTDOWN:
-            self.debug("Received shutdown command")
-            await self.pub_client.publish(
-                CommandResponseMessage(
-                    target_service_id=message.service_id,  # send it back to the sender
-                    service_id=self.service_id,
-                    command=message.command,
-                    command_id=message.command_id,
-                    status=CommandResponseStatus.ACKNOWLEDGED,
-                )
-            )
-
-        response_status = CommandResponseStatus.SUCCESS
-        response_error: ErrorDetails | None = None
-        response_data: Any | None = None
-
         # Go through the hooks and find the first one that matches the command type.
         # Currently, we only support a single handler per command type, so we break out of the loop after the first one.
         # TODO: Do we want/need to add support for multiple handlers per command type?
@@ -128,24 +131,60 @@ class BaseService(MessageBusClientMixin, ABC):
             if isinstance(hook.params, Iterable) and message.command in hook.params:
                 try:
                     response_data = await hook.func(message)
+                    await self.publish(
+                        self._create_command_response_message(
+                            message,
+                            CommandResponseStatus.SUCCESS,
+                            response_data,
+                        )
+                    )
                 except Exception as e:
                     self.exception(
                         f"Failed to handle command {message.command} with hook {hook}: {e}"
                     )
-                    response_status = CommandResponseStatus.FAILURE
-                    response_error = ErrorDetails.from_exception(e)
+                    await self.publish(
+                        self._create_command_response_message(
+                            message,
+                            CommandResponseStatus.FAILURE,
+                            error=ErrorDetails.from_exception(e),
+                        )
+                    )
 
                 # Break out of the loop after the first successful handler (only 1 handler per command)
                 break
 
-        await self.pub_client.publish(
-            CommandResponseMessage(
-                service_id=self.service_id,
-                command=message.command,
-                command_id=message.command_id,
-                target_service_id=message.service_id,  # send it back to the sender
-                status=response_status,
-                data=response_data,
-                error=response_error,
-            ),
+        # If we reach here, no handler was found for the command, so we publish an unhandled response.
+        await self.publish(
+            self._create_command_response_message(
+                message,
+                CommandResponseStatus.UNHANDLED,
+            )
         )
+
+    @on_command(CommandType.SHUTDOWN)
+    async def _on_shutdown_command(self, message: CommandMessage) -> None:
+        self.debug(f"Received shutdown command from {message.service_id}")
+        # Send an acknowledged response back to the sender, because we won't be able to send it after we stop.
+        await self.publish(
+            self._create_command_response_message(
+                message,
+                CommandResponseStatus.ACKNOWLEDGED,
+            )
+        )
+
+        try:
+            await self.stop()
+        except Exception as e:
+            self.exception(
+                f"Failed to stop service {self} ({self.service_id}) after receiving shutdown command: {e}. Killing."
+            )
+            await self._kill()
+
+    async def stop(self) -> None:
+        """This overrides the base class stop method to handle the case where the service is already stopping.
+        In this case, we need to kill the process to be safe."""
+        if self.stop_requested:
+            self.error(f"Attempted to stop {self} in state {self.state}. Killing.")
+            await self._kill()
+            return
+        await super().stop()

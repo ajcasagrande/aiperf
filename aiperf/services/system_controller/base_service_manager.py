@@ -50,8 +50,10 @@ class BaseServiceManager(AIPerfLifecycleMixin, ABC):
     async def _stop_service_manager(self) -> None:
         await self.shutdown_all_services()
 
-    async def run_services(self, service_types: dict[ServiceTypeT, int]) -> None:
-        await asyncio.gather(
+    async def run_services(
+        self, service_types: dict[ServiceTypeT, int]
+    ) -> list[BaseException | None]:
+        return await asyncio.gather(
             *[
                 self.run_service(service_type, num_replicas)
                 for service_type, num_replicas in service_types.items()
@@ -61,19 +63,16 @@ class BaseServiceManager(AIPerfLifecycleMixin, ABC):
 
     @abstractmethod
     async def stop_service(
-        self, service_type: ServiceTypeT, num_replicas: int | None = None
+        self, service_type: ServiceTypeT, service_id: str | None = None
     ) -> None:
         pass
 
-    async def stop_services(
-        self, service_types: dict[ServiceTypeT, int | None]
-    ) -> None:
+    # TODO: This stuff needs some major cleanup
+
+    async def stop_services_by_type(self, service_types: list[ServiceTypeT]) -> None:
         """Stop a set of services."""
         await asyncio.gather(
-            *[
-                self.stop_service(service_type, num_replicas)
-                for service_type, num_replicas in service_types.items()
-            ],
+            *[self.stop_service(service_type) for service_type in service_types],
             return_exceptions=True,
         )
 

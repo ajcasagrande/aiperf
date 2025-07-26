@@ -42,8 +42,13 @@ class MessageBusClientMixin(CommunicationMixin, ABC):
         subscription_map: MessageCallbackMapT = {}
 
         def _add_to_subscription_map(hook: Hook, message_type: MessageTypeT) -> None:
+            """
+            This function is called for every message_type parameter of every @on_message hook.
+            We use this to build a map of message types to callbacks, which is then used to call
+            subscribe_all for efficiency
+            """
             self.debug(
-                lambda: f"Subscribing to message type: {message_type} for hook: {hook}"
+                lambda: f"Subscribing to message type: '{message_type}' for hook: {hook}"
             )
             subscription_map.setdefault(message_type, []).append(hook.func)
 
@@ -51,7 +56,7 @@ class MessageBusClientMixin(CommunicationMixin, ABC):
         self.for_each_hook_param(
             AIPerfHook.ON_MESSAGE,
             self_obj=self,
-            param_type=type[MessageTypeT],
+            param_type=MessageTypeT,
             lambda_func=_add_to_subscription_map,
         )
         await self.sub_client.subscribe_all(subscription_map)

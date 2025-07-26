@@ -56,7 +56,7 @@ class ZMQPullClient(BaseZMQClient):
         address: str,
         bind: bool,
         socket_ops: dict | None = None,
-        max_concurrency: int | None = None,
+        max_pull_concurrency: int | None = None,
     ) -> None:
         """
         Initialize the ZMQ Puller class.
@@ -65,15 +65,15 @@ class ZMQPullClient(BaseZMQClient):
             address (str): The address to bind or connect to.
             bind (bool): Whether to bind or connect the socket.
             socket_ops (dict, optional): Additional socket options to set.
-            max_concurrency (int, optional): The maximum number of concurrent requests to allow.
+            max_pull_concurrency (int, optional): The maximum number of concurrent requests to allow.
         """
         super().__init__(zmq.SocketType.PULL, address, bind, socket_ops)
         self._pull_callbacks: dict[
             MessageTypeT, Callable[[Message], Coroutine[Any, Any, None]]
         ] = {}
 
-        if max_concurrency is not None:
-            self.semaphore = asyncio.Semaphore(value=max_concurrency)
+        if max_pull_concurrency is not None:
+            self.semaphore = asyncio.Semaphore(value=max_pull_concurrency)
         else:
             self.semaphore = asyncio.Semaphore(
                 value=int(os.getenv("AIPERF_WORKER_CONCURRENT_REQUESTS", 500))
