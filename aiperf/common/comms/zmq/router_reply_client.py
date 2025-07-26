@@ -55,6 +55,7 @@ class ZMQRouterReplyClient(BaseZMQClient):
         address: str,
         bind: bool,
         socket_ops: dict | None = None,
+        **kwargs,
     ) -> None:
         """
         Initialize the ZMQ Router (Rep) client class.
@@ -64,7 +65,7 @@ class ZMQRouterReplyClient(BaseZMQClient):
             bind (bool): Whether to bind or connect the socket.
             socket_ops (dict, optional): Additional socket options to set.
         """
-        super().__init__(zmq.SocketType.ROUTER, address, bind, socket_ops)
+        super().__init__(zmq.SocketType.ROUTER, address, bind, socket_ops, **kwargs)
 
         self._request_handlers: dict[
             MessageTypeT,
@@ -175,9 +176,7 @@ class ZMQRouterReplyClient(BaseZMQClient):
         shutdown. It will wait for requests from the socket and send responses in
         an asynchronous manner.
         """
-        self.debug("Waiting for router reply client to be initialized")
-
-        self.debug("Router reply client initialized")
+        self.debug("Router reply client background task initialized")
 
         while True:
             try:

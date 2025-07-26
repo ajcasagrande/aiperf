@@ -192,7 +192,7 @@ class MultiProcessLogHandler(RichHandler):
             }
             self.log_queue.put_nowait(log_data)
         except queue.Full:
-            # Drop logs if queue is full to prevent blocking
+            # Drop logs if queue is full to prevent blocking. Do not log to prevent recursion.
             pass
         except Exception:
             # Do not log to prevent recursion

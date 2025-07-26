@@ -1,14 +1,20 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+import asyncio
+import os
+import signal
 import uuid
 from abc import ABC
 from collections.abc import Iterable
 from typing import Any, ClassVar
 
-from aiperf.common.config import ServiceConfig
-from aiperf.common.config.user_config import UserConfig
-from aiperf.common.enums.command_enums import CommandResponseStatus, CommandType
-from aiperf.common.enums.message_enums import MessageType
+from aiperf.common.config import ServiceConfig, UserConfig
+from aiperf.common.enums import (
+    CommandResponseStatus,
+    CommandType,
+    LifecycleState,
+    MessageType,
+)
 from aiperf.common.exceptions import (
     ServiceError,
 )
@@ -20,12 +26,12 @@ from aiperf.common.hooks import (
     on_message,
     provides_hooks,
 )
-from aiperf.common.messages.command_messages import (
+from aiperf.common.messages import (
     CommandMessage,
     CommandResponseMessage,
 )
-from aiperf.common.mixins.message_bus_mixin import MessageBusClientMixin
-from aiperf.common.models.error_models import ErrorDetails
+from aiperf.common.mixins import MessageBusClientMixin
+from aiperf.common.models import ErrorDetails
 from aiperf.common.protocols import ServiceProtocol
 from aiperf.common.types import ServiceTypeT
 
@@ -188,3 +194,16 @@ class BaseService(MessageBusClientMixin, ABC):
             await self._kill()
             return
         await super().stop()
+
+    async def _kill(self) -> None:
+        """Kill the lifecycle. This is used when the lifecycle is requested to stop, but is already in a stopping state.
+        This is a last resort to ensure that the lifecycle is stopped.
+        """
+        await self._set_state(LifecycleState.FAILED)
+        self.error(lambda: f"Killing {self}")
+        self.stop_requested = True
+        self.stopped_event.set()
+        # TODO: This is a hack to ensure that the process is killed.
+        #       We should find a better way to do this.
+        os.kill(os.getpid(), signal.SIGKILL)
+        raise asyncio.CancelledError(f"Killed {self}")

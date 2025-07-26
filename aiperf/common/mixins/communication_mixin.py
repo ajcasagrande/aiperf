@@ -5,11 +5,6 @@ from abc import ABC
 
 from aiperf.common.config import ServiceConfig
 from aiperf.common.factories import CommunicationFactory
-from aiperf.common.hooks import (
-    on_init,
-    on_start,
-    on_stop,
-)
 from aiperf.common.mixins.aiperf_lifecycle_mixin import AIPerfLifecycleMixin
 from aiperf.common.protocols import CommunicationProtocol
 
@@ -26,15 +21,4 @@ class CommunicationMixin(AIPerfLifecycleMixin, ABC):
             self.service_config.comm_backend,
             config=self.service_config.comm_config,
         )
-
-    @on_init
-    async def _init_communication(self) -> None:
-        await self.comms.initialize()
-
-    @on_start
-    async def _start_communication(self) -> None:
-        await self.comms.start()
-
-    @on_stop
-    async def _stop_communication(self) -> None:
-        await self.comms.stop()
+        self.attach_child_lifecycle(self.comms)

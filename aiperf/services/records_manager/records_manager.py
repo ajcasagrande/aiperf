@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
-import sys
 from typing import Any
 
 from aiperf.common.config import ServiceConfig, UserConfig
@@ -17,19 +16,15 @@ from aiperf.common.factories import ServiceFactory, StreamingPostProcessorFactor
 from aiperf.common.hooks import (
     implements_protocol,
     on_command,
-    on_init,
     on_pull_message,
-    on_start,
-    on_stop,
 )
 from aiperf.common.messages import (
     CommandMessage,
     ParsedInferenceResultsMessage,
 )
 from aiperf.common.mixins import PullClientMixin
-from aiperf.common.protocols import ServiceProtocol
+from aiperf.common.protocols import ServiceProtocol, StreamingPostProcessorProtocol
 from aiperf.services.base_component_service import BaseComponentService
-from aiperf.services.records_manager.post_processors import BaseStreamingPostProcessor
 
 
 @implements_protocol(ServiceProtocol)
@@ -54,12 +49,8 @@ class RecordsManager(PullClientMixin, BaseComponentService):
             pull_client_bind=True,
             pull_client_max_concurrency=DEFAULT_PULL_CLIENT_MAX_CONCURRENCY,
         )
-        self.streaming_post_processors: list[BaseStreamingPostProcessor] = []
 
-    @on_init
-    async def _initialize_streaming_post_processors(self) -> None:
-        """Initialize the streaming post processors and start their lifecycle."""
-        self.debug("Initializing streaming post processors")
+        self.streaming_post_processors: list[StreamingPostProcessorProtocol] = []
         for streamer_type in StreamingPostProcessorFactory.get_all_class_types():
             streamer = StreamingPostProcessorFactory.create_instance(
                 class_type=streamer_type,
@@ -68,30 +59,10 @@ class RecordsManager(PullClientMixin, BaseComponentService):
                 user_config=self.user_config,
             )
             self.debug(
-                f"Initializing streaming post processor: {streamer_type}: {streamer.__class__.__name__}"
+                f"Created streaming post processor: {streamer_type}: {streamer.__class__.__name__}"
             )
             self.streaming_post_processors.append(streamer)
-            self.debug(
-                lambda streamer=streamer: f"Starting lifecycle for {streamer.__class__.__name__}"
-            )
-            await streamer.initialize()
-
-    @on_start
-    async def _start_streaming_post_processors(self) -> None:
-        """Start the streaming post processors."""
-        for streamer in self.streaming_post_processors:
-            self.debug(
-                lambda streamer=streamer: f"Starting {streamer.__class__.__name__}"
-            )
-            await streamer.start()
-
-    @on_stop
-    async def _stop_streaming_post_processors(self) -> None:
-        """Stop the streaming post processors."""
-        await asyncio.gather(
-            *[streamer.stop() for streamer in self.streaming_post_processors],
-            return_exceptions=True,
-        )
+            self.attach_child_lifecycle(streamer)
 
     @on_pull_message(MessageType.PARSED_INFERENCE_RESULTS)
     async def _on_parsed_inference_results(
@@ -146,4 +117,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()

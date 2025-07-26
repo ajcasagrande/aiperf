@@ -3,8 +3,8 @@
 
 import asyncio
 import os
-import signal
 import uuid
+from inspect import currentframe
 
 from aiperf.common.enums.service_enums import LifecycleState
 from aiperf.common.exceptions import InvalidStateError
@@ -51,6 +51,7 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
         self.started_event = asyncio.Event()
         self._stop_requested_event = asyncio.Event()
         self.stopped_event = asyncio.Event()  # set on stop or failure
+        self._children: list[AIPerfLifecycleProtocol] = []
         if "logger_name" not in kwargs:
             kwargs["logger_name"] = self.id
         super().__init__(**kwargs)
@@ -108,19 +109,43 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
         final_state: LifecycleState,
         hook_type: AIPerfHook,
         event: asyncio.Event,
-        reversed: bool = False,
+        reverse: bool = False,
     ) -> None:
         """This method wraps the functionality of changing the state of the lifecycle, and running the hooks.
         It is used to ensure that the state change and hook running are atomic, and that the state change is
-        only made after the hooks have completed. It also take in an event that is set when the state change is complete.
+        only made after the hooks have completed. It also takes in an event that is set when the state change is complete.
         This is useful for external code waiting for the state change to complete before continuing.
 
-        If reversed is True, the hooks are run in reverse order. This is useful for stopping the lifecycle in the reverse order of starting it.
+        If reverse is True, the hooks are run in reverse order. This is useful for stopping the lifecycle in the reverse order of starting it.
         """
         await self._set_state(transient_state)
         self.debug(lambda: f"{transient_state.title()} {self}")
         try:
-            await self.run_hooks(hook_type, reversed=reversed)
+            await self.run_hooks(hook_type, reverse=reverse)
+
+            # Use inspection to find the name of the calling function. This will be initialize/start/stop, etc.
+            frame = currentframe()
+            if frame is not None and frame.f_back is not None:
+                caller = frame.f_back.f_code.co_name  # initialize/start/stop, etc.
+
+                children = self._children if not reverse else reversed(self._children)
+                for child in children:
+                    if hasattr(child, caller) and callable(getattr(child, caller)):
+                        self.debug(
+                            lambda caller=caller,
+                            child=child: f"Calling {caller} for {child}"
+                        )
+                        # This will call the child's initialize/start/stop, etc. method.
+                        await getattr(child, caller)()
+                    else:
+                        self.error(
+                            f"Unable to find method '{caller}' for {child}. This is likely due to a bug in the framework."
+                        )
+            else:
+                self.error(
+                    f"Unable to determine calling function for {self}. We will be unable to call any child hooks."
+                )
+
             await self._set_state(final_state)
             self.debug(lambda: f"{self} is now {final_state.title()}")
             event.set()
@@ -130,7 +155,8 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
     async def initialize(self) -> None:
         """Initialize the lifecycle and run the @on_init hooks.
 
-        NOTE: It is generally discouraged from overriding this method. Instead, use the @on_init hook to handle your own initialization logic.
+        NOTE: It is generally discouraged from overriding this method.
+        Instead, use the @on_init hook to handle your own initialization logic.
         """
         if self.state in (
             LifecycleState.INITIALIZING,
@@ -155,7 +181,8 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
     async def start(self) -> None:
         """Start the lifecycle and run the @on_start hooks.
 
-        NOTE: It is generally discouraged from overriding this method. Instead, use the @on_start hook to handle your own starting logic.
+        NOTE: It is generally discouraged from overriding this method.
+        Instead, use the @on_start hook to handle your own starting logic.
         """
         if self.state in (
             LifecycleState.STARTING,
@@ -181,7 +208,8 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
     async def stop(self) -> None:
         """Stop the lifecycle and run the @on_stop hooks.
 
-        NOTE: It is generally discouraged from overriding this method. Instead, use the @on_stop hook to handle your own stopping logic.
+        NOTE: It is generally discouraged from overriding this method.
+        Instead, use the @on_stop hook to handle your own stopping logic.
         """
         if self.stop_requested:
             self.debug(
@@ -195,7 +223,7 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
             LifecycleState.STOPPED,
             AIPerfHook.ON_STOP,
             self.stopped_event,
-            reversed=True,  # run the stop hooks in reverse order
+            reverse=True,  # run the stop hooks in reverse order
         )
 
     @on_start
@@ -221,19 +249,6 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
         """
         await self.cancel_all_tasks()
 
-    async def _kill(self) -> None:
-        """Kill the lifecycle. This is used when the lifecycle is requested to stop, but is already in a stopping state.
-        This is a last resort to ensure that the lifecycle is stopped.
-        """
-        await self._set_state(LifecycleState.FAILED)
-        self.error(lambda: f"Killing {self}")
-        self.stop_requested = True
-        self.stopped_event.set()
-        # TODO: This is a hack to ensure that the process is killed.
-        #       We should find a better way to do this.
-        os.kill(os.getpid(), signal.SIGKILL)
-        raise asyncio.CancelledError(f"Killed {self}")
-
     async def _fail(self, e: Exception) -> None:
         """Set the state to FAILED and raise an asyncio.CancelledError.
         This is used when the transition from one state to another fails.
@@ -249,6 +264,15 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
 
     def __repr__(self) -> str:
         return f"<{self.__class__.__qualname__} {self.id} (state={self.state})>"
+
+    def attach_child_lifecycle(self, child: AIPerfLifecycleProtocol) -> None:
+        """Attach a child lifecycle to manage. This child will now have its lifecycle managed and
+        controlled by this lifecycle. Common use cases are having a Service be a parent lifecycle,
+        and having supporting components such as streaming post processors, progress reporters, etc. be children.
+
+        Children will be called in the order they were attached.
+        """
+        self._children.append(child)
 
 
 # Add this file as one to be ignored when finding the caller of aiperf_logger.

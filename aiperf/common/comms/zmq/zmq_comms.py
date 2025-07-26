@@ -20,9 +20,9 @@ from aiperf.common.enums import (
     CommunicationBackend,
 )
 from aiperf.common.enums.service_enums import LifecycleState
-from aiperf.common.exceptions import InvalidStateError, ShutdownError
+from aiperf.common.exceptions import InvalidStateError
 from aiperf.common.factories import CommunicationClientFactory, CommunicationFactory
-from aiperf.common.hooks import implements_protocol, on_init, on_start, on_stop
+from aiperf.common.hooks import implements_protocol, on_stop
 from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.common.protocols import CommunicationProtocol
 from aiperf.common.types import CommAddressType
@@ -57,47 +57,13 @@ class BaseZMQCommunication(BaseCommunication, AIPerfLoggerMixin, ABC):
             return self.config.get_address(address_type)
         return address_type
 
-    @on_init
-    async def _initialize_clients(self) -> None:
-        for client in self.clients:
-            self.debug(lambda client=client: f"Initializing ZMQ client: {client}")
-            await client.initialize()
-
-    @on_start
-    async def _start_clients(self) -> None:
-        for client in self.clients:
-            self.debug(lambda client=client: f"Starting ZMQ client: {client}")
-            await client.start()
-
-    @on_stop
-    async def _stop_clients(self) -> None:
-        """Gracefully shutdown communication channels.
-
-        This method will wait for all clients to shutdown before shutting down
-        the context.
-
-        Returns:
-            True if shutdown was successful, False otherwise
-        """
-        try:
-            for client in self.clients:
-                self.debug(lambda client=client: f"Stopping ZMQ client: {client}")
-                await client.stop()
-
-        except Exception as e:
-            raise ShutdownError(
-                "Failed to shutdown ZMQ communication",
-            ) from e
-
-        finally:
-            self.clients.clear()
-
     def create_client(
         self,
         client_type: CommClientType,
         address: CommAddressType,
         bind: bool = False,
         socket_ops: dict | None = None,
+        max_pull_concurrency: int | None = None,
         **kwargs,
     ) -> CommunicationClientProtocol:
         """Create a communication client for a given client type and address.
@@ -107,6 +73,7 @@ class BaseZMQCommunication(BaseCommunication, AIPerfLoggerMixin, ABC):
             address: The type of address to use when looking up in the communication config, or the address itself.
             bind: Whether to bind or connect the socket.
             socket_ops: Additional socket options to set.
+            max_pull_concurrency: The maximum number of concurrent pull requests to allow. (Only used for pull clients)
         """
         if (client_type, address, bind) in self._clients_cache:
             return self._clients_cache[(client_type, address, bind)]
@@ -124,11 +91,13 @@ class BaseZMQCommunication(BaseCommunication, AIPerfLoggerMixin, ABC):
             address=self.get_address(address),
             bind=bind,
             socket_ops=socket_ops,
+            max_pull_concurrency=max_pull_concurrency,
             **kwargs,
         )
 
         self._clients_cache[(client_type, address, bind)] = client
         self.clients.append(client)
+        self.attach_child_lifecycle(client)
         return client
 
 

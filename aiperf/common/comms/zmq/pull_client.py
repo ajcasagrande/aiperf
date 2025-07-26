@@ -57,6 +57,7 @@ class ZMQPullClient(BaseZMQClient):
         bind: bool,
         socket_ops: dict | None = None,
         max_pull_concurrency: int | None = None,
+        **kwargs,
     ) -> None:
         """
         Initialize the ZMQ Puller class.
@@ -67,7 +68,7 @@ class ZMQPullClient(BaseZMQClient):
             socket_ops (dict, optional): Additional socket options to set.
             max_pull_concurrency (int, optional): The maximum number of concurrent requests to allow.
         """
-        super().__init__(zmq.SocketType.PULL, address, bind, socket_ops)
+        super().__init__(zmq.SocketType.PULL, address, bind, socket_ops, **kwargs)
         self._pull_callbacks: dict[
             MessageTypeT, Callable[[Message], Coroutine[Any, Any, None]]
         ] = {}
