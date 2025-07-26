@@ -1,14 +1,10 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+import json
 import uuid
-from typing import Any
+from typing import ClassVar
 
-from pydantic import (
-    BaseModel,
-    Field,
-    SerializeAsAny,
-    model_validator,
-)
+from pydantic import Field, model_validator
 from typing_extensions import Self
 
 from aiperf.common.enums import (
@@ -17,7 +13,8 @@ from aiperf.common.enums import (
     MessageType,
 )
 from aiperf.common.messages.service_messages import BaseServiceMessage
-from aiperf.common.models.error_models import ErrorDetails
+from aiperf.common.models import ErrorDetails, ProfileConfigureData
+from aiperf.common.models.base_models import exclude_if_none
 from aiperf.common.types import CommandTypeT, MessageTypeT, ServiceTypeT
 
 
@@ -54,6 +51,13 @@ class CommandMessage(TargetedServiceMessage):
     This message is sent by the system controller to a service to command it to do something.
     """
 
+    _command_type_lookup: ClassVar[dict[CommandTypeT, type["CommandMessage"]]] = {}
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if hasattr(cls, "command"):
+            cls._command_type_lookup[cls.command] = cls
+
     message_type: MessageTypeT = MessageType.COMMAND
 
     command: CommandTypeT = Field(
@@ -70,9 +74,45 @@ class CommandMessage(TargetedServiceMessage):
         description="Whether a response is required for this command",
     )
 
+    @classmethod
+    def from_json(cls, json_str: str | bytes | bytearray) -> "CommandMessage":
+        """Deserialize a command message from a JSON string, attempting to auto-detect the command type."""
+        data = json.loads(json_str)
+        command_type = data.get("command")
+        if not command_type:
+            raise ValueError(f"Missing command: {json_str}")
+
+        # Use cached command type lookup
+        command_class = cls._command_type_lookup[command_type]
+        if not command_class:
+            raise ValueError(f"Unknown command type: {command_type}")
+
+        return command_class.model_validate(data)
+
 
 class CommandResponseMessage(TargetedServiceMessage):
     """Message containing a command response."""
+
+    # Specialized lookup for command response messages by status
+    _command_status_lookup: ClassVar[
+        dict[CommandResponseStatus, type["CommandResponseMessage"]]
+    ] = {}
+    # Specialized lookup for command response messages by command type, for success messages
+    _command_success_type_lookup: ClassVar[
+        dict[CommandTypeT, type["CommandResponseMessage"]]
+    ] = {}
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if cls.status is not None:
+            cls._command_status_lookup[cls.status] = cls
+        if (
+            cls.status == CommandResponseStatus.SUCCESS
+            and hasattr(cls, "command")
+            and cls.command is not None
+        ):
+            # Cache the specialized lookup by command type for success messages
+            cls._command_success_type_lookup[cls.command] = cls
 
     message_type: MessageTypeT = MessageType.COMMAND_RESPONSE
 
@@ -84,14 +124,107 @@ class CommandResponseMessage(TargetedServiceMessage):
         ..., description="The ID of the command that is being responded to"
     )
     status: CommandResponseStatus = Field(..., description="The status of the command")
-    data: SerializeAsAny[BaseModel | list[Any] | None] = Field(
-        default=None,
-        description="Data to send with the command response if the command succeeded",
-    )
-    error: ErrorDetails | None = Field(
-        default=None,
+
+    @classmethod
+    def from_json(cls, json_str: str | bytes | bytearray) -> "CommandResponseMessage":
+        """Deserialize a command response message from a JSON string, attempting to auto-detect the command response type."""
+        data = json.loads(json_str)
+        status = data.get("status")
+        if not status:
+            raise ValueError(f"Missing command response status: {json_str}")
+        command = data.get("command")
+        if not command:
+            raise ValueError(f"Missing command in command response: {json_str}")
+
+        if status not in cls._command_status_lookup:
+            raise ValueError(
+                f"Unknown command response status: {status}. Valid statuses are: {list(cls._command_status_lookup.keys())}"
+            )
+
+        # Use cached command response type lookup by status
+        command_response_class = cls._command_status_lookup[status]
+
+        if (
+            status == CommandResponseStatus.SUCCESS
+            and command in cls._command_success_type_lookup
+        ):
+            # For success messages, use the specialized lookup by command type
+            command_response_class = cls._command_success_type_lookup[command]
+
+        return command_response_class.model_validate(data)
+
+
+class ErrorCommandResponseMessage(CommandResponseMessage):
+    """Message response to a command that failed."""
+
+    status: CommandResponseStatus = CommandResponseStatus.FAILURE
+    error: ErrorDetails = Field(
+        ...,
         description="Error information if the command failed",
     )
+
+    @classmethod
+    def from_command_message(
+        cls, command_message: CommandMessage, service_id: str, error: ErrorDetails
+    ) -> Self:
+        return cls(
+            service_id=service_id,
+            target_service_id=command_message.service_id,
+            command=command_message.command,
+            command_id=command_message.command_id,
+            error=error,
+        )
+
+
+class SuccessCommandResponseMessage(CommandResponseMessage):
+    """Message response to a command that succeeded."""
+
+    status: CommandResponseStatus = CommandResponseStatus.SUCCESS
+
+    @classmethod
+    def from_command_message(
+        cls, command_message: CommandMessage, service_id: str
+    ) -> Self:
+        return cls(
+            service_id=service_id,
+            target_service_id=command_message.service_id,
+            command=command_message.command,
+            command_id=command_message.command_id,
+        )
+
+
+class AcknowledgedCommandResponseMessage(CommandResponseMessage):
+    """Message response to a command that was acknowledged."""
+
+    status: CommandResponseStatus = CommandResponseStatus.ACKNOWLEDGED
+
+    @classmethod
+    def from_command_message(
+        cls, command_message: CommandMessage, service_id: str
+    ) -> Self:
+        return cls(
+            service_id=service_id,
+            target_service_id=command_message.service_id,
+            command=command_message.command,
+            command_id=command_message.command_id,
+        )
+
+
+class UnhandledCommandResponseMessage(CommandResponseMessage):
+    """Message response to a command that was unhandled."""
+
+    status: CommandResponseStatus = CommandResponseStatus.UNHANDLED
+
+    @classmethod
+    def from_command_message(
+        cls, command_message: CommandMessage, service_id: str
+    ) -> Self:
+        return cls(
+            service_id=service_id,
+            target_service_id=command_message.service_id,
+            command=command_message.command,
+            command_id=command_message.command_id,
+        )
 
 
 class SpawnWorkersCommand(CommandMessage):
@@ -102,6 +235,7 @@ class SpawnWorkersCommand(CommandMessage):
     num_workers: int = Field(..., description="Number of workers to spawn")
 
 
+@exclude_if_none("worker_ids", "num_workers")
 class ShutdownWorkersCommand(CommandMessage):
     """Data to send with the shutdown workers command."""
 
@@ -109,17 +243,30 @@ class ShutdownWorkersCommand(CommandMessage):
 
     @model_validator(mode="after")
     def validate_worker_ids_or_num_workers(self) -> Self:
+        if self.all_workers:
+            if self.worker_ids is not None or self.num_workers is not None:
+                raise ValueError(
+                    "When all_workers is True, worker_ids and num_workers must not be specified"
+                )
+            return self
+
         if self.worker_ids is None and self.num_workers is None:
-            raise ValueError("Either worker_ids or num_workers must be provided")
+            raise ValueError(
+                "Either worker_ids, num_workers, or all_workers must be provided"
+            )
         if self.worker_ids is not None and self.num_workers is not None:
             raise ValueError(
                 "Either worker_ids or num_workers must be provided, not both"
             )
         return self
 
+    all_workers: bool = Field(
+        default=False,
+        description="Whether to shutdown all workers. If True, worker_ids and num_workers must be None.",
+    )
     worker_ids: list[str] | None = Field(
         default=None,
-        description="IDs of the workers to shutdown. If not provided, will shutdown random workers up to the number of workers to shutdown.",
+        description="Specific IDs of the workers to shutdown.",
     )
     num_workers: int | None = Field(
         default=None,
@@ -136,3 +283,25 @@ class ProcessRecordsCommand(CommandMessage):
         default=False,
         description="Whether the profile run was cancelled",
     )
+
+
+class ProfileConfigureCommand(CommandMessage):
+    """Data to send with the profile configure command."""
+
+    command: CommandTypeT = CommandType.PROFILE_CONFIGURE
+
+    config: ProfileConfigureData = Field(
+        ..., description="Configuration for the profile"
+    )
+
+
+class ProfileStartCommand(CommandMessage):
+    """Command message sent to request services to start profiling."""
+
+    command: CommandTypeT = CommandType.PROFILE_START
+
+
+class ShutdownCommand(CommandMessage):
+    """Command message sent to request a service to shutdown."""
+
+    command: CommandTypeT = CommandType.SHUTDOWN

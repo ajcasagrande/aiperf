@@ -4,7 +4,7 @@ import asyncio
 import signal
 import sys
 import time
-from typing import Any
+from typing import cast
 
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.enums import (
@@ -14,24 +14,29 @@ from aiperf.common.enums import (
     ServiceRegistrationStatus,
     ServiceType,
 )
-from aiperf.common.exceptions import CommunicationError, NotInitializedError
 from aiperf.common.factories import ServiceFactory, ServiceManagerFactory
 from aiperf.common.hooks import on_command, on_init, on_message, on_start
 from aiperf.common.logging import get_global_log_queue
 from aiperf.common.messages import (
-    CommandMessage,
     CommandResponseMessage,
     CreditsCompleteMessage,
     HeartbeatMessage,
     NotificationMessage,
-    ProcessRecordsCommandData,
+    ProfileConfigureCommand,
     ProfileResultsMessage,
     RegistrationMessage,
-    ShutdownWorkersCommandData,
-    SpawnWorkersCommandData,
+    ShutdownWorkersCommand,
+    SpawnWorkersCommand,
     StatusMessage,
 )
+from aiperf.common.messages.command_messages import (
+    ErrorCommandResponseMessage,
+    ProcessRecordsCommand,
+    ProfileStartCommand,
+    ShutdownCommand,
+)
 from aiperf.common.models import ServiceRunInfo
+from aiperf.common.models.service_models import ProfileConfigureData
 from aiperf.common.protocols import ServiceManagerProtocol
 from aiperf.common.types import ServiceTypeT
 from aiperf.data_exporter.exporter_manager import ExporterManager
@@ -171,17 +176,17 @@ class SystemController(SignalHandlerMixin, BaseService):
         # TODO: This is a hack to force printing results again
         if cancelled:
             # Process records command
-            await self.send_command_to_service(
-                target_service_id=None,
-                target_service_type=ServiceType.RECORDS_MANAGER,
-                command=CommandType.PROCESS_RECORDS,
-                data=ProcessRecordsCommandData(cancelled=True),
+            await self.publish(
+                ProcessRecordsCommand(
+                    service_id=self.service_id,
+                    target_service_type=ServiceType.RECORDS_MANAGER,
+                    cancelled=True,
+                ),
             )
 
         # Broadcast a stop command to all services
-        await self.send_command_to_service(
-            target_service_id=None,
-            command=CommandType.SHUTDOWN,
+        await self.publish(
+            ShutdownCommand(service_id=self.service_id),
         )
 
         try:
@@ -202,9 +207,8 @@ class SystemController(SignalHandlerMixin, BaseService):
         await asyncio.sleep(1)
 
         self.debug("Sending START_PROFILING command to all services")
-        await self.send_command_to_service(
-            target_service_id=None,
-            command=CommandType.PROFILE_START,
+        await self.publish(
+            ProfileStartCommand(service_id=self.service_id),
         )
 
     @on_message(MessageType.REGISTRATION)
@@ -241,10 +245,13 @@ class SystemController(SignalHandlerMixin, BaseService):
 
         # Send configure command to the newly registered service
         try:
-            await self.send_command_to_service(
-                target_service_id=service_id,
-                command=CommandType.PROFILE_CONFIGURE,
-                data=self.user_config,
+            await self.publish(
+                ProfileConfigureCommand(
+                    service_id=service_id,
+                    config=ProfileConfigureData(
+                        data=self.user_config,
+                    ),
+                )
             )
         except Exception as e:
             raise self._service_error(
@@ -336,39 +343,32 @@ class SystemController(SignalHandlerMixin, BaseService):
         """Process a command response message."""
         self.debug(lambda: f"Received command response message: {message}")
         if message.status == CommandResponseStatus.SUCCESS:
-            self.debug(f"Command {message.command} succeeded with data: {message.data}")
+            self.debug(f"Command {message.command} succeeded from {message.service_id}")
         elif message.status == CommandResponseStatus.ACKNOWLEDGED:
             self.debug(
-                f"Command {message.command} acknowledged with data: {message.data}"
+                f"Command {message.command} acknowledged from {message.service_id}"
             )
-        else:
-            self.error(f"Command {message.command} failed: {message.error}")
-            if message.error:
-                self.error(f"Error details: {message.error}")
+        elif message.status == CommandResponseStatus.UNHANDLED:
+            self.debug(f"Command {message.command} unhandled from {message.service_id}")
+        elif message.status == CommandResponseStatus.FAILURE:
+            message = cast(ErrorCommandResponseMessage, message)
+            self.error(
+                f"Command {message.command} failed from {message.service_id}: {message.error}"
+            )
 
     @on_command(CommandType.SPAWN_WORKERS)
-    async def _handle_spawn_workers_command(self, message: CommandMessage) -> None:
+    async def _handle_spawn_workers_command(self, message: SpawnWorkersCommand) -> None:
         """Handle a spawn workers command."""
         self.debug(lambda: f"Received spawn workers command: {message}")
-        if not isinstance(message.data, SpawnWorkersCommandData):
-            raise ValueError(
-                f"Invalid data type for spawn workers command: {type(message.data)}"
-            )
-        await self.service_manager.run_service(
-            ServiceType.WORKER, message.data.num_workers
-        )
+        await self.service_manager.run_service(ServiceType.WORKER, message.num_workers)
 
     @on_command(CommandType.SHUTDOWN_WORKERS)
-    async def _handle_shutdown_workers_command(self, message: CommandMessage) -> None:
+    async def _handle_shutdown_workers_command(
+        self, message: ShutdownWorkersCommand
+    ) -> None:
         """Handle a shutdown workers command."""
         self.debug(lambda: f"Received shutdown workers command: {message}")
-        if not isinstance(message.data, ShutdownWorkersCommandData):
-            raise ValueError(
-                f"Invalid data type for shutdown workers command: {type(message.data)}"
-            )
-        await self.service_manager.stop_service(
-            ServiceType.WORKER, message.data.num_workers
-        )
+        await self.service_manager.stop_service(ServiceType.WORKER, message.num_workers)
 
     @on_message(MessageType.PROFILE_RESULTS)
     async def _on_profile_results_message(
@@ -380,46 +380,6 @@ class SystemController(SignalHandlerMixin, BaseService):
             results=profile_results, input_config=self.user_config
         ).export_all()
         await self._stop_system_controller()
-
-    async def send_command_to_service(
-        self,
-        target_service_id: str | None,
-        command: CommandType,
-        data: Any | None = None,
-        target_service_type: ServiceTypeT | None = None,
-    ) -> None:
-        """Send a command to a specific service.
-
-        Args:
-            target_service_id: ID of the target service, or None to send to all services
-            target_service_type: Type of the target service, or None to send to all services
-            command: The command to send (from CommandType enum).
-            data: Optional data to send with the command.
-
-        Raises:
-            CommunicationError: If the communication is not initialized
-                or the command was not sent successfully
-        """
-        if not self.comms:
-            self.logger.error("Cannot send command: Communication is not initialized")
-            raise NotInitializedError(
-                "Communication channels are not initialized",
-            )
-
-        # Publish command message
-        try:
-            await self.publish(
-                CommandMessage(
-                    service_id=self.service_id,
-                    command=command,
-                    target_service_id=target_service_id,
-                    target_service_type=target_service_type,
-                    data=data,
-                )
-            )
-        except Exception as e:
-            self.exception(f"Exception publishing command: {e}")
-            raise CommunicationError(f"Failed to publish command: {e}") from e
 
     async def _kill(self):
         """Kill the system controller."""

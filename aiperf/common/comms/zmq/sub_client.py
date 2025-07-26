@@ -8,11 +8,11 @@ from typing import Any
 import zmq.asyncio
 
 from aiperf.common.comms.zmq.zmq_base_client import BaseZMQClient
-from aiperf.common.enums import CommClientType
+from aiperf.common.enums import CommClientType, MessageType
 from aiperf.common.exceptions import CommunicationError
 from aiperf.common.factories import CommunicationClientFactory
 from aiperf.common.hooks import background_task, implements_protocol
-from aiperf.common.messages import Message
+from aiperf.common.messages import CommandMessage, CommandResponseMessage, Message
 from aiperf.common.protocols import SubClientProtocol
 from aiperf.common.types import MessageTypeT
 from aiperf.common.utils import call_all_functions, yield_to_event_loop
@@ -152,7 +152,17 @@ class ZMQSubClient(BaseZMQClient):
             lambda: f"Received message from message_type: '{message_type}', message: {message_json}"
         )
 
-        message = Message.from_json(message_json)
+        # Targeted messages are in the format "message_type.<target>"
+        if "." in message_type:
+            # grab the first part which is the message type
+            message_type = message_type.split(".")[0]
+
+        if message_type == MessageType.COMMAND:
+            message = CommandMessage.from_json(message_json)
+        elif message_type == MessageType.COMMAND_RESPONSE:
+            message = CommandResponseMessage.from_json(message_json)
+        else:
+            message = Message.from_json_with_type(message_type, message_json)
 
         # Call callbacks with the parsed message object
         if message_type in self._subscribers:

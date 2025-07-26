@@ -4,20 +4,20 @@
 import time
 from collections import deque
 
-from aiperf.common.enums import StreamingPostProcessorType
-from aiperf.common.enums.message_enums import MessageType
+from aiperf.common.enums import MessageType, StreamingPostProcessorType
 from aiperf.common.factories import StreamingPostProcessorFactory
 from aiperf.common.hooks import on_message
 from aiperf.common.messages import (
     AllRecordsReceivedMessage,
-    CommandMessage,
+    ProcessRecordsCommand,
     ProfileResultsMessage,
 )
-from aiperf.common.messages.command_messages import (
-    ProcessRecordsCommandData,
+from aiperf.common.models import (
+    ErrorDetails,
+    ErrorDetailsCount,
+    MetricResult,
+    ParsedResponseRecord,
 )
-from aiperf.common.models import ErrorDetails, ErrorDetailsCount, ParsedResponseRecord
-from aiperf.common.models.record_models import MetricResult
 from aiperf.services.records_manager.post_processors.metric_summary import MetricSummary
 from aiperf.services.records_manager.post_processors.streaming_post_processor import (
     BaseStreamingPostProcessor,
@@ -80,13 +80,10 @@ class BasicMetricsStreamer(BaseStreamingPostProcessor):
             # TODO: What to do here?
 
     async def on_process_records_command(
-        self, message: CommandMessage
+        self, message: ProcessRecordsCommand
     ) -> list[MetricResult] | ErrorDetails | None:
         """Handle the process records command."""
-        cancelled = (
-            isinstance(message.data, ProcessRecordsCommandData)
-            and message.data.cancelled
-        )
+        cancelled = message.cancelled
         return await self.process_records(cancelled)
 
     async def process_records(

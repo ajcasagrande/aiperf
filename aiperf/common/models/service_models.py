@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import time
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -38,4 +39,14 @@ class ServiceRunInfo(BaseModel):
     state: LifecycleState = Field(
         default=LifecycleState.CREATED,
         description="The current state of the service",
+    )
+
+
+class ProfileConfigureData(BaseModel):
+    """Data to send with the profile configure command."""
+
+    # TODO: NOT IMPLEMENTED YET
+    data: Any | None = Field(
+        default=None,
+        description="The data to send with the profile configure command.",
     )

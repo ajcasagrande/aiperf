@@ -8,7 +8,7 @@ from typing import Any
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.constants import DEFAULT_STREAMING_MAX_QUEUE_SIZE
 from aiperf.common.hooks import background_task, implements_protocol
-from aiperf.common.messages import CommandMessage
+from aiperf.common.messages import ProcessRecordsCommand
 from aiperf.common.mixins.message_bus_mixin import MessageBusClientMixin
 from aiperf.common.models import ParsedResponseRecord
 from aiperf.common.protocols import StreamingPostProcessorProtocol
@@ -62,7 +62,7 @@ class BaseStreamingPostProcessor(MessageBusClientMixin, ABC):
             "BaseStreamingPostProcessor.stream_record method must be implemented by the subclass."
         )
 
-    async def on_process_records_command(self, message: CommandMessage) -> Any:
+    async def on_process_records_command(self, message: ProcessRecordsCommand) -> Any:
         """Handle the process records command. This method is called when the records manager receives
         a command to process the records, and can be handled by the subclass. The results will be
         returned by the records manager to the caller.
