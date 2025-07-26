@@ -2,13 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 import json
 import time
-from typing import Any, ClassVar
+from typing import ClassVar
 
 import orjson
-from pydantic import (
-    Field,
-    model_serializer,
-)
+from pydantic import Field
 
 from aiperf.common.enums.message_enums import MessageType
 from aiperf.common.models.base_models import AIPerfBaseModel, exclude_if_none
@@ -18,7 +15,8 @@ from aiperf.common.types import MessageTypeT
 
 @exclude_if_none("request_ns", "request_id")
 class Message(AIPerfBaseModel):
-    """Base message class for optimized message handling.
+    """Base message class for optimized message handling. Based on the AIPerfBaseModel class,
+    so it supports @exclude_if_none decorator. see :class:`AIPerfBaseModel` for more details.
 
     This class provides a base for all messages, including common fields like message_type,
     request_ns, and request_id. It also supports optional field exclusion based on the
@@ -26,9 +24,6 @@ class Message(AIPerfBaseModel):
 
     Each message model should inherit from this class, set the message_type field,
     and define its own additional fields.
-    Optionally, the @exclude_if_none decorator can be used to specify which fields
-    should be excluded from the serialized message if they are None. This is a workaround
-    for the fact that pydantic does not support specifying exclude_none on a per-field basis.
 
     Example:
     ```python
@@ -39,16 +34,14 @@ class Message(AIPerfBaseModel):
     ```
     """
 
-    _exclude_if_none_fields: ClassVar[set[str]] = set()
-    """Set of field names that should be excluded from the serialized message if they
-    are None. This is set by the @exclude_if_none decorator.
-    """
-
     _message_type_lookup: ClassVar[dict[MessageTypeT, type["Message"]]] = {}
+    """Lookup table for message types to their corresponding message classes. This is used to automatically
+    deserialize messages from JSON strings to their corresponding class type."""
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
-        if hasattr(cls, "message_type"):
+        if cls.message_type is not None:
+            # Store concrete message classes in the lookup table
             cls._message_type_lookup[cls.message_type] = cls
 
     message_type: MessageTypeT = Field(
@@ -66,19 +59,7 @@ class Message(AIPerfBaseModel):
         description="ID of the request",
     )
 
-    @model_serializer
-    def _serialize_message(self) -> dict[str, Any]:
-        """Serialize the message to a dictionary.
-
-        This method overrides the default serializer to exclude fields that have a
-        value of None and have the EXCLUDE_IF_NONE json_schema_extra key set to True.
-        """
-        return {
-            k: v
-            for k, v in self
-            if not (k in self._exclude_if_none_fields and v is None)
-        }
-
+    # TODO: Does this allow you to use model_validate_json and have it forward it to from_json? Need to test.
     @classmethod
     def __get_validators__(cls):
         yield cls.from_json
