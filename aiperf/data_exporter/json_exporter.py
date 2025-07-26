@@ -9,9 +9,9 @@ from pydantic import BaseModel
 
 from aiperf.common.config import UserConfig
 from aiperf.common.constants import NANOS_PER_SECOND
+from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import DataExporterType
 from aiperf.common.factories import DataExporterFactory
-from aiperf.common.hooks import implements_protocol
 from aiperf.common.models import ErrorDetailsCount, MetricResult
 from aiperf.common.protocols import DataExporterProtocol
 from aiperf.data_exporter.exporter_config import ExporterConfig

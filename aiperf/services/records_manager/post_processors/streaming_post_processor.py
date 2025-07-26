@@ -7,7 +7,8 @@ from typing import Any
 
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.constants import DEFAULT_STREAMING_MAX_QUEUE_SIZE
-from aiperf.common.hooks import background_task, implements_protocol
+from aiperf.common.decorators import implements_protocol
+from aiperf.common.hooks import background_task
 from aiperf.common.messages import ProcessRecordsCommand
 from aiperf.common.mixins.message_bus_mixin import MessageBusClientMixin
 from aiperf.common.models import ParsedResponseRecord

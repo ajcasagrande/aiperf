@@ -18,14 +18,19 @@ from aiperf.common.enums import (
     StreamingPostProcessorType,
 )
 from aiperf.common.hooks import Hook, HookType
-from aiperf.common.messages import Message
-from aiperf.common.models import ParsedResponseRecord, RequestRecord, ResponseData, Turn
-from aiperf.common.models.service_models import ServiceRunInfo
+from aiperf.common.models import (
+    ParsedResponseRecord,
+    RequestRecord,
+    ResponseData,
+    ServiceRunInfo,
+    Turn,
+)
 from aiperf.common.tokenizer import Tokenizer
 from aiperf.common.types import (
     CommAddressType,
     MessageCallbackMapT,
     MessageOutputT,
+    MessageT,
     MessageTypeT,
     ModelEndpointInfoT,
     RequestInputT,
@@ -127,7 +132,7 @@ class CommunicationClientProtocol(AIPerfLifecycleProtocol, Protocol):
 
 @runtime_checkable
 class PubClientProtocol(CommunicationClientProtocol, Protocol):
-    async def publish(self, message: Message) -> None: ...
+    async def publish(self, message: MessageT) -> None: ...
 
 
 @runtime_checkable
@@ -135,13 +140,13 @@ class PullClientProtocol(CommunicationClientProtocol, Protocol):
     def register_pull_callback(
         self,
         message_type: MessageTypeT,
-        callback: Callable[[Message], Coroutine[Any, Any, None]],
+        callback: Callable[[MessageT], Coroutine[Any, Any, None]],
     ) -> None: ...
 
 
 @runtime_checkable
 class PushClientProtocol(CommunicationClientProtocol, Protocol):
-    async def push(self, message: Message) -> None: ...
+    async def push(self, message: MessageT) -> None: ...
 
 
 @runtime_checkable
@@ -150,7 +155,7 @@ class ReplyClientProtocol(CommunicationClientProtocol, Protocol):
         self,
         service_id: str,
         message_type: MessageTypeT,
-        handler: Callable[[Message], Coroutine[Any, Any, MessageOutputT | None]],
+        handler: Callable[[MessageT], Coroutine[Any, Any, MessageOutputT | None]],
     ) -> None: ...
 
 
@@ -158,13 +163,13 @@ class ReplyClientProtocol(CommunicationClientProtocol, Protocol):
 class RequestClientProtocol(CommunicationClientProtocol, Protocol):
     async def request(
         self,
-        message: Message,
+        message: MessageT,
         timeout: float = DEFAULT_COMMS_REQUEST_TIMEOUT,
     ) -> MessageOutputT: ...
 
     async def request_async(
         self,
-        message: Message,
+        message: MessageT,
         callback: Callable[[MessageOutputT], Coroutine[Any, Any, None]],
     ) -> None: ...
 
@@ -174,7 +179,7 @@ class SubClientProtocol(CommunicationClientProtocol, Protocol):
     async def subscribe(
         self,
         message_type: MessageTypeT,
-        callback: Callable[[Message], Coroutine[Any, Any, None]],
+        callback: Callable[[MessageT], Coroutine[Any, Any, None]],
     ) -> None: ...
 
     async def subscribe_all(

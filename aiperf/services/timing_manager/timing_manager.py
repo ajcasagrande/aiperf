@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-import asyncio
 import sys
 
 from aiperf.common.config import ServiceConfig, UserConfig
@@ -148,9 +147,6 @@ class TimingManager(PullClientMixin, BaseComponentService, CreditPhaseMessagesMi
         if not self._credit_issuing_strategy:
             raise InvalidStateError("No credit issuing strategy configured")
 
-        self.info("Waiting 2 seconds to start profiling...")
-        # TODO: HACK: Remove this once we have a better way to track the state of the system from the controller
-        await asyncio.sleep(2)
         self.execute_async(self._credit_issuing_strategy.start())
         self.info("Profiling started")
 

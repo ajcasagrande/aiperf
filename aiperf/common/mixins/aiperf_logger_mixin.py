@@ -4,7 +4,7 @@ import os
 from collections.abc import Callable
 
 from aiperf.common import aiperf_logger
-from aiperf.common.hooks import implements_protocol
+from aiperf.common.decorators import implements_protocol
 from aiperf.common.mixins.base_mixin import BaseMixin
 from aiperf.common.protocols import AIPerfLoggerProtocol
 

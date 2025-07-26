@@ -4,9 +4,9 @@
 from rich.console import Console
 from rich.table import Table
 
+from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import DataExporterType
 from aiperf.common.factories import DataExporterFactory
-from aiperf.common.hooks import implements_protocol
 from aiperf.common.models import MetricResult
 from aiperf.common.protocols import DataExporterProtocol
 from aiperf.data_exporter.exporter_config import ExporterConfig

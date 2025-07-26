@@ -3,9 +3,9 @@
 
 import pandas as pd
 
+from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import MetricType, PostProcessorType
 from aiperf.common.factories import PostProcessorFactory
-from aiperf.common.hooks import implements_protocol
 from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.common.models import MetricResult, ParsedResponseRecord
 from aiperf.common.protocols import PostProcessorProtocol

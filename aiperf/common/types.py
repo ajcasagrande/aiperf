@@ -46,6 +46,7 @@ HookParamsT = TypeVar("HookParamsT", bound=Any)
 HookCallableParamsT = HookParamsT | Callable[["SelfT"], HookParamsT]
 InputT = TypeVar("InputT", bound=Any)
 LifecycleMixinT = TypeVar("LifecycleMixinT", bound="AIPerfLifecycleMixin")
+MessageT = TypeVar("MessageT", bound="Message")
 MessageCallbackMapT = dict["MessageTypeT", Callable[["Message"], Any] | list[Callable[["Message"], Any]]]  # fmt: skip
 MessageOutputT = TypeVar("MessageOutputT", bound="Message")
 MessageTypeT = MessageType | str

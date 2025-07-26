@@ -7,7 +7,7 @@ import traceback
 from collections.abc import Callable
 from inspect import currentframe
 
-from aiperf.common.hooks import implements_protocol
+from aiperf.common.decorators import implements_protocol
 from aiperf.common.protocols import AIPerfLoggerProtocol
 
 _TRACE = logging.DEBUG - 5

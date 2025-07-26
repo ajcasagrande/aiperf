@@ -8,10 +8,11 @@ from typing import Any
 import zmq.asyncio
 
 from aiperf.common.comms.zmq.zmq_base_client import BaseZMQClient
+from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import CommClientType, MessageType
 from aiperf.common.exceptions import CommunicationError
 from aiperf.common.factories import CommunicationClientFactory
-from aiperf.common.hooks import background_task, implements_protocol
+from aiperf.common.hooks import background_task
 from aiperf.common.messages import CommandMessage, CommandResponseMessage, Message
 from aiperf.common.protocols import SubClientProtocol
 from aiperf.common.types import MessageTypeT

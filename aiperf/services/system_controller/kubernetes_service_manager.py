@@ -10,9 +10,9 @@ from aiperf.common.constants import (
     DEFAULT_SERVICE_REGISTRATION_TIMEOUT,
     DEFAULT_SERVICE_START_TIMEOUT,
 )
+from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums.service_enums import ServiceRunType
 from aiperf.common.factories import ServiceManagerFactory
-from aiperf.common.hooks import implements_protocol
 from aiperf.common.protocols import ServiceManagerProtocol
 from aiperf.common.types import ServiceTypeT
 from aiperf.services.system_controller.base_service_manager import BaseServiceManager

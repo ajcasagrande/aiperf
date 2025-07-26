@@ -4,9 +4,9 @@
 from typing import Any
 
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
+from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import EndpointType
 from aiperf.common.factories import RequestConverterFactory
-from aiperf.common.hooks import implements_protocol
 from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.common.models import Turn
 from aiperf.common.protocols import RequestConverterProtocol

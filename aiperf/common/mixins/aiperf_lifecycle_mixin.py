@@ -4,21 +4,19 @@
 import asyncio
 import uuid
 
+from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums.service_enums import LifecycleState
 from aiperf.common.exceptions import InvalidStateError
 from aiperf.common.hooks import (
     AIPerfHook,
     BackgroundTaskParams,
-    implements_protocol,
     on_init,
     on_start,
     on_stop,
     provides_hooks,
 )
 from aiperf.common.mixins.hooks_mixin import HooksMixin
-from aiperf.common.mixins.task_manager_mixin import (
-    TaskManagerMixin,
-)
+from aiperf.common.mixins.task_manager_mixin import TaskManagerMixin
 from aiperf.common.protocols import AIPerfLifecycleProtocol
 
 

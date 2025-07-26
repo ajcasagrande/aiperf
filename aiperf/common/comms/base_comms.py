@@ -3,13 +3,9 @@
 from abc import ABC, abstractmethod
 from typing import cast
 
-from aiperf.common.enums import (
-    CommClientType,
-)
-from aiperf.common.hooks import implements_protocol
-from aiperf.common.mixins.aiperf_lifecycle_mixin import (
-    AIPerfLifecycleMixin,
-)
+from aiperf.common.decorators import implements_protocol
+from aiperf.common.enums import CommClientType
+from aiperf.common.mixins import AIPerfLifecycleMixin
 from aiperf.common.protocols import (
     CommunicationClientProtocol,
     CommunicationProtocol,

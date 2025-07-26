@@ -15,10 +15,10 @@ from aiperf.common.constants import (
     DEFAULT_SERVICE_START_TIMEOUT,
     TASK_CANCEL_TIMEOUT_SHORT,
 )
+from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import ServiceRegistrationStatus, ServiceRunType
 from aiperf.common.exceptions import AIPerfError
 from aiperf.common.factories import ServiceFactory, ServiceManagerFactory
-from aiperf.common.hooks import implements_protocol
 from aiperf.common.protocols import ServiceManagerProtocol
 from aiperf.common.types import ServiceTypeT
 from aiperf.services.system_controller.base_service_manager import BaseServiceManager

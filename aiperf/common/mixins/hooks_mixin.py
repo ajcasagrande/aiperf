@@ -5,13 +5,9 @@ from collections.abc import Callable, Iterable
 from typing import Any
 
 from aiperf.common import aiperf_logger
+from aiperf.common.decorators import implements_protocol
 from aiperf.common.exceptions import AIPerfMultiError, UnsupportedHookError
-from aiperf.common.hooks import (
-    Hook,
-    HookAttrs,
-    HookType,
-    implements_protocol,
-)
+from aiperf.common.hooks import Hook, HookAttrs, HookType
 from aiperf.common.mixins.aiperf_logger_mixin import AIPerfLoggerMixin
 from aiperf.common.protocols import HooksProtocol
 from aiperf.common.types import AnyT

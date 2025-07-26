@@ -4,13 +4,10 @@
 import asyncio
 
 from aiperf.common.config import ServiceConfig, UserConfig
-from aiperf.common.enums import (
-    CommandType,
-    LifecycleState,
-)
+from aiperf.common.decorators import implements_protocol
+from aiperf.common.enums import CommandType, LifecycleState
 from aiperf.common.hooks import (
     background_task,
-    implements_protocol,
     on_command,
     on_start,
     on_state_change,

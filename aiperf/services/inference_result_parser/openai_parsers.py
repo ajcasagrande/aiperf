@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
-import logging
 from typing import Any
 
 from openai.types.chat.chat_completion import ChatCompletion
@@ -13,9 +12,10 @@ from openai.types.responses.response import Response as ResponsesModel
 from pydantic import BaseModel
 
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
+from aiperf.common.aiperf_logger import AIPerfLogger
+from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import CaseInsensitiveStrEnum, EndpointType
 from aiperf.common.factories import ResponseExtractorFactory
-from aiperf.common.hooks import implements_protocol
 from aiperf.common.models import (
     InferenceServerResponse,
     RequestRecord,
@@ -27,7 +27,7 @@ from aiperf.common.protocols import ResponseExtractorProtocol
 from aiperf.common.tokenizer import Tokenizer
 from aiperf.common.utils import load_json_str
 
-logger = logging.getLogger(__name__)
+logger = AIPerfLogger(__name__)
 
 
 class OpenAIObject(CaseInsensitiveStrEnum):

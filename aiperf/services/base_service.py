@@ -9,27 +9,22 @@ from collections.abc import Iterable
 from typing import Any, ClassVar
 
 from aiperf.common.config import ServiceConfig, UserConfig
+from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import (
     CommandResponseStatus,
     CommandType,
     LifecycleState,
     MessageType,
 )
-from aiperf.common.exceptions import (
-    ServiceError,
-)
+from aiperf.common.exceptions import ServiceError
 from aiperf.common.hooks import (
     AIPerfHook,
-    implements_protocol,
     on_command,
     on_init,
     on_message,
     provides_hooks,
 )
-from aiperf.common.messages import (
-    CommandMessage,
-    CommandResponseMessage,
-)
+from aiperf.common.messages import CommandMessage, CommandResponseMessage
 from aiperf.common.mixins import MessageBusClientMixin
 from aiperf.common.models import ErrorDetails
 from aiperf.common.protocols import ServiceProtocol

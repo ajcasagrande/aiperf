@@ -6,10 +6,10 @@ import asyncio
 import zmq.asyncio
 
 from aiperf.common.comms.zmq.zmq_base_client import BaseZMQClient
+from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import CommClientType
 from aiperf.common.exceptions import CommunicationError
 from aiperf.common.factories import CommunicationClientFactory
-from aiperf.common.hooks import implements_protocol
 from aiperf.common.messages import Message
 from aiperf.common.protocols import PushClientProtocol
 
@@ -20,8 +20,8 @@ RETRY_DELAY_INTERVAL_SEC = 0.1
 """The interval to wait before retrying to push a message."""
 
 
-@CommunicationClientFactory.register(CommClientType.PUSH)
 @implements_protocol(PushClientProtocol)
+@CommunicationClientFactory.register(CommClientType.PUSH)
 class ZMQPushClient(BaseZMQClient):
     """
     ZMQ PUSH socket client for sending work to PULL sockets.

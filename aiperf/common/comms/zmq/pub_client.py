@@ -6,12 +6,11 @@ import asyncio
 import zmq.asyncio
 
 from aiperf.common.comms.zmq.zmq_base_client import BaseZMQClient
+from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import CommClientType
 from aiperf.common.exceptions import CommunicationError
 from aiperf.common.factories import CommunicationClientFactory
-from aiperf.common.hooks import implements_protocol
-from aiperf.common.messages import Message
-from aiperf.common.messages.command_messages import TargetedServiceMessage
+from aiperf.common.messages import Message, TargetedServiceMessage
 from aiperf.common.protocols import PubClientProtocol
 
 
@@ -90,6 +89,13 @@ class ZMQPubClient(BaseZMQClient):
                 lambda: f"Pub client {self.client_id} cancelled or context terminated"
             )
             return
+
+        except zmq.ZMQError as e:
+            if self.stop_requested:
+                raise asyncio.CancelledError("Socket was stopped") from e
+            raise CommunicationError(
+                f"Failed to publish message {message.message_type}: {e}",
+            ) from e
 
         except Exception as e:
             raise CommunicationError(

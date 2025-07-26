@@ -5,6 +5,7 @@ from typing import Any
 
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.constants import DEFAULT_PULL_CLIENT_MAX_CONCURRENCY
+from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import (
     CommAddress,
     CommandType,
@@ -13,15 +14,8 @@ from aiperf.common.enums import (
     ServiceType,
 )
 from aiperf.common.factories import ServiceFactory, StreamingPostProcessorFactory
-from aiperf.common.hooks import (
-    implements_protocol,
-    on_command,
-    on_pull_message,
-)
-from aiperf.common.messages import (
-    CommandMessage,
-    ParsedInferenceResultsMessage,
-)
+from aiperf.common.hooks import on_command, on_pull_message
+from aiperf.common.messages import CommandMessage, ParsedInferenceResultsMessage
 from aiperf.common.mixins import PullClientMixin
 from aiperf.common.protocols import ServiceProtocol, StreamingPostProcessorProtocol
 from aiperf.services.base_component_service import BaseComponentService

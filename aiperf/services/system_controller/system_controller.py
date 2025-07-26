@@ -35,6 +35,7 @@ from aiperf.common.messages.command_messages import (
     ProfileStartCommand,
     ShutdownCommand,
 )
+from aiperf.common.mixins.progress_mixin import ProgressMixin
 from aiperf.common.models import ServiceRunInfo
 from aiperf.common.models.service_models import ProfileConfigureData
 from aiperf.common.protocols import ServiceManagerProtocol
@@ -89,6 +90,7 @@ class SystemController(SignalHandlerMixin, BaseService):
                 log_queue=get_global_log_queue(),
             )
         )
+        self.attach_child_lifecycle(ProgressMixin(service_config=self.service_config))
 
         self.debug("System Controller created")
 
@@ -223,7 +225,7 @@ class SystemController(SignalHandlerMixin, BaseService):
         service_id = message.service_id
         service_type = message.service_type
 
-        self.info(
+        self.debug(
             lambda: f"Processing registration from {service_type} with ID: {service_id}"
         )
 
