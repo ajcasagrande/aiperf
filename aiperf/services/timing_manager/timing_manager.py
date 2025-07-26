@@ -136,7 +136,7 @@ class TimingManager(PullClientMixin, BaseComponentService, CreditPhaseMessagesMi
             lambda: f"Timing manager configured with credit issuing strategy: {self._credit_issuing_strategy}"
         )
 
-    @on_command(CommandType.START_PROFILING)
+    @on_command(CommandType.PROFILE_START)
     async def _on_start_profiling(self, message: CommandMessage) -> None:
         """Start the timing manager and issue credit drops according to the configured strategy."""
         self.debug("Starting profiling")

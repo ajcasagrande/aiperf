@@ -87,13 +87,20 @@ class SystemController(SignalHandlerMixin, BaseService):
 
         self.debug("System Controller created")
 
+    async def initialize(self) -> None:
+        """We need to override the initialize method to run the proxy manager before the base service initialize.
+        This is because the proxies need to be running before we can subscribe to the message bus.
+        """
+        self.debug("Running ZMQ Proxy Manager Before Initialize")
+        await self.proxy_manager.initialize_and_start()
+        await super().initialize()
+
     @on_init
     async def _initialize_system_controller(self) -> None:
         self.debug("Initializing System Controller")
 
         self.setup_signal_handlers(self._handle_signal)
         self.debug("Setup signal handlers")
-        await self.proxy_manager.initialize_and_start()
         await self.service_manager.initialize()
 
     @on_start
@@ -114,6 +121,10 @@ class SystemController(SignalHandlerMixin, BaseService):
             raise self._service_error(
                 "Failed to initialize all services",
             ) from e
+
+        await self.service_manager.wait_for_all_services_registration(
+            stop_event=self._stop_requested_event,
+        )
 
         # TODO: HACK: Wait for 1 second to ensure registrations made. This needs to be
         # removed once we have the ability to track registrations of services and their state before
@@ -193,7 +204,7 @@ class SystemController(SignalHandlerMixin, BaseService):
         self.debug("Sending START_PROFILING command to all services")
         await self.send_command_to_service(
             target_service_id=None,
-            command=CommandType.START_PROFILING,
+            command=CommandType.PROFILE_START,
         )
 
     @on_message(MessageType.REGISTRATION)
@@ -232,7 +243,7 @@ class SystemController(SignalHandlerMixin, BaseService):
         try:
             await self.send_command_to_service(
                 target_service_id=service_id,
-                command=CommandType.CONFIGURE_PROFILING,
+                command=CommandType.PROFILE_CONFIGURE,
                 data=self.user_config,
             )
         except Exception as e:
@@ -397,7 +408,7 @@ class SystemController(SignalHandlerMixin, BaseService):
 
         # Publish command message
         try:
-            await self.pub_client.publish(
+            await self.publish(
                 CommandMessage(
                     service_id=self.service_id,
                     command=command,

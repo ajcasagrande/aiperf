@@ -67,7 +67,7 @@ class ProcessingStatsStreamer(BaseStreamingPostProcessor):
             await self.publish_processing_stats()
 
             # Send a message to the event bus to signal that we received all the records
-            await self.pub_client.publish(
+            await self.publish(
                 AllRecordsReceivedMessage(
                     service_id=self.service_id,
                     request_ns=time.time_ns(),
@@ -108,7 +108,7 @@ class ProcessingStatsStreamer(BaseStreamingPostProcessor):
 
     async def publish_processing_stats(self) -> None:
         """Publish the profile processing stats."""
-        await self.pub_client.publish(
+        await self.publish(
             RecordsProcessingStatsMessage(
                 service_id=self.service_id,
                 request_ns=time.time_ns(),

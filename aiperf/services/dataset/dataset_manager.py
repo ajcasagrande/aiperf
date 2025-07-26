@@ -105,7 +105,7 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
         self.dataset = {conv.session_id: conv for conv in conversations}
 
         self.dataset_configured.set()
-        await self.pub_client.publish(
+        await self.publish(
             DatasetConfiguredNotification(
                 service_id=self.service_id,
             ),

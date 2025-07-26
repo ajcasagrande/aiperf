@@ -128,4 +128,4 @@ class BasicMetricsStreamer(BaseStreamingPostProcessor):
             return profile_results.records
         finally:
             # always publish the profile results
-            self.execute_async(self.pub_client.publish(profile_results))
+            self.execute_async(self.publish(profile_results))

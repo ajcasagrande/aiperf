@@ -12,12 +12,12 @@ from aiperf.common.messages import (
     CreditPhaseStartMessage,
     CreditsCompleteMessage,
 )
-from aiperf.common.mixins import TaskManagerMixin
+from aiperf.common.mixins.message_bus_mixin import MessageBusClientMixin
 from aiperf.common.protocols import AIPerfLoggerProtocol
 
 
 @runtime_checkable
-class CreditManagerProtocol(Protocol):
+class CreditManagerProtocol(PubClientProtocol, Protocol):
     """Defines the interface for a CreditManager.
 
     This is used to allow the credit issuing strategy to interact with the TimingManager
@@ -59,11 +59,10 @@ class CreditPhaseMessagesRequirements(AIPerfLoggerProtocol, Protocol):
     """Requirements for the CreditPhaseMessagesMixin. This is the list of attributes that must
     be provided by the class that uses this mixin."""
 
-    pub_client: PubClientProtocol
     service_id: str
 
 
-class CreditPhaseMessagesMixin(TaskManagerMixin, CreditPhaseMessagesRequirements):
+class CreditPhaseMessagesMixin(MessageBusClientMixin, CreditPhaseMessagesRequirements):
     """Mixin for services to implement the CreditManagerProtocol.
 
     Requirements:
@@ -88,7 +87,7 @@ class CreditPhaseMessagesMixin(TaskManagerMixin, CreditPhaseMessagesRequirements
     ) -> None:
         """Publish the phase start message."""
         self.execute_async(
-            self.pub_client.publish(
+            self.publish(
                 CreditPhaseStartMessage(
                     service_id=self.service_id,
                     phase=phase,
@@ -105,7 +104,7 @@ class CreditPhaseMessagesMixin(TaskManagerMixin, CreditPhaseMessagesRequirements
     ) -> None:
         """Publish the phase sending complete message."""
         self.execute_async(
-            self.pub_client.publish(
+            self.publish(
                 CreditPhaseSendingCompleteMessage(
                     service_id=self.service_id,
                     phase=phase,
@@ -119,7 +118,7 @@ class CreditPhaseMessagesMixin(TaskManagerMixin, CreditPhaseMessagesRequirements
     ) -> None:
         """Publish the phase complete message."""
         self.execute_async(
-            self.pub_client.publish(
+            self.publish(
                 CreditPhaseCompleteMessage(
                     service_id=self.service_id,
                     phase=phase,
@@ -134,7 +133,7 @@ class CreditPhaseMessagesMixin(TaskManagerMixin, CreditPhaseMessagesRequirements
     ) -> None:
         """Publish the progress message."""
         self.execute_async(
-            self.pub_client.publish(
+            self.publish(
                 CreditPhaseProgressMessage(
                     service_id=self.service_id,
                     phase=phase,
@@ -148,5 +147,5 @@ class CreditPhaseMessagesMixin(TaskManagerMixin, CreditPhaseMessagesRequirements
         """Publish the credits complete message."""
         self.debug("Publishing credits complete message")
         self.execute_async(
-            self.pub_client.publish(CreditsCompleteMessage(service_id=self.service_id))
+            self.publish(CreditsCompleteMessage(service_id=self.service_id))
         )

@@ -11,12 +11,13 @@ from aiperf.common.mixins import AIPerfLifecycleMixin
 
 class ProxyManager(AIPerfLifecycleMixin):
     def __init__(self, service_config: ServiceConfig, **kwargs) -> None:
-        super().__init__(**kwargs)
+        super().__init__(service_config=service_config, **kwargs)
         self.service_config = service_config
 
     @on_init
     async def _initialize_proxies(self) -> None:
         comm_config = self.service_config.comm_config
+        comm_config.event_bus_proxy_config.enable_capture = True
         self.proxies = [
             ZMQProxyFactory.create_instance(
                 ZMQProxyType.XPUB_XSUB,

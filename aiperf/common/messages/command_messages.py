@@ -18,7 +18,7 @@ from aiperf.common.enums import (
 )
 from aiperf.common.messages.service_messages import BaseServiceMessage
 from aiperf.common.models.error_models import ErrorDetails
-from aiperf.common.types import MessageTypeT, ServiceTypeT
+from aiperf.common.types import CommandTypeT, MessageTypeT, ServiceTypeT
 
 
 class TargetedServiceMessage(BaseServiceMessage):
@@ -49,12 +49,34 @@ class TargetedServiceMessage(BaseServiceMessage):
     )
 
 
+class CommandMessage(TargetedServiceMessage):
+    """Message containing command data.
+    This message is sent by the system controller to a service to command it to do something.
+    """
+
+    message_type: MessageTypeT = MessageType.COMMAND
+
+    command: CommandTypeT = Field(
+        ...,
+        description="Command to execute",
+    )
+    command_id: str = Field(
+        default_factory=lambda: str(uuid.uuid4()),
+        description="Unique identifier for this command. If not provided, a random UUID will be generated.",
+    )
+    # TODO: Not really using this for anything right now.
+    require_response: bool = Field(
+        default=False,
+        description="Whether a response is required for this command",
+    )
+
+
 class CommandResponseMessage(TargetedServiceMessage):
     """Message containing a command response."""
 
     message_type: MessageTypeT = MessageType.COMMAND_RESPONSE
 
-    command: CommandType = Field(
+    command: CommandTypeT = Field(
         ...,
         description="Command type that is being responded to",
     )
@@ -72,14 +94,18 @@ class CommandResponseMessage(TargetedServiceMessage):
     )
 
 
-class SpawnWorkersCommandData(BaseModel):
+class SpawnWorkersCommand(CommandMessage):
     """Data to send with the spawn workers command."""
+
+    command: CommandTypeT = CommandType.SPAWN_WORKERS
 
     num_workers: int = Field(..., description="Number of workers to spawn")
 
 
-class ShutdownWorkersCommandData(BaseModel):
+class ShutdownWorkersCommand(CommandMessage):
     """Data to send with the shutdown workers command."""
+
+    command: CommandTypeT = CommandType.SHUTDOWN_WORKERS
 
     @model_validator(mode="after")
     def validate_worker_ids_or_num_workers(self) -> Self:
@@ -101,41 +127,12 @@ class ShutdownWorkersCommandData(BaseModel):
     )
 
 
-class ProcessRecordsCommandData(BaseModel):
+class ProcessRecordsCommand(CommandMessage):
     """Data to send with the process records command."""
+
+    command: CommandTypeT = CommandType.PROCESS_RECORDS
 
     cancelled: bool = Field(
         default=False,
         description="Whether the profile run was cancelled",
-    )
-
-
-class CommandMessage(TargetedServiceMessage):
-    """Message containing command data.
-    This message is sent by the system controller to a service to command it to do something.
-    """
-
-    message_type: MessageTypeT = MessageType.COMMAND
-
-    command: CommandType = Field(
-        ...,
-        description="Command to execute",
-    )
-    command_id: str = Field(
-        default_factory=lambda: str(uuid.uuid4()),
-        description="Unique identifier for this command. If not provided, a random UUID will be generated.",
-    )
-    require_response: bool = Field(
-        default=False,
-        description="Whether a response is required for this command",
-    )
-    data: SerializeAsAny[
-        SpawnWorkersCommandData
-        | ShutdownWorkersCommandData
-        | ProcessRecordsCommandData
-        | BaseModel
-        | None
-    ] = Field(
-        default=None,
-        description="Data to send with the command",
     )

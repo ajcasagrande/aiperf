@@ -12,7 +12,7 @@ from aiperf.common.hooks import (
     background_task,
     implements_protocol,
     on_command,
-    on_init,
+    on_start,
     on_state_change,
 )
 from aiperf.common.messages import (
@@ -56,18 +56,15 @@ class BaseComponentService(BaseService):
     )
     async def _heartbeat_task(self) -> None:
         """Send a heartbeat notification to the system controller."""
-        try:
-            await self.pub_client.publish(
-                HeartbeatMessage(
-                    service_id=self.service_id,
-                    service_type=self.service_type,
-                    state=self.state,
-                )
+        await self.publish(
+            HeartbeatMessage(
+                service_id=self.service_id,
+                service_type=self.service_type,
+                state=self.state,
             )
-        except Exception as e:
-            raise self._service_error("Failed to send heartbeat") from e
+        )
 
-    @on_init
+    @on_start
     async def _register_service(self) -> None:
         """Publish a registration request to the system controller.
 
@@ -77,16 +74,13 @@ class BaseComponentService(BaseService):
         self.debug(
             lambda: f"Attempting to register service {self} ({self.service_id}) with system controller"
         )
-        try:
-            await self.pub_client.publish(
-                RegistrationMessage(
-                    service_id=self.service_id,
-                    service_type=self.service_type,
-                    state=self.state,
-                )
+        await self.publish(
+            RegistrationMessage(
+                service_id=self.service_id,
+                service_type=self.service_type,
+                state=self.state,
             )
-        except Exception as e:
-            raise self._service_error("Failed to register service") from e
+        )
 
     @on_state_change
     async def _on_state_change(
@@ -99,13 +93,13 @@ class BaseComponentService(BaseService):
         """
         if self.stop_requested:
             return
-        self.execute_async(
-            self.pub_client.publish(
-                StatusMessage(
-                    service_id=self.service_id,
-                    state=new_state,
-                    service_type=self.service_type,
-                )
+        if not self.comms.was_initialized:
+            return
+        await self.publish(
+            StatusMessage(
+                service_id=self.service_id,
+                service_type=self.service_type,
+                state=new_state,
             )
         )
 

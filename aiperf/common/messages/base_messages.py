@@ -27,7 +27,8 @@ class Message(ExcludeIfNoneMixin):
     Each message model should inherit from this class, set the message_type field,
     and define its own additional fields.
     Optionally, the @exclude_if_none decorator can be used to specify which fields
-    should be excluded from the serialized message if they are None.
+    should be excluded from the serialized message if they are None. This is a workaround
+    for the fact that pydantic does not support specifying exclude_none on a per-field basis.
 
     Example:
     ```python

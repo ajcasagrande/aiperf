@@ -9,12 +9,14 @@ from aiperf.common.constants import (
     DEFAULT_SERVICE_REGISTRATION_TIMEOUT,
     DEFAULT_SERVICE_START_TIMEOUT,
 )
-from aiperf.common.hooks import on_start, on_stop
+from aiperf.common.hooks import implements_protocol, on_start, on_stop
 from aiperf.common.mixins.aiperf_lifecycle_mixin import AIPerfLifecycleMixin
 from aiperf.common.models import ServiceRunInfo
+from aiperf.common.protocols import ServiceManagerProtocol
 from aiperf.common.types import ServiceTypeT
 
 
+@implements_protocol(ServiceManagerProtocol)
 class BaseServiceManager(AIPerfLifecycleMixin, ABC):
     """
     Base class for service managers. It provides a common interface for managing services.

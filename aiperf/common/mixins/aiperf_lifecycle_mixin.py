@@ -2,9 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import asyncio
-import os
 import uuid
-from inspect import currentframe
 
 from aiperf.common.enums.service_enums import LifecycleState
 from aiperf.common.exceptions import InvalidStateError
@@ -12,6 +10,7 @@ from aiperf.common.hooks import (
     AIPerfHook,
     BackgroundTaskParams,
     implements_protocol,
+    on_init,
     on_start,
     on_stop,
     provides_hooks,
@@ -122,30 +121,6 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
         self.debug(lambda: f"{transient_state.title()} {self}")
         try:
             await self.run_hooks(hook_type, reverse=reverse)
-
-            # Use inspection to find the name of the calling function. This will be initialize/start/stop, etc.
-            frame = currentframe()
-            if frame is not None and frame.f_back is not None:
-                caller = frame.f_back.f_code.co_name  # initialize/start/stop, etc.
-
-                children = self._children if not reverse else reversed(self._children)
-                for child in children:
-                    if hasattr(child, caller) and callable(getattr(child, caller)):
-                        self.debug(
-                            lambda caller=caller,
-                            child=child: f"Calling {caller} for {child}"
-                        )
-                        # This will call the child's initialize/start/stop, etc. method.
-                        await getattr(child, caller)()
-                    else:
-                        self.error(
-                            f"Unable to find method '{caller}' for {child}. This is likely due to a bug in the framework."
-                        )
-            else:
-                self.error(
-                    f"Unable to determine calling function for {self}. We will be unable to call any child hooks."
-                )
-
             await self._set_state(final_state)
             self.debug(lambda: f"{self} is now {final_state.title()}")
             event.set()
@@ -164,6 +139,9 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
             LifecycleState.STARTING,
             LifecycleState.RUNNING,
         ):
+            self.debug(
+                lambda: f"Ignoring initialize request for {self} in state {self.state}"
+            )
             return
 
         if self.state != LifecycleState.CREATED:
@@ -188,6 +166,9 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
             LifecycleState.STARTING,
             LifecycleState.RUNNING,
         ):
+            self.debug(
+                lambda: f"Ignoring start request for {self} in state {self.state}"
+            )
             return
 
         if self.state != LifecycleState.INITIALIZED:
@@ -259,25 +240,50 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
         self.stopped_event.set()
         raise asyncio.CancelledError(f"Failed for {self}: {e}") from e
 
-    def __str__(self) -> str:
-        return f"{self.__class__.__name__} (id={self.id})"
-
-    def __repr__(self) -> str:
-        return f"<{self.__class__.__qualname__} {self.id} (state={self.state})>"
-
     def attach_child_lifecycle(self, child: AIPerfLifecycleProtocol) -> None:
         """Attach a child lifecycle to manage. This child will now have its lifecycle managed and
         controlled by this lifecycle. Common use cases are having a Service be a parent lifecycle,
         and having supporting components such as streaming post processors, progress reporters, etc. be children.
 
-        Children will be called in the order they were attached.
+        Children will be called in the order they were attached for initialize and start,
+        and in reverse order for stop.
         """
+        if self.state != LifecycleState.CREATED:
+            raise InvalidStateError(
+                f"Cannot attach child {child} to {self} in state {self.state}. "
+                "Please attach children before initializing or starting the lifecycle."
+            )
         self._children.append(child)
 
+    @on_init
+    async def _initialize_children(self) -> None:
+        """Initialize all children. This is done via the @on_init hook to ensure that the children
+        initialize along with the parent hooks, and not after the parent hooks, which would cause
+        a race condition.
+        """
+        for child in self._children:
+            await child.initialize()
 
-# Add this file as one to be ignored when finding the caller of aiperf_logger.
-# This helps to make it more transparent where the actual function is being called from.
-from aiperf.common import aiperf_logger  # noqa: E402 I001
+    @on_start
+    async def _start_children(self) -> None:
+        """Start all children. This is done via the @on_start hook to ensure that the children
+        start along with the parent hooks, and not after the parent hooks, which would cause
+        a race condition.
+        """
+        for child in self._children:
+            await child.start()
 
-_srcfile = os.path.normcase(AIPerfLifecycleMixin.initialize.__code__.co_filename)
-aiperf_logger._ignored_files.append(_srcfile)
+    @on_stop
+    async def _stop_children(self) -> None:
+        """Stop all children. This is done via the @on_stop hook to ensure that the children
+        are stopped along with the parent hooks, and not after the parent hooks, which would cause
+        a race condition.
+        """
+        for child in reversed(self._children):
+            await child.stop()
+
+    def __str__(self) -> str:
+        return f"{self.__class__.__name__} (id={self.id})"
+
+    def __repr__(self) -> str:
+        return f"<{self.__class__.__qualname__} {self.id} (state={self.state})>"

@@ -227,7 +227,7 @@ class BaseZMQProxy(AIPerfLifecycleMixin, ABC):
         try:
             while True:
                 recv_msg = await capture_socket.recv_multipart()
-                self.trace(lambda msg=recv_msg: f"Proxy Monitor Received: {msg}")
+                self.debug(lambda msg=recv_msg: f"Proxy Monitor Received: {msg}")
         except Exception as e:
             self.exception(f"Proxy Monitor Error - {e}")
             raise
