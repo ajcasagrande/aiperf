@@ -7,10 +7,13 @@ from typing import ClassVar
 import orjson
 from pydantic import Field
 
+from aiperf.common.aiperf_logger import AIPerfLogger
 from aiperf.common.enums.message_enums import MessageType
 from aiperf.common.models.base_models import AIPerfBaseModel, exclude_if_none
 from aiperf.common.models.error_models import ErrorDetails
 from aiperf.common.types import MessageTypeT
+
+_logger = AIPerfLogger(__name__)
 
 
 @exclude_if_none("request_ns", "request_id")
@@ -40,9 +43,10 @@ class Message(AIPerfBaseModel):
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
-        if cls.message_type is not None:
+        if hasattr(cls, "message_type") and cls.message_type is not None:
             # Store concrete message classes in the lookup table
             cls._message_type_lookup[cls.message_type] = cls
+            _logger.trace(f"Added {cls.message_type} to message type lookup")
 
     message_type: MessageTypeT = Field(
         ...,
