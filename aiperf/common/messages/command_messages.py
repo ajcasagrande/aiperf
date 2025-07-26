@@ -18,6 +18,7 @@ from aiperf.common.models.base_models import exclude_if_none
 from aiperf.common.types import CommandTypeT, MessageTypeT, ServiceTypeT
 
 
+@exclude_if_none("target_service_id", "target_service_type")
 class TargetedServiceMessage(BaseServiceMessage):
     """Message that can be targeted to a specific service by id or type.
     If both `target_service_type` and `target_service_id` are None, the message is
@@ -155,8 +156,6 @@ class CommandResponseMessage(TargetedServiceMessage):
 
 
 class ErrorCommandResponseMessage(CommandResponseMessage):
-    """Message response to a command that failed."""
-
     status: CommandResponseStatus = CommandResponseStatus.FAILURE
     error: ErrorDetails = Field(
         ...,
@@ -177,7 +176,8 @@ class ErrorCommandResponseMessage(CommandResponseMessage):
 
 
 class SuccessCommandResponseMessage(CommandResponseMessage):
-    """Message response to a command that succeeded."""
+    """Generic command response message when a command succeeds. It should be
+    subclassed for specific command types."""
 
     status: CommandResponseStatus = CommandResponseStatus.SUCCESS
 
@@ -194,8 +194,6 @@ class SuccessCommandResponseMessage(CommandResponseMessage):
 
 
 class AcknowledgedCommandResponseMessage(CommandResponseMessage):
-    """Message response to a command that was acknowledged."""
-
     status: CommandResponseStatus = CommandResponseStatus.ACKNOWLEDGED
 
     @classmethod
@@ -211,8 +209,6 @@ class AcknowledgedCommandResponseMessage(CommandResponseMessage):
 
 
 class UnhandledCommandResponseMessage(CommandResponseMessage):
-    """Message response to a command that was unhandled."""
-
     status: CommandResponseStatus = CommandResponseStatus.UNHANDLED
 
     @classmethod
@@ -228,8 +224,6 @@ class UnhandledCommandResponseMessage(CommandResponseMessage):
 
 
 class SpawnWorkersCommand(CommandMessage):
-    """Data to send with the spawn workers command."""
-
     command: CommandTypeT = CommandType.SPAWN_WORKERS
 
     num_workers: int = Field(..., description="Number of workers to spawn")
@@ -237,8 +231,6 @@ class SpawnWorkersCommand(CommandMessage):
 
 @exclude_if_none("worker_ids", "num_workers")
 class ShutdownWorkersCommand(CommandMessage):
-    """Data to send with the shutdown workers command."""
-
     command: CommandTypeT = CommandType.SHUTDOWN_WORKERS
 
     @model_validator(mode="after")

@@ -10,7 +10,6 @@ __ignore__ = []
 ########################################################################
 from aiperf.common.models.base_models import (
     AIPerfBaseModel,
-    ExcludeIfNoneMixin,
     exclude_if_none,
 )
 from aiperf.common.models.credit_models import (
@@ -63,7 +62,6 @@ __all__ = [
     "CtxSwitches",
     "ErrorDetails",
     "ErrorDetailsCount",
-    "ExcludeIfNoneMixin",
     "IOCounters",
     "Image",
     "InferenceServerResponse",

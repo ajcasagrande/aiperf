@@ -11,13 +11,13 @@ from pydantic import (
 )
 
 from aiperf.common.enums.message_enums import MessageType
-from aiperf.common.models.base_models import ExcludeIfNoneMixin, exclude_if_none
+from aiperf.common.models.base_models import AIPerfBaseModel, exclude_if_none
 from aiperf.common.models.error_models import ErrorDetails
 from aiperf.common.types import MessageTypeT
 
 
 @exclude_if_none("request_ns", "request_id")
-class Message(ExcludeIfNoneMixin):
+class Message(AIPerfBaseModel):
     """Base message class for optimized message handling.
 
     This class provides a base for all messages, including common fields like message_type,
