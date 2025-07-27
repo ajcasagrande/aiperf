@@ -48,13 +48,13 @@ if TYPE_CHECKING:
 
 
 @runtime_checkable
-class AIPerfLoggerProtocol(Protocol):
+class AIPerfLoggerMixinProtocol(Protocol):
     @property
     def is_trace_enabled(self) -> bool: ...
     @property
     def is_debug_enabled(self) -> bool: ...
 
-    def __init__(self, logger_name: str | None = None, **kwargs) -> None: ...
+    def __init__(self, logger_name: str) -> None: ...
     def log(
         self, level: int, message: str | Callable[..., str], *args, **kwargs
     ) -> None: ...
@@ -70,8 +70,14 @@ class AIPerfLoggerProtocol(Protocol):
     def is_enabled_for(self, level: int) -> bool: ...
 
 
+if TYPE_CHECKING:
+    from aiperf.common.aiperf_logger import AIPerfLogger
+
+    _: type[AIPerfLoggerMixinProtocol] = AIPerfLogger
+
+
 @runtime_checkable
-class TaskManagerProtocol(AIPerfLoggerProtocol, Protocol):
+class TaskManagerProtocol(AIPerfLoggerMixinProtocol, Protocol):
     def execute_async(self, coro: Coroutine) -> asyncio.Task: ...
 
     async def cancel_all_tasks(self, timeout: float) -> None: ...
@@ -85,12 +91,19 @@ class TaskManagerProtocol(AIPerfLoggerProtocol, Protocol):
     ) -> None: ...
 
 
+if TYPE_CHECKING:
+    from aiperf.common.mixins.task_manager_mixin import TaskManagerMixin
+
+    task_manager_mixin: type[TaskManagerProtocol] = TaskManagerMixin
+
+
 @runtime_checkable
 class AIPerfLifecycleProtocol(TaskManagerProtocol, Protocol):
     """Protocol for AIPerf lifecycle methods.
     see :class:`aiperf.common.mixins.aiperf_lifecycle_mixin.AIPerfLifecycleMixin` for more details.
     """
 
+    def __init__(self, id: str | None = None, **kwargs) -> None: ...
     @property
     def was_initialized(self) -> bool: ...
     @property
@@ -113,6 +126,12 @@ class AIPerfLifecycleProtocol(TaskManagerProtocol, Protocol):
     async def stop(self) -> None: ...
 
 
+if TYPE_CHECKING:
+    from aiperf.common.mixins.aiperf_lifecycle_mixin import AIPerfLifecycleMixin
+
+    _: type[AIPerfLifecycleProtocol] = AIPerfLifecycleMixin
+
+
 ################################################################################
 # Communication Client Protocols (sorted alphabetically)
 ################################################################################
@@ -129,9 +148,21 @@ class CommunicationClientProtocol(AIPerfLifecycleProtocol, Protocol):
     ) -> None: ...
 
 
+if TYPE_CHECKING:
+    from aiperf.common.comms.zmq import BaseZMQClient
+
+    _: type[CommunicationClientProtocol] = BaseZMQClient
+
+
 @runtime_checkable
 class PubClientProtocol(CommunicationClientProtocol, Protocol):
     async def publish(self, message: MessageT) -> None: ...
+
+
+if TYPE_CHECKING:
+    from aiperf.common.comms.zmq import ZMQPubClient
+
+    _: type[PubClientProtocol] = ZMQPubClient
 
 
 @runtime_checkable
@@ -146,6 +177,12 @@ class PullClientProtocol(CommunicationClientProtocol, Protocol):
 @runtime_checkable
 class PushClientProtocol(CommunicationClientProtocol, Protocol):
     async def push(self, message: MessageT) -> None: ...
+
+
+if TYPE_CHECKING:
+    from aiperf.common.comms.zmq import ZMQPushClient
+
+    _: type[PushClientProtocol] = ZMQPushClient
 
 
 @runtime_checkable

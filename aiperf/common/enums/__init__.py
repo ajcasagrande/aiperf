@@ -10,6 +10,8 @@ __ignore__ = []
 ########################################################################
 from aiperf.common.enums.base_enums import (
     CaseInsensitiveStrEnum,
+    ExtensibleEnum,
+    ExtensibleEnumMeta,
 )
 from aiperf.common.enums.benchmark_suite_enums import (
     BenchmarkSuiteCompletionTrigger,
@@ -97,6 +99,8 @@ __all__ = [
     "CustomDatasetType",
     "DataExporterType",
     "EndpointType",
+    "ExtensibleEnum",
+    "ExtensibleEnumMeta",
     "ImageFormat",
     "LifecycleState",
     "MeasurementMode",

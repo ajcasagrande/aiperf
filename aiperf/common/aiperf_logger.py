@@ -7,9 +7,6 @@ import traceback
 from collections.abc import Callable
 from inspect import currentframe
 
-from aiperf.common.decorators import implements_protocol
-from aiperf.common.protocols import AIPerfLoggerProtocol
-
 _TRACE = logging.DEBUG - 5
 _DEBUG = logging.DEBUG
 _INFO = logging.INFO
@@ -25,7 +22,6 @@ logging.addLevelName(_NOTICE, "NOTICE")
 logging.addLevelName(_SUCCESS, "SUCCESS")
 
 
-@implements_protocol(AIPerfLoggerProtocol)
 class AIPerfLogger:
     """Logger for AIPerf messages with lazy evaluation support for f-strings.
 
@@ -38,6 +34,7 @@ class AIPerfLogger:
         - SUCCESS  (WARNING < SUCCESS < ERROR)
 
     Usage:
+    ```python
         logger = AIPerfLogger("my_logger")
         logger.debug(lambda: f"Processing {item} with {count} items")
         logger.info("Simple string message")
@@ -46,6 +43,7 @@ class AIPerfLogger:
         # Need to pass local variables to the lambda to avoid them going out of scope
         logger.debug(lambda i=i: f"Binding loop variable: {i}")
         logger.exception(f"Direct f-string usage: {e}")
+    ```
     """
 
     def __init__(self, logger_name: str):
