@@ -39,12 +39,13 @@ from aiperf.common.models import ServiceRunInfo
 from aiperf.common.protocols import ServiceManagerProtocol
 from aiperf.common.types import ServiceTypeT
 from aiperf.data_exporter.exporter_manager import ExporterManager
-from aiperf.progress.progress_logger import ProgressLogger
+from aiperf.progress.progress_tracker import ProgressTracker
 from aiperf.services.base_service import BaseService
 from aiperf.services.system_controller.proxy_manager import ProxyManager
 from aiperf.services.system_controller.system_mixins import (
     SignalHandlerMixin,
 )
+from aiperf.ui.ui_protocol import AIPerfUIFactory
 
 
 @ServiceFactory.register(ServiceType.SYSTEM_CONTROLLER)
@@ -89,7 +90,17 @@ class SystemController(SignalHandlerMixin, BaseService):
                 log_queue=get_global_log_queue(),
             )
         )
-        self.attach_child_lifecycle(ProgressLogger(service_config=self.service_config))
+        self.progress_tracker = ProgressTracker(
+            service_config=self.service_config,
+        )
+        self.ui = AIPerfUIFactory.create_instance(
+            self.service_config.ui_type,
+            service_config=self.service_config,
+            user_config=self.user_config,
+            progress_tracker=self.progress_tracker,
+        )
+        self.attach_child_lifecycle(self.progress_tracker)
+        self.attach_child_lifecycle(self.ui)
 
         self.debug("System Controller created")
 

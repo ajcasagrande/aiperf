@@ -18,13 +18,6 @@ from aiperf.common.enums import (
     StreamingPostProcessorType,
 )
 from aiperf.common.hooks import Hook, HookType
-from aiperf.common.models import (
-    ParsedResponseRecord,
-    RequestRecord,
-    ResponseData,
-    ServiceRunInfo,
-    Turn,
-)
 from aiperf.common.tokenizer import Tokenizer
 from aiperf.common.types import (
     CommAddressType,
@@ -40,7 +33,13 @@ from aiperf.common.types import (
 
 if TYPE_CHECKING:
     from aiperf.common.config import ServiceConfig, UserConfig
-
+    from aiperf.common.models import (
+        ParsedResponseRecord,
+        RequestRecord,
+        ResponseData,
+        ServiceRunInfo,
+        Turn,
+    )
 
 ################################################################################
 # Core Base Protocols (Cannot be sorted)
@@ -340,7 +339,7 @@ class InferenceClientProtocol(Protocol):
         self,
         model_endpoint: ModelEndpointInfoT,
         payload: RequestInputT,
-    ) -> RequestRecord:
+    ) -> "RequestRecord":
         """Send a request to the inference server.
 
         This method is used to send a request to the inference server.
@@ -385,8 +384,8 @@ class ResponseExtractorProtocol(Protocol):
     response and converts it to a list of ResponseData objects."""
 
     async def extract_response_data(
-        self, record: RequestRecord, tokenizer: Tokenizer | None
-    ) -> list[ResponseData]:
+        self, record: "RequestRecord", tokenizer: Tokenizer | None
+    ) -> list["ResponseData"]:
         """Extract the response data from a raw inference server response and convert it to a list of ResponseData objects."""
         ...
 
@@ -396,7 +395,7 @@ class RequestConverterProtocol(Protocol):
     """Protocol for a request converter that converts a raw request to a formatted request for the inference server."""
 
     async def format_payload(
-        self, model_endpoint: ModelEndpointInfoT, turn: Turn
+        self, model_endpoint: ModelEndpointInfoT, turn: "Turn"
     ) -> RequestOutputT:
         """Format the turn for the inference server."""
         ...
@@ -418,8 +417,8 @@ class ServiceManagerProtocol(AIPerfLifecycleProtocol, Protocol):
     ): ...
 
     required_services: dict[ServiceTypeT, int]
-    service_map: dict[ServiceTypeT, list[ServiceRunInfo]]
-    service_id_map: dict[str, ServiceRunInfo]
+    service_map: dict[ServiceTypeT, list["ServiceRunInfo"]]
+    service_id_map: dict[str, "ServiceRunInfo"]
 
     async def run_service(
         self, service_type: ServiceTypeT, num_replicas: int = 1
@@ -478,6 +477,6 @@ class StreamingPostProcessorProtocol(MessageBusClientProtocol, Protocol):
         **kwargs,
     ) -> None: ...
 
-    records_queue: asyncio.Queue[ParsedResponseRecord]
+    records_queue: asyncio.Queue["ParsedResponseRecord"]
 
-    async def stream_record(self, record: ParsedResponseRecord) -> None: ...
+    async def stream_record(self, record: "ParsedResponseRecord") -> None: ...

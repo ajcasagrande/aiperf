@@ -8,11 +8,7 @@ from rich.console import Console
 from rich.layout import Layout
 from rich.live import Live
 
-from aiperf.common.hooks import (
-    aiperf_auto_task,
-    on_start,
-    on_stop,
-)
+from aiperf.common.hooks import background_task, on_start, on_stop
 from aiperf.common.messages import WorkerHealthMessage
 from aiperf.common.mixins import AIPerfLifecycleMixin
 from aiperf.progress.progress_tracker import ProgressTracker
@@ -67,7 +63,7 @@ class AIPerfRichDashboard(LogsDashboardMixin, AIPerfLifecycleMixin):
 
         return layout
 
-    @aiperf_auto_task(interval_sec=0.1)
+    @background_task(interval=0.1)
     async def _update_logs(self) -> None:
         """Update the dashboard display."""
         if not self.running:

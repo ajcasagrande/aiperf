@@ -2,8 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 import time
 
+from aiperf.common.config import ServiceConfig
 from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import CreditPhase, MessageType
+from aiperf.common.enums.benchmark_suite_enums import BenchmarkSuiteType
 from aiperf.common.hooks import on_message
 from aiperf.common.messages import (
     CreditPhaseCompleteMessage,
@@ -26,16 +28,28 @@ from aiperf.common.models import (
 class ProgressTracker(MessageBusClientMixin):
     """A progress tracker that tracks the progress of the entire benchmark suite."""
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, service_config: ServiceConfig, **kwargs):
+        super().__init__(service_config=service_config, **kwargs)
         self.suite: BenchmarkSuiteProgress | None = None
+        self.configure(
+            suite=BenchmarkSuiteProgress(
+                type=BenchmarkSuiteType.SINGLE_PROFILE,
+                current_profile_run=ProfileRunProgress(
+                    active_phase=CreditPhase.PROFILING,
+                    phase_infos={
+                        CreditPhase.PROFILING: FullCreditPhaseProgressInfo(
+                            type=CreditPhase.PROFILING,
+                            start_ns=time.time_ns(),
+                        ),
+                    },
+                ),
+            ),
+        )
 
-    def configure(
-        self, suite: BenchmarkSuiteProgress, current_profile_run: ProfileRunProgress
-    ):
+    def configure(self, suite: BenchmarkSuiteProgress):
         """Configure the progress tracker with a benchmark suite."""
         self.suite = suite
-        self.suite.current_profile_run = current_profile_run
+        self.suite.current_profile_run = suite.current_profile_run
 
     @property
     def current_profile_run(self) -> ProfileRunProgress | None:

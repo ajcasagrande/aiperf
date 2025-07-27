@@ -13,11 +13,7 @@ from textual.widgets import (
 from aiperf.common.aiperf_logger import AIPerfLogger
 from aiperf.common.enums import AIPerfUIType
 from aiperf.common.enums.message_enums import MessageType
-from aiperf.common.hooks import (
-    aiperf_auto_task,
-    on_start,
-    on_stop,
-)
+from aiperf.common.hooks import background_task, on_start, on_stop
 from aiperf.common.logging import get_global_log_queue
 from aiperf.common.messages import Message, WorkerHealthMessage
 from aiperf.common.mixins import AIPerfLifecycleMixin
@@ -56,7 +52,7 @@ class TextualUI(AIPerfLifecycleMixin):
         #     self.debug("Shutting down Textual UI")
         #     await self.app.action_quit()
 
-    @aiperf_auto_task(interval_sec=LOG_REFRESH_INTERVAL_SEC)
+    @background_task(interval=LOG_REFRESH_INTERVAL_SEC)
     async def _consume_logs(self) -> None:
         """Consume log records from the queue and display them.
 

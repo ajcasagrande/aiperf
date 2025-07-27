@@ -9,9 +9,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from aiperf.common.hooks import (
-    aiperf_auto_task,
-)
+from aiperf.common.hooks import background_task
 from aiperf.common.logging import get_global_log_queue
 from aiperf.common.mixins import AIPerfLifecycleMixin
 from aiperf.ui.rich.dashboard_element import DashboardElement
@@ -112,7 +110,7 @@ class LogsDashboardMixin(AIPerfLifecycleMixin):
         self.log_queue = get_global_log_queue()
         self.log_records_element = LogsDashboardElement(self.log_records)
 
-    @aiperf_auto_task(interval_sec=LogsDashboardElement.LOG_REFRESH_INTERVAL_SEC)
+    @background_task(interval=LogsDashboardElement.LOG_REFRESH_INTERVAL_SEC)
     async def _consume_logs(self) -> None:
         """Consume log records from the queue in a background task.
 
