@@ -14,7 +14,7 @@ from textual.widgets import (
 from aiperf.common.aiperf_logger import AIPerfLogger
 from aiperf.common.enums import AIPerfUIType
 from aiperf.common.enums.message_enums import MessageType
-from aiperf.common.hooks import background_task, on_start, on_stop
+from aiperf.common.hooks import background_task, on_message, on_start, on_stop
 from aiperf.common.logging import get_global_log_queue
 from aiperf.common.messages import Message, WorkerHealthMessage
 from aiperf.common.mixins import AIPerfLifecycleMixin
@@ -122,6 +122,7 @@ class TextualUI(AIPerfLifecycleMixin):
         except Exception as e:
             self.warning(f"Stats update error: {e}")
 
+    @on_message(MessageType.WORKER_HEALTH)
     async def on_worker_health_update(self, message: WorkerHealthMessage) -> None:
         """Update the worker health with enhanced error tracking."""
         try:
@@ -134,21 +135,17 @@ class TextualUI(AIPerfLifecycleMixin):
         except Exception as e:
             self.warning(f"Worker health update error: {e}")
 
-    async def on_message(self, message: Message) -> None:
-        """Handle a message from the system controller."""
+    @on_message(MessageType.PROFILE_RESULTS)
+    async def on_generic_message(self, message: Message) -> None:
+        """Handle a generic message from the system controller."""
         try:
-            if message.message_type == MessageType.WorkerHealth:
-                # Type check the message before passing it
-                if isinstance(message, WorkerHealthMessage):
-                    await self.on_worker_health_update(message)
-            else:
-                # Update all progress displays for other message types
-                if self.app.dashboard:
-                    self.app.dashboard.update_display()
-                if self.app.overview_progress:
-                    self.app.overview_progress.update_display()
+            if self.app.dashboard:
+                self.app.dashboard.update_display()
+            if self.app.overview_progress:
+                self.app.overview_progress.update_display()
+
         except Exception as e:
-            self.warning(f"Message handling error: {e}")
+            self.warning(f"Generic message handling error: {e}")
 
 
 class AIPerfTextualApp(App):
