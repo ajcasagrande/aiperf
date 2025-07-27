@@ -198,6 +198,9 @@ class SystemController(SignalHandlerMixin, BaseService):
             ) from e
 
         await self.cancel_all_tasks()
+
+        # TODO: HACK: This is a bit of a hack, but without the call to sys.exit, the process
+        # will continue to linger.
         task = asyncio.create_task(self.stop())
         task.add_done_callback(lambda _: sys.exit(0))
         await task
@@ -364,7 +367,8 @@ class SystemController(SignalHandlerMixin, BaseService):
     ) -> None:
         """Handle a shutdown workers command."""
         self.debug(lambda: f"Received shutdown workers command: {message}")
-        await self.service_manager.stop_service(ServiceType.WORKER, message.num_workers)
+        # TODO: Handle individual worker shutdowns via worker id
+        await self.service_manager.stop_service(ServiceType.WORKER)
 
     @on_message(MessageType.PROFILE_RESULTS)
     async def _on_profile_results_message(
@@ -396,4 +400,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()
