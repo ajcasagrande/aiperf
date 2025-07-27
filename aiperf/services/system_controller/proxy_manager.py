@@ -17,7 +17,6 @@ class ProxyManager(AIPerfLifecycleMixin):
     @on_init
     async def _initialize_proxies(self) -> None:
         comm_config = self.service_config.comm_config
-        comm_config.event_bus_proxy_config.enable_capture = True
         self.proxies = [
             ZMQProxyFactory.create_instance(
                 ZMQProxyType.XPUB_XSUB,

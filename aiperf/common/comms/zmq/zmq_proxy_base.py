@@ -161,7 +161,7 @@ class BaseZMQProxy(AIPerfLifecycleMixin, ABC):
             )
 
         try:
-            await asyncio.gather(
+            exceptions = await asyncio.gather(
                 self.backend_socket.initialize(),
                 self.frontend_socket.initialize(),
                 *[
@@ -171,6 +171,9 @@ class BaseZMQProxy(AIPerfLifecycleMixin, ABC):
                 ],
                 return_exceptions=True,
             )
+            if any(exceptions):
+                self.exception(f"Proxy Socket Initialization Failed: {exceptions}")
+                raise
 
             self.debug("Proxy Sockets Initialized Successfully")
 

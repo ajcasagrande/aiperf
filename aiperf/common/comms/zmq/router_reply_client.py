@@ -169,7 +169,7 @@ class ZMQRouterReplyClient(BaseZMQClient):
                 f"Exception waiting for response for request {request_id}: {e}"
             )
 
-    @background_task(immediate=True)
+    @background_task(immediate=True, interval=None)
     async def _rep_router_receiver(self) -> None:
         """Background task for receiving requests and sending responses.
 
@@ -199,6 +199,7 @@ class ZMQRouterReplyClient(BaseZMQClient):
                 except zmq.Again:
                     # This means we timed out waiting for a request.
                     # We can continue to the next iteration of the loop.
+                    self.debug("Router reply client receiver task timed out")
                     await yield_to_event_loop()
                     continue
 
@@ -212,10 +213,9 @@ class ZMQRouterReplyClient(BaseZMQClient):
                 )
 
             except asyncio.CancelledError:
-                self.trace(lambda: "Router reply client receiver task cancelled")
+                self.debug("Router reply client receiver task cancelled")
                 break
             except Exception as e:
                 self.exception(f"Exception receiving request: {e}")
-                # Sleep for a short time to allow the system to potentially recover
-                # if there are temporary issues.
-                await asyncio.sleep(0.1)
+                await yield_to_event_loop()
+                continue

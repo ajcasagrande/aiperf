@@ -81,7 +81,7 @@ class ZMQPullClient(BaseZMQClient):
                 value=int(os.getenv("AIPERF_WORKER_CONCURRENT_REQUESTS", 500))
             )
 
-    @background_task(immediate=True)
+    @background_task(immediate=True, interval=None)
     async def _pull_receiver(self) -> None:
         """Background task for receiving data from the pull socket.
 
@@ -102,19 +102,20 @@ class ZMQPullClient(BaseZMQClient):
                 self.execute_async(self._process_message(message_json))
 
             except zmq.Again:
+                self.debug("Pull client receiver task timed out")
                 self.semaphore.release()  # release the semaphore as it was not used
                 await yield_to_event_loop()
                 continue
 
             except (asyncio.CancelledError, zmq.ContextTerminated):
+                self.debug("Pull client receiver task cancelled")
                 self.semaphore.release()  # release the semaphore as it was not used
                 break
 
             except Exception as e:
                 self.exception(f"Exception receiving data from pull socket: {e}")
-                # Sleep for a short time to allow the system to potentially recover
-                # if there are temporary issues.
-                await asyncio.sleep(0.1)
+                self.semaphore.release()  # release the semaphore as it was not used
+                await yield_to_event_loop()
 
     @on_stop
     async def _stop(self) -> None:

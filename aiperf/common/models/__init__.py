@@ -45,7 +45,6 @@ from aiperf.common.models.record_models import (
     TextResponse,
 )
 from aiperf.common.models.service_models import (
-    ProfileConfigureData,
     ServiceRunInfo,
 )
 from aiperf.common.models.worker_models import (
@@ -69,7 +68,6 @@ __all__ = [
     "ParsedResponseRecord",
     "PhaseProcessingStats",
     "ProcessHealth",
-    "ProfileConfigureData",
     "RequestRecord",
     "ResponseData",
     "SSEField",

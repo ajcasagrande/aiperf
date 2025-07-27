@@ -187,12 +187,11 @@ class ZMQSubClient(BaseZMQClient):
                 self.execute_async(self._handle_message(topic_bytes, message_bytes))
 
             except (asyncio.CancelledError, zmq.ContextTerminated):
-                self.trace(
-                    lambda: f"Sub client {self.client_id} receiver task cancelled"
-                )
+                self.debug(f"Sub client {self.client_id} receiver task cancelled")
                 break
 
             except zmq.Again:
+                self.debug(f"Sub client {self.client_id} receiver task timed out")
                 await yield_to_event_loop()
                 continue
 
@@ -200,6 +199,5 @@ class ZMQSubClient(BaseZMQClient):
                 self.exception(
                     f"Exception receiving message from subscription: {e}, {type(e)}"
                 )
-                # Sleep for a short time to allow the system to potentially recover
-                # if there are temporary issues.
-                await asyncio.sleep(0.1)
+                await yield_to_event_loop()
+                continue

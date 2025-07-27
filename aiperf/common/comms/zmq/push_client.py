@@ -89,8 +89,10 @@ class ZMQPushClient(BaseZMQClient):
             await self.socket.send_string(data_json)
             self.trace(lambda msg=data_json: f"Pushed json data: {msg}")
         except (asyncio.CancelledError, zmq.ContextTerminated):
+            self.debug("Push client cancelled or context terminated")
             return
         except zmq.Again as e:
+            self.debug("Push client timed out")
             if retry_count >= max_retries:
                 raise CommunicationError(
                     f"Failed to push data after {retry_count} retries: {e}",

@@ -37,7 +37,6 @@ from aiperf.common.messages.command_messages import (
 )
 from aiperf.common.mixins.progress_mixin import ProgressMixin
 from aiperf.common.models import ServiceRunInfo
-from aiperf.common.models.service_models import ProfileConfigureData
 from aiperf.common.protocols import ServiceManagerProtocol
 from aiperf.common.types import ServiceTypeT
 from aiperf.data_exporter.exporter_manager import ExporterManager
@@ -248,12 +247,7 @@ class SystemController(SignalHandlerMixin, BaseService):
         # Send configure command to the newly registered service
         try:
             await self.publish(
-                ProfileConfigureCommand(
-                    service_id=service_id,
-                    config=ProfileConfigureData(
-                        data=self.user_config,
-                    ),
-                )
+                ProfileConfigureCommand(service_id=service_id, config=self.user_config)
             )
         except Exception as e:
             raise self._service_error(

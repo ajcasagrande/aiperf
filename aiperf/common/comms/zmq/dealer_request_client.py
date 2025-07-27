@@ -65,7 +65,7 @@ class ZMQDealerRequestClient(BaseZMQClient, TaskManagerMixin):
             str, Callable[[Message], Coroutine[Any, Any, None]]
         ] = {}
 
-    @background_task(immediate=True)
+    @background_task(immediate=True, interval=None)
     async def _request_async_task(self) -> None:
         """Task to handle incoming requests."""
         while True:
@@ -80,11 +80,12 @@ class ZMQDealerRequestClient(BaseZMQClient, TaskManagerMixin):
                     self.execute_async(callback(response_message))
 
             except zmq.Again:
-                self.trace(lambda: "No data received, yielding to event loop")
+                self.debug("No data on dealer socket received, yielding to event loop")
                 await yield_to_event_loop()
                 continue
 
             except (asyncio.CancelledError, zmq.ContextTerminated):
+                self.debug("Dealer request client receiver task cancelled")
                 raise  # re-raise the cancelled error
 
             except Exception as e:

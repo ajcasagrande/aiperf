@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 import json
 import uuid
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from pydantic import Field, model_validator
 from typing_extensions import Self
@@ -13,7 +13,7 @@ from aiperf.common.enums import (
     MessageType,
 )
 from aiperf.common.messages.service_messages import BaseServiceMessage
-from aiperf.common.models import ErrorDetails, ProfileConfigureData
+from aiperf.common.models import ErrorDetails
 from aiperf.common.models.base_models import exclude_if_none
 from aiperf.common.types import CommandTypeT, MessageTypeT, ServiceTypeT
 
@@ -282,9 +282,8 @@ class ProfileConfigureCommand(CommandMessage):
 
     command: CommandTypeT = CommandType.PROFILE_CONFIGURE
 
-    config: ProfileConfigureData = Field(
-        ..., description="Configuration for the profile"
-    )
+    # TODO: Define this type
+    config: Any = Field(..., description="Configuration for the profile")
 
 
 class ProfileStartCommand(CommandMessage):

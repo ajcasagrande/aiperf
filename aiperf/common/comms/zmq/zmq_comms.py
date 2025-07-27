@@ -45,7 +45,6 @@ class BaseZMQCommunication(BaseCommunication, AIPerfLoggerMixin, ABC):
         self.config = config
 
         self.context = zmq.asyncio.Context.instance()
-        self.clients: list[CommunicationClientProtocol] = []
         self._clients_cache: dict[
             tuple[CommClientType, CommAddressType, bool], CommunicationClientProtocol
         ] = {}
@@ -97,7 +96,6 @@ class BaseZMQCommunication(BaseCommunication, AIPerfLoggerMixin, ABC):
         )
 
         self._clients_cache[(client_type, address, bind)] = client
-        self.clients.append(client)
         self.attach_child_lifecycle(client)
         return client
 
