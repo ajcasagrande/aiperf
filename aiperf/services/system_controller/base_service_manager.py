@@ -67,17 +67,25 @@ class BaseServiceManager(AIPerfLifecycleMixin, ABC):
     @abstractmethod
     async def stop_service(
         self, service_type: ServiceTypeT, service_id: str | None = None
-    ) -> None:
-        pass
+    ) -> list[BaseException | None]: ...
 
     # TODO: This stuff needs some major cleanup
 
-    async def stop_services_by_type(self, service_types: list[ServiceTypeT]) -> None:
+    async def stop_services_by_type(
+        self, service_types: list[ServiceTypeT]
+    ) -> list[BaseException | None]:
         """Stop a set of services."""
-        await asyncio.gather(
+        results = await asyncio.gather(
             *[self.stop_service(service_type) for service_type in service_types],
             return_exceptions=True,
         )
+        output: list[BaseException | None] = []
+        for result in results:
+            if isinstance(result, list):
+                output.extend(result)
+            else:
+                output.append(result)
+        return output
 
     async def run_required_services(self) -> None:
         await self.run_services(self.required_services)
@@ -89,11 +97,11 @@ class BaseServiceManager(AIPerfLifecycleMixin, ABC):
         pass
 
     @abstractmethod
-    async def shutdown_all_services(self) -> None:
+    async def shutdown_all_services(self) -> list[BaseException | None]:
         pass
 
     @abstractmethod
-    async def kill_all_services(self) -> None:
+    async def kill_all_services(self) -> list[BaseException | None]:
         pass
 
     @abstractmethod

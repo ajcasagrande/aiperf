@@ -22,7 +22,6 @@ class DecoratorAttrs:
     """
 
     IMPLEMENTS_PROTOCOL = "__implements_protocol__"
-    PROVIDES_HOOKS = "__provides_hooks__"
 
 
 def implements_protocol(protocol: type[ProtocolT]) -> Callable:
@@ -42,9 +41,6 @@ def implements_protocol(protocol: type[ProtocolT]) -> Callable:
     """
 
     def decorator(cls: type[ClassProtocolT]) -> type[ClassProtocolT]:
-        # Copy over the docstring from the actual class to the protocol
-        # TODO: Not sure if working as hoped, need to test.
-        protocol.__doc__ = cls.__doc__
         if TYPE_CHECKING:
             if not hasattr(protocol, "_is_runtime_protocol"):
                 warn(

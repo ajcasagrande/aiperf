@@ -52,7 +52,7 @@ class KubernetesServiceManager(BaseServiceManager):
             "KubernetesServiceManager.run_service not implemented"
         )
 
-    async def shutdown_all_services(self) -> None:
+    async def shutdown_all_services(self) -> list[BaseException | None]:
         """Stop all required services as Kubernetes pods."""
         self.logger.debug("Stopping all required services as Kubernetes pods")
         # TODO: Implement Kubernetes
@@ -60,7 +60,7 @@ class KubernetesServiceManager(BaseServiceManager):
             "KubernetesServiceManager.stop_all_services not implemented"
         )
 
-    async def kill_all_services(self) -> None:
+    async def kill_all_services(self) -> list[BaseException | None]:
         """Kill all required services as Kubernetes pods."""
         self.logger.debug("Killing all required services as Kubernetes pods")
         # TODO: Implement Kubernetes

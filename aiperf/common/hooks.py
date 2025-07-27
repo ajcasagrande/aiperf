@@ -155,6 +155,47 @@ def _hook_decorator_with_params(
     return decorator
 
 
+def background_task(
+    interval: float | Callable[[SelfT], float] | None = None,
+    immediate: bool = True,
+    stop_on_error: bool = False,
+) -> Callable:
+    """
+    Decorator to mark a method as a background task with automatic management.
+
+    Tasks are automatically started when the service starts and stopped when the service stops.
+    The decorated method will be run periodically in the background when the service is running.
+
+    Args:
+        interval: Time between task executions in seconds. If None, the task will run once.
+            Can be a callable that returns the interval, and will be called with 'self' as the argument.
+        immediate: If True, run the task immediately on start, otherwise wait for the interval first.
+        stop_on_error: If True, stop the task on any exception, otherwise log and continue.
+
+    Example:
+    ```python
+    class MyPlugin(AIPerfLifecycleMixin):
+        @background_task(interval=1.0)
+        def _background_task(self) -> None:
+            pass
+    ```
+
+    The above is the equivalent to setting:
+    ```python
+    MyPlugin._background_task.__aiperf_hook_type__ = AIPerfHook.BACKGROUND_TASK
+    MyPlugin._background_task.__aiperf_hook_params__ = BackgroundTaskParams(
+        interval=1.0, immediate=True, stop_on_error=False
+    )
+    ```
+    """
+    return _hook_decorator_with_params(
+        AIPerfHook.BACKGROUND_TASK,
+        BackgroundTaskParams(
+            interval=interval, immediate=immediate, stop_on_error=stop_on_error
+        ),
+    )
+
+
 def provides_hooks(
     *hook_types: HookType,
 ) -> Callable[[type[HooksMixinT]], type[HooksMixinT]]:
@@ -260,47 +301,6 @@ def on_state_change(
     ```
     """
     return _hook_decorator(AIPerfHook.ON_STATE_CHANGE, func)
-
-
-def background_task(
-    interval: float | Callable[[SelfT], float] | None = None,
-    immediate: bool = True,
-    stop_on_error: bool = False,
-) -> Callable:
-    """
-    Decorator to mark a method as a background task with automatic management.
-
-    Tasks are automatically started when the service starts and stopped when the service stops.
-    The decorated method will be run periodically in the background when the service is running.
-
-    Args:
-        interval: Time between task executions in seconds. If None, the task will run once.
-            Can be a callable that returns the interval, and will be called with 'self' as the argument.
-        immediate: If True, run the task immediately on start, otherwise wait for the interval first.
-        stop_on_error: If True, stop the task on any exception, otherwise log and continue.
-
-    Example:
-    ```python
-    class MyPlugin(AIPerfLifecycleMixin):
-        @background_task(interval=1.0)
-        def _background_task(self) -> None:
-            pass
-    ```
-
-    The above is the equivalent to setting:
-    ```python
-    MyPlugin._background_task.__aiperf_hook_type__ = AIPerfHook.BACKGROUND_TASK
-    MyPlugin._background_task.__aiperf_hook_params__ = BackgroundTaskParams(
-        interval=1.0, immediate=True, stop_on_error=False
-    )
-    ```
-    """
-    return _hook_decorator_with_params(
-        AIPerfHook.BACKGROUND_TASK,
-        BackgroundTaskParams(
-            interval=interval, immediate=immediate, stop_on_error=stop_on_error
-        ),
-    )
 
 
 def on_message(

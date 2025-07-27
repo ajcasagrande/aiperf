@@ -97,26 +97,31 @@ class MultiProcessServiceManager(BaseServiceManager):
 
     async def stop_service(
         self, service_type: ServiceTypeT, service_id: str | None = None
-    ) -> None:
+    ) -> list[BaseException | None]:
         self.debug(lambda: f"Stopping {service_type} process(es) with id: {service_id}")
-        for info in self.multi_process_info[:]:
+        tasks = []
+        for info in list(self.multi_process_info):
             if info.service_type == service_type and (
                 service_id is None or info.service_id == service_id
             ):
-                await self._wait_for_process(info)
-                self.multi_process_info.remove(info)
+                task = asyncio.create_task(self._wait_for_process(info))
+                task.add_done_callback(
+                    lambda _, info=info: self.multi_process_info.remove(info)
+                )
+                tasks.append(task)
+        return await asyncio.gather(*tasks, return_exceptions=True)
 
-    async def shutdown_all_services(self) -> None:
+    async def shutdown_all_services(self) -> list[BaseException | None]:
         """Stop all required services as multiprocessing processes."""
         self.debug("Stopping all service processes")
 
         # Wait for all to finish in parallel
-        await asyncio.gather(
+        return await asyncio.gather(
             *[self._wait_for_process(info) for info in self.multi_process_info],
             return_exceptions=True,
         )
 
-    async def kill_all_services(self) -> None:
+    async def kill_all_services(self) -> list[BaseException | None]:
         """Kill all required services as multiprocessing processes."""
         self.debug("Killing all service processes")
 
@@ -126,7 +131,7 @@ class MultiProcessServiceManager(BaseServiceManager):
                 info.process.kill()
 
         # Wait for all to finish in parallel
-        await asyncio.gather(
+        return await asyncio.gather(
             *[self._wait_for_process(info) for info in self.multi_process_info],
             return_exceptions=True,
         )
