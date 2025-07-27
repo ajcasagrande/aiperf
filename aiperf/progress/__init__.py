@@ -1,5 +1,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+from aiperf.progress.progress_logger import (
+    ProgressLogger,
+)
 from aiperf.progress.progress_models import (
     BenchmarkSuiteCompletionTrigger,
     BenchmarkSuiteProgress,
@@ -22,6 +25,7 @@ __all__ = [
     "ProfileCompletionTrigger",
     "ProfileProgress",
     "ProfileSuiteProgress",
+    "ProgressLogger",
     "SweepCompletionTrigger",
     "SweepMultiParamOrder",
     "SweepParamOrder",

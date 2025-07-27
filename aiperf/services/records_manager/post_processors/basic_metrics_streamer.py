@@ -23,9 +23,9 @@ from aiperf.common.models import (
     MetricResult,
     ParsedResponseRecord,
 )
+from aiperf.common.protocols import StreamingPostProcessorProtocol
 from aiperf.services.records_manager.post_processors.streaming_post_processor import (
     BaseStreamingPostProcessor,
-    StreamingPostProcessorProtocol,
 )
 
 
