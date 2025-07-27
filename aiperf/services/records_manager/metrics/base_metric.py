@@ -9,21 +9,22 @@ from typing import Any, ClassVar
 from aiperf.common.enums import MetricTimeType
 from aiperf.common.exceptions import MetricTypeError
 from aiperf.common.models import ParsedResponseRecord
+from aiperf.common.types import MetricTagT, MetricUnitT
 
 
 class BaseMetric(ABC):
     """Base class for all metrics with automatic subclass registration."""
 
     # Class attributes that subclasses must override
-    tag: ClassVar[str] = ""
-    unit: ClassVar[MetricTimeType | None] = None
+    tag: ClassVar[MetricTagT] = ""
+    unit: ClassVar[MetricUnitT] = None
     larger_is_better: ClassVar[bool] = True
     header: ClassVar[str] = ""
     streaming_only: ClassVar[bool] = False
-    required_metrics: ClassVar[set[str]] = set()
+    required_metrics: ClassVar[set[MetricTagT]] = set()
 
-    base_metrics: set[str] = set()
-    metric_interfaces: dict[str, type["BaseMetric"]] = {}
+    base_metrics: set[MetricTagT] = set()
+    metric_interfaces: dict[MetricTagT, type["BaseMetric"]] = {}
 
     def __init_subclass__(cls, **kwargs):
         """
@@ -41,7 +42,7 @@ class BaseMetric(ABC):
             return
 
         # Enforce that subclasses define a non-empty tag
-        if not cls.tag or not isinstance(cls.tag, str):
+        if not cls.tag or not isinstance(cls.tag, MetricTagT):
             raise TypeError(
                 f"Concrete metric class {cls.__name__} must define a non-empty 'tag' class attribute"
             )
@@ -55,7 +56,7 @@ class BaseMetric(ABC):
         cls.metric_interfaces[cls.tag] = cls
 
     @classmethod
-    def get_all(cls) -> dict[str, type["BaseMetric"]]:
+    def get_all(cls) -> dict[MetricTagT, type["BaseMetric"]]:
         """
         Returns the dictionary of all registered metric interfaces.
 
@@ -91,7 +92,7 @@ class BaseMetric(ABC):
     def update_value(
         self,
         record: ParsedResponseRecord | None = None,
-        metrics: dict[str, "BaseMetric"] | None = None,
+        metrics: dict[MetricTagT, "BaseMetric"] | None = None,
     ) -> None:
         """
         Updates the metric value based on the provided record and dictionary of other metrics.
@@ -116,7 +117,7 @@ class BaseMetric(ABC):
             ValueError: If the record does not meet the required conditions.
         """
 
-    def get_converted_metrics(self, unit: MetricTimeType | None) -> list[Any]:
+    def get_converted_metrics(self, unit: MetricUnitT) -> list[Any]:
         if not isinstance(unit, MetricTimeType):
             raise MetricTypeError("Invalid metric time type for conversion.")
 
@@ -124,7 +125,7 @@ class BaseMetric(ABC):
 
         return [metric / 10**scale_factor for metric in self.values()]
 
-    def _check_metrics(self, metrics: dict[str, "BaseMetric"] | None) -> None:
+    def _check_metrics(self, metrics: dict[MetricTagT, "BaseMetric"] | None) -> None:
         """
         Validates that the required dependent metrics are available.
 
