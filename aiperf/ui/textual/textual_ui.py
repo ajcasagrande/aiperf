@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import asyncio
+import sys
 
 from textual.app import App, ComposeResult
 from textual.containers import Container, Horizontal, Vertical
@@ -236,7 +237,8 @@ class AIPerfTextualApp(App):
     async def action_quit(self) -> None:
         """Show confirmation dialog as an overlay."""
         self.exit(return_code=0)
-        raise KeyboardInterrupt()
+        sys.exit(0)
+        # raise KeyboardInterrupt()
 
     async def action_toggle_log_auto_scroll(self) -> None:
         """Toggle the auto scroll of the log viewer."""
