@@ -5,6 +5,7 @@ import pandas as pd
 
 from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import MetricType, PostProcessorType
+from aiperf.common.enums.endpoints_enums import EndpointType
 from aiperf.common.factories import PostProcessorFactory
 from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.common.models import MetricResult, ParsedResponseRecord
@@ -20,12 +21,32 @@ class MetricSummary(AIPerfLoggerMixin):
     It processes the records to extract relevant metrics and returns them in a structured format.
     """
 
-    def __init__(self, **kwargs) -> None:
-        super().__init__(**kwargs)
+    def __init__(self, endpoint_type: EndpointType | None = None, **kwargs):
+        super().__init__(endpoint_type=endpoint_type, **kwargs)
         self.debug("Initializing MetricSummary post-processor")
+
+        # Only include latency and throughput metrics for embeddings endpoint
+        allowed_tags = None
+        if (
+            endpoint_type is not None
+            and endpoint_type == EndpointType.OPENAI_EMBEDDINGS
+        ):
+            allowed_tags = {
+                "request_latency",
+                "request_throughput",
+                "benchmark_duration",
+                "request_count",
+                "min_request",
+                "max_response",
+            }
 
         self._metrics = []
         for metric_cls in BaseMetric.get_all().values():
+            if (
+                allowed_tags is not None
+                and getattr(metric_cls, "tag", None) not in allowed_tags
+            ):
+                continue
             self._metrics.append(metric_cls())
 
     def process(self, records: list[ParsedResponseRecord]) -> None:
