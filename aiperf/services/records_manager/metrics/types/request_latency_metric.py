@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-from aiperf.common.enums import MetricTimeType, MetricType
+from aiperf.common.enums import MetricTag, MetricTimeType, MetricType
 from aiperf.common.models import ParsedResponseRecord
 from aiperf.services.records_manager.metrics.base_metric import BaseMetric
 
@@ -10,7 +10,7 @@ class RequestLatencyMetric(BaseMetric):
     Post-processor for calculating Request Latency metrics from records.
     """
 
-    tag = "request_latency"
+    tag = MetricTag.REQUEST_LATENCY
     unit = MetricTimeType.NANOSECONDS
     type = MetricType.METRIC_OF_RECORDS
     larger_is_better = False

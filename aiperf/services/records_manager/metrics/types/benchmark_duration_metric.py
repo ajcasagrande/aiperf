@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-from aiperf.common.enums import MetricTimeType, MetricType
+from aiperf.common.enums import MetricTag, MetricTimeType, MetricType
 from aiperf.common.models import ParsedResponseRecord
 from aiperf.services.records_manager.metrics.base_metric import BaseMetric
 from aiperf.services.records_manager.metrics.types.max_response_metric import (
@@ -16,7 +16,7 @@ class BenchmarkDurationMetric(BaseMetric):
     Post-processor for calculating the Benchmark Duration metric.
     """
 
-    tag = "benchmark_duration"
+    tag = MetricTag.BENCHMARK_DURATION
     unit = MetricTimeType.NANOSECONDS
     larger_is_better = False
     header = "Benchmark Duration"

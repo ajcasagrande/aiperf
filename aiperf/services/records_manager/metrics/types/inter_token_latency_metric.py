@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from aiperf.common.enums import MetricTimeType, MetricType
+from aiperf.common.enums import MetricTag, MetricTimeType, MetricType
 from aiperf.common.models.record_models import ParsedResponseRecord
 from aiperf.services.records_manager.metrics.base_metric import BaseMetric
 from aiperf.services.records_manager.metrics.types.output_token_count_metric import (
@@ -18,7 +18,7 @@ class InterTokenLatencyMetric(BaseMetric):
     Post Processor for calculating Inter Token Latency (ITL) metric.
     """
 
-    tag = "inter_token_latency"
+    tag = MetricTag.ITL
     unit = MetricTimeType.MILLISECONDS
     larger_is_better = False
     header = "Inter Token Latency (ITL)"

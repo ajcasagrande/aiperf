@@ -2,15 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from aiperf.common.constants import NANOS_PER_SECOND
-from aiperf.common.enums import MetricType
+from aiperf.common.enums import MetricTag, MetricType
 from aiperf.common.models.record_models import ParsedResponseRecord
 from aiperf.services.records_manager.metrics.base_metric import BaseMetric
-from aiperf.services.records_manager.metrics.types.benchmark_duration_metric import (
-    BenchmarkDurationMetric,
-)
-from aiperf.services.records_manager.metrics.types.output_token_count_metric import (
-    OutputTokenCountMetric,
-)
 
 
 class OutputTokenThroughputMetric(BaseMetric):
@@ -18,14 +12,14 @@ class OutputTokenThroughputMetric(BaseMetric):
     Post Processor for calculating Output Token Throughput Metric.
     """
 
-    tag = "output_token_throughput"
+    tag = MetricTag.OUTPUT_TOKEN_THROUGHPUT
     unit = None
     larger_is_better = True
     header = "Output Token Throughput (tokens/sec)"
     type = MetricType.METRIC_OF_METRICS
     required_metrics = {
-        OutputTokenCountMetric.tag,
-        BenchmarkDurationMetric.tag,
+        MetricTag.OSL,
+        MetricTag.BENCHMARK_DURATION,
     }
 
     def __init__(self):
@@ -37,10 +31,10 @@ class OutputTokenThroughputMetric(BaseMetric):
         metrics: dict[str, "BaseMetric"] | None = None,
     ):
         self._check_metrics(metrics)
-        tokens = metrics[OutputTokenCountMetric.tag].values()
+        tokens = metrics[MetricTag.OSL].values()
         total_tokens = sum(tokens)
 
-        duration_ns = metrics[BenchmarkDurationMetric.tag].values()
+        duration_ns = metrics[MetricTag.BENCHMARK_DURATION].values()
         self.metric = total_tokens / (duration_ns / NANOS_PER_SECOND)
 
     def values(self) -> float:
