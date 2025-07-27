@@ -6,6 +6,7 @@ from pathlib import Path
 
 from aiperf.common.enums import (
     AIPerfLogLevel,
+    AIPerfUIType,
     AudioFormat,
     CommunicationBackend,
     CustomDatasetType,
@@ -154,7 +155,9 @@ class ServiceDefaults:
     VERBOSE = False
     EXTRA_VERBOSE = False
     LOG_PATH = None
-    DISABLE_UI = True  # TODO: Make this False by default once we have a UI
+    DISABLE_UI = False
+    BASIC_UI = False
+    UI_TYPE = AIPerfUIType.TEXTUAL
     ENABLE_UVLOOP = True
     RESULT_PARSER_SERVICE_COUNT = 2
     ENABLE_YAPPI = False

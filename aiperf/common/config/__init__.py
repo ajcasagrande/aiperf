@@ -46,6 +46,7 @@ from aiperf.common.config.config_validators import (
     parse_str_or_dict,
     parse_str_or_list,
     parse_str_or_list_of_positive_values,
+    parse_ui_type,
     print_str_or_list,
 )
 from aiperf.common.config.conversation_config import (
@@ -171,5 +172,6 @@ __all__ = [
     "parse_str_or_dict",
     "parse_str_or_list",
     "parse_str_or_list_of_positive_values",
+    "parse_ui_type",
     "print_str_or_list",
 ]
