@@ -4,21 +4,21 @@ import asyncio
 
 import pytest
 
-from aiperf.common.hooks import AIPerfHook, aiperf_task
-from aiperf.common.mixins import AIPerfTaskMixin
+from aiperf.common.hooks import AIPerfHook, background_task
+from aiperf.common.mixins import AIPerfLifecycleMixin
 
 
-class ExampleTaskClass(AIPerfTaskMixin):
+class ExampleTaskClass(AIPerfLifecycleMixin):
     def __init__(self):
         super().__init__()
         self.lock = asyncio.Lock()
         self.running = False
 
-    @aiperf_task
+    @background_task(immediate=True, interval=None)
     async def _run_task(self):
         self.running = True
 
-        while True:
+        while not self.stop_requested:
             try:
                 await asyncio.sleep(0.1)
             except asyncio.CancelledError:
@@ -32,11 +32,11 @@ async def test_aiperf_task():
     task_class = ExampleTaskClass()
 
     assert not task_class.running, "Task should not be running before starting"
-    await task_class._start_tasks()
+    await task_class.start()
     await asyncio.sleep(0.01)  # avoid race condition
     assert task_class.running, "Task should be running after starting"
 
-    await task_class._stop_tasks()
+    await task_class.stop()
     await asyncio.sleep(0.01)  # avoid race condition
     assert not task_class.running, "Task should not be running after stopping"
 

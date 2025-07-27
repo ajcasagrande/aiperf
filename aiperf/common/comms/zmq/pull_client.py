@@ -88,7 +88,7 @@ class ZMQPullClient(BaseZMQClient):
         This method is a coroutine that will run indefinitely until the client is
         shutdown. It will wait for messages from the socket and handle them.
         """
-        while True:
+        while not self.stop_requested:
             try:
                 # acquire the semaphore to limit the number of concurrent requests
                 # NOTE: This MUST be done BEFORE calling recv_string() to allow the zmq push/pull

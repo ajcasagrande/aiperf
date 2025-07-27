@@ -68,7 +68,7 @@ class ZMQDealerRequestClient(BaseZMQClient, TaskManagerMixin):
     @background_task(immediate=True, interval=None)
     async def _request_async_task(self) -> None:
         """Task to handle incoming requests."""
-        while True:
+        while not self.stop_requested:
             try:
                 message = await self.socket.recv_string()
                 self.trace(lambda msg=message: f"Received response: {msg}")

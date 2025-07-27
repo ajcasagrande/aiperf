@@ -399,7 +399,7 @@ class RequestConverterProtocol(Protocol):
 class ServiceManagerProtocol(AIPerfLifecycleProtocol, Protocol):
     """Protocol for a service manager that manages the running of services using the specific ServiceRunType.
     Abstracts away the details of service deployment and management.
-    see :class:`aiperf.services.service_manager.base.BaseServiceManager` for more details.
+    see :class:`aiperf.services.system_controller.base.BaseServiceManager` for more details.
     """
 
     def __init__(

@@ -45,10 +45,10 @@ class BaseStreamingPostProcessor(MessageBusClientMixin, ABC):
             maxsize=max_queue_size
         )
 
-    @background_task(immediate=True)
+    @background_task(immediate=True, interval=None)
     async def _stream_records_task(self) -> None:
         """Task that streams records from the queue to the post processor's stream_record method."""
-        while True:
+        while not self.stop_requested:
             try:
                 record = await self.records_queue.get()
                 await self.stream_record(record)

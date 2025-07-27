@@ -119,10 +119,12 @@ class BaseTestService(AIPerfLoggerMixin, ABC):
         ):
             if service_class is SystemController:
                 service = service_class(
-                    service_config=service_config, user_config=user_config
+                    user_config=user_config, service_config=service_config
                 )
             else:
-                service = service_class(service_config=service_config)
+                service = service_class(
+                    user_config=user_config, service_config=service_config
+                )
             yield service
 
     @pytest.fixture
@@ -173,14 +175,13 @@ class BaseTestService(AIPerfLoggerMixin, ABC):
         assert service.service_type is not None
 
         # Check that the service is not initialized
-        assert service.state == LifecycleState.UNKNOWN
+        assert service.state == LifecycleState.CREATED
 
         # Initialize the service
         await service.initialize()
 
         # Check that the service is initialized and in the READY state
-        assert service.is_initialized
-        assert service.state == LifecycleState.READY
+        assert service.state == LifecycleState.INITIALIZED
 
         await service.stop()
 
@@ -206,7 +207,7 @@ class BaseTestService(AIPerfLoggerMixin, ABC):
 
     @pytest.mark.parametrize(
         "state",
-        [state for state in LifecycleState if state != LifecycleState.UNKNOWN],
+        [state for state in LifecycleState],
     )
     @pytest.mark.asyncio
     async def test_service_state_transitions(
@@ -219,7 +220,7 @@ class BaseTestService(AIPerfLoggerMixin, ABC):
         service = await async_fixture(initialized_service)
 
         # Update the service state
-        await service.set_state(state)
+        await service._set_state(state)
 
         # Check that the service state was updated
         assert service.state == state

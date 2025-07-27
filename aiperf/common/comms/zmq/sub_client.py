@@ -170,14 +170,14 @@ class ZMQSubClient(BaseZMQClient):
             with contextlib.suppress(Exception):  # Ignore errors, they will get logged
                 await call_all_functions(self._subscribers[message_type], message)
 
-    @background_task(immediate=True)
+    @background_task(immediate=True, interval=None)
     async def _sub_receiver(self) -> None:
         """Background task for receiving messages from subscribed topics.
 
         This method is a coroutine that will run indefinitely until the client is
         shutdown. It will wait for messages from the socket and handle them.
         """
-        while True:
+        while not self.stop_requested:
             try:
                 (
                     topic_bytes,

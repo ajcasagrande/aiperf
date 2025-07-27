@@ -81,7 +81,7 @@ class ZMQPubClient(BaseZMQClient):
             topic = self._determine_topic(message)
             message_json = message.model_dump_json()
             # Publish message
-            self.debug(lambda: f"Publishing message {topic=} {message_json=}")
+            self.trace(lambda: f"Publishing message {topic=} {message_json=}")
             await self.socket.send_multipart([topic.encode(), message_json.encode()])
 
         except (asyncio.CancelledError, zmq.ContextTerminated):
@@ -89,13 +89,6 @@ class ZMQPubClient(BaseZMQClient):
                 lambda: f"Pub client {self.client_id} cancelled or context terminated"
             )
             return
-
-        except zmq.ZMQError as e:
-            if self.stop_requested:
-                raise asyncio.CancelledError("Socket was stopped") from e
-            raise CommunicationError(
-                f"Failed to publish message {message.message_type}: {e}",
-            ) from e
 
         except Exception as e:
             raise CommunicationError(
@@ -105,6 +98,7 @@ class ZMQPubClient(BaseZMQClient):
     def _determine_topic(self, message: Message) -> str:
         """Determine the topic based on the message."""
         # For targeted messages such as commands, we can set the topic to a specific service by id or type
+        # Note that target_service_id always takes precedence over target_service_type
 
         if isinstance(message, TargetedServiceMessage):
             if message.target_service_id:

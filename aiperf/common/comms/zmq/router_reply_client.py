@@ -179,7 +179,7 @@ class ZMQRouterReplyClient(BaseZMQClient):
         """
         self.debug("Router reply client background task initialized")
 
-        while True:
+        while not self.stop_requested:
             try:
                 # Receive request
                 try:

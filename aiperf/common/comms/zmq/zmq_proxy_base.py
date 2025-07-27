@@ -208,7 +208,7 @@ class BaseZMQProxy(AIPerfLifecycleMixin, ABC):
             )
         )
 
-    @background_task(interval=None, immediate=True)
+    @background_task(immediate=True, interval=None)
     async def _monitor_messages(self) -> None:
         """Monitor messages flowing through the proxy via the capture socket."""
         if not self.capture_client or not self.capture_address:
@@ -228,7 +228,7 @@ class BaseZMQProxy(AIPerfLifecycleMixin, ABC):
         self.debug("Proxy Monitor Subscribed to all messages")
 
         try:
-            while True:
+            while not self.stop_requested:
                 recv_msg = await capture_socket.recv_multipart()
                 self.debug(lambda msg=recv_msg: f"Proxy Monitor Received: {msg}")
         except Exception as e:
