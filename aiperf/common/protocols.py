@@ -364,17 +364,17 @@ class PostProcessorProtocol(Protocol):
     PostProcessorProtocol is a protocol that defines the API for post-processors.
     """
 
-    def process_record(self, record: "ParsedResponseRecord") -> None:
+    async def process_record(self, record: "ParsedResponseRecord") -> None:
         """Process a single record."""
         ...
 
-    def post_process(self) -> None:
+    async def post_process(self) -> None:
         """
         Execute the post-processing logic on the records.
         """
         pass
 
-    def get_results(self) -> Any:
+    async def get_results(self) -> Any:
         """Get the results of the post-processing."""
         ...
 

@@ -9,8 +9,9 @@ from aiperf.common.messages.credit_messages import (
     CreditPhaseProgressMessage,
     CreditPhaseStartMessage,
 )
+from aiperf.common.messages.progress_messages import LiveMetricsMessage
 from aiperf.common.mixins.message_bus_mixin import MessageBusClientMixin
-from aiperf.common.models import CreditPhaseStats
+from aiperf.common.models import CreditPhaseStats, MetricResult
 
 
 class ProgressMixin(MessageBusClientMixin):
@@ -21,6 +22,7 @@ class ProgressMixin(MessageBusClientMixin):
         self.phase_stats: CreditPhaseStats = CreditPhaseStats(
             type=CreditPhase.PROFILING
         )
+        self.live_metrics: list[MetricResult] = []
 
     @on_message(MessageType.CREDIT_PHASE_START)
     async def _on_credit_phase_start(self, message: CreditPhaseStartMessage) -> None:
@@ -53,6 +55,13 @@ class ProgressMixin(MessageBusClientMixin):
         self.phase_stats.sent = message.sent
         # NOTE: We don't need to print the progress here because it will be printed at regular intervals
 
+    @on_message(MessageType.LIVE_METRICS)
+    async def _on_live_metrics(self, message: LiveMetricsMessage) -> None:
+        """Handle the live metrics message."""
+        self.debug(lambda: f"Received live metrics: {message}")
+        self.live_metrics = message.records
+        self.print_live_metrics()
+
     @property
     def progress(self) -> float:
         return self.phase_stats.progress_percent or 0.0
@@ -71,3 +80,10 @@ class ProgressMixin(MessageBusClientMixin):
             )
         else:
             self.info(f"Progress: {self.progress:05.1f}%")
+
+    def print_live_metrics(self) -> None:
+        """Print the live metrics."""
+        if not self.live_metrics:
+            return
+        metrics_avg = {metric.tag: metric.avg for metric in self.live_metrics}
+        self.info(f"Live Metrics (avg): {metrics_avg}")

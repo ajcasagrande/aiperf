@@ -137,6 +137,4 @@ class LiveMetricsMessage(BaseServiceMessage):
 
     message_type: MessageTypeT = MessageType.LIVE_METRICS
 
-    records: SerializeAsAny[list[MetricResult] | ErrorDetails | None] = Field(
-        ..., description="The current metric records"
-    )
+    records: list[MetricResult] = Field(..., description="The current metric records")

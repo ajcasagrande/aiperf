@@ -3,27 +3,33 @@
 
 import time
 
-from aiperf.common.enums import MessageType, StreamingPostProcessorType
-from aiperf.common.factories import StreamingPostProcessorFactory
+from aiperf.common.decorators import implements_protocol
+from aiperf.common.enums import (
+    MessageType,
+    PostProcessorType,
+    StreamingPostProcessorType,
+)
+from aiperf.common.factories import PostProcessorFactory, StreamingPostProcessorFactory
 from aiperf.common.hooks import background_task, on_message
 from aiperf.common.messages import (
     AllRecordsReceivedMessage,
+    LiveMetricsMessage,
     ProcessRecordsCommand,
     ProfileResultsMessage,
 )
-from aiperf.common.messages.progress_messages import LiveMetricsMessage
 from aiperf.common.models import (
     ErrorDetails,
     ErrorDetailsCount,
     MetricResult,
     ParsedResponseRecord,
 )
-from aiperf.services.records_manager.post_processors.metric_summary import MetricSummary
 from aiperf.services.records_manager.post_processors.streaming_post_processor import (
     BaseStreamingPostProcessor,
+    StreamingPostProcessorProtocol,
 )
 
 
+@implements_protocol(StreamingPostProcessorProtocol)
 @StreamingPostProcessorFactory.register(StreamingPostProcessorType.BASIC_METRICS)
 class BasicMetricsStreamer(BaseStreamingPostProcessor):
     """Streamer for basic metrics."""
@@ -35,18 +41,21 @@ class BasicMetricsStreamer(BaseStreamingPostProcessor):
         self.start_time_ns: int = time.time_ns()
         self.error_summary: dict[ErrorDetails, int] = {}
         self.end_time_ns: int | None = None
-        self.metric_summary = MetricSummary(
-            endpoint_type=self.user_config.endpoint.type
+        self.metric_summary = PostProcessorFactory.create_instance(
+            PostProcessorType.METRIC_SUMMARY,
+            endpoint_type=self.user_config.endpoint.type,
         )
         self.live_metrics_report_interval = (
             self.service_config.live_metrics_report_interval
+            if self.user_config.endpoint.streaming
+            else None
         )
 
     async def stream_record(self, record: ParsedResponseRecord) -> None:
         """Stream a record."""
         if record.request.valid:
             self.valid_count += 1
-            self.metric_summary.process_record(record)
+            await self.metric_summary.process_record(record)
         else:
             self.error_count += 1
             self.warning(f"Received invalid inference results: {record}")
@@ -114,8 +123,8 @@ class BasicMetricsStreamer(BaseStreamingPostProcessor):
             self.info(
                 f"Processing {self.valid_count} successful records and {self.error_count} error records"
             )
-            self.metric_summary.post_process()
-            profile_results.records = self.metric_summary.get_results()
+            await self.metric_summary.post_process()
+            profile_results.records = await self.metric_summary.get_results()
             return profile_results.records
         except Exception as e:
             self.exception(f"Error processing records: {e}")
@@ -131,9 +140,13 @@ class BasicMetricsStreamer(BaseStreamingPostProcessor):
     )
     async def _report_live_metrics(self) -> None:
         """Report live metrics."""
+        if not self.user_config.endpoint.streaming:
+            return
+
+        await self.metric_summary.post_process()
         live_metrics = LiveMetricsMessage(
             service_id=self.service_id,
-            records=self.metric_summary.get_results(),
+            records=await self.metric_summary.get_results(),
         )
         self.debug(lambda: f"Publishing live metrics: {live_metrics}")
         await self.publish(live_metrics)

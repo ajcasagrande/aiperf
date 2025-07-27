@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+import asyncio
+
 import pandas as pd
 
 from aiperf.common.decorators import implements_protocol
@@ -24,6 +26,7 @@ class MetricSummary(AIPerfLoggerMixin):
     def __init__(self, endpoint_type: EndpointType | None = None, **kwargs):
         super().__init__(endpoint_type=endpoint_type, **kwargs)
         self.debug("Initializing MetricSummary post-processor")
+        self._metric_lock = asyncio.Lock()
 
         # Only include latency and throughput metrics for embeddings endpoint
         allowed_tags = None
@@ -49,7 +52,7 @@ class MetricSummary(AIPerfLoggerMixin):
                 continue
             self._metrics.append(metric_cls())
 
-    def process_record(self, record: ParsedResponseRecord) -> None:
+    async def process_record(self, record: ParsedResponseRecord) -> None:
         """Process a single record.
 
         Classifies and computes metrics in dependency order to ensure correctness.
@@ -73,19 +76,20 @@ class MetricSummary(AIPerfLoggerMixin):
         if not record.valid:
             return
 
-        # METRIC_OF_RECORDS
-        for metric in self._metrics:
-            if metric.type == MetricType.METRIC_OF_RECORDS:
-                metric.update_value(record=record)
+        async with self._metric_lock:
+            # METRIC_OF_RECORDS
+            for metric in self._metrics:
+                if metric.type == MetricType.METRIC_OF_RECORDS:
+                    metric.update_value(record=record)
 
-        # METRIC_OF_BOTH
-        for metric in self._metrics:
-            if metric.type == MetricType.METRIC_OF_BOTH:
-                metric.update_value(
-                    record=record, metrics={m.tag: m for m in self._metrics}
-                )
+            # METRIC_OF_BOTH
+            for metric in self._metrics:
+                if metric.type == MetricType.METRIC_OF_BOTH:
+                    metric.update_value(
+                        record=record, metrics={m.tag: m for m in self._metrics}
+                    )
 
-    def post_process(self) -> None:
+    async def post_process(self) -> None:
         """
         Classifies and computes metrics in dependency order to ensure correctness.
         The metrics are categorized based on their dependency types:
@@ -110,39 +114,47 @@ class MetricSummary(AIPerfLoggerMixin):
             - All metrics are computed exactly once, after dependencies are satisfied.
             - Misconfigured or cyclic dependencies will raise an explicit runtime error.
         """
-        # METRIC_OF_METRICS
-        # Precompute tags of all metrics already processed
-        computed_tags = {
-            m.tag
-            for m in self._metrics
-            if m.type in {MetricType.METRIC_OF_RECORDS, MetricType.METRIC_OF_BOTH}
-        }
+        async with self._metric_lock:
+            # METRIC_OF_METRICS
+            # Precompute tags of all metrics already processed
+            computed_tags = {
+                m.tag
+                for m in self._metrics
+                if m.type in {MetricType.METRIC_OF_RECORDS, MetricType.METRIC_OF_BOTH}
+            }
 
-        remaining = [m for m in self._metrics if m.type == MetricType.METRIC_OF_METRICS]
+            remaining = [
+                m for m in self._metrics if m.type == MetricType.METRIC_OF_METRICS
+            ]
 
-        # Resolve dependencies: loop until all metrics are computed or a circular dependency is found
-        while remaining:
-            progress = False
-            for metric in remaining[:]:
-                # If required dependencies are all satisfied, compute this metric
-                if metric.required_metrics.issubset(computed_tags):
-                    metric.update_value(metrics={m.tag: m for m in self._metrics})
-                    computed_tags.add(metric.tag)
-                    remaining.remove(metric)
-                    progress = True
+            # Resolve dependencies: loop until all metrics are computed or a circular dependency is found
+            while remaining:
+                progress = False
+                for metric in remaining[:]:
+                    # If required dependencies are all satisfied, compute this metric
+                    if metric.required_metrics.issubset(computed_tags):
+                        metric.update_value(metrics={m.tag: m for m in self._metrics})
+                        computed_tags.add(metric.tag)
+                        remaining.remove(metric)
+                        progress = True
 
-            if not progress:
-                # Circular dependencies
-                missing = {m.tag: m.required_metrics - computed_tags for m in remaining}
-                raise ValueError(
-                    f"Circular or unsatisfiable dependencies detected in METRIC_OF_METRICS: {missing}"
-                )
+                if not progress:
+                    # Circular dependencies
+                    missing = {
+                        m.tag: m.required_metrics - computed_tags for m in remaining
+                    }
+                    raise ValueError(
+                        f"Circular or unsatisfiable dependencies detected in METRIC_OF_METRICS: {missing}"
+                    )
 
-    def get_results(self) -> list[MetricResult]:
+    async def get_results(self) -> list[MetricResult]:
         """Gets the metrics summary."""
         metrics_summary = []
 
-        df = pd.DataFrame({metric.tag: metric.values() for metric in self._metrics})
+        async with self._metric_lock:
+            values = {metric.tag: metric.values() for metric in self._metrics}
+
+        df = pd.DataFrame(values)
 
         for metric in self._metrics:
             res: MetricResult = record_from_dataframe(df, metric)
