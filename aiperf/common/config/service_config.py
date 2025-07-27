@@ -223,6 +223,20 @@ class ServiceConfig(BaseSettings):
         ),
     ] = ServiceDefaults.PROGRESS_REPORT_INTERVAL
 
+    live_metrics_report_interval: Annotated[
+        float,
+        Field(
+            description="Interval in seconds to report live metrics. This is used to report the live metrics of the profile to the user.",
+        ),
+        cyclopts.Parameter(
+            name=(
+                "--live-metrics-report-interval-seconds",
+                "--live-metrics-report-interval",
+            ),
+            group=_GROUP_NAME,
+        ),
+    ] = ServiceDefaults.LIVE_METRICS_REPORT_INTERVAL
+
     enable_yappi: Annotated[
         bool,
         Field(

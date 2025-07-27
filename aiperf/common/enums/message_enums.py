@@ -32,6 +32,7 @@ class MessageType(CaseInsensitiveStrEnum):
     ERROR = "error"
     HEARTBEAT = "heartbeat"
     INFERENCE_RESULTS = "inference_results"
+    LIVE_METRICS = "live_metrics"
     NOTIFICATION = "notification"
     PARSED_INFERENCE_RESULTS = "parsed_inference_results"
     PROCESSING_STATS = "processing_stats"

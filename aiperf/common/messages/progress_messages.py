@@ -130,3 +130,13 @@ class AllRecordsReceivedMessage(BaseServiceMessage, RequiresRequestNSMixin):
     final_processing_stats: PhaseProcessingStats = Field(
         ..., description="The final processing stats for the profile run"
     )
+
+
+class LiveMetricsMessage(BaseServiceMessage):
+    """Message for live metrics."""
+
+    message_type: MessageTypeT = MessageType.LIVE_METRICS
+
+    records: SerializeAsAny[list[MetricResult] | ErrorDetails | None] = Field(
+        ..., description="The current metric records"
+    )

@@ -5,12 +5,13 @@ import time
 
 from aiperf.common.enums import MessageType, StreamingPostProcessorType
 from aiperf.common.factories import StreamingPostProcessorFactory
-from aiperf.common.hooks import on_message
+from aiperf.common.hooks import background_task, on_message
 from aiperf.common.messages import (
     AllRecordsReceivedMessage,
     ProcessRecordsCommand,
     ProfileResultsMessage,
 )
+from aiperf.common.messages.progress_messages import LiveMetricsMessage
 from aiperf.common.models import (
     ErrorDetails,
     ErrorDetailsCount,
@@ -36,6 +37,9 @@ class BasicMetricsStreamer(BaseStreamingPostProcessor):
         self.end_time_ns: int | None = None
         self.metric_summary = MetricSummary(
             endpoint_type=self.user_config.endpoint.type
+        )
+        self.live_metrics_report_interval = (
+            self.service_config.live_metrics_report_interval
         )
 
     async def stream_record(self, record: ParsedResponseRecord) -> None:
@@ -120,3 +124,16 @@ class BasicMetricsStreamer(BaseStreamingPostProcessor):
         finally:
             # always publish the profile results
             await self.publish(profile_results)
+
+    @background_task(
+        immediate=False,
+        interval=lambda self: self.live_metrics_report_interval,
+    )
+    async def _report_live_metrics(self) -> None:
+        """Report live metrics."""
+        live_metrics = LiveMetricsMessage(
+            service_id=self.service_id,
+            records=self.metric_summary.get_results(),
+        )
+        self.debug(lambda: f"Publishing live metrics: {live_metrics}")
+        await self.publish(live_metrics)
