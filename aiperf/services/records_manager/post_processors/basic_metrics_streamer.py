@@ -110,8 +110,8 @@ class BasicMetricsStreamer(BaseStreamingPostProcessor):
             self.info(
                 f"Processing {self.valid_count} successful records and {self.error_count} error records"
             )
-            self.metric_summary.process()
-            profile_results.records = self.metric_summary.get_metrics_summary()
+            self.metric_summary.post_process()
+            profile_results.records = self.metric_summary.get_results()
             return profile_results.records
         except Exception as e:
             self.exception(f"Error processing records: {e}")

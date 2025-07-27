@@ -361,15 +361,22 @@ class InferenceClientProtocol(Protocol):
 @runtime_checkable
 class PostProcessorProtocol(Protocol):
     """
-    Protocol for post-processors.
-
-    Any class implementing this protocol must provide a `process` method
-    that takes a dictionary of records as input and returns a processed
-    dictionary. This is typically used to apply transformations or extract
-    relevant information from raw data.
+    PostProcessorProtocol is a protocol that defines the API for post-processors.
     """
 
-    def process(self, records: dict) -> dict: ...
+    def process_record(self, record: "ParsedResponseRecord") -> None:
+        """Process a single record."""
+        ...
+
+    def post_process(self) -> None:
+        """
+        Execute the post-processing logic on the records.
+        """
+        pass
+
+    def get_results(self) -> Any:
+        """Get the results of the post-processing."""
+        ...
 
 
 @runtime_checkable

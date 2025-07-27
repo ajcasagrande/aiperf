@@ -50,7 +50,26 @@ class MetricSummary(AIPerfLoggerMixin):
             self._metrics.append(metric_cls())
 
     def process_record(self, record: ParsedResponseRecord) -> None:
-        """Process a single record."""
+        """Process a single record.
+
+        Classifies and computes metrics in dependency order to ensure correctness.
+        The metrics are categorized based on their dependency types:
+
+        1. METRIC_OF_RECORDS:
+            - Depend solely on each individual record.
+            - Computed first, as they have no dependencies.
+
+        2. METRIC_OF_BOTH:
+            - Depend on both:
+                - the current record, and
+                - previously computed metrics (specifically, METRIC_OF_RECORDS).
+            - Computed after all METRIC_OF_RECORDS have been processed.
+            - Must not depend on other METRIC_OF_BOTH or METRIC_OF_METRICS.
+
+        3. METRIC_OF_METRICS:
+            Computed once after all records have been processed.
+            see: :meth:`post_process`
+        """
         if not record.valid:
             return
 
@@ -66,21 +85,18 @@ class MetricSummary(AIPerfLoggerMixin):
                     record=record, metrics={m.tag: m for m in self._metrics}
                 )
 
-    def process(self) -> None:
+    def post_process(self) -> None:
         """
         Classifies and computes metrics in dependency order to ensure correctness.
         The metrics are categorized based on their dependency types:
 
         1. METRIC_OF_RECORDS:
-            - Depend solely on each individual record.
-            - Computed first, as they have no dependencies.
+            - Computed for each individual record.
+            see: :meth:`process_record`
 
         2. METRIC_OF_BOTH:
-            - Depend on both:
-                - the current record, and
-                - previously computed metrics (specifically, METRIC_OF_RECORDS).
-            - Computed after all METRIC_OF_RECORDS have been processed.
-            - Must not depend on other METRIC_OF_BOTH or METRIC_OF_METRICS.
+            - Computed for each individual record.
+            see: :meth:`process_record`
 
         3. METRIC_OF_METRICS:
             - Computed based only on other metrics (not records).
@@ -122,7 +138,8 @@ class MetricSummary(AIPerfLoggerMixin):
                     f"Circular or unsatisfiable dependencies detected in METRIC_OF_METRICS: {missing}"
                 )
 
-    def get_metrics_summary(self) -> list[MetricResult]:
+    def get_results(self) -> list[MetricResult]:
+        """Gets the metrics summary."""
         metrics_summary = []
 
         df = pd.DataFrame({metric.tag: metric.values() for metric in self._metrics})
