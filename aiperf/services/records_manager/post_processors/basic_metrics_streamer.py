@@ -115,7 +115,9 @@ class BasicMetricsStreamer(BaseStreamingPostProcessor):
                 self.info(
                     f"Processing {len(self.records)} successful records and {len(self.error_records)} error records"
                 )
-                metric_summary = MetricSummary()
+                metric_summary = MetricSummary(
+                    endpoint_type=self.user_config.endpoint.type
+                )
                 metric_summary.process(list(self.records))
                 profile_results.records = metric_summary.get_metrics_summary()
                 return profile_results.records
