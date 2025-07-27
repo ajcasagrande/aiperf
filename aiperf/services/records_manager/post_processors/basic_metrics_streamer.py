@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import time
-from collections import deque
 
 from aiperf.common.enums import MessageType, StreamingPostProcessorType
 from aiperf.common.factories import StreamingPostProcessorFactory
@@ -30,36 +29,32 @@ class BasicMetricsStreamer(BaseStreamingPostProcessor):
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
-        # TODO: we do not want to keep all the data forever
-        self.records: deque[ParsedResponseRecord] = deque()
-        self.error_records: deque[ParsedResponseRecord] = deque()
+        self.valid_count: int = 0
+        self.error_count: int = 0
         self.start_time_ns: int = time.time_ns()
+        self.error_summary: dict[ErrorDetails, int] = {}
         self.end_time_ns: int | None = None
+        self.metric_summary = MetricSummary(
+            endpoint_type=self.user_config.endpoint.type
+        )
 
     async def stream_record(self, record: ParsedResponseRecord) -> None:
         """Stream a record."""
         if record.request.valid:
-            # TODO: we do not want to keep all the data forever
-            self.records.append(record)
+            self.valid_count += 1
+            self.metric_summary.process_record(record)
         else:
+            self.error_count += 1
             self.warning(f"Received invalid inference results: {record}")
-            # TODO: we do not want to keep all the data forever
-            self.error_records.append(record)
+            if record.request.error is not None:
+                self.error_summary.setdefault(record.request.error, 0)
+                self.error_summary[record.request.error] += 1
 
-    # TODO: This could be done on the fly as we process the records
-    async def get_error_summary(self) -> list[ErrorDetailsCount]:
+    def get_error_summary(self) -> list[ErrorDetailsCount]:
         """Generate a summary of the error records."""
-        summary: dict[ErrorDetails, int] = {}
-        for record in self.error_records:
-            if record.request.error is None:
-                continue
-            if record.request.error not in summary:
-                summary[record.request.error] = 0
-            summary[record.request.error] += 1
-
         return [
             ErrorDetailsCount(error_details=error_details, count=count)
-            for error_details, count in summary.items()
+            for error_details, count in self.error_summary.items()
         ]
 
     @on_message(MessageType.ALL_RECORDS_RECEIVED)
@@ -98,33 +93,30 @@ class BasicMetricsStreamer(BaseStreamingPostProcessor):
 
         profile_results = ProfileResultsMessage(
             service_id=self.service_id,
-            total=len(self.records),
-            completed=len(self.records) + len(self.error_records),
+            total=self.valid_count,
+            completed=self.valid_count + self.error_count,
             start_ns=self.start_time_ns,
             end_ns=self.end_time_ns,
             records=None,
-            errors_by_type=await self.get_error_summary(),
+            errors_by_type=self.get_error_summary(),
             was_cancelled=cancelled,
         )
 
         try:
-            if not self.records:
+            if self.valid_count == 0:
                 self.warning("No successful records to process")
                 return None
-            else:
-                self.info(
-                    f"Processing {len(self.records)} successful records and {len(self.error_records)} error records"
-                )
-                metric_summary = MetricSummary(
-                    endpoint_type=self.user_config.endpoint.type
-                )
-                metric_summary.process(list(self.records))
-                profile_results.records = metric_summary.get_metrics_summary()
-                return profile_results.records
+
+            self.info(
+                f"Processing {self.valid_count} successful records and {self.error_count} error records"
+            )
+            self.metric_summary.process()
+            profile_results.records = self.metric_summary.get_metrics_summary()
+            return profile_results.records
         except Exception as e:
             self.exception(f"Error processing records: {e}")
             profile_results.records = ErrorDetails.from_exception(e)
             return profile_results.records
         finally:
             # always publish the profile results
-            self.execute_async(self.publish(profile_results))
+            await self.publish(profile_results)

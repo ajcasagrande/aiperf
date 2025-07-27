@@ -49,7 +49,24 @@ class MetricSummary(AIPerfLoggerMixin):
                 continue
             self._metrics.append(metric_cls())
 
-    def process(self, records: list[ParsedResponseRecord]) -> None:
+    def process_record(self, record: ParsedResponseRecord) -> None:
+        """Process a single record."""
+        if not record.valid:
+            return
+
+        # METRIC_OF_RECORDS
+        for metric in self._metrics:
+            if metric.type == MetricType.METRIC_OF_RECORDS:
+                metric.update_value(record=record)
+
+        # METRIC_OF_BOTH
+        for metric in self._metrics:
+            if metric.type == MetricType.METRIC_OF_BOTH:
+                metric.update_value(
+                    record=record, metrics={m.tag: m for m in self._metrics}
+                )
+
+    def process(self) -> None:
         """
         Classifies and computes metrics in dependency order to ensure correctness.
         The metrics are categorized based on their dependency types:
@@ -77,21 +94,6 @@ class MetricSummary(AIPerfLoggerMixin):
             - All metrics are computed exactly once, after dependencies are satisfied.
             - Misconfigured or cyclic dependencies will raise an explicit runtime error.
         """
-
-        # METRIC_OF_RECORDS
-        for record in records:
-            for metric in self._metrics:
-                if metric.type == MetricType.METRIC_OF_RECORDS:
-                    metric.update_value(record=record)
-
-        # METRIC_OF_BOTH
-        for record in records:
-            for metric in self._metrics:
-                if metric.type == MetricType.METRIC_OF_BOTH:
-                    metric.update_value(
-                        record=record, metrics={m.tag: m for m in self._metrics}
-                    )
-
         # METRIC_OF_METRICS
         # Precompute tags of all metrics already processed
         computed_tags = {
