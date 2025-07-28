@@ -72,7 +72,7 @@ def test_exclude_if_none_decorator():
 
 def test_status_message():
     message = StatusMessage(
-        state=LifecycleState.READY,
+        state=LifecycleState.RUNNING,
         service_id="test",
         service_type=ServiceType.WORKER,
         request_ns=1234567890,
@@ -80,18 +80,18 @@ def test_status_message():
     )
     assert message.model_dump() == {
         "message_type": MessageType.STATUS,
-        "state": LifecycleState.READY,
+        "state": LifecycleState.RUNNING,
         "service_id": "test",
         "service_type": ServiceType.WORKER,
         "request_ns": 1234567890,
         "request_id": "test",
     }
     assert json.loads(message.model_dump_json()) == json.loads(
-        '{"message_type":"status","state":"ready","service_id":"test","service_type":"worker","request_ns":1234567890,"request_id":"test"}'
+        '{"message_type":"status","state":"running","service_id":"test","service_type":"worker","request_ns":1234567890,"request_id":"test"}'
     )
 
     message = StatusMessage(
-        state=LifecycleState.READY,
+        state=LifecycleState.INITIALIZED,
         request_ns=1234567890,
         request_id=None,
         service_id="test",
@@ -99,11 +99,11 @@ def test_status_message():
     )
     assert message.model_dump() == {
         "message_type": MessageType.STATUS,
-        "state": LifecycleState.READY,
+        "state": LifecycleState.INITIALIZED,
         "service_id": "test",
         "service_type": ServiceType.WORKER,
         "request_ns": 1234567890,
     }
     assert json.loads(message.model_dump_json()) == json.loads(
-        '{"message_type":"status","state":"ready","service_id":"test","service_type":"worker","request_ns":1234567890}'
+        '{"message_type":"status","state":"initialized","service_id":"test","service_type":"worker","request_ns":1234567890}'
     )

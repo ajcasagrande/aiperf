@@ -106,6 +106,13 @@ class BaseService(MessageBusClientMixin, ABC):
             if isinstance(hook.params, Iterable) and message.command in hook.params:
                 try:
                     response = await hook.func(message)
+                    if response is None:
+                        await self.publish(
+                            CommandAcknowledgedResponse.from_command_message(
+                                message, self.service_id
+                            )
+                        )
+                        return
                     if not isinstance(response, CommandResponse):
                         raise ValueError(
                             f"Command handler {hook.func_name} returned a non-CommandResponse: {response}"
@@ -123,8 +130,8 @@ class BaseService(MessageBusClientMixin, ABC):
                         )
                     )
 
-                # Break out of the loop after the first successful handler (only 1 handler per command)
-                break
+                # Only one handler per command type, so return after the first handler.
+                return
 
         # If we reach here, no handler was found for the command, so we publish an unhandled response.
         await self.publish(

@@ -3,6 +3,7 @@
 import asyncio
 import inspect
 from collections.abc import Callable, Coroutine
+from contextlib import suppress
 
 from aiperf.common.constants import TASK_CANCEL_TIMEOUT_SHORT
 from aiperf.common.decorators import implements_protocol
@@ -54,8 +55,8 @@ class TaskManagerMixin(AIPerfLoggerMixin):
         for task in task_list:
             task.cancel()
 
-        # Clear the tasks set after cancellation to avoid memory leaks
-        self.tasks.clear()
+        with suppress(asyncio.TimeoutError):
+            await asyncio.wait_for(self.wait_for_tasks(), timeout)
 
     def start_background_task(
         self,
@@ -88,7 +89,7 @@ class TaskManagerMixin(AIPerfLoggerMixin):
             immediate: If True, run the task immediately on start, otherwise wait for the interval first.
             stop_on_error: If True, stop the task on any exception, otherwise log and continue.
         """
-        while not stop_event or not stop_event.is_set():
+        while stop_event is None or not stop_event.is_set():
             try:
                 if interval is None or immediate:
                     await yield_to_event_loop()
