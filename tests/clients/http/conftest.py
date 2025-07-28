@@ -105,12 +105,11 @@ def create_sse_chunk_list(messages: list[str]) -> list[tuple[bytes, bytes]]:
 def user_config() -> UserConfig:
     """Fixture providing a sample UserConfig."""
     return UserConfig(
-        model_names=["gpt-4"],
         endpoint=EndPointConfig(
             type=EndpointType.OPENAI_CHAT_COMPLETIONS,
             url="http://localhost:8080",
-            timeout=30,
             api_key="test-api-key",
+            model_names=["gpt-4"],
         ),
     )
 

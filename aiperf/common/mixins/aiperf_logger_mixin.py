@@ -6,10 +6,10 @@ from collections.abc import Callable
 from aiperf.common import aiperf_logger
 from aiperf.common.decorators import implements_protocol
 from aiperf.common.mixins.base_mixin import BaseMixin
-from aiperf.common.protocols import AIPerfLoggerProtocol
+from aiperf.common.protocols import AIPerfLoggerMixinProtocol
 
 
-@implements_protocol(AIPerfLoggerProtocol)
+@implements_protocol(AIPerfLoggerMixinProtocol)
 class AIPerfLoggerMixin(BaseMixin):
     """Mixin to provide lazy evaluated logging for f-strings.
 

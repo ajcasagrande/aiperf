@@ -4,13 +4,6 @@
 from aiperf.common.enums import MetricTag, MetricTimeType, MetricType
 from aiperf.common.models.record_models import ParsedResponseRecord
 from aiperf.services.records_manager.metrics.base_metric import BaseMetric
-from aiperf.services.records_manager.metrics.types.output_token_count_metric import (
-    OutputTokenCountMetric,
-)
-from aiperf.services.records_manager.metrics.types.request_latency_metric import (
-    RequestLatencyMetric,
-)
-from aiperf.services.records_manager.metrics.types.ttft_metric import TTFTMetric
 
 
 class InterTokenLatencyMetric(BaseMetric):
@@ -25,9 +18,9 @@ class InterTokenLatencyMetric(BaseMetric):
     type = MetricType.METRIC_OF_METRICS
     streaming_only = True
     required_metrics = {
-        RequestLatencyMetric.tag,
-        TTFTMetric.tag,
-        OutputTokenCountMetric.tag,
+        MetricTag.REQUEST_LATENCY,
+        MetricTag.TTFT,
+        MetricTag.OSL,
     }
 
     def __init__(self):
@@ -42,14 +35,12 @@ class InterTokenLatencyMetric(BaseMetric):
         # Clear the current value because we re-compute it each time
         self.metric.clear()
 
-        latencies = metrics[RequestLatencyMetric.tag].values()
-        ttfts = metrics[TTFTMetric.tag].values()
-        output_token_counts = metrics[OutputTokenCountMetric.tag].values()
+        latencies = metrics[MetricTag.REQUEST_LATENCY].values()
+        ttfts = metrics[MetricTag.TTFT].values()
+        osls = metrics[MetricTag.OSL].values()
 
-        for latency, ttft, output_tokens in zip(
-            latencies, ttfts, output_token_counts, strict=False
-        ):
-            itl = (latency - ttft) / (output_tokens - 1)
+        for latency, ttft, osl in zip(latencies, ttfts, osls, strict=False):
+            itl = (latency - ttft) / (osl - 1)
             self.metric.append(itl)
 
     def values(self) -> list[float]:

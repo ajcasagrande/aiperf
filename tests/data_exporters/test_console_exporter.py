@@ -13,7 +13,11 @@ from aiperf.data_exporter.exporter_config import ExporterConfig
 
 @pytest.fixture
 def mock_endpoint_config():
-    return EndPointConfig(type=EndpointType.OPENAI_CHAT_COMPLETIONS, streaming=True)
+    return EndPointConfig(
+        type=EndpointType.OPENAI_CHAT_COMPLETIONS,
+        streaming=True,
+        model_names=["test-model"],
+    )
 
 
 @pytest.fixture
@@ -64,7 +68,7 @@ def sample_records():
 
 @pytest.fixture
 def mock_exporter_config(sample_records, mock_endpoint_config):
-    input_config = UserConfig(endpoint=mock_endpoint_config, model_names=["test-model"])
+    input_config = UserConfig(endpoint=mock_endpoint_config)
     return ExporterConfig(results=sample_records, input_config=input_config)
 
 
@@ -97,9 +101,7 @@ class TestConsoleExporter:
         should_skip,
     ):
         mock_endpoint_config.streaming = enable_streaming
-        input_config = UserConfig(
-            endpoint=mock_endpoint_config, model_names=["test-model"]
-        )
+        input_config = UserConfig(endpoint=mock_endpoint_config)
         config = ExporterConfig(
             results=ProfileResultsMessage(
                 service_id="test-service",

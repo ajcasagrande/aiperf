@@ -6,8 +6,8 @@ import pytest
 from aiperf.services.records_manager.metrics.types.inter_token_latency_metric import (
     InterTokenLatencyMetric,
 )
-from aiperf.services.records_manager.metrics.types.output_token_count_metric import (
-    OutputTokenCountMetric,
+from aiperf.services.records_manager.metrics.types.output_sequence_length_metric import (
+    OutputSequenceLengthMetric,
 )
 from aiperf.services.records_manager.metrics.types.request_latency_metric import (
     RequestLatencyMetric,
@@ -19,7 +19,7 @@ from aiperf.services.records_manager.metrics.types.ttft_metric import TTFTMetric
 def sample_metrics():
     req_latency = RequestLatencyMetric()
     ttft = TTFTMetric()
-    output_tokens = OutputTokenCountMetric()
+    output_tokens = OutputSequenceLengthMetric()
 
     req_latency.metric = [100, 200]
     ttft.metric = [40, 60]
@@ -28,7 +28,7 @@ def sample_metrics():
     return {
         "request_latency": req_latency,
         "ttft": ttft,
-        "output_token_count": output_tokens,
+        "osl": output_tokens,
     }
 
 

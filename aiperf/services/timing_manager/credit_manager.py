@@ -13,7 +13,7 @@ from aiperf.common.messages import (
     CreditsCompleteMessage,
 )
 from aiperf.common.mixins.message_bus_mixin import MessageBusClientMixin
-from aiperf.common.protocols import AIPerfLoggerProtocol
+from aiperf.common.protocols import AIPerfLoggerMixinProtocol
 
 
 @runtime_checkable
@@ -55,7 +55,7 @@ class CreditManagerProtocol(PubClientProtocol, Protocol):
 
 
 @runtime_checkable
-class CreditPhaseMessagesRequirements(AIPerfLoggerProtocol, Protocol):
+class CreditPhaseMessagesRequirements(AIPerfLoggerMixinProtocol, Protocol):
     """Requirements for the CreditPhaseMessagesMixin. This is the list of attributes that must
     be provided by the class that uses this mixin."""
 

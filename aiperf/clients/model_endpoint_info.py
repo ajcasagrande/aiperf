@@ -53,7 +53,9 @@ class ModelListInfo(AIPerfBaseModel):
     def from_user_config(cls, user_config: UserConfig) -> "ModelListInfo":
         """Create a ModelListInfo from a UserConfig."""
         return cls(
-            models=[ModelInfo(name=model) for model in user_config.model_names],
+            models=[
+                ModelInfo(name=model) for model in user_config.endpoint.model_names
+            ],
             model_selection_strategy=user_config.endpoint.model_selection_strategy,
         )
 

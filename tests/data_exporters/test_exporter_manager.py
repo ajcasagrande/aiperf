@@ -13,7 +13,11 @@ from aiperf.data_exporter.exporter_manager import ExporterManager
 
 @pytest.fixture
 def endpoint_config():
-    return EndPointConfig(type=EndpointType.OPENAI_CHAT_COMPLETIONS, streaming=True)
+    return EndPointConfig(
+        type=EndpointType.OPENAI_CHAT_COMPLETIONS,
+        streaming=True,
+        model_names=["test-model"],
+    )
 
 
 @pytest.fixture
@@ -35,17 +39,12 @@ def sample_records():
 
 @pytest.fixture
 def mock_user_config(endpoint_config, output_config):
-    config = UserConfig(model_names=["test-model"])
-    config.endpoint = endpoint_config
-    config.output = output_config
-    return config
+    return UserConfig(endpoint=endpoint_config, output=output_config)
 
 
 class TestExporterManager:
     @pytest.mark.asyncio
-    async def test_export(
-        self, endpoint_config, output_config, sample_records, mock_user_config
-    ):
+    async def test_export(self, sample_records, mock_user_config):
         mock_exporter_instance = MagicMock()
         mock_exporter_class = MagicMock(return_value=mock_exporter_instance)
 

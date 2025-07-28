@@ -30,7 +30,10 @@ def make_record(output_tokens_count: list[int] | None = None):
         start_perf_ns=1,
         end_perf_ns=200,
         timestamp_ns=100000,
-        has_error=False,
+        error=None,
+        conversation_id="c1",
+        turn_index=0,
+        model_name="model",
     )
 
     return ParsedResponseRecord(
