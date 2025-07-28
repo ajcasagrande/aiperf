@@ -17,6 +17,7 @@ from aiperf.common.config.config_validators import (
     parse_str_or_dict,
 )
 from aiperf.common.config.conversation_config import ConversationConfig
+from aiperf.common.config.groups import Groups
 from aiperf.common.config.image_config import ImageConfig
 from aiperf.common.config.prompt_config import PromptConfig
 from aiperf.common.enums import CustomDatasetType
@@ -29,7 +30,7 @@ class InputConfig(BaseConfig):
     A configuration class for defining input related settings.
     """
 
-    _GROUP_NAME = "Input"
+    _CLI_GROUP = Groups.INPUT
 
     @model_validator(mode="after")
     def validate_fixed_schedule(self) -> Self:
@@ -51,7 +52,7 @@ class InputConfig(BaseConfig):
             name=(
                 "--extra-inputs",  # GenAI-Perf
             ),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
         BeforeValidator(parse_str_or_dict),
     ] = InputDefaults.EXTRA
@@ -69,7 +70,7 @@ class InputConfig(BaseConfig):
             name=(
                 "--goodput",  # GenAI-Perf
             ),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
         BeforeValidator(parse_goodput),
     ] = InputDefaults.GOODPUT
@@ -86,7 +87,7 @@ class InputConfig(BaseConfig):
                 "--header",  # GenAI-Perf
                 "-H",  # GenAI-Perf
             ),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = InputDefaults.HEADERS
 
@@ -102,7 +103,7 @@ class InputConfig(BaseConfig):
             name=(
                 "--input-file",  # GenAI-Perf,
             ),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = InputDefaults.FILE
 
@@ -115,7 +116,7 @@ class InputConfig(BaseConfig):
             name=(
                 "--fixed-schedule",  # GenAI-Perf
             ),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = InputDefaults.FIXED_SCHEDULE
 
@@ -128,7 +129,7 @@ class InputConfig(BaseConfig):
         ),
         cyclopts.Parameter(
             name=("--custom-dataset-type"),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = InputDefaults.CUSTOM_DATASET_TYPE
 
@@ -144,7 +145,7 @@ class InputConfig(BaseConfig):
             name=(
                 "--random-seed",  # GenAI-Perf
             ),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = InputDefaults.RANDOM_SEED
 

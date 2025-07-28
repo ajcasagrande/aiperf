@@ -9,6 +9,7 @@ from pydantic import BeforeValidator, Field
 from aiperf.common.config.base_config import BaseConfig
 from aiperf.common.config.config_defaults import AudioDefaults
 from aiperf.common.config.config_validators import parse_str_or_list_of_positive_values
+from aiperf.common.config.groups import Groups
 from aiperf.common.enums import AudioFormat
 
 
@@ -17,7 +18,7 @@ class AudioLengthConfig(BaseConfig):
     A configuration class for defining audio length related settings.
     """
 
-    _GROUP_NAME = "Input Audio"
+    _CLI_GROUP = Groups.AUDIO_INPUT
 
     mean: Annotated[
         float,
@@ -29,7 +30,7 @@ class AudioLengthConfig(BaseConfig):
             name=(
                 "--audio-length-mean",  # GenAI-Perf
             ),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = AudioDefaults.LENGTH_MEAN
 
@@ -43,7 +44,7 @@ class AudioLengthConfig(BaseConfig):
             name=(
                 "--audio-length-stddev",  # GenAI-Perf
             ),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = AudioDefaults.LENGTH_STDDEV
 
@@ -53,7 +54,7 @@ class AudioConfig(BaseConfig):
     A configuration class for defining audio related settings.
     """
 
-    _GROUP_NAME = "Input Audio"
+    _CLI_GROUP = Groups.AUDIO_INPUT
 
     batch_size: Annotated[
         int,
@@ -67,7 +68,7 @@ class AudioConfig(BaseConfig):
                 "--audio-batch-size",
                 "--batch-size-audio",  # GenAI-Perf
             ),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = AudioDefaults.BATCH_SIZE
 
@@ -82,7 +83,7 @@ class AudioConfig(BaseConfig):
             name=(
                 "--audio-format",  # GenAI-Perf
             ),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = AudioDefaults.FORMAT
 
@@ -97,7 +98,7 @@ class AudioConfig(BaseConfig):
             name=(
                 "--audio-depths",  # GenAI-Perf
             ),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = AudioDefaults.DEPTHS
 
@@ -113,7 +114,7 @@ class AudioConfig(BaseConfig):
             name=(
                 "--audio-sample-rates",  # GenAI-Perf
             ),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = AudioDefaults.SAMPLE_RATES
 
@@ -128,6 +129,6 @@ class AudioConfig(BaseConfig):
             name=(
                 "--audio-num-channels",  # GenAI-Perf
             ),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = AudioDefaults.NUM_CHANNELS

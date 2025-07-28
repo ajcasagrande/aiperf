@@ -9,6 +9,7 @@ from pydantic import Field
 
 from aiperf.common.config.base_config import BaseConfig
 from aiperf.common.config.config_defaults import OutputDefaults
+from aiperf.common.config.groups import Groups
 
 
 class OutputConfig(BaseConfig):
@@ -16,7 +17,7 @@ class OutputConfig(BaseConfig):
     A configuration class for defining output related settings.
     """
 
-    _GROUP_NAME = "Output"
+    _CLI_GROUP = Groups.OUTPUT
 
     artifact_directory: Annotated[
         Path,
@@ -28,7 +29,7 @@ class OutputConfig(BaseConfig):
                 "--output-artifact-dir",
                 "--artifact-dir",  # GenAI-Perf
             ),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = OutputDefaults.ARTIFACT_DIRECTORY
 
@@ -47,6 +48,6 @@ class OutputConfig(BaseConfig):
     #             "--output-profile-export-file",
     #             "--profile-export-file",  # GenAI-Perf
     #         ),
-    #         group=_GROUP_NAME,
+    #         group=_CLI_GROUP,
     #     ),
     # ] = OutputDefaults.PROFILE_EXPORT_FILE

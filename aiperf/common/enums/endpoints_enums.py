@@ -1,10 +1,10 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from aiperf.common.enums.base_enums import CaseInsensitiveStrEnum
+from aiperf.common.enums.base_enums import ExtensibleStrEnum
 
 
-class EndpointType(CaseInsensitiveStrEnum):
+class EndpointType(ExtensibleStrEnum):
     """Endpoint types.
 
     These determine the format of request payload to send to the model.
@@ -69,7 +69,7 @@ class EndpointType(CaseInsensitiveStrEnum):
         return ResponsePayloadType.from_endpoint_type(self)
 
 
-class ResponsePayloadType(CaseInsensitiveStrEnum):
+class ResponsePayloadType(ExtensibleStrEnum):
     """Response payload types.
 
     These determine the format of the response payload that the model will return.

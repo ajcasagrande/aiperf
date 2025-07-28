@@ -8,6 +8,7 @@ from pydantic import Field
 
 from aiperf.common.config.base_config import BaseConfig
 from aiperf.common.config.config_defaults import LoadGeneratorDefaults
+from aiperf.common.config.groups import Groups
 from aiperf.common.enums import RequestRateMode
 
 
@@ -16,7 +17,7 @@ class LoadGeneratorConfig(BaseConfig):
     A configuration class for defining top-level load generator settings.
     """
 
-    _GROUP_NAME = "Load Generator"
+    _CLI_GROUP = Groups.LOAD_GENERATOR
 
     # TODO: Potentially add a validator to ensure that the concurrency is not greater than the request count
     concurrency: Annotated[
@@ -29,7 +30,7 @@ class LoadGeneratorConfig(BaseConfig):
             name=(
                 "--concurrency",  # GenAI-Perf
             ),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = LoadGeneratorDefaults.CONCURRENCY
 
@@ -43,7 +44,7 @@ class LoadGeneratorConfig(BaseConfig):
             name=(
                 "--request-rate",  # GenAI-Perf
             ),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = LoadGeneratorDefaults.REQUEST_RATE
 
@@ -58,7 +59,7 @@ class LoadGeneratorConfig(BaseConfig):
         ),
         cyclopts.Parameter(
             name=("--request-rate-mode"),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = LoadGeneratorDefaults.REQUEST_RATE_MODE
 
@@ -73,7 +74,7 @@ class LoadGeneratorConfig(BaseConfig):
                 "--request-count",  # GenAI-Perf
                 "--num-requests",  # GenAI-Perf
             ),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = LoadGeneratorDefaults.REQUEST_COUNT
 
@@ -88,7 +89,7 @@ class LoadGeneratorConfig(BaseConfig):
                 "--warmup-request-count",  # GenAI-Perf
                 "--num-warmup-requests",  # GenAI-Perf
             ),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = LoadGeneratorDefaults.WARMUP_REQUEST_COUNT
 

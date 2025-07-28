@@ -8,6 +8,7 @@ from pydantic import Field
 
 from aiperf.common.config.base_config import BaseConfig
 from aiperf.common.config.config_defaults import ImageDefaults
+from aiperf.common.config.groups import Groups
 from aiperf.common.enums import ImageFormat
 
 
@@ -16,7 +17,7 @@ class ImageHeightConfig(BaseConfig):
     A configuration class for defining image height related settings.
     """
 
-    _GROUP_NAME = "Input Image"
+    _CLI_GROUP = Groups.IMAGE_INPUT
 
     mean: Annotated[
         float,
@@ -28,7 +29,7 @@ class ImageHeightConfig(BaseConfig):
             name=(
                 "--image-height-mean",  # GenAI-Perf
             ),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = ImageDefaults.HEIGHT_MEAN
 
@@ -42,7 +43,7 @@ class ImageHeightConfig(BaseConfig):
             name=(
                 "--image-height-stddev",  # GenAI-Perf
             ),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = ImageDefaults.HEIGHT_STDDEV
 
@@ -52,7 +53,7 @@ class ImageWidthConfig(BaseConfig):
     A configuration class for defining image width related settings.
     """
 
-    _GROUP_NAME = "Input Image"
+    _CLI_GROUP = Groups.IMAGE_INPUT
 
     mean: Annotated[
         float,
@@ -64,7 +65,7 @@ class ImageWidthConfig(BaseConfig):
             name=(
                 "--image-width-mean",  # GenAI-Perf
             ),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = ImageDefaults.WIDTH_MEAN
 
@@ -78,7 +79,7 @@ class ImageWidthConfig(BaseConfig):
             name=(
                 "--image-width-stddev",  # GenAI-Perf
             ),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = ImageDefaults.WIDTH_STDDEV
 
@@ -88,7 +89,7 @@ class ImageConfig(BaseConfig):
     A configuration class for defining image related settings.
     """
 
-    _GROUP_NAME = "Input Image"
+    _CLI_GROUP = Groups.IMAGE_INPUT
 
     width: ImageWidthConfig = ImageWidthConfig()
     height: ImageHeightConfig = ImageHeightConfig()
@@ -104,7 +105,7 @@ class ImageConfig(BaseConfig):
                 "--image-batch-size",
                 "--batch-size-image",  # GenAI-Perf
             ),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = ImageDefaults.BATCH_SIZE
 
@@ -117,6 +118,6 @@ class ImageConfig(BaseConfig):
             name=(
                 "--image-format",  # GenAI-Perf
             ),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = ImageDefaults.FORMAT

@@ -13,6 +13,7 @@ from aiperf.common.config.config_defaults import (
     PrefixPromptDefaults,
     PromptDefaults,
 )
+from aiperf.common.config.groups import Groups
 
 
 class InputTokensConfig(BaseConfig):
@@ -20,7 +21,7 @@ class InputTokensConfig(BaseConfig):
     A configuration class for defining input token related settings.
     """
 
-    _GROUP_NAME = "Input Sequence Length"
+    _CLI_GROUP = Groups.INPUT_SEQUENCE_LENGTH
 
     mean: Annotated[
         int,
@@ -34,7 +35,7 @@ class InputTokensConfig(BaseConfig):
                 "--synthetic-input-tokens-mean",  # GenAI-Perf
                 "--isl",  # GenAI-Perf
             ),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = InputTokensDefaults.MEAN
 
@@ -50,7 +51,7 @@ class InputTokensConfig(BaseConfig):
                 "--synthetic-input-tokens-stddev",  # GenAI-Perf
                 "--isl-stddev",
             ),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = InputTokensDefaults.STDDEV
 
@@ -67,7 +68,7 @@ class InputTokensConfig(BaseConfig):
                 "--synthetic-input-tokens-block-size",  # GenAI-Perf
                 "--isl-block-size",
             ),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = InputTokensDefaults.BLOCK_SIZE
 
@@ -77,7 +78,7 @@ class OutputTokensConfig(BaseConfig):
     A configuration class for defining output token related settings.
     """
 
-    _GROUP_NAME = "Output Sequence Length"
+    _CLI_GROUP = Groups.OUTPUT_SEQUENCE_LENGTH
 
     mean: Annotated[
         int,
@@ -91,7 +92,7 @@ class OutputTokensConfig(BaseConfig):
                 "--output-tokens-mean",  # GenAI-Perf
                 "--osl",  # GenAI-Perf
             ),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = OutputTokensDefaults.MEAN
 
@@ -110,7 +111,7 @@ class OutputTokensConfig(BaseConfig):
                 "--output-tokens-mean-deterministic",  # GenAI-Perf
                 "--osl-deterministic",
             ),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = OutputTokensDefaults.DETERMINISTIC
 
@@ -126,7 +127,7 @@ class OutputTokensConfig(BaseConfig):
                 "--output-tokens-stddev",  # GenAI-Perf
                 "--osl-stddev",
             ),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = OutputTokensDefaults.STDDEV
 
@@ -136,7 +137,7 @@ class PrefixPromptConfig(BaseConfig):
     A configuration class for defining prefix prompt related settings.
     """
 
-    _GROUP_NAME = "Prefix Prompt"
+    _CLI_GROUP = Groups.PREFIX_PROMPT
 
     pool_size: Annotated[
         int,
@@ -154,7 +155,7 @@ class PrefixPromptConfig(BaseConfig):
                 "--prefix-prompt-pool-size",
                 "--num-prefix-prompts",  # GenAI-Perf
             ),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = PrefixPromptDefaults.POOL_SIZE
 
@@ -174,7 +175,7 @@ class PrefixPromptConfig(BaseConfig):
                 "--prompt-prefix-length",
                 "--prefix-prompt-length",  # GenAI-Perf
             ),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = PrefixPromptDefaults.LENGTH
 
@@ -184,7 +185,7 @@ class PromptConfig(BaseConfig):
     A configuration class for defining prompt related settings.
     """
 
-    _GROUP_NAME = "Prompt"
+    _CLI_GROUP = Groups.PROMPT
 
     batch_size: Annotated[
         int,
@@ -199,7 +200,7 @@ class PromptConfig(BaseConfig):
                 "--batch-size",  # GenAI-Perf
                 "-b",  # GenAI-Perf
             ),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = PromptDefaults.BATCH_SIZE
 

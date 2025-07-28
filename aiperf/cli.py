@@ -17,7 +17,11 @@ from pydantic import Field
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.config.config_defaults import CLIDefaults
 
-app = cyclopts.App(name="aiperf", help="NVIDIA AIPerf")
+app = cyclopts.App(
+    name="aiperf",
+    help="NVIDIA AIPerf",
+    help_format="rich",
+)
 
 
 @app.command(name="profile")

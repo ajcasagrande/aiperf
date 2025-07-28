@@ -9,6 +9,7 @@ from pydantic import BeforeValidator, Field
 from aiperf.common.config.base_config import BaseConfig
 from aiperf.common.config.config_defaults import EndPointDefaults
 from aiperf.common.config.config_validators import parse_str_or_list
+from aiperf.common.config.groups import Groups
 from aiperf.common.enums import EndpointType, ModelSelectionStrategy
 
 
@@ -17,7 +18,24 @@ class EndPointConfig(BaseConfig):
     A configuration class for defining endpoint related settings.
     """
 
-    _GROUP_NAME = "Endpoint"
+    _CLI_GROUP = Groups.ENDPOINT
+
+    model_names: Annotated[
+        list[str],
+        Field(
+            ...,
+            description="Model name(s) to be benchmarked. Can be a comma-separated list or a single model name.",
+        ),
+        BeforeValidator(parse_str_or_list),
+        cyclopts.Parameter(
+            name=(
+                "--model-names",
+                "--model",  # GenAI-Perf
+                "-m",  # GenAI-Perf
+            ),
+            group=_CLI_GROUP,
+        ),
+    ]
 
     model_selection_strategy: Annotated[
         ModelSelectionStrategy,
@@ -30,7 +48,7 @@ class EndPointConfig(BaseConfig):
             name=(
                 "--model-selection-strategy",  # GenAI-Perf
             ),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = EndPointDefaults.MODEL_SELECTION_STRATEGY
 
@@ -44,7 +62,7 @@ class EndPointConfig(BaseConfig):
                 "--custom-endpoint",
                 "--endpoint",  # GenAI-Perf
             ),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = EndPointDefaults.CUSTOM_ENDPOINT
 
@@ -57,7 +75,7 @@ class EndPointConfig(BaseConfig):
             name=(
                 "--endpoint-type",  # GenAI-Perf
             ),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = EndPointDefaults.TYPE
 
@@ -70,7 +88,7 @@ class EndPointConfig(BaseConfig):
             name=(
                 "--streaming",  # GenAI-Perf
             ),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = EndPointDefaults.STREAMING
 
@@ -86,7 +104,8 @@ class EndPointConfig(BaseConfig):
                 "--server-metrics-urls",  # GenAI-Perf
                 "--server-metrics-url",  # GenAI-Perf
             ),
-            group=_GROUP_NAME,
+            parse=False,  # TODO: Not yet supported
+            group=_CLI_GROUP,
         ),
     ] = EndPointDefaults.SERVER_METRICS_URLS
 
@@ -100,7 +119,7 @@ class EndPointConfig(BaseConfig):
                 "--url",  # GenAI-Perf
                 "-u",  # GenAI-Perf
             ),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = EndPointDefaults.URL
 
@@ -116,7 +135,8 @@ class EndPointConfig(BaseConfig):
             name=(
                 "--grpc-method",  # GenAI-Perf
             ),
-            group=_GROUP_NAME,
+            parse=False,  # TODO: Not yet supported
+            group=_CLI_GROUP,
         ),
     ] = EndPointDefaults.GRPC_METHOD
 
@@ -128,7 +148,7 @@ class EndPointConfig(BaseConfig):
         ),
         cyclopts.Parameter(
             name=("--request-timeout-seconds"),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = EndPointDefaults.TIMEOUT
 
@@ -136,11 +156,11 @@ class EndPointConfig(BaseConfig):
     api_key: Annotated[
         str | None,
         Field(
-            description="The API key to use for the endpoint. If provided, it will be sent with every request as"
-            "as a header: `Authorization: Bearer <api_key>`.",
+            description="The API key to use for the endpoint. If provided, it will be sent with every request as "
+            "a header: `Authorization: Bearer <api_key>`.",
         ),
         cyclopts.Parameter(
             name=("--api-key"),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = EndPointDefaults.API_KEY

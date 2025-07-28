@@ -3,13 +3,14 @@
 from typing import Annotated
 
 import cyclopts
-from pydantic import BeforeValidator, Field, model_validator
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing_extensions import Self
 
 from aiperf.common.config.base_config import ADD_TO_TEMPLATE
 from aiperf.common.config.config_defaults import ServiceDefaults
-from aiperf.common.config.config_validators import parse_service_types
+from aiperf.common.config.developer_config import DeveloperConfig
+from aiperf.common.config.groups import Groups
 from aiperf.common.config.worker_config import WorkersConfig
 from aiperf.common.config.zmq_config import (
     BaseZMQCommunicationConfig,
@@ -20,7 +21,6 @@ from aiperf.common.enums import (
     AIPerfLogLevel,
     CommunicationBackend,
     ServiceRunType,
-    ServiceType,
 )
 
 
@@ -34,7 +34,7 @@ class ServiceConfig(BaseSettings):
         extra="allow",
     )
 
-    _GROUP_NAME = "Service"
+    _CLI_GROUP = Groups.SERVICE
 
     @model_validator(mode="after")
     def validate_log_level_from_verbose_flags(self) -> Self:
@@ -64,7 +64,7 @@ class ServiceConfig(BaseSettings):
         ),
         cyclopts.Parameter(
             name=("--service-run-type", "--run-type"),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = ServiceDefaults.SERVICE_RUN_TYPE
 
@@ -75,7 +75,7 @@ class ServiceConfig(BaseSettings):
         ),
         cyclopts.Parameter(
             name=("--comm-backend"),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = ServiceDefaults.COMM_BACKEND
 
@@ -84,10 +84,8 @@ class ServiceConfig(BaseSettings):
         Field(
             description="Communication configuration",
         ),
-        # TODO: Figure out if we need to be able to set this from the command line.
         cyclopts.Parameter(
-            name=("--comm-config"),
-            group="Not Supported via CLI",
+            parse=False,  # This is not supported via CLI
         ),
     ] = ServiceDefaults.COMM_CONFIG
 
@@ -99,7 +97,7 @@ class ServiceConfig(BaseSettings):
         ),
         cyclopts.Parameter(
             name=("--heartbeat-timeout"),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = ServiceDefaults.HEARTBEAT_TIMEOUT
 
@@ -110,7 +108,7 @@ class ServiceConfig(BaseSettings):
         ),
         cyclopts.Parameter(
             name=("--registration-timeout"),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = ServiceDefaults.REGISTRATION_TIMEOUT
 
@@ -121,7 +119,7 @@ class ServiceConfig(BaseSettings):
         ),
         cyclopts.Parameter(
             name=("--command-timeout", "--command-timeout-seconds"),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = ServiceDefaults.COMMAND_TIMEOUT
 
@@ -132,7 +130,7 @@ class ServiceConfig(BaseSettings):
         ),
         cyclopts.Parameter(
             name=("--heartbeat-interval-seconds", "--heartbeat-interval"),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = ServiceDefaults.HEARTBEAT_INTERVAL_SECONDS
 
@@ -150,7 +148,7 @@ class ServiceConfig(BaseSettings):
         ),
         cyclopts.Parameter(
             name=("--log-level"),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = ServiceDefaults.LOG_LEVEL
 
@@ -162,7 +160,7 @@ class ServiceConfig(BaseSettings):
         ),
         cyclopts.Parameter(
             name=("--verbose", "-v"),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = ServiceDefaults.VERBOSE
 
@@ -174,7 +172,7 @@ class ServiceConfig(BaseSettings):
         ),
         cyclopts.Parameter(
             name=("--extra-verbose", "-vv"),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = ServiceDefaults.EXTRA_VERBOSE
 
@@ -185,7 +183,7 @@ class ServiceConfig(BaseSettings):
         ),
         cyclopts.Parameter(
             name=("--disable-ui"),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = ServiceDefaults.DISABLE_UI
 
@@ -196,7 +194,7 @@ class ServiceConfig(BaseSettings):
         ),
         cyclopts.Parameter(
             name=("--enable-uvloop"),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = ServiceDefaults.ENABLE_UVLOOP
 
@@ -208,7 +206,7 @@ class ServiceConfig(BaseSettings):
         ),
         cyclopts.Parameter(
             name=("--result-parser-service-count"),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = ServiceDefaults.RESULT_PARSER_SERVICE_COUNT
 
@@ -219,7 +217,7 @@ class ServiceConfig(BaseSettings):
         ),
         cyclopts.Parameter(
             name=("--progress-report-interval-seconds", "--progress-report-interval"),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = ServiceDefaults.PROGRESS_REPORT_INTERVAL
 
@@ -233,46 +231,13 @@ class ServiceConfig(BaseSettings):
                 "--live-metrics-report-interval-seconds",
                 "--live-metrics-report-interval",
             ),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = ServiceDefaults.LIVE_METRICS_REPORT_INTERVAL
 
-    enable_yappi: Annotated[
-        bool,
+    developer: Annotated[
+        DeveloperConfig,
         Field(
-            description="[Developer use only] Enable yappi profiling (Yet Another Python Profiler) to profile AIPerf's internal python code. "
-            "This can be used in the development of AIPerf in order to find performance bottlenecks across the various services. "
-            "The output '*.prof' files can be viewed with snakeviz. Requires yappi and snakeviz to be installed. "
-            "Run 'pip install yappi snakeviz' to install them.",
+            description="Developer configuration",
         ),
-        cyclopts.Parameter(
-            name=("--enable-yappi-profiling"),
-            group=_GROUP_NAME,
-        ),
-    ] = ServiceDefaults.ENABLE_YAPPI
-
-    debug_services: Annotated[
-        set[ServiceType] | None,
-        Field(
-            description="List of services to enable debug logging for. Can be a comma-separated list, a single service type, "
-            "or the cli flag can be used multiple times.",
-        ),
-        cyclopts.Parameter(
-            name=("--debug-service", "--debug-services"),
-            group=_GROUP_NAME,
-        ),
-        BeforeValidator(parse_service_types),
-    ] = ServiceDefaults.DEBUG_SERVICES
-
-    trace_services: Annotated[
-        set[ServiceType] | None,
-        Field(
-            description="List of services to enable trace logging for. Can be a comma-separated list, a single service type, "
-            "or the cli flag can be used multiple times.",
-        ),
-        cyclopts.Parameter(
-            name=("--trace-service", "--trace-services"),
-            group=_GROUP_NAME,
-        ),
-        BeforeValidator(parse_service_types),
-    ] = ServiceDefaults.TRACE_SERVICES
+    ] = DeveloperConfig()

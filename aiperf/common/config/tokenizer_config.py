@@ -8,6 +8,7 @@ from pydantic import Field
 
 from aiperf.common.config.base_config import BaseConfig
 from aiperf.common.config.config_defaults import TokenizerDefaults
+from aiperf.common.config.groups import Groups
 
 
 class TokenizerConfig(BaseConfig):
@@ -15,7 +16,7 @@ class TokenizerConfig(BaseConfig):
     A configuration class for defining tokenizer related settings.
     """
 
-    _GROUP_NAME = "Tokenizer"
+    _CLI_GROUP = Groups.TOKENIZER
 
     name: Annotated[
         str | None,
@@ -29,7 +30,7 @@ class TokenizerConfig(BaseConfig):
         ),
         cyclopts.Parameter(
             name=("--tokenizer"),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = TokenizerDefaults.NAME
 
@@ -43,7 +44,7 @@ class TokenizerConfig(BaseConfig):
         ),
         cyclopts.Parameter(
             name=("--tokenizer-revision"),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = TokenizerDefaults.REVISION
 
@@ -58,6 +59,6 @@ class TokenizerConfig(BaseConfig):
         ),
         cyclopts.Parameter(
             name=("--tokenizer-trust-remote-code"),
-            group=_GROUP_NAME,
+            group=_CLI_GROUP,
         ),
     ] = TokenizerDefaults.TRUST_REMOTE_CODE

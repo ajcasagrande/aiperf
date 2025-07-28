@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 from collections.abc import Iterator
 from enum import Enum
+from typing import Any
 
 
 class ExtensibleStrEnumMeta(type(Enum)):
@@ -9,17 +10,38 @@ class ExtensibleStrEnumMeta(type(Enum)):
 
     def __new__(mcs, name, bases, namespace, **kwargs):
         cls = super().__new__(mcs, name, bases, namespace, **kwargs)
-        cls._extensions: dict[str, ExtensibleStrEnum] = {}
+        cls._extensions = {}
         return cls
 
     def __getattr__(cls, name: str) -> "ExtensibleStrEnum":
-        """Allow access to dynamically registered enum members."""
-        if hasattr(cls, "_extensions") and name in cls._extensions:
-            return cls._extensions[name]
+        """Allows access to dynamically registered enum members."""
+        if "_extensions" in cls.__dict__ and name in cls.__dict__["_extensions"]:
+            return cls.__dict__["_extensions"][name]
         raise AttributeError(f"'{cls.__name__}' has no attribute '{name}'")
 
+    def __setattr__(cls, name: str, value: Any) -> None:
+        """Allows setting new enum members dynamically."""
+        if name.startswith("_") or "_extensions" not in cls.__dict__:
+            return super().__setattr__(name, value)
+        if name in cls.__members__:
+            raise ValueError(f"'{name}' is already defined in {cls.__name__}")
+        if name in cls.__dict__["_extensions"]:
+            raise ValueError(
+                f"'{name}' is already registered as an extension in {cls.__name__}"
+            )
+        cls.__dict__["_extensions"][name] = cls._create_extension_member(name, value)
+        return cls.__dict__["_extensions"][name]
+
+    def _create_extension_member(cls, name: str, value: str) -> "ExtensibleStrEnum":
+        """Creates an extension member that behaves like a real enum member."""
+        obj = str.__new__(cls, value)  # type: ignore
+        obj._name_ = name
+        obj._value_ = value
+        obj.__class__ = cls
+        return obj
+
     def __dir__(cls):
-        """Include dynamically registered members in dir() output for IDE support."""
+        """Includes dynamically registered members in dir() output for IDE support."""
         return list(super().__dir__()) + list(getattr(cls, "_extensions", {}).keys())
 
     def __contains__(cls, item: object) -> bool:
@@ -38,41 +60,6 @@ class ExtensibleStrEnumMeta(type(Enum)):
         """Iterate over all enum members including extensions."""
         yield from cls.__members__.values()
         yield from cls._extensions.values()
-
-    def __getitem__(cls, item: str) -> "ExtensibleStrEnum":
-        """Get enum member by name."""
-        if item in cls.__members__:
-            return cls.__members__[item]
-        if item in cls._extensions:
-            return cls._extensions[item]
-        raise KeyError(f"'{item}' is not a valid {cls.__name__} member")
-
-    def values(cls) -> set[str]:
-        """Get all enum values including extensions."""
-        base_members = set(cls.__members__.values())
-        extension_members = set(cls._extensions.values())
-        return base_members | extension_members
-
-    def names(cls) -> set[str]:
-        """Get all enum names including extensions."""
-        base_names = set(cls.__members__.keys())
-        extension_names = set(cls._extensions.keys())
-        return base_names | extension_names
-
-    def __len__(cls) -> int:
-        return len(cls.__members__) + len(cls._extensions)
-
-    def _missing_(cls, value: object) -> "ExtensibleStrEnum | None":
-        """Handle case-insensitive lookups for string values."""
-        if isinstance(value, str):
-            for member in cls.__members__.values():
-                if member.value.lower() == value.lower():
-                    return member
-
-            for ext_member in cls._extensions.values():
-                if ext_member.value.lower() == value.lower():
-                    return ext_member
-        return None
 
 
 class ExtensibleStrEnum(str, Enum, metaclass=ExtensibleStrEnumMeta):
@@ -124,15 +111,6 @@ class ExtensibleStrEnum(str, Enum, metaclass=ExtensibleStrEnumMeta):
         return extension_member
 
     @classmethod
-    def _create_extension_member(cls, name: str, value: str) -> "ExtensibleStrEnum":
-        """Create an extension member that behaves like a real enum member."""
-        obj = str.__new__(cls, value)
-        obj._name_ = name
-        obj._value_ = value
-        obj.__class__ = cls
-        return obj
-
-    @classmethod
     def values(cls) -> list[str]:
         """Get all string values including extensions."""
         base_values = [member.value for member in cls.__members__.values()]
@@ -172,6 +150,11 @@ if __name__ == "__main__":
     print("Original members:")
     for member in EndpointType:
         print(f"  {type(member).__name__}: {member.name} = {member.value}")
+
+    EndpointType.WEBSOCKET2 = "websocket2"
+    # EndpointType.WEBSOCKET = "websocket4"
+    print(EndpointType.WEBSOCKET2)
+    print(type(EndpointType.WEBSOCKET2))
 
     # Register extensions
     websocket = EndpointType.register("WEBSOCKET", "websocket")

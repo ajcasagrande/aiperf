@@ -8,6 +8,7 @@ from pydantic import Field
 
 from aiperf.common.config.base_config import BaseConfig
 from aiperf.common.config.config_defaults import MeasurementDefaults
+from aiperf.common.config.groups import Groups
 
 
 class MeasurementConfig(BaseConfig):
@@ -15,7 +16,7 @@ class MeasurementConfig(BaseConfig):
     A configuration class for defining top-level measurement settings.
     """
 
-    _GROUP_NAME = "Measurement"
+    _CLI_GROUP = Groups.MEASUREMENT
 
     # TODO: Not implemented yet
     measurement_interval: Annotated[
@@ -35,7 +36,8 @@ class MeasurementConfig(BaseConfig):
                 "--measurement-interval",  # GenAI-Perf
                 "-p",  # GenAI-Perf
             ),
-            group=_GROUP_NAME,
+            parse=False,  # TODO: Not yet supported
+            group=_CLI_GROUP,
         ),
     ] = MeasurementDefaults.MEASUREMENT_INTERVAL
 
@@ -55,6 +57,7 @@ class MeasurementConfig(BaseConfig):
                 "--stability-percentage",  # GenAI-Perf
                 "-s",  # GenAI-Perf
             ),
-            group=_GROUP_NAME,
+            parse=False,  # TODO: Not yet supported
+            group=_CLI_GROUP,
         ),
     ] = MeasurementDefaults.STABILITY_PERCENTAGE
