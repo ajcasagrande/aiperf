@@ -8,7 +8,7 @@ from collections.abc import Callable
 from inspect import currentframe
 
 from aiperf.common.decorators import implements_protocol
-from aiperf.common.protocols import AIPerfLoggerProtocol
+from aiperf.common.protocols import AIPerfLoggerMixinProtocol
 
 _TRACE = logging.DEBUG - 5
 _DEBUG = logging.DEBUG
@@ -25,7 +25,7 @@ logging.addLevelName(_NOTICE, "NOTICE")
 logging.addLevelName(_SUCCESS, "SUCCESS")
 
 
-@implements_protocol(AIPerfLoggerProtocol)
+@implements_protocol(AIPerfLoggerMixinProtocol)
 class AIPerfLogger:
     """Logger for AIPerf messages with lazy evaluation support for f-strings.
 
