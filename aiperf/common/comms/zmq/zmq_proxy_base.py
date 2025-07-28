@@ -66,8 +66,8 @@ class BaseZMQProxy(AIPerfLifecycleMixin, ABC):
 
     def __init__(
         self,
-        frontend_socket_class: type[BaseZMQClient],
-        backend_socket_class: type[BaseZMQClient],
+        frontend_socket_class: type[ProxySocketClient],
+        backend_socket_class: type[ProxySocketClient],
         zmq_proxy_config: BaseZMQProxyConfig,
         socket_ops: dict | None = None,
         proxy_uuid: str | None = None,
@@ -75,8 +75,8 @@ class BaseZMQProxy(AIPerfLifecycleMixin, ABC):
         """Initialize the ZMQ Proxy. This is a base class for all ZMQ Proxies.
 
         Args:
-            frontend_socket_class (type[BaseZMQClient]): The frontend socket class.
-            backend_socket_class (type[BaseZMQClient]): The backend socket class.
+            frontend_socket_class (type[ProxySocketClient]): The frontend socket class.
+            backend_socket_class (type[ProxySocketClient]): The backend socket class.
             zmq_proxy_config (BaseZMQProxyConfig): The ZMQ proxy configuration.
             socket_ops (dict, optional): Additional socket options to set.
             proxy_uuid (str, optional): An optional UUID for the proxy instance. If not provided,
@@ -107,13 +107,13 @@ class BaseZMQProxy(AIPerfLifecycleMixin, ABC):
             address=self.backend_address,
             socket_ops=self.socket_ops,
             proxy_uuid=self.proxy_uuid,  # Pass the proxy UUID for tracing
-        )  # type: ignore
+        )
 
         self.frontend_socket = frontend_socket_class(
             address=self.frontend_address,
             socket_ops=self.socket_ops,
             proxy_uuid=self.proxy_uuid,  # Pass the proxy UUID for tracing
-        )  # type: ignore
+        )
 
         if self.control_address:
             self.debug(lambda: f"Proxy Control - Address: {self.control_address}")

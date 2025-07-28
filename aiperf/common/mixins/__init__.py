@@ -17,6 +17,9 @@ from aiperf.common.mixins.aiperf_logger_mixin import (
 from aiperf.common.mixins.base_mixin import (
     BaseMixin,
 )
+from aiperf.common.mixins.commander_ import (
+    Commander,
+)
 from aiperf.common.mixins.communication_mixin import (
     CommunicationMixin,
 )
@@ -43,6 +46,7 @@ __all__ = [
     "AIPerfLifecycleMixin",
     "AIPerfLoggerMixin",
     "BaseMixin",
+    "Commander",
     "CommunicationMixin",
     "HooksMixin",
     "MessageBusClientMixin",

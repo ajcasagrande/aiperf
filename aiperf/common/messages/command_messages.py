@@ -14,7 +14,7 @@ from aiperf.common.enums import (
 )
 from aiperf.common.messages.service_messages import BaseServiceMessage
 from aiperf.common.models import ErrorDetails
-from aiperf.common.models.base_models import exclude_if_none
+from aiperf.common.models.base_models import AIPerfBaseModel, exclude_if_none
 from aiperf.common.types import CommandTypeT, MessageTypeT, ServiceTypeT
 
 
@@ -91,16 +91,16 @@ class CommandMessage(TargetedServiceMessage):
         return command_class.model_validate(data)
 
 
-class CommandResponseMessage(TargetedServiceMessage):
+class CommandResponse(TargetedServiceMessage):
     """Message containing a command response."""
 
     # Specialized lookup for command response messages by status
     _command_status_lookup: ClassVar[
-        dict[CommandResponseStatus, type["CommandResponseMessage"]]
+        dict[CommandResponseStatus, type["CommandResponse"]]
     ] = {}
     # Specialized lookup for command response messages by command type, for success messages
     _command_success_type_lookup: ClassVar[
-        dict[CommandTypeT, type["CommandResponseMessage"]]
+        dict[CommandTypeT, type["CommandResponse"]]
     ] = {}
 
     def __init_subclass__(cls, **kwargs):
@@ -127,7 +127,7 @@ class CommandResponseMessage(TargetedServiceMessage):
     status: CommandResponseStatus = Field(..., description="The status of the command")
 
     @classmethod
-    def from_json(cls, json_str: str | bytes | bytearray) -> "CommandResponseMessage":
+    def from_json(cls, json_str: str | bytes | bytearray) -> "CommandResponse":
         """Deserialize a command response message from a JSON string, attempting to auto-detect the command response type."""
         data = json.loads(json_str)
         status = data.get("status")
@@ -155,7 +155,7 @@ class CommandResponseMessage(TargetedServiceMessage):
         return command_response_class.model_validate(data)
 
 
-class ErrorCommandResponseMessage(CommandResponseMessage):
+class ErrorCommandResponse(CommandResponse):
     status: CommandResponseStatus = CommandResponseStatus.FAILURE
     error: ErrorDetails = Field(
         ...,
@@ -175,7 +175,7 @@ class ErrorCommandResponseMessage(CommandResponseMessage):
         )
 
 
-class SuccessCommandResponseMessage(CommandResponseMessage):
+class SuccessCommandResponse(CommandResponse):
     """Generic command response message when a command succeeds. It should be
     subclassed for specific command types."""
 
@@ -193,7 +193,7 @@ class SuccessCommandResponseMessage(CommandResponseMessage):
         )
 
 
-class AcknowledgedCommandResponseMessage(CommandResponseMessage):
+class AcknowledgedCommandResponse(CommandResponse):
     status: CommandResponseStatus = CommandResponseStatus.ACKNOWLEDGED
 
     @classmethod
@@ -208,7 +208,7 @@ class AcknowledgedCommandResponseMessage(CommandResponseMessage):
         )
 
 
-class UnhandledCommandResponseMessage(CommandResponseMessage):
+class UnhandledCommandResponse(CommandResponse):
     status: CommandResponseStatus = CommandResponseStatus.UNHANDLED
 
     @classmethod
@@ -296,3 +296,20 @@ class ShutdownCommand(CommandMessage):
     """Command message sent to request a service to shutdown."""
 
     command: CommandTypeT = CommandType.SHUTDOWN
+
+
+class TrackedCommand(AIPerfBaseModel):
+    """Base model for tracking a command."""
+
+    command: CommandTypeT = Field(
+        ...,
+        description="The command that is being tracked",
+    )
+    command_id: str = Field(
+        ...,
+        description="The ID of the command that is being tracked",
+    )
+    responses: dict[str, CommandResponse] = Field(
+        default_factory=dict,
+        description="The responses to the command",
+    )

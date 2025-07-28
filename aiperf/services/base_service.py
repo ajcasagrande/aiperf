@@ -6,12 +6,11 @@ import signal
 import uuid
 from abc import ABC
 from collections.abc import Iterable
-from typing import Any, ClassVar
+from typing import ClassVar
 
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import (
-    CommandResponseStatus,
     CommandType,
     LifecycleState,
     MessageType,
@@ -20,11 +19,15 @@ from aiperf.common.exceptions import ServiceError
 from aiperf.common.hooks import (
     AIPerfHook,
     on_command,
-    on_init,
     on_message,
     provides_hooks,
 )
-from aiperf.common.messages import CommandMessage, CommandResponseMessage
+from aiperf.common.messages import CommandMessage
+from aiperf.common.messages.command_messages import (
+    AcknowledgedCommandResponse,
+    ErrorCommandResponse,
+    UnhandledCommandResponse,
+)
 from aiperf.common.mixins import MessageBusClientMixin
 from aiperf.common.models import ErrorDetails
 from aiperf.common.protocols import ServiceProtocol
@@ -85,33 +88,6 @@ class BaseService(MessageBusClientMixin, ABC):
             service_id=self.service_id,
         )
 
-    @on_init
-    async def _subscribe_to_command_messages(self) -> None:
-        """Subscribe to command messages for all services, specifically for the service type,
-        and specific to our service id."""
-        # NOTE: These subscriptions are in addition to the @on_message(MessageType.COMMAND) hook, but we need to
-        #       have access to the service type and id, so we can't use the @on_message hook.
-        subscription_map = {}
-        await self.subscribe_all(subscription_map)
-
-    def _create_command_response_message(
-        self,
-        message: CommandMessage,
-        status: CommandResponseStatus,
-        data: Any | None = None,
-        error: ErrorDetails | None = None,
-    ) -> CommandResponseMessage:
-        """Create a command response message for the given command message. Fills in all the details based on the original command message."""
-        return CommandResponseMessage(
-            target_service_id=message.service_id,  # send it back to the sender
-            service_id=self.service_id,
-            command=message.command,
-            command_id=message.command_id,
-            status=status,
-            data=data,
-            error=error,
-        )
-
     @on_message(
         lambda self: {
             MessageType.COMMAND,
@@ -131,35 +107,25 @@ class BaseService(MessageBusClientMixin, ABC):
         for hook in self.get_hooks(AIPerfHook.ON_COMMAND):
             if isinstance(hook.params, Iterable) and message.command in hook.params:
                 try:
-                    response_data = await hook.func(message)
-                    await self.publish(
-                        self._create_command_response_message(
-                            message,
-                            CommandResponseStatus.SUCCESS,
-                            response_data,
-                        )
-                    )
+                    response_message = await hook.func(message)
+                    await self.publish(response_message)
                 except Exception as e:
                     self.exception(
                         f"Failed to handle command {message.command} with hook {hook}: {e}"
                     )
                     await self.publish(
-                        self._create_command_response_message(
+                        ErrorCommandResponse.from_command_message(
                             message,
-                            CommandResponseStatus.FAILURE,
-                            error=ErrorDetails.from_exception(e),
+                            self.service_id,
+                            ErrorDetails.from_exception(e),
                         )
                     )
-
                 # Break out of the loop after the first successful handler (only 1 handler per command)
                 break
 
         # If we reach here, no handler was found for the command, so we publish an unhandled response.
         await self.publish(
-            self._create_command_response_message(
-                message,
-                CommandResponseStatus.UNHANDLED,
-            )
+            UnhandledCommandResponse.from_command_message(message, self.service_id)
         )
 
     @on_command(CommandType.SHUTDOWN)
@@ -167,10 +133,7 @@ class BaseService(MessageBusClientMixin, ABC):
         self.debug(f"Received shutdown command from {message.service_id}")
         # Send an acknowledged response back to the sender, because we won't be able to send it after we stop.
         await self.publish(
-            self._create_command_response_message(
-                message,
-                CommandResponseStatus.ACKNOWLEDGED,
-            )
+            AcknowledgedCommandResponse.from_command_message(message, self.service_id)
         )
 
         try:
