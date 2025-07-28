@@ -15,7 +15,7 @@ def test_endpoint_config_defaults():
     the configuration is initialized correctly with expected default values.
     """
 
-    config = EndPointConfig()
+    config = EndPointConfig(model_names=["test-model"])
     assert config.model_selection_strategy == EndPointDefaults.MODEL_SELECTION_STRATEGY
     assert config.type == EndPointDefaults.TYPE
     assert config.custom_endpoint == EndPointDefaults.CUSTOM_ENDPOINT
@@ -69,10 +69,13 @@ def test_server_metrics_urls_validator():
     - Ensure that `server_metrics_urls` is correctly set as a list in both cases.
     """
 
-    config = EndPointConfig(server_metrics_urls=["http://metrics-url"])
+    config = EndPointConfig(
+        server_metrics_urls=["http://metrics-url"], model_names=["test-model"]
+    )
     assert config.server_metrics_urls == ["http://metrics-url"]
 
     config = EndPointConfig(
-        server_metrics_urls=["http://metrics-url1", "http://metrics-url2"]
+        model_names=["test-model"],
+        server_metrics_urls=["http://metrics-url1", "http://metrics-url2"],
     )
     assert config.server_metrics_urls == ["http://metrics-url1", "http://metrics-url2"]
