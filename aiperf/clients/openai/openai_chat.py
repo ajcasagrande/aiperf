@@ -4,18 +4,15 @@
 from typing import Any
 
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
-from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import EndpointType
 from aiperf.common.factories import RequestConverterFactory
 from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.common.models import Turn
-from aiperf.common.protocols import RequestConverterProtocol
 
 DEFAULT_ROLE = "user"
 
 
 @RequestConverterFactory.register(EndpointType.OPENAI_CHAT_COMPLETIONS)
-@implements_protocol(RequestConverterProtocol)
 class OpenAIChatCompletionRequestConverter(AIPerfLoggerMixin):
     """Request converter for OpenAI chat completion requests."""
 
@@ -47,5 +44,5 @@ class OpenAIChatCompletionRequestConverter(AIPerfLoggerMixin):
         if model_endpoint.endpoint.extra:
             payload.update(model_endpoint.endpoint.extra)
 
-        self.logger.debug("Formatted payload: %s", payload)
+        self.debug(lambda: f"Formatted payload: {payload}")
         return payload

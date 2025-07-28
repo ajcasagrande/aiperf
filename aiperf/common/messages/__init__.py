@@ -14,19 +14,19 @@ from aiperf.common.messages.base_messages import (
     RequiresRequestNSMixin,
 )
 from aiperf.common.messages.command_messages import (
-    AcknowledgedCommandResponseMessage,
+    CommandAcknowledgedResponse,
+    CommandErrorResponse,
     CommandMessage,
-    CommandResponseMessage,
-    ErrorCommandResponseMessage,
+    CommandResponse,
+    CommandSuccessResponse,
+    CommandUnhandledResponse,
     ProcessRecordsCommand,
     ProfileConfigureCommand,
     ProfileStartCommand,
     ShutdownCommand,
     ShutdownWorkersCommand,
     SpawnWorkersCommand,
-    SuccessCommandResponseMessage,
     TargetedServiceMessage,
-    UnhandledCommandResponseMessage,
 )
 from aiperf.common.messages.credit_messages import (
     CreditDropMessage,
@@ -72,13 +72,16 @@ from aiperf.common.messages.service_messages import (
 )
 
 __all__ = [
-    "AcknowledgedCommandResponseMessage",
     "AllRecordsReceivedMessage",
     "BaseServiceErrorMessage",
     "BaseServiceMessage",
     "BaseStatusMessage",
+    "CommandAcknowledgedResponse",
+    "CommandErrorResponse",
     "CommandMessage",
-    "CommandResponseMessage",
+    "CommandResponse",
+    "CommandSuccessResponse",
+    "CommandUnhandledResponse",
     "ConversationRequestMessage",
     "ConversationResponseMessage",
     "ConversationTurnRequestMessage",
@@ -93,7 +96,6 @@ __all__ = [
     "DatasetConfiguredNotification",
     "DatasetTimingRequest",
     "DatasetTimingResponse",
-    "ErrorCommandResponseMessage",
     "ErrorMessage",
     "HeartbeatMessage",
     "InferenceResultsMessage",
@@ -113,9 +115,7 @@ __all__ = [
     "ShutdownWorkersCommand",
     "SpawnWorkersCommand",
     "StatusMessage",
-    "SuccessCommandResponseMessage",
     "SweepProgressMessage",
     "TargetedServiceMessage",
-    "UnhandledCommandResponseMessage",
     "WorkerHealthMessage",
 ]

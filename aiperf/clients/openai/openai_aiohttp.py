@@ -8,20 +8,18 @@ from typing import Any
 
 from aiperf.clients.http.aiohttp_client import AioHttpClientMixin
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
-from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import EndpointType
 from aiperf.common.factories import InferenceClientFactory
 from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.common.models import ErrorDetails, RequestRecord
-from aiperf.common.protocols import InferenceClientProtocol
 
 
 @InferenceClientFactory.register_all(
     EndpointType.OPENAI_CHAT_COMPLETIONS,
     EndpointType.OPENAI_COMPLETIONS,
     EndpointType.OPENAI_RESPONSES,
+    EndpointType.OPENAI_EMBEDDINGS,
 )
-@implements_protocol(InferenceClientProtocol)
 class OpenAIClientAioHttp(AioHttpClientMixin, AIPerfLoggerMixin, ABC):
     """Inference client for OpenAI based requests using aiohttp."""
 
