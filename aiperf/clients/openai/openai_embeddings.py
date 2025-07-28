@@ -4,17 +4,14 @@
 import logging
 from typing import Any
 
-from aiperf.clients.client_interfaces import (
-    RequestConverterFactory,
-    RequestConverterProtocol,
-)
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.enums import EndpointType
+from aiperf.common.factories import RequestConverterFactory
 from aiperf.common.models import Turn
 
 
 @RequestConverterFactory.register(EndpointType.OPENAI_EMBEDDINGS)
-class OpenAIEmbeddingsRequestConverter(RequestConverterProtocol[dict[str, Any]]):
+class OpenAIEmbeddingsRequestConverter:
     """Request converter for OpenAI embeddings requests."""
 
     def __init__(self) -> None:

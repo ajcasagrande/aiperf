@@ -132,12 +132,21 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
         Instead, use the @on_init hook to handle your own initialization logic.
         """
         if self.state in (
+            LifecycleState.STOPPING,
+            LifecycleState.STOPPED,
+            LifecycleState.FAILED,
+        ):
+            raise InvalidStateError(
+                f"Cannot initialize from state {self.state} for {self}"
+            )
+
+        if self.state in (
             LifecycleState.INITIALIZING,
             LifecycleState.INITIALIZED,
             LifecycleState.STARTING,
             LifecycleState.RUNNING,
         ):
-            self.debug(
+            self.warning(
                 lambda: f"Ignoring initialize request for {self} in state {self.state}"
             )
             return
@@ -164,7 +173,7 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
             LifecycleState.STARTING,
             LifecycleState.RUNNING,
         ):
-            self.debug(
+            self.warning(
                 lambda: f"Ignoring start request for {self} in state {self.state}"
             )
             return
@@ -191,6 +200,11 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
         Instead, use the @on_stop hook to handle your own stopping logic.
         """
         if self.stop_requested:
+            self.warning(
+                lambda: f"Ignoring stop request for {self} in state {self.state}"
+            )
+            return
+        if self.state == LifecycleState.CREATED:
             self.debug(
                 lambda: f"Ignoring stop request for {self} in state {self.state}"
             )
