@@ -161,6 +161,7 @@ class ServiceDefaults:
     DEBUG_SERVICES = None
     TRACE_SERVICES = None
     PROGRESS_REPORT_INTERVAL = 1.0
+    LIVE_METRICS_PREVIEW_INTERVAL = None
 
 
 @dataclass(frozen=True)

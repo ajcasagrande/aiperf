@@ -89,7 +89,11 @@ class TaskManagerMixin(AIPerfLoggerMixin):
                     immediate = False
                 else:
                     sleep_time = interval(self) if callable(interval) else interval
-                    await asyncio.sleep(sleep_time)
+                    if sleep_time is not None:
+                        await asyncio.sleep(sleep_time)
+                    else:
+                        await yield_to_event_loop()
+                        interval = None
 
                 if inspect.iscoroutinefunction(method):
                     await method()

@@ -113,3 +113,13 @@ class ProcessRecordsResultMessage(BaseServiceMessage):
     process_records_result: ProcessRecordsResult = Field(
         ..., description="The process records result"
     )
+
+
+class LiveMetricsPreviewMessage(BaseServiceMessage):
+    """Message for live metrics preview. Sent by the RecordsManager to report the live metrics preview of the profile run."""
+
+    message_type: MessageTypeT = MessageType.LIVE_METRICS_PREVIEW
+
+    live_metrics_preview: ProfileResults = Field(
+        ..., description="The live metrics preview for the profile run"
+    )

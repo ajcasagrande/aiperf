@@ -10,11 +10,12 @@ from aiperf.common.enums import (
 from aiperf.common.enums.message_enums import MessageType
 from aiperf.common.enums.timing_enums import CreditPhase
 from aiperf.common.factories import PostProcessorFactory, StreamingPostProcessorFactory
-from aiperf.common.hooks import on_message
+from aiperf.common.hooks import background_task, on_message
 from aiperf.common.messages.credit_messages import (
     CreditPhaseCompleteMessage,
     CreditPhaseStartMessage,
 )
+from aiperf.common.messages.progress_messages import LiveMetricsPreviewMessage
 from aiperf.common.models import (
     ErrorDetails,
     ErrorDetailsCount,
@@ -41,6 +42,9 @@ class BasicMetricsStreamer(BaseStreamingPostProcessor):
         self.metric_summary = PostProcessorFactory.create_instance(
             PostProcessorType.METRIC_SUMMARY,
             endpoint_type=self.user_config.endpoint.type,
+        )
+        self.live_metrics_preview_interval = (
+            self.service_config.live_metrics_preview_interval
         )
 
     async def stream_record(self, record: ParsedResponseRecord) -> None:
@@ -114,3 +118,29 @@ class BasicMetricsStreamer(BaseStreamingPostProcessor):
         except Exception as e:
             self.exception(f"Error processing records: {e}")
             return ErrorDetails.from_exception(e)
+
+    @background_task(
+        immediate=False,
+        interval=lambda self: self.live_metrics_preview_interval,
+    )
+    async def _report_live_metrics_preview(self) -> None:
+        """Report live metrics."""
+        if not self.user_config.endpoint.streaming:
+            return
+
+        preview_results = ProfileResults(
+            total_expected=self.total_expected,
+            completed=self.valid_count + self.error_count,
+            start_ns=self.start_time_ns,
+            end_ns=self.end_time_ns or time.time_ns(),
+            records=self.metric_summary.post_process(),
+            error_summary=self.get_error_summary(),
+            was_cancelled=False,
+        )
+
+        live_metrics_preview = LiveMetricsPreviewMessage(
+            service_id=self.service_id,
+            live_metrics_preview=preview_results,
+        )
+        self.debug(lambda: f"Publishing live metrics preview: {live_metrics_preview}")
+        await self.publish(live_metrics_preview)

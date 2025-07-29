@@ -223,6 +223,22 @@ class ServiceConfig(BaseSettings):
         ),
     ] = ServiceDefaults.PROGRESS_REPORT_INTERVAL
 
+    live_metrics_preview_interval: Annotated[
+        float | None,
+        Field(
+            description="Interval in seconds to compute and print live metrics preview. "
+            "If not provided, live metrics preview will not be computed.",
+        ),
+        cyclopts.Parameter(
+            name=("--live-metrics-preview-interval"),
+            group=_GROUP_NAME,
+        ),
+    ] = ServiceDefaults.LIVE_METRICS_PREVIEW_INTERVAL
+    """
+    Interval in seconds to compute and print live metrics preview. "
+    If not provided, live metrics preview will not be computed.
+    """
+
     enable_yappi: Annotated[
         bool,
         Field(
