@@ -14,6 +14,7 @@ from aiperf.common.enums import DataExporterType
 from aiperf.common.factories import DataExporterFactory
 from aiperf.common.models import ErrorDetailsCount, MetricResult
 from aiperf.common.protocols import DataExporterProtocol
+from aiperf.common.types import MetricTagT
 from aiperf.data_exporter.exporter_config import ExporterConfig
 
 
@@ -21,7 +22,7 @@ class JsonExportData(BaseModel):
     """Data to be exported to a JSON file."""
 
     input_config: UserConfig | None = None
-    records: dict[str, MetricResult] | None = None
+    records: dict[MetricTagT, MetricResult] | None = None
     was_cancelled: bool | None = None
     errors_by_type: list[ErrorDetailsCount] | None = None
     start_time: datetime | None = None
