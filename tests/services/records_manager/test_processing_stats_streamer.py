@@ -7,10 +7,10 @@ Tests for the ProcessingStatsStreamer class.
 import pytest
 
 from aiperf.common.messages.inference_messages import ParsedInferenceResultsMessage
+from aiperf.post_processors.records_manager import RecordsManager
 from aiperf.services.records_manager.post_processors.processing_stats_streamer import (
     ProcessingStatsStreamer,
 )
-from aiperf.services.records_manager.records_manager import RecordsManager
 
 
 @pytest.fixture

@@ -9,7 +9,7 @@ from aiperf.common.config import EndPointConfig, OutputConfig, UserConfig
 from aiperf.common.enums import EndpointType
 from aiperf.common.models import MetricResult
 from aiperf.common.models.record_models import ProfileResults
-from aiperf.data_exporter.exporter_manager import ExporterManager
+from aiperf.exporters.exporter_manager import ExporterManager
 
 
 @pytest.fixture
