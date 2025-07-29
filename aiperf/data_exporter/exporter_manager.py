@@ -31,4 +31,4 @@ class ExporterManager:
             task = asyncio.create_task(exporter.export())
             tasks.append(task)
 
-        await asyncio.gather(*tasks)
+        await asyncio.gather(*tasks, return_exceptions=True)

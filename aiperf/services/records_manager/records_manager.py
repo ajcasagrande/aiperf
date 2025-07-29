@@ -1,34 +1,33 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
-import sys
 from typing import Any
 
-from aiperf.common.comms.base import (
-    CommAddress,
-    PullClientProtocol,
-)
 from aiperf.common.config import ServiceConfig, UserConfig
-from aiperf.common.enums import CommandType, CreditPhase, MessageType, ServiceType
-from aiperf.common.factories import ServiceFactory, StreamingPostProcessorFactory
-from aiperf.common.hooks import (
-    on_cleanup,
-    on_init,
-    on_stop,
+from aiperf.common.constants import DEFAULT_PULL_CLIENT_MAX_CONCURRENCY
+from aiperf.common.decorators import implements_protocol
+from aiperf.common.enums import (
+    CommAddress,
+    CommandType,
+    CreditPhase,
+    MessageType,
+    ServiceType,
 )
+from aiperf.common.factories import ServiceFactory, StreamingPostProcessorFactory
+from aiperf.common.hooks import on_command, on_pull_message
 from aiperf.common.messages import (
     ParsedInferenceResultsMessage,
+    ProcessRecordsCommand,
+    ProfileCancelCommand,
 )
-from aiperf.common.messages.command_messages import CommandMessage
+from aiperf.common.mixins import PullClientMixin
+from aiperf.common.protocols import ServiceProtocol, StreamingPostProcessorProtocol
 from aiperf.services.base_component_service import BaseComponentService
-from aiperf.services.records_manager.post_processors import BaseStreamingPostProcessor
-
-DEFAULT_MAX_RECORDS_CONCURRENCY = 100_000
-"""The default maximum concurrency for the records manager pull client."""
 
 
+@implements_protocol(ServiceProtocol)
 @ServiceFactory.register(ServiceType.RECORDS_MANAGER)
-class RecordsManager(BaseComponentService):
+class RecordsManager(PullClientMixin, BaseComponentService):
     """
     The RecordsManager service is primarily responsible for holding the
     results returned from the workers.
@@ -44,70 +43,26 @@ class RecordsManager(BaseComponentService):
             service_config=service_config,
             user_config=user_config,
             service_id=service_id,
-        )
-        self.streaming_post_processors: list[BaseStreamingPostProcessor] = []
-
-        self.response_results_client: PullClientProtocol = (
-            self.comms.create_pull_client(
-                CommAddress.RECORDS,
-                bind=True,
-            )
+            pull_client_address=CommAddress.RECORDS,
+            pull_client_bind=True,
+            pull_client_max_concurrency=DEFAULT_PULL_CLIENT_MAX_CONCURRENCY,
         )
 
-    @property
-    def service_type(self) -> ServiceType:
-        """The type of service."""
-        return ServiceType.RECORDS_MANAGER
-
-    @on_init
-    async def _initialize(self) -> None:
-        """Initialize records manager-specific components."""
-        self.debug("Initializing records manager")
-        await self.response_results_client.register_pull_callback(
-            message_type=MessageType.PARSED_INFERENCE_RESULTS,
-            callback=self._on_parsed_inference_results,
-            max_concurrency=DEFAULT_MAX_RECORDS_CONCURRENCY,
-        )
-        self.register_command_callback(
-            CommandType.PROCESS_RECORDS, self._on_process_records_command
-        )
-
-    @on_init
-    async def _initialize_streaming_post_processors(self) -> None:
-        """Initialize the streaming post processors and start their lifecycle."""
+        self.streaming_post_processors: list[StreamingPostProcessorProtocol] = []
         for streamer_type in StreamingPostProcessorFactory.get_all_class_types():
             streamer = StreamingPostProcessorFactory.create_instance(
                 class_type=streamer_type,
-                pub_client=self.pub_client,
-                sub_client=self.sub_client,
                 service_id=self.service_id,
                 service_config=self.service_config,
                 user_config=self.user_config,
             )
-            self.debug(f"Initializing streaming post processor: {streamer_type}")
-            self.streaming_post_processors.append(streamer)
             self.debug(
-                lambda streamer=streamer: f"Starting lifecycle for {streamer.__class__.__name__}"
+                f"Created streaming post processor: {streamer_type}: {streamer.__class__.__name__}"
             )
-            await streamer.run_async()
+            self.streaming_post_processors.append(streamer)
+            self.attach_child_lifecycle(streamer)
 
-    @on_stop
-    async def _stop_streaming_post_processors(self) -> None:
-        """Stop the streaming post processors."""
-        await asyncio.gather(
-            *[streamer.shutdown() for streamer in self.streaming_post_processors]
-        )
-
-    @on_cleanup
-    async def _cleanup(self) -> None:
-        """Cleanup the records manager."""
-        await asyncio.gather(
-            *[
-                streamer.wait_for_shutdown()
-                for streamer in self.streaming_post_processors
-            ]
-        )
-
+    @on_pull_message(MessageType.PARSED_INFERENCE_RESULTS)
     async def _on_parsed_inference_results(
         self, message: ParsedInferenceResultsMessage
     ) -> None:
@@ -136,16 +91,31 @@ class RecordsManager(BaseComponentService):
                 )
                 await streamer.records_queue.put(message.record)
 
-    async def _on_process_records_command(self, message: CommandMessage) -> list[Any]:
+    @on_command(CommandType.PROCESS_RECORDS)
+    async def _on_process_records_command(
+        self, message: ProcessRecordsCommand
+    ) -> list[Any]:
         """Handle the process records command by forwarding it to all of the streaming post processors, and returning the results."""
         self.debug(lambda: f"Received process records command: {message}")
+        # TODO: Do we need to handle errors from the streaming post processors?
         results = await asyncio.gather(
             *[
                 streamer.on_process_records_command(message)
                 for streamer in self.streaming_post_processors
-            ]
+            ],
+            return_exceptions=True,
         )
         return results
+
+    @on_command(CommandType.PROFILE_CANCEL)
+    async def _on_profile_cancel_command(
+        self, message: ProfileCancelCommand
+    ) -> list[Any]:
+        """Handle the profile cancel command by cancelling the streaming post processors."""
+        self.debug(lambda: f"Received profile cancel command: {message}")
+        return await self._on_process_records_command(
+            ProcessRecordsCommand(cancelled=True, service_id=message.service_id)
+        )
 
 
 def main() -> None:
@@ -157,4 +127,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()

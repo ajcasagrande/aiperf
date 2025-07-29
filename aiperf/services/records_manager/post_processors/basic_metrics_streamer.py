@@ -9,11 +9,10 @@ from aiperf.common.enums import (
     StreamingPostProcessorType,
 )
 from aiperf.common.factories import PostProcessorFactory, StreamingPostProcessorFactory
-from aiperf.common.hooks import on_init
+from aiperf.common.hooks import on_message
 from aiperf.common.messages import (
     AllRecordsReceivedMessage,
-    CommandMessage,
-    ProcessRecordsCommandData,
+    ProcessRecordsCommand,
     ProfileResultsMessage,
 )
 from aiperf.common.models import (
@@ -22,7 +21,6 @@ from aiperf.common.models import (
     MetricResult,
     ParsedResponseRecord,
 )
-from aiperf.data_exporter.exporter_manager import ExporterManager
 from aiperf.services.records_manager.post_processors.streaming_post_processor import (
     BaseStreamingPostProcessor,
 )
@@ -44,13 +42,6 @@ class BasicMetricsStreamer(BaseStreamingPostProcessor):
             endpoint_type=self.user_config.endpoint.type,
         )
 
-    @on_init
-    async def _initialize(self) -> None:
-        """Initialize the streamer."""
-        await self.sub_client.subscribe(
-            MessageType.ALL_RECORDS_RECEIVED, self._on_all_records_received
-        )
-
     async def stream_record(self, record: ParsedResponseRecord) -> None:
         """Stream a record."""
         if record.request.valid:
@@ -70,6 +61,7 @@ class BasicMetricsStreamer(BaseStreamingPostProcessor):
             for error_details, count in self.error_summary.items()
         ]
 
+    @on_message(MessageType.ALL_RECORDS_RECEIVED)
     async def _on_all_records_received(
         self, message: AllRecordsReceivedMessage
     ) -> None:
@@ -87,13 +79,10 @@ class BasicMetricsStreamer(BaseStreamingPostProcessor):
             # TODO: What to do here?
 
     async def on_process_records_command(
-        self, message: CommandMessage
+        self, message: ProcessRecordsCommand
     ) -> list[MetricResult] | ErrorDetails | None:
         """Handle the process records command."""
-        cancelled = (
-            isinstance(message.data, ProcessRecordsCommandData)
-            and message.data.cancelled
-        )
+        cancelled = message.cancelled
         return await self.process_records(cancelled)
 
     async def process_records(
@@ -134,9 +123,4 @@ class BasicMetricsStreamer(BaseStreamingPostProcessor):
             return profile_results.records
         finally:
             # always publish the profile results
-            self.execute_async(self.pub_client.publish(profile_results))
-            # TODO: HACK: Figure out a better place to put the exporter logic
-            if self.user_config:
-                await ExporterManager(
-                    results=profile_results, input_config=self.user_config
-                ).export_all()
+            self.execute_async(self.publish(profile_results))

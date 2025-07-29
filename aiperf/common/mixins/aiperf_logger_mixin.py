@@ -4,20 +4,12 @@ import os
 from collections.abc import Callable
 
 from aiperf.common import aiperf_logger
-from aiperf.common.aiperf_logger import (
-    _CRITICAL,
-    _DEBUG,
-    _ERROR,
-    _INFO,
-    _NOTICE,
-    _SUCCESS,
-    _TRACE,
-    _WARNING,
-    AIPerfLogger,
-)
+from aiperf.common.decorators import implements_protocol
 from aiperf.common.mixins.base_mixin import BaseMixin
+from aiperf.common.protocols import AIPerfLoggerProtocol
 
 
+@implements_protocol(AIPerfLoggerProtocol)
 class AIPerfLoggerMixin(BaseMixin):
     """Mixin to provide lazy evaluated logging for f-strings.
 
@@ -40,10 +32,18 @@ class AIPerfLoggerMixin(BaseMixin):
     """
 
     def __init__(self, logger_name: str | None = None, **kwargs) -> None:
-        self.logger = AIPerfLogger(logger_name or self.__class__.__name__)
+        self.logger = aiperf_logger.AIPerfLogger(logger_name or self.__class__.__name__)
         self._log = self.logger._log
         self.is_enabled_for = self.logger._logger.isEnabledFor
         super().__init__(**kwargs)
+
+    @property
+    def is_debug_enabled(self) -> bool:
+        return self.is_enabled_for(aiperf_logger._DEBUG)
+
+    @property
+    def is_trace_enabled(self) -> bool:
+        return self.is_enabled_for(aiperf_logger._TRACE)
 
     def log(
         self, level: int, message: str | Callable[..., str], *args, **kwargs
@@ -54,48 +54,48 @@ class AIPerfLoggerMixin(BaseMixin):
 
     def trace(self, message: str | Callable[..., str], *args, **kwargs) -> None:
         """Log a trace message with lazy evaluation."""
-        if self.is_enabled_for(_TRACE):
-            self._log(_TRACE, message, *args, **kwargs)
+        if self.is_enabled_for(aiperf_logger._TRACE):
+            self._log(aiperf_logger._TRACE, message, *args, **kwargs)
 
     def debug(self, message: str | Callable[..., str], *args, **kwargs) -> None:
         """Log a debug message with lazy evaluation."""
-        if self.is_enabled_for(_DEBUG):
-            self._log(_DEBUG, message, *args, **kwargs)
+        if self.is_enabled_for(aiperf_logger._DEBUG):
+            self._log(aiperf_logger._DEBUG, message, *args, **kwargs)
 
     def info(self, message: str | Callable[..., str], *args, **kwargs) -> None:
         """Log an info message with lazy evaluation."""
-        if self.is_enabled_for(_INFO):
-            self._log(_INFO, message, *args, **kwargs)
+        if self.is_enabled_for(aiperf_logger._INFO):
+            self._log(aiperf_logger._INFO, message, *args, **kwargs)
 
     def notice(self, message: str | Callable[..., str], *args, **kwargs) -> None:
         """Log a notice message with lazy evaluation."""
-        if self.is_enabled_for(_NOTICE):
-            self._log(_NOTICE, message, *args, **kwargs)
+        if self.is_enabled_for(aiperf_logger._NOTICE):
+            self._log(aiperf_logger._NOTICE, message, *args, **kwargs)
 
     def warning(self, message: str | Callable[..., str], *args, **kwargs) -> None:
         """Log a warning message with lazy evaluation."""
-        if self.is_enabled_for(_WARNING):
-            self._log(_WARNING, message, *args, **kwargs)
+        if self.is_enabled_for(aiperf_logger._WARNING):
+            self._log(aiperf_logger._WARNING, message, *args, **kwargs)
 
     def success(self, message: str | Callable[..., str], *args, **kwargs) -> None:
         """Log a success message with lazy evaluation."""
-        if self.is_enabled_for(_SUCCESS):
-            self._log(_SUCCESS, message, *args, **kwargs)
+        if self.is_enabled_for(aiperf_logger._SUCCESS):
+            self._log(aiperf_logger._SUCCESS, message, *args, **kwargs)
 
     def error(self, message: str | Callable[..., str], *args, **kwargs) -> None:
         """Log an error message with lazy evaluation."""
-        if self.is_enabled_for(_ERROR):
-            self._log(_ERROR, message, *args, **kwargs)
+        if self.is_enabled_for(aiperf_logger._ERROR):
+            self._log(aiperf_logger._ERROR, message, *args, **kwargs)
 
     def exception(self, message: str | Callable[..., str], *args, **kwargs) -> None:
         """Log an exception message with lazy evaluation."""
-        if self.is_enabled_for(_ERROR):
-            self._log(_ERROR, message, *args, exc_info=True, **kwargs)
+        if self.is_enabled_for(aiperf_logger._ERROR):
+            self._log(aiperf_logger._ERROR, message, *args, exc_info=True, **kwargs)
 
     def critical(self, message: str | Callable[..., str], *args, **kwargs) -> None:
         """Log a critical message with lazy evaluation."""
-        if self.is_enabled_for(_CRITICAL):
-            self._log(_CRITICAL, message, *args, **kwargs)
+        if self.is_enabled_for(aiperf_logger._CRITICAL):
+            self._log(aiperf_logger._CRITICAL, message, *args, **kwargs)
 
 
 # Add this file to the list of ignored files to avoid this file from being the source of the log messages
