@@ -24,9 +24,9 @@ def mock_tokenizer():
 def sample_turn():
     return Turn(
         role="user",
-        text=[
-            Text(content=["Hello world", "Test case"]),
-            Text(content=["Another input", "Final message"]),
+        texts=[
+            Text(contents=["Hello world", "Test case"]),
+            Text(contents=["Another input", "Final message"]),
         ],
     )
 
@@ -35,8 +35,6 @@ def sample_turn():
 def mock_turn_response(sample_turn):
     return ConversationTurnResponseMessage(
         service_id="test-service",
-        conversation_id="cid",
-        turn_index=0,
         turn=sample_turn,
     )
 

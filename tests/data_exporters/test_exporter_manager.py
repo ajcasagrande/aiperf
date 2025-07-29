@@ -8,7 +8,6 @@ import pytest
 from aiperf.common.config import EndPointConfig, OutputConfig, UserConfig
 from aiperf.common.enums import EndpointType
 from aiperf.common.models import MetricResult
-from aiperf.common.models.record_models import ProfileResults
 from aiperf.data_exporter.exporter_manager import ExporterManager
 
 
@@ -49,20 +48,20 @@ class TestExporterManager:
     ):
         mock_exporter_instance = MagicMock()
         mock_exporter_class = MagicMock(return_value=mock_exporter_instance)
+        mock_create_instance = MagicMock(return_value=mock_exporter_class)
 
-        with patch(
-            "aiperf.common.factories.DataExporterFactory.get_all_classes",
-            return_value=[mock_exporter_class],
+        with (
+            patch(
+                "aiperf.common.factories.DataExporterFactory.get_all_class_types",
+                return_value=[mock_exporter_class],
+            ),
+            patch(
+                "aiperf.common.factories.DataExporterFactory.create_instance",
+                return_value=mock_create_instance,
+            ),
         ):
             manager = ExporterManager(
-                results=ProfileResults(
-                    records=sample_records,
-                    start_ns=0,
-                    end_ns=0,
-                    completed=0,
-                    was_cancelled=False,
-                    error_summary=[],
-                ),
+                results=sample_records,
                 input_config=mock_user_config,
             )
             await manager.export_all()

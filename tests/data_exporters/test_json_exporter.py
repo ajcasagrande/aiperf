@@ -9,6 +9,7 @@ import pytest
 
 from aiperf.common.config.user_config import UserConfig
 from aiperf.common.models import MetricResult
+from aiperf.common.models.record_models import ProfileResults
 from aiperf.data_exporter.exporter_config import ExporterConfig
 from aiperf.data_exporter.json_exporter import JsonExporter
 
@@ -16,26 +17,33 @@ from aiperf.data_exporter.json_exporter import JsonExporter
 class TestJsonExporter:
     @pytest.fixture
     def sample_records(self):
-        return [
-            MetricResult(
-                tag="Test Metric",
-                header="Test Metric",
-                unit="ms",
-                avg=123.0,
-                min=100.0,
-                max=150.0,
-                p1=101.0,
-                p5=105.0,
-                p25=110.0,
-                p50=120.0,
-                p75=130.0,
-                p90=140.0,
-                p95=None,
-                p99=149.0,
-                std=10.0,
-                streaming_only=False,
-            )
-        ]
+        return ProfileResults(
+            records=[
+                MetricResult(
+                    tag="Test Metric",
+                    header="Test Metric",
+                    unit="ms",
+                    avg=123.0,
+                    min=100.0,
+                    max=150.0,
+                    p1=101.0,
+                    p5=105.0,
+                    p25=110.0,
+                    p50=120.0,
+                    p75=130.0,
+                    p90=140.0,
+                    p95=None,
+                    p99=149.0,
+                    std=10.0,
+                    streaming_only=False,
+                )
+            ],
+            start_ns=0,
+            end_ns=1,
+            completed=1,
+            was_cancelled=False,
+            error_summary=[],
+        )
 
     @pytest.fixture
     def mock_user_config(self):
