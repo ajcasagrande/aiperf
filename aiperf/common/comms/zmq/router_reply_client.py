@@ -212,10 +212,9 @@ class ZMQRouterReplyClient(BaseZMQClient):
                     self._wait_for_response(request.request_id, routing_envelope)
                 )
 
-            except asyncio.CancelledError:
-                self.debug("Router reply client receiver task cancelled")
-                break
             except Exception as e:
                 self.exception(f"Exception receiving request: {e}")
                 await yield_to_event_loop()
-                continue
+            except asyncio.CancelledError:
+                self.debug("Router reply client receiver task cancelled")
+                break
