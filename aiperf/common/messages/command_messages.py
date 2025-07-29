@@ -292,6 +292,18 @@ class ProfileStartCommand(CommandMessage):
     command: CommandTypeT = CommandType.PROFILE_START
 
 
+class ProfileCancelCommand(CommandMessage):
+    """Command message sent to request services to cancel profiling."""
+
+    command: CommandTypeT = CommandType.PROFILE_CANCEL
+
+
+class DiscoverServicesCommand(CommandMessage):
+    """Command message sent to request services to discover other services."""
+
+    command: CommandTypeT = CommandType.DISCOVER_SERVICES
+
+
 class ShutdownCommand(CommandMessage):
     """Command message sent to request a service to shutdown."""
 

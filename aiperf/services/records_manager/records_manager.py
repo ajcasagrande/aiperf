@@ -15,7 +15,11 @@ from aiperf.common.enums import (
 )
 from aiperf.common.factories import ServiceFactory, StreamingPostProcessorFactory
 from aiperf.common.hooks import on_command, on_pull_message
-from aiperf.common.messages import CommandMessage, ParsedInferenceResultsMessage
+from aiperf.common.messages import (
+    ParsedInferenceResultsMessage,
+    ProcessRecordsCommand,
+    ProfileCancelCommand,
+)
 from aiperf.common.mixins import PullClientMixin
 from aiperf.common.protocols import ServiceProtocol, StreamingPostProcessorProtocol
 from aiperf.services.base_component_service import BaseComponentService
@@ -88,7 +92,9 @@ class RecordsManager(PullClientMixin, BaseComponentService):
                 await streamer.records_queue.put(message.record)
 
     @on_command(CommandType.PROCESS_RECORDS)
-    async def _on_process_records_command(self, message: CommandMessage) -> list[Any]:
+    async def _on_process_records_command(
+        self, message: ProcessRecordsCommand
+    ) -> list[Any]:
         """Handle the process records command by forwarding it to all of the streaming post processors, and returning the results."""
         self.debug(lambda: f"Received process records command: {message}")
         # TODO: Do we need to handle errors from the streaming post processors?
@@ -100,6 +106,16 @@ class RecordsManager(PullClientMixin, BaseComponentService):
             return_exceptions=True,
         )
         return results
+
+    @on_command(CommandType.PROFILE_CANCEL)
+    async def _on_profile_cancel_command(
+        self, message: ProfileCancelCommand
+    ) -> list[Any]:
+        """Handle the profile cancel command by cancelling the streaming post processors."""
+        self.debug(lambda: f"Received profile cancel command: {message}")
+        return await self._on_process_records_command(
+            ProcessRecordsCommand(cancelled=True, service_id=message.service_id)
+        )
 
 
 def main() -> None:

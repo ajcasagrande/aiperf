@@ -31,8 +31,8 @@ class ConsoleErrorExporter:
             console.print("\n")
             console.print(table)
 
-        if self._results.was_cancelled:
-            console.print("[red][bold]Profile run was cancelled early[/bold][/red]")
+            if self._results.was_cancelled:
+                console.print("[red][bold]Profile run was cancelled early[/bold][/red]")
 
         console.file.flush()
 

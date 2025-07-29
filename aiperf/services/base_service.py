@@ -97,7 +97,13 @@ class BaseService(MessageBusClientMixin, ABC):
         """Process a command message received from the controller, and forward it to the appropriate handler.
         Wait for the handler to complete and publish the response, or handle the error and publish the failure response.
         """
-        self.debug(lambda: f"Received command message: {message.model_dump_json()}")
+        if message.service_id == self.service_id:
+            self.debug(
+                lambda: f"Received command message from self: {message}. Ignoring."
+            )
+            return
+
+        self.debug(lambda: f"Received command message: {message}")
 
         # Go through the hooks and find the first one that matches the command type.
         # Currently, we only support a single handler per command type, so we break out of the loop after the first one.
