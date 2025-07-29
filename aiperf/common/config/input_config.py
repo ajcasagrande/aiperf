@@ -22,7 +22,7 @@ from aiperf.common.config.image_config import ImageConfig
 from aiperf.common.config.prompt_config import PromptConfig
 from aiperf.common.enums import CustomDatasetType
 
-logger = AIPerfLogger(__name__)
+_logger = AIPerfLogger(__name__)
 
 
 class InputConfig(BaseConfig):
@@ -39,7 +39,7 @@ class InputConfig(BaseConfig):
             raise ValueError("Fixed schedule requires a file to be provided")
         if self.file is not None:
             self.fixed_schedule = True
-            logger.debug("Fixed schedule is enabled because file is provided")
+            _logger.debug("Fixed schedule is enabled because file is provided")
         return self
 
     extra: Annotated[
