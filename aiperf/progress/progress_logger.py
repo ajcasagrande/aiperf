@@ -12,8 +12,10 @@ from aiperf.common.messages import (
     CreditPhaseStartMessage,
     MetricsPreviewMessage,
 )
+from aiperf.common.messages.progress_messages import RecordsProcessingStatsMessage
 from aiperf.common.mixins import MessageBusClientMixin
 from aiperf.common.models import CreditPhaseStats, MetricResult, ProfileResults
+from aiperf.common.models.credit_models import PhaseProcessingStats
 
 
 class ProgressLogger(MessageBusClientMixin):
@@ -24,6 +26,7 @@ class ProgressLogger(MessageBusClientMixin):
         self.phase_stats: CreditPhaseStats = CreditPhaseStats(
             type=CreditPhase.PROFILING
         )
+        self.processing_stats: PhaseProcessingStats = PhaseProcessingStats()
         self.metrics_preview: ProfileResults | None = None
         self.console = console.Console()
 
@@ -34,6 +37,7 @@ class ProgressLogger(MessageBusClientMixin):
         self.phase_stats.type = message.phase
         self.phase_stats.start_ns = message.start_ns
         self.phase_stats.total_expected_requests = message.total_expected_requests
+        self.processing_stats.total_expected_requests = message.total_expected_requests
         self.phase_stats.expected_duration_sec = message.expected_duration_sec
 
     @on_message(MessageType.CREDIT_PHASE_COMPLETE)
@@ -56,9 +60,25 @@ class ProgressLogger(MessageBusClientMixin):
         self.phase_stats.sent = message.sent
         # NOTE: We don't need to print the progress here because it will be printed at regular intervals
 
+    @on_message(MessageType.RECORDS_PROCESSING_STATS)
+    async def _on_processing_stats(
+        self, message: RecordsProcessingStatsMessage
+    ) -> None:
+        self.processing_stats = message.processing_stats
+
     @property
     def progress(self) -> float:
         return self.phase_stats.progress_percent or 0.0
+
+    @property
+    def processing_progress(self) -> float:
+        return (
+            self.processing_stats.processed
+            / self.processing_stats.total_expected_requests
+            * 100
+            if self.processing_stats.total_expected_requests
+            else 0.0
+        )
 
     @background_task(
         immediate=False,
@@ -73,10 +93,14 @@ class ProgressLogger(MessageBusClientMixin):
         # TODO: Add time based progress printing
         if self.phase_stats.is_request_count_based:
             self.info(
-                f"Progress: {self.phase_stats.completed:8,} / {self.phase_stats.total_expected_requests:,} ({self.progress:4.1f}%)"
+                f"Requests: {self.phase_stats.completed:8,} / {self.phase_stats.total_expected_requests:,} ({self.progress:4.1f}%)"
             )
         else:
-            self.info(f"Progress: {self.progress:05.1f}%")
+            self.info(f"Requests: {self.progress:05.1f}%")
+
+        self.info(
+            f"Processing: {self.processing_stats.processed:8,} / {self.processing_stats.total_expected_requests:,} ({self.processing_progress:4.1f}%)"
+        )
 
     @on_message(MessageType.METRICS_PREVIEW)
     async def _on_metrics_preview(self, message: MetricsPreviewMessage) -> None:

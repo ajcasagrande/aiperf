@@ -53,30 +53,11 @@ class SweepProgressMessage(BaseServiceMessage):
     )
 
 
-class ProcessingStatsMessage(BaseServiceMessage):
-    """Message for processing stats. Sent by the records manager to the system controller to report the stats of the profile run."""
-
-    message_type: MessageTypeT = MessageType.PROCESSING_STATS
-
-    error_count: int = Field(default=0, description="The number of errors encountered")
-    completed: int = Field(
-        default=0, description="The number of requests processed by the records manager"
-    )
-    worker_completed: dict[str, int] = Field(
-        default_factory=dict,
-        description="Per-worker request completion counts, keyed by worker service_id",
-    )
-    worker_errors: dict[str, int] = Field(
-        default_factory=dict,
-        description="Per-worker error counts, keyed by worker service_id",
-    )
-
-
 class RecordsProcessingStatsMessage(BaseServiceMessage):
     """Message for processing stats. Sent by the RecordsManager to report the stats of the profile run.
     This contains the stats for a single credit phase only."""
 
-    message_type: MessageTypeT = MessageType.PROCESSING_STATS
+    message_type: MessageTypeT = MessageType.RECORDS_PROCESSING_STATS
 
     processing_stats: PhaseProcessingStats = Field(
         ..., description="The stats for the credit phase"

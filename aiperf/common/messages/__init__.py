@@ -59,7 +59,6 @@ from aiperf.common.messages.inference_messages import (
 from aiperf.common.messages.progress_messages import (
     AllRecordsReceivedMessage,
     MetricsPreviewMessage,
-    ProcessingStatsMessage,
     ProcessRecordsResultMessage,
     ProfileProgressMessage,
     ProfileResultsMessage,
@@ -112,7 +111,6 @@ __all__ = [
     "ProcessRecordsCommand",
     "ProcessRecordsResponse",
     "ProcessRecordsResultMessage",
-    "ProcessingStatsMessage",
     "ProfileCancelCommand",
     "ProfileConfigureCommand",
     "ProfileProgressMessage",
