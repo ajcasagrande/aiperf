@@ -9,6 +9,7 @@ from aiperf.common.enums import (
     LifecycleState,
     ServiceRegistrationStatus,
 )
+from aiperf.common.models.base_models import AIPerfBaseModel
 from aiperf.common.types import ServiceTypeT
 
 
@@ -39,3 +40,9 @@ class ServiceRunInfo(BaseModel):
         default=LifecycleState.CREATED,
         description="The current state of the service",
     )
+
+
+class ServiceInfo(AIPerfBaseModel):
+    service_id: str = Field(..., description="The ID of the service")
+    service_type: ServiceTypeT = Field(..., description="The type of the service")
+    state: LifecycleState = Field(..., description="The current state of the service")

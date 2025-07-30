@@ -23,7 +23,6 @@ from aiperf.common.messages import (
     NotificationMessage,
     ProcessRecordsResultMessage,
     ProfileConfigureCommand,
-    RegistrationMessage,
     ShutdownWorkersCommand,
     SpawnWorkersCommand,
     StatusMessage,
@@ -32,6 +31,7 @@ from aiperf.common.messages.command_messages import (
     CommandErrorResponse,
     ProfileCancelCommand,
     ProfileStartCommand,
+    RegisterServiceCommand,
     ShutdownCommand,
 )
 from aiperf.common.models import ServiceRunInfo
@@ -125,6 +125,7 @@ class SystemController(SignalHandlerMixin, BaseService):
             raise self._service_error(
                 "Failed to initialize all services",
             ) from e
+
         await self.service_manager.wait_for_all_services_registration(
             stop_event=self._stop_requested_event,
         )
@@ -151,8 +152,10 @@ class SystemController(SignalHandlerMixin, BaseService):
             ProfileStartCommand(service_id=self.service_id),
         )
 
-    @on_message(MessageType.REGISTRATION)
-    async def _process_registration_message(self, message: RegistrationMessage) -> None:
+    @on_command(CommandType.REGISTER_SERVICE)
+    async def _handle_register_service_command(
+        self, message: RegisterServiceCommand
+    ) -> None:
         """Process a registration message from a service. It will
         add the service to the service manager and send a configure command
         to the service.
@@ -186,7 +189,11 @@ class SystemController(SignalHandlerMixin, BaseService):
         # Send configure command to the newly registered service
         try:
             await self.publish(
-                ProfileConfigureCommand(service_id=service_id, config=self.user_config)
+                ProfileConfigureCommand(
+                    service_id=service_id,
+                    config=self.user_config,
+                    target_service_id=service_id,
+                )
             )
         except Exception as e:
             raise self._service_error(

@@ -13,10 +13,14 @@ from aiperf.common.enums import (
     CommandType,
     MessageType,
 )
+from aiperf.common.enums.service_enums import LifecycleState
 from aiperf.common.messages.service_messages import BaseServiceMessage
-from aiperf.common.models import ErrorDetails
-from aiperf.common.models.base_models import exclude_if_none
-from aiperf.common.models.record_models import ProcessRecordsResult
+from aiperf.common.models import (
+    ErrorDetails,
+    ProcessRecordsResult,
+    ServiceInfo,
+    exclude_if_none,
+)
 from aiperf.common.types import CommandTypeT, MessageTypeT, ServiceTypeT
 
 _logger = AIPerfLogger(__name__)
@@ -327,6 +331,18 @@ class ShutdownCommand(CommandMessage):
     command: CommandTypeT = CommandType.SHUTDOWN
 
 
+class RegisterServiceCommand(CommandMessage):
+    """Command message sent from a service to the system controller to register itself."""
+
+    command: CommandTypeT = CommandType.REGISTER_SERVICE
+
+    service_id: str = Field(..., description="The ID of the service to register")
+    service_type: ServiceTypeT = Field(
+        ..., description="The type of the service to register"
+    )
+    state: LifecycleState = Field(..., description="The current state of the service")
+
+
 class ProcessRecordsResponse(CommandSuccessResponse):
     """Response to the process records command."""
 
@@ -336,3 +352,11 @@ class ProcessRecordsResponse(CommandSuccessResponse):
         default=None,
         description="The result of the process records command",
     )
+
+
+class DiscoverServicesResponse(CommandSuccessResponse):
+    """Response to the discover services command."""
+
+    command: CommandTypeT = CommandType.DISCOVER_SERVICES
+
+    data: ServiceInfo = Field(..., description="The service info")  # type: ignore

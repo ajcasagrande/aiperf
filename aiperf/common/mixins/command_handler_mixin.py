@@ -1,0 +1,126 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+from abc import ABC
+from collections.abc import Iterable
+
+from aiperf.common.config import ServiceConfig, UserConfig
+from aiperf.common.enums import MessageType
+from aiperf.common.hooks import (
+    AIPerfHook,
+    Hook,
+    on_message,
+    provides_hooks,
+)
+from aiperf.common.messages import (
+    CommandAcknowledgedResponse,
+    CommandErrorResponse,
+    CommandMessage,
+    CommandResponse,
+    CommandSuccessResponse,
+    CommandUnhandledResponse,
+)
+from aiperf.common.mixins import MessageBusClientMixin
+from aiperf.common.models import ErrorDetails
+
+
+@provides_hooks(AIPerfHook.ON_COMMAND)
+class CommandHandlerMixin(MessageBusClientMixin, ABC):
+    """Mixin to provide command handling functionality to a service.
+
+    This mixin is used by the BaseService class, and is not intended to be used directly.
+    """
+
+    def __init__(
+        self,
+        service_config: ServiceConfig,
+        user_config: UserConfig,
+        service_id: str,
+        **kwargs,
+    ) -> None:
+        self.service_config = service_config
+        self.user_config = user_config
+        self.service_id = service_id
+
+        self._processed_command_ids: set[str] = set()
+
+        super().__init__(
+            service_config=self.service_config,
+            user_config=self.user_config,
+            **kwargs,
+        )
+
+    @on_message(
+        lambda self: {
+            MessageType.COMMAND,
+            f"{MessageType.COMMAND}.{self.service_type}",
+            f"{MessageType.COMMAND}.{self.service_id}",
+        }
+    )
+    async def _process_command_message(self, message: CommandMessage) -> None:
+        """Process a command message received from the controller, and forward it to the appropriate handler.
+        Wait for the handler to complete and publish the response, or handle the error and publish the failure response.
+        """
+        if message.command_id in self._processed_command_ids:
+            # TODO: Should we send back an acknowledged response? What if the sender did not get our first response?
+            self.debug(
+                lambda: f"Received duplicate command message: {message}. Ignoring."
+            )
+            return
+        self._processed_command_ids.add(message.command_id)
+
+        if message.service_id == self.service_id:
+            self.debug(
+                lambda: f"Received broadcast command message from self: {message}. Ignoring."
+            )
+            return
+
+        self.debug(lambda: f"Received command message: {message}")
+
+        # Go through the hooks and find the first one that matches the command type.
+        # Currently, we only support a single handler per command type, so we break out of the loop after the first one.
+        # TODO: Do we want/need to add support for multiple handlers per command type?
+        for hook in self.get_hooks(AIPerfHook.ON_COMMAND):
+            if isinstance(hook.params, Iterable) and message.command in hook.params:
+                await self._execute_command_hook(message, hook)
+                # Only one handler per command type, so return after the first handler.
+                return
+
+        # If we reach here, no handler was found for the command, so we publish an unhandled response.
+        await self.publish(
+            CommandUnhandledResponse.from_command_message(message, self.service_id)
+        )
+
+    async def _execute_command_hook(self, message: CommandMessage, hook: Hook) -> None:
+        """Execute a command hook."""
+        try:
+            response = await hook.func(message)
+            if response is None:
+                # If there is no data to send back, just send an acknowledged response.
+                await self.publish(
+                    CommandAcknowledgedResponse.from_command_message(
+                        message, self.service_id
+                    )
+                )
+                return
+
+            await self.publish(
+                CommandSuccessResponse.from_command_message(
+                    message, self.service_id, response
+                )
+            )
+        except Exception as e:
+            self.exception(
+                f"Failed to handle command {message.command} with hook {hook}: {e}"
+            )
+            await self.publish(
+                CommandErrorResponse.from_command_message(
+                    message,
+                    self.service_id,
+                    ErrorDetails.from_exception(e),
+                )
+            )
+
+    @on_message(lambda self: f"{MessageType.COMMAND_RESPONSE}.{self.service_id}")
+    async def _process_command_response_message(self, message: CommandResponse) -> None:
+        """Process a command response message."""
+        self.debug(lambda: f"Received command response message: {message}")
