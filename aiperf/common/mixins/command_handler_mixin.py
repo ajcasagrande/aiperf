@@ -1,9 +1,11 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+import asyncio
 from abc import ABC
 from collections.abc import Iterable
 
 from aiperf.common.config import ServiceConfig, UserConfig
+from aiperf.common.constants import DEFAULT_COMMAND_RESPONSE_TIMEOUT
 from aiperf.common.enums import MessageType
 from aiperf.common.hooks import (
     AIPerfHook,
@@ -19,11 +21,11 @@ from aiperf.common.messages import (
     CommandSuccessResponse,
     CommandUnhandledResponse,
 )
-from aiperf.common.mixins import MessageBusClientMixin
+from aiperf.common.mixins.message_bus_mixin import MessageBusClientMixin
 from aiperf.common.models import ErrorDetails
 
 
-@provides_hooks(AIPerfHook.ON_COMMAND)
+@provides_hooks(AIPerfHook.ON_COMMAND, AIPerfHook.ON_COMMAND_RESPONSE)
 class CommandHandlerMixin(MessageBusClientMixin, ABC):
     """Mixin to provide command handling functionality to a service.
 
@@ -42,6 +44,7 @@ class CommandHandlerMixin(MessageBusClientMixin, ABC):
         self.service_id = service_id
 
         self._processed_command_ids: set[str] = set()
+        self._response_futures: dict[str, asyncio.Future[CommandResponse]] = {}
 
         super().__init__(
             service_config=self.service_config,
@@ -52,20 +55,26 @@ class CommandHandlerMixin(MessageBusClientMixin, ABC):
     @on_message(
         lambda self: {
             MessageType.COMMAND,
-            f"{MessageType.COMMAND}.{self.service_type}",
-            f"{MessageType.COMMAND}.{self.service_id}",
+            f"{self.service_type}.{MessageType.COMMAND}",
+            f"{self.service_id}.{MessageType.COMMAND}",
         }
     )
     async def _process_command_message(self, message: CommandMessage) -> None:
         """Process a command message received from the controller, and forward it to the appropriate handler.
         Wait for the handler to complete and publish the response, or handle the error and publish the failure response.
         """
+        self.notice(lambda: f"Received command message: {message}")
         if message.command_id in self._processed_command_ids:
-            # TODO: Should we send back an acknowledged response? What if the sender did not get our first response?
             self.debug(
                 lambda: f"Received duplicate command message: {message}. Ignoring."
             )
+            await self.publish(
+                CommandAcknowledgedResponse.from_command_message(
+                    message, self.service_id
+                )
+            )
             return
+
         self._processed_command_ids.add(message.command_id)
 
         if message.service_id == self.service_id:
@@ -89,6 +98,34 @@ class CommandHandlerMixin(MessageBusClientMixin, ABC):
         await self.publish(
             CommandUnhandledResponse.from_command_message(message, self.service_id)
         )
+
+    @on_message(
+        lambda self: {
+            f"{self.service_id}.{MessageType.COMMAND_RESPONSE}",
+        }
+    )
+    async def _process_command_response_message(self, message: CommandResponse) -> None:
+        self.debug(lambda: f"Received command response message: {message}")
+        if message.command_id in self._response_futures:
+            self._response_futures[message.command_id].set_result(message)
+            # return
+
+        # TODO: Should we still run the hooks even if the above succeeded?
+        await self.run_hooks(AIPerfHook.ON_COMMAND_RESPONSE, message=message)
+
+    async def send_command_and_wait_for_response(
+        self, message: CommandMessage, timeout: float = DEFAULT_COMMAND_RESPONSE_TIMEOUT
+    ) -> CommandResponse | ErrorDetails:
+        """Send a command and wait for the response."""
+        future = asyncio.Future[CommandResponse]()
+        self._response_futures[message.command_id] = future
+        await self.publish(message)
+        try:
+            return await asyncio.wait_for(future, timeout=timeout)
+        except asyncio.TimeoutError as e:
+            return ErrorDetails.from_exception(e)
+        finally:
+            del self._response_futures[message.command_id]
 
     async def _execute_command_hook(self, message: CommandMessage, hook: Hook) -> None:
         """Execute a command hook."""
@@ -119,8 +156,3 @@ class CommandHandlerMixin(MessageBusClientMixin, ABC):
                     ErrorDetails.from_exception(e),
                 )
             )
-
-    @on_message(lambda self: f"{MessageType.COMMAND_RESPONSE}.{self.service_id}")
-    async def _process_command_response_message(self, message: CommandResponse) -> None:
-        """Process a command response message."""
-        self.debug(lambda: f"Received command response message: {message}")

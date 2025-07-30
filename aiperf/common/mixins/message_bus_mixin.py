@@ -1,18 +1,29 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+import asyncio
 from abc import ABC
 from collections.abc import Callable, Coroutine
 from typing import Any
 
 from aiperf.common.config import ServiceConfig
+from aiperf.common.constants import DEFAULT_CONNECTION_PROBE_TIMEOUT
 from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import CommAddress
-from aiperf.common.hooks import AIPerfHook, Hook, on_init, provides_hooks
+from aiperf.common.enums.message_enums import MessageType
+from aiperf.common.hooks import (
+    AIPerfHook,
+    Hook,
+    on_init,
+    on_start,
+    provides_hooks,
+)
 from aiperf.common.messages import Message
+from aiperf.common.messages.command_messages import ConnectionProbeMessage
 from aiperf.common.mixins.communication_mixin import CommunicationMixin
 from aiperf.common.protocols import MessageBusClientProtocol
 from aiperf.common.types import MessageCallbackMapT, MessageTypeT
+from aiperf.common.utils import yield_to_event_loop
 
 
 @provides_hooks(AIPerfHook.ON_MESSAGE)
@@ -30,6 +41,7 @@ class MessageBusClientMixin(CommunicationMixin, ABC):
         self.pub_client = self.comms.create_pub_client(
             CommAddress.EVENT_BUS_PROXY_FRONTEND
         )
+        self._connection_probe_event = asyncio.Event()
 
     @on_init
     async def _setup_on_message_hooks(self) -> None:
@@ -43,7 +55,7 @@ class MessageBusClientMixin(CommunicationMixin, ABC):
             subscribe_all for efficiency
             """
             self.debug(
-                lambda: f"Subscribing to message type: '{message_type}' for hook: {hook}"
+                lambda: f"Adding subscription for message type: '{message_type}' for hook: {hook}"
             )
             subscription_map.setdefault(message_type, []).append(hook.func)
 
@@ -54,7 +66,47 @@ class MessageBusClientMixin(CommunicationMixin, ABC):
             param_type=MessageTypeT,
             lambda_func=_add_to_subscription_map,
         )
+        self.debug(lambda: f"Subscribing to {len(subscription_map)} topics")
         await self.sub_client.subscribe_all(subscription_map)
+
+        # Add the connection probe subscription last, to ensure it is the last to be subscribed to
+        # So we can ensure the other subscriptions have already been subscribed to.
+        await self.sub_client.subscribe(
+            # NOTE: It is important to use `self.id` here, as not all message bus clients are services
+            f"{self.id}.{MessageType.CONNECTION_PROBE}",
+            self._process_connection_probe_message,
+        )
+
+    @on_start
+    async def _wait_for_connection_probe(self) -> None:
+        """Send a connection probe message and wait for a response."""
+        self.debug(lambda: f"Waiting for connection probe message for {self.id}")
+        while not self.stop_requested:
+            try:
+                await asyncio.wait_for(
+                    self._probe_and_wait_for_response(),
+                    timeout=DEFAULT_CONNECTION_PROBE_TIMEOUT,
+                )
+                break
+            except asyncio.TimeoutError:
+                self.debug(
+                    "Timeout waiting for connection probe message, sending another probe"
+                )
+                await yield_to_event_loop()
+
+    async def _process_connection_probe_message(
+        self, message: ConnectionProbeMessage
+    ) -> None:
+        """Process a connection probe message."""
+        self.debug(lambda: f"Received connection probe message: {message}")
+        self._connection_probe_event.set()
+
+    async def _probe_and_wait_for_response(self) -> None:
+        """Wait for a connection probe message."""
+        await self.publish(
+            ConnectionProbeMessage(service_id=self.id, target_service_id=self.id)
+        )
+        await self._connection_probe_event.wait()
 
     async def subscribe(
         self,

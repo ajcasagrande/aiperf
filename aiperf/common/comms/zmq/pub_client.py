@@ -67,7 +67,8 @@ class ZMQPubClient(BaseZMQClient):
             bind (bool): Whether to bind or connect the socket.
             socket_ops (dict, optional): Additional socket options to set.
         """
-        super().__init__(zmq.SocketType.PUB, address, bind, socket_ops, **kwargs)
+        super().__init__(zmq.SocketType.XPUB, address, bind, socket_ops, **kwargs)
+        self.socket.setsockopt(zmq.XPUB_VERBOSE, 1)
 
     async def publish(self, message: Message) -> None:
         """Publish a message. The topic will be set automatically based on the message type.
@@ -102,7 +103,7 @@ class ZMQPubClient(BaseZMQClient):
 
         if isinstance(message, TargetedServiceMessage):
             if message.target_service_id:
-                return f"{message.message_type}.{message.target_service_id}"
+                return f"{message.target_service_id}.{message.message_type}$"
             if message.target_service_type:
-                return f"{message.message_type}.{message.target_service_type}"
-        return message.message_type
+                return f"{message.target_service_type}.{message.message_type}$"
+        return f"{message.message_type}$"

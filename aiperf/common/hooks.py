@@ -41,6 +41,7 @@ from aiperf.common.types import (
 class AIPerfHook(CaseInsensitiveStrEnum):
     BACKGROUND_TASK = "@background_task"
     ON_COMMAND = "@on_command"
+    ON_COMMAND_RESPONSE = "@on_command_response"
     ON_INIT = "@on_init"
     ON_MESSAGE = "@on_message"
     ON_PULL_MESSAGE = "@on_pull_message"
@@ -400,3 +401,23 @@ def on_command(
     ```
     """
     return _hook_decorator_with_params(AIPerfHook.ON_COMMAND, command_types)
+
+
+def on_command_response(func: Callable) -> Callable:
+    """Decorator to specify that the function is a hook that should be called when a CommandResponse is received.
+    See :func:`aiperf.common.hooks._hook_decorator`.
+
+    Example:
+    ```python
+    class MyService(BaseComponentService):
+        @on_command_response
+        def _on_command_response(self, message: CommandResponse) -> None:
+            pass
+    ```
+
+    The above is the equivalent to setting:
+    ```python
+    MyService._on_command_response.__aiperf_hook_type__ = AIPerfHook.ON_COMMAND_RESPONSE
+    ```
+    """
+    return _hook_decorator(AIPerfHook.ON_COMMAND_RESPONSE, func)

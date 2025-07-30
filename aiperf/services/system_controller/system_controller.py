@@ -22,7 +22,6 @@ from aiperf.common.messages import (
     HeartbeatMessage,
     NotificationMessage,
     ProcessRecordsResultMessage,
-    ProfileConfigureCommand,
     ShutdownWorkersCommand,
     SpawnWorkersCommand,
     StatusMessage,
@@ -30,6 +29,7 @@ from aiperf.common.messages import (
 from aiperf.common.messages.command_messages import (
     CommandErrorResponse,
     ProfileCancelCommand,
+    ProfileConfigureCommand,
     ProfileStartCommand,
     RegisterServiceCommand,
     ShutdownCommand,
@@ -96,6 +96,7 @@ class SystemController(SignalHandlerMixin, BaseService):
         """
         self.debug("Running ZMQ Proxy Manager Before Initialize")
         await self.proxy_manager.initialize_and_start()
+        await asyncio.sleep(1)
         # Once the proxies are running, call the original initialize method
         await super().initialize()
 
@@ -117,7 +118,6 @@ class SystemController(SignalHandlerMixin, BaseService):
         - Start all required services
         """
         self.debug("System Controller is bootstrapping services")
-
         # Start all required services
         try:
             await self.service_manager.start()
@@ -163,45 +163,39 @@ class SystemController(SignalHandlerMixin, BaseService):
         Args:
             message: The registration message to process
         """
-        service_id = message.service_id
-        service_type = message.service_type
 
         self.debug(
-            lambda: f"Processing registration from {service_type} with ID: {service_id}"
+            lambda: f"Processing registration from {message.service_type} with ID: {message.service_id}"
         )
 
         service_info = ServiceRunInfo(
             registration_status=ServiceRegistrationStatus.REGISTERED,
-            service_type=service_type,
-            service_id=service_id,
+            service_type=message.service_type,
+            service_id=message.service_id,
             first_seen=time.time_ns(),
             state=message.state,
             last_seen=time.time_ns(),
         )
 
-        self.service_manager.service_id_map[service_id] = service_info
-        if service_type not in self.service_manager.service_map:
-            self.service_manager.service_map[service_type] = []
-        self.service_manager.service_map[service_type].append(service_info)
+        self.service_manager.service_id_map[message.service_id] = service_info
+        if message.service_type not in self.service_manager.service_map:
+            self.service_manager.service_map[message.service_type] = []
+        self.service_manager.service_map[message.service_type].append(service_info)
 
-        self.info(lambda: f"Registered service: {service_type=} with ID: {service_id=}")
+        self.info(
+            lambda: f"Registered service: {message.service_type=} with ID: {message.service_id=}"
+        )
 
         # Send configure command to the newly registered service
-        try:
-            await self.publish(
-                ProfileConfigureCommand(
-                    service_id=service_id,
-                    config=self.user_config,
-                    target_service_id=service_id,
-                )
+        await self.publish(
+            ProfileConfigureCommand(
+                service_id=self.service_id,
+                config=self.user_config,
+                target_service_id=message.service_id,
             )
-        except Exception as e:
-            raise self._service_error(
-                f"Failed to send configure command to {service_type} (ID: {service_id})",
-            ) from e
-
+        )
         self.debug(
-            lambda: f"Sent configure command to {service_type} (ID: {service_id})"
+            lambda: f"Sent configure command to {message.service_type} (ID: {message.service_id})"
         )
 
     @on_message(MessageType.HEARTBEAT)

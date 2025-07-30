@@ -2,10 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import asyncio
+import uuid
 
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.decorators import implements_protocol
-from aiperf.common.enums import CommandType, LifecycleState
+from aiperf.common.enums import CommandType, LifecycleState, ServiceType
 from aiperf.common.hooks import (
     background_task,
     on_command,
@@ -15,9 +16,13 @@ from aiperf.common.hooks import (
 from aiperf.common.messages import (
     CommandMessage,
     HeartbeatMessage,
-    RegistrationMessage,
     StatusMessage,
 )
+from aiperf.common.messages.command_messages import (
+    CommandResponse,
+    RegisterServiceCommand,
+)
+from aiperf.common.models.error_models import ErrorDetails
 from aiperf.common.protocols import ServiceProtocol
 from aiperf.services.base_service import BaseService
 
@@ -62,22 +67,43 @@ class BaseComponentService(BaseService):
         )
 
     @on_start
+    async def _on_service_start(self) -> None:
+        """Action to take when the service starts."""
+        await self._register_service()
+
     async def _register_service(self) -> None:
         """Publish a registration request to the system controller.
 
-        This method should be called after the service has been initialized and is
-        ready to start processing messages.
+        This method should be called after the service has been initialized.
         """
-        self.debug(
+        self.notice(
             lambda: f"Attempting to register service {self} ({self.service_id}) with system controller"
         )
-        await self.publish(
-            RegistrationMessage(
-                service_id=self.service_id,
-                service_type=self.service_type,
-                state=self.state,
-            )
+        result = None
+        command_message = RegisterServiceCommand(
+            command_id=str(uuid.uuid4()),
+            service_id=self.service_id,
+            service_type=self.service_type,
+            target_service_type=ServiceType.SYSTEM_CONTROLLER,
+            state=self.state,
         )
+        for _ in range(10):
+            result = await self.send_command_and_wait_for_response(
+                command_message,
+                timeout=1,
+            )
+            if isinstance(result, CommandResponse):
+                self.notice(
+                    lambda: f"Service {self.service_id} registered with system controller"
+                )
+                break
+        if isinstance(result, ErrorDetails):
+            self.error(
+                f"Failed to register service {self} ({self.service_id}): {result}"
+            )
+            raise self._service_error(
+                f"Failed to register service {self} ({self.service_id}): {result}"
+            )
 
     @on_state_change
     async def _on_state_change(

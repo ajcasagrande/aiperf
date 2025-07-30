@@ -77,11 +77,6 @@ class CommandMessage(TargetedServiceMessage):
         default_factory=lambda: str(uuid.uuid4()),
         description="Unique identifier for this command. If not provided, a random UUID will be generated.",
     )
-    # TODO: Not really using this for anything right now.
-    require_response: bool = Field(
-        default=False,
-        description="Whether a response is required for this command",
-    )
 
     @classmethod
     def from_json(cls, json_str: str | bytes | bytearray) -> "CommandMessage":
@@ -360,3 +355,9 @@ class DiscoverServicesResponse(CommandSuccessResponse):
     command: CommandTypeT = CommandType.DISCOVER_SERVICES
 
     data: ServiceInfo = Field(..., description="The service info")  # type: ignore
+
+
+class ConnectionProbeMessage(TargetedServiceMessage):
+    """Message containing a connection probe from a service. This is used to probe the connection to the service."""
+
+    message_type: MessageTypeT = MessageType.CONNECTION_PROBE

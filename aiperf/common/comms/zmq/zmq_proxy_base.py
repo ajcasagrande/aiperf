@@ -4,6 +4,7 @@
 import asyncio
 import uuid
 from abc import ABC, abstractmethod
+from enum import Enum
 
 import zmq
 import zmq.asyncio
@@ -14,6 +15,11 @@ from aiperf.common.config.zmq_config import BaseZMQProxyConfig
 from aiperf.common.enums import CaseInsensitiveStrEnum
 from aiperf.common.hooks import background_task, on_init, on_start, on_stop
 from aiperf.common.mixins import AIPerfLifecycleMixin
+
+
+class SubscriptionAction(int, Enum):
+    SUBSCRIBE = 1
+    UNSUBSCRIBE = 0
 
 
 class ProxyEndType(CaseInsensitiveStrEnum):
@@ -128,9 +134,9 @@ class BaseZMQProxy(AIPerfLifecycleMixin, ABC):
         if self.capture_address:
             self.debug(lambda: f"Proxy Capture - Address: {self.capture_address}")
             self.capture_client = ProxySocketClient(
-                socket_type=SocketType.PUB,
+                socket_type=SocketType.XPUB,
                 address=self.capture_address,
-                socket_ops=self.socket_ops,
+                socket_ops={**(self.socket_ops or {}), zmq.XPUB_VERBOSE: 1},
                 end_type=ProxyEndType.Capture,
                 proxy_uuid=self.proxy_uuid,
             )
@@ -155,9 +161,9 @@ class BaseZMQProxy(AIPerfLifecycleMixin, ABC):
         self.debug(
             lambda: f"Backend {self.backend_socket.socket_type.name} socket binding to: {self.backend_address} (for {self.frontend_socket.socket_type.name} services)"
         )
-        if hasattr(self.backend_socket, "proxy_id"):
+        if hasattr(self.backend_socket, "client_id"):
             self.debug(
-                lambda: f"Backend socket identity: {self.backend_socket.proxy_id}"
+                lambda: f"Backend socket identity: {self.backend_socket.client_id}"
             )
 
         try:
@@ -209,35 +215,94 @@ class BaseZMQProxy(AIPerfLifecycleMixin, ABC):
         )
 
     @background_task(immediate=True, interval=None)
-    async def _monitor_messages(self) -> None:
-        """Monitor messages flowing through the proxy via the capture socket."""
-        if not self.capture_client or not self.capture_address:
-            self.debug("Proxy Monitor Not Enabled")
+    async def _monitor_subscriptions(self) -> None:
+        """Monitor subscriptions flowing through the proxy via the capture socket."""
+        if (
+            not self.capture_client
+            or not self.capture_address
+            or self.frontend_socket.socket_type != SocketType.XSUB
+        ):
+            self.debug("Proxy Subscriptions Monitor Not Enabled")
             return
 
         self.debug(
-            lambda: f"Proxy Monitor Starting - Capture Address: {self.capture_address}"
+            lambda: f"Proxy Subscriptions Monitor Starting - Capture Address: {self.capture_address}"
         )
 
-        capture_socket = self.context.socket(SocketType.SUB)
+        capture_socket = self.context.socket(SocketType.XSUB)
         capture_socket.connect(self.capture_address)
         self.debug(
-            lambda: f"Proxy Monitor Connected to Capture Address: {self.capture_address}"
+            lambda: f"Proxy Subscriptions Monitor Connected to Capture Address: {self.capture_address}"
         )
-        capture_socket.setsockopt(zmq.SUBSCRIBE, b"")  # Subscribe to all messages
-        self.debug("Proxy Monitor Subscribed to all messages")
+        await capture_socket.send(b"\x01\x01")
+        await capture_socket.poll(0)
+        await capture_socket.send(b"\x01\x00")
+        await capture_socket.poll(0)
+        # capture_socket.setsockopt(zmq.SUBSCRIBE, b"")  # Subscribe to all messages
+        self.debug("Proxy Subscriptions Monitor Subscribed to all messages")
 
         try:
             while not self.stop_requested:
                 recv_msg = await capture_socket.recv_multipart()
-                self.debug(lambda msg=recv_msg: f"Proxy Monitor Received: {msg}")
+                if len(recv_msg) == 1:
+                    action, topic = recv_msg[0][0], recv_msg[0][1:]
+                    self.notice(
+                        lambda msg=recv_msg: f"Proxy Subscriptions Monitor Received: {msg}"
+                    )
+                    if action == SubscriptionAction.SUBSCRIBE:
+                        self.notice(
+                            f"Proxy Subscriptions Monitor Received Subscribed: {topic=}"
+                        )
+                    elif action == SubscriptionAction.UNSUBSCRIBE:
+                        self.notice(
+                            f"Proxy Subscriptions Monitor Received Unsubscribed: {topic=}"
+                        )
+                    else:
+                        self.debug(
+                            f"Proxy Subscriptions Monitor Unknown Action: {action}"
+                        )
+                else:
+                    self.notice(
+                        lambda msg=recv_msg: f"Proxy Subscriptions Monitor Received: {msg}"
+                    )
         except Exception as e:
-            self.exception(f"Proxy Monitor Error - {e}")
+            self.exception(f"Proxy Subscriptions Monitor Error - {e}")
             raise
         except asyncio.CancelledError:
             return
         finally:
             capture_socket.close()
+
+    # @background_task(immediate=True, interval=None)
+    # async def _monitor_messages(self) -> None:
+    #     """Monitor messages flowing through the proxy via the capture socket."""
+    #     if not self.capture_client or not self.capture_address:
+    #         self.debug("Proxy Monitor Not Enabled")
+    #         return
+
+    #     self.debug(
+    #         lambda: f"Proxy Monitor Starting - Capture Address: {self.capture_address}"
+    #     )
+
+    #     capture_socket = self.context.socket(SocketType.SUB)
+    #     capture_socket.connect(self.capture_address)
+    #     self.debug(
+    #         lambda: f"Proxy Monitor Connected to Capture Address: {self.capture_address}"
+    #     )
+    #     capture_socket.setsockopt(zmq.SUBSCRIBE, b"")  # Subscribe to all messages
+    #     self.debug("Proxy Monitor Subscribed to all messages")
+
+    #     try:
+    #         while not self.stop_requested:
+    #             recv_msg = await capture_socket.recv_multipart()
+    #             self.debug(lambda msg=recv_msg: f"Proxy Monitor Received: {msg}")
+    #     except Exception as e:
+    #         self.exception(f"Proxy Monitor Error - {e}")
+    #         raise
+    #     except asyncio.CancelledError:
+    #         return
+    #     finally:
+    #         capture_socket.close()
 
     @on_stop
     async def _stop_proxy(self) -> None:

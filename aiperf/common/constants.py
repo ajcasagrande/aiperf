@@ -27,3 +27,9 @@ DEFAULT_SERVICE_START_TIMEOUT = 5.0
 
 DEFAULT_STREAMING_MAX_QUEUE_SIZE = 100_000
 """Default maximum queue size for streaming post processors."""
+
+DEFAULT_COMMAND_RESPONSE_TIMEOUT = 10.0
+"""Default timeout for command responses in seconds."""
+
+DEFAULT_CONNECTION_PROBE_TIMEOUT = 0.1
+"""Default timeout for connection probe in seconds, before sending another probe."""
