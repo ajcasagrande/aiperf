@@ -56,12 +56,13 @@ class TaskManagerMixin(AIPerfLoggerMixin):
         interval: float | Callable[[TaskManagerProtocol], float] | None = None,
         immediate: bool = False,
         stop_on_error: bool = False,
+        disabled: bool | Callable[[TaskManagerProtocol], bool] = False,
         stop_event: asyncio.Event | None = None,
     ) -> None:
         """Run a task in the background, in a loop until cancelled."""
         self.execute_async(
             self._background_task_loop(
-                method, interval, immediate, stop_on_error, stop_event
+                method, interval, immediate, stop_on_error, disabled, stop_event
             )
         )
 
@@ -71,6 +72,7 @@ class TaskManagerMixin(AIPerfLoggerMixin):
         interval: float | Callable[[TaskManagerProtocol], float] | None = None,
         immediate: bool = False,
         stop_on_error: bool = False,
+        disabled: bool | Callable[[TaskManagerProtocol], bool] = False,
         stop_event: asyncio.Event | None = None,
     ) -> None:
         """Run a background task in a loop until cancelled.
@@ -80,7 +82,15 @@ class TaskManagerMixin(AIPerfLoggerMixin):
             interval: The interval to run the task in seconds. Can be a callable that returns the interval, and will be called with 'self' as the argument.
             immediate: If True, run the task immediately on start, otherwise wait for the interval first.
             stop_on_error: If True, stop the task on any exception, otherwise log and continue.
+            disabled: A bool or callable that returns True if the task should be disabled. If None, the task will run indefinitely.
+            stop_event: An event to check to know when to stop the task. If None, the task will run indefinitely until cancelled.
         """
+        if callable(disabled):
+            disabled = disabled(self)
+        if disabled:
+            self.debug(f"Background task {method.__name__} disabled")
+            return
+
         while stop_event is None or not stop_event.is_set():
             try:
                 if interval is None or immediate:
@@ -89,7 +99,10 @@ class TaskManagerMixin(AIPerfLoggerMixin):
                     immediate = False
                 else:
                     sleep_time = interval(self) if callable(interval) else interval
-                    await asyncio.sleep(sleep_time)
+                    if sleep_time is not None and sleep_time > 0:
+                        await asyncio.sleep(sleep_time)
+                    else:
+                        await yield_to_event_loop()
 
                 if inspect.iscoroutinefunction(method):
                     await method()
@@ -108,5 +121,4 @@ class TaskManagerMixin(AIPerfLoggerMixin):
                         f"Background task {method.__name__} stopped due to error"
                     )
                     break
-                # Give some time to recover, just in case
-                await asyncio.sleep(0.001)
+                await yield_to_event_loop()

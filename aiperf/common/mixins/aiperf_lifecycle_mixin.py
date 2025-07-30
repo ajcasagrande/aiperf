@@ -218,6 +218,7 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
                 interval=hook.params.interval,
                 immediate=hook.params.immediate,
                 stop_on_error=hook.params.stop_on_error,
+                disabled=hook.params.disabled,
                 stop_event=self._stop_requested_event,
             )
 

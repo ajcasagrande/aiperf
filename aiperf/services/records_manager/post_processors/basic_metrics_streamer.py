@@ -10,11 +10,12 @@ from aiperf.common.enums import (
 from aiperf.common.enums.message_enums import MessageType
 from aiperf.common.enums.timing_enums import CreditPhase
 from aiperf.common.factories import PostProcessorFactory, StreamingPostProcessorFactory
-from aiperf.common.hooks import on_message
+from aiperf.common.hooks import background_task, on_message
 from aiperf.common.messages.credit_messages import (
     CreditPhaseCompleteMessage,
     CreditPhaseStartMessage,
 )
+from aiperf.common.messages.progress_messages import MetricsPreviewMessage
 from aiperf.common.models import (
     ErrorDetails,
     ErrorDetailsCount,
@@ -42,12 +43,13 @@ class BasicMetricsStreamer(BaseStreamingPostProcessor):
             PostProcessorType.METRIC_SUMMARY,
             endpoint_type=self.user_config.endpoint.type,
         )
+        self.metrics_preview_interval = self.service_config.metrics_preview_interval
 
     async def stream_record(self, record: ParsedResponseRecord) -> None:
         """Stream a record."""
         if record.request.valid:
             self.valid_count += 1
-            self.metric_summary.process_record(record)
+            await self.metric_summary.process_record(record)
         else:
             self.error_count += 1
             self.warning(f"Received invalid inference results: {record.request.error}")
@@ -102,15 +104,42 @@ class BasicMetricsStreamer(BaseStreamingPostProcessor):
             self.info(
                 f"Processing {self.valid_count} successful records and {self.error_count} error records"
             )
-            return ProfileResults(
-                total_expected=self.total_expected,
-                completed=self.valid_count + self.error_count,
-                start_ns=self.start_time_ns,
-                end_ns=self.end_time_ns or time.time_ns(),
-                records=self.metric_summary.post_process(),
-                error_summary=self.get_error_summary(),
-                was_cancelled=cancelled,
-            )
+            return await self._compute_profile_results(cancelled, preview=False)
         except Exception as e:
             self.exception(f"Error processing records: {e}")
             return ErrorDetails.from_exception(e)
+
+    async def _compute_profile_results(
+        self, cancelled: bool, preview: bool = False
+    ) -> ProfileResults:
+        """Compute the profile results."""
+        return ProfileResults(
+            total_expected=self.total_expected,
+            completed=self.valid_count + self.error_count,
+            start_ns=self.start_time_ns,
+            end_ns=self.end_time_ns or time.time_ns(),
+            records=await self.metric_summary.post_process(preview=preview),
+            error_summary=self.get_error_summary(),
+            was_cancelled=cancelled,
+        )
+
+    @background_task(
+        immediate=False,
+        interval=lambda self: self.metrics_preview_interval,
+        disabled=lambda self: self.metrics_preview_interval is None,
+    )
+    async def _report_metrics_preview(self) -> None:
+        results = await self._compute_profile_results(cancelled=False, preview=True)
+        if not isinstance(results, ProfileResults):
+            self.warning(
+                lambda: f"Metrics preview returned {type(results)} instead of ProfileResults: {results}"
+            )
+            return
+
+        self.debug(lambda: f"Metrics preview: {results}")
+        await self.publish(
+            MetricsPreviewMessage(
+                service_id=self.service_id,
+                metrics_preview=results,
+            )
+        )

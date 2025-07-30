@@ -214,6 +214,7 @@ class ServiceConfig(BaseSettings):
     progress_report_interval: Annotated[
         float,
         Field(
+            gt=0,
             description="Interval in seconds to report progress. This is used to report the progress of the profile to the user.",
         ),
         Parameter(
@@ -221,6 +222,30 @@ class ServiceConfig(BaseSettings):
             group=_CLI_GROUP,
         ),
     ] = ServiceDefaults.PROGRESS_REPORT_INTERVAL
+
+    metrics_preview_interval: Annotated[
+        float | None,
+        Field(
+            description="Interval in seconds to compute and print live metrics preview data. "
+            "If None, live metrics preview will not be computed.",
+        ),
+        Parameter(
+            name=("--metrics-preview-interval-seconds", "--metrics-preview-interval"),
+            group=_CLI_GROUP,
+        ),
+    ] = ServiceDefaults.METRICS_PREVIEW_INTERVAL
+
+    progress_logging_interval: Annotated[
+        float | None,
+        Field(
+            description="Interval in seconds to log progress. This is used to log the progress of the profile to the console. "
+            "If None, progress will not be logged.",
+        ),
+        Parameter(
+            name=("--progress-logging-interval-seconds", "--progress-logging-interval"),
+            group=_CLI_GROUP,
+        ),
+    ] = ServiceDefaults.PROGRESS_LOGGING_INTERVAL
 
     enable_yappi: Annotated[
         bool,

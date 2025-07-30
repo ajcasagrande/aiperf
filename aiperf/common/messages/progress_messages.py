@@ -113,3 +113,11 @@ class ProcessRecordsResultMessage(BaseServiceMessage):
     process_records_result: ProcessRecordsResult = Field(
         ..., description="The process records result"
     )
+
+
+class MetricsPreviewMessage(BaseServiceMessage):
+    """Message for metrics preview. Sent by the RecordsManager to report the metrics preview of the profile run."""
+
+    message_type: MessageTypeT = MessageType.METRICS_PREVIEW
+
+    metrics_preview: ProfileResults = Field(..., description="The metrics preview data")

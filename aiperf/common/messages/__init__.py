@@ -58,6 +58,7 @@ from aiperf.common.messages.inference_messages import (
 )
 from aiperf.common.messages.progress_messages import (
     AllRecordsReceivedMessage,
+    MetricsPreviewMessage,
     ProcessingStatsMessage,
     ProcessRecordsResultMessage,
     ProfileProgressMessage,
@@ -105,6 +106,7 @@ __all__ = [
     "HeartbeatMessage",
     "InferenceResultsMessage",
     "Message",
+    "MetricsPreviewMessage",
     "NotificationMessage",
     "ParsedInferenceResultsMessage",
     "ProcessRecordsCommand",

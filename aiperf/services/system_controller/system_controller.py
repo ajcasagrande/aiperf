@@ -38,6 +38,7 @@ from aiperf.common.models import ServiceRunInfo
 from aiperf.common.protocols import ServiceManagerProtocol
 from aiperf.common.types import ServiceTypeT
 from aiperf.data_exporter.exporter_manager import ExporterManager
+from aiperf.progress.progress_logger import ProgressLogger
 from aiperf.services.base_service import BaseService
 from aiperf.services.system_controller.proxy_manager import ProxyManager
 from aiperf.services.system_controller.system_mixins import (
@@ -87,6 +88,10 @@ class SystemController(SignalHandlerMixin, BaseService):
                 log_queue=get_global_log_queue(),
             )
         )
+        self.progress_logger: ProgressLogger = ProgressLogger(
+            service_config=self.service_config
+        )
+        self.attach_child_lifecycle(self.progress_logger)
         self._stop_tasks: set[asyncio.Task] = set()
         self.debug("System Controller created")
 
