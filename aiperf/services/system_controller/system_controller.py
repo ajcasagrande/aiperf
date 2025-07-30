@@ -186,16 +186,16 @@ class SystemController(SignalHandlerMixin, BaseService):
             lambda: f"Registered service: {message.service_type=} with ID: {message.service_id=}"
         )
 
+        self.info(
+            lambda: f"Sending configure command to {message.service_type} (ID: {message.service_id})"
+        )
         # Send configure command to the newly registered service
         await self.publish(
             ProfileConfigureCommand(
                 service_id=self.service_id,
                 config=self.user_config,
                 target_service_id=message.service_id,
-            )
-        )
-        self.debug(
-            lambda: f"Sent configure command to {message.service_type} (ID: {message.service_id})"
+            ),
         )
 
     @on_message(MessageType.HEARTBEAT)

@@ -76,7 +76,7 @@ class BaseComponentService(BaseService):
 
         This method should be called after the service has been initialized.
         """
-        self.notice(
+        self.debug(
             lambda: f"Attempting to register service {self} ({self.service_id}) with system controller"
         )
         result = None
@@ -93,7 +93,7 @@ class BaseComponentService(BaseService):
                 timeout=1,
             )
             if isinstance(result, CommandResponse):
-                self.notice(
+                self.debug(
                     lambda: f"Service {self.service_id} registered with system controller"
                 )
                 break

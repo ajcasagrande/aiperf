@@ -246,15 +246,15 @@ class BaseZMQProxy(AIPerfLifecycleMixin, ABC):
                 recv_msg = await capture_socket.recv_multipart()
                 if len(recv_msg) == 1:
                     action, topic = recv_msg[0][0], recv_msg[0][1:]
-                    self.notice(
+                    self.debug(
                         lambda msg=recv_msg: f"Proxy Subscriptions Monitor Received: {msg}"
                     )
                     if action == SubscriptionAction.SUBSCRIBE:
-                        self.notice(
+                        self.debug(
                             f"Proxy Subscriptions Monitor Received Subscribed: {topic=}"
                         )
                     elif action == SubscriptionAction.UNSUBSCRIBE:
-                        self.notice(
+                        self.debug(
                             f"Proxy Subscriptions Monitor Received Unsubscribed: {topic=}"
                         )
                     else:
@@ -262,7 +262,7 @@ class BaseZMQProxy(AIPerfLifecycleMixin, ABC):
                             f"Proxy Subscriptions Monitor Unknown Action: {action}"
                         )
                 else:
-                    self.notice(
+                    self.debug(
                         lambda msg=recv_msg: f"Proxy Subscriptions Monitor Received: {msg}"
                     )
         except Exception as e:

@@ -63,7 +63,7 @@ class CommandHandlerMixin(MessageBusClientMixin, ABC):
         """Process a command message received from the controller, and forward it to the appropriate handler.
         Wait for the handler to complete and publish the response, or handle the error and publish the failure response.
         """
-        self.notice(lambda: f"Received command message: {message}")
+        self.debug(lambda: f"Received command message: {message}")
         if message.command_id in self._processed_command_ids:
             self.debug(
                 lambda: f"Received duplicate command message: {message}. Ignoring."
