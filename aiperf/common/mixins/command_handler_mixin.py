@@ -108,9 +108,10 @@ class CommandHandlerMixin(MessageBusClientMixin, ABC):
         self.debug(lambda: f"Received command response message: {message}")
         if message.command_id in self._response_futures:
             self._response_futures[message.command_id].set_result(message)
-            # return
+            # If the above succeeded, that means the command was handled successfully
+            # by a specific watcher, so we should not run the generic hooks.
+            return
 
-        # TODO: Should we still run the hooks even if the above succeeded?
         await self.run_hooks(AIPerfHook.ON_COMMAND_RESPONSE, message=message)
 
     async def send_command_and_wait_for_response(
