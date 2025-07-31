@@ -1,18 +1,10 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-import asyncio
-
 from pydantic import BaseModel
 
 from aiperf.common.config import ServiceConfig, UserConfig
-from aiperf.common.constants import (
-    DEFAULT_SERVICE_REGISTRATION_TIMEOUT,
-    DEFAULT_SERVICE_START_TIMEOUT,
-)
-from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import ServiceRunType
 from aiperf.common.factories import ServiceManagerFactory
-from aiperf.common.protocols import ServiceManagerProtocol
 from aiperf.common.types import ServiceTypeT
 from aiperf.services.system_controller.base_service_manager import BaseServiceManager
 
@@ -25,7 +17,6 @@ class ServiceKubernetesRunInfo(BaseModel):
     namespace: str
 
 
-@implements_protocol(ServiceManagerProtocol)
 @ServiceManagerFactory.register(ServiceRunType.KUBERNETES)
 class KubernetesServiceManager(BaseServiceManager):
     """
@@ -37,9 +28,12 @@ class KubernetesServiceManager(BaseServiceManager):
         required_services: dict[ServiceTypeT, int],
         service_config: ServiceConfig,
         user_config: UserConfig,
+        service_id: str,
         **kwargs,
     ):
-        super().__init__(required_services, service_config, user_config, **kwargs)
+        super().__init__(
+            required_services, service_config, user_config, service_id, **kwargs
+        )
 
     async def run_service(
         self, service_type: ServiceTypeT, num_replicas: int = 1
@@ -65,32 +59,4 @@ class KubernetesServiceManager(BaseServiceManager):
         # TODO: Implement Kubernetes
         raise NotImplementedError(
             "KubernetesServiceManager.kill_all_services not implemented"
-        )
-
-    async def wait_for_all_services_registration(
-        self,
-        stop_event: asyncio.Event,
-        timeout_seconds: float = DEFAULT_SERVICE_REGISTRATION_TIMEOUT,
-    ) -> None:
-        """Wait for all required services to be registered in Kubernetes."""
-        self.logger.debug(
-            "Waiting for all required services to be registered in Kubernetes"
-        )
-        # TODO: Implement Kubernetes
-        raise NotImplementedError(
-            "KubernetesServiceManager.wait_for_all_services_registration not implemented"
-        )
-
-    async def wait_for_all_services_start(
-        self,
-        stop_event: asyncio.Event,
-        timeout_seconds: float = DEFAULT_SERVICE_START_TIMEOUT,
-    ) -> None:
-        """Wait for all required services to be started in Kubernetes."""
-        self.logger.debug(
-            "Waiting for all required services to be started in Kubernetes"
-        )
-        # TODO: Implement Kubernetes
-        raise NotImplementedError(
-            "KubernetesServiceManager.wait_for_all_services_start not implemented"
         )

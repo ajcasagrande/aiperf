@@ -14,7 +14,6 @@ from aiperf.common.enums import (
     CommandResponseStatus,
     CommandType,
     MessageType,
-    ServiceRegistrationStatus,
     ServiceType,
 )
 from aiperf.common.factories import ServiceFactory, ServiceManagerFactory
@@ -23,30 +22,24 @@ from aiperf.common.logging import get_global_log_queue
 from aiperf.common.messages import (
     CommandResponse,
     CreditsCompleteMessage,
-    HeartbeatMessage,
     NotificationMessage,
     ProcessRecordsResultMessage,
     ShutdownWorkersCommand,
     SpawnWorkersCommand,
-    StatusMessage,
 )
 from aiperf.common.messages.command_messages import (
     CommandErrorResponse,
     ProfileCancelCommand,
     ProfileConfigureCommand,
     ProfileStartCommand,
-    RegisterServiceCommand,
     ShutdownCommand,
 )
-from aiperf.common.models import ServiceRunInfo
-from aiperf.common.protocols import ServiceManagerProtocol
 from aiperf.common.types import ServiceTypeT
 from aiperf.data_exporter.exporter_manager import ExporterManager
 from aiperf.services.base_service import BaseService
+from aiperf.services.system_controller.base_service_manager import BaseServiceManager
 from aiperf.services.system_controller.proxy_manager import ProxyManager
-from aiperf.services.system_controller.system_mixins import (
-    SignalHandlerMixin,
-)
+from aiperf.services.system_controller.system_mixins import SignalHandlerMixin
 
 
 @ServiceFactory.register(ServiceType.SYSTEM_CONTROLLER)
@@ -78,16 +71,16 @@ class SystemController(SignalHandlerMixin, BaseService):
             ServiceType.RECORDS_MANAGER: 1,
             ServiceType.INFERENCE_RESULT_PARSER: service_config.result_parser_service_count,
         }
-
         self.proxy_manager: ProxyManager = ProxyManager(
             service_config=self.service_config
         )
-        self.service_manager: ServiceManagerProtocol = (
+        self.service_manager: BaseServiceManager = (
             ServiceManagerFactory.create_instance(
                 self.service_config.service_run_type.value,
                 required_services=self.required_services,
                 user_config=self.user_config,
                 service_config=self.service_config,
+                service_id=self.service_id,
                 log_queue=get_global_log_queue(),
             )
         )
@@ -123,9 +116,11 @@ class SystemController(SignalHandlerMixin, BaseService):
         self.debug("System Controller is bootstrapping services")
         # Start all required services
         await self.service_manager.start()
-        await self.service_manager.wait_for_all_services_registration(
-            stop_event=self._stop_requested_event,
-        )
+        success = await self.service_manager.wait_for_all_services_registered()
+        if not success:
+            self.error("Failed to wait for all required services to be registered")
+            await self._kill()
+            return
 
         self.info("AIPerf System is CONFIGURING")
         await self._profile_configure_all_services()
@@ -147,11 +142,11 @@ class SystemController(SignalHandlerMixin, BaseService):
                     ProfileConfigureCommand(
                         service_id=self.service_id,
                         config=self.user_config,
-                        target_service_id=service_id,
+                        target_service_id=service_info.service_id,
                     ),
                     timeout=DEFAULT_PROFILE_CONFIGURE_TIMEOUT,
                 )
-                for service_id in self.service_manager.service_id_map
+                for service_info in self.service_manager
             ]
         )
         duration = time.perf_counter() - begin
@@ -165,75 +160,14 @@ class SystemController(SignalHandlerMixin, BaseService):
                 self.send_command_and_wait_for_response(
                     ProfileStartCommand(
                         service_id=self.service_id,
-                        target_service_id=service_id,
+                        target_service_id=service_info.service_id,
                     ),
                     timeout=DEFAULT_PROFILE_START_TIMEOUT,
                 )
-                for service_id in self.service_manager.service_id_map
+                for service_info in self.service_manager
             ]
         )
         self.info("All services started profiling successfully")
-
-    @on_command(CommandType.REGISTER_SERVICE)
-    async def _handle_register_service_command(
-        self, message: RegisterServiceCommand
-    ) -> None:
-        """Process a registration message from a service. It will
-        add the service to the service manager and send a configure command
-        to the service.
-
-        Args:
-            message: The registration message to process
-        """
-
-        self.debug(
-            lambda: f"Processing registration from {message.service_type} with ID: {message.service_id}"
-        )
-
-        service_info = ServiceRunInfo(
-            registration_status=ServiceRegistrationStatus.REGISTERED,
-            service_type=message.service_type,
-            service_id=message.service_id,
-            first_seen=time.time_ns(),
-            state=message.state,
-            last_seen=time.time_ns(),
-        )
-
-        self.service_manager.service_id_map[message.service_id] = service_info
-        if message.service_type not in self.service_manager.service_map:
-            self.service_manager.service_map[message.service_type] = []
-        self.service_manager.service_map[message.service_type].append(service_info)
-
-        try:
-            type_name = ServiceType(message.service_type).name.title().replace("_", " ")
-        except (TypeError, ValueError):
-            type_name = message.service_type
-        self.info(lambda: f"Registered {type_name} (id: '{message.service_id}')")
-
-    @on_message(MessageType.HEARTBEAT)
-    async def _process_heartbeat_message(self, message: HeartbeatMessage) -> None:
-        """Process a heartbeat message from a service. It will
-        update the last seen timestamp and state of the service.
-
-        Args:
-            message: The heartbeat message to process
-        """
-        service_id = message.service_id
-        service_type = message.service_type
-        timestamp = message.request_ns
-
-        self.debug(lambda: f"Received heartbeat from {service_type} (ID: {service_id})")
-
-        # Update the last heartbeat timestamp if the component exists
-        try:
-            service_info = self.service_manager.service_id_map[service_id]
-            service_info.last_seen = timestamp
-            service_info.state = message.state
-            self.debug(f"Updated heartbeat for {service_id} to {timestamp}")
-        except Exception:
-            self.warning(
-                f"Received heartbeat from unknown service: {service_id} ({service_type})"
-            )
 
     @on_message(MessageType.CREDITS_COMPLETE)
     async def _process_credits_complete_message(
@@ -247,37 +181,6 @@ class SystemController(SignalHandlerMixin, BaseService):
         """
         service_id = message.service_id
         self.info(f"Received credits complete from {service_id}")
-
-    @on_message(MessageType.STATUS)
-    async def _process_status_message(self, message: StatusMessage) -> None:
-        """Process a status message from a service. It will
-        update the state of the service with the service manager.
-
-        Args:
-            message: The status message to process
-        """
-        service_id = message.service_id
-        service_type = message.service_type
-        state = message.state
-
-        self.debug(
-            lambda: f"Received status update from {service_type} (ID: {service_id}): {state}"
-        )
-
-        # Update the component state if the component exists
-        if service_id not in self.service_manager.service_id_map:
-            self.debug(
-                lambda: f"Received status update from un-registered service: {service_id} ({service_type})"
-            )
-            return
-
-        service_info = self.service_manager.service_id_map.get(service_id)
-        if service_info is None:
-            return
-
-        service_info.state = message.state
-
-        self.debug(f"Updated state for {service_id} to {message.state}")
 
     @on_message(MessageType.NOTIFICATION)
     async def _process_notification_message(self, message: NotificationMessage) -> None:

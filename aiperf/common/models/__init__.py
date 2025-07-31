@@ -48,7 +48,7 @@ from aiperf.common.models.record_models import (
 )
 from aiperf.common.models.service_models import (
     ServiceInfo,
-    ServiceRunInfo,
+    ServiceRegistrationInfo,
 )
 from aiperf.common.models.worker_models import (
     WorkerPhaseTaskStats,
@@ -78,7 +78,7 @@ __all__ = [
     "SSEField",
     "SSEMessage",
     "ServiceInfo",
-    "ServiceRunInfo",
+    "ServiceRegistrationInfo",
     "Text",
     "TextResponse",
     "Turn",

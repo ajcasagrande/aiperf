@@ -5,20 +5,12 @@ from abc import ABC, abstractmethod
 
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
-from aiperf.common.constants import (
-    DEFAULT_SERVICE_REGISTRATION_TIMEOUT,
-    DEFAULT_SERVICE_START_TIMEOUT,
-)
-from aiperf.common.decorators import implements_protocol
 from aiperf.common.hooks import on_start, on_stop
-from aiperf.common.mixins.aiperf_lifecycle_mixin import AIPerfLifecycleMixin
-from aiperf.common.models import ServiceRunInfo
-from aiperf.common.protocols import ServiceManagerProtocol
 from aiperf.common.types import ServiceTypeT
+from aiperf.services.system_controller.service_registry import ServiceRegistryMixin
 
 
-@implements_protocol(ServiceManagerProtocol)
-class BaseServiceManager(AIPerfLifecycleMixin, ABC):
+class BaseServiceManager(ServiceRegistryMixin, ABC):
     """
     Base class for service managers. It provides a common interface for managing services.
     """
@@ -28,22 +20,16 @@ class BaseServiceManager(AIPerfLifecycleMixin, ABC):
         required_services: dict[ServiceTypeT, int],
         service_config: ServiceConfig,
         user_config: UserConfig,
+        service_id: str,
         **kwargs,
     ):
         super().__init__(
+            service_id=service_id,
             service_config=service_config,
             user_config=user_config,
             **kwargs,
         )
-        self.required_services = required_services
-        self.service_config = service_config
-        self.user_config = user_config
-        self.kwargs = kwargs
-        # Maps to track service information
-        self.service_map: dict[ServiceTypeT, list[ServiceRunInfo]] = {}
-
-        # Create service ID map for component lookups
-        self.service_id_map: dict[str, ServiceRunInfo] = {}
+        self.set_required_services(required_services)
 
     @on_start
     async def _start_service_manager(self) -> None:
@@ -88,7 +74,7 @@ class BaseServiceManager(AIPerfLifecycleMixin, ABC):
         return output
 
     async def run_required_services(self) -> None:
-        await self.run_services(self.required_services)
+        await self.run_services(self._required_services)
 
     @abstractmethod
     async def run_service(
@@ -102,20 +88,4 @@ class BaseServiceManager(AIPerfLifecycleMixin, ABC):
 
     @abstractmethod
     async def kill_all_services(self) -> list[BaseException | None]:
-        pass
-
-    @abstractmethod
-    async def wait_for_all_services_registration(
-        self,
-        stop_event: asyncio.Event,
-        timeout_seconds: float = DEFAULT_SERVICE_REGISTRATION_TIMEOUT,
-    ) -> None:
-        pass
-
-    @abstractmethod
-    async def wait_for_all_services_start(
-        self,
-        stop_event: asyncio.Event,
-        timeout_seconds: float = DEFAULT_SERVICE_START_TIMEOUT,
-    ) -> None:
         pass

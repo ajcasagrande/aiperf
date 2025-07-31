@@ -51,7 +51,6 @@ if TYPE_CHECKING:
         PostProcessorProtocol,
         RequestConverterProtocol,  # noqa: F401
         ResponseExtractorProtocol,
-        ServiceManagerProtocol,
         ServiceProtocol,  # noqa: F401
         StreamingPostProcessorProtocol,
     )
@@ -59,6 +58,9 @@ if TYPE_CHECKING:
     from aiperf.services.dataset.composer.base import BaseDatasetComposer
     from aiperf.services.dataset.loader.protocol import (
         CustomDatasetLoaderProtocol,
+    )
+    from aiperf.services.system_controller.base_service_manager import (
+        BaseServiceManager,
     )
 
 
@@ -503,8 +505,8 @@ class ServiceFactory(AIPerfFactory[ServiceType, "ServiceProtocol"]):
         return decorator
 
 
-class ServiceManagerFactory(AIPerfFactory[ServiceRunType, "ServiceManagerProtocol"]):
-    """Factory for registering and creating ServiceManagerProtocol instances based on the specified service run type.
+class ServiceManagerFactory(AIPerfFactory[ServiceRunType, "BaseServiceManager"]):
+    """Factory for registering and creating BaseServiceManager instances based on the specified service run type.
     see: :class:`aiperf.common.factories.AIPerfFactory` for more details.
     """
 
@@ -515,13 +517,15 @@ class ServiceManagerFactory(AIPerfFactory[ServiceRunType, "ServiceManagerProtoco
         required_services: dict[ServiceTypeT, int],
         service_config: "ServiceConfig",
         user_config: "UserConfig",
+        service_id: str,
         **kwargs,
-    ) -> "ServiceManagerProtocol":
+    ) -> "BaseServiceManager":
         return super().create_instance(
             class_type,
             required_services=required_services,
             service_config=service_config,
             user_config=user_config,
+            service_id=service_id,
             **kwargs,
         )
 

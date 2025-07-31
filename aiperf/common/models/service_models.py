@@ -19,8 +19,8 @@ class ServiceInfo(AIPerfBaseModel):
     state: LifecycleState = Field(..., description="The current state of the service")
 
 
-class ServiceRunInfo(ServiceInfo):
-    """Base model for tracking service run information."""
+class ServiceRegistrationInfo(ServiceInfo):
+    """Base model for tracking service registration information."""
 
     registration_status: ServiceRegistrationStatus = Field(
         ...,

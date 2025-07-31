@@ -82,6 +82,7 @@ from aiperf.services.system_controller import (
     MultiProcessServiceManager,
     ProxyManager,
     ServiceKubernetesRunInfo,
+    ServiceRegistryMixin,
     SignalHandlerMixin,
     SystemController,
 )
@@ -168,6 +169,7 @@ __all__ = [
     "RequestThroughputMetric",
     "SUPPORTED_BIT_DEPTHS",
     "ServiceKubernetesRunInfo",
+    "ServiceRegistryMixin",
     "SignalHandlerMixin",
     "SingleTurn",
     "SingleTurnDatasetLoader",
