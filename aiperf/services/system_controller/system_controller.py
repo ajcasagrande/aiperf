@@ -197,7 +197,7 @@ class SystemController(SignalHandlerMixin, BaseService):
         self.service_manager.service_map[message.service_type].append(service_info)
 
         self.info(
-            lambda: f"Registered service: {message.service_type=} with ID: {message.service_id=}"
+            lambda: f"Registered '{message.service_type}' service (id: '{message.service_id}')"
         )
 
     @on_message(MessageType.HEARTBEAT)
