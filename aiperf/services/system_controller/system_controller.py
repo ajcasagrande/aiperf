@@ -155,9 +155,7 @@ class SystemController(SignalHandlerMixin, BaseService):
             ]
         )
         duration = time.perf_counter() - begin
-        self.info(
-            f"All services configured to start profiling in {duration:.2f} seconds"
-        )
+        self.info(f"All services configured in {duration:.2f} seconds")
 
     async def _start_profiling_all_services(self) -> None:
         """Tell all services to start profiling."""
