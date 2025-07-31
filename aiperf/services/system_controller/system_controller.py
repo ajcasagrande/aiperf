@@ -168,7 +168,6 @@ class SystemController(SignalHandlerMixin, BaseService):
     async def _start_profiling_all_services(self) -> None:
         """Tell all services to start profiling."""
         self.debug("Sending PROFILE_START command to all services")
-        begin = time.perf_counter()
         await asyncio.gather(
             *[
                 self.send_command_and_wait_for_response(
@@ -181,8 +180,7 @@ class SystemController(SignalHandlerMixin, BaseService):
                 for service_id in self.service_manager.service_id_map
             ]
         )
-        duration = time.perf_counter() - begin
-        self.info(f"All services started profiling in {duration:.2f} seconds")
+        self.info("All services started profiling successfully")
 
     @on_command(CommandType.REGISTER_SERVICE)
     async def _handle_register_service_command(
@@ -214,9 +212,11 @@ class SystemController(SignalHandlerMixin, BaseService):
             self.service_manager.service_map[message.service_type] = []
         self.service_manager.service_map[message.service_type].append(service_info)
 
-        self.info(
-            lambda: f"Registered '{message.service_type}' service (id: '{message.service_id}')"
-        )
+        try:
+            type_name = ServiceType(message.service_type).name.title().replace("_", " ")
+        except (TypeError, ValueError):
+            type_name = message.service_type
+        self.info(lambda: f"Registered {type_name} (id: '{message.service_id}')")
 
     @on_message(MessageType.HEARTBEAT)
     async def _process_heartbeat_message(self, message: HeartbeatMessage) -> None:

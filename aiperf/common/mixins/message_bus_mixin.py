@@ -7,7 +7,10 @@ from collections.abc import Callable, Coroutine
 from typing import Any
 
 from aiperf.common.config import ServiceConfig
-from aiperf.common.constants import DEFAULT_CONNECTION_PROBE_TIMEOUT
+from aiperf.common.constants import (
+    DEFAULT_CONNECTION_PROBE_INTERVAL,
+    DEFAULT_CONNECTION_PROBE_TIMEOUT,
+)
 from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import CommAddress
 from aiperf.common.enums.message_enums import MessageType
@@ -87,7 +90,7 @@ class MessageBusClientMixin(CommunicationMixin, ABC):
                 try:
                     await asyncio.wait_for(
                         self._probe_and_wait_for_response(),
-                        timeout=DEFAULT_CONNECTION_PROBE_TIMEOUT,
+                        timeout=DEFAULT_CONNECTION_PROBE_INTERVAL,
                     )
                     break
                 except asyncio.TimeoutError:

@@ -128,9 +128,9 @@ class BaseZMQProxy(AIPerfLifecycleMixin, ABC):
         if self.capture_address:
             self.debug(lambda: f"Proxy Capture - Address: {self.capture_address}")
             self.capture_client = ProxySocketClient(
-                socket_type=SocketType.XPUB,
+                socket_type=SocketType.PUB,
                 address=self.capture_address,
-                socket_ops={**(self.socket_ops or {}), zmq.XPUB_VERBOSE: 1},
+                socket_ops=self.socket_ops,
                 end_type=ProxyEndType.Capture,
                 proxy_uuid=self.proxy_uuid,
             )
