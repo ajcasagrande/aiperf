@@ -8,6 +8,7 @@ from typing import Any
 import zmq.asyncio
 
 from aiperf.common.comms.zmq.zmq_base_client import BaseZMQClient
+from aiperf.common.comms.zmq.zmq_defaults import TOPIC_DELIMITER, TOPIC_END_ENCODED
 from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import CommClientType, MessageType
 from aiperf.common.exceptions import CommunicationError
@@ -17,9 +18,6 @@ from aiperf.common.messages import CommandMessage, CommandResponse, Message
 from aiperf.common.protocols import SubClientProtocol
 from aiperf.common.types import MessageTypeT
 from aiperf.common.utils import call_all_functions, yield_to_event_loop
-
-TOPIC_END = b"$"
-TOPIC_DELIMITER = "."
 
 
 @implements_protocol(SubClientProtocol)
@@ -125,7 +123,9 @@ class ZMQSubClient(BaseZMQClient):
             # Only subscribe to topic if this is the first callback for this type
             if topic not in self._subscribers:
                 self.debug(lambda: f"Subscribed to topic: {topic}")
-                self.socket.setsockopt(zmq.SUBSCRIBE, topic.encode() + TOPIC_END)
+                self.socket.setsockopt(
+                    zmq.SUBSCRIBE, topic.encode() + TOPIC_END_ENCODED
+                )
             else:
                 self.debug(
                     lambda: f"Adding callback to existing subscription for topic: {topic}"
@@ -143,7 +143,7 @@ class ZMQSubClient(BaseZMQClient):
         """Handle a message from a subscribed message_type."""
 
         # strip the final TOPIC_END chars from the topic
-        topic = topic_bytes.decode()[: -len(TOPIC_END)]
+        topic = topic_bytes.decode()[: -len(TOPIC_END_ENCODED)]
         message_json = message_bytes.decode()
         self.trace(
             lambda: f"Received message from topic: '{topic}', message: {message_json}"
