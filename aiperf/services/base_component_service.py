@@ -26,6 +26,9 @@ from aiperf.common.models.error_models import ErrorDetails
 from aiperf.common.protocols import ServiceProtocol
 from aiperf.services.base_service import BaseService
 
+DEFAULT_MAX_REGISTRATION_ATTEMPTS = 10
+DEFAULT_REGISTRATION_INTERVAL = 1.0
+
 
 @implements_protocol(ServiceProtocol)
 class BaseComponentService(BaseService):
@@ -67,8 +70,8 @@ class BaseComponentService(BaseService):
         )
 
     @on_start
-    async def _on_service_start(self) -> None:
-        """Action to take when the service starts."""
+    async def _register_service_on_start(self) -> None:
+        """Register the service with the system controller on startup."""
         await self._register_service()
 
     async def _register_service(self) -> None:
@@ -84,13 +87,14 @@ class BaseComponentService(BaseService):
             command_id=str(uuid.uuid4()),
             service_id=self.service_id,
             service_type=self.service_type,
+            # Target the system controller directly to avoid broadcasting to all services.
             target_service_type=ServiceType.SYSTEM_CONTROLLER,
             state=self.state,
         )
-        for _ in range(10):
+        for _ in range(DEFAULT_MAX_REGISTRATION_ATTEMPTS):
             result = await self.send_command_and_wait_for_response(
                 command_message,
-                timeout=1,
+                timeout=DEFAULT_REGISTRATION_INTERVAL,
             )
             if isinstance(result, CommandResponse):
                 self.debug(

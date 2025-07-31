@@ -97,6 +97,7 @@ class SystemController(SignalHandlerMixin, BaseService):
         """
         self.debug("Running ZMQ Proxy Manager Before Initialize")
         await self.proxy_manager.initialize_and_start()
+        # TODO: HACK: Wait for 1 second to ensure the proxies are running
         await asyncio.sleep(1)
         # Once the proxies are running, call the original initialize method
         await super().initialize()
