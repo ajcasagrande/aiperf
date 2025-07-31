@@ -6,6 +6,7 @@ import time
 from typing import cast
 
 from aiperf.common.config import ServiceConfig, UserConfig
+from aiperf.common.constants import DEFAULT_PROFILE_CONFIGURE_TIMEOUT
 from aiperf.common.enums import (
     CommandResponseStatus,
     CommandType,
@@ -130,23 +131,36 @@ class SystemController(SignalHandlerMixin, BaseService):
             stop_event=self._stop_requested_event,
         )
 
-        # TODO: HACK: Wait for 1 second to ensure registrations made. This needs to be
-        # removed once we have the ability to track registrations of services and their state before
-        # starting the profiling.
-        await asyncio.sleep(1)
-
-        self.info("AIPerf System is READY")
-
+        self.info("AIPerf System is CONFIGURING")
+        await self._configure_profiling_all_services()
+        self.info("AIPerf System is CONFIGURED")
         await self._start_profiling_all_services()
+        self.info("AIPerf System is PROFILING")
 
-        self.debug("All required services started successfully")
-        self.info("AIPerf System is RUNNING")
+    async def _configure_profiling_all_services(self) -> None:
+        """Configure all services to start profiling."""
+        self.info("Configuring all services to start profiling")
+        begin = time.perf_counter()
+        await asyncio.gather(
+            *[
+                self.send_command_and_wait_for_response(
+                    ProfileConfigureCommand(
+                        service_id=self.service_id,
+                        config=self.user_config,
+                        target_service_id=service_id,
+                    ),
+                    timeout=DEFAULT_PROFILE_CONFIGURE_TIMEOUT,
+                )
+                for service_id in self.service_manager.service_id_map
+            ]
+        )
+        duration = time.perf_counter() - begin
+        self.info(
+            f"All services configured to start profiling in {duration:.2f} seconds"
+        )
 
     async def _start_profiling_all_services(self) -> None:
         """Tell all services to start profiling."""
-        # TODO: HACK: Wait for 1 second to ensure services are ready
-        await asyncio.sleep(1)
-
         self.debug("Sending START_PROFILING command to all services")
         await self.publish(
             ProfileStartCommand(service_id=self.service_id),
@@ -184,18 +198,6 @@ class SystemController(SignalHandlerMixin, BaseService):
 
         self.info(
             lambda: f"Registered service: {message.service_type=} with ID: {message.service_id=}"
-        )
-
-        self.info(
-            lambda: f"Sending configure command to {message.service_type} (ID: {message.service_id})"
-        )
-        # Send configure command to the newly registered service
-        await self.publish(
-            ProfileConfigureCommand(
-                service_id=self.service_id,
-                config=self.user_config,
-                target_service_id=message.service_id,
-            ),
         )
 
     @on_message(MessageType.HEARTBEAT)

@@ -180,7 +180,7 @@ class ZMQSubClient(BaseZMQClient):
         """
         while not self.stop_requested:
             try:
-                self.debug("Socket waiting for message")
+                # self.debug("Socket waiting for message")
                 (
                     topic_bytes,
                     message_bytes,
@@ -189,8 +189,8 @@ class ZMQSubClient(BaseZMQClient):
                     lambda topic=topic_bytes,
                     message=message_bytes: f"Socket received message: {topic} {message}"
                 )
-                await self._handle_message(topic_bytes, message_bytes)
-                await yield_to_event_loop()
+                self.execute_async(self._handle_message(topic_bytes, message_bytes))
+                # await yield_to_event_loop()
 
             except zmq.Again:
                 self.debug(f"Sub client {self.client_id} receiver task timed out")

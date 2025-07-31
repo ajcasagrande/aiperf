@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
 import random
+import time
 
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.decorators import implements_protocol
@@ -62,14 +63,16 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
     ) -> None:
         """Configure the dataset."""
         self.info(lambda: f"Configuring dataset for {self.service_id}")
-        self.dataset_configured.clear()
+        begin = time.perf_counter()
         await self._configure_dataset()
-        self.info(lambda: f"Dataset configured for {self.service_id}")
+        duration = time.perf_counter() - begin
+        self.info(lambda: f"Dataset configured in {duration:.2f} seconds")
 
     async def _configure_dataset(self) -> None:
         if self.user_config is None:
             raise self._service_error("User config is required for dataset manager")
 
+        self.dataset_configured.clear()
         if self.user_config.input.file:
             composer_type = ComposerType.CUSTOM
             self.debug(
