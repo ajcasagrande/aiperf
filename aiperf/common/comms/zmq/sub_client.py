@@ -8,7 +8,11 @@ from typing import Any
 import zmq.asyncio
 
 from aiperf.common.comms.zmq.zmq_base_client import BaseZMQClient
-from aiperf.common.comms.zmq.zmq_defaults import TOPIC_DELIMITER, TOPIC_END_ENCODED
+from aiperf.common.comms.zmq.zmq_defaults import (
+    TOPIC_DELIMITER,
+    TOPIC_END,
+    TOPIC_END_ENCODED,
+)
 from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import CommClientType, MessageType
 from aiperf.common.exceptions import CommunicationError
@@ -143,7 +147,7 @@ class ZMQSubClient(BaseZMQClient):
         """Handle a message from a subscribed message_type."""
 
         # strip the final TOPIC_END chars from the topic
-        topic = topic_bytes.decode()[: -len(TOPIC_END_ENCODED)]
+        topic = topic_bytes.decode()[: -len(TOPIC_END)]
         message_json = message_bytes.decode()
         self.trace(
             lambda: f"Received message from topic: '{topic}', message: {message_json}"
@@ -180,17 +184,12 @@ class ZMQSubClient(BaseZMQClient):
         """
         while not self.stop_requested:
             try:
-                # self.debug("Socket waiting for message")
-                (
-                    topic_bytes,
-                    message_bytes,
-                ) = await self.socket.recv_multipart()
+                topic_bytes, message_bytes = await self.socket.recv_multipart()
                 self.trace(
                     lambda topic=topic_bytes,
                     message=message_bytes: f"Socket received message: {topic} {message}"
                 )
                 self.execute_async(self._handle_message(topic_bytes, message_bytes))
-                # await yield_to_event_loop()
 
             except zmq.Again:
                 self.debug(f"Sub client {self.client_id} receiver task timed out")

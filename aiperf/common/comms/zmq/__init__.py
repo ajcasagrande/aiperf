@@ -46,7 +46,6 @@ from aiperf.common.comms.zmq.zmq_proxy_base import (
     BaseZMQProxy,
     ProxyEndType,
     ProxySocketClient,
-    SubscriptionAction,
 )
 from aiperf.common.comms.zmq.zmq_proxy_sockets import (
     ZMQDealerRouterProxy,
@@ -64,7 +63,6 @@ __all__ = [
     "ProxyEndType",
     "ProxySocketClient",
     "RETRY_DELAY_INTERVAL_SEC",
-    "SubscriptionAction",
     "TOPIC_DELIMITER",
     "TOPIC_END",
     "TOPIC_END_ENCODED",
