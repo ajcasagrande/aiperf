@@ -91,16 +91,8 @@ def setup_child_process_logging(
         root_logger.addHandler(queue_handler)
 
     if service_config:
-        # Custom RichHandler that shows logger name
-        class NamedRichHandler(RichHandler):
-            def format(self, record):
-                # Add logger name to the message
-                if record.name != "root":
-                    record.msg = f"[{record.name}] {record.msg}"
-                return super().format(record)
-
         # Set up rich logging to the console
-        rich_handler = NamedRichHandler(
+        rich_handler = RichHandler(
             rich_tracebacks=True,
             show_path=True,
             console=Console(),

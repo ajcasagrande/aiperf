@@ -23,7 +23,6 @@ from aiperf.common.hooks import on_init
 def create_proxy_socket_class(
     socket_type: SocketType,
     end_type: ProxyEndType,
-    default_socket_ops: dict | None = None,
 ) -> type[BaseZMQClient]:
     """Create a proxy socket class using the specified socket type. This is used to
     reduce the boilerplate code required to create a ZMQ Proxy class.
@@ -46,7 +45,7 @@ def create_proxy_socket_class(
                 socket_type,
                 address,
                 end_type=end_type,
-                socket_ops={**(socket_ops or {}), **(default_socket_ops or {})},
+                socket_ops=socket_ops,
                 proxy_uuid=proxy_uuid,
             )
 

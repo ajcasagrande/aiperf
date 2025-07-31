@@ -53,5 +53,4 @@ class CommAddress(CaseInsensitiveStrEnum):
 class ZMQProxyType(CaseInsensitiveStrEnum):
     DEALER_ROUTER = "dealer_router"
     XPUB_XSUB = "xpub_xsub"
-    XPUB_XSUB_VERBOSE = "xpub_xsub_verbose"
     PUSH_PULL = "push_pull"

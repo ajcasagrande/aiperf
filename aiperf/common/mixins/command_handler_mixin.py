@@ -25,7 +25,7 @@ from aiperf.common.mixins.message_bus_mixin import MessageBusClientMixin
 from aiperf.common.models import ErrorDetails
 
 
-@provides_hooks(AIPerfHook.ON_COMMAND, AIPerfHook.ON_COMMAND_RESPONSE)
+@provides_hooks(AIPerfHook.ON_COMMAND)
 class CommandHandlerMixin(MessageBusClientMixin, ABC):
     """Mixin to provide command handling functionality to a service.
 
@@ -52,6 +52,7 @@ class CommandHandlerMixin(MessageBusClientMixin, ABC):
             **kwargs,
         )
 
+    # NOTE: Keep in mind that subscriptions in ZMQ are prefix based wildcards, so the unique portion has to come first.
     @on_message(
         lambda self: {
             MessageType.COMMAND,
@@ -99,6 +100,7 @@ class CommandHandlerMixin(MessageBusClientMixin, ABC):
             CommandUnhandledResponse.from_command_message(message, self.service_id)
         )
 
+    # NOTE: Keep in mind that subscriptions in ZMQ are prefix based wildcards, so the unique portion has to come first.
     @on_message(
         lambda self: {
             f"{self.service_id}.{MessageType.COMMAND_RESPONSE}",
@@ -108,11 +110,7 @@ class CommandHandlerMixin(MessageBusClientMixin, ABC):
         self.debug(lambda: f"Received command response message: {message}")
         if message.command_id in self._response_futures:
             self._response_futures[message.command_id].set_result(message)
-            # If the above succeeded, that means the command was handled successfully
-            # by a specific watcher, so we should not run the generic hooks.
             return
-
-        await self.run_hooks(AIPerfHook.ON_COMMAND_RESPONSE, message=message)
 
     async def send_command_and_wait_for_response(
         self, message: CommandMessage, timeout: float = DEFAULT_COMMAND_RESPONSE_TIMEOUT

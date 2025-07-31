@@ -4,7 +4,6 @@ import asyncio
 import uuid
 
 import zmq.asyncio
-from zmq import SocketType
 
 from aiperf.common.comms.zmq.zmq_defaults import ZMQSocketDefaults
 from aiperf.common.exceptions import InitializationError, NotInitializedError
@@ -104,9 +103,6 @@ class BaseZMQClient(AIPerfLifecycleMixin):
             )
             self.socket.setsockopt(zmq.IMMEDIATE, ZMQSocketDefaults.IMMEDIATE)
             self.socket.setsockopt(zmq.LINGER, ZMQSocketDefaults.LINGER)
-
-            if self.socket_type == SocketType.XPUB:
-                self.socket.setsockopt(zmq.XPUB_VERBOSE, 1)
 
             # Set additional socket options requested by the caller
             for key, val in self.socket_ops.items():

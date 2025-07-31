@@ -101,8 +101,7 @@ class ZMQPubClient(BaseZMQClient):
         # For targeted messages such as commands, we can set the topic to a specific service by id or type
         # Note that target_service_id always takes precedence over target_service_type
 
-        # NOTE: Keep in mind that subscriptions in ZMQ as prefix based wildcards, so the unique portion has
-        #       to come first.
+        # NOTE: Keep in mind that subscriptions in ZMQ are prefix based wildcards, so the unique portion has to come first.
         if isinstance(message, TargetedServiceMessage):
             if message.target_service_id:
                 return f"{message.target_service_id}{TOPIC_DELIMITER}{message.message_type}{TOPIC_END}"
