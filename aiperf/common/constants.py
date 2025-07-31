@@ -39,3 +39,6 @@ DEFAULT_CONNECTION_PROBE_TIMEOUT = 10.0
 
 DEFAULT_PROFILE_CONFIGURE_TIMEOUT = 60.0
 """Default timeout for profile configure command in seconds."""
+
+DEFAULT_PROFILE_START_TIMEOUT = 5.0
+"""Default timeout for profile start command in seconds."""

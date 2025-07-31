@@ -92,6 +92,7 @@ class WorkerManager(BaseComponentService):
             SpawnWorkersCommand(
                 service_id=self.service_id,
                 num_workers=self.initial_workers,
+                # Target the system controller directly to avoid broadcasting to all services.
                 target_service_type=ServiceType.SYSTEM_CONTROLLER,
             )
         )
@@ -105,6 +106,7 @@ class WorkerManager(BaseComponentService):
             ShutdownWorkersCommand(
                 service_id=self.service_id,
                 all_workers=True,
+                # Target the system controller directly to avoid broadcasting to all services.
                 target_service_type=ServiceType.SYSTEM_CONTROLLER,
             )
         )

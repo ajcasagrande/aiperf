@@ -6,7 +6,10 @@ import time
 from typing import cast
 
 from aiperf.common.config import ServiceConfig, UserConfig
-from aiperf.common.constants import DEFAULT_PROFILE_CONFIGURE_TIMEOUT
+from aiperf.common.constants import (
+    DEFAULT_PROFILE_CONFIGURE_TIMEOUT,
+    DEFAULT_PROFILE_START_TIMEOUT,
+)
 from aiperf.common.enums import (
     CommandResponseStatus,
     CommandType,
@@ -133,13 +136,17 @@ class SystemController(SignalHandlerMixin, BaseService):
         )
 
         self.info("AIPerf System is CONFIGURING")
-        await self._configure_profiling_all_services()
+        await self._profile_configure_all_services()
         self.info("AIPerf System is CONFIGURED")
         await self._start_profiling_all_services()
         self.info("AIPerf System is PROFILING")
 
-    async def _configure_profiling_all_services(self) -> None:
-        """Configure all services to start profiling."""
+    async def _profile_configure_all_services(self) -> None:
+        """Configure all services to start profiling.
+
+        This is a blocking call that will wait for all services to be configured before returning. This way
+        we can ensure that all services are configured before we start profiling.
+        """
         self.info("Configuring all services to start profiling")
         begin = time.perf_counter()
         await asyncio.gather(
@@ -160,10 +167,22 @@ class SystemController(SignalHandlerMixin, BaseService):
 
     async def _start_profiling_all_services(self) -> None:
         """Tell all services to start profiling."""
-        self.debug("Sending START_PROFILING command to all services")
-        await self.publish(
-            ProfileStartCommand(service_id=self.service_id),
+        self.debug("Sending PROFILE_START command to all services")
+        begin = time.perf_counter()
+        await asyncio.gather(
+            *[
+                self.send_command_and_wait_for_response(
+                    ProfileStartCommand(
+                        service_id=self.service_id,
+                        target_service_id=service_id,
+                    ),
+                    timeout=DEFAULT_PROFILE_START_TIMEOUT,
+                )
+                for service_id in self.service_manager.service_id_map
+            ]
         )
+        duration = time.perf_counter() - begin
+        self.info(f"All services started profiling in {duration:.2f} seconds")
 
     @on_command(CommandType.REGISTER_SERVICE)
     async def _handle_register_service_command(
