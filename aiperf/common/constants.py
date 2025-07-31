@@ -31,8 +31,11 @@ DEFAULT_STREAMING_MAX_QUEUE_SIZE = 100_000
 DEFAULT_COMMAND_RESPONSE_TIMEOUT = 10.0
 """Default timeout for command responses in seconds."""
 
-DEFAULT_CONNECTION_PROBE_TIMEOUT = 0.1
-"""Default timeout for connection probe in seconds, before sending another probe."""
+DEFAULT_CONNECTION_PROBE_INTERVAL = 0.1
+"""Default interval for connection probes in seconds until a response is received."""
+
+DEFAULT_CONNECTION_PROBE_TIMEOUT = 10.0
+"""Maximum amount of time to wait for connection probe response."""
 
 DEFAULT_PROFILE_CONFIGURE_TIMEOUT = 60.0
 """Default timeout for profile configure command in seconds."""

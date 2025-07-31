@@ -129,10 +129,10 @@ def setup_rich_logging(user_config: UserConfig, service_config: ServiceConfig) -
 
     rich_handler = RichHandler(
         rich_tracebacks=True,
-        show_path=False,
+        show_path=True,
         console=Console(),
         show_time=True,
-        show_level=False,
+        show_level=True,
         tracebacks_show_locals=False,
         log_time_format="%H:%M:%S.%f",
         omit_repeated_times=False,

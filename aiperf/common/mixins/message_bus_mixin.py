@@ -69,8 +69,8 @@ class MessageBusClientMixin(CommunicationMixin, ABC):
         self.debug(lambda: f"Subscribing to {len(subscription_map)} topics")
         await self.sub_client.subscribe_all(subscription_map)
 
-        # Add the connection probe subscription last, to ensure it is the last to be subscribed to
-        # So we can ensure the other subscriptions have already been subscribed to.
+        # Subscribe to the connection probe last, to ensure the other subscriptions have been
+        # subscribed to before the connection probe is received.
         await self.sub_client.subscribe(
             # NOTE: It is important to use `self.id` here, as not all message bus clients are services
             f"{self.id}.{MessageType.CONNECTION_PROBE}",
@@ -78,21 +78,25 @@ class MessageBusClientMixin(CommunicationMixin, ABC):
         )
 
     @on_start
-    async def _wait_for_connection_probe(self) -> None:
-        """Send a connection probe message and wait for a response."""
+    async def _wait_for_successful_probe(self) -> None:
+        """Send connection probe messages until a successful probe response is received."""
         self.debug(lambda: f"Waiting for connection probe message for {self.id}")
-        while not self.stop_requested:
-            try:
-                await asyncio.wait_for(
-                    self._probe_and_wait_for_response(),
-                    timeout=DEFAULT_CONNECTION_PROBE_TIMEOUT,
-                )
-                break
-            except asyncio.TimeoutError:
-                self.debug(
-                    "Timeout waiting for connection probe message, sending another probe"
-                )
-                await yield_to_event_loop()
+
+        async def _probe_loop() -> None:
+            while not self.stop_requested:
+                try:
+                    await asyncio.wait_for(
+                        self._probe_and_wait_for_response(),
+                        timeout=DEFAULT_CONNECTION_PROBE_TIMEOUT,
+                    )
+                    break
+                except asyncio.TimeoutError:
+                    self.debug(
+                        "Timeout waiting for connection probe message, sending another probe"
+                    )
+                    await yield_to_event_loop()
+
+        await asyncio.wait_for(_probe_loop(), timeout=DEFAULT_CONNECTION_PROBE_TIMEOUT)
 
     async def _process_connection_probe_message(
         self, message: ConnectionProbeMessage
