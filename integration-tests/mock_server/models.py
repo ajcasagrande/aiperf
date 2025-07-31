@@ -3,7 +3,7 @@
 """Pydantic models for OpenAI-compatible chat completions API."""
 
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -30,11 +30,54 @@ class Role(str, Enum):
     ASSISTANT = "assistant"
 
 
+class InputAudio(BaseModel):
+    """An input audio part of a chat message."""
+
+    format: str
+    data: str
+
+
+class File(BaseModel):
+    """A file part of a chat message."""
+
+    file_data: str
+    file_id: str
+    filename: str
+
+
+class TextPart(BaseModel):
+    """A text part of a chat message."""
+
+    type: Literal["text"] = "text"
+    text: str
+
+
+class ImagePart(BaseModel):
+    """An image part of a chat message."""
+
+    type: Literal["image_url"] = "image_url"
+    image_url: str
+
+
+class AudioPart(BaseModel):
+    """An audio part of a chat message."""
+
+    type: Literal["input_audio"] = "input_audio"
+    input_audio: InputAudio
+
+
+class FilePart(BaseModel):
+    """A file part of a chat message."""
+
+    type: Literal["file"] = "file"
+    file: File
+
+
 class ChatMessage(BaseModel):
     """A single chat message."""
 
     role: Role
-    content: str
+    content: str | list[TextPart | ImagePart | AudioPart | FilePart]
 
 
 class ChatCompletionRequest(BaseModel):

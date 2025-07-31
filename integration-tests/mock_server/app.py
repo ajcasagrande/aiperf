@@ -17,6 +17,7 @@ from fastapi.responses import StreamingResponse
 
 from .config import MockServerConfig
 from .models import (
+    AudioPart,
     ChatCompletionChoice,
     ChatCompletionRequest,
     ChatCompletionResponse,
@@ -24,7 +25,10 @@ from .models import (
     ChatCompletionStreamResponse,
     ChatMessage,
     ConfigureMessage,
+    FilePart,
+    ImagePart,
     Role,
+    TextPart,
     Usage,
 )
 from .tokenizer_service import tokenizer_service
@@ -73,10 +77,38 @@ def set_server_config(config: MockServerConfig) -> None:
     os.environ["MOCK_SERVER_ACCESS_LOGS"] = str(config.access_logs)
 
 
+def extract_part(part: TextPart | ImagePart | AudioPart | FilePart) -> str:
+    """Extract the content from a chat message part."""
+    if isinstance(part, TextPart):
+        return part.text
+    elif isinstance(part, ImagePart):
+        return part.image_url
+    elif isinstance(part, AudioPart):
+        return part.input_audio.data
+    elif isinstance(part, FilePart):
+        return part.file.file_data
+    else:
+        raise ValueError(f"Invalid part type: {type(part)}")
+
+
+def extract_content(
+    content: str | list[TextPart | ImagePart | AudioPart | FilePart],
+) -> str:
+    """Extract the content from a chat message."""
+    if isinstance(content, str):
+        return content
+    elif isinstance(content, list):
+        return "\n".join([extract_part(part) for part in content])
+    else:
+        raise ValueError(f"Invalid content type: {type(content)}")
+
+
 def extract_user_prompt(messages: list[ChatMessage]) -> str:
     """Extract the user prompt from chat messages."""
     # Combine all user messages for tokenization
-    user_messages = [msg.content for msg in messages if msg.role == Role.USER]
+    user_messages = [
+        extract_content(msg.content) for msg in messages if msg.role == Role.USER
+    ]
     return "\n".join(user_messages) if user_messages else ""
 
 
