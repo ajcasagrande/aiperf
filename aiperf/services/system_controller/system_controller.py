@@ -100,8 +100,6 @@ class SystemController(SignalHandlerMixin, BaseService):
         """
         self.debug("Running ZMQ Proxy Manager Before Initialize")
         await self.proxy_manager.initialize_and_start()
-        # TODO: HACK: Wait for 1 second to ensure the proxies are running
-        await asyncio.sleep(1)
         # Once the proxies are running, call the original initialize method
         await super().initialize()
 
@@ -124,13 +122,7 @@ class SystemController(SignalHandlerMixin, BaseService):
         """
         self.debug("System Controller is bootstrapping services")
         # Start all required services
-        try:
-            await self.service_manager.start()
-        except Exception as e:
-            raise self._service_error(
-                "Failed to initialize all services",
-            ) from e
-
+        await self.service_manager.start()
         await self.service_manager.wait_for_all_services_registration(
             stop_event=self._stop_requested_event,
         )
