@@ -24,6 +24,7 @@ from aiperf.common.messages import (
 )
 from aiperf.common.mixins.message_bus_mixin import MessageBusClientMixin
 from aiperf.common.models import ErrorDetails
+from aiperf.common.protocols import ServiceProtocol
 
 
 @provides_hooks(AIPerfHook.ON_COMMAND)
@@ -63,6 +64,11 @@ class CommandHandlerMixin(MessageBusClientMixin, ABC):
             user_config=self.user_config,
             **kwargs,
         )
+
+        if not isinstance(self, ServiceProtocol):
+            raise TypeError(
+                "CommandHandlerMixin can only be used with a service that implements the ServiceProtocol."
+            )
 
     @on_message(
         lambda self: {
