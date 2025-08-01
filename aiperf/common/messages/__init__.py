@@ -50,6 +50,7 @@ from aiperf.common.messages.dataset_messages import (
     DatasetTimingResponse,
 )
 from aiperf.common.messages.health_messages import (
+    ProcessHealthMessage,
     WorkerHealthMessage,
 )
 from aiperf.common.messages.inference_messages import (
@@ -107,6 +108,7 @@ __all__ = [
     "Message",
     "NotificationMessage",
     "ParsedInferenceResultsMessage",
+    "ProcessHealthMessage",
     "ProcessRecordsCommand",
     "ProcessRecordsResponse",
     "ProcessRecordsResultMessage",

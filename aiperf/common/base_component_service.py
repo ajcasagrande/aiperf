@@ -19,11 +19,12 @@ from aiperf.common.messages import (
     RegistrationMessage,
     StatusMessage,
 )
+from aiperf.common.mixins import ProcessHealthReportMixin
 from aiperf.common.protocols import ServiceProtocol
 
 
 @implements_protocol(ServiceProtocol)
-class BaseComponentService(BaseService):
+class BaseComponentService(BaseService, ProcessHealthReportMixin):
     """Base class for all Component services.
 
     This class provides a common interface for all Component services in the AIPerf

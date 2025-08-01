@@ -261,3 +261,14 @@ class ServiceConfig(BaseSettings):
         ),
         BeforeValidator(parse_service_types),
     ] = ServiceDefaults.TRACE_SERVICES
+
+    health_check_interval: Annotated[
+        float,
+        Field(
+            description="Interval in seconds to publish the health status of the service.",
+        ),
+        Parameter(
+            name=("--health-check-interval"),
+            group=_CLI_GROUP,
+        ),
+    ] = ServiceDefaults.HEALTH_CHECK_INTERVAL

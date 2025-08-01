@@ -53,3 +53,11 @@ class WorkerHealthMessage(BaseServiceMessage):
         if self.total_tasks == 0:
             return 0
         return self.failed_tasks / self.total_tasks
+
+
+class ProcessHealthMessage(BaseServiceMessage):
+    """Message for reporting the health of a process."""
+
+    message_type: MessageTypeT = MessageType.PROCESS_HEALTH
+
+    process: ProcessHealth = Field(..., description="The health of the service process")

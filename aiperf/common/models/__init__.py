@@ -34,6 +34,14 @@ from aiperf.common.models.health_models import (
     IOCounters,
     ProcessHealth,
 )
+from aiperf.common.models.progress_models import (
+    BenchmarkSuiteProgress,
+    CreditPhaseComputedStats,
+    FullCreditPhaseProgressInfo,
+    ProfileResultsData,
+    ProfileRunProgress,
+    logger,
+)
 from aiperf.common.models.record_models import (
     InferenceServerResponse,
     MetricResult,
@@ -56,13 +64,16 @@ from aiperf.common.models.worker_models import (
 __all__ = [
     "AIPerfBaseModel",
     "Audio",
+    "BenchmarkSuiteProgress",
     "CPUTimes",
     "Conversation",
+    "CreditPhaseComputedStats",
     "CreditPhaseConfig",
     "CreditPhaseStats",
     "CtxSwitches",
     "ErrorDetails",
     "ErrorDetailsCount",
+    "FullCreditPhaseProgressInfo",
     "IOCounters",
     "Image",
     "InferenceServerResponse",
@@ -72,6 +83,8 @@ __all__ = [
     "ProcessHealth",
     "ProcessRecordsResult",
     "ProfileResults",
+    "ProfileResultsData",
+    "ProfileRunProgress",
     "RequestRecord",
     "ResponseData",
     "SSEField",
@@ -82,4 +95,5 @@ __all__ = [
     "Turn",
     "WorkerPhaseTaskStats",
     "exclude_if_none",
+    "logger",
 ]

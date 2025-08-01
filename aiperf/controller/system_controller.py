@@ -15,7 +15,14 @@ from aiperf.common.enums import (
     ServiceType,
 )
 from aiperf.common.factories import ServiceFactory, ServiceManagerFactory
-from aiperf.common.hooks import on_command, on_init, on_message, on_start, on_stop
+from aiperf.common.hooks import (
+    on_command,
+    on_health_update,
+    on_init,
+    on_message,
+    on_start,
+    on_stop,
+)
 from aiperf.common.logging import get_global_log_queue
 from aiperf.common.messages import (
     CommandResponse,
@@ -35,7 +42,8 @@ from aiperf.common.messages.command_messages import (
     ProfileStartCommand,
     ShutdownCommand,
 )
-from aiperf.common.models import ServiceRunInfo
+from aiperf.common.mixins.health_tracker_mixin import HealthTrackerMixin
+from aiperf.common.models import ProcessHealth, ServiceRunInfo
 from aiperf.common.protocols import ServiceManagerProtocol
 from aiperf.common.types import ServiceTypeT
 from aiperf.controller.proxy_manager import ProxyManager
@@ -46,7 +54,7 @@ from aiperf.exporters.exporter_manager import ExporterManager
 
 
 @ServiceFactory.register(ServiceType.SYSTEM_CONTROLLER)
-class SystemController(SignalHandlerMixin, BaseService):
+class SystemController(SignalHandlerMixin, BaseService, HealthTrackerMixin):
     """System Controller service.
 
     This service is responsible for managing the lifecycle of all other services.
@@ -329,6 +337,11 @@ class SystemController(SignalHandlerMixin, BaseService):
         # TODO: HACK: Stop the system controller after exporting the records
         self.debug("Stopping system controller after exporting records")
         await asyncio.shield(self.stop())
+
+    @on_health_update
+    async def _on_health_update(self, service_id: str, health: ProcessHealth) -> None:
+        """Handle a health update message."""
+        self.debug(lambda: f"Received health update message: {service_id} {health}")
 
     async def _handle_signal(self, sig: int) -> None:
         """Handle received signals by triggering graceful shutdown.

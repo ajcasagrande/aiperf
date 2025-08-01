@@ -37,14 +37,3 @@ class WorkersConfig(BaseConfig):
             group=_CLI_GROUP,
         ),
     ] = WorkersDefaults.MAX
-
-    health_check_interval: Annotated[
-        float,
-        Field(
-            description="Interval in seconds to for workers to publish their health status.",
-        ),
-        Parameter(
-            name=("--workers-health-check-interval"),
-            group=_CLI_GROUP,
-        ),
-    ] = WorkersDefaults.HEALTH_CHECK_INTERVAL

@@ -41,6 +41,7 @@ from aiperf.common.types import (
 class AIPerfHook(CaseInsensitiveStrEnum):
     BACKGROUND_TASK = "@background_task"
     ON_COMMAND = "@on_command"
+    ON_HEALTH_UPDATE = "@on_health_update"
     ON_INIT = "@on_init"
     ON_MESSAGE = "@on_message"
     ON_PULL_MESSAGE = "@on_pull_message"
@@ -400,3 +401,23 @@ def on_command(
     ```
     """
     return _hook_decorator_with_params(AIPerfHook.ON_COMMAND, command_types)
+
+
+def on_health_update(func: Callable) -> Callable:
+    """Decorator to specify that the function is a hook that should be called whenever the health tracker is updated.
+    See :func:`aiperf.common.hooks._hook_decorator`.
+
+    Example:
+    ```python
+    class MyPlugin(HealthTrackerMixin):
+        @on_health_update
+        def _on_health_update(self, service_id: str, health: ProcessHealth) -> None:
+            pass
+    ```
+
+    The above is the equivalent to setting:
+    ```python
+    MyPlugin._on_health_update.__aiperf_hook_type__ = AIPerfHook.ON_HEALTH_UPDATE
+    ```
+    """
+    return _hook_decorator(AIPerfHook.ON_HEALTH_UPDATE, func)

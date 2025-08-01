@@ -35,6 +35,7 @@ class MessageType(CaseInsensitiveStrEnum):
     NOTIFICATION = "notification"
     PARSED_INFERENCE_RESULTS = "parsed_inference_results"
     PROCESSING_STATS = "processing_stats"
+    PROCESS_HEALTH = "process_health"
     PROCESS_RECORDS_REQUEST = "process_records_request"
     PROCESS_RECORDS_RESPONSE = "process_records_response"
     PROCESS_RECORDS_RESULT = "process_records_result"
