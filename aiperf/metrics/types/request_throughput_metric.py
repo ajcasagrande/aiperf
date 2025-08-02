@@ -1,34 +1,30 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 from aiperf.common.constants import NANOS_PER_SECOND
-from aiperf.common.enums import LegacyMetricType, MetricTag, MetricTimeUnit
+from aiperf.common.enums import MetricOverTimeUnit, MetricTag
 from aiperf.common.models import ParsedResponseRecord
-from aiperf.common.types import MetricTagT
-from aiperf.metrics.legacy_base_metric import LegacyBaseMetric
+from aiperf.metrics.base_metric import BaseDerivedMetric
+from aiperf.metrics.metric_dicts import MetricResultsDict
 
 
-class RequestThroughputMetric(LegacyBaseMetric):
+class RequestThroughputMetric(BaseDerivedMetric):
     """
     Post Processor for calculating Request throughput metrics from records.
     """
 
     tag = MetricTag.REQUEST_THROUGHPUT
-    unit = MetricTimeUnit.SECONDS
+    unit = MetricOverTimeUnit.REQUESTS_PER_SECOND
     larger_is_better = True
     header = "Request Throughput"
-    type = LegacyMetricType.METRIC_OF_METRICS
-    streaming_only = False
-    required_metrics = {MetricTag.VALID_REQUEST_COUNT, MetricTag.BENCHMARK_DURATION}
+    required_metrics = {
+        MetricTag.VALID_REQUEST_COUNT,
+        MetricTag.BENCHMARK_DURATION,
+    }
 
-    def __init__(self):
-        self.metric: float = 0.0
-
-    def update_value(
+    def _derive_value(
         self,
-        record: ParsedResponseRecord | None = None,
-        metrics: dict[MetricTagT, "LegacyBaseMetric"] | None = None,
+        metric_results: MetricResultsDict,
     ) -> None:
-        self._check_metrics(metrics)
         total_requests = metrics[MetricTag.VALID_REQUEST_COUNT].values()
         benchmark_duration = metrics[MetricTag.BENCHMARK_DURATION].values()
         self.metric = total_requests / (benchmark_duration / NANOS_PER_SECOND)

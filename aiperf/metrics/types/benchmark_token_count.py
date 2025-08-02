@@ -5,8 +5,8 @@ from typing import cast
 
 from aiperf.common.enums import GenericMetricUnit, MetricFlags, MetricTag
 from aiperf.common.models import ParsedResponseRecord
-from aiperf.common.types import MetricTagT, MetricValueTypeT
 from aiperf.metrics.base_metric import BaseAggregateMetric
+from aiperf.metrics.metric_dicts import MetricRecordDict
 
 
 class BenchmarkTokenCountMetric(BaseAggregateMetric[int]):
@@ -27,8 +27,8 @@ class BenchmarkTokenCountMetric(BaseAggregateMetric[int]):
     def _update_value(
         self,
         record: ParsedResponseRecord,
-        metrics: dict[MetricTagT, MetricValueTypeT],
+        record_metrics: MetricRecordDict,
     ) -> int:
-        osl: int = cast(int, metrics[MetricTag.OSL])
+        osl: int = cast(int, record_metrics[MetricTag.OSL])
         self.value += osl
         return self.value

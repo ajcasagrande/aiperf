@@ -14,7 +14,7 @@ from aiperf.metrics.base_metric import (
     BaseMetric,
     BaseRecordMetric,
 )
-from aiperf.metrics.metric_bags import (
+from aiperf.metrics.metric_dicts import (
     BaseMetricDict,
     MetricRecordDict,
     MetricResultsDict,

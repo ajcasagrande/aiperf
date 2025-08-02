@@ -3,8 +3,8 @@
 from typing import cast
 
 from aiperf.common.enums import MetricTag, MetricTimeUnit
-from aiperf.common.types import MetricTagT, MetricValueTypeT
 from aiperf.metrics.base_metric import BaseDerivedMetric
+from aiperf.metrics.metric_dicts import MetricResultsDict
 
 
 class BenchmarkDurationMetric(BaseDerivedMetric[int]):
@@ -20,8 +20,8 @@ class BenchmarkDurationMetric(BaseDerivedMetric[int]):
 
     def _derive_value(
         self,
-        metrics: dict[MetricTagT, MetricValueTypeT],
+        metric_results: MetricResultsDict,
     ) -> int:
-        min_req_time: int = cast(int, metrics[MetricTag.MIN_REQUEST])
-        max_res_time: int = cast(int, metrics[MetricTag.MAX_RESPONSE])
+        min_req_time: int = cast(int, metric_results[MetricTag.MIN_REQUEST])
+        max_res_time: int = cast(int, metric_results[MetricTag.MAX_RESPONSE])
         return max_res_time - min_req_time

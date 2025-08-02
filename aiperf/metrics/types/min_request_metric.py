@@ -4,8 +4,8 @@ import sys
 
 from aiperf.common.enums import MetricTag, MetricTimeUnit
 from aiperf.common.models import ParsedResponseRecord
-from aiperf.common.types import MetricTagT, MetricValueTypeT
 from aiperf.metrics.base_metric import BaseAggregateMetric
+from aiperf.metrics.metric_dicts import MetricRecordDict
 
 
 class MinRequestMetric(BaseAggregateMetric[int]):
@@ -25,10 +25,11 @@ class MinRequestMetric(BaseAggregateMetric[int]):
     def _update_value(
         self,
         record: ParsedResponseRecord,
-        metrics: dict[MetricTagT, MetricValueTypeT],
+        record_metrics: MetricRecordDict,
     ) -> int:
-        """Calculates the minimum request timestamp metric."""
-        # TODO: Is this the proper value to use? Should it be real-time and not perf-time?
-        if record.start_perf_ns < self.value:
-            self.value = record.start_perf_ns
+        """Updates the minimum request timestamp metric."""
+        # NOTE: Use the request timestamp_ns, not the start_perf_ns, because we want wall-clock timestamps,
+        request_ts: int = record.timestamp_ns
+        if request_ts < self.value:
+            self.value = request_ts
         return self.value

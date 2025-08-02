@@ -4,7 +4,7 @@
 from aiperf.common.enums import GenericMetricUnit, MetricTag
 from aiperf.common.models import ParsedResponseRecord
 from aiperf.metrics.base_metric import BaseAggregateMetric
-from aiperf.metrics.metric_bags import MetricRecordDict
+from aiperf.metrics.metric_dicts import MetricRecordDict
 
 
 class ValidRequestCountMetric(BaseAggregateMetric[int]):

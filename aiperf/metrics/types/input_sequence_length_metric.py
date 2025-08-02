@@ -3,8 +3,8 @@
 
 from aiperf.common.enums import GenericMetricUnit, MetricFlags, MetricTag
 from aiperf.common.models import ParsedResponseRecord
-from aiperf.common.types import MetricTagT, MetricValueTypeT
 from aiperf.metrics.base_metric import BaseRecordMetric
+from aiperf.metrics.metric_dicts import MetricRecordDict
 
 
 class InputSequenceLengthMetric(BaseRecordMetric[int]):
@@ -22,7 +22,7 @@ class InputSequenceLengthMetric(BaseRecordMetric[int]):
     def _parse_record(
         self,
         record: ParsedResponseRecord,
-        metrics: dict[MetricTagT, MetricValueTypeT],
+        record_metrics: MetricRecordDict,
     ) -> int:
         if record.input_token_count is None:
             raise ValueError("Input Token Count is not available for the record.")

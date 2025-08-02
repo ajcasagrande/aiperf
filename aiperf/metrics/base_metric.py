@@ -8,7 +8,7 @@ from typing import ClassVar, Generic, get_args, get_origin
 from aiperf.common.enums.metric_enums import MetricFlags, MetricType, MetricValueType
 from aiperf.common.models.record_models import ParsedResponseRecord
 from aiperf.common.types import MetricTagT, MetricUnitT, MetricValueTypeVarT
-from aiperf.metrics.metric_bags import (
+from aiperf.metrics.metric_dicts import (
     BaseMetricDict,
     MetricRecordDict,
     MetricResultsDict,
