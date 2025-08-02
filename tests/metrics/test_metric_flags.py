@@ -12,20 +12,20 @@ class TestMetricFlags:
         [
             (MetricFlags.NONE, MetricFlags.NONE, True),
             (MetricFlags.NONE, MetricFlags.STREAMING_ONLY, False),
-            (MetricFlags.NONE, MetricFlags.STREAMING_ONLY | MetricFlags.TOKEN_BASED_ONLY, False),
+            (MetricFlags.NONE, MetricFlags.STREAMING_ONLY | MetricFlags.PRODUCES_TOKENS_ONLY, False),
             ###
             (MetricFlags.STREAMING_ONLY, MetricFlags.NONE, True),
             (MetricFlags.STREAMING_ONLY, MetricFlags.STREAMING_ONLY, True),
-            (MetricFlags.STREAMING_ONLY, MetricFlags.STREAMING_ONLY | MetricFlags.TOKEN_BASED_ONLY, False),
-            (MetricFlags.STREAMING_ONLY, MetricFlags.TOKEN_BASED_ONLY, False),
+            (MetricFlags.STREAMING_ONLY, MetricFlags.STREAMING_ONLY | MetricFlags.PRODUCES_TOKENS_ONLY, False),
+            (MetricFlags.STREAMING_ONLY, MetricFlags.PRODUCES_TOKENS_ONLY, False),
             ###
-            (MetricFlags.TOKEN_BASED_ONLY, MetricFlags.STREAMING_ONLY, False),
-            (MetricFlags.TOKEN_BASED_ONLY, MetricFlags.STREAMING_ONLY | MetricFlags.TOKEN_BASED_ONLY, False),
-            (MetricFlags.TOKEN_BASED_ONLY, MetricFlags.TOKEN_BASED_ONLY, True),
+            (MetricFlags.PRODUCES_TOKENS_ONLY, MetricFlags.STREAMING_ONLY, False),
+            (MetricFlags.PRODUCES_TOKENS_ONLY, MetricFlags.STREAMING_ONLY | MetricFlags.PRODUCES_TOKENS_ONLY, False),
+            (MetricFlags.PRODUCES_TOKENS_ONLY, MetricFlags.PRODUCES_TOKENS_ONLY, True),
             ###
             (MetricFlags.STREAMING_TOKENS_ONLY, MetricFlags.STREAMING_ONLY, True),
-            (MetricFlags.STREAMING_TOKENS_ONLY, MetricFlags.STREAMING_ONLY | MetricFlags.TOKEN_BASED_ONLY, True),
-            (MetricFlags.STREAMING_TOKENS_ONLY, MetricFlags.TOKEN_BASED_ONLY, True),
+            (MetricFlags.STREAMING_TOKENS_ONLY, MetricFlags.STREAMING_ONLY | MetricFlags.PRODUCES_TOKENS_ONLY, True),
+            (MetricFlags.STREAMING_TOKENS_ONLY, MetricFlags.PRODUCES_TOKENS_ONLY, True),
         ],
     )  # fmt: skip
     def test_has_flags(self, flags, flags_to_check, expected):
@@ -38,20 +38,20 @@ class TestMetricFlags:
         [
             (MetricFlags.NONE, MetricFlags.NONE, True),
             (MetricFlags.NONE, MetricFlags.NONE | MetricFlags.STREAMING_ONLY, True),
-            (MetricFlags.NONE, MetricFlags.STREAMING_ONLY | MetricFlags.TOKEN_BASED_ONLY, True),
+            (MetricFlags.NONE, MetricFlags.STREAMING_ONLY | MetricFlags.PRODUCES_TOKENS_ONLY, True),
             ###
             (MetricFlags.STREAMING_ONLY, MetricFlags.NONE, True),
             (MetricFlags.STREAMING_ONLY, MetricFlags.STREAMING_ONLY, False),
             ###
             (MetricFlags.STREAMING_TOKENS_ONLY, MetricFlags.STREAMING_ONLY, False),
-            (MetricFlags.STREAMING_TOKENS_ONLY, MetricFlags.STREAMING_ONLY | MetricFlags.TOKEN_BASED_ONLY, False),
-            (MetricFlags.STREAMING_TOKENS_ONLY, MetricFlags.TOKEN_BASED_ONLY, False),
+            (MetricFlags.STREAMING_TOKENS_ONLY, MetricFlags.STREAMING_ONLY | MetricFlags.PRODUCES_TOKENS_ONLY, False),
+            (MetricFlags.STREAMING_TOKENS_ONLY, MetricFlags.PRODUCES_TOKENS_ONLY, False),
             (MetricFlags.STREAMING_TOKENS_ONLY, MetricFlags.STREAMING_TOKENS_ONLY, False),
             (MetricFlags.STREAMING_TOKENS_ONLY, MetricFlags.NONE, True),
             ###
-            (MetricFlags.TOKEN_BASED_ONLY, MetricFlags.NONE, True),
-            (MetricFlags.TOKEN_BASED_ONLY, MetricFlags.STREAMING_ONLY, True),
-            (MetricFlags.TOKEN_BASED_ONLY, MetricFlags.STREAMING_ONLY | MetricFlags.TOKEN_BASED_ONLY, False),
+            (MetricFlags.PRODUCES_TOKENS_ONLY, MetricFlags.NONE, True),
+            (MetricFlags.PRODUCES_TOKENS_ONLY, MetricFlags.STREAMING_ONLY, True),
+            (MetricFlags.PRODUCES_TOKENS_ONLY, MetricFlags.STREAMING_ONLY | MetricFlags.PRODUCES_TOKENS_ONLY, False),
         ],
     )  # fmt: skip
     def test_missing_flags(self, flags, flags_to_check, expected):

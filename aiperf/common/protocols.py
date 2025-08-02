@@ -38,6 +38,7 @@ from aiperf.common.types import (
     RequestOutputT,
     ServiceTypeT,
 )
+from aiperf.metrics.metric_dicts import MetricRecordDict
 
 if TYPE_CHECKING:
     from aiperf.common.config import ServiceConfig, UserConfig
@@ -487,7 +488,9 @@ class StreamingPostProcessorProtocol(AIPerfLifecycleProtocol, Protocol):
 class RecordProcessorProtocol(AIPerfLifecycleProtocol, Protocol):
     """Protocol for a record processor that processes the incoming records and returns the results of the post processing."""
 
-    async def process_record(self, record: ParsedResponseRecord) -> None: ...
+    async def process_record(
+        self, record: ParsedResponseRecord
+    ) -> MetricRecordDict: ...
 
 
 @runtime_checkable

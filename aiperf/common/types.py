@@ -7,7 +7,7 @@ helps with type hinting.
 
 from collections.abc import Awaitable, Callable
 from types import UnionType
-from typing import TYPE_CHECKING, Any, TypeVar, Union
+from typing import TYPE_CHECKING, Any, TypeAlias, TypeVar, Union
 
 from aiperf.common.enums import (
     CaseInsensitiveStrEnum,
@@ -34,15 +34,17 @@ if TYPE_CHECKING:
     from aiperf.common.protocols import ServiceProtocol
 
 
-AnyT = Any
-AnyClassT = type | UnionType
+AnyT: TypeAlias = Any
+AnyClassT: TypeAlias = type | UnionType
 AIPerfBaseModelT = TypeVar("AIPerfBaseModelT", bound="AIPerfBaseModel")
 BaseModelT = TypeVar("BaseModelT", bound="BaseModel")
 ClassEnumT = TypeVar("ClassEnumT", bound="CaseInsensitiveStrEnum")
 ClassProtocolT = TypeVar("ClassProtocolT", bound=Any)
-CommAddressType = Union["CommAddress", str]
-CommandCallbackMapT = dict["CommandType", Callable[["CommandMessage"], Awaitable[Any]]]
-CommandTypeT = CommandType | str
+CommAddressType: TypeAlias = Union["CommAddress", str]
+CommandCallbackMapT: TypeAlias = dict[
+    "CommandType", Callable[["CommandMessage"], Awaitable[Any]]
+]
+CommandTypeT: TypeAlias = CommandType | str
 ConfigT = TypeVar("ConfigT", bound=Any, covariant=True)
 HooksMixinT = TypeVar("HooksMixinT", bound="HooksMixin")
 HookParamsT = TypeVar("HookParamsT", bound=Any)
@@ -50,13 +52,13 @@ HookCallableParamsT = HookParamsT | Callable[["SelfT"], HookParamsT]
 InputT = TypeVar("InputT", bound=Any)
 LifecycleMixinT = TypeVar("LifecycleMixinT", bound="AIPerfLifecycleMixin")
 MessageT = TypeVar("MessageT", bound="Message")
-MessageCallbackMapT = dict["MessageTypeT", Callable[["Message"], Any] | list[Callable[["Message"], Any]]]  # fmt: skip
+MessageCallbackMapT: TypeAlias = dict["MessageTypeT", Callable[["Message"], Any] | list[Callable[["Message"], Any]]]  # fmt: skip
 MessageOutputT = TypeVar("MessageOutputT", bound="Message")
-MetricTypeT = MetricType | str
-MessageTypeT = MessageType | str
-MetricTagT = MetricTag | str
-MetricUnitT = MetricTimeUnit | GenericMetricUnit | MetricOverTimeUnit | None
-MetricValueTypeT = str | int | float | list[float] | list[int] | list[str]
+MetricTypeT: TypeAlias = MetricType | str
+MessageTypeT: TypeAlias = MessageType | str
+MetricTagT: TypeAlias = MetricTag | str
+MetricUnitT: TypeAlias = MetricTimeUnit | GenericMetricUnit | MetricOverTimeUnit | None
+MetricValueTypeT: TypeAlias = str | int | float | list[float] | list[int] | list[str]
 MetricValueTypeVarT = TypeVar("MetricValueTypeVarT", bound=MetricValueTypeT)
 ModelEndpointInfoT = TypeVar("ModelEndpointInfoT", bound="ModelEndpointInfo")
 OutputT = TypeVar("OutputT", bound=Any)
@@ -68,4 +70,4 @@ RequestOutputT = TypeVar("RequestOutputT", bound=Any, covariant=True)
 ResponseT = TypeVar("ResponseT", bound=Any, covariant=True)
 SelfT = TypeVar("SelfT", bound=Any)
 ServiceProtocolT = TypeVar("ServiceProtocolT", bound="ServiceProtocol")
-ServiceTypeT = ServiceType | str
+ServiceTypeT: TypeAlias = ServiceType | str

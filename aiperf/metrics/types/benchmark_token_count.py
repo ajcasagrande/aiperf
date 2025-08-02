@@ -17,7 +17,9 @@ class BenchmarkTokenCountMetric(BaseAggregateMetric[int]):
     header = "Benchmark Token Count"
     unit = GenericMetricUnit.TOKENS
     flags = (
-        MetricFlags.TOKEN_BASED_ONLY | MetricFlags.LARGER_IS_BETTER | MetricFlags.HIDDEN
+        MetricFlags.PRODUCES_TOKENS_ONLY
+        | MetricFlags.LARGER_IS_BETTER
+        | MetricFlags.HIDDEN
     )
     required_metrics = {
         MetricTag.OSL,

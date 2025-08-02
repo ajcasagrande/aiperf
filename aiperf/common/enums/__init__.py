@@ -36,8 +36,8 @@ from aiperf.common.enums.dataset_enums import (
     PromptSource,
 )
 from aiperf.common.enums.endpoints_enums import (
+    EndpointInfo,
     EndpointType,
-    ResponsePayloadType,
 )
 from aiperf.common.enums.logging_enums import (
     AIPerfLogLevel,
@@ -102,6 +102,7 @@ __all__ = [
     "CreditPhase",
     "CustomDatasetType",
     "DataExporterType",
+    "EndpointInfo",
     "EndpointType",
     "GenericMetricUnit",
     "ImageFormat",
@@ -121,7 +122,6 @@ __all__ = [
     "PromptSource",
     "RecordProcessorType",
     "RequestRateMode",
-    "ResponsePayloadType",
     "ResultsProcessorType",
     "SSEEventType",
     "SSEFieldType",

@@ -141,8 +141,8 @@ class MetricFlags(Flag):
     """Metrics that are only applicable to error records. By default, metrics are only computed if the record is valid.
     If this flag is set, the metric will only be computed if the record is invalid."""
 
-    TOKEN_BASED_ONLY = 1 << 2
-    """Metrics that are only applicable when profiling token-based endpoints."""
+    PRODUCES_TOKENS_ONLY = 1 << 2
+    """Metrics that are only applicable when profiling an endpoint that produces tokens."""
 
     HIDDEN = 1 << 3
     """Metrics that are not applicable to the user. These metrics are not displayed in the UI."""
@@ -151,9 +151,9 @@ class MetricFlags(Flag):
     """Metrics that are better when the value is larger. By default, it is assumed that metrics are
     better when the value is smaller."""
 
-    STREAMING_TOKENS_ONLY = STREAMING_ONLY | TOKEN_BASED_ONLY
+    STREAMING_TOKENS_ONLY = STREAMING_ONLY | PRODUCES_TOKENS_ONLY
     """Metrics that are only applicable to streamed responses and token-based endpoints.
-    This is a convenience flag that is the combination of the `STREAMING_ONLY` and `TOKEN_BASED_ONLY` flags."""
+    This is a convenience flag that is the combination of the `STREAMING_ONLY` and `PRODUCES_TOKENS_ONLY` flags."""
 
     def has_flags(self, flags: "MetricFlags") -> bool:
         """Return True if the metric has ALL of the given flag(s) (regardless of other flags)."""
