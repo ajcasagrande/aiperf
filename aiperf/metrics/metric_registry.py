@@ -1,10 +1,14 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+import graphlib
 from threading import Lock
+from typing import TYPE_CHECKING
 
 from aiperf.common.enums.metric_enums import MetricFlags, MetricType
 from aiperf.common.types import MetricTagT
-from aiperf.metrics.base_metrics import BaseMetric
+
+if TYPE_CHECKING:
+    from aiperf.metrics.base_metrics import BaseMetric
 
 
 class MetricRegistry:
@@ -13,19 +17,19 @@ class MetricRegistry:
     It is used to lookup metrics by their tag, and to get all the metrics that are available.
     """
 
-    _metric_interfaces: dict[MetricTagT, type[BaseMetric]] = {}
-    _instances: dict[MetricTagT, BaseMetric] = {}
+    _metric_interfaces: dict[MetricTagT, type["BaseMetric"]] = {}
+    _instances: dict[MetricTagT, "BaseMetric"] = {}
     _instance_lock = Lock()
 
     @classmethod
-    def register_metric(cls, metric: type[BaseMetric]):
+    def register_metric(cls, metric: type["BaseMetric"]):
         """
         Register a metric class with the registry.
         """
         cls._metric_interfaces[metric.tag] = metric
 
     @classmethod
-    def get_class(cls, tag: MetricTagT) -> type[BaseMetric]:
+    def get_class(cls, tag: MetricTagT) -> type["BaseMetric"]:
         """
         Get a metric class by its tag.
         """
@@ -34,7 +38,7 @@ class MetricRegistry:
         return cls._metric_interfaces[tag]
 
     @classmethod
-    def get_instance(cls, tag: MetricTagT) -> BaseMetric:
+    def get_instance(cls, tag: MetricTagT) -> "BaseMetric":
         """
         Get an instance of a metric class by its tag.
         """
@@ -45,28 +49,28 @@ class MetricRegistry:
         return cls._instances[tag]
 
     @classmethod
-    def classes_by_type(cls, *types: MetricType) -> list[type[BaseMetric]]:
+    def classes_by_type(cls, *types: MetricType) -> list[type["BaseMetric"]]:
         """
         Get a metric by its type.
         """
         return [metric for metric in cls.all_classes() if metric.type in types]
 
     @classmethod
-    def instances_by_type(cls, *types: MetricType) -> list[BaseMetric]:
+    def instances_by_type(cls, *types: MetricType) -> list["BaseMetric"]:
         """
         Get instances of metrics by their type.
         """
         return [cls.get_instance(metric.tag) for metric in cls.classes_by_type(*types)]
 
     @classmethod
-    def classes_with_flags(cls, flags: MetricFlags) -> list[type[BaseMetric]]:
+    def classes_with_flags(cls, flags: MetricFlags) -> list[type["BaseMetric"]]:
         """
         Get metrics classes that have the given flag(s).
         """
         return [metric for metric in cls.all_classes() if metric.has_flag(flags)]
 
     @classmethod
-    def instances_with_flags(cls, flags: MetricFlags) -> list[BaseMetric]:
+    def instances_with_flags(cls, flags: MetricFlags) -> list["BaseMetric"]:
         """
         Get instances of metrics classes that have the given flag(s).
         """
@@ -75,14 +79,14 @@ class MetricRegistry:
         ]
 
     @classmethod
-    def classes_without_flags(cls, flags: MetricFlags) -> list[type[BaseMetric]]:
+    def classes_without_flags(cls, flags: MetricFlags) -> list[type["BaseMetric"]]:
         """
         Get metrics classes that do not have the given flag(s).
         """
         return [metric for metric in cls.all_classes() if not metric.has_flag(flags)]
 
     @classmethod
-    def instances_without_flags(cls, flags: MetricFlags) -> list[BaseMetric]:
+    def instances_without_flags(cls, flags: MetricFlags) -> list["BaseMetric"]:
         """
         Get instances of metrics classes that do not have the given flag(s).
         """
@@ -91,14 +95,14 @@ class MetricRegistry:
         ]
 
     @classmethod
-    def all_classes(cls) -> list[type[BaseMetric]]:
+    def all_classes(cls) -> list[type["BaseMetric"]]:
         """
         Get all of the defined metric classes.
         """
         return list(cls._metric_interfaces.values())
 
     @classmethod
-    def all_instances(cls) -> list[BaseMetric]:
+    def all_instances(cls) -> list["BaseMetric"]:
         """
         Get an instance of for each of the metric classes.
         """
@@ -110,3 +114,39 @@ class MetricRegistry:
         Get all of the tags of the defined metric classes.
         """
         return list(cls._metric_interfaces.keys())
+
+    @classmethod
+    def create_dependency_order(cls) -> list[MetricTagT]:
+        """
+        Create a dependency order for the metrics using topological sort.
+        This ensures that all dependencies are computed before their dependents.
+
+        Returns:
+            List of metric tags in dependency order (dependencies first).
+
+        Raises:
+            ValueError: If there are unregistered dependencies or circular dependencies.
+        """
+        all_metrics = cls.all_classes()
+        all_tags = cls.all_tags()
+
+        # Validate that all required metrics are registered
+        for metric in all_metrics:
+            for required_tag in metric.required_metrics:
+                if required_tag not in all_tags:
+                    raise ValueError(
+                        f"Metric {metric.tag} depends on {required_tag}, which is not registered"
+                    )
+
+        # Build the dependency graph using TopologicalSorter
+        sorter = graphlib.TopologicalSorter()
+
+        for metric in all_metrics:
+            # Add the metric with its dependencies (predecessors)
+            sorter.add(metric.tag, *metric.required_metrics)
+
+        try:
+            # Get the topological order
+            return list(sorter.static_order())
+        except graphlib.CycleError as e:
+            raise ValueError(f"Circular dependency detected among metrics: {e}") from e

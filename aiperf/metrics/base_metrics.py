@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import inspect
-from abc import ABC
+from abc import ABC, abstractmethod
 from typing import ClassVar, Generic, get_args, get_origin
 
 from aiperf.common.enums.metric_enums import MetricFlags, MetricType, MetricValueType
@@ -46,11 +46,13 @@ class BaseMetric(Generic[MetricValueTypeVarT], ABC):
             return
 
         # Enforce that concrete subclasses are a subclass of BaseRecordMetric, BaseAggregateMetric, or BaseDerivedMetric
-        if (
-            not isinstance(cls, BaseRecordMetric)
-            and not isinstance(cls, BaseAggregateMetric)
-            and not isinstance(cls, BaseDerivedMetric)
-        ):
+        valid_base_classes = {
+            "BaseRecordMetric",
+            "BaseAggregateMetric",
+            "BaseDerivedMetric",
+        }
+        class_names_in_mro = {base.__name__ for base in cls.__mro__}
+        if not valid_base_classes.intersection(class_names_in_mro):
             raise TypeError(
                 f"Concrete metric class {cls.__name__} must be a subclass of BaseRecordMetric, BaseAggregateMetric, or BaseDerivedMetric"
             )
@@ -134,6 +136,7 @@ class BaseRecordMetric(
         self._validate_inputs(record, record_metrics)
         return self._parse_record(record, record_metrics)
 
+    @abstractmethod
     def _parse_record(
         self, record: ParsedResponseRecord, record_metrics: MetricRecordDict
     ) -> MetricValueTypeVarT:
@@ -175,6 +178,7 @@ class BaseAggregateMetric(
         self._validate_inputs(record, record_metrics)
         return self._update_value(record, record_metrics)
 
+    @abstractmethod
     def _update_value(
         self, record: ParsedResponseRecord, record_metrics: MetricRecordDict
     ) -> MetricValueTypeVarT:
@@ -212,6 +216,7 @@ class BaseDerivedMetric(
         self._validate_inputs(metric_results)
         return self._derive_value(metric_results)
 
+    @abstractmethod
     def _derive_value(self, metric_results: MetricResultsDict) -> MetricValueTypeVarT:
         """Derive the metric value. This method is implemented by subclasses.
         This method is called after the required metrics are checked, so it can assume that the required metrics are available.
