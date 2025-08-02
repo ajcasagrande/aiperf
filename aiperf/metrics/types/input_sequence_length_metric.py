@@ -4,7 +4,7 @@
 
 from aiperf.common.enums import GenericMetricUnit, MetricFlags, MetricTag
 from aiperf.common.models import ParsedResponseRecord
-from aiperf.metrics import BaseRecordMetric
+from aiperf.metrics.base_record_metric import BaseRecordMetric
 from aiperf.metrics.metric_dicts import MetricRecordDict
 
 

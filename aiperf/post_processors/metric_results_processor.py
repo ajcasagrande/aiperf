@@ -3,10 +3,10 @@
 from typing import Any
 
 from aiperf.common.decorators import implements_protocol
-from aiperf.common.metrics import BaseDerivedMetric
-from aiperf.common.mixins.aiperf_lifecycle_mixin import AIPerfLifecycleMixin
+from aiperf.common.mixins import AIPerfLifecycleMixin
 from aiperf.common.models import RecordProcessorResult
 from aiperf.common.protocols import ResultsProcessorProtocol
+from aiperf.metrics import BaseDerivedMetric
 
 
 @implements_protocol(ResultsProcessorProtocol)

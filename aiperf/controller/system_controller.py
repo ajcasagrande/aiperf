@@ -76,7 +76,7 @@ class SystemController(SignalHandlerMixin, BaseService):
             ServiceType.TIMING_MANAGER: 1,
             ServiceType.WORKER_MANAGER: 1,
             ServiceType.RECORDS_MANAGER: 1,
-            ServiceType.INFERENCE_RESULT_PARSER: service_config.result_parser_service_count,
+            ServiceType.RECORD_PROCESSOR: service_config.record_processor_service_count,
         }
 
         self.proxy_manager: ProxyManager = ProxyManager(

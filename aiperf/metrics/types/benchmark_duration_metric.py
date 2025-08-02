@@ -2,11 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from aiperf.common.enums import MetricFlags, MetricTag, MetricTimeUnit
-from aiperf.metrics.base_metric import BaseSummaryMetric
+from aiperf.metrics.base_derived_metric import BaseDerivedMetric
 from aiperf.metrics.metric_dicts import MetricResultsDict
 
 
-class BenchmarkDurationMetric(BaseSummaryMetric[int]):
+class BenchmarkDurationMetric(BaseDerivedMetric[int]):
     """
     Post-processor for calculating the Benchmark Duration metric.
     """

@@ -5,11 +5,11 @@ from typing import cast
 
 from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import MetricFlags, MetricOverTimeUnit, MetricTag
-from aiperf.metrics.base_metric import BaseSummaryMetric
+from aiperf.metrics.base_derived_metric import BaseDerivedMetric
 from aiperf.metrics.metric_dicts import MetricResultsDict
 
 
-class OutputTokenThroughputMetric(BaseSummaryMetric[float]):
+class OutputTokenThroughputMetric(BaseDerivedMetric[float]):
     """
     Post Processor for calculating Output Token Throughput Metric.
     """
