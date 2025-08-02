@@ -145,6 +145,7 @@ class TestEndpointType:
         endpoint_type = EndpointType(tag_value)
         assert endpoint_type == tag_value
         assert str(endpoint_type) == tag_value
+        assert endpoint_type.info.tag == tag_value
 
     def test_endpoint_type_case_insensitive(self):
         """Test case insensitive enum behavior."""
