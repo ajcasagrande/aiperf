@@ -21,8 +21,8 @@ class MetricRegistry:
     It also provides methods to get metrics by their type, flag, and to create a dependency order for the metrics.
     """
 
-    _metric_interfaces: dict[MetricTagT, type["BaseMetric"]] = {}
-    _instances: dict[MetricTagT, "BaseMetric"] = {}
+    _classes_by_tag: dict[MetricTagT, type["BaseMetric"]] = {}
+    _instances_by_tag: dict[MetricTagT, "BaseMetric"] = {}
     _instance_lock = Lock()
     _discovered_metrics = False
     _discover_lock = Lock()
@@ -31,7 +31,7 @@ class MetricRegistry:
     def discover_metrics(cls) -> None:
         """
         This method dynamically imports all metric type modules from the 'types' directory to ensure
-        all metric classes are registered via __init_subclass__.
+        all metric classes are registered via __init_subclass__. It will only discover metrics once.
         """
         if cls._discovered_metrics:
             return  # Already discovered
@@ -64,73 +64,76 @@ class MetricRegistry:
 
     @classmethod
     def register_metric(cls, metric: type["BaseMetric"]):
-        """Register a metric class with the registry."""
-        cls._metric_interfaces[metric.tag] = metric
+        """Register a metric class with the registry. This will raise an error if the class is already registered."""
+        if metric.tag in cls._classes_by_tag:
+            # TODO: Should we consider adding an override_priority parameter to the metric class similar to AIPerfFactory?
+            raise ValueError(
+                f"Metric class with tag {metric.tag} already registered by {cls._classes_by_tag[metric.tag].__name__}"
+            )
+        cls._classes_by_tag[metric.tag] = metric
 
     @classmethod
     def get_class(cls, tag: MetricTagT) -> type["BaseMetric"]:
-        """Get a metric class by its tag."""
-        if tag not in cls._metric_interfaces:
+        """Get a metric class by its tag. This will raise an error if the class is not found."""
+        if tag not in cls._classes_by_tag:
             raise ValueError(f"Metric class with tag {tag} not found")
-        return cls._metric_interfaces[tag]
+        return cls._classes_by_tag[tag]
 
     @classmethod
     def get_instance(cls, tag: MetricTagT) -> "BaseMetric":
-        """Get an instance of a metric class by its tag."""
-        if tag not in cls._instances:
+        """Get an instance of a metric class by its tag. This will create a new instance if it does not exist."""
+        # Check without acquiring the lock for performance
+        if tag not in cls._instances_by_tag:
             with cls._instance_lock:
-                if tag not in cls._instances:
-                    cls._instances[tag] = cls.get_class(tag)()
-        return cls._instances[tag]
+                # Check again after acquiring the lock
+                if tag not in cls._instances_by_tag:
+                    cls._instances_by_tag[tag] = cls.get_class(tag)()
+        return cls._instances_by_tag[tag]
 
     @classmethod
-    def classes_by_type(cls, *types: MetricType) -> list[type["BaseMetric"]]:
-        """Get a metric by its type."""
-        return [metric for metric in cls.all_classes() if metric.type in types]
+    def tags_by_type(cls, *types: MetricType) -> list[MetricTagT]:
+        """Get metrics tags with the given type(s)."""
+        return [tag for tag in cls.all_tags() if cls.get_class(tag).type in types]
 
     @classmethod
-    def instances_by_type(cls, *types: MetricType) -> list["BaseMetric"]:
-        """Get instances of metrics by their type."""
-        return [cls.get_instance(metric.tag) for metric in cls.classes_by_type(*types)]
+    def tags_with_flags(cls, flags: MetricFlags) -> list[MetricTagT]:
+        """Get metrics tags that have the given flag(s)."""
+        return [tag for tag in cls.all_tags() if cls.get_class(tag).has_flag(flags)]
 
     @classmethod
-    def classes_with_flags(cls, flags: MetricFlags) -> list[type["BaseMetric"]]:
-        """Get metrics classes that have the given flag(s)."""
-        return [metric for metric in cls.all_classes() if metric.has_flag(flags)]
-
-    @classmethod
-    def instances_with_flags(cls, flags: MetricFlags) -> list["BaseMetric"]:
-        """Get instances of metrics classes that have the given flag(s)."""
-        return [
-            cls.get_instance(metric.tag) for metric in cls.classes_with_flags(flags)
-        ]
-
-    @classmethod
-    def classes_without_flags(cls, flags: MetricFlags) -> list[type["BaseMetric"]]:
-        """Get metrics classes that do not have the given flag(s)."""
-        return [metric for metric in cls.all_classes() if not metric.has_flag(flags)]
-
-    @classmethod
-    def instances_without_flags(cls, flags: MetricFlags) -> list["BaseMetric"]:
-        """Get instances of metrics classes that do not have the given flag(s)."""
-        return [
-            cls.get_instance(metric.tag) for metric in cls.classes_without_flags(flags)
-        ]
-
-    @classmethod
-    def all_classes(cls) -> list[type["BaseMetric"]]:
-        """Get all of the defined metric classes."""
-        return list(cls._metric_interfaces.values())
-
-    @classmethod
-    def all_instances(cls) -> list["BaseMetric"]:
-        """Get an instance of for each of the metric classes."""
-        return [cls.get_instance(metric.tag) for metric in cls.all_classes()]
+    def tags_without_flags(cls, flags: MetricFlags) -> list[MetricTagT]:
+        """Get metrics tags that do not have the given flag(s)."""
+        return [tag for tag in cls.all_tags() if not cls.get_class(tag).has_flag(flags)]
 
     @classmethod
     def all_tags(cls) -> list[MetricTagT]:
         """Get all of the tags of the defined metric classes."""
-        return list(cls._metric_interfaces.keys())
+        return list(cls._classes_by_tag.keys())
+
+    @classmethod
+    def classes_for(cls, tags: list[MetricTagT]) -> list[type["BaseMetric"]]:
+        """Get the classes for the given tags."""
+        return [cls.get_class(tag) for tag in tags]
+
+    @classmethod
+    def instances_for(cls, tags: list[MetricTagT]) -> list["BaseMetric"]:
+        """Get instances of the given metric classes."""
+        return [cls.get_instance(tag) for tag in tags]
+
+    @classmethod
+    def validate_dependencies(cls) -> None:
+        """Validate that all dependencies are registered."""
+        cls.discover_metrics()
+        all_tags = cls.all_tags()
+        all_classes = cls.classes_for(all_tags)
+
+        # Validate that all required metrics are registered
+        for metric in all_classes:
+            for required_tag in metric.required_metrics or set():
+                if required_tag not in all_tags:
+                    raise ValueError(
+                        f"Metric {metric.tag} depends on {required_tag}, which is not registered"
+                    )
 
     @classmethod
     def create_dependency_order(cls) -> list[MetricTagT]:
@@ -144,12 +147,10 @@ class MetricRegistry:
         Raises:
             ValueError: If there are unregistered dependencies or circular dependencies.
         """
-        return cls.create_dependency_order_for(cls.all_classes())
+        return cls.create_dependency_order_for(cls.all_tags())
 
     @classmethod
-    def create_dependency_order_for(
-        cls, classes: list[type["BaseMetric"]]
-    ) -> list[MetricTagT]:
+    def create_dependency_order_for(cls, tags: list[MetricTagT]) -> list[MetricTagT]:
         """
         Create a dependency order for the given metrics using topological sort.
         This ensures that all dependencies are computed before their dependents.
@@ -160,20 +161,12 @@ class MetricRegistry:
         Raises:
             ValueError: If there are unregistered dependencies or circular dependencies.
         """
-        all_tags = cls.all_tags()
-
-        # Validate that all required metrics are registered and that they are registered
-        for metric in classes:
-            for required_tag in metric.required_metrics or set():
-                if required_tag not in all_tags:
-                    raise ValueError(
-                        f"Metric {metric.tag} depends on {required_tag}, which is not registered"
-                    )
+        cls.validate_dependencies()
 
         # Build the dependency graph using TopologicalSorter
         sorter = graphlib.TopologicalSorter()
 
-        for metric in classes:
+        for metric in cls.classes_for(tags):
             # Add the metric with its dependencies (predecessors)
             sorter.add(metric.tag, *(metric.required_metrics or set()))
 
