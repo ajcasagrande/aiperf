@@ -123,7 +123,7 @@ class MetricFlags(Flag):
     """No flags."""
 
     STREAMING_ONLY = 0x01
-    """Metrics that are only applicable to streaming requests."""
+    """Metrics that are only applicable to streamed responses."""
 
     ERROR_METRIC = 0x02
     """Metrics that are used to track errors. These metrics should only by computed if the record is invalid.

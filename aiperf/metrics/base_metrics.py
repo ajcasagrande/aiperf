@@ -113,7 +113,7 @@ class BaseMetric(Generic[MetricValueTypeVarT], ABC):
 
     @classmethod
     def has_flag(cls, flag: MetricFlags) -> bool:
-        """Check that the flags are valid."""
+        """Return True if the metric has the given flag(s) (regardless of other flags)."""
         return flag & cls.flags == flag
 
 
