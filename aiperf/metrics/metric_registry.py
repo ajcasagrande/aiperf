@@ -44,23 +44,29 @@ class MetricRegistry:
             # Get the types directory path
             types_dir = Path(__file__).parent / "types"
 
-            # Check that the types directory exists
+            # Ensure that the types directory exists
             if not types_dir.exists() or not types_dir.is_dir():
                 raise MetricTypeError(
                     f"Types directory '{types_dir.resolve()}' does not exist or is not a directory"
                 )
 
             # Import all metric type modules to trigger registration
-            for python_file in types_dir.glob("*.py"):
-                if python_file.name != "__init__.py":
-                    module_name = python_file.stem  # Get filename without extension
-                    module_path = f"aiperf.metrics.types.{module_name}"
-                    try:
-                        importlib.import_module(module_path)
-                    except ImportError as err:
-                        raise MetricTypeError(
-                            f"Error importing metric type module '{module_path}' from '{python_file.resolve()}'"
-                        ) from err
+            cls._import_metric_type_modules(types_dir)
+
+    @classmethod
+    def _import_metric_type_modules(cls, types_dir: Path) -> None:
+        """Import all metric type modules from the given directory."""
+        for python_file in types_dir.glob("*.py"):
+            if python_file.name != "__init__.py":
+                module_name = python_file.stem  # Get filename without extension
+                # TODO: Can the below be more generic using the __module__ attribute of this file?
+                module_path = f"aiperf.metrics.types.{module_name}"
+                try:
+                    importlib.import_module(module_path)
+                except ImportError as err:
+                    raise MetricTypeError(
+                        f"Error importing metric type module '{module_path}' from '{python_file.resolve()}'"
+                    ) from err
 
     @classmethod
     def register_metric(cls, metric: type["BaseMetric"]):
