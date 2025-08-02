@@ -148,7 +148,7 @@ class MetricRegistry:
 
         # Validate that all required metrics are registered and that they are registered
         for metric in classes:
-            for required_tag in metric.required_metrics:
+            for required_tag in metric.required_metrics or set():
                 if required_tag not in all_tags:
                     raise ValueError(
                         f"Metric {metric.tag} depends on {required_tag}, which is not registered"
@@ -159,7 +159,7 @@ class MetricRegistry:
 
         for metric in classes:
             # Add the metric with its dependencies (predecessors)
-            sorter.add(metric.tag, *metric.required_metrics)
+            sorter.add(metric.tag, *(metric.required_metrics or set()))
 
         try:
             # Get the topological order

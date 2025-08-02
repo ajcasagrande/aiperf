@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from aiperf.common.enums import MetricTag, MetricTimeUnit
+from aiperf.common.enums import MetricFlags, MetricTag, MetricTimeUnit
 from aiperf.common.models import ParsedResponseRecord
 from aiperf.metrics.base_metrics import BaseRecordMetric
 from aiperf.metrics.metric_dicts import MetricRecordDict
@@ -16,7 +16,8 @@ class RequestLatencyMetric(BaseRecordMetric[int]):
     header = "Request Latency"
     unit = MetricTimeUnit.NANOSECONDS
     larger_is_better = False
-    required_metrics = set()
+    flags = MetricFlags.NONE
+    required_metrics = None
 
     def _parse_record(
         self,

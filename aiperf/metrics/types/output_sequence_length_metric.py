@@ -19,7 +19,7 @@ class OutputSequenceLengthMetric(BaseRecordMetric[int]):
     unit = GenericMetricUnit.TOKENS
     larger_is_better = True
     flags = MetricFlags.TOKEN_BASED_ONLY
-    required_metrics = set()
+    required_metrics = None
 
     def _validate_inputs(
         self, record: ParsedResponseRecord, record_metrics: MetricRecordDict

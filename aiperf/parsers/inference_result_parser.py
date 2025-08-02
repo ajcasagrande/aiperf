@@ -26,6 +26,7 @@ from aiperf.common.protocols import RequestClientProtocol
 from aiperf.common.tokenizer import Tokenizer
 
 
+# TODO: Should we create non-tokenizer based parsers?
 class InferenceResultParser(CommunicationMixin):
     """InferenceResultParser is responsible for parsing the inference results."""
 

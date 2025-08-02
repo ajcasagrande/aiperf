@@ -28,7 +28,7 @@ class BaseMetric(Generic[MetricValueTypeVarT], ABC):
     larger_is_better: ClassVar[bool] = False
     type: ClassVar[MetricType]  # Will be set by base subclasses
     flags: ClassVar[MetricFlags] = MetricFlags.NONE
-    required_metrics: ClassVar[set[MetricTagT]] = set()
+    required_metrics: ClassVar[set[MetricTagT] | None] = None
 
     def __init_subclass__(cls, **kwargs):
         """
@@ -105,6 +105,8 @@ class BaseMetric(Generic[MetricValueTypeVarT], ABC):
 
     def _check_metrics(self, metrics: BaseMetricDict) -> None:
         """Check that the required metrics are available."""
+        if self.required_metrics is None:
+            return
         for tag in self.required_metrics:
             if tag not in metrics:
                 raise ValueError(f"Missing required metric: '{tag}'")

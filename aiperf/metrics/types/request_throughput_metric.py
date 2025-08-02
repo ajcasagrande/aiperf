@@ -4,6 +4,7 @@ from typing import cast
 
 from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import MetricOverTimeUnit, MetricTag
+from aiperf.common.enums.metric_enums import MetricFlags
 from aiperf.metrics.base_metrics import BaseDerivedMetric
 from aiperf.metrics.metric_dicts import MetricResultsDict
 
@@ -17,6 +18,7 @@ class RequestThroughputMetric(BaseDerivedMetric[float]):
     unit = MetricOverTimeUnit.REQUESTS_PER_SECOND
     larger_is_better = True
     header = "Request Throughput"
+    flags = MetricFlags.NONE
     required_metrics = {
         MetricTag.VALID_REQUEST_COUNT,
         MetricTag.BENCHMARK_DURATION,

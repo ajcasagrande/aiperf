@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 from typing import cast
 
-from aiperf.common.enums import MetricTag, MetricTimeUnit
+from aiperf.common.enums import MetricFlags, MetricTag, MetricTimeUnit
 from aiperf.common.models import ParsedResponseRecord
 from aiperf.metrics.base_metrics import BaseAggregateMetric
 from aiperf.metrics.metric_dicts import MetricRecordDict
@@ -17,6 +17,7 @@ class MaxResponseMetric(BaseAggregateMetric[int]):
     header = "Maximum Response Timestamp"
     unit = MetricTimeUnit.NANOSECONDS
     larger_is_better = False
+    flags = MetricFlags.NONE
     required_metrics = {
         MetricTag.REQUEST_LATENCY,
     }

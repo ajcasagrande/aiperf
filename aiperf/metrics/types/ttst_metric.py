@@ -16,7 +16,7 @@ class TTSTMetric(BaseRecordMetric[int]):
     unit = MetricTimeUnit.NANOSECONDS
     larger_is_better = False
     flags = MetricFlags.STREAMING_ONLY | MetricFlags.TOKEN_BASED_ONLY
-    required_metrics = set()
+    required_metrics = None
 
     def _validate_inputs(
         self, record: ParsedResponseRecord, record_metrics: MetricRecordDict

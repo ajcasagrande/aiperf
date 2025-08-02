@@ -502,20 +502,3 @@ class StreamingResultsProcessorProtocol(AIPerfLifecycleProtocol, Protocol):
 
     # TODO: Add a type for the result of the summarization
     async def summarize(self) -> Any: ...
-
-
-@runtime_checkable
-class SummarizingPostProcessorProtocol(Protocol):
-    """Protocol for a summarizing post processor that summarizes the results of the
-    streaming post processor. These will be called by the RecordsManager after aggregating
-    the results of the streaming post processor.
-    """
-
-    def summarize(self) -> Any: ...
-
-
-# @runtime_checkable
-# class MetricPostProcessorProtocol(StreamingPostProcessorProtocol, Protocol):
-#     """Protocol for a metric post processor that processes the metrics for a single record."""
-
-#     def post_process(self) -> Any: ...

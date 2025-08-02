@@ -14,6 +14,9 @@ from aiperf.post_processors.basic_metrics_streamer import (
 from aiperf.post_processors.metric_record_streamer import (
     MetricRecordStreamer,
 )
+from aiperf.post_processors.metric_results_streamer import (
+    MetricResultsStreamer,
+)
 from aiperf.post_processors.metric_summary import (
     MetricSummary,
     record_from_dataframe,
@@ -29,6 +32,7 @@ __all__ = [
     "BaseStreamingPostProcessor",
     "BasicMetricsStreamer",
     "MetricRecordStreamer",
+    "MetricResultsStreamer",
     "MetricSummary",
     "ProcessingStatsStreamer",
     "record_from_dataframe",
