@@ -18,7 +18,7 @@ class RequestThroughputMetric(LegacyBaseMetric):
     header = "Request Throughput"
     type = LegacyMetricType.METRIC_OF_METRICS
     streaming_only = False
-    required_metrics = {MetricTag.REQUEST_COUNT, MetricTag.BENCHMARK_DURATION}
+    required_metrics = {MetricTag.VALID_REQUEST_COUNT, MetricTag.BENCHMARK_DURATION}
 
     def __init__(self):
         self.metric: float = 0.0
@@ -29,7 +29,7 @@ class RequestThroughputMetric(LegacyBaseMetric):
         metrics: dict[MetricTagT, "LegacyBaseMetric"] | None = None,
     ) -> None:
         self._check_metrics(metrics)
-        total_requests = metrics[MetricTag.REQUEST_COUNT].values()
+        total_requests = metrics[MetricTag.VALID_REQUEST_COUNT].values()
         benchmark_duration = metrics[MetricTag.BENCHMARK_DURATION].values()
         self.metric = total_requests / (benchmark_duration / NANOS_PER_SECOND)
 

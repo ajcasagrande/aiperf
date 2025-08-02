@@ -7,11 +7,11 @@ from typing import ClassVar, Generic, get_args, get_origin
 
 from aiperf.common.enums.metric_enums import MetricFlags, MetricType, MetricValueType
 from aiperf.common.models.record_models import ParsedResponseRecord
-from aiperf.common.types import (
-    MetricTagT,
-    MetricUnitT,
-    MetricValueTypeT,
-    MetricValueTypeVarT,
+from aiperf.common.types import MetricTagT, MetricUnitT, MetricValueTypeVarT
+from aiperf.metrics.metric_bags import (
+    BaseMetricDict,
+    MetricRecordDict,
+    MetricResultsDict,
 )
 
 # keep a reference to the type keyword to be able to still use it when "type" is also a variable name
@@ -108,7 +108,7 @@ class BaseMetric(Generic[MetricValueTypeVarT], ABC):
         ):
             raise ValueError("Invalid Record")
 
-    def _check_metrics(self, metrics: dict[MetricTagT, MetricValueTypeT]) -> None:
+    def _check_metrics(self, metrics: BaseMetricDict) -> None:
         """Check that the required metrics are available."""
         for tag in self.required_metrics:
             if tag not in metrics:
@@ -122,20 +122,25 @@ class BaseMetric(Generic[MetricValueTypeVarT], ABC):
 class BaseRecordMetric(
     Generic[MetricValueTypeVarT], BaseMetric[MetricValueTypeVarT], ABC
 ):
-    """A base class for record metrics."""
+    """A base class for record-based metrics. These metrics are computed for each record,
+    and are independent of other records. The final results will be a list of values, one for each record.
+
+    NOTE: Set the generic type to be the type of the individual values, and NOT a list, unless the metric produces
+    a list for every record. In that case, the result will be a list of lists.
+    """
 
     type = MetricType.RECORD
 
     def parse_record(
-        self, record: ParsedResponseRecord, metrics: dict[MetricTagT, MetricValueTypeT]
+        self, record: ParsedResponseRecord, record_metrics: MetricRecordDict
     ) -> MetricValueTypeVarT:
         """Parse a single record and return the metric value."""
         self._require_valid_record(record)
-        self._check_metrics(metrics)
-        return self._parse_record(record, metrics)
+        self._check_metrics(record_metrics)
+        return self._parse_record(record, record_metrics)
 
     def _parse_record(
-        self, record: ParsedResponseRecord, metrics: dict[MetricTagT, MetricValueTypeT]
+        self, record: ParsedResponseRecord, record_metrics: MetricRecordDict
     ) -> MetricValueTypeVarT:
         """Parse a single record and return the metric value. This method is implemented by subclasses."""
         raise NotImplementedError("Subclasses must implement this method")
@@ -144,20 +149,21 @@ class BaseRecordMetric(
 class BaseAggregateMetric(
     Generic[MetricValueTypeVarT], BaseMetric[MetricValueTypeVarT], ABC
 ):
-    """A base class for aggregate metrics."""
+    """A base class for aggregate metrics. These metrics are computed for each record,
+    but are dependent on other records, and will vary over time. They will produce a single final value (or list of values)."""
 
     type = MetricType.AGGREGATE
 
     def update_value(
-        self, record: ParsedResponseRecord, metrics: dict[MetricTagT, MetricValueTypeT]
+        self, record: ParsedResponseRecord, record_metrics: MetricRecordDict
     ) -> MetricValueTypeVarT:
         """Update the metric value."""
         self._require_valid_record(record)
-        self._check_metrics(metrics)
-        return self._update_value(record, metrics)
+        self._check_metrics(record_metrics)
+        return self._update_value(record, record_metrics)
 
     def _update_value(
-        self, record: ParsedResponseRecord, metrics: dict[MetricTagT, MetricValueTypeT]
+        self, record: ParsedResponseRecord, record_metrics: MetricRecordDict
     ) -> MetricValueTypeVarT:
         """Update the metric value. This method is implemented by subclasses."""
         raise NotImplementedError("Subclasses must implement this method")
@@ -166,19 +172,19 @@ class BaseAggregateMetric(
 class BaseDerivedMetric(
     Generic[MetricValueTypeVarT], BaseMetric[MetricValueTypeVarT], ABC
 ):
-    """A base class for derived metrics."""
+    """A base class for derived metrics. These metrics are computed from other metrics,
+    and do not require any knowledge of the individual records. The final results will be a single computed value (or list of values).
+
+    NOTE: The generic type can be a list of values, or a single value.
+    """
 
     type = MetricType.DERIVED
 
-    def derive_value(
-        self, metrics: dict[MetricTagT, MetricValueTypeT]
-    ) -> MetricValueTypeVarT:
+    def derive_value(self, metric_results: MetricResultsDict) -> MetricValueTypeVarT:
         """Derive the metric value."""
-        self._check_metrics(metrics)
-        return self._derive_value(metrics)
+        self._check_metrics(metric_results)
+        return self._derive_value(metric_results)
 
-    def _derive_value(
-        self, metrics: dict[MetricTagT, MetricValueTypeT]
-    ) -> MetricValueTypeVarT:
+    def _derive_value(self, metric_results: MetricResultsDict) -> MetricValueTypeVarT:
         """Derive the metric value. This method is implemented by subclasses."""
         raise NotImplementedError("Subclasses must implement this method")

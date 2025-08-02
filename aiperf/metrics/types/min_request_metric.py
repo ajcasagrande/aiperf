@@ -28,6 +28,7 @@ class MinRequestMetric(BaseAggregateMetric[int]):
         metrics: dict[MetricTagT, MetricValueTypeT],
     ) -> int:
         """Calculates the minimum request timestamp metric."""
+        # TODO: Is this the proper value to use? Should it be real-time and not perf-time?
         if record.start_perf_ns < self.value:
             self.value = record.start_perf_ns
         return self.value

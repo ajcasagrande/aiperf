@@ -16,7 +16,7 @@ class OutputSequenceLengthMetric(BaseRecordMetric[int]):
     header = "Output Sequence Length (OSL)"
     unit = GenericMetricUnit.TOKENS
     larger_is_better = True
-    flags = MetricFlags.NONE
+    flags = MetricFlags.TOKEN_BASED_ONLY
     required_metrics = set()
 
     def _parse_record(

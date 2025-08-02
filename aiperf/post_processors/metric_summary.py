@@ -36,7 +36,7 @@ class MetricSummary(AIPerfLoggerMixin):
                 MetricTag.REQUEST_LATENCY,
                 MetricTag.REQUEST_THROUGHPUT,
                 MetricTag.BENCHMARK_DURATION,
-                MetricTag.REQUEST_COUNT,
+                MetricTag.VALID_REQUEST_COUNT,
                 MetricTag.MIN_REQUEST,
                 MetricTag.MAX_RESPONSE,
             }

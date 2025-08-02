@@ -40,6 +40,8 @@ class MetricOverTimeUnit(CaseInsensitiveStrEnum):
     REQUESTS_PER_SECOND = "req/s"
     TOKENS_PER_SECOND = "tokens/s"
     BYTES_PER_SECOND = "bytes/s"
+    # TODO: Is there a better way to represent tokens/s/user metric type?
+    TOKENS_PER_SECOND_PER_USER = "tokens/s/user"
 
     def generic_unit(self) -> GenericMetricUnit | None:
         """Get the generic unit for the metric."""
@@ -47,6 +49,7 @@ class MetricOverTimeUnit(CaseInsensitiveStrEnum):
             MetricOverTimeUnit.REQUESTS_PER_SECOND: GenericMetricUnit.REQUESTS,
             MetricOverTimeUnit.TOKENS_PER_SECOND: GenericMetricUnit.TOKENS,
             MetricOverTimeUnit.BYTES_PER_SECOND: GenericMetricUnit.BYTES,
+            MetricOverTimeUnit.TOKENS_PER_SECOND_PER_USER: GenericMetricUnit.TOKENS,
         }
         return _generic_unit_map[self]
 
@@ -56,12 +59,14 @@ class MetricOverTimeUnit(CaseInsensitiveStrEnum):
             MetricOverTimeUnit.REQUESTS_PER_SECOND: MetricTimeUnit.SECONDS,
             MetricOverTimeUnit.TOKENS_PER_SECOND: MetricTimeUnit.SECONDS,
             MetricOverTimeUnit.BYTES_PER_SECOND: MetricTimeUnit.SECONDS,
+            MetricOverTimeUnit.TOKENS_PER_SECOND_PER_USER: MetricTimeUnit.SECONDS,
         }
         return _time_unit_map[self]
 
 
 class MetricTag(CaseInsensitiveStrEnum):
     BENCHMARK_DURATION = "benchmark_duration"
+    BENCHMARK_TOKEN_COUNT = "benchmark_token_count"
     ISL = "isl"
     ITL = "itl"
     MAX_RESPONSE = "max_response"
@@ -69,7 +74,7 @@ class MetricTag(CaseInsensitiveStrEnum):
     OSL = "osl"
     OUTPUT_TOKEN_THROUGHPUT = "output_token_throughput"
     OUTPUT_TOKEN_THROUGHPUT_PER_USER = "output_token_throughput_per_user"
-    REQUEST_COUNT = "request_count"
+    VALID_REQUEST_COUNT = "valid_request_count"
     REQUEST_LATENCY = "request_latency"
     REQUEST_THROUGHPUT = "request_throughput"
     TTFT = "ttft"
@@ -109,7 +114,7 @@ class MetricValueType(CaseInsensitiveStrEnum):
     STR_LIST = "list[str]"
 
 
-class MetricFlags(int, Flag):
+class MetricFlags(Flag):
     """Defines the possible flags for metrics that are used to determine how they are processed or grouped.
     These flags are intended to be an easy way to group metrics, or turn on/off certain features.
     """
@@ -123,3 +128,6 @@ class MetricFlags(int, Flag):
     ERROR_METRIC = 0x02
     """Metrics that are used to track errors. These metrics should only by computed if the record is invalid.
     By default, metrics are only computed if the record is valid."""
+
+    TOKEN_BASED_ONLY = 0x04
+    """Metrics that are only applicable when profiling token-based endpoints."""

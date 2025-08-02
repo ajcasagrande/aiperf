@@ -28,7 +28,7 @@ class MaxResponseMetric(BaseAggregateMetric[int]):
         """
         Adds a new record and calculates the maximum response timestamp metric.
         """
-        # TODO: Is this the proper value to use?
+        # TODO: Is this the proper value to use? Should we use the last response? Should it be real-time and not perf-time?
         if record.responses[-1].perf_ns > self.value:
             self.value = record.responses[-1].perf_ns
         return self.value

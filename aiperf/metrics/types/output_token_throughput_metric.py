@@ -1,48 +1,34 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+from typing import cast
+
 from aiperf.common.constants import NANOS_PER_SECOND
-from aiperf.common.enums import LegacyMetricType, MetricTag
-from aiperf.common.models.record_models import ParsedResponseRecord
-from aiperf.common.types import MetricTagT
-from aiperf.metrics.legacy_base_metric import LegacyBaseMetric
+from aiperf.common.enums import MetricFlags, MetricOverTimeUnit, MetricTag
+from aiperf.common.types import MetricTagT, MetricValueTypeT
+from aiperf.metrics.base_metric import BaseDerivedMetric
 
 
-class OutputTokenThroughputMetric(LegacyBaseMetric):
+class OutputTokenThroughputMetric(BaseDerivedMetric[float]):
     """
     Post Processor for calculating Output Token Throughput Metric.
     """
 
     tag = MetricTag.OUTPUT_TOKEN_THROUGHPUT
-    unit = None
+    header = "Output Token Throughput"
+    unit = MetricOverTimeUnit.TOKENS_PER_SECOND
     larger_is_better = True
-    header = "Output Token Throughput (tokens/sec)"
-    type = LegacyMetricType.METRIC_OF_METRICS
+    flags = MetricFlags.TOKEN_BASED_ONLY
     required_metrics = {
-        MetricTag.OSL,
+        MetricTag.BENCHMARK_TOKEN_COUNT,
         MetricTag.BENCHMARK_DURATION,
     }
 
-    def __init__(self):
-        self.metric: float = 0.0
-
-    def update_value(
+    def _derive_value(
         self,
-        record: ParsedResponseRecord | None = None,
-        metrics: dict[MetricTagT, "LegacyBaseMetric"] | None = None,
-    ):
-        self._check_metrics(metrics)
-        tokens = metrics[MetricTag.OSL].values()
-        total_tokens = sum(tokens)
-
-        duration_ns = metrics[MetricTag.BENCHMARK_DURATION].values()
-        self.metric = total_tokens / (duration_ns / NANOS_PER_SECOND)
-
-    def values(self) -> float:
-        """
-        Returns the OutputTokenThroughput metric.
-        """
-        return self.metric
-
-    def _check_record(self, record):
-        pass
+        metrics: dict[MetricTagT, MetricValueTypeT],
+    ) -> float:
+        benchmark_token_count: int = cast(int, metrics[MetricTag.BENCHMARK_TOKEN_COUNT])
+        benchmark_duration: int = cast(int, metrics[MetricTag.BENCHMARK_DURATION])
+        # TODO: This is hardcoded to expect the benchmark duration to be in nanoseconds.
+        return benchmark_token_count / (benchmark_duration / NANOS_PER_SECOND)

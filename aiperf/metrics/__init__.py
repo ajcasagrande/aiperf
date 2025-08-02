@@ -14,8 +14,14 @@ from aiperf.metrics.base_metric import (
     BaseMetric,
     BaseRecordMetric,
 )
+from aiperf.metrics.metric_bags import (
+    BaseMetricDict,
+    MetricRecordDict,
+    MetricResultsDict,
+)
 from aiperf.metrics.types import (
     BenchmarkDurationMetric,
+    BenchmarkTokenCountMetric,
     InputSequenceLengthMetric,
     InterTokenLatencyMetric,
     MaxResponseMetric,
@@ -23,29 +29,33 @@ from aiperf.metrics.types import (
     OutputSequenceLengthMetric,
     OutputTokenThroughputMetric,
     OutputTokenThroughputPerUserMetric,
-    RequestCountMetric,
     RequestLatencyMetric,
     RequestThroughputMetric,
     TTFTMetric,
     TTSTMetric,
+    ValidRequestCountMetric,
 )
 
 __all__ = [
     "BaseAggregateMetric",
     "BaseDerivedMetric",
     "BaseMetric",
+    "BaseMetricDict",
     "BaseRecordMetric",
     "BenchmarkDurationMetric",
+    "BenchmarkTokenCountMetric",
     "InputSequenceLengthMetric",
     "InterTokenLatencyMetric",
     "MaxResponseMetric",
+    "MetricRecordDict",
+    "MetricResultsDict",
     "MinRequestMetric",
     "OutputSequenceLengthMetric",
     "OutputTokenThroughputMetric",
     "OutputTokenThroughputPerUserMetric",
-    "RequestCountMetric",
     "RequestLatencyMetric",
     "RequestThroughputMetric",
     "TTFTMetric",
     "TTSTMetric",
+    "ValidRequestCountMetric",
 ]

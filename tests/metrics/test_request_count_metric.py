@@ -4,12 +4,12 @@
 import pytest
 
 from aiperf.metrics.types.request_count_metric import (
-    RequestCountMetric,
+    ValidRequestCountMetric,
 )
 
 
 def test_request_count_with_multiple_valid_records(parsed_response_record_builder):
-    metric = RequestCountMetric()
+    metric = ValidRequestCountMetric()
     records = (
         parsed_response_record_builder.with_request_start_time(0)
         .add_response(perf_ns=5)
@@ -29,6 +29,6 @@ def test_request_count_with_multiple_valid_records(parsed_response_record_builde
 
 
 def test_request_count_invalid_record_raises():
-    metric = RequestCountMetric()
+    metric = ValidRequestCountMetric()
     with pytest.raises(ValueError, match="Invalid Record"):
         metric.update_value(record=None)

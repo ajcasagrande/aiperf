@@ -11,6 +11,9 @@ __ignore__ = []
 from aiperf.metrics.types.benchmark_duration_metric import (
     BenchmarkDurationMetric,
 )
+from aiperf.metrics.types.benchmark_token_count import (
+    BenchmarkTokenCountMetric,
+)
 from aiperf.metrics.types.input_sequence_length_metric import (
     InputSequenceLengthMetric,
 )
@@ -33,7 +36,7 @@ from aiperf.metrics.types.output_token_throughput_per_user_metric import (
     OutputTokenThroughputPerUserMetric,
 )
 from aiperf.metrics.types.request_count_metric import (
-    RequestCountMetric,
+    ValidRequestCountMetric,
 )
 from aiperf.metrics.types.request_latency_metric import (
     RequestLatencyMetric,
@@ -50,6 +53,7 @@ from aiperf.metrics.types.ttst_metric import (
 
 __all__ = [
     "BenchmarkDurationMetric",
+    "BenchmarkTokenCountMetric",
     "InputSequenceLengthMetric",
     "InterTokenLatencyMetric",
     "MaxResponseMetric",
@@ -57,9 +61,9 @@ __all__ = [
     "OutputSequenceLengthMetric",
     "OutputTokenThroughputMetric",
     "OutputTokenThroughputPerUserMetric",
-    "RequestCountMetric",
     "RequestLatencyMetric",
     "RequestThroughputMetric",
     "TTFTMetric",
     "TTSTMetric",
+    "ValidRequestCountMetric",
 ]

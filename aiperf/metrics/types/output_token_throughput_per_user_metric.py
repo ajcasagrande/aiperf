@@ -1,37 +1,36 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+from typing import cast
+
 from aiperf.common.constants import NANOS_PER_SECOND
-from aiperf.common.enums import LegacyMetricType, MetricTag, MetricTimeUnit
-from aiperf.common.models import ParsedResponseRecord
-from aiperf.common.types import MetricTagT
-from aiperf.metrics.legacy_base_metric import LegacyBaseMetric
+from aiperf.common.enums import MetricFlags, MetricOverTimeUnit, MetricTag
+from aiperf.common.types import MetricTagT, MetricValueTypeT
+from aiperf.metrics.base_metric import BaseDerivedMetric
 
 
-class OutputTokenThroughputPerUserMetric(LegacyBaseMetric):
+class OutputTokenThroughputPerUserMetric(BaseDerivedMetric[float]):
     """
     Post Processor for calculating Output Token Throughput per user metrics from records.
     """
 
     tag = MetricTag.OUTPUT_TOKEN_THROUGHPUT_PER_USER
-    unit = MetricTimeUnit.SECONDS
-    larger_is_better = True
     header = "Output Token Throughput Per User"
-    type = LegacyMetricType.METRIC_OF_METRICS
-    streaming_only = True
-    required_metrics = {MetricTag.ITL}
+    unit = MetricOverTimeUnit.TOKENS_PER_SECOND_PER_USER
+    larger_is_better = True
+    flags = MetricFlags.STREAMING_ONLY | MetricFlags.TOKEN_BASED_ONLY
+    required_metrics = {
+        MetricTag.ITL,
+        MetricTag.BENCHMARK_TOKEN_COUNT,
+    }
 
-    def __init__(self):
-        self.metric: list[float] = []
-
-    def update_value(
+    def _derive_value(
         self,
-        record: ParsedResponseRecord | None = None,
-        metrics: dict[MetricTagT, "LegacyBaseMetric"] | None = None,
-    ):
-        self._check_metrics(metrics)
-        # Clear the current value because we re-compute it each time
-        self.metric.clear()
+        metrics: dict[MetricTagT, MetricValueTypeT],
+    ) -> float:
+        itl: float = cast(float, metrics[MetricTag.ITL])
+        benchmark_token_count: int = cast(int, metrics[MetricTag.BENCHMARK_TOKEN_COUNT])
+        return itl / benchmark_token_count
         inter_token_latencies = metrics[MetricTag.ITL].values()
         for inter_token_latency in inter_token_latencies:
             inter_token_latency_s = inter_token_latency / NANOS_PER_SECOND
