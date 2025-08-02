@@ -15,9 +15,9 @@ from aiperf.common.constants import DEFAULT_PULL_CLIENT_MAX_CONCURRENCY
 from aiperf.common.enums import CommAddress, MessageType, ServiceType
 from aiperf.common.enums.command_enums import CommandType
 from aiperf.common.factories import (
+    RecordProcessorFactory,
     ResponseExtractorFactory,
     ServiceFactory,
-    StreamingRecordProcessorFactory,
 )
 from aiperf.common.hooks import (
     on_command,
@@ -35,7 +35,7 @@ from aiperf.common.models.record_models import (
     ParsedResponseRecord,
     RecordProcessorResult,
 )
-from aiperf.common.protocols import StreamingRecordProcessorProtocol
+from aiperf.common.protocols import RecordProcessorProtocol
 from aiperf.common.tokenizer import Tokenizer
 from aiperf.parsers.inference_result_parser import InferenceResultParser
 
@@ -76,7 +76,7 @@ class RecordProcessor(PullClientMixin, BaseComponentService):
             service_config=service_config,
             user_config=user_config,
         )
-        self.records_streamers: list[StreamingRecordProcessorProtocol] = []
+        self.records_processors: list[RecordProcessorProtocol] = []
 
     @on_init
     async def _initialize(self) -> None:
@@ -89,10 +89,10 @@ class RecordProcessor(PullClientMixin, BaseComponentService):
         )
 
         # Initialize all the records streamers
-        for streamer_type in StreamingRecordProcessorFactory.get_all_class_types():
-            self.records_streamers.append(
-                StreamingRecordProcessorFactory.create_instance(
-                    streamer_type,
+        for processor_type in RecordProcessorFactory.get_all_class_types():
+            self.records_processors.append(
+                RecordProcessorFactory.create_instance(
+                    processor_type,
                     service_config=self.service_config,
                     user_config=self.user_config,
                 )
@@ -133,7 +133,9 @@ class RecordProcessor(PullClientMixin, BaseComponentService):
 
     async def _stream_record(self, record: ParsedResponseRecord) -> MetricRecords:
         """Stream a record to the records streamers."""
-        tasks = [streamer.stream_record(record) for streamer in self.records_streamers]
+        tasks = [
+            streamer.process_record(record) for streamer in self.records_processors
+        ]
         results: list[RecordProcessorResult] = await asyncio.gather(*tasks)
         metric_records = MetricRecords(
             timestamp_ns=record.timestamp_ns,
@@ -142,7 +144,7 @@ class RecordProcessor(PullClientMixin, BaseComponentService):
         )
         return metric_records
 
-    async def _yield_streamers(self) -> AsyncIterator[StreamingRecordProcessorProtocol]:
+    async def _yield_streamers(self) -> AsyncIterator[RecordProcessorProtocol]:
         """Yield the records streamers."""
         for streamer in self.records_streamers:
             yield streamer

@@ -484,21 +484,18 @@ class StreamingPostProcessorProtocol(AIPerfLifecycleProtocol, Protocol):
 
 
 @runtime_checkable
-class StreamingRecordProcessorProtocol(AIPerfLifecycleProtocol, Protocol):
-    """Protocol for a streaming record processor that streams the incoming records to the post processor
-    and returns the results of the post processing."""
+class RecordProcessorProtocol(AIPerfLifecycleProtocol, Protocol):
+    """Protocol for a record processor that processes the incoming records and returns the results of the post processing."""
 
-    async def stream_record(
-        self, record: ParsedResponseRecord
-    ) -> RecordProcessorResult: ...
+    async def process_record(self, record: ParsedResponseRecord) -> None: ...
 
 
 @runtime_checkable
-class StreamingResultsProcessorProtocol(AIPerfLifecycleProtocol, Protocol):
-    """Protocol for a streaming results processor that streams the results of multiple
-    streaming post processors, and provides the ability to summarize the results."""
+class ResultsProcessorProtocol(AIPerfLifecycleProtocol, Protocol):
+    """Protocol for a results processor that processes the results of multiple
+    record processors, and provides the ability to summarize the results."""
 
-    async def stream_result(self, result: RecordProcessorResult) -> None: ...
+    async def process_result(self, result: RecordProcessorResult) -> None: ...
 
     # TODO: Add a type for the result of the summarization
     async def summarize(self) -> Any: ...

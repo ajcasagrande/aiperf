@@ -16,8 +16,7 @@ class MinRequestMetric(BaseAggregateMetric[int]):
     tag = MetricTag.MIN_REQUEST
     header = "Minimum Request Timestamp"
     unit = MetricTimeUnit.NANOSECONDS
-    larger_is_better = False
-    flags = MetricFlags.NONE
+    flags = MetricFlags.HIDDEN
     required_metrics = None
 
     def __init__(self) -> None:

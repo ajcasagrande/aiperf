@@ -15,10 +15,9 @@ class RequestThroughputMetric(BaseDerivedMetric[float]):
     """
 
     tag = MetricTag.REQUEST_THROUGHPUT
-    unit = MetricOverTimeUnit.REQUESTS_PER_SECOND
-    larger_is_better = True
     header = "Request Throughput"
-    flags = MetricFlags.NONE
+    unit = MetricOverTimeUnit.REQUESTS_PER_SECOND
+    flags = MetricFlags.LARGER_IS_BETTER
     required_metrics = {
         MetricTag.VALID_REQUEST_COUNT,
         MetricTag.BENCHMARK_DURATION,

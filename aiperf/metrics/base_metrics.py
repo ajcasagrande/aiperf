@@ -23,9 +23,8 @@ class BaseMetric(Generic[MetricValueTypeVarT], ABC):
     header: ClassVar[str] = ""
     unit: ClassVar[MetricUnitT] = None
     value_type: ClassVar[
-        MetricValueType
-    ]  # Will be auto-detected based on generic type parameter
-    larger_is_better: ClassVar[bool] = False
+        MetricValueType  # Will be auto-detected based on generic type parameter
+    ]
     type: ClassVar[MetricType]  # Will be set by base subclasses
     flags: ClassVar[MetricFlags] = MetricFlags.NONE
     required_metrics: ClassVar[set[MetricTagT] | None] = None
@@ -98,7 +97,7 @@ class BaseMetric(Generic[MetricValueTypeVarT], ABC):
 
     def _require_valid_record(self, record: ParsedResponseRecord) -> None:
         """Check that the record is valid."""
-        if (not record or not record.valid) and not self.has_flag(
+        if (not record or not record.valid) and self.missing_flags(
             MetricFlags.ERROR_METRIC
         ):
             raise ValueError("Invalid Record")
@@ -112,9 +111,15 @@ class BaseMetric(Generic[MetricValueTypeVarT], ABC):
                 raise ValueError(f"Missing required metric: '{tag}'")
 
     @classmethod
-    def has_flag(cls, flag: MetricFlags) -> bool:
+    def has_flags(cls, flags: MetricFlags) -> bool:
         """Return True if the metric has the given flag(s) (regardless of other flags)."""
-        return flag & cls.flags == flag
+        return cls.flags.has_flags(flags)
+
+    @classmethod
+    def missing_flags(cls, flags: MetricFlags) -> bool:
+        """Return True if the metric does not have the given flag(s) (regardless of other flags). It will
+        return False if the metric has ANY of the given flags."""
+        return cls.flags.missing_flags(flags)
 
 
 class BaseRecordMetric(

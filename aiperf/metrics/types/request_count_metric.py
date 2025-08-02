@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from aiperf.common.enums import GenericMetricUnit, MetricTag
+from aiperf.common.enums import GenericMetricUnit, MetricFlags, MetricTag
 from aiperf.common.models import ParsedResponseRecord
 from aiperf.metrics.base_metrics import BaseAggregateMetric
 from aiperf.metrics.metric_dicts import MetricRecordDict
@@ -15,8 +15,8 @@ class ValidRequestCountMetric(BaseAggregateMetric[int]):
     tag = MetricTag.VALID_REQUEST_COUNT
     header = "Valid Request Count"
     unit = GenericMetricUnit.REQUESTS
-    larger_is_better = True
-    required_metrics = set()
+    flags = MetricFlags.LARGER_IS_BETTER
+    required_metrics = None
 
     def __init__(self):
         self.value: int = 0

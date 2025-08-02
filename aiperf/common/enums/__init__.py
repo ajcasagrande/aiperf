@@ -64,9 +64,9 @@ from aiperf.common.enums.model_enums import (
 )
 from aiperf.common.enums.post_processor_enums import (
     PostProcessorType,
+    RecordProcessorType,
+    ResultsProcessorType,
     StreamingPostProcessorType,
-    StreamingRecordProcessorType,
-    StreamingResultsProcessorType,
 )
 from aiperf.common.enums.service_enums import (
     LifecycleState,
@@ -119,16 +119,16 @@ __all__ = [
     "NotificationType",
     "PostProcessorType",
     "PromptSource",
+    "RecordProcessorType",
     "RequestRateMode",
     "ResponsePayloadType",
+    "ResultsProcessorType",
     "SSEEventType",
     "SSEFieldType",
     "ServiceRegistrationStatus",
     "ServiceRunType",
     "ServiceType",
     "StreamingPostProcessorType",
-    "StreamingRecordProcessorType",
-    "StreamingResultsProcessorType",
     "SystemState",
     "TimingMode",
     "ZMQProxyType",

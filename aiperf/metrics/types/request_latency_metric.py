@@ -15,7 +15,6 @@ class RequestLatencyMetric(BaseRecordMetric[int]):
     tag = MetricTag.REQUEST_LATENCY
     header = "Request Latency"
     unit = MetricTimeUnit.NANOSECONDS
-    larger_is_better = False
     flags = MetricFlags.NONE
     required_metrics = None
 

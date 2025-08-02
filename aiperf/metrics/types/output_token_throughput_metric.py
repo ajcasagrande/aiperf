@@ -17,8 +17,7 @@ class OutputTokenThroughputMetric(BaseDerivedMetric[float]):
     tag = MetricTag.OUTPUT_TOKEN_THROUGHPUT
     header = "Output Token Throughput"
     unit = MetricOverTimeUnit.TOKENS_PER_SECOND
-    larger_is_better = True
-    flags = MetricFlags.TOKEN_BASED_ONLY
+    flags = MetricFlags.TOKEN_BASED_ONLY | MetricFlags.LARGER_IS_BETTER
     required_metrics = {
         MetricTag.BENCHMARK_TOKEN_COUNT,
         MetricTag.BENCHMARK_DURATION,

@@ -17,8 +17,7 @@ class InputSequenceLengthMetric(BaseRecordMetric[int]):
     tag = MetricTag.ISL
     header = "Input Sequence Length (ISL)"
     unit = GenericMetricUnit.TOKENS
-    larger_is_better = True
-    flags = MetricFlags.TOKEN_BASED_ONLY
+    flags = MetricFlags.TOKEN_BASED_ONLY | MetricFlags.LARGER_IS_BETTER
     required_metrics = None
 
     def _validate_inputs(

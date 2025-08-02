@@ -16,8 +16,11 @@ class OutputTokenThroughputPerUserMetric(BaseDerivedMetric[float]):
     tag = MetricTag.OUTPUT_TOKEN_THROUGHPUT_PER_USER
     header = "Output Token Throughput Per User"
     unit = MetricOverTimeUnit.TOKENS_PER_SECOND_PER_USER
-    larger_is_better = True
-    flags = MetricFlags.STREAMING_ONLY | MetricFlags.TOKEN_BASED_ONLY
+    flags = (
+        MetricFlags.STREAMING_ONLY
+        | MetricFlags.TOKEN_BASED_ONLY
+        | MetricFlags.LARGER_IS_BETTER
+    )
     required_metrics = {
         MetricTag.ITL,
         MetricTag.BENCHMARK_TOKEN_COUNT,

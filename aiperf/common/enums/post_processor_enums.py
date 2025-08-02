@@ -21,7 +21,7 @@ class StreamingPostProcessorType(CaseInsensitiveStrEnum):
     """Streams all parsed records to a JSONL file."""
 
 
-class StreamingRecordProcessorType(CaseInsensitiveStrEnum):
+class RecordProcessorType(CaseInsensitiveStrEnum):
     """Type of streaming record processor."""
 
     METRIC_RECORD_STREAMER = "metric_record_streamer"
@@ -29,7 +29,7 @@ class StreamingRecordProcessorType(CaseInsensitiveStrEnum):
     This is the first stage of the metrics processing pipeline, and is done is a distributed manner across multiple service instances."""
 
 
-class StreamingResultsProcessorType(CaseInsensitiveStrEnum):
+class ResultsProcessorType(CaseInsensitiveStrEnum):
     """Type of streaming results processor."""
 
     METRIC_RESULTS_STREAMER = "metric_results_streamer"

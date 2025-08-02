@@ -15,8 +15,7 @@ class BenchmarkDurationMetric(BaseDerivedMetric[int]):
     tag = MetricTag.BENCHMARK_DURATION
     header = "Benchmark Duration"
     unit = MetricTimeUnit.NANOSECONDS
-    larger_is_better = False
-    flags = MetricFlags.NONE
+    flags = MetricFlags.HIDDEN
     required_metrics = {
         MetricTag.MIN_REQUEST,
         MetricTag.MAX_RESPONSE,

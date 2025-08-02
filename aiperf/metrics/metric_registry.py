@@ -51,16 +51,16 @@ class MetricRegistry:
                 )
 
             # Import all metric type modules to trigger registration
-            cls._import_metric_type_modules(types_dir)
+            cls._import_metric_type_modules(types_dir, "aiperf.metrics.types")
 
     @classmethod
-    def _import_metric_type_modules(cls, types_dir: Path) -> None:
+    def _import_metric_type_modules(cls, types_dir: Path, module_prefix: str) -> None:
         """Import all metric type modules from the given directory."""
         for python_file in types_dir.glob("*.py"):
             if python_file.name != "__init__.py":
                 module_name = python_file.stem  # Get filename without extension
                 # TODO: Can the below be more generic using the __module__ attribute of this file?
-                module_path = f"aiperf.metrics.types.{module_name}"
+                module_path = f"{module_prefix}.{module_name}"
                 try:
                     importlib.import_module(module_path)
                 except ImportError as err:
@@ -104,12 +104,26 @@ class MetricRegistry:
     @classmethod
     def tags_with_flags(cls, flags: MetricFlags) -> list[MetricTagT]:
         """Get metrics tags that have the given flag(s)."""
-        return [tag for tag in cls.all_tags() if cls.get_class(tag).has_flag(flags)]
+        return [tag for tag in cls.all_tags() if cls.get_class(tag).has_flags(flags)]
 
     @classmethod
     def tags_without_flags(cls, flags: MetricFlags) -> list[MetricTagT]:
         """Get metrics tags that do not have the given flag(s)."""
-        return [tag for tag in cls.all_tags() if not cls.get_class(tag).has_flag(flags)]
+        return [
+            tag for tag in cls.all_tags() if not cls.get_class(tag).has_flags(flags)
+        ]
+
+    @classmethod
+    def tags_applicable_to(
+        cls, required_flags: MetricFlags, disallowed_flags: MetricFlags
+    ) -> list[MetricTagT]:
+        """Get metrics tags that are applicable to the given endpoint type."""
+        return [
+            metric_cls.tag
+            for metric_cls in cls.classes_for(cls.all_tags())
+            if metric_cls.has_flags(required_flags)
+            and metric_cls.missing_flags(disallowed_flags)
+        ]
 
     @classmethod
     def all_tags(cls) -> list[MetricTagT]:

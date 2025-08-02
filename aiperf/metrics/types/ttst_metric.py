@@ -14,7 +14,6 @@ class TTSTMetric(BaseRecordMetric[int]):
     tag = MetricTag.TTST
     header = "Time to Second Token (TTST)"
     unit = MetricTimeUnit.NANOSECONDS
-    larger_is_better = False
     flags = MetricFlags.STREAMING_ONLY | MetricFlags.TOKEN_BASED_ONLY
     required_metrics = None
 

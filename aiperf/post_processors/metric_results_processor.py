@@ -5,19 +5,19 @@ from typing import Any
 from aiperf.common.decorators import implements_protocol
 from aiperf.common.mixins.aiperf_lifecycle_mixin import AIPerfLifecycleMixin
 from aiperf.common.models import RecordProcessorResult
-from aiperf.common.protocols import StreamingResultsProcessorProtocol
+from aiperf.common.protocols import ResultsProcessorProtocol
 
 
-@implements_protocol(StreamingResultsProcessorProtocol)
-class MetricResultsStreamer(AIPerfLifecycleMixin):
-    """Streamer for metric results.
+@implements_protocol(ResultsProcessorProtocol)
+class MetricResultsProcessor(AIPerfLifecycleMixin):
+    """Processor for metric results.
 
     This is the final stage of the metrics processing pipeline, and is done is a unified manner by the RecordsManager.
-    It is responsible for streaming the results to the RecordsManager, and summarizing the results.
+    It is responsible for processing the results and returning them to the RecordsManager, as well as summarizing the results.
     """
 
-    async def stream_result(self, result: RecordProcessorResult) -> None:
-        """Stream a result."""
+    async def process_result(self, result: RecordProcessorResult) -> None:
+        """Process a result."""
         pass
 
     # TODO: Add a type for the result of the summarization

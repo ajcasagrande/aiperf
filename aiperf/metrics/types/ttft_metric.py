@@ -12,9 +12,8 @@ class TTFTMetric(BaseRecordMetric[int]):
     """
 
     tag = MetricTag.TTFT
-    unit = MetricTimeUnit.NANOSECONDS
-    larger_is_better = False
     header = "Time to First Token (TTFT)"
+    unit = MetricTimeUnit.NANOSECONDS
     flags = MetricFlags.STREAMING_ONLY | MetricFlags.TOKEN_BASED_ONLY
     required_metrics = None
 

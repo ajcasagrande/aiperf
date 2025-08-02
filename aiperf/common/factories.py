@@ -15,11 +15,11 @@ from aiperf.common.enums import (
     DataExporterType,
     EndpointType,
     PostProcessorType,
+    RecordProcessorType,
+    ResultsProcessorType,
     ServiceRunType,
     ServiceType,
     StreamingPostProcessorType,
-    StreamingRecordProcessorType,
-    StreamingResultsProcessorType,
     ZMQProxyType,
 )
 from aiperf.common.exceptions import (
@@ -51,13 +51,13 @@ if TYPE_CHECKING:
         DataExporterProtocol,
         InferenceClientProtocol,
         PostProcessorProtocol,
+        RecordProcessorProtocol,  # noqa: F401
         RequestConverterProtocol,  # noqa: F401
         ResponseExtractorProtocol,
+        ResultsProcessorProtocol,  # noqa: F401
         ServiceManagerProtocol,
         ServiceProtocol,  # noqa: F401
         StreamingPostProcessorProtocol,
-        StreamingRecordProcessorProtocol,  # noqa: F401
-        StreamingResultsProcessorProtocol,  # noqa: F401
     )
     from aiperf.dataset import (
         CustomDatasetLoaderProtocol,
@@ -557,20 +557,50 @@ class StreamingPostProcessorFactory(
         )
 
 
-class StreamingRecordProcessorFactory(
-    AIPerfFactory[StreamingRecordProcessorType, "StreamingRecordProcessorProtocol"]
+class RecordProcessorFactory(
+    AIPerfFactory[RecordProcessorType, "RecordProcessorProtocol"]
 ):
-    """Factory for registering and creating StreamingRecordProcessorProtocol instances based on the specified streaming record processor type.
+    """Factory for registering and creating RecordProcessorProtocol instances based on the specified record processor type.
     see: :class:`aiperf.common.factories.AIPerfFactory` for more details.
     """
 
+    @classmethod
+    def create_instance(  # type: ignore[override]
+        cls,
+        class_type: RecordProcessorType | str,
+        service_config: "ServiceConfig",
+        user_config: "UserConfig",
+        **kwargs,
+    ) -> "RecordProcessorProtocol":
+        return super().create_instance(
+            class_type,
+            service_config=service_config,
+            user_config=user_config,
+            **kwargs,
+        )
 
-class StreamingResultsProcessorFactory(
-    AIPerfFactory[StreamingResultsProcessorType, "StreamingResultsProcessorProtocol"]
+
+class ResultsProcessorFactory(
+    AIPerfFactory[ResultsProcessorType, "ResultsProcessorProtocol"]
 ):
-    """Factory for registering and creating StreamingResultsProcessorProtocol instances based on the specified streaming results processor type.
+    """Factory for registering and creating ResultsProcessorProtocol instances based on the specified results processor type.
     see: :class:`aiperf.common.factories.AIPerfFactory` for more details.
     """
+
+    @classmethod
+    def create_instance(  # type: ignore[override]
+        cls,
+        class_type: ResultsProcessorType | str,
+        service_config: "ServiceConfig",
+        user_config: "UserConfig",
+        **kwargs,
+    ) -> "ResultsProcessorProtocol":
+        return super().create_instance(
+            class_type,
+            service_config=service_config,
+            user_config=user_config,
+            **kwargs,
+        )
 
 
 class ZMQProxyFactory(AIPerfFactory[ZMQProxyType, "BaseZMQProxy"]):
