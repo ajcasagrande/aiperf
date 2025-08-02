@@ -15,9 +15,6 @@ from aiperf.metrics.metric_dicts import (
 )
 from aiperf.metrics.metric_registry import MetricRegistry
 
-# keep a reference to the type keyword to be able to still use it when "type" is also a variable name
-_type = type
-
 
 class BaseMetric(Generic[MetricValueTypeVarT], ABC):
     """A definition of a metric type."""
@@ -25,9 +22,11 @@ class BaseMetric(Generic[MetricValueTypeVarT], ABC):
     tag: ClassVar[MetricTagT] = ""
     header: ClassVar[str] = ""
     unit: ClassVar[MetricUnitT] = None
-    value_type: ClassVar[MetricValueType]  # Will be auto-detected
+    value_type: ClassVar[
+        MetricValueType
+    ]  # Will be auto-detected based on generic type parameter
     larger_is_better: ClassVar[bool] = False
-    type: ClassVar[MetricType] = MetricType.RECORD
+    type: ClassVar[MetricType]  # Will be set by base subclasses
     flags: ClassVar[MetricFlags] = MetricFlags.NONE
     required_metrics: ClassVar[set[MetricTagT]] = set()
 
