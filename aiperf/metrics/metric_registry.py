@@ -115,14 +115,23 @@ class MetricRegistry:
 
     @classmethod
     def tags_applicable_to(
-        cls, required_flags: MetricFlags, disallowed_flags: MetricFlags
+        cls,
+        required_flags: MetricFlags,
+        disallowed_flags: MetricFlags,
+        *types: MetricType,
     ) -> list[MetricTagT]:
-        """Get metrics tags that are applicable to the given endpoint type."""
+        """Get metrics tags that are applicable to the given arguments.
+        Arguments:
+            required_flags: The flags that the metric must have.
+            disallowed_flags: The flags that the metric must not have.
+            types: The types of metrics to include. If not provided, all types will be included.
+        """
         return [
             metric_cls.tag
             for metric_cls in cls.classes_for(cls.all_tags())
             if metric_cls.has_flags(required_flags)
             and metric_cls.missing_flags(disallowed_flags)
+            and (metric_cls.type in types or not types)
         ]
 
     @classmethod

@@ -3,6 +3,7 @@
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
 from aiperf.common.decorators import implements_protocol
+from aiperf.common.enums.metric_enums import MetricFlags
 from aiperf.common.mixins.aiperf_lifecycle_mixin import AIPerfLifecycleMixin
 from aiperf.common.models import ParsedResponseRecord
 from aiperf.common.protocols import RecordProcessorProtocol
@@ -25,6 +26,7 @@ class MetricRecordProcessor(AIPerfLifecycleMixin):
             service_config=service_config, user_config=user_config, **kwargs
         )
         self.metrics = []
+        self._metric_flags = MetricFlags.NONE
 
     async def process_record(self, record: ParsedResponseRecord) -> None:
         """Process a record."""
