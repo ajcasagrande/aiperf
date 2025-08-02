@@ -1,13 +1,14 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+from typing import cast
+
 from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import MetricOverTimeUnit, MetricTag
-from aiperf.common.models import ParsedResponseRecord
 from aiperf.metrics.base_metric import BaseDerivedMetric
 from aiperf.metrics.metric_dicts import MetricResultsDict
 
 
-class RequestThroughputMetric(BaseDerivedMetric):
+class RequestThroughputMetric(BaseDerivedMetric[float]):
     """
     Post Processor for calculating Request throughput metrics from records.
     """
@@ -21,25 +22,31 @@ class RequestThroughputMetric(BaseDerivedMetric):
         MetricTag.BENCHMARK_DURATION,
     }
 
+    def _validate_inputs(self, metric_results: MetricResultsDict) -> None:
+        """Check that the metric can be computed for the given results.
+        This method is called after the required metrics are checked, so it can assume that the required metrics are available.
+        """
+        if (
+            metric_results[MetricTag.BENCHMARK_DURATION] is None
+            or metric_results[MetricTag.BENCHMARK_DURATION] == 0
+        ):
+            raise ValueError(
+                "Benchmark duration is required and must be greater than 0 to calculate request throughput."
+            )
+        if metric_results[MetricTag.VALID_REQUEST_COUNT] is None:
+            raise ValueError(
+                "Valid request count is required to calculate request throughput."
+            )
+
     def _derive_value(
         self,
         metric_results: MetricResultsDict,
-    ) -> None:
-        total_requests = metrics[MetricTag.VALID_REQUEST_COUNT].values()
-        benchmark_duration = metrics[MetricTag.BENCHMARK_DURATION].values()
-        self.metric = total_requests / (benchmark_duration / NANOS_PER_SECOND)
-
-    def values(self) -> float:
-        """
-        Returns the Request Throughput metric.
-        """
-        return self.metric
-
-    def _check_record(self, record: ParsedResponseRecord) -> None:
-        """
-        Checks if the record is valid.
-
-        Raises:
-            ValueError: If the record is None or is invalid.
-        """
-        self._require_valid_record(record)
+    ) -> float:
+        valid_request_count: int = cast(
+            int, metric_results[MetricTag.VALID_REQUEST_COUNT]
+        )
+        benchmark_duration: int = cast(
+            int, metric_results[MetricTag.BENCHMARK_DURATION]
+        )
+        # TODO: HACK: This is hardcoded to expect the benchmark duration to be in nanoseconds.
+        return valid_request_count / (benchmark_duration / NANOS_PER_SECOND)

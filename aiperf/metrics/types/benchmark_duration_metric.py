@@ -21,6 +21,27 @@ class BenchmarkDurationMetric(BaseDerivedMetric[int]):
         MetricTag.MAX_RESPONSE,
     }
 
+    def _validate_inputs(self, metric_results: MetricResultsDict) -> None:
+        """
+        Checks if the metric can be computed for the given inputs.
+
+        Raises:
+            ValueError: If the metric cannot be computed for the given inputs.
+        """
+        if (
+            metric_results[MetricTag.MIN_REQUEST] is None
+            or metric_results[MetricTag.MAX_RESPONSE] is None
+        ):
+            raise ValueError(
+                "Min request and max response are required to calculate benchmark duration."
+            )
+        if cast(int, metric_results[MetricTag.MIN_REQUEST]) >= cast(
+            int, metric_results[MetricTag.MAX_RESPONSE]
+        ):
+            raise ValueError(
+                "Min request must be less than max response to calculate benchmark duration."
+            )
+
     def _derive_value(
         self,
         metric_results: MetricResultsDict,

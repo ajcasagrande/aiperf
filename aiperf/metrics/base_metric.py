@@ -138,13 +138,27 @@ class BaseRecordMetric(
         """Parse a single record and return the metric value."""
         self._require_valid_record(record)
         self._check_metrics(record_metrics)
+        self._validate_inputs(record, record_metrics)
         return self._parse_record(record, record_metrics)
 
     def _parse_record(
         self, record: ParsedResponseRecord, record_metrics: MetricRecordDict
     ) -> MetricValueTypeVarT:
-        """Parse a single record and return the metric value. This method is implemented by subclasses."""
+        """Parse a single record and return the metric value. This method is implemented by subclasses.
+        This method is called after the required metrics are checked, so it can assume that the required metrics are available.
+        This method is called after the record is checked, so it can assume that the record is valid.
+        """
         raise NotImplementedError("Subclasses must implement this method")
+
+    def _validate_inputs(
+        self, record: ParsedResponseRecord, record_metrics: MetricRecordDict
+    ) -> None:
+        """Check that the metric can be computed for the given inputs. This method can be implemented by subclasses.
+        This method is called after the required metrics are checked, so it can assume that the required metrics are available.
+        Raises:
+            ValueError: If the metric cannot be computed for the given inputs.
+        """
+        pass
 
 
 class BaseAggregateMetric(
@@ -158,16 +172,34 @@ class BaseAggregateMetric(
     def update_value(
         self, record: ParsedResponseRecord, record_metrics: MetricRecordDict
     ) -> MetricValueTypeVarT:
-        """Update the metric value."""
+        """Update the metric value.
+        This method is called after the required metrics are checked, so it can assume that the required metrics are available.
+        Raises:
+            ValueError: If the metric cannot be computed for the given inputs.
+        """
         self._require_valid_record(record)
         self._check_metrics(record_metrics)
+        self._validate_inputs(record, record_metrics)
         return self._update_value(record, record_metrics)
 
     def _update_value(
         self, record: ParsedResponseRecord, record_metrics: MetricRecordDict
     ) -> MetricValueTypeVarT:
-        """Update the metric value. This method is implemented by subclasses."""
+        """Update the metric value. This method is implemented by subclasses.
+        This method is called after the required metrics are checked, so it can assume that the required metrics are available.
+        This method is called after the record is checked, so it can assume that the record is valid.
+        """
         raise NotImplementedError("Subclasses must implement this method")
+
+    def _validate_inputs(
+        self, record: ParsedResponseRecord, record_metrics: MetricRecordDict
+    ) -> None:
+        """Check that the metric can be computed for the given inputs. This method can be implemented by subclasses.
+        This method is called after the required metrics are checked, so it can assume that the required metrics are available.
+        Raises:
+            ValueError: If the metric cannot be computed for the given inputs.
+        """
+        pass
 
 
 class BaseDerivedMetric(
@@ -184,8 +216,19 @@ class BaseDerivedMetric(
     def derive_value(self, metric_results: MetricResultsDict) -> MetricValueTypeVarT:
         """Derive the metric value."""
         self._check_metrics(metric_results)
+        self._validate_inputs(metric_results)
         return self._derive_value(metric_results)
 
     def _derive_value(self, metric_results: MetricResultsDict) -> MetricValueTypeVarT:
-        """Derive the metric value. This method is implemented by subclasses."""
+        """Derive the metric value. This method is implemented by subclasses.
+        This method is called after the required metrics are checked, so it can assume that the required metrics are available.
+        """
         raise NotImplementedError("Subclasses must implement this method")
+
+    def _validate_inputs(self, metric_results: MetricResultsDict) -> None:
+        """Check that the metric can be computed for the given inputs. This method can be implemented by subclasses.
+        This method is called after the required metrics are checked, so it can assume that the required metrics are available.
+        Raises:
+            ValueError: If the metric cannot be computed for the given inputs.
+        """
+        pass

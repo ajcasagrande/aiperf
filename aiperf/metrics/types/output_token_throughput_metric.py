@@ -5,8 +5,8 @@ from typing import cast
 
 from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import MetricFlags, MetricOverTimeUnit, MetricTag
-from aiperf.common.types import MetricTagT, MetricValueTypeT
 from aiperf.metrics.base_metric import BaseDerivedMetric
+from aiperf.metrics.metric_dicts import MetricResultsDict
 
 
 class OutputTokenThroughputMetric(BaseDerivedMetric[float]):
@@ -26,9 +26,13 @@ class OutputTokenThroughputMetric(BaseDerivedMetric[float]):
 
     def _derive_value(
         self,
-        metrics: dict[MetricTagT, MetricValueTypeT],
+        metric_results: MetricResultsDict,
     ) -> float:
-        benchmark_token_count: int = cast(int, metrics[MetricTag.BENCHMARK_TOKEN_COUNT])
-        benchmark_duration: int = cast(int, metrics[MetricTag.BENCHMARK_DURATION])
-        # TODO: This is hardcoded to expect the benchmark duration to be in nanoseconds.
+        benchmark_token_count: int = cast(
+            int, metric_results[MetricTag.BENCHMARK_TOKEN_COUNT]
+        )
+        benchmark_duration: int = cast(
+            int, metric_results[MetricTag.BENCHMARK_DURATION]
+        )
+        # TODO: HACK: This is hardcoded to expect the benchmark duration to be in nanoseconds.
         return benchmark_token_count / (benchmark_duration / NANOS_PER_SECOND)
