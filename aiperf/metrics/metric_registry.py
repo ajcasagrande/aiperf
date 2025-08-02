@@ -118,7 +118,7 @@ class MetricRegistry:
     @classmethod
     def create_dependency_order(cls) -> list[MetricTagT]:
         """
-        Create a dependency order for the metrics using topological sort.
+        Create a dependency order for all the metrics using topological sort.
         This ensures that all dependencies are computed before their dependents.
 
         Returns:
@@ -127,11 +127,26 @@ class MetricRegistry:
         Raises:
             ValueError: If there are unregistered dependencies or circular dependencies.
         """
-        all_metrics = cls.all_classes()
+        return cls.create_dependency_order_of(cls.all_classes())
+
+    @classmethod
+    def create_dependency_order_of(
+        cls, classes: list[type["BaseMetric"]]
+    ) -> list[MetricTagT]:
+        """
+        Create a dependency order for the given metrics using topological sort.
+        This ensures that all dependencies are computed before their dependents.
+
+        Returns:
+            List of metric tags in dependency order (dependencies first).
+
+        Raises:
+            ValueError: If there are unregistered dependencies or circular dependencies.
+        """
         all_tags = cls.all_tags()
 
-        # Validate that all required metrics are registered
-        for metric in all_metrics:
+        # Validate that all required metrics are registered and that they are registered
+        for metric in classes:
             for required_tag in metric.required_metrics:
                 if required_tag not in all_tags:
                     raise ValueError(
@@ -141,7 +156,7 @@ class MetricRegistry:
         # Build the dependency graph using TopologicalSorter
         sorter = graphlib.TopologicalSorter()
 
-        for metric in all_metrics:
+        for metric in classes:
             # Add the metric with its dependencies (predecessors)
             sorter.add(metric.tag, *metric.required_metrics)
 
