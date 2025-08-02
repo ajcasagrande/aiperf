@@ -5,7 +5,7 @@ from typing import cast
 
 from aiperf.common.enums import GenericMetricUnit, MetricFlags, MetricTag
 from aiperf.common.models import ParsedResponseRecord
-from aiperf.metrics.base_metric import BaseAggregateMetric
+from aiperf.metrics.base_metrics import BaseAggregateMetric
 from aiperf.metrics.metric_dicts import MetricRecordDict
 
 

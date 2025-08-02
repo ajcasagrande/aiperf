@@ -4,7 +4,7 @@ from typing import cast
 
 from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import MetricOverTimeUnit, MetricTag
-from aiperf.metrics.base_metric import BaseDerivedMetric
+from aiperf.metrics.base_metrics import BaseDerivedMetric
 from aiperf.metrics.metric_dicts import MetricResultsDict
 
 

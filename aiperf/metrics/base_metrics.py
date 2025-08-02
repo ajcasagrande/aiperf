@@ -13,6 +13,7 @@ from aiperf.metrics.metric_dicts import (
     MetricRecordDict,
     MetricResultsDict,
 )
+from aiperf.metrics.metric_registry import MetricRegistry
 
 # keep a reference to the type keyword to be able to still use it when "type" is also a variable name
 _type = type
@@ -30,12 +31,10 @@ class BaseMetric(Generic[MetricValueTypeVarT], ABC):
     flags: ClassVar[MetricFlags] = MetricFlags.NONE
     required_metrics: ClassVar[set[MetricTagT]] = set()
 
-    metric_interfaces: ClassVar[dict[MetricTagT, _type["BaseMetric"]]] = {}
-
     def __init_subclass__(cls, **kwargs):
         """
         This method is called when a class is subclassed from Metric.
-        It automatically registers the subclass in the metric_interfaces
+        It automatically registers the subclass in the MetricRegistry
         dictionary using the `tag` class attribute.
         The `tag` attribute must be a non-empty string that uniquely identifies the
         metric type. Only concrete (non-abstract) classes will be registered.
@@ -64,20 +63,15 @@ class BaseMetric(Generic[MetricValueTypeVarT], ABC):
             )
 
         # Check for duplicate tags
-        if cls.tag in cls.metric_interfaces:
+        if cls.tag in MetricRegistry.all_tags():
             raise ValueError(
-                f"Metric tag '{cls.tag}' is already registered by {cls.metric_interfaces[cls.tag].__name__}"
+                f"Metric tag '{cls.tag}' is already registered by {MetricRegistry.get_class(cls.tag).__name__}"
             )
 
         # Auto-detect value type from generic parameter
         cls.value_type = cls._detect_value_type()
 
-        cls.metric_interfaces[cls.tag] = cls
-
-    @classmethod
-    def get_all(cls) -> dict[str, _type["BaseMetric"]]:
-        """Get all defined metric types."""
-        return cls.metric_interfaces
+        MetricRegistry.register_metric(cls)
 
     @classmethod
     def _detect_value_type(cls) -> MetricValueType:

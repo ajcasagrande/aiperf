@@ -4,7 +4,7 @@
 from typing import cast
 
 from aiperf.common.enums import MetricFlags, MetricOverTimeUnit, MetricTag
-from aiperf.metrics.base_metric import BaseDerivedMetric
+from aiperf.metrics.base_metrics import BaseDerivedMetric
 from aiperf.metrics.metric_dicts import MetricResultsDict
 
 

@@ -4,7 +4,7 @@ from threading import Lock
 
 from aiperf.common.enums.metric_enums import MetricFlags, MetricType
 from aiperf.common.types import MetricTagT
-from aiperf.metrics.base_metric import BaseMetric
+from aiperf.metrics.base_metrics import BaseMetric
 
 
 class MetricRegistry:
@@ -103,3 +103,10 @@ class MetricRegistry:
         Get an instance of for each of the metric classes.
         """
         return [cls.get_instance(metric.tag) for metric in cls.all_classes()]
+
+    @classmethod
+    def all_tags(cls) -> list[MetricTagT]:
+        """
+        Get all of the tags of the defined metric classes.
+        """
+        return list(cls._metric_interfaces.keys())
