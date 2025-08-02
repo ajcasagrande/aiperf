@@ -1,13 +1,13 @@
 #  SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #  SPDX-License-Identifier: Apache-2.0
 
-from aiperf.common.enums import MetricTag, MetricType
+from aiperf.common.enums import MetricTag
 from aiperf.common.models import ParsedResponseRecord
 from aiperf.common.types import MetricTagT
-from aiperf.metrics.base_metric import BaseMetric
+from aiperf.metrics.legacy_base_metric import LegacyBaseMetric
 
 
-class InputSequenceLengthMetric(BaseMetric):
+class InputSequenceLengthMetric(LegacyBaseMetric[int]):
     """
     Post-processor for calculating Input Sequence Length (ISL) metrics from records.
     """
@@ -16,17 +16,11 @@ class InputSequenceLengthMetric(BaseMetric):
     unit = None
     larger_is_better = False
     header = "Input Sequence Length"
-    type = MetricType.METRIC_OF_RECORDS
-    streaming_only = False
-    required_metrics = set()
-
-    def __init__(self):
-        self.metric: list[int] = []
 
     def update_value(
         self,
         record: ParsedResponseRecord | None = None,
-        metrics: dict[MetricTagT, "BaseMetric"] | None = None,
+        metrics: dict[MetricTagT, "LegacyBaseMetric"] | None = None,
     ):
         self._check_record(record)
         input_token_count = record.input_token_count

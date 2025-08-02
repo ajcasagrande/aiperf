@@ -2,24 +2,24 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from aiperf.common.constants import NANOS_PER_SECOND
-from aiperf.common.enums import MetricTag, MetricTimeType, MetricType
+from aiperf.common.enums import LegacyMetricType, MetricTag, MetricTimeUnit
 from aiperf.common.models import ParsedResponseRecord
 from aiperf.common.types import MetricTagT
-from aiperf.metrics.base_metric import BaseMetric
+from aiperf.metrics.legacy_base_metric import LegacyBaseMetric
 
 
-class OutputTokenThroughputPerUserMetric(BaseMetric):
+class OutputTokenThroughputPerUserMetric(LegacyBaseMetric):
     """
     Post Processor for calculating Output Token Throughput per user metrics from records.
     """
 
     tag = MetricTag.OUTPUT_TOKEN_THROUGHPUT_PER_USER
-    unit = MetricTimeType.SECONDS
+    unit = MetricTimeUnit.SECONDS
     larger_is_better = True
     header = "Output Token Throughput Per User"
-    type = MetricType.METRIC_OF_METRICS
+    type = LegacyMetricType.METRIC_OF_METRICS
     streaming_only = True
-    required_metrics = {MetricTag.INTER_TOKEN_LATENCY}
+    required_metrics = {MetricTag.ITL}
 
     def __init__(self):
         self.metric: list[float] = []
@@ -27,12 +27,12 @@ class OutputTokenThroughputPerUserMetric(BaseMetric):
     def update_value(
         self,
         record: ParsedResponseRecord | None = None,
-        metrics: dict[MetricTagT, "BaseMetric"] | None = None,
+        metrics: dict[MetricTagT, "LegacyBaseMetric"] | None = None,
     ):
         self._check_metrics(metrics)
         # Clear the current value because we re-compute it each time
         self.metric.clear()
-        inter_token_latencies = metrics[MetricTag.INTER_TOKEN_LATENCY].values()
+        inter_token_latencies = metrics[MetricTag.ITL].values()
         for inter_token_latency in inter_token_latencies:
             inter_token_latency_s = inter_token_latency / NANOS_PER_SECOND
             if inter_token_latency_s <= 0:

@@ -9,7 +9,10 @@ __ignore__ = []
 ## ⚠️             Do not edit below this line                      ⚠️ ##
 ########################################################################
 from aiperf.metrics.base_metric import (
+    BaseAggregateMetric,
+    BaseDerivedMetric,
     BaseMetric,
+    BaseRecordMetric,
 )
 from aiperf.metrics.types import (
     BenchmarkDurationMetric,
@@ -29,7 +32,10 @@ from aiperf.metrics.types import (
 )
 
 __all__ = [
+    "BaseAggregateMetric",
+    "BaseDerivedMetric",
     "BaseMetric",
+    "BaseRecordMetric",
     "BenchmarkDurationMetric",
     "InputSequenceLengthMetric",
     "InterTokenLatencyMetric",

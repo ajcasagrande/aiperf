@@ -1,19 +1,19 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-from aiperf.common.enums import MetricTag, MetricTimeType, MetricType
+from aiperf.common.enums import LegacyMetricType, MetricTag, MetricTimeUnit
 from aiperf.common.models import ParsedResponseRecord
 from aiperf.common.types import MetricTagT
-from aiperf.metrics.base_metric import BaseMetric
+from aiperf.metrics.legacy_base_metric import LegacyBaseMetric
 
 
-class MaxResponseMetric(BaseMetric):
+class MaxResponseMetric(LegacyBaseMetric):
     """
     Post-processor for calculating the maximum response time stamp metric from records.
     """
 
     tag = MetricTag.MAX_RESPONSE
-    unit = MetricTimeType.NANOSECONDS
-    type = MetricType.METRIC_OF_RECORDS
+    unit = MetricTimeUnit.NANOSECONDS
+    type = LegacyMetricType.METRIC_OF_RECORDS
     larger_is_better = False
     header = "Maximum Response Timestamp"
     required_metrics = set()
@@ -24,7 +24,7 @@ class MaxResponseMetric(BaseMetric):
     def update_value(
         self,
         record: ParsedResponseRecord | None = None,
-        metrics: dict[MetricTagT, "BaseMetric"] | None = None,
+        metrics: dict[MetricTagT, "LegacyBaseMetric"] | None = None,
     ) -> None:
         """
         Adds a new record and calculates the maximum response timestamp metric.

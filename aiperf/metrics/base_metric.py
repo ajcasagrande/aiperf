@@ -1,30 +1,38 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-import importlib
+
 import inspect
-from abc import ABC, abstractmethod
-from pathlib import Path
-from typing import Any, ClassVar
+from abc import ABC
+from typing import ClassVar, Generic, get_args, get_origin
 
-from aiperf.common.enums import MetricTimeType
-from aiperf.common.exceptions import MetricTypeError
-from aiperf.common.models import ParsedResponseRecord
-from aiperf.common.types import MetricTagT
+from aiperf.common.enums.metric_enums import MetricFlags, MetricType, MetricValueType
+from aiperf.common.models.record_models import ParsedResponseRecord
+from aiperf.common.types import (
+    MetricTagT,
+    MetricUnitT,
+    MetricValueTypeT,
+    MetricValueTypeVarT,
+)
+
+# keep a reference to the type keyword to be able to still use it when "type" is also a variable name
+_type = type
 
 
-class BaseMetric(ABC):
-    """Base class for all metrics with automatic subclass registration."""
+class BaseMetric(Generic[MetricValueTypeVarT], ABC):
+    """A definition of a metric type."""
 
-    # Class attributes that subclasses must override
     tag: ClassVar[MetricTagT] = ""
-    unit: ClassVar[MetricTimeType | None] = None
-    larger_is_better: ClassVar[bool] = True
+    type: ClassVar[MetricType] = MetricType.RECORD
+    value_type: ClassVar[MetricValueType] = (
+        MetricValueType.FLOAT
+    )  # Will be auto-detected
+    larger_is_better: ClassVar[bool] = False
+    unit: ClassVar[MetricUnitT] = None
     header: ClassVar[str] = ""
-    streaming_only: ClassVar[bool] = False
+    flags: ClassVar[MetricFlags] = MetricFlags.NONE
     required_metrics: ClassVar[set[MetricTagT]] = set()
 
-    base_metrics: set[MetricTagT] = set()
-    metric_interfaces: dict[MetricTagT, type["BaseMetric"]] = {}
+    metric_interfaces: ClassVar[dict[MetricTagT, _type["BaseMetric"]]] = {}
 
     def __init_subclass__(cls, **kwargs):
         """
@@ -41,6 +49,16 @@ class BaseMetric(ABC):
         if inspect.isabstract(cls):
             return
 
+        # Enforce that concrete subclasses are a subclass of BaseRecordMetric, BaseAggregateMetric, or BaseDerivedMetric
+        if (
+            not isinstance(cls, BaseRecordMetric)
+            and not isinstance(cls, BaseAggregateMetric)
+            and not isinstance(cls, BaseDerivedMetric)
+        ):
+            raise TypeError(
+                f"Concrete metric class {cls.__name__} must be a subclass of BaseRecordMetric, BaseAggregateMetric, or BaseDerivedMetric"
+            )
+
         # Enforce that subclasses define a non-empty tag
         if not cls.tag or not isinstance(cls.tag, str):
             raise TypeError(
@@ -53,109 +71,116 @@ class BaseMetric(ABC):
                 f"Metric tag '{cls.tag}' is already registered by {cls.metric_interfaces[cls.tag].__name__}"
             )
 
+        # Auto-detect value type from generic parameter
+        cls.value_type = cls._detect_value_type()
+
         cls.metric_interfaces[cls.tag] = cls
 
     @classmethod
-    def get_all(cls) -> dict[str, type["BaseMetric"]]:
-        """
-        Returns the dictionary of all registered metric interfaces.
-
-        This method dynamically imports all metric type modules from the 'types'
-        directory to ensure all metric classes are registered via __init_subclass__.
-
-        Returns:
-            dict[str, type[Metric]]: Mapping of metric tags to their corresponding classes
-
-        Raises:
-            MetricTypeError: If there's an error importing metric type modules
-        """
-        # Get the types directory path
-        types_dir = Path(__file__).parent / "types"
-
-        # Import all metric type modules to trigger registration
-        if types_dir.exists():
-            for python_file in types_dir.glob("*.py"):
-                if python_file.name != "__init__.py":
-                    module_name = python_file.stem  # Get filename without extension
-                    try:
-                        importlib.import_module(f"aiperf.metrics.types.{module_name}")
-                    except ImportError as err:
-                        raise MetricTypeError(
-                            f"Error importing metric type module '{module_name}'"
-                        ) from err
-
+    def get_all(cls) -> dict[str, _type["BaseMetric"]]:
+        """Get all defined metric types."""
         return cls.metric_interfaces
 
-    @abstractmethod
-    def update_value(
-        self,
-        record: ParsedResponseRecord | None = None,
-        metrics: dict[MetricTagT, "BaseMetric"] | None = None,
-    ) -> None:
-        """
-        Updates the metric value based on the provided record and dictionary of other metrics.
+    @classmethod
+    def _detect_value_type(cls) -> MetricValueType:
+        """Automatically detect the MetricValueType from the generic type parameter."""
+        # Look through the class hierarchy for the first Generic[Type] definition
+        for base in cls.__orig_bases__:  # type: ignore
+            if get_origin(base) is not None:
+                args = get_args(base)
+                if args:
+                    # the first argument is the generic type
+                    generic_type = args[0]
+                    # if the generic type is a simple type like float or int, we have to use __name__
+                    # this is because using str() on float or int will return <class 'float'> or <class 'int'>, etc.
+                    name = generic_type.__name__
+                    if name == "list":
+                        # However, if the generic type is a list, we have to use str() to get the list type as well, e.g. list[int]
+                        name = str(generic_type)
+                    return MetricValueType(name)
 
-        Args:
-            record (Optional[Record]): The record to update the metric with.
-            metrics (Optional[dict[BaseMetric]]): A dictionary of other metrics that may be needed for calculation.
-        """
+        raise ValueError(
+            f"Unable to detect the value type for {cls.__name__}. Please check the generic type parameter."
+        )
 
-    @abstractmethod
-    def values(self) -> Any:
-        """
-        Returns the list of calculated metrics.
-        """
-
-    @abstractmethod
-    def _check_record(self, record: ParsedResponseRecord) -> None:
-        """
-        Checks if the record is valid for metric calculation.
-
-        Raises:
-            ValueError: If the record does not meet the required conditions.
-        """
-
-    def get_converted_metrics(self, unit: MetricTimeType | None) -> list[Any]:
-        if not isinstance(unit, MetricTimeType) or not isinstance(
-            self.unit, MetricTimeType
+    def _require_valid_record(self, record: ParsedResponseRecord) -> None:
+        """Check that the record is valid."""
+        if (not record or not record.valid) and not self.has_flag(
+            MetricFlags.ERROR_METRIC
         ):
-            raise MetricTypeError("Invalid metric time type for conversion.")
+            raise ValueError("Invalid Record")
 
-        scale_factor = self._get_conversion_factor(self.unit, unit)
-
-        return [metric / 10**scale_factor for metric in self.values()]
-
-    def _check_metrics(self, metrics: dict[MetricTagT, "BaseMetric"] | None) -> None:
-        """
-        Validates that the required dependent metrics are available.
-
-        Raises:
-            ValueError: If required metrics are missing.
-        """
-        if not metrics:
-            raise ValueError("Metrics dictionary is missing.")
-
+    def _check_metrics(self, metrics: dict[MetricTagT, MetricValueTypeT]) -> None:
+        """Check that the required metrics are available."""
         for tag in self.required_metrics:
             if tag not in metrics:
                 raise ValueError(f"Missing required metric: '{tag}'")
 
-    def _get_conversion_factor(
-        self, from_unit: MetricTimeType, to_unit: MetricTimeType
-    ) -> int:
-        unit_scales = {
-            MetricTimeType.NANOSECONDS: 9,
-            MetricTimeType.MILLISECONDS: 3,
-            MetricTimeType.SECONDS: 0,
-        }
+    def has_flag(self, flag: MetricFlags) -> bool:
+        """Check that the flags are valid."""
+        return flag & self.flags == flag
 
-        return unit_scales[from_unit] - unit_scales[to_unit]
 
-    def _require_valid_record(self, record: ParsedResponseRecord) -> None:
-        """
-        Ensures the given record is not None and is marked as valid.
+class BaseRecordMetric(
+    Generic[MetricValueTypeVarT], BaseMetric[MetricValueTypeVarT], ABC
+):
+    """A base class for record metrics."""
 
-        Raises:
-            ValueError: If the record is None or invalid.
-        """
-        if not record or not record.valid:
-            raise ValueError("Invalid Record")
+    type = MetricType.RECORD
+
+    def parse_record(
+        self, record: ParsedResponseRecord, metrics: dict[MetricTagT, MetricValueTypeT]
+    ) -> MetricValueTypeVarT:
+        """Parse a single record and return the metric value."""
+        self._require_valid_record(record)
+        self._check_metrics(metrics)
+        return self._parse_record(record, metrics)
+
+    def _parse_record(
+        self, record: ParsedResponseRecord, metrics: dict[MetricTagT, MetricValueTypeT]
+    ) -> MetricValueTypeVarT:
+        """Parse a single record and return the metric value. This method is implemented by subclasses."""
+        raise NotImplementedError("Subclasses must implement this method")
+
+
+class BaseAggregateMetric(
+    Generic[MetricValueTypeVarT], BaseMetric[MetricValueTypeVarT], ABC
+):
+    """A base class for aggregate metrics."""
+
+    type = MetricType.AGGREGATE
+
+    def update_value(
+        self, record: ParsedResponseRecord, metrics: dict[MetricTagT, MetricValueTypeT]
+    ) -> MetricValueTypeVarT:
+        """Update the metric value."""
+        self._require_valid_record(record)
+        self._check_metrics(metrics)
+        return self._update_value(record, metrics)
+
+    def _update_value(
+        self, record: ParsedResponseRecord, metrics: dict[MetricTagT, MetricValueTypeT]
+    ) -> MetricValueTypeVarT:
+        """Update the metric value. This method is implemented by subclasses."""
+        raise NotImplementedError("Subclasses must implement this method")
+
+
+class BaseDerivedMetric(
+    Generic[MetricValueTypeVarT], BaseMetric[MetricValueTypeVarT], ABC
+):
+    """A base class for derived metrics."""
+
+    type = MetricType.DERIVED
+
+    def derive_value(
+        self, metrics: dict[MetricTagT, MetricValueTypeT]
+    ) -> MetricValueTypeVarT:
+        """Derive the metric value."""
+        self._check_metrics(metrics)
+        return self._derive_value(metrics)
+
+    def _derive_value(
+        self, metrics: dict[MetricTagT, MetricValueTypeT]
+    ) -> MetricValueTypeVarT:
+        """Derive the metric value. This method is implemented by subclasses."""
+        raise NotImplementedError("Subclasses must implement this method")

@@ -1,30 +1,34 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-from aiperf.common.enums import MetricTag, MetricTimeType, MetricType
+
+from aiperf.common.enums import (
+    LegacyMetricType,
+    MetricProcessingType,
+    MetricTag,
+    MetricTimeUnit,
+)
 from aiperf.common.models import ParsedResponseRecord
 from aiperf.common.types import MetricTagT
-from aiperf.metrics.base_metric import BaseMetric
+from aiperf.metrics.legacy_base_metric import LegacyBaseMetric
 
 
-class RequestLatencyMetric(BaseMetric):
+class RequestLatencyMetric(LegacyBaseMetric[int]):
     """
     Post-processor for calculating Request Latency metrics from records.
     """
 
     tag = MetricTag.REQUEST_LATENCY
-    unit = MetricTimeType.NANOSECONDS
-    type = MetricType.METRIC_OF_RECORDS
+    unit = MetricTimeUnit.NANOSECONDS
+    processing_type = MetricProcessingType.PER_REQUEST
+    type = LegacyMetricType.METRIC_OF_RECORDS
     larger_is_better = False
     header = "Request Latency"
     required_metrics = set()
 
-    def __init__(self):
-        self.metric: list[int] = []
-
     def update_value(
         self,
         record: ParsedResponseRecord | None = None,
-        metrics: dict[MetricTagT, "BaseMetric"] | None = None,
+        metrics: dict[MetricTagT, "LegacyBaseMetric"] | None = None,
     ) -> None:
         """
         Adds a new record and calculates the Request Latency metric.
@@ -36,9 +40,9 @@ class RequestLatencyMetric(BaseMetric):
         request_ts = record.start_perf_ns
         final_response_ts = record.responses[-1].perf_ns
         request_latency = final_response_ts - request_ts
-        self.metric.append(request_latency)
+        self.metric = request_latency
 
-    def values(self) -> list[int]:
+    def values(self) -> int:
         """
         Returns the list of Request Latency metrics.
         """

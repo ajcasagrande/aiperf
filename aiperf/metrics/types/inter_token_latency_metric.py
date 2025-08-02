@@ -1,22 +1,22 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from aiperf.common.enums import MetricTag, MetricTimeType, MetricType
+from aiperf.common.enums import LegacyMetricType, MetricTag, MetricTimeUnit
 from aiperf.common.models.record_models import ParsedResponseRecord
 from aiperf.common.types import MetricTagT
-from aiperf.metrics.base_metric import BaseMetric
+from aiperf.metrics.legacy_base_metric import LegacyBaseMetric
 
 
-class InterTokenLatencyMetric(BaseMetric):
+class InterTokenLatencyMetric(LegacyBaseMetric):
     """
     Post Processor for calculating Inter Token Latency (ITL) metric.
     """
 
-    tag = MetricTag.INTER_TOKEN_LATENCY
-    unit = MetricTimeType.MILLISECONDS
+    tag = MetricTag.ITL
+    unit = MetricTimeUnit.MILLISECONDS
     larger_is_better = False
     header = "Inter Token Latency (ITL)"
-    type = MetricType.METRIC_OF_METRICS
+    type = LegacyMetricType.METRIC_OF_METRICS
     streaming_only = True
     required_metrics = {
         MetricTag.REQUEST_LATENCY,
@@ -30,7 +30,7 @@ class InterTokenLatencyMetric(BaseMetric):
     def update_value(
         self,
         record: ParsedResponseRecord | None = None,
-        metrics: dict[MetricTagT, "BaseMetric"] | None = None,
+        metrics: dict[MetricTagT, "LegacyBaseMetric"] | None = None,
     ):
         self._check_metrics(metrics)
         # Clear the current value because we re-compute it each time

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-from aiperf.common.enums import MetricTimeType
+from aiperf.common.enums import MetricTimeUnit
 from aiperf.metrics.types.ttft_metric import TTFTMetric
 
 
@@ -54,4 +54,4 @@ def test_convert_metrics(parsed_response_record_builder):
     )
     for record in records:
         metric.update_value(record=record, metrics=None)
-    assert metric.get_converted_metrics(unit=MetricTimeType.MILLISECONDS) == [5, 5, 10]
+    assert metric.get_converted_metrics(unit=MetricTimeUnit.MILLISECONDS) == [5, 5, 10]

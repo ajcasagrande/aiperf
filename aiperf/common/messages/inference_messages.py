@@ -14,6 +14,7 @@ from aiperf.common.models import (
     ParsedResponseRecord,
     RequestRecord,
 )
+from aiperf.common.models.record_models import MetricRecords
 from aiperf.common.types import MessageTypeT
 
 
@@ -35,3 +36,12 @@ class ParsedInferenceResultsMessage(BaseServiceMessage):
     record: SerializeAsAny[ParsedResponseRecord] = Field(
         ..., description="The post process results record"
     )
+
+
+class MetricRecordsMessage(BaseServiceMessage):
+    """Message from the result parser to the records manager to notify it
+    of the metric records for a single request."""
+
+    message_type: MessageTypeT = MessageType.METRIC_RECORDS
+
+    metric_records: MetricRecords = Field(..., description="The metric records")

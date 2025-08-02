@@ -10,9 +10,14 @@ from types import UnionType
 from typing import TYPE_CHECKING, Any, TypeVar, Union
 
 from aiperf.common.enums import (
+    CaseInsensitiveStrEnum,
+    CommAddress,
     CommandType,
+    GenericMetricUnit,
     MessageType,
     MetricTag,
+    MetricTimeUnit,
+    MetricType,
     ServiceType,
 )
 
@@ -20,10 +25,6 @@ if TYPE_CHECKING:
     from pydantic import BaseModel
 
     from aiperf.clients.model_endpoint_info import ModelEndpointInfo
-    from aiperf.common.enums import (
-        CaseInsensitiveStrEnum,
-        CommAddress,
-    )
     from aiperf.common.messages.base_messages import Message
     from aiperf.common.messages.command_messages import CommandMessage
     from aiperf.common.mixins.aiperf_lifecycle_mixin import AIPerfLifecycleMixin
@@ -50,8 +51,12 @@ LifecycleMixinT = TypeVar("LifecycleMixinT", bound="AIPerfLifecycleMixin")
 MessageT = TypeVar("MessageT", bound="Message")
 MessageCallbackMapT = dict["MessageTypeT", Callable[["Message"], Any] | list[Callable[["Message"], Any]]]  # fmt: skip
 MessageOutputT = TypeVar("MessageOutputT", bound="Message")
+MetricTypeT = MetricType | str
 MessageTypeT = MessageType | str
 MetricTagT = MetricTag | str
+MetricUnitT = MetricTimeUnit | GenericMetricUnit | None
+MetricValueTypeT = str | int | float | list[float] | list[int] | list[str]
+MetricValueTypeVarT = TypeVar("MetricValueTypeVarT", bound=MetricValueTypeT)
 ModelEndpointInfoT = TypeVar("ModelEndpointInfoT", bound="ModelEndpointInfo")
 OutputT = TypeVar("OutputT", bound=Any)
 ProtocolT = TypeVar("ProtocolT", bound=Any)

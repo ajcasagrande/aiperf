@@ -36,6 +36,8 @@ from aiperf.common.models.health_models import (
 )
 from aiperf.common.models.record_models import (
     InferenceServerResponse,
+    MetricRecord,
+    MetricRecords,
     MetricResult,
     ParsedResponseRecord,
     ProcessRecordsResult,
@@ -66,6 +68,8 @@ __all__ = [
     "IOCounters",
     "Image",
     "InferenceServerResponse",
+    "MetricRecord",
+    "MetricRecords",
     "MetricResult",
     "ParsedResponseRecord",
     "PhaseProcessingStats",

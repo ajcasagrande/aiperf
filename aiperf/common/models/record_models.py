@@ -6,12 +6,14 @@ import time
 from functools import cached_property
 from typing import Any
 
-from pydantic import Field, SerializeAsAny
+from pydantic import Field, SerializeAsAny, ValidationInfo, field_validator
 
 from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import CreditPhase, SSEFieldType
+from aiperf.common.enums.metric_enums import MetricValueType
 from aiperf.common.models.base_models import AIPerfBaseModel
 from aiperf.common.models.error_models import ErrorDetails, ErrorDetailsCount
+from aiperf.common.types import MetricTagT, MetricValueTypeT
 
 
 class MetricResult(AIPerfBaseModel):
@@ -41,6 +43,69 @@ class MetricResult(AIPerfBaseModel):
     streaming_only: bool = Field(
         default=False,
         description="Whether the metric only applies when streaming is enabled",
+    )
+
+
+class MetricRecord(AIPerfBaseModel):
+    """Base model for a metric record."""
+
+    # Converters for each metric value type
+    _TYPE_CONVERTERS = {
+        MetricValueType.FLOAT: lambda value: float(value),
+        MetricValueType.INT: lambda value: int(value),
+        MetricValueType.STR: lambda value: str(value),
+        MetricValueType.FLOAT_LIST: lambda values: [
+            float(value) for value in (values if isinstance(values, list) else [values])
+        ],
+        MetricValueType.INT_LIST: lambda values: [
+            int(value) for value in (values if isinstance(values, list) else [values])
+        ],
+        MetricValueType.STR_LIST: lambda values: [
+            str(value) for value in (values if isinstance(values, list) else [values])
+        ],
+    }
+
+    tag: MetricTagT = Field(..., description="The tag of the metric")
+    type: MetricValueTypeT = Field(..., description="The type of the metric")
+    value: Any = Field(default=None, description="The value of the metric")
+
+    @field_validator("value")
+    @classmethod
+    def _validate_value_type(cls, v: Any, info: ValidationInfo) -> Any:
+        """Validate and convert value based on the type field."""
+        if v is None:
+            return v
+
+        try:
+            metric_type = info.data.get("type")
+            if isinstance(metric_type, str):
+                metric_type = MetricValueType(metric_type)
+            converter = cls._TYPE_CONVERTERS.get(metric_type)
+            if converter:
+                return converter(v)
+            raise ValueError(f"Unable to convert unknown metric type: {metric_type}")
+        except (ValueError, TypeError) as e:
+            raise ValueError(
+                f"Cannot convert value {v} to type {metric_type}: {e}"
+            ) from e
+
+
+class MetricRecords(AIPerfBaseModel):
+    """Base model for metric records for a single request. This contains all of the metrics
+    for a single request, along with any errors that occurred during the request or metric computation."""
+
+    timestamp_ns: int = Field(..., description="The timestamp of the metric record.")
+    records: list[MetricRecord] | None = Field(
+        default=None,
+        description="Results of each metric computation.",
+    )
+    request_error: ErrorDetails | None = Field(
+        default=None,
+        description="The error details of the original request if the request failed.",
+    )
+    compute_error: ErrorDetails | None = Field(
+        default=None,
+        description="The error details if the metric record computation failed.",
     )
 
 

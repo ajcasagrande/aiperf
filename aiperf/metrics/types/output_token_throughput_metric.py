@@ -2,13 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from aiperf.common.constants import NANOS_PER_SECOND
-from aiperf.common.enums import MetricTag, MetricType
+from aiperf.common.enums import LegacyMetricType, MetricTag
 from aiperf.common.models.record_models import ParsedResponseRecord
 from aiperf.common.types import MetricTagT
-from aiperf.metrics.base_metric import BaseMetric
+from aiperf.metrics.legacy_base_metric import LegacyBaseMetric
 
 
-class OutputTokenThroughputMetric(BaseMetric):
+class OutputTokenThroughputMetric(LegacyBaseMetric):
     """
     Post Processor for calculating Output Token Throughput Metric.
     """
@@ -17,7 +17,7 @@ class OutputTokenThroughputMetric(BaseMetric):
     unit = None
     larger_is_better = True
     header = "Output Token Throughput (tokens/sec)"
-    type = MetricType.METRIC_OF_METRICS
+    type = LegacyMetricType.METRIC_OF_METRICS
     required_metrics = {
         MetricTag.OUTPUT_TOKEN_COUNT,
         MetricTag.BENCHMARK_DURATION,
@@ -29,7 +29,7 @@ class OutputTokenThroughputMetric(BaseMetric):
     def update_value(
         self,
         record: ParsedResponseRecord | None = None,
-        metrics: dict[MetricTagT, "BaseMetric"] | None = None,
+        metrics: dict[MetricTagT, "LegacyBaseMetric"] | None = None,
     ):
         self._check_metrics(metrics)
         tokens = metrics[MetricTag.OUTPUT_TOKEN_COUNT].values()

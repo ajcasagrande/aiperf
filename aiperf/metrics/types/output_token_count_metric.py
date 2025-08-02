@@ -1,13 +1,13 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from aiperf.common.enums import MetricTag, MetricType
+from aiperf.common.enums import LegacyMetricType, MetricTag
 from aiperf.common.models import ParsedResponseRecord
 from aiperf.common.types import MetricTagT
-from aiperf.metrics.base_metric import BaseMetric
+from aiperf.metrics.legacy_base_metric import LegacyBaseMetric
 
 
-class OutputTokenCountMetric(BaseMetric):
+class OutputTokenCountMetric(LegacyBaseMetric):
     """
     Post Processor for calculating Output Token Count Metric.
     """
@@ -16,7 +16,7 @@ class OutputTokenCountMetric(BaseMetric):
     unit = None
     larger_is_better = True
     header = "Output Token Count"
-    type = MetricType.METRIC_OF_RECORDS
+    type = LegacyMetricType.METRIC_OF_RECORDS
     required_metrics = set()
 
     def __init__(self):
@@ -25,7 +25,7 @@ class OutputTokenCountMetric(BaseMetric):
     def update_value(
         self,
         record: ParsedResponseRecord | None = None,
-        metrics: dict[MetricTagT, "BaseMetric"] | None = None,
+        metrics: dict[MetricTagT, "LegacyBaseMetric"] | None = None,
     ):
         self._check_record(record)
         self.metric.append(record.output_token_count)
