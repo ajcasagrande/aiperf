@@ -26,7 +26,8 @@ class MetricRecordProcessor(AIPerfLifecycleMixin):
             service_config=service_config, user_config=user_config, **kwargs
         )
         self.metrics = []
-        self._metric_flags = MetricFlags.NONE
+        self._allowed_flags = MetricFlags.NONE
+        self._disallowed_flags = MetricFlags.NONE
 
     async def process_record(self, record: ParsedResponseRecord) -> None:
         """Process a record."""

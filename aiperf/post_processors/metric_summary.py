@@ -12,7 +12,7 @@ from aiperf.common.enums.metric_enums import MetricFlags, MetricType
 from aiperf.common.factories import PostProcessorFactory
 from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.common.models import MetricResult, ParsedResponseRecord
-from aiperf.metrics.base_metrics import BaseDerivedMetric
+from aiperf.metrics import BaseDerivedMetric
 
 
 @PostProcessorFactory.register(PostProcessorType.METRIC_SUMMARY)

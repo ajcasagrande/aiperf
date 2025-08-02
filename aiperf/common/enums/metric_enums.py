@@ -137,7 +137,7 @@ class MetricFlags(Flag):
     STREAMING_ONLY = 1 << 0
     """Metrics that are only applicable to streamed responses."""
 
-    ERROR_METRIC = 1 << 1
+    ERROR_ONLY = 1 << 1
     """Metrics that are only applicable to error records. By default, metrics are only computed if the record is valid.
     If this flag is set, the metric will only be computed if the record is invalid."""
 
@@ -157,11 +157,14 @@ class MetricFlags(Flag):
 
     def has_flags(self, flags: "MetricFlags") -> bool:
         """Return True if the metric has ALL of the given flag(s) (regardless of other flags)."""
-        return flags & self == self
+        return flags & self == flags
 
     def missing_flags(self, flags: "MetricFlags") -> bool:
         """Return True if the metric does not have ANY of the given flag(s) (regardless of other flags). It will
-        return False if the metric has ANY of the given flags."""
+        return False if the metric has ANY of the given flags. If the input flags are NONE, it will return True."""
+        if flags == MetricFlags.NONE or self == MetricFlags.NONE:
+            return True  # NONE means there are no flags to check, so we return True
+
         # NOTE: We need to check each possible flag separately, as we want to return False if the metric has ANY of
         #       the given flags. If we simply & the flags, that would only return False if the metric has ALL of the
         #       given flags.

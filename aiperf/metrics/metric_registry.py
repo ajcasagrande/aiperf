@@ -11,7 +11,7 @@ from aiperf.common.exceptions import MetricTypeError
 from aiperf.common.types import MetricTagT
 
 if TYPE_CHECKING:
-    from aiperf.metrics.base_metrics import BaseMetric
+    from aiperf.metrics.base_metric import BaseMetric
 
 
 class MetricRegistry:

@@ -10,7 +10,7 @@ from aiperf.common.enums import (
     MetricValueType,
 )
 from aiperf.common.enums.metric_enums import MetricFlags
-from aiperf.metrics.base_metrics import BaseMetric
+from aiperf.metrics.base_metric import BaseMetric
 
 logging.basicConfig(level=logging.DEBUG)
 

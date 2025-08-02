@@ -3,6 +3,7 @@
 from typing import Any
 
 from aiperf.common.decorators import implements_protocol
+from aiperf.common.metrics import BaseDerivedMetric
 from aiperf.common.mixins.aiperf_lifecycle_mixin import AIPerfLifecycleMixin
 from aiperf.common.models import RecordProcessorResult
 from aiperf.common.protocols import ResultsProcessorProtocol
@@ -15,6 +16,10 @@ class MetricResultsProcessor(AIPerfLifecycleMixin):
     This is the final stage of the metrics processing pipeline, and is done is a unified manner by the RecordsManager.
     It is responsible for processing the results and returning them to the RecordsManager, as well as summarizing the results.
     """
+
+    def __init__(self, **kwargs: Any):
+        super().__init__(**kwargs)
+        self._metrics: list[BaseDerivedMetric] = []
 
     async def process_result(self, result: RecordProcessorResult) -> None:
         """Process a result."""

@@ -1,0 +1,138 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+import inspect
+from abc import ABC
+from typing import ClassVar, Generic, get_args, get_origin
+
+from aiperf.common.enums.metric_enums import MetricFlags, MetricType, MetricValueType
+from aiperf.common.models.record_models import ParsedResponseRecord
+from aiperf.common.types import MetricTagT, MetricUnitT, MetricValueTypeVarT
+from aiperf.metrics.metric_dicts import (
+    BaseMetricDict,
+)
+from aiperf.metrics.metric_registry import MetricRegistry
+
+
+class BaseMetric(Generic[MetricValueTypeVarT], ABC):
+    """A definition of a metric type.
+
+    This class is not meant to be instantiated directly or subclassed directly.
+    It is meant to be a common base for all of the base metric classes by type.
+
+    The class attributes are:
+    - tag: The tag of the metric. This must be a non-empty string that uniquely identifies the metric type.
+    - header: The header of the metric. This is the user-friendly name of the metric that will be displayed in the UI.
+    - unit: The unit of the metric. This is used both for display as well as for conversion to other units.
+    - flags: The flags of the metric that determine how and when it is computed and displayed.
+    - required_metrics: The metrics that must be available to compute the metric. This is a set of metric tags.
+    """
+
+    # User-defined attributes to be overridden by subclasses
+    tag: ClassVar[MetricTagT] = ""
+    header: ClassVar[str] = ""
+    unit: ClassVar[MetricUnitT] = None
+    flags: ClassVar[MetricFlags] = MetricFlags.NONE
+    required_metrics: ClassVar[set[MetricTagT] | None] = None
+
+    # Auto-derived attributes
+    value_type: ClassVar[MetricValueType]  # Auto set based on generic type parameter
+    type: ClassVar[MetricType]  # Set by base subclasses
+
+    def __init_subclass__(cls, **kwargs):
+        """
+        This method is called when a class is subclassed from Metric.
+        It automatically registers the subclass in the MetricRegistry
+        dictionary using the `tag` class attribute.
+        The `tag` attribute must be a non-empty string that uniquely identifies the
+        metric type. Only concrete (non-abstract) classes will be registered.
+        """
+
+        super().__init_subclass__(**kwargs)
+
+        # Only register concrete classes (not abstract ones)
+        if inspect.isabstract(cls):
+            return
+
+        # Note: this is valid because the below imports are abstract, so will not get here
+        from aiperf.metrics import (
+            BaseAggregateMetric,
+            BaseDerivedMetric,
+            BaseRecordMetric,
+        )
+
+        # Enforce that concrete subclasses are a subclass of BaseRecordMetric, BaseAggregateMetric, or BaseDerivedMetric
+        valid_base_classes = {
+            BaseRecordMetric,
+            BaseAggregateMetric,
+            BaseDerivedMetric,
+        }
+        if not any(issubclass(cls, base) for base in valid_base_classes):
+            raise TypeError(
+                f"Concrete metric class {cls.__name__} must be a subclass of BaseRecordMetric, BaseAggregateMetric, or BaseDerivedMetric"
+            )
+
+        # Enforce that subclasses define a non-empty tag
+        if not cls.tag or not isinstance(cls.tag, str):
+            raise TypeError(
+                f"Concrete metric class {cls.__name__} must define a non-empty 'tag' class attribute"
+            )
+
+        # Check for duplicate tags
+        if cls.tag in MetricRegistry.all_tags():
+            raise ValueError(
+                f"Metric tag '{cls.tag}' is already registered by {MetricRegistry.get_class(cls.tag).__name__}"
+            )
+
+        # Auto-detect value type from generic parameter
+        cls.value_type = cls._detect_value_type()
+
+        MetricRegistry.register_metric(cls)
+
+    @classmethod
+    def _detect_value_type(cls) -> MetricValueType:
+        """Automatically detect the MetricValueType from the generic type parameter."""
+        # Look through the class hierarchy for the first Generic[Type] definition
+        for base in cls.__orig_bases__:  # type: ignore
+            if get_origin(base) is not None:
+                args = get_args(base)
+                if args:
+                    # the first argument is the generic type
+                    generic_type = args[0]
+                    # if the generic type is a simple type like float or int, we have to use __name__
+                    # this is because using str() on float or int will return <class 'float'> or <class 'int'>, etc.
+                    name = generic_type.__name__
+                    if name == "list":
+                        # However, if the generic type is a list, we have to use str() to get the list type as well, e.g. list[int]
+                        name = str(generic_type)
+                    return MetricValueType(name)
+
+        raise ValueError(
+            f"Unable to detect the value type for {cls.__name__}. Please check the generic type parameter."
+        )
+
+    def _require_valid_record(self, record: ParsedResponseRecord) -> None:
+        """Check that the record is valid."""
+        if (not record or not record.valid) and self.missing_flags(
+            MetricFlags.ERROR_ONLY
+        ):
+            raise ValueError("Invalid Record")
+
+    def _check_metrics(self, metrics: BaseMetricDict) -> None:
+        """Check that the required metrics are available."""
+        if self.required_metrics is None:
+            return
+        for tag in self.required_metrics:
+            if tag not in metrics:
+                raise ValueError(f"Missing required metric: '{tag}'")
+
+    @classmethod
+    def has_flags(cls, flags: MetricFlags) -> bool:
+        """Return True if the metric has the given flag(s) (regardless of other flags)."""
+        return cls.flags.has_flags(flags)
+
+    @classmethod
+    def missing_flags(cls, flags: MetricFlags) -> bool:
+        """Return True if the metric does not have the given flag(s) (regardless of other flags). It will
+        return False if the metric has ANY of the given flags."""
+        return cls.flags.missing_flags(flags)
