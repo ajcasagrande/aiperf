@@ -17,17 +17,29 @@ from aiperf.metrics.metric_registry import MetricRegistry
 
 
 class BaseMetric(Generic[MetricValueTypeVarT], ABC):
-    """A definition of a metric type."""
+    """A definition of a metric type.
 
+    This class is not meant to be instantiated directly or subclassed directly.
+    It is meant to be a common base for all of the base metric classes by type.
+
+    The class attributes are:
+    - tag: The tag of the metric. This must be a non-empty string that uniquely identifies the metric type.
+    - header: The header of the metric. This is the user-friendly name of the metric that will be displayed in the UI.
+    - unit: The unit of the metric. This is used both for display as well as for conversion to other units.
+    - flags: The flags of the metric that determine how and when it is computed and displayed.
+    - required_metrics: The metrics that must be available to compute the metric. This is a set of metric tags.
+    """
+
+    # User-defined attributes to be overridden by subclasses
     tag: ClassVar[MetricTagT] = ""
     header: ClassVar[str] = ""
     unit: ClassVar[MetricUnitT] = None
-    value_type: ClassVar[
-        MetricValueType  # Will be auto-detected based on generic type parameter
-    ]
-    type: ClassVar[MetricType]  # Will be set by base subclasses
     flags: ClassVar[MetricFlags] = MetricFlags.NONE
     required_metrics: ClassVar[set[MetricTagT] | None] = None
+
+    # Auto-derived attributes
+    value_type: ClassVar[MetricValueType]  # Auto set based on generic type parameter
+    type: ClassVar[MetricType]  # Set by base subclasses
 
     def __init_subclass__(cls, **kwargs):
         """
@@ -46,12 +58,11 @@ class BaseMetric(Generic[MetricValueTypeVarT], ABC):
 
         # Enforce that concrete subclasses are a subclass of BaseRecordMetric, BaseAggregateMetric, or BaseDerivedMetric
         valid_base_classes = {
-            "BaseRecordMetric",
-            "BaseAggregateMetric",
-            "BaseDerivedMetric",
+            BaseRecordMetric,
+            BaseAggregateMetric,
+            BaseDerivedMetric,
         }
-        class_names_in_mro = {base.__name__ for base in cls.__mro__}
-        if not valid_base_classes.intersection(class_names_in_mro):
+        if not any(issubclass(cls, base) for base in valid_base_classes):
             raise TypeError(
                 f"Concrete metric class {cls.__name__} must be a subclass of BaseRecordMetric, BaseAggregateMetric, or BaseDerivedMetric"
             )
@@ -129,7 +140,21 @@ class BaseRecordMetric(
     and are independent of other records. The final results will be a list of values, one for each record.
 
     NOTE: Set the generic type to be the type of the individual values, and NOT a list, unless the metric produces
-    a list for every record. In that case, the result will be a list of lists.
+    a list *for every record*. In that case, the result will be a list of lists.
+
+    Examples:
+    ```python
+    class InputSequenceLengthMetric(BaseRecordMetric[int]):
+        # ... Metric attributes ...
+        # ... Input validation ...
+
+        def _parse_record(
+            self,
+            record: ParsedResponseRecord,
+            record_metrics: MetricRecordDict,
+        ) -> int:
+            return record.input_token_count
+    ```
     """
 
     type = MetricType.RECORD
@@ -167,8 +192,25 @@ class BaseRecordMetric(
 class BaseAggregateMetric(
     Generic[MetricValueTypeVarT], BaseMetric[MetricValueTypeVarT], ABC
 ):
-    """A base class for aggregate metrics. These metrics are computed for each record,
-    but are dependent on other records, and will vary over time. They will produce a single final value (or list of values)."""
+    """A base class for aggregate metrics. These metrics keep track of a value or list of values over time.
+    They are updated for each record, and the value should be based on previous values.
+    They will produce a single final value (or list of values).
+
+    NOTE: The generic type can be a list of values, or a single value.
+
+    Examples:
+    ```python
+    class RequestCountMetric(BaseAggregateMetric[int]):
+        # ... Metric attributes ...
+
+        def __init__(self):
+            self.value = 0
+
+        def _update_value(self, record: ParsedResponseRecord, record_metrics: MetricRecordDict) -> int:
+            self.value += 1
+            return self.value
+    ```
+    """
 
     type = MetricType.AGGREGATE
 
@@ -213,6 +255,18 @@ class BaseDerivedMetric(
     and do not require any knowledge of the individual records. The final results will be a single computed value (or list of values).
 
     NOTE: The generic type can be a list of values, or a single value.
+
+    Examples:
+    ```python
+    class RequestThroughputMetric(BaseDerivedMetric[float]):
+        # ... Metric attributes ...
+        # ... Input validation ...
+
+        def _derive_value(self, metric_results: MetricResultsDict) -> float:
+            request_count = metric_results[MetricTag.REQUEST_COUNT]
+            benchmark_duration = metric_results[MetricTag.BENCHMARK_DURATION]
+            return request_count / (benchmark_duration / NANOS_PER_SECOND)
+    ```
     """
 
     type = MetricType.DERIVED

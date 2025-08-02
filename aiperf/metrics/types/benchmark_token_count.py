@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import cast
 
 from aiperf.common.enums import GenericMetricUnit, MetricFlags, MetricTag
 from aiperf.common.models import ParsedResponseRecord
@@ -32,6 +31,6 @@ class BenchmarkTokenCountMetric(BaseAggregateMetric[int]):
         record: ParsedResponseRecord,
         record_metrics: MetricRecordDict,
     ) -> int:
-        osl: int = cast(int, record_metrics[MetricTag.OSL])
-        self.value += osl
+        osl = record_metrics[MetricTag.OSL]
+        self.value += osl  # type: ignore
         return self.value

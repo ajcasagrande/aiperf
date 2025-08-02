@@ -1,7 +1,6 @@
 #  SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #  SPDX-License-Identifier: Apache-2.0
 
-from typing import cast
 
 from aiperf.common.enums import GenericMetricUnit, MetricFlags, MetricTag
 from aiperf.common.models import ParsedResponseRecord
@@ -37,4 +36,4 @@ class InputSequenceLengthMetric(BaseRecordMetric[int]):
         record: ParsedResponseRecord,
         record_metrics: MetricRecordDict,
     ) -> int:
-        return cast(int, record.input_token_count)
+        return record.input_token_count  # type: ignore

@@ -5,14 +5,14 @@ import pandas as pd
 
 from aiperf.common.enums import (
     EndpointType,
-    LegacyMetricType,
     MetricTag,
     PostProcessorType,
 )
+from aiperf.common.enums.metric_enums import MetricFlags, MetricType
 from aiperf.common.factories import PostProcessorFactory
 from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.common.models import MetricResult, ParsedResponseRecord
-from aiperf.metrics.legacy_base_metric import LegacyBaseMetric
+from aiperf.metrics.base_metrics import BaseDerivedMetric
 
 
 @PostProcessorFactory.register(PostProcessorType.METRIC_SUMMARY)
@@ -42,7 +42,7 @@ class MetricSummary(AIPerfLoggerMixin):
             }
 
         self._metrics = []
-        for metric_cls in LegacyBaseMetric.get_all().values():
+        for metric_cls in BaseDerivedMetric.get_all().values():
             if (
                 allowed_tags is not None
                 and getattr(metric_cls, "tag", None) not in allowed_tags
@@ -76,12 +76,12 @@ class MetricSummary(AIPerfLoggerMixin):
 
         # METRIC_OF_RECORDS
         for metric in self._metrics:
-            if metric.type == LegacyMetricType.METRIC_OF_RECORDS:
+            if metric.type == MetricType.RECORD:
                 metric.update_value(record=record)
 
         # METRIC_OF_BOTH
         for metric in self._metrics:
-            if metric.type == LegacyMetricType.METRIC_OF_BOTH:
+            if metric.type == MetricType.AGGREGATE:
                 metric.update_value(
                     record=record, metrics={m.tag: m for m in self._metrics}
                 )
@@ -116,13 +116,10 @@ class MetricSummary(AIPerfLoggerMixin):
         computed_tags = {
             m.tag
             for m in self._metrics
-            if m.type
-            in {LegacyMetricType.METRIC_OF_RECORDS, LegacyMetricType.METRIC_OF_BOTH}
+            if m.type in {MetricType.RECORD, MetricType.AGGREGATE}
         }
 
-        remaining = [
-            m for m in self._metrics if m.type == LegacyMetricType.METRIC_OF_METRICS
-        ]
+        remaining = [m for m in self._metrics if m.type == MetricType.DERIVED]
 
         # Resolve dependencies: loop until all metrics are computed or a circular dependency is found
         while remaining:
@@ -146,7 +143,7 @@ class MetricSummary(AIPerfLoggerMixin):
         return [record_from_dataframe(df, metric) for metric in self._metrics]
 
 
-def record_from_dataframe(df: pd.DataFrame, metric: LegacyBaseMetric) -> MetricResult:
+def record_from_dataframe(df: pd.DataFrame, metric: BaseDerivedMetric) -> MetricResult:
     """Create a Record from a DataFrame."""
 
     column = df[metric.tag]
@@ -155,7 +152,7 @@ def record_from_dataframe(df: pd.DataFrame, metric: LegacyBaseMetric) -> MetricR
     return MetricResult(
         tag=metric.tag,
         header=metric.header,
-        unit=metric.unit.short_name() if metric.unit else "",
+        unit=str(metric.unit),
         avg=column.mean(),
         min=column.min(),
         max=column.max(),
@@ -169,5 +166,5 @@ def record_from_dataframe(df: pd.DataFrame, metric: LegacyBaseMetric) -> MetricR
         p99=quantiles[0.99],
         std=column.std(),
         count=int(column.count()),
-        streaming_only=metric.streaming_only,
+        streaming_only=metric.has_flags(MetricFlags.STREAMING_ONLY),
     )

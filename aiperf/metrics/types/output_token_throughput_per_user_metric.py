@@ -4,11 +4,11 @@
 from typing import cast
 
 from aiperf.common.enums import MetricFlags, MetricOverTimeUnit, MetricTag
-from aiperf.metrics.base_metrics import BaseDerivedMetric
+from aiperf.metrics.base_metrics import BaseSummaryMetric
 from aiperf.metrics.metric_dicts import MetricResultsDict
 
 
-class OutputTokenThroughputPerUserMetric(BaseDerivedMetric[float]):
+class OutputTokenThroughputPerUserMetric(BaseSummaryMetric[float]):
     """
     Post Processor for calculating Output Token Throughput per user metrics from records.
     """
@@ -16,11 +16,7 @@ class OutputTokenThroughputPerUserMetric(BaseDerivedMetric[float]):
     tag = MetricTag.OUTPUT_TOKEN_THROUGHPUT_PER_USER
     header = "Output Token Throughput Per User"
     unit = MetricOverTimeUnit.TOKENS_PER_SECOND_PER_USER
-    flags = (
-        MetricFlags.STREAMING_ONLY
-        | MetricFlags.TOKEN_BASED_ONLY
-        | MetricFlags.LARGER_IS_BETTER
-    )
+    flags = MetricFlags.STREAMING_TOKENS_ONLY | MetricFlags.LARGER_IS_BETTER
     required_metrics = {
         MetricTag.ITL,
         MetricTag.BENCHMARK_TOKEN_COUNT,

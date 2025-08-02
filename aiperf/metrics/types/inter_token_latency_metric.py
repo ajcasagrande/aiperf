@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-from typing import cast
 
 from aiperf.common.enums import MetricFlags, MetricTag, MetricTimeUnit
 from aiperf.common.models import ParsedResponseRecord
@@ -16,11 +15,7 @@ class InterTokenLatencyMetric(BaseRecordMetric[float]):
     tag = MetricTag.ITL
     header = "Inter Token Latency (ITL)"
     unit = MetricTimeUnit.NANOSECONDS
-    flags = (
-        MetricFlags.STREAMING_ONLY
-        | MetricFlags.TOKEN_BASED_ONLY
-        | MetricFlags.LARGER_IS_BETTER
-    )
+    flags = MetricFlags.STREAMING_TOKENS_ONLY | MetricFlags.LARGER_IS_BETTER
     required_metrics = {
         MetricTag.REQUEST_LATENCY,
         MetricTag.TTFT,
@@ -35,8 +30,8 @@ class InterTokenLatencyMetric(BaseRecordMetric[float]):
         """
         Calculates the Inter Token Latency (ITL) metric.
         """
-        osl: int = cast(int, record_metrics[MetricTag.OSL])
-        ttft: int = cast(int, record_metrics[MetricTag.TTFT])
-        request_latency: int = cast(int, record_metrics[MetricTag.REQUEST_LATENCY])
+        osl = record_metrics[MetricTag.OSL]
+        ttft = record_metrics[MetricTag.TTFT]
+        request_latency = record_metrics[MetricTag.REQUEST_LATENCY]
 
-        return (request_latency - ttft) / (osl - 1)
+        return (request_latency - ttft) / (osl - 1)  # type: ignore

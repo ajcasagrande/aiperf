@@ -9,18 +9,10 @@ from aiperf.common.enums.base_enums import CaseInsensitiveStrEnum
 class MetricTimeUnit(CaseInsensitiveStrEnum):
     """Defines the time types for metrics."""
 
-    NANOSECONDS = "nanoseconds"
-    MILLISECONDS = "milliseconds"
-    SECONDS = "seconds"
-
-    def short_name(self) -> str:
-        """Get the short name for the time type."""
-        _short_name_map = {
-            MetricTimeUnit.NANOSECONDS: "ns",
-            MetricTimeUnit.MILLISECONDS: "ms",
-            MetricTimeUnit.SECONDS: "s",
-        }
-        return _short_name_map[self]
+    NANOSECONDS = "ns"
+    MICROSECONDS = "us"
+    MILLISECONDS = "ms"
+    SECONDS = "s"
 
 
 class GenericMetricUnit(CaseInsensitiveStrEnum):
@@ -95,7 +87,7 @@ class MetricType(CaseInsensitiveStrEnum):
     Examples: min/max request latency, total request count, benchmark duration, etc."""
 
     DERIVED = "derived"
-    """Metrics that are purely derived from other metrics, and do not require per-request values.
+    """Metrics that are purely derived from other metrics as a summary, and do not require per-request values.
     Examples: request throughput, output token throughput, etc."""
 
 
@@ -119,21 +111,21 @@ class MetricFlags(Flag):
     These flags are intended to be an easy way to group metrics, or turn on/off certain features.
 
     Note that the flags are a bitmask, so they can be combined using the bitwise OR operator (`|`).
-    For example, to create a flag that is both `STREAMING_ONLY` and `TOKEN_BASED_ONLY`, you can do:
+    For example, to create a flag that is both `STREAMING_ONLY` and `HIDDEN`, you can do:
     ```python
-    MetricFlags.STREAMING_ONLY | MetricFlags.TOKEN_BASED_ONLY
+    MetricFlags.STREAMING_ONLY | MetricFlags.HIDDEN
     ```
 
     To check if a metric has a flag, you can use the `has_flags` method.
-    For example, to check if a metric has the `STREAMING_ONLY` flag, you can do:
+    For example, to check if a metric has both the `STREAMING_ONLY` and `HIDDEN` flags, you can do:
     ```python
-    metric.has_flags(MetricFlags.STREAMING_ONLY)
+    metric.has_flags(MetricFlags.STREAMING_ONLY | MetricFlags.HIDDEN)
     ```
 
     To check if a metric does not have a flag(s), you can use the `missing_flags` method.
-    For example, to check if a metric does not have the `STREAMING_ONLY` flag, you can do:
+    For example, to check if a metric does not have the `STREAMING_ONLY` or `HIDDEN` flags, you can do:
     ```python
-    metric.missing_flags(MetricFlags.STREAMING_ONLY)
+    metric.missing_flags(MetricFlags.STREAMING_ONLY | MetricFlags.HIDDEN)
     ```
     """
 
