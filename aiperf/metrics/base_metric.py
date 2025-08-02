@@ -114,9 +114,10 @@ class BaseMetric(Generic[MetricValueTypeVarT], ABC):
             if tag not in metrics:
                 raise ValueError(f"Missing required metric: '{tag}'")
 
-    def has_flag(self, flag: MetricFlags) -> bool:
+    @classmethod
+    def has_flag(cls, flag: MetricFlags) -> bool:
         """Check that the flags are valid."""
-        return flag & self.flags == flag
+        return flag & cls.flags == flag
 
 
 class BaseRecordMetric(

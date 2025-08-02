@@ -16,7 +16,10 @@ class BenchmarkDurationMetric(BaseDerivedMetric[int]):
     header = "Benchmark Duration"
     unit = MetricTimeUnit.NANOSECONDS
     larger_is_better = False
-    required_metrics = {MetricTag.MIN_REQUEST, MetricTag.MAX_RESPONSE}
+    required_metrics = {
+        MetricTag.MIN_REQUEST,
+        MetricTag.MAX_RESPONSE,
+    }
 
     def _derive_value(
         self,

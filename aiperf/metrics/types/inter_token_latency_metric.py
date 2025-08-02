@@ -3,9 +3,9 @@
 from typing import cast
 
 from aiperf.common.enums import MetricFlags, MetricTag, MetricTimeUnit
-from aiperf.common.models.record_models import ParsedResponseRecord
-from aiperf.common.types import MetricTagT, MetricValueTypeT
+from aiperf.common.models import ParsedResponseRecord
 from aiperf.metrics.base_metric import BaseRecordMetric
+from aiperf.metrics.metric_dicts import MetricRecordDict
 
 
 class InterTokenLatencyMetric(BaseRecordMetric[float]):
@@ -27,13 +27,13 @@ class InterTokenLatencyMetric(BaseRecordMetric[float]):
     def _parse_record(
         self,
         record: ParsedResponseRecord,
-        metrics: dict[MetricTagT, MetricValueTypeT],
+        record_metrics: MetricRecordDict,
     ) -> float:
         """
         Calculates the Inter Token Latency (ITL) metric.
         """
-        output_token_count: int = cast(int, metrics[MetricTag.OSL])
-        ttft: int = cast(int, metrics[MetricTag.TTFT])
-        request_latency: int = cast(int, metrics[MetricTag.REQUEST_LATENCY])
+        osl: int = cast(int, record_metrics[MetricTag.OSL])
+        ttft: int = cast(int, record_metrics[MetricTag.TTFT])
+        request_latency: int = cast(int, record_metrics[MetricTag.REQUEST_LATENCY])
 
-        return (request_latency - ttft) / (output_token_count - 1)
+        return (request_latency - ttft) / (osl - 1)

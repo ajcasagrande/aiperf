@@ -19,7 +19,9 @@ class BenchmarkTokenCountMetric(BaseAggregateMetric[int]):
     unit = GenericMetricUnit.TOKENS
     larger_is_better = True
     flags = MetricFlags.TOKEN_BASED_ONLY
-    required_metrics = {MetricTag.OSL}
+    required_metrics = {
+        MetricTag.OSL,
+    }
 
     def __init__(self):
         self.value: int = 0

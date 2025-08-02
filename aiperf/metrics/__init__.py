@@ -19,6 +19,9 @@ from aiperf.metrics.metric_dicts import (
     MetricRecordDict,
     MetricResultsDict,
 )
+from aiperf.metrics.metric_registry import (
+    MetricRegistry,
+)
 from aiperf.metrics.types import (
     BenchmarkDurationMetric,
     BenchmarkTokenCountMetric,
@@ -48,6 +51,7 @@ __all__ = [
     "InterTokenLatencyMetric",
     "MaxResponseMetric",
     "MetricRecordDict",
+    "MetricRegistry",
     "MetricResultsDict",
     "MinRequestMetric",
     "OutputSequenceLengthMetric",
