@@ -1,49 +1,29 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from aiperf.common.enums import LegacyMetricType, MetricTag
+from aiperf.common.enums import GenericMetricUnit, MetricFlags, MetricTag
 from aiperf.common.models import ParsedResponseRecord
-from aiperf.common.types import MetricTagT
-from aiperf.metrics.legacy_base_metric import LegacyBaseMetric
+from aiperf.common.types import MetricTagT, MetricValueTypeT
+from aiperf.metrics.base_metric import BaseRecordMetric
 
 
-class OutputSequenceLengthMetric(LegacyBaseMetric):
+class OutputSequenceLengthMetric(BaseRecordMetric[int]):
     """
     Post-processor for calculating Output Sequence Length (OSL) metrics from records.
     """
 
     tag = MetricTag.OSL
-    unit = None
-    larger_is_better = False
-    header = "Output Sequence Length"
-    type = LegacyMetricType.METRIC_OF_RECORDS
-    streaming_only = False
+    header = "Output Sequence Length (OSL)"
+    unit = GenericMetricUnit.TOKENS
+    larger_is_better = True
+    flags = MetricFlags.NONE
     required_metrics = set()
 
-    def __init__(self):
-        self.metric: list[int] = []
-
-    def update_value(
+    def _parse_record(
         self,
-        record: ParsedResponseRecord | None = None,
-        metrics: dict[MetricTagT, "LegacyBaseMetric"] | None = None,
-    ):
-        self._check_record(record)
-        self.metric.append(record.output_token_count)
-
-    def values(self):
-        """
-        Returns the list of Output Sequence Length (OSL) metrics.
-        """
-        return self.metric
-
-    def _check_record(self, record: ParsedResponseRecord):
-        """
-        Checks if the record is valid for OSL calculation.
-
-        Raises:
-            ValueError: If record is not valid or output_token_count is missing.
-        """
-        self._require_valid_record(record)
+        record: ParsedResponseRecord,
+        metrics: dict[MetricTagT, MetricValueTypeT],
+    ) -> int:
         if record.output_token_count is None:
             raise ValueError("Output token count is missing in the record.")
+        return record.output_token_count

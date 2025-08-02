@@ -2,10 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 from typing import cast
 
-from aiperf.common.enums import (
-    MetricTag,
-    MetricTimeUnit,
-)
+from aiperf.common.enums import MetricTag, MetricTimeUnit
 from aiperf.common.types import MetricTagT, MetricValueTypeT
 from aiperf.metrics.base_metric import BaseDerivedMetric
 
@@ -16,9 +13,9 @@ class BenchmarkDurationMetric(BaseDerivedMetric[int]):
     """
 
     tag = MetricTag.BENCHMARK_DURATION
+    header = "Benchmark Duration"
     unit = MetricTimeUnit.NANOSECONDS
     larger_is_better = False
-    header = "Benchmark Duration"
     required_metrics = {MetricTag.MIN_REQUEST, MetricTag.MAX_RESPONSE}
 
     def _derive_value(

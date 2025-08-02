@@ -1,56 +1,39 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+from typing import cast
 
-from aiperf.common.enums import LegacyMetricType, MetricTag, MetricTimeUnit
+from aiperf.common.enums import MetricFlags, MetricTag, MetricTimeUnit
 from aiperf.common.models.record_models import ParsedResponseRecord
-from aiperf.common.types import MetricTagT
-from aiperf.metrics.legacy_base_metric import LegacyBaseMetric
+from aiperf.common.types import MetricTagT, MetricValueTypeT
+from aiperf.metrics.base_metric import BaseRecordMetric
 
 
-class InterTokenLatencyMetric(LegacyBaseMetric):
+class InterTokenLatencyMetric(BaseRecordMetric[float]):
     """
     Post Processor for calculating Inter Token Latency (ITL) metric.
     """
 
     tag = MetricTag.ITL
-    unit = MetricTimeUnit.MILLISECONDS
-    larger_is_better = False
     header = "Inter Token Latency (ITL)"
-    type = LegacyMetricType.METRIC_OF_METRICS
-    streaming_only = True
+    unit = MetricTimeUnit.NANOSECONDS
+    larger_is_better = False
+    flags = MetricFlags.STREAMING_ONLY
     required_metrics = {
         MetricTag.REQUEST_LATENCY,
         MetricTag.TTFT,
-        MetricTag.OUTPUT_TOKEN_COUNT,
+        MetricTag.OSL,
     }
 
-    def __init__(self):
-        self.metric: list[float] = []
-
-    def update_value(
+    def _parse_record(
         self,
-        record: ParsedResponseRecord | None = None,
-        metrics: dict[MetricTagT, "LegacyBaseMetric"] | None = None,
-    ):
-        self._check_metrics(metrics)
-        # Clear the current value because we re-compute it each time
-        self.metric.clear()
-
-        latencies = metrics[MetricTag.REQUEST_LATENCY].values()
-        ttfts = metrics[MetricTag.TTFT].values()
-        output_token_counts = metrics[MetricTag.OUTPUT_TOKEN_COUNT].values()
-
-        for latency, ttft, output_tokens in zip(
-            latencies, ttfts, output_token_counts, strict=False
-        ):
-            itl = (latency - ttft) / (output_tokens - 1)
-            self.metric.append(itl)
-
-    def values(self) -> list[float]:
+        record: ParsedResponseRecord,
+        metrics: dict[MetricTagT, MetricValueTypeT],
+    ) -> float:
         """
-        Returns the list of Inter Token Latency (ITL) metrics.
+        Calculates the Inter Token Latency (ITL) metric.
         """
-        return self.metric
+        output_token_count: int = cast(int, metrics[MetricTag.OSL])
+        ttft: int = cast(int, metrics[MetricTag.TTFT])
+        request_latency: int = cast(int, metrics[MetricTag.REQUEST_LATENCY])
 
-    def _check_record(self, record):
-        pass
+        return (request_latency - ttft) / (output_token_count - 1)

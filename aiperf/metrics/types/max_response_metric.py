@@ -1,47 +1,34 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-from aiperf.common.enums import LegacyMetricType, MetricTag, MetricTimeUnit
+from aiperf.common.enums import MetricTag, MetricTimeUnit
 from aiperf.common.models import ParsedResponseRecord
-from aiperf.common.types import MetricTagT
-from aiperf.metrics.legacy_base_metric import LegacyBaseMetric
+from aiperf.common.types import MetricTagT, MetricValueTypeT
+from aiperf.metrics.base_metric import BaseAggregateMetric
 
 
-class MaxResponseMetric(LegacyBaseMetric):
+class MaxResponseMetric(BaseAggregateMetric[int]):
     """
     Post-processor for calculating the maximum response time stamp metric from records.
     """
 
     tag = MetricTag.MAX_RESPONSE
-    unit = MetricTimeUnit.NANOSECONDS
-    type = LegacyMetricType.METRIC_OF_RECORDS
-    larger_is_better = False
     header = "Maximum Response Timestamp"
+    unit = MetricTimeUnit.NANOSECONDS
+    larger_is_better = False
     required_metrics = set()
 
-    def __init__(self):
-        self.metric: float = 0
+    def __init__(self) -> None:
+        self.value: int = 0
 
-    def update_value(
+    def _update_value(
         self,
-        record: ParsedResponseRecord | None = None,
-        metrics: dict[MetricTagT, "LegacyBaseMetric"] | None = None,
-    ) -> None:
+        record: ParsedResponseRecord,
+        metrics: dict[MetricTagT, MetricValueTypeT],
+    ) -> int:
         """
         Adds a new record and calculates the maximum response timestamp metric.
-
         """
-        self._check_record(record)
-        if record.responses[-1].perf_ns > self.metric:
-            self.metric = record.responses[-1].perf_ns
-
-    def values(self) -> float:
-        """
-        Returns the Max Response Timestamp metric.
-        """
-        return self.metric
-
-    def _check_record(self, record: ParsedResponseRecord) -> None:
-        """
-        Checks if the record is valid for calculations.
-        """
-        self._require_valid_record(record)
+        # TODO: Is this the proper value to use?
+        if record.responses[-1].perf_ns > self.value:
+            self.value = record.responses[-1].perf_ns
+        return self.value

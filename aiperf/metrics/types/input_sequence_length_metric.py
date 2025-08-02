@@ -1,44 +1,29 @@
 #  SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #  SPDX-License-Identifier: Apache-2.0
 
-from aiperf.common.enums import MetricTag
+from aiperf.common.enums import GenericMetricUnit, MetricFlags, MetricTag
 from aiperf.common.models import ParsedResponseRecord
-from aiperf.common.types import MetricTagT
-from aiperf.metrics.legacy_base_metric import LegacyBaseMetric
+from aiperf.common.types import MetricTagT, MetricValueTypeT
+from aiperf.metrics.base_metric import BaseRecordMetric
 
 
-class InputSequenceLengthMetric(LegacyBaseMetric[int]):
+class InputSequenceLengthMetric(BaseRecordMetric[int]):
     """
     Post-processor for calculating Input Sequence Length (ISL) metrics from records.
     """
 
     tag = MetricTag.ISL
-    unit = None
-    larger_is_better = False
-    header = "Input Sequence Length"
+    header = "Input Sequence Length (ISL)"
+    unit = GenericMetricUnit.TOKENS
+    larger_is_better = True
+    flags = MetricFlags.NONE
+    required_metrics = set()
 
-    def update_value(
+    def _parse_record(
         self,
-        record: ParsedResponseRecord | None = None,
-        metrics: dict[MetricTagT, "LegacyBaseMetric"] | None = None,
-    ):
-        self._check_record(record)
-        input_token_count = record.input_token_count
-        self.metric.append(input_token_count)
-
-    def values(self) -> list[int]:
-        """
-        Returns the list of Input Sequence Length (ISL) metrics.
-        """
-        return self.metric
-
-    def _check_record(self, record: ParsedResponseRecord):
-        """
-        Checks if the record is valid for ISL calculation.
-
-        Raises:
-            ValueError: If the record is not valid or doesn't have input_token_count.
-        """
-        self._require_valid_record(record)
+        record: ParsedResponseRecord,
+        metrics: dict[MetricTagT, MetricValueTypeT],
+    ) -> int:
         if record.input_token_count is None:
             raise ValueError("Input Token Count is not available for the record.")
+        return record.input_token_count

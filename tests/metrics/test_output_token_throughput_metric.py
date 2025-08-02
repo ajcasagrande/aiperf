@@ -17,7 +17,7 @@ class MockBenchmarkDuration:
 
 
 class MockOutputTokenCount:
-    tag = MetricTag.OUTPUT_TOKEN_COUNT
+    tag = MetricTag.OSL
 
     def values(self):
         return [10, 20, 30]  # total = 60
@@ -27,7 +27,7 @@ class MockOutputTokenCount:
 def mock_metrics():
     return {
         MetricTag.BENCHMARK_DURATION: MockBenchmarkDuration(),
-        MetricTag.OUTPUT_TOKEN_COUNT: MockOutputTokenCount(),
+        MetricTag.OSL: MockOutputTokenCount(),
     }
 
 

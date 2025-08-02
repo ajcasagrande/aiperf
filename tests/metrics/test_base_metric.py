@@ -25,7 +25,7 @@ class ExampleMetricDefinition(BaseMetric[int]):
     required_metrics = {
         MetricTag.REQUEST_LATENCY,
         MetricTag.TTFT,
-        MetricTag.OUTPUT_TOKEN_COUNT,
+        MetricTag.OSL,
     }
 
 

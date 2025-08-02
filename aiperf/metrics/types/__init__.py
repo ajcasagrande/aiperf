@@ -26,9 +26,6 @@ from aiperf.metrics.types.min_request_metric import (
 from aiperf.metrics.types.output_sequence_length_metric import (
     OutputSequenceLengthMetric,
 )
-from aiperf.metrics.types.output_token_count_metric import (
-    OutputTokenCountMetric,
-)
 from aiperf.metrics.types.output_token_throughput_metric import (
     OutputTokenThroughputMetric,
 )
@@ -58,7 +55,6 @@ __all__ = [
     "MaxResponseMetric",
     "MinRequestMetric",
     "OutputSequenceLengthMetric",
-    "OutputTokenCountMetric",
     "OutputTokenThroughputMetric",
     "OutputTokenThroughputPerUserMetric",
     "RequestCountMetric",

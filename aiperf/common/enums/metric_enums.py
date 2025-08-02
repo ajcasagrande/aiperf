@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from enum import Enum, Flag, auto
+from enum import Flag
 
 from aiperf.common.enums.base_enums import CaseInsensitiveStrEnum
 
@@ -26,14 +26,38 @@ class MetricTimeUnit(CaseInsensitiveStrEnum):
 class GenericMetricUnit(CaseInsensitiveStrEnum):
     """Defines the units for generic metrics."""
 
-    TOKENS = "tokens"
+    BYTES = "bytes"
+    PERCENT = "percent"
     REQUESTS = "requests"
+    TOKENS = "tokens"
+    USER = "user"
+    USERS = "users"
 
 
-class LegacyMetricType(Enum):
-    METRIC_OF_RECORDS = auto()
-    METRIC_OF_METRICS = auto()
-    METRIC_OF_BOTH = auto()
+class MetricOverTimeUnit(CaseInsensitiveStrEnum):
+    """Defines the units for metrics that are a generic unit over a specific time unit."""
+
+    REQUESTS_PER_SECOND = "req/s"
+    TOKENS_PER_SECOND = "tokens/s"
+    BYTES_PER_SECOND = "bytes/s"
+
+    def generic_unit(self) -> GenericMetricUnit | None:
+        """Get the generic unit for the metric."""
+        _generic_unit_map = {
+            MetricOverTimeUnit.REQUESTS_PER_SECOND: GenericMetricUnit.REQUESTS,
+            MetricOverTimeUnit.TOKENS_PER_SECOND: GenericMetricUnit.TOKENS,
+            MetricOverTimeUnit.BYTES_PER_SECOND: GenericMetricUnit.BYTES,
+        }
+        return _generic_unit_map[self]
+
+    def time_unit(self) -> MetricTimeUnit | None:
+        """Get the time unit for the metric."""
+        _time_unit_map = {
+            MetricOverTimeUnit.REQUESTS_PER_SECOND: MetricTimeUnit.SECONDS,
+            MetricOverTimeUnit.TOKENS_PER_SECOND: MetricTimeUnit.SECONDS,
+            MetricOverTimeUnit.BYTES_PER_SECOND: MetricTimeUnit.SECONDS,
+        }
+        return _time_unit_map[self]
 
 
 class MetricTag(CaseInsensitiveStrEnum):
@@ -43,7 +67,6 @@ class MetricTag(CaseInsensitiveStrEnum):
     MAX_RESPONSE = "max_response"
     MIN_REQUEST = "min_request"
     OSL = "osl"
-    OUTPUT_TOKEN_COUNT = "output_token_count"
     OUTPUT_TOKEN_THROUGHPUT = "output_token_throughput"
     OUTPUT_TOKEN_THROUGHPUT_PER_USER = "output_token_throughput_per_user"
     REQUEST_COUNT = "request_count"
@@ -69,45 +92,6 @@ class MetricType(CaseInsensitiveStrEnum):
     DERIVED = "derived"
     """Metrics that are purely derived from other metrics, and do not require per-request values.
     Examples: request throughput, output token throughput, etc."""
-
-
-class MetricProcessingType(CaseInsensitiveStrEnum):
-    """Defines the possible types of processing for metrics."""
-
-    PER_REQUEST = "per_request"
-    """Metrics that provide a value for each request."""
-
-    PER_REQUEST_UPDATES = "per_request_updates"
-    """Metrics """
-
-    PER_PROFILE_RUN = "per_profile_run"
-    """Metrics that are computed for each profile run, that encompasses multiple requests."""
-
-    PER_SWEEP = "per_sweep"
-    """Metrics that are computed for an entire sweep, that encompasses multiple profile runs."""
-
-    PER_BENCHMARK_SUITE = "per_benchmark_suite"
-    """Metrics that are computed for an entire benchmark suite, that encompasses one or more sweeps and or profile runs."""
-
-
-class MetricUpdateType(CaseInsensitiveStrEnum):
-    """Defines the possible types of updates for metrics."""
-
-    PER_REQUEST = "per_request"
-    """Metrics that are supposed to be updated for each request."""
-
-    PER_PROFILE_RUN = "per_profile_run"
-    """Metrics that are supposed to be updated for each profile run."""
-
-
-class MetricOutputType(CaseInsensitiveStrEnum):
-    """Defines the possible types of output for metrics."""
-
-    PER_REQUEST = "per_request"
-    """Metrics that are supposed to be output for each request."""
-
-    PER_PROFILE_RUN = "per_profile_run"
-    """Metrics that are supposed to be output for each profile run."""
 
 
 class MetricValueType(CaseInsensitiveStrEnum):
@@ -137,4 +121,5 @@ class MetricFlags(int, Flag):
     """Metrics that are only applicable to streaming requests."""
 
     ERROR_METRIC = 0x02
-    """Metrics that are used to track errors."""
+    """Metrics that are used to track errors. These metrics should only by computed if the record is invalid.
+    By default, metrics are only computed if the record is valid."""

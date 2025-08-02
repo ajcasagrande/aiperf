@@ -1,5 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+import sys
+
 from aiperf.common.enums import MetricTag, MetricTimeUnit
 from aiperf.common.models import ParsedResponseRecord
 from aiperf.common.types import MetricTagT, MetricValueTypeT
@@ -12,19 +14,20 @@ class MinRequestMetric(BaseAggregateMetric[int]):
     """
 
     tag = MetricTag.MIN_REQUEST
+    header = "Minimum Request Timestamp"
     unit = MetricTimeUnit.NANOSECONDS
     larger_is_better = False
-    header = "Minimum Request Timestamp"
     required_metrics = set()
 
-    def __init__(self):
-        self.value: float = float("inf")
+    def __init__(self) -> None:
+        self.value: int = sys.maxsize
 
-    def _parse_record(
+    def _update_value(
         self,
         record: ParsedResponseRecord,
         metrics: dict[MetricTagT, MetricValueTypeT],
-    ) -> None:
+    ) -> int:
         """Calculates the minimum request timestamp metric."""
         if record.start_perf_ns < self.value:
             self.value = record.start_perf_ns
+        return self.value

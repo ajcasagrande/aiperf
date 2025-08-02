@@ -22,13 +22,11 @@ class BaseMetric(Generic[MetricValueTypeVarT], ABC):
     """A definition of a metric type."""
 
     tag: ClassVar[MetricTagT] = ""
-    type: ClassVar[MetricType] = MetricType.RECORD
-    value_type: ClassVar[MetricValueType] = (
-        MetricValueType.FLOAT
-    )  # Will be auto-detected
-    larger_is_better: ClassVar[bool] = False
-    unit: ClassVar[MetricUnitT] = None
     header: ClassVar[str] = ""
+    unit: ClassVar[MetricUnitT] = None
+    value_type: ClassVar[MetricValueType]  # Will be auto-detected
+    larger_is_better: ClassVar[bool] = False
+    type: ClassVar[MetricType] = MetricType.RECORD
     flags: ClassVar[MetricFlags] = MetricFlags.NONE
     required_metrics: ClassVar[set[MetricTagT]] = set()
 

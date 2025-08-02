@@ -19,7 +19,7 @@ class OutputTokenThroughputMetric(LegacyBaseMetric):
     header = "Output Token Throughput (tokens/sec)"
     type = LegacyMetricType.METRIC_OF_METRICS
     required_metrics = {
-        MetricTag.OUTPUT_TOKEN_COUNT,
+        MetricTag.OSL,
         MetricTag.BENCHMARK_DURATION,
     }
 
@@ -32,7 +32,7 @@ class OutputTokenThroughputMetric(LegacyBaseMetric):
         metrics: dict[MetricTagT, "LegacyBaseMetric"] | None = None,
     ):
         self._check_metrics(metrics)
-        tokens = metrics[MetricTag.OUTPUT_TOKEN_COUNT].values()
+        tokens = metrics[MetricTag.OSL].values()
         total_tokens = sum(tokens)
 
         duration_ns = metrics[MetricTag.BENCHMARK_DURATION].values()

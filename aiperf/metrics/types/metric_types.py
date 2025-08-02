@@ -52,7 +52,7 @@
 #     required_metrics = {
 #         MetricTag.REQUEST_LATENCY,
 #         MetricTag.TTFT,
-#         MetricTag.OUTPUT_TOKEN_COUNT,
+#         MetricTag.OSL,
 #     }
 
 
@@ -93,7 +93,7 @@
 #     """Metric defining the number of tokens in the output."""
 
 #     header = "Output Token Count"
-#     tag = MetricTag.OUTPUT_TOKEN_COUNT
+#     tag = MetricTag.OSL
 #     type = MetricType.RECORD
 #     unit = None
 #     larger_is_better = True
@@ -110,7 +110,7 @@
 #     larger_is_better = True
 #     flags = MetricFlags.NONE
 #     required_metrics = {
-#         MetricTag.OUTPUT_TOKEN_COUNT,
+#         MetricTag.OSL,
 #         MetricTag.BENCHMARK_DURATION,
 #     }
 
