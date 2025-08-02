@@ -20,6 +20,7 @@ from aiperf.common.enums import (
 from aiperf.common.hooks import Hook, HookType
 from aiperf.common.models import (
     ParsedResponseRecord,
+    RecordProcessorResult,
     RequestRecord,
     ResponseData,
     ServiceRunInfo,
@@ -480,3 +481,41 @@ class StreamingPostProcessorProtocol(AIPerfLifecycleProtocol, Protocol):
     async def stream_record(self, record: ParsedResponseRecord) -> None: ...
 
     async def process_records(self, cancelled: bool) -> Any: ...
+
+
+@runtime_checkable
+class StreamingRecordProcessorProtocol(AIPerfLifecycleProtocol, Protocol):
+    """Protocol for a streaming record processor that streams the incoming records to the post processor
+    and returns the results of the post processing."""
+
+    async def stream_record(
+        self, record: ParsedResponseRecord
+    ) -> RecordProcessorResult: ...
+
+
+@runtime_checkable
+class StreamingResultsProcessorProtocol(AIPerfLifecycleProtocol, Protocol):
+    """Protocol for a streaming results processor that streams the results of multiple
+    streaming post processors, and provides the ability to summarize the results."""
+
+    async def stream_result(self, result: RecordProcessorResult) -> None: ...
+
+    # TODO: Add a type for the result of the summarization
+    async def summarize(self) -> Any: ...
+
+
+@runtime_checkable
+class SummarizingPostProcessorProtocol(Protocol):
+    """Protocol for a summarizing post processor that summarizes the results of the
+    streaming post processor. These will be called by the RecordsManager after aggregating
+    the results of the streaming post processor.
+    """
+
+    def summarize(self) -> Any: ...
+
+
+# @runtime_checkable
+# class MetricPostProcessorProtocol(StreamingPostProcessorProtocol, Protocol):
+#     """Protocol for a metric post processor that processes the metrics for a single record."""
+
+#     def post_process(self) -> Any: ...

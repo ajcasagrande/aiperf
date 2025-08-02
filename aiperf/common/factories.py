@@ -18,6 +18,8 @@ from aiperf.common.enums import (
     ServiceRunType,
     ServiceType,
     StreamingPostProcessorType,
+    StreamingRecordProcessorType,
+    StreamingResultsProcessorType,
     ZMQProxyType,
 )
 from aiperf.common.exceptions import (
@@ -54,6 +56,8 @@ if TYPE_CHECKING:
         ServiceManagerProtocol,
         ServiceProtocol,  # noqa: F401
         StreamingPostProcessorProtocol,
+        StreamingRecordProcessorProtocol,  # noqa: F401
+        StreamingResultsProcessorProtocol,  # noqa: F401
     )
     from aiperf.dataset import (
         CustomDatasetLoaderProtocol,
@@ -551,6 +555,22 @@ class StreamingPostProcessorFactory(
             max_queue_size=max_queue_size,
             **kwargs,
         )
+
+
+class StreamingRecordProcessorFactory(
+    AIPerfFactory[StreamingRecordProcessorType, "StreamingRecordProcessorProtocol"]
+):
+    """Factory for registering and creating StreamingRecordProcessorProtocol instances based on the specified streaming record processor type.
+    see: :class:`aiperf.common.factories.AIPerfFactory` for more details.
+    """
+
+
+class StreamingResultsProcessorFactory(
+    AIPerfFactory[StreamingResultsProcessorType, "StreamingResultsProcessorProtocol"]
+):
+    """Factory for registering and creating StreamingResultsProcessorProtocol instances based on the specified streaming results processor type.
+    see: :class:`aiperf.common.factories.AIPerfFactory` for more details.
+    """
 
 
 class ZMQProxyFactory(AIPerfFactory[ZMQProxyType, "BaseZMQProxy"]):

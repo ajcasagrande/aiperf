@@ -15,6 +15,7 @@ class MetricRegistry:
     """
     A registry for metrics. This is used to store all the metrics that are available to the system.
     It is used to lookup metrics by their tag, and to get all the metrics that are available.
+    It also provides methods to get metrics by their type, flag, and to create a dependency order for the metrics.
     """
 
     _metric_interfaces: dict[MetricTagT, type["BaseMetric"]] = {}

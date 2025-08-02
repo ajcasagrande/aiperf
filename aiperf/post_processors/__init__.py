@@ -11,6 +11,9 @@ __ignore__ = ["logger"]
 from aiperf.post_processors.basic_metrics_streamer import (
     BasicMetricsStreamer,
 )
+from aiperf.post_processors.metric_record_streamer import (
+    MetricRecordStreamer,
+)
 from aiperf.post_processors.metric_summary import (
     MetricSummary,
     record_from_dataframe,
@@ -25,6 +28,7 @@ from aiperf.post_processors.streaming_post_processor import (
 __all__ = [
     "BaseStreamingPostProcessor",
     "BasicMetricsStreamer",
+    "MetricRecordStreamer",
     "MetricSummary",
     "ProcessingStatsStreamer",
     "record_from_dataframe",

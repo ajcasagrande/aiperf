@@ -99,13 +99,9 @@ class MetricRecords(AIPerfBaseModel):
         default=None,
         description="Results of each metric computation.",
     )
-    request_error: ErrorDetails | None = Field(
-        default=None,
-        description="The error details of the original request if the request failed.",
-    )
-    compute_error: ErrorDetails | None = Field(
-        default=None,
-        description="The error details if the metric record computation failed.",
+    errors: list[ErrorDetails] = Field(
+        default_factory=list,
+        description="The errors of the metric records.",
     )
 
 
@@ -253,6 +249,9 @@ class RequestRecord(AIPerfBaseModel):
         default=None,
         description="The HTTP status code of the response.",
     )
+    # TODO: Maybe we could improve this with subclassing the responses to allow for more specific types.
+    #       This would allow us to remove the SerializeAsAny and use a more specific type. Look at how we handle
+    #       the CommandMessage and CommandResponse classes for an example.
     # NOTE: We need to use SerializeAsAny to allow for generic subclass support
     # NOTE: The order of the types is important, as that is the order they are type checked.
     #       Start with the most specific types and work towards the most general types.
@@ -395,9 +394,6 @@ class ResponseData(AIPerfBaseModel):
 class ParsedResponseRecord(AIPerfBaseModel):
     """Record of a request and its associated responses, already parsed and ready for metrics."""
 
-    worker_id: str = Field(
-        description="The ID of the worker that processed the request."
-    )
     request: RequestRecord = Field(description="The original request record")
     responses: list[ResponseData] = Field(description="The parsed response data.")
     input_token_count: int | None = Field(
@@ -471,3 +467,16 @@ class ParsedResponseRecord(AIPerfBaseModel):
             and 0 <= self.start_perf_ns < self.end_perf_ns < sys.maxsize
             and all(0 < response.perf_ns < sys.maxsize for response in self.responses)
         )
+
+
+class RecordProcessorResult(AIPerfBaseModel):
+    """Result of the record processor."""
+
+    # TODO: Is there a more generic base type we can use?
+
+    records: list[MetricRecord] = Field(
+        default_factory=list, description="The records of the record processor."
+    )
+    errors: list[ErrorDetails] = Field(
+        default_factory=list, description="The errors of the record processor."
+    )
