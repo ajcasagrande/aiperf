@@ -22,7 +22,7 @@ from aiperf.common.models import (
     ParsedResponseRecord,
     RequestRecord,
 )
-from aiperf.common.protocols import RequestClientProtocol
+from aiperf.common.protocols import RequestClientProtocol, ResponseExtractorProtocol
 from aiperf.common.tokenizer import Tokenizer
 
 
@@ -49,6 +49,12 @@ class InferenceResultParser(CommunicationMixin):
         self.tokenizer_lock: asyncio.Lock = asyncio.Lock()
         self.model_endpoint: ModelEndpointInfo = ModelEndpointInfo.from_user_config(
             user_config
+        )
+        self.extractor: ResponseExtractorProtocol = (
+            ResponseExtractorFactory.create_instance(
+                self.model_endpoint.endpoint.type,
+                model_endpoint=self.model_endpoint,
+            )
         )
 
     @on_init
