@@ -6,7 +6,11 @@ from typing import TypeAlias, TypeVar
 
 from pydantic import BaseModel
 
-from aiperf.common.enums.base_enums import CaseInsensitiveStrEnum
+from aiperf.common.enums.base_enums import (
+    BasePydanticBackedStrEnum,
+    BasePydanticEnumInfo,
+    CaseInsensitiveStrEnum,
+)
 
 MetricValueTypeT: TypeAlias = str | int | float | list[float] | list[int] | list[str]
 MetricValueTypeVarT = TypeVar("MetricValueTypeVarT", bound=MetricValueTypeT)
@@ -32,15 +36,14 @@ class GenericMetricUnit(CaseInsensitiveStrEnum):
     USERS = "users"
 
 
-class MetricOverTimeUnitInfo(BaseModel):
+class MetricOverTimeUnitInfo(BasePydanticEnumInfo):
     """Information about a metric over time unit."""
 
-    tag: str
     generic_unit: GenericMetricUnit
     time_unit: MetricTimeUnit
 
 
-class MetricOverTimeUnit(CaseInsensitiveStrEnum):
+class MetricOverTimeUnit(BasePydanticBackedStrEnum):
     """Defines the units for metrics that are a generic unit over a specific time unit."""
 
     REQUESTS_PER_SECOND = MetricOverTimeUnitInfo(
@@ -63,26 +66,6 @@ class MetricOverTimeUnit(CaseInsensitiveStrEnum):
         generic_unit=GenericMetricUnit.TOKENS,
         time_unit=MetricTimeUnit.SECONDS,
     )
-
-    def generic_unit(self) -> GenericMetricUnit | None:
-        """Get the generic unit for the metric."""
-        _generic_unit_map = {
-            MetricOverTimeUnit.REQUESTS_PER_SECOND: GenericMetricUnit.REQUESTS,
-            MetricOverTimeUnit.TOKENS_PER_SECOND: GenericMetricUnit.TOKENS,
-            MetricOverTimeUnit.BYTES_PER_SECOND: GenericMetricUnit.BYTES,
-            MetricOverTimeUnit.TOKENS_PER_SECOND_PER_USER: GenericMetricUnit.TOKENS,
-        }
-        return _generic_unit_map[self]
-
-    def time_unit(self) -> MetricTimeUnit | None:
-        """Get the time unit for the metric."""
-        _time_unit_map = {
-            MetricOverTimeUnit.REQUESTS_PER_SECOND: MetricTimeUnit.SECONDS,
-            MetricOverTimeUnit.TOKENS_PER_SECOND: MetricTimeUnit.SECONDS,
-            MetricOverTimeUnit.BYTES_PER_SECOND: MetricTimeUnit.SECONDS,
-            MetricOverTimeUnit.TOKENS_PER_SECOND_PER_USER: MetricTimeUnit.SECONDS,
-        }
-        return _time_unit_map[self]
 
 
 class MetricTag(CaseInsensitiveStrEnum):

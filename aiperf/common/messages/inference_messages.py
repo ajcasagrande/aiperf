@@ -7,13 +7,13 @@ from pydantic import (
 )
 
 from aiperf.common.enums import (
+    CreditPhase,
     MessageType,
 )
-from aiperf.common.enums.timing_enums import CreditPhase
+from aiperf.common.enums.metric_enums import MetricValueTypeT
 from aiperf.common.messages.service_messages import BaseServiceMessage
 from aiperf.common.models import ErrorDetails, ParsedResponseRecord, RequestRecord
-from aiperf.common.types import MessageTypeT
-from aiperf.metrics.metric_dicts import MetricRecordDict
+from aiperf.common.types import MessageTypeT, MetricTagT
 
 
 class InferenceResultsMessage(BaseServiceMessage):
@@ -51,7 +51,7 @@ class MetricRecordsMessage(BaseServiceMessage):
     credit_phase: CreditPhase = Field(
         ..., description="The credit phase of the request."
     )
-    results: list[MetricRecordDict] = Field(
+    results: list[dict[MetricTagT, MetricValueTypeT]] = Field(
         ..., description="The record processor results"
     )
     error: ErrorDetails | None = Field(

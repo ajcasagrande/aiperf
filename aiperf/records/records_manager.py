@@ -14,6 +14,7 @@ from aiperf.common.enums import (
     MessageType,
     ServiceType,
 )
+from aiperf.common.enums.metric_enums import MetricValueTypeT
 from aiperf.common.factories import (
     ResultsProcessorFactory,
     ServiceFactory,
@@ -37,7 +38,7 @@ from aiperf.common.models import (
     ProfileResults,
 )
 from aiperf.common.protocols import ResultsProcessorProtocol, ServiceProtocol
-from aiperf.metrics.metric_dicts import MetricRecordDict
+from aiperf.common.types import MetricTagT
 
 
 @implements_protocol(ServiceProtocol)
@@ -129,7 +130,7 @@ class RecordsManager(PullClientMixin, BaseComponentService):
             await self._process_records(cancelled=self._profile_cancelled)
 
     async def _send_results_to_results_processors(
-        self, results: list[MetricRecordDict]
+        self, results: list[dict[MetricTagT, MetricValueTypeT]]
     ) -> None:
         """Send the results to each of the results processors."""
         await asyncio.gather(
@@ -146,6 +147,7 @@ class RecordsManager(PullClientMixin, BaseComponentService):
     ) -> None:
         """Handle a credit phase start message in order to track the total number of expected requests."""
         if phase_start_msg.phase == CreditPhase.PROFILING:
+            self.start_time_ns = phase_start_msg.start_ns or time.time_ns()
             self.processing_stats.total_expected_requests = (
                 phase_start_msg.total_expected_requests
             )
@@ -159,7 +161,7 @@ class RecordsManager(PullClientMixin, BaseComponentService):
             # This will equate to how many records we expect to receive,
             # and once we receive that many records, we know to stop.
             self.final_request_count = phase_complete_msg.completed
-            self.end_time_ns = phase_complete_msg.end_ns
+            self.end_time_ns = phase_complete_msg.end_ns or time.time_ns()
             self.info(f"Updating final request count to {self.final_request_count}")
 
     @background_task(
@@ -215,13 +217,24 @@ class RecordsManager(PullClientMixin, BaseComponentService):
         self.info(lambda: f"Processed records results: {results}")
 
         records_results = [
-            result for result in results if isinstance(result, ProfileResults)
+            r for result in results if isinstance(result, list) for r in result
         ]
         error_results = [
             result for result in results if isinstance(result, ErrorDetails)
         ]
 
-        result = ProcessRecordsResult(records=records_results, errors=error_results)
+        result = ProcessRecordsResult(
+            records=[
+                ProfileResults(
+                    records=records_results,
+                    completed=len(records_results),
+                    start_ns=self.start_time_ns,
+                    end_ns=self.end_time_ns,
+                    was_cancelled=cancelled,
+                )
+            ],
+            errors=error_results,
+        )
         self.debug(lambda: f"Processed records result: {result}")
         await self.publish(
             ProcessRecordsResultMessage(

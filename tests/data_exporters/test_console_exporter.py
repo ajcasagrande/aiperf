@@ -56,7 +56,6 @@ def sample_records():
             p99=4.9,
             p90=4.5,
             p75=4.0,
-            streaming_only=True,
         ),
         MetricResult(
             tag="Request Throughput",
@@ -94,10 +93,10 @@ class TestConsoleExporter:
         assert "Request Throughput (per sec)" in output
 
     @pytest.mark.parametrize(
-        "enable_streaming, is_streaming_only_metric, should_skip",
+        "enable_streaming, should_skip",
         [
-            (True, True, False),
-            (False, True, True),
+            (True, False),
+            (False, True),
             (False, False, False),
             (True, False, False),
         ],
@@ -128,7 +127,6 @@ class TestConsoleExporter:
             header="Test Metric",
             unit="ms",
             avg=1.0,
-            streaming_only=is_streaming_only_metric,
         )
         assert exporter._should_skip(record) is should_skip
 

@@ -6,10 +6,12 @@ from rich.table import Table
 
 from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import DataExporterType
+from aiperf.common.enums.metric_enums import MetricFlags
 from aiperf.common.factories import DataExporterFactory
 from aiperf.common.models import MetricResult
 from aiperf.common.protocols import DataExporterProtocol
 from aiperf.exporters.exporter_config import ExporterConfig
+from aiperf.metrics.metric_registry import MetricRegistry
 
 
 @implements_protocol(DataExporterProtocol)
@@ -45,10 +47,7 @@ class ConsoleExporter:
             table.add_row(*self._format_row(record))
 
     def _should_skip(self, record: MetricResult) -> bool:
-        if self._endpoint_type == "embeddings":
-            return False
-
-        return record.streaming_only and not self._streaming
+        return MetricRegistry.get_class(record.tag).has_flags(MetricFlags.HIDDEN)
 
     def _format_row(self, record: MetricResult) -> list[str]:
         row = [f"{record.header} ({record.unit})"]
