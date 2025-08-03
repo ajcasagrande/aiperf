@@ -35,10 +35,11 @@ from aiperf.common.types import (
     RequestOutputT,
     ServiceTypeT,
 )
-from aiperf.metrics.metric_dicts import MetricRecordDict
 
 if TYPE_CHECKING:
     from aiperf.common.config import ServiceConfig, UserConfig
+    from aiperf.common.models.record_models import MetricResult
+    from aiperf.metrics.metric_dicts import MetricRecordDict
 
 
 ################################################################################
@@ -358,23 +359,6 @@ class InferenceClientProtocol(Protocol):
 
 
 @runtime_checkable
-class PostProcessorProtocol(Protocol):
-    """
-    PostProcessorProtocol is a protocol that defines the API for post-processors.
-    """
-
-    def process_record(self, record: "ParsedResponseRecord") -> None:
-        """Process a single record."""
-        ...
-
-    def post_process(self) -> Any:
-        """
-        Execute the post-processing logic on the records.
-        """
-        ...
-
-
-@runtime_checkable
 class ResponseExtractorProtocol(Protocol):
     """Protocol for a response extractor that extracts the response data from a raw inference server
     response and converts it to a list of ResponseData objects."""
@@ -460,20 +444,19 @@ class ServiceProtocol(MessageBusClientProtocol, Protocol):
 
 
 @runtime_checkable
-class RecordProcessorProtocol(AIPerfLifecycleProtocol, Protocol):
+class RecordProcessorProtocol(Protocol):
     """Protocol for a record processor that processes the incoming records and returns the results of the post processing."""
 
     async def process_record(
         self, record: ParsedResponseRecord
-    ) -> MetricRecordDict: ...
+    ) -> "MetricRecordDict": ...
 
 
 @runtime_checkable
-class ResultsProcessorProtocol(AIPerfLifecycleProtocol, Protocol):
+class ResultsProcessorProtocol(Protocol):
     """Protocol for a results processor that processes the results of multiple
     record processors, and provides the ability to summarize the results."""
 
-    async def process_result(self, result: MetricRecordDict) -> None: ...
+    async def process_result(self, result: "MetricRecordDict") -> None: ...
 
-    # TODO: Add a type for the result of the summarization
-    async def summarize(self) -> Any: ...
+    async def summarize(self) -> list["MetricResult"]: ...

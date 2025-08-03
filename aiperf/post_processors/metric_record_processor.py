@@ -10,7 +10,7 @@ from aiperf.common.enums import (
     RecordProcessorType,
 )
 from aiperf.common.factories import RecordProcessorFactory
-from aiperf.common.mixins import AIPerfLifecycleMixin
+from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.common.models import ParsedResponseRecord
 from aiperf.common.protocols import RecordProcessorProtocol
 from aiperf.metrics import BaseMetric
@@ -20,7 +20,7 @@ from aiperf.metrics.metric_registry import MetricRegistry
 
 @implements_protocol(RecordProcessorProtocol)
 @RecordProcessorFactory.register(RecordProcessorType.METRIC_RECORD)
-class MetricRecordProcessor(AIPerfLifecycleMixin):
+class MetricRecordProcessor(AIPerfLoggerMixin):
     """Processor for metric records.
     This is the first stage of the metrics processing pipeline, and is done is a distributed manner across multiple service instances.
     It is responsible for streaming the records to the post processor, and computing the metrics from the records.

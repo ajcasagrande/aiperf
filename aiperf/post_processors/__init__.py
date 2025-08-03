@@ -13,7 +13,6 @@ from aiperf.post_processors.metric_record_processor import (
 )
 from aiperf.post_processors.metric_results_processor import (
     MetricResultsProcessor,
-    record_from_dataframe,
 )
 
-__all__ = ["MetricRecordProcessor", "MetricResultsProcessor", "record_from_dataframe"]
+__all__ = ["MetricRecordProcessor", "MetricResultsProcessor"]

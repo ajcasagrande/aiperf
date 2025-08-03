@@ -83,7 +83,6 @@ class RecordsManager(PullClientMixin, BaseComponentService):
                 f"Created results processor: {results_processor_type}: {results_processor.__class__.__name__}"
             )
             self._results_processors.append(results_processor)
-            self.attach_child_lifecycle(results_processor)
 
     @on_pull_message(MessageType.METRIC_RECORDS)
     async def _on_metric_records(self, message: MetricRecordsMessage) -> None:
