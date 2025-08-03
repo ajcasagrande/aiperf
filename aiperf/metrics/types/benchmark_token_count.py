@@ -26,7 +26,7 @@ class BenchmarkTokenCountMetric(BaseAggregateMetric[int]):
     }
 
     def __init__(self):
-        self.value: int = 0
+        super().__init__(0)
 
     def _update_value(
         self,
@@ -34,5 +34,5 @@ class BenchmarkTokenCountMetric(BaseAggregateMetric[int]):
         record_metrics: MetricRecordDict,
     ) -> int:
         osl = record_metrics[MetricTag.OSL]
-        self.value += osl  # type: ignore
-        return self.value
+        self._value += osl  # type: ignore
+        return self._value

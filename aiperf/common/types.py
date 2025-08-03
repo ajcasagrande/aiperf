@@ -58,8 +58,6 @@ MetricTypeT: TypeAlias = MetricType | str
 MessageTypeT: TypeAlias = MessageType | str
 MetricTagT: TypeAlias = MetricTag | str
 MetricUnitT: TypeAlias = MetricTimeUnit | GenericMetricUnit | MetricOverTimeUnit | None
-MetricValueTypeT: TypeAlias = str | int | float | list[float] | list[int] | list[str]
-MetricValueTypeVarT = TypeVar("MetricValueTypeVarT", bound=MetricValueTypeT)
 ModelEndpointInfoT = TypeVar("ModelEndpointInfoT", bound="ModelEndpointInfo")
 OutputT = TypeVar("OutputT", bound=Any)
 ProtocolT = TypeVar("ProtocolT", bound=Any)

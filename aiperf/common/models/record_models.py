@@ -10,10 +10,10 @@ from pydantic import Field, SerializeAsAny, ValidationInfo, field_validator
 
 from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import CreditPhase, SSEFieldType
-from aiperf.common.enums.metric_enums import MetricValueType
+from aiperf.common.enums.metric_enums import MetricValueType, MetricValueTypeT
 from aiperf.common.models.base_models import AIPerfBaseModel
 from aiperf.common.models.error_models import ErrorDetails, ErrorDetailsCount
-from aiperf.common.types import MetricTagT, MetricValueTypeT
+from aiperf.common.types import MetricTagT
 
 
 class MetricResult(AIPerfBaseModel):

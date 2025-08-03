@@ -1,7 +1,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from aiperf.common.types import MetricTagT, MetricValueTypeT
+from aiperf.common.enums.metric_enums import MetricValueTypeT
+from aiperf.common.types import MetricTagT
 
 
 class BaseMetricDict(dict[MetricTagT, MetricValueTypeT]):
@@ -26,7 +27,7 @@ class MetricResultsDict(BaseMetricDict):
     of all metrics that have been computed for an entire run.
 
     This will include:
-    - All `BaseRecordMetric`s as a list of their values.
+    - All `BaseRecordMetric`s as a list of their values (or similar such as pandas DataFrames).
     - The final value of each `BaseAggregateMetric`.
     - The value of any `BaseDerivedMetric` that has already been computed.
     """

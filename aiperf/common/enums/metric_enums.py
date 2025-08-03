@@ -2,8 +2,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from enum import Flag
+from typing import TypeAlias, TypeVar
+
+from pydantic import BaseModel
 
 from aiperf.common.enums.base_enums import CaseInsensitiveStrEnum
+
+MetricValueTypeT: TypeAlias = str | int | float | list[float] | list[int] | list[str]
+MetricValueTypeVarT = TypeVar("MetricValueTypeVarT", bound=MetricValueTypeT)
 
 
 class MetricTimeUnit(CaseInsensitiveStrEnum):
@@ -26,14 +32,37 @@ class GenericMetricUnit(CaseInsensitiveStrEnum):
     USERS = "users"
 
 
+class MetricOverTimeUnitInfo(BaseModel):
+    """Information about a metric over time unit."""
+
+    tag: str
+    generic_unit: GenericMetricUnit
+    time_unit: MetricTimeUnit
+
+
 class MetricOverTimeUnit(CaseInsensitiveStrEnum):
     """Defines the units for metrics that are a generic unit over a specific time unit."""
 
-    REQUESTS_PER_SECOND = "req/s"
-    TOKENS_PER_SECOND = "tokens/s"
-    BYTES_PER_SECOND = "bytes/s"
-    # TODO: Is there a better way to represent tokens/s/user metric type?
-    TOKENS_PER_SECOND_PER_USER = "tokens/s/user"
+    REQUESTS_PER_SECOND = MetricOverTimeUnitInfo(
+        tag="req/s",
+        generic_unit=GenericMetricUnit.REQUESTS,
+        time_unit=MetricTimeUnit.SECONDS,
+    )
+    TOKENS_PER_SECOND = MetricOverTimeUnitInfo(
+        tag="tokens/s",
+        generic_unit=GenericMetricUnit.TOKENS,
+        time_unit=MetricTimeUnit.SECONDS,
+    )
+    BYTES_PER_SECOND = MetricOverTimeUnitInfo(
+        tag="bytes/s",
+        generic_unit=GenericMetricUnit.BYTES,
+        time_unit=MetricTimeUnit.SECONDS,
+    )
+    TOKENS_PER_SECOND_PER_USER = MetricOverTimeUnitInfo(
+        tag="tokens/s/user",
+        generic_unit=GenericMetricUnit.TOKENS,
+        time_unit=MetricTimeUnit.SECONDS,
+    )
 
     def generic_unit(self) -> GenericMetricUnit | None:
         """Get the generic unit for the metric."""
@@ -89,6 +118,13 @@ class MetricType(CaseInsensitiveStrEnum):
     DERIVED = "derived"
     """Metrics that are purely derived from other metrics as a summary, and do not require per-request values.
     Examples: request throughput, output token throughput, etc."""
+
+
+class MetricValueTypeInfo(BaseModel):
+    """Information about a metric value type."""
+
+    tag: str
+    default_value: MetricValueTypeT
 
 
 class MetricValueType(CaseInsensitiveStrEnum):

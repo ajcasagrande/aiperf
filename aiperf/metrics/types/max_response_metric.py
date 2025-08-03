@@ -22,7 +22,7 @@ class MaxResponseMetric(BaseAggregateMetric[int]):
     }
 
     def __init__(self) -> None:
-        self.value: int = 0
+        super().__init__(0)
 
     def _update_value(
         self,
@@ -38,6 +38,6 @@ class MaxResponseMetric(BaseAggregateMetric[int]):
         request_latency: int = cast(int, record_metrics[MetricTag.REQUEST_LATENCY])
         final_response_ts: int = record.timestamp_ns + request_latency
 
-        if final_response_ts > self.value:
-            self.value = final_response_ts
-        return self.value
+        if final_response_ts > self._value:
+            self._value = final_response_ts
+        return self._value

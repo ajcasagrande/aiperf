@@ -3,9 +3,8 @@
 from abc import ABC, abstractmethod
 from typing import Generic
 
-from aiperf.common.enums import MetricType
+from aiperf.common.enums import MetricType, MetricValueTypeVarT
 from aiperf.common.models import ParsedResponseRecord
-from aiperf.common.types import MetricValueTypeVarT
 from aiperf.metrics.base_metric import BaseMetric
 from aiperf.metrics.metric_dicts import MetricRecordDict
 

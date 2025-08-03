@@ -3,9 +3,8 @@
 from abc import ABC, abstractmethod
 from typing import Generic
 
-from aiperf.common.enums import MetricType
+from aiperf.common.enums import MetricType, MetricValueTypeVarT
 from aiperf.common.models import ParsedResponseRecord
-from aiperf.common.types import MetricValueTypeVarT
 from aiperf.metrics.base_metric import BaseMetric
 from aiperf.metrics.metric_dicts import MetricRecordDict
 
@@ -25,15 +24,25 @@ class BaseAggregateMetric(
         # ... Metric attributes ...
 
         def __init__(self):
-            self.value = 0
+            super().__init__(0)
 
         def _update_value(self, record: ParsedResponseRecord, record_metrics: MetricRecordDict) -> int:
-            self.value += 1
-            return self.value
+            self._value += 1
+            return self._value
     ```
     """
 
     type = MetricType.AGGREGATE
+
+    # NOTE: We are using this as a workaround to not have to implement a default_value method.
+    def __init__(self, default_value: MetricValueTypeVarT) -> None:
+        """Initialize the metric with a default value."""
+        self._value: MetricValueTypeVarT = default_value
+
+    @property
+    def current_value(self) -> MetricValueTypeVarT:
+        """Get the current value of the metric."""
+        return self._value
 
     def update_value(
         self, record: ParsedResponseRecord, record_metrics: MetricRecordDict

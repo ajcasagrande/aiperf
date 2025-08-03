@@ -19,12 +19,12 @@ class ValidRequestCountMetric(BaseAggregateMetric[int]):
     required_metrics = None
 
     def __init__(self):
-        self.value: int = 0
+        super().__init__(0)
 
     def _update_value(
         self,
         record: ParsedResponseRecord,
         record_metrics: MetricRecordDict,
     ) -> int:
-        self.value += 1
-        return self.value
+        self._value += 1
+        return self._value

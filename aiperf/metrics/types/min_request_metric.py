@@ -20,7 +20,7 @@ class MinRequestMetric(BaseAggregateMetric[int]):
     required_metrics = None
 
     def __init__(self) -> None:
-        self.value: int = sys.maxsize
+        super().__init__(sys.maxsize)
 
     def _update_value(
         self,
@@ -30,6 +30,6 @@ class MinRequestMetric(BaseAggregateMetric[int]):
         """Updates the minimum request timestamp metric."""
         # NOTE: Use the request timestamp_ns, not the start_perf_ns, because we want wall-clock timestamps,
         request_ts: int = record.timestamp_ns
-        if request_ts < self.value:
-            self.value = request_ts
-        return self.value
+        if request_ts < self._value:
+            self._value = request_ts
+        return self._value
