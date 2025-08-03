@@ -16,6 +16,7 @@ from aiperf.common.enums import (
     GenericMetricUnit,
     MessageType,
     MetricOverTimeUnit,
+    MetricSizeUnit,
     MetricTag,
     MetricTimeUnit,
     MetricType,
@@ -57,7 +58,9 @@ MessageOutputT = TypeVar("MessageOutputT", bound="Message")
 MetricTypeT: TypeAlias = MetricType | str
 MessageTypeT: TypeAlias = MessageType | str
 MetricTagT: TypeAlias = MetricTag | str
-MetricUnitT: TypeAlias = MetricTimeUnit | GenericMetricUnit | MetricOverTimeUnit | None
+MetricUnitT: TypeAlias = (
+    MetricTimeUnit | GenericMetricUnit | MetricSizeUnit | MetricOverTimeUnit | None
+)
 ModelEndpointInfoT = TypeVar("ModelEndpointInfoT", bound="ModelEndpointInfo")
 OutputT = TypeVar("OutputT", bound=Any)
 ProtocolT = TypeVar("ProtocolT", bound=Any)

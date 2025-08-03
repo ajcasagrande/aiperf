@@ -23,9 +23,6 @@ class BaseAggregateMetric(
     class RequestCountMetric(BaseAggregateMetric[int]):
         # ... Metric attributes ...
 
-        def __init__(self):
-            super().__init__(0)
-
         def _parse_record(self, record: ParsedResponseRecord, record_metrics: MetricRecordDict) -> int:
             return 1
 
@@ -37,10 +34,14 @@ class BaseAggregateMetric(
 
     type = MetricType.AGGREGATE
 
-    # NOTE: We are using this as a workaround to not have to implement a default_value method.
-    def __init__(self, default_value: MetricValueTypeVarT) -> None:
-        """Initialize the metric with a default value."""
-        self._value: MetricValueTypeVarT = default_value
+    def __init__(self, default_value: MetricValueTypeVarT | None = None) -> None:
+        """Initialize the metric with optionally with a default value. If no default value is provided,
+        the default value is automatically set based on the value type."""
+        self._value: MetricValueTypeVarT = (  # type: ignore
+            default_value
+            if default_value is not None
+            else self.value_type.default_factory()
+        )
 
     @property
     def current_value(self) -> MetricValueTypeVarT:

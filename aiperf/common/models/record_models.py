@@ -10,10 +10,10 @@ from pydantic import Field, SerializeAsAny, ValidationInfo, field_validator
 
 from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import CreditPhase, SSEFieldType
-from aiperf.common.enums.metric_enums import MetricValueType, MetricValueTypeT
 from aiperf.common.models.base_models import AIPerfBaseModel
 from aiperf.common.models.error_models import ErrorDetails, ErrorDetailsCount
 from aiperf.common.types import MetricTagT
+from aiperf.metrics.metric_registry import MetricRegistry
 
 
 class MetricResult(AIPerfBaseModel):
@@ -45,24 +45,7 @@ class MetricResult(AIPerfBaseModel):
 class MetricRecord(AIPerfBaseModel):
     """Base model for a metric record."""
 
-    # Converters for each metric value type
-    _TYPE_CONVERTERS = {
-        MetricValueType.FLOAT: lambda value: float(value),
-        MetricValueType.INT: lambda value: int(value),
-        MetricValueType.STR: lambda value: str(value),
-        MetricValueType.FLOAT_LIST: lambda values: [
-            float(value) for value in (values if isinstance(values, list) else [values])
-        ],
-        MetricValueType.INT_LIST: lambda values: [
-            int(value) for value in (values if isinstance(values, list) else [values])
-        ],
-        MetricValueType.STR_LIST: lambda values: [
-            str(value) for value in (values if isinstance(values, list) else [values])
-        ],
-    }
-
     tag: MetricTagT = Field(..., description="The tag of the metric")
-    type: MetricValueTypeT = Field(..., description="The type of the metric")
     value: Any = Field(default=None, description="The value of the metric")
 
     @field_validator("value")
@@ -73,16 +56,12 @@ class MetricRecord(AIPerfBaseModel):
             return v
 
         try:
-            metric_type = info.data.get("type")
-            if isinstance(metric_type, str):
-                metric_type = MetricValueType(metric_type)
-            converter = cls._TYPE_CONVERTERS.get(metric_type)
-            if converter:
-                return converter(v)
-            raise ValueError(f"Unable to convert unknown metric type: {metric_type}")
+            tag = info.data.get("tag")
+            value_type = MetricRegistry.get_class(tag).value_type  # type: ignore
+            return value_type.converter(v)
         except (ValueError, TypeError) as e:
             raise ValueError(
-                f"Cannot convert value {v} to type {metric_type}: {e}"
+                f"Cannot convert value {v} to value type for metric: {e}"
             ) from e
 
 

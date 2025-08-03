@@ -49,19 +49,21 @@ class CaseInsensitiveStrEnum(str, Enum):
 
 
 class BasePydanticEnumInfo(BaseModel):
-    """Base class for all enum info classes that extend `BasePydanticBackedStrEnum`."""
+    """Base class for all enum info classes that extend `BasePydanticBackedStrEnum`. By default, it
+    provides a `tag` for the enum member, which is used for lookup and string comparison,
+    and the subclass can provide additional information as needed."""
 
     tag: str = Field(
         ...,
         min_length=1,
-        description="The tag of the enum member used for lookup and string comparison.",
+        description="The string value of the enum member used for lookup, serialization, and string insensitive comparison.",
     )
 
 
 class BasePydanticBackedStrEnum(CaseInsensitiveStrEnum):
     """
     Custom enumeration class that extends `CaseInsensitiveStrEnum`
-    and is backed by a `BasePydanticEnumInfo` that contains the tag, and any other information that is needed
+    and is backed by a `BasePydanticEnumInfo` that contains the `tag`, and any other information that is needed
     to represent the enum member.
     """
 

@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 from aiperf.common.enums.metric_enums import MetricFlags, MetricType
 from aiperf.common.exceptions import MetricTypeError
-from aiperf.common.types import MetricTagT
+from aiperf.common.types import MetricTagT, MetricUnitT
 
 if TYPE_CHECKING:
     from aiperf.metrics.base_metric import BaseMetric
@@ -23,7 +23,6 @@ class MetricRegistry:
 
     _classes_by_tag: dict[MetricTagT, type["BaseMetric"]] = {}
     _instances_by_tag: dict[MetricTagT, "BaseMetric"] = {}
-    _types_by_tag: dict[MetricTagT, MetricType] = {}
     _instance_lock = Lock()
     _discovered_metrics = False
     _discover_lock = Lock()
@@ -78,7 +77,6 @@ class MetricRegistry:
                 f"Metric class with tag {metric.tag} already registered by {cls._classes_by_tag[metric.tag].__name__}"
             )
         cls._classes_by_tag[metric.tag] = metric
-        cls._types_by_tag[metric.tag] = metric.type
 
     @classmethod
     def has_tag(cls, tag: MetricTagT) -> bool:
@@ -93,9 +91,12 @@ class MetricRegistry:
     @classmethod
     def get_type_for(cls, tag: MetricTagT) -> MetricType:
         """Get the type of a metric by its tag. This will raise an error if the class is not found."""
-        if tag not in cls._types_by_tag:
-            raise ValueError(f"Metric class with tag {tag} not found")
-        return cls._types_by_tag[tag]
+        return cls.get_class(tag).type
+
+    @classmethod
+    def get_unit(cls, tag: MetricTagT) -> MetricUnitT:
+        """Get the unit of a metric by its tag. This will raise an error if the class is not found."""
+        return cls.get_class(tag).unit
 
     @classmethod
     def get_class(cls, tag: MetricTagT) -> type["BaseMetric"]:

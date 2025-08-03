@@ -1,10 +1,10 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import MetricFlags, MetricOverTimeUnit, MetricTag
 from aiperf.metrics.base_derived_metric import BaseDerivedMetric
 from aiperf.metrics.metric_dicts import MetricResultsDict
+from aiperf.metrics.metric_registry import MetricRegistry
 
 
 class OutputTokenThroughputMetric(BaseDerivedMetric[float]):
@@ -27,5 +27,8 @@ class OutputTokenThroughputMetric(BaseDerivedMetric[float]):
     ) -> float:
         benchmark_token_count = metric_results[MetricTag.BENCHMARK_TOKEN_COUNT]
         benchmark_duration = metric_results[MetricTag.BENCHMARK_DURATION]
-        # TODO: HACK: This is hardcoded to expect the benchmark duration to be in nanoseconds.
-        return benchmark_token_count / (benchmark_duration / NANOS_PER_SECOND)  # type: ignore
+        benchmark_duration_unit = MetricRegistry.get_unit(MetricTag.BENCHMARK_DURATION)
+        benchmark_duration_converted = benchmark_duration_unit.convert_to(
+            self.unit.time_unit, benchmark_duration
+        )
+        return benchmark_token_count / benchmark_duration_converted

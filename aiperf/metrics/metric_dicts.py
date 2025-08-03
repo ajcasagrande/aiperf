@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+from collections import deque
 from collections.abc import Iterator
 from typing import TYPE_CHECKING
 
@@ -47,11 +48,13 @@ class MetricResultsDict:
 
     def __init__(self):
         MetricRegistry.discover_metrics()
-        self._record_results: dict[MetricTagT, list[MetricValueTypeT]] = {}
+        self._record_results: dict[MetricTagT, deque[MetricValueTypeT]] = {}
         self._aggregate_results: dict[MetricTagT, MetricValueTypeT] = {}
         self._derived_results: dict[MetricTagT, MetricValueTypeT] = {}
 
-    def __getitem__(self, key: MetricTagT) -> MetricValueTypeT | list[MetricValueTypeT]:
+    def __getitem__(
+        self, key: MetricTagT
+    ) -> MetricValueTypeT | deque[MetricValueTypeT]:
         """Get the value of a metric."""
         if key in self._aggregate_results:
             return self._aggregate_results[key]
@@ -63,7 +66,7 @@ class MetricResultsDict:
             raise KeyError(f"Metric {key} not found in metric results")
 
     def __setitem__(
-        self, key: MetricTagT, value: MetricValueTypeT | list[MetricValueTypeT]
+        self, key: MetricTagT, value: MetricValueTypeT | deque[MetricValueTypeT]
     ) -> None:
         """Set the value of a metric."""
         if not MetricRegistry.has_tag(key):
@@ -112,8 +115,8 @@ class MetricResultsDict:
         return self.__str__()
 
     def setdefault(
-        self, key: MetricTagT, default: MetricValueTypeT | list[MetricValueTypeT]
-    ) -> MetricValueTypeT | list[MetricValueTypeT]:
+        self, key: MetricTagT, default: MetricValueTypeT | deque[MetricValueTypeT]
+    ) -> MetricValueTypeT | deque[MetricValueTypeT]:
         """Set a default value for a metric."""
         if not MetricRegistry.has_tag(key):
             raise ValueError(f"Metric {key} not found in metric classes")
@@ -141,7 +144,7 @@ class MetricResultsDict:
 
             metric_type = MetricRegistry.get_type_for(key)
             if metric_type == MetricType.RECORD:
-                self._record_results.setdefault(key, []).append(value)
+                self._record_results.setdefault(key, deque()).append(value)
             elif metric_type == MetricType.AGGREGATE:
                 self._aggregate_results[key] = value
             elif metric_type == MetricType.DERIVED:
@@ -171,7 +174,7 @@ def _metric_result_from_value(
         tag=tag,
         header=metric.header,
         unit=str(metric.unit),
-        avg=value,
+        avg=value,  # type: ignore
     )
 
 
