@@ -4,7 +4,7 @@
 import pytest
 from pydantic import ValidationError
 
-from aiperf.common.enums.endpoints_enums import EndpointInfo, EndpointType
+from aiperf.common.enums.endpoints_enums import EndpointType, EndpointTypeInfo
 
 
 class TestEndpointInfo:
@@ -23,7 +23,7 @@ class TestEndpointInfo:
         self, tag, supports_streaming, produces_tokens, endpoint_path, metrics_title
     ):
         """Test creating EndpointInfo with valid parameters."""
-        endpoint_info = EndpointInfo(
+        endpoint_info = EndpointTypeInfo(
             tag=tag,
             supports_streaming=supports_streaming,
             produces_tokens=produces_tokens,
@@ -48,7 +48,7 @@ class TestEndpointInfo:
     def test_invalid_endpoint_info_creation(self, invalid_data, expected_error_field):
         """Test EndpointInfo validation with invalid data."""
         with pytest.raises(ValidationError) as exc_info:
-            EndpointInfo(**invalid_data)
+            EndpointTypeInfo(**invalid_data)
 
         if expected_error_field:
             assert any(
@@ -59,7 +59,7 @@ class TestEndpointInfo:
     def test_endpoint_info_does_not_accept_empty_string(self):
         """Test that EndpointInfo does not accept empty string for tag."""
         with pytest.raises(ValidationError):
-            EndpointInfo(
+            EndpointTypeInfo(
                 tag="",
                 supports_streaming=True,
                 produces_tokens=True,
@@ -131,7 +131,7 @@ class TestEndpointType:
         endpoint_type = EndpointType.OPENAI_CHAT_COMPLETIONS
         info = endpoint_type.info
 
-        assert isinstance(info, EndpointInfo)
+        assert isinstance(info, EndpointTypeInfo)
         assert info.tag == "chat"
         assert info.supports_streaming is True
         assert info.produces_tokens is True
@@ -157,7 +157,7 @@ class TestEndpointType:
         """Test that all endpoint types have valid EndpointInfo objects."""
         for endpoint_type in EndpointType:
             info = endpoint_type.info
-            assert isinstance(info, EndpointInfo)
+            assert isinstance(info, EndpointTypeInfo)
             assert isinstance(info.tag, str)
             assert len(info.tag) > 0
             assert isinstance(info.supports_streaming, bool)

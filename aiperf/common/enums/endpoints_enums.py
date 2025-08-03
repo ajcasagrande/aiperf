@@ -7,7 +7,7 @@ from typing_extensions import Self
 from aiperf.common.enums.base_enums import CaseInsensitiveStrEnum
 
 
-class EndpointInfo(BaseModel):
+class EndpointTypeInfo(BaseModel):
     """Pydantic model for endpoint-specific metadata. This model us used to store additional info on each EndpointType enum value."""
 
     tag: str = Field(
@@ -38,28 +38,28 @@ class EndpointType(CaseInsensitiveStrEnum):
     via the `info` property. The enum values can still be used as strings for user input and comparison (via the `tag` field).
     """
 
-    OPENAI_CHAT_COMPLETIONS = EndpointInfo(
+    OPENAI_CHAT_COMPLETIONS = EndpointTypeInfo(
         tag="chat",
         supports_streaming=True,
         produces_tokens=True,
         endpoint_path="/v1/chat/completions",
         metrics_title="LLM Metrics",
     )
-    OPENAI_COMPLETIONS = EndpointInfo(
+    OPENAI_COMPLETIONS = EndpointTypeInfo(
         tag="completions",
         supports_streaming=True,
         produces_tokens=True,
         endpoint_path="/v1/completions",
         metrics_title="LLM Metrics",
     )
-    OPENAI_EMBEDDINGS = EndpointInfo(
+    OPENAI_EMBEDDINGS = EndpointTypeInfo(
         tag="embeddings",
         supports_streaming=False,
         produces_tokens=False,
         endpoint_path="/v1/embeddings",
         metrics_title="Embeddings Metrics",
     )
-    OPENAI_RESPONSES = EndpointInfo(
+    OPENAI_RESPONSES = EndpointTypeInfo(
         tag="responses",
         supports_streaming=True,
         produces_tokens=True,
@@ -67,19 +67,19 @@ class EndpointType(CaseInsensitiveStrEnum):
         metrics_title="LLM Metrics",
     )
 
-    # Override the __new__ method to store the Pydantic EndpointInfo model as an attribute. This is a python feature that
+    # Override the __new__ method to store the Pydantic `EndpointTypeInfo` model as an attribute. This is a python feature that
     # allows us to modify the behavior of the enum class's constructor. We use this to ensure the the enums still look like
     # a regular string enum, but also have the additional information stored as an attribute.
-    def __new__(cls, endpoint_info: EndpointInfo) -> Self:
+    def __new__(cls, endpoint_info: EndpointTypeInfo) -> Self:
         obj = str.__new__(cls, endpoint_info.tag)
         # Ensure string value is set for comparison. This is the how enums work internally.
         obj._value_ = endpoint_info.tag
         # Store the Pydantic model as an attribute
-        obj._info: EndpointInfo = endpoint_info  # type: ignore
+        obj._info: EndpointTypeInfo = endpoint_info  # type: ignore
         return obj
 
     @property
-    def info(self) -> EndpointInfo:
+    def info(self) -> EndpointTypeInfo:
         """Get the endpoint info for the endpoint type."""
         # This is the Pydantic model that was stored as an attribute in the __new__ method.
         return self._info  # type: ignore
