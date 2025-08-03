@@ -61,7 +61,24 @@ class BaseMetric(Generic[MetricValueTypeVarT], ABC):
         if inspect.isabstract(cls):
             return
 
-        # Note: this is valid because the below imports are abstract, so will not get here
+        # Verify that the class is a valid metric type
+        # Make sure to do this after checking for abstractness, so that the imports are available
+        cls._verify_base_class()
+
+        # Verify that the class has a non-empty and non-duplicate tag
+        cls._verify_tag()
+
+        # Auto-detect value type from generic parameter
+        cls.value_type = cls._detect_value_type()
+
+        MetricRegistry.register_metric(cls)
+
+    @classmethod
+    def _verify_base_class(cls) -> None:
+        """Verify that the class is a subclass of BaseRecordMetric, BaseAggregateMetric, or BaseDerivedMetric.
+        This is done to ensure that the class is a valid metric type.
+        """
+        # Note: this is valid because the below imports are abstract, so they will not get here
         from aiperf.metrics import (
             BaseAggregateMetric,
             BaseDerivedMetric,
@@ -79,6 +96,9 @@ class BaseMetric(Generic[MetricValueTypeVarT], ABC):
                 f"Concrete metric class {cls.__name__} must be a subclass of BaseRecordMetric, BaseAggregateMetric, or BaseDerivedMetric"
             )
 
+    @classmethod
+    def _verify_tag(cls) -> None:
+        """Verify that the class has a non-empty and non-duplicate tag."""
         # Enforce that subclasses define a non-empty tag
         if not cls.tag or not isinstance(cls.tag, str):
             raise TypeError(
@@ -91,11 +111,6 @@ class BaseMetric(Generic[MetricValueTypeVarT], ABC):
                 f"Metric tag '{cls.tag}' is already registered by {MetricRegistry.get_class(cls.tag).__name__}"
             )
 
-        # Auto-detect value type from generic parameter
-        cls.value_type = cls._detect_value_type()
-
-        MetricRegistry.register_metric(cls)
-
     @classmethod
     def _detect_value_type(cls) -> MetricValueType:
         """Automatically detect the MetricValueType from the generic type parameter."""
@@ -106,13 +121,7 @@ class BaseMetric(Generic[MetricValueTypeVarT], ABC):
                 if args:
                     # the first argument is the generic type
                     generic_type = args[0]
-                    # if the generic type is a simple type like float or int, we have to use __name__
-                    # this is because using str() on float or int will return <class 'float'> or <class 'int'>, etc.
-                    name = generic_type.__name__
-                    if name == "list":
-                        # However, if the generic type is a list, we have to use str() to get the list type as well, e.g. list[int]
-                        name = str(generic_type)
-                    return MetricValueType(name)
+                    return MetricValueType.from_type(generic_type)
 
         raise ValueError(
             f"Unable to detect the value type for {cls.__name__}. Please check the generic type parameter."

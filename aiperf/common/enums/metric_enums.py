@@ -317,6 +317,17 @@ class MetricValueType(BasePydanticBackedStrEnum):
         """Get the converter for the metric value type."""
         return self.info.converter
 
+    @classmethod
+    def from_type(cls, type: type[MetricValueTypeT]) -> "MetricValueType":
+        """Get the MetricValueType for a given type."""
+        # If the type is a simple type like float or int, we have to use __name__.
+        # This is because using str() on float or int will return <class 'float'> or <class 'int'>, etc.
+        type_name = type.__name__
+        if type_name == "list":
+            # However, if the type is a list, we have to use str() to get the list type as well, e.g. list[int]
+            type_name = str(type)
+        return MetricValueType(type_name)
+
 
 class MetricFlags(Flag):
     """Defines the possible flags for metrics that are used to determine how they are processed or grouped.
