@@ -6,21 +6,20 @@ import time
 from functools import cached_property
 from typing import Any
 
-from pydantic import ConfigDict, Field, SerializeAsAny, ValidationInfo, field_validator
-from typing_extensions import Unpack
+from pydantic import Field, SerializeAsAny, ValidationInfo, field_validator
 
 from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import CreditPhase, SSEFieldType
 from aiperf.common.models.base_models import AIPerfBaseModel
 from aiperf.common.models.error_models import ErrorDetails, ErrorDetailsCount
-from aiperf.common.types import MetricTagT
+from aiperf.common.types import MetricTagT, MetricUnitT
 
 
 class MetricResult(AIPerfBaseModel):
     """The result values of a single metric."""
 
-    tag: str = Field(description="The unique identifier of the metric")
-    unit: str = Field(description="The unit of the metric, e.g. 'ms'")
+    tag: MetricTagT = Field(description="The unique identifier of the metric")
+    unit: MetricUnitT = Field(description="The unit of the metric, e.g. 'ms'")
     header: str = Field(
         description="The user friendly name of the metric (e.g. 'Inter Token Latency')"
     )
@@ -48,9 +47,6 @@ class MetricRecord(AIPerfBaseModel):
     tag: MetricTagT = Field(..., description="The tag of the metric")
     value: Any = Field(default=None, description="The value of the metric")
 
-    def __init_subclass__(cls, **kwargs: Unpack[ConfigDict]):
-        return super().__init_subclass__(**kwargs)
-
     @field_validator("value")
     @classmethod
     def _validate_value_type(cls, v: Any, info: ValidationInfo) -> Any:
@@ -59,6 +55,9 @@ class MetricRecord(AIPerfBaseModel):
             return v
 
         try:
+            # TODO: This is a hack to get the value type of the metric.
+            #       We should not be doing this here, but it is a workaround to get the value type of the metric.
+            #       We should find a better way to do this.
             from aiperf.metrics.metric_registry import MetricRegistry
 
             tag = info.data.get("tag")

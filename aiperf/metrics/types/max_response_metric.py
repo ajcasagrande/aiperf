@@ -15,14 +15,10 @@ class MaxResponseMetric(BaseAggregateMetric[int]):
     tag = MetricTag.MAX_RESPONSE
     header = "Maximum Response Timestamp"
     unit = MetricTimeUnit.NANOSECONDS
-    display_unit = MetricTimeUnit.MILLISECONDS
     flags = MetricFlags.HIDDEN
     required_metrics = {
         MetricTag.REQUEST_LATENCY,
     }
-
-    def __init__(self) -> None:
-        super().__init__(0)
 
     def _parse_record(
         self,

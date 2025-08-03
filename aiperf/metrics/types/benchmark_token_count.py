@@ -25,9 +25,6 @@ class BenchmarkTokenCountMetric(BaseAggregateMetric[int]):
         MetricTag.OSL,
     }
 
-    def __init__(self):
-        super().__init__(0)
-
     def _parse_record(
         self,
         record: ParsedResponseRecord,

@@ -20,7 +20,8 @@ class MinRequestMetric(BaseAggregateMetric[int]):
     required_metrics = None
 
     def __init__(self) -> None:
-        super().__init__(sys.maxsize)
+        # Default to a large value, so that any request timestamp will be smaller.
+        super().__init__(default_value=sys.maxsize)
 
     def _parse_record(
         self,

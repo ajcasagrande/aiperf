@@ -173,7 +173,7 @@ def _metric_result_from_value(
     return MetricResult(
         tag=tag,
         header=metric.header,
-        unit=str(metric.unit),
+        unit=metric.unit,
         avg=value,  # type: ignore
     )
 
@@ -187,7 +187,7 @@ def _metric_result_from_dataframe(df: pd.DataFrame, tag: MetricTagT) -> MetricRe
     return MetricResult(
         tag=metric.tag,
         header=metric.header,
-        unit=str(metric.unit),
+        unit=metric.unit,
         avg=column.mean(),
         min=column.min(),
         max=column.max(),

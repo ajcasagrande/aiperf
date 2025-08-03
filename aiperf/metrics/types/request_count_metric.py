@@ -18,9 +18,6 @@ class ValidRequestCountMetric(BaseAggregateMetric[int]):
     flags = MetricFlags.LARGER_IS_BETTER
     required_metrics = None
 
-    def __init__(self):
-        super().__init__(0)
-
     def _parse_record(
         self,
         record: ParsedResponseRecord,

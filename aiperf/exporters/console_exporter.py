@@ -24,7 +24,6 @@ class ConsoleExporter:
     def __init__(self, exporter_config: ExporterConfig) -> None:
         self._results = exporter_config.results
         self._endpoint_type = exporter_config.input_config.endpoint.type
-        self._streaming = exporter_config.input_config.endpoint.streaming
 
     async def export(self, width: int | None = None) -> None:
         table = Table(title=self._get_title(), width=width)
@@ -50,16 +49,22 @@ class ConsoleExporter:
         return MetricRegistry.get_class(record.tag).has_flags(MetricFlags.HIDDEN)
 
     def _format_row(self, record: MetricResult) -> list[str]:
-        row = [f"{record.header} ({record.unit})"]
+        metric_class = MetricRegistry.get_class(record.tag)
+        display_unit = metric_class.display_unit or metric_class.unit
+        row = [f"{record.header} ({display_unit})"]
         for stat in self.STAT_COLUMN_KEYS:
             value = getattr(record, stat, None)
-            row.append(
-                f"{value:,.2f}"
-                if isinstance(value, float)
-                else f"{value:,}"
-                if isinstance(value, int)
-                else "[dim]N/A[/dim]"
-            )
+            if value is not None and display_unit != metric_class.unit:
+                # TODO: Should probably check that the units are compatible before converting.
+                #       Although that would be better done as part of the __init_subclass__ method of BaseMetric.
+                value = metric_class.unit.convert_to(display_unit, value)
+            if value is None:
+                value = "[dim]N/A[/dim]"
+            elif value == int(value):
+                value = f"{int(value):,}"
+            else:
+                value = f"{value:,.2f}"
+            row.append(value)
         return row
 
     def _get_title(self) -> str:

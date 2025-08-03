@@ -17,6 +17,7 @@ logging.basicConfig(level=logging.DEBUG)
 class ExampleMetricDefinition(BaseMetric[int]):
     tag = MetricTag.ITL
     unit = MetricTimeUnit.NANOSECONDS
+    display_unit = MetricTimeUnit.MILLISECONDS
     header = "Inter-Token Latency"
     flags = MetricFlags.LARGER_IS_BETTER | MetricFlags.STREAMING_ONLY
     required_metrics = {

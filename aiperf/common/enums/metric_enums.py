@@ -155,7 +155,6 @@ class TimeWithUnit(BaseModel):
 class GenericMetricUnit(CaseInsensitiveStrEnum):
     """Defines the units for generic metrics."""
 
-    BYTES = "bytes"
     PERCENT = "percent"
     REQUESTS = "requests"
     TOKENS = "tokens"
@@ -166,7 +165,7 @@ class GenericMetricUnit(CaseInsensitiveStrEnum):
 class MetricOverTimeUnitInfo(BasePydanticEnumInfo):
     """Information about a metric over time unit."""
 
-    primary_unit: GenericMetricUnit
+    primary_unit: GenericMetricUnit | MetricSizeUnit
     time_unit: MetricTimeUnit
     third_unit: GenericMetricUnit | None = None
 
@@ -186,7 +185,7 @@ class MetricOverTimeUnit(BasePydanticBackedStrEnum):
     )
     BYTES_PER_SECOND = MetricOverTimeUnitInfo(
         tag="bytes/s",
-        primary_unit=GenericMetricUnit.BYTES,
+        primary_unit=MetricSizeUnit.BYTES,
         time_unit=MetricTimeUnit.SECONDS,
     )
     TOKENS_PER_SECOND_PER_USER = MetricOverTimeUnitInfo(
@@ -202,7 +201,7 @@ class MetricOverTimeUnit(BasePydanticBackedStrEnum):
         return self._info  # type: ignore
 
     @property
-    def primary_unit(self) -> GenericMetricUnit:
+    def primary_unit(self) -> GenericMetricUnit | MetricSizeUnit:
         """Get the primary unit."""
         return self.info.primary_unit
 
