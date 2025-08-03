@@ -105,7 +105,10 @@ class InferenceResultParser(CommunicationMixin):
         self, request_record: RequestRecord
     ) -> ParsedResponseRecord:
         """Handle an inference results message."""
-        self.debug(lambda: f"Received inference results message: {request_record}")
+        self.trace_or_debug(
+            lambda: f"Received inference results message: {request_record}",
+            lambda: "Received inference results",
+        )
 
         if request_record.has_error:
             return ParsedResponseRecord(
