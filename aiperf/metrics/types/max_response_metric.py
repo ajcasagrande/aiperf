@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-from typing import cast
 
 from aiperf.common.enums import MetricFlags, MetricTag, MetricTimeUnit
 from aiperf.common.models import ParsedResponseRecord
@@ -35,12 +34,9 @@ class MaxResponseMetric(BaseAggregateMetric[int]):
         # Compute the final response timestamp by adding the request latency to the request timestamp.
         # We do this because we want wall-clock timestamps, and the only one we have that is wall-clock
         # time is the timestamp_ns for the start of the request, so we need to use that and work from there.
-        request_latency: int = cast(int, record_metrics[MetricTag.REQUEST_LATENCY])
-        final_response_ts: int = record.timestamp_ns + request_latency
-
-        if final_response_ts > self._value:
-            self._value = final_response_ts
-        return self._value
+        request_latency: int = record_metrics[MetricTag.REQUEST_LATENCY]  # type: ignore
+        final_response_ts = record.timestamp_ns + request_latency
+        return final_response_ts
 
     def _aggregate_value(self, value: int) -> int:
         """Aggregate the metric value. For this metric, we just take the max of the values from the different processes."""

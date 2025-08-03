@@ -1,8 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import cast
-
 from aiperf.common.enums import MetricFlags, MetricOverTimeUnit, MetricTag
 from aiperf.metrics.base_derived_metric import BaseDerivedMetric
 from aiperf.metrics.metric_dicts import MetricResultsDict
@@ -26,10 +24,6 @@ class OutputTokenThroughputPerUserMetric(BaseDerivedMetric[float]):
         self,
         metric_results: MetricResultsDict,
     ) -> float:
-        inter_token_latencies: list[float] = cast(
-            list[float], metric_results[MetricTag.ITL]
-        )
-        benchmark_token_count: int = cast(
-            int, metric_results[MetricTag.BENCHMARK_TOKEN_COUNT]
-        )
-        return sum(inter_token_latencies) / benchmark_token_count
+        inter_token_latencies = metric_results[MetricTag.ITL]
+        benchmark_token_count = metric_results[MetricTag.BENCHMARK_TOKEN_COUNT]
+        return sum(inter_token_latencies) / benchmark_token_count  # type: ignore

@@ -27,18 +27,15 @@ class BenchmarkDurationMetric(BaseDerivedMetric[int]):
         Raises:
             ValueError: If the metric cannot be computed for the given inputs.
         """
-        if None in (
-            metric_results[MetricTag.MIN_REQUEST],
-            metric_results[MetricTag.MAX_RESPONSE],
-        ):
+        min_req_time = metric_results[MetricTag.MIN_REQUEST]
+        max_res_time = metric_results[MetricTag.MAX_RESPONSE]
+
+        if min_req_time is None or max_res_time is None:
             raise ValueError(
                 "Min request and max response are required to calculate benchmark duration."
             )
 
-        if (
-            metric_results[MetricTag.MIN_REQUEST]
-            >= metric_results[MetricTag.MAX_RESPONSE]
-        ):  # type: ignore
+        if min_req_time >= max_res_time:  # type: ignore
             raise ValueError(
                 "Min request must be less than max response to calculate benchmark duration."
             )

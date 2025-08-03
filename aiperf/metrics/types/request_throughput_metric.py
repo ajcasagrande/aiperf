@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-from typing import cast
 
 from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import MetricOverTimeUnit, MetricTag
@@ -27,14 +26,14 @@ class RequestThroughputMetric(BaseDerivedMetric[float]):
         """Check that the metric can be computed for the given results.
         This method is called after the required metrics are checked, so it can assume that the required metrics are available.
         """
-        if (
-            metric_results[MetricTag.BENCHMARK_DURATION] is None
-            or metric_results[MetricTag.BENCHMARK_DURATION] == 0
-        ):
+        benchmark_duration = metric_results[MetricTag.BENCHMARK_DURATION]
+        if benchmark_duration is None or benchmark_duration == 0:
             raise ValueError(
                 "Benchmark duration is required and must be greater than 0 to calculate request throughput."
             )
-        if metric_results[MetricTag.VALID_REQUEST_COUNT] is None:
+
+        valid_request_count = metric_results[MetricTag.VALID_REQUEST_COUNT]
+        if valid_request_count is None:
             raise ValueError(
                 "Valid request count is required to calculate request throughput."
             )
@@ -43,11 +42,7 @@ class RequestThroughputMetric(BaseDerivedMetric[float]):
         self,
         metric_results: MetricResultsDict,
     ) -> float:
-        valid_request_count: int = cast(
-            int, metric_results[MetricTag.VALID_REQUEST_COUNT]
-        )
-        benchmark_duration: int = cast(
-            int, metric_results[MetricTag.BENCHMARK_DURATION]
-        )
+        valid_request_count = metric_results[MetricTag.VALID_REQUEST_COUNT]
+        benchmark_duration = metric_results[MetricTag.BENCHMARK_DURATION]
         # TODO: HACK: This is hardcoded to expect the benchmark duration to be in nanoseconds.
-        return valid_request_count / (benchmark_duration / NANOS_PER_SECOND)
+        return valid_request_count / (benchmark_duration / NANOS_PER_SECOND)  # type: ignore

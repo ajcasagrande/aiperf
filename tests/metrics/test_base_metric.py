@@ -4,7 +4,6 @@
 import logging
 
 from aiperf.common.enums import (
-    MetricProcessingType,
     MetricTag,
     MetricTimeUnit,
     MetricValueType,
@@ -17,11 +16,9 @@ logging.basicConfig(level=logging.DEBUG)
 
 class ExampleMetricDefinition(BaseMetric[int]):
     tag = MetricTag.ITL
-    processing_type = MetricProcessingType.PER_REQUEST
     unit = MetricTimeUnit.NANOSECONDS
-    larger_is_better = False
     header = "Inter-Token Latency"
-    streaming_only = True
+    flags = MetricFlags.LARGER_IS_BETTER | MetricFlags.STREAMING_ONLY
     required_metrics = {
         MetricTag.REQUEST_LATENCY,
         MetricTag.TTFT,
@@ -66,11 +63,11 @@ def test_metric_flags():
     print(f.value)
     print(f.name)
     print(f & MetricFlags.LARGER_IS_BETTER)
-    print(f & MetricFlags.SMALLER_IS_BETTER)
+    print(f & MetricFlags.LARGER_IS_BETTER)
     print(f & MetricFlags.STREAMING_ONLY)
     print(f & MetricFlags.NONE)
 
     assert f & MetricFlags.LARGER_IS_BETTER == MetricFlags.LARGER_IS_BETTER
-    assert f & MetricFlags.SMALLER_IS_BETTER == MetricFlags.NONE
+    assert f & MetricFlags.LARGER_IS_BETTER == MetricFlags.NONE
     assert f & MetricFlags.STREAMING_ONLY == MetricFlags.NONE
     assert f & MetricFlags.NONE == MetricFlags.NONE

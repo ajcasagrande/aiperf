@@ -43,7 +43,7 @@ class MetricResultsProcessor(AIPerfLoggerMixin):
                 value = MetricRegistry.get_instance(tag)._aggregate_value(value)  # type: ignore
                 self._results[tag] = value
             elif MetricRegistry.get_type_for(tag) == MetricType.RECORD:
-                self._results.setdefault(tag, []).append(value)
+                self._results.setdefault(tag, []).append(value)  # type: ignore
             else:
                 raise ValueError(f"Metric {tag} is not a valid metric type")
         self.trace(lambda: f"Results: {self._results}")
