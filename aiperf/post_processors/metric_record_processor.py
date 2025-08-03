@@ -65,8 +65,7 @@ class MetricRecordProcessor(AIPerfLoggerMixin):
         return metrics
 
     async def process_record(self, record: ParsedResponseRecord) -> MetricRecordDict:
-        """Process a record."""
-        self.info(lambda: "Processing record+")
+        """Process a response record from the inference results parser."""
         record_metrics: MetricRecordDict = MetricRecordDict()
         for metric in self.metrics:
             if metric.type == MetricType.RECORD:

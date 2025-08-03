@@ -25,8 +25,8 @@ class MetricResult(AIPerfBaseModel):
         description="The user friendly name of the metric (e.g. 'Inter Token Latency')"
     )
     avg: float | None = None
-    min: float | None = None
-    max: float | None = None
+    min: int | float | None = None
+    max: int | float | None = None
     p1: float | None = None
     p5: float | None = None
     p25: float | None = None

@@ -214,7 +214,8 @@ class RecordsManager(PullClientMixin, BaseComponentService):
             ],
             return_exceptions=True,
         )
-        self.info(lambda: f"Processed records results: {results}")
+        self.info("Processing records results...")
+        self.debug(lambda: f"Processed records results: {results}")
 
         records_results = [
             r for result in results if isinstance(result, list) for r in result

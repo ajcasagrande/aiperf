@@ -171,7 +171,7 @@ def _metric_result_from_value(
         tag=tag,
         header=metric.header,
         unit=str(metric.unit),
-        avg=float(value),
+        avg=value,
     )
 
 

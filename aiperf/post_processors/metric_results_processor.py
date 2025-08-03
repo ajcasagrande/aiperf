@@ -36,8 +36,8 @@ class MetricResultsProcessor(AIPerfLoggerMixin):
         self._results: MetricResultsDict = MetricResultsDict()
 
     async def process_result(self, record_dict: MetricRecordDict) -> None:
-        """Process a result."""
-        self.info(lambda: f"Processing result: {record_dict}")
+        """Process a result from the metric record processor."""
+        self.trace(lambda: f"Processing result: {record_dict}")
         for tag, value in record_dict.items():
             if MetricRegistry.get_type_for(tag) == MetricType.AGGREGATE:
                 value = MetricRegistry.get_instance(tag)._aggregate_value(value)  # type: ignore
@@ -46,7 +46,7 @@ class MetricResultsProcessor(AIPerfLoggerMixin):
                 self._results.setdefault(tag, []).append(value)
             else:
                 raise ValueError(f"Metric {tag} is not a valid metric type")
-        self.info(lambda: f"Results: {self._results}")
+        self.trace(lambda: f"Results: {self._results}")
 
     async def summarize(self) -> list[MetricResult]:
         """Summarize the results."""
