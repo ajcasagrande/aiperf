@@ -212,7 +212,7 @@ class RecordsManager(PullClientMixin, BaseComponentService):
                 results_processor.summarize()
                 for results_processor in self._results_processors
             ],
-            return_exceptions=True,
+            return_exceptions=False,  # We want to raise any exceptions
         )
         self.info("Processing records results...")
         self.debug(lambda: f"Processed records results: {results}")

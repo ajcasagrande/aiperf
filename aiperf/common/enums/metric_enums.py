@@ -56,7 +56,7 @@ class MetricSizeUnit(BasePydanticBackedStrEnum):
     @property
     def info(self) -> MetricSizeUnitInfo:
         """Get the info for the metric size unit."""
-        return self.info  # type: ignore
+        return self._info  # type: ignore
 
     @property
     def num_bytes(self) -> int:
@@ -121,7 +121,7 @@ class MetricTimeUnit(BasePydanticBackedStrEnum):
     @property
     def info(self) -> MetricTimeUnitInfo:
         """Get the info for the metric time unit."""
-        return self.info  # type: ignore
+        return self._info  # type: ignore
 
     @property
     def per_second(self) -> int:
@@ -166,7 +166,7 @@ class GenericMetricUnit(CaseInsensitiveStrEnum):
 class MetricOverTimeUnitInfo(BasePydanticEnumInfo):
     """Information about a metric over time unit."""
 
-    generic_unit: GenericMetricUnit
+    primary_unit: GenericMetricUnit
     time_unit: MetricTimeUnit
     third_unit: GenericMetricUnit | None = None
 
@@ -176,25 +176,45 @@ class MetricOverTimeUnit(BasePydanticBackedStrEnum):
 
     REQUESTS_PER_SECOND = MetricOverTimeUnitInfo(
         tag="req/s",
-        generic_unit=GenericMetricUnit.REQUESTS,
+        primary_unit=GenericMetricUnit.REQUESTS,
         time_unit=MetricTimeUnit.SECONDS,
     )
     TOKENS_PER_SECOND = MetricOverTimeUnitInfo(
         tag="tokens/s",
-        generic_unit=GenericMetricUnit.TOKENS,
+        primary_unit=GenericMetricUnit.TOKENS,
         time_unit=MetricTimeUnit.SECONDS,
     )
     BYTES_PER_SECOND = MetricOverTimeUnitInfo(
         tag="bytes/s",
-        generic_unit=GenericMetricUnit.BYTES,
+        primary_unit=GenericMetricUnit.BYTES,
         time_unit=MetricTimeUnit.SECONDS,
     )
     TOKENS_PER_SECOND_PER_USER = MetricOverTimeUnitInfo(
         tag="tokens/s/user",
-        generic_unit=GenericMetricUnit.TOKENS,
+        primary_unit=GenericMetricUnit.TOKENS,
         time_unit=MetricTimeUnit.SECONDS,
         third_unit=GenericMetricUnit.USER,
     )
+
+    @property
+    def info(self) -> MetricOverTimeUnitInfo:
+        """Get the info for the metric over time unit."""
+        return self._info  # type: ignore
+
+    @property
+    def primary_unit(self) -> GenericMetricUnit:
+        """Get the primary unit."""
+        return self.info.primary_unit
+
+    @property
+    def time_unit(self) -> MetricTimeUnit:
+        """Get the time unit."""
+        return self.info.time_unit
+
+    @property
+    def third_unit(self) -> GenericMetricUnit | None:
+        """Get the third unit (if applicable)."""
+        return self.info.third_unit
 
 
 class MetricTag(CaseInsensitiveStrEnum):
@@ -286,7 +306,7 @@ class MetricValueType(BasePydanticBackedStrEnum):
     @property
     def info(self) -> MetricValueTypeInfo:
         """Get the info for the metric value type."""
-        return self.info  # type: ignore
+        return self._info  # type: ignore
 
     @property
     def default_factory(self) -> Callable[[], MetricValueTypeT]:

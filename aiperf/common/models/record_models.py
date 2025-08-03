@@ -6,14 +6,14 @@ import time
 from functools import cached_property
 from typing import Any
 
-from pydantic import Field, SerializeAsAny, ValidationInfo, field_validator
+from pydantic import ConfigDict, Field, SerializeAsAny, ValidationInfo, field_validator
+from typing_extensions import Unpack
 
 from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import CreditPhase, SSEFieldType
 from aiperf.common.models.base_models import AIPerfBaseModel
 from aiperf.common.models.error_models import ErrorDetails, ErrorDetailsCount
 from aiperf.common.types import MetricTagT
-from aiperf.metrics.metric_registry import MetricRegistry
 
 
 class MetricResult(AIPerfBaseModel):
@@ -48,6 +48,9 @@ class MetricRecord(AIPerfBaseModel):
     tag: MetricTagT = Field(..., description="The tag of the metric")
     value: Any = Field(default=None, description="The value of the metric")
 
+    def __init_subclass__(cls, **kwargs: Unpack[ConfigDict]):
+        return super().__init_subclass__(**kwargs)
+
     @field_validator("value")
     @classmethod
     def _validate_value_type(cls, v: Any, info: ValidationInfo) -> Any:
@@ -56,8 +59,10 @@ class MetricRecord(AIPerfBaseModel):
             return v
 
         try:
+            from aiperf.metrics.metric_registry import MetricRegistry
+
             tag = info.data.get("tag")
-            value_type = MetricRegistry.get_class(tag).value_type  # type: ignore
+            value_type = MetricRegistry.get_class(tag).value_type
             return value_type.converter(v)
         except (ValueError, TypeError) as e:
             raise ValueError(
