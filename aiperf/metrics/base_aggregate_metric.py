@@ -8,11 +8,6 @@ from aiperf.common.models import ParsedResponseRecord
 from aiperf.metrics.base_metric import BaseMetric
 from aiperf.metrics.metric_dicts import MetricRecordDict
 
-# TODO: For the aggregate metrics, how are we going to coordinate the values from a distributed manner?
-#       we need a way to merge/aggregate the values from the different processes.
-#       For this, we may consider having a "merge" or "aggregate" method that is called by the ResultsProcessor.
-#       This method would be called after all the records have been processed, and would be responsible for merging/aggregating the values from the different processes.
-
 
 class BaseAggregateMetric(
     Generic[MetricValueTypeVarT], BaseMetric[MetricValueTypeVarT], ABC
@@ -31,9 +26,8 @@ class BaseAggregateMetric(
         def __init__(self):
             super().__init__(0)
 
-        def _update_value(self, record: ParsedResponseRecord, record_metrics: MetricRecordDict) -> int:
-            self._value += 1
-            return self._value
+        def _parse_record(self, record: ParsedResponseRecord, record_metrics: MetricRecordDict) -> int:
+            return 1
 
         def _aggregate_value(self, value: int) -> int:
             self._value += value
@@ -64,10 +58,10 @@ class BaseAggregateMetric(
         self._require_valid_record(record)
         self._check_metrics(record_metrics)
         self._validate_inputs(record, record_metrics)
-        return self._update_value(record, record_metrics)
+        return self._parse_record(record, record_metrics)
 
     @abstractmethod
-    def _update_value(
+    def _parse_record(
         self, record: ParsedResponseRecord, record_metrics: MetricRecordDict
     ) -> MetricValueTypeVarT:
         """Update the metric value. This method is implemented by subclasses.

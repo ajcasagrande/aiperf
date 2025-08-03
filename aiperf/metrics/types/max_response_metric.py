@@ -24,7 +24,7 @@ class MaxResponseMetric(BaseAggregateMetric[int]):
     def __init__(self) -> None:
         super().__init__(0)
 
-    def _update_value(
+    def _parse_record(
         self,
         record: ParsedResponseRecord,
         record_metrics: MetricRecordDict,

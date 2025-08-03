@@ -21,13 +21,14 @@ class ValidRequestCountMetric(BaseAggregateMetric[int]):
     def __init__(self):
         super().__init__(0)
 
-    def _update_value(
+    def _parse_record(
         self,
         record: ParsedResponseRecord,
         record_metrics: MetricRecordDict,
     ) -> int:
-        self._value += 1
-        return self._value
+        # NOTE: We don't need to update the value here, because we are just counting the number of requests.
+        #       The value is updated in the ResultsProcessor via the `_aggregate_value` method.
+        return 1
 
     def _aggregate_value(self, value: int) -> int:
         """Aggregate the metric value. For this metric, we just sum the values from the different processes."""
