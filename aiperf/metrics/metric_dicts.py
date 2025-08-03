@@ -4,6 +4,8 @@
 from collections.abc import Iterator
 from typing import TYPE_CHECKING
 
+import pandas as pd
+
 from aiperf.common.enums import MetricType
 from aiperf.common.enums.metric_enums import MetricValueTypeT
 from aiperf.common.models.record_models import MetricResult
@@ -149,13 +151,51 @@ class MetricResultsDict:
 
     def summarize(self) -> list[MetricResult]:
         """Summarize the metric results dict."""
-        return [
-            MetricResult(
-                tag=key,
-                unit=MetricRegistry.get_instance(key).unit,
-                header=MetricRegistry.get_instance(key).header,
-                avg=value,
-            )
-            for key, value in self._aggregate_results.items()
-            | self._derived_results.items()
-        ]
+        summary = []
+        df = pd.DataFrame({tag: values for tag, values in self._record_results.items()})
+        for tag in self._record_results:
+            summary.append(_metric_result_from_dataframe(df, tag))
+        for tag, value in self._aggregate_results.items():
+            summary.append(_metric_result_from_value(value, tag))
+        for tag, value in self._derived_results.items():
+            summary.append(_metric_result_from_value(value, tag))
+        return summary
+
+
+def _metric_result_from_value(
+    value: MetricValueTypeT, tag: MetricTagT
+) -> MetricResult | None:
+    """Create a MetricResult from a value and tag."""
+    metric = MetricRegistry.get_instance(tag)
+    return MetricResult(
+        tag=tag,
+        header=metric.header,
+        unit=str(metric.unit),
+        avg=float(value),
+    )
+
+
+def _metric_result_from_dataframe(df: pd.DataFrame, tag: MetricTagT) -> MetricResult:
+    """Create a Record from a DataFrame."""
+    metric = MetricRegistry.get_instance(tag)
+    column = df[tag]
+    quantiles = column.quantile([0.01, 0.05, 0.25, 0.50, 0.75, 0.90, 0.95, 0.99])
+
+    return MetricResult(
+        tag=metric.tag,
+        header=metric.header,
+        unit=str(metric.unit),
+        avg=column.mean(),
+        min=column.min(),
+        max=column.max(),
+        p1=quantiles[0.01],
+        p5=quantiles[0.05],
+        p25=quantiles[0.25],
+        p50=quantiles[0.50],
+        p75=quantiles[0.75],
+        p90=quantiles[0.90],
+        p95=quantiles[0.95],
+        p99=quantiles[0.99],
+        std=column.std(),
+        count=int(column.count()),
+    )

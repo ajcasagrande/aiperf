@@ -40,10 +40,6 @@ class MetricResult(AIPerfBaseModel):
         default=None,
         description="The total number of records used to calculate the metric",
     )
-    streaming_only: bool = Field(
-        default=False,
-        description="Whether the metric only applies when streaming is enabled",
-    )
 
 
 class MetricRecord(AIPerfBaseModel):

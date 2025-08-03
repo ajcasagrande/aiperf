@@ -34,6 +34,10 @@ class BaseAggregateMetric(
         def _update_value(self, record: ParsedResponseRecord, record_metrics: MetricRecordDict) -> int:
             self._value += 1
             return self._value
+
+        def _aggregate_value(self, value: int) -> int:
+            self._value += value
+            return self._value
     ```
     """
 

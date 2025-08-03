@@ -68,10 +68,8 @@ from aiperf.common.enums.model_enums import (
     ModelSelectionStrategy,
 )
 from aiperf.common.enums.post_processor_enums import (
-    PostProcessorType,
     RecordProcessorType,
     ResultsProcessorType,
-    StreamingPostProcessorType,
 )
 from aiperf.common.enums.service_enums import (
     LifecycleState,
@@ -128,7 +126,6 @@ __all__ = [
     "Modality",
     "ModelSelectionStrategy",
     "NotificationType",
-    "PostProcessorType",
     "PromptSource",
     "RecordProcessorType",
     "RequestRateMode",
@@ -138,7 +135,6 @@ __all__ = [
     "ServiceRegistrationStatus",
     "ServiceRunType",
     "ServiceType",
-    "StreamingPostProcessorType",
     "SystemState",
     "TimingMode",
     "ZMQProxyType",

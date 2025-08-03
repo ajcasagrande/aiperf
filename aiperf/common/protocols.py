@@ -10,12 +10,10 @@ from aiperf.common.constants import (
     DEFAULT_COMMS_REQUEST_TIMEOUT,
     DEFAULT_SERVICE_REGISTRATION_TIMEOUT,
     DEFAULT_SERVICE_START_TIMEOUT,
-    DEFAULT_STREAMING_MAX_QUEUE_SIZE,
 )
 from aiperf.common.enums import (
     CommClientType,
     LifecycleState,
-    StreamingPostProcessorType,
 )
 from aiperf.common.hooks import Hook, HookType
 from aiperf.common.models import (
@@ -459,28 +457,6 @@ class ServiceProtocol(MessageBusClientProtocol, Protocol):
 
     service_type: ServiceTypeT
     service_id: str
-
-
-@runtime_checkable
-class StreamingPostProcessorProtocol(AIPerfLifecycleProtocol, Protocol):
-    """Protocol for a streaming post processor that streams the incoming records to the post processor."""
-
-    def __init__(
-        self,
-        class_type: StreamingPostProcessorType | str,
-        service_id: str,
-        service_config: "ServiceConfig",
-        user_config: "UserConfig",
-        max_queue_size: int = DEFAULT_STREAMING_MAX_QUEUE_SIZE,
-        **kwargs,
-    ) -> None: ...
-
-    records_queue: asyncio.Queue[ParsedResponseRecord]
-    cancellation_event: asyncio.Event
-
-    async def stream_record(self, record: ParsedResponseRecord) -> None: ...
-
-    async def process_records(self, cancelled: bool) -> Any: ...
 
 
 @runtime_checkable

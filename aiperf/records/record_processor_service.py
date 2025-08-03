@@ -36,7 +36,10 @@ from aiperf.parsers.inference_result_parser import InferenceResultParser
 
 @ServiceFactory.register(ServiceType.RECORD_PROCESSOR)
 class RecordProcessor(PullClientMixin, BaseComponentService):
-    """RecordProcessor is responsible for processing the records and pushing them to the RecordsManager."""
+    """RecordProcessor is responsible for processing the records and pushing them to the RecordsManager.
+    This service is meant to be run in a distributed fashion, where the amount of record processors can be scaled
+    based on the load of the system.
+    """
 
     def __init__(
         self,
@@ -119,8 +122,9 @@ class RecordProcessor(PullClientMixin, BaseComponentService):
         results = await self._process_record(parsed_record)
         await self.records_push_client.push(
             MetricRecordsMessage(
-                service_id=self.id,
+                service_id=self.service_id,
                 worker_id=message.service_id,
+                credit_phase=message.record.credit_phase,
                 results=results,
             )
         )
