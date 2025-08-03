@@ -12,7 +12,7 @@ class TTSTMetric(BaseRecordMetric[int]):
     """
 
     tag = MetricTag.TTST
-    header = "Time to Second Token (TTST)"
+    header = "Time to Second Token"
     unit = MetricTimeUnit.NANOSECONDS
     display_unit = MetricTimeUnit.MILLISECONDS
     flags = MetricFlags.STREAMING_TOKENS_ONLY

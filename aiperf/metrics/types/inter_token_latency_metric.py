@@ -13,7 +13,7 @@ class InterTokenLatencyMetric(BaseRecordMetric[float]):
     """
 
     tag = MetricTag.ITL
-    header = "Inter Token Latency (ITL)"
+    header = "Inter Token Latency"
     unit = MetricTimeUnit.NANOSECONDS
     display_unit = MetricTimeUnit.MILLISECONDS
     flags = MetricFlags.STREAMING_TOKENS_ONLY | MetricFlags.LARGER_IS_BETTER

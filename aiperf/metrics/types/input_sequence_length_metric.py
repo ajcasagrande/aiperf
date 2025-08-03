@@ -14,7 +14,7 @@ class InputSequenceLengthMetric(BaseRecordMetric[int]):
     """
 
     tag = MetricTag.ISL
-    header = "Input Sequence Length (ISL)"
+    header = "Input Sequence Length"
     unit = GenericMetricUnit.TOKENS
     flags = MetricFlags.PRODUCES_TOKENS_ONLY | MetricFlags.LARGER_IS_BETTER
     required_metrics = None
