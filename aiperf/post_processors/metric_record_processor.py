@@ -68,8 +68,5 @@ class MetricRecordProcessor(AIPerfLoggerMixin):
         """Process a response record from the inference results parser."""
         record_metrics: MetricRecordDict = MetricRecordDict()
         for metric in self.metrics:
-            if metric.type == MetricType.RECORD:
-                record_metrics[metric.tag] = metric.parse_record(record, record_metrics)  # type: ignore
-            elif metric.type == MetricType.AGGREGATE:
-                record_metrics[metric.tag] = metric.update_value(record, record_metrics)  # type: ignore
+            record_metrics[metric.tag] = metric.parse_record(record, record_metrics)  # type: ignore
         return record_metrics
