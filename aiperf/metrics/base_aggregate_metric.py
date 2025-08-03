@@ -47,11 +47,11 @@ class BaseAggregateMetric(
         """Get the current value of the metric."""
         return self._value
 
-    def update_value(
+    def parse_record(
         self, record: ParsedResponseRecord, record_metrics: MetricRecordDict
     ) -> MetricValueTypeVarT:
-        """Update the metric value.
-        This method is called after the required metrics are checked, so it can assume that the required metrics are available.
+        """Parse the record and return the individual value.
+
         Raises:
             ValueError: If the metric cannot be computed for the given inputs.
         """
@@ -64,7 +64,11 @@ class BaseAggregateMetric(
     def _parse_record(
         self, record: ParsedResponseRecord, record_metrics: MetricRecordDict
     ) -> MetricValueTypeVarT:
-        """Update the metric value. This method is implemented by subclasses.
+        """Parse the record and return the individual value. This method is implemented by subclasses.
+
+        DO NOT UPDATE THE AGGREGATE VALUE HERE.
+        The aggregate value is updated in the ResultsProcessor via the `_aggregate_value` method.
+
         This method is called after the required metrics are checked, so it can assume that the required metrics are available.
         This method is called after the record is checked, so it can assume that the record is valid.
         """

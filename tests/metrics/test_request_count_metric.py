@@ -23,7 +23,7 @@ def test_request_count_with_multiple_valid_records(parsed_response_record_builde
     )
 
     for record in records:
-        metric.update_value(record)
+        metric.parse_record(record)
 
     assert metric.values() == 3
 
@@ -31,4 +31,4 @@ def test_request_count_with_multiple_valid_records(parsed_response_record_builde
 def test_request_count_invalid_record_raises():
     metric = ValidRequestCountMetric()
     with pytest.raises(ValueError, match="Invalid Record"):
-        metric.update_value(record=None)
+        metric.parse_record(record=None)

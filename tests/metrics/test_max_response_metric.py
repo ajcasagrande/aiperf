@@ -15,7 +15,7 @@ def test_update_value_and_values(parsed_response_record_builder):
         .build()
     )
 
-    metric.update_value(record=record, metrics=None)
+    metric.parse_record(record=record, metrics=None)
     assert metric.values() == 150
 
 
@@ -33,7 +33,7 @@ def test_add_multiple_records(parsed_response_record_builder):
         .build_all()
     )
     for record in records:
-        metric.update_value(record=record, metrics=None)
+        metric.parse_record(record=record, metrics=None)
     assert metric.values() == 40
 
 
@@ -41,4 +41,4 @@ def test_record_with_no_responses_raises(parsed_response_record_builder):
     metric = MaxResponseMetric()
     record = parsed_response_record_builder.with_request_start_time(10).build()
     with pytest.raises(ValueError, match="Invalid Record"):
-        metric.update_value(record=record, metrics=None)
+        metric.parse_record(record=record, metrics=None)
