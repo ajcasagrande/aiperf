@@ -3,13 +3,18 @@
 from typing import Any
 
 from aiperf.common.decorators import implements_protocol
+from aiperf.common.enums import ResultsProcessorType
+from aiperf.common.enums.metric_enums import MetricFlags, MetricType
+from aiperf.common.factories import ResultsProcessorFactory
 from aiperf.common.mixins import AIPerfLifecycleMixin
-from aiperf.common.models import RecordProcessorResult
 from aiperf.common.protocols import ResultsProcessorProtocol
 from aiperf.metrics import BaseDerivedMetric
+from aiperf.metrics.metric_dicts import MetricRecordDict, MetricResultsDict
+from aiperf.metrics.metric_registry import MetricRegistry
 
 
 @implements_protocol(ResultsProcessorProtocol)
+@ResultsProcessorFactory.register(ResultsProcessorType.METRIC_RESULTS)
 class MetricResultsProcessor(AIPerfLifecycleMixin):
     """Processor for metric results.
 
@@ -19,13 +24,31 @@ class MetricResultsProcessor(AIPerfLifecycleMixin):
 
     def __init__(self, **kwargs: Any):
         super().__init__(**kwargs)
-        self._metrics: list[BaseDerivedMetric] = []
+        tags = MetricRegistry.tags_applicable_to(
+            MetricFlags.NONE, MetricFlags.NONE, MetricType.DERIVED
+        )
+        self._metrics: list[BaseDerivedMetric] = MetricRegistry.instances_for(
+            MetricRegistry.create_dependency_order_for(tags)
+        )
+        self._results: MetricResultsDict = MetricResultsDict()
 
-    async def process_result(self, result: RecordProcessorResult) -> None:
+    async def process_result(self, record_dict: MetricRecordDict) -> None:
         """Process a result."""
-        pass
+        self.info(lambda: f"Processing result: {record_dict}")
+        for tag, value in record_dict.items():
+            if MetricRegistry.get_type_for(tag) == MetricType.AGGREGATE:
+                value = MetricRegistry.get_instance(tag)._aggregate_value(value)  # type: ignore
+                self._results[tag] = value
+            elif MetricRegistry.get_type_for(tag) == MetricType.RECORD:
+                self._results.setdefault(tag, []).append(value)
+            else:
+                raise ValueError(f"Metric {tag} is not a valid metric type")
+        self.info(lambda: f"Results: {self._results}")
 
     # TODO: Add a type for the result of the summarization
     async def summarize(self) -> Any:
         """Summarize the results."""
-        pass
+        for metric in self._metrics:
+            if metric.type == MetricType.DERIVED:
+                self._results[metric.tag] = metric.derive_value(self._results)
+        return self._results.summarize()

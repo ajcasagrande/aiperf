@@ -23,6 +23,7 @@ class MetricRegistry:
 
     _classes_by_tag: dict[MetricTagT, type["BaseMetric"]] = {}
     _instances_by_tag: dict[MetricTagT, "BaseMetric"] = {}
+    _types_by_tag: dict[MetricTagT, MetricType] = {}
     _instance_lock = Lock()
     _discovered_metrics = False
     _discover_lock = Lock()
@@ -77,6 +78,24 @@ class MetricRegistry:
                 f"Metric class with tag {metric.tag} already registered by {cls._classes_by_tag[metric.tag].__name__}"
             )
         cls._classes_by_tag[metric.tag] = metric
+        cls._types_by_tag[metric.tag] = metric.type
+
+    @classmethod
+    def has_tag(cls, tag: MetricTagT) -> bool:
+        """Check if a metric is registered."""
+        return tag in cls._classes_by_tag
+
+    @classmethod
+    def __contains__(cls, tag: MetricTagT) -> bool:
+        """Check if a metric is registered."""
+        return tag in cls._classes_by_tag
+
+    @classmethod
+    def get_type_for(cls, tag: MetricTagT) -> MetricType:
+        """Get the type of a metric by its tag. This will raise an error if the class is not found."""
+        if tag not in cls._types_by_tag:
+            raise ValueError(f"Metric class with tag {tag} not found")
+        return cls._types_by_tag[tag]
 
     @classmethod
     def get_class(cls, tag: MetricTagT) -> type["BaseMetric"]:

@@ -41,3 +41,9 @@ class MaxResponseMetric(BaseAggregateMetric[int]):
         if final_response_ts > self._value:
             self._value = final_response_ts
         return self._value
+
+    def _aggregate_value(self, value: int) -> int:
+        """Aggregate the metric value. For this metric, we just take the max of the values from the different processes."""
+        if value > self._value:
+            self._value = value
+        return self._value

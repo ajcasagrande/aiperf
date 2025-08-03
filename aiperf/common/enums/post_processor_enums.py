@@ -24,7 +24,7 @@ class StreamingPostProcessorType(CaseInsensitiveStrEnum):
 class RecordProcessorType(CaseInsensitiveStrEnum):
     """Type of streaming record processor."""
 
-    METRIC_RECORD_STREAMER = "metric_record_streamer"
+    METRIC_RECORD = "metric_record"
     """Streamer that streams records and computes metrics from MetricType.RECORD and MetricType.AGGREGATE.
     This is the first stage of the metrics processing pipeline, and is done is a distributed manner across multiple service instances."""
 
@@ -32,6 +32,6 @@ class RecordProcessorType(CaseInsensitiveStrEnum):
 class ResultsProcessorType(CaseInsensitiveStrEnum):
     """Type of streaming results processor."""
 
-    METRIC_RESULTS_STREAMER = "metric_results_streamer"
-    """Streamer that streams the metric results from METRIC_RECORD_STREAMER and computes metrics from MetricType.DERIVED.
+    METRIC_RESULTS = "metric_results"
+    """Streamer that streams the metric results from METRIC_RECORD and computes metrics from MetricType.DERIVED.
     This is the last stage of the metrics processing pipeline, and is done from the RecordsManager after all the service instances have completed their processing."""

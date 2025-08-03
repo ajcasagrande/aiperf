@@ -9,17 +9,19 @@ from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import (
     CommAddress,
     CommandType,
-    CreditPhase,
     MessageType,
     ServiceType,
 )
-from aiperf.common.factories import ServiceFactory, StreamingPostProcessorFactory
+from aiperf.common.factories import (
+    ResultsProcessorFactory,
+    ServiceFactory,
+)
 from aiperf.common.hooks import on_command, on_message, on_pull_message
 from aiperf.common.messages import (
-    ParsedInferenceResultsMessage,
     ProcessRecordsCommand,
 )
 from aiperf.common.messages.command_messages import ProfileCancelCommand
+from aiperf.common.messages.inference_messages import MetricRecordsMessage
 from aiperf.common.messages.progress_messages import (
     AllRecordsReceivedMessage,
     ProcessRecordsResultMessage,
@@ -27,7 +29,7 @@ from aiperf.common.messages.progress_messages import (
 from aiperf.common.mixins import PullClientMixin
 from aiperf.common.models.error_models import ErrorDetails
 from aiperf.common.models.record_models import ProcessRecordsResult, ProfileResults
-from aiperf.common.protocols import ServiceProtocol, StreamingPostProcessorProtocol
+from aiperf.common.protocols import ResultsProcessorProtocol, ServiceProtocol
 
 
 @implements_protocol(ServiceProtocol)
@@ -53,52 +55,65 @@ class RecordsManager(PullClientMixin, BaseComponentService):
             pull_client_max_concurrency=DEFAULT_PULL_CLIENT_MAX_CONCURRENCY,
         )
         self._profile_cancelled = False
-        self.streaming_post_processors: list[StreamingPostProcessorProtocol] = []
-        for streamer_type in StreamingPostProcessorFactory.get_all_class_types():
-            streamer = StreamingPostProcessorFactory.create_instance(
-                class_type=streamer_type,
+
+        self._results_processors: list[ResultsProcessorProtocol] = []
+        for results_processor_type in ResultsProcessorFactory.get_all_class_types():
+            results_processor = ResultsProcessorFactory.create_instance(
+                class_type=results_processor_type,
                 service_id=self.service_id,
                 service_config=self.service_config,
                 user_config=self.user_config,
             )
             self.debug(
-                f"Created streaming post processor: {streamer_type}: {streamer.__class__.__name__}"
+                f"Created results processor: {results_processor_type}: {results_processor.__class__.__name__}"
             )
-            self.streaming_post_processors.append(streamer)
-            self.attach_child_lifecycle(streamer)
+            self._results_processors.append(results_processor)
+            self.attach_child_lifecycle(results_processor)
 
-    @on_pull_message(MessageType.PARSED_INFERENCE_RESULTS)
-    async def _on_parsed_inference_results(
-        self, message: ParsedInferenceResultsMessage
-    ) -> None:
-        """Handle a parsed inference results message."""
-        self.trace(lambda: f"Received parsed inference results: {message}")
+    @on_pull_message(MessageType.METRIC_RECORDS)
+    async def _on_metric_records(self, message: MetricRecordsMessage) -> None:
+        """Handle a metric records message."""
+        self.trace(lambda: f"Received metric records: {message}")
+        await asyncio.gather(
+            *[
+                results_processor.process_result(result)
+                for results_processor in self._results_processors
+                for result in message.results
+            ]
+        )
 
-        if self._profile_cancelled:
-            self.debug("Skipping record because profiling is cancelled")
-            return
+    # @on_pull_message(MessageType.PARSED_INFERENCE_RESULTS)
+    # async def _on_parsed_inference_results(
+    #     self, message: ParsedInferenceResultsMessage
+    # ) -> None:
+    #     """Handle a parsed inference results message."""
+    #     self.trace(lambda: f"Received parsed inference results: {message}")
 
-        if message.record.request.credit_phase != CreditPhase.PROFILING:
-            self.debug(
-                lambda: f"Skipping non-profiling record: {message.record.request.credit_phase}"
-            )
-            return
+    #     if self._profile_cancelled:
+    #         self.debug("Skipping record because profiling is cancelled")
+    #         return
 
-        # Stream the record to all of the streaming post processors
-        for streamer in self.streaming_post_processors:
-            try:
-                self.debug(
-                    lambda name=streamer.__class__.__name__: f"Putting record into queue for streamer {name}"
-                )
-                streamer.records_queue.put_nowait(message.record)
-            except asyncio.QueueFull:
-                self.error(
-                    f"Streaming post processor {streamer.__class__.__name__} is unable to keep up with the rate of incoming records."
-                )
-                self.warning(
-                    f"Waiting for queue to be available for streamer {streamer.__class__.__name__}. This will cause back pressure on the records manager."
-                )
-                await streamer.records_queue.put(message.record)
+    #     if message.record.request.credit_phase != CreditPhase.PROFILING:
+    #         self.debug(
+    #             lambda: f"Skipping non-profiling record: {message.record.request.credit_phase}"
+    #         )
+    #         return
+
+    #     # Stream the record to all of the streaming post processors
+    #     for streamer in self.streaming_post_processors:
+    #         try:
+    #             self.debug(
+    #                 lambda name=streamer.__class__.__name__: f"Putting record into queue for streamer {name}"
+    #             )
+    #             streamer.records_queue.put_nowait(message.record)
+    #         except asyncio.QueueFull:
+    #             self.error(
+    #                 f"Streaming post processor {streamer.__class__.__name__} is unable to keep up with the rate of incoming records."
+    #             )
+    #             self.warning(
+    #                 f"Waiting for queue to be available for streamer {streamer.__class__.__name__}. This will cause back pressure on the records manager."
+    #             )
+    #             await streamer.records_queue.put(message.record)
 
     @on_command(CommandType.PROCESS_RECORDS)
     async def _on_process_records_command(
@@ -115,8 +130,8 @@ class RecordsManager(PullClientMixin, BaseComponentService):
         """Handle the profile cancel command by cancelling the streaming post processors."""
         self.debug(lambda: f"Received profile cancel command: {message}")
         self._profile_cancelled = True
-        for streamer in self.streaming_post_processors:
-            streamer.cancellation_event.set()
+        # for results_processor in self._results_processors:
+        #     results_processor.stop_requested = True
         return await self._process_records(cancelled=True)
 
     @on_message(MessageType.ALL_RECORDS_RECEIVED)
@@ -131,24 +146,15 @@ class RecordsManager(PullClientMixin, BaseComponentService):
         """Process the records."""
         self.debug(lambda: f"Processing records (cancelled: {cancelled})")
 
-        # Even though all the records have been received, we need to ensure that
-        # all the records have been processed through the streaming post processors.
-        await asyncio.gather(
-            *[
-                streamer.records_queue.join()
-                for streamer in self.streaming_post_processors
-            ]
-        )
-
-        # Process the records through the streaming post processors
+        # Process the records through the results processors
         results = await asyncio.gather(
             *[
-                streamer.process_records(cancelled)
-                for streamer in self.streaming_post_processors
+                results_processor.summarize()
+                for results_processor in self._results_processors
             ],
             return_exceptions=True,
         )
-        self.debug(lambda: f"Processed records results: {results}")
+        self.info(lambda: f"Processed records results: {results}")
 
         records_results = [
             result for result in results if isinstance(result, ProfileResults)

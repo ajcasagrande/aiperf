@@ -36,3 +36,8 @@ class BenchmarkTokenCountMetric(BaseAggregateMetric[int]):
         osl = record_metrics[MetricTag.OSL]
         self._value += osl  # type: ignore
         return self._value
+
+    def _aggregate_value(self, value: int) -> int:
+        """Aggregate the metric value. For this metric, we just sum the values from the different processes."""
+        self._value += value
+        return self._value

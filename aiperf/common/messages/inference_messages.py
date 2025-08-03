@@ -9,14 +9,10 @@ from pydantic import (
 from aiperf.common.enums import (
     MessageType,
 )
+from aiperf.common.enums.metric_enums import MetricValueTypeT
 from aiperf.common.messages.service_messages import BaseServiceMessage
-from aiperf.common.models import (
-    ParsedResponseRecord,
-    RequestRecord,
-)
-from aiperf.common.models.error_models import ErrorDetails
-from aiperf.common.models.record_models import MetricRecords
-from aiperf.common.types import MessageTypeT
+from aiperf.common.models import ParsedResponseRecord, RequestRecord
+from aiperf.common.types import MessageTypeT, MetricTagT
 
 
 class InferenceResultsMessage(BaseServiceMessage):
@@ -51,9 +47,6 @@ class MetricRecordsMessage(BaseServiceMessage):
     worker_id: str = Field(
         ..., description="The ID of the worker that processed the request."
     )
-    metric_records: MetricRecords = Field(..., description="The metric records")
-    # TODO: Does this need to be a list? Or can we just use a single ErrorDetails | None instead?
-    error_records: list[ErrorDetails] = Field(
-        default_factory=list,
-        description="The error records",
+    results: list[dict[MetricTagT, MetricValueTypeT]] = Field(
+        ..., description="The record processor results"
     )

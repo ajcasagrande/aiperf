@@ -3,7 +3,13 @@
 
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.decorators import implements_protocol
-from aiperf.common.enums import EndpointType, MetricFlags, MetricType
+from aiperf.common.enums import (
+    EndpointType,
+    MetricFlags,
+    MetricType,
+    RecordProcessorType,
+)
+from aiperf.common.factories import RecordProcessorFactory
 from aiperf.common.mixins import AIPerfLifecycleMixin
 from aiperf.common.models import ParsedResponseRecord
 from aiperf.common.protocols import RecordProcessorProtocol
@@ -13,6 +19,7 @@ from aiperf.metrics.metric_registry import MetricRegistry
 
 
 @implements_protocol(RecordProcessorProtocol)
+@RecordProcessorFactory.register(RecordProcessorType.METRIC_RECORD)
 class MetricRecordProcessor(AIPerfLifecycleMixin):
     """Processor for metric records.
     This is the first stage of the metrics processing pipeline, and is done is a distributed manner across multiple service instances.
@@ -59,6 +66,7 @@ class MetricRecordProcessor(AIPerfLifecycleMixin):
 
     async def process_record(self, record: ParsedResponseRecord) -> MetricRecordDict:
         """Process a record."""
+        self.info(lambda: "Processing record+")
         record_metrics: MetricRecordDict = MetricRecordDict()
         for metric in self.metrics:
             if metric.type == MetricType.RECORD:

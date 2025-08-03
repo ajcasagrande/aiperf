@@ -28,3 +28,8 @@ class ValidRequestCountMetric(BaseAggregateMetric[int]):
     ) -> int:
         self._value += 1
         return self._value
+
+    def _aggregate_value(self, value: int) -> int:
+        """Aggregate the metric value. For this metric, we just sum the values from the different processes."""
+        self._value += value
+        return self._value

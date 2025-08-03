@@ -20,7 +20,6 @@ from aiperf.common.enums import (
 from aiperf.common.hooks import Hook, HookType
 from aiperf.common.models import (
     ParsedResponseRecord,
-    RecordProcessorResult,
     RequestRecord,
     ResponseData,
     ServiceRunInfo,
@@ -498,7 +497,7 @@ class ResultsProcessorProtocol(AIPerfLifecycleProtocol, Protocol):
     """Protocol for a results processor that processes the results of multiple
     record processors, and provides the ability to summarize the results."""
 
-    async def process_result(self, result: RecordProcessorResult) -> None: ...
+    async def process_result(self, result: MetricRecordDict) -> None: ...
 
     # TODO: Add a type for the result of the summarization
     async def summarize(self) -> Any: ...

@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
-from collections.abc import AsyncIterator
 
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.base_component_service import BaseComponentService
@@ -9,11 +8,9 @@ from aiperf.common.comms.base_comms import (
     PushClientProtocol,
     RequestClientProtocol,
 )
-from aiperf.common.config import ServiceConfig
-from aiperf.common.config.user_config import UserConfig
+from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.constants import DEFAULT_PULL_CLIENT_MAX_CONCURRENCY
-from aiperf.common.enums import CommAddress, MessageType, ServiceType
-from aiperf.common.enums.command_enums import CommandType
+from aiperf.common.enums import CommAddress, CommandType, MessageType, ServiceType
 from aiperf.common.factories import (
     RecordProcessorFactory,
     ResponseExtractorFactory,
@@ -26,17 +23,14 @@ from aiperf.common.hooks import (
 )
 from aiperf.common.messages import (
     InferenceResultsMessage,
+    MetricRecordsMessage,
+    ProfileConfigureCommand,
 )
-from aiperf.common.messages.command_messages import ProfileConfigureCommand
-from aiperf.common.messages.inference_messages import MetricRecordsMessage
 from aiperf.common.mixins import PullClientMixin
-from aiperf.common.models.record_models import (
-    MetricRecords,
-    ParsedResponseRecord,
-    RecordProcessorResult,
-)
+from aiperf.common.models import ParsedResponseRecord
 from aiperf.common.protocols import RecordProcessorProtocol
 from aiperf.common.tokenizer import Tokenizer
+from aiperf.metrics.metric_dicts import MetricRecordDict
 from aiperf.parsers.inference_result_parser import InferenceResultParser
 
 
@@ -122,32 +116,24 @@ class RecordProcessor(PullClientMixin, BaseComponentService):
         parsed_record = await self.inference_result_parser.parse_request_record(
             message.record
         )
-        results = await self._stream_record(parsed_record)
+        results = await self._process_record(parsed_record)
         await self.records_push_client.push(
             MetricRecordsMessage(
                 service_id=self.id,
                 worker_id=message.service_id,
-                metric_records=results,
+                results=results,
             )
         )
 
-    async def _stream_record(self, record: ParsedResponseRecord) -> MetricRecords:
-        """Stream a record to the records streamers."""
+    async def _process_record(
+        self, record: ParsedResponseRecord
+    ) -> list[MetricRecordDict]:
+        """Stream a record to the records processors."""
         tasks = [
-            streamer.process_record(record) for streamer in self.records_processors
+            processor.process_record(record) for processor in self.records_processors
         ]
-        results: list[RecordProcessorResult] = await asyncio.gather(*tasks)
-        metric_records = MetricRecords(
-            timestamp_ns=record.timestamp_ns,
-            records=[record for result in results for record in result.records],
-            errors=[error for result in results for error in result.errors],
-        )
-        return metric_records
-
-    async def _yield_streamers(self) -> AsyncIterator[RecordProcessorProtocol]:
-        """Yield the records streamers."""
-        for streamer in self.records_streamers:
-            yield streamer
+        results: list[MetricRecordDict] = await asyncio.gather(*tasks)
+        return results
 
 
 def main() -> None:
