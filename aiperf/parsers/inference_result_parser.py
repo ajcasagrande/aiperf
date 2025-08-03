@@ -124,7 +124,10 @@ class InferenceResultParser(PullClientMixin, BaseComponentService):
     @on_pull_message(MessageType.INFERENCE_RESULTS)
     async def _on_inference_results(self, message: InferenceResultsMessage) -> None:
         """Handle an inference results message."""
-        self.debug(lambda: f"Received inference results message: {message}")
+        self.trace_or_debug(
+            lambda: f"Received inference results message: {message}",
+            lambda: f"Received inference results message with id: {message.request_id}",
+        )
 
         if message.record.has_error:
             await self.records_push_client.push(
