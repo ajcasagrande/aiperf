@@ -72,10 +72,11 @@ class BasePydanticBackedStrEnum(CaseInsensitiveStrEnum):
     # allows us to modify the behavior of the enum class's constructor. We use this to ensure the the enums still look like
     # a regular string enum, but also have the additional information stored as an attribute.
     def __new__(cls, info: BasePydanticEnumInfo) -> Self:
+        # Create a new string object based on this class and the tag value.
         obj = str.__new__(cls, info.tag)
-        # Ensure string value is set for comparison. This is the how enums work internally.
+        # Ensure string value is set for comparison. This is how enums work internally.
         obj._value_ = info.tag
-        # Store the Pydantic model as an attribute
+        # Store the Pydantic model as an attribute.
         obj._info: BasePydanticEnumInfo = info  # type: ignore
         return obj
 

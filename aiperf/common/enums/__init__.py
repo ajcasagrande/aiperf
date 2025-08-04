@@ -52,7 +52,10 @@ from aiperf.common.enums.message_enums import (
     NotificationType,
 )
 from aiperf.common.enums.metric_enums import (
+    BaseMetricUnit,
+    BaseMetricUnitInfo,
     GenericMetricUnit,
+    GenericMetricUnitInfo,
     MetricFlags,
     MetricOverTimeUnit,
     MetricOverTimeUnitInfo,
@@ -64,8 +67,6 @@ from aiperf.common.enums.metric_enums import (
     MetricValueType,
     MetricValueTypeInfo,
     MetricValueTypeVarT,
-    SizeWithUnit,
-    TimeWithUnit,
 )
 from aiperf.common.enums.model_enums import (
     Modality,
@@ -97,6 +98,8 @@ from aiperf.common.enums.timing_enums import (
 __all__ = [
     "AIPerfLogLevel",
     "AudioFormat",
+    "BaseMetricUnit",
+    "BaseMetricUnitInfo",
     "BasePydanticBackedStrEnum",
     "BasePydanticEnumInfo",
     "BenchmarkSuiteCompletionTrigger",
@@ -114,6 +117,7 @@ __all__ = [
     "EndpointType",
     "EndpointTypeInfo",
     "GenericMetricUnit",
+    "GenericMetricUnitInfo",
     "ImageFormat",
     "LifecycleState",
     "MeasurementMode",
@@ -141,9 +145,7 @@ __all__ = [
     "ServiceRegistrationStatus",
     "ServiceRunType",
     "ServiceType",
-    "SizeWithUnit",
     "SystemState",
-    "TimeWithUnit",
     "TimingMode",
     "ZMQProxyType",
 ]

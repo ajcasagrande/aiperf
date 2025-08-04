@@ -26,7 +26,5 @@ class OutputInferenceSpeedMetric(BaseRecordMetric[float]):
         record: ParsedResponseRecord,
         record_metrics: MetricRecordDict,
     ) -> float:
-        itl = record_metrics[InterTokenLatencyMetric.tag]
-        return 1 / InterTokenLatencyMetric.unit.convert_to(  # type: ignore
-            self.unit.time_unit, itl  # type: ignore
-        )  # fmt: skip
+        converted_itl = record_metrics.get_converted(InterTokenLatencyMetric, self.unit.time_unit)  # fmt: skip  # type: ignore
+        return 1 / converted_itl  # type: ignore

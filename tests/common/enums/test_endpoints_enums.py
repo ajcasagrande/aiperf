@@ -175,7 +175,7 @@ class TestEndpointType:
         endpoint_type.info.metrics_title = None
 
         try:
-            assert endpoint_type.metrics_title == "LLM Metrics"
+            assert endpoint_type.metrics_title == "Metrics"
         finally:
             # Restore original value
             endpoint_type.info.metrics_title = original_title

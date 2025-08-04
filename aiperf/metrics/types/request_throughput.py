@@ -39,7 +39,8 @@ class RequestThroughputMetric(BaseDerivedMetric[float]):
                 "Valid request count is required to calculate request throughput."
             )
 
-        benchmark_duration_converted = BenchmarkDurationMetric.unit.convert_to(  # type: ignore
-            self.unit.time_unit, benchmark_duration  # type: ignore
-        )  # fmt: skip
+        benchmark_duration_converted = metric_results.get_converted(  # type: ignore
+            BenchmarkDurationMetric,
+            self.unit.time_unit,  # type: ignore
+        )
         return valid_request_count / benchmark_duration_converted  # type: ignore

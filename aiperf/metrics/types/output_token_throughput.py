@@ -27,8 +27,8 @@ class OutputTokenThroughputMetric(BaseDerivedMetric[float]):
         metric_results: MetricResultsDict,
     ) -> float:
         benchmark_token_count = metric_results[BenchmarkTokenCountMetric.tag]
-        benchmark_duration = metric_results[BenchmarkDurationMetric.tag]
-        benchmark_duration_converted = BenchmarkDurationMetric.unit.convert_to(  # type: ignore
-            self.unit.time_unit, benchmark_duration  # type: ignore
-        )  # fmt: skip
+        benchmark_duration_converted = metric_results.get_converted(  # type: ignore
+            BenchmarkDurationMetric,
+            self.unit.time_unit,  # type: ignore
+        )
         return benchmark_token_count / benchmark_duration_converted  # type: ignore

@@ -4,13 +4,21 @@
 from collections import deque
 from collections.abc import Iterator
 from itertools import chain
+from typing import TYPE_CHECKING
 
 import pandas as pd
 
 from aiperf.common.enums import MetricType
-from aiperf.common.enums.metric_enums import MetricDictValueTypeT, MetricValueTypeT
+from aiperf.common.enums.metric_enums import (
+    MetricDictValueTypeT,
+    MetricUnitT,
+    MetricValueTypeT,
+)
 from aiperf.common.models.record_models import MetricResult
 from aiperf.common.types import MetricTagT
+
+if TYPE_CHECKING:
+    from aiperf.metrics.base_metric import BaseMetric
 
 
 class BaseMetricDict(dict[MetricTagT, MetricValueTypeT]):
@@ -29,6 +37,10 @@ class MetricRecordDict(BaseMetricDict):
     - The new value of any `BaseAggregateMetric` that has been computed for this record.
     - No `BaseDerivedMetric`s will be included.
     """
+
+    def get_converted(self, metric: type[BaseMetric], other_unit: MetricUnitT) -> float:
+        """Get the value of a metric, but converted to a different unit."""
+        return metric.unit.convert_to(other_unit, self[metric.tag])  # type: ignore
 
 
 class MetricResultsDict:
