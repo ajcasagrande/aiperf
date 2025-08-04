@@ -212,25 +212,27 @@ class RecordsManager(PullClientMixin, BaseComponentService):
                 results_processor.summarize()
                 for results_processor in self._results_processors
             ],
-            return_exceptions=False,  # We want to raise any exceptions
+            return_exceptions=True,
         )
         self.info("Processing records results...")
         self.debug(lambda: f"Processed records results: {results}")
 
-        records_results = [
-            r for result in results if isinstance(result, list) for r in result
-        ]
-        error_results = [
-            result for result in results if isinstance(result, ErrorDetails)
-        ]
+        records_results, error_results = [], []
+        for result in results:
+            if isinstance(result, list):
+                records_results.extend(result)
+            elif isinstance(result, ErrorDetails):
+                error_results.append(result)
+            elif isinstance(result, BaseException):
+                error_results.append(ErrorDetails.from_exception(result))
 
         result = ProcessRecordsResult(
             records=[
                 ProfileResults(
                     records=records_results,
                     completed=len(records_results),
-                    start_ns=self.start_time_ns,
-                    end_ns=self.end_time_ns,
+                    start_ns=self.start_time_ns or time.time_ns(),
+                    end_ns=self.end_time_ns or time.time_ns(),
                     was_cancelled=cancelled,
                 )
             ],

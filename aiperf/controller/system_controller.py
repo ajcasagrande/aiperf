@@ -8,8 +8,10 @@ from typing import cast
 from aiperf.common.base_service import BaseService
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.constants import (
+    DEFAULT_PROFILE_CANCEL_TIMEOUT,
     DEFAULT_PROFILE_CONFIGURE_TIMEOUT,
     DEFAULT_PROFILE_START_TIMEOUT,
+    DEFAULT_SHUTDOWN_ACK_TIMEOUT,
 )
 from aiperf.common.enums import (
     CommandResponseStatus,
@@ -76,8 +78,14 @@ class SystemController(SignalHandlerMixin, BaseService):
             ServiceType.TIMING_MANAGER: 1,
             ServiceType.WORKER_MANAGER: 1,
             ServiceType.RECORDS_MANAGER: 1,
-            ServiceType.RECORD_PROCESSOR: service_config.record_processor_service_count,
         }
+        if self.service_config.record_processor_service_count is not None:
+            self.required_services[ServiceType.RECORD_PROCESSOR] = (
+                self.service_config.record_processor_service_count
+            )
+            self.auto_scale_record_processor_service_count = False
+        else:
+            self.auto_scale_record_processor_service_count = True
 
         self.proxy_manager: ProxyManager = ProxyManager(
             service_config=self.service_config
@@ -296,7 +304,13 @@ class SystemController(SignalHandlerMixin, BaseService):
     async def _handle_spawn_workers_command(self, message: SpawnWorkersCommand) -> None:
         """Handle a spawn workers command."""
         self.debug(lambda: f"Received spawn workers command: {message}")
+        # Spawn the workers
         await self.service_manager.run_service(ServiceType.WORKER, message.num_workers)
+        # If we are auto-scaling the record processor service count, spawn the record processors
+        if self.auto_scale_record_processor_service_count:
+            await self.service_manager.run_service(
+                ServiceType.RECORD_PROCESSOR, message.num_workers
+            )
 
     @on_command(CommandType.SHUTDOWN_WORKERS)
     async def _handle_shutdown_workers_command(
@@ -306,6 +320,8 @@ class SystemController(SignalHandlerMixin, BaseService):
         self.debug(lambda: f"Received shutdown workers command: {message}")
         # TODO: Handle individual worker shutdowns via worker id
         await self.service_manager.stop_service(ServiceType.WORKER)
+        if self.auto_scale_record_processor_service_count:
+            await self.service_manager.stop_service(ServiceType.RECORD_PROCESSOR)
 
     @on_message(MessageType.PROCESS_RECORDS_RESULT)
     async def _on_process_records_result_message(
@@ -350,11 +366,12 @@ class SystemController(SignalHandlerMixin, BaseService):
 
     async def _cancel_profiling(self) -> None:
         self.debug("Cancelling profiling of all services")
-        await self.publish(ProfileCancelCommand(service_id=self.service_id))
+        await self.send_command_and_wait_for_all_responses(
+            ProfileCancelCommand(service_id=self.service_id),
+            list(self.service_manager.service_id_map.keys()),
+            timeout=DEFAULT_PROFILE_CANCEL_TIMEOUT,
+        )
 
-        # TODO: HACK: Wait for 2 seconds to ensure the profiling is cancelled
-        # Wait for the profiling to be cancelled
-        await asyncio.sleep(2)
         self.debug("Stopping system controller after profiling cancelled")
         await asyncio.shield(self.stop())
 
@@ -362,10 +379,11 @@ class SystemController(SignalHandlerMixin, BaseService):
     async def _stop_system_controller(self) -> None:
         """Stop the system controller and all running services."""
         # Broadcast a shutdown command to all services
-        await self.publish(ShutdownCommand(service_id=self.service_id))
-
-        # TODO: HACK: Wait for 0.5 seconds to ensure the shutdown command is received
-        await asyncio.sleep(0.5)
+        await self.send_command_and_wait_for_all_responses(
+            ShutdownCommand(service_id=self.service_id),
+            list(self.service_manager.service_id_map.keys()),
+            timeout=DEFAULT_SHUTDOWN_ACK_TIMEOUT,
+        )
 
         await self.service_manager.shutdown_all_services()
         await self.comms.stop()

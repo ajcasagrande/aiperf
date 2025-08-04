@@ -201,10 +201,12 @@ class ServiceConfig(BaseSettings):
 
     # TODO: Potentially auto-scale this in the future.
     record_processor_service_count: Annotated[
-        int,
+        int | None,
         Field(
+            ge=1,
             description="Number of services to spawn for processing records. The higher the request rate, the more services "
-            "should be spawned in order to keep up with the incoming records.",
+            "should be spawned in order to keep up with the incoming records. If not specified, the number of services will be "
+            "automatically determined based on the worker count.",
         ),
         Parameter(
             name=("--record-processor-service-count", "--record-processors"),

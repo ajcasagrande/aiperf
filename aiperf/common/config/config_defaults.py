@@ -155,7 +155,7 @@ class ServiceDefaults:
     LOG_PATH = None
     DISABLE_UI = True  # TODO: Make this False by default once we have a UI
     ENABLE_UVLOOP = True
-    RECORD_PROCESSOR_SERVICE_COUNT = 4
+    RECORD_PROCESSOR_SERVICE_COUNT = None
     ENABLE_YAPPI = False
     DEBUG_SERVICES = None
     TRACE_SERVICES = None
