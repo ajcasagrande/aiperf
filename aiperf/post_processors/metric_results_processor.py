@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+from collections import deque
 from typing import Any
 
 from aiperf.common.decorators import implements_protocol
@@ -31,7 +32,7 @@ class MetricResultsProcessor(AIPerfLoggerMixin):
         self._metrics: list[BaseDerivedMetric] = [
             MetricRegistry.get_instance(tag)
             for tag in MetricRegistry.create_dependency_order_for(tags)
-            if MetricRegistry.get_type_for(tag) == MetricType.DERIVED
+            if MetricRegistry.get_type(tag) == MetricType.DERIVED
         ]
         self._results: MetricResultsDict = MetricResultsDict()
 
@@ -39,11 +40,11 @@ class MetricResultsProcessor(AIPerfLoggerMixin):
         """Process a result from the metric record processor."""
         self.trace(lambda: f"Processing result: {record_dict}")
         for tag, value in record_dict.items():
-            if MetricRegistry.get_type_for(tag) == MetricType.AGGREGATE:
+            if MetricRegistry.get_type(tag) == MetricType.AGGREGATE:
                 value = MetricRegistry.get_instance(tag)._aggregate_value(value)  # type: ignore
                 self._results[tag] = value
-            elif MetricRegistry.get_type_for(tag) == MetricType.RECORD:
-                self._results.setdefault(tag, []).append(value)  # type: ignore
+            elif MetricRegistry.get_type(tag) == MetricType.RECORD:
+                self._results.setdefault(tag, deque()).append(value)  # type: ignore
             else:
                 raise ValueError(f"Metric {tag} is not a valid metric type")
         self.trace(lambda: f"Results: {self._results}")

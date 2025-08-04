@@ -3,7 +3,7 @@
 
 from collections import deque
 from collections.abc import Iterator
-from typing import TYPE_CHECKING
+from itertools import chain
 
 import pandas as pd
 
@@ -12,9 +12,6 @@ from aiperf.common.enums.metric_enums import MetricValueTypeT
 from aiperf.common.models.record_models import MetricResult
 from aiperf.common.types import MetricTagT
 from aiperf.metrics.metric_registry import MetricRegistry
-
-if TYPE_CHECKING:
-    pass
 
 
 class BaseMetricDict(dict[MetricTagT, MetricValueTypeT]):
@@ -48,67 +45,59 @@ class MetricResultsDict:
 
     def __init__(self):
         MetricRegistry.discover_metrics()
-        self._record_results: dict[MetricTagT, deque[MetricValueTypeT]] = {}
-        self._aggregate_results: dict[MetricTagT, MetricValueTypeT] = {}
-        self._derived_results: dict[MetricTagT, MetricValueTypeT] = {}
+        self._results_dicts: dict[MetricType, dict[MetricTagT, MetricValueTypeT] | dict[MetricTagT, deque[MetricValueTypeT]]] = {
+            MetricType.RECORD: {},
+            MetricType.AGGREGATE: {},
+            MetricType.DERIVED: {},
+        }  # fmt: skip
+
+    def _validate_and_get_metric_type(self, key: MetricTagT) -> MetricType:
+        """Validate key and return its metric type."""
+        try:
+            metric_type = MetricRegistry.get_type(key)
+        except ValueError:
+            raise ValueError(f"Metric {key} not found in metric classes") from None
+
+        if metric_type not in self._results_dicts:
+            raise ValueError(f"Metric {key} is not a valid metric type")
+
+        return metric_type
 
     def __getitem__(
         self, key: MetricTagT
     ) -> MetricValueTypeT | deque[MetricValueTypeT]:
         """Get the value of a metric."""
-        if key in self._aggregate_results:
-            return self._aggregate_results[key]
-        elif key in self._record_results:
-            return self._record_results[key]
-        elif key in self._derived_results:
-            return self._derived_results[key]
-        else:
-            raise KeyError(f"Metric {key} not found in metric results")
+        for result_dict in self._results_dicts.values():
+            if key in result_dict:
+                return result_dict[key]
+        raise KeyError(f"Metric {key} not found in metric results")
 
     def __setitem__(
         self, key: MetricTagT, value: MetricValueTypeT | deque[MetricValueTypeT]
     ) -> None:
         """Set the value of a metric."""
-        if not MetricRegistry.has_tag(key):
-            raise ValueError(f"Metric {key} not found in metric classes")
-
-        metric_type = MetricRegistry.get_type_for(key)
-        if metric_type == MetricType.RECORD:
-            self._record_results[key] = value
-        elif metric_type == MetricType.AGGREGATE:
-            self._aggregate_results[key] = value
-        elif metric_type == MetricType.DERIVED:
-            self._derived_results[key] = value
-        else:
-            raise ValueError(f"Metric {key} is not a valid metric type")
+        metric_type = self._validate_and_get_metric_type(key)
+        self._results_dicts[metric_type][key] = value  # type: ignore
 
     def __contains__(self, key: MetricTagT) -> bool:
         """Check if a metric is in the metric results dict."""
-        return (
-            key in self._aggregate_results
-            or key in self._record_results
-            or key in self._derived_results
-        )
+        return any(key in result_dict for result_dict in self._results_dicts.values())
 
     def __iter__(self) -> Iterator[MetricTagT]:
-        """Iterate over the metric results dict."""
+        """Iterate over all of the metric results dicts."""
         return iter(
-            self._aggregate_results.keys()
-            | self._record_results.keys()
-            | self._derived_results.keys()
+            chain.from_iterable(
+                result_dict.keys() for result_dict in self._results_dicts.values()
+            )
         )
 
     def __len__(self) -> int:
-        """Get the number of metrics in the metric results dict."""
-        return (
-            len(self._aggregate_results)
-            + len(self._record_results)
-            + len(self._derived_results)
-        )
+        """Get the number of metrics in all of the metric results dicts."""
+        return sum(len(result_dict) for result_dict in self._results_dicts.values())
 
     def __str__(self) -> str:
         """Get a string representation of the metric results dict."""
-        return f"MetricResultsDict(aggregate_results={self._aggregate_results}, record_results={self._record_results}, derived_results={self._derived_results})"
+        return f"MetricResultsDict({self._results_dicts})"
 
     def __repr__(self) -> str:
         """Get a string representation of the metric results dict."""
@@ -118,76 +107,69 @@ class MetricResultsDict:
         self, key: MetricTagT, default: MetricValueTypeT | deque[MetricValueTypeT]
     ) -> MetricValueTypeT | deque[MetricValueTypeT]:
         """Set a default value for a metric."""
-        if not MetricRegistry.has_tag(key):
-            raise ValueError(f"Metric {key} not found in metric classes")
+        metric_type = self._validate_and_get_metric_type(key)
 
-        if MetricRegistry.get_type_for(key) == MetricType.RECORD:
-            if key not in self._record_results:
-                self._record_results[key] = default
-            return self._record_results[key]
-        elif MetricRegistry.get_type_for(key) == MetricType.AGGREGATE:
-            if key not in self._aggregate_results:
-                self._aggregate_results[key] = default
-            return self._aggregate_results[key]
-        elif MetricRegistry.get_type_for(key) == MetricType.DERIVED:
-            if key not in self._derived_results:
-                self._derived_results[key] = default
-            return self._derived_results[key]
-        else:
-            raise ValueError(f"Metric {key} is not a valid metric type")
+        if key not in self._results_dicts[metric_type]:
+            self._results_dicts[metric_type][key] = default  # type: ignore
+        return self._results_dicts[metric_type][key]
 
     def update(self, metric_dict: BaseMetricDict) -> None:
-        """Update the metric results dict with the values from another dict."""
+        """Update the metric results dicts with the values from another dict."""
         for key, value in metric_dict.items():
-            if not MetricRegistry.has_tag(key):
-                raise ValueError(f"Metric {key} not found in metric classes")
+            metric_type = self._validate_and_get_metric_type(key)
 
-            metric_type = MetricRegistry.get_type_for(key)
-            if metric_type == MetricType.RECORD:
-                self._record_results.setdefault(key, deque()).append(value)
-            elif metric_type == MetricType.AGGREGATE:
-                self._aggregate_results[key] = value
-            elif metric_type == MetricType.DERIVED:
-                self._derived_results[key] = value
-            else:
-                raise ValueError(f"Metric {key} is not a valid metric type")
+            if metric_type in (MetricType.AGGREGATE, MetricType.DERIVED):
+                self._results_dicts[metric_type][key] = value  # type: ignore
+            elif metric_type == MetricType.RECORD:
+                self._results_dicts[metric_type].setdefault(key, deque()).append(value)  # type: ignore
 
     def summarize(self) -> list[MetricResult]:
         """Summarize the metric results dict."""
         summary = []
-        df = pd.DataFrame({tag: values for tag, values in self._record_results.items()})
-        for tag in self._record_results:
-            summary.append(_metric_result_from_dataframe(df, tag))
-        for tag, value in self._aggregate_results.items():
-            summary.append(_metric_result_from_value(value, tag))
-        for tag, value in self._derived_results.items():
-            summary.append(_metric_result_from_value(value, tag))
+
+        # Summarize the metrics using a DataFrame
+        for result_dict in self._results_dicts.values():
+            if not result_dict:
+                continue
+
+            df = pd.DataFrame(result_dict)
+            for tag in result_dict:
+                summary.append(_metric_result_from_dataframe(df, tag))
+
         return summary
-
-
-def _metric_result_from_value(
-    value: MetricValueTypeT, tag: MetricTagT
-) -> MetricResult | None:
-    """Create a MetricResult from a value and tag."""
-    metric = MetricRegistry.get_instance(tag)
-    return MetricResult(
-        tag=tag,
-        header=metric.header,
-        unit=metric.unit,
-        avg=value,  # type: ignore
-    )
 
 
 def _metric_result_from_dataframe(df: pd.DataFrame, tag: MetricTagT) -> MetricResult:
     """Create a Record from a DataFrame."""
-    metric = MetricRegistry.get_instance(tag)
+    metric_class = MetricRegistry.get_class(tag)
     column = df[tag]
+
+    # Handle empty column case
+    if column.empty:
+        # TODO: Should we return None here? The caller would need to handle this case.
+        return MetricResult(
+            tag=metric_class.tag,
+            header=metric_class.header,
+            unit=metric_class.unit,
+        )
+
+    # Handle single value case (quantiles might not work properly)
+    if len(column) == 1:
+        single_value = metric_class.value_type.converter(column.iloc[0])
+        return MetricResult(
+            tag=metric_class.tag,
+            header=metric_class.header,
+            unit=metric_class.unit,
+            avg=single_value,
+        )
+
+    # Normal case with multiple values
     quantiles = column.quantile([0.01, 0.05, 0.25, 0.50, 0.75, 0.90, 0.95, 0.99])
 
     return MetricResult(
-        tag=metric.tag,
-        header=metric.header,
-        unit=metric.unit,
+        tag=metric_class.tag,
+        header=metric_class.header,
+        unit=metric_class.unit,
         avg=column.mean(),
         min=column.min(),
         max=column.max(),
@@ -200,5 +182,5 @@ def _metric_result_from_dataframe(df: pd.DataFrame, tag: MetricTagT) -> MetricRe
         p95=quantiles[0.95],
         p99=quantiles[0.99],
         std=column.std(),
-        count=int(column.count()),
+        count=len(column),
     )

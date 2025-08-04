@@ -21,10 +21,15 @@ class MetricRegistry:
     It also provides methods to get metrics by their type, flag, and to create a dependency order for the metrics.
     """
 
-    _classes_by_tag: dict[MetricTagT, type["BaseMetric"]] = {}
-    _instances_by_tag: dict[MetricTagT, "BaseMetric"] = {}
+    # Map of metric tags to their classes
+    _metrics_map: dict[MetricTagT, type["BaseMetric"]] = {}
+
+    # Map of metric tags to their instances
+    _instances_map: dict[MetricTagT, "BaseMetric"] = {}
     _instance_lock = Lock()
-    _discovered_metrics = False
+
+    # Flag to indicate if the metric types have been discovered
+    _has_discovered_metrics = False
     _discover_lock = Lock()
 
     @classmethod
@@ -33,12 +38,12 @@ class MetricRegistry:
         This method dynamically imports all metric type modules from the 'types' directory to ensure
         all metric classes are registered via __init_subclass__. It will only discover metrics once.
         """
-        if cls._discovered_metrics:
+        if cls._has_discovered_metrics:
             return  # Already discovered
 
         with cls._discover_lock:
             # Check again after acquiring the lock
-            if cls._discovered_metrics:
+            if cls._has_discovered_metrics:
                 return  # Already discovered
 
             # Get the types directory path
@@ -55,7 +60,7 @@ class MetricRegistry:
 
     @classmethod
     def _import_metric_type_modules(cls, types_dir: Path, module_prefix: str) -> None:
-        """Import all metric type modules from the given directory."""
+        """Import all metric type modules from the given directory. This will raise an error if the module cannot be imported."""
         for python_file in types_dir.glob("*.py"):
             if python_file.name != "__init__.py":
                 module_name = python_file.stem  # Get filename without extension
@@ -71,67 +76,43 @@ class MetricRegistry:
     @classmethod
     def register_metric(cls, metric: type["BaseMetric"]):
         """Register a metric class with the registry. This will raise an error if the class is already registered."""
-        if metric.tag in cls._classes_by_tag:
+        if cls.has_tag(metric.tag):
             # TODO: Should we consider adding an override_priority parameter to the metric class similar to AIPerfFactory?
             raise ValueError(
-                f"Metric class with tag {metric.tag} already registered by {cls._classes_by_tag[metric.tag].__name__}"
+                f"Metric class with tag {metric.tag} already registered by {cls._metrics_map[metric.tag].__name__}"
             )
-        cls._classes_by_tag[metric.tag] = metric
+        cls._metrics_map[metric.tag] = metric
 
     @classmethod
     def has_tag(cls, tag: MetricTagT) -> bool:
         """Check if a metric is registered."""
-        return tag in cls._classes_by_tag
-
-    @classmethod
-    def __contains__(cls, tag: MetricTagT) -> bool:
-        """Check if a metric is registered."""
-        return tag in cls._classes_by_tag
-
-    @classmethod
-    def get_type_for(cls, tag: MetricTagT) -> MetricType:
-        """Get the type of a metric by its tag. This will raise an error if the class is not found."""
-        return cls.get_class(tag).type
-
-    @classmethod
-    def get_unit(cls, tag: MetricTagT) -> MetricUnitT:
-        """Get the unit of a metric by its tag. This will raise an error if the class is not found."""
-        return cls.get_class(tag).unit
+        return tag in cls._metrics_map
 
     @classmethod
     def get_class(cls, tag: MetricTagT) -> type["BaseMetric"]:
-        """Get a metric class by its tag. This will raise an error if the class is not found."""
-        if tag not in cls._classes_by_tag:
-            raise ValueError(f"Metric class with tag {tag} not found")
-        return cls._classes_by_tag[tag]
+        """Get a metric class by its tag. This will raise a KeyError if the class is not found."""
+        return cls._metrics_map[tag]
+
+    @classmethod
+    def get_type(cls, tag: MetricTagT) -> MetricType:
+        """Get the type of a metric by its tag. This will raise a KeyError if the class is not found."""
+        return cls._metrics_map[tag].type
+
+    @classmethod
+    def get_unit(cls, tag: MetricTagT) -> MetricUnitT:
+        """Get the unit of a metric by its tag. This will raise a KeyError if the class is not found."""
+        return cls._metrics_map[tag].unit
 
     @classmethod
     def get_instance(cls, tag: MetricTagT) -> "BaseMetric":
         """Get an instance of a metric class by its tag. This will create a new instance if it does not exist."""
         # Check without acquiring the lock for performance
-        if tag not in cls._instances_by_tag:
+        if tag not in cls._instances_map:
             with cls._instance_lock:
                 # Check again after acquiring the lock
-                if tag not in cls._instances_by_tag:
-                    cls._instances_by_tag[tag] = cls.get_class(tag)()
-        return cls._instances_by_tag[tag]
-
-    @classmethod
-    def tags_by_type(cls, *types: MetricType) -> list[MetricTagT]:
-        """Get metrics tags with the given type(s)."""
-        return [tag for tag in cls.all_tags() if cls.get_class(tag).type in types]
-
-    @classmethod
-    def tags_with_flags(cls, flags: MetricFlags) -> list[MetricTagT]:
-        """Get metrics tags that have the given flag(s)."""
-        return [tag for tag in cls.all_tags() if cls.get_class(tag).has_flags(flags)]
-
-    @classmethod
-    def tags_without_flags(cls, flags: MetricFlags) -> list[MetricTagT]:
-        """Get metrics tags that do not have the given flag(s)."""
-        return [
-            tag for tag in cls.all_tags() if not cls.get_class(tag).has_flags(flags)
-        ]
+                if tag not in cls._instances_map:
+                    cls._instances_map[tag] = cls.get_class(tag)()
+        return cls._instances_map[tag]
 
     @classmethod
     def tags_applicable_to(
@@ -147,17 +128,22 @@ class MetricRegistry:
             types: The types of metrics to include. If not provided, all types will be included.
         """
         return [
-            metric_cls.tag
-            for metric_cls in cls.classes_for(cls.all_tags())
-            if metric_cls.has_flags(required_flags)
-            and metric_cls.missing_flags(disallowed_flags)
-            and (metric_cls.type in types or not types)
+            tag
+            for tag, metric_class in cls._metrics_map.items()
+            if metric_class.has_flags(required_flags)
+            and metric_class.missing_flags(disallowed_flags)
+            and (not types or metric_class.type in types)
         ]
 
     @classmethod
     def all_tags(cls) -> list[MetricTagT]:
         """Get all of the tags of the defined metric classes."""
-        return list(cls._classes_by_tag.keys())
+        return list(cls._metrics_map.keys())
+
+    @classmethod
+    def all_classes(cls) -> list[type["BaseMetric"]]:
+        """Get all of the classes of the defined metric classes."""
+        return list(cls._metrics_map.values())
 
     @classmethod
     def classes_for(cls, tags: list[MetricTagT]) -> list[type["BaseMetric"]]:
@@ -165,16 +151,11 @@ class MetricRegistry:
         return [cls.get_class(tag) for tag in tags]
 
     @classmethod
-    def instances_for(cls, tags: list[MetricTagT]) -> list["BaseMetric"]:
-        """Get instances of the given metric classes."""
-        return [cls.get_instance(tag) for tag in tags]
-
-    @classmethod
     def validate_dependencies(cls) -> None:
-        """Validate that all dependencies are registered."""
+        """Validate that all dependencies are registered. This will also discover metrics if they are not already discovered."""
         cls.discover_metrics()
         all_tags = cls.all_tags()
-        all_classes = cls.classes_for(all_tags)
+        all_classes = cls.all_classes()
 
         # Validate that all required metrics are registered
         for metric in all_classes:
@@ -187,7 +168,8 @@ class MetricRegistry:
     @classmethod
     def create_dependency_order(cls) -> list[MetricTagT]:
         """
-        Create a dependency order for all the metrics using topological sort.
+        Create a dependency order for all available metrics using topological sort.
+
         This ensures that all dependencies are computed before their dependents.
 
         Returns:
@@ -196,31 +178,47 @@ class MetricRegistry:
         Raises:
             ValueError: If there are unregistered dependencies or circular dependencies.
         """
-        return cls.create_dependency_order_for(cls.all_tags())
+        return cls.create_dependency_order_for()
 
     @classmethod
-    def create_dependency_order_for(cls, tags: list[MetricTagT]) -> list[MetricTagT]:
+    def create_dependency_order_for(
+        cls, tags: list[MetricTagT] | None = None
+    ) -> list[MetricTagT]:
         """
         Create a dependency order for the given metrics using topological sort.
+
         This ensures that all dependencies are computed before their dependents.
+        Note that this will only sort and return the tags that were requested. If a tag
+        has a dependency that is not in the list of tags, it will not be included in the order.
+        This is useful for cases where we want to sort a subset of metrics that have dependencies
+        on other metrics that we know are already computed such as is the case for derived metrics
+        that are computed after all the other metrics.
 
         Returns:
-            List of metric tags in dependency order (dependencies first).
+            List of metric tags in dependency order (dependencies first). Will only
+            include tags that were in the requested list.
 
         Raises:
             ValueError: If there are unregistered dependencies or circular dependencies.
         """
+        if tags is None:
+            tags = cls.all_tags()
+
         cls.validate_dependencies()
 
-        # Build the dependency graph using TopologicalSorter
+        # Build the dependency graph
         sorter = graphlib.TopologicalSorter()
 
         for metric in cls.classes_for(tags):
-            # Add the metric with its dependencies (predecessors)
+            # Add the metric with its required dependencies
             sorter.add(metric.tag, *(metric.required_metrics or set()))
 
         try:
-            # Get the topological order
-            return list(sorter.static_order())
+            # Get the dependency order
+            order = list(sorter.static_order())
+
+            # Make sure we only return the tags that were requested
+            tags_set = set(tags)
+            return [tag for tag in order if tag in tags_set]
         except graphlib.CycleError as e:
             raise ValueError(f"Circular dependency detected among metrics: {e}") from e
