@@ -1,10 +1,11 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from aiperf.common.enums import MetricFlags, MetricTag, MetricTimeUnit
+from aiperf.common.enums import MetricFlags, MetricTimeUnit
 from aiperf.common.models import ParsedResponseRecord
 from aiperf.metrics import BaseAggregateMetric
 from aiperf.metrics.metric_dicts import MetricRecordDict
+from aiperf.metrics.types.request_latency import RequestLatencyMetric
 
 
 class MaxResponseTimestampMetric(BaseAggregateMetric[int]):
@@ -12,12 +13,12 @@ class MaxResponseTimestampMetric(BaseAggregateMetric[int]):
     Post-processor for calculating the maximum response time stamp metric from records.
     """
 
-    tag = MetricTag.MAX_RESPONSE_TIMESTAMP
+    tag = "max_response_timestamp"
     header = "Maximum Response Timestamp"
     unit = MetricTimeUnit.NANOSECONDS
     flags = MetricFlags.HIDDEN
     required_metrics = {
-        MetricTag.REQUEST_LATENCY,
+        RequestLatencyMetric.tag,
     }
 
     def _parse_record(
@@ -31,7 +32,7 @@ class MaxResponseTimestampMetric(BaseAggregateMetric[int]):
         # Compute the final response timestamp by adding the request latency to the request timestamp.
         # We do this because we want wall-clock timestamps, and the only one we have that is wall-clock
         # time is the timestamp_ns for the start of the request, so we need to use that and work from there.
-        request_latency: int = record_metrics[MetricTag.REQUEST_LATENCY]  # type: ignore
+        request_latency: int = record_metrics[RequestLatencyMetric.tag]  # type: ignore
         final_response_ts = record.timestamp_ns + request_latency
         return final_response_ts
 

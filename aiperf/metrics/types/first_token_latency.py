@@ -1,10 +1,12 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from aiperf.common.enums import MetricFlags, MetricTag, MetricTimeUnit
+from aiperf.common.enums import MetricFlags, MetricTimeUnit
 from aiperf.common.models import ParsedResponseRecord
 from aiperf.metrics import BaseRecordMetric
 from aiperf.metrics.metric_dicts import MetricRecordDict
+from aiperf.metrics.types.connect_latency import ConnectionLatencyMetric
+from aiperf.metrics.types.time_to_first_token import TTFTMetric
 
 
 class FirstTokenLatencyMetric(BaseRecordMetric[int]):
@@ -15,14 +17,14 @@ class FirstTokenLatencyMetric(BaseRecordMetric[int]):
     already receiving the 200 OK response.
     """
 
-    tag = MetricTag.FIRST_TOKEN_LATENCY
+    tag = "first_token_latency"
     header = "First Token Latency"
     unit = MetricTimeUnit.NANOSECONDS
     display_unit = MetricTimeUnit.MILLISECONDS
     flags = MetricFlags.STREAMING_TOKENS_ONLY
     required_metrics = {
-        MetricTag.CONNECTION_LATENCY,
-        MetricTag.TTFT,
+        ConnectionLatencyMetric.tag,
+        TTFTMetric.tag,
     }
 
     def _parse_record(
@@ -32,6 +34,6 @@ class FirstTokenLatencyMetric(BaseRecordMetric[int]):
     ) -> int:
         """This method calculates the first token latency by subtracting the connection latency from the TTFT."""
 
-        connection_latency = record_metrics[MetricTag.CONNECTION_LATENCY]
-        ttft = record_metrics[MetricTag.TTFT]
+        connection_latency = record_metrics[ConnectionLatencyMetric.tag]
+        ttft = record_metrics[TTFTMetric.tag]
         return ttft - connection_latency  # type: ignore

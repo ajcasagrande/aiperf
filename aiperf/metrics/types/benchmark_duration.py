@@ -1,9 +1,11 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from aiperf.common.enums import MetricFlags, MetricTag, MetricTimeUnit
+from aiperf.common.enums import MetricFlags, MetricTimeUnit
 from aiperf.metrics.base_derived_metric import BaseDerivedMetric
 from aiperf.metrics.metric_dicts import MetricResultsDict
+from aiperf.metrics.types.max_response_timestamp import MaxResponseTimestampMetric
+from aiperf.metrics.types.min_request_timestamp import MinRequestTimestampMetric
 
 
 class BenchmarkDurationMetric(BaseDerivedMetric[int]):
@@ -11,21 +13,21 @@ class BenchmarkDurationMetric(BaseDerivedMetric[int]):
     Post-processor for calculating the Benchmark Duration metric.
     """
 
-    tag = MetricTag.BENCHMARK_DURATION
+    tag = "benchmark_duration"
     header = "Benchmark Duration"
     unit = MetricTimeUnit.NANOSECONDS
     flags = MetricFlags.HIDDEN
     required_metrics = {
-        MetricTag.MIN_REQUEST_TIMESTAMP,
-        MetricTag.MAX_RESPONSE_TIMESTAMP,
+        MinRequestTimestampMetric.tag,
+        MaxResponseTimestampMetric.tag,
     }
 
     def _derive_value(
         self,
         metric_results: MetricResultsDict,
     ) -> int:
-        min_req_time = metric_results[MetricTag.MIN_REQUEST_TIMESTAMP]
-        max_res_time = metric_results[MetricTag.MAX_RESPONSE_TIMESTAMP]
+        min_req_time = metric_results[MinRequestTimestampMetric.tag]
+        max_res_time = metric_results[MaxResponseTimestampMetric.tag]
 
         if min_req_time is None or max_res_time is None:
             raise ValueError(

@@ -2,7 +2,7 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 
-from aiperf.common.enums import GenericMetricUnit, MetricFlags, MetricTag
+from aiperf.common.enums import GenericMetricUnit, MetricFlags
 from aiperf.common.models import ParsedResponseRecord
 from aiperf.metrics.base_record_metric import BaseRecordMetric
 from aiperf.metrics.metric_dicts import MetricRecordDict
@@ -13,7 +13,7 @@ class InputSequenceLengthMetric(BaseRecordMetric[int]):
     Post-processor for calculating Input Sequence Length (ISL) metrics from records.
     """
 
-    tag = MetricTag.ISL
+    tag = "input_sequence_length"
     header = "Input Sequence Length"
     unit = GenericMetricUnit.TOKENS
     flags = MetricFlags.PRODUCES_TOKENS_ONLY | MetricFlags.LARGER_IS_BETTER

@@ -15,7 +15,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 
 class ExampleMetricDefinition(BaseMetric[int]):
-    tag = MetricTag.ITL
+    tag = "itl"
     unit = MetricTimeUnit.NANOSECONDS
     display_unit = MetricTimeUnit.MILLISECONDS
     header = "Inter-Token Latency"

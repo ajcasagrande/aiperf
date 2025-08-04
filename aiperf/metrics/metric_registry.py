@@ -9,8 +9,6 @@ from typing import TYPE_CHECKING
 from aiperf.common.aiperf_logger import AIPerfLogger
 from aiperf.common.enums.metric_enums import (
     MetricFlags,
-    MetricInfo,
-    MetricTag,
     MetricType,
     MetricUnitT,
 )
@@ -85,18 +83,6 @@ class MetricRegistry:
             # TODO: Should we consider adding an override_priority parameter to the metric class similar to AIPerfFactory?
             raise MetricTypeError(
                 f"Metric class with tag {metric.tag} already registered by {cls._metrics_map[metric.tag].__name__}"
-            )
-
-        if isinstance(metric.tag, MetricTag):
-            # Store additional metadata for the metric tag enum
-            metric.tag._info = MetricInfo(  # type: ignore
-                type=metric.type,
-                header=metric.header,
-                unit=metric.unit,
-                display_unit=metric.display_unit,
-                flags=metric.flags,
-                value_type=metric.value_type,
-                required_metrics=metric.required_metrics,
             )
 
         cls._metrics_map[metric.tag] = metric

@@ -51,7 +51,9 @@ class MetricResultsDict:
 
     def _validate_and_get_metric_type(self, tag: MetricTagT) -> MetricType:
         """Validate tag and return its metric type."""
-        metric_type = tag.type  # type: ignore
+        from aiperf.metrics.metric_registry import MetricRegistry
+
+        metric_type = MetricRegistry.get_class(tag).type
         if metric_type not in self._results_dicts:
             raise ValueError(f"Metric {tag} is not a valid metric type")
 

@@ -22,8 +22,8 @@ class BaseDerivedMetric(
         # ... Metric attributes ...
 
         def _derive_value(self, metric_results: MetricResultsDict) -> float:
-            request_count = metric_results[MetricTag.REQUEST_COUNT]
-            benchmark_duration = metric_results[MetricTag.BENCHMARK_DURATION]
+            request_count = metric_results[RequestCountMetric.tag]
+            benchmark_duration = metric_results[BenchmarkDurationMetric.tag]
             return request_count / (benchmark_duration / NANOS_PER_SECOND)
     ```
     """

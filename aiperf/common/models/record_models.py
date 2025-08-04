@@ -56,8 +56,10 @@ class MetricRecord(AIPerfBaseModel):
             return v
 
         try:
+            from aiperf.metrics.metric_registry import MetricRegistry
+
             tag = info.data.get("tag")
-            value_type = tag.value_type  # type: ignore
+            value_type = MetricRegistry.get_class(tag).value_type
             return value_type.converter(v)
         except (ValueError, TypeError) as e:
             raise ValueError(

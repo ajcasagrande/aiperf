@@ -104,10 +104,6 @@ class BaseMetric(Generic[MetricValueTypeVarT], ABC):
             )
 
     @classmethod
-    def _verify_tag(cls) -> None:
-        """Verify that the class has a non-empty and non-duplicate tag."""
-
-    @classmethod
     def _detect_value_type(cls) -> MetricValueType:
         """Automatically detect the MetricValueType from the generic type parameter."""
         # Look through the class hierarchy for the first Generic[Type] definition

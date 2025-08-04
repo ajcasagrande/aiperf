@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from aiperf.common.enums import GenericMetricUnit, MetricFlags, MetricTag
+from aiperf.common.enums import GenericMetricUnit, MetricFlags
 from aiperf.common.models import ParsedResponseRecord
 from aiperf.metrics import BaseAggregateMetric
 from aiperf.metrics.metric_dicts import MetricRecordDict
@@ -14,7 +14,7 @@ class ErrorRequestCountMetric(BaseAggregateMetric[int]):
     This metric is only applicable to error records.
     """
 
-    tag = MetricTag.ERROR_REQUEST_COUNT
+    tag = "error_request_count"
     header = "Error Request Count"
     unit = GenericMetricUnit.REQUESTS
     flags = MetricFlags.ERROR_ONLY | MetricFlags.HIDE_IF_ZERO

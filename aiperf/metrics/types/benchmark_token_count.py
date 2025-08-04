@@ -2,10 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-from aiperf.common.enums import GenericMetricUnit, MetricFlags, MetricTag
+from aiperf.common.enums import GenericMetricUnit, MetricFlags
 from aiperf.common.models import ParsedResponseRecord
 from aiperf.metrics.base_aggregate_metric import BaseAggregateMetric
 from aiperf.metrics.metric_dicts import MetricRecordDict
+from aiperf.metrics.types.output_sequence_length import OutputSequenceLengthMetric
 
 
 class BenchmarkTokenCountMetric(BaseAggregateMetric[int]):
@@ -13,7 +14,7 @@ class BenchmarkTokenCountMetric(BaseAggregateMetric[int]):
     Post-processor for calculating the Benchmark Token Count metric. This is the total number of tokens processed by the benchmark.
     """
 
-    tag = MetricTag.BENCHMARK_TOKEN_COUNT
+    tag = "benchmark_token_count"
     header = "Benchmark Token Count"
     unit = GenericMetricUnit.TOKENS
     flags = (
@@ -22,7 +23,7 @@ class BenchmarkTokenCountMetric(BaseAggregateMetric[int]):
         | MetricFlags.HIDDEN
     )
     required_metrics = {
-        MetricTag.OSL,
+        OutputSequenceLengthMetric.tag,
     }
 
     def _parse_record(
@@ -32,7 +33,7 @@ class BenchmarkTokenCountMetric(BaseAggregateMetric[int]):
     ) -> int:
         # NOTE: We don't need to update the value here, because we are just counting the number of tokens.
         #       The value is updated in the ResultsProcessor via the `_aggregate_value` method.
-        return record_metrics[MetricTag.OSL]  # type: ignore
+        return record_metrics[OutputSequenceLengthMetric.tag]  # type: ignore
 
     def _aggregate_value(self, value: int) -> None:
         """Aggregate the metric value. For this metric, we just sum the values from the different processes."""
