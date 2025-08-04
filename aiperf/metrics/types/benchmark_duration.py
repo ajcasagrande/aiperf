@@ -16,8 +16,8 @@ class BenchmarkDurationMetric(BaseDerivedMetric[int]):
     unit = MetricTimeUnit.NANOSECONDS
     flags = MetricFlags.HIDDEN
     required_metrics = {
-        MetricTag.MIN_REQUEST,
-        MetricTag.MAX_RESPONSE,
+        MetricTag.MIN_REQUEST_TIMESTAMP,
+        MetricTag.MAX_RESPONSE_TIMESTAMP,
     }
 
     def _validate_inputs(self, metric_results: MetricResultsDict) -> None:
@@ -27,8 +27,8 @@ class BenchmarkDurationMetric(BaseDerivedMetric[int]):
         Raises:
             ValueError: If the metric cannot be computed for the given inputs.
         """
-        min_req_time = metric_results[MetricTag.MIN_REQUEST]
-        max_res_time = metric_results[MetricTag.MAX_RESPONSE]
+        min_req_time = metric_results[MetricTag.MIN_REQUEST_TIMESTAMP]
+        max_res_time = metric_results[MetricTag.MAX_RESPONSE_TIMESTAMP]
 
         if min_req_time is None or max_res_time is None:
             raise ValueError(
@@ -44,6 +44,6 @@ class BenchmarkDurationMetric(BaseDerivedMetric[int]):
         self,
         metric_results: MetricResultsDict,
     ) -> int:
-        min_req_time = metric_results[MetricTag.MIN_REQUEST]
-        max_res_time = metric_results[MetricTag.MAX_RESPONSE]
+        min_req_time = metric_results[MetricTag.MIN_REQUEST_TIMESTAMP]
+        max_res_time = metric_results[MetricTag.MAX_RESPONSE_TIMESTAMP]
         return max_res_time - min_req_time  # type: ignore

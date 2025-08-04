@@ -1,7 +1,10 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from typing import Generic
+
+from typing_extensions import Self
 
 from aiperf.common.enums import MetricType, MetricValueTypeVarT
 from aiperf.common.models import ParsedResponseRecord
@@ -34,7 +37,7 @@ class BaseAggregateMetric(
 
         def _aggregate_value(self, value: int) -> None:
             # We add the value to the aggregate value.
-            self.current_value += value
+            self._value += value
     ```
     """
 
@@ -54,11 +57,6 @@ class BaseAggregateMetric(
         """Get the current value of the metric."""
         return self._value
 
-    @current_value.setter
-    def current_value(self, value: MetricValueTypeVarT) -> None:
-        """Set the current value of the metric."""
-        self._value = value
-
     def parse_record(
         self, record: ParsedResponseRecord, record_metrics: MetricRecordDict
     ) -> MetricValueTypeVarT:
@@ -70,17 +68,6 @@ class BaseAggregateMetric(
         self._require_valid_record(record)
         self._check_metrics(record_metrics)
         return self._parse_record(record, record_metrics)
-
-    def aggregate_value(self, value: MetricValueTypeVarT) -> None:
-        """Aggregate the metric value. This method is implemented by subclasses.
-
-        This method is called with the result value from the `_parse_record` method, from each distributed record processor.
-        It is the responsibility of each metric class to implement how values from different processes are aggregated, such
-        as summing the values, or taking the min/max/average, etc.
-
-        NOTE: The order of the values is not guaranteed.
-        """
-        self._aggregate_value(value)
 
     @abstractmethod
     def _parse_record(
@@ -99,7 +86,19 @@ class BaseAggregateMetric(
         """
         raise NotImplementedError("Subclasses must implement this method")
 
+    # NOTE: This method does not return a value on purpose, as a hint to the user that the
+    #       internal value is supposed to be updated.
     @abstractmethod
     def _aggregate_value(self, value: MetricValueTypeVarT) -> None:
-        """Aggregate the metric value. This method is implemented by subclasses."""
+        """Aggregate the metric value. This method is implemented by subclasses.
+
+        This method is called with the result value from the `_parse_record` method, from each distributed record processor.
+        It is the responsibility of each metric class to implement how values from different processes are aggregated, such
+        as summing the values, or taking the min/max/average, etc.
+
+        NOTE: The order of the values is not guaranteed.
+        """
         raise NotImplementedError("Subclasses must implement this method")
+
+    # Set the external method to the internal method, to prevent the extra call stack
+    aggregate_value: Callable[[Self, MetricValueTypeVarT], None] = _aggregate_value

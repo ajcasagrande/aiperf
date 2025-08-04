@@ -13,7 +13,7 @@ class MinRequestMetric(BaseAggregateMetric[int]):
     Post-processor for calculating the minimum request time stamp metric from records.
     """
 
-    tag = MetricTag.MIN_REQUEST
+    tag = MetricTag.MIN_REQUEST_TIMESTAMP
     header = "Minimum Request Timestamp"
     unit = MetricTimeUnit.NANOSECONDS
     flags = MetricFlags.HIDDEN
@@ -32,8 +32,7 @@ class MinRequestMetric(BaseAggregateMetric[int]):
         # NOTE: Use the request timestamp_ns, not the start_perf_ns, because we want wall-clock timestamps,
         return record.timestamp_ns
 
-    def _aggregate_value(self, value: int) -> int:
+    def _aggregate_value(self, value: int) -> None:
         """Aggregate the metric value. For this metric, we just take the min of the values from the different processes."""
         if value < self._value:
             self._value = value
-        return self._value

@@ -7,15 +7,17 @@ from aiperf.metrics import BaseAggregateMetric
 from aiperf.metrics.metric_dicts import MetricRecordDict
 
 
-class ValidRequestCountMetric(BaseAggregateMetric[int]):
+class ErrorRequestCountMetric(BaseAggregateMetric[int]):
     """
-    Post-processor for counting the number of valid requests.
+    Post-processor for counting the number of error requests.
+
+    This metric is only applicable to error records.
     """
 
-    tag = MetricTag.VALID_REQUEST_COUNT
-    header = "Valid Request Count"
+    tag = MetricTag.ERROR_REQUEST_COUNT
+    header = "Error Request Count"
     unit = GenericMetricUnit.REQUESTS
-    flags = MetricFlags.LARGER_IS_BETTER
+    flags = MetricFlags.ERROR_ONLY | MetricFlags.HIDE_IF_ZERO
     required_metrics = None
 
     def _parse_record(
@@ -23,11 +25,9 @@ class ValidRequestCountMetric(BaseAggregateMetric[int]):
         record: ParsedResponseRecord,
         record_metrics: MetricRecordDict,
     ) -> int:
-        # NOTE: We don't need to update the value here, because we are just counting the number of requests.
-        #       The value is updated in the ResultsProcessor via the `_aggregate_value` method.
+        # We are guaranteed that the record is an error record, so we can return 1.
         return 1
 
-    def _aggregate_value(self, value: int) -> int:
+    def _aggregate_value(self, value: int) -> None:
         """Aggregate the metric value. For this metric, we just sum the values from the different processes."""
         self._value += value
-        return self._value

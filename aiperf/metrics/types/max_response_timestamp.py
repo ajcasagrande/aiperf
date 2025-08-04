@@ -7,12 +7,12 @@ from aiperf.metrics import BaseAggregateMetric
 from aiperf.metrics.metric_dicts import MetricRecordDict
 
 
-class MaxResponseMetric(BaseAggregateMetric[int]):
+class MaxResponseTimestampMetric(BaseAggregateMetric[int]):
     """
     Post-processor for calculating the maximum response time stamp metric from records.
     """
 
-    tag = MetricTag.MAX_RESPONSE
+    tag = MetricTag.MAX_RESPONSE_TIMESTAMP
     header = "Maximum Response Timestamp"
     unit = MetricTimeUnit.NANOSECONDS
     flags = MetricFlags.HIDDEN
@@ -35,8 +35,7 @@ class MaxResponseMetric(BaseAggregateMetric[int]):
         final_response_ts = record.timestamp_ns + request_latency
         return final_response_ts
 
-    def _aggregate_value(self, value: int) -> int:
+    def _aggregate_value(self, value: int) -> None:
         """Aggregate the metric value. For this metric, we just take the max of the values from the different processes."""
         if value > self._value:
             self._value = value
-        return self._value

@@ -3,7 +3,7 @@
 
 import pytest
 
-from aiperf.metrics.types.request_count_metric import (
+from aiperf.metrics.types.valid_request_count import (
     ValidRequestCountMetric,
 )
 
