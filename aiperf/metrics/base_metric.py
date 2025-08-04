@@ -8,11 +8,12 @@ from typing import ClassVar, Generic, get_args, get_origin
 from aiperf.common.enums.metric_enums import (
     MetricFlags,
     MetricType,
+    MetricUnitT,
     MetricValueType,
     MetricValueTypeVarT,
 )
 from aiperf.common.models.record_models import ParsedResponseRecord
-from aiperf.common.types import MetricTagT, MetricUnitT
+from aiperf.common.types import MetricTagT
 from aiperf.metrics.metric_dicts import (
     BaseMetricDict,
     MetricResultsDict,
@@ -72,12 +73,6 @@ class BaseMetric(Generic[MetricValueTypeVarT], ABC):
         if not cls.tag or not isinstance(cls.tag, str):
             raise TypeError(
                 f"Concrete metric class {cls.__name__} must define a non-empty 'tag' class attribute"
-            )
-
-        # Check for duplicate tags
-        if cls.tag in MetricRegistry.all_tags():
-            raise ValueError(
-                f"Metric tag '{cls.tag}' is already registered by {MetricRegistry.get_class(cls.tag).__name__}"
             )
 
         # Auto-detect value type from generic parameter

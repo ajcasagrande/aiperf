@@ -39,3 +39,6 @@ class MaxResponseTimestampMetric(BaseAggregateMetric[int]):
         """Aggregate the metric value. For this metric, we just take the max of the values from the different processes."""
         if value > self._value:
             self._value = value
+
+
+print(f"MaxResponseTimestampMetric: {MetricTag.MAX_RESPONSE_TIMESTAMP.info}")

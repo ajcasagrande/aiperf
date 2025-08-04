@@ -34,6 +34,8 @@ class InputThroughputMetric(BaseRecordMetric[int]):
 
         isl = record_metrics[MetricTag.ISL]
         ttft = record_metrics[MetricTag.TTFT]
-        return isl / MetricRegistry.get_class(MetricTag.TTFT).unit.convert_to(
-            self.unit.time_unit, ttft
+        converted_ttft: float = MetricRegistry.get_unit(MetricTag.TTFT).convert_to(  # type: ignore
+            self.unit.time_unit,
+            ttft,  # type: ignore
         )
+        return isl / converted_ttft  # type: ignore

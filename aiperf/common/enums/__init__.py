@@ -54,6 +54,7 @@ from aiperf.common.enums.message_enums import (
 from aiperf.common.enums.metric_enums import (
     GenericMetricUnit,
     MetricFlags,
+    MetricInfo,
     MetricOverTimeUnit,
     MetricOverTimeUnitInfo,
     MetricSizeUnit,
@@ -120,6 +121,7 @@ __all__ = [
     "MeasurementMode",
     "MessageType",
     "MetricFlags",
+    "MetricInfo",
     "MetricOverTimeUnit",
     "MetricOverTimeUnitInfo",
     "MetricSizeUnit",

@@ -8,7 +8,7 @@ from aiperf.metrics import BaseAggregateMetric
 from aiperf.metrics.metric_dicts import MetricRecordDict
 
 
-class MinRequestMetric(BaseAggregateMetric[int]):
+class MinRequestTimestampMetric(BaseAggregateMetric[int]):
     """
     Post-processor for calculating the minimum request time stamp metric from records.
     """

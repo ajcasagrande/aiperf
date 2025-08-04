@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 from enum import Enum
+from functools import cached_property
 
 from pydantic import BaseModel, Field
 from typing_extensions import Self
@@ -67,7 +68,7 @@ class BasePydanticBackedStrEnum(CaseInsensitiveStrEnum):
     to represent the enum member.
     """
 
-    # Override the __new__ method to store the Pydantic `EndpointTypeInfo` model as an attribute. This is a python feature that
+    # Override the __new__ method to store the `BasePydanticEnumInfo` subclass model as an attribute. This is a python feature that
     # allows us to modify the behavior of the enum class's constructor. We use this to ensure the the enums still look like
     # a regular string enum, but also have the additional information stored as an attribute.
     def __new__(cls, info: BasePydanticEnumInfo) -> Self:
@@ -78,7 +79,7 @@ class BasePydanticBackedStrEnum(CaseInsensitiveStrEnum):
         obj._info: BasePydanticEnumInfo = info  # type: ignore
         return obj
 
-    @property
+    @cached_property
     def info(self) -> BasePydanticEnumInfo:
         """Get the enum info for the enum member."""
         # This is the Pydantic model that was stored as an attribute in the __new__ method.

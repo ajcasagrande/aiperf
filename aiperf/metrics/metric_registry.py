@@ -7,9 +7,15 @@ from threading import Lock
 from typing import TYPE_CHECKING
 
 from aiperf.common.aiperf_logger import AIPerfLogger
-from aiperf.common.enums.metric_enums import MetricFlags, MetricType
+from aiperf.common.enums.metric_enums import (
+    MetricFlags,
+    MetricInfo,
+    MetricTag,
+    MetricType,
+    MetricUnitT,
+)
 from aiperf.common.exceptions import MetricTypeError
-from aiperf.common.types import MetricTagT, MetricUnitT
+from aiperf.common.types import MetricTagT
 
 if TYPE_CHECKING:
     from aiperf.metrics.base_metric import BaseMetric
@@ -77,12 +83,25 @@ class MetricRegistry:
 
     @classmethod
     def register_metric(cls, metric: type["BaseMetric"]):
-        """Register a metric class with the registry. This will raise an error if the class is already registered."""
-        if cls.has_tag(metric.tag):
+        """Register a metric class with the registry. This will raise a MetricTypeError if the class is already registered."""
+        if metric.tag in cls._metrics_map:
             # TODO: Should we consider adding an override_priority parameter to the metric class similar to AIPerfFactory?
-            raise ValueError(
+            raise MetricTypeError(
                 f"Metric class with tag {metric.tag} already registered by {cls._metrics_map[metric.tag].__name__}"
             )
+
+        if isinstance(metric.tag, MetricTag):
+            metric.tag._info = MetricInfo(  # type: ignore
+                header=metric.header,
+                unit=metric.unit,
+                flags=metric.flags,
+                value_type=metric.value_type,
+                required_metrics=metric.required_metrics,
+            )
+
+        print(
+            f"Registered metric '{metric.tag}' with info {metric.tag.info if isinstance(metric.tag, MetricTag) else None}"
+        )
         cls._metrics_map[metric.tag] = metric
 
     @classmethod
