@@ -20,9 +20,6 @@ from aiperf.metrics.types.input_sequence_length_metric import (
 from aiperf.metrics.types.inter_token_latency_metric import (
     InterTokenLatencyMetric,
 )
-from aiperf.metrics.types.itl_list import (
-    InterTokenLatencyList,
-)
 from aiperf.metrics.types.max_response_metric import (
     MaxResponseMetric,
 )
@@ -58,7 +55,6 @@ __all__ = [
     "BenchmarkDurationMetric",
     "BenchmarkTokenCountMetric",
     "InputSequenceLengthMetric",
-    "InterTokenLatencyList",
     "InterTokenLatencyMetric",
     "MaxResponseMetric",
     "MinRequestMetric",

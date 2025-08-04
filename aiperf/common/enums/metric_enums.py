@@ -7,7 +7,8 @@ from enum import Flag
 from typing import Any, TypeAlias, TypeVar
 
 import pandas as pd
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
+from typing_extensions import Self
 
 from aiperf.common.enums.base_enums import (
     BasePydanticBackedStrEnum,
@@ -116,7 +117,7 @@ class MetricTimeUnit(BasePydanticBackedStrEnum):
         per_second=1_000,
     )
     SECONDS = MetricTimeUnitInfo(
-        tag="s",
+        tag="sec",
         long_name="seconds",
         per_second=1,
     )
@@ -168,6 +169,19 @@ class GenericMetricUnit(CaseInsensitiveStrEnum):
 class MetricOverTimeUnitInfo(BasePydanticEnumInfo):
     """Information about a metric over time unit."""
 
+    @model_validator(mode="after")
+    def _set_tag(self: Self) -> Self:
+        """Set the tag based on the existing units. ie. requests/sec, tokens/sec, etc."""
+        self.tag = f"{self.primary_unit}/{self.time_unit}"
+        if self.third_unit:
+            # If there is a third unit, add it to the tag. ie. tokens/sec/user
+            self.tag += f"/{self.third_unit}"
+        return self
+
+    tag: str = Field(
+        default="",
+        description="The tag for the metric over time unit. This will be set automatically by the model_validator.",
+    )
     primary_unit: GenericMetricUnit | MetricSizeUnit
     time_unit: MetricTimeUnit
     third_unit: GenericMetricUnit | None = None
@@ -177,22 +191,18 @@ class MetricOverTimeUnit(BasePydanticBackedStrEnum):
     """Defines the units for metrics that are a generic unit over a specific time unit."""
 
     REQUESTS_PER_SECOND = MetricOverTimeUnitInfo(
-        tag="req/s",
         primary_unit=GenericMetricUnit.REQUESTS,
         time_unit=MetricTimeUnit.SECONDS,
     )
     TOKENS_PER_SECOND = MetricOverTimeUnitInfo(
-        tag="tokens/s",
         primary_unit=GenericMetricUnit.TOKENS,
         time_unit=MetricTimeUnit.SECONDS,
     )
     BYTES_PER_SECOND = MetricOverTimeUnitInfo(
-        tag="bytes/s",
         primary_unit=MetricSizeUnit.BYTES,
         time_unit=MetricTimeUnit.SECONDS,
     )
     TOKENS_PER_SECOND_PER_USER = MetricOverTimeUnitInfo(
-        tag="tokens/s/user",
         primary_unit=GenericMetricUnit.TOKENS,
         time_unit=MetricTimeUnit.SECONDS,
         third_unit=GenericMetricUnit.USER,
