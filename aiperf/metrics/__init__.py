@@ -31,6 +31,7 @@ from aiperf.metrics.metric_registry import (
 from aiperf.metrics.types import (
     BenchmarkDurationMetric,
     BenchmarkTokenCountMetric,
+    ConnectionLatencyMetric,
     InputSequenceLengthMetric,
     InterTokenLatencyMetric,
     MaxResponseMetric,
@@ -53,6 +54,7 @@ __all__ = [
     "BaseRecordMetric",
     "BenchmarkDurationMetric",
     "BenchmarkTokenCountMetric",
+    "ConnectionLatencyMetric",
     "InputSequenceLengthMetric",
     "InterTokenLatencyMetric",
     "MaxResponseMetric",

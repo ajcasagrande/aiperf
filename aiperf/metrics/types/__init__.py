@@ -14,6 +14,9 @@ from aiperf.metrics.types.benchmark_duration_metric import (
 from aiperf.metrics.types.benchmark_token_count import (
     BenchmarkTokenCountMetric,
 )
+from aiperf.metrics.types.connect_latency import (
+    ConnectionLatencyMetric,
+)
 from aiperf.metrics.types.input_sequence_length_metric import (
     InputSequenceLengthMetric,
 )
@@ -54,6 +57,7 @@ from aiperf.metrics.types.ttst_metric import (
 __all__ = [
     "BenchmarkDurationMetric",
     "BenchmarkTokenCountMetric",
+    "ConnectionLatencyMetric",
     "InputSequenceLengthMetric",
     "InterTokenLatencyMetric",
     "MaxResponseMetric",

@@ -18,7 +18,7 @@ class TTSTMetric(BaseRecordMetric[int]):
     flags = MetricFlags.STREAMING_TOKENS_ONLY
     required_metrics = None
 
-    def _validate_inputs(
+    def _validate_record(
         self, record: ParsedResponseRecord, record_metrics: MetricRecordDict
     ) -> None:
         """

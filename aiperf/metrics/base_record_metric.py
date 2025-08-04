@@ -41,7 +41,7 @@ class BaseRecordMetric(
         """Parse a single record and return the metric value."""
         self._require_valid_record(record)
         self._check_metrics(record_metrics)
-        self._validate_inputs(record, record_metrics)
+        self._validate_record(record, record_metrics)
         return self._parse_record(record, record_metrics)
 
     @abstractmethod
@@ -54,7 +54,7 @@ class BaseRecordMetric(
         """
         raise NotImplementedError("Subclasses must implement this method")
 
-    def _validate_inputs(
+    def _validate_record(
         self, record: ParsedResponseRecord, record_metrics: MetricRecordDict
     ) -> None:
         """Check that the metric can be computed for the given inputs. This method can be implemented by subclasses.

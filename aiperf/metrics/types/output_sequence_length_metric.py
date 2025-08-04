@@ -18,7 +18,7 @@ class OutputSequenceLengthMetric(BaseRecordMetric[int]):
     flags = MetricFlags.PRODUCES_TOKENS_ONLY | MetricFlags.LARGER_IS_BETTER
     required_metrics = None
 
-    def _validate_inputs(
+    def _validate_record(
         self, record: ParsedResponseRecord, record_metrics: MetricRecordDict
     ) -> None:
         """

@@ -232,6 +232,7 @@ class MetricOverTimeUnit(BasePydanticBackedStrEnum):
 class MetricTag(CaseInsensitiveStrEnum):
     BENCHMARK_DURATION = "benchmark_duration"
     BENCHMARK_TOKEN_COUNT = "benchmark_token_count"
+    CONNECTION_LATENCY = "connection_latency"
     ISL = "isl"
     ITL = "itl"
     MAX_RESPONSE = "max_response"
