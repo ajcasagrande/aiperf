@@ -38,7 +38,9 @@ class MetricRecordDict(BaseMetricDict):
     - No `BaseDerivedMetric`s will be included.
     """
 
-    def get_converted(self, metric: type[BaseMetric], other_unit: MetricUnitT) -> float:
+    def get_converted(
+        self, metric: type["BaseMetric"], other_unit: MetricUnitT
+    ) -> float:
         """Get the value of a metric, but converted to a different unit."""
         return metric.unit.convert_to(other_unit, self[metric.tag])  # type: ignore
 
@@ -128,6 +130,12 @@ class MetricResultsDict:
                 self._results_dicts[metric_type][tag] = value  # type: ignore
             elif metric_type == MetricType.RECORD:
                 self._results_dicts[metric_type].setdefault(tag, deque()).append(value)  # type: ignore
+
+    def get_converted(
+        self, metric: type["BaseMetric"], other_unit: MetricUnitT
+    ) -> float:
+        """Get the value of a metric, but converted to a different unit."""
+        return metric.unit.convert_to(other_unit, self[metric.tag])  # type: ignore
 
     def summarize(self) -> list[MetricResult]:
         """Summarize the metric results dict."""

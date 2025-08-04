@@ -6,11 +6,15 @@ import time
 from functools import cached_property
 from typing import Any
 
-from pydantic import Field, SerializeAsAny, ValidationInfo, field_validator
+from pydantic import (
+    Field,
+    SerializeAsAny,
+    ValidationInfo,
+    field_validator,
+)
 
 from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import CreditPhase, SSEFieldType
-from aiperf.common.enums.metric_enums import MetricUnitT
 from aiperf.common.models.base_models import AIPerfBaseModel
 from aiperf.common.models.error_models import ErrorDetails, ErrorDetailsCount
 from aiperf.common.types import MetricTagT
@@ -20,7 +24,9 @@ class MetricResult(AIPerfBaseModel):
     """The result values of a single metric."""
 
     tag: MetricTagT = Field(description="The unique identifier of the metric")
-    unit: MetricUnitT = Field(description="The unit of the metric, e.g. 'ms'")
+    # NOTE: We do not use a MetricUnitT here, as that is harder to de-serialize from JSON strings with pydantic.
+    #       If we need an instance of a MetricUnitT, lookup the unit based on the tag in the MetricRegistry.
+    unit: str = Field(description="The unit of the metric, e.g. 'ms'")
     header: str = Field(
         description="The user friendly name of the metric (e.g. 'Inter Token Latency')"
     )
