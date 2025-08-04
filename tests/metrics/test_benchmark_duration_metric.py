@@ -1,23 +1,36 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from aiperf.common.enums import MetricTag
-from aiperf.metrics.types import (
-    MaxResponseMetric,
-)
-from aiperf.metrics.types.benchmark_duration_metric import (
-    BenchmarkDurationMetric,
-)
-from aiperf.metrics.types.min_request_metric import (
-    MinRequestMetric,
-)
+import pytest
+
+from aiperf.common.aiperf_logger import AIPerfLogger
+from aiperf.common.config.endpoint_config import EndpointConfig
+from aiperf.common.config.user_config import UserConfig
+from aiperf.common.enums.endpoints_enums import EndpointType
+from aiperf.common.models.record_models import ParsedResponseRecord
+from aiperf.metrics.types.benchmark_duration import BenchmarkDurationMetric
+from aiperf.post_processors.metric_record_processor import MetricRecordProcessor
+from aiperf.post_processors.metric_results_processor import MetricResultsProcessor
 
 
-def test_add_multiple_records(parsed_response_record_builder):
-    metrics = {}
-    metrics[MetricTag.MIN_REQUEST] = MinRequestMetric()
-    metrics[MetricTag.MAX_RESPONSE] = MaxResponseMetric()
-    records = (
+@pytest.fixture
+def mock_user_config():
+    return UserConfig(
+        endpoint=EndpointConfig(
+            # NOTE: Using embeddings endpoint to avoid token count metrics.
+            type=EndpointType.OPENAI_EMBEDDINGS,
+            streaming=False,
+            model_names=["test-model"],
+        ),
+    )
+
+
+_logger = AIPerfLogger(__name__)
+
+
+@pytest.mark.asyncio
+async def test_add_multiple_records(parsed_response_record_builder, mock_user_config):
+    records: list[ParsedResponseRecord] = (
         parsed_response_record_builder.with_request_start_time(10)
         .add_response(perf_ns=15)
         .new_record()
@@ -29,10 +42,24 @@ def test_add_multiple_records(parsed_response_record_builder):
         .build_all()
     )
 
-    for record in records:
-        for metric in metrics.values():
-            metric.update_value(record=record, metrics=None)
+    # Create a record processor to ingest the raw records
+    record_processor = MetricRecordProcessor(user_config=mock_user_config)
+    # Create a results processor to aggregate the results
+    results_processor = MetricResultsProcessor(user_config=mock_user_config)
 
-    benchmark_duration_metric = BenchmarkDurationMetric()
-    benchmark_duration_metric.update_value(record=None, metrics=metrics)
-    assert benchmark_duration_metric.values() == 30.0  # 40 - 10
+    # Process the records one by one, feeding the results to the results processor.
+    for record in records:
+        record_metrics = await record_processor.process_record(record=record)
+        await results_processor.process_result(record_metrics)
+
+    # Compute the derived metrics, and calculate the min/max/avg/std/etc.
+    summary = await results_processor.summarize()
+
+    found = False
+    for result in summary:
+        if result.tag == BenchmarkDurationMetric.tag:
+            _logger.trace(f"Result: {result}")
+            assert result.avg == 30
+            found = True
+            break
+    assert found, "BenchmarkDurationMetric not found in summary"

@@ -48,9 +48,10 @@ class ParsedResponseRecordBuilder:
         self._current_record["worker_id"] = worker_id
         return self
 
-    def with_request_start_time(self, start_perf_ns: int):
+    def with_request_start_time(self, timestamp_ns: int):
         """Set the request start time for the current record."""
-        self._current_record["request_start_perf_ns"] = start_perf_ns
+        self._current_record["request_start_perf_ns"] = timestamp_ns
+        self._current_record["request_kwargs"]["timestamp_ns"] = timestamp_ns
         return self
 
     def with_request_kwargs(self, **kwargs):

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 import pytest
 
-from aiperf.metrics.types.min_request_metric import (
+from aiperf.metrics.types.min_request_timestamp import (
     MinRequestMetric,
 )
 
@@ -14,7 +14,7 @@ def test_update_value_and_values(parsed_response_record_builder):
         .add_response(perf_ns=150)
         .build()
     )
-    metric.update_value(record=record, metrics=None)
+    metric.parse_record(record=record, metrics=None)
     assert metric.values() == 100
 
 
@@ -32,7 +32,7 @@ def test_add_multiple_records(parsed_response_record_builder):
         .build_all()
     )
     for record in records:
-        metric.update_value(record=record, metrics=None)
+        metric.parse_record(record=record, metrics=None)
     assert metric.values() == 10
 
 
@@ -40,4 +40,4 @@ def test_record_with_no_request_raises():
     metric = MinRequestMetric()
     record = None
     with pytest.raises(ValueError, match="Invalid Record"):
-        metric.update_value(record=record, metrics=None)
+        metric.parse_record(record=record, metrics=None)

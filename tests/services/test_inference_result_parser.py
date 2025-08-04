@@ -50,7 +50,7 @@ def sample_request_record():
 def parser(mock_turn_response):
     with patch.object(InferenceResultParser, "__init__", lambda self: None):
         parser = InferenceResultParser()
-        parser.service_id = "test-parser"
+        parser.id = "test-parser"
         parser.conversation_request_client = MagicMock()
         parser.conversation_request_client.request = AsyncMock(
             return_value=mock_turn_response

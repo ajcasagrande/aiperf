@@ -3,7 +3,7 @@
 
 import pytest
 
-from aiperf.metrics.types.request_throughput_metric import (
+from aiperf.metrics.types.request_throughput import (
     RequestThroughputMetric,
 )
 

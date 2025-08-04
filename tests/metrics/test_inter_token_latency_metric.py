@@ -6,13 +6,13 @@ import pytest
 from aiperf.metrics.types import (
     OutputTokenCountMetric,
 )
-from aiperf.metrics.types.inter_token_latency_metric import (
+from aiperf.metrics.types.inter_token_latency import (
     InterTokenLatencyMetric,
 )
-from aiperf.metrics.types.request_latency_metric import (
+from aiperf.metrics.types.request_latency import (
     RequestLatencyMetric,
 )
-from aiperf.metrics.types.ttft_metric import TTFTMetric
+from aiperf.metrics.types.time_to_first_token import TTFTMetric
 
 
 @pytest.fixture
