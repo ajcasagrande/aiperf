@@ -54,9 +54,6 @@ class MetricRegistry:
             )
 
         # Import all metric type modules to trigger registration
-        print(
-            f"Importing metric type modules from {types_dir.resolve()} {cls.__module__=}"
-        )
         _logger.debug(
             f"Importing metric type modules from {types_dir.resolve()} {cls.__module__=}"
         )
@@ -91,17 +88,17 @@ class MetricRegistry:
             )
 
         if isinstance(metric.tag, MetricTag):
+            # Store additional metadata for the metric tag enum
             metric.tag._info = MetricInfo(  # type: ignore
+                type=metric.type,
                 header=metric.header,
                 unit=metric.unit,
+                display_unit=metric.display_unit,
                 flags=metric.flags,
                 value_type=metric.value_type,
                 required_metrics=metric.required_metrics,
             )
 
-        print(
-            f"Registered metric '{metric.tag}' with info {metric.tag.info if isinstance(metric.tag, MetricTag) else None}"
-        )
         cls._metrics_map[metric.tag] = metric
 
     @classmethod

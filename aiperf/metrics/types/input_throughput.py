@@ -5,7 +5,6 @@ from aiperf.common.enums import MetricFlags, MetricOverTimeUnit, MetricTag
 from aiperf.common.models import ParsedResponseRecord
 from aiperf.metrics import BaseRecordMetric
 from aiperf.metrics.metric_dicts import MetricRecordDict
-from aiperf.metrics.metric_registry import MetricRegistry
 
 
 class InputThroughputMetric(BaseRecordMetric[int]):
@@ -34,8 +33,7 @@ class InputThroughputMetric(BaseRecordMetric[int]):
 
         isl = record_metrics[MetricTag.ISL]
         ttft = record_metrics[MetricTag.TTFT]
-        converted_ttft: float = MetricRegistry.get_unit(MetricTag.TTFT).convert_to(  # type: ignore
-            self.unit.time_unit,
-            ttft,  # type: ignore
-        )
+        converted_ttft: float = MetricTag.TTFT.unit.convert_to(  # type: ignore
+            self.unit.time_unit, ttft,  # type: ignore
+        )  # fmt: skip
         return isl / converted_ttft  # type: ignore

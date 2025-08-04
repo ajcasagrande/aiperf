@@ -4,8 +4,6 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from typing import Generic
 
-from typing_extensions import Self
-
 from aiperf.common.enums import MetricType, MetricValueTypeVarT
 from aiperf.common.models import ParsedResponseRecord
 from aiperf.metrics.base_metric import BaseMetric
@@ -51,6 +49,10 @@ class BaseAggregateMetric(
             if default_value is not None
             else self.value_type.default_factory()
         )
+        self.aggregate_value: Callable[[MetricValueTypeVarT], None] = (
+            self._aggregate_value
+        )
+        super().__init__()
 
     @property
     def current_value(self) -> MetricValueTypeVarT:
@@ -99,6 +101,3 @@ class BaseAggregateMetric(
         NOTE: The order of the values is not guaranteed.
         """
         raise NotImplementedError("Subclasses must implement this method")
-
-    # Set the external method to the internal method, to prevent the extra call stack
-    aggregate_value: Callable[[Self, MetricValueTypeVarT], None] = _aggregate_value

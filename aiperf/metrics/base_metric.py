@@ -36,7 +36,7 @@ class BaseMetric(Generic[MetricValueTypeVarT], ABC):
     """
 
     # User-defined attributes to be overridden by subclasses
-    tag: ClassVar[MetricTagT] = ""
+    tag: ClassVar[MetricTagT]
     header: ClassVar[str] = ""
     unit: ClassVar[MetricUnitT] = None
     display_unit: ClassVar[MetricUnitT] = None

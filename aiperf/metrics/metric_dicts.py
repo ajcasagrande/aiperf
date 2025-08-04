@@ -49,39 +49,33 @@ class MetricResultsDict:
             MetricType.DERIVED: {},
         }  # fmt: skip
 
-    def _validate_and_get_metric_type(self, key: MetricTagT) -> MetricType:
-        """Validate key and return its metric type."""
-        try:
-            from aiperf.metrics.metric_registry import MetricRegistry
-
-            metric_type = MetricRegistry.get_type(key)
-        except ValueError:
-            raise ValueError(f"Metric {key} not found in metric classes") from None
-
+    def _validate_and_get_metric_type(self, tag: MetricTagT) -> MetricType:
+        """Validate tag and return its metric type."""
+        metric_type = tag.type  # type: ignore
         if metric_type not in self._results_dicts:
-            raise ValueError(f"Metric {key} is not a valid metric type")
+            raise ValueError(f"Metric {tag} is not a valid metric type")
 
         return metric_type
 
-    def __getitem__(self, key: MetricTagT) -> MetricDictValueTypeT:
+    def __getitem__(self, tag: MetricTagT) -> MetricDictValueTypeT:
         """Get the value of a metric."""
         try:
             return next(
-                result_dict[key]
+                result_dict[tag]
                 for result_dict in self._results_dicts.values()
-                if key in result_dict
+                if tag in result_dict
             )
         except StopIteration:
-            raise KeyError(f"Metric {key} not found in metric results") from None
+            raise KeyError(f"Metric {tag} not found in metric results") from None
 
-    def __setitem__(self, key: MetricTagT, value: MetricDictValueTypeT) -> None:
+    def __setitem__(self, tag: MetricTagT, value: MetricDictValueTypeT) -> None:
         """Set the value of a metric."""
-        metric_type = self._validate_and_get_metric_type(key)
-        self._results_dicts[metric_type][key] = value  # type: ignore
+        metric_type = self._validate_and_get_metric_type(tag)
+        self._results_dicts[metric_type][tag] = value  # type: ignore
 
-    def __contains__(self, key: MetricTagT) -> bool:
+    def __contains__(self, tag: MetricTagT) -> bool:
         """Check if a metric is in the metric results dict."""
-        return any(key in result_dict for result_dict in self._results_dicts.values())
+        return any(tag in result_dict for result_dict in self._results_dicts.values())
 
     def __iter__(self) -> Iterator[MetricTagT]:
         """Iterate over all of the metric results dicts."""
@@ -102,24 +96,24 @@ class MetricResultsDict:
         return self.__str__()
 
     def setdefault(
-        self, key: MetricTagT, default: MetricDictValueTypeT
+        self, tag: MetricTagT, default: MetricDictValueTypeT
     ) -> MetricDictValueTypeT:
         """Set a default value for a metric."""
-        metric_type = self._validate_and_get_metric_type(key)
+        metric_type = self._validate_and_get_metric_type(tag)
 
-        if key not in self._results_dicts[metric_type]:
-            self._results_dicts[metric_type][key] = default  # type: ignore
-        return self._results_dicts[metric_type][key]
+        if tag not in self._results_dicts[metric_type]:
+            self._results_dicts[metric_type][tag] = default  # type: ignore
+        return self._results_dicts[metric_type][tag]
 
     def update(self, metric_dict: BaseMetricDict) -> None:
         """Update the metric results dicts with the values from another dict."""
-        for key, value in metric_dict.items():
-            metric_type = self._validate_and_get_metric_type(key)
+        for tag, value in metric_dict.items():
+            metric_type = self._validate_and_get_metric_type(tag)
 
             if metric_type in (MetricType.AGGREGATE, MetricType.DERIVED):
-                self._results_dicts[metric_type][key] = value  # type: ignore
+                self._results_dicts[metric_type][tag] = value  # type: ignore
             elif metric_type == MetricType.RECORD:
-                self._results_dicts[metric_type].setdefault(key, deque()).append(value)  # type: ignore
+                self._results_dicts[metric_type].setdefault(tag, deque()).append(value)  # type: ignore
 
     def summarize(self) -> list[MetricResult]:
         """Summarize the metric results dict."""

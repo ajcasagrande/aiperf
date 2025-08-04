@@ -56,13 +56,8 @@ class MetricRecord(AIPerfBaseModel):
             return v
 
         try:
-            # TODO: This is a hack to get the value type of the metric.
-            #       We should not be doing this here, but it is a workaround to get the value type of the metric.
-            #       We should find a better way to do this.
-            from aiperf.metrics.metric_registry import MetricRegistry
-
             tag = info.data.get("tag")
-            value_type = MetricRegistry.get_class(tag).value_type
+            value_type = tag.value_type  # type: ignore
             return value_type.converter(v)
         except (ValueError, TypeError) as e:
             raise ValueError(

@@ -53,7 +53,9 @@ MessageCallbackMapT: TypeAlias = dict["MessageTypeT", Callable[["Message"], Any]
 MessageOutputT = TypeVar("MessageOutputT", bound="Message")
 MetricTypeT: TypeAlias = MetricType | str
 MessageTypeT: TypeAlias = MessageType | str
-MetricTagT: TypeAlias = MetricTag | str
+MetricTagT: TypeAlias = (
+    MetricTag  # | str  # TODO: This needs to allow custom metric tags
+)
 ModelEndpointInfoT = TypeVar("ModelEndpointInfoT", bound="ModelEndpointInfo")
 OutputT = TypeVar("OutputT", bound=Any)
 ProtocolT = TypeVar("ProtocolT", bound=Any)
