@@ -472,6 +472,9 @@ class MetricFlags(Flag):
     HIDE_IF_ZERO = 1 << 5
     """Metrics that should be hidden if the value is 0, such as error counts."""
 
+    INTERNAL = 1 << 6
+    """Metrics that are internal to the system and not applicable to the user."""
+
     STREAMING_TOKENS_ONLY = STREAMING_ONLY | PRODUCES_TOKENS_ONLY
     """Metrics that are only applicable to streamed responses and token-based endpoints.
     This is a convenience flag that is the combination of the `STREAMING_ONLY` and `PRODUCES_TOKENS_ONLY` flags."""
