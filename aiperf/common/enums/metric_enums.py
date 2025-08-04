@@ -1,10 +1,12 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+from collections import deque
 from collections.abc import Callable
 from enum import Flag
 from typing import Any, TypeAlias, TypeVar
 
+import pandas as pd
 from pydantic import BaseModel
 
 from aiperf.common.enums.base_enums import (
@@ -15,6 +17,7 @@ from aiperf.common.enums.base_enums import (
 
 MetricValueTypeT: TypeAlias = str | int | float | list[float] | list[int] | list[str]
 MetricValueTypeVarT = TypeVar("MetricValueTypeVarT", bound=MetricValueTypeT)
+MetricDictValueTypeT: TypeAlias = MetricValueTypeT | deque[MetricValueTypeT] | pd.Series
 
 
 class MetricSizeUnitInfo(BasePydanticEnumInfo):

@@ -8,7 +8,7 @@ from itertools import chain
 import pandas as pd
 
 from aiperf.common.enums import MetricType
-from aiperf.common.enums.metric_enums import MetricValueTypeT
+from aiperf.common.enums.metric_enums import MetricDictValueTypeT, MetricValueTypeT
 from aiperf.common.models.record_models import MetricResult
 from aiperf.common.types import MetricTagT
 from aiperf.metrics.metric_registry import MetricRegistry
@@ -38,14 +38,14 @@ class MetricResultsDict:
     of all metrics that have been computed for an entire run.
 
     This will include:
-    - All `BaseRecordMetric`s as a list of their values (or similar such as pandas DataFrames).
+    - All `BaseRecordMetric`s as a list of their values (or similar such as pandas Series).
     - The final value of each `BaseAggregateMetric`.
     - The value of any `BaseDerivedMetric` that has already been computed.
     """
 
     def __init__(self):
         MetricRegistry.discover_metrics()
-        self._results_dicts: dict[MetricType, dict[MetricTagT, MetricValueTypeT] | dict[MetricTagT, deque[MetricValueTypeT]]] = {
+        self._results_dicts: dict[MetricType, dict[MetricTagT, MetricDictValueTypeT]] = {
             MetricType.RECORD: {},
             MetricType.AGGREGATE: {},
             MetricType.DERIVED: {},
@@ -63,18 +63,18 @@ class MetricResultsDict:
 
         return metric_type
 
-    def __getitem__(
-        self, key: MetricTagT
-    ) -> MetricValueTypeT | deque[MetricValueTypeT]:
+    def __getitem__(self, key: MetricTagT) -> MetricDictValueTypeT:
         """Get the value of a metric."""
-        for result_dict in self._results_dicts.values():
-            if key in result_dict:
-                return result_dict[key]
-        raise KeyError(f"Metric {key} not found in metric results")
+        try:
+            return next(
+                result_dict[key]
+                for result_dict in self._results_dicts.values()
+                if key in result_dict
+            )
+        except StopIteration:
+            raise KeyError(f"Metric {key} not found in metric results") from None
 
-    def __setitem__(
-        self, key: MetricTagT, value: MetricValueTypeT | deque[MetricValueTypeT]
-    ) -> None:
+    def __setitem__(self, key: MetricTagT, value: MetricDictValueTypeT) -> None:
         """Set the value of a metric."""
         metric_type = self._validate_and_get_metric_type(key)
         self._results_dicts[metric_type][key] = value  # type: ignore
@@ -85,10 +85,8 @@ class MetricResultsDict:
 
     def __iter__(self) -> Iterator[MetricTagT]:
         """Iterate over all of the metric results dicts."""
-        return iter(
-            chain.from_iterable(
-                result_dict.keys() for result_dict in self._results_dicts.values()
-            )
+        return chain.from_iterable(
+            result_dict.keys() for result_dict in self._results_dicts.values()
         )
 
     def __len__(self) -> int:
@@ -104,8 +102,8 @@ class MetricResultsDict:
         return self.__str__()
 
     def setdefault(
-        self, key: MetricTagT, default: MetricValueTypeT | deque[MetricValueTypeT]
-    ) -> MetricValueTypeT | deque[MetricValueTypeT]:
+        self, key: MetricTagT, default: MetricDictValueTypeT
+    ) -> MetricDictValueTypeT:
         """Set a default value for a metric."""
         metric_type = self._validate_and_get_metric_type(key)
 
@@ -127,22 +125,22 @@ class MetricResultsDict:
         """Summarize the metric results dict."""
         summary = []
 
-        # Summarize the metrics using a DataFrame
-        for result_dict in self._results_dicts.values():
-            if not result_dict:
-                continue
-
-            df = pd.DataFrame(result_dict)
-            for tag in result_dict:
-                summary.append(_metric_result_from_dataframe(df, tag))
+        # Process all non-empty result dicts with DataFrames
+        for result_dict in filter(None, self._results_dicts.values()):
+            summary.extend(
+                _create_metric_result(tag, values)
+                for tag, values in result_dict.items()
+            )
 
         return summary
 
 
-def _metric_result_from_dataframe(df: pd.DataFrame, tag: MetricTagT) -> MetricResult:
-    """Create a Record from a DataFrame."""
+def _create_metric_result(
+    tag: MetricTagT, values: MetricDictValueTypeT
+) -> MetricResult:
+    """Create a MetricResult from a the current values of a metric."""
     metric_class = MetricRegistry.get_class(tag)
-    column = df[tag]
+    column = pd.Series(values) if not isinstance(values, pd.Series) else values
 
     # Handle empty column case
     if column.empty:
@@ -155,12 +153,11 @@ def _metric_result_from_dataframe(df: pd.DataFrame, tag: MetricTagT) -> MetricRe
 
     # Handle single value case (quantiles might not work properly)
     if len(column) == 1:
-        single_value = metric_class.value_type.converter(column.iloc[0])
         return MetricResult(
             tag=metric_class.tag,
             header=metric_class.header,
             unit=metric_class.unit,
-            avg=single_value,
+            avg=metric_class.value_type.converter(column.iloc[0]),  # type: ignore
         )
 
     # Normal case with multiple values
