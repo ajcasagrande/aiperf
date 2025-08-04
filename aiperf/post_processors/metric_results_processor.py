@@ -41,11 +41,11 @@ class MetricResultsProcessor(AIPerfLoggerMixin):
         """Process a result from the metric record processor."""
         self.trace(lambda: f"Processing result: {record_dict}")
         for tag, value in record_dict.items():
-            if MetricRegistry.get_type(tag) == MetricType.AGGREGATE:
+            if MetricRegistry.get_class(tag).type == MetricType.AGGREGATE:
                 metric: BaseAggregateMetric = MetricRegistry.get_instance(tag)  # type: ignore
                 metric.aggregate_value(value)
                 self._results[tag] = metric.current_value
-            elif MetricRegistry.get_type(tag) == MetricType.RECORD:
+            elif MetricRegistry.get_class(tag).type == MetricType.RECORD:
                 self._results.setdefault(tag, deque()).append(value)  # type: ignore
             else:
                 raise ValueError(f"Metric {tag} is not a valid metric type")
