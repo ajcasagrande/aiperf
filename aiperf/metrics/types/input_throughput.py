@@ -12,9 +12,6 @@ from aiperf.metrics.types.time_to_first_token import TTFTMetric
 class InputThroughputMetric(BaseRecordMetric[float]):
     """
     Post-processor for calculating Input Throughput metrics from records. This is only applicable to streaming responses.
-
-    This is the time it takes for the client to receive the first token of the response from the server, after
-    already receiving the 200 OK response.
     """
 
     tag = "input_throughput"
@@ -34,8 +31,5 @@ class InputThroughputMetric(BaseRecordMetric[float]):
         """This method calculates the input throughput by subtracting the connection latency from the TTFT."""
 
         isl = record_metrics[InputSequenceLengthMetric.tag]
-        ttft = record_metrics[TTFTMetric.tag]
-        converted_ttft: float = TTFTMetric.unit.convert_to(  # type: ignore
-            self.unit.time_unit, ttft,  # type: ignore
-        )  # fmt: skip
+        converted_ttft: float = record_metrics.get_converted(TTFTMetric.tag, self.unit.time_unit)  # fmt: skip # type: ignore
         return isl / converted_ttft  # type: ignore

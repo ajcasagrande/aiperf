@@ -15,6 +15,10 @@ class EndpointTypeInfo(BasePydanticEnumInfo):
     supports_streaming: bool = Field(
         ..., description="True if the endpoint supports streaming, False otherwise."
     )
+    supports_audio: bool = Field(
+        False,
+        description="True if the endpoint supports audio, False otherwise.",
+    )
     produces_tokens: bool = Field(
         ..., description="True if the endpoint produces tokens, False otherwise."
     )
@@ -62,6 +66,14 @@ class EndpointType(BasePydanticBackedStrEnum):
         tag="responses",
         supports_streaming=True,
         produces_tokens=True,
+        endpoint_path="/v1/responses",
+        metrics_title="LLM Metrics",
+    )
+    OPENAI_AUDIO = EndpointTypeInfo(
+        tag="responses",
+        supports_streaming=True,
+        produces_tokens=True,
+        supports_audio=True,
         endpoint_path="/v1/responses",
         metrics_title="LLM Metrics",
     )
