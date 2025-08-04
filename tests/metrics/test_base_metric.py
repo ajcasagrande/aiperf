@@ -19,7 +19,7 @@ class ExampleMetricDefinition(BaseMetric[int]):
     unit = MetricTimeUnit.NANOSECONDS
     display_unit = MetricTimeUnit.MILLISECONDS
     header = "Inter-Token Latency"
-    flags = MetricFlags.LARGER_IS_BETTER | MetricFlags.STREAMING_ONLY
+    flags = MetricFlags.STREAMING_TOKENS_ONLY
     required_metrics = {
         MetricTag.REQUEST_LATENCY,
         MetricTag.TTFT,

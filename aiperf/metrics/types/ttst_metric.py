@@ -18,15 +18,19 @@ class TTSTMetric(BaseRecordMetric[int]):
     flags = MetricFlags.STREAMING_TOKENS_ONLY
     required_metrics = None
 
-    def _validate_record(
-        self, record: ParsedResponseRecord, record_metrics: MetricRecordDict
-    ) -> None:
+    def _parse_record(
+        self,
+        record: ParsedResponseRecord,
+        record_metrics: MetricRecordDict,
+    ) -> int:
         """
-        Checks if the record is valid for TTST calculation.
+        This method extracts the timestamps from the first and second response in the given
+        RequestRecord object, computes the difference (TTST), and returns the result.
 
         Raises:
-            ValueError: If the record does not have at least two responses.
+            ValueError: If the record does not have at least two responses, or if the second response is before the first response.
         """
+
         if len(record.responses) < 2:
             raise ValueError(
                 "Record must have at least two responses to calculate TTST."
@@ -36,15 +40,6 @@ class TTSTMetric(BaseRecordMetric[int]):
                 "Second response timestamp must be greater than or equal to the first response timestamp."
             )
 
-    def _parse_record(
-        self,
-        record: ParsedResponseRecord,
-        record_metrics: MetricRecordDict,
-    ) -> int:
-        """
-        This method extracts the timestamps from the first and second response in the given
-        RequestRecord object, computes the difference (TTST), and returns the result.
-        """
         first_response_ts: int = record.responses[0].perf_ns
         second_response_ts: int = record.responses[1].perf_ns
         return second_response_ts - first_response_ts

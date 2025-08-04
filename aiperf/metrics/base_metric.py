@@ -15,8 +15,8 @@ from aiperf.common.models.record_models import ParsedResponseRecord
 from aiperf.common.types import MetricTagT, MetricUnitT
 from aiperf.metrics.metric_dicts import (
     BaseMetricDict,
+    MetricResultsDict,
 )
-from aiperf.metrics.metric_registry import MetricRegistry
 
 
 class BaseMetric(Generic[MetricValueTypeVarT], ABC):
@@ -65,8 +65,20 @@ class BaseMetric(Generic[MetricValueTypeVarT], ABC):
         # Make sure to do this after checking for abstractness, so that the imports are available
         cls._verify_base_class()
 
-        # Verify that the class has a non-empty and non-duplicate tag
-        cls._verify_tag()
+        # Import MetricRegistry here to avoid circular imports
+        from aiperf.metrics.metric_registry import MetricRegistry
+
+        # Enforce that subclasses define a non-empty tag
+        if not cls.tag or not isinstance(cls.tag, str):
+            raise TypeError(
+                f"Concrete metric class {cls.__name__} must define a non-empty 'tag' class attribute"
+            )
+
+        # Check for duplicate tags
+        if cls.tag in MetricRegistry.all_tags():
+            raise ValueError(
+                f"Metric tag '{cls.tag}' is already registered by {MetricRegistry.get_class(cls.tag).__name__}"
+            )
 
         # Auto-detect value type from generic parameter
         cls.value_type = cls._detect_value_type()
@@ -99,17 +111,6 @@ class BaseMetric(Generic[MetricValueTypeVarT], ABC):
     @classmethod
     def _verify_tag(cls) -> None:
         """Verify that the class has a non-empty and non-duplicate tag."""
-        # Enforce that subclasses define a non-empty tag
-        if not cls.tag or not isinstance(cls.tag, str):
-            raise TypeError(
-                f"Concrete metric class {cls.__name__} must define a non-empty 'tag' class attribute"
-            )
-
-        # Check for duplicate tags
-        if cls.tag in MetricRegistry.all_tags():
-            raise ValueError(
-                f"Metric tag '{cls.tag}' is already registered by {MetricRegistry.get_class(cls.tag).__name__}"
-            )
 
     @classmethod
     def _detect_value_type(cls) -> MetricValueType:
@@ -129,12 +130,12 @@ class BaseMetric(Generic[MetricValueTypeVarT], ABC):
 
     def _require_valid_record(self, record: ParsedResponseRecord) -> None:
         """Check that the record is valid."""
-        if (not record or not record.valid) and self.missing_flags(
+        if (not record or not record.valid) and not self.has_flags(
             MetricFlags.ERROR_ONLY
         ):
             raise ValueError("Invalid Record")
 
-    def _check_metrics(self, metrics: BaseMetricDict) -> None:
+    def _check_metrics(self, metrics: BaseMetricDict | MetricResultsDict) -> None:
         """Check that the required metrics are available."""
         if self.required_metrics is None:
             return

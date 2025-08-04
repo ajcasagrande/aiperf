@@ -233,6 +233,7 @@ class MetricTag(CaseInsensitiveStrEnum):
     BENCHMARK_DURATION = "benchmark_duration"
     BENCHMARK_TOKEN_COUNT = "benchmark_token_count"
     CONNECTION_LATENCY = "connection_latency"
+    FIRST_TOKEN_LATENCY = "first_token_latency"
     ISL = "isl"
     ITL = "itl"
     MAX_RESPONSE = "max_response"
@@ -387,6 +388,9 @@ class MetricFlags(Flag):
     LARGER_IS_BETTER = 1 << 4
     """Metrics that are better when the value is larger. By default, it is assumed that metrics are
     better when the value is smaller."""
+
+    HIDE_IF_ZERO = 1 << 5
+    """Metrics that should be hidden if the value is 0, such as error counts."""
 
     STREAMING_TOKENS_ONLY = STREAMING_ONLY | PRODUCES_TOKENS_ONLY
     """Metrics that are only applicable to streamed responses and token-based endpoints.

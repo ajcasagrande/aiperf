@@ -13,10 +13,15 @@ class BaseAggregateMetric(
     Generic[MetricValueTypeVarT], BaseMetric[MetricValueTypeVarT], ABC
 ):
     """A base class for aggregate metrics. These metrics keep track of a value or list of values over time.
-    They are updated for each record, and the value should be based on previous values.
-    They will produce a single final value (or list of values).
 
-    NOTE: The generic type can be a list of values, or a single value.
+    This metric type is unique in the fact that it is split into 2 distinct phases of processing, in order to support distributed processing.
+
+    For each distributed RecordProcessor, an instance of this class is created. This instance is passed the record and the existing record metrics,
+    and is responsible for returning the individual value for that record. It should not use or update the aggregate value here.
+
+    The ResultsProcessor creates a singleton instance of this class, which will be used to aggregate the results from the distributed
+    RecordProcessors. It calls the `_aggregate_value` method, which each metric class must implement to define how values from different
+    processes are aggregated, such as summing the values, or taking the min/max/average, etc.
 
     Examples:
     ```python
@@ -24,11 +29,12 @@ class BaseAggregateMetric(
         # ... Metric attributes ...
 
         def _parse_record(self, record: ParsedResponseRecord, record_metrics: MetricRecordDict) -> int:
+            # We just return 1 since we are tracking the total count, and this is a single request.
             return 1
 
-        def _aggregate_value(self, value: int) -> int:
-            self._value += value
-            return self._value
+        def _aggregate_value(self, value: int) -> None:
+            # We add the value to the aggregate value.
+            self.current_value += value
     ```
     """
 
@@ -48,6 +54,11 @@ class BaseAggregateMetric(
         """Get the current value of the metric."""
         return self._value
 
+    @current_value.setter
+    def current_value(self, value: MetricValueTypeVarT) -> None:
+        """Set the current value of the metric."""
+        self._value = value
+
     def parse_record(
         self, record: ParsedResponseRecord, record_metrics: MetricRecordDict
     ) -> MetricValueTypeVarT:
@@ -58,37 +69,37 @@ class BaseAggregateMetric(
         """
         self._require_valid_record(record)
         self._check_metrics(record_metrics)
-        self._validate_inputs(record, record_metrics)
         return self._parse_record(record, record_metrics)
+
+    def aggregate_value(self, value: MetricValueTypeVarT) -> None:
+        """Aggregate the metric value. This method is implemented by subclasses.
+
+        This method is called with the result value from the `_parse_record` method, from each distributed record processor.
+        It is the responsibility of each metric class to implement how values from different processes are aggregated, such
+        as summing the values, or taking the min/max/average, etc.
+
+        NOTE: The order of the values is not guaranteed.
+        """
+        self._aggregate_value(value)
 
     @abstractmethod
     def _parse_record(
         self, record: ParsedResponseRecord, record_metrics: MetricRecordDict
     ) -> MetricValueTypeVarT:
-        """Parse the record and return the individual value. This method is implemented by subclasses.
+        """Parse the record and *return* the individual value base on this record, and this record alone. This
+        method is implemented by subclasses.
 
-        DO NOT UPDATE THE AGGREGATE VALUE HERE.
-        The aggregate value is updated in the ResultsProcessor via the `_aggregate_value` method.
+        NOTE: Do not use or update the aggregate value here.
 
         This method is called after the required metrics are checked, so it can assume that the required metrics are available.
         This method is called after the record is checked, so it can assume that the record is valid.
-        """
-        raise NotImplementedError("Subclasses must implement this method")
 
-    def _validate_inputs(
-        self, record: ParsedResponseRecord, record_metrics: MetricRecordDict
-    ) -> None:
-        """Check that the metric can be computed for the given inputs. This method can be implemented by subclasses.
-        This method is called after the required metrics are checked, so it can assume that the required metrics are available.
         Raises:
             ValueError: If the metric cannot be computed for the given inputs.
         """
-        pass
+        raise NotImplementedError("Subclasses must implement this method")
 
     @abstractmethod
-    def _aggregate_value(self, value: MetricValueTypeVarT) -> MetricValueTypeVarT:
-        """Aggregate the metric value. This method is implemented by subclasses.
-        This method is called with values from different processes, and should be implemented to aggregate the values.
-        It is the responsibility of each metric class to implement how values from different processes are aggregated.
-        """
+    def _aggregate_value(self, value: MetricValueTypeVarT) -> None:
+        """Aggregate the metric value. This method is implemented by subclasses."""
         raise NotImplementedError("Subclasses must implement this method")

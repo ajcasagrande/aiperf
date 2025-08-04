@@ -19,11 +19,13 @@ class InputSequenceLengthMetric(BaseRecordMetric[int]):
     flags = MetricFlags.PRODUCES_TOKENS_ONLY | MetricFlags.LARGER_IS_BETTER
     required_metrics = None
 
-    def _validate_record(
-        self, record: ParsedResponseRecord, record_metrics: MetricRecordDict
-    ) -> None:
+    def _parse_record(
+        self,
+        record: ParsedResponseRecord,
+        record_metrics: MetricRecordDict,
+    ) -> int:
         """
-        Checks if the record is valid for ISL calculation.
+        This method extracts the input token count from the record and returns it.
 
         Raises:
             ValueError: If the record does not have an input token count.
@@ -31,9 +33,4 @@ class InputSequenceLengthMetric(BaseRecordMetric[int]):
         if record.input_token_count is None:
             raise ValueError("Input Token Count is not available for the record.")
 
-    def _parse_record(
-        self,
-        record: ParsedResponseRecord,
-        record_metrics: MetricRecordDict,
-    ) -> int:
-        return record.input_token_count  # type: ignore
+        return record.input_token_count

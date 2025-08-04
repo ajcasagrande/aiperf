@@ -6,12 +6,16 @@ from pathlib import Path
 from threading import Lock
 from typing import TYPE_CHECKING
 
+from aiperf.common.aiperf_logger import AIPerfLogger
 from aiperf.common.enums.metric_enums import MetricFlags, MetricType
 from aiperf.common.exceptions import MetricTypeError
 from aiperf.common.types import MetricTagT, MetricUnitT
 
 if TYPE_CHECKING:
     from aiperf.metrics.base_metric import BaseMetric
+
+
+_logger = AIPerfLogger(__name__)
 
 
 class MetricRegistry:
@@ -28,35 +32,30 @@ class MetricRegistry:
     _instances_map: dict[MetricTagT, "BaseMetric"] = {}
     _instance_lock = Lock()
 
-    # Flag to indicate if the metric types have been discovered
-    _has_discovered_metrics = False
-    _discover_lock = Lock()
-
     @classmethod
-    def discover_metrics(cls) -> None:
+    def _discover_metrics(cls) -> None:
         """
         This method dynamically imports all metric type modules from the 'types' directory to ensure
         all metric classes are registered via __init_subclass__. It will only discover metrics once.
         """
-        if cls._has_discovered_metrics:
-            return  # Already discovered
+        # Get the types directory path
+        types_dir = Path(__file__).parent / "types"
 
-        with cls._discover_lock:
-            # Check again after acquiring the lock
-            if cls._has_discovered_metrics:
-                return  # Already discovered
+        # Ensure that the types directory exists
+        if not types_dir.exists() or not types_dir.is_dir():
+            raise MetricTypeError(
+                f"Types directory '{types_dir.resolve()}' does not exist or is not a directory"
+            )
 
-            # Get the types directory path
-            types_dir = Path(__file__).parent / "types"
+        # Import all metric type modules to trigger registration
+        print(
+            f"Importing metric type modules from {types_dir.resolve()} {cls.__module__=}"
+        )
+        _logger.debug(
+            f"Importing metric type modules from {types_dir.resolve()} {cls.__module__=}"
+        )
 
-            # Ensure that the types directory exists
-            if not types_dir.exists() or not types_dir.is_dir():
-                raise MetricTypeError(
-                    f"Types directory '{types_dir.resolve()}' does not exist or is not a directory"
-                )
-
-            # Import all metric type modules to trigger registration
-            cls._import_metric_type_modules(types_dir, "aiperf.metrics.types")
+        cls._import_metric_type_modules(types_dir, "aiperf.metrics.types")
 
     @classmethod
     def _import_metric_type_modules(cls, types_dir: Path, module_prefix: str) -> None:
@@ -67,6 +66,9 @@ class MetricRegistry:
                 # TODO: Can the below be more generic using the __module__ attribute of this file?
                 module_path = f"{module_prefix}.{module_name}"
                 try:
+                    _logger.debug(
+                        f"Importing metric type module: {module_path} from {python_file.resolve()}"
+                    )
                     importlib.import_module(module_path)
                 except ImportError as err:
                     raise MetricTypeError(
@@ -152,8 +154,7 @@ class MetricRegistry:
 
     @classmethod
     def validate_dependencies(cls) -> None:
-        """Validate that all dependencies are registered. This will also discover metrics if they are not already discovered."""
-        cls.discover_metrics()
+        """Validate that all dependencies are registered."""
         all_tags = cls.all_tags()
         all_classes = cls.all_classes()
 
@@ -222,3 +223,7 @@ class MetricRegistry:
             return [tag for tag in order if tag in tags_set]
         except graphlib.CycleError as e:
             raise ValueError(f"Circular dependency detected among metrics: {e}") from e
+
+
+# Ensure that the metrics are discovered when the module is imported.
+MetricRegistry._discover_metrics()

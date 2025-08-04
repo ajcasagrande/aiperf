@@ -30,15 +30,10 @@ class ConnectionLatencyMetric(BaseRecordMetric[int]):
         record_metrics: MetricRecordDict,
     ) -> int:
         """This method extracts the request and connect timestamps, and calculates the differences in time."""
-        request_ts: int = record.start_perf_ns
-        connect_ts: int = record.request.recv_start_perf_ns  # type: ignore
-        return connect_ts - request_ts
 
-    def _validate_record(
-        self,
-        record: ParsedResponseRecord,
-        record_metrics: MetricRecordDict,
-    ) -> None:
-        """This method validates that the record contains the required timestamps."""
         if record.request.recv_start_perf_ns is None:
             raise ValueError("Connection latency metric requires a recv_start_perf_ns")
+
+        request_ts: int = record.start_perf_ns
+        connect_ts: int = record.request.recv_start_perf_ns
+        return connect_ts - request_ts

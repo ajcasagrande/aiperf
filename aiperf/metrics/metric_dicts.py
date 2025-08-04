@@ -11,7 +11,6 @@ from aiperf.common.enums import MetricType
 from aiperf.common.enums.metric_enums import MetricDictValueTypeT, MetricValueTypeT
 from aiperf.common.models.record_models import MetricResult
 from aiperf.common.types import MetricTagT
-from aiperf.metrics.metric_registry import MetricRegistry
 
 
 class BaseMetricDict(dict[MetricTagT, MetricValueTypeT]):
@@ -44,7 +43,6 @@ class MetricResultsDict:
     """
 
     def __init__(self):
-        MetricRegistry.discover_metrics()
         self._results_dicts: dict[MetricType, dict[MetricTagT, MetricDictValueTypeT]] = {
             MetricType.RECORD: {},
             MetricType.AGGREGATE: {},
@@ -54,6 +52,8 @@ class MetricResultsDict:
     def _validate_and_get_metric_type(self, key: MetricTagT) -> MetricType:
         """Validate key and return its metric type."""
         try:
+            from aiperf.metrics.metric_registry import MetricRegistry
+
             metric_type = MetricRegistry.get_type(key)
         except ValueError:
             raise ValueError(f"Metric {key} not found in metric classes") from None
@@ -139,6 +139,8 @@ def _create_metric_result(
     tag: MetricTagT, values: MetricDictValueTypeT
 ) -> MetricResult:
     """Create a MetricResult from a the current values of a metric."""
+    from aiperf.metrics.metric_registry import MetricRegistry
+
     metric_class = MetricRegistry.get_class(tag)
     column = pd.Series(values) if not isinstance(values, pd.Series) else values
 

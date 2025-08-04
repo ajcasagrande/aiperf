@@ -18,11 +18,13 @@ class OutputSequenceLengthMetric(BaseRecordMetric[int]):
     flags = MetricFlags.PRODUCES_TOKENS_ONLY | MetricFlags.LARGER_IS_BETTER
     required_metrics = None
 
-    def _validate_record(
-        self, record: ParsedResponseRecord, record_metrics: MetricRecordDict
-    ) -> None:
+    def _parse_record(
+        self,
+        record: ParsedResponseRecord,
+        record_metrics: MetricRecordDict,
+    ) -> int:
         """
-        Checks if the record is valid for OSL calculation.
+        This method extracts the output token count from the record and returns it.
 
         Raises:
             ValueError: If the record does not have an output token count.
@@ -30,9 +32,4 @@ class OutputSequenceLengthMetric(BaseRecordMetric[int]):
         if record.output_token_count is None:
             raise ValueError("Output token count is missing in the record.")
 
-    def _parse_record(
-        self,
-        record: ParsedResponseRecord,
-        record_metrics: MetricRecordDict,
-    ) -> int:
-        return record.output_token_count  # type: ignore
+        return record.output_token_count

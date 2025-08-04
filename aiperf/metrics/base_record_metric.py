@@ -41,7 +41,6 @@ class BaseRecordMetric(
         """Parse a single record and return the metric value."""
         self._require_valid_record(record)
         self._check_metrics(record_metrics)
-        self._validate_record(record, record_metrics)
         return self._parse_record(record, record_metrics)
 
     @abstractmethod
@@ -51,15 +50,8 @@ class BaseRecordMetric(
         """Parse a single record and return the metric value. This method is implemented by subclasses.
         This method is called after the required metrics are checked, so it can assume that the required metrics are available.
         This method is called after the record is checked, so it can assume that the record is valid.
-        """
-        raise NotImplementedError("Subclasses must implement this method")
 
-    def _validate_record(
-        self, record: ParsedResponseRecord, record_metrics: MetricRecordDict
-    ) -> None:
-        """Check that the metric can be computed for the given inputs. This method can be implemented by subclasses.
-        This method is called after the required metrics are checked, so it can assume that the required metrics are available.
         Raises:
             ValueError: If the metric cannot be computed for the given inputs.
         """
-        pass
+        raise NotImplementedError("Subclasses must implement this method")

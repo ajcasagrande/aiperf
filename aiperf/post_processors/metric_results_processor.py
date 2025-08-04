@@ -10,7 +10,7 @@ from aiperf.common.factories import ResultsProcessorFactory
 from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.common.models.record_models import MetricResult
 from aiperf.common.protocols import ResultsProcessorProtocol
-from aiperf.metrics import BaseDerivedMetric
+from aiperf.metrics import BaseAggregateMetric, BaseDerivedMetric
 from aiperf.metrics.metric_dicts import MetricRecordDict, MetricResultsDict
 from aiperf.metrics.metric_registry import MetricRegistry
 
@@ -29,11 +29,12 @@ class MetricResultsProcessor(AIPerfLoggerMixin):
         tags = MetricRegistry.tags_applicable_to(
             MetricFlags.NONE, MetricFlags.NONE, MetricType.DERIVED
         )
-        self._metrics: list[BaseDerivedMetric] = [
+        # Create the dependency order for the derived metrics, and create the instances.
+        self._derived_metrics: list[BaseDerivedMetric] = [  # type: ignore
             MetricRegistry.get_instance(tag)
             for tag in MetricRegistry.create_dependency_order_for(tags)
-            if MetricRegistry.get_type(tag) == MetricType.DERIVED
         ]
+        # Create the results dict, which will be used to store the results of non-derived metrics.
         self._results: MetricResultsDict = MetricResultsDict()
 
     async def process_result(self, record_dict: MetricRecordDict) -> None:
@@ -41,8 +42,9 @@ class MetricResultsProcessor(AIPerfLoggerMixin):
         self.trace(lambda: f"Processing result: {record_dict}")
         for tag, value in record_dict.items():
             if MetricRegistry.get_type(tag) == MetricType.AGGREGATE:
-                value = MetricRegistry.get_instance(tag)._aggregate_value(value)  # type: ignore
-                self._results[tag] = value
+                metric: BaseAggregateMetric = MetricRegistry.get_instance(tag)  # type: ignore
+                metric.aggregate_value(value)
+                self._results[tag] = metric.current_value
             elif MetricRegistry.get_type(tag) == MetricType.RECORD:
                 self._results.setdefault(tag, deque()).append(value)  # type: ignore
             else:
@@ -51,7 +53,9 @@ class MetricResultsProcessor(AIPerfLoggerMixin):
 
     async def summarize(self) -> list[MetricResult]:
         """Summarize the results."""
-        for metric in self._metrics:
-            if metric.type == MetricType.DERIVED:
-                self._results[metric.tag] = metric.derive_value(self._results)
+        # Derive the values for the derived metrics, and store them in the results dict.
+        for metric in self._derived_metrics:
+            self._results[metric.tag] = metric.derive_value(self._results)
+
+        # Summarize the results, and return them.
         return self._results.summarize()
