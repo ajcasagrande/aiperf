@@ -381,6 +381,9 @@ class MetricFlags(Flag):
     SUPPORTS_AUDIO_ONLY = 1 << 7
     """Metrics that are only applicable to audio-based endpoints."""
 
+    SUPPORTS_IMAGE_ONLY = 1 << 8
+    """Metrics that are only applicable to image-based endpoints."""
+
     STREAMING_TOKENS_ONLY = STREAMING_ONLY | PRODUCES_TOKENS_ONLY
     """Metrics that are only applicable to streamed responses and token-based endpoints.
     This is a convenience flag that is the combination of the `STREAMING_ONLY` and `PRODUCES_TOKENS_ONLY` flags."""

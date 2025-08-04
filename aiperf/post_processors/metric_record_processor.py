@@ -49,8 +49,10 @@ class MetricRecordProcessor(AIPerfLoggerMixin):
         # Disable metrics that are not applicable to the endpoint type
         if not self.endpoint_type.produces_tokens:
             disallowed_flags |= MetricFlags.PRODUCES_TOKENS_ONLY
-        if not self.endpoint_type.info.supports_audio:
+        if not self.endpoint_type.supports_audio:
             disallowed_flags |= MetricFlags.SUPPORTS_AUDIO_ONLY
+        if not self.endpoint_type.supports_images:
+            disallowed_flags |= MetricFlags.SUPPORTS_IMAGE_ONLY
         if not self.is_streaming:
             disallowed_flags |= MetricFlags.STREAMING_ONLY
 
