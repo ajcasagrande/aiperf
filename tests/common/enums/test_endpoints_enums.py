@@ -175,6 +175,7 @@ class TestEndpointType:
         endpoint_type.info.metrics_title = None
 
         try:
+            # Check that the metrics_title returns the default value
             assert endpoint_type.metrics_title == "Metrics"
         finally:
             # Restore original value
