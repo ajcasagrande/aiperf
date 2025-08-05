@@ -107,7 +107,6 @@ class MetricResultsProcessor(BaseMetricsProcessor):
         return [
             self._create_metric_result(tag, values)
             for tag, values in self._results.items()
-            if values
         ]
 
     def _create_metric_result(

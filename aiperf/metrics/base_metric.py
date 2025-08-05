@@ -39,7 +39,7 @@ class BaseMetric(Generic[MetricValueTypeVarT], ABC):
     tag: ClassVar[MetricTagT]
     header: ClassVar[str] = ""
     unit: ClassVar[MetricUnitT]
-    display_unit: ClassVar[MetricUnitT]
+    display_unit: ClassVar[MetricUnitT | None] = None
     flags: ClassVar[MetricFlags] = MetricFlags.NONE
     required_metrics: ClassVar[set[MetricTagT] | None] = None
 
@@ -113,7 +113,7 @@ class BaseMetric(Generic[MetricValueTypeVarT], ABC):
                 if args:
                     # the first argument is the generic type
                     generic_type = args[0]
-                    return MetricValueType.from_type(generic_type)
+                    return MetricValueType.from_python_type(generic_type)
 
         raise ValueError(
             f"Unable to detect the value type for {cls.__name__}. Please check the generic type parameter."

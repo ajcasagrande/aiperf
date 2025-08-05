@@ -298,7 +298,7 @@ class MetricValueTypeInfo(BasePydanticEnumInfo):
 
     default_factory: Callable[[], MetricValueTypeT]
     converter: Callable[[Any], MetricValueTypeT]
-    dtype: type[MetricValueTypeT]
+    dtype: Any
 
 
 class MetricValueType(BasePydanticBackedStrEnum):
@@ -353,12 +353,12 @@ class MetricValueType(BasePydanticBackedStrEnum):
         return self.info.converter
 
     @cached_property
-    def dtype(self) -> type[MetricValueTypeT]:
-        """Get the dtype for the metric value type."""
+    def dtype(self) -> Any:
+        """Get the dtype for the metric value type (for pandas/numpy)."""
         return self.info.dtype
 
     @classmethod
-    def from_type(cls, type: type[MetricValueTypeT]) -> "MetricValueType":
+    def from_python_type(cls, type: type[MetricValueTypeT]) -> "MetricValueType":
         """Get the MetricValueType for a given type."""
         # If the type is a simple type like float or int, we have to use __name__.
         # This is because using str() on float or int will return <class 'float'> or <class 'int'>, etc.
