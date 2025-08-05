@@ -7,6 +7,7 @@ Shared fixtures for testing AIPerf metrics.
 
 import logging
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from typing import Any
 
 import pytest
@@ -25,162 +26,134 @@ from aiperf.post_processors.metric_results_processor import MetricResultsProcess
 logging.basicConfig(level=logging.DEBUG)
 
 
-class ParsedResponseRecordBuilder:
-    """Builder class for creating ParsedResponseRecord instances with flexible configuration.
+@dataclass
+class Response:
+    """Type-safe configuration for a response in test records."""
 
-    Supports building single or multiple ParsedResponseRecord instances with custom
-    requests and responses for comprehensive testing scenarios.
+    perf_ns: int
+    token_count: int = 1
+    raw_text: list[str] = field(default_factory=list)
+    parsed_text: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_response_data(self) -> ResponseData:
+        """Convert to ResponseData object."""
+        return ResponseData(
+            perf_ns=self.perf_ns,
+            token_count=self.token_count,
+            raw_text=self.raw_text,
+            parsed_text=self.parsed_text,
+            metadata=self.metadata,
+        )
+
+
+@dataclass
+class ParsedRecord:
+    """Type-safe configuration for a complete test record."""
+
+    request_start_time: int = 100
+    worker_id: str = "worker_1"
+    input_token_count: int | None = 5
+    responses: list[Response] = field(default_factory=lambda: [Response(perf_ns=150)])
+    # Request-specific fields
+    conversation_id: str = "test-conversation"
+    turn_index: int = 0
+    model_name: str = "test-model"
+    # Additional request kwargs (for things like recv_start_perf_ns)
+    request_kwargs: dict[str, Any] = field(default_factory=dict)
+
+
+class ParsedResponseRecordBuilder:
+    """Builder class for creating ParsedResponseRecord instances with type-safe dataclasses.
+
+    Type-safe API using dataclasses:
+
+    # Simple single response
+    record = builder.create_record_from_config(ParsedRecord(
+        request_start_time=100,
+        responses=[Response(perf_ns=150, token_count=1)]
+    ))
+
+    # Multiple responses
+    record = builder.create_record_from_config(ParsedRecord(
+        request_start_time=100,
+        responses=[
+            Response(perf_ns=120, token_count=1),
+            Response(perf_ns=140, token_count=2)
+        ]
+    ))
+
+    # Multiple records
+    records = builder.create_records_from_configs([
+        ParsedRecord(request_start_time=10, responses=[Response(perf_ns=15)]),
+        ParsedRecord(request_start_time=20, responses=[Response(perf_ns=25)])
+    ])
+
+    # Convenience method for simple cases
+    record = builder.simple_record(request_start_time=100, response_perf_ns=150)
     """
 
-    def __init__(self):
-        self.reset()
-
-    def reset(self):
-        """Reset the builder to default values."""
-        self._records: list[dict[str, Any]] = []  # List of record configurations
-        self._current_record: dict[str, Any] = self._new_record_config()
-        return self
-
-    def _new_record_config(self):
-        """Create a new record configuration with default values."""
-        return {
-            "worker_id": "worker_1",
-            "request_start_perf_ns": 100,
-            "request_kwargs": {},
-            "responses": [],
-            "input_token_count": None,  # Will use default if not set
-        }
-
-    def with_worker_id(self, worker_id: str):
-        """Set the worker ID for the current record."""
-        self._current_record["worker_id"] = worker_id
-        return self
-
-    def with_request_start_time(self, timestamp_ns: int):
-        """Set the request start time for the current record."""
-        self._current_record["request_start_perf_ns"] = timestamp_ns
-        self._current_record["request_kwargs"]["timestamp_ns"] = timestamp_ns
-        return self
-
-    def with_request_kwargs(self, **kwargs):
-        """Add additional kwargs to the RequestRecord for the current record."""
-        self._current_record["request_kwargs"].update(kwargs)
-        return self
-
-    def with_input_token_count(self, count: int | None):
-        """Set the input token count for the current record."""
-        self._current_record["input_token_count"] = count
-        return self
-
-    def add_response(
+    def simple_record(
         self,
-        perf_ns: int,
-        raw_text: list[str] = None,
-        parsed_text: list[str] = None,
-        **kwargs,
-    ):
-        if raw_text is None:
-            raw_text = []
-        if parsed_text is None:
-            parsed_text = []
-
-        # Ensure token_count defaults to 1 if not provided
-        if "token_count" not in kwargs:
-            kwargs["token_count"] = 1
-
-        response_data = ResponseData(
-            perf_ns=perf_ns, raw_text=raw_text, parsed_text=parsed_text, **kwargs
-        )
-        self._current_record["responses"].append(response_data)
-        return self
-
-    def add_responses(self, *response_configs):
-        """Add multiple responses to the current record. Each config should be a dict with response parameters."""
-        for config in response_configs:
-            self.add_response(**config)
-        return self
-
-    def new_record(self):
-        """Finish the current record and start a new one. Returns self for chaining."""
-        self._records.append(self._current_record.copy())
-        self._current_record = self._new_record_config()
-        return self
-
-    def add_request(
-        self,
-        worker_id: str | None = None,
-        start_perf_ns: int | None = None,
+        request_start_time: int = 100,
+        response_perf_ns: int | None = None,
+        token_count: int = 1,
+        worker_id: str = "worker_1",
+        input_token_count: int | None = 5,
         **request_kwargs,
-    ):
-        """Add a new request record. Automatically starts a new record."""
-        self.new_record()
+    ) -> ParsedResponseRecord:
+        """Create a simple single-response record with type-safe arguments."""
+        if response_perf_ns is None:
+            response_perf_ns = request_start_time + 50
 
-        if worker_id is not None:
-            self.with_worker_id(worker_id)
-        if start_perf_ns is not None:
-            self.with_request_start_time(start_perf_ns)
-        if request_kwargs:
-            self.with_request_kwargs(**request_kwargs)
+        response = Response(perf_ns=response_perf_ns, token_count=token_count)
 
-        return self
-
-    def build(self) -> ParsedResponseRecord:
-        """Build and return a single ParsedResponseRecord (for backward compatibility)."""
-        records = self.build_all()
-        return records[0]
-
-    def build_all(self) -> list[ParsedResponseRecord]:
-        """Build and return all configured ParsedResponseRecord instances."""
-        # Add the current record if it has content
-        all_records = self._records.copy()
-        all_records.append(self._current_record)
-
-        parsed_records = []
-        for record_config in all_records:
-            request = RequestRecord(
-                conversation_id="test-conversation",
-                turn_index=0,
-                model_name="test-model",
-                start_perf_ns=record_config["request_start_perf_ns"],
-                **record_config["request_kwargs"],
-            )
-
-            # Calculate token counts automatically if not already set
-            output_token_count = (
-                sum(
-                    response.token_count
-                    for response in record_config["responses"]
-                    if hasattr(response, "token_count")
-                    and response.token_count is not None
-                )
-                if record_config["responses"]
-                else None
-            )
-
-            # Use configured input token count, or default to 5 if none set
-            # If explicitly set to None, keep it None for testing missing scenarios
-            if (
-                "input_token_count" in record_config
-                and record_config["input_token_count"] is None
-            ):
-                input_token_count = None
-            else:
-                input_token_count = (
-                    record_config["input_token_count"]
-                    if record_config["input_token_count"] is not None
-                    else 5
-                )
-
-            parsed_record = ParsedResponseRecord(
-                worker_id=record_config["worker_id"],
-                request=request,
-                responses=record_config["responses"].copy(),
+        return self.create_record_from_config(
+            ParsedRecord(
+                request_start_time=request_start_time,
+                worker_id=worker_id,
                 input_token_count=input_token_count,
-                output_token_count=output_token_count,
+                responses=[response],
+                request_kwargs=request_kwargs,
             )
-            parsed_records.append(parsed_record)
+        )
 
-        return parsed_records
+    def create_record_from_config(self, config: ParsedRecord) -> ParsedResponseRecord:
+        """Create a ParsedResponseRecord from a type-safe ParsedRecord config."""
+        # Convert Response objects to ResponseData
+        response_objects = [resp.to_response_data() for resp in config.responses]
+
+        # Calculate output token count
+        if not response_objects:
+            output_token_count = None
+        else:
+            output_token_count = sum(
+                resp.token_count for resp in response_objects if resp.token_count
+            )
+
+        # Create request with all config fields
+        request = RequestRecord(
+            conversation_id=config.conversation_id,
+            turn_index=config.turn_index,
+            model_name=config.model_name,
+            start_perf_ns=config.request_start_time,
+            timestamp_ns=config.request_start_time,
+            **config.request_kwargs,
+        )
+
+        return ParsedResponseRecord(
+            worker_id=config.worker_id,
+            request=request,
+            responses=response_objects,
+            input_token_count=config.input_token_count,
+            output_token_count=output_token_count,
+        )
+
+    def create_records_from_configs(
+        self, configs: list[ParsedRecord]
+    ) -> list[ParsedResponseRecord]:
+        """Create multiple ParsedResponseRecord instances from type-safe ParsedRecord configs."""
+        return [self.create_record_from_config(config) for config in configs]
 
 
 class BaseMetricTest(ABC):
