@@ -3,36 +3,58 @@
 
 import pytest
 
-from aiperf.common.models import ParsedResponseRecord, RequestRecord, ResponseData
-from aiperf.metrics.types import (
-    OutputTokenCountMetric,
-)
+from aiperf.common.aiperf_logger import AIPerfLogger
+from aiperf.common.config.endpoint_config import EndpointConfig
+from aiperf.common.config.user_config import UserConfig
+from aiperf.common.enums.endpoints_enums import EndpointType
+from aiperf.metrics.types.output_token_count import OutputTokenCountMetric
+from aiperf.post_processors.metric_record_processor import MetricRecordProcessor
+from aiperf.post_processors.metric_results_processor import MetricResultsProcessor
 
 
 @pytest.fixture
-def sample_record():
-    return ParsedResponseRecord(
-        worker_id="worker-1",
-        request=RequestRecord(
-            conversation_id="c1",
-            turn_index=0,
-            model_name="model",
-            start_perf_ns=0,
-            timestamp_ns=0,
+def mock_user_config():
+    return UserConfig(
+        endpoint=EndpointConfig(
+            type=EndpointType.OPENAI_COMPLETIONS,
+            streaming=False,
+            model_names=["test-model"],
         ),
-        responses=[
-            ResponseData(
-                perf_ns=100,
-                raw_text=["hello"],
-                parsed_text=["hello"],
-                token_count=5,
-            )
-        ],
-        output_token_count=5,
     )
 
 
-def test_output_token_count_metric(sample_record):
-    metric = OutputTokenCountMetric()
-    metric.update_value(record=sample_record)
-    assert metric.values() == [5]
+_logger = AIPerfLogger(__name__)
+
+
+@pytest.mark.asyncio
+async def test_output_token_count_metric(
+    parsed_response_record_builder, mock_user_config
+):
+    """Test output token count metric."""
+    record = (
+        parsed_response_record_builder.with_request_start_time(0)
+        .add_response(
+            perf_ns=100, token_count=5, raw_text=["hello"], parsed_text=["hello"]
+        )
+        .build()
+    )
+
+    # Set the output token count manually
+    record.output_token_count = 5
+
+    record_processor = MetricRecordProcessor(user_config=mock_user_config)
+    results_processor = MetricResultsProcessor(user_config=mock_user_config)
+
+    record_metrics = await record_processor.process_record(record=record)
+    await results_processor.process_result(record_metrics)
+
+    summary = await results_processor.summarize()
+
+    found = False
+    for result in summary:
+        if result.tag == OutputTokenCountMetric.tag:
+            _logger.trace(f"Result: {result}")
+            assert result.avg == 5
+            found = True
+            break
+    assert found, "OutputTokenCountMetric not found in summary"

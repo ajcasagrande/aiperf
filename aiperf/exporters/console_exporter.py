@@ -23,7 +23,8 @@ class ConsoleExporter(AIPerfLoggerMixin):
 
     STAT_COLUMN_KEYS = ["avg", "min", "max", "p99", "p90", "p75", "std", "count"]
 
-    def __init__(self, exporter_config: ExporterConfig) -> None:
+    def __init__(self, exporter_config: ExporterConfig, **kwargs) -> None:
+        super().__init__(**kwargs)
         self._results = exporter_config.results
         self._endpoint_type = exporter_config.input_config.endpoint.type
 
