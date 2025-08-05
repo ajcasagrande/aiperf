@@ -10,6 +10,9 @@ from aiperf.metrics.metric_dicts import MetricRecordDict
 class ValidRequestCountMetric(BaseAggregateMetric[int]):
     """
     Post-processor for counting the number of valid requests.
+
+    Formula:
+        Valid Request Count = Sum(Valid Requests)
     """
 
     tag = "valid_request_count"

@@ -266,14 +266,14 @@ class BaseMetricTest(ABC):
                 await record_processor.process_record(record=record)
 
     async def assert_invalid_record_raises(
-        self, expected_error: type | tuple[type, ...] = (ValueError, AttributeError)
+        self, record: ParsedResponseRecord, expected_error: type = ValueError
     ):
         """Assert that processing None/invalid record raises an error."""
         user_config = self.get_user_config()
         record_processor = MetricRecordProcessor(user_config=user_config)
 
         with pytest.raises(expected_error):
-            await record_processor.process_record(record=None)
+            await record_processor.process_record(record=record)
 
 
 @pytest.fixture

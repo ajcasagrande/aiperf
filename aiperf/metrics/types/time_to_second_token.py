@@ -9,6 +9,9 @@ from aiperf.metrics.metric_dicts import MetricRecordDict
 class TTSTMetric(BaseRecordMetric[int]):
     """
     Post-processor for calculating Time to Second Token (TTST) metrics from records.
+
+    Formula:
+        TTST = Second Response Timestamp - First Response Timestamp
     """
 
     tag = "ttst"

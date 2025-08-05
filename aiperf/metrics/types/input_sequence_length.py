@@ -11,6 +11,9 @@ from aiperf.metrics.metric_dicts import MetricRecordDict
 class InputSequenceLengthMetric(BaseRecordMetric[int]):
     """
     Post-processor for calculating Input Sequence Length (ISL) metrics from records.
+
+    Formula:
+        Input Sequence Length = Sum of Input Token Counts
     """
 
     tag = "input_sequence_length"

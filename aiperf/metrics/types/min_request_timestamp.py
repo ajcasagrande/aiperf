@@ -11,6 +11,9 @@ from aiperf.metrics.metric_dicts import MetricRecordDict
 class MinRequestTimestampMetric(BaseAggregateMetric[int]):
     """
     Post-processor for calculating the minimum request time stamp metric from records.
+
+    Formula:
+        Minimum Request Timestamp = Min(Request Timestamps)
     """
 
     tag = "min_request_timestamp"

@@ -12,6 +12,9 @@ from aiperf.metrics.types.time_to_first_token import TTFTMetric
 class InputThroughputMetric(BaseRecordMetric[float]):
     """
     Post-processor for calculating Input Throughput metrics from records. This is only applicable to streaming responses.
+
+    Formula:
+        Input Throughput = Input Sequence Length / Time to First Token (seconds)
     """
 
     tag = "input_throughput"

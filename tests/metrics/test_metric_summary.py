@@ -14,7 +14,7 @@ from .conftest import (
 
 
 class TestMetricSummary(BaseMetricTest):
-    """Test suite for metric summary functionality using type-safe dataclasses."""
+    """Test suite for metric summary."""
 
     @property
     def endpoint_config(self) -> EndpointConfig:
@@ -58,12 +58,10 @@ class TestMetricSummary(BaseMetricTest):
         summary = await self.process_records_and_get_summary(records)
 
         # Verify summary contains multiple metrics
-        assert len(summary.results) > 1, (
-            "Summary should contain multiple metric results"
-        )
+        assert len(summary) > 1, "Summary should contain multiple metric results"
 
         # Check that we have some key metrics
-        metric_tags = {result.tag for result in summary.results}
+        metric_tags = {result.tag for result in summary}
         expected_metrics = {
             "request_latency",
             "valid_request_count",
@@ -95,11 +93,11 @@ class TestMetricSummary(BaseMetricTest):
         summary = await self.process_single_record_and_get_summary(record)
 
         # Should have multiple metric results
-        assert len(summary.results) > 0, "Summary should contain metric results"
+        assert len(summary) > 0, "Summary should contain metric results"
 
         # Check for request latency specifically
         request_latency_result = None
-        for result in summary.results:
+        for result in summary:
             if result.tag == "request_latency":
                 request_latency_result = result
                 break

@@ -11,6 +11,9 @@ from aiperf.metrics.types.benchmark_token_count import BenchmarkTokenCountMetric
 class OutputTokenThroughputMetric(BaseDerivedMetric[float]):
     """
     Post Processor for calculating Output Token Throughput Metric.
+
+    Formula:
+        Output Token Throughput = Benchmark Token Count / Benchmark Duration (seconds)
     """
 
     tag = "output_token_throughput"

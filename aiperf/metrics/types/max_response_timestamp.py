@@ -11,6 +11,9 @@ from aiperf.metrics.types.request_latency import RequestLatencyMetric
 class MaxResponseTimestampMetric(BaseAggregateMetric[int]):
     """
     Post-processor for calculating the maximum response time stamp metric from records.
+
+    Formula:
+        Maximum Response Timestamp = Max(Final Response Timestamps)
     """
 
     tag = "max_response_timestamp"

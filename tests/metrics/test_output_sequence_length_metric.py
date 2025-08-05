@@ -96,7 +96,7 @@ class TestOutputSequenceLengthMetric(BaseMetricTest):
         record = parsed_response_record_builder.create_record_from_config(
             ParsedRecord(request_start_time=100, responses=[])
         )
-
+        record.output_token_count = None
         await self.assert_record_processing_raises(
             record, match="Output token count is missing in the record."
         )

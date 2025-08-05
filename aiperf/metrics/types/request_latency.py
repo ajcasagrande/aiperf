@@ -10,6 +10,9 @@ from aiperf.metrics.metric_dicts import MetricRecordDict
 class RequestLatencyMetric(BaseRecordMetric[int]):
     """
     Post-processor for calculating Request Latency metrics from records.
+
+    Formula:
+        Request Latency = Final Response Timestamp - Request Start Timestamp
     """
 
     tag = "request_latency"

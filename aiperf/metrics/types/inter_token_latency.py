@@ -13,6 +13,9 @@ from aiperf.metrics.types.time_to_first_token import TTFTMetric
 class InterTokenLatencyMetric(BaseRecordMetric[float]):
     """
     Post Processor for calculating Inter Token Latency (ITL) metric.
+
+    Formula:
+        Inter Token Latency = (Request Latency - Time to First Token) / (Output Sequence Length - 1)
     """
 
     tag = "inter_token_latency"

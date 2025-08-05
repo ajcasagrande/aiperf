@@ -48,13 +48,25 @@ class TestTTFTMetric(BaseMetricTest):
         """Test TTFT metric with multiple records."""
         configs = [
             ParsedRecord(
-                request_start_time=10, responses=[Response(perf_ns=15, token_count=1)]
+                request_start_time=10,
+                responses=[
+                    Response(perf_ns=15, token_count=1),
+                    Response(perf_ns=15, token_count=1),
+                ],
             ),
             ParsedRecord(
-                request_start_time=20, responses=[Response(perf_ns=25, token_count=1)]
+                request_start_time=20,
+                responses=[
+                    Response(perf_ns=25, token_count=1),
+                    Response(perf_ns=25, token_count=1),
+                ],
             ),
             ParsedRecord(
-                request_start_time=30, responses=[Response(perf_ns=40, token_count=1)]
+                request_start_time=30,
+                responses=[
+                    Response(perf_ns=40, token_count=1),
+                    Response(perf_ns=40, token_count=1),
+                ],
             ),
         ]
 

@@ -15,6 +15,9 @@ class ConnectionLatencyMetric(BaseRecordMetric[int]):
     any SSE messages are received. It evaluates the time for the server to acknowledge the request. This value
     can be used to evaluate the performance of the server's connection handling, as well as the performance of the
     client's connection handling.
+
+    Formula:
+        Connection Latency = Receive Start Timestamp - Request Start Timestamp
     """
 
     tag = "connection_latency"

@@ -12,6 +12,9 @@ from aiperf.metrics.types.output_sequence_length import OutputSequenceLengthMetr
 class BenchmarkTokenCountMetric(BaseAggregateMetric):
     """
     Post-processor for calculating the Benchmark Token Count metric. This is the total number of tokens processed by the benchmark.
+
+    Formula:
+        Benchmark Token Count = Sum of Output Sequence Lengths
     """
 
     tag = "benchmark_token_count"

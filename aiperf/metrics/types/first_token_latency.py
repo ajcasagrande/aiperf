@@ -15,6 +15,9 @@ class FirstTokenLatencyMetric(BaseRecordMetric[int]):
 
     This is the time it takes for the client to receive the first token of the response from the server, after
     already receiving the 200 OK response.
+
+    Formula:
+        First Token Latency = Time to First Token - Connection Latency
     """
 
     tag = "first_token_latency"

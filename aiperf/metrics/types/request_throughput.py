@@ -12,6 +12,9 @@ from aiperf.metrics.types.valid_request_count import ValidRequestCountMetric
 class RequestThroughputMetric(BaseDerivedMetric[float]):
     """
     Post Processor for calculating Request throughput metrics from records.
+
+    Formula:
+        Request Throughput = Valid Request Count / Benchmark Duration (seconds)
     """
 
     tag = "request_throughput"

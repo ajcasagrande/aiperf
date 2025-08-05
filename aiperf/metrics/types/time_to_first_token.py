@@ -9,6 +9,9 @@ from aiperf.metrics.metric_dicts import MetricRecordDict
 class TTFTMetric(BaseRecordMetric[int]):
     """
     Post-processor for calculating Time to First Token (TTFT) metrics from records.
+
+    Formula:
+        TTFT = First Response Timestamp - Request Start Timestamp
     """
 
     tag = "ttft"

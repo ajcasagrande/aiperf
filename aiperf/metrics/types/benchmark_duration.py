@@ -11,6 +11,9 @@ from aiperf.metrics.types.min_request_timestamp import MinRequestTimestampMetric
 class BenchmarkDurationMetric(BaseDerivedMetric[int]):
     """
     Post-processor for calculating the Benchmark Duration metric.
+
+    Formula:
+        Benchmark Duration = Maximum Response Timestamp - Minimum Request Timestamp
     """
 
     tag = "benchmark_duration"

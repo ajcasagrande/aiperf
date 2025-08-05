@@ -11,6 +11,9 @@ from aiperf.metrics.types.inter_token_latency import InterTokenLatencyMetric
 class OutputInferenceSpeedMetric(BaseRecordMetric[float]):
     """
     Post Processor for calculating Output Inference Speed Metric.
+
+    Formula:
+        Output Inference Speed = 1 / Inter-Token Latency (seconds)
     """
 
     tag = "output_inference_speed"
@@ -26,5 +29,11 @@ class OutputInferenceSpeedMetric(BaseRecordMetric[float]):
         record: ParsedResponseRecord,
         record_metrics: MetricRecordDict,
     ) -> float:
-        converted_itl = record_metrics.get_converted(InterTokenLatencyMetric, self.unit.time_unit)  # fmt: skip  # type: ignore
-        return 1 / converted_itl  # type: ignore
+        converted_itl = record_metrics.get_converted(
+            InterTokenLatencyMetric, self.unit.time_unit
+        )  # type: ignore
+        if converted_itl == 0:
+            raise ValueError(
+                "Inter-token latency is 0, cannot compute output inference speed."
+            )
+        return 1 / converted_itl

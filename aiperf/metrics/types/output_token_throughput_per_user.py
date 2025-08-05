@@ -11,6 +11,9 @@ from aiperf.metrics.types.inter_token_latency import InterTokenLatencyMetric
 class OutputTokenThroughputPerUserMetric(BaseDerivedMetric[float]):
     """
     Post Processor for calculating Output Token Throughput per user metrics from records.
+
+    Formula:
+        Output Token Throughput Per User = Sum(Inter-Token Latencies) / Benchmark Token Count
     """
 
     tag = "output_token_throughput_per_user"

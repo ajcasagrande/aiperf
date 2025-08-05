@@ -13,16 +13,9 @@ from aiperf.metrics.metric_registry import MetricRegistry
 class BaseMetricsProcessor(AIPerfLoggerMixin, ABC):
     """Base class for all metrics processors. This class is responsible for filtering the metrics based on the user config."""
 
-    def __init__(self, *metric_types: MetricType, user_config: UserConfig, **kwargs):
+    def __init__(self, user_config: UserConfig, **kwargs):
         self.user_config = user_config
         super().__init__(user_config=user_config, **kwargs)
-        self.metrics: list[BaseMetric] = self._setup_metrics(
-            *metric_types, include_error_metrics=False
-        )
-        self.error_metrics: list[BaseMetric] = self._setup_metrics(
-            *metric_types, include_error_metrics=True
-        )
-        self.metric_types = metric_types
 
     def get_filters(self) -> tuple[MetricFlags, MetricFlags]:
         """Get the filters for the metrics based on the user config.
@@ -43,7 +36,10 @@ class BaseMetricsProcessor(AIPerfLoggerMixin, ABC):
         return required_flags, disallowed_flags
 
     def _setup_metrics(
-        self, *metric_types: MetricType, include_error_metrics: bool
+        self,
+        *metric_types: MetricType,
+        error_metrics_only: bool = False,
+        exclude_error_metrics: bool = False,
     ) -> list[BaseMetric]:
         """Get an ordered list of metrics that are applicable to the endpoint type and user config.
         The metrics are ordered based on their dependencies, ensuring proper computation order.
@@ -51,9 +47,9 @@ class BaseMetricsProcessor(AIPerfLoggerMixin, ABC):
         Be sure to compute the metrics sequentially versus in parallel, as some metrics may depend on the results of previous metrics.
         """
         required_flags, disallowed_flags = self.get_filters()
-        if include_error_metrics:
+        if error_metrics_only:
             required_flags |= MetricFlags.ERROR_ONLY
-        else:
+        elif exclude_error_metrics:
             disallowed_flags |= MetricFlags.ERROR_ONLY
 
         metrics: list[BaseMetric] = []

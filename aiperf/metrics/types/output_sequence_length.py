@@ -10,6 +10,9 @@ from aiperf.metrics.metric_dicts import MetricRecordDict
 class OutputSequenceLengthMetric(BaseRecordMetric[int]):
     """
     Post-processor for calculating Output Sequence Length (OSL) metrics from records.
+
+    Formula:
+        Output Sequence Length = Sum(Output Token Counts)
     """
 
     tag = "output_sequence_length"

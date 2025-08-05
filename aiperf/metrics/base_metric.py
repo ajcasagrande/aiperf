@@ -15,7 +15,7 @@ from aiperf.common.enums.metric_enums import (
 from aiperf.common.models.record_models import ParsedResponseRecord
 from aiperf.common.types import MetricTagT
 from aiperf.metrics.metric_dicts import (
-    BaseMetricDict,
+    MetricRecordDict,
     MetricResultsDict,
 )
 
@@ -38,8 +38,8 @@ class BaseMetric(Generic[MetricValueTypeVarT], ABC):
     # User-defined attributes to be overridden by subclasses
     tag: ClassVar[MetricTagT]
     header: ClassVar[str] = ""
-    unit: ClassVar[MetricUnitT] = None
-    display_unit: ClassVar[MetricUnitT] = None
+    unit: ClassVar[MetricUnitT]
+    display_unit: ClassVar[MetricUnitT]
     flags: ClassVar[MetricFlags] = MetricFlags.NONE
     required_metrics: ClassVar[set[MetricTagT] | None] = None
 
@@ -126,7 +126,7 @@ class BaseMetric(Generic[MetricValueTypeVarT], ABC):
         ):
             raise ValueError("Invalid Record")
 
-    def _check_metrics(self, metrics: BaseMetricDict | MetricResultsDict) -> None:
+    def _check_metrics(self, metrics: MetricRecordDict | MetricResultsDict) -> None:
         """Check that the required metrics are available."""
         if self.required_metrics is None:
             return

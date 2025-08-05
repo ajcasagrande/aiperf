@@ -12,6 +12,9 @@ class ErrorRequestCountMetric(BaseAggregateMetric[int]):
     Post-processor for counting the number of error requests.
 
     This metric is only applicable to error records.
+
+    Formula:
+        Error Request Count = Sum(Error Requests)
     """
 
     tag = "error_request_count"
