@@ -47,7 +47,7 @@ class MetricResult(AIPerfBaseModel):
 
 
 class ProfileResults(AIPerfBaseModel):
-    records: SerializeAsAny[list[MetricResult] | ErrorDetails | None] = Field(
+    records: list[MetricResult] | None = Field(
         ..., description="The records of the profile results"
     )
     total_expected: int | None = Field(
@@ -76,13 +76,10 @@ class ProfileResults(AIPerfBaseModel):
 class ProcessRecordsResult(AIPerfBaseModel):
     """Result of the process records command."""
 
-    records: list[ProfileResults] | None = Field(
-        default=None,
-        description="The records of the profile results",
-    )
-    errors: list[ErrorDetails] | None = Field(
-        default=None,
-        description="The errors of the profile results",
+    results: ProfileResults = Field(..., description="The profile results")
+    errors: list[ErrorDetails] = Field(
+        default_factory=list,
+        description="Any error that occurred while processing the profile results",
     )
 
 

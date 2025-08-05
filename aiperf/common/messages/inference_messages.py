@@ -54,11 +54,11 @@ class MetricRecordsMessage(BaseServiceMessage):
     results: list[dict[MetricTagT, MetricValueTypeT]] = Field(
         ..., description="The record processor results"
     )
-    errors: list[ErrorDetails] = Field(
-        default_factory=list, description="The error details if the request failed."
+    error: ErrorDetails | None = Field(
+        default=None, description="The error details if the request failed."
     )
 
     @property
     def valid(self) -> bool:
         """Whether the request was valid."""
-        return len(self.errors) == 0
+        return self.error is None

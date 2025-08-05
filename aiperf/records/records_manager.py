@@ -37,6 +37,7 @@ from aiperf.common.models import (
     ProcessRecordsResult,
     ProfileResults,
 )
+from aiperf.common.models.error_models import ErrorDetailsCount
 from aiperf.common.protocols import ResultsProcessorProtocol, ServiceProtocol
 from aiperf.common.types import MetricTagT
 
@@ -69,6 +70,7 @@ class RecordsManager(PullClientMixin, BaseComponentService):
         self.processing_stats: PhaseProcessingStats = PhaseProcessingStats()
         self.final_request_count: int | None = None
         self.end_time_ns: int | None = None
+        self.error_summary: dict[ErrorDetails, int] = {}
         # Track per-worker statistics
         self.worker_stats: dict[str, PhaseProcessingStats] = {}
 
@@ -104,6 +106,10 @@ class RecordsManager(PullClientMixin, BaseComponentService):
         else:
             self.worker_stats[worker_id].errors += 1
             self.processing_stats.errors += 1
+            if message.error:
+                self.error_summary[message.error] = (
+                    self.error_summary.get(message.error, 0) + 1
+                )
 
         await self._send_results_to_results_processors(message.results)
 
@@ -165,8 +171,10 @@ class RecordsManager(PullClientMixin, BaseComponentService):
         self.end_time_ns = phase_complete_msg.end_ns or time.time_ns()
         self.info(f"Updating final request count to {self.final_request_count}")
         self.notice(
-            f"All requests have completed, please wait for the results to be processed (currently {self.processing_stats.processed} of {self.final_request_count} records processed)..."
+            f"All requests have completed, please wait for the results to be processed (currently {self.processing_stats.total_records} of {self.final_request_count} records processed)..."
         )
+        if self.final_request_count == self.processing_stats.total_records:
+            await self._process_records(cancelled=False)
 
     @background_task(
         interval=lambda self: self.service_config.progress_report_interval,
@@ -230,25 +238,31 @@ class RecordsManager(PullClientMixin, BaseComponentService):
                 error_results.append(ErrorDetails.from_exception(result))
 
         result = ProcessRecordsResult(
-            records=[
-                ProfileResults(
-                    records=records_results,
-                    completed=len(records_results),
-                    start_ns=self.start_time_ns or time.time_ns(),
-                    end_ns=self.end_time_ns or time.time_ns(),
-                    was_cancelled=cancelled,
-                )
-            ],
+            results=ProfileResults(
+                records=records_results,
+                completed=len(records_results),
+                start_ns=self.start_time_ns or time.time_ns(),
+                end_ns=self.end_time_ns or time.time_ns(),
+                error_summary=self.get_error_summary(),
+                was_cancelled=cancelled,
+            ),
             errors=error_results,
         )
         self.debug(lambda: f"Process records result: {result}")
         await self.publish(
             ProcessRecordsResultMessage(
                 service_id=self.service_id,
-                process_records_result=result,
+                results=result,
             )
         )
         return result
+
+    def get_error_summary(self) -> list[ErrorDetailsCount]:
+        """Generate a summary of the error records."""
+        return [
+            ErrorDetailsCount(error_details=error_details, count=count)
+            for error_details, count in self.error_summary.items()
+        ]
 
 
 def main() -> None:

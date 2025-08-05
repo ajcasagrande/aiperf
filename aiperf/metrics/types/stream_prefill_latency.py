@@ -25,7 +25,7 @@ class StreamPrefillLatencyMetric(BaseRecordMetric[int]):
     header = "Stream Prefill Latency"
     unit = MetricTimeUnit.NANOSECONDS
     display_unit = MetricTimeUnit.MILLISECONDS
-    flags = MetricFlags.STREAMING_TOKENS_ONLY
+    flags = MetricFlags.STREAMING_TOKENS_ONLY | MetricFlags.INTERNAL
     required_metrics = {
         StreamSetupLatencyMetric.tag,
         TTFTMetric.tag,

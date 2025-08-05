@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+from datetime import datetime
+
 from rich.console import Console
 from rich.table import Table
 
@@ -26,9 +28,16 @@ class ConsoleExporter(AIPerfLoggerMixin):
     def __init__(self, exporter_config: ExporterConfig, **kwargs) -> None:
         super().__init__(**kwargs)
         self._results = exporter_config.results
-        self._endpoint_type = exporter_config.input_config.endpoint.type
+        self._endpoint_type = exporter_config.user_config.endpoint.type
+        self._show_internal_metrics = (
+            exporter_config.user_config.output.show_internal_metrics
+        )
 
     async def export(self, width: int | None = None) -> None:
+        if not self._results.records:
+            self.warning("No records to export")
+            return
+
         table = Table(title=self._get_title(), width=width)
         table.add_column("Metric", justify="right", style="cyan")
         for key in self.STAT_COLUMN_KEYS:
@@ -49,6 +58,8 @@ class ConsoleExporter(AIPerfLoggerMixin):
             table.add_row(*self._format_row(record))
 
     def _should_skip(self, record: MetricResult) -> bool:
+        if self._show_internal_metrics:
+            return False  # Show everything
         metric_class = MetricRegistry.get_class(record.tag)
         return metric_class.has_flags(MetricFlags.HIDDEN) or (
             metric_class.has_flags(MetricFlags.HIDE_IF_ZERO)
@@ -61,18 +72,19 @@ class ConsoleExporter(AIPerfLoggerMixin):
         row = [f"{record.header} ({display_unit})"]
         for stat in self.STAT_COLUMN_KEYS:
             value = getattr(record, stat, None)
+            if value is None:
+                row.append("[dim]N/A[/dim]")
+                continue
+
             # Count should never be unit-converted (it's always just the number of records)
-            if (
-                value is not None
-                and display_unit != metric_class.unit
-                and stat != "count"
-            ):
+            if display_unit != metric_class.unit and stat != "count":
                 try:
                     value = metric_class.unit.convert_to(display_unit, value)
                 except MetricUnitError as e:
                     self.warning(f"Error during unit conversion: {e}")
-            if value is None:
-                value = "[dim]N/A[/dim]"
+
+            if isinstance(value, datetime):
+                value = value.strftime("%Y-%m-%d %H:%M:%S")
             elif value == int(value):
                 value = f"{int(value):,}"
             else:

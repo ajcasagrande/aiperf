@@ -3,6 +3,7 @@
 
 from collections import deque
 from collections.abc import Callable
+from datetime import datetime
 from enum import Flag
 from functools import cached_property
 from typing import Any, TypeAlias, TypeVar
@@ -165,8 +166,15 @@ class MetricTimeUnit(BaseMetricUnit):
 
     def convert_to(self, other_unit: "MetricUnitT", value: int | float) -> float:
         """Convert a value from this unit to another unit."""
-        if not isinstance(other_unit, MetricTimeUnit | MetricTimeUnitInfo):
+        if not isinstance(
+            other_unit, MetricTimeUnit | MetricTimeUnitInfo | MetricDateTimeUnit
+        ):
             return super().convert_to(other_unit, value)
+
+        if isinstance(other_unit, MetricDateTimeUnit):
+            return datetime.fromtimestamp(
+                self.convert_to(MetricTimeUnit.SECONDS, value)
+            )
 
         return value * (other_unit.per_second / self.per_second)
 
@@ -179,9 +187,16 @@ def _unit(tag: str) -> BaseMetricUnitInfo:
 class GenericMetricUnit(BaseMetricUnit):
     """Defines generic units for metrics. These dont have any extra information other than the tag, which is used for display purposes."""
 
+    COUNT = _unit("count")
     REQUESTS = _unit("requests")
     TOKENS = _unit("tokens")
     USER = _unit("user")
+
+
+class MetricDateTimeUnit(BaseMetricUnit):
+    """Defines the various date time units that can be used for metrics."""
+
+    DATE_TIME = _unit("datetime")
 
 
 class MetricOverTimeUnitInfo(BaseMetricUnitInfo):

@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from aiperf.common.enums import MetricFlags, MetricTimeUnit
+from aiperf.common.enums import MetricDateTimeUnit, MetricFlags, MetricTimeUnit
 from aiperf.common.models import ParsedResponseRecord
 from aiperf.metrics import BaseAggregateMetric
 from aiperf.metrics.metric_dicts import MetricRecordDict
@@ -19,6 +19,7 @@ class MaxResponseTimestampMetric(BaseAggregateMetric[int]):
     tag = "max_response_timestamp"
     header = "Maximum Response Timestamp"
     unit = MetricTimeUnit.NANOSECONDS
+    display_unit = MetricDateTimeUnit.DATE_TIME
     flags = MetricFlags.HIDDEN
     required_metrics = {
         RequestLatencyMetric.tag,

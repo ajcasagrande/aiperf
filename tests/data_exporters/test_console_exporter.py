@@ -76,7 +76,7 @@ def mock_exporter_config(sample_records, mock_endpoint_config):
             end_ns=0,
             completed=0,
         ),
-        input_config=input_config,
+        user_config=input_config,
     )
 
 

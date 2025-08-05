@@ -28,7 +28,6 @@ from aiperf.common.messages import (
 )
 from aiperf.common.mixins import PullClientMixin
 from aiperf.common.models import ParsedResponseRecord
-from aiperf.common.models.error_models import ErrorDetails
 from aiperf.common.protocols import RecordProcessorProtocol
 from aiperf.common.tokenizer import Tokenizer
 from aiperf.metrics.metric_dicts import MetricRecordDict
@@ -121,10 +120,10 @@ class RecordProcessor(PullClientMixin, BaseComponentService):
             message.record
         )
         raw_results = await self._process_record(parsed_record)
-        results, errors = [], []
+        results = []
         for result in raw_results:
             if isinstance(result, BaseException):
-                errors.append(ErrorDetails.from_exception(result))
+                self.warning(f"Error processing record: {result}")
             else:
                 results.append(result)
         await self.records_push_client.push(
@@ -133,7 +132,7 @@ class RecordProcessor(PullClientMixin, BaseComponentService):
                 worker_id=message.service_id,
                 credit_phase=message.record.credit_phase,
                 results=results,
-                errors=errors,
+                error=message.record.error,
             )
         )
 

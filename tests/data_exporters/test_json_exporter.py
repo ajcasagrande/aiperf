@@ -85,7 +85,7 @@ class TestJsonExporter:
 
             exporter_config = ExporterConfig(
                 results=mock_results,
-                input_config=mock_user_config,
+                user_config=mock_user_config,
             )
 
             exporter = JsonExporter(exporter_config)

@@ -22,7 +22,7 @@ class StreamSetupLatencyMetric(BaseRecordMetric[int]):
     header = "Stream Setup Latency"
     unit = MetricTimeUnit.NANOSECONDS
     display_unit = MetricTimeUnit.MILLISECONDS
-    flags = MetricFlags.STREAMING_ONLY
+    flags = MetricFlags.STREAMING_ONLY | MetricFlags.INTERNAL
     required_metrics = None
 
     def _parse_record(
