@@ -1,22 +1,21 @@
-#  SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-#  SPDX-License-Identifier: Apache-2.0
-
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 import pytest
 
 from aiperf.common.config.endpoint_config import EndpointConfig
 from aiperf.common.enums.endpoints_enums import EndpointType
 from aiperf.metrics.types.input_sequence_length import InputSequenceLengthMetric
 
-from .conftest import BaseMetricTest
+from .conftest import BaseMetricTest, ParsedRecord, Response
 
 
 class TestInputSequenceLengthMetric(BaseMetricTest):
-    """Test suite for InputSequenceLengthMetric using the base test framework."""
+    """Test suite for InputSequenceLengthMetric using type-safe dataclasses."""
 
     @property
     def endpoint_config(self) -> EndpointConfig:
         return EndpointConfig(
-            type=EndpointType.OPENAI_COMPLETIONS,
+            type=EndpointType.OPENAI_EMBEDDINGS,
             streaming=False,
             model_names=["test-model"],
         )
@@ -26,38 +25,40 @@ class TestInputSequenceLengthMetric(BaseMetricTest):
         return InputSequenceLengthMetric.tag
 
     @pytest.mark.asyncio
-    async def test_isl_metric_with_multiple_records(
-        self, parsed_response_record_builder
-    ):
-        """Test input sequence length metric with multiple records."""
-        records = (
-            parsed_response_record_builder.with_request_start_time(10)
-            .with_input_token_count(5)  # Use builder method
-            .add_response(perf_ns=15, token_count=1)
-            .new_record()
-            .with_request_start_time(20)
-            .with_input_token_count(7)  # Use builder method
-            .add_response(perf_ns=25, token_count=1)
-            .build_all()
+    async def test_single_record(self, parsed_response_record_builder):
+        """Test input sequence length with a single record."""
+        record = parsed_response_record_builder.simple_record(
+            request_start_time=100, input_token_count=10
         )
 
+        summary = await self.process_single_record_and_get_summary(record)
+        self.assert_metric_value(summary, expected_value=10)
+
+    @pytest.mark.asyncio
+    async def test_multiple_records(self, parsed_response_record_builder):
+        """Test input sequence length with multiple records."""
+        configs = [
+            ParsedRecord(input_token_count=5, responses=[Response(perf_ns=120)]),
+            ParsedRecord(input_token_count=15, responses=[Response(perf_ns=130)]),
+            ParsedRecord(input_token_count=10, responses=[Response(perf_ns=140)]),
+        ]
+
+        records = parsed_response_record_builder.create_records_from_configs(configs)
         summary = await self.process_records_and_get_summary(records)
 
-        expected_avg = (5 + 7) / 2  # Average of [5, 7]
+        # Expected values: [5, 15, 10], average = 10
+        expected_avg = (5 + 15 + 10) / 3
         self.assert_metric_value(summary, expected_avg)
 
     @pytest.mark.asyncio
-    async def test_isl_metric_missing_input_token_count(
+    async def test_missing_input_token_count_raises_error(
         self, parsed_response_record_builder
     ):
         """Test that missing input token count raises an error."""
-        record = (
-            parsed_response_record_builder.with_request_start_time(10)
-            .with_input_token_count(None)  # Explicitly set to None
-            .add_response(perf_ns=15, token_count=1)
-            .build()
+        record = parsed_response_record_builder.simple_record(
+            request_start_time=100, input_token_count=None
         )
 
         await self.assert_record_processing_raises(
-            record, match="Input Token Count is not available for the record"
+            record, match="Input Token Count is not available for the record."
         )

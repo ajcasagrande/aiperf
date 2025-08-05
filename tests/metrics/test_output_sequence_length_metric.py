@@ -6,11 +6,11 @@ from aiperf.common.config.endpoint_config import EndpointConfig
 from aiperf.common.enums.endpoints_enums import EndpointType
 from aiperf.metrics.types.output_sequence_length import OutputSequenceLengthMetric
 
-from .conftest import BaseMetricTest
+from .conftest import BaseMetricTest, ParsedRecord, Response
 
 
 class TestOutputSequenceLengthMetric(BaseMetricTest):
-    """Test suite for OutputSequenceLengthMetric using the base test framework."""
+    """Test suite for OutputSequenceLengthMetric using type-safe dataclasses."""
 
     @property
     def endpoint_config(self) -> EndpointConfig:
@@ -25,43 +25,67 @@ class TestOutputSequenceLengthMetric(BaseMetricTest):
         return OutputSequenceLengthMetric.tag
 
     @pytest.mark.asyncio
-    async def test_osl_metric_with_multiple_records(
-        self, parsed_response_record_builder
-    ):
-        """Test output sequence length metric with multiple records."""
-        records = (
-            parsed_response_record_builder.with_request_start_time(10)
-            .add_response(perf_ns=15, token_count=3)
-            .add_response(perf_ns=20, token_count=5)
-            .new_record()
-            .with_request_start_time(20)
-            .add_response(perf_ns=25, token_count=7)
-            .build_all()
+    async def test_single_record(self, parsed_response_record_builder):
+        """Test output sequence length with a single record."""
+        record = parsed_response_record_builder.create_record_from_config(
+            ParsedRecord(
+                request_start_time=100,
+                responses=[Response(perf_ns=150, token_count=5)],
+            )
         )
 
-        # Token counts are now calculated automatically: 3+5=8, 7=7
+        summary = await self.process_single_record_and_get_summary(record)
+        self.assert_metric_value(summary, expected_value=5)
 
+    @pytest.mark.asyncio
+    async def test_multiple_records(self, parsed_response_record_builder):
+        """Test output sequence length with multiple records."""
+        configs = [
+            ParsedRecord(
+                request_start_time=100, responses=[Response(perf_ns=150, token_count=3)]
+            ),
+            ParsedRecord(
+                request_start_time=200, responses=[Response(perf_ns=250, token_count=7)]
+            ),
+            ParsedRecord(
+                request_start_time=300, responses=[Response(perf_ns=350, token_count=5)]
+            ),
+        ]
+
+        records = parsed_response_record_builder.create_records_from_configs(configs)
         summary = await self.process_records_and_get_summary(records)
 
-        expected_avg = (8 + 7) / 2  # Average of [8, 7]
+        # Expected values: [3, 7, 5], average = 5
+        expected_avg = (3 + 7 + 5) / 3
         self.assert_metric_value(summary, expected_avg)
 
     @pytest.mark.asyncio
-    async def test_osl_metric_invalid_record(self):
-        """Test that invalid record raises an error."""
-        await self.assert_invalid_record_raises()
+    async def test_multiple_responses_per_record(self, parsed_response_record_builder):
+        """Test output sequence length with multiple responses per record."""
+        record = parsed_response_record_builder.create_record_from_config(
+            ParsedRecord(
+                request_start_time=100,
+                responses=[
+                    Response(perf_ns=120, token_count=2),
+                    Response(perf_ns=140, token_count=3),
+                    Response(perf_ns=160, token_count=1),
+                ],
+            )
+        )
+
+        summary = await self.process_single_record_and_get_summary(record)
+        # Total tokens: 2 + 3 + 1 = 6
+        self.assert_metric_value(summary, expected_value=6)
 
     @pytest.mark.asyncio
-    async def test_osl_metric_missing_output_token_count(
+    async def test_missing_output_token_count_raises_error(
         self, parsed_response_record_builder
     ):
         """Test that missing output token count raises an error."""
-        record = (
-            parsed_response_record_builder.with_request_start_time(10)
-            # Build a record with no responses to get None output_token_count
-            .build()
+        record = parsed_response_record_builder.create_record_from_config(
+            ParsedRecord(request_start_time=100, responses=[])
         )
 
         await self.assert_record_processing_raises(
-            record, match="Output token count is missing in the record"
+            record, match="Output token count is missing in the record."
         )

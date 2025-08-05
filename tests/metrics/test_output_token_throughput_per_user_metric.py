@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-
 import pytest
 
 from aiperf.common.config.endpoint_config import EndpointConfig
@@ -9,17 +8,17 @@ from aiperf.metrics.types.output_token_throughput_per_user import (
     OutputTokenThroughputPerUserMetric,
 )
 
-from .conftest import BaseMetricTest
+from .conftest import BaseMetricTest, ParsedRecord, Response
 
 
 class TestOutputTokenThroughputPerUserMetric(BaseMetricTest):
-    """Test suite for OutputTokenThroughputPerUserMetric using the base test framework."""
+    """Test suite for OutputTokenThroughputPerUserMetric using type-safe dataclasses."""
 
     @property
     def endpoint_config(self) -> EndpointConfig:
         return EndpointConfig(
             type=EndpointType.OPENAI_COMPLETIONS,
-            streaming=True,  # Use streaming to enable inter-token latency calculation
+            streaming=False,
             model_names=["test-model"],
         )
 
@@ -28,38 +27,79 @@ class TestOutputTokenThroughputPerUserMetric(BaseMetricTest):
         return OutputTokenThroughputPerUserMetric.tag
 
     @pytest.mark.asyncio
-    async def test_output_token_throughput_per_user_metric(
-        self, parsed_response_record_builder
-    ):
-        """Test output token throughput per user metric with multiple records."""
-        records = (
-            parsed_response_record_builder.with_request_start_time(0)
-            .with_request_kwargs(
-                recv_start_perf_ns=10
-            )  # Add recv_start for connection latency
-            .add_response(perf_ns=250_000_000, token_count=1)  # TTFT = 250ms
-            .add_response(
-                perf_ns=750_000_000, token_count=1
-            )  # ITL = (750-250)/(2-1) = 500ms = 500_000_000ns
-            .new_record()
-            .with_request_start_time(0)
-            .with_request_kwargs(
-                recv_start_perf_ns=10
-            )  # Add recv_start for connection latency
-            .add_response(perf_ns=125_000_000, token_count=1)  # TTFT = 125ms
-            .add_response(
-                perf_ns=375_000_000, token_count=1
-            )  # ITL = (375-125)/(2-1) = 250ms = 250_000_000ns
-            .build_all()
+    async def test_single_record(self, parsed_response_record_builder):
+        """Test output token throughput per user with a single record."""
+        record = parsed_response_record_builder.create_record_from_config(
+            ParsedRecord(
+                request_start_time=100,
+                worker_id="user_1",
+                responses=[Response(perf_ns=200, token_count=10)],
+                request_kwargs={"recv_start_perf_ns": 110},
+            )
         )
 
-        # Token counts are now calculated automatically: 2 tokens each
+        summary = await self.process_single_record_and_get_summary(record)
 
+        # Connection latency: 110 - 100 = 10 ns
+        # Total latency: 200 - 100 = 100 ns
+        # Processing time: 100 - 10 = 90 ns
+        # Throughput per user: 10 tokens / 90 ns = 0.111... tokens/ns
+        expected_throughput = 10.0 / 90.0
+        self.assert_metric_value(summary, expected_throughput)
+
+    @pytest.mark.asyncio
+    async def test_multiple_records_same_user(self, parsed_response_record_builder):
+        """Test output token throughput per user with multiple records from same user."""
+        configs = [
+            ParsedRecord(
+                request_start_time=100,
+                worker_id="user_1",
+                responses=[Response(perf_ns=150, token_count=5)],
+                request_kwargs={"recv_start_perf_ns": 105},
+            ),
+            ParsedRecord(
+                request_start_time=200,
+                worker_id="user_1",
+                responses=[Response(perf_ns=300, token_count=10)],
+                request_kwargs={"recv_start_perf_ns": 210},
+            ),
+        ]
+
+        records = parsed_response_record_builder.create_records_from_configs(configs)
         summary = await self.process_records_and_get_summary(records)
 
-        # Expected calculations based on inter-token latency:
-        # Record 1: ITL = 500_000_000ns → 1/ITL = 2.0 tokens/sec
-        # Record 2: ITL = 250_000_000ns → 1/ITL = 4.0 tokens/sec
-        # Average: (2.0 + 4.0) / 2 = 3.0 tokens/sec
-        expected_avg = 3.0
-        self.assert_metric_value(summary, expected_avg, tolerance=0.1)
+        # Record 1: Connection: 5, Processing: (150-100) - 5 = 45, Tokens: 5
+        # Record 2: Connection: 10, Processing: (300-200) - 10 = 90, Tokens: 10
+        # Total: 15 tokens, 135 ns processing time
+        # Per-user throughput: 15 / 135 = 0.111... tokens/ns
+        expected_throughput = 15.0 / 135.0
+        self.assert_metric_value(summary, expected_throughput)
+
+    @pytest.mark.asyncio
+    async def test_multiple_users(self, parsed_response_record_builder):
+        """Test output token throughput per user with multiple users."""
+        configs = [
+            ParsedRecord(
+                request_start_time=100,
+                worker_id="user_1",
+                responses=[Response(perf_ns=200, token_count=10)],
+                request_kwargs={"recv_start_perf_ns": 110},
+            ),
+            ParsedRecord(
+                request_start_time=300,
+                worker_id="user_2",
+                responses=[Response(perf_ns=450, token_count=15)],
+                request_kwargs={"recv_start_perf_ns": 320},
+            ),
+        ]
+
+        records = parsed_response_record_builder.create_records_from_configs(configs)
+        summary = await self.process_records_and_get_summary(records)
+
+        # User 1: 10 tokens, 90 ns processing = 0.111... tokens/ns
+        # User 2: 15 tokens, 130 ns processing = 0.115... tokens/ns
+        # Average: (0.111... + 0.115...) / 2
+        user1_throughput = 10.0 / 90.0
+        user2_throughput = 15.0 / 130.0
+        expected_avg = (user1_throughput + user2_throughput) / 2
+        self.assert_metric_value(summary, expected_avg)

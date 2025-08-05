@@ -1,22 +1,21 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-
 import pytest
 
 from aiperf.common.config.endpoint_config import EndpointConfig
 from aiperf.common.enums.endpoints_enums import EndpointType
 from aiperf.metrics.types.inter_token_latency import InterTokenLatencyMetric
 
-from .conftest import BaseMetricTest
+from .conftest import BaseMetricTest, ParsedRecord, Response
 
 
 class TestInterTokenLatencyMetric(BaseMetricTest):
-    """Test suite for InterTokenLatencyMetric using the base test framework."""
+    """Test suite for InterTokenLatencyMetric using type-safe dataclasses."""
 
     @property
     def endpoint_config(self) -> EndpointConfig:
         return EndpointConfig(
-            type=EndpointType.OPENAI_COMPLETIONS,  # Use completions to get the required metrics
+            type=EndpointType.OPENAI_COMPLETIONS,
             streaming=True,
             model_names=["test-model"],
         )
@@ -26,32 +25,49 @@ class TestInterTokenLatencyMetric(BaseMetricTest):
         return InterTokenLatencyMetric.tag
 
     @pytest.mark.asyncio
-    async def test_inter_token_latency_metric_computes_correctly(
-        self, parsed_response_record_builder
-    ):
-        """Test that inter-token latency is calculated correctly using multiple records."""
-        records = (
-            parsed_response_record_builder.with_request_start_time(0)
-            .add_response(perf_ns=40, token_count=1)  # TTFT = 40ns
-            .add_response(
-                perf_ns=100, token_count=5
-            )  # Total latency = 100ns, OSL = 6 tokens
-            .new_record()
-            .with_request_start_time(0)
-            .add_response(perf_ns=60, token_count=1)  # TTFT = 60ns
-            .add_response(
-                perf_ns=200, token_count=2
-            )  # Total latency = 200ns, OSL = 3 tokens
-            .build_all()
+    async def test_single_record(self, parsed_response_record_builder):
+        """Test inter-token latency with a single record with multiple responses."""
+        record = parsed_response_record_builder.create_record_from_config(
+            ParsedRecord(
+                request_start_time=100,
+                responses=[
+                    Response(perf_ns=120, token_count=1),
+                    Response(perf_ns=140, token_count=1),
+                    Response(perf_ns=160, token_count=1),
+                ],
+            )
         )
 
+        summary = await self.process_single_record_and_get_summary(record)
+        # ITL between responses: [140-120, 160-140] = [20, 20]
+        expected_avg = 20.0
+        self.assert_metric_value(summary, expected_avg)
+
+    @pytest.mark.asyncio
+    async def test_multiple_records(self, parsed_response_record_builder):
+        """Test inter-token latency with multiple records."""
+        configs = [
+            ParsedRecord(
+                request_start_time=100,
+                responses=[
+                    Response(perf_ns=110, token_count=1),
+                    Response(perf_ns=130, token_count=1),
+                ],
+            ),
+            ParsedRecord(
+                request_start_time=200,
+                responses=[
+                    Response(perf_ns=210, token_count=1),
+                    Response(perf_ns=240, token_count=1),
+                ],
+            ),
+        ]
+
+        records = parsed_response_record_builder.create_records_from_configs(configs)
         summary = await self.process_records_and_get_summary(records)
 
-        # Expected calculations:
-        # Record 1: (100 - 40) / (6 - 1) = 60 / 5 = 12
-        # Record 2: (200 - 60) / (3 - 1) = 140 / 2 = 70
-        # Average: (12 + 70) / 2 = 41
-        expected_values = [12, 70]
-        expected_avg = sum(expected_values) / len(expected_values)
-
-        self.assert_metric_value(summary, expected_avg, tolerance=0.01)
+        # Record 1 ITL: [130-110] = [20]
+        # Record 2 ITL: [240-210] = [30]
+        # Average: (20 + 30) / 2 = 25
+        expected_avg = 25.0
+        self.assert_metric_value(summary, expected_avg)

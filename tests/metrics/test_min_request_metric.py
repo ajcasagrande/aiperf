@@ -6,11 +6,11 @@ from aiperf.common.config.endpoint_config import EndpointConfig
 from aiperf.common.enums.endpoints_enums import EndpointType
 from aiperf.metrics.types.min_request_timestamp import MinRequestTimestampMetric
 
-from .conftest import BaseMetricTest
+from .conftest import BaseMetricTest, ParsedRecord, Response
 
 
 class TestMinRequestMetric(BaseMetricTest):
-    """Test suite for MinRequestTimestampMetric using the base test framework."""
+    """Test suite for MinRequestTimestampMetric using type-safe dataclasses."""
 
     @property
     def endpoint_config(self) -> EndpointConfig:
@@ -27,34 +27,37 @@ class TestMinRequestMetric(BaseMetricTest):
     @pytest.mark.asyncio
     async def test_single_record(self, parsed_response_record_builder):
         """Test min request timestamp with a single record."""
-        record = (
-            parsed_response_record_builder.with_request_start_time(100)
-            .add_response(perf_ns=150)
-            .build()
-        )
+        record = parsed_response_record_builder.simple_record(request_start_time=100)
 
         summary = await self.process_single_record_and_get_summary(record)
         self.assert_metric_value(summary, expected_value=100)
 
     @pytest.mark.asyncio
-    async def test_add_multiple_records(self, parsed_response_record_builder):
+    async def test_multiple_records(self, parsed_response_record_builder):
         """Test min request timestamp with multiple records."""
-        records = (
-            parsed_response_record_builder.with_request_start_time(20)
-            .add_response(perf_ns=25)
-            .new_record()
-            .with_request_start_time(10)
-            .add_response(perf_ns=15)
-            .new_record()
-            .with_request_start_time(30)
-            .add_response(perf_ns=40)
-            .build_all()
-        )
+        configs = [
+            ParsedRecord(
+                request_start_time=30, responses=[Response(perf_ns=35, token_count=1)]
+            ),
+            ParsedRecord(
+                request_start_time=10, responses=[Response(perf_ns=15, token_count=1)]
+            ),
+            ParsedRecord(
+                request_start_time=20, responses=[Response(perf_ns=25, token_count=1)]
+            ),
+        ]
 
+        records = parsed_response_record_builder.create_records_from_configs(configs)
         summary = await self.process_records_and_get_summary(records)
-        self.assert_metric_value(summary, expected_value=10)  # Min of [20, 10, 30]
+
+        # Min of [30, 10, 20] = 10
+        self.assert_metric_value(summary, expected_value=10)
 
     @pytest.mark.asyncio
-    async def test_record_with_no_request_raises(self):
+    async def test_invalid_record_raises_error(self, parsed_response_record_builder):
         """Test that invalid record raises an error."""
-        await self.assert_invalid_record_raises()
+        record = parsed_response_record_builder.create_record_from_config(
+            ParsedRecord(request_start_time=10, responses=[])
+        )
+
+        await self.assert_invalid_record_raises(record)

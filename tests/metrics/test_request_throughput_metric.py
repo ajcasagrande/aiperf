@@ -1,17 +1,16 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-
 import pytest
 
 from aiperf.common.config.endpoint_config import EndpointConfig
 from aiperf.common.enums.endpoints_enums import EndpointType
 from aiperf.metrics.types.request_throughput import RequestThroughputMetric
 
-from .conftest import BaseMetricTest
+from .conftest import BaseMetricTest, ParsedRecord, Response
 
 
 class TestRequestThroughputMetric(BaseMetricTest):
-    """Test suite for RequestThroughputMetric using the base test framework."""
+    """Test suite for RequestThroughputMetric using type-safe dataclasses."""
 
     @property
     def endpoint_config(self) -> EndpointConfig:
@@ -26,24 +25,59 @@ class TestRequestThroughputMetric(BaseMetricTest):
         return RequestThroughputMetric.tag
 
     @pytest.mark.asyncio
-    async def test_request_throughput(self, parsed_response_record_builder):
-        """Test request throughput metric with multiple records."""
-        records = (
-            parsed_response_record_builder.with_request_start_time(0)
-            .add_response(perf_ns=1_000_000_000)  # 1 second
-            .new_record()
-            .with_request_start_time(1_000_000_000)  # Start at 1 second
-            .add_response(perf_ns=2_000_000_000)  # Response at 2 seconds
-            .new_record()
-            .with_request_start_time(2_000_000_000)  # Start at 2 seconds
-            .add_response(
-                perf_ns=3_000_000_000
-            )  # Response at 3 seconds (total duration = 3 seconds)
-            .build_all()
+    async def test_single_record(self, parsed_response_record_builder):
+        """Test request throughput with a single record."""
+        record = parsed_response_record_builder.simple_record(
+            request_start_time=100, response_perf_ns=200
         )
 
+        summary = await self.process_single_record_and_get_summary(record)
+
+        # Throughput = 1 request / 100 ns = 0.01 requests/ns
+        expected_throughput = 1.0 / 100.0
+        self.assert_metric_value(summary, expected_throughput)
+
+    @pytest.mark.asyncio
+    async def test_multiple_records(self, parsed_response_record_builder):
+        """Test request throughput with multiple records."""
+        configs = [
+            ParsedRecord(
+                request_start_time=0, responses=[Response(perf_ns=100, token_count=1)]
+            ),
+            ParsedRecord(
+                request_start_time=200, responses=[Response(perf_ns=400, token_count=1)]
+            ),
+            ParsedRecord(
+                request_start_time=500, responses=[Response(perf_ns=600, token_count=1)]
+            ),
+        ]
+
+        records = parsed_response_record_builder.create_records_from_configs(configs)
         summary = await self.process_records_and_get_summary(records)
 
-        # Expected: 3 requests / 3 seconds = 1.0 req/sec
-        expected = 1.0
-        self.assert_metric_value(summary, expected, tolerance=0.01)
+        # Total requests: 3
+        # Total duration: max_end - min_start = 600 - 0 = 600 ns
+        # Throughput = 3 / 600 = 0.005 requests/ns
+        expected_throughput = 3.0 / 600.0
+        self.assert_metric_value(summary, expected_throughput)
+
+    @pytest.mark.asyncio
+    async def test_multiple_responses_per_record(self, parsed_response_record_builder):
+        """Test request throughput with multiple responses per record."""
+        record = parsed_response_record_builder.create_record_from_config(
+            ParsedRecord(
+                request_start_time=100,
+                responses=[
+                    Response(perf_ns=120, token_count=1),
+                    Response(perf_ns=140, token_count=1),
+                    Response(perf_ns=200, token_count=1),  # Last response
+                ],
+            )
+        )
+
+        summary = await self.process_single_record_and_get_summary(record)
+
+        # 1 request, duration = 200 - 100 = 100 ns
+        # Throughput = 1 / 100 = 0.01 requests/ns
+        expected_throughput = 1.0 / 100.0
+        self.assert_metric_value(summary, expected_throughput)

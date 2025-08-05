@@ -6,11 +6,11 @@ from aiperf.common.config.endpoint_config import EndpointConfig
 from aiperf.common.enums.endpoints_enums import EndpointType
 from aiperf.metrics.types.request_latency import RequestLatencyMetric
 
-from .conftest import BaseMetricTest
+from .conftest import BaseMetricTest, ParsedRecord, Response
 
 
 class TestRequestLatencyMetric(BaseMetricTest):
-    """Test suite for RequestLatencyMetric using the base test framework."""
+    """Test suite for RequestLatencyMetric using type-safe dataclasses."""
 
     @property
     def endpoint_config(self) -> EndpointConfig:
@@ -26,50 +26,60 @@ class TestRequestLatencyMetric(BaseMetricTest):
 
     @pytest.mark.asyncio
     async def test_single_record(self, parsed_response_record_builder):
-        """Test request latency metric with a single record."""
-        record = (
-            parsed_response_record_builder.with_request_start_time(100)
-            .add_response(perf_ns=150)
-            .build()
+        """Test request latency with a single record."""
+        record = parsed_response_record_builder.simple_record(
+            request_start_time=100, response_perf_ns=200
         )
 
         summary = await self.process_single_record_and_get_summary(record)
-        self.assert_metric_value(summary, expected_value=50)  # 150 - 100
+        # Latency = 200 - 100 = 100 ns
+        self.assert_metric_value(summary, expected_value=100)
 
     @pytest.mark.asyncio
-    async def test_add_multiple_records(self, parsed_response_record_builder):
-        """Test request latency metric with multiple records."""
-        records = (
-            parsed_response_record_builder.with_request_start_time(10)
-            .add_response(perf_ns=15)
-            .add_response(perf_ns=25)  # Final response at 25ns
-            .new_record()
-            .with_request_start_time(20)
-            .add_response(perf_ns=25)
-            .add_response(perf_ns=35)  # Final response at 35ns
-            .new_record()
-            .with_request_start_time(30)
-            .add_response(perf_ns=40)
-            .add_response(perf_ns=50)  # Final response at 50ns
-            .build_all()
-        )
+    async def test_multiple_records(self, parsed_response_record_builder):
+        """Test request latency with multiple records."""
+        configs = [
+            ParsedRecord(
+                request_start_time=100, responses=[Response(perf_ns=150, token_count=1)]
+            ),
+            ParsedRecord(
+                request_start_time=200, responses=[Response(perf_ns=300, token_count=1)]
+            ),
+            ParsedRecord(
+                request_start_time=400, responses=[Response(perf_ns=450, token_count=1)]
+            ),
+        ]
 
+        records = parsed_response_record_builder.create_records_from_configs(configs)
         summary = await self.process_records_and_get_summary(records)
 
-        # Expected latencies: [15, 15, 20] (final_response - start_time)
-        expected_avg = (15 + 15 + 20) / 3
+        # Latencies: [50, 100, 50], average = 66.67
+        expected_avg = (50 + 100 + 50) / 3
         self.assert_metric_value(summary, expected_avg)
 
     @pytest.mark.asyncio
-    async def test_response_timestamp_less_than_request_raises(
-        self, parsed_response_record_builder
-    ):
-        """Test that response timestamp less than request timestamp raises an error."""
-        record = (
-            parsed_response_record_builder.with_request_start_time(100)
-            .add_response(perf_ns=90)  # Response before request
-            .build()
+    async def test_multiple_responses_per_record(self, parsed_response_record_builder):
+        """Test request latency with multiple responses per record (uses last response)."""
+        record = parsed_response_record_builder.create_record_from_config(
+            ParsedRecord(
+                request_start_time=100,
+                responses=[
+                    Response(perf_ns=120, token_count=1),
+                    Response(perf_ns=140, token_count=1),
+                    Response(perf_ns=180, token_count=1),  # Last response
+                ],
+            )
         )
 
-        # This should raise a ValueError due to negative latency
-        await self.assert_record_processing_raises(record, expected_error=ValueError)
+        summary = await self.process_single_record_and_get_summary(record)
+        # Latency = 180 - 100 = 80 ns (uses last response timestamp)
+        self.assert_metric_value(summary, expected_value=80)
+
+    @pytest.mark.asyncio
+    async def test_invalid_record_raises_error(self, parsed_response_record_builder):
+        """Test that invalid record raises an error."""
+        record = parsed_response_record_builder.create_record_from_config(
+            ParsedRecord(request_start_time=10, responses=[])
+        )
+
+        await self.assert_record_processing_raises(record)

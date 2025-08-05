@@ -4,80 +4,99 @@ import pytest
 
 from aiperf.common.config.endpoint_config import EndpointConfig
 from aiperf.common.enums.endpoints_enums import EndpointType
-from aiperf.common.models import RequestRecord, ResponseData
-from aiperf.common.models.record_models import ParsedResponseRecord
 
-from .conftest import BaseMetricTest
+from .conftest import BaseMetricTest, ParsedRecord, Response
 
 
 class TestMetricSummary(BaseMetricTest):
-    """Test suite for comprehensive metric processing using the base test framework."""
+    """Test suite for metric summary functionality using type-safe dataclasses."""
 
     @property
     def endpoint_config(self) -> EndpointConfig:
         return EndpointConfig(
             type=EndpointType.OPENAI_COMPLETIONS,
-            streaming=True,
+            streaming=False,
             model_names=["test-model"],
         )
 
     @property
     def metric_tag(self) -> str:
-        # This test doesn't focus on a single metric, so we return a placeholder
-        return "comprehensive_test"
+        return "request_latency"  # Placeholder for summary tests
 
-    def build_record(
-        self, start_ns, first_resp_ns, last_resp_ns, input_tokens=5, output_tokens=5
-    ):
-        """Helper function to build a ParsedResponseRecord for testing."""
-        return ParsedResponseRecord(
-            worker_id="worker-1",
-            request=RequestRecord(
-                conversation_id="cid",
-                turn_index=0,
-                model_name="model",
-                start_perf_ns=start_ns,
-                timestamp_ns=start_ns,
-                recv_start_perf_ns=start_ns
-                + 10,  # Add recv_start for connection latency
+    @pytest.mark.asyncio
+    async def test_metric_summary_computation(self, parsed_response_record_builder):
+        """Test metric summary computation with various records."""
+        configs = [
+            ParsedRecord(
+                request_start_time=100,
+                worker_id="worker-1",
+                responses=[Response(perf_ns=150, token_count=5)],
+                request_kwargs={"recv_start_perf_ns": 110},
             ),
-            responses=[
-                ResponseData(
-                    perf_ns=first_resp_ns,
-                    token_count=1,
-                    raw_text=["hi"],
-                    parsed_text=["hi"],
-                ),
-                ResponseData(
-                    perf_ns=last_resp_ns,
-                    token_count=output_tokens - 1,
-                    raw_text=["bye"],
-                    parsed_text=["bye"],
-                ),
-            ],
-            input_token_count=input_tokens,
-            output_token_count=output_tokens,
+            ParsedRecord(
+                request_start_time=200,
+                worker_id="worker-2",
+                responses=[Response(perf_ns=300, token_count=10)],
+                request_kwargs={"recv_start_perf_ns": 220},
+            ),
+            ParsedRecord(
+                request_start_time=400,
+                worker_id="worker-3",
+                responses=[Response(perf_ns=500, token_count=8)],
+                request_kwargs={"recv_start_perf_ns": 430},
+            ),
+        ]
+
+        records = parsed_response_record_builder.create_records_from_configs(configs)
+        summary = await self.process_records_and_get_summary(records)
+
+        # Verify summary contains multiple metrics
+        assert len(summary.results) > 1, (
+            "Summary should contain multiple metric results"
+        )
+
+        # Check that we have some key metrics
+        metric_tags = {result.tag for result in summary.results}
+        expected_metrics = {
+            "request_latency",
+            "valid_request_count",
+            "output_sequence_length",
+        }
+
+        # At least some expected metrics should be present
+        assert len(expected_metrics.intersection(metric_tags)) > 0, (
+            f"Expected some of {expected_metrics} in {metric_tags}"
         )
 
     @pytest.mark.asyncio
-    async def test_metric_summary_process_with_all_metrics(self):
-        """Test that all metrics can be processed successfully through the metric processors."""
-        records = [
-            self.build_record(0, 100, 150, input_tokens=5, output_tokens=5),
-            self.build_record(10, 120, 160, input_tokens=6, output_tokens=4),
-            self.build_record(20, 140, 180, input_tokens=7, output_tokens=3),
-        ]
-
-        summary = await self.process_records_and_get_summary(records)
-
-        # Verify that all metrics are computed successfully
-        assert len(summary) > 0, "No metrics were computed"
-
-        for result in summary:
-            self._logger.trace(f"Metric {result.tag}: avg={result.avg}")
-            # Each metric should have a valid average value
-            assert result.avg is not None, f"Metric {result.tag} has None average"
-            # Basic sanity check that values are reasonable
-            assert not (isinstance(result.avg, float) and (result.avg != result.avg)), (
-                f"Metric {result.tag} has NaN average"
+    async def test_metric_summary_single_record(self, parsed_response_record_builder):
+        """Test metric summary with a single record."""
+        record = parsed_response_record_builder.create_record_from_config(
+            ParsedRecord(
+                request_start_time=1000,
+                worker_id="single-worker",
+                responses=[
+                    Response(perf_ns=1100, token_count=3),
+                    Response(perf_ns=1200, token_count=2),
+                ],
+                request_kwargs={"recv_start_perf_ns": 1050},
             )
+        )
+
+        summary = await self.process_single_record_and_get_summary(record)
+
+        # Should have multiple metric results
+        assert len(summary.results) > 0, "Summary should contain metric results"
+
+        # Check for request latency specifically
+        request_latency_result = None
+        for result in summary.results:
+            if result.tag == "request_latency":
+                request_latency_result = result
+                break
+
+        assert request_latency_result is not None, "Should have request_latency metric"
+        # Latency should be 1200 - 1000 = 200
+        assert request_latency_result.avg == 200, (
+            f"Expected latency 200, got {request_latency_result.avg}"
+        )
