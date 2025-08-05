@@ -10,7 +10,6 @@ from aiperf.common.models import MetricResult
 from aiperf.common.models.record_models import ProfileResults
 from aiperf.exporters import ConsoleExporter
 from aiperf.exporters.exporter_config import ExporterConfig
-from aiperf.metrics.metric_registry import MetricRegistry as MetricRegistry
 
 
 @pytest.fixture
@@ -57,6 +56,7 @@ def sample_records():
             p99=4.9,
             p90=4.5,
             p75=4.0,
+            streaming_only=True,
         ),
         MetricResult(
             tag="Request Throughput",
@@ -69,7 +69,7 @@ def sample_records():
 
 @pytest.fixture
 def mock_exporter_config(sample_records, mock_endpoint_config):
-    input_config = UserConfig(endpoint=mock_endpoint_config)
+    input_config = UserConfig(endpoint=mock_endpoint_config, model_names=["test-model"])
     return ExporterConfig(
         results=ProfileResults(
             records=sample_records,
@@ -77,7 +77,7 @@ def mock_exporter_config(sample_records, mock_endpoint_config):
             end_ns=0,
             completed=0,
         ),
-        user_config=input_config,
+        input_config=input_config,
     )
 
 
@@ -92,6 +92,45 @@ class TestConsoleExporter:
         assert "Request Latency (ms)" in output
         assert "Inter Token Latency (ms)" in output
         assert "Request Throughput (per sec)" in output
+
+    @pytest.mark.parametrize(
+        "enable_streaming, is_streaming_only_metric, should_skip",
+        [
+            (True, True, False),
+            (False, True, True),
+            (False, False, False),
+            (True, False, False),
+        ],
+    )
+    def test_should_skip_logic(
+        self,
+        mock_endpoint_config,
+        enable_streaming,
+        is_streaming_only_metric,
+        should_skip,
+    ):
+        mock_endpoint_config.streaming = enable_streaming
+        input_config = UserConfig(
+            endpoint=mock_endpoint_config, model_names=["test-model"]
+        )
+        config = ExporterConfig(
+            results=ProfileResults(
+                records=[],
+                start_ns=0,
+                end_ns=0,
+                completed=0,
+            ),
+            input_config=input_config,
+        )
+        exporter = ConsoleExporter(config)
+        record = MetricResult(
+            tag="Test Metric",
+            header="Test Metric",
+            unit="ms",
+            avg=1.0,
+            streaming_only=is_streaming_only_metric,
+        )
+        assert exporter._should_skip(record) is should_skip
 
     def test_format_row_formats_values_correctly(self, mock_exporter_config):
         exporter = ConsoleExporter(mock_exporter_config)

@@ -1,95 +1,36 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+
 import pytest
 
-from aiperf.common.config.endpoint_config import EndpointConfig
-from aiperf.common.constants import NANOS_PER_SECOND
-from aiperf.common.enums.endpoints_enums import EndpointType
-from aiperf.metrics.types.request_throughput import RequestThroughputMetric
-
-from .conftest import (
-    BaseMetricTest,
-    ParsedRecord,
-    ParsedResponseRecordBuilder,
-    Response,
+from aiperf.metrics.types.request_throughput_metric import (
+    RequestThroughputMetric,
 )
 
 
-class TestRequestThroughputMetric(BaseMetricTest):
-    """Test suite for RequestThroughputMetric using type-safe dataclasses."""
+@pytest.fixture
+def mock_metrics():
+    class MockBenchmarkDuration:
+        tag = "benchmark_duration"
 
-    @property
-    def endpoint_config(self) -> EndpointConfig:
-        return EndpointConfig(
-            type=EndpointType.OPENAI_EMBEDDINGS,
-            streaming=False,
-            model_names=["test-model"],
-        )
+        def values(self):
+            return 3_000_000_000  # 3 seconds
 
-    @property
-    def metric_tag(self) -> str:
-        return RequestThroughputMetric.tag
+    class MockRequestCount:
+        tag = "request_count"
 
-    @pytest.mark.asyncio
-    async def test_single_record(
-        self, parsed_response_record_builder: ParsedResponseRecordBuilder
-    ):
-        """Test request throughput with a single record."""
-        record = parsed_response_record_builder.simple_record(
-            request_start_time=100, response_perf_ns=200
-        )
+        def values(self):
+            return 3
 
-        summary = await self.process_single_record_and_get_summary(record)
+    return {
+        "benchmark_duration": MockBenchmarkDuration(),
+        "request_count": MockRequestCount(),
+    }
 
-        # Throughput = 1 request / 100 ns = 0.01 requests/ns
-        expected_throughput = 1.0 / 100.0 * NANOS_PER_SECOND
-        self.assert_metric_value(summary, expected_throughput)
 
-    @pytest.mark.asyncio
-    async def test_multiple_records(
-        self, parsed_response_record_builder: ParsedResponseRecordBuilder
-    ):
-        """Test request throughput with multiple records."""
-        configs = [
-            ParsedRecord(
-                request_start_time=0, responses=[Response(perf_ns=100, token_count=1)]
-            ),
-            ParsedRecord(
-                request_start_time=200, responses=[Response(perf_ns=400, token_count=1)]
-            ),
-            ParsedRecord(
-                request_start_time=500, responses=[Response(perf_ns=600, token_count=1)]
-            ),
-        ]
+def test_request_throughput(mock_metrics):
+    metric = RequestThroughputMetric()
+    metric.update_value(record=None, metrics=mock_metrics)
 
-        records = parsed_response_record_builder.create_records_from_configs(configs)
-        summary = await self.process_records_and_get_summary(records)
-
-        # Total requests: 3
-        # Total duration: max_end - min_start = 600 - 0 = 600 ns
-        # Throughput = 3 / 600 = 0.005 requests/ns
-        expected_throughput = 3.0 / 600.0 * NANOS_PER_SECOND
-        self.assert_metric_value(summary, expected_throughput)
-
-    @pytest.mark.asyncio
-    async def test_multiple_responses_per_record(
-        self, parsed_response_record_builder: ParsedResponseRecordBuilder
-    ):
-        """Test request throughput with multiple responses per record."""
-        record = parsed_response_record_builder.create_record_from_config(
-            ParsedRecord(
-                request_start_time=100,
-                responses=[
-                    Response(perf_ns=120, token_count=1),
-                    Response(perf_ns=140, token_count=1),
-                    Response(perf_ns=200, token_count=1),  # Last response
-                ],
-            )
-        )
-
-        summary = await self.process_single_record_and_get_summary(record)
-
-        # 1 request, duration = 200 - 100 = 100 ns
-        # Throughput = 1 / 100 = 0.01 requests/ns
-        expected_throughput = 1.0 / 100.0 * NANOS_PER_SECOND
-        self.assert_metric_value(summary, expected_throughput)
+    # 3 requests / 3 seconds = 1.0 req/sec
+    assert metric.values() == pytest.approx(1.0)

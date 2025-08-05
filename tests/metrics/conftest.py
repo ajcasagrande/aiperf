@@ -6,274 +6,133 @@ Shared fixtures for testing AIPerf metrics.
 """
 
 import logging
-from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
-from typing import Any
 
 import pytest
 
-from aiperf.common.aiperf_logger import AIPerfLogger
-from aiperf.common.config.endpoint_config import EndpointConfig
-from aiperf.common.config.user_config import UserConfig
 from aiperf.common.models import (
     ParsedResponseRecord,
     RequestRecord,
     ResponseData,
 )
-from aiperf.post_processors.metric_record_processor import MetricRecordProcessor
-from aiperf.post_processors.metric_results_processor import MetricResultsProcessor
 
 logging.basicConfig(level=logging.DEBUG)
 
 
-@dataclass
-class Response:
-    """Type-safe configuration for a response in test records."""
-
-    perf_ns: int
-    token_count: int = 1
-    raw_text: list[str] = field(default_factory=list)
-    parsed_text: list[str | None] = field(default_factory=list)
-    metadata: dict[str, Any] = field(default_factory=dict)
-
-    def to_response_data(self) -> ResponseData:
-        """Convert to ResponseData object."""
-        return ResponseData(
-            perf_ns=self.perf_ns,
-            token_count=self.token_count,
-            raw_text=self.raw_text,
-            parsed_text=self.parsed_text,
-            metadata=self.metadata,
-        )
-
-
-@dataclass
-class ParsedRecord:
-    """Type-safe configuration for a complete test record."""
-
-    request_start_time: int = 100
-    worker_id: str = "worker_1"
-    input_token_count: int | None = 5
-    responses: list[Response] = field(default_factory=lambda: [Response(perf_ns=150)])
-    # Request-specific fields
-    conversation_id: str = "test-conversation"
-    turn_index: int = 0
-    model_name: str = "test-model"
-    recv_start_perf_ns: int | None = None  # Will default to request_start_time + 10
-    # Additional request kwargs (for other custom fields)
-    request_kwargs: dict[str, Any] = field(default_factory=dict)
-
-    def __post_init__(self):
-        """Set recv_start_perf_ns default after object creation."""
-        if self.recv_start_perf_ns is None:
-            self.recv_start_perf_ns = self.request_start_time + 10
-
-
 class ParsedResponseRecordBuilder:
-    """Builder class for creating ParsedResponseRecord instances with type-safe dataclasses.
+    """Builder class for creating ParsedResponseRecord instances with flexible configuration.
 
-    Type-safe API using dataclasses:
-
-    # Simple single response
-    record = builder.create_record_from_config(ParsedRecord(
-        request_start_time=100,
-        responses=[Response(perf_ns=150, token_count=1)]
-    ))
-
-    # Multiple responses
-    record = builder.create_record_from_config(ParsedRecord(
-        request_start_time=100,
-        responses=[
-            Response(perf_ns=120, token_count=1),
-            Response(perf_ns=140, token_count=2)
-        ]
-    ))
-
-    # Multiple records
-    records = builder.create_records_from_configs([
-        ParsedRecord(request_start_time=10, responses=[Response(perf_ns=15)]),
-        ParsedRecord(request_start_time=20, responses=[Response(perf_ns=25)])
-    ])
-
-    # With custom recv_start_perf_ns (defaults to request_start_time + 10)
-    record = builder.create_record_from_config(ParsedRecord(
-        request_start_time=100,
-        recv_start_perf_ns=105,
-        responses=[Response(perf_ns=150)]
-    ))
-
-    # Convenience method for simple cases
-    record = builder.simple_record(request_start_time=100, response_perf_ns=150)
+    Supports building single or multiple ParsedResponseRecord instances with custom
+    requests and responses for comprehensive testing scenarios.
     """
 
-    def simple_record(
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        """Reset the builder to default values."""
+        self._records = []  # List of record configurations
+        self._current_record = self._new_record_config()
+        return self
+
+    def _new_record_config(self):
+        """Create a new record configuration with default values."""
+        return {
+            "worker_id": "worker_1",
+            "request_start_perf_ns": 100,
+            "request_kwargs": {},
+            "responses": [],
+        }
+
+    def with_worker_id(self, worker_id: str):
+        """Set the worker ID for the current record."""
+        self._current_record["worker_id"] = worker_id
+        return self
+
+    def with_request_start_time(self, start_perf_ns: int):
+        """Set the request start time for the current record."""
+        self._current_record["request_start_perf_ns"] = start_perf_ns
+        return self
+
+    def with_request_kwargs(self, **kwargs):
+        """Add additional kwargs to the RequestRecord for the current record."""
+        self._current_record["request_kwargs"].update(kwargs)
+        return self
+
+    def add_response(
         self,
-        request_start_time: int = 100,
-        response_perf_ns: int | None = None,
-        token_count: int = 1,
-        worker_id: str = "worker_1",
-        input_token_count: int | None = 5,
-        **request_kwargs,
-    ) -> ParsedResponseRecord:
-        """Create a simple single-response record with type-safe arguments."""
-        if response_perf_ns is None:
-            response_perf_ns = request_start_time + 50
-
-        response = Response(perf_ns=response_perf_ns, token_count=token_count)
-
-        return self.create_record_from_config(
-            ParsedRecord(
-                request_start_time=request_start_time,
-                worker_id=worker_id,
-                input_token_count=input_token_count,
-                responses=[response],
-                request_kwargs=request_kwargs,
-            )
-        )
-
-    def create_record_from_config(self, config: ParsedRecord) -> ParsedResponseRecord:
-        """Create a ParsedResponseRecord from a type-safe ParsedRecord config."""
-        # Convert Response objects to ResponseData
-        response_objects = [resp.to_response_data() for resp in config.responses]
-
-        # Calculate output token count
-        if not response_objects:
-            output_token_count = None
-        else:
-            output_token_count = sum(
-                resp.token_count for resp in response_objects if resp.token_count
-            )
-
-        # Create request with all config fields
-        request = RequestRecord(
-            conversation_id=config.conversation_id,
-            turn_index=config.turn_index,
-            model_name=config.model_name,
-            start_perf_ns=config.request_start_time,
-            timestamp_ns=config.request_start_time,
-            recv_start_perf_ns=config.recv_start_perf_ns,
-            **config.request_kwargs,
-        )
-
-        return ParsedResponseRecord(
-            request=request,
-            responses=response_objects,
-            input_token_count=config.input_token_count,
-            output_token_count=output_token_count,
-        )
-
-    def create_records_from_configs(
-        self, configs: list[ParsedRecord]
-    ) -> list[ParsedResponseRecord]:
-        """Create multiple ParsedResponseRecord instances from type-safe ParsedRecord configs."""
-        return [self.create_record_from_config(config) for config in configs]
-
-
-class BaseMetricTest(ABC):
-    """Base class for metric tests that provides common functionality.
-
-    This class handles the common patterns found in all metric tests:
-    - Setting up processors
-    - Processing records through the pipeline
-    - Finding and validating metric results
-    - Common assertion patterns
-
-    Subclasses only need to provide:
-    - endpoint_config: EndpointConfig for the test
-    - metric_tag: The tag of the metric being tested
-    - Custom test methods that call the helper methods
-    """
-
-    _logger = AIPerfLogger(__name__)
-
-    @property
-    @abstractmethod
-    def endpoint_config(self) -> EndpointConfig:
-        """Return the endpoint configuration for this metric test."""
-        pass
-
-    @property
-    @abstractmethod
-    def metric_tag(self) -> str:
-        """Return the tag of the metric being tested."""
-        pass
-
-    def get_user_config(self) -> UserConfig:
-        """Get the user config for testing."""
-        return UserConfig(endpoint=self.endpoint_config)
-
-    async def process_records_and_get_summary(
-        self, records: list[ParsedResponseRecord]
-    ) -> list[Any]:
-        """Process records through the metric pipeline and return the summary."""
-        user_config = self.get_user_config()
-        record_processor = MetricRecordProcessor(user_config=user_config)
-        results_processor = MetricResultsProcessor(user_config=user_config)
-
-        for record in records:
-            record_metrics = await record_processor.process_record(record=record)
-            await results_processor.process_result(record_metrics)
-
-        return await results_processor.summarize()
-
-    async def process_single_record_and_get_summary(
-        self, record: ParsedResponseRecord
-    ) -> list[Any]:
-        """Process a single record and return the summary."""
-        return await self.process_records_and_get_summary([record])
-
-    def find_metric_result(self, summary: list[Any]) -> Any:
-        """Find the metric result in the summary by tag."""
-        for result in summary:
-            if result.tag == self.metric_tag:
-                self._logger.trace(f"Found metric result: {result}")
-                return result
-
-        available_tags = [result.tag for result in summary]
-        raise AssertionError(
-            f"Metric '{self.metric_tag}' not found in summary. Available metrics: {available_tags}"
-        )
-
-    def assert_metric_value(
-        self, summary: list[Any], expected_value: float, tolerance: float = 0.01
+        perf_ns: int,
+        raw_text: list[str] = None,
+        parsed_text: list[str] = None,
+        **kwargs,
     ):
-        """Assert that the metric has the expected average value."""
-        result = self.find_metric_result(summary)
-        if isinstance(expected_value, float) and isinstance(result.avg, float):
-            assert abs(result.avg - expected_value) < tolerance, (
-                f"Expected {self.metric_tag} avg to be {expected_value}, got {result.avg}"
-            )
-        else:
-            assert result.avg == expected_value, (
-                f"Expected {self.metric_tag} avg to be {expected_value}, got {result.avg}"
-            )
+        """Add a response to the current record."""
+        if raw_text is None:
+            raw_text = []
+        if parsed_text is None:
+            parsed_text = []
 
-    async def assert_record_processing_raises(
-        self,
-        record: ParsedResponseRecord,
-        expected_error: type = ValueError,
-        match: str | None = None,
+        response_data = ResponseData(
+            perf_ns=perf_ns, raw_text=raw_text, parsed_text=parsed_text, **kwargs
+        )
+        self._current_record["responses"].append(response_data)
+        return self
+
+    def add_responses(self, *response_configs):
+        """Add multiple responses to the current record. Each config should be a dict with response parameters."""
+        for config in response_configs:
+            self.add_response(**config)
+        return self
+
+    def new_record(self):
+        """Finish the current record and start a new one. Returns self for chaining."""
+        self._records.append(self._current_record.copy())
+        self._current_record = self._new_record_config()
+        return self
+
+    def add_request(
+        self, worker_id: str = None, start_perf_ns: int = None, **request_kwargs
     ):
-        """Assert that processing a record raises the expected error."""
-        user_config = self.get_user_config()
-        record_processor = MetricRecordProcessor(user_config=user_config)
+        """Add a new request record. Automatically starts a new record."""
+        self.new_record()
 
-        if match:
-            with pytest.raises(expected_error, match=match):
-                await record_processor.process_record(record=record)
-        else:
-            with pytest.raises(expected_error):
-                await record_processor.process_record(record=record)
+        if worker_id is not None:
+            self.with_worker_id(worker_id)
+        if start_perf_ns is not None:
+            self.with_request_start_time(start_perf_ns)
+        if request_kwargs:
+            self.with_request_kwargs(**request_kwargs)
 
-    async def assert_invalid_record_raises(
-        self, record: ParsedResponseRecord, expected_error: type = ValueError
-    ):
-        """Assert that processing None/invalid record raises an error."""
-        user_config = self.get_user_config()
-        record_processor = MetricRecordProcessor(user_config=user_config)
+        return self
 
-        with pytest.raises(expected_error):
-            await record_processor.process_record(record=record)
+    def build(self) -> ParsedResponseRecord:
+        """Build and return a single ParsedResponseRecord (for backward compatibility)."""
+        records = self.build_all()
+        return records[0]
+
+    def build_all(self) -> list[ParsedResponseRecord]:
+        """Build and return all configured ParsedResponseRecord instances."""
+        # Add the current record if it has content
+        all_records = self._records.copy()
+        all_records.append(self._current_record)
+
+        parsed_records = []
+        for record_config in all_records:
+            request = RequestRecord(
+                conversation_id="test-conversation",
+                turn_index=0,
+                model_name="test-model",
+                start_perf_ns=record_config["request_start_perf_ns"],
+                **record_config["request_kwargs"],
+            )
+
+            parsed_record = ParsedResponseRecord(
+                worker_id=record_config["worker_id"],
+                request=request,
+                responses=record_config["responses"].copy(),
+            )
+            parsed_records.append(parsed_record)
+
+        return parsed_records
 
 
 @pytest.fixture

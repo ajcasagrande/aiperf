@@ -2,91 +2,68 @@
 # SPDX-License-Identifier: Apache-2.0
 import pytest
 
-from aiperf.common.config.endpoint_config import EndpointConfig
-from aiperf.common.enums.endpoints_enums import EndpointType
-from aiperf.metrics.types.time_to_second_token import TTSTMetric
-
-from .conftest import (
-    BaseMetricTest,
-    ParsedRecord,
-    ParsedResponseRecordBuilder,
-    Response,
-)
+from aiperf.metrics.types import TTSTMetric
 
 
-class TestTTSTMetric(BaseMetricTest):
-    """Test suite for TTSTMetric using type-safe dataclasses."""
+def test_ttst_metric_update_value_and_values(parsed_response_record_builder):
+    metric = TTSTMetric()
+    metric.metric = []
+    record = (
+        parsed_response_record_builder.with_request_start_time(100)
+        .add_response(perf_ns=150)
+        .add_response(perf_ns=180)
+        .build()
+    )
 
-    @property
-    def endpoint_config(self) -> EndpointConfig:
-        return EndpointConfig(
-            type=EndpointType.OPENAI_COMPLETIONS,
-            streaming=True,
-            model_names=["test-model"],
-        )
+    metric.update_value(record=record, metrics=None)
+    assert metric.values() == [30]  # 180 - 150
 
-    @property
-    def metric_tag(self) -> str:
-        return TTSTMetric.tag
 
-    @pytest.mark.asyncio
-    async def test_single_record(
-        self, parsed_response_record_builder: ParsedResponseRecordBuilder
+def test_ttst_metric_add_multiple_records(parsed_response_record_builder):
+    metric = TTSTMetric()
+    metric.metric = []
+    records = (
+        parsed_response_record_builder.with_request_start_time(10)
+        .add_response(perf_ns=15)
+        .add_response(perf_ns=20)
+        .new_record()
+        .with_request_start_time(20)
+        .add_response(perf_ns=25)
+        .add_response(perf_ns=35)
+        .new_record()
+        .with_request_start_time(30)
+        .add_response(perf_ns=40)
+        .add_response(perf_ns=50)
+        .build_all()
+    )
+    for record in records:
+        metric.update_value(record=record, metrics=None)
+    assert metric.values() == [5, 10, 10]
+
+
+def test_ttst_metric_with_one_response_raises(parsed_response_record_builder):
+    metric = TTSTMetric()
+    metric.metric = []
+    record = (
+        parsed_response_record_builder.with_request_start_time(10)
+        .add_response(perf_ns=15)
+        .build()
+    )
+    with pytest.raises(ValueError, match="at least two responses"):
+        metric.update_value(record=record, metrics=None)
+
+
+def test_ttst_metric_response_timestamp_order_raises(parsed_response_record_builder):
+    metric = TTSTMetric()
+    metric.metric = []
+    record = (
+        parsed_response_record_builder.with_request_start_time(100)
+        .add_response(perf_ns=150)
+        .add_response(perf_ns=140)
+        .build()
+    )
+    with pytest.raises(
+        ValueError,
+        match="Second response timestamp must be greater than or equal to the first response timestamp.",
     ):
-        """Test TTST metric with a single record with multiple responses."""
-        record = parsed_response_record_builder.create_record_from_config(
-            ParsedRecord(
-                request_start_time=100,
-                responses=[
-                    Response(perf_ns=120, token_count=1),  # First token
-                    Response(perf_ns=140, token_count=1),  # Second token
-                ],
-            )
-        )
-
-        summary = await self.process_single_record_and_get_summary(record)
-        # TTST = second token time - request start = 140 - 100 = 40
-        self.assert_metric_value(summary, expected_value=40)
-
-    @pytest.mark.asyncio
-    async def test_multiple_records(
-        self, parsed_response_record_builder: ParsedResponseRecordBuilder
-    ):
-        """Test TTST metric with multiple records."""
-        configs = [
-            ParsedRecord(
-                request_start_time=100,
-                responses=[
-                    Response(perf_ns=110, token_count=1),  # First token
-                    Response(perf_ns=130, token_count=1),  # Second token
-                ],
-            ),
-            ParsedRecord(
-                request_start_time=200,
-                responses=[
-                    Response(perf_ns=220, token_count=1),  # First token
-                    Response(perf_ns=250, token_count=1),  # Second token
-                ],
-            ),
-        ]
-
-        records = parsed_response_record_builder.create_records_from_configs(configs)
-        summary = await self.process_records_and_get_summary(records)
-
-        # Record 1 TTST: 130 - 100 = 30
-        # Record 2 TTST: 250 - 200 = 50
-        # Average: (30 + 50) / 2 = 40
-        expected_avg = 40.0
-        self.assert_metric_value(summary, expected_avg)
-
-    @pytest.mark.asyncio
-    async def test_invalid_record_raises_error(
-        self, parsed_response_record_builder: ParsedResponseRecordBuilder
-    ):
-        """Test that record with insufficient responses raises an error."""
-        record = parsed_response_record_builder.simple_record(
-            request_start_time=100, response_perf_ns=120, token_count=1
-        )
-
-        # Only one response, need at least 2 for TTST
-        await self.assert_record_processing_raises(record)
+        metric.update_value(record=record, metrics=None)

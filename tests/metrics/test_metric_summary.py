@@ -2,108 +2,56 @@
 # SPDX-License-Identifier: Apache-2.0
 import pytest
 
-from aiperf.common.config.endpoint_config import EndpointConfig
-from aiperf.common.enums.endpoints_enums import EndpointType
-
-from .conftest import (
-    BaseMetricTest,
-    ParsedRecord,
-    ParsedResponseRecordBuilder,
-    Response,
-)
+from aiperf.common.models import ParsedResponseRecord, RequestRecord, ResponseData
+from aiperf.post_processors import MetricSummary
 
 
-class TestMetricSummary(BaseMetricTest):
-    """Test suite for metric summary."""
-
-    @property
-    def endpoint_config(self) -> EndpointConfig:
-        return EndpointConfig(
-            type=EndpointType.OPENAI_COMPLETIONS,
-            streaming=False,
-            model_names=["test-model"],
-        )
-
-    @property
-    def metric_tag(self) -> str:
-        return "request_latency"  # Placeholder for summary tests
-
-    @pytest.mark.asyncio
-    async def test_metric_summary_computation(
-        self, parsed_response_record_builder: ParsedResponseRecordBuilder
-    ):
-        """Test metric summary computation with various records."""
-        configs = [
-            ParsedRecord(
-                request_start_time=100,
-                worker_id="worker-1",
-                responses=[Response(perf_ns=150, token_count=5)],
-                recv_start_perf_ns=110,
+def build_record(
+    start_ns, first_resp_ns, last_resp_ns, final_ns, input_tokens=5, output_tokens=5
+):
+    return ParsedResponseRecord(
+        worker_id="worker-1",
+        request=RequestRecord(
+            conversation_id="cid",
+            turn_index=0,
+            model_name="model",
+            start_perf_ns=start_ns,
+            timestamp_ns=start_ns,
+        ),
+        responses=[
+            ResponseData(
+                perf_ns=first_resp_ns,
+                token_count=1,
+                raw_text=["hi"],
+                parsed_text=["hi"],
             ),
-            ParsedRecord(
-                request_start_time=200,
-                worker_id="worker-2",
-                responses=[Response(perf_ns=300, token_count=10)],
-                recv_start_perf_ns=220,
+            ResponseData(
+                perf_ns=last_resp_ns,
+                token_count=output_tokens - 1,
+                raw_text=["bye"],
+                parsed_text=["bye"],
             ),
-            ParsedRecord(
-                request_start_time=400,
-                worker_id="worker-3",
-                responses=[Response(perf_ns=500, token_count=8)],
-                recv_start_perf_ns=430,
-            ),
-        ]
+        ],
+        input_token_count=input_tokens,
+        output_token_count=output_tokens,
+    )
 
-        records = parsed_response_record_builder.create_records_from_configs(configs)
-        summary = await self.process_records_and_get_summary(records)
 
-        # Verify summary contains multiple metrics
-        assert len(summary) > 1, "Summary should contain multiple metric results"
+def test_metric_summary_process_with_all_metrics():
+    records = [
+        build_record(0, 100, 150, 170),
+        build_record(10, 120, 160, 180),
+        build_record(20, 140, 180, 200),
+    ]
 
-        # Check that we have some key metrics
-        metric_tags = {result.tag for result in summary}
-        expected_metrics = {
-            "request_latency",
-            "valid_request_count",
-            "output_sequence_length",
-        }
+    summary = MetricSummary()
+    for record in records:
+        summary.process_record(record)
+    summary.post_process()
 
-        # At least some expected metrics should be present
-        assert len(expected_metrics.intersection(metric_tags)) > 0, (
-            f"Expected some of {expected_metrics} in {metric_tags}"
-        )
-
-    @pytest.mark.asyncio
-    async def test_metric_summary_single_record(
-        self, parsed_response_record_builder: ParsedResponseRecordBuilder
-    ):
-        """Test metric summary with a single record."""
-        record = parsed_response_record_builder.create_record_from_config(
-            ParsedRecord(
-                request_start_time=1000,
-                worker_id="single-worker",
-                responses=[
-                    Response(perf_ns=1100, token_count=3),
-                    Response(perf_ns=1200, token_count=2),
-                ],
-                recv_start_perf_ns=1050,
-            )
-        )
-
-        summary = await self.process_single_record_and_get_summary(record)
-
-        # Should have multiple metric results
-        assert len(summary) > 0, "Summary should contain metric results"
-
-        # Check for request latency specifically
-        request_latency_result = None
-        for result in summary:
-            if result.tag == "request_latency":
-                request_latency_result = result
-                break
-
-        assert request_latency_result is not None, "Should have request_latency metric"
-        # Latency should be 1200 - 1000 = 200
-        assert request_latency_result.avg == 200, (
-            f"Expected latency 200, got {request_latency_result.avg}"
-        )
+    for metric in summary._metrics:
+        try:
+            value = metric.values()
+            assert value is not None
+        except Exception:
+            pytest.fail(f"Metric {metric.tag} failed to compute")

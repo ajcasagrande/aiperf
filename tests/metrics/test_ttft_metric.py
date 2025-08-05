@@ -1,94 +1,57 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-import pytest
-
-from aiperf.common.config.endpoint_config import EndpointConfig
-from aiperf.common.enums.endpoints_enums import EndpointType
-from aiperf.metrics.types.time_to_first_token import TTFTMetric
-
-from .conftest import (
-    BaseMetricTest,
-    ParsedRecord,
-    ParsedResponseRecordBuilder,
-    Response,
-)
 
 
-class TestTTFTMetric(BaseMetricTest):
-    """Test suite for TTFTMetric using type-safe dataclasses."""
+from aiperf.common.enums import MetricTimeType
+from aiperf.metrics.types.ttft_metric import TTFTMetric
 
-    @property
-    def endpoint_config(self) -> EndpointConfig:
-        return EndpointConfig(
-            type=EndpointType.OPENAI_COMPLETIONS,
-            streaming=True,
-            model_names=["test-model"],
-        )
 
-    @property
-    def metric_tag(self) -> str:
-        return TTFTMetric.tag
+def test_single_record(parsed_response_record_builder):
+    metric = TTFTMetric()
+    metric.metric = []
+    record = (
+        parsed_response_record_builder.with_request_start_time(100)
+        .add_response(perf_ns=150)
+        .build()
+    )
 
-    @pytest.mark.asyncio
-    async def test_single_record(
-        self, parsed_response_record_builder: ParsedResponseRecordBuilder
-    ):
-        """Test TTFT metric with a single record."""
-        record = parsed_response_record_builder.simple_record(
-            request_start_time=100, response_perf_ns=150, token_count=1
-        )
+    metric.update_value(record=record, metrics=None)
+    assert metric.values() == [50]
 
-        summary = await self.process_single_record_and_get_summary(record)
-        self.assert_metric_value(summary, expected_value=50)  # 150 - 100
 
-    @pytest.mark.asyncio
-    async def test_multiple_records(
-        self, parsed_response_record_builder: ParsedResponseRecordBuilder
-    ):
-        """Test TTFT metric with multiple records."""
-        configs = [
-            ParsedRecord(
-                request_start_time=10,
-                responses=[
-                    Response(perf_ns=15, token_count=1),
-                    Response(perf_ns=15, token_count=1),
-                ],
-            ),
-            ParsedRecord(
-                request_start_time=20,
-                responses=[
-                    Response(perf_ns=25, token_count=1),
-                    Response(perf_ns=25, token_count=1),
-                ],
-            ),
-            ParsedRecord(
-                request_start_time=30,
-                responses=[
-                    Response(perf_ns=40, token_count=1),
-                    Response(perf_ns=40, token_count=1),
-                ],
-            ),
-        ]
+def test_add_multiple_records(parsed_response_record_builder):
+    metric = TTFTMetric()
+    metric.metric = []
+    records = (
+        parsed_response_record_builder.with_request_start_time(10)
+        .add_response(perf_ns=15)
+        .new_record()
+        .with_request_start_time(20)
+        .add_response(perf_ns=25)
+        .new_record()
+        .with_request_start_time(30)
+        .add_response(perf_ns=40)
+        .build_all()
+    )
+    for record in records:
+        metric.update_value(record=record, metrics=None)
+    assert metric.values() == [5, 5, 10]
 
-        records = parsed_response_record_builder.create_records_from_configs(configs)
-        summary = await self.process_records_and_get_summary(records)
 
-        # Expected TTFTs: [5, 5, 10] nanoseconds
-        expected_avg = (5 + 5 + 10) / 3
-        self.assert_metric_value(summary, expected_avg)
-
-    @pytest.mark.asyncio
-    async def test_convert_metrics(
-        self, parsed_response_record_builder: ParsedResponseRecordBuilder
-    ):
-        """Test TTFT metric conversion to milliseconds."""
-        record = parsed_response_record_builder.simple_record(
-            request_start_time=100_000_000,  # 100ms in nanoseconds
-            response_perf_ns=150_000_000,  # 150ms in nanoseconds
-            token_count=1,
-        )
-
-        summary = await self.process_single_record_and_get_summary(record)
-
-        # TTFT = 150ms - 100ms = 50ms = 50_000_000 nanoseconds
-        self.assert_metric_value(summary, expected_value=50_000_000)
+def test_convert_metrics(parsed_response_record_builder):
+    metric = TTFTMetric()
+    metric.metric = []
+    records = (
+        parsed_response_record_builder.with_request_start_time(10_000_000)
+        .add_response(perf_ns=15_000_000)
+        .new_record()
+        .with_request_start_time(20_000_000)
+        .add_response(perf_ns=25_000_000)
+        .new_record()
+        .with_request_start_time(30_000_000)
+        .add_response(perf_ns=40_000_000)
+        .build_all()
+    )
+    for record in records:
+        metric.update_value(record=record, metrics=None)
+    assert metric.get_converted_metrics(unit=MetricTimeType.MILLISECONDS) == [5, 5, 10]

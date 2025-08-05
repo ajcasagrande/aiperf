@@ -10,7 +10,6 @@ import pytest
 from aiperf.common.config.endpoint_config import EndpointConfig
 from aiperf.common.config.user_config import UserConfig
 from aiperf.common.enums import EndpointType
-from aiperf.common.enums.metric_enums import MetricTimeUnit
 from aiperf.common.models import MetricResult
 from aiperf.exporters.exporter_config import ExporterConfig
 from aiperf.exporters.json_exporter import JsonExporter
@@ -23,7 +22,7 @@ class TestJsonExporter:
             MetricResult(
                 tag="Test Metric",
                 header="Test Metric",
-                unit=MetricTimeUnit.MILLISECONDS,
+                unit="ms",
                 avg=123.0,
                 min=100.0,
                 max=150.0,
@@ -36,6 +35,7 @@ class TestJsonExporter:
                 p95=None,
                 p99=149.0,
                 std=10.0,
+                streaming_only=False,
             )
         ]
 
@@ -85,7 +85,7 @@ class TestJsonExporter:
 
             exporter_config = ExporterConfig(
                 results=mock_results,
-                user_config=mock_user_config,
+                input_config=mock_user_config,
             )
 
             exporter = JsonExporter(exporter_config)
