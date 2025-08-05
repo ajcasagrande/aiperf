@@ -6,14 +6,21 @@ Shared fixtures for testing AIPerf metrics.
 """
 
 import logging
+from abc import ABC, abstractmethod
+from typing import Any
 
 import pytest
 
+from aiperf.common.aiperf_logger import AIPerfLogger
+from aiperf.common.config.endpoint_config import EndpointConfig
+from aiperf.common.config.user_config import UserConfig
 from aiperf.common.models import (
     ParsedResponseRecord,
     RequestRecord,
     ResponseData,
 )
+from aiperf.post_processors.metric_record_processor import MetricRecordProcessor
+from aiperf.post_processors.metric_results_processor import MetricResultsProcessor
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -30,8 +37,8 @@ class ParsedResponseRecordBuilder:
 
     def reset(self):
         """Reset the builder to default values."""
-        self._records = []  # List of record configurations
-        self._current_record = self._new_record_config()
+        self._records: list[dict[str, Any]] = []  # List of record configurations
+        self._current_record: dict[str, Any] = self._new_record_config()
         return self
 
     def _new_record_config(self):
@@ -62,11 +69,10 @@ class ParsedResponseRecordBuilder:
     def add_response(
         self,
         perf_ns: int,
-        raw_text: list[str] = None,
-        parsed_text: list[str] = None,
+        raw_text: list[str] | None = None,
+        parsed_text: list[str | None] | None = None,
         **kwargs,
     ):
-        """Add a response to the current record."""
         if raw_text is None:
             raw_text = []
         if parsed_text is None:
@@ -91,7 +97,10 @@ class ParsedResponseRecordBuilder:
         return self
 
     def add_request(
-        self, worker_id: str = None, start_perf_ns: int = None, **request_kwargs
+        self,
+        worker_id: str | None = None,
+        start_perf_ns: int | None = None,
+        **request_kwargs,
     ):
         """Add a new request record. Automatically starts a new record."""
         self.new_record()
@@ -127,13 +136,119 @@ class ParsedResponseRecordBuilder:
             )
 
             parsed_record = ParsedResponseRecord(
-                worker_id=record_config["worker_id"],
                 request=request,
                 responses=record_config["responses"].copy(),
             )
             parsed_records.append(parsed_record)
 
         return parsed_records
+
+
+class BaseMetricTest(ABC):
+    """Base class for metric tests that provides common functionality.
+
+    This class handles the common patterns found in all metric tests:
+    - Setting up processors
+    - Processing records through the pipeline
+    - Finding and validating metric results
+    - Common assertion patterns
+
+    Subclasses only need to provide:
+    - endpoint_config: EndpointConfig for the test
+    - metric_tag: The tag of the metric being tested
+    - Custom test methods that call the helper methods
+    """
+
+    _logger = AIPerfLogger(__name__)
+
+    @property
+    @abstractmethod
+    def endpoint_config(self) -> EndpointConfig:
+        """Return the endpoint configuration for this metric test."""
+        pass
+
+    @property
+    @abstractmethod
+    def metric_tag(self) -> str:
+        """Return the tag of the metric being tested."""
+        pass
+
+    def get_user_config(self) -> UserConfig:
+        """Get the user config for testing."""
+        return UserConfig(endpoint=self.endpoint_config)
+
+    async def process_records_and_get_summary(
+        self, records: list[ParsedResponseRecord]
+    ) -> list[Any]:
+        """Process records through the metric pipeline and return the summary."""
+        user_config = self.get_user_config()
+        record_processor = MetricRecordProcessor(user_config=user_config)
+        results_processor = MetricResultsProcessor(user_config=user_config)
+
+        for record in records:
+            record_metrics = await record_processor.process_record(record=record)
+            await results_processor.process_result(record_metrics)
+
+        return await results_processor.summarize()
+
+    async def process_single_record_and_get_summary(
+        self, record: ParsedResponseRecord
+    ) -> list[Any]:
+        """Process a single record and return the summary."""
+        return await self.process_records_and_get_summary([record])
+
+    def find_metric_result(self, summary: list[Any]) -> Any:
+        """Find the metric result in the summary by tag."""
+        for result in summary:
+            if result.tag == self.metric_tag:
+                self._logger.trace(f"Found metric result: {result}")
+                return result
+
+        available_tags = [result.tag for result in summary]
+        raise AssertionError(
+            f"Metric '{self.metric_tag}' not found in summary. Available metrics: {available_tags}"
+        )
+
+    def assert_metric_value(
+        self, summary: list[Any], expected_value: float, tolerance: float = 0.01
+    ):
+        """Assert that the metric has the expected average value."""
+        result = self.find_metric_result(summary)
+        if isinstance(expected_value, float) and isinstance(result.avg, float):
+            assert abs(result.avg - expected_value) < tolerance, (
+                f"Expected {self.metric_tag} avg to be {expected_value}, got {result.avg}"
+            )
+        else:
+            assert result.avg == expected_value, (
+                f"Expected {self.metric_tag} avg to be {expected_value}, got {result.avg}"
+            )
+
+    async def assert_record_processing_raises(
+        self,
+        record: ParsedResponseRecord,
+        expected_error: type = ValueError,
+        match: str | None = None,
+    ):
+        """Assert that processing a record raises the expected error."""
+        user_config = self.get_user_config()
+        record_processor = MetricRecordProcessor(user_config=user_config)
+
+        if match:
+            with pytest.raises(expected_error, match=match):
+                await record_processor.process_record(record=record)
+        else:
+            with pytest.raises(expected_error):
+                await record_processor.process_record(record=record)
+
+    async def assert_invalid_record_raises(
+        self, expected_error: type | tuple[type, ...] = (ValueError, AttributeError)
+    ):
+        """Assert that processing None/invalid record raises an error."""
+        user_config = self.get_user_config()
+        record_processor = MetricRecordProcessor(user_config=user_config)
+
+        with pytest.raises(expected_error):
+            await record_processor.process_record(record=None)
 
 
 @pytest.fixture
