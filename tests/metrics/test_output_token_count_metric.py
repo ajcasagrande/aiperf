@@ -4,9 +4,14 @@ import pytest
 
 from aiperf.common.config.endpoint_config import EndpointConfig
 from aiperf.common.enums.endpoints_enums import EndpointType
-from aiperf.metrics.types.output_token_count import OutputTokenCountMetric
+from aiperf.metrics.types.output_sequence_length import OutputSequenceLengthMetric
 
-from .conftest import BaseMetricTest, ParsedRecord, Response
+from .conftest import (
+    BaseMetricTest,
+    ParsedRecord,
+    ParsedResponseRecordBuilder,
+    Response,
+)
 
 
 class TestOutputTokenCountMetric(BaseMetricTest):
@@ -22,10 +27,12 @@ class TestOutputTokenCountMetric(BaseMetricTest):
 
     @property
     def metric_tag(self) -> str:
-        return OutputTokenCountMetric.tag
+        return OutputSequenceLengthMetric.tag
 
     @pytest.mark.asyncio
-    async def test_single_record(self, parsed_response_record_builder):
+    async def test_single_record(
+        self, parsed_response_record_builder: ParsedResponseRecordBuilder
+    ):
         """Test output token count with a single record."""
         record = parsed_response_record_builder.create_record_from_config(
             ParsedRecord(
@@ -38,7 +45,9 @@ class TestOutputTokenCountMetric(BaseMetricTest):
         self.assert_metric_value(summary, expected_value=42)
 
     @pytest.mark.asyncio
-    async def test_multiple_records(self, parsed_response_record_builder):
+    async def test_multiple_records(
+        self, parsed_response_record_builder: ParsedResponseRecordBuilder
+    ):
         """Test output token count with multiple records."""
         configs = [
             ParsedRecord(
@@ -58,7 +67,9 @@ class TestOutputTokenCountMetric(BaseMetricTest):
         self.assert_metric_value(summary, expected_value=30)
 
     @pytest.mark.asyncio
-    async def test_multiple_responses_per_record(self, parsed_response_record_builder):
+    async def test_multiple_responses_per_record(
+        self, parsed_response_record_builder: ParsedResponseRecordBuilder
+    ):
         """Test output token count with multiple responses per record."""
         record = parsed_response_record_builder.create_record_from_config(
             ParsedRecord(

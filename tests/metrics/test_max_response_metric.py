@@ -6,7 +6,12 @@ from aiperf.common.config.endpoint_config import EndpointConfig
 from aiperf.common.enums.endpoints_enums import EndpointType
 from aiperf.metrics.types.max_response_timestamp import MaxResponseTimestampMetric
 
-from .conftest import BaseMetricTest, ParsedRecord, Response
+from .conftest import (
+    BaseMetricTest,
+    ParsedRecord,
+    ParsedResponseRecordBuilder,
+    Response,
+)
 
 
 class TestMaxResponseMetric(BaseMetricTest):
@@ -25,7 +30,9 @@ class TestMaxResponseMetric(BaseMetricTest):
         return MaxResponseTimestampMetric.tag
 
     @pytest.mark.asyncio
-    async def test_single_record(self, parsed_response_record_builder):
+    async def test_single_record(
+        self, parsed_response_record_builder: ParsedResponseRecordBuilder
+    ):
         """Test max response timestamp with a single record using simple_record."""
         record = parsed_response_record_builder.simple_record(
             request_start_time=100, response_perf_ns=150
@@ -55,7 +62,9 @@ class TestMaxResponseMetric(BaseMetricTest):
         self.assert_metric_value(summary, expected_value=150)
 
     @pytest.mark.asyncio
-    async def test_multiple_records(self, parsed_response_record_builder):
+    async def test_multiple_records(
+        self, parsed_response_record_builder: ParsedResponseRecordBuilder
+    ):
         """Test max response timestamp with multiple records."""
         configs = [
             ParsedRecord(
@@ -80,7 +89,9 @@ class TestMaxResponseMetric(BaseMetricTest):
         self.assert_metric_value(summary, expected_value=40)  # Max of [25, 15, 40]
 
     @pytest.mark.asyncio
-    async def test_multiple_responses_per_record(self, parsed_response_record_builder):
+    async def test_multiple_responses_per_record(
+        self, parsed_response_record_builder: ParsedResponseRecordBuilder
+    ):
         """Test with multiple responses per record."""
         record = parsed_response_record_builder.create_record_from_config(
             ParsedRecord(
@@ -97,7 +108,9 @@ class TestMaxResponseMetric(BaseMetricTest):
         self.assert_metric_value(summary, expected_value=160)  # Max response time
 
     @pytest.mark.asyncio
-    async def test_complex_scenario_full_config(self, parsed_response_record_builder):
+    async def test_complex_scenario_full_config(
+        self, parsed_response_record_builder: ParsedResponseRecordBuilder
+    ):
         """Test complex scenario with all configuration options."""
         config = ParsedRecord(
             request_start_time=1000,
@@ -130,7 +143,9 @@ class TestMaxResponseMetric(BaseMetricTest):
         self.assert_metric_value(summary, expected_value=1100)  # Max response time
 
     @pytest.mark.asyncio
-    async def test_no_responses_raises_error(self, parsed_response_record_builder):
+    async def test_no_responses_raises_error(
+        self, parsed_response_record_builder: ParsedResponseRecordBuilder
+    ):
         """Test that record with no responses raises an error."""
         record = parsed_response_record_builder.create_record_from_config(
             ParsedRecord(
@@ -142,7 +157,9 @@ class TestMaxResponseMetric(BaseMetricTest):
         await self.assert_record_processing_raises(record, match="Invalid Record")
 
     @pytest.mark.asyncio
-    async def test_missing_input_tokens(self, parsed_response_record_builder):
+    async def test_missing_input_tokens(
+        self, parsed_response_record_builder: ParsedResponseRecordBuilder
+    ):
         """Test with missing input tokens."""
         record = parsed_response_record_builder.simple_record(
             request_start_time=100,

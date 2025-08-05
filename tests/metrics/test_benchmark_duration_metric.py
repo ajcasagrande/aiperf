@@ -11,6 +11,7 @@ from aiperf.common.models.record_models import ParsedResponseRecord
 from aiperf.metrics.types.benchmark_duration import BenchmarkDurationMetric
 from aiperf.post_processors.metric_record_processor import MetricRecordProcessor
 from aiperf.post_processors.metric_results_processor import MetricResultsProcessor
+from tests.metrics.conftest import ParsedRecord, ParsedResponseRecordBuilder, Response
 
 
 @pytest.fixture
@@ -29,17 +30,17 @@ _logger = AIPerfLogger(__name__)
 
 
 @pytest.mark.asyncio
-async def test_add_multiple_records(parsed_response_record_builder, mock_user_config):
+async def test_add_multiple_records(
+    parsed_response_record_builder: ParsedResponseRecordBuilder, mock_user_config
+):
     records: list[ParsedResponseRecord] = (
-        parsed_response_record_builder.with_request_start_time(10)
-        .add_response(perf_ns=15)
-        .new_record()
-        .with_request_start_time(20)
-        .add_response(perf_ns=25)
-        .new_record()
-        .with_request_start_time(30)
-        .add_response(perf_ns=40)
-        .build_all()
+        parsed_response_record_builder.create_records_from_configs(
+            [
+                ParsedRecord(request_start_time=10, responses=[Response(perf_ns=15)]),
+                ParsedRecord(request_start_time=20, responses=[Response(perf_ns=25)]),
+                ParsedRecord(request_start_time=30, responses=[Response(perf_ns=40)]),
+            ]
+        )
     )
 
     # Create a record processor to ingest the raw records

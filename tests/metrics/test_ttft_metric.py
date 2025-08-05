@@ -6,7 +6,12 @@ from aiperf.common.config.endpoint_config import EndpointConfig
 from aiperf.common.enums.endpoints_enums import EndpointType
 from aiperf.metrics.types.time_to_first_token import TTFTMetric
 
-from .conftest import BaseMetricTest, ParsedRecord, Response
+from .conftest import (
+    BaseMetricTest,
+    ParsedRecord,
+    ParsedResponseRecordBuilder,
+    Response,
+)
 
 
 class TestTTFTMetric(BaseMetricTest):
@@ -25,7 +30,9 @@ class TestTTFTMetric(BaseMetricTest):
         return TTFTMetric.tag
 
     @pytest.mark.asyncio
-    async def test_single_record(self, parsed_response_record_builder):
+    async def test_single_record(
+        self, parsed_response_record_builder: ParsedResponseRecordBuilder
+    ):
         """Test TTFT metric with a single record."""
         record = parsed_response_record_builder.simple_record(
             request_start_time=100, response_perf_ns=150, token_count=1
@@ -35,7 +42,9 @@ class TestTTFTMetric(BaseMetricTest):
         self.assert_metric_value(summary, expected_value=50)  # 150 - 100
 
     @pytest.mark.asyncio
-    async def test_multiple_records(self, parsed_response_record_builder):
+    async def test_multiple_records(
+        self, parsed_response_record_builder: ParsedResponseRecordBuilder
+    ):
         """Test TTFT metric with multiple records."""
         configs = [
             ParsedRecord(
@@ -57,7 +66,9 @@ class TestTTFTMetric(BaseMetricTest):
         self.assert_metric_value(summary, expected_avg)
 
     @pytest.mark.asyncio
-    async def test_convert_metrics(self, parsed_response_record_builder):
+    async def test_convert_metrics(
+        self, parsed_response_record_builder: ParsedResponseRecordBuilder
+    ):
         """Test TTFT metric conversion to milliseconds."""
         record = parsed_response_record_builder.simple_record(
             request_start_time=100_000_000,  # 100ms in nanoseconds

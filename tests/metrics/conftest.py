@@ -33,7 +33,7 @@ class Response:
     perf_ns: int
     token_count: int = 1
     raw_text: list[str] = field(default_factory=list)
-    parsed_text: list[str] = field(default_factory=list)
+    parsed_text: list[str | None] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_response_data(self) -> ResponseData:
@@ -59,8 +59,14 @@ class ParsedRecord:
     conversation_id: str = "test-conversation"
     turn_index: int = 0
     model_name: str = "test-model"
-    # Additional request kwargs (for things like recv_start_perf_ns)
+    recv_start_perf_ns: int | None = None  # Will default to request_start_time + 10
+    # Additional request kwargs (for other custom fields)
     request_kwargs: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self):
+        """Set recv_start_perf_ns default after object creation."""
+        if self.recv_start_perf_ns is None:
+            self.recv_start_perf_ns = self.request_start_time + 10
 
 
 class ParsedResponseRecordBuilder:
@@ -88,6 +94,13 @@ class ParsedResponseRecordBuilder:
         ParsedRecord(request_start_time=10, responses=[Response(perf_ns=15)]),
         ParsedRecord(request_start_time=20, responses=[Response(perf_ns=25)])
     ])
+
+    # With custom recv_start_perf_ns (defaults to request_start_time + 10)
+    record = builder.create_record_from_config(ParsedRecord(
+        request_start_time=100,
+        recv_start_perf_ns=105,
+        responses=[Response(perf_ns=150)]
+    ))
 
     # Convenience method for simple cases
     record = builder.simple_record(request_start_time=100, response_perf_ns=150)
@@ -138,11 +151,11 @@ class ParsedResponseRecordBuilder:
             model_name=config.model_name,
             start_perf_ns=config.request_start_time,
             timestamp_ns=config.request_start_time,
+            recv_start_perf_ns=config.recv_start_perf_ns,
             **config.request_kwargs,
         )
 
         return ParsedResponseRecord(
-            worker_id=config.worker_id,
             request=request,
             responses=response_objects,
             input_token_count=config.input_token_count,

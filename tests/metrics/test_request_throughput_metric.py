@@ -3,10 +3,16 @@
 import pytest
 
 from aiperf.common.config.endpoint_config import EndpointConfig
+from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums.endpoints_enums import EndpointType
 from aiperf.metrics.types.request_throughput import RequestThroughputMetric
 
-from .conftest import BaseMetricTest, ParsedRecord, Response
+from .conftest import (
+    BaseMetricTest,
+    ParsedRecord,
+    ParsedResponseRecordBuilder,
+    Response,
+)
 
 
 class TestRequestThroughputMetric(BaseMetricTest):
@@ -25,7 +31,9 @@ class TestRequestThroughputMetric(BaseMetricTest):
         return RequestThroughputMetric.tag
 
     @pytest.mark.asyncio
-    async def test_single_record(self, parsed_response_record_builder):
+    async def test_single_record(
+        self, parsed_response_record_builder: ParsedResponseRecordBuilder
+    ):
         """Test request throughput with a single record."""
         record = parsed_response_record_builder.simple_record(
             request_start_time=100, response_perf_ns=200
@@ -34,11 +42,13 @@ class TestRequestThroughputMetric(BaseMetricTest):
         summary = await self.process_single_record_and_get_summary(record)
 
         # Throughput = 1 request / 100 ns = 0.01 requests/ns
-        expected_throughput = 1.0 / 100.0
+        expected_throughput = 1.0 / 100.0 * NANOS_PER_SECOND
         self.assert_metric_value(summary, expected_throughput)
 
     @pytest.mark.asyncio
-    async def test_multiple_records(self, parsed_response_record_builder):
+    async def test_multiple_records(
+        self, parsed_response_record_builder: ParsedResponseRecordBuilder
+    ):
         """Test request throughput with multiple records."""
         configs = [
             ParsedRecord(
@@ -58,11 +68,13 @@ class TestRequestThroughputMetric(BaseMetricTest):
         # Total requests: 3
         # Total duration: max_end - min_start = 600 - 0 = 600 ns
         # Throughput = 3 / 600 = 0.005 requests/ns
-        expected_throughput = 3.0 / 600.0
+        expected_throughput = 3.0 / 600.0 * NANOS_PER_SECOND
         self.assert_metric_value(summary, expected_throughput)
 
     @pytest.mark.asyncio
-    async def test_multiple_responses_per_record(self, parsed_response_record_builder):
+    async def test_multiple_responses_per_record(
+        self, parsed_response_record_builder: ParsedResponseRecordBuilder
+    ):
         """Test request throughput with multiple responses per record."""
         record = parsed_response_record_builder.create_record_from_config(
             ParsedRecord(
@@ -79,5 +91,5 @@ class TestRequestThroughputMetric(BaseMetricTest):
 
         # 1 request, duration = 200 - 100 = 100 ns
         # Throughput = 1 / 100 = 0.01 requests/ns
-        expected_throughput = 1.0 / 100.0
+        expected_throughput = 1.0 / 100.0 * NANOS_PER_SECOND
         self.assert_metric_value(summary, expected_throughput)

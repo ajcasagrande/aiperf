@@ -6,7 +6,12 @@ from aiperf.common.config.endpoint_config import EndpointConfig
 from aiperf.common.enums.endpoints_enums import EndpointType
 from aiperf.metrics.types.output_token_throughput import OutputTokenThroughputMetric
 
-from .conftest import BaseMetricTest, ParsedRecord, Response
+from .conftest import (
+    BaseMetricTest,
+    ParsedRecord,
+    ParsedResponseRecordBuilder,
+    Response,
+)
 
 
 class TestOutputTokenThroughputMetric(BaseMetricTest):
@@ -25,7 +30,9 @@ class TestOutputTokenThroughputMetric(BaseMetricTest):
         return OutputTokenThroughputMetric.tag
 
     @pytest.mark.asyncio
-    async def test_single_record(self, parsed_response_record_builder):
+    async def test_single_record(
+        self, parsed_response_record_builder: ParsedResponseRecordBuilder
+    ):
         """Test output token throughput with a single record."""
         record = parsed_response_record_builder.create_record_from_config(
             ParsedRecord(
@@ -42,7 +49,9 @@ class TestOutputTokenThroughputMetric(BaseMetricTest):
         self.assert_metric_value(summary, expected_throughput)
 
     @pytest.mark.asyncio
-    async def test_multiple_records(self, parsed_response_record_builder):
+    async def test_multiple_records(
+        self, parsed_response_record_builder: ParsedResponseRecordBuilder
+    ):
         """Test output token throughput with multiple records."""
         configs = [
             ParsedRecord(
@@ -65,7 +74,9 @@ class TestOutputTokenThroughputMetric(BaseMetricTest):
         self.assert_metric_value(summary, expected_throughput)
 
     @pytest.mark.asyncio
-    async def test_multiple_responses_per_record(self, parsed_response_record_builder):
+    async def test_multiple_responses_per_record(
+        self, parsed_response_record_builder: ParsedResponseRecordBuilder
+    ):
         """Test output token throughput with multiple responses per record."""
         record = parsed_response_record_builder.create_record_from_config(
             ParsedRecord(

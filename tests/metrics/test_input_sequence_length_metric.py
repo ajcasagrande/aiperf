@@ -6,7 +6,12 @@ from aiperf.common.config.endpoint_config import EndpointConfig
 from aiperf.common.enums.endpoints_enums import EndpointType
 from aiperf.metrics.types.input_sequence_length import InputSequenceLengthMetric
 
-from .conftest import BaseMetricTest, ParsedRecord, Response
+from .conftest import (
+    BaseMetricTest,
+    ParsedRecord,
+    ParsedResponseRecordBuilder,
+    Response,
+)
 
 
 class TestInputSequenceLengthMetric(BaseMetricTest):
@@ -25,7 +30,9 @@ class TestInputSequenceLengthMetric(BaseMetricTest):
         return InputSequenceLengthMetric.tag
 
     @pytest.mark.asyncio
-    async def test_single_record(self, parsed_response_record_builder):
+    async def test_single_record(
+        self, parsed_response_record_builder: ParsedResponseRecordBuilder
+    ):
         """Test input sequence length with a single record."""
         record = parsed_response_record_builder.simple_record(
             request_start_time=100, input_token_count=10
@@ -35,7 +42,9 @@ class TestInputSequenceLengthMetric(BaseMetricTest):
         self.assert_metric_value(summary, expected_value=10)
 
     @pytest.mark.asyncio
-    async def test_multiple_records(self, parsed_response_record_builder):
+    async def test_multiple_records(
+        self, parsed_response_record_builder: ParsedResponseRecordBuilder
+    ):
         """Test input sequence length with multiple records."""
         configs = [
             ParsedRecord(input_token_count=5, responses=[Response(perf_ns=120)]),

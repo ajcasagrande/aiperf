@@ -6,7 +6,12 @@ from aiperf.common.config.endpoint_config import EndpointConfig
 from aiperf.common.enums.endpoints_enums import EndpointType
 from aiperf.metrics.types.min_request_timestamp import MinRequestTimestampMetric
 
-from .conftest import BaseMetricTest, ParsedRecord, Response
+from .conftest import (
+    BaseMetricTest,
+    ParsedRecord,
+    ParsedResponseRecordBuilder,
+    Response,
+)
 
 
 class TestMinRequestMetric(BaseMetricTest):
@@ -25,7 +30,9 @@ class TestMinRequestMetric(BaseMetricTest):
         return MinRequestTimestampMetric.tag
 
     @pytest.mark.asyncio
-    async def test_single_record(self, parsed_response_record_builder):
+    async def test_single_record(
+        self, parsed_response_record_builder: ParsedResponseRecordBuilder
+    ):
         """Test min request timestamp with a single record."""
         record = parsed_response_record_builder.simple_record(request_start_time=100)
 
@@ -33,7 +40,9 @@ class TestMinRequestMetric(BaseMetricTest):
         self.assert_metric_value(summary, expected_value=100)
 
     @pytest.mark.asyncio
-    async def test_multiple_records(self, parsed_response_record_builder):
+    async def test_multiple_records(
+        self, parsed_response_record_builder: ParsedResponseRecordBuilder
+    ):
         """Test min request timestamp with multiple records."""
         configs = [
             ParsedRecord(
@@ -54,7 +63,9 @@ class TestMinRequestMetric(BaseMetricTest):
         self.assert_metric_value(summary, expected_value=10)
 
     @pytest.mark.asyncio
-    async def test_invalid_record_raises_error(self, parsed_response_record_builder):
+    async def test_invalid_record_raises_error(
+        self, parsed_response_record_builder: ParsedResponseRecordBuilder
+    ):
         """Test that invalid record raises an error."""
         record = parsed_response_record_builder.create_record_from_config(
             ParsedRecord(request_start_time=10, responses=[])

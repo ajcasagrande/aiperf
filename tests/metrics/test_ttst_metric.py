@@ -6,7 +6,12 @@ from aiperf.common.config.endpoint_config import EndpointConfig
 from aiperf.common.enums.endpoints_enums import EndpointType
 from aiperf.metrics.types.time_to_second_token import TTSTMetric
 
-from .conftest import BaseMetricTest, ParsedRecord, Response
+from .conftest import (
+    BaseMetricTest,
+    ParsedRecord,
+    ParsedResponseRecordBuilder,
+    Response,
+)
 
 
 class TestTTSTMetric(BaseMetricTest):
@@ -25,7 +30,9 @@ class TestTTSTMetric(BaseMetricTest):
         return TTSTMetric.tag
 
     @pytest.mark.asyncio
-    async def test_single_record(self, parsed_response_record_builder):
+    async def test_single_record(
+        self, parsed_response_record_builder: ParsedResponseRecordBuilder
+    ):
         """Test TTST metric with a single record with multiple responses."""
         record = parsed_response_record_builder.create_record_from_config(
             ParsedRecord(
@@ -42,7 +49,9 @@ class TestTTSTMetric(BaseMetricTest):
         self.assert_metric_value(summary, expected_value=40)
 
     @pytest.mark.asyncio
-    async def test_multiple_records(self, parsed_response_record_builder):
+    async def test_multiple_records(
+        self, parsed_response_record_builder: ParsedResponseRecordBuilder
+    ):
         """Test TTST metric with multiple records."""
         configs = [
             ParsedRecord(
@@ -71,7 +80,9 @@ class TestTTSTMetric(BaseMetricTest):
         self.assert_metric_value(summary, expected_avg)
 
     @pytest.mark.asyncio
-    async def test_invalid_record_raises_error(self, parsed_response_record_builder):
+    async def test_invalid_record_raises_error(
+        self, parsed_response_record_builder: ParsedResponseRecordBuilder
+    ):
         """Test that record with insufficient responses raises an error."""
         record = parsed_response_record_builder.simple_record(
             request_start_time=100, response_perf_ns=120, token_count=1

@@ -5,7 +5,12 @@ import pytest
 from aiperf.common.config.endpoint_config import EndpointConfig
 from aiperf.common.enums.endpoints_enums import EndpointType
 
-from .conftest import BaseMetricTest, ParsedRecord, Response
+from .conftest import (
+    BaseMetricTest,
+    ParsedRecord,
+    ParsedResponseRecordBuilder,
+    Response,
+)
 
 
 class TestMetricSummary(BaseMetricTest):
@@ -24,26 +29,28 @@ class TestMetricSummary(BaseMetricTest):
         return "request_latency"  # Placeholder for summary tests
 
     @pytest.mark.asyncio
-    async def test_metric_summary_computation(self, parsed_response_record_builder):
+    async def test_metric_summary_computation(
+        self, parsed_response_record_builder: ParsedResponseRecordBuilder
+    ):
         """Test metric summary computation with various records."""
         configs = [
             ParsedRecord(
                 request_start_time=100,
                 worker_id="worker-1",
                 responses=[Response(perf_ns=150, token_count=5)],
-                request_kwargs={"recv_start_perf_ns": 110},
+                recv_start_perf_ns=110,
             ),
             ParsedRecord(
                 request_start_time=200,
                 worker_id="worker-2",
                 responses=[Response(perf_ns=300, token_count=10)],
-                request_kwargs={"recv_start_perf_ns": 220},
+                recv_start_perf_ns=220,
             ),
             ParsedRecord(
                 request_start_time=400,
                 worker_id="worker-3",
                 responses=[Response(perf_ns=500, token_count=8)],
-                request_kwargs={"recv_start_perf_ns": 430},
+                recv_start_perf_ns=430,
             ),
         ]
 
@@ -69,7 +76,9 @@ class TestMetricSummary(BaseMetricTest):
         )
 
     @pytest.mark.asyncio
-    async def test_metric_summary_single_record(self, parsed_response_record_builder):
+    async def test_metric_summary_single_record(
+        self, parsed_response_record_builder: ParsedResponseRecordBuilder
+    ):
         """Test metric summary with a single record."""
         record = parsed_response_record_builder.create_record_from_config(
             ParsedRecord(
@@ -79,7 +88,7 @@ class TestMetricSummary(BaseMetricTest):
                     Response(perf_ns=1100, token_count=3),
                     Response(perf_ns=1200, token_count=2),
                 ],
-                request_kwargs={"recv_start_perf_ns": 1050},
+                recv_start_perf_ns=1050,
             )
         )
 

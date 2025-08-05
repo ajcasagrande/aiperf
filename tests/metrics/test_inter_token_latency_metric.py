@@ -6,7 +6,12 @@ from aiperf.common.config.endpoint_config import EndpointConfig
 from aiperf.common.enums.endpoints_enums import EndpointType
 from aiperf.metrics.types.inter_token_latency import InterTokenLatencyMetric
 
-from .conftest import BaseMetricTest, ParsedRecord, Response
+from .conftest import (
+    BaseMetricTest,
+    ParsedRecord,
+    ParsedResponseRecordBuilder,
+    Response,
+)
 
 
 class TestInterTokenLatencyMetric(BaseMetricTest):
@@ -25,7 +30,9 @@ class TestInterTokenLatencyMetric(BaseMetricTest):
         return InterTokenLatencyMetric.tag
 
     @pytest.mark.asyncio
-    async def test_single_record(self, parsed_response_record_builder):
+    async def test_single_record(
+        self, parsed_response_record_builder: ParsedResponseRecordBuilder
+    ):
         """Test inter-token latency with a single record with multiple responses."""
         record = parsed_response_record_builder.create_record_from_config(
             ParsedRecord(
@@ -44,7 +51,9 @@ class TestInterTokenLatencyMetric(BaseMetricTest):
         self.assert_metric_value(summary, expected_avg)
 
     @pytest.mark.asyncio
-    async def test_multiple_records(self, parsed_response_record_builder):
+    async def test_multiple_records(
+        self, parsed_response_record_builder: ParsedResponseRecordBuilder
+    ):
         """Test inter-token latency with multiple records."""
         configs = [
             ParsedRecord(
