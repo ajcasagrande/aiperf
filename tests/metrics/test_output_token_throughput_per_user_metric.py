@@ -34,12 +34,18 @@ class TestOutputTokenThroughputPerUserMetric(BaseMetricTest):
         """Test output token throughput per user metric with multiple records."""
         records = (
             parsed_response_record_builder.with_request_start_time(0)
+            .with_request_kwargs(
+                recv_start_perf_ns=10
+            )  # Add recv_start for connection latency
             .add_response(perf_ns=250_000_000, token_count=1)  # TTFT = 250ms
             .add_response(
                 perf_ns=750_000_000, token_count=1
             )  # ITL = (750-250)/(2-1) = 500ms = 500_000_000ns
             .new_record()
             .with_request_start_time(0)
+            .with_request_kwargs(
+                recv_start_perf_ns=10
+            )  # Add recv_start for connection latency
             .add_response(perf_ns=125_000_000, token_count=1)  # TTFT = 125ms
             .add_response(
                 perf_ns=375_000_000, token_count=1
@@ -47,9 +53,7 @@ class TestOutputTokenThroughputPerUserMetric(BaseMetricTest):
             .build_all()
         )
 
-        # Set output token counts manually for proper OSL calculation
-        records[0].output_token_count = 2  # 2 tokens total
-        records[1].output_token_count = 2  # 2 tokens total
+        # Token counts are now calculated automatically: 2 tokens each
 
         summary = await self.process_records_and_get_summary(records)
 

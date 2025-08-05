@@ -59,5 +59,10 @@ class TestMaxResponseMetric(BaseMetricTest):
         self, parsed_response_record_builder
     ):
         """Test that record with no responses raises an error."""
-        record = parsed_response_record_builder.with_request_start_time(10).build()
+        # Create a record builder but don't add any responses
+        builder = parsed_response_record_builder.with_request_start_time(10)
+        # Clear any default responses that might be added
+        builder._current_record["responses"] = []
+        record = builder.build()
+
         await self.assert_record_processing_raises(record, match="Invalid Record")

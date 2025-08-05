@@ -36,8 +36,7 @@ class TestOutputTokenCountMetric(BaseMetricTest):
             .build()
         )
 
-        # Set the output token count manually
-        record.output_token_count = 5
+        # Token count is now calculated automatically: 5
 
         summary = await self.process_single_record_and_get_summary(record)
         self.assert_metric_value(summary, expected_value=5)

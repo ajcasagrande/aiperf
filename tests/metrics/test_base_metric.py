@@ -37,15 +37,24 @@ def test_base_metric_value_type(patch_isabstract):
     class SimpleFloatMetric(BaseRecordMetric):
         tag = "SimpleFloatMetric"
 
+        def _parse_record(self, record, record_metrics):
+            return 1.0
+
     assert SimpleFloatMetric.value_type == MetricValueType.FLOAT
 
     class FloatMetric(BaseRecordMetric[float]):
         tag = "FloatMetric"
 
+        def _parse_record(self, record, record_metrics):
+            return 1.0
+
     assert FloatMetric.value_type == MetricValueType.FLOAT
 
     class IntMetric(BaseRecordMetric[int]):
         tag = "IntMetric"
+
+        def _parse_record(self, record, record_metrics):
+            return 1
 
     assert IntMetric.value_type == MetricValueType.INT
 
@@ -53,11 +62,17 @@ def test_base_metric_value_type(patch_isabstract):
         tag = "FloatListMetric"
         value_type = MetricValueType.FLOAT_LIST
 
+        def _parse_record(self, record, record_metrics):
+            return [1.0, 2.0]
+
     assert FloatListMetric.value_type == MetricValueType.FLOAT_LIST
 
     class IntListMetric(BaseRecordMetric[list[int]]):
         tag = "IntListMetric"
         value_type = MetricValueType.INT_LIST
+
+        def _parse_record(self, record, record_metrics):
+            return [1, 2]
 
     assert IntListMetric.value_type == MetricValueType.INT_LIST
 

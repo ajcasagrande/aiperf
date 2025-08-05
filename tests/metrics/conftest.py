@@ -48,6 +48,7 @@ class ParsedResponseRecordBuilder:
             "request_start_perf_ns": 100,
             "request_kwargs": {},
             "responses": [],
+            "input_token_count": None,  # Will use default if not set
         }
 
     def with_worker_id(self, worker_id: str):
@@ -66,17 +67,26 @@ class ParsedResponseRecordBuilder:
         self._current_record["request_kwargs"].update(kwargs)
         return self
 
+    def with_input_token_count(self, count: int | None):
+        """Set the input token count for the current record."""
+        self._current_record["input_token_count"] = count
+        return self
+
     def add_response(
         self,
         perf_ns: int,
-        raw_text: list[str] | None = None,
-        parsed_text: list[str | None] | None = None,
+        raw_text: list[str] = None,
+        parsed_text: list[str] = None,
         **kwargs,
     ):
         if raw_text is None:
             raw_text = []
         if parsed_text is None:
             parsed_text = []
+
+        # Ensure token_count defaults to 1 if not provided
+        if "token_count" not in kwargs:
+            kwargs["token_count"] = 1
 
         response_data = ResponseData(
             perf_ns=perf_ns, raw_text=raw_text, parsed_text=parsed_text, **kwargs
@@ -135,9 +145,38 @@ class ParsedResponseRecordBuilder:
                 **record_config["request_kwargs"],
             )
 
+            # Calculate token counts automatically if not already set
+            output_token_count = (
+                sum(
+                    response.token_count
+                    for response in record_config["responses"]
+                    if hasattr(response, "token_count")
+                    and response.token_count is not None
+                )
+                if record_config["responses"]
+                else None
+            )
+
+            # Use configured input token count, or default to 5 if none set
+            # If explicitly set to None, keep it None for testing missing scenarios
+            if (
+                "input_token_count" in record_config
+                and record_config["input_token_count"] is None
+            ):
+                input_token_count = None
+            else:
+                input_token_count = (
+                    record_config["input_token_count"]
+                    if record_config["input_token_count"] is not None
+                    else 5
+                )
+
             parsed_record = ParsedResponseRecord(
+                worker_id=record_config["worker_id"],
                 request=request,
                 responses=record_config["responses"].copy(),
+                input_token_count=input_token_count,
+                output_token_count=output_token_count,
             )
             parsed_records.append(parsed_record)
 

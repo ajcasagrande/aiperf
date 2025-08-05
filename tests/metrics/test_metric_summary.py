@@ -31,12 +31,15 @@ class TestMetricSummary(BaseMetricTest):
     ):
         """Helper function to build a ParsedResponseRecord for testing."""
         return ParsedResponseRecord(
+            worker_id="worker-1",
             request=RequestRecord(
                 conversation_id="cid",
                 turn_index=0,
                 model_name="model",
                 start_perf_ns=start_ns,
                 timestamp_ns=start_ns,
+                recv_start_perf_ns=start_ns
+                + 10,  # Add recv_start for connection latency
             ),
             responses=[
                 ResponseData(

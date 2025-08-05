@@ -32,16 +32,14 @@ class TestInputSequenceLengthMetric(BaseMetricTest):
         """Test input sequence length metric with multiple records."""
         records = (
             parsed_response_record_builder.with_request_start_time(10)
+            .with_input_token_count(5)  # Use builder method
             .add_response(perf_ns=15, token_count=1)
             .new_record()
             .with_request_start_time(20)
+            .with_input_token_count(7)  # Use builder method
             .add_response(perf_ns=25, token_count=1)
             .build_all()
         )
-
-        # Set input token counts manually since the builder doesn't set them
-        records[0].input_token_count = 5
-        records[1].input_token_count = 7
 
         summary = await self.process_records_and_get_summary(records)
 
@@ -55,11 +53,11 @@ class TestInputSequenceLengthMetric(BaseMetricTest):
         """Test that missing input token count raises an error."""
         record = (
             parsed_response_record_builder.with_request_start_time(10)
+            .with_input_token_count(None)  # Explicitly set to None
             .add_response(perf_ns=15, token_count=1)
             .build()
         )
-        # Don't set input_token_count, leaving it as None
 
         await self.assert_record_processing_raises(
-            record, match="Input Token Count is not available"
+            record, match="Input Token Count is not available for the record"
         )

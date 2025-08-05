@@ -71,4 +71,5 @@ class TestRequestLatencyMetric(BaseMetricTest):
             .build()
         )
 
-        await self.assert_record_processing_raises(record, match="Invalid Record")
+        # This should raise a ValueError due to negative latency
+        await self.assert_record_processing_raises(record, expected_error=ValueError)

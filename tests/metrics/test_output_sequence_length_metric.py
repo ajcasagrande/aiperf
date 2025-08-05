@@ -39,9 +39,7 @@ class TestOutputSequenceLengthMetric(BaseMetricTest):
             .build_all()
         )
 
-        # Set output token counts manually since the builder doesn't set them automatically
-        records[0].output_token_count = 8  # 3 + 5
-        records[1].output_token_count = 7
+        # Token counts are now calculated automatically: 3+5=8, 7=7
 
         summary = await self.process_records_and_get_summary(records)
 
@@ -60,9 +58,10 @@ class TestOutputSequenceLengthMetric(BaseMetricTest):
         """Test that missing output token count raises an error."""
         record = (
             parsed_response_record_builder.with_request_start_time(10)
-            .add_response(perf_ns=15, token_count=3)
+            # Build a record with no responses to get None output_token_count
             .build()
         )
-        # Don't set output_token_count, leaving it as None
 
-        await self.assert_record_processing_raises(record, match="Invalid Record")
+        await self.assert_record_processing_raises(
+            record, match="Output token count is missing in the record"
+        )

@@ -30,22 +30,19 @@ class TestOutputTokenThroughputMetric(BaseMetricTest):
         """Test output token throughput metric with multiple records."""
         records = (
             parsed_response_record_builder.with_request_start_time(0)
-            .add_response(perf_ns=1_000_000_000)  # 1 second
+            .add_response(perf_ns=1_000_000_000, token_count=10)  # 10 tokens
             .new_record()
             .with_request_start_time(1_000_000_000)  # Start 1 second later
-            .add_response(perf_ns=3_000_000_000)  # Response at 3 seconds
+            .add_response(perf_ns=3_000_000_000, token_count=20)  # 20 tokens
             .new_record()
             .with_request_start_time(2_000_000_000)  # Start 2 seconds later
             .add_response(
-                perf_ns=5_000_000_000
-            )  # Response at 5 seconds (total duration = 5 seconds)
+                perf_ns=5_000_000_000, token_count=30
+            )  # 30 tokens - total = 60 tokens
             .build_all()
         )
 
-        # Set output token counts manually - total = 60 tokens
-        records[0].output_token_count = 10
-        records[1].output_token_count = 20
-        records[2].output_token_count = 30
+        # Token counts are now calculated automatically: 10 + 20 + 30 = 60 total
 
         summary = await self.process_records_and_get_summary(records)
 
