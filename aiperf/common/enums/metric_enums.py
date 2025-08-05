@@ -50,7 +50,7 @@ class BaseMetricUnit(BasePydanticBackedStrEnum):
         return self._info  # type: ignore
 
     def convert_to(self, other_unit: "MetricUnitT", value: int | float) -> float:
-        """Convert a value from this unit to another unit."""
+        """Convert a value from this unit to another unit. This is a passthrough to the info class."""
         return self.info.convert_to(other_unit, value)
 
 
@@ -63,6 +63,13 @@ class MetricSizeUnitInfo(BaseMetricUnitInfo):
 
     long_name: str
     num_bytes: int
+
+    def convert_to(self, other_unit: "MetricUnitT", value: int | float) -> float:
+        """Convert a value from this unit to another unit."""
+        if not isinstance(other_unit, MetricSizeUnit | MetricSizeUnitInfo):
+            return super().convert_to(other_unit, value)
+
+        return value * (self.num_bytes / other_unit.num_bytes)
 
 
 class MetricSizeUnit(BaseMetricUnit):
@@ -108,13 +115,6 @@ class MetricSizeUnit(BaseMetricUnit):
     def long_name(self) -> str:
         """The long name of the metric size unit."""
         return self.info.long_name
-
-    def convert_to(self, other_unit: "MetricUnitT", value: int | float) -> float:
-        """Convert a value from this unit to another unit."""
-        if not isinstance(other_unit, MetricSizeUnit | MetricSizeUnitInfo):
-            return super().convert_to(other_unit, value)
-
-        return value * (self.num_bytes / other_unit.num_bytes)
 
 
 class MetricTimeUnitInfo(BaseMetricUnitInfo):
@@ -179,15 +179,9 @@ def _unit(tag: str) -> BaseMetricUnitInfo:
 class GenericMetricUnit(BaseMetricUnit):
     """Defines generic units for metrics. These dont have any extra information other than the tag, which is used for display purposes."""
 
-    COUNT = _unit("count")
-    IMAGE = _unit("image")
-    IMAGES = _unit("images")
-    PAGES = _unit("pages")
-    PERCENT = _unit("%")
     REQUESTS = _unit("requests")
     TOKENS = _unit("tokens")
     USER = _unit("user")
-    USERS = _unit("users")
 
 
 class MetricOverTimeUnitInfo(BaseMetricUnitInfo):
@@ -210,6 +204,28 @@ class MetricOverTimeUnitInfo(BaseMetricUnitInfo):
     time_unit: MetricTimeUnit | MetricTimeUnitInfo
     third_unit: "MetricUnitT | None" = None
 
+    def convert_to(self, other_unit: "MetricUnitT", value: int | float) -> float:
+        """Convert a value from this unit to another unit."""
+        # If the other unit is the same as this unit, return the value.
+        if other_unit == self:
+            return value
+
+        if isinstance(other_unit, MetricOverTimeUnit | MetricOverTimeUnitInfo):
+            # Chain convert each unit to the other unit.
+            value = self.primary_unit.convert_to(other_unit.primary_unit, value)
+            value = self.time_unit.convert_to(other_unit.time_unit, value)
+            if self.third_unit and other_unit.third_unit:
+                value = self.third_unit.convert_to(other_unit.third_unit, value)
+            return value
+
+        # If the other unit is a time unit, convert our time unit to the other unit.
+        # TODO: Should we even allow this?
+        if isinstance(other_unit, MetricTimeUnit | MetricTimeUnitInfo):
+            return self.time_unit.convert_to(other_unit, value)
+
+        # Otherwise, convert the primary unit to the other unit.
+        return self.primary_unit.convert_to(other_unit, value)
+
 
 class MetricOverTimeUnit(BaseMetricUnit):
     """Defines the units for metrics that are a generic unit over a specific time unit."""
@@ -220,10 +236,6 @@ class MetricOverTimeUnit(BaseMetricUnit):
     )
     TOKENS_PER_SECOND = MetricOverTimeUnitInfo(
         primary_unit=GenericMetricUnit.TOKENS,
-        time_unit=MetricTimeUnit.SECONDS,
-    )
-    BYTES_PER_SECOND = MetricOverTimeUnitInfo(
-        primary_unit=MetricSizeUnit.BYTES,
         time_unit=MetricTimeUnit.SECONDS,
     )
     TOKENS_PER_SECOND_PER_USER = MetricOverTimeUnitInfo(
@@ -251,28 +263,6 @@ class MetricOverTimeUnit(BaseMetricUnit):
     def third_unit(self) -> "MetricUnitT | None":
         """Get the third unit (if applicable)."""
         return self.info.third_unit
-
-    def convert_to(self, other_unit: "MetricUnitT", value: int | float) -> float:
-        """Convert a value from this unit to another unit."""
-        # If the other unit is the same as this unit, return the value.
-        if other_unit == self:
-            return value
-
-        if isinstance(other_unit, MetricOverTimeUnit):
-            # Chain convert each unit to the other unit.
-            value = self.primary_unit.convert_to(other_unit.primary_unit, value)
-            value = self.time_unit.convert_to(other_unit.time_unit, value)
-            if self.third_unit and other_unit.third_unit:
-                value = self.third_unit.convert_to(other_unit.third_unit, value)
-            return value
-
-        # If the other unit is a time unit, convert our time unit to the other unit.
-        # TODO: Should we even allow this?
-        if isinstance(other_unit, MetricTimeUnit):
-            return self.time_unit.convert_to(other_unit, value)
-
-        # Otherwise, convert the primary unit to the other unit.
-        return self.primary_unit.convert_to(other_unit, value)
 
 
 class MetricType(CaseInsensitiveStrEnum):
@@ -319,22 +309,6 @@ class MetricValueType(BasePydanticBackedStrEnum):
         default_factory=int,
         converter=int,
         dtype=int,
-    )
-    FLOAT_LIST = MetricValueTypeInfo(
-        tag="list[float]",
-        default_factory=list[float],
-        converter=lambda values: [
-            float(value) for value in (values if isinstance(values, list) else [values])
-        ],
-        dtype=list[float],
-    )
-    INT_LIST = MetricValueTypeInfo(
-        tag="list[int]",
-        default_factory=list[int],
-        converter=lambda values: [
-            int(value) for value in (values if isinstance(values, list) else [values])
-        ],
-        dtype=list[int],
     )
 
     @cached_property

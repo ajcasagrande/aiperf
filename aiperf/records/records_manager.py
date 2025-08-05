@@ -157,12 +157,16 @@ class RecordsManager(PullClientMixin, BaseComponentService):
         self, phase_complete_msg: CreditPhaseCompleteMessage
     ) -> None:
         """Handle a credit phase complete message in order to track the final request count."""
-        if phase_complete_msg.phase == CreditPhase.PROFILING:
-            # This will equate to how many records we expect to receive,
-            # and once we receive that many records, we know to stop.
-            self.final_request_count = phase_complete_msg.completed
-            self.end_time_ns = phase_complete_msg.end_ns or time.time_ns()
-            self.info(f"Updating final request count to {self.final_request_count}")
+        if phase_complete_msg.phase != CreditPhase.PROFILING:
+            return
+        # This will equate to how many records we expect to receive,
+        # and once we receive that many records, we know to stop.
+        self.final_request_count = phase_complete_msg.completed
+        self.end_time_ns = phase_complete_msg.end_ns or time.time_ns()
+        self.info(f"Updating final request count to {self.final_request_count}")
+        self.notice(
+            f"All requests have completed, please wait for the results to be processed (currently {self.processing_stats.processed} of {self.final_request_count} records processed)..."
+        )
 
     @background_task(
         interval=lambda self: self.service_config.progress_report_interval,
@@ -206,7 +210,8 @@ class RecordsManager(PullClientMixin, BaseComponentService):
         """Process the records."""
         self.debug(lambda: f"Processing records (cancelled: {cancelled})")
 
-        # Process the records through the results processors
+        self.info("Processing records results...")
+        # Process the records through the results processors.
         results = await asyncio.gather(
             *[
                 results_processor.summarize()
@@ -214,8 +219,6 @@ class RecordsManager(PullClientMixin, BaseComponentService):
             ],
             return_exceptions=True,
         )
-        self.info("Processing records results...")
-        self.debug(lambda: f"Processed records results: {results}")
 
         records_results, error_results = [], []
         for result in results:
@@ -238,7 +241,7 @@ class RecordsManager(PullClientMixin, BaseComponentService):
             ],
             errors=error_results,
         )
-        self.debug(lambda: f"Processed records result: {result}")
+        self.debug(lambda: f"Process records result: {result}")
         await self.publish(
             ProcessRecordsResultMessage(
                 service_id=self.service_id,

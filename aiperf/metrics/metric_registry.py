@@ -196,6 +196,13 @@ class MetricRegistry:
                     raise MetricTypeError(
                         f"Metric '{metric.tag}' depends on '{required_tag}', which is not registered"
                     )
+                if (
+                    metric.type in {MetricType.RECORD, MetricType.AGGREGATE}
+                    and cls._metrics_map[required_tag].type == MetricType.DERIVED
+                ):
+                    raise MetricTypeError(
+                        f"Metric '{metric.tag}' is a '{metric.type}' metric, but depends on '{required_tag}', which is a derived metric"
+                    )
 
     @classmethod
     def create_dependency_order(cls) -> list[MetricTagT]:

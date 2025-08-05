@@ -38,7 +38,7 @@ class MetricResultsDict(dict[MetricTagT, MetricDictValueTypeT]):
     of all metrics that have been computed for an entire run.
 
     This will include:
-    - All `BaseRecordMetric`s as a list of their values (or similar such as pandas Series).
+    - All `BaseRecordMetric`s as a deque of their values.
     - The most recent value of each `BaseAggregateMetric`.
     - The value of any `BaseDerivedMetric` that has already been computed.
     """
@@ -48,7 +48,7 @@ class MetricResultsDict(dict[MetricTagT, MetricDictValueTypeT]):
     ) -> float:
         """Get the value of a metric, but converted to a different unit."""
         if metric.type == MetricType.RECORD:
-            # Record metrics are a list of values, so we can't convert them directly.
+            # Record metrics are a deque of values, so we can't convert them directly.
             raise ValueError(
                 f"Cannot convert a record metric to a different unit: {metric.tag}"
             )
