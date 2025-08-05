@@ -41,9 +41,11 @@ flowchart TD
     %% AGGREGATE Processing in Central
     G --> H2["AGGREGATE Accumulation<br/>aggregate_value(+1) → total=1<br/>aggregate_value(+1) → total=2<br/>aggregate_value(+1) → total=3<br/><em>(Accumulate&nbsp;across&nbsp;processors)</em>"]
 
+    H1 --> L["MetricResultsDict<br/><em>(Full&nbsp;profile&nbsp;run&nbsp;results)</em>"]
+    H2 --> L
+
     %% Stage 4: Summarize Function Processing
-    H1 --> I2["Summarize Function<br/>summarize()<br/><em>(Process&nbsp;all&nbsp;collected&nbsp;results)</em>"]
-    H2 --> I2
+    L --> I2["Summarize Function<br/>summarize()<br/><em>(Process&nbsp;all&nbsp;collected&nbsp;results)</em>"]
 
     %% Three outputs from Summarize Function
     I2 --> J1["RECORD Statistics<br/>p50=125ms, p95=203ms<br/>mean=138ms, std=58ms<br/>min=87ms, max=203ms<br/><em>(Full&nbsp;statistical&nbsp;analysis)</em>"]
@@ -51,7 +53,6 @@ flowchart TD
     I2 --> J2["AGGREGATE Results<br/>final_value=3<br/>count=1<br/><em>(Single&nbsp;accumulated&nbsp;total)</em>"]
 
     I2 --> J3["DERIVED: ThroughputMetric<br/>derive_value(results)<br/>= total_requests / duration<br/>= 3 / 5.2s = 0.58 req/s<br/><em>(Computed&nbsp;from&nbsp;other&nbsp;metrics)</em>"]
-
 
     %% Final Output
     J1 --> K["MetricResult List<br/><em>Complete&nbsp;performance&nbsp;analysis</em>"]
@@ -76,7 +77,8 @@ flowchart TD
     class C1,C2,C3,J1,H1 recordMetric
     class D1,D2,D3,J2,H2 aggregateMetric
     class J3 derivedMetric
+    class I2 central
     class I1,G statistics
-    class E1,E2,E3,F transport
-    class K,I2 output
+    class E1,E2,E3,F,L transport
+    class K output
 ```
