@@ -29,9 +29,11 @@ class OutputInferenceSpeedMetric(BaseRecordMetric[float]):
         record: ParsedResponseRecord,
         record_metrics: MetricRecordDict,
     ) -> float:
+        """This method calculates the output inference speed by computing the inverse of the inter-token latency."""
         converted_itl = record_metrics.get_converted(
-            InterTokenLatencyMetric, self.unit.time_unit
-        )  # type: ignore
+            InterTokenLatencyMetric,
+            self.unit.time_unit,  # type: ignore
+        )
         if converted_itl == 0:
             raise ValueError(
                 "Inter-token latency is 0, cannot compute output inference speed."

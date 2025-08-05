@@ -148,5 +148,7 @@ class MetricResultsProcessor(BaseMetricsProcessor):
                 p95=quantiles[0.95],
                 p99=quantiles[0.99],
                 std=series.std(),
-                count=len(values),
+                count=len(series),
             )
+
+        raise ValueError(f"Unexpected values type: {type(values)}")

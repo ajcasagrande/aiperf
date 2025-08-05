@@ -31,7 +31,7 @@ class InputThroughputMetric(BaseRecordMetric[float]):
         record: ParsedResponseRecord,
         record_metrics: MetricRecordDict,
     ) -> float:
-        """This method calculates the input throughput by subtracting the connection latency from the TTFT."""
+        """This method calculates the input throughput by dividing the input sequence length by the TTFT."""
 
         isl = record_metrics[InputSequenceLengthMetric.tag]
         converted_ttft = record_metrics.get_converted(TTFTMetric, self.unit.time_unit)  # type: ignore

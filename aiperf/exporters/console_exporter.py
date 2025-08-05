@@ -61,7 +61,12 @@ class ConsoleExporter(AIPerfLoggerMixin):
         row = [f"{record.header} ({display_unit})"]
         for stat in self.STAT_COLUMN_KEYS:
             value = getattr(record, stat, None)
-            if value is not None and display_unit != metric_class.unit:
+            # Count should never be unit-converted (it's always just the number of records)
+            if (
+                value is not None
+                and display_unit != metric_class.unit
+                and stat != "count"
+            ):
                 try:
                     value = metric_class.unit.convert_to(display_unit, value)
                 except MetricUnitError as e:

@@ -15,7 +15,7 @@ class StreamSetupLatencyMetric(BaseRecordMetric[int]):
     before any SSE content is received. It measures the request processing and stream initialization time.
 
     Formula:
-        Stream Setup Latency = Receive Start Timestamp - Request Start Timestamp
+        Stream Setup Latency = Stream Start Timestamp - Request Start Timestamp
     """
 
     tag = "stream_setup_latency"
@@ -38,5 +38,5 @@ class StreamSetupLatencyMetric(BaseRecordMetric[int]):
             )
 
         request_ts: int = record.start_perf_ns
-        connect_ts: int = record.request.recv_start_perf_ns
-        return connect_ts - request_ts
+        stream_start_ts: int = record.request.recv_start_perf_ns
+        return stream_start_ts - request_ts
