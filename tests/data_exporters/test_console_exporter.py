@@ -10,6 +10,7 @@ from aiperf.common.models import MetricResult
 from aiperf.common.models.record_models import ProfileResults
 from aiperf.exporters import ConsoleExporter
 from aiperf.exporters.exporter_config import ExporterConfig
+from aiperf.metrics.metric_registry import MetricRegistry as MetricRegistry
 
 
 @pytest.fixture
