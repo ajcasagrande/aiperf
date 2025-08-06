@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import asyncio
+import sys
 import uuid
 
 from aiperf.common.decorators import implements_protocol
@@ -115,9 +116,9 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
 
         If reverse is True, the hooks are run in reverse order. This is useful for stopping the lifecycle in the reverse order of starting it.
         """
-        await self._set_state(transient_state)
-        self.debug(lambda: f"{transient_state.title()} {self}")
         try:
+            await self._set_state(transient_state)
+            self.debug(lambda: f"{transient_state.title()} {self}")
             await self.run_hooks(hook_type, reverse=reverse)
             await self._set_state(final_state)
             self.debug(lambda: f"{self} is now {final_state.title()}")
@@ -232,11 +233,16 @@ class AIPerfLifecycleMixin(TaskManagerMixin, HooksMixin):
         """Set the state to FAILED and raise an asyncio.CancelledError.
         This is used when the transition from one state to another fails.
         """
-        await self._set_state(LifecycleState.FAILED)
         self.exception(f"Failed for {self}: {e}")
         self.stop_requested = True
-        self.stopped_event.set()
-        raise asyncio.CancelledError(f"Failed for {self}: {e}") from e
+        await self._execute_state_transition(
+            LifecycleState.STOPPING,
+            LifecycleState.FAILED,
+            AIPerfHook.ON_STOP,
+            self.stopped_event,
+            reverse=True,  # run the stop hooks in reverse order
+        )
+        sys.exit(1)
 
     def attach_child_lifecycle(self, child: AIPerfLifecycleProtocol) -> None:
         """Attach a child lifecycle to manage. This child will now have its lifecycle managed and

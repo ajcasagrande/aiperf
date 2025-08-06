@@ -8,9 +8,11 @@ see also: :mod:`aiperf.common.hooks` for hook decorators.
 """
 
 from collections.abc import Callable
+from functools import wraps
 from typing import TYPE_CHECKING
 from warnings import warn
 
+from aiperf.cli_utils import exit_on_error as _exit_on_error
 from aiperf.common.types import ClassProtocolT, ProtocolT
 
 
@@ -64,5 +66,23 @@ def implements_protocol(protocol: type[ProtocolT]) -> Callable:
                 )
         setattr(cls, DecoratorAttrs.IMPLEMENTS_PROTOCOL, protocol)
         return cls
+
+    return decorator
+
+
+def exit_on_error(*exceptions: type[BaseException], title: str = "Error") -> Callable:
+    """Decorator to exit the program if an error occurs.
+
+    Args:
+        title: The title of the error.
+    """
+
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            with _exit_on_error(*exceptions, title=title):
+                return await func(*args, **kwargs)
+
+        return wrapper
 
     return decorator
