@@ -98,7 +98,7 @@ class EnhancedSystemController(
 
         self.service_manager: ServiceManagerProtocol = (
             ServiceManagerFactory.create_instance(
-                self.service_config.service_run_type.value,
+                "enhanced_multiprocessing",
                 required_services=self.required_services,
                 user_config=self.user_config,
                 service_config=self.service_config,

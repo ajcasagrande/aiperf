@@ -133,16 +133,16 @@ class EnhancedCommandHandlerMixin(MessageBusClientMixin, ABC):
 
             if result is None:
                 return ErrorDetails(
-                    error_type="timeout",
-                    error_message=f"Command {message.command_id} timed out",
+                    type="timeout",
+                    message=f"Command {message.command_id} timed out",
                 )
 
             if result.success and result.responses:
                 return result.responses[0]
 
             return result.error_details or ErrorDetails(
-                error_type="unknown",
-                error_message="Command execution failed without error details",
+                type="unknown",
+                message="Command execution failed without error details",
             )
 
         except Exception as e:
@@ -179,8 +179,8 @@ class EnhancedCommandHandlerMixin(MessageBusClientMixin, ABC):
                 return responses
 
             timeout_error = ErrorDetails(
-                error_type="timeout",
-                error_message=f"Command {command.command_id} timed out waiting for all responses",
+                type="timeout",
+                message=f"Command {command.command_id} timed out waiting for all responses",
             )
 
             return responses + [timeout_error] * (len(service_ids) - len(responses))

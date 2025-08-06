@@ -17,7 +17,6 @@ from aiperf.common.constants import (
     TASK_CANCEL_TIMEOUT_SHORT,
 )
 from aiperf.common.decorators import implements_protocol
-from aiperf.common.enums import ServiceRunType
 from aiperf.common.exceptions import AIPerfError
 from aiperf.common.factories import ServiceFactory, ServiceManagerFactory
 from aiperf.common.protocols import ServiceManagerProtocol
@@ -45,7 +44,7 @@ class EnhancedMultiProcessRunInfo(BaseModel):
 
 
 @implements_protocol(ServiceManagerProtocol)
-@ServiceManagerFactory.register(ServiceRunType.MULTIPROCESSING)
+@ServiceManagerFactory.register("enhanced_multiprocessing")
 class EnhancedMultiProcessServiceManager(
     BaseServiceManager, EnhancedServiceRegistryMixin
 ):
@@ -65,7 +64,7 @@ class EnhancedMultiProcessServiceManager(
         EnhancedServiceRegistryMixin.__init__(self, **kwargs)
 
         self._process_info: dict[str, EnhancedMultiProcessRunInfo] = {}
-        self._process_management_lock = asyncio.RLock()
+        self._process_management_lock = asyncio.Lock()
         self._termination_lock = asyncio.Lock()
         self.log_queue = log_queue
 

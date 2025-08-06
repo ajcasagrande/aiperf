@@ -135,11 +135,12 @@ class CommandTracker(AIPerfLifecycleMixin):
             str, dict[str, asyncio.Future[CommandResponse]]
         ] = {}
 
-        self._global_lock = asyncio.RLock()
+        self._global_lock = asyncio.Lock()
         self._command_locks: dict[str, asyncio.Lock] = {}
         self._lock_cleanup_refs: weakref.WeakValueDictionary[str, asyncio.Lock] = (
             weakref.WeakValueDictionary()
         )
+        self._lock_creation_lock = asyncio.Lock()
 
         self._completion_callbacks: list[tuple[weakref.ReferenceType, Callable]] = []
         self._timeout_callbacks: list[tuple[weakref.ReferenceType, Callable]] = []
@@ -151,22 +152,29 @@ class CommandTracker(AIPerfLifecycleMixin):
     @asynccontextmanager
     async def _command_lock(self, command_id: str) -> AsyncGenerator[None, None]:
         """Get or create a per-command lock with automatic cleanup."""
-        async with self._global_lock:
+        # First, ensure the lock exists (separate from global lock to avoid deadlock)
+        async with self._lock_creation_lock:
             if command_id not in self._command_locks:
                 lock = asyncio.Lock()
                 self._command_locks[command_id] = lock
                 self._lock_cleanup_refs[command_id] = lock
 
+        # Now acquire the command-specific lock
         lock = self._command_locks[command_id]
         async with lock:
             yield
 
+        # Cleanup check - must check command existence under global lock for consistency
         async with self._global_lock:
-            if (
-                command_id in self._command_locks
-                and command_id not in self._active_commands
-            ):
-                del self._command_locks[command_id]
+            command_exists = command_id in self._active_commands
+
+        if not command_exists:
+            async with self._lock_creation_lock:
+                # Double-check pattern to avoid race with lock creation
+                if command_id in self._command_locks:
+                    async with self._global_lock:
+                        if command_id not in self._active_commands:
+                            del self._command_locks[command_id]
 
     async def start_tracking_command(
         self,
@@ -494,7 +502,7 @@ class CommandTracker(AIPerfLifecycleMixin):
 
             tracking_info.state = CommandState.TIMEOUT
             tracking_info.error_details = ErrorDetails(
-                type=CommandState.TIMEOUT,
+                type="timeout",
                 message=f"Command {command_id} timed out",
             )
 

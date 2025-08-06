@@ -65,11 +65,12 @@ class ServiceRegistry(AIPerfLifecycleMixin):
         )
         self._service_state_map: dict[LifecycleState, set[str]] = defaultdict(set)
 
-        self._global_lock = asyncio.RLock()
+        self._global_lock = asyncio.Lock()
         self._service_locks: dict[str, asyncio.Lock] = {}
         self._lock_cleanup_refs: weakref.WeakValueDictionary[str, asyncio.Lock] = (
             weakref.WeakValueDictionary()
         )
+        self._lock_creation_lock = asyncio.Lock()
 
         self._registration_events: dict[ServiceTypeT, asyncio.Event] = {}
         self._state_change_callbacks: list[tuple[weakref.ReferenceType, Any]] = []
@@ -81,22 +82,29 @@ class ServiceRegistry(AIPerfLifecycleMixin):
     @asynccontextmanager
     async def _service_lock(self, service_id: str) -> AsyncGenerator[None, None]:
         """Get or create a per-service lock with automatic cleanup."""
-        async with self._global_lock:
+        # First, ensure the lock exists (separate from global lock to avoid deadlock)
+        async with self._lock_creation_lock:
             if service_id not in self._service_locks:
                 lock = asyncio.Lock()
                 self._service_locks[service_id] = lock
                 self._lock_cleanup_refs[service_id] = lock
 
+        # Now acquire the service-specific lock
         lock = self._service_locks[service_id]
         async with lock:
             yield
 
+        # Cleanup check - must check service existence under global lock for consistency
         async with self._global_lock:
-            if (
-                service_id in self._service_locks
-                and service_id not in self._service_id_map
-            ):
-                del self._service_locks[service_id]
+            service_exists = service_id in self._service_id_map
+
+        if not service_exists:
+            async with self._lock_creation_lock:
+                # Double-check pattern to avoid race with lock creation
+                if service_id in self._service_locks:
+                    async with self._global_lock:
+                        if service_id not in self._service_id_map:
+                            del self._service_locks[service_id]
 
     async def register_service(
         self,
