@@ -284,8 +284,7 @@ class CommandTracker(AIPerfLifecycleMixin):
                 tracking_info.state = CommandState.COMPLETED
             elif response.status == CommandResponseStatus.FAILURE:
                 tracking_info.state = CommandState.FAILED
-                if hasattr(response, "error"):
-                    tracking_info.error_details = response.error
+                tracking_info.error_details = response.error
 
             await self._complete_command(command_id, tracking_info)
             self._stats_dirty = True
