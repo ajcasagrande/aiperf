@@ -9,7 +9,7 @@ GRACEFUL_SHUTDOWN_TIMEOUT_SECONDS = 5.0
 """Default timeout for shutting down services in seconds."""
 
 DEFAULT_SHUTDOWN_ACK_TIMEOUT = 5.0
-"""Default timeout for waiting for a shutdown command response in seconds."""
+"""Default timeout for waiting for services to respond to a shutdown command in seconds before giving up."""
 
 DEFAULT_PROFILE_CANCEL_TIMEOUT = 10.0
 """Default timeout for cancelling a profile run in seconds."""
