@@ -13,7 +13,6 @@ from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.constants import (
     DEFAULT_SERVICE_REGISTRATION_TIMEOUT,
     DEFAULT_SERVICE_START_TIMEOUT,
-    TASK_CANCEL_TIMEOUT_SHORT,
 )
 from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import ServiceRegistrationStatus, ServiceRunType
@@ -199,16 +198,18 @@ class MultiProcessServiceManager(BaseServiceManager):
             return
 
         try:
+            # Send termination signal but give process time to export profiles
             info.process.terminate()
-            await asyncio.to_thread(
-                info.process.join, timeout=TASK_CANCEL_TIMEOUT_SHORT
-            )
+
+            # Give processes extra time to complete profile exports (up to 20 seconds)
+            profile_export_timeout = 20.0
+            await asyncio.to_thread(info.process.join, timeout=profile_export_timeout)
             self.debug(
-                f"Service {info.service_type} process stopped (pid: {info.process.pid})"
+                f"Service {info.service_type} process stopped gracefully (pid: {info.process.pid})"
             )
         except asyncio.TimeoutError:
             self.warning(
-                f"Service {info.service_type} process (pid: {info.process.pid}) did not terminate gracefully, killing"
+                f"Service {info.service_type} process (pid: {info.process.pid}) did not terminate after {profile_export_timeout}s, killing"
             )
             info.process.kill()
 

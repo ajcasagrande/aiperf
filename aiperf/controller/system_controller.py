@@ -368,9 +368,11 @@ class SystemController(SignalHandlerMixin, BaseService):
         self.debug("Cancelling profiling of all services")
         await self.publish(ProfileCancelCommand(service_id=self.service_id))
 
-        # TODO: HACK: Wait for 2 seconds to ensure the profiling is cancelled
-        # Wait for the profiling to be cancelled
-        await asyncio.sleep(2)
+        # Wait for services to complete profiling export before cancellation
+        self.info(
+            "Waiting for services to complete profiling export before cancellation..."
+        )
+        await asyncio.sleep(10)  # Increased from 2s to 10s for profile export
         self.debug("Stopping system controller after profiling cancelled")
         await asyncio.shield(self.stop())
 
@@ -380,8 +382,9 @@ class SystemController(SignalHandlerMixin, BaseService):
         # Broadcast a shutdown command to all services
         await self.publish(ShutdownCommand(service_id=self.service_id))
 
-        # TODO: HACK: Wait for 0.5 seconds to ensure the shutdown command is received
-        await asyncio.sleep(0.5)
+        # Wait for services to complete profiling export (can take several seconds for large profiles)
+        self.info("Waiting for services to complete profiling export...")
+        await asyncio.sleep(15.0)  # Increased from 0.5s to 15s for profile export
 
         await self.service_manager.shutdown_all_services()
         await self.comms.stop()
