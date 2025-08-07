@@ -23,6 +23,12 @@ TASK_CANCEL_TIMEOUT_LONG = 5.0
 DEFAULT_COMMS_REQUEST_TIMEOUT = 30.0
 """Default timeout for requests from req_clients to rep_clients in seconds."""
 
+DEFAULT_DEALER_SEND_QUEUE_SIZE = 100_000
+"""Default size of the send queue for dealer_clients."""
+
+DEFAULT_DEALER_RECV_QUEUE_SIZE = 100_000
+"""Default size of the receive queue for dealer_clients."""
+
 DEFAULT_PULL_CLIENT_MAX_CONCURRENCY = 100_000
 """Default maximum concurrency for pull clients."""
 

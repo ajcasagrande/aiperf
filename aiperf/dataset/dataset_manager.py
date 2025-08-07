@@ -56,6 +56,11 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
         self.tokenizer: Tokenizer | None = None
         self.dataset: dict[str, Conversation] = {}  # session ID -> Conversation mapping
         self.dataset_configured = asyncio.Event()
+        # cache this for performance (but keep in mind that it will be not be updated if the debug level is changed)
+        self._debug_enabled = self.is_debug_enabled
+        self._conversation_rng = random.Random(self.user_config.input.random_seed)
+        self._dataset_key_cache: list[str]
+        self._dataset_key_cache_len: int
 
     @on_command(CommandType.PROFILE_CONFIGURE)
     async def _profile_configure_command(
@@ -102,7 +107,9 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
         )
         conversations = composer.create_dataset()
         self.dataset = {conv.session_id: conv for conv in conversations}
-
+        # cache the dataset keys and dataset length for performance
+        self._dataset_key_cache = list(self.dataset.keys())
+        self._dataset_key_cache_len = len(self._dataset_key_cache)
         self.dataset_configured.set()
         await self.publish(
             DatasetConfiguredNotification(
@@ -115,7 +122,7 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
         self, message: ConversationRequestMessage
     ) -> ConversationResponseMessage:
         """Handle a conversation request."""
-        self.debug(lambda: f"Handling conversation request: {message}")
+        # self.debug(lambda: f"Handling conversation request: {message}")
 
         # Wait for the dataset to be configured if it is not already
         if not self.dataset_configured.is_set():
@@ -146,12 +153,13 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
     ) -> ConversationResponseMessage:
         """Return any conversation from the dataset based on the user specified method."""
 
+        index = self._conversation_rng.randint(0, self._dataset_key_cache_len - 1)
         # TODO: Implement the user specified method (random, round robin, etc.)
-        conversation = random.choice(list(self.dataset.values()))
-        self.trace_or_debug(
-            lambda: f"Sending random conversation response: {conversation}",
-            lambda: f"Sending random conversation response with id: {conversation.session_id}",
-        )
+        conversation = self.dataset[self._dataset_key_cache[index]]
+        # self.trace_or_debug(
+        #     lambda: f"Sending random conversation response: {conversation}",
+        #     lambda: f"Sending random conversation response with id: {conversation.session_id}",
+        # )
         return ConversationResponseMessage(
             service_id=self.service_id,
             request_id=request_id,
@@ -169,10 +177,10 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
             )
 
         conversation = self.dataset[conversation_id]
-        self.trace_or_debug(
-            lambda: f"Sending conversation response: {conversation}",
-            lambda: f"Sending conversation response with id: {conversation.session_id}",
-        )
+        # self.trace_or_debug(
+        #     lambda: f"Sending conversation response: {conversation}",
+        #     lambda: f"Sending conversation response with id: {conversation.session_id}",
+        # )
         return ConversationResponseMessage(
             service_id=self.service_id,
             request_id=request_id,
@@ -184,7 +192,7 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
         self, message: ConversationTurnRequestMessage
     ) -> ConversationTurnResponseMessage:
         """Handle a turn request."""
-        self.debug(lambda: f"Handling turn request: {message}")
+        # self.debug(lambda: f"Handling turn request: {message}")
 
         if message.conversation_id not in self.dataset:
             raise self._service_error(
@@ -199,10 +207,10 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
 
         turn = conversation.turns[message.turn_index]
 
-        self.trace_or_debug(
-            lambda: f"Sending turn response: {turn}",
-            "Sending turn response",
-        )
+        # self.trace_or_debug(
+        #     lambda: f"Sending turn response: {turn}",
+        #     "Sending turn response",
+        # )
         return ConversationTurnResponseMessage(
             service_id=self.service_id,
             request_id=message.request_id,

@@ -1,9 +1,9 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-import json
 import time
 from typing import ClassVar
 
+import orjson
 from pydantic import Field
 
 from aiperf.common.aiperf_logger import AIPerfLogger
@@ -71,7 +71,7 @@ class Message(AIPerfBaseModel):
     def from_json(cls, json_str: str | bytes | bytearray) -> "Message":
         """Deserialize a message from a JSON string, attempting to auto-detect the message type.
         NOTE: If you already know the message type, use the more performant :meth:`from_json_with_type` instead."""
-        data = json.loads(json_str)
+        data = orjson.loads(json_str)
         message_type = data.get("message_type")
         if not message_type:
             raise ValueError(f"Missing message_type: {json_str}")

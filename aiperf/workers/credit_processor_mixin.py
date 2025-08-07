@@ -106,7 +106,7 @@ class CreditProcessorMixin(CreditProcessorMixinRequirements):
             record = await self._execute_single_credit_internal(message)
 
         except Exception as e:
-            self.exception(f"Error processing credit drop: {e}")
+            self.error(f"Error processing credit drop: {e}")
             record.error = ErrorDetails.from_exception(e)
             record.end_perf_ns = time.perf_counter_ns()
 
@@ -127,7 +127,7 @@ class CreditProcessorMixin(CreditProcessorMixinRequirements):
                 await self.inference_results_push_client.push(msg)
             except Exception as e:
                 # If we fail to push the record, log the error and continue
-                self.exception(f"Error pushing request record: {e}")
+                self.error(f"Error pushing request record: {e}")
             finally:
                 # Calculate the latency of the credit drop (from when the credit was dropped to when the request was sent)
                 pre_inference_ns = record.start_perf_ns - drop_perf_ns
