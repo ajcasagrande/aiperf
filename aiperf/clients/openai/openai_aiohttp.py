@@ -82,6 +82,6 @@ class OpenAIClientAioHttp(AioHttpClientMixin, AIPerfLoggerMixin, ABC):
                 end_perf_ns=time.perf_counter_ns(),
                 error=ErrorDetails(type=e.__class__.__name__, message=str(e)),
             )
-            self.exception(f"Error in OpenAI request: {e.__class__.__name__} {str(e)}")
+            self.error(f"Error in OpenAI request: {e!r}")
 
         return record

@@ -110,7 +110,7 @@ class Worker(
             # NOTE: This must be awaited to ensure that the max concurrency is respected
             credit_return_message = await self._process_credit_drop_internal(message)
         except Exception as e:
-            self.exception(f"Error processing credit drop: {e}")
+            self.error(f"Error processing credit drop: {e!r}")
         finally:
             # It is fine to execute the push asynchronously here because the worker is technically
             # ready to process the next credit drop.

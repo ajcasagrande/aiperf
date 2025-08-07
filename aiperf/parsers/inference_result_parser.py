@@ -125,7 +125,7 @@ class InferenceResultParser(CommunicationMixin):
                 return record
             except Exception as e:
                 # TODO: We should add an ErrorDetails to the response record and not the request record.
-                self.exception(f"Error processing valid record: {e}")
+                self.error(f"Error processing valid record: {e!r}")
                 request_record.error = ErrorDetails.from_exception(e)
                 return ParsedResponseRecord(
                     request=request_record,
