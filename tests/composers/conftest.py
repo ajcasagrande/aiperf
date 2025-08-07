@@ -106,6 +106,28 @@ def prefix_prompt_config() -> UserConfig:
 
 
 @pytest.fixture
+def image_only_config() -> UserConfig:
+    """Synthetic configuration with only image generation enabled (no text)."""
+    config = UserConfig(
+        endpoint=EndpointConfig(model_names=["test-model"]),
+        input=InputConfig(
+            conversation=ConversationConfig(num=2),
+            prompt=PromptConfig(
+                input_tokens=InputTokensConfig(
+                    mean=0, stddev=0
+                ),  # Disable text generation
+            ),
+            image=ImageConfig(
+                batch_size=1,
+                width=ImageWidthConfig(mean=10),
+                height=ImageHeightConfig(mean=10),
+            ),
+        ),
+    )
+    return config
+
+
+@pytest.fixture
 def multimodal_config() -> UserConfig:
     """Synthetic configuration with multimodal data generation enabled."""
     config = UserConfig(

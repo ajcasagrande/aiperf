@@ -48,8 +48,8 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
             service_config=service_config,
             user_config=user_config,
             service_id=service_id,
-            reply_client_address=CommAddress.DATASET_MANAGER_PROXY_BACKEND,
-            reply_client_bind=False,
+            reply_client_address=CommAddress.DATASET_RAW,
+            reply_client_bind=True,
         )
         self.debug("Dataset manager __init__")
         self.user_config = user_config

@@ -71,6 +71,13 @@ class ZMQPushClient(BaseZMQClient):
         """
         super().__init__(zmq.SocketType.PUSH, address, bind, socket_ops, **kwargs)
 
+        # Prevent PUSH-side back-pressure from stalling producers. By removing
+        # the high-water-mark we let the application apply flow-control at a
+        # higher level (e.g. via the pull-side semaphore) and avoid hidden
+        # latency spikes when the buffer limit is reached.
+        self.socket.setsockopt(zmq.SNDHWM, 0)
+        self.socket.setsockopt(zmq.RCVHWM, 0)
+
     async def _push_message(
         self,
         message: Message,

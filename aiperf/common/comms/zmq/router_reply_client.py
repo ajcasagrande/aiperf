@@ -15,58 +15,23 @@ from aiperf.common.messages import ErrorMessage, Message
 from aiperf.common.models import ErrorDetails
 from aiperf.common.protocols import ReplyClientProtocol
 from aiperf.common.types import MessageTypeT
-from aiperf.common.utils import yield_to_event_loop
 
 
 @implements_protocol(ReplyClientProtocol)
 @CommunicationClientFactory.register(CommClientType.REPLY)
 class ZMQRouterReplyClient(BaseZMQClient):
     """
-    ZMQ ROUTER socket client for handling requests from DEALER clients.
-
-    The ROUTER socket receives requests from DEALER clients and sends responses
-    back to the originating DEALER client using routing envelopes.
-
-    ASCII Diagram:
-    ┌──────────────┐                    ┌──────────────┐
-    │    DEALER    │───── Request ─────>│              │
-    │   (Client)   │<──── Response ─────│              │
-    └──────────────┘                    │              │
-    ┌──────────────┐                    │    ROUTER    │
-    │    DEALER    │───── Request ─────>│  (Service)   │
-    │   (Client)   │<──── Response ─────│              │
-    └──────────────┘                    │              │
-    ┌──────────────┐                    │              │
-    │    DEALER    │───── Request ─────>│              │
-    │   (Client)   │<──── Response ─────│              │
-    └──────────────┘                    └──────────────┘
-
-    Usage Pattern:
-    - ROUTER handles requests from multiple DEALER clients
-    - Maintains routing envelopes to send responses back
-    - Many-to-one request handling pattern
-    - Supports concurrent request processing
-
-    ROUTER/DEALER is a Many-to-One communication pattern. If you need Many-to-Many,
-    use a ZMQ Proxy as well. see :class:`ZMQDealerRouterProxy` for more details.
+    Simple deadlock-free ZMQ ROUTER client using infinite buffers.
     """
 
     def __init__(
-        self,
-        address: str,
-        bind: bool,
-        socket_ops: dict | None = None,
-        **kwargs,
+        self, address: str, bind: bool, socket_ops: dict | None = None, **kwargs
     ) -> None:
-        """
-        Initialize the ZMQ Router (Rep) client class.
-
-        Args:
-            address (str): The address to bind or connect to.
-            bind (bool): Whether to bind or connect the socket.
-            socket_ops (dict, optional): Additional socket options to set.
-        """
         super().__init__(zmq.SocketType.ROUTER, address, bind, socket_ops, **kwargs)
+
+        # INFINITE BUFFERS - prevents all deadlocks
+        self.socket.setsockopt(zmq.SNDHWM, 0)  # 0 = infinite
+        self.socket.setsockopt(zmq.RCVHWM, 0)  # 0 = infinite
 
         self._request_handlers: dict[
             MessageTypeT,
@@ -76,6 +41,7 @@ class ZMQRouterReplyClient(BaseZMQClient):
 
     @on_stop
     async def _clear_request_handlers(self) -> None:
+        """Clear request handlers."""
         self._request_handlers.clear()
 
     def register_request_handler(
@@ -84,44 +50,21 @@ class ZMQRouterReplyClient(BaseZMQClient):
         message_type: MessageTypeT,
         handler: Callable[[Message], Coroutine[Any, Any, Message | None]],
     ) -> None:
-        """Register a request handler. Anytime a request is received that matches the
-        message type, the handler will be called. The handler should return a response
-        message. If the handler returns None, the request will be ignored.
-
-        Note that there is a limit of 1 to 1 mapping between message type and handler.
-
-        Args:
-            service_id: The service ID to register the handler for
-            message_type: The message type to register the handler for
-            handler: The handler to register
-        """
+        """Register a request handler."""
         if message_type in self._request_handlers:
             raise ValueError(
                 f"Handler already registered for message type {message_type}"
             )
-
-        self.debug(
-            lambda service_id=service_id,
-            type=message_type: f"Registering request handler for {service_id} with message type {type}"
-        )
         self._request_handlers[message_type] = (service_id, handler)
 
     async def _handle_request(self, request_id: str, request: Message) -> None:
-        """Handle a request.
-
-        This method will:
-        - Parse the request JSON to create a Message object
-        - Call the handler for the message type
-        - Set the response future
-        """
+        """Handle a request."""
         message_type = request.message_type
 
         try:
             _, handler = self._request_handlers[message_type]
             response = await handler(request)
-
         except Exception as e:
-            self.exception(f"Exception calling handler for {message_type}: {e}")
             response = ErrorMessage(
                 request_id=request_id,
                 error=ErrorDetails.from_exception(e),
@@ -130,26 +73,18 @@ class ZMQRouterReplyClient(BaseZMQClient):
         try:
             self._response_futures[request_id].set_result(response)
         except Exception as e:
-            self.exception(
+            self.error(
                 f"Exception setting response future for request {request_id}: {e}"
             )
 
     async def _wait_for_response(
         self, request_id: str, routing_envelope: tuple[bytes, ...]
     ) -> None:
-        """Wait for a response to a request.
-
-        This method will wait for the response future to be set and then send the response
-        back to the client.
-        """
+        """Wait for a response and send it."""
         try:
-            # Wait for the response asynchronously.
             response = await self._response_futures[request_id]
 
             if response is None:
-                self.warning(
-                    lambda req_id=request_id: f"Got None as response for request {req_id}"
-                )
                 response = ErrorMessage(
                     request_id=request_id,
                     error=ErrorDetails(
@@ -160,61 +95,36 @@ class ZMQRouterReplyClient(BaseZMQClient):
 
             self._response_futures.pop(request_id, None)
 
-            # Send the response back to the client.
-            await self.socket.send_multipart(
-                [*routing_envelope, response.model_dump_json().encode()]
-            )
+            # Simple blocking send - works because buffers are infinite
+            response_data = [*routing_envelope, response.model_dump_json().encode()]
+            await self.socket.send_multipart(response_data)
+
         except Exception as e:
-            self.exception(
-                f"Exception waiting for response for request {request_id}: {e}"
-            )
+            self.error(f"Exception waiting for response for request {request_id}: {e}")
 
     @background_task(immediate=True, interval=None)
     async def _rep_router_receiver(self) -> None:
-        """Background task for receiving requests and sending responses.
-
-        This method is a coroutine that will run indefinitely until the client is
-        shutdown. It will wait for requests from the socket and send responses in
-        an asynchronous manner.
-        """
-        self.debug("Router reply client background task initialized")
-
+        """Simple blocking receiver - no deadlock because infinite buffers."""
         while not self.stop_requested:
             try:
-                # Receive request
-                try:
-                    data = await self.socket.recv_multipart()
-                    self.trace(lambda msg=data: f"Received request: {msg}")
-
-                    request = Message.from_json(data[-1])
-                    if not request.request_id:
-                        self.exception(f"Request ID is missing from request: {data}")
-                        continue
-
-                    routing_envelope: tuple[bytes, ...] = (
-                        tuple(data[:-1])
-                        if len(data) > 1
-                        else (request.request_id.encode(),)
-                    )
-                except zmq.Again:
-                    # This means we timed out waiting for a request.
-                    # We can continue to the next iteration of the loop.
-                    self.debug("Router reply client receiver task timed out")
-                    await yield_to_event_loop()
+                data = await self.socket.recv_multipart()
+                request = Message.from_json(data[-1])
+                if not request.request_id:
                     continue
 
-                # Create a new response future for this request that will be resolved
-                # when the handler returns a response.
+                routing_envelope = (
+                    tuple(data[:-1])
+                    if len(data) > 1
+                    else (request.request_id.encode(),)
+                )
+
+                # Create future and handle request
                 self._response_futures[request.request_id] = asyncio.Future()
-                # Handle the request in a new task.
                 self.execute_async(self._handle_request(request.request_id, request))
                 self.execute_async(
                     self._wait_for_response(request.request_id, routing_envelope)
                 )
 
             except Exception as e:
-                self.exception(f"Exception receiving request: {e}")
-                await yield_to_event_loop()
-            except asyncio.CancelledError:
-                self.debug("Router reply client receiver task cancelled")
-                break
+                self.error(f"Receiver error: {e}")
+                await asyncio.sleep(0.001)

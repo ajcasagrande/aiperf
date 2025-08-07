@@ -18,34 +18,38 @@ def bootstrap_and_run_service(
     log_queue: "multiprocessing.Queue | None" = None,
     **kwargs,
 ):
-    """Bootstrap the service and run it.
-
-    This function will load the service configuration,
-    create an instance of the service, and run it.
-
-    Args:
-        service_class: The python class of the service to run. This should be a subclass of
-            BaseService. This should be a type and not an instance.
-        service_config: The service configuration to use. If not provided, the service
-            configuration will be loaded from the environment variables.
-        user_config: The user configuration to use. If not provided, the user configuration
-            will be loaded from the environment variables.
-        log_queue: Optional multiprocessing queue for child process logging. If provided,
-            the child process logging will be set up.
-        kwargs: Additional keyword arguments to pass to the service constructor.
     """
+    Bootstrap and run a service with proper configuration.
 
-    # Load the service configuration
+    This function handles the setup of configuration, logging, and service lifecycle
+    for a service instance. It automatically loads configurations if not provided
+    and sets up the proper execution environment.
+    """
+    import warnings
+
+    # Suppress harmless ZMQ shutdown warnings
+    warnings.filterwarnings(
+        "ignore",
+        message=".*Future.*cancelled.*completed while awaiting.*A message has been dropped.*",
+        category=RuntimeWarning,
+    )
+
+    # Load service configuration if not provided
     if service_config is None:
         from aiperf.common.config import load_service_config
 
         service_config = load_service_config()
 
-    # Load the user configuration
+    # Handle multiprocessing logging setup
+    if log_queue is not None:
+        from aiperf.common.logging import setup_child_process_logging
+
+        setup_child_process_logging(log_queue, service_id)
+
+    # Load user config if not provided
     if user_config is None:
         from aiperf.common.config import load_user_config
 
-        # TODO: Add support for loading user config from a file/environment variables
         user_config = load_user_config()
 
     async def _run_service():

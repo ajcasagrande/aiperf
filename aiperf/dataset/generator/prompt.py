@@ -98,7 +98,7 @@ class PromptGenerator(BaseGenerator):
         mean: int | None = None,
         stddev: int | None = None,
         hash_ids: list[int] | None = None,
-    ) -> str:
+    ) -> tuple[str, int]:
         """Generate a synthetic prompt with the configuration parameters.
 
         Args:
@@ -107,7 +107,7 @@ class PromptGenerator(BaseGenerator):
             hash_ids: A list of hash indices used for token reuse.
 
         Returns:
-            A synthetic prompt as a string.
+            A tuple of (synthetic prompt as string, actual token count used).
         """
         if hash_ids:
             return self._generate_cached_prompt(
@@ -115,7 +115,10 @@ class PromptGenerator(BaseGenerator):
             )
 
         num_tokens = utils.sample_positive_normal_integer(mean, stddev)
-        return self._generate_prompt(num_tokens)
+        # Limit to corpus size to ensure accuracy
+        actual_tokens = min(num_tokens, self._corpus_size)
+        prompt = self._generate_prompt(actual_tokens)
+        return prompt, actual_tokens
 
     def _generate_prompt(self, num_tokens: int) -> str:
         """Generate a prompt containing exactly `num_tokens` number of tokens.
@@ -133,7 +136,7 @@ class PromptGenerator(BaseGenerator):
         num_tokens: int,
         hash_ids: list[int],
         block_size: int,
-    ) -> str:
+    ) -> tuple[str, int]:
         """
         Generate a prompt containing exactly `num_tokens` by reusing previously generated prompts
         stored in `_cache`. Each hash index in `hash_ids` corresponds to a block of
@@ -146,7 +149,7 @@ class PromptGenerator(BaseGenerator):
             block_size: The number of tokens allocated per hash block.
 
         Returns:
-            str: A synthetic prompt as a string.
+            A tuple of (synthetic prompt as string, exact token count used).
 
         Raises:
             ConfigurationError: If the input parameters are not compatible.
@@ -179,7 +182,9 @@ class PromptGenerator(BaseGenerator):
 
             final_prompt.extend(self._cache[hash_id])
 
-        return self.tokenizer.decode(final_prompt, skip_special_tokens=False)
+        return self.tokenizer.decode(
+            final_prompt, skip_special_tokens=False
+        ), num_tokens
 
     def _sample_tokens(self, num_tokens: int) -> list[int]:
         """Generate a list of token IDs containing exactly `num_tokens` number of tokens
@@ -189,22 +194,24 @@ class PromptGenerator(BaseGenerator):
             num_tokens: Number of tokens required in the prompt.
 
         Returns:
-            A list of token IDs.
+            A list of token IDs with exactly the requested length.
 
         Raises:
             NotInitializedError: If the tokenized corpus is not initialized
         """
         if not self._tokenized_corpus:
             raise NotInitializedError("Tokenized corpus is not initialized.")
+
+        # Limit to corpus size if request is too large
+        actual_tokens = min(num_tokens, self._corpus_size)
         if num_tokens > self._corpus_size:
             self.warning(
                 f"Requested prompt length {num_tokens} is longer than the corpus. "
-                f"Returning a prompt of length {self._corpus_size}."
+                f"Returning a prompt of length {actual_tokens}."
             )
 
         start_idx = random.randrange(self._corpus_size)
-
-        end_idx = start_idx + num_tokens
+        end_idx = start_idx + actual_tokens
         prompt_tokens = self._tokenized_corpus[start_idx:end_idx]
         if end_idx > self._corpus_size:
             prompt_tokens += self._tokenized_corpus[: end_idx - self._corpus_size]

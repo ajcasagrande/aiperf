@@ -68,7 +68,14 @@ class SyntheticDatasetComposer(BaseDatasetComposer):
         turn = Turn()
 
         if self.include_prompt:
-            turn.texts.append(self._generate_text_payloads(is_first))
+            text_payload, total_token_count = self._generate_text_payloads(is_first)
+            turn.texts.append(text_payload)
+            if total_token_count is not None:
+                turn.input_token_count = total_token_count
+            else:
+                # Fallback for prefix prompt cases - compute token count manually
+                turn.input_token_count = self._compute_input_token_count(turn)
+
         if self.include_image:
             turn.images.append(self._generate_image_payloads())
         if self.include_audio:
@@ -92,7 +99,7 @@ class SyntheticDatasetComposer(BaseDatasetComposer):
 
         return turn
 
-    def _generate_text_payloads(self, is_first: bool) -> Text:
+    def _generate_text_payloads(self, is_first: bool) -> tuple[Text, int]:
         """Generate synthetic text payloads.
 
         If the turn is the first turn in the conversation, it could add a prefix prompt
@@ -102,11 +109,13 @@ class SyntheticDatasetComposer(BaseDatasetComposer):
             is_first: Whether the turn is the first turn in the conversation.
 
         Returns:
-            Text: A text payload object.
+            A tuple of (Text payload object, total token count for all generated content).
         """
         text = Text(name="text")
+        total_token_count = 0
+
         for _ in range(self.config.input.prompt.batch_size):
-            prompt = self.prompt_generator.generate(
+            prompt, token_count = self.prompt_generator.generate(
                 mean=self.config.input.prompt.input_tokens.mean,
                 stddev=self.config.input.prompt.input_tokens.stddev,
             )
@@ -115,9 +124,22 @@ class SyntheticDatasetComposer(BaseDatasetComposer):
                 # TODO: Rename
                 prefix_prompt = self.prompt_generator.get_random_prefix_prompt()
                 prompt = f"{prefix_prompt} {prompt}"
+                # When text is modified, we must re-compute for accuracy
+                total_token_count = None  # Signal that we need to compute manually
+                text.contents.append(prompt)
+                break
+            else:
+                total_token_count += token_count
+                text.contents.append(prompt)
 
-            text.contents.append(prompt)
-        return text
+        # Final validation: if we have multiple contents or modifications,
+        # always verify the actual token count for maximum accuracy
+        if len(text.contents) > 1 or total_token_count is None:
+            total_token_count = sum(
+                len(self.tokenizer.encode(content)) for content in text.contents
+            )
+
+        return text, total_token_count
 
     def _generate_image_payloads(self) -> Image:
         """

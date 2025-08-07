@@ -56,6 +56,11 @@ class BaseZMQCommunicationConfig(BaseModel, ABC):
     def credit_return_address(self) -> str:
         """Get the credit return address based on protocol configuration."""
 
+    @property
+    @abstractmethod
+    def dataset_raw_address(self) -> str:
+        """Get the dataset raw address based on protocol configuration."""
+
     def get_address(self, address_type: CommAddress) -> str:
         """Get the actual address based on the address type."""
         address_map = {
@@ -68,6 +73,7 @@ class BaseZMQCommunicationConfig(BaseModel, ABC):
             CommAddress.RECORDS: self.records_push_pull_address,
             CommAddress.RAW_INFERENCE_PROXY_FRONTEND: self.raw_inference_proxy_config.frontend_address,
             CommAddress.RAW_INFERENCE_PROXY_BACKEND: self.raw_inference_proxy_config.backend_address,
+            CommAddress.DATASET_RAW: self.dataset_raw_address,
         }
 
         if address_type not in address_map:
@@ -170,6 +176,9 @@ class ZMQTCPConfig(BaseZMQCommunicationConfig):
     credit_return_port: int = Field(
         default=5563, description="Port for credit return operations"
     )
+    dataset_raw_port: int = Field(
+        default=5564, description="Port for dataset raw address for proxy"
+    )
     dataset_manager_proxy_config: ZMQTCPProxyConfig = Field(  # type: ignore
         default=ZMQTCPProxyConfig(
             frontend_port=5661,
@@ -207,6 +216,11 @@ class ZMQTCPConfig(BaseZMQCommunicationConfig):
         """Get the credit return address based on protocol configuration."""
         return f"tcp://{self.host}:{self.credit_return_port}"
 
+    @property
+    def dataset_raw_address(self) -> str:
+        """Get the dataset raw address based on protocol configuration."""
+        return f"tcp://{self.host}:{self.dataset_raw_port}"
+
 
 class ZMQIPCConfig(BaseZMQCommunicationConfig):
     """Configuration for IPC transport."""
@@ -239,3 +253,8 @@ class ZMQIPCConfig(BaseZMQCommunicationConfig):
     def credit_return_address(self) -> str:
         """Get the credit return address based on protocol configuration."""
         return f"ipc://{self.path}/credit_return.ipc"
+
+    @property
+    def dataset_raw_address(self) -> str:
+        """Get the dataset raw address based on protocol configuration."""
+        return f"ipc://{self.path}/dataset_raw.ipc"

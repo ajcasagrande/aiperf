@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from aiperf.common.config.user_config import UserConfig
 from aiperf.common.enums.model_enums import ModelSelectionStrategy
 from aiperf.common.mixins import AIPerfLoggerMixin
-from aiperf.common.models import Conversation
+from aiperf.common.models import Conversation, Turn
 from aiperf.common.tokenizer import Tokenizer
 from aiperf.dataset.generator import (
     AudioGenerator,
@@ -19,7 +19,8 @@ from aiperf.dataset.generator import (
 class BaseDatasetComposer(AIPerfLoggerMixin, ABC):
     def __init__(self, config: UserConfig, tokenizer: Tokenizer, **kwargs):
         self.config = config
-        super().__init__(config=config, tokenizer=tokenizer, **kwargs)
+        self.tokenizer = tokenizer
+        super().__init__(config=config, **kwargs)
         self.prompt_generator = PromptGenerator(config.input.prompt, tokenizer)
         self.image_generator = ImageGenerator(config.input.image)
         self.audio_generator = AudioGenerator(config.input.audio)
@@ -34,6 +35,24 @@ class BaseDatasetComposer(AIPerfLoggerMixin, ABC):
             list[Conversation]: A list of conversation objects.
         """
         ...
+
+    def _compute_input_token_count(self, turn: Turn) -> int:
+        """Compute the total token count for all text content in a turn.
+
+        This is used as a fallback when token counts aren't available from the generator
+        (e.g., for custom datasets or when prefix prompts are used).
+
+        Args:
+            turn: The turn object to compute token count for.
+
+        Returns:
+            The total number of tokens across all text content.
+        """
+        return sum(
+            len(self.tokenizer.encode(content))
+            for text in turn.texts
+            for content in text.contents
+        )
 
     def _select_model_name(self) -> str:
         if (

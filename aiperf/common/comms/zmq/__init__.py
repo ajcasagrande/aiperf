@@ -11,6 +11,22 @@ __ignore__ = []
 from aiperf.common.comms.zmq.dealer_request_client import (
     ZMQDealerRequestClient,
 )
+from aiperf.common.comms.zmq.graceful_shutdown_mixin import (
+    GracefulShutdownMixin,
+)
+from aiperf.common.comms.zmq.high_performance_dealer_client import (
+    HighPerformanceDealerClient,
+    LockFreeRequestFutures,
+    MessageBatch,
+)
+from aiperf.common.comms.zmq.high_performance_dealer_client_conservative import (
+    ConservativeHighPerformanceDealerClient,
+)
+from aiperf.common.comms.zmq.high_performance_router_client import (
+    HighPerformanceRequestHandler,
+    HighPerformanceRouterClient,
+    RequestBatch,
+)
 from aiperf.common.comms.zmq.pub_client import (
     ZMQPubClient,
 )
@@ -40,6 +56,7 @@ from aiperf.common.comms.zmq.zmq_defaults import (
     TOPIC_DELIMITER,
     TOPIC_END,
     TOPIC_END_ENCODED,
+    ZMQExtremePerformanceDefaults,
     ZMQSocketDefaults,
 )
 from aiperf.common.comms.zmq.zmq_proxy_base import (
@@ -54,30 +71,49 @@ from aiperf.common.comms.zmq.zmq_proxy_sockets import (
     create_proxy_socket_class,
     define_proxy_class,
 )
+from aiperf.common.comms.zmq.zmq_warning_suppressor import (
+    SuppressZMQWarnings,
+    ZMQShutdownWarningFilter,
+    restore_warnings,
+    suppress_zmq_shutdown_warnings,
+)
 
 __all__ = [
     "BaseZMQClient",
     "BaseZMQCommunication",
     "BaseZMQProxy",
+    "ConservativeHighPerformanceDealerClient",
+    "GracefulShutdownMixin",
+    "HighPerformanceDealerClient",
+    "HighPerformanceRequestHandler",
+    "HighPerformanceRouterClient",
+    "LockFreeRequestFutures",
     "MAX_PUSH_RETRIES",
+    "MessageBatch",
     "ProxyEndType",
     "ProxySocketClient",
     "RETRY_DELAY_INTERVAL_SEC",
+    "RequestBatch",
+    "SuppressZMQWarnings",
     "TOPIC_DELIMITER",
     "TOPIC_END",
     "TOPIC_END_ENCODED",
     "ZMQDealerRequestClient",
     "ZMQDealerRouterProxy",
+    "ZMQExtremePerformanceDefaults",
     "ZMQIPCCommunication",
     "ZMQPubClient",
     "ZMQPullClient",
     "ZMQPushClient",
     "ZMQPushPullProxy",
     "ZMQRouterReplyClient",
+    "ZMQShutdownWarningFilter",
     "ZMQSocketDefaults",
     "ZMQSubClient",
     "ZMQTCPCommunication",
     "ZMQXPubXSubProxy",
     "create_proxy_socket_class",
     "define_proxy_class",
+    "restore_warnings",
+    "suppress_zmq_shutdown_warnings",
 ]

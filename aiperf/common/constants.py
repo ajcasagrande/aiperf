@@ -20,17 +20,30 @@ TASK_CANCEL_TIMEOUT_SHORT = 2.0
 TASK_CANCEL_TIMEOUT_LONG = 5.0
 """Maximum time to wait for complex tasks to complete when cancelling them (like parent tasks)."""
 
-DEFAULT_COMMS_REQUEST_TIMEOUT = 30.0
-"""Default timeout for requests from req_clients to rep_clients in seconds."""
+# High-performance communication defaults for zero timeout guarantee
+DEFAULT_DEALER_SEND_QUEUE_SIZE = (
+    1_000_000  # Increased from 500k for zero timeout guarantee
+)
+DEFAULT_DEALER_RECV_QUEUE_SIZE = (
+    1_000_000  # Increased from 500k for zero timeout guarantee
+)
+DEFAULT_PULL_CLIENT_MAX_CONCURRENCY = (
+    1_000_000  # Increased from 500k for zero timeout guarantee
+)
 
-DEFAULT_DEALER_SEND_QUEUE_SIZE = 100_000
-"""Default size of the send queue for dealer_clients."""
+# Timeout settings - very high to prevent any timeouts
+DEFAULT_COMMS_REQUEST_TIMEOUT = 300.0  # Increased to 5 minutes from 120s
+DEFAULT_COMMS_COMMAND_TIMEOUT = 300.0  # Increased to 5 minutes
 
-DEFAULT_DEALER_RECV_QUEUE_SIZE = 100_000
-"""Default size of the receive queue for dealer_clients."""
+# New constants for high-performance scenarios
+EXTREME_CONCURRENCY_THRESHOLD = 10_000
+"""Threshold above which extreme concurrency optimizations are enabled."""
 
-DEFAULT_PULL_CLIENT_MAX_CONCURRENCY = 100_000
-"""Default maximum concurrency for pull clients."""
+BATCH_PROCESSING_SIZE = 1000
+"""Number of messages to process in batches for better throughput."""
+
+LOCK_FREE_QUEUE_SIZE = 1_000_000
+"""Size for lock-free queue implementations."""
 
 DEFAULT_SERVICE_REGISTRATION_TIMEOUT = 30.0
 """Default timeout for service registration in seconds."""

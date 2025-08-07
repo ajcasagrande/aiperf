@@ -70,6 +70,12 @@ class ZMQPullClient(BaseZMQClient):
             max_pull_concurrency (int, optional): The maximum number of concurrent requests to allow.
         """
         super().__init__(zmq.SocketType.PULL, address, bind, socket_ops, **kwargs)
+
+        # Ensure the PULL socket never blocks the PUSH side by running out of
+        # receive-buffer space. Combined with the semaphore below we still
+        # have application-level flow-control without ZMQ induced stalls.
+        self.socket.setsockopt(zmq.SNDHWM, 0)
+        self.socket.setsockopt(zmq.RCVHWM, 0)
         self._pull_callbacks: dict[
             MessageTypeT, Callable[[Message], Coroutine[Any, Any, None]]
         ] = {}
@@ -78,7 +84,7 @@ class ZMQPullClient(BaseZMQClient):
             self.semaphore = asyncio.Semaphore(value=max_pull_concurrency)
         else:
             self.semaphore = asyncio.Semaphore(
-                value=int(os.getenv("AIPERF_WORKER_CONCURRENT_REQUESTS", 500))
+                value=int(os.getenv("AIPERF_WORKER_CONCURRENT_REQUESTS", 100000))
             )
 
     @background_task(immediate=True, interval=None)

@@ -49,6 +49,12 @@ class ProxySocketClient(BaseZMQClient):
         self.debug(
             lambda: f"ZMQ Proxy {end_type.name} {socket_type.name} - Address: {address}"
         )
+        # Ensure the proxy sockets themselves never become a back-pressure point.
+        # Infinite high-water-marks guarantee that the proxy thread cannot block
+        # even if one side produces faster than the other. This mirrors the
+        # strategy we use for the DEALER/ROUTER application sockets.
+        self.socket.setsockopt(zmq.SNDHWM, 0)  # 0 == infinite
+        self.socket.setsockopt(zmq.RCVHWM, 0)  # 0 == infinite
 
 
 class BaseZMQProxy(AIPerfLifecycleMixin, ABC):

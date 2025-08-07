@@ -66,7 +66,7 @@ class MooncakeTraceDatasetLoader:
         for session_id, traces in data.items():
             conversation = Conversation(session_id=session_id)
             for trace in traces:
-                prompt = self.prompt_generator.generate(
+                prompt, token_count = self.prompt_generator.generate(
                     mean=trace.input_length,
                     stddev=0,
                     hash_ids=trace.hash_ids,
@@ -74,6 +74,7 @@ class MooncakeTraceDatasetLoader:
                 turn = Turn(
                     timestamp=trace.timestamp,
                     texts=[Text(name="text", contents=[prompt])],
+                    input_token_count=token_count,
                 )
                 conversation.turns.append(turn)
             conversations.append(conversation)

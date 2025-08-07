@@ -90,6 +90,11 @@ class BaseZMQClient(AIPerfLifecycleMixin):
             self.socket.setsockopt(zmq.RCVTIMEO, ZMQSocketDefaults.RCVTIMEO)
             self.socket.setsockopt(zmq.SNDTIMEO, ZMQSocketDefaults.SNDTIMEO)
 
+            # Set High Water Mark (HWM) to prevent buffer overflow blocking
+            # These limits prevent infinite queuing and force flow control
+            self.socket.setsockopt(zmq.SNDHWM, ZMQSocketDefaults.SNDHWM)
+            self.socket.setsockopt(zmq.RCVHWM, ZMQSocketDefaults.RCVHWM)
+
             # Set performance-oriented socket options
             self.socket.setsockopt(zmq.TCP_KEEPALIVE, ZMQSocketDefaults.TCP_KEEPALIVE)
             self.socket.setsockopt(

@@ -41,7 +41,7 @@ class InferenceResultParser(CommunicationMixin):
         )
         self.conversation_request_client: RequestClientProtocol = (
             self.comms.create_request_client(
-                CommAddress.DATASET_MANAGER_PROXY_FRONTEND,
+                CommAddress.DATASET_RAW,
             )
         )
         self.tokenizers: dict[str, Tokenizer] = {}
@@ -181,6 +181,12 @@ class InferenceResultParser(CommunicationMixin):
         self, request_record: RequestRecord, tokenizer: Tokenizer
     ) -> int | None:
         """Compute the number of tokens in the input for a given request record."""
+
+        # First check if the RequestRecord already has pre-computed token count
+        if request_record.input_token_count is not None:
+            return request_record.input_token_count
+
+        # Fallback to requesting from dataset manager if token count not available
         if request_record.conversation_id is None or request_record.turn_index is None:
             self.warning(
                 lambda: f"Conversation ID or turn index is None: {request_record.conversation_id=} {request_record.turn_index=}"
@@ -201,6 +207,12 @@ class InferenceResultParser(CommunicationMixin):
             return None
 
         turn = turn_response.turn
+
+        # Use pre-computed token count if available, otherwise compute it
+        if turn.input_token_count is not None:
+            return turn.input_token_count
+
+        # Final fallback to computing token count (for backward compatibility)
         return sum(
             len(tokenizer.encode(content))
             for text in turn.texts

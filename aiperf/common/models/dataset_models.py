@@ -65,6 +65,10 @@ class Turn(AIPerfBaseModel):
     audios: list[Audio] = Field(
         default=[], description="Collection of audio data in each turn."
     )
+    input_token_count: int | None = Field(
+        default=None,
+        description="Pre-computed token count for all text content in this turn.",
+    )
 
 
 class Conversation(AIPerfBaseModel):

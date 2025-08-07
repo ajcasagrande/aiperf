@@ -178,6 +178,12 @@ class CreditProcessorMixin(CreditProcessorMixinRequirements):
         record.model_name = self.model_endpoint.primary_model_name
         record.conversation_id = conversation_response.conversation.session_id
         record.turn_index = 0
+
+        # Extract pre-computed input token count from the turn if available
+        turn = conversation_response.conversation.turns[0]
+        if turn.input_token_count is not None:
+            record.input_token_count = turn.input_token_count
+
         return record
 
     async def _call_inference_api_internal(

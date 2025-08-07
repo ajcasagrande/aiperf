@@ -31,6 +31,7 @@ class CustomDatasetComposer(BaseDatasetComposer):
         dataset = self.loader.load_dataset()
         conversations = self.loader.convert_to_conversations(dataset)
         self._add_model_names_to_conversations(conversations)
+        self._add_token_counts_to_conversations(conversations)
         return conversations
 
     def _create_loader_instance(self, dataset_type: CustomDatasetType) -> None:
@@ -53,3 +54,12 @@ class CustomDatasetComposer(BaseDatasetComposer):
         for conversation in conversations:
             for turn in conversation.turns:
                 turn.model = self._select_model_name()
+
+    def _add_token_counts_to_conversations(
+        self, conversations: list[Conversation]
+    ) -> None:
+        """Add pre-computed token counts to all turns with text content."""
+        for conversation in conversations:
+            for turn in conversation.turns:
+                if turn.texts:
+                    turn.input_token_count = self._compute_input_token_count(turn)

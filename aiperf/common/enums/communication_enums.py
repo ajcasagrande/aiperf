@@ -10,12 +10,19 @@ class CommunicationBackend(CaseInsensitiveStrEnum):
 
 
 class CommClientType(CaseInsensitiveStrEnum):
-    PUB = "pub"
-    SUB = "sub"
+    """Communication client types."""
+
+    REPLY = "reply"
+    REQUEST = "request"
     PUSH = "push"
     PULL = "pull"
-    REQUEST = "request"
-    REPLY = "reply"
+    PUB = "pub"
+    SUB = "sub"
+    # # High-performance variants for extreme concurrency
+    # HIGH_PERFORMANCE_REQUEST = "high_performance_request"
+    # HIGH_PERFORMANCE_REPLY = "high_performance_reply"
+    # # Conservative high-performance for stability at scale
+    # CONSERVATIVE_HIGH_PERFORMANCE_REQUEST = "conservative_high_performance_request"
 
 
 class CommAddress(CaseInsensitiveStrEnum):
@@ -42,6 +49,9 @@ class CommAddress(CaseInsensitiveStrEnum):
 
     DATASET_MANAGER_PROXY_BACKEND = "dataset_manager_proxy_backend"
     """Backend address for the DatasetManager to receive requests from clients."""
+
+    DATASET_RAW = "dataset_raw"
+    """Address to send raw dataset messages to the DatasetManager."""
 
     RAW_INFERENCE_PROXY_FRONTEND = "raw_inference_proxy_frontend"
     """Frontend address for sending raw inference messages to the InferenceParser from Workers."""

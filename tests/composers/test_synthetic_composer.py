@@ -424,6 +424,55 @@ class TestSyntheticDatasetComposer:
         conversations = composer.create_dataset()
 
         assert len(conversations) == 0
+        assert conversations == []
+
+    # ============================================================================
+    # Token Count Tests
+    # ============================================================================
+
+    def test_turns_have_precomputed_token_counts(
+        self, synthetic_config, mock_tokenizer
+    ):
+        """Test that synthetic turns have pre-computed input token counts."""
+        composer = SyntheticDatasetComposer(synthetic_config, mock_tokenizer)
+        conversations = composer.create_dataset()
+
+        assert len(conversations) > 0
+
+        # Check that all turns with text content have pre-computed token counts
+        for conversation in conversations:
+            for turn in conversation.turns:
+                if turn.texts:
+                    assert turn.input_token_count is not None
+                    assert isinstance(turn.input_token_count, int)
+                    assert turn.input_token_count > 0
+
+                    # Verify that the pre-computed count matches manual tokenization
+                    manual_count = sum(
+                        len(mock_tokenizer.encode(content))
+                        for text in turn.texts
+                        for content in text.contents
+                    )
+                    assert turn.input_token_count == manual_count
+
+    def test_turns_without_text_have_no_token_count(
+        self, image_only_config, mock_tokenizer
+    ):
+        """Test that turns without text content don't have token counts."""
+        composer = SyntheticDatasetComposer(image_only_config, mock_tokenizer)
+        conversations = composer.create_dataset()
+
+        assert len(conversations) > 0
+
+        # Check that turns without text content don't have token counts
+        for conversation in conversations:
+            for turn in conversation.turns:
+                if not turn.texts:
+                    assert turn.input_token_count is None
+
+    # ============================================================================
+    # Dataset Generation Tests
+    # ============================================================================
 
     @patch("aiperf.dataset.composer.synthetic.utils.sample_positive_normal_integer")
     def test_edge_case_statistical_parameters(self, mock_sample, mock_tokenizer):
