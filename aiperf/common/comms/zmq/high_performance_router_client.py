@@ -338,7 +338,7 @@ class HighPerformanceRouterClient(BaseZMQClient, GracefulShutdownMixin):
         """Send a batch of responses efficiently."""
         for routing_envelope, response in responses:
             try:
-                response_data = [*routing_envelope, response.model_dump_json().encode()]
+                response_data = [*routing_envelope, response.model_dump_json_fast()]
                 await self._graceful_zmq_send(
                     self.socket,
                     response_data,

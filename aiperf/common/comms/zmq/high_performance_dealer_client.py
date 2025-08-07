@@ -478,11 +478,12 @@ class HighPerformanceDealerClient(BaseZMQClient, TaskManagerMixin):
             # Register future with lock-free management
             await self._request_futures.add(message.request_id, future)
 
-            # Serialize message and validate
+            # Serialize message and validate using optimized method
             try:
-                request_json = message.model_dump_json()
-                if not request_json or not request_json.strip():
+                request_json_bytes = message.model_dump_json_fast()
+                if not request_json_bytes:
                     raise ValueError("Serialized message is empty")
+                request_json = request_json_bytes.decode("utf-8")
             except Exception as serialize_error:
                 raise CommunicationError(
                     f"Failed to serialize message: {serialize_error}"
