@@ -30,8 +30,10 @@ class ZMQSocketDefaults:
     """Default values for ZMQ sockets."""
 
     # Socket Options
-    RCVTIMEO = 300000  # 5 minutes
-    SNDTIMEO = 300000  # 5 minutes
+    RCVTIMEO = 300_000  # 5 minutes
+    SNDTIMEO = 300_000  # 5 minutes
+    SNDHWM = 0  # Infinite send buffer
+    RCVHWM = 0  # Infinite receive buffer
     TCP_KEEPALIVE = 1
     TCP_KEEPALIVE_IDLE = 60
     TCP_KEEPALIVE_INTVL = 10

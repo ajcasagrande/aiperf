@@ -104,6 +104,10 @@ class BaseZMQClient(AIPerfLifecycleMixin):
             self.socket.setsockopt(zmq.IMMEDIATE, ZMQSocketDefaults.IMMEDIATE)
             self.socket.setsockopt(zmq.LINGER, ZMQSocketDefaults.LINGER)
 
+            # Set zmq buffer sizes
+            self.socket.setsockopt(zmq.SNDHWM, ZMQSocketDefaults.SNDHWM)
+            self.socket.setsockopt(zmq.RCVHWM, ZMQSocketDefaults.RCVHWM)
+
             # Set additional socket options requested by the caller
             for key, val in self.socket_ops.items():
                 self.socket.setsockopt(key, val)
