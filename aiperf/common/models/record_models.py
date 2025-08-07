@@ -11,7 +11,6 @@ from pydantic import (
     SerializeAsAny,
 )
 
-from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import CreditPhase, SSEFieldType
 from aiperf.common.models.base_models import AIPerfBaseModel
 from aiperf.common.models.error_models import ErrorDetails, ErrorDetailsCount
@@ -217,6 +216,12 @@ class RequestRecord(AIPerfBaseModel):
         default=None,
         description="Pre-computed input token count from the dataset turn data.",
     )
+    pre_request_latency: int | None = Field(
+        default=None,
+        description="The latency of the credit in nanoseconds from when it was first received to when the inference request was sent. "
+        "This can be used to trace the latency in order to identify bottlenecks or other issues.",
+        ge=0,
+    )
 
     @property
     def delayed(self) -> bool:
@@ -242,77 +247,6 @@ class RequestRecord(AIPerfBaseModel):
             0 <= self.start_perf_ns < sys.maxsize
             and len(self.responses) > 0
             and all(0 < response.perf_ns < sys.maxsize for response in self.responses)
-        )
-
-    @property
-    def time_to_first_response_ns(self) -> int | None:
-        """Get the time to the first response in nanoseconds."""
-        if not self.valid:
-            return None
-        return (
-            self.responses[0].perf_ns - self.start_perf_ns
-            if self.start_perf_ns
-            else None
-        )
-
-    @property
-    def time_to_second_response_ns(self) -> int | None:
-        """Get the time to the second response in nanoseconds."""
-        if not self.valid or len(self.responses) < 2:
-            return None
-        return (
-            self.responses[1].perf_ns - self.responses[0].perf_ns
-            if self.responses[1].perf_ns and self.responses[0].perf_ns
-            else None
-        )
-
-    @property
-    def time_to_last_response_ns(self) -> int | None:
-        """Get the time to the last response in nanoseconds."""
-        if not self.valid:
-            return None
-        if self.end_perf_ns is None or self.start_perf_ns is None:
-            return None
-        return self.end_perf_ns - self.start_perf_ns if self.start_perf_ns else None
-
-    @property
-    def inter_token_latency_ns(self) -> float | None:
-        """Get the interval between responses in nanoseconds."""
-        if not self.valid or len(self.responses) < 2:
-            return None
-
-        if (
-            isinstance(self.responses[-1], SSEMessage)
-            and self.responses[-1].packets[-1].value == "[DONE]"
-        ):
-            return (
-                (self.responses[-2].perf_ns - self.responses[0].perf_ns)
-                / (len(self.responses) - 2)
-                if self.responses[-2].perf_ns and self.responses[0].perf_ns
-                else None
-            )
-
-        return (
-            (self.responses[-1].perf_ns - self.responses[0].perf_ns)
-            / (len(self.responses) - 1)
-            if self.responses[-1].perf_ns and self.responses[0].perf_ns
-            else None
-        )
-
-    def token_latency_ns(self, index: int) -> float | None:
-        """Get the latency of a token in nanoseconds."""
-        if not self.valid or len(self.responses) < 1:
-            return None
-        if index == 0:
-            return (
-                self.responses[0].perf_ns - self.recv_start_perf_ns
-                if self.recv_start_perf_ns
-                else None
-            )
-        return (
-            self.responses[index].perf_ns - self.responses[index - 1].perf_ns
-            if self.responses[index].perf_ns and self.responses[index - 1].perf_ns
-            else None
         )
 
 
@@ -357,34 +291,6 @@ class ParsedResponseRecord(AIPerfBaseModel):
         """Get the wall clock timestamp of the request in nanoseconds. DO NOT USE FOR LATENCY CALCULATIONS. (time.time_ns)."""
         return self.request.timestamp_ns
 
-    # TODO: How do we differentiate the end of the request vs the time of the last response?
-    #       Which one should we use for the latency metrics?
-    @cached_property
-    def end_perf_ns(self) -> int:
-        """Get the end time of the request in nanoseconds (perf_counter_ns).
-        If request.end_perf_ns is not set, use the time of the last response.
-        If there are no responses, use sys.maxsize.
-        """
-        return (
-            self.request.end_perf_ns
-            if self.request.end_perf_ns
-            else self.responses[-1].perf_ns
-            if self.responses
-            else sys.maxsize
-        )
-
-    @cached_property
-    def request_duration_ns(self) -> int:
-        """Get the duration of the request in nanoseconds."""
-        return self.end_perf_ns - self.start_perf_ns
-
-    @cached_property
-    def tokens_per_second(self) -> float | None:
-        """Get the number of tokens per second of the request."""
-        if self.output_token_count is None or self.request_duration_ns == 0:
-            return None
-        return self.output_token_count / (self.request_duration_ns / NANOS_PER_SECOND)
-
     @cached_property
     def has_error(self) -> bool:
         """Check if the response record has an error."""
@@ -406,6 +312,9 @@ class ParsedResponseRecord(AIPerfBaseModel):
         return (
             not self.has_error
             and len(self.responses) > 0
-            and 0 <= self.start_perf_ns < self.end_perf_ns < sys.maxsize
+            and 0
+            <= self.start_perf_ns
+            < self.request.responses[-1].perf_ns
+            < sys.maxsize
             and all(0 < response.perf_ns < sys.maxsize for response in self.responses)
         )

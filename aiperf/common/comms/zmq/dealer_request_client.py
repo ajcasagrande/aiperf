@@ -14,6 +14,7 @@ from aiperf.common.hooks import background_task, on_stop
 from aiperf.common.messages import Message
 from aiperf.common.mixins import TaskManagerMixin
 from aiperf.common.protocols import RequestClientProtocol
+from aiperf.common.utils import yield_to_event_loop
 
 
 @implements_protocol(RequestClientProtocol)
@@ -50,8 +51,8 @@ class ZMQDealerRequestClient(BaseZMQClient, TaskManagerMixin):
                         future.set_result(response)
 
             except Exception as e:
-                self.error(f"Receiver error: {e}")
-                await asyncio.sleep(0.001)
+                self.error(f"Receiver error: {e!r}")
+                await yield_to_event_loop()
 
     async def request_async(
         self, message: Message, future: asyncio.Future[Message]
