@@ -38,7 +38,6 @@ from aiperf.common.config.config_defaults import (
 )
 from aiperf.common.config.config_validators import (
     parse_file,
-    parse_goodput,
     parse_service_types,
     parse_str_or_csv_list,
     parse_str_or_dict,
@@ -155,7 +154,6 @@ __all__ = [
     "load_user_config",
     "logger",
     "parse_file",
-    "parse_goodput",
     "parse_service_types",
     "parse_str_or_csv_list",
     "parse_str_or_dict",

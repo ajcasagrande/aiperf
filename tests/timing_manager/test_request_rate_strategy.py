@@ -13,8 +13,7 @@ import pytest
 from scipy import stats
 
 from aiperf.common.constants import NANOS_PER_SECOND
-from aiperf.common.enums import RequestRateMode
-from aiperf.common.enums.timing_enums import CreditPhase
+from aiperf.common.enums import CreditPhase, RequestRateMode
 from aiperf.common.models.credit_models import CreditPhaseStats
 from aiperf.timing.config import TimingManagerConfig
 from aiperf.timing.request_rate_strategy import RequestRateStrategy

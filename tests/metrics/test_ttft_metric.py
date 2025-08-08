@@ -4,7 +4,7 @@
 
 import pytest
 
-from aiperf.common.enums.metric_enums import MetricTimeUnit
+from aiperf.common.enums import MetricTimeUnit
 from aiperf.metrics.types.ttft_metric import TTFTMetric
 
 
