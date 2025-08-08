@@ -216,10 +216,10 @@ class RequestRecord(AIPerfBaseModel):
         default=None,
         description="Pre-computed input token count from the dataset turn data.",
     )
-    pre_request_latency: int | None = Field(
+    credit_drop_latency: int | None = Field(
         default=None,
-        description="The latency of the credit in nanoseconds from when it was first received to when the inference request was sent. "
-        "This can be used to trace the latency in order to identify bottlenecks or other issues.",
+        description="The latency of the credit drop in nanoseconds from when it was first received by a Worker to when the inference request was actually sent. "
+        "This can be used to trace internal latency in order to identify bottlenecks or other issues.",
         ge=0,
     )
 

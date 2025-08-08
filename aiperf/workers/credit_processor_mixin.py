@@ -112,8 +112,8 @@ class CreditProcessorMixin(CreditProcessorMixinRequirements):
 
         finally:
             record.credit_phase = message.phase
-            # Calculate the latency of the credit drop (from when the credit was dropped to when the request was sent)
-            record.pre_request_latency = record.start_perf_ns - drop_perf_ns
+            # Calculate the latency of the credit drop (from when the credit drop was first received to when the request was sent)
+            record.credit_drop_latency = record.start_perf_ns - drop_perf_ns
 
             msg = InferenceResultsMessage(
                 service_id=self.service_id,

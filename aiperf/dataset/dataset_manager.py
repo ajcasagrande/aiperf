@@ -55,6 +55,10 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
         self.user_config = user_config
         self.tokenizer: Tokenizer | None = None
         self.dataset: dict[str, Conversation] = {}  # session ID -> Conversation mapping
+        self._session_ids_cache: list[str] = []
+        self._conversation_query_random = random.Random(
+            self.user_config.input.random_seed
+        )
         self.dataset_configured = asyncio.Event()
         # cache this for performance (but keep in mind that it will be not be updated if the debug level is changed)
         self._debug_enabled = self.is_debug_enabled
@@ -110,6 +114,8 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
         # cache the dataset keys and dataset length for performance
         self._dataset_key_cache = list(self.dataset.keys())
         self._dataset_key_cache_len = len(self._dataset_key_cache)
+        self._session_ids_cache = list(self.dataset.keys())
+
         self.dataset_configured.set()
         await self.publish(
             DatasetConfiguredNotification(
@@ -124,14 +130,7 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
         """Handle a conversation request."""
         # self.debug(lambda: f"Handling conversation request: {message}")
 
-        # Wait for the dataset to be configured if it is not already
-        if not self.dataset_configured.is_set():
-            self.debug(
-                "Dataset not configured. Waiting for dataset to be configured..."
-            )
-            await asyncio.wait_for(
-                self.dataset_configured.wait(), timeout=DATASET_CONFIGURATION_TIMEOUT
-            )
+        await self._wait_for_dataset_configuration()
 
         if not self.dataset:
             raise self._service_error(
@@ -153,13 +152,13 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
     ) -> ConversationResponseMessage:
         """Return any conversation from the dataset based on the user specified method."""
 
-        index = self._conversation_rng.randint(0, self._dataset_key_cache_len - 1)
         # TODO: Implement the user specified method (random, round robin, etc.)
-        conversation = self.dataset[self._dataset_key_cache[index]]
-        # self.trace_or_debug(
-        #     lambda: f"Sending random conversation response: {conversation}",
-        #     lambda: f"Sending random conversation response with id: {conversation.session_id}",
-        # )
+        session_id = self._conversation_query_random.choice(self._session_ids_cache)
+        conversation = self.dataset[session_id]
+        self.trace_or_debug(
+            lambda: f"Sending random conversation response: {conversation}",
+            lambda: f"Sending random conversation response with id: {conversation.session_id}",
+        )
         return ConversationResponseMessage(
             service_id=self.service_id,
             request_id=request_id,
@@ -226,6 +225,9 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
             lambda: f"Handling dataset timing request: {message}",
             "Handling dataset timing request",
         )
+
+        await self._wait_for_dataset_configuration()
+
         if not self.dataset:
             raise self._service_error(
                 "Dataset is empty and must be configured before handling timing requests.",
@@ -241,6 +243,16 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
             request_id=message.request_id,
             timing_data=timing_dataset,
         )
+
+    async def _wait_for_dataset_configuration(self) -> None:
+        """Wait for the dataset to be configured if it is not already."""
+        if not self.dataset_configured.is_set():
+            self.debug(
+                "Dataset not configured. Waiting for dataset to be configured..."
+            )
+            await asyncio.wait_for(
+                self.dataset_configured.wait(), timeout=DATASET_CONFIGURATION_TIMEOUT
+            )
 
 
 def main() -> None:
