@@ -18,7 +18,7 @@ from aiperf.common.messages import (
     RecordsProcessingStatsMessage,
     WorkerHealthMessage,
 )
-from aiperf.common.mixins import MessageBusClientMixin
+from aiperf.common.mixins.message_bus_mixin import MessageBusClientMixin
 from aiperf.common.models.progress_models import (
     ComputedStats,
     CreditPhaseProgress,
