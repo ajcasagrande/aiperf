@@ -17,7 +17,12 @@ class ProgressBar:
     """A progress bar that can be updated with a progress percentage."""
 
     def __init__(
-        self, update_threshold: float, desc: str, colour: str, position: int, **kwargs
+        self,
+        desc: str,
+        colour: str,
+        position: int,
+        update_threshold: float = 0.1,
+        **kwargs,
     ):
         self.bar = tqdm(
             total=100,
@@ -65,7 +70,6 @@ class TQDMProgressUI(AIPerfBaseUIMixin):
         """Callback for records progress updates."""
         if self._records_bar is None and records_stats.progress_percent is not None:
             self._records_bar = ProgressBar(
-                update_threshold=0.1,
                 desc=f" Records ({CreditPhase.PROFILING.capitalize()})",
                 colour="blue",
                 position=2,  # bottom position
@@ -82,10 +86,9 @@ class TQDMProgressUI(AIPerfBaseUIMixin):
         if phase == CreditPhase.WARMUP:
             if self._warmup_bar is None and requests_stats.progress_percent is not None:
                 self._warmup_bar = ProgressBar(
-                    update_threshold=0.1,
                     desc="Warmup",
                     colour="yellow",
-                    position=1,  # top position
+                    position=0,  # top position
                 )
 
             if self._warmup_bar:
@@ -97,7 +100,6 @@ class TQDMProgressUI(AIPerfBaseUIMixin):
                 and requests_stats.progress_percent is not None
             ):
                 self._requests_bar = ProgressBar(
-                    update_threshold=0.1,
                     desc=f"Requests ({phase.capitalize()})",
                     colour="green",
                     position=1,  # second position
