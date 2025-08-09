@@ -5,7 +5,6 @@ from pydantic import Field
 
 from aiperf.common.enums import CreditPhase, MessageType
 from aiperf.common.messages.service_messages import BaseServiceMessage
-from aiperf.common.models import Conversation, Turn
 from aiperf.common.types import MessageTypeT
 
 
@@ -27,7 +26,9 @@ class ConversationResponseMessage(BaseServiceMessage):
     """Message containing a full conversation."""
 
     message_type: MessageTypeT = MessageType.CONVERSATION_RESPONSE
-    conversation: Conversation = Field(..., description="The conversation data")
+    conversation_bytes: bytes = Field(
+        ..., description="The conversation data encoded as bytes"
+    )
 
 
 class ConversationTurnRequestMessage(BaseServiceMessage):
@@ -51,7 +52,7 @@ class ConversationTurnResponseMessage(BaseServiceMessage):
 
     message_type: MessageTypeT = MessageType.CONVERSATION_TURN_RESPONSE
 
-    turn: Turn = Field(..., description="The turn data")
+    turn_bytes: bytes = Field(..., description="The turn data encoded as bytes")
 
 
 class DatasetTimingRequest(BaseServiceMessage):

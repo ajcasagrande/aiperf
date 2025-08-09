@@ -22,6 +22,7 @@ from aiperf.common.models import (
     ParsedResponseRecord,
     RequestRecord,
 )
+from aiperf.common.models.dataset_models import Turn
 from aiperf.common.protocols import RequestClientProtocol, ResponseExtractorProtocol
 from aiperf.common.tokenizer import Tokenizer
 
@@ -200,7 +201,7 @@ class InferenceResultParser(CommunicationMixin):
             self.error(lambda: f"Error getting turn response: {turn_response}")
             return None
 
-        turn = turn_response.turn
+        turn = Turn.model_validate_json(turn_response.turn_bytes)
         return sum(
             len(tokenizer.encode(content))
             for text in turn.texts

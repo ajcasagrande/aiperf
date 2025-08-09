@@ -18,6 +18,7 @@ from aiperf.common.messages import (
     InferenceResultsMessage,
 )
 from aiperf.common.models import ErrorDetails, RequestRecord, Turn, WorkerPhaseTaskStats
+from aiperf.common.models.dataset_models import Conversation
 from aiperf.common.protocols import (
     AIPerfLoggerProtocol,
     InferenceClientProtocol,
@@ -172,11 +173,12 @@ class CreditProcessorMixin(CreditProcessorMixinRequirements):
                 error=conversation_response.error,
             )
 
-        record = await self._call_inference_api_internal(
-            message, conversation_response.conversation.turns[0]
+        conversation = Conversation.model_validate_json(
+            conversation_response.conversation_bytes
         )
+        record = await self._call_inference_api_internal(message, conversation.turns[0])
         record.model_name = self.model_endpoint.primary_model_name
-        record.conversation_id = conversation_response.conversation.session_id
+        record.conversation_id = conversation.session_id
         record.turn_index = 0
         return record
 

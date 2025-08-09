@@ -60,6 +60,25 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
             self.user_config.input.random_seed
         )
         self.dataset_configured = asyncio.Event()
+        # cache this for performance (but keep in mind that it will be not be updated if the debug level is changed)
+        self._debug_enabled = self.is_debug_enabled
+        self._conversation_rng = random.Random(self.user_config.input.random_seed)
+        self._conversation_bytes_cache: dict[str, bytes] = {}
+        self._turn_bytes_cache: dict[str, list[bytes]] = {}
+
+    def _cache_dataset_as_bytes(self) -> None:
+        """Cache the dataset as bytes."""
+        if not self.dataset:
+            raise self._service_error(
+                "Dataset is empty and must be configured before caching as bytes."
+            )
+
+        for conversation in self.dataset.values():
+            conversation_bytes = conversation.model_dump_json().encode("utf-8")
+            self._conversation_bytes_cache[conversation.session_id] = conversation_bytes
+            self._turn_bytes_cache[conversation.session_id] = [
+                turn.model_dump_json().encode("utf-8") for turn in conversation.turns
+            ]
 
     @on_command(CommandType.PROFILE_CONFIGURE)
     async def _profile_configure_command(
@@ -69,6 +88,8 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
         self.info(lambda: f"Configuring dataset for {self.service_id}")
         begin = time.perf_counter()
         await self._configure_dataset()
+        self.info(lambda: f"Caching dataset as bytes for {self.service_id}")
+        self._cache_dataset_as_bytes()
         duration = time.perf_counter() - begin
         self.info(lambda: f"Dataset configured in {duration:.2f} seconds")
 
@@ -146,15 +167,15 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
 
         # TODO: Implement the user specified method (random, round robin, etc.)
         session_id = self._conversation_query_random.choice(self._session_ids_cache)
-        conversation = self.dataset[session_id]
-        self.trace_or_debug(
-            lambda: f"Sending random conversation response: {conversation}",
-            lambda: f"Sending random conversation response with id: {conversation.session_id}",
-        )
+        # conversation = self.dataset[session_id]
+        # self.trace_or_debug(
+        #     lambda: f"Sending random conversation response: {conversation}",
+        #     lambda: f"Sending random conversation response with id: {conversation.session_id}",
+        # )
         return ConversationResponseMessage(
             service_id=self.service_id,
             request_id=request_id,
-            conversation=conversation,
+            conversation_bytes=self._conversation_bytes_cache[session_id],
         )
 
     def _return_conversation_by_id(
@@ -167,15 +188,15 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
                 f"Conversation {conversation_id} not found in dataset.",
             )
 
-        conversation = self.dataset[conversation_id]
-        self.trace_or_debug(
-            lambda: f"Sending conversation response: {conversation}",
-            lambda: f"Sending conversation response with id: {conversation.session_id}",
-        )
+        # conversation = self.dataset[conversation_id]
+        # # self.trace_or_debug(
+        # #     lambda: f"Sending conversation response: {conversation}",
+        # #     lambda: f"Sending conversation response with id: {conversation.session_id}",
+        # # )
         return ConversationResponseMessage(
             service_id=self.service_id,
             request_id=request_id,
-            conversation=conversation,
+            conversation_bytes=self._conversation_bytes_cache[conversation_id],
         )
 
     @on_request(MessageType.CONVERSATION_TURN_REQUEST)
@@ -196,16 +217,12 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
                 f"Turn index {message.turn_index} is out of range for conversation {message.conversation_id}.",
             )
 
-        turn = conversation.turns[message.turn_index]
-
-        self.trace_or_debug(
-            lambda: f"Sending turn response: {turn}",
-            "Sending turn response",
-        )
         return ConversationTurnResponseMessage(
             service_id=self.service_id,
             request_id=message.request_id,
-            turn=turn,
+            turn_bytes=self._turn_bytes_cache[message.conversation_id][
+                message.turn_index
+            ],
         )
 
     @on_request(MessageType.DATASET_TIMING_REQUEST)
