@@ -32,6 +32,8 @@ class ZMQSocketDefaults:
     # Socket Options
     RCVTIMEO = 300000  # 5 minutes
     SNDTIMEO = 300000  # 5 minutes
+    SNDHWM = 0  # No send high water mark (unlimited)
+    RCVHWM = 0  # No receive high water mark (unlimited)
     TCP_KEEPALIVE = 1
     TCP_KEEPALIVE_IDLE = 60
     TCP_KEEPALIVE_INTVL = 10
