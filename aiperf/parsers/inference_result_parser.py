@@ -3,26 +3,17 @@
 import asyncio
 import time
 
+import aiohttp
+
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
-from aiperf.common.enums import CommAddress
 from aiperf.common.factories import ResponseExtractorFactory
-from aiperf.common.hooks import (
-    on_init,
-)
-from aiperf.common.messages import (
-    ConversationTurnRequestMessage,
-    ConversationTurnResponseMessage,
-    ErrorMessage,
-)
+from aiperf.common.hooks import on_init
 from aiperf.common.mixins import CommunicationMixin
-from aiperf.common.models import (
-    ErrorDetails,
-    ParsedResponseRecord,
-    RequestRecord,
-)
-from aiperf.common.protocols import RequestClientProtocol, ResponseExtractorProtocol
+from aiperf.common.models import ErrorDetails, ParsedResponseRecord, RequestRecord
+from aiperf.common.models.dataset_models import Turn
+from aiperf.common.protocols import ResponseExtractorProtocol
 from aiperf.common.tokenizer import Tokenizer
 
 
@@ -38,11 +29,6 @@ class InferenceResultParser(CommunicationMixin):
         super().__init__(
             service_config=service_config,
             user_config=user_config,
-        )
-        self.conversation_request_client: RequestClientProtocol = (
-            self.comms.create_request_client(
-                CommAddress.DATASET_MANAGER_PROXY_FRONTEND,
-            )
         )
         self.tokenizers: dict[str, Tokenizer] = {}
         self.user_config: UserConfig = user_config
@@ -187,22 +173,27 @@ class InferenceResultParser(CommunicationMixin):
             )
             return None
 
-        turn_response: ConversationTurnResponseMessage = (
-            await self.conversation_request_client.request(
-                ConversationTurnRequestMessage(
-                    service_id=self.id,
-                    conversation_id=request_record.conversation_id,
-                    turn_index=request_record.turn_index,
-                )
-            )
-        )
-        if isinstance(turn_response, ErrorMessage):
-            self.error(lambda: f"Error getting turn response: {turn_response}")
-            return None
+        async with (
+            aiohttp.ClientSession(
+                timeout=aiohttp.ClientTimeout(
+                    total=self.user_config.endpoint.timeout_seconds,
+                    connect=self.user_config.endpoint.timeout_seconds,
+                    sock_read=self.user_config.endpoint.timeout_seconds,
+                    sock_connect=self.user_config.endpoint.timeout_seconds,
+                ),
+            ) as session,
+            session.get(
+                f"http://localhost:9090/conversation/{request_record.conversation_id}/turn/{request_record.turn_index}",
+            ) as response,
+        ):
+            if response.status != 200:
+                self.error(f"Error getting turn response: {response.text}")
+                return None
 
-        turn = turn_response.turn
-        return sum(
-            len(tokenizer.encode(content))
-            for text in turn.texts
-            for content in text.contents
-        )
+            turn = Turn.model_validate_json(await response.text())
+
+            return sum(
+                len(tokenizer.encode(content))
+                for text in turn.texts
+                for content in text.contents
+            )

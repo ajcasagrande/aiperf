@@ -5,19 +5,25 @@ import asyncio
 import time
 from typing import Protocol, runtime_checkable
 
+import aiohttp
+
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
+from aiperf.common.config.user_config import UserConfig
 from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import CreditPhase
 from aiperf.common.exceptions import NotInitializedError
 from aiperf.common.messages import (
-    ConversationRequestMessage,
-    ConversationResponseMessage,
     CreditDropMessage,
     CreditReturnMessage,
-    ErrorMessage,
     InferenceResultsMessage,
 )
-from aiperf.common.models import ErrorDetails, RequestRecord, Turn, WorkerPhaseTaskStats
+from aiperf.common.models import (
+    Conversation,
+    ErrorDetails,
+    RequestRecord,
+    Turn,
+    WorkerPhaseTaskStats,
+)
 from aiperf.common.protocols import (
     AIPerfLoggerProtocol,
     InferenceClientProtocol,
@@ -49,6 +55,7 @@ class CreditProcessorMixinRequirements(AIPerfLoggerProtocol, Protocol):
     request_converter: RequestConverterProtocol
     model_endpoint: ModelEndpointInfo
     task_stats: dict[CreditPhase, WorkerPhaseTaskStats]
+    user_config: UserConfig
 
     async def _process_credit_drop_internal(
         self, message: CreditDropMessage
@@ -149,36 +156,41 @@ class CreditProcessorMixin(CreditProcessorMixinRequirements):
         if not self.inference_client:
             raise NotInitializedError("Inference server client not initialized.")
 
-        # retrieve the prompt from the dataset
-        conversation_response: ConversationResponseMessage = (
-            await self.conversation_request_client.request(
-                ConversationRequestMessage(
-                    service_id=self.service_id,
+        async with (
+            aiohttp.ClientSession(
+                timeout=aiohttp.ClientTimeout(
+                    total=self.user_config.endpoint.timeout_seconds,
+                    connect=self.user_config.endpoint.timeout_seconds,
+                    sock_read=self.user_config.endpoint.timeout_seconds,
+                    sock_connect=self.user_config.endpoint.timeout_seconds,
+                ),
+            ) as session,
+            session.get(
+                f"http://localhost:9090/conversation/{message.conversation_id}"
+            ) as response,
+        ):
+            if response.status != 200:
+                return RequestRecord(
+                    model_name=self.model_endpoint.primary_model_name,
                     conversation_id=message.conversation_id,
-                    credit_phase=message.phase,
+                    turn_index=0,
+                    timestamp_ns=time.time_ns(),
+                    start_perf_ns=time.perf_counter_ns(),
+                    end_perf_ns=time.perf_counter_ns(),
+                    error=ErrorDetails(
+                        message=f"Failed to retrieve conversation {message.conversation_id} from dataset manager.",
+                        code=response.status,
+                    ),
                 )
-            )
-        )
-        self.trace(lambda: f"Received response message: {conversation_response}")
 
-        if isinstance(conversation_response, ErrorMessage):
-            return RequestRecord(
-                model_name=self.model_endpoint.primary_model_name,
-                conversation_id=message.conversation_id,
-                turn_index=0,
-                timestamp_ns=time.time_ns(),
-                start_perf_ns=time.perf_counter_ns(),
-                end_perf_ns=time.perf_counter_ns(),
-                error=conversation_response.error,
+            conversation = Conversation.model_validate_json(await response.text())
+            record = await self._call_inference_api_internal(
+                message, conversation.turns[0]
             )
-
-        record = await self._call_inference_api_internal(
-            message, conversation_response.conversation.turns[0]
-        )
-        record.model_name = self.model_endpoint.primary_model_name
-        record.conversation_id = conversation_response.conversation.session_id
-        record.turn_index = 0
-        return record
+            record.model_name = self.model_endpoint.primary_model_name
+            record.conversation_id = conversation.session_id
+            record.turn_index = 0
+            return record
 
     async def _call_inference_api_internal(
         self,
