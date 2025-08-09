@@ -9,12 +9,26 @@ __ignore__ = ["main", "logger"]
 ## ⚠️             Do not edit below this line                      ⚠️ ##
 ########################################################################
 
+from aiperf.ui.base_ui import (
+    BaseAIPerfUI,
+)
 from aiperf.ui.no_ui import (
     NoUI,
+)
+from aiperf.ui.progress_logger import (
+    LoggerTracker,
+    SimpleProgressLogger,
 )
 from aiperf.ui.tqdm_progress import (
     ProgressBar,
     TQDMProgressUI,
 )
 
-__all__ = ["NoUI", "ProgressBar", "TQDMProgressUI"]
+__all__ = [
+    "BaseAIPerfUI",
+    "LoggerTracker",
+    "NoUI",
+    "ProgressBar",
+    "SimpleProgressLogger",
+    "TQDMProgressUI",
+]

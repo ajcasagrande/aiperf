@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 from tqdm import tqdm
 
+from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import AIPerfUIType, CreditPhase
 from aiperf.common.factories import AIPerfUIFactory
 from aiperf.common.hooks import (
@@ -9,8 +10,9 @@ from aiperf.common.hooks import (
     on_requests_phase_progress,
     on_stop,
 )
-from aiperf.common.mixins import AIPerfBaseUIMixin
 from aiperf.common.models import RecordsStats, RequestsStats
+from aiperf.common.protocols import AIPerfUIProtocol
+from aiperf.ui.base_ui import BaseAIPerfUI
 
 
 class ProgressBar:
@@ -48,8 +50,9 @@ class ProgressBar:
         self.bar.close()
 
 
+@implements_protocol(AIPerfUIProtocol)
 @AIPerfUIFactory.register(AIPerfUIType.TQDM)
-class TQDMProgressUI(AIPerfBaseUIMixin):
+class TQDMProgressUI(BaseAIPerfUI):
     """A UI that shows progress bars for the records and requests phases."""
 
     def __init__(self, **kwargs):

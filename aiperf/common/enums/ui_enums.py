@@ -21,9 +21,12 @@ class AIPerfUIType(CaseInsensitiveStrEnum):
     """No dashboard, just simple progress bars using tqdm.
     Requires the tqdm package to be installed."""
 
+    LOG = "log"
+    """Logs progress to the console as log messages.
+    """
+
     NONE = "none"
-    """Logs progress to the console as log messages. This can be considered a fallback
-    for when no other UI is available.
+    """No UI. This can be considered a fallback for when no other UI is available.
     """
 
     @property

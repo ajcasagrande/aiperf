@@ -15,4 +15,6 @@ class NoUI(AIPerfLifecycleMixin):
     A UI that does nothing.
 
     Implements the :class:`AIPerfUIProtocol` to allow it to be used as a UI, but provides no functionality.
+
+    NOTE: Not inheriting from :class:`BaseAIPerfUI` because it does not need to track progress or workers.
     """
