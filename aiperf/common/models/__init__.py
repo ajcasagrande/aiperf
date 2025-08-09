@@ -35,6 +35,9 @@ from aiperf.common.models.health_models import (
     IOCounters,
     ProcessHealth,
 )
+from aiperf.common.models.progress_models import (
+    FullCreditPhaseProgressInfo,
+)
 from aiperf.common.models.record_models import (
     InferenceServerResponse,
     MetricResult,
@@ -64,6 +67,7 @@ __all__ = [
     "CtxSwitches",
     "ErrorDetails",
     "ErrorDetailsCount",
+    "FullCreditPhaseProgressInfo",
     "IOCounters",
     "Image",
     "InferenceServerResponse",
