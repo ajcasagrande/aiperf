@@ -38,16 +38,20 @@ class ConsoleExporter(AIPerfLoggerMixin):
             self.warning("No records to export")
             return
 
-        table = Table(title=self._get_title(), width=width)
-        table.add_column("Metric", justify="right", style="cyan")
-        for key in self.STAT_COLUMN_KEYS:
-            table.add_column(key, justify="right", style="green")
-        self._construct_table(table, self._results.records)
+        table = self.create_table(width)
 
         console = Console()
         console.print("\n")
         console.print(table)
         console.file.flush()
+
+    def create_table(self, width: int | None = None) -> Table:
+        table = Table(title=self._get_title(), width=width)
+        table.add_column("Metric", justify="right", style="cyan")
+        for key in self.STAT_COLUMN_KEYS:
+            table.add_column(key, justify="right", style="green")
+        self._construct_table(table, self._results.records)
+        return table
 
     def _construct_table(self, table: Table, records: list[MetricResult]) -> None:
         records = sorted(

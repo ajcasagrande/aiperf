@@ -41,13 +41,16 @@ from aiperf.common.messages import (
     SpawnWorkersCommand,
     StatusMessage,
 )
-from aiperf.common.models import ServiceRunInfo
+from aiperf.common.models import ProcessRecordsResult, ServiceRunInfo
 from aiperf.common.protocols import AIPerfUIProtocol, ServiceManagerProtocol
 from aiperf.common.types import ServiceTypeT
 from aiperf.controller.proxy_manager import ProxyManager
 from aiperf.controller.system_mixins import (
     SignalHandlerMixin,
 )
+from aiperf.exporters.console_error_exporter import ConsoleErrorExporter
+from aiperf.exporters.console_exporter import ConsoleExporter
+from aiperf.exporters.exporter_config import ExporterConfig
 from aiperf.exporters.exporter_manager import ExporterManager
 
 
@@ -101,11 +104,14 @@ class SystemController(SignalHandlerMixin, BaseService):
             )
         )
         self.ui: AIPerfUIProtocol = AIPerfUIFactory.create_instance(
-            self.service_config.ui_type,
+            self.service_config.ui.type,
             service_config=self.service_config,
             user_config=self.user_config,
+            log_queue=get_global_log_queue(),
         )
+        self.attach_child_lifecycle(self.ui)
         self._stop_tasks: set[asyncio.Task] = set()
+        self._profile_results: ProcessRecordsResult | None = None
         self.debug("System Controller created")
 
     async def initialize(self) -> None:
@@ -114,7 +120,6 @@ class SystemController(SignalHandlerMixin, BaseService):
         """
         self.debug("Running ZMQ Proxy Manager Before Initialize")
         await self.proxy_manager.initialize_and_start()
-        await self.ui.initialize_and_start()
         # Once the proxies are running, call the original initialize method
         await super().initialize()
 
@@ -339,6 +344,8 @@ class SystemController(SignalHandlerMixin, BaseService):
         # This will be displayed by the console error exporter
         self.debug(lambda: f"Error summary: {message.results.results.error_summary}")
 
+        self._profile_results = message.results
+
         if message.results.results:
             await ExporterManager(
                 results=message.results.results,
@@ -348,9 +355,6 @@ class SystemController(SignalHandlerMixin, BaseService):
             self.error(
                 f"Received process records result message with no records: {message.results.results}"
             )
-
-        if self._was_cancelled:
-            warn_cancelled_early()
 
         # TODO: HACK: Stop the system controller after exporting the records
         self.debug("Stopping system controller after exporting records")
@@ -395,6 +399,23 @@ class SystemController(SignalHandlerMixin, BaseService):
         await self.comms.stop()
         await self.proxy_manager.stop()
         await self.ui.stop()
+        await self.ui.wait_for_tasks()
+        # await asyncio.sleep(0.1)
+        if self._profile_results:
+            await ConsoleExporter(
+                ExporterConfig(
+                    results=self._profile_results.results, user_config=self.user_config
+                )
+            ).export()
+            await ConsoleErrorExporter(
+                ExporterConfig(
+                    results=self._profile_results.results, user_config=self.user_config
+                )
+            ).export()
+            if self._was_cancelled:
+                warn_cancelled_early()
+        else:
+            self.error("No profile results to export")
 
     async def _kill(self):
         """Kill the system controller."""

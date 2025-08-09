@@ -16,7 +16,7 @@ class UIConfig(BaseConfig):
 
     _CLI_GROUP = Groups.UI
 
-    ui_type: Annotated[
+    type: Annotated[
         AIPerfUIType,
         Field(
             description="Type of UI to use",
