@@ -37,8 +37,8 @@ class ZMQSocketDefaults:
     SNDTIMEO = 30000  # 30 seconds instead of 10
 
     # High Water Mark - Increased for extreme concurrency
-    SNDHWM = 100_000  # Send buffer limit - much higher for zero timeout guarantee
-    RCVHWM = 100_000  # Receive buffer limit - much higher for zero timeout guarantee
+    SNDHWM = 0
+    RCVHWM = 0
 
     # Connection settings - optimized for reliability
     IMMEDIATE = 1
@@ -57,8 +57,8 @@ class ZMQExtremePerformanceDefaults:
     SNDTIMEO = 1000  # 1 second - much faster for high throughput
 
     # Extreme concurrency HWM settings
-    SNDHWM = 100000  # Much higher send buffer
-    RCVHWM = 100000  # Much higher receive buffer
+    SNDHWM = 0
+    RCVHWM = 0
 
     # TCP optimizations for high throughput
     TCP_KEEPALIVE = 1

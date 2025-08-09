@@ -78,7 +78,7 @@ class Worker(
         )
         self.conversation_request_client: RequestClientProtocol = (
             self.comms.create_request_client(
-                CommAddress.DATASET_RAW,
+                CommAddress.DATASET_MANAGER_PROXY_FRONTEND,
             )
         )
 

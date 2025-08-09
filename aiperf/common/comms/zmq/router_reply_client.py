@@ -63,7 +63,7 @@ class ZMQRouterReplyClient(BaseZMQClient):
         """Register a request handler for a specific message type."""
         if message_type in self._request_handlers:
             raise ValueError(
-                "Handler already registered for message type %s" % message_type
+                f"Handler already registered for message type {message_type}"
             )
         self._request_handlers[message_type] = (service_id, handler)
         self.debug("Registered handler for message type %s", message_type)
@@ -77,8 +77,7 @@ class ZMQRouterReplyClient(BaseZMQClient):
                     request_id=request_id,
                     error=ErrorDetails(
                         type="HANDLER_NOT_FOUND",
-                        message="No handler registered for message type %s"
-                        % request.message_type,
+                        message=f"No handler registered for message type {request.message_type}",
                     ),
                 )
             else:
@@ -158,7 +157,7 @@ class ZMQRouterReplyClient(BaseZMQClient):
             self._response_futures.pop(request_id, None)
 
     @background_task(immediate=True, interval=None)
-    async def _rep_router_receiver(self) -> None:
+    async def _reply_router_receiver(self) -> None:
         """Robust receiver with comprehensive error handling and validation."""
         while not self.stop_requested:
             try:

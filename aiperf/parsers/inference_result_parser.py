@@ -21,6 +21,7 @@ from aiperf.common.models import (
     ErrorDetails,
     ParsedResponseRecord,
     RequestRecord,
+    Turn,
 )
 from aiperf.common.protocols import RequestClientProtocol, ResponseExtractorProtocol
 from aiperf.common.tokenizer import Tokenizer
@@ -41,7 +42,7 @@ class InferenceResultParser(CommunicationMixin):
         )
         self.conversation_request_client: RequestClientProtocol = (
             self.comms.create_request_client(
-                CommAddress.DATASET_RAW,
+                CommAddress.DATASET_MANAGER_PROXY_FRONTEND,
             )
         )
         self.tokenizers: dict[str, Tokenizer] = {}
@@ -206,7 +207,7 @@ class InferenceResultParser(CommunicationMixin):
             self.error(lambda: f"Error getting turn response: {turn_response}")
             return None
 
-        turn = turn_response.turn
+        turn = Turn.model_validate_json(turn_response.turn_bytes)
 
         # Use pre-computed token count if available, otherwise compute it
         if turn.input_token_count is not None:

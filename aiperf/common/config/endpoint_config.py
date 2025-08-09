@@ -63,7 +63,7 @@ class EndpointConfig(BaseConfig):
             ),
             group=_CLI_GROUP,
         ),
-    ] = EndpointDefaults.MODEL_SELECTION_STRATEGY
+    ] = Field(default=EndpointDefaults.MODEL_SELECTION_STRATEGY)
 
     custom_endpoint: Annotated[
         str | None,
@@ -77,7 +77,7 @@ class EndpointConfig(BaseConfig):
             ),
             group=_CLI_GROUP,
         ),
-    ] = EndpointDefaults.CUSTOM_ENDPOINT
+    ] = Field(default=EndpointDefaults.CUSTOM_ENDPOINT)
 
     type: Annotated[
         EndpointType,
@@ -90,7 +90,7 @@ class EndpointConfig(BaseConfig):
             ),
             group=_CLI_GROUP,
         ),
-    ] = EndpointDefaults.TYPE
+    ] = Field(default=EndpointDefaults.TYPE)
 
     streaming: Annotated[
         bool,
@@ -103,7 +103,7 @@ class EndpointConfig(BaseConfig):
             ),
             group=_CLI_GROUP,
         ),
-    ] = EndpointDefaults.STREAMING
+    ] = Field(default=EndpointDefaults.STREAMING)
 
     url: Annotated[
         str,
@@ -117,7 +117,7 @@ class EndpointConfig(BaseConfig):
             ),
             group=_CLI_GROUP,
         ),
-    ] = EndpointDefaults.URL
+    ] = Field(default=EndpointDefaults.URL)
 
     # NEW AIPerf Option
     timeout_seconds: Annotated[
@@ -129,7 +129,7 @@ class EndpointConfig(BaseConfig):
             name=("--request-timeout-seconds"),
             group=_CLI_GROUP,
         ),
-    ] = EndpointDefaults.TIMEOUT
+    ] = Field(default=EndpointDefaults.TIMEOUT)
 
     # NEW AIPerf Option
     api_key: Annotated[
@@ -142,4 +142,4 @@ class EndpointConfig(BaseConfig):
             name=("--api-key"),
             group=_CLI_GROUP,
         ),
-    ] = EndpointDefaults.API_KEY
+    ] = Field(default=EndpointDefaults.API_KEY)

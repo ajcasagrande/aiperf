@@ -5,12 +5,18 @@ import random
 import time
 
 from aiperf.common.base_component_service import BaseComponentService
+from aiperf.common.comms.zmq.router_reply_client import ZMQRouterReplyClient
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.decorators import implements_protocol
-from aiperf.common.enums import CommAddress, ComposerType, MessageType, ServiceType
-from aiperf.common.enums.command_enums import CommandType
+from aiperf.common.enums import (
+    CommAddress,
+    CommandType,
+    ComposerType,
+    MessageType,
+    ServiceType,
+)
 from aiperf.common.factories import ComposerFactory, ServiceFactory
-from aiperf.common.hooks import on_command, on_request
+from aiperf.common.hooks import on_command, on_init, on_request
 from aiperf.common.messages import (
     ConversationRequestMessage,
     ConversationResponseMessage,
@@ -23,7 +29,7 @@ from aiperf.common.messages import (
 )
 from aiperf.common.mixins import ReplyClientMixin
 from aiperf.common.models import Conversation
-from aiperf.common.protocols import ServiceProtocol
+from aiperf.common.protocols import ReplyClientProtocol, ServiceProtocol
 from aiperf.common.tokenizer import Tokenizer
 
 DATASET_CONFIGURATION_TIMEOUT = 30.0
@@ -48,8 +54,8 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
             service_config=service_config,
             user_config=user_config,
             service_id=service_id,
-            reply_client_address=CommAddress.DATASET_RAW,
-            reply_client_bind=True,
+            reply_client_address=CommAddress.DATASET_MANAGER_PROXY_BACKEND,
+            reply_client_bind=False,
         )
         self.debug("Dataset manager __init__")
         self.user_config = user_config
@@ -63,8 +69,34 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
         # cache this for performance (but keep in mind that it will be not be updated if the debug level is changed)
         self._debug_enabled = self.is_debug_enabled
         self._conversation_rng = random.Random(self.user_config.input.random_seed)
-        self._dataset_key_cache: list[str]
-        self._dataset_key_cache_len: int
+        self._conversation_bytes_cache: dict[str, bytes] = {}
+        self._turn_bytes_cache: dict[str, list[bytes]] = {}
+        self._conversation_request_clients: list[ReplyClientProtocol] = []
+        for _ in range(10):
+            client = ZMQRouterReplyClient(
+                address=self.comms.get_address(
+                    CommAddress.DATASET_MANAGER_PROXY_FRONTEND
+                ),
+                bind=False,
+            )
+            self._conversation_request_clients.append(
+                client,
+            )
+            self.attach_child_lifecycle(client)
+
+    def _cache_dataset_as_bytes(self) -> None:
+        """Cache the dataset as bytes."""
+        if not self.dataset:
+            raise self._service_error(
+                "Dataset is empty and must be configured before caching as bytes."
+            )
+
+        for conversation in self.dataset.values():
+            conversation_bytes = conversation.model_dump_json().encode("utf-8")
+            self._conversation_bytes_cache[conversation.session_id] = conversation_bytes
+            self._turn_bytes_cache[conversation.session_id] = [
+                turn.model_dump_json().encode("utf-8") for turn in conversation.turns
+            ]
 
     @on_command(CommandType.PROFILE_CONFIGURE)
     async def _profile_configure_command(
@@ -74,6 +106,8 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
         self.info(lambda: f"Configuring dataset for {self.service_id}")
         begin = time.perf_counter()
         await self._configure_dataset()
+        self.info(lambda: f"Caching dataset as bytes for {self.service_id}")
+        self._cache_dataset_as_bytes()
         duration = time.perf_counter() - begin
         self.info(lambda: f"Dataset configured in {duration:.2f} seconds")
 
@@ -111,9 +145,6 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
         )
         conversations = composer.create_dataset()
         self.dataset = {conv.session_id: conv for conv in conversations}
-        # cache the dataset keys and dataset length for performance
-        self._dataset_key_cache = list(self.dataset.keys())
-        self._dataset_key_cache_len = len(self._dataset_key_cache)
         self._session_ids_cache = list(self.dataset.keys())
 
         self.dataset_configured.set()
@@ -123,6 +154,16 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
             ),
         )
 
+    @on_init
+    def _initialize(self) -> None:
+        """Setup additional conversation request handlers."""
+        for client in self._conversation_request_clients:
+            client.register_request_handler(
+                self.service_id,
+                MessageType.CONVERSATION_REQUEST,
+                self._handle_conversation_request,
+            )
+
     @on_request(MessageType.CONVERSATION_REQUEST)
     async def _handle_conversation_request(
         self, message: ConversationRequestMessage
@@ -130,12 +171,12 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
         """Handle a conversation request."""
         # self.debug(lambda: f"Handling conversation request: {message}")
 
-        await self._wait_for_dataset_configuration()
+        # await self._wait_for_dataset_configuration()
 
-        if not self.dataset:
-            raise self._service_error(
-                "Dataset is empty and must be configured before handling requests.",
-            )
+        # if not self.dataset:
+        #     raise self._service_error(
+        #         "Dataset is empty and must be configured before handling requests.",
+        #     )
 
         if message.conversation_id is None:
             return self._return_any_conversation(
@@ -154,15 +195,10 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
 
         # TODO: Implement the user specified method (random, round robin, etc.)
         session_id = self._conversation_query_random.choice(self._session_ids_cache)
-        conversation = self.dataset[session_id]
-        self.trace_or_debug(
-            lambda: f"Sending random conversation response: {conversation}",
-            lambda: f"Sending random conversation response with id: {conversation.session_id}",
-        )
         return ConversationResponseMessage(
             service_id=self.service_id,
             request_id=request_id,
-            conversation=conversation,
+            conversation_bytes=self._conversation_bytes_cache[session_id],
         )
 
     def _return_conversation_by_id(
@@ -170,12 +206,11 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
     ) -> ConversationResponseMessage:
         """Return a conversation if it exists, otherwise raise an error."""
 
-        if conversation_id not in self.dataset:
+        if conversation_id not in self._conversation_bytes_cache:
             raise self._service_error(
                 f"Conversation {conversation_id} not found in dataset.",
             )
 
-        conversation = self.dataset[conversation_id]
         # self.trace_or_debug(
         #     lambda: f"Sending conversation response: {conversation}",
         #     lambda: f"Sending conversation response with id: {conversation.session_id}",
@@ -183,7 +218,7 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
         return ConversationResponseMessage(
             service_id=self.service_id,
             request_id=request_id,
-            conversation=conversation,
+            conversation_bytes=self._conversation_bytes_cache[conversation_id],
         )
 
     @on_request(MessageType.CONVERSATION_TURN_REQUEST)
@@ -193,19 +228,15 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
         """Handle a turn request."""
         # self.debug(lambda: f"Handling turn request: {message}")
 
-        if message.conversation_id not in self.dataset:
+        if message.conversation_id not in self._conversation_bytes_cache:
             raise self._service_error(
                 f"Conversation {message.conversation_id} not found in dataset.",
             )
 
-        conversation = self.dataset[message.conversation_id]
-        if message.turn_index >= len(conversation.turns):
+        if message.turn_index >= len(self._turn_bytes_cache[message.conversation_id]):
             raise self._service_error(
                 f"Turn index {message.turn_index} is out of range for conversation {message.conversation_id}.",
             )
-
-        turn = conversation.turns[message.turn_index]
-
         # self.trace_or_debug(
         #     lambda: f"Sending turn response: {turn}",
         #     "Sending turn response",
@@ -213,7 +244,9 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
         return ConversationTurnResponseMessage(
             service_id=self.service_id,
             request_id=message.request_id,
-            turn=turn,
+            turn_bytes=self._turn_bytes_cache[message.conversation_id][
+                message.turn_index
+            ],
         )
 
     @on_request(MessageType.DATASET_TIMING_REQUEST)
