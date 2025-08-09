@@ -21,11 +21,6 @@ from aiperf.common.enums import (
 #
 # Config Defaults
 @dataclass(frozen=True)
-class UserDefaults:
-    MODEL_NAMES = None  # This must be set by the user
-
-
-@dataclass(frozen=True)
 class CLIDefaults:
     TEMPLATE_FILENAME = "aiperf_config.yaml"
 
@@ -51,6 +46,9 @@ class InputDefaults:
     HEADERS = {}
     FILE = None
     FIXED_SCHEDULE = False
+    FIXED_SCHEDULE_AUTO_OFFSET = False
+    FIXED_SCHEDULE_START_OFFSET = None
+    FIXED_SCHEDULE_END_OFFSET = None
     CUSTOM_DATASET_TYPE = CustomDatasetType.MOONCAKE_TRACE
     RANDOM_SEED = None
     NUM_DATASET_ENTRIES = 100
@@ -87,13 +85,6 @@ class InputTokensDefaults:
     MEAN = 550
     STDDEV = 0.0
     BLOCK_SIZE = 512
-
-
-@dataclass(frozen=True)
-class OutputTokensDefaults:
-    MEAN = 0
-    DETERMINISTIC = False
-    STDDEV = 0
 
 
 @dataclass(frozen=True)
@@ -135,9 +126,7 @@ class TokenizerDefaults:
 
 
 @dataclass(frozen=True)
-class OutputTokenDefaults:
-    MEAN = None
-    DETERMINISTIC = False
+class OutputTokensDefaults:
     STDDEV = 0
 
 
@@ -172,31 +161,6 @@ class LoadGeneratorDefaults:
     CONCURRENCY_RAMP_UP_TIME = None
     REQUEST_RATE_MODE = RequestRateMode.POISSON
     TIMING_MODE = TimingMode.CONCURRENCY
-
-
-@dataclass(frozen=True)
-class MeasurementDefaults:
-    MEASUREMENT_INTERVAL = 10_000
-    STABILITY_PERCENTAGE = 0.95
-
-
-# TODO: Enable this when we implement the sweep command
-# @dataclass(frozen=True)
-# class SweepParamDefaults:
-#     VALUES = None
-#     ORDER = SweepParamOrder.ASCENDING
-#     COMPLETION_TRIGGER = SweepCompletionTrigger.COMPLETED_PROFILES
-#     START = None
-#     STEP = None
-#     END = None
-#     MAX_PROFILES = None
-
-
-# TODO: Enable this when we implement the sweep command
-# @dataclass(frozen=True)
-# class SweepDefaults:
-#     PARAMS = None
-#     ORDER = SweepMultiParamOrder.DEPTH_FIRST
 
 
 @dataclass(frozen=True)
