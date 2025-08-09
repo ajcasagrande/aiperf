@@ -19,7 +19,11 @@ from aiperf.common.enums import (
     ServiceRegistrationStatus,
     ServiceType,
 )
-from aiperf.common.factories import ServiceFactory, ServiceManagerFactory
+from aiperf.common.factories import (
+    AIPerfUIFactory,
+    ServiceFactory,
+    ServiceManagerFactory,
+)
 from aiperf.common.hooks import on_command, on_init, on_message, on_start, on_stop
 from aiperf.common.logging import get_global_log_queue
 from aiperf.common.messages import (
@@ -38,7 +42,7 @@ from aiperf.common.messages import (
     StatusMessage,
 )
 from aiperf.common.models import ServiceRunInfo
-from aiperf.common.protocols import ServiceManagerProtocol
+from aiperf.common.protocols import AIPerfUIProtocol, ServiceManagerProtocol
 from aiperf.common.types import ServiceTypeT
 from aiperf.controller.proxy_manager import ProxyManager
 from aiperf.controller.system_mixins import (
@@ -96,6 +100,11 @@ class SystemController(SignalHandlerMixin, BaseService):
                 log_queue=get_global_log_queue(),
             )
         )
+        self.ui: AIPerfUIProtocol = AIPerfUIFactory.create_instance(
+            self.service_config.ui_type,
+            service_config=self.service_config,
+            user_config=self.user_config,
+        )
         self._stop_tasks: set[asyncio.Task] = set()
         self.debug("System Controller created")
 
@@ -105,6 +114,7 @@ class SystemController(SignalHandlerMixin, BaseService):
         """
         self.debug("Running ZMQ Proxy Manager Before Initialize")
         await self.proxy_manager.initialize_and_start()
+        await self.ui.initialize_and_start()
         # Once the proxies are running, call the original initialize method
         await super().initialize()
 
@@ -384,6 +394,7 @@ class SystemController(SignalHandlerMixin, BaseService):
         await self.service_manager.shutdown_all_services()
         await self.comms.stop()
         await self.proxy_manager.stop()
+        await self.ui.stop()
 
     async def _kill(self):
         """Kill the system controller."""

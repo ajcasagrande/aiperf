@@ -294,7 +294,7 @@ class MessageBusClientProtocol(PubClientProtocol, SubClientProtocol, Protocol):
 
 
 @runtime_checkable
-class AIPerfUIProtocol(MessageBusClientProtocol, Protocol):
+class AIPerfUIProtocol(AIPerfLifecycleProtocol, Protocol):
     """Protocol interface definition for AIPerf UI implementations.
 
     NOTE: The simplest way to implement this protocol is to inherit from the :class:`ProgressTrackerMixin`.

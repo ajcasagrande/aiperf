@@ -9,7 +9,7 @@ from typing_extensions import Self
 
 from aiperf.common.config.base_config import ADD_TO_TEMPLATE
 from aiperf.common.config.config_defaults import ServiceDefaults
-from aiperf.common.config.config_validators import parse_service_types
+from aiperf.common.config.config_validators import parse_service_types, parse_ui_type
 from aiperf.common.config.groups import Groups
 from aiperf.common.config.worker_config import WorkersConfig
 from aiperf.common.config.zmq_config import (
@@ -23,6 +23,7 @@ from aiperf.common.enums import (
     ServiceRunType,
 )
 from aiperf.common.enums.service_enums import ServiceType
+from aiperf.common.enums.ui_enums import AIPerfUIType
 
 
 class ServiceConfig(BaseSettings):
@@ -56,6 +57,15 @@ class ServiceConfig(BaseSettings):
                 self.comm_config = ZMQTCPConfig()
             else:
                 raise ValueError(f"Invalid communication backend: {self.comm_backend}")
+        return self
+
+    @model_validator(mode="after")
+    def validate_ui_type(self) -> Self:
+        """Validate the UI type."""
+        if self.disable_ui:
+            self.ui_type = AIPerfUIType.NONE
+        elif self.basic_ui:
+            self.ui_type = AIPerfUIType.TQDM
         return self
 
     service_run_type: Annotated[
@@ -177,6 +187,17 @@ class ServiceConfig(BaseSettings):
         ),
     ] = ServiceDefaults.EXTRA_VERBOSE
 
+    basic_ui: Annotated[
+        bool,
+        Field(
+            description="Enable the basic tqdm-based UI. This is equivalent to --ui-type tqdm.",
+        ),
+        Parameter(
+            name=("--basic-ui"),
+            group=_CLI_GROUP,
+        ),
+    ] = ServiceDefaults.BASIC_UI
+
     disable_ui: Annotated[
         bool,
         Field(
@@ -187,6 +208,18 @@ class ServiceConfig(BaseSettings):
             group=_CLI_GROUP,
         ),
     ] = ServiceDefaults.DISABLE_UI
+
+    ui_type: Annotated[
+        AIPerfUIType,
+        Field(
+            description="Type of UI to use",
+        ),
+        Parameter(
+            name=("--ui-type", "--ui"),
+            group=_CLI_GROUP,
+        ),
+        BeforeValidator(parse_ui_type),
+    ] = ServiceDefaults.UI_TYPE
 
     enable_uvloop: Annotated[
         bool,

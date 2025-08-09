@@ -16,6 +16,7 @@ from aiperf.common.enums import (
     ServiceRunType,
     TimingMode,
 )
+from aiperf.common.enums.ui_enums import AIPerfUIType
 
 
 #
@@ -142,7 +143,9 @@ class ServiceDefaults:
     VERBOSE = False
     EXTRA_VERBOSE = False
     LOG_PATH = None
-    DISABLE_UI = True  # TODO: Make this False by default once we have a UI
+    DISABLE_UI = False
+    BASIC_UI = False
+    UI_TYPE = AIPerfUIType.NONE
     ENABLE_UVLOOP = True
     RECORD_PROCESSOR_SERVICE_COUNT = None
     ENABLE_YAPPI = False

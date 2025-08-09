@@ -17,7 +17,7 @@ class AIPerfUIType(CaseInsensitiveStrEnum):
     Full feature terminal UI with scrolling and mouse support.
     """
 
-    BASIC = "basic"
+    TQDM = "tqdm"
     """No dashboard, just simple progress bars using tqdm.
     Requires the tqdm package to be installed."""
 
