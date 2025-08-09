@@ -17,6 +17,9 @@ from aiperf.common.types import MessageTypeT
 from aiperf.common.utils import yield_to_event_loop
 from aiperf.zmq.zmq_base_client import BaseZMQClient
 
+MAX_REQUEST_QUEUE_SIZE = 1_000_000
+MAX_RESPONSE_QUEUE_SIZE = 1_000_000
+
 
 @implements_protocol(ReplyClientProtocol)
 @CommunicationClientFactory.register(CommClientType.REPLY)
@@ -72,7 +75,14 @@ class ZMQRouterReplyClient(BaseZMQClient):
             MessageTypeT,
             tuple[str, Callable[[Message], Coroutine[Any, Any, Message | None]]],
         ] = {}
-        self._response_futures: dict[str, asyncio.Future[Message | None]] = {}
+
+        self._request_queue: asyncio.Queue[tuple[tuple[bytes, ...], Message]] = (
+            asyncio.Queue(maxsize=MAX_REQUEST_QUEUE_SIZE)
+        )
+
+        self._response_queue: asyncio.Queue[
+            tuple[str, tuple[bytes, ...], Message | None]
+        ] = asyncio.Queue(maxsize=MAX_RESPONSE_QUEUE_SIZE)
 
     @on_stop
     async def _clear_request_handlers(self) -> None:
@@ -106,7 +116,128 @@ class ZMQRouterReplyClient(BaseZMQClient):
         )
         self._request_handlers[message_type] = (service_id, handler)
 
-    async def _handle_request(self, request_id: str, request: Message) -> None:
+    @background_task(immediate=True, interval=None)
+    async def _request_queue_processor(self) -> None:
+        """Background task for processing requests from the request queue."""
+        while not self.stop_requested:
+            try:
+                routing_envelope, request = await self._request_queue.get()
+                # self.execute_async(self._handle_request(routing_envelope, request))
+                await self._handle_request(routing_envelope, request)
+                self._request_queue.task_done()
+            except asyncio.CancelledError:
+                self.debug("Router reply client request queue processor task cancelled")
+                break
+            except Exception as e:
+                self.error(f"Exception processing request from queue: {e}")
+                await yield_to_event_loop()
+
+    @background_task(immediate=True, interval=None)
+    async def _response_queue_processor(self) -> None:
+        """Background task for processing responses from the response queue."""
+        while not self.stop_requested:
+            try:
+                (
+                    request_id,
+                    routing_envelope,
+                    response,
+                ) = await self._response_queue.get()
+                # NOTE: It has been benchmarked that awaiting the send_multipart is faster than using execute_async.
+                #       to send the response during high concurrency.
+                await self._send_response(request_id, routing_envelope, response)
+                self._response_queue.task_done()
+            except asyncio.CancelledError:
+                self.debug(
+                    "Router reply client response queue processor task cancelled"
+                )
+                break
+            except Exception as e:
+                self.error(f"Exception processing response from queue: {e!r}")
+                await yield_to_event_loop()
+
+    async def _send_response(
+        self,
+        request_id: str,
+        routing_envelope: tuple[bytes, ...],
+        response: Message | None,
+    ) -> None:
+        """Send a response to the client."""
+        if response is None:
+            self.warning(f"Got None as response for request {request_id}")
+            response = ErrorMessage(
+                request_id=request_id,
+                error=ErrorDetails(
+                    type="NO_RESPONSE",
+                    message="No response was generated for the request.",
+                ),
+            )
+        await self.socket.send_multipart(
+            [*routing_envelope, response.model_dump_json().encode()]
+        )
+
+    @background_task(immediate=True, interval=None)
+    async def _rep_router_receiver(self) -> None:
+        """Background task for receiving requests and sending responses.
+
+        This method is a coroutine that will run indefinitely until the client is
+        shutdown. It will wait for requests from the socket and send responses in
+        an asynchronous manner.
+        """
+        self.debug("Router reply client background task initialized")
+
+        # cache is_trace_enabled to avoid attr lookup in loop
+        _is_trace_enabled = self.is_trace_enabled
+
+        while not self.stop_requested:
+            try:
+                # Receive request
+                try:
+                    data = await self.socket.recv_multipart()
+                    if _is_trace_enabled:
+                        self.trace(f"Received request: {data}")
+
+                    request = Message.from_json(data[-1])
+                    if not request.request_id:
+                        self.error(f"Request ID is missing from request: {data}")
+                        continue
+
+                    routing_envelope: tuple[bytes, ...] = (
+                        tuple(data[:-1])
+                        if len(data) > 1
+                        else (request.request_id.encode(),)
+                    )
+                except zmq.Again:
+                    # This means we timed out waiting for a request.
+                    # We can continue to the next iteration of the loop.
+                    self.debug(
+                        "Router reply client receiver task timed out waiting for requests. "
+                        "This is normal if there are no requests for a while."
+                    )
+                    await yield_to_event_loop()
+                    continue
+
+                try:
+                    self._request_queue.put_nowait((routing_envelope, request))
+                except asyncio.QueueFull:
+                    self.error(
+                        f"Request queue is full for request {request.request_id}. "
+                        "Waiting for an open slot. This will cause back pressure."
+                    )
+                    await self._request_queue.put((routing_envelope, request))
+                    self.debug(
+                        "Router reply client receiver task put request in queue."
+                    )
+
+            except Exception as e:
+                self.error(f"Exception receiving request: {e!r}")
+                await yield_to_event_loop()
+            except asyncio.CancelledError:
+                self.debug("Router reply client receiver task cancelled")
+                break
+
+    async def _handle_request(
+        self, routing_envelope: tuple[bytes, ...], request: Message
+    ) -> None:
         """Handle a request.
 
         This method will:
@@ -123,98 +254,17 @@ class ZMQRouterReplyClient(BaseZMQClient):
         except Exception as e:
             self.exception(f"Exception calling handler for {message_type}: {e}")
             response = ErrorMessage(
-                request_id=request_id,
+                request_id=request.request_id,
                 error=ErrorDetails.from_exception(e),
             )
 
         try:
-            self._response_futures[request_id].set_result(response)
-        except Exception as e:
-            self.exception(
-                f"Exception setting response future for request {request_id}: {e}"
+            self._response_queue.put_nowait(
+                (request.request_id, routing_envelope, response)
             )
-
-    async def _wait_for_response(
-        self, request_id: str, routing_envelope: tuple[bytes, ...]
-    ) -> None:
-        """Wait for a response to a request.
-
-        This method will wait for the response future to be set and then send the response
-        back to the client.
-        """
-        try:
-            # Wait for the response asynchronously.
-            response = await self._response_futures[request_id]
-
-            if response is None:
-                self.warning(
-                    lambda req_id=request_id: f"Got None as response for request {req_id}"
-                )
-                response = ErrorMessage(
-                    request_id=request_id,
-                    error=ErrorDetails(
-                        type="NO_RESPONSE",
-                        message="No response was generated for the request.",
-                    ),
-                )
-
-            self._response_futures.pop(request_id, None)
-
-            # Send the response back to the client.
-            await self.socket.send_multipart(
-                [*routing_envelope, response.model_dump_json().encode()]
+        except asyncio.QueueFull:
+            self.error(
+                f"Response queue is full for request {request.request_id}. "
+                "Waiting for an open slot. This will cause back pressure."
             )
-        except Exception as e:
-            self.exception(
-                f"Exception waiting for response for request {request_id}: {e}"
-            )
-
-    @background_task(immediate=True, interval=None)
-    async def _rep_router_receiver(self) -> None:
-        """Background task for receiving requests and sending responses.
-
-        This method is a coroutine that will run indefinitely until the client is
-        shutdown. It will wait for requests from the socket and send responses in
-        an asynchronous manner.
-        """
-        self.debug("Router reply client background task initialized")
-
-        while not self.stop_requested:
-            try:
-                # Receive request
-                try:
-                    data = await self.socket.recv_multipart()
-                    self.trace(lambda msg=data: f"Received request: {msg}")
-
-                    request = Message.from_json(data[-1])
-                    if not request.request_id:
-                        self.exception(f"Request ID is missing from request: {data}")
-                        continue
-
-                    routing_envelope: tuple[bytes, ...] = (
-                        tuple(data[:-1])
-                        if len(data) > 1
-                        else (request.request_id.encode(),)
-                    )
-                except zmq.Again:
-                    # This means we timed out waiting for a request.
-                    # We can continue to the next iteration of the loop.
-                    self.debug("Router reply client receiver task timed out")
-                    await yield_to_event_loop()
-                    continue
-
-                # Create a new response future for this request that will be resolved
-                # when the handler returns a response.
-                self._response_futures[request.request_id] = asyncio.Future()
-                # Handle the request in a new task.
-                self.execute_async(self._handle_request(request.request_id, request))
-                self.execute_async(
-                    self._wait_for_response(request.request_id, routing_envelope)
-                )
-
-            except Exception as e:
-                self.exception(f"Exception receiving request: {e}")
-                await yield_to_event_loop()
-            except asyncio.CancelledError:
-                self.debug("Router reply client receiver task cancelled")
-                break
+            await self._response_queue.put((request.request_id, routing_envelope, None))

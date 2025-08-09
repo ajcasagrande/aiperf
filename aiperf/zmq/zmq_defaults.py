@@ -25,6 +25,9 @@ For example:
 - "timing_manager_eff34565.command"
 """
 
+DEFAULT_ZMQ_IO_THREADS = 1
+"""Default number of IO threads for ZMQ."""
+
 
 class ZMQSocketDefaults:
     """Default values for ZMQ sockets."""

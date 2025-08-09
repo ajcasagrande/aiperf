@@ -23,6 +23,7 @@ from aiperf.common.hooks import on_stop
 from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.common.protocols import CommunicationClientProtocol, CommunicationProtocol
 from aiperf.common.types import CommAddressType
+from aiperf.zmq.zmq_defaults import DEFAULT_ZMQ_IO_THREADS
 
 
 @implements_protocol(CommunicationProtocol)
@@ -40,7 +41,7 @@ class BaseZMQCommunication(BaseCommunication, AIPerfLoggerMixin, ABC):
         super().__init__()
         self.config = config
 
-        self.context = zmq.asyncio.Context.instance()
+        self.context = zmq.asyncio.Context.instance(io_threads=DEFAULT_ZMQ_IO_THREADS)
         self._clients_cache: dict[
             tuple[CommClientType, CommAddressType, bool], CommunicationClientProtocol
         ] = {}

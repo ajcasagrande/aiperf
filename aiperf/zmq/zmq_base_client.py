@@ -8,7 +8,7 @@ import zmq.asyncio
 from aiperf.common.exceptions import InitializationError, NotInitializedError
 from aiperf.common.hooks import on_init, on_stop
 from aiperf.common.mixins.aiperf_lifecycle_mixin import AIPerfLifecycleMixin
-from aiperf.zmq.zmq_defaults import ZMQSocketDefaults
+from aiperf.zmq.zmq_defaults import DEFAULT_ZMQ_IO_THREADS, ZMQSocketDefaults
 
 ################################################################################
 # Base ZMQ Client Class
@@ -41,7 +41,9 @@ class BaseZMQClient(AIPerfLifecycleMixin):
             socket_type (SocketType): The type of ZMQ socket (eg. PUB, SUB, ROUTER, DEALER, etc.).
             socket_ops (dict, optional): Additional socket options to set.
         """
-        self.context: zmq.asyncio.Context = zmq.asyncio.Context.instance()
+        self.context: zmq.asyncio.Context = zmq.asyncio.Context.instance(
+            io_threads=DEFAULT_ZMQ_IO_THREADS
+        )
         self.socket_type: zmq.SocketType = socket_type
         self.socket: zmq.asyncio.Socket = self.context.socket(self.socket_type)
         self.address: str = address
