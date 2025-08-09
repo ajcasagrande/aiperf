@@ -36,7 +36,12 @@ from aiperf.common.models.health_models import (
     ProcessHealth,
 )
 from aiperf.common.models.progress_models import (
-    FullCreditPhaseProgressInfo,
+    ComputedStats,
+    CreditPhaseProgress,
+    RecordsStats,
+    RequestsStats,
+    StatsProtocol,
+    WorkerStats,
 )
 from aiperf.common.models.record_models import (
     InferenceServerResponse,
@@ -54,20 +59,21 @@ from aiperf.common.models.service_models import (
     ServiceRunInfo,
 )
 from aiperf.common.models.worker_models import (
-    WorkerPhaseTaskStats,
+    WorkerTaskStats,
 )
 
 __all__ = [
     "AIPerfBaseModel",
     "Audio",
     "CPUTimes",
+    "ComputedStats",
     "Conversation",
     "CreditPhaseConfig",
+    "CreditPhaseProgress",
     "CreditPhaseStats",
     "CtxSwitches",
     "ErrorDetails",
     "ErrorDetailsCount",
-    "FullCreditPhaseProgressInfo",
     "IOCounters",
     "Image",
     "InferenceServerResponse",
@@ -78,14 +84,18 @@ __all__ = [
     "ProcessHealth",
     "ProcessRecordsResult",
     "ProfileResults",
+    "RecordsStats",
     "RequestRecord",
+    "RequestsStats",
     "ResponseData",
     "SSEField",
     "SSEMessage",
     "ServiceRunInfo",
+    "StatsProtocol",
     "Text",
     "TextResponse",
     "Turn",
-    "WorkerPhaseTaskStats",
+    "WorkerStats",
+    "WorkerTaskStats",
     "exclude_if_none",
 ]
