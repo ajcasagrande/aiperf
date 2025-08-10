@@ -3,8 +3,6 @@
 
 from functools import cached_property
 
-from pydantic import Field
-
 from aiperf.common.enums.base_enums import (
     BasePydanticBackedStrEnum,
     BasePydanticEnumInfo,
@@ -17,12 +15,12 @@ class EndpointTypeInfo(BasePydanticEnumInfo):
     For documentation on the fields, see the :class:`EndpointType` @property functions.
     """
 
-    supports_streaming: bool = Field(...)
-    produces_tokens: bool = Field(...)
-    supports_audio: bool = Field(default=False)
-    supports_images: bool = Field(default=False)
-    endpoint_path: str | None = Field(default=None)
-    metrics_title: str | None = Field(default=None)
+    supports_streaming: bool
+    produces_tokens: bool
+    supports_audio: bool = False
+    supports_images: bool = False
+    endpoint_path: str | None = None
+    metrics_title: str | None = None
 
 
 class EndpointType(BasePydanticBackedStrEnum):
@@ -65,6 +63,13 @@ class EndpointType(BasePydanticBackedStrEnum):
         supports_images=True,
         endpoint_path="/v1/responses",
         metrics_title="LLM Metrics",
+    )
+    NONE = EndpointTypeInfo(
+        tag="none",
+        supports_streaming=False,
+        produces_tokens=False,
+        endpoint_path="/",
+        metrics_title="Metrics",
     )
 
     @cached_property
