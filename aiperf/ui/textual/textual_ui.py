@@ -28,7 +28,13 @@ from aiperf.ui.textual.textual_app import AIPerfTextualApp
 @implements_protocol(AIPerfUIProtocol)
 @AIPerfUIFactory.register(AIPerfUIType.TEXTUAL)
 class AIPerfTextualUI(BaseAIPerfUI):
-    """Enhanced mixin for Textual-based UI functionality with improved visual feedback."""
+    """
+    AIPerf Textual UI.
+
+    This is the main UI class for the Textual UI. It is responsible for
+    managing the Textual application, its lifecycle, and passing the
+    progress updates to the application.
+    """
 
     def __init__(
         self,

@@ -26,7 +26,7 @@ from aiperf.common.utils import format_duration
 
 
 class ProgressDashboard(Container):
-    """Simple textual widget that displays Rich progress bars for profile execution."""
+    """Textual widget that displays Rich progress bars for profile execution."""
 
     DEFAULT_CSS = """
     ProgressDashboard {
@@ -36,21 +36,17 @@ class ProgressDashboard(Container):
         border-title-style: bold;
         padding: 0 1 0 1;
     }
-
     #status-display {
         height: auto;
         margin: 0 1 0 1;
     }
-
     #progress-display {
         height: auto;
         margin: 0 1 0 1;
     }
-
     #stats-display {
         height: auto;
     }
-
     #no-stats-message {
         height: 1fr;
         content-align: center middle;

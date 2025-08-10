@@ -6,8 +6,8 @@ import signal
 
 from rich.console import RenderableType
 from textual.app import App, ComposeResult
-from textual.containers import Container, Vertical
-from textual.widgets import TabbedContent
+from textual.containers import Container, Horizontal, Vertical
+from textual.widgets import TabbedContent, TabPane
 
 from aiperf.common.aiperf_logger import AIPerfLogger
 from aiperf.ui.textual.custom import CustomHeader, aiperf_theme
@@ -18,7 +18,12 @@ _logger = AIPerfLogger(__name__)
 
 
 class AIPerfTextualApp(App):
-    """AIPerf Textual App"""
+    """
+    AIPerf Textual App.
+
+    This is the main application class for the Textual UI. It is responsible for
+    composing the application layout and handling the application commands.
+    """
 
     CSS = """
     #main-container {
@@ -45,9 +50,7 @@ class AIPerfTextualApp(App):
 
     BINDINGS = [
         ("ctrl+c", "quit", "Quit"),
-        # ("1", "switch_tab('overview')", "Overview"),
-        # ("2", "switch_tab('performance')", "Performance"),
-        # ("3", "switch_tab('workers')", "Workers"),
+        ("1", "switch_tab('overview')", "Overview"),
         ("s", "toggle_log_auto_scroll", "Toggle Log Auto Scroll"),
         ("l", "toggle_hide_log_viewer", "Toggle Logs"),
     ]
@@ -74,14 +77,14 @@ class AIPerfTextualApp(App):
         yield CustomHeader()
 
         with Vertical(id="main-container"):  # noqa: SIM117 - textual ui layout
-            # with Container(id="dashboard-section"):  # noqa: SIM117
-            #     with TabbedContent(initial="overview"):  # noqa: SIM117
-            #         with TabPane("Overview", id="overview"):  # noqa: SIM117
-            #             with Horizontal():  # noqa: SIM117
-            #                 self.overview_progress = ProgressDashboard()
-            #                 yield self.overview_progress
-            #                 self.overview_workers = WorkerDashboard()
-            #                 yield self.overview_workers
+            with Container(id="dashboard-section"):  # noqa: SIM117
+                with TabbedContent(initial="overview"):  # noqa: SIM117
+                    with TabPane("Overview", id="overview"):  # noqa: SIM117
+                        with Horizontal():  # noqa: SIM117
+                            self.overview_progress = ProgressDashboard()
+                            yield self.overview_progress
+                            # self.overview_workers = WorkerDashboard()
+                            # yield self.overview_workers
 
             #         with TabPane("Performance Dashboard", id="performance"):  # noqa: SIM117
             #             self.dashboard = ProgressDashboard()

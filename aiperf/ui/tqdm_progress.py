@@ -34,6 +34,7 @@ class ProgressBar:
             leave=False,
             dynamic_ncols=False,
             unit=" pct",
+            bar_format="{desc}: {percentage:3.0f}% |{bar}| {percentage:3.0f}% [{elapsed}<{remaining}]",
             **kwargs,
         )
         self.update_threshold = update_threshold
