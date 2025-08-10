@@ -52,6 +52,8 @@ class AIPerfTextualApp(App):
     BINDINGS = [
         ("ctrl+c", "quit", "Quit"),
         ("1", "switch_tab('overview')", "Overview"),
+        ("2", "switch_tab('performance')", "Performance"),
+        ("3", "switch_tab('workers')", "Workers"),
         ("s", "toggle_log_auto_scroll", "Toggle Log Auto Scroll"),
         ("l", "toggle_hide_log_viewer", "Toggle Logs"),
     ]
@@ -61,6 +63,8 @@ class AIPerfTextualApp(App):
         self.log_viewer: LogViewer | None = None
         self.overview_progress: ProgressDashboard | None = None
         self.overview_workers: WorkerDashboard | None = None
+        self.performance_dashboard: ProgressDashboard | None = None
+        self.worker_dashboard: WorkerDashboard | None = None
         self.title = "NVIDIA AIPerf"
         self.profile_results: list[RenderableType] = []
         self.logs_hidden = False
@@ -83,13 +87,13 @@ class AIPerfTextualApp(App):
                             self.overview_workers = WorkerDashboard()
                             yield self.overview_workers
 
-            #         with TabPane("Performance Dashboard", id="performance"):  # noqa: SIM117
-            #             self.dashboard = ProgressDashboard()
-            #             yield self.dashboard
+                    with TabPane("Performance", id="performance"):  # noqa: SIM117
+                        self.performance_dashboard = ProgressDashboard()
+                        yield self.performance_dashboard
 
-            #         with TabPane("Worker Status", id="workers"):
-            #             self.worker_dashboard = WorkerDashboard()
-            #             yield self.worker_dashboard
+                    with TabPane("Workers", id="workers"):
+                        self.worker_dashboard = WorkerDashboard()
+                        yield self.worker_dashboard
 
             with Container(id="logs-section"):
                 self.log_viewer = LogViewer()

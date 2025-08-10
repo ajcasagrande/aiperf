@@ -66,6 +66,8 @@ class AIPerfTextualUI(BaseAIPerfUI):
         """Callback for records progress updates."""
         if self.app.overview_progress:
             self.app.overview_progress.on_records_progress(records_stats)
+        if self.app.performance_dashboard:
+            self.app.performance_dashboard.on_records_progress(records_stats)
 
     @on_requests_phase_progress
     async def _on_requests_phase_progress(
@@ -74,9 +76,15 @@ class AIPerfTextualUI(BaseAIPerfUI):
         """Callback for requests phase progress updates."""
         if self.app.overview_progress:
             self.app.overview_progress.on_requests_phase_progress(phase, requests_stats)
+        if self.app.performance_dashboard:
+            self.app.performance_dashboard.on_requests_phase_progress(
+                phase, requests_stats
+            )
 
     @on_worker_update
     async def _on_worker_update(self, worker_id: str, worker_stats: WorkerStats):
         """Callback for worker updates."""
         if self.app.overview_workers:
             self.app.overview_workers.update_worker_health(worker_id, worker_stats)
+        if self.app.worker_dashboard:
+            self.app.worker_dashboard.update_worker_health(worker_id, worker_stats)

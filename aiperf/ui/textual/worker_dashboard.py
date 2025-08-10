@@ -142,7 +142,7 @@ class WorkerStatusTable(Widget):
         for worker in workers_data:
             memory_display = (
                 f"{format_bytes(int(worker.memory_mb * 1024 * 1024))}"
-                if worker.memory_mb
+                if worker.memory_mb is not None
                 else "N/A"
             )
 
@@ -155,7 +155,7 @@ class WorkerStatusTable(Widget):
                 f"{worker.in_progress:,}",
                 f"{worker.completed:,}",
                 f"{worker.failed:,}",
-                f"{worker.cpu_usage:.1f}%" if worker.cpu_usage else "N/A",
+                f"{worker.cpu_usage:.1f}%" if worker.cpu_usage is not None else "N/A",
                 memory_display,
                 format_bytes(worker.io_read_bytes),
                 format_bytes(worker.io_write_bytes),
