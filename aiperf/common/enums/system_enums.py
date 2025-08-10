@@ -18,5 +18,6 @@ class SystemState(CaseInsensitiveStrEnum):
     PROFILING = "profiling"
     PROCESSING_RESULTS = "processing_results"
     EXPORTING_DATA = "exporting_data"
+    CANCELLING = "cancelling"
     STOPPING = "stopping"
     SHUTDOWN = "shutdown"

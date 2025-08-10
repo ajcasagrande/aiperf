@@ -9,7 +9,7 @@ BYTES_PER_MIB = 1024 * 1024
 GRACEFUL_SHUTDOWN_TIMEOUT_SECONDS = 5.0
 """Default timeout for shutting down services in seconds."""
 
-DEFAULT_SHUTDOWN_ACK_TIMEOUT = 5.0
+DEFAULT_SHUTDOWN_ACK_TIMEOUT = 0.5
 """Default timeout for waiting for a shutdown command response in seconds."""
 
 DEFAULT_PROFILE_CANCEL_TIMEOUT = 10.0
