@@ -11,7 +11,7 @@ from textual.widgets import TabbedContent
 
 from aiperf.common.aiperf_logger import AIPerfLogger
 from aiperf.ui.textual.custom import CustomHeader, aiperf_theme
-from aiperf.ui.textual.logging_ui import LogViewer
+from aiperf.ui.textual.log_viewer import LogViewer
 from aiperf.ui.textual.progress_dashboard import ProgressDashboard
 
 _logger = AIPerfLogger(__name__)

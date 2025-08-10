@@ -1,8 +1,48 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+import multiprocessing
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from textual.widgets import RichLog
+
+from aiperf.common.hooks import background_task
+from aiperf.common.mixins import AIPerfLifecycleMixin
+from aiperf.common.utils import yield_to_event_loop
+
+if TYPE_CHECKING:
+    from aiperf.ui.textual.textual_app import AIPerfTextualApp
+
+
+class LogConsumer(AIPerfLifecycleMixin):
+    def __init__(
+        self, log_queue: multiprocessing.Queue, app: "AIPerfTextualApp", **kwargs
+    ) -> None:
+        super().__init__(**kwargs)
+        self.log_queue = log_queue
+        self.app = app
+
+    LOG_REFRESH_INTERVAL = 0.1
+
+    @background_task(immediate=True, interval=LOG_REFRESH_INTERVAL)
+    async def _consume_logs(self) -> None:
+        """Consume log records from the queue and display them.
+
+        This is a background task that runs every LOG_REFRESH_INTERVAL seconds
+        to consume log records from the queue and display them in the log widget.
+        """
+        if self.app.log_viewer is None:
+            return
+
+        # Process all pending log records
+        while not self.log_queue.empty():
+            try:
+                log_data = self.log_queue.get_nowait()
+                self.app.log_viewer.display_log_record(log_data)
+                await yield_to_event_loop()
+            except Exception:
+                # Silently ignore queue errors to avoid recursion
+                break
 
 
 class LogViewer(RichLog):
