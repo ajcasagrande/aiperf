@@ -76,6 +76,7 @@ class TQDMProgressUI(BaseAIPerfUI):
                 desc=f" Records ({CreditPhase.PROFILING.capitalize()})",
                 colour="blue",
                 position=2,  # bottom position
+                update_threshold=self.service_config.ui.min_update_percent,
             )
 
         if self._records_bar:
@@ -92,6 +93,7 @@ class TQDMProgressUI(BaseAIPerfUI):
                     desc="Warmup",
                     colour="yellow",
                     position=0,  # top position
+                    update_threshold=self.service_config.ui.min_update_percent,
                 )
 
             if self._warmup_bar:
@@ -106,6 +108,7 @@ class TQDMProgressUI(BaseAIPerfUI):
                     desc=f"Requests ({phase.capitalize()})",
                     colour="green",
                     position=1,  # second position
+                    update_threshold=self.service_config.ui.min_update_percent,
                 )
 
             if self._requests_bar:

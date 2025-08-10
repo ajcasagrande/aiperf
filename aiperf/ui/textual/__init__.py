@@ -15,8 +15,13 @@ from aiperf.ui.textual.custom import (
 from aiperf.ui.textual.logging_ui import (
     LogViewer,
 )
-from aiperf.ui.textual.textual_ui import (
+from aiperf.ui.textual.progress_dashboard import (
+    ProgressDashboard,
+)
+from aiperf.ui.textual.textual_app import (
     AIPerfTextualApp,
+)
+from aiperf.ui.textual.textual_ui import (
     AIPerfTextualUI,
 )
 
@@ -25,5 +30,6 @@ __all__ = [
     "AIPerfTextualUI",
     "CustomHeader",
     "LogViewer",
+    "ProgressDashboard",
     "aiperf_theme",
 ]

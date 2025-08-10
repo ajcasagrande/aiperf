@@ -8,19 +8,20 @@ from rich.console import Console
 from rich.table import Table
 
 from aiperf.common.decorators import implements_protocol
-from aiperf.common.enums import DataExporterType, MetricFlags
+from aiperf.common.enums import MetricFlags
+from aiperf.common.enums.data_exporter_enums import ConsoleExporterType
 from aiperf.common.exceptions import MetricUnitError
-from aiperf.common.factories import DataExporterFactory
+from aiperf.common.factories import ConsoleExporterFactory
 from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.common.models import MetricResult
-from aiperf.common.protocols import DataExporterProtocol
+from aiperf.common.protocols import ConsoleExporterProtocol
 from aiperf.exporters.exporter_config import ExporterConfig
 from aiperf.metrics.metric_registry import MetricRegistry
 
 
-@implements_protocol(DataExporterProtocol)
-@DataExporterFactory.register(DataExporterType.CONSOLE)
-class ConsoleExporter(AIPerfLoggerMixin):
+@implements_protocol(ConsoleExporterProtocol)
+@ConsoleExporterFactory.register(ConsoleExporterType.METRICS)
+class ConsoleMetricsExporter(AIPerfLoggerMixin):
     """A class that exports data to the console"""
 
     STAT_COLUMN_KEYS = ["avg", "min", "max", "p99", "p90", "p75", "std"]
@@ -33,25 +34,20 @@ class ConsoleExporter(AIPerfLoggerMixin):
             exporter_config.user_config.output.show_internal_metrics
         )
 
-    async def export(self, width: int | None = None) -> None:
+    async def export(self, console: Console, width: int | None = None) -> None:
         if not self._results.records:
             self.warning("No records to export")
             return
 
-        table = self.create_table(width)
-
-        console = Console()
-        console.print("\n")
-        console.print(table)
-        console.file.flush()
-
-    def create_table(self, width: int | None = None) -> Table:
         table = Table(title=self._get_title(), width=width)
         table.add_column("Metric", justify="right", style="cyan")
         for key in self.STAT_COLUMN_KEYS:
             table.add_column(key, justify="right", style="green")
         self._construct_table(table, self._results.records)
-        return table
+
+        console.print("\n")
+        console.print(table)
+        console.file.flush()
 
     def _construct_table(self, table: Table, records: list[MetricResult]) -> None:
         records = sorted(

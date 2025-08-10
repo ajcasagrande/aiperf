@@ -5,6 +5,8 @@ import sys
 import time
 from typing import cast
 
+from rich.console import Console
+
 from aiperf.cli_utils import warn_cancelled_early
 from aiperf.common.base_service import BaseService
 from aiperf.common.config import ServiceConfig, UserConfig
@@ -48,9 +50,6 @@ from aiperf.controller.proxy_manager import ProxyManager
 from aiperf.controller.system_mixins import (
     SignalHandlerMixin,
 )
-from aiperf.exporters.console_error_exporter import ConsoleErrorExporter
-from aiperf.exporters.console_exporter import ConsoleExporter
-from aiperf.exporters.exporter_config import ExporterConfig
 from aiperf.exporters.exporter_manager import ExporterManager
 
 
@@ -350,7 +349,7 @@ class SystemController(SignalHandlerMixin, BaseService):
             await ExporterManager(
                 results=message.results.results,
                 input_config=self.user_config,
-            ).export_all()
+            ).export_data()
         else:
             self.error(
                 f"Received process records result message with no records: {message.results.results}"
@@ -398,20 +397,17 @@ class SystemController(SignalHandlerMixin, BaseService):
         await self.service_manager.shutdown_all_services()
         await self.comms.stop()
         await self.proxy_manager.stop()
+
+        # Wait for the UI to stop before exporting any results to the console
         await self.ui.stop()
         await self.ui.wait_for_tasks()
-        # await asyncio.sleep(0.1)
+
         if self._profile_results:
-            await ConsoleExporter(
-                ExporterConfig(
-                    results=self._profile_results.results, user_config=self.user_config
-                )
-            ).export()
-            await ConsoleErrorExporter(
-                ExporterConfig(
-                    results=self._profile_results.results, user_config=self.user_config
-                )
-            ).export()
+            await ExporterManager(
+                results=self._profile_results.results,
+                input_config=self.user_config,
+            ).export_console(console=Console(), width=None)
+
             if self._was_cancelled:
                 warn_cancelled_early()
         else:

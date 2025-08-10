@@ -79,7 +79,7 @@ class TestExporterManager:
                 ),
                 input_config=mock_user_config,
             )
-            await manager.export_all()
+            await manager.export_console()
         for mock_class, mock_instance in zip(
             mock_exporter_classes.values(), mock_exporter_instances, strict=False
         ):

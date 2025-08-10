@@ -38,9 +38,12 @@ from aiperf.common.types import (
 )
 
 if TYPE_CHECKING:
+    from rich.console import Console
+
     from aiperf.common.config import ServiceConfig, UserConfig
     from aiperf.common.enums.metric_enums import MetricValueTypeT
     from aiperf.common.models.record_models import MetricResult
+    from aiperf.exporters.exporter_config import ExporterConfig
     from aiperf.metrics.metric_dicts import MetricRecordDict
 
 
@@ -304,12 +307,26 @@ class AIPerfUIProtocol(AIPerfLifecycleProtocol, Protocol):
 
 
 @runtime_checkable
+class ConsoleExporterProtocol(Protocol):
+    """Protocol for console exporters.
+    Any class implementing this protocol must provide an `export` method
+    that takes a list of Record objects and handles exporting them appropriately.
+    """
+
+    def __init__(self, exporter_config: "ExporterConfig") -> None: ...
+
+    async def export(self, console: "Console", width: int | None = None) -> None: ...
+
+
+@runtime_checkable
 class DataExporterProtocol(Protocol):
     """
     Protocol for data exporters.
     Any class implementing this protocol must provide an `export` method
     that takes a list of Record objects and handles exporting them appropriately.
     """
+
+    def __init__(self, exporter_config: "ExporterConfig") -> None: ...
 
     async def export(self) -> None: ...
 

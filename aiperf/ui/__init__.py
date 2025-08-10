@@ -24,6 +24,7 @@ from aiperf.ui.textual import (
     AIPerfTextualUI,
     CustomHeader,
     LogViewer,
+    ProgressDashboard,
     aiperf_theme,
 )
 from aiperf.ui.tqdm_progress import (
@@ -40,6 +41,7 @@ __all__ = [
     "LoggerTracker",
     "NoUI",
     "ProgressBar",
+    "ProgressDashboard",
     "SimpleProgressLogger",
     "TQDMProgressUI",
     "aiperf_theme",

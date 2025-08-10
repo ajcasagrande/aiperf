@@ -42,6 +42,13 @@ class ComputedStats(AIPerfBaseModel):
 class RequestsStats(ComputedStats, CreditPhaseStats):
     """Stats for the requests. Based on the TimingManager data."""
 
+    @property
+    def elapsed_time(self) -> float | None:
+        """Get the elapsed time."""
+        if self.start_ns is None:
+            return None
+        return (time.time_ns() - self.start_ns) / NANOS_PER_SECOND
+
 
 @implements_protocol(StatsProtocol)
 class RecordsStats(ComputedStats, PhaseProcessingStats):
@@ -96,6 +103,6 @@ class CreditPhaseProgress(AIPerfBaseModel):
         return self.requests.type
 
     @property
-    def elapsed_time(self) -> float | None:
+    def elapsed_time(self) -> float:
         """Get the elapsed time."""
         return (time.time_ns() - self.start_ns) / NANOS_PER_SECOND

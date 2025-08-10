@@ -178,9 +178,7 @@ class ProgressTrackerMixin(MessageBusClientMixin):
             finished: The number of finished requests or records
             progress_percent: The progress percent of the requests or records
         """
-        stats.update_ns = request_ns or time.time_ns()
-
-        dur_ns = (request_ns or time.time_ns()) - stats.update_ns
+        dur_ns = (request_ns or time.time_ns()) - (stats.update_ns or time.time_ns())
         if dur_ns <= 0:
             stats.per_second = None
             stats.eta = None
@@ -193,6 +191,8 @@ class ProgressTrackerMixin(MessageBusClientMixin):
             stats.eta = (100 - progress_percent) / (progress_percent / dur_sec)
         else:
             stats.eta = None
+
+        stats.update_ns = request_ns or time.time_ns()
 
     @asynccontextmanager
     async def phase_progress_context(

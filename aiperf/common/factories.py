@@ -20,6 +20,7 @@ from aiperf.common.enums import (
     ServiceType,
     ZMQProxyType,
 )
+from aiperf.common.enums.data_exporter_enums import ConsoleExporterType
 from aiperf.common.exceptions import (
     FactoryCreationError,
     InvalidOperationError,
@@ -35,6 +36,7 @@ from aiperf.common.types import (
 if TYPE_CHECKING:
     # NOTE: These imports are for the factory class type hints.
     #       We do not want to import these classes directly.
+
     from aiperf.clients.model_endpoint_info import ModelEndpointInfo
     from aiperf.common.config import (
         BaseZMQCommunicationConfig,
@@ -45,6 +47,7 @@ if TYPE_CHECKING:
     from aiperf.common.protocols import (
         CommunicationClientProtocol,
         CommunicationProtocol,
+        ConsoleExporterProtocol,
         DataExporterProtocol,
         InferenceClientProtocol,
         RecordProcessorProtocol,
@@ -386,6 +389,25 @@ class ComposerFactory(AIPerfFactory[ComposerType, "BaseDatasetComposer"]):
         **kwargs,
     ) -> "BaseDatasetComposer":
         return super().create_instance(class_type, **kwargs)
+
+
+class ConsoleExporterFactory(
+    AIPerfFactory[ConsoleExporterType, "ConsoleExporterProtocol"]
+):
+    """Factory for registering and creating ConsoleExporterProtocol instances based on the specified data exporter type.
+    see: :class:`aiperf.common.factories.AIPerfFactory` for more details.
+    """
+
+    @classmethod
+    def create_instance(  # type: ignore[override]
+        cls,
+        class_type: ConsoleExporterType | str,
+        exporter_config: "ExporterConfig",
+        **kwargs,
+    ) -> "ConsoleExporterProtocol":
+        return super().create_instance(
+            class_type, exporter_config=exporter_config, **kwargs
+        )
 
 
 class CustomDatasetFactory(
