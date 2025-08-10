@@ -78,5 +78,5 @@ class AIPerfTextualUI(BaseAIPerfUI):
     @on_worker_update
     async def _on_worker_update(self, worker_id: str, worker_stats: WorkerStats):
         """Callback for worker updates."""
-        # if self.app.overview_workers:
-        #     self.app.overview_workers.update_worker_health(worker_id, worker_stats)
+        if self.app.overview_workers:
+            self.app.overview_workers.update_worker_health(worker_id, worker_stats)

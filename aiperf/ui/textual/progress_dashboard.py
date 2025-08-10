@@ -100,28 +100,28 @@ class ProgressDashboard(Container):
         """Update the warmup progress."""
         if self.warmup_task_id is None and stats.total_expected_requests:
             self.warmup_task_id = self.progress.add_task(
-                "Warmup requests", total=stats.total_expected_requests
+                "Warmup", total=stats.total_expected_requests
             )
         elif self.warmup_task_id is not None:
             self.progress.update(self.warmup_task_id, completed=stats.completed or 0)
             if stats.is_complete:
                 self.progress.update(
                     self.warmup_task_id,
-                    description="[green]Warmup complete[/green]",
+                    description="[green]Warmup[/green]",
                 )
 
     def update_profiling_progress(self, stats: RequestsStats) -> None:
         """Update the profiling progress."""
         if self.profiling_task_id is None and stats.total_expected_requests:
             self.profiling_task_id = self.progress.add_task(
-                "Profiling requests", total=stats.total_expected_requests
+                "Profiling", total=stats.total_expected_requests
             )
         elif self.profiling_task_id is not None:
             self.progress.update(self.profiling_task_id, completed=stats.completed or 0)
             if stats.is_complete:
                 self.progress.update(
                     self.profiling_task_id,
-                    description="[green]Profiling complete[/green]",
+                    description="[green]Profiling[/green]",
                 )
 
     def on_records_progress(self, records_stats: RecordsStats) -> None:
@@ -130,7 +130,7 @@ class ProgressDashboard(Container):
 
         if self.records_task_id is None and records_stats.total_expected_requests:
             self.records_task_id = self.progress.add_task(
-                "Processing results", total=records_stats.total_expected_requests
+                "Records", total=records_stats.total_expected_requests
             )
         elif self.records_task_id is not None:
             self.progress.update(
@@ -139,7 +139,7 @@ class ProgressDashboard(Container):
             if records_stats.is_complete:
                 self.progress.update(
                     self.records_task_id,
-                    description="[green]Processing complete[/green]",
+                    description="[green]Records[/green]",
                 )
 
         self.update_display()

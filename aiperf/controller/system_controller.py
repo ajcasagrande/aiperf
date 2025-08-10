@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
+import os
 import sys
 import time
 from typing import cast
@@ -408,10 +409,17 @@ class SystemController(SignalHandlerMixin, BaseService):
                 input_config=self.user_config,
             ).export_console(console=Console(), width=None)
 
-            if self._was_cancelled:
+            if (
+                self._was_cancelled
+                and self._profile_results.results
+                and self._profile_results.results.records
+            ):
                 warn_cancelled_early()
         else:
             self.error("No profile results to export")
+
+        # Exit the process in a more explicit way, to ensure that it stops
+        os._exit(0)
 
     async def _kill(self):
         """Kill the system controller."""

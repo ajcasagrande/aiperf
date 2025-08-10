@@ -77,6 +77,10 @@ class WorkerStats(AIPerfBaseModel):
         default=None,
         description="The health of the worker as reported by the Workers",
     )
+    update_ns: int | None = Field(
+        default=None,
+        description="The last time the worker was updated in nanoseconds",
+    )
 
 
 class CreditPhaseProgress(AIPerfBaseModel):

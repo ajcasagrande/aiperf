@@ -13,6 +13,7 @@ from aiperf.common.aiperf_logger import AIPerfLogger
 from aiperf.ui.textual.custom import CustomHeader, aiperf_theme
 from aiperf.ui.textual.log_viewer import LogViewer
 from aiperf.ui.textual.progress_dashboard import ProgressDashboard
+from aiperf.ui.textual.worker_dashboard import WorkerDashboard
 
 _logger = AIPerfLogger(__name__)
 
@@ -57,14 +58,10 @@ class AIPerfTextualApp(App):
 
     def __init__(self) -> None:
         super().__init__()
-        # self.dashboard: ProgressDashboard | None = None
         self.log_viewer: LogViewer | None = None
-        # self.worker_dashboard: WorkerDashboard | None = None
-        # Separate instances for the combined view
         self.overview_progress: ProgressDashboard | None = None
-        # self.overview_workers: WorkerDashboard | None = None
+        self.overview_workers: WorkerDashboard | None = None
         self.title = "NVIDIA AIPerf"
-        # self.sub_title = "Real-time AI Performance Testing Dashboard"
         self.profile_results: list[RenderableType] = []
         self.logs_hidden = False
 
@@ -83,8 +80,8 @@ class AIPerfTextualApp(App):
                         with Horizontal():  # noqa: SIM117
                             self.overview_progress = ProgressDashboard()
                             yield self.overview_progress
-                            # self.overview_workers = WorkerDashboard()
-                            # yield self.overview_workers
+                            self.overview_workers = WorkerDashboard()
+                            yield self.overview_workers
 
             #         with TabPane("Performance Dashboard", id="performance"):  # noqa: SIM117
             #             self.dashboard = ProgressDashboard()

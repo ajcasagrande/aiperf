@@ -25,6 +25,13 @@ from aiperf.ui.textual.textual_app import (
 from aiperf.ui.textual.textual_ui import (
     AIPerfTextualUI,
 )
+from aiperf.ui.textual.worker_dashboard import (
+    WorkerDashboard,
+    WorkerData,
+    WorkerStatus,
+    WorkerStatusSummary,
+    WorkerStatusTable,
+)
 
 __all__ = [
     "AIPerfTextualApp",
@@ -33,5 +40,10 @@ __all__ = [
     "LogConsumer",
     "LogViewer",
     "ProgressDashboard",
+    "WorkerDashboard",
+    "WorkerData",
+    "WorkerStatus",
+    "WorkerStatusSummary",
+    "WorkerStatusTable",
     "aiperf_theme",
 ]

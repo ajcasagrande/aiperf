@@ -78,7 +78,7 @@ class ZMQPullClient(BaseZMQClient):
             self.semaphore = asyncio.Semaphore(value=max_pull_concurrency)
         else:
             self.semaphore = asyncio.Semaphore(
-                value=int(os.getenv("AIPERF_WORKER_CONCURRENT_REQUESTS", 500))
+                value=int(os.getenv("AIPERF_WORKER_CONCURRENT_REQUESTS", 500_000))
             )
 
     @background_task(immediate=True, interval=None)

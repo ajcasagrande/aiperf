@@ -26,6 +26,11 @@ from aiperf.ui.textual import (
     LogConsumer,
     LogViewer,
     ProgressDashboard,
+    WorkerDashboard,
+    WorkerData,
+    WorkerStatus,
+    WorkerStatusSummary,
+    WorkerStatusTable,
     aiperf_theme,
 )
 from aiperf.ui.tqdm_progress import (
@@ -46,5 +51,10 @@ __all__ = [
     "ProgressDashboard",
     "SimpleProgressLogger",
     "TQDMProgressUI",
+    "WorkerDashboard",
+    "WorkerData",
+    "WorkerStatus",
+    "WorkerStatusSummary",
+    "WorkerStatusTable",
     "aiperf_theme",
 ]
