@@ -13,8 +13,9 @@ from textual.widgets import DataTable, Label
 from textual.widgets._data_table import ColumnKey, RowKey
 
 from aiperf.common.aiperf_logger import AIPerfLogger
+from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import CaseInsensitiveStrEnum
-from aiperf.common.models import AIPerfBaseModel, IOCounters, WorkerStats
+from aiperf.common.models import AIPerfBaseModel, IOCounters, ProcessHealth, WorkerStats
 from aiperf.common.utils import format_bytes
 
 _logger = AIPerfLogger(__name__)
@@ -54,9 +55,87 @@ class WorkerData(NamedTuple):
     completed: int
     failed: int
     cpu_usage: float | None
-    memory_mb: float | None
+    memory_bytes: int | None
     io_read_bytes: int
     io_write_bytes: int
+
+
+class WorkerDataProcessor:
+    """Processes worker statistics and health data."""
+
+    def __init__(
+        self,
+        stale_threshold: float = 30.0,
+        error_rate_threshold: float = 0.1,
+        high_cpu_threshold: float = 75.0,
+    ):
+        self.stale_threshold = stale_threshold
+        self.error_rate_threshold = error_rate_threshold
+        self.high_cpu_threshold = high_cpu_threshold
+
+    def extract_io_data(self, health: ProcessHealth | None) -> tuple[int, int]:
+        """Extract I/O read and write bytes from health data."""
+        if not health or not health.io_counters:
+            return 0, 0
+
+        io_counters = health.io_counters
+        if isinstance(io_counters, IOCounters):
+            return io_counters.read_chars or 0, io_counters.write_chars or 0
+        elif isinstance(io_counters, tuple | list) and len(io_counters) >= 6:
+            return io_counters[4] or 0, io_counters[5] or 0
+        return 0, 0
+
+    def get_worker_status(
+        self, worker_stats: WorkerStats, current_time_ns: int
+    ) -> WorkerStatus:
+        """Determine worker status based on stats and thresholds."""
+        last_seen = worker_stats.update_ns or current_time_ns
+        stale_threshold_ns = self.stale_threshold * NANOS_PER_SECOND
+
+        if current_time_ns - last_seen > stale_threshold_ns:
+            return WorkerStatus.STALE
+
+        if worker_stats.tasks.total == 0:
+            return WorkerStatus.IDLE
+
+        error_rate = (
+            worker_stats.tasks.failed / worker_stats.tasks.total
+            if worker_stats.tasks.total > 0
+            else 0
+        )
+        if error_rate > self.error_rate_threshold:
+            return WorkerStatus.ERROR
+
+        if (
+            worker_stats.health
+            and worker_stats.health.cpu_usage
+            and worker_stats.health.cpu_usage > self.high_cpu_threshold
+        ):
+            return WorkerStatus.HIGH_LOAD
+
+        return WorkerStatus.HEALTHY
+
+    def process_worker_data(
+        self, worker_id: str, worker_stats: WorkerStats
+    ) -> WorkerData:
+        """Process a single worker's data into display format."""
+        current_time = time.time_ns()
+        status = self.get_worker_status(worker_stats, current_time)
+        io_read, io_write = self.extract_io_data(worker_stats.health)
+
+        return WorkerData(
+            worker_id=worker_id,
+            status=status,
+            in_progress=worker_stats.tasks.in_progress,
+            completed=worker_stats.tasks.completed,
+            failed=worker_stats.tasks.failed,
+            cpu_usage=worker_stats.health.cpu_usage if worker_stats.health else None,
+            memory_bytes=worker_stats.health.memory_usage
+            if worker_stats.health
+            else None,
+            io_read_bytes=io_read,
+            io_write_bytes=io_write,
+        )
 
 
 class WorkerStatusTable(Widget):
@@ -74,12 +153,15 @@ class WorkerStatusTable(Widget):
     }
     """
 
+    COLUMNS = ["Worker ID", "Status", "Active", "Completed", "Failed", "CPU", "Memory", "Read", "Write"]  # fmt: skip
+    REVERSE_SORT_COLUMNS = {2, 3, 4, 5}  # Active, Completed, Failed, CPU
+
     def __init__(self) -> None:
         super().__init__()
         self.data_table: DataTable | None = None
-        self._sort_column = 0  # Worker ID column
+        self._sort_column = 0
         self._sort_reverse = False
-        self._worker_row_keys: dict[str, RowKey] = {}  # worker_id -> row_key mapping
+        self._worker_row_keys: dict[str, RowKey] = {}
         self._columns_initialized = False
         self._column_keys: dict[str, ColumnKey] = {}
 
@@ -96,18 +178,7 @@ class WorkerStatusTable(Widget):
         if not self.data_table:
             return
 
-        columns = [
-            "Worker ID",
-            "Status",
-            "Active",
-            "Completed",
-            "Failed",
-            "CPU",
-            "Memory",
-            "Read",
-            "Write",
-        ]
-        for col in columns:
+        for col in self.COLUMNS:
             self._column_keys[col] = self.data_table.add_column(
                 Text(col, justify="right")
             )
@@ -122,23 +193,24 @@ class WorkerStatusTable(Widget):
             self._sort_reverse = not self._sort_reverse
         else:
             self._sort_column = event.column_index
-            # Active, Completed, Failed, CPU
-            self._sort_reverse = event.column_index in [2, 3, 4, 5]
+            self._sort_reverse = event.column_index in self.REVERSE_SORT_COLUMNS
 
-        # Re-sort when user clicks headers
-        # For now, fall back to simple rebuild on sort to maintain simplicity
         current_data = getattr(self, "_last_data", [])
         if current_data:
             self.update_workers(current_data)
 
-    def _format_worker_row(self, worker: WorkerData) -> list:
-        """Format worker data into row cells."""
-        memory_display = (
-            f"{format_bytes(int(worker.memory_mb * 1024 * 1024))}"
-            if worker.memory_mb is not None
-            else "N/A"
-        )
+    @staticmethod
+    def _format_memory(memory_bytes: int | None) -> str:
+        """Format memory usage."""
+        return format_bytes(memory_bytes) if memory_bytes is not None else "N/A"
 
+    @staticmethod
+    def _format_cpu(cpu_usage: float | None) -> str:
+        """Format CPU usage percentage."""
+        return f"{cpu_usage:.1f}%" if cpu_usage is not None else "N/A"
+
+    def _format_worker_row(self, worker: WorkerData) -> list[Text]:
+        """Format worker data into table row cells."""
         return [
             Text(worker.worker_id, style="bold cyan", justify="right"),
             Text(
@@ -149,17 +221,38 @@ class WorkerStatusTable(Widget):
             Text(f"{worker.in_progress:,}", justify="right"),
             Text(f"{worker.completed:,}", justify="right"),
             Text(f"{worker.failed:,}", justify="right"),
-            Text(
-                f"{worker.cpu_usage:.1f}%" if worker.cpu_usage is not None else "N/A",
-                justify="right",
-            ),
-            Text(memory_display, justify="right"),
+            Text(self._format_cpu(worker.cpu_usage), justify="right"),
+            Text(self._format_memory(worker.memory_bytes), justify="right"),
             Text(format_bytes(worker.io_read_bytes), justify="right"),
             Text(format_bytes(worker.io_write_bytes), justify="right"),
         ]
 
+    def _update_single_row(self, worker_data: WorkerData, row_key: RowKey) -> bool:
+        """Update a single row's cells."""
+        if not self.data_table:
+            return False
+
+        row_cells = self._format_worker_row(worker_data)
+        cells_updated = 0
+
+        for col_name, cell_value in zip(self.COLUMNS, row_cells, strict=True):
+            try:
+                self.data_table.update_cell(
+                    row_key, self._column_keys[col_name], cell_value, update_width=True
+                )
+                cells_updated += 1
+            except Exception as e:
+                _logger.error(
+                    "Error updating cell %s for worker %s: %r",
+                    col_name,
+                    worker_data.worker_id,
+                    e,
+                )
+
+        return cells_updated > 0
+
     def update_single_worker(self, worker_data: WorkerData) -> None:
-        """Update a single worker's row if it exists, or add it if new."""
+        """Update a single worker's row."""
         if not self.data_table or not self.data_table.is_mounted:
             return
 
@@ -170,57 +263,20 @@ class WorkerStatusTable(Widget):
         row_cells = self._format_worker_row(worker_data)
 
         if worker_id in self._worker_row_keys:
-            # Update existing worker row
             row_key = self._worker_row_keys[worker_id]
-
-            # Validate that the row still exists in the table
             try:
-                # Check if row exists by trying to get its coordinate
                 self.data_table.get_row(row_key)
+                if self._update_single_row(worker_data, row_key):
+                    self.data_table.refresh()
             except Exception:
-                # Row doesn't exist anymore, add it as new
+                # Row doesn't exist, add as new
                 row_key = self.data_table.add_row(*row_cells)
                 self._worker_row_keys[worker_id] = row_key
-                # Refresh the display after adding new row
-                self.data_table.refresh()
-                return
-
-            # Update each cell in the row using column names for better API compatibility
-            column_names = [
-                "Worker ID",
-                "Status",
-                "Active",
-                "Completed",
-                "Failed",
-                "CPU",
-                "Memory",
-                "Read",
-                "Write",
-            ]
-
-            cells_updated = 0
-            for col_name, cell_value in zip(column_names, row_cells, strict=False):
-                try:
-                    self.data_table.update_cell(
-                        row_key,
-                        self._column_keys[col_name],
-                        cell_value,
-                        update_width=True,
-                    )
-                    cells_updated += 1
-                except Exception as e:
-                    _logger.error(
-                        f"Error updating cell {col_name} for worker {worker_id}: {e!r}"
-                    )
-
-            # Refresh the display after updating cells
-            if cells_updated > 0:
                 self.data_table.refresh()
         else:
             # Add new worker row
             row_key = self.data_table.add_row(*row_cells)
             self._worker_row_keys[worker_id] = row_key
-            # Refresh the display after adding new row
             self.data_table.refresh()
 
     def remove_worker(self, worker_id: str) -> None:
@@ -231,11 +287,25 @@ class WorkerStatusTable(Widget):
         row_key = self._worker_row_keys[worker_id]
         with contextlib.suppress(Exception):
             self.data_table.remove_row(row_key)
-
         del self._worker_row_keys[worker_id]
 
+    def _get_sort_key(self, column_index: int):
+        """Get sort key function for a column."""
+        sort_functions = [
+            lambda w: w.worker_id,
+            lambda w: w.status.value,
+            lambda w: w.in_progress,
+            lambda w: w.completed,
+            lambda w: w.failed,
+            lambda w: w.cpu_usage or 0,
+            lambda w: w.memory_bytes or 0,
+            lambda w: w.io_read_bytes,
+            lambda w: w.io_write_bytes,
+        ]
+        return sort_functions[column_index]
+
     def update_workers(self, workers_data: list[WorkerData]) -> None:
-        """Update workers with full rebuild (used for sorting or major changes)."""
+        """Update workers with full rebuild."""
         if not self.data_table:
             return
 
@@ -246,26 +316,13 @@ class WorkerStatusTable(Widget):
         self.data_table.clear()
         self._worker_row_keys.clear()
 
-        # Sort data
         if workers_data:
-            sort_key_funcs = [
-                lambda w: w.worker_id,
-                lambda w: w.status.value,
-                lambda w: w.in_progress,
-                lambda w: w.completed,
-                lambda w: w.failed,
-                lambda w: w.cpu_usage or 0,
-                lambda w: w.memory_mb or 0,
-                lambda w: w.io_read_bytes,
-                lambda w: w.io_write_bytes,
-            ]
             workers_data = sorted(
                 workers_data,
-                key=sort_key_funcs[self._sort_column],
+                key=self._get_sort_key(self._sort_column),
                 reverse=self._sort_reverse,
             )
 
-        # Add all rows
         for worker in workers_data:
             row_cells = self._format_worker_row(worker)
             row_key = self.data_table.add_row(*row_cells)
@@ -317,11 +374,11 @@ class WorkerDashboard(Container):
     ) -> None:
         super().__init__()
         self.worker_stats: dict[str, WorkerStats] = {}
-        self.stale_threshold = stale_threshold
-        self.error_rate_threshold = error_rate_threshold
-        self.high_cpu_threshold = high_cpu_threshold
         self.table_widget: WorkerStatusTable | None = None
         self.border_title = "Worker Status"
+        self._processor = WorkerDataProcessor(
+            stale_threshold, error_rate_threshold, high_cpu_threshold
+        )
 
     def compose(self) -> ComposeResult:
         with Vertical():
@@ -352,104 +409,29 @@ class WorkerDashboard(Container):
                 )
 
             with Container(id="table-section"):
-                # Always create the table widget - it will be empty initially
                 self.table_widget = WorkerStatusTable()
                 yield self.table_widget
 
     def on_worker_stats_update(self, worker_id: str, worker_stats: WorkerStats) -> None:
-        """Handle individual worker updates efficiently."""
+        """Handle individual worker updates."""
         self.worker_stats[worker_id] = worker_stats
+        worker_data = self._processor.process_worker_data(worker_id, worker_stats)
 
-        # Process this single worker's data
-        worker_data = self._process_single_worker_data(worker_id, worker_stats)
-
-        # Update just this worker in the table
         if self.table_widget:
             self.table_widget.update_single_worker(worker_data)
 
-        # Update summary with all workers
-        self._update_summary_from_all_workers()
+        self._update_summary()
 
-    def _process_single_worker_data(
-        self, worker_id: str, worker_stats: WorkerStats
-    ) -> WorkerData:
-        """Process data for a single worker."""
-        current_time = time.time_ns()
-        last_seen = worker_stats.update_ns or current_time
-
-        # Get task stats
-        task_stats = worker_stats.tasks
-
-        # Determine status
-        status = self._get_worker_status(worker_stats, last_seen, current_time)
-
-        # Get I/O data
-        io_read = io_write = 0
-        if (
-            worker_stats.health
-            and worker_stats.health.io_counters
-            and isinstance(worker_stats.health.io_counters, IOCounters)
-        ):
-            io_read = worker_stats.health.io_counters.read_chars or 0
-            io_write = worker_stats.health.io_counters.write_chars or 0
-
-        return WorkerData(
-            worker_id=worker_id,
-            status=status,
-            in_progress=task_stats.in_progress,
-            completed=task_stats.completed,
-            failed=task_stats.failed,
-            cpu_usage=worker_stats.health.cpu_usage if worker_stats.health else None,
-            memory_mb=worker_stats.health.memory_usage if worker_stats.health else None,
-            io_read_bytes=io_read,
-            io_write_bytes=io_write,
-        )
-
-    def _update_summary_from_all_workers(self) -> None:
-        """Update summary from all current workers."""
-        if not self.worker_stats:
-            self._update_summary(WorkerStatusSummary())
-            return
-
-        _, summary = self._process_worker_data()
-        self._update_summary(summary)
-
-    def _refresh_display(self) -> None:
-        """Full refresh display (used when workers are removed or major changes)."""
-        if not self.worker_stats:
-            self._update_summary(WorkerStatusSummary())
-            if self.table_widget:
-                self.table_widget.clear_workers()
-            return
-
-        workers_data, summary = self._process_worker_data()
-        self._update_summary(summary)
-
-        if self.table_widget:
-            self.table_widget.update_workers(workers_data)
-
-    def _update_summary(self, summary: WorkerStatusSummary) -> None:
-        updates = [
-            ("healthy-count", f"{summary.healthy_count} healthy"),
-            ("warning-count", f"{summary.warning_count} high load"),
-            ("error-count", f"{summary.error_count} errors"),
-            ("idle-count", f"{summary.idle_count} idle"),
-            ("stale-count", f"{summary.stale_count} stale"),
-        ]
-
-        for label_id, text in updates:
-            with contextlib.suppress(Exception):
-                self.query_one(f"#{label_id}", Label).update(text)
-
-    def _process_worker_data(self) -> tuple[list[WorkerData], WorkerStatusSummary]:
+    def _process_all_workers(self) -> tuple[list[WorkerData], WorkerStatusSummary]:
+        """Process all workers and generate summary."""
         workers_data = []
         summary = WorkerStatusSummary()
 
         for worker_id, worker_stats in sorted(self.worker_stats.items()):
-            worker_data = self._process_single_worker_data(worker_id, worker_stats)
+            worker_data = self._processor.process_worker_data(worker_id, worker_stats)
             workers_data.append(worker_data)
 
-            # Update summary
+            # Update summary counts
             if worker_data.status == WorkerStatus.HEALTHY:
                 summary.healthy_count += 1
             elif worker_data.status == WorkerStatus.HIGH_LOAD:
@@ -463,47 +445,51 @@ class WorkerDashboard(Container):
 
         return workers_data, summary
 
-    def _get_worker_status(
-        self,
-        worker_stats: WorkerStats,
-        last_seen: int,
-        current_time_ns: int,
-    ) -> WorkerStatus:
-        # Convert stale_threshold from seconds to nanoseconds for comparison
-        stale_threshold_ns = self.stale_threshold * 1_000_000_000
+    def _update_summary(self) -> None:
+        """Update summary from all current workers."""
+        if not self.worker_stats:
+            summary = WorkerStatusSummary()
+        else:
+            _, summary = self._process_all_workers()
 
-        if current_time_ns - last_seen > stale_threshold_ns:
-            return WorkerStatus.STALE
+        updates = [
+            ("healthy-count", f"{summary.healthy_count} healthy"),
+            ("warning-count", f"{summary.warning_count} high load"),
+            ("error-count", f"{summary.error_count} errors"),
+            ("idle-count", f"{summary.idle_count} idle"),
+            ("stale-count", f"{summary.stale_count} stale"),
+        ]
 
-        error_rate = (
-            worker_stats.tasks.failed / worker_stats.tasks.total
-            if worker_stats.tasks.total > 0
-            else 0
-        )
-        if error_rate > self.error_rate_threshold:
-            return WorkerStatus.ERROR
+        for label_id, text in updates:
+            with contextlib.suppress(Exception):
+                self.query_one(f"#{label_id}", Label).update(text)
 
-        if (
-            worker_stats.health
-            and worker_stats.health.cpu_usage
-            and worker_stats.health.cpu_usage > self.high_cpu_threshold
-        ):
-            return WorkerStatus.HIGH_LOAD
+    def _refresh_display(self) -> None:
+        """Full refresh display."""
+        if not self.worker_stats:
+            self._update_summary()
+            if self.table_widget:
+                self.table_widget.clear_workers()
+            return
 
-        if worker_stats.tasks.total == 0:
-            return WorkerStatus.IDLE
+        workers_data, _ = self._process_all_workers()
+        self._update_summary()
 
-        return WorkerStatus.HEALTHY
+        if self.table_widget:
+            self.table_widget.update_workers(workers_data)
 
     def clear_workers(self) -> None:
+        """Clear all worker data."""
         self.worker_stats.clear()
         self._refresh_display()
 
     def get_worker_count(self) -> int:
+        """Get the current number of workers."""
         return len(self.worker_stats)
 
     def get_summary(self) -> WorkerStatusSummary:
+        """Get the current worker status summary."""
         if not self.worker_stats:
             return WorkerStatusSummary()
-        _, summary = self._process_worker_data()
+        _, summary = self._process_all_workers()
         return summary

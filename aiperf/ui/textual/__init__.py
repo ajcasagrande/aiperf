@@ -28,6 +28,7 @@ from aiperf.ui.textual.textual_ui import (
 from aiperf.ui.textual.worker_dashboard import (
     WorkerDashboard,
     WorkerData,
+    WorkerDataProcessor,
     WorkerStatus,
     WorkerStatusSummary,
     WorkerStatusTable,
@@ -42,6 +43,7 @@ __all__ = [
     "ProgressDashboard",
     "WorkerDashboard",
     "WorkerData",
+    "WorkerDataProcessor",
     "WorkerStatus",
     "WorkerStatusSummary",
     "WorkerStatusTable",

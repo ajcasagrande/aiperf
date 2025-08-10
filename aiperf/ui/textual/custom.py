@@ -11,12 +11,12 @@ from textual.widgets._header import HeaderTitle
 
 aiperf_theme = Theme(
     name="aiperf",
-    primary="#76B900",
+    primary="#6fbc76",
     secondary="#5A8A00",
     accent="#00D4FF",
     foreground="#E8E8E8",
     background="#0A0A0A",
-    success="#76B900",
+    success="#6fbc76",
     warning="#FFA500",
     error="#FF4444",
     surface="#0A0A0A",  # "#1A1A1A",
