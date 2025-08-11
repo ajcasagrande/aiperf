@@ -5,10 +5,8 @@ from pydantic import Field
 
 from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import (
-    AIPerfUIType,
     CreditPhase,
 )
-from aiperf.common.factories import AIPerfUIFactory
 from aiperf.common.hooks import on_records_progress, on_requests_phase_progress
 from aiperf.common.models import AIPerfBaseModel
 from aiperf.common.models.progress_models import RecordsStats, RequestsStats
@@ -36,7 +34,7 @@ class LoggerTracker(AIPerfBaseModel):
 
 
 @implements_protocol(AIPerfUIProtocol)
-@AIPerfUIFactory.register(AIPerfUIType.LOG)
+# @AIPerfUIFactory.register(AIPerfUIType.LOG)
 class SimpleProgressLogger(BaseAIPerfUI):
     """Simple logger for progress updates. It will log the progress to the console.
 

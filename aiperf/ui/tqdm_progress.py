@@ -22,30 +22,34 @@ class ProgressBar:
     def __init__(
         self,
         desc: str,
-        colour: str,
+        color: str,
         position: int,
-        update_threshold: float = DEFAULT_UI_MIN_UPDATE_PERCENT,
+        total: int,
         **kwargs,
     ):
         self.bar = tqdm(
-            total=100,
+            total=total,
             desc=desc,
-            colour=colour,
+            colour=color,
             position=position,
             leave=False,
             dynamic_ncols=False,
             unit=" pct",
-            bar_format="{desc}: {percentage:3.0f}% |{bar}| {percentage:3.0f}% [{elapsed}<{remaining}]",
+            bar_format="{desc}: {n:,.0f}/{total:,} |{bar}| {percentage:3.0f}% [{elapsed}<{remaining}]",
             **kwargs,
         )
-        self.update_threshold = update_threshold
-        self.last_progress = 0.0
+        self.total = total
+        self.update_threshold = DEFAULT_UI_MIN_UPDATE_PERCENT
+        self.last_percent = 0.0
+        self.last_value = 0.0
 
-    def update(self, progress: float):
+    def update(self, progress: int):
         """Update the progress bar with a new progress percentage."""
-        if progress > self.last_progress + self.update_threshold:
-            self.bar.update(progress - self.last_progress)
-            self.last_progress = progress
+        pct = (progress / self.total) * 100.0
+        if pct >= self.last_percent + self.update_threshold:
+            self.bar.update(progress - self.last_value)
+            self.last_percent = pct
+            self.last_value = progress
 
     def close(self):
         """Close the progress bar."""
@@ -70,45 +74,45 @@ class TQDMProgressUI(BaseAIPerfUI):
             if bar is not None:
                 bar.close()
 
-    @on_records_progress
-    def _on_records_progress(self, records_stats: RecordsStats):
-        """Callback for records progress updates."""
-        if self._records_bar is None and records_stats.progress_percent is not None:
-            self._records_bar = ProgressBar(
-                desc=f" Records ({CreditPhase.PROFILING.capitalize()})",
-                colour="blue",
-                position=2,  # bottom position
-            )
-
-        if self._records_bar:
-            self._records_bar.update(records_stats.progress_percent)
-
     @on_requests_phase_progress
     def _on_requests_phase_progress(
         self, phase: CreditPhase, requests_stats: RequestsStats
     ):
         """Callback for requests phase progress updates."""
         if phase == CreditPhase.WARMUP:
-            if self._warmup_bar is None and requests_stats.progress_percent is not None:
+            if self._warmup_bar is None and requests_stats.finished is not None:
                 self._warmup_bar = ProgressBar(
                     desc="Warmup",
-                    colour="yellow",
-                    position=0,  # top position
+                    color="yellow",
+                    position=0,
+                    total=requests_stats.total_expected_requests or 100,
                 )
 
             if self._warmup_bar:
-                self._warmup_bar.update(requests_stats.progress_percent)
+                self._warmup_bar.update(requests_stats.finished)  # type: ignore
 
         elif phase == CreditPhase.PROFILING:
-            if (
-                self._requests_bar is None
-                and requests_stats.progress_percent is not None
-            ):
+            if self._requests_bar is None and requests_stats.finished is not None:
                 self._requests_bar = ProgressBar(
-                    desc=f"Requests ({phase.capitalize()})",
-                    colour="green",
-                    position=1,  # second position
+                    desc="Requests (Profiling)",
+                    color="green",
+                    position=1,
+                    total=requests_stats.total_expected_requests or 100,
                 )
 
             if self._requests_bar:
-                self._requests_bar.update(requests_stats.progress_percent)
+                self._requests_bar.update(requests_stats.finished)  # type: ignore
+
+    @on_records_progress
+    def _on_records_progress(self, records_stats: RecordsStats):
+        """Callback for records progress updates."""
+        if self._records_bar is None and records_stats.finished is not None:
+            self._records_bar = ProgressBar(
+                desc="Records (Processing)",
+                color="blue",
+                position=2,
+                total=records_stats.total_expected_requests or 100,
+            )
+
+        if self._records_bar:
+            self._records_bar.update(records_stats.finished)  # type: ignore
