@@ -4,6 +4,8 @@ import multiprocessing
 from datetime import datetime
 from typing import TYPE_CHECKING
 
+from rich.highlighter import Highlighter, ReprHighlighter
+from rich.text import Text
 from textual.widgets import RichLog
 
 from aiperf.common.hooks import background_task
@@ -28,13 +30,13 @@ class LogViewer(RichLog):
     }
     """
 
-    MAX_LOG_LINES = 1000
-    MAX_LOG_MESSAGE_LENGTH = 250
+    MAX_LOG_LINES = 2000
+    MAX_LOG_MESSAGE_LENGTH = 500
 
     LOG_LEVEL_STYLES = {
         "TRACE": "dim",
         "DEBUG": "dim",
-        "INFO": "green",
+        "INFO": "cyan",
         "NOTICE": "blue",
         "WARNING": "yellow",
         "SUCCESS": "bold green",
@@ -52,18 +54,22 @@ class LogViewer(RichLog):
             **kwargs,
         )
         self.border_title = "System Logs"
+        self.highlighter: Highlighter = ReprHighlighter()
 
     def display_log_record(self, log_data: dict) -> None:
         timestamp = datetime.fromtimestamp(log_data["created"]).strftime("%H:%M:%S.%f")[:-3]  # fmt: skip
         level_style = self.LOG_LEVEL_STYLES.get(log_data["levelname"], "white")
 
-        formatted_log = (
-            f"[dim]{timestamp}[/dim] "
-            f"[blue]{log_data['name']}[/blue] "
-            f"[{level_style}]{log_data['levelname']}[/{level_style}] "
-            f"{log_data['msg'][: self.MAX_LOG_MESSAGE_LENGTH]}"
+        formatted_log = Text.assemble(
+            Text.from_markup(f"[dim]{timestamp}[/dim] "),
+            Text.from_markup(
+                f"[{level_style}]{log_data['levelname']}[/{level_style}] "
+            ),
+            Text.from_markup(f"[bold]{log_data['name']}[/bold] "),
+            self.highlighter(
+                Text.from_markup(log_data["msg"][: self.MAX_LOG_MESSAGE_LENGTH])
+            ),
         )
-
         self.write(formatted_log)
 
 

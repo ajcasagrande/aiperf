@@ -7,7 +7,7 @@ import signal
 from rich.console import RenderableType
 from textual.app import App, ComposeResult
 from textual.containers import Container, Horizontal, Vertical
-from textual.widgets import TabbedContent, TabPane
+from textual.widgets import Footer, TabbedContent, TabPane
 
 from aiperf.common.aiperf_logger import AIPerfLogger
 from aiperf.ui.textual.custom import CustomHeader, aiperf_theme
@@ -99,7 +99,7 @@ class AIPerfTextualApp(App):
                 self.log_viewer = LogViewer()
                 yield self.log_viewer
 
-        # yield Footer()
+        yield Footer()
 
     async def action_switch_tab(self, tab_id: str) -> None:
         """Switch to a specific tab."""

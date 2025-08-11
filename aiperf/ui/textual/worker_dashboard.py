@@ -183,7 +183,7 @@ class WorkerStatusTable(Widget):
                 Text(col, justify="right")
             )
         self._columns_initialized = True
-        self.data_table.fixed_columns = 1
+        self.data_table.fixed_columns = 0
 
     def on_data_table_header_selected(self, event: DataTable.HeaderSelected) -> None:
         if not self.data_table:
