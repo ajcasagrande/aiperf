@@ -26,7 +26,7 @@ from aiperf.ui.textual.textual_app import AIPerfTextualApp
 
 
 @implements_protocol(AIPerfUIProtocol)
-@AIPerfUIFactory.register(AIPerfUIType.TEXTUAL)
+@AIPerfUIFactory.register(AIPerfUIType.DASHBOARD)
 class AIPerfTextualUI(BaseAIPerfUI):
     """
     AIPerf Textual UI.

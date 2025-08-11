@@ -148,8 +148,6 @@ class WorkerStatusTable(Widget):
     }
     DataTable {
         height: 1fr;
-        scrollbar-size-vertical: 1;
-        scrollbar-size-horizontal: 1;
     }
     """
 

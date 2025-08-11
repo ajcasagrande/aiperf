@@ -104,7 +104,7 @@ class SystemController(SignalHandlerMixin, BaseService):
             )
         )
         self.ui: AIPerfUIProtocol = AIPerfUIFactory.create_instance(
-            self.service_config.ui.type,
+            self.service_config.ui_type,
             service_config=self.service_config,
             user_config=self.user_config,
             log_queue=get_global_log_queue(),
@@ -341,7 +341,7 @@ class SystemController(SignalHandlerMixin, BaseService):
                 f"Received process records result message with errors: {message.results.errors}"
             )
 
-        # This will be displayed by the console error exporter
+        # This data will also be displayed by the console error exporter
         self.debug(lambda: f"Error summary: {message.results.results.error_summary}")
 
         self._profile_results = message.results
@@ -416,7 +416,7 @@ class SystemController(SignalHandlerMixin, BaseService):
             ):
                 warn_cancelled_early()
         else:
-            self.error("No profile results to export")
+            self.warning("No profile results to export")
 
         # Exit the process in a more explicit way, to ensure that it stops
         os._exit(0)

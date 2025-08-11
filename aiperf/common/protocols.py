@@ -302,15 +302,16 @@ class MessageBusClientProtocol(PubClientProtocol, SubClientProtocol, Protocol):
 class AIPerfUIProtocol(AIPerfLifecycleProtocol, Protocol):
     """Protocol interface definition for AIPerf UI implementations.
 
-    NOTE: The simplest way to implement this protocol is to inherit from the :class:`ProgressTrackerMixin`.
+    Basically a UI can be any class that implements the AIPerfLifecycleProtocol. However, in order to provide
+    progress tracking and worker tracking, the simplest way would be to inherit from the :class:`aiperf.ui.base_ui.BaseAIPerfUI`.
     """
 
 
 @runtime_checkable
 class ConsoleExporterProtocol(Protocol):
     """Protocol for console exporters.
-    Any class implementing this protocol must provide an `export` method
-    that takes a list of Record objects and handles exporting them appropriately.
+    Any class implementing this protocol will be provided an ExporterConfig and must provide an
+    `export` method that takes a rich Console and a width and handles exporting them appropriately.
     """
 
     def __init__(self, exporter_config: "ExporterConfig") -> None: ...
@@ -322,8 +323,8 @@ class ConsoleExporterProtocol(Protocol):
 class DataExporterProtocol(Protocol):
     """
     Protocol for data exporters.
-    Any class implementing this protocol must provide an `export` method
-    that takes a list of Record objects and handles exporting them appropriately.
+    Any class implementing this protocol will be provided an ExporterConfig and must provide an
+    `export` method that handles exporting the data appropriately.
     """
 
     def __init__(self, exporter_config: "ExporterConfig") -> None: ...

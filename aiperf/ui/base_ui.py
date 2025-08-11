@@ -17,12 +17,6 @@ class BaseAIPerfUI(ProgressTrackerMixin, WorkerTrackerMixin):
 
     Example:
     ```python
-    from aiperf.common.enums import CreditPhase
-    from aiperf.common.factories import AIPerfUIFactory
-    from aiperf.common.hooks import on_records_progress, on_requests_phase_progress, on_worker_update
-    from aiperf.ui.base_ui import BaseAIPerfUI
-    from aiperf.common.models import RecordsStats, RequestsStats, WorkerStats
-
     @AIPerfUIFactory.register("custom")
     class MyUI(BaseAIPerfUI):
         def __init__(self, **kwargs):

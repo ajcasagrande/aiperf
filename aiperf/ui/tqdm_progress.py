@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 from tqdm import tqdm
 
+from aiperf.common.constants import DEFAULT_UI_MIN_UPDATE_PERCENT
 from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import AIPerfUIType, CreditPhase
 from aiperf.common.factories import AIPerfUIFactory
@@ -23,7 +24,7 @@ class ProgressBar:
         desc: str,
         colour: str,
         position: int,
-        update_threshold: float = 0.1,
+        update_threshold: float = DEFAULT_UI_MIN_UPDATE_PERCENT,
         **kwargs,
     ):
         self.bar = tqdm(
@@ -52,7 +53,7 @@ class ProgressBar:
 
 
 @implements_protocol(AIPerfUIProtocol)
-@AIPerfUIFactory.register(AIPerfUIType.TQDM)
+@AIPerfUIFactory.register(AIPerfUIType.SIMPLE)
 class TQDMProgressUI(BaseAIPerfUI):
     """A UI that shows progress bars for the records and requests phases."""
 
@@ -77,7 +78,6 @@ class TQDMProgressUI(BaseAIPerfUI):
                 desc=f" Records ({CreditPhase.PROFILING.capitalize()})",
                 colour="blue",
                 position=2,  # bottom position
-                update_threshold=self.service_config.ui.min_update_percent,
             )
 
         if self._records_bar:
@@ -94,7 +94,6 @@ class TQDMProgressUI(BaseAIPerfUI):
                     desc="Warmup",
                     colour="yellow",
                     position=0,  # top position
-                    update_threshold=self.service_config.ui.min_update_percent,
                 )
 
             if self._warmup_bar:
@@ -109,7 +108,6 @@ class TQDMProgressUI(BaseAIPerfUI):
                     desc=f"Requests ({phase.capitalize()})",
                     colour="green",
                     position=1,  # second position
-                    update_threshold=self.service_config.ui.min_update_percent,
                 )
 
             if self._requests_bar:
