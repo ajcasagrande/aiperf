@@ -17,6 +17,8 @@ if TYPE_CHECKING:
 
 
 class RichLogViewer(RichLog):
+    """RichLogViewer is a widget that displays log records in a rich format."""
+
     DEFAULT_CSS = """
     RichLogViewer {
         border: round $primary;
@@ -74,6 +76,9 @@ class RichLogViewer(RichLog):
 
 
 class LogConsumer(AIPerfLifecycleMixin):
+    """LogConsumer is a class that consumes log records from the shared log queue
+    and displays them in the RichLogViewer."""
+
     def __init__(
         self, log_queue: multiprocessing.Queue, app: "AIPerfTextualApp", **kwargs
     ) -> None:
@@ -88,7 +93,7 @@ class LogConsumer(AIPerfLifecycleMixin):
         """Consume log records from the queue and display them.
 
         This is a background task that runs every LOG_REFRESH_INTERVAL seconds
-        to consume log records from the queue and display them in the log widget.
+        to consume log records from the queue and display them in the log viewer.
         """
         if self.app.log_viewer is None:
             return
