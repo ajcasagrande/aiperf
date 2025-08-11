@@ -13,12 +13,12 @@ from aiperf.common.mixins import AIPerfLifecycleMixin
 from aiperf.common.utils import yield_to_event_loop
 
 if TYPE_CHECKING:
-    from aiperf.ui.textual.textual_app import AIPerfTextualApp
+    from aiperf.ui.dashboard.aiperf_textual_app import AIPerfTextualApp
 
 
-class LogViewer(RichLog):
+class RichLogViewer(RichLog):
     DEFAULT_CSS = """
-    LogViewer {
+    RichLogViewer {
         border: round $primary;
         border-title-color: $primary;
         border-title-style: bold;
@@ -39,9 +39,9 @@ class LogViewer(RichLog):
         "INFO": "cyan",
         "NOTICE": "blue",
         "WARNING": "yellow",
-        "SUCCESS": "bold green",
-        "Error": "red",
-        "CRITICAL": "bold red",
+        "SUCCESS": "green",
+        "ERROR": "red",
+        "CRITICAL": "red",
     }
 
     def __init__(self, **kwargs) -> None:
@@ -63,7 +63,7 @@ class LogViewer(RichLog):
         formatted_log = Text.assemble(
             Text.from_markup(f"[dim]{timestamp}[/dim] "),
             Text.from_markup(
-                f"[{level_style}]{log_data['levelname']}[/{level_style}] "
+                f"[bold][{level_style}]{log_data['levelname']}[/{level_style}][/bold] "
             ),
             Text.from_markup(f"[bold]{log_data['name']}[/bold] "),
             self.highlighter(

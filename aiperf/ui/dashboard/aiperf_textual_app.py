@@ -10,10 +10,11 @@ from textual.containers import Container, Horizontal, Vertical
 from textual.widgets import Footer, TabbedContent, TabPane
 
 from aiperf.common.aiperf_logger import AIPerfLogger
-from aiperf.ui.textual.custom import CustomHeader, aiperf_theme
-from aiperf.ui.textual.log_viewer import LogViewer
-from aiperf.ui.textual.progress_dashboard import ProgressDashboard
-from aiperf.ui.textual.worker_dashboard import WorkerDashboard
+from aiperf.ui.dashboard.aiperf_theme import AIPERF_THEME
+from aiperf.ui.dashboard.custom_header import CustomHeader
+from aiperf.ui.dashboard.progress_dashboard import ProgressDashboard
+from aiperf.ui.dashboard.rich_log_viewer import RichLogViewer
+from aiperf.ui.dashboard.worker_dashboard import WorkerDashboard
 
 _logger = AIPerfLogger(__name__)
 
@@ -25,6 +26,9 @@ class AIPerfTextualApp(App):
     This is the main application class for the Textual UI. It is responsible for
     composing the application layout and handling the application commands.
     """
+
+    ENABLE_COMMAND_PALETTE = False
+    """Disable the command palette that is enabled by default in Textual."""
 
     CSS = """
     #main-container {
@@ -52,7 +56,7 @@ class AIPerfTextualApp(App):
     BINDINGS = [
         ("ctrl+c", "quit", "Quit"),
         ("1", "switch_tab('overview')", "Overview"),
-        ("2", "switch_tab('performance')", "Performance"),
+        ("2", "switch_tab('progress')", "Progress"),
         ("3", "switch_tab('workers')", "Workers"),
         ("s", "toggle_log_auto_scroll", "Toggle Log Auto Scroll"),
         ("l", "toggle_hide_log_viewer", "Toggle Logs"),
@@ -60,18 +64,18 @@ class AIPerfTextualApp(App):
 
     def __init__(self) -> None:
         super().__init__()
-        self.log_viewer: LogViewer | None = None
+        self.log_viewer: RichLogViewer | None = None
         self.overview_progress: ProgressDashboard | None = None
         self.overview_workers: WorkerDashboard | None = None
-        self.performance_dashboard: ProgressDashboard | None = None
+        self.progress_dashboard: ProgressDashboard | None = None
         self.worker_dashboard: WorkerDashboard | None = None
         self.title = "NVIDIA AIPerf"
         self.profile_results: list[RenderableType] = []
         self.logs_hidden = False
 
     def on_mount(self) -> None:
-        self.register_theme(aiperf_theme)
-        self.theme = "aiperf"
+        self.register_theme(AIPERF_THEME)
+        self.theme = AIPERF_THEME.name
 
     def compose(self) -> ComposeResult:
         """Compose the clean application layout."""
@@ -87,16 +91,16 @@ class AIPerfTextualApp(App):
                             self.overview_workers = WorkerDashboard()
                             yield self.overview_workers
 
-                    with TabPane("Performance", id="performance"):  # noqa: SIM117
-                        self.performance_dashboard = ProgressDashboard()
-                        yield self.performance_dashboard
+                    with TabPane("Progress", id="progress"):  # noqa: SIM117
+                        self.progress_dashboard = ProgressDashboard()
+                        yield self.progress_dashboard
 
                     with TabPane("Workers", id="workers"):
                         self.worker_dashboard = WorkerDashboard()
                         yield self.worker_dashboard
 
             with Container(id="logs-section"):
-                self.log_viewer = LogViewer()
+                self.log_viewer = RichLogViewer()
                 yield self.log_viewer
 
         yield Footer()

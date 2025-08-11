@@ -12,6 +12,21 @@ __ignore__ = ["main", "logger"]
 from aiperf.ui.base_ui import (
     BaseAIPerfUI,
 )
+from aiperf.ui.dashboard import (
+    AIPERF_THEME,
+    AIPerfDashboardUI,
+    AIPerfTextualApp,
+    CustomHeader,
+    LogConsumer,
+    ProgressDashboard,
+    RichLogViewer,
+    WorkerDashboard,
+    WorkerData,
+    WorkerDataProcessor,
+    WorkerStatus,
+    WorkerStatusSummary,
+    WorkerStatusTable,
+)
 from aiperf.ui.no_ui import (
     NoUI,
 )
@@ -19,37 +34,23 @@ from aiperf.ui.progress_logger import (
     LoggerTracker,
     SimpleProgressLogger,
 )
-from aiperf.ui.textual import (
-    AIPerfTextualApp,
-    AIPerfTextualUI,
-    CustomHeader,
-    LogConsumer,
-    LogViewer,
-    ProgressDashboard,
-    WorkerDashboard,
-    WorkerData,
-    WorkerDataProcessor,
-    WorkerStatus,
-    WorkerStatusSummary,
-    WorkerStatusTable,
-    aiperf_theme,
-)
 from aiperf.ui.tqdm_ui import (
     ProgressBar,
     TQDMProgressUI,
 )
 
 __all__ = [
+    "AIPERF_THEME",
+    "AIPerfDashboardUI",
     "AIPerfTextualApp",
-    "AIPerfTextualUI",
     "BaseAIPerfUI",
     "CustomHeader",
     "LogConsumer",
-    "LogViewer",
     "LoggerTracker",
     "NoUI",
     "ProgressBar",
     "ProgressDashboard",
+    "RichLogViewer",
     "SimpleProgressLogger",
     "TQDMProgressUI",
     "WorkerDashboard",
@@ -58,5 +59,4 @@ __all__ = [
     "WorkerStatus",
     "WorkerStatusSummary",
     "WorkerStatusTable",
-    "aiperf_theme",
 ]

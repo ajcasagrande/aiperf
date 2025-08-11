@@ -21,18 +21,18 @@ from aiperf.common.models import (
 )
 from aiperf.common.protocols import AIPerfUIProtocol
 from aiperf.ui.base_ui import BaseAIPerfUI
-from aiperf.ui.textual.log_viewer import LogConsumer
-from aiperf.ui.textual.textual_app import AIPerfTextualApp
+from aiperf.ui.dashboard.aiperf_textual_app import AIPerfTextualApp
+from aiperf.ui.dashboard.rich_log_viewer import LogConsumer
 
 
 @implements_protocol(AIPerfUIProtocol)
 @AIPerfUIFactory.register(AIPerfUIType.DASHBOARD)
-class AIPerfTextualUI(BaseAIPerfUI):
+class AIPerfDashboardUI(BaseAIPerfUI):
     """
-    AIPerf Textual UI.
+    AIPerf Dashboard UI.
 
-    This is the main UI class for the Textual UI. It is responsible for
-    managing the Textual application, its lifecycle, and passing the
+    This is the main UI class for the Dashboard UI. It is responsible for
+    managing the Dashboard application, its lifecycle, and passing the
     progress updates to the application.
     """
 
@@ -50,15 +50,15 @@ class AIPerfTextualUI(BaseAIPerfUI):
 
     @on_start
     async def _run_app(self) -> None:
-        """Run the enhanced Textual application."""
-        self.debug("Starting AIPerf Textual UI...")
+        """Run the enhanced Dashboard application."""
+        self.debug("Starting AIPerf Dashboard UI...")
         self.execute_async(self.app.run_async())
 
     @on_stop
     async def _on_stop(self) -> None:
-        """Stop the Textual application gracefully."""
+        """Stop the Dashboard application gracefully."""
         if self.app:
-            self.debug("Shutting down Textual UI")
+            self.debug("Shutting down Dashboard UI")
             self.app.exit(return_code=0)
 
     @on_records_progress
@@ -66,8 +66,8 @@ class AIPerfTextualUI(BaseAIPerfUI):
         """Callback for records progress updates."""
         if self.app.overview_progress:
             self.app.overview_progress.on_records_progress(records_stats)
-        if self.app.performance_dashboard:
-            self.app.performance_dashboard.on_records_progress(records_stats)
+        if self.app.progress_dashboard:
+            self.app.progress_dashboard.on_records_progress(records_stats)
 
     @on_requests_phase_progress
     async def _on_requests_phase_progress(
@@ -76,8 +76,8 @@ class AIPerfTextualUI(BaseAIPerfUI):
         """Callback for requests phase progress updates."""
         if self.app.overview_progress:
             self.app.overview_progress.on_requests_phase_progress(phase, requests_stats)
-        if self.app.performance_dashboard:
-            self.app.performance_dashboard.on_requests_phase_progress(
+        if self.app.progress_dashboard:
+            self.app.progress_dashboard.on_requests_phase_progress(
                 phase, requests_stats
             )
 

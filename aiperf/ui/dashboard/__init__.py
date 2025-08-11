@@ -8,24 +8,26 @@ __ignore__ = ["logger"]
 #########################################################
 
 
-from aiperf.ui.textual.custom import (
-    CustomHeader,
-    aiperf_theme,
+from aiperf.ui.dashboard.aiperf_dashboard_ui import (
+    AIPerfDashboardUI,
 )
-from aiperf.ui.textual.log_viewer import (
-    LogConsumer,
-    LogViewer,
-)
-from aiperf.ui.textual.progress_dashboard import (
-    ProgressDashboard,
-)
-from aiperf.ui.textual.textual_app import (
+from aiperf.ui.dashboard.aiperf_textual_app import (
     AIPerfTextualApp,
 )
-from aiperf.ui.textual.textual_ui import (
-    AIPerfTextualUI,
+from aiperf.ui.dashboard.aiperf_theme import (
+    AIPERF_THEME,
 )
-from aiperf.ui.textual.worker_dashboard import (
+from aiperf.ui.dashboard.custom_header import (
+    CustomHeader,
+)
+from aiperf.ui.dashboard.progress_dashboard import (
+    ProgressDashboard,
+)
+from aiperf.ui.dashboard.rich_log_viewer import (
+    LogConsumer,
+    RichLogViewer,
+)
+from aiperf.ui.dashboard.worker_dashboard import (
     WorkerDashboard,
     WorkerData,
     WorkerDataProcessor,
@@ -35,17 +37,17 @@ from aiperf.ui.textual.worker_dashboard import (
 )
 
 __all__ = [
+    "AIPERF_THEME",
+    "AIPerfDashboardUI",
     "AIPerfTextualApp",
-    "AIPerfTextualUI",
     "CustomHeader",
     "LogConsumer",
-    "LogViewer",
     "ProgressDashboard",
+    "RichLogViewer",
     "WorkerDashboard",
     "WorkerData",
     "WorkerDataProcessor",
     "WorkerStatus",
     "WorkerStatusSummary",
     "WorkerStatusTable",
-    "aiperf_theme",
 ]
