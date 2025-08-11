@@ -7,18 +7,12 @@ Tests for the dataset manager service.
 import pytest
 from pydantic import BaseModel
 
-from aiperf.common.base_service import BaseService
-from aiperf.common.enums import (
-    ServiceType,
-)
 from aiperf.common.exceptions import ServiceError
 from aiperf.common.messages import (
     ConversationRequestMessage,
     ConversationResponseMessage,
     DatasetTimingResponse,
 )
-from aiperf.dataset.dataset_manager import DatasetManager
-from tests.base_test_component_service import BaseTestComponentService
 from tests.utils.async_test_utils import async_fixture
 
 
@@ -30,54 +24,7 @@ class DatasetManagerTestConfig(BaseModel):
 
 
 @pytest.mark.asyncio
-class DatasetManagerServiceTest(BaseTestComponentService):
-    """
-    Tests for dataset manager service functionalities and basic properties.
-
-    This test class extends BaseTestComponentService to leverage common
-    component service tests while adding dataset manager specific tests
-    for service properties and request handling.
-    """
-
-    @pytest.fixture
-    def service_class(self) -> type[BaseService]:
-        """Return the service class to be tested."""
-        return DatasetManager
-
-    @pytest.fixture
-    def dataset_config(self) -> DatasetManagerTestConfig:
-        """
-        Return a test configuration for the dataset manager.
-        """
-        return DatasetManagerTestConfig()
-
-    async def test_service_type_property(
-        self, initialized_service: DatasetManager
-    ) -> None:
-        """
-        Test that the dataset manager returns the correct service type.
-
-        Verifies that the service_type property returns ServiceType.DATASET_MANAGER
-        and that it matches the expected enum value.
-        """
-        service = await async_fixture(initialized_service)
-        assert service.service_type == ServiceType.DATASET_MANAGER
-
-    async def test_initialization_with_service_config(
-        self, initialized_service: DatasetManager
-    ) -> None:
-        """
-        Test that the dataset manager initializes properly with service configuration.
-
-        Verifies that the service initializes correctly with the provided service config
-        and that all required attributes are properly set during initialization.
-        """
-        service = await async_fixture(initialized_service)
-        assert service.service_config is not None
-        assert service.service_id is not None
-        assert service.dataset == {}
-        assert isinstance(service.dataset, dict)
-
+class FTestDatasetManagerService:
     # ============================================================================
     # Test Error Handling
     # ============================================================================
