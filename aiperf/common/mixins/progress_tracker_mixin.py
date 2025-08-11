@@ -20,10 +20,10 @@ from aiperf.common.messages import (
 )
 from aiperf.common.mixins.message_bus_mixin import MessageBusClientMixin
 from aiperf.common.models.progress_models import (
-    ComputedStats,
     CreditPhaseProgress,
     RecordsStats,
     RequestsStats,
+    StatsProtocol,
     WorkerStats,
 )
 
@@ -59,10 +59,13 @@ class ProgressTrackerMixin(MessageBusClientMixin):
                 records=RecordsStats(
                     # May potentially not be set if the phase is not request count based
                     total_expected_requests=message.total_expected_requests,
+                    start_ns=message.start_ns,
                 ),
             )
             self._phase_progress_map[message.phase] = phase_progress
             await self._update_requests_stats(phase_progress, message.start_ns)
+            if message.phase == CreditPhase.PROFILING:
+                await self._update_records_stats(phase_progress, message.start_ns)
 
     @on_message(MessageType.CREDIT_PHASE_PROGRESS)
     async def _on_credit_phase_progress(self, message: CreditPhaseProgressMessage):
@@ -131,12 +134,7 @@ class ProgressTrackerMixin(MessageBusClientMixin):
                 f"Updating requests stats for phase '{phase_progress.phase.title()}': sent: {phase_progress.requests.sent}, "
                 f"completed: {phase_progress.requests.completed}, total_expected: {phase_progress.requests.total_expected_requests}"
             )
-        self._update_computed_stats(
-            request_ns,
-            phase_progress.requests,
-            phase_progress.requests.completed,
-            phase_progress.requests.progress_percent,
-        )
+        self._update_computed_stats(request_ns, phase_progress.requests)
         await self.run_hooks(
             AIPerfHook.ON_REQUESTS_PHASE_PROGRESS,
             phase=phase_progress.phase,
@@ -153,12 +151,7 @@ class ProgressTrackerMixin(MessageBusClientMixin):
                 f"processed: {phase_progress.records.processed}, errors: {phase_progress.records.errors}"
             )
 
-        self._update_computed_stats(
-            request_ns,
-            phase_progress.records,
-            phase_progress.records.total_records,
-            phase_progress.records.progress_percent,
-        )
+        self._update_computed_stats(request_ns, phase_progress.records)
         await self.run_hooks(
             AIPerfHook.ON_RECORDS_PROGRESS, records_stats=phase_progress.records
         )
@@ -166,9 +159,7 @@ class ProgressTrackerMixin(MessageBusClientMixin):
     def _update_computed_stats(
         self,
         request_ns: int | None,
-        stats: ComputedStats,
-        finished: int,
-        progress_percent: float | None,
+        stats: StatsProtocol,
     ):
         """Update the computed stats based on incoming data.
 
@@ -177,22 +168,24 @@ class ProgressTrackerMixin(MessageBusClientMixin):
             stats: The stats to update
             finished: The number of finished requests or records
             progress_percent: The progress percent of the requests or records
+            start_ns: The start time of the requests
         """
-        dur_ns = (request_ns or time.time_ns()) - (stats.update_ns or time.time_ns())
+        dur_ns = (request_ns or time.time_ns()) - (stats.start_ns or time.time_ns())
+        stats.update_ns = request_ns or time.time_ns()
         if dur_ns <= 0:
             stats.per_second = None
             stats.eta = None
             return
 
         dur_sec = dur_ns / NANOS_PER_SECOND
-        stats.per_second = finished / dur_sec
-        if progress_percent:
+        stats.per_second = stats.finished / dur_sec
+        if stats.progress_percent:
             # (% remaining) / (% per second)
-            stats.eta = (100 - progress_percent) / (progress_percent / dur_sec)
+            stats.eta = (100 - stats.progress_percent) / (
+                stats.progress_percent / dur_sec
+            )
         else:
             stats.eta = None
-
-        stats.update_ns = request_ns or time.time_ns()
 
     @asynccontextmanager
     async def phase_progress_context(

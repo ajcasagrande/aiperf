@@ -24,6 +24,10 @@ class StatsProtocol(Protocol):
     update_ns: int | None
     per_second: float | None
     eta: float | None
+    start_ns: int | None
+
+    @property
+    def finished(self) -> int: ...
 
 
 class ComputedStats(AIPerfBaseModel):
@@ -43,6 +47,11 @@ class RequestsStats(ComputedStats, CreditPhaseStats):
     """Stats for the requests. Based on the TimingManager data."""
 
     @property
+    def finished(self) -> int:
+        """Get the number of finished requests."""
+        return self.completed
+
+    @property
     def elapsed_time(self) -> float | None:
         """Get the elapsed time."""
         if self.start_ns is None:
@@ -53,6 +62,16 @@ class RequestsStats(ComputedStats, CreditPhaseStats):
 @implements_protocol(StatsProtocol)
 class RecordsStats(ComputedStats, PhaseProcessingStats):
     """Stats for the records. Based on the RecordsManager data."""
+
+    start_ns: int | None = Field(
+        default=None,
+        description="The start time of the requests in nanoseconds.",
+    )
+
+    @property
+    def finished(self) -> int:
+        """Get the number of finished records."""
+        return self.processed + self.errors
 
     @property
     def progress_percent(self) -> float | None:

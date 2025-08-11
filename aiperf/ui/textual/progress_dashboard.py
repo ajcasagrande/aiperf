@@ -18,6 +18,7 @@ from rich.table import Table
 from rich.text import Text
 from textual.app import ComposeResult
 from textual.containers import Container
+from textual.timer import Timer
 from textual.widgets import Static
 
 from aiperf.common.enums import CreditPhase
@@ -55,6 +56,8 @@ class ProgressDashboard(Container):
     }
     """
 
+    SPINNER_REFRESH_RATE = 0.1  # 10 FPS
+
     def __init__(self) -> None:
         super().__init__()
         self.border_title = "Profile Progress"
@@ -77,6 +80,26 @@ class ProgressDashboard(Container):
         self.stats_widget: Static | None = None
         self.records_stats: RecordsStats | None = None
         self.requests_stats: dict[CreditPhase, RequestsStats] = {}
+        self.refresh_timer: Timer | None = None
+
+    def on_mount(self) -> None:
+        """Set up the refresh timer when the widget is mounted."""
+        self.refresh_timer = self.set_interval(
+            self.SPINNER_REFRESH_RATE, self._refresh_display
+        )
+
+    def on_unmount(self) -> None:
+        """Clean up the timer when the widget is unmounted."""
+        if self.refresh_timer:
+            self.refresh_timer.stop()
+
+    def _refresh_display(self) -> None:
+        """Timer callback to refresh the display for smooth spinner animation."""
+        if not self.progress_widget or not self.stats_widget:
+            return
+
+        # Only update the progress widget to refresh spinners
+        self.progress_widget.update(self.progress)
 
     def compose(self) -> ComposeResult:
         self.progress_widget = Static(self.progress, id="progress-display")
