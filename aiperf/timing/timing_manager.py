@@ -130,6 +130,28 @@ class TimingManager(PullClientMixin, BaseComponentService, CreditPhaseMessagesMi
                     credit_manager=self,
                 )
             )
+        elif self.config.timing_mode == TimingMode.MULTI_TURN_CONVERSATION:
+            # Get dataset timing response for multi-turn conversation strategy
+            dataset_timing_response: DatasetTimingResponse = (
+                await self.dataset_request_client.request(
+                    message=DatasetTimingRequest(
+                        service_id=self.service_id,
+                    ),
+                )
+            )
+            self.debug(
+                lambda: f"Received dataset timing response for multi-turn: {dataset_timing_response}"
+            )
+            self.info("Using multi-turn conversation strategy")
+            self._credit_issuing_strategy = (
+                CreditIssuingStrategyFactory.create_instance(
+                    TimingMode.MULTI_TURN_CONVERSATION,
+                    config=self.config,
+                    credit_manager=self,
+                    user_config=self.user_config,
+                    dataset_timing_response=dataset_timing_response,
+                )
+            )
 
         if not self._credit_issuing_strategy:
             raise InvalidStateError("No credit issuing strategy configured")

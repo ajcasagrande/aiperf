@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.base_component_service import BaseComponentService
 from aiperf.common.config import ServiceConfig, UserConfig
@@ -10,12 +9,10 @@ from aiperf.common.enums import (
     CommandType,
     CreditPhase,
     MessageType,
-    ServiceType,
 )
 from aiperf.common.factories import (
     InferenceClientFactory,
     RequestConverterFactory,
-    ServiceFactory,
 )
 from aiperf.common.hooks import background_task, on_command, on_pull_message, on_stop
 from aiperf.common.messages import (
@@ -31,27 +28,24 @@ from aiperf.common.protocols import (
     PushClientProtocol,
     RequestClientProtocol,
 )
-from aiperf.workers.credit_processor_mixin import CreditProcessorMixin
-
-try:
-    from aiperf.workers.conversation_credit_processor_mixin import (
-        ConversationCreditProcessorMixin,
-    )
-
-    CONVERSATION_SUPPORT = True
-except ImportError:
-    ConversationCreditProcessorMixin = CreditProcessorMixin
-    CONVERSATION_SUPPORT = False
+from aiperf.workers.conversation_credit_processor_mixin import (
+    ConversationCreditProcessorMixin,
+)
 
 
-@ServiceFactory.register(ServiceType.WORKER)
-class Worker(
-    PullClientMixin, BaseComponentService, ProcessHealthMixin, CreditProcessorMixin
+class ConversationWorker(
+    PullClientMixin,
+    BaseComponentService,
+    ProcessHealthMixin,
+    ConversationCreditProcessorMixin,
 ):
-    """Worker is primarily responsible for making API calls to the inference server.
-    It also manages the conversation between turns and returns the results to the Inference Results Parsers.
+    """Worker that handles complete conversations per credit.
 
-    Enhanced to optionally support multi-turn conversations when configured.
+    Architecture:
+    - One credit = one complete conversation (all turns)
+    - Worker processes all turns internally and maintains conversation context
+    - Produces multiple RequestRecords per credit (one per turn)
+    - Simpler and cleaner than managing conversation state across credits
     """
 
     def __init__(
@@ -70,34 +64,32 @@ class Worker(
             **kwargs,
         )
 
-        self.debug(lambda: f"Worker process __init__ (pid: {self.process.pid})")
+        self.debug(
+            lambda: f"ConversationWorker process __init__ (pid: {self.process.pid})"
+        )
 
         self.health_check_interval = self.service_config.workers.health_check_interval
-
         self.task_stats: dict[CreditPhase, WorkerPhaseTaskStats] = {}
 
+        # Communication clients
         self.credit_return_push_client: PushClientProtocol = (
-            self.comms.create_push_client(
-                CommAddress.CREDIT_RETURN,
-            )
+            self.comms.create_push_client(CommAddress.CREDIT_RETURN)
         )
         self.inference_results_push_client: PushClientProtocol = (
-            self.comms.create_push_client(
-                CommAddress.RAW_INFERENCE_PROXY_FRONTEND,
-            )
+            self.comms.create_push_client(CommAddress.RAW_INFERENCE_PROXY_FRONTEND)
         )
         self.conversation_request_client: RequestClientProtocol = (
-            self.comms.create_request_client(
-                CommAddress.DATASET_MANAGER_PROXY_FRONTEND,
-            )
+            self.comms.create_request_client(CommAddress.DATASET_MANAGER_PROXY_FRONTEND)
         )
 
+        # Model and client setup
         self.model_endpoint = ModelEndpointInfo.from_user_config(self.user_config)
 
         self.debug(
             lambda: f"Creating inference client for {self.model_endpoint.endpoint.type}, "
             f"class: {InferenceClientFactory.get_class_from_type(self.model_endpoint.endpoint.type).__name__}",
         )
+
         self.request_converter = RequestConverterFactory.create_instance(
             self.model_endpoint.endpoint.type,
         )
@@ -108,7 +100,12 @@ class Worker(
 
     @on_pull_message(MessageType.CREDIT_DROP)
     async def _credit_drop_callback(self, message: CreditDropMessage) -> None:
-        """Handle an incoming credit drop message from the timing manager. Every credit must be returned after processing."""
+        """Handle an incoming credit drop message - process complete conversation.
+
+        Every credit must be returned after processing. This worker processes
+        the entire conversation (all turns) for each credit and generates
+        multiple RequestRecords.
+        """
 
         # Create a default credit return message in case of an exception
         credit_return_message = CreditReturnMessage(
@@ -118,19 +115,20 @@ class Worker(
 
         try:
             # NOTE: This must be awaited to ensure that the max concurrency is respected
+            # The mixin handles processing the complete conversation and pushing all records
             credit_return_message = await self._process_credit_drop_internal(message)
         except Exception as e:
-            self.exception(f"Error processing credit drop: {e}")
+            self.exception(f"Error processing conversation credit drop: {e}")
         finally:
-            # It is fine to execute the push asynchronously here because the worker is technically
-            # ready to process the next credit drop.
+            # Return the credit to indicate we're ready for the next conversation
             self.execute_async(
                 self.credit_return_push_client.push(credit_return_message)
             )
 
     @on_stop
     async def _shutdown_worker(self) -> None:
-        self.debug("Shutting down worker")
+        self.debug("Shutting down conversation worker")
+
         if self.inference_client:
             await self.inference_client.close()
 
@@ -143,6 +141,7 @@ class Worker(
         await self.publish(self.create_health_message())
 
     def create_health_message(self) -> WorkerHealthMessage:
+        """Create a health message with conversation processing metrics."""
         return WorkerHealthMessage(
             service_id=self.service_id,
             process=self.get_process_health(),
@@ -163,8 +162,4 @@ class Worker(
 def main() -> None:
     from aiperf.common.bootstrap import bootstrap_and_run_service
 
-    bootstrap_and_run_service(Worker)
-
-
-if __name__ == "__main__":
-    main()
+    bootstrap_and_run_service(ConversationWorker)

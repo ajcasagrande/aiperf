@@ -16,6 +16,9 @@ class TimingMode(CaseInsensitiveStrEnum):
     REQUEST_RATE = "request_rate"
     """A mode where the TimingManager will send requests at either a constant request rate or based on a poisson distribution."""
 
+    MULTI_TURN_CONVERSATION = "multi_turn_conversation"
+    """A mode where the TimingManager handles multi-turn conversations with proper conversation state management."""
+
 
 class RequestRateMode(CaseInsensitiveStrEnum):
     """The different ways the RequestRateStrategy should generate requests."""

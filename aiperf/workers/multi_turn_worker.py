@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.base_component_service import BaseComponentService
 from aiperf.common.config import ServiceConfig, UserConfig
@@ -10,12 +9,10 @@ from aiperf.common.enums import (
     CommandType,
     CreditPhase,
     MessageType,
-    ServiceType,
 )
 from aiperf.common.factories import (
     InferenceClientFactory,
     RequestConverterFactory,
-    ServiceFactory,
 )
 from aiperf.common.hooks import background_task, on_command, on_pull_message, on_stop
 from aiperf.common.messages import (
@@ -31,27 +28,22 @@ from aiperf.common.protocols import (
     PushClientProtocol,
     RequestClientProtocol,
 )
-from aiperf.workers.credit_processor_mixin import CreditProcessorMixin
-
-try:
-    from aiperf.workers.conversation_credit_processor_mixin import (
-        ConversationCreditProcessorMixin,
-    )
-
-    CONVERSATION_SUPPORT = True
-except ImportError:
-    ConversationCreditProcessorMixin = CreditProcessorMixin
-    CONVERSATION_SUPPORT = False
+from aiperf.workers.multi_turn_credit_processor_mixin import (
+    MultiTurnCreditProcessorMixin,
+)
 
 
-@ServiceFactory.register(ServiceType.WORKER)
-class Worker(
-    PullClientMixin, BaseComponentService, ProcessHealthMixin, CreditProcessorMixin
+class MultiTurnWorker(
+    PullClientMixin,
+    BaseComponentService,
+    ProcessHealthMixin,
+    MultiTurnCreditProcessorMixin,
 ):
-    """Worker is primarily responsible for making API calls to the inference server.
-    It also manages the conversation between turns and returns the results to the Inference Results Parsers.
+    """Enhanced worker that handles multi-turn conversations with conversation state management.
 
-    Enhanced to optionally support multi-turn conversations when configured.
+    This worker extends the standard worker to properly manage conversation context
+    across multiple turns, making it suitable for chat-based AI models that require
+    conversation history to generate appropriate responses.
     """
 
     def __init__(
@@ -70,7 +62,9 @@ class Worker(
             **kwargs,
         )
 
-        self.debug(lambda: f"Worker process __init__ (pid: {self.process.pid})")
+        self.debug(
+            lambda: f"MultiTurnWorker process __init__ (pid: {self.process.pid})"
+        )
 
         self.health_check_interval = self.service_config.workers.health_check_interval
 
@@ -108,7 +102,11 @@ class Worker(
 
     @on_pull_message(MessageType.CREDIT_DROP)
     async def _credit_drop_callback(self, message: CreditDropMessage) -> None:
-        """Handle an incoming credit drop message from the timing manager. Every credit must be returned after processing."""
+        """Handle an incoming credit drop message from the timing manager with multi-turn support.
+
+        Every credit must be returned after processing. This enhanced version
+        maintains conversation state across multiple turns.
+        """
 
         # Create a default credit return message in case of an exception
         credit_return_message = CreditReturnMessage(
@@ -120,7 +118,7 @@ class Worker(
             # NOTE: This must be awaited to ensure that the max concurrency is respected
             credit_return_message = await self._process_credit_drop_internal(message)
         except Exception as e:
-            self.exception(f"Error processing credit drop: {e}")
+            self.exception(f"Error processing multi-turn credit drop: {e}")
         finally:
             # It is fine to execute the push asynchronously here because the worker is technically
             # ready to process the next credit drop.
@@ -130,7 +128,15 @@ class Worker(
 
     @on_stop
     async def _shutdown_worker(self) -> None:
-        self.debug("Shutting down worker")
+        self.debug("Shutting down multi-turn worker")
+
+        # Clean up conversation states
+        if hasattr(self, "conversation_states"):
+            self.conversation_states.clear()
+            self.debug(
+                f"Cleaned up {len(self.conversation_states)} conversation states"
+            )
+
         if self.inference_client:
             await self.inference_client.close()
 
@@ -143,11 +149,19 @@ class Worker(
         await self.publish(self.create_health_message())
 
     def create_health_message(self) -> WorkerHealthMessage:
-        return WorkerHealthMessage(
+        """Create a health message with additional multi-turn metrics."""
+        health_msg = WorkerHealthMessage(
             service_id=self.service_id,
             process=self.get_process_health(),
             task_stats=self.task_stats,
         )
+
+        # Add conversation state metrics to debug info
+        if hasattr(self, "conversation_states"):
+            num_active_conversations = len(self.conversation_states)
+            self.debug(f"Health check: {num_active_conversations} active conversations")
+
+        return health_msg
 
     @on_command(CommandType.PROFILE_CANCEL)
     async def _handle_profile_cancel_command(
@@ -163,8 +177,4 @@ class Worker(
 def main() -> None:
     from aiperf.common.bootstrap import bootstrap_and_run_service
 
-    bootstrap_and_run_service(Worker)
-
-
-if __name__ == "__main__":
-    main()
+    bootstrap_and_run_service(MultiTurnWorker)

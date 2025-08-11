@@ -26,6 +26,9 @@ from aiperf.timing.credit_manager import (
 from aiperf.timing.fixed_schedule_strategy import (
     FixedScheduleStrategy,
 )
+from aiperf.timing.multi_turn_conversation_strategy import (
+    MultiTurnConversationStrategy,
+)
 from aiperf.timing.request_rate_strategy import (
     RequestRateStrategy,
 )
@@ -41,6 +44,7 @@ __all__ = [
     "CreditPhaseMessagesMixin",
     "CreditPhaseMessagesRequirements",
     "FixedScheduleStrategy",
+    "MultiTurnConversationStrategy",
     "RequestRateStrategy",
     "TimingManager",
     "TimingManagerConfig",
