@@ -34,7 +34,7 @@ from aiperf.ui.textual import (
     WorkerStatusTable,
     aiperf_theme,
 )
-from aiperf.ui.tqdm_progress import (
+from aiperf.ui.tqdm_ui import (
     ProgressBar,
     TQDMProgressUI,
 )
