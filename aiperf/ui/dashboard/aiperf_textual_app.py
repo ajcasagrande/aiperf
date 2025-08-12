@@ -80,20 +80,21 @@ class AIPerfTextualApp(App):
         self.theme = AIPERF_THEME.name
 
     def compose(self) -> ComposeResult:
-        """Compose the clean application layout."""
+        """Compose the full application layout."""
         yield CustomHeader()
 
-        with Vertical(id="main-container"):  # noqa: SIM117 - textual ui layout
+        # NOTE: SIM117 is disabled because nested with statements are recommended for textual ui layouts
+        with Vertical(id="main-container"):
             with Container(id="dashboard-section"):  # noqa: SIM117
-                with TabbedContent(initial="overview"):  # noqa: SIM117
+                with TabbedContent(initial="overview"):
                     with TabPane("Overview", id="overview"):  # noqa: SIM117
-                        with Horizontal():  # noqa: SIM117
+                        with Horizontal():
                             self.overview_progress = ProgressDashboard()
                             yield self.overview_progress
                             self.overview_workers = WorkerDashboard()
                             yield self.overview_workers
 
-                    with TabPane("Progress", id="progress"):  # noqa: SIM117
+                    with TabPane("Progress", id="progress"):
                         self.progress_dashboard = ProgressDashboard()
                         yield self.progress_dashboard
 
@@ -111,24 +112,21 @@ class AIPerfTextualApp(App):
         self, phase: CreditPhase, requests_stats: RequestsStats
     ) -> None:
         """Update the overview and progress dashboard with the requests phase progress."""
-        if self.overview_progress:
-            self.overview_progress.on_requests_phase_progress(phase, requests_stats)
-        if self.progress_dashboard:
-            self.progress_dashboard.on_requests_phase_progress(phase, requests_stats)
+        for progress_dashboard in [self.overview_progress, self.progress_dashboard]:
+            if progress_dashboard:
+                progress_dashboard.on_requests_phase_progress(phase, requests_stats)
 
     async def on_records_progress(self, records_stats: RecordsStats) -> None:
         """Update the overview and progress dashboard with the records progress."""
-        if self.overview_progress:
-            self.overview_progress.on_records_progress(records_stats)
-        if self.progress_dashboard:
-            self.progress_dashboard.on_records_progress(records_stats)
+        for progress_dashboard in [self.overview_progress, self.progress_dashboard]:
+            if progress_dashboard:
+                progress_dashboard.on_records_progress(records_stats)
 
     async def on_worker_update(self, worker_id: str, worker_stats: WorkerStats) -> None:
         """Update the overview and worker dashboard with the worker update."""
-        if self.overview_workers:
-            self.overview_workers.on_worker_stats_update(worker_id, worker_stats)
-        if self.worker_dashboard:
-            self.worker_dashboard.on_worker_stats_update(worker_id, worker_stats)
+        for worker_dashboard in [self.overview_workers, self.worker_dashboard]:
+            if worker_dashboard:
+                worker_dashboard.on_worker_stats_update(worker_id, worker_stats)
 
     async def action_switch_tab(self, tab_id: str) -> None:
         """Switch to a specific tab."""
