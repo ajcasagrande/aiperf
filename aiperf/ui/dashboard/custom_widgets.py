@@ -6,7 +6,13 @@ import contextlib
 from textual.dom import NoScreen
 from textual.events import Mount
 from textual.widget import Widget
+from textual.widgets import DataTable
 from textual.widgets._header import HeaderTitle
+
+
+class NonFocusableDataTable(DataTable, can_focus=False):
+    """DataTable that cannot receive focus.
+    This is done to prevent the table from focusing when the user clicks on it, which would cause the table to darken its background."""
 
 
 class CustomHeader(Widget):

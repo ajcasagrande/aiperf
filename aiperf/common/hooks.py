@@ -43,6 +43,7 @@ class AIPerfHook(CaseInsensitiveStrEnum):
     ON_COMMAND = "@on_command"
     ON_INIT = "@on_init"
     ON_MESSAGE = "@on_message"
+    ON_METRICS_PREVIEW = "@on_metrics_preview"
     ON_PROFILING_PROGRESS = "@on_profiling_progress"
     ON_PULL_MESSAGE = "@on_pull_message"
     ON_RECORDS_PROGRESS = "@on_records_progress"
@@ -330,6 +331,21 @@ def on_message(
     ```
     """
     return _hook_decorator_with_params(AIPerfHook.ON_MESSAGE, message_types)
+
+
+def on_metrics_preview(func: Callable) -> Callable:
+    """Decorator to specify that the function is a hook that should be called when a metrics preview is received.
+    See :func:`aiperf.common.hooks._hook_decorator`.
+
+    Example:
+    ```python
+    class MyPlugin(ProgressTrackerMixin):
+        @on_metrics_preview
+        def _on_metrics_preview(self, metrics_preview: list[MetricResult]) -> None:
+            pass
+    ```
+    """
+    return _hook_decorator(AIPerfHook.ON_METRICS_PREVIEW, func)
 
 
 def on_pull_message(

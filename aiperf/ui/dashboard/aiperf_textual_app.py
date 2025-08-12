@@ -10,10 +10,14 @@ from textual.containers import Container, Horizontal, Vertical
 from textual.widgets import Footer, TabbedContent, TabPane
 
 from aiperf.common.aiperf_logger import AIPerfLogger
+from aiperf.common.config.user_config import UserConfig
 from aiperf.common.enums import WorkerStatus
 from aiperf.common.models import RecordsStats, RequestsStats, WorkerStats
+from aiperf.common.models.record_models import MetricResult
+from aiperf.controller.system_controller import SystemController
 from aiperf.ui.dashboard.aiperf_theme import AIPERF_THEME
-from aiperf.ui.dashboard.custom_header import CustomHeader
+from aiperf.ui.dashboard.custom_widgets import CustomHeader
+from aiperf.ui.dashboard.metrics_preview_dashboard import MetricsPreviewDashboard
 from aiperf.ui.dashboard.progress_dashboard import ProgressDashboard
 from aiperf.ui.dashboard.rich_log_viewer import RichLogViewer
 from aiperf.ui.dashboard.worker_dashboard import WorkerDashboard
@@ -60,20 +64,25 @@ class AIPerfTextualApp(App):
         ("1", "switch_tab('overview')", "Overview"),
         ("2", "switch_tab('progress')", "Progress"),
         ("3", "switch_tab('workers')", "Workers"),
+        ("4", "switch_tab('metrics-preview')", "Metrics Preview"),
         ("s", "toggle_log_auto_scroll", "Toggle Log Auto Scroll"),
         ("l", "toggle_hide_log_viewer", "Toggle Logs"),
     ]
 
-    def __init__(self) -> None:
+    def __init__(self, user_config: UserConfig, controller: SystemController) -> None:
         super().__init__()
         self.log_viewer: RichLogViewer | None = None
         self.overview_progress: ProgressDashboard | None = None
-        self.overview_workers: WorkerDashboard | None = None
+        # self.overview_workers: WorkerDashboard | None = None
+        self.overview_metrics_preview: MetricsPreviewDashboard | None = None
         self.progress_dashboard: ProgressDashboard | None = None
         self.worker_dashboard: WorkerDashboard | None = None
+        self.metrics_preview_dashboard: MetricsPreviewDashboard | None = None
         self.title = "NVIDIA AIPerf"
         self.profile_results: list[RenderableType] = []
         self.logs_hidden = False
+        self.user_config = user_config
+        self.controller: SystemController = controller
 
     def on_mount(self) -> None:
         self.register_theme(AIPERF_THEME)
@@ -91,8 +100,12 @@ class AIPerfTextualApp(App):
                         with Horizontal():
                             self.overview_progress = ProgressDashboard()
                             yield self.overview_progress
-                            self.overview_workers = WorkerDashboard()
-                            yield self.overview_workers
+                            # self.overview_workers = WorkerDashboard()
+                            # yield self.overview_workers
+                            self.overview_metrics_preview = MetricsPreviewDashboard(
+                                user_config=self.user_config
+                            )
+                            yield self.overview_metrics_preview
 
                     with TabPane("Progress", id="progress"):
                         self.progress_dashboard = ProgressDashboard()
@@ -101,6 +114,12 @@ class AIPerfTextualApp(App):
                     with TabPane("Workers", id="workers"):
                         self.worker_dashboard = WorkerDashboard()
                         yield self.worker_dashboard
+
+                    with TabPane("Metrics Preview", id="metrics-preview"):
+                        self.metrics_preview_dashboard = MetricsPreviewDashboard(
+                            user_config=self.user_config
+                        )
+                        yield self.metrics_preview_dashboard
 
             with Container(id="logs-section"):
                 self.log_viewer = RichLogViewer()
@@ -130,21 +149,29 @@ class AIPerfTextualApp(App):
         self, worker_status_summary: dict[str, WorkerStatus]
     ) -> None:
         """Update the overview and worker dashboard with the worker status summary."""
-        for worker_dashboard in [self.overview_workers, self.worker_dashboard]:
-            if worker_dashboard:
-                worker_dashboard.on_worker_status_summary(worker_status_summary)
+        if self.worker_dashboard:
+            self.worker_dashboard.on_worker_status_summary(worker_status_summary)
 
     async def on_worker_update(self, worker_id: str, worker_stats: WorkerStats) -> None:
         """Update the overview and worker dashboard with the worker update."""
-        for worker_dashboard in [self.overview_workers, self.worker_dashboard]:
-            if worker_dashboard:
-                worker_dashboard.on_worker_stats_update(worker_id, worker_stats)
+        if self.worker_dashboard:
+            self.worker_dashboard.on_worker_stats_update(worker_id, worker_stats)
+
+    async def on_metrics_preview(self, metrics_preview: list[MetricResult]) -> None:
+        """Update the metrics preview dashboard with the metrics preview."""
+        if self.overview_metrics_preview:
+            self.overview_metrics_preview.on_metrics_preview(metrics_preview)
+        if self.metrics_preview_dashboard:
+            self.metrics_preview_dashboard.on_metrics_preview(metrics_preview)
 
     async def action_switch_tab(self, tab_id: str) -> None:
         """Switch to a specific tab."""
         try:
             tabbed_content = self.query_one(TabbedContent)
             tabbed_content.active = tab_id
+            # If we are switching to the metrics preview tab, request a fresh metrics preview
+            if tab_id == "metrics-preview":
+                await self.controller.request_metrics_preview()
         except Exception as e:
             _logger.error(f"Error switching to tab {tab_id}: {e!r}")
 

@@ -8,6 +8,7 @@ from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import AIPerfUIType, WorkerStatus
 from aiperf.common.factories import AIPerfUIFactory
 from aiperf.common.hooks import (
+    on_metrics_preview,
     on_profiling_progress,
     on_records_progress,
     on_start,
@@ -17,11 +18,13 @@ from aiperf.common.hooks import (
     on_worker_update,
 )
 from aiperf.common.models import (
+    MetricResult,
     RecordsStats,
     RequestsStats,
     WorkerStats,
 )
 from aiperf.common.protocols import AIPerfUIProtocol
+from aiperf.controller.system_controller import SystemController
 from aiperf.ui.base_ui import BaseAIPerfUI
 from aiperf.ui.dashboard.aiperf_textual_app import AIPerfTextualApp
 from aiperf.ui.dashboard.rich_log_viewer import LogConsumer
@@ -47,11 +50,15 @@ class AIPerfDashboardUI(BaseAIPerfUI):
         self,
         log_queue: multiprocessing.Queue,
         user_config: UserConfig,
+        controller: SystemController,
         **kwargs,
     ) -> None:
-        super().__init__(user_config=user_config, **kwargs)
+        super().__init__(user_config=user_config, controller=controller, **kwargs)
+        self.controller = controller
         self.user_config = user_config
-        self.app: AIPerfTextualApp = AIPerfTextualApp()
+        self.app: AIPerfTextualApp = AIPerfTextualApp(
+            user_config=user_config, controller=controller
+        )
         # Setup the log consumer to consume log records from the shared log queue
         self.log_consumer: LogConsumer = LogConsumer(log_queue=log_queue, app=self.app)
         self.attach_child_lifecycle(self.log_consumer)  # type: ignore
@@ -93,3 +100,8 @@ class AIPerfDashboardUI(BaseAIPerfUI):
     async def _on_worker_status_summary(self, worker_status_summary: dict[str, WorkerStatus]) -> None:  # fmt: skip
         """Forward worker status summary updates to the Textual App."""
         await self.app.on_worker_status_summary(worker_status_summary)
+
+    @on_metrics_preview
+    async def _on_metrics_preview(self, metrics_preview: list[MetricResult]) -> None:
+        """Forward metrics preview updates to the Textual App."""
+        await self.app.on_metrics_preview(metrics_preview)

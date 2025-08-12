@@ -5,6 +5,7 @@ from aiperf.common.enums.base_enums import CaseInsensitiveStrEnum
 
 
 class CommandType(CaseInsensitiveStrEnum):
+    METRICS_PREVIEW = "metrics_preview"
     PROCESS_RECORDS = "process_records"
     PROFILE_CANCEL = "profile_cancel"
     PROFILE_CONFIGURE = "profile_configure"

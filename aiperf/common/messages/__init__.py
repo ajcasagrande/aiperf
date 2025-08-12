@@ -21,6 +21,7 @@ from aiperf.common.messages.command_messages import (
     CommandSuccessResponse,
     CommandUnhandledResponse,
     ConnectionProbeMessage,
+    MetricsPreviewCommand,
     ProcessRecordsCommand,
     ProcessRecordsResponse,
     ProfileCancelCommand,
@@ -53,6 +54,7 @@ from aiperf.common.messages.dataset_messages import (
 from aiperf.common.messages.inference_messages import (
     InferenceResultsMessage,
     MetricRecordsMessage,
+    MetricsPreviewMessage,
     ParsedInferenceResultsMessage,
 )
 from aiperf.common.messages.progress_messages import (
@@ -107,6 +109,8 @@ __all__ = [
     "InferenceResultsMessage",
     "Message",
     "MetricRecordsMessage",
+    "MetricsPreviewCommand",
+    "MetricsPreviewMessage",
     "ParsedInferenceResultsMessage",
     "ProcessRecordsCommand",
     "ProcessRecordsResponse",

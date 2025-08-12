@@ -6,7 +6,10 @@ import time
 
 from aiperf.common.base_component_service import BaseComponentService
 from aiperf.common.config import ServiceConfig, UserConfig
-from aiperf.common.constants import DEFAULT_PULL_CLIENT_MAX_CONCURRENCY
+from aiperf.common.constants import (
+    DEFAULT_METRICS_PREVIEW_INTERVAL,
+    DEFAULT_PULL_CLIENT_MAX_CONCURRENCY,
+)
 from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import (
     CommAddress,
@@ -26,11 +29,13 @@ from aiperf.common.messages import (
     CreditPhaseCompleteMessage,
     CreditPhaseStartMessage,
     MetricRecordsMessage,
+    MetricsPreviewMessage,
     ProcessRecordsCommand,
     ProcessRecordsResultMessage,
     ProfileCancelCommand,
     RecordsProcessingStatsMessage,
 )
+from aiperf.common.messages.command_messages import MetricsPreviewCommand
 from aiperf.common.messages.credit_messages import CreditPhaseSendingCompleteMessage
 from aiperf.common.mixins import PullClientMixin
 from aiperf.common.models import (
@@ -40,6 +45,7 @@ from aiperf.common.models import (
     ProcessRecordsResult,
     ProfileResults,
 )
+from aiperf.common.models.record_models import MetricResult
 from aiperf.common.protocols import ResultsProcessorProtocol, ServiceProtocol
 from aiperf.common.types import MetricTagT
 
@@ -278,6 +284,48 @@ class RecordsManager(PullClientMixin, BaseComponentService):
         async with self.processing_status_lock:
             self.profile_cancelled = True
         return await self._process_results(cancelled=True)
+
+    @background_task(
+        interval=DEFAULT_METRICS_PREVIEW_INTERVAL,
+        immediate=False,
+    )
+    async def _report_metrics_preview_task(self) -> None:
+        """Report the metrics preview at a regular interval."""
+        await self._report_metrics_preview()
+
+    @on_command(CommandType.METRICS_PREVIEW)
+    async def _on_metrics_preview_command(self, message: MetricsPreviewCommand) -> None:
+        """Handle a metrics preview command."""
+        await self._report_metrics_preview()
+
+    async def _report_metrics_preview(self) -> None:
+        """Report the metrics preview."""
+        metrics = await self._generate_metrics_preview()
+        if not metrics:
+            return
+        await self.publish(
+            MetricsPreviewMessage(
+                service_id=self.service_id,
+                metrics=metrics,
+            )
+        )
+
+    async def _generate_metrics_preview(self) -> list[MetricResult]:
+        """Generate a preview of the metrics for the profile run."""
+        results = await asyncio.gather(
+            *[
+                results_processor.summarize()
+                for results_processor in self._results_processors
+            ],
+            return_exceptions=True,
+        )
+        return [
+            res
+            for result in results
+            if isinstance(result, list)
+            for res in result
+            if isinstance(res, MetricResult)
+        ]
 
     async def _process_results(self, cancelled: bool) -> ProcessRecordsResult:
         """Process the results."""

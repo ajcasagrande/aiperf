@@ -32,6 +32,9 @@ from aiperf.common.mixins.hooks_mixin import (
 from aiperf.common.mixins.message_bus_mixin import (
     MessageBusClientMixin,
 )
+from aiperf.common.mixins.metrics_preview_mixin import (
+    MetricsPreviewMixin,
+)
 from aiperf.common.mixins.process_health_mixin import (
     ProcessHealthMixin,
 )
@@ -60,6 +63,7 @@ __all__ = [
     "CommunicationMixin",
     "HooksMixin",
     "MessageBusClientMixin",
+    "MetricsPreviewMixin",
     "ProcessHealthMixin",
     "ProgressTrackerMixin",
     "PullClientMixin",

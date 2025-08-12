@@ -238,6 +238,10 @@ class CommandUnhandledResponse(CommandResponse):
         )
 
 
+class MetricsPreviewCommand(CommandMessage):
+    command: CommandTypeT = CommandType.METRICS_PREVIEW
+
+
 class SpawnWorkersCommand(CommandMessage):
     command: CommandTypeT = CommandType.SPAWN_WORKERS
 
