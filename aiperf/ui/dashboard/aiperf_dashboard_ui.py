@@ -5,13 +5,15 @@ import multiprocessing
 
 from aiperf.common.config import UserConfig
 from aiperf.common.decorators import implements_protocol
-from aiperf.common.enums import AIPerfUIType, CreditPhase
+from aiperf.common.enums import AIPerfUIType, WorkerStatus
 from aiperf.common.factories import AIPerfUIFactory
 from aiperf.common.hooks import (
+    on_profiling_progress,
     on_records_progress,
-    on_requests_phase_progress,
     on_start,
     on_stop,
+    on_warmup_progress,
+    on_worker_status_summary,
     on_worker_update,
 )
 from aiperf.common.models import (
@@ -72,14 +74,22 @@ class AIPerfDashboardUI(BaseAIPerfUI):
         """Forward records progress updates to the Textual App."""
         await self.app.on_records_progress(records_stats)
 
-    @on_requests_phase_progress
-    async def _on_requests_phase_progress(
-        self, phase: CreditPhase, requests_stats: RequestsStats
-    ) -> None:
+    @on_profiling_progress
+    async def _on_profiling_progress(self, profiling_stats: RequestsStats) -> None:
         """Forward requests phase progress updates to the Textual App."""
-        await self.app.on_requests_phase_progress(phase, requests_stats)
+        await self.app.on_profiling_progress(profiling_stats)
+
+    @on_warmup_progress
+    async def _on_warmup_progress(self, warmup_stats: RequestsStats) -> None:
+        """Forward warmup progress updates to the Textual App."""
+        await self.app.on_warmup_progress(warmup_stats)
 
     @on_worker_update
     async def _on_worker_update(self, worker_id: str, worker_stats: WorkerStats):
         """Forward worker updates to the Textual App."""
         await self.app.on_worker_update(worker_id, worker_stats)
+
+    @on_worker_status_summary
+    async def _on_worker_status_summary(self, worker_status_summary: dict[str, WorkerStatus]) -> None:  # fmt: skip
+        """Forward worker status summary updates to the Textual App."""
+        await self.app.on_worker_status_summary(worker_status_summary)

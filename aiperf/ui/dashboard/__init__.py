@@ -31,7 +31,6 @@ from aiperf.ui.dashboard.worker_dashboard import (
     WORKER_STATUS_STYLES,
     WorkerDashboard,
     WorkerData,
-    WorkerDataProcessor,
     WorkerStatusSummary,
     WorkerStatusTable,
 )
@@ -47,7 +46,6 @@ __all__ = [
     "WORKER_STATUS_STYLES",
     "WorkerDashboard",
     "WorkerData",
-    "WorkerDataProcessor",
     "WorkerStatusSummary",
     "WorkerStatusTable",
 ]

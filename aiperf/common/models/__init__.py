@@ -37,7 +37,7 @@ from aiperf.common.models.health_models import (
 )
 from aiperf.common.models.progress_models import (
     ComputedStats,
-    CreditPhaseProgress,
+    FullPhaseProgress,
     RecordsStats,
     RequestsStats,
     StatsProtocol,
@@ -69,11 +69,11 @@ __all__ = [
     "ComputedStats",
     "Conversation",
     "CreditPhaseConfig",
-    "CreditPhaseProgress",
     "CreditPhaseStats",
     "CtxSwitches",
     "ErrorDetails",
     "ErrorDetailsCount",
+    "FullPhaseProgress",
     "IOCounters",
     "Image",
     "InferenceServerResponse",

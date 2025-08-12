@@ -5,6 +5,8 @@ from aiperf.common.enums.base_enums import CaseInsensitiveStrEnum
 
 
 class WorkerStatus(CaseInsensitiveStrEnum):
+    """The current status of a worker service."""
+
     HEALTHY = "healthy"
     HIGH_LOAD = "high_load"
     ERROR = "error"

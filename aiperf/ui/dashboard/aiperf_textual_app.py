@@ -10,7 +10,7 @@ from textual.containers import Container, Horizontal, Vertical
 from textual.widgets import Footer, TabbedContent, TabPane
 
 from aiperf.common.aiperf_logger import AIPerfLogger
-from aiperf.common.enums import CreditPhase
+from aiperf.common.enums import WorkerStatus
 from aiperf.common.models import RecordsStats, RequestsStats, WorkerStats
 from aiperf.ui.dashboard.aiperf_theme import AIPERF_THEME
 from aiperf.ui.dashboard.custom_header import CustomHeader
@@ -108,19 +108,31 @@ class AIPerfTextualApp(App):
 
         yield Footer()
 
-    async def on_requests_phase_progress(
-        self, phase: CreditPhase, requests_stats: RequestsStats
-    ) -> None:
-        """Update the overview and progress dashboard with the requests phase progress."""
+    async def on_profiling_progress(self, profiling_stats: RequestsStats) -> None:
+        """Update the overview and progress dashboard with the profiling progress."""
         for progress_dashboard in [self.overview_progress, self.progress_dashboard]:
             if progress_dashboard:
-                progress_dashboard.on_requests_phase_progress(phase, requests_stats)
+                progress_dashboard.on_profiling_progress(profiling_stats)
+
+    async def on_warmup_progress(self, warmup_stats: RequestsStats) -> None:
+        """Update the overview and progress dashboard with the warmup progress."""
+        for progress_dashboard in [self.overview_progress, self.progress_dashboard]:
+            if progress_dashboard:
+                progress_dashboard.on_warmup_progress(warmup_stats)
 
     async def on_records_progress(self, records_stats: RecordsStats) -> None:
         """Update the overview and progress dashboard with the records progress."""
         for progress_dashboard in [self.overview_progress, self.progress_dashboard]:
             if progress_dashboard:
                 progress_dashboard.on_records_progress(records_stats)
+
+    async def on_worker_status_summary(
+        self, worker_status_summary: dict[str, WorkerStatus]
+    ) -> None:
+        """Update the overview and worker dashboard with the worker status summary."""
+        for worker_dashboard in [self.overview_workers, self.worker_dashboard]:
+            if worker_dashboard:
+                worker_dashboard.on_worker_status_summary(worker_status_summary)
 
     async def on_worker_update(self, worker_id: str, worker_stats: WorkerStats) -> None:
         """Update the overview and worker dashboard with the worker update."""

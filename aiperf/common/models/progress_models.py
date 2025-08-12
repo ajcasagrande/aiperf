@@ -95,6 +95,10 @@ class RecordsStats(ComputedStats, ProcessingStats):
 class WorkerStats(AIPerfBaseModel):
     """Stats for a worker."""
 
+    worker_id: str = Field(
+        ...,
+        description="The ID of the worker",
+    )
     task_stats: WorkerTaskStats = Field(
         default_factory=WorkerTaskStats,
         description="The task stats for the worker as reported by the Workers (total, completed, failed)",
@@ -117,7 +121,7 @@ class WorkerStats(AIPerfBaseModel):
     )
 
 
-class CreditPhaseProgress(AIPerfBaseModel):
+class FullPhaseProgress(AIPerfBaseModel):
     """Full state of the credit phase progress, including the progress of the phase, the processing stats, and the worker stats."""
 
     requests: RequestsStats = Field(

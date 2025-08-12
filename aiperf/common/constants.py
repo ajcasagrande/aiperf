@@ -66,11 +66,11 @@ DEFAULT_WORKER_HIGH_LOAD_CPU_USAGE = 75.0
 DEFAULT_WORKER_HIGH_LOAD_RECOVERY_TIME = 5.0
 """Default time in seconds from the last time a worker was in high load before it is considered healthy again."""
 
-DEFAULT_WORKER_ERROR_RECOVERY_TIME = 10.0
+DEFAULT_WORKER_ERROR_RECOVERY_TIME = 3.0
 """Default time in seconds from the last time a worker had an error before it is considered healthy again."""
 
 DEFAULT_WORKER_STALE_TIME = 10.0
 """Default time in seconds from the last time a worker reported any status before it is considered stale."""
 
-DEFAULT_WORKER_STATUS_SUMMARY_INTERVAL = 1.0
+DEFAULT_WORKER_STATUS_SUMMARY_INTERVAL = 0.5
 """Default interval in seconds between worker status summary messages."""

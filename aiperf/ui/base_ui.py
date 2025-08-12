@@ -27,9 +27,19 @@ class BaseAIPerfUI(ProgressTrackerMixin, WorkerTrackerMixin):
             '''Callback for records progress updates.'''
             pass
 
-        @on_requests_phase_progress
-        def _on_requests_phase_progress(self, phase: CreditPhase, requests_stats: RequestsStats):
-            '''Callback for requests phase progress updates.'''
+        @on_warmup_progress
+        def _on_warmup_progress(self, requests_stats: RequestsStats):
+            '''Callback for warmup progress updates.'''
+            pass
+
+        @on_profiling_progress
+        def _on_profiling_progress(self, requests_stats: RequestsStats):
+            '''Callback for profiling progress updates.'''
+            pass
+
+        @on_worker_status_summary
+        def _on_worker_status_summary(self, worker_status_summary: dict[str, WorkerStatus]):
+            '''Callback for worker status summary updates.'''
             pass
 
         @on_worker_update
