@@ -10,6 +10,7 @@ from pydantic import Field
 from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums.timing_enums import CreditPhase
+from aiperf.common.enums.worker_enums import WorkerStatus
 from aiperf.common.models.base_models import AIPerfBaseModel
 from aiperf.common.models.credit_models import CreditPhaseStats, ProcessingStats
 from aiperf.common.models.health_models import ProcessHealth
@@ -21,7 +22,7 @@ class StatsProtocol(Protocol):
 
     progress_percent: float | None
     total_expected_requests: int | None
-    update_ns: int | None
+    last_update_ns: int | None
     per_second: float | None
     eta: float | None
     start_ns: int | None
@@ -40,7 +41,7 @@ class ComputedStats(AIPerfBaseModel):
     eta: float | None = Field(
         default=None, description="The estimated time for completion"
     )
-    update_ns: int | None = Field(
+    last_update_ns: int | None = Field(
         default=None, description="The time of the last update"
     )
 
@@ -94,11 +95,11 @@ class RecordsStats(ComputedStats, ProcessingStats):
 class WorkerStats(AIPerfBaseModel):
     """Stats for a worker."""
 
-    tasks: WorkerTaskStats = Field(
+    task_stats: WorkerTaskStats = Field(
         default_factory=WorkerTaskStats,
         description="The task stats for the worker as reported by the Workers (total, completed, failed)",
     )
-    processing: ProcessingStats = Field(
+    processing_stats: ProcessingStats = Field(
         default_factory=ProcessingStats,
         description="The processing stats for the worker as reported by the RecordsManager (processed, errors)",
     )
@@ -106,7 +107,11 @@ class WorkerStats(AIPerfBaseModel):
         default=None,
         description="The health of the worker as reported by the Workers",
     )
-    update_ns: int | None = Field(
+    status: WorkerStatus = Field(
+        default=WorkerStatus.IDLE,
+        description="The status of the worker",
+    )
+    last_update_ns: int | None = Field(
         default=None,
         description="The last time the worker was updated in nanoseconds",
     )

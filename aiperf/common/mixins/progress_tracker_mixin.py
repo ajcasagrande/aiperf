@@ -100,13 +100,13 @@ class ProgressTrackerMixin(MessageBusClientMixin):
         async with self.phase_progress_context(CreditPhase.PROFILING) as phase_progress:
             phase_progress.records.processed = message.processing_stats.processed
             phase_progress.records.errors = message.processing_stats.errors
-            phase_progress.records.update_ns = time.time_ns()
+            phase_progress.records.last_update_ns = time.time_ns()
 
             for worker_id, processing_stats in message.worker_stats.items():
                 async with self._workers_stats_lock:
                     if worker_id not in self._workers_stats:
                         self._workers_stats[worker_id] = WorkerStats()
-                    self._workers_stats[worker_id].processing = processing_stats
+                    self._workers_stats[worker_id].processing_stats = processing_stats
 
             await self._update_records_stats(phase_progress, message.request_ns)
 
@@ -117,8 +117,8 @@ class ProgressTrackerMixin(MessageBusClientMixin):
         async with self._workers_stats_lock:
             if worker_id not in self._workers_stats:
                 self._workers_stats[worker_id] = WorkerStats()
-            self._workers_stats[worker_id].health = message.process
-            self._workers_stats[worker_id].tasks = message.tasks
+            self._workers_stats[worker_id].health = message.health
+            self._workers_stats[worker_id].task_stats = message.task_stats
 
     @on_message(MessageType.PROFILE_RESULTS)
     async def _on_profile_results(self, message: ProfileResultsMessage):
@@ -171,7 +171,7 @@ class ProgressTrackerMixin(MessageBusClientMixin):
             start_ns: The start time of the requests
         """
         dur_ns = (request_ns or time.time_ns()) - (stats.start_ns or time.time_ns())
-        stats.update_ns = request_ns or time.time_ns()
+        stats.last_update_ns = request_ns or time.time_ns()
         if dur_ns <= 0:
             stats.per_second = None
             stats.eta = None

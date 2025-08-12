@@ -73,18 +73,18 @@ class WorkerDataProcessor:
         self, worker_stats: WorkerStats, current_time_ns: int
     ) -> WorkerStatus:
         """Determine worker status based on stats and thresholds."""
-        last_seen = worker_stats.update_ns or current_time_ns
+        last_seen = worker_stats.last_update_ns or current_time_ns
         stale_threshold_ns = self.stale_threshold * NANOS_PER_SECOND
 
         if current_time_ns - last_seen > stale_threshold_ns:
             return WorkerStatus.STALE
 
-        if worker_stats.tasks.total == 0:
+        if worker_stats.task_stats.total == 0:
             return WorkerStatus.IDLE
 
         error_rate = (
-            worker_stats.tasks.failed / worker_stats.tasks.total
-            if worker_stats.tasks.total > 0
+            worker_stats.task_stats.failed / worker_stats.task_stats.total
+            if worker_stats.task_stats.total > 0
             else 0
         )
         if error_rate > self.error_rate_threshold:
@@ -192,43 +192,34 @@ class WorkerStatusTable(Widget):
                 style=WORKER_STATUS_STYLES[worker.status],
                 justify="right",
             ),
-            Text(f"{worker.stats.tasks.in_progress:,}", justify="right"),
-            Text(f"{worker.stats.tasks.completed:,}", justify="right"),
-            Text(f"{worker.stats.tasks.failed:,}", justify="right"),
+            Text(f"{worker.stats.task_stats.in_progress:,}", justify="right"),
+            Text(f"{worker.stats.task_stats.completed:,}", justify="right"),
+            Text(f"{worker.stats.task_stats.failed:,}", justify="right"),
         ]
 
         health = worker.stats.health
-        if not health:
-            row_data.extend(
-                [
-                    Text("N/A", justify="right"),
-                    Text("N/A", justify="right"),
-                    Text("N/A", justify="right"),
-                    Text("N/A", justify="right"),
-                ]
-            )
-            return row_data
 
-        row_data.extend(
-            [
+        if health:
+            row_data.extend([
                 Text(self._format_cpu(health.cpu_usage), justify="right"),
                 Text(self._format_memory(health.memory_usage), justify="right"),
-            ]
-        )
-        if health.io_counters:
-            row_data.extend(
-                [
-                    Text(format_bytes(health.io_counters.read_chars), justify="right"),
-                    Text(format_bytes(health.io_counters.write_chars), justify="right"),
-                ]
-            )
+            ])  # fmt: skip
         else:
-            row_data.extend(
-                [
-                    Text("N/A", justify="right"),
-                    Text("N/A", justify="right"),
-                ]
-            )
+            row_data.extend([
+                Text("N/A", justify="right"),
+                Text("N/A", justify="right"),
+            ])  # fmt: skip
+
+        if health and health.io_counters:
+            row_data.extend([
+                Text(format_bytes(health.io_counters.read_chars), justify="right"),
+                Text(format_bytes(health.io_counters.write_chars), justify="right"),
+            ])  # fmt: skip
+        else:
+            row_data.extend([
+                Text("N/A", justify="right"),
+                Text("N/A", justify="right"),
+            ])  # fmt: skip
         return row_data
 
     def _update_single_row(self, worker_data: WorkerData, row_key: RowKey) -> bool:

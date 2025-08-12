@@ -26,8 +26,8 @@ class WorkerTrackerMixin(MessageBusClientMixin):
         async with self._workers_stats_lock:
             if worker_id not in self._workers_stats:
                 self._workers_stats[worker_id] = WorkerStats()
-            self._workers_stats[worker_id].health = message.process
-            self._workers_stats[worker_id].tasks = message.tasks
+            self._workers_stats[worker_id].health = message.health
+            self._workers_stats[worker_id].task_stats = message.task_stats
             await self.run_hooks(
                 AIPerfHook.ON_WORKER_UPDATE,
                 worker_id=worker_id,
