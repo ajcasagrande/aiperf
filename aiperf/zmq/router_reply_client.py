@@ -259,13 +259,4 @@ class ZMQRouterReplyClient(BaseZMQClient):
                 error=ErrorDetails.from_exception(e),
             )
 
-        try:
-            self._response_queue.put_nowait(
-                (request.request_id, routing_envelope, response)
-            )
-        except asyncio.QueueFull:
-            self.error(
-                f"Response queue is full for request {request.request_id}. "
-                "Waiting for an open slot. This will cause back pressure."
-            )
-            await self._response_queue.put((request.request_id, routing_envelope, None))
+        await self._send_response(request.request_id, routing_envelope, response)
