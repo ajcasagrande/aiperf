@@ -165,7 +165,7 @@ class ProgressDashboard(Container):
             return Text("Waiting for profile data...", style="dim")
 
     def create_stats_table(self) -> VisualType:
-        """Create a statistics table similar to the rich version."""
+        """Create a table with the profile status and progress."""
         stats_table = Table.grid(padding=(0, 1, 0, 0))
         stats_table.add_column(style="bold cyan", justify="right")
         stats_table.add_column(style="bold white")
@@ -200,10 +200,10 @@ class ProgressDashboard(Container):
         )
 
         stats_table.add_row(
-            "Request Rate:", f"{self.profiling_stats.per_second or 0:.1f} requests/s"
+            "Request Rate:", f"{self.profiling_stats.per_second or 0:,.1f} requests/s"
         )
         stats_table.add_row(
-            "Processing Rate:", f"{self.records_stats.per_second or 0:.1f} records/s"
+            "Processing Rate:", f"{self.records_stats.per_second or 0:,.1f} records/s"
         )
 
         if not self.profiling_stats.is_complete:

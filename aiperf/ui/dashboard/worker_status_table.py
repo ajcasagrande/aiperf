@@ -5,7 +5,7 @@ from rich.text import Text
 from textual.app import ComposeResult
 from textual.widget import Widget
 from textual.widgets import DataTable
-from textual.widgets._data_table import ColumnKey, RowKey
+from textual.widgets.data_table import ColumnKey, RowDoesNotExist, RowKey
 
 from aiperf.common.aiperf_logger import AIPerfLogger
 from aiperf.common.enums import WorkerStatus
@@ -58,11 +58,8 @@ class WorkerStatusTable(Widget):
 
     def _initialize_columns(self) -> None:
         """Initialize table columns."""
-        if not self.data_table:
-            return
-
         for col in self.COLUMNS:
-            self._column_keys[col] = self.data_table.add_column(
+            self._column_keys[col] = self.data_table.add_column(  # type: ignore
                 Text(col, justify="right")
             )
         self._columns_initialized = True
@@ -75,29 +72,24 @@ class WorkerStatusTable(Widget):
         if not self._columns_initialized:
             self._initialize_columns()
 
-        worker_id = worker_stats.worker_id
         row_cells = self._format_worker_row(worker_stats)
 
-        if worker_id in self._worker_row_keys:
-            row_key = self._worker_row_keys[worker_id]
+        if worker_stats.worker_id in self._worker_row_keys:
+            row_key = self._worker_row_keys[worker_stats.worker_id]
             try:
-                self.data_table.get_row(row_key)
-                self._update_single_row(worker_stats, row_key)
-                self.data_table.refresh()
-            except Exception:
-                # Row doesn't exist, add as new
-                row_key = self.data_table.add_row(*row_cells)
-                self._worker_row_keys[worker_id] = row_key
-                self.data_table.refresh()
-        else:
-            # Add new worker row
-            row_key = self.data_table.add_row(*row_cells)
-            self._worker_row_keys[worker_id] = row_key
-            self.data_table.refresh()
+                _ = self.data_table.get_row_index(row_key)
+                self._update_single_row(row_cells, row_key)
+                return
+            except RowDoesNotExist:
+                # Row doesn't exist, fall through to add as new
+                pass
 
-    def _update_single_row(self, worker_stats: WorkerStats, row_key: RowKey) -> None:
+        # Add new worker row
+        row_key = self.data_table.add_row(*row_cells)
+        self._worker_row_keys[worker_stats.worker_id] = row_key
+
+    def _update_single_row(self, row_cells: list[Text], row_key: RowKey) -> None:
         """Update a single row's cells."""
-        row_cells = self._format_worker_row(worker_stats)
         for col_name, cell_value in zip(self.COLUMNS, row_cells, strict=True):
             try:
                 self.data_table.update_cell(  # type: ignore
@@ -105,7 +97,7 @@ class WorkerStatusTable(Widget):
                 )
             except Exception as e:
                 _logger.warning(
-                    f"Error updating cell {col_name} for worker {worker_stats.worker_id}: {e!r}"
+                    f"Error updating cell {col_name} with value {cell_value}: {e!r}"
                 )
 
     @staticmethod
