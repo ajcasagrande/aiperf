@@ -32,6 +32,7 @@ from aiperf.ui.dashboard.worker_dashboard import (
 )
 from aiperf.ui.dashboard.worker_status_table import (
     WORKER_STATUS_STYLES,
+    NonFocusableDataTable,
     WorkerStatusTable,
 )
 
@@ -41,6 +42,7 @@ __all__ = [
     "AIPerfTextualApp",
     "CustomHeader",
     "LogConsumer",
+    "NonFocusableDataTable",
     "ProgressDashboard",
     "RichLogViewer",
     "WORKER_STATUS_STYLES",

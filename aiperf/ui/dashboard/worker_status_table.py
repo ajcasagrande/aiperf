@@ -24,15 +24,17 @@ WORKER_STATUS_STYLES = {
 }
 
 
+class NonFocusableDataTable(DataTable, can_focus=False):
+    """DataTable that cannot receive focus.
+    This is done to prevent the table from focusing when the user clicks on it, which would cause the table to darken its background."""
+
+
 class WorkerStatusTable(Widget):
     DEFAULT_CSS = """
     WorkerStatusTable {
         height: 1fr;
-        &:focus {
-            background-tint: $primary 0%;
-        }
     }
-    DataTable {
+    NonFocusableDataTable {
         height: 1fr;
     }
     """
@@ -41,13 +43,13 @@ class WorkerStatusTable(Widget):
 
     def __init__(self) -> None:
         super().__init__()
-        self.data_table: DataTable | None = None
+        self.data_table: NonFocusableDataTable | None = None
         self._worker_row_keys: dict[str, RowKey] = {}
         self._columns_initialized = False
         self._column_keys: dict[str, ColumnKey] = {}
 
     def compose(self) -> ComposeResult:
-        self.data_table = DataTable(cursor_type="row", show_cursor=False)
+        self.data_table = NonFocusableDataTable(cursor_type="row", show_cursor=False)
         yield self.data_table
 
     def on_mount(self) -> None:
