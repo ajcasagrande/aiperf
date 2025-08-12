@@ -23,6 +23,7 @@ from textual.widgets import Static
 
 from aiperf.common.enums import CreditPhase
 from aiperf.common.models import RecordsStats, RequestsStats
+from aiperf.common.models.progress_models import StatsProtocol
 from aiperf.ui.utils import format_duration
 
 
@@ -73,9 +74,7 @@ class ProgressDashboard(Container):
             expand=True,
         )
 
-        self.warmup_task_id: TaskID | None = None
-        self.profiling_task_id: TaskID | None = None
-        self.records_task_id: TaskID | None = None
+        self.task_ids: dict[str, TaskID] = {}
         self.progress_widget: Static | None = None
         self.stats_widget: Static | None = None
         self.records_stats: RecordsStats | None = None
@@ -85,7 +84,7 @@ class ProgressDashboard(Container):
     def on_mount(self) -> None:
         """Set up the refresh timer when the widget is mounted."""
         self.refresh_timer = self.set_interval(
-            self.SPINNER_REFRESH_RATE, self._refresh_display
+            self.SPINNER_REFRESH_RATE, self.refresh_timer_callback
         )
 
     def on_unmount(self) -> None:
@@ -93,88 +92,55 @@ class ProgressDashboard(Container):
         if self.refresh_timer:
             self.refresh_timer.stop()
 
-    def _refresh_display(self) -> None:
-        """Timer callback to refresh the display for smooth spinner animation."""
-        if not self.progress_widget or not self.stats_widget:
-            return
-
-        # Only update the progress widget to refresh spinners
-        self.progress_widget.update(self.progress)
+    def refresh_timer_callback(self) -> None:
+        """Callback for the refresh timer to update the progress widget."""
+        if self.progress_widget:
+            self.progress_widget.update(self.progress)
 
     def compose(self) -> ComposeResult:
         self.progress_widget = Static(self.progress, id="progress-display")
-        self.stats_widget = Static(self._get_stats_table(), id="stats-display")
-
         yield self.progress_widget
+
+        self.stats_widget = Static(self.create_stats_table(), id="stats-display")
         yield self.stats_widget
+
+    def create_or_update_progress(self, name: str, stats: StatsProtocol) -> None:
+        """Create or update the progress for a given task."""
+        task_id = self.task_ids.get(name)
+        if task_id is None and stats.total_expected_requests:
+            self.task_ids[name] = self.progress.add_task(
+                name, total=stats.total_expected_requests
+            )
+        elif task_id is not None:
+            self.progress.update(task_id, completed=stats.finished)
+            if stats.is_complete:
+                self.progress.update(
+                    task_id,
+                    description=f"[green]{name}[/green]",
+                )
 
     def on_requests_phase_progress(
         self, phase: CreditPhase, requests_stats: RequestsStats
     ) -> None:
         """Callback for requests phase progress updates."""
         self.requests_stats[phase] = requests_stats
-        if phase == CreditPhase.WARMUP:
-            self.update_warmup_progress(requests_stats)
-        elif phase == CreditPhase.PROFILING:
-            self.update_profiling_progress(requests_stats)
+        self.create_or_update_progress(phase.name.title(), requests_stats)
         self.update_display()
-
-    def update_warmup_progress(self, stats: RequestsStats) -> None:
-        """Update the warmup progress."""
-        if self.warmup_task_id is None and stats.total_expected_requests:
-            self.warmup_task_id = self.progress.add_task(
-                "Warmup", total=stats.total_expected_requests
-            )
-        elif self.warmup_task_id is not None:
-            self.progress.update(self.warmup_task_id, completed=stats.completed or 0)
-            if stats.is_complete:
-                self.progress.update(
-                    self.warmup_task_id,
-                    description="[green]Warmup[/green]",
-                )
-
-    def update_profiling_progress(self, stats: RequestsStats) -> None:
-        """Update the profiling progress."""
-        if self.profiling_task_id is None and stats.total_expected_requests:
-            self.profiling_task_id = self.progress.add_task(
-                "Profiling", total=stats.total_expected_requests
-            )
-        elif self.profiling_task_id is not None:
-            self.progress.update(self.profiling_task_id, completed=stats.completed or 0)
-            if stats.is_complete:
-                self.progress.update(
-                    self.profiling_task_id,
-                    description="[green]Profiling[/green]",
-                )
 
     def on_records_progress(self, records_stats: RecordsStats) -> None:
         """Callback for records progress updates."""
         self.records_stats = records_stats
-
-        if self.records_task_id is None and records_stats.total_expected_requests:
-            self.records_task_id = self.progress.add_task(
-                "Records", total=records_stats.total_expected_requests
-            )
-        elif self.records_task_id is not None:
-            self.progress.update(
-                self.records_task_id, completed=records_stats.total_records or 0
-            )
-            if records_stats.is_complete:
-                self.progress.update(
-                    self.records_task_id,
-                    description="[green]Records[/green]",
-                )
-
+        self.create_or_update_progress("Records", records_stats)
         self.update_display()
 
     def update_display(self) -> None:
         """Update the progress display."""
-        if not self.progress_widget or not self.stats_widget:
-            return
-        self.progress_widget.update(self.progress)
-        self.stats_widget.update(self._get_stats_table())
+        if self.progress_widget:
+            self.progress_widget.update(self.progress)
+        if self.stats_widget:
+            self.stats_widget.update(self.create_stats_table())
 
-    def _get_stats_table(self) -> RenderableType:
+    def create_stats_table(self) -> RenderableType:
         """Create a statistics table similar to the rich version."""
         if not self.records_stats or not self.records_stats.total_expected_requests:
             return Align(
@@ -239,8 +205,8 @@ class ProgressDashboard(Container):
         if stats and stats.start_ns:
             stats_table.add_row("Elapsed:", format_duration(stats.elapsed_time))
         if stats and stats.eta:
-            stats_table.add_row("Request ETA:", format_duration(stats.eta))
+            stats_table.add_row("Profiling ETA:", format_duration(stats.eta))
         if self.records_stats and self.records_stats.eta:
-            stats_table.add_row("Results ETA:", format_duration(self.records_stats.eta))
+            stats_table.add_row("Records ETA:", format_duration(self.records_stats.eta))
 
         return stats_table

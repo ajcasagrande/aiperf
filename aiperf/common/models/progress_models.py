@@ -11,7 +11,7 @@ from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums.timing_enums import CreditPhase
 from aiperf.common.models.base_models import AIPerfBaseModel
-from aiperf.common.models.credit_models import CreditPhaseStats, PhaseProcessingStats
+from aiperf.common.models.credit_models import CreditPhaseStats, ProcessingStats
 from aiperf.common.models.health_models import ProcessHealth
 from aiperf.common.models.worker_models import WorkerTaskStats
 
@@ -28,6 +28,9 @@ class StatsProtocol(Protocol):
 
     @property
     def finished(self) -> int: ...
+
+    @property
+    def is_complete(self) -> bool: ...
 
 
 class ComputedStats(AIPerfBaseModel):
@@ -60,7 +63,7 @@ class RequestsStats(ComputedStats, CreditPhaseStats):
 
 
 @implements_protocol(StatsProtocol)
-class RecordsStats(ComputedStats, PhaseProcessingStats):
+class RecordsStats(ComputedStats, ProcessingStats):
     """Stats for the records. Based on the RecordsManager data."""
 
     start_ns: int | None = Field(
@@ -88,8 +91,8 @@ class WorkerStats(AIPerfBaseModel):
         default_factory=WorkerTaskStats,
         description="The task stats for the worker as reported by the Workers (total, completed, failed)",
     )
-    processing: PhaseProcessingStats = Field(
-        default_factory=PhaseProcessingStats,
+    processing: ProcessingStats = Field(
+        default_factory=ProcessingStats,
         description="The processing stats for the worker as reported by the RecordsManager (processed, errors)",
     )
     health: ProcessHealth | None = Field(
