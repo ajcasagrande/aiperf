@@ -14,6 +14,7 @@ from aiperf.ui.base_ui import (
 )
 from aiperf.ui.dashboard import (
     AIPERF_THEME,
+    WORKER_STATUS_STYLES,
     AIPerfDashboardUI,
     AIPerfTextualApp,
     CustomHeader,
@@ -23,7 +24,6 @@ from aiperf.ui.dashboard import (
     WorkerDashboard,
     WorkerData,
     WorkerDataProcessor,
-    WorkerStatus,
     WorkerStatusSummary,
     WorkerStatusTable,
 )
@@ -57,10 +57,10 @@ __all__ = [
     "RichLogViewer",
     "SimpleProgressLogger",
     "TQDMProgressUI",
+    "WORKER_STATUS_STYLES",
     "WorkerDashboard",
     "WorkerData",
     "WorkerDataProcessor",
-    "WorkerStatus",
     "WorkerStatusSummary",
     "WorkerStatusTable",
     "format_bytes",

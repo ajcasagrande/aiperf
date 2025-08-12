@@ -1,8 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from rich.align import Align
-from rich.console import RenderableType
 from rich.progress import (
     BarColumn,
     MofNCompleteColumn,
@@ -19,6 +17,7 @@ from rich.text import Text
 from textual.app import ComposeResult
 from textual.containers import Container
 from textual.timer import Timer
+from textual.visual import VisualType
 from textual.widgets import Static
 
 from aiperf.common.enums import CreditPhase
@@ -49,10 +48,10 @@ class ProgressDashboard(Container):
     #stats-display {
         height: auto;
     }
-    #no-stats-message {
+    #stats-display.no-stats {
         height: 1fr;
         content-align: center middle;
-        color: $warning;
+        color: $warning 50%;
         text-style: italic;
     }
     """
@@ -101,7 +100,11 @@ class ProgressDashboard(Container):
         self.progress_widget = Static(self.progress, id="progress-display")
         yield self.progress_widget
 
-        self.stats_widget = Static(self.create_stats_table(), id="stats-display")
+        self.stats_widget = Static(
+            "Waiting for profile data...",
+            id="stats-display",
+            classes="no-stats",
+        )
         yield self.stats_widget
 
     def create_or_update_progress(self, name: str, stats: StatsProtocol) -> None:
@@ -123,12 +126,16 @@ class ProgressDashboard(Container):
         self, phase: CreditPhase, requests_stats: RequestsStats
     ) -> None:
         """Callback for requests phase progress updates."""
+        if not self.requests_stats:
+            self.query_one("#stats-display").remove_class("no-stats")
         self.requests_stats[phase] = requests_stats
         self.create_or_update_progress(phase.name.title(), requests_stats)
         self.update_display()
 
     def on_records_progress(self, records_stats: RecordsStats) -> None:
         """Callback for records progress updates."""
+        if not self.records_stats:
+            self.query_one("#stats-display").remove_class("no-stats")
         self.records_stats = records_stats
         self.create_or_update_progress("Records", records_stats)
         self.update_display()
@@ -140,73 +147,78 @@ class ProgressDashboard(Container):
         if self.stats_widget:
             self.stats_widget.update(self.create_stats_table())
 
-    def create_stats_table(self) -> RenderableType:
+    def _get_status(self) -> Text:
+        """Get the status of the profile."""
+        if self.records_stats and self.records_stats.is_complete:
+            return Text("Complete", style="bold green")
+        elif self.requests_stats.get(CreditPhase.PROFILING):
+            return Text("Profiling", style="bold yellow")
+        elif self.requests_stats.get(CreditPhase.WARMUP):
+            return Text("Warmup", style="bold yellow")
+        else:
+            return Text("Waiting for profile data...", style="dim")
+
+    def create_stats_table(self) -> VisualType:
         """Create a statistics table similar to the rich version."""
-        if not self.records_stats or not self.records_stats.total_expected_requests:
-            return Align(
-                Text("No profile data available", style="bold italic orange"),
-                align="center",
-            )
-
-        if not self.records_stats:
-            return Align(
-                Text("No profile data available", style="bold italic orange"),
-                align="center",
-            )
-
-        # Create table with padding (same as rich version)
         stats_table = Table.grid(padding=(0, 1, 0, 0))
         stats_table.add_column(style="bold cyan", justify="right")
         stats_table.add_column(style="bold white")
 
-        # Status
-        if self.records_stats.is_complete:
-            status = Text("Complete", style="bold green")
-        else:
-            status = Text("Processing", style="bold yellow")
+        profiling_stats = self.requests_stats.get(CreditPhase.PROFILING)
+        if not profiling_stats:
+            return stats_table
 
-        # Error calculations
-        error_percent = 0.0
-        if self.records_stats.processed and self.records_stats.processed > 0:
-            error_percent = (
-                (self.records_stats.errors or 0) / self.records_stats.processed * 100
+        stats_table.add_row("Status:", self._get_status())
+
+        if profiling_stats.total_expected_requests:
+            stats_table.add_row(
+                "Progress:",
+                f"{profiling_stats.completed or 0:,} / {profiling_stats.total_expected_requests:,} requests "
+                f"({profiling_stats.progress_percent:.1f}%)",
             )
 
+        if not self.records_stats:
+            return stats_table
+
+        error_percent = 0.0
+        if self.records_stats.total_records:
+            error_percent = (
+                (self.records_stats.errors or 0) / self.records_stats.total_records * 100
+            )  # fmt: skip
         error_color = (
             "green" if error_percent == 0 else "red" if error_percent > 10 else "yellow"
         )
-
-        # Add rows to table
-        stats_table.add_row("Status:", status)
-
-        # Progress information
-        stats = self.requests_stats.get(CreditPhase.PROFILING)
-        if stats and stats.total_expected_requests:
-            stats_table.add_row(
-                "Progress:",
-                f"{stats.completed or 0:,} / {stats.total_expected_requests:,} requests "
-                f"({stats.progress_percent:.1f}%)",
-            )
-
-        # Error information
         stats_table.add_row(
             "Errors:",
-            f"[{error_color}]{self.records_stats.errors or 0:,} / {self.records_stats.total_records or 0:,} ({error_percent:.1f}%)[/{error_color}]",
+            f"[{error_color}]{self.records_stats.errors or 0:,} / {self.records_stats.total_records or 0:,} "
+            f"({error_percent:.1f}%)[/{error_color}]",
         )
 
-        # Rates
-        if stats:
-            stats_table.add_row("Request Rate:", f"{stats.per_second or 0:.1f} req/s")
-        stats_table.add_row(
-            "Processing Rate:", f"{self.records_stats.per_second or 0:.1f} req/s"
-        )
-
-        # Timing information
-        if stats and stats.start_ns:
-            stats_table.add_row("Elapsed:", format_duration(stats.elapsed_time))
-        if stats and stats.eta:
-            stats_table.add_row("Profiling ETA:", format_duration(stats.eta))
-        if self.records_stats and self.records_stats.eta:
-            stats_table.add_row("Records ETA:", format_duration(self.records_stats.eta))
+        if not profiling_stats.is_complete:
+            # Display request stats while profiling
+            stats_table.add_row(
+                "Request Rate:", f"{profiling_stats.per_second or 0:.1f} req/s"
+            )
+            if profiling_stats.start_ns:
+                stats_table.add_row(
+                    "Elapsed:", format_duration(profiling_stats.elapsed_time)
+                )
+            if profiling_stats.eta:
+                stats_table.add_row(
+                    "Profiling ETA:", format_duration(profiling_stats.eta)
+                )
+        else:
+            # Display record processing stats after profiling
+            stats_table.add_row(
+                "Processing Rate:", f"{self.records_stats.per_second or 0:.1f} records/sec"
+            )  # fmt: skip
+            if self.records_stats.start_ns:
+                stats_table.add_row(
+                    "Elapsed:", format_duration(self.records_stats.elapsed_time)
+                )
+            if self.records_stats.eta:
+                stats_table.add_row(
+                    "Records ETA:", format_duration(self.records_stats.eta)
+                )
 
         return stats_table

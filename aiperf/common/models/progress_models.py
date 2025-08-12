@@ -56,7 +56,7 @@ class RequestsStats(ComputedStats, CreditPhaseStats):
 
     @property
     def elapsed_time(self) -> float | None:
-        """Get the elapsed time."""
+        """Get the elapsed time in seconds."""
         if self.start_ns is None:
             return None
         return (time.time_ns() - self.start_ns) / NANOS_PER_SECOND
@@ -82,6 +82,13 @@ class RecordsStats(ComputedStats, ProcessingStats):
         if not self.total_expected_requests:
             return None
         return (self.total_records / self.total_expected_requests) * 100
+
+    @property
+    def elapsed_time(self) -> float | None:
+        """Get the elapsed time in seconds."""
+        if self.start_ns is None:
+            return None
+        return (time.time_ns() - self.start_ns) / NANOS_PER_SECOND
 
 
 class WorkerStats(AIPerfBaseModel):

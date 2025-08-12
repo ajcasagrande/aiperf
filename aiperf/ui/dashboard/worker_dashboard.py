@@ -5,6 +5,7 @@ import contextlib
 import time
 from typing import NamedTuple
 
+from pydantic import BaseModel, Field
 from rich.text import Text
 from textual.app import ComposeResult
 from textual.containers import Container, Horizontal, Vertical
@@ -14,50 +15,33 @@ from textual.widgets._data_table import ColumnKey, RowKey
 
 from aiperf.common.aiperf_logger import AIPerfLogger
 from aiperf.common.constants import NANOS_PER_SECOND
-from aiperf.common.enums import CaseInsensitiveStrEnum
-from aiperf.common.models import AIPerfBaseModel, IOCounters, ProcessHealth, WorkerStats
+from aiperf.common.enums import WorkerStatus
+from aiperf.common.models import IOCounters, ProcessHealth, WorkerStats
 from aiperf.ui.utils import format_bytes
 
 _logger = AIPerfLogger(__name__)
 
 
-class WorkerStatus(CaseInsensitiveStrEnum):
-    HEALTHY = "healthy"
-    HIGH_LOAD = "high_load"
-    ERROR = "error"
-    IDLE = "idle"
-    STALE = "stale"
-
-    @property
-    def style(self) -> str:
-        styles = {
-            self.HEALTHY: "bold #6fbc76",
-            self.HIGH_LOAD: "bold yellow",
-            self.ERROR: "bold red",
-            self.IDLE: "dim",
-            self.STALE: "dim white",
-        }
-        return styles[self]
+WORKER_STATUS_STYLES = {
+    WorkerStatus.HEALTHY: "bold #6fbc76",
+    WorkerStatus.HIGH_LOAD: "bold yellow",
+    WorkerStatus.ERROR: "bold red",
+    WorkerStatus.IDLE: "dim",
+    WorkerStatus.STALE: "dim white",
+}
 
 
-class WorkerStatusSummary(AIPerfBaseModel):
-    healthy_count: int = 0
-    warning_count: int = 0
-    error_count: int = 0
-    idle_count: int = 0
-    stale_count: int = 0
+class WorkerStatusSummary(BaseModel):
+    status_counts: dict[WorkerStatus, int] = Field(
+        default_factory=lambda: {status: 0 for status in WorkerStatus},
+        description="The number of workers in each status",
+    )
 
 
 class WorkerData(NamedTuple):
     worker_id: str
     status: WorkerStatus
-    in_progress: int
-    completed: int
-    failed: int
-    cpu_usage: float | None
-    memory_bytes: int | None
-    io_read_bytes: int
-    io_write_bytes: int
+    stats: WorkerStats
 
 
 class WorkerDataProcessor:
@@ -126,15 +110,7 @@ class WorkerDataProcessor:
         return WorkerData(
             worker_id=worker_id,
             status=status,
-            in_progress=worker_stats.tasks.in_progress,
-            completed=worker_stats.tasks.completed,
-            failed=worker_stats.tasks.failed,
-            cpu_usage=worker_stats.health.cpu_usage if worker_stats.health else None,
-            memory_bytes=worker_stats.health.memory_usage
-            if worker_stats.health
-            else None,
-            io_read_bytes=io_read,
-            io_write_bytes=io_write,
+            stats=worker_stats,
         )
 
 
@@ -151,8 +127,8 @@ class WorkerStatusTable(Widget):
     }
     """
 
-    COLUMNS = ["Worker ID", "Status", "Active", "Completed", "Failed", "CPU", "Memory", "Read", "Write"]  # fmt: skip
-    REVERSE_SORT_COLUMNS = {2, 3, 4, 5}  # Active, Completed, Failed, CPU
+    COLUMNS = ["Worker ID", "Status", "In-flight", "Completed", "Failed", "CPU", "Memory", "Read", "Write"]  # fmt: skip
+    REVERSE_SORT_COLUMNS = {2, 3, 4, 5}  # In-flight, Completed, Failed, CPU
 
     def __init__(self) -> None:
         super().__init__()
@@ -209,21 +185,51 @@ class WorkerStatusTable(Widget):
 
     def _format_worker_row(self, worker: WorkerData) -> list[Text]:
         """Format worker data into table row cells."""
-        return [
+        row_data = [
             Text(worker.worker_id, style="bold cyan", justify="right"),
             Text(
-                worker.status.value.replace("_", " ").title(),
-                style=worker.status.style,
+                worker.status.replace("_", " ").title(),
+                style=WORKER_STATUS_STYLES[worker.status],
                 justify="right",
             ),
-            Text(f"{worker.in_progress:,}", justify="right"),
-            Text(f"{worker.completed:,}", justify="right"),
-            Text(f"{worker.failed:,}", justify="right"),
-            Text(self._format_cpu(worker.cpu_usage), justify="right"),
-            Text(self._format_memory(worker.memory_bytes), justify="right"),
-            Text(format_bytes(worker.io_read_bytes), justify="right"),
-            Text(format_bytes(worker.io_write_bytes), justify="right"),
+            Text(f"{worker.stats.tasks.in_progress:,}", justify="right"),
+            Text(f"{worker.stats.tasks.completed:,}", justify="right"),
+            Text(f"{worker.stats.tasks.failed:,}", justify="right"),
         ]
+
+        health = worker.stats.health
+        if not health:
+            row_data.extend(
+                [
+                    Text("N/A", justify="right"),
+                    Text("N/A", justify="right"),
+                    Text("N/A", justify="right"),
+                    Text("N/A", justify="right"),
+                ]
+            )
+            return row_data
+
+        row_data.extend(
+            [
+                Text(self._format_cpu(health.cpu_usage), justify="right"),
+                Text(self._format_memory(health.memory_usage), justify="right"),
+            ]
+        )
+        if health.io_counters:
+            row_data.extend(
+                [
+                    Text(format_bytes(health.io_counters.read_chars), justify="right"),
+                    Text(format_bytes(health.io_counters.write_chars), justify="right"),
+                ]
+            )
+        else:
+            row_data.extend(
+                [
+                    Text("N/A", justify="right"),
+                    Text("N/A", justify="right"),
+                ]
+            )
+        return row_data
 
     def _update_single_row(self, worker_data: WorkerData, row_key: RowKey) -> bool:
         """Update a single row's cells."""
@@ -353,10 +359,17 @@ class WorkerDashboard(Container):
     .summary-item { margin: 0 1; }
     .summary-title { text-style: bold; }
     .summary-healthy { color: $success; text-style: bold; }
-    .summary-warning { color: $warning; text-style: bold; }
+    .summary-high-load { color: $warning; text-style: bold; }
     .summary-error { color: $error; text-style: bold; }
     .summary-idle { color: $text-muted; }
     .summary-stale { color: $surface-darken-1; }
+
+    #worker-dashboard-content.no-workers {
+        height: 1fr;
+        content-align: center middle;
+        color: $warning;
+        text-style: italic;
+    }
 
     #table-section {
         height: 1fr;
@@ -377,34 +390,19 @@ class WorkerDashboard(Container):
         self._processor = WorkerDataProcessor(
             stale_threshold, error_rate_threshold, high_cpu_threshold
         )
+        self.received_worker_stats = False
 
     def compose(self) -> ComposeResult:
-        with Vertical():
+        with Vertical(id="worker-dashboard-content", classes="no-workers"):
             with Horizontal(id="summary-content"):
                 yield Label("Summary: ", classes="summary-item summary-title")
-                yield Label(
-                    "0 healthy",
-                    id="healthy-count",
-                    classes="summary-item summary-healthy",
-                )
-                yield Label("•", classes="summary-item")
-                yield Label(
-                    "0 high load",
-                    id="warning-count",
-                    classes="summary-item summary-warning",
-                )
-                yield Label("•", classes="summary-item")
-                yield Label(
-                    "0 errors", id="error-count", classes="summary-item summary-error"
-                )
-                yield Label("•", classes="summary-item")
-                yield Label(
-                    "0 idle", id="idle-count", classes="summary-item summary-idle"
-                )
-                yield Label("•", classes="summary-item")
-                yield Label(
-                    "0 stale", id="stale-count", classes="summary-item summary-stale"
-                )
+                for status in WorkerStatus:
+                    yield Label(
+                        f"0 {status.replace('_', ' ')}",
+                        id=f"{status.replace('_', '-').lower()}-count",
+                        classes=f"summary-item summary-{status.replace('_', '-').lower()}",
+                    )
+                    yield Label("•", classes="summary-item")
 
             with Container(id="table-section"):
                 self.table_widget = WorkerStatusTable()
@@ -412,6 +410,10 @@ class WorkerDashboard(Container):
 
     def on_worker_stats_update(self, worker_id: str, worker_stats: WorkerStats) -> None:
         """Handle individual worker updates."""
+        if not self.received_worker_stats:
+            self.received_worker_stats = True
+            self.query_one("#worker-dashboard-content").remove_class("no-workers")
+
         self.worker_stats[worker_id] = worker_stats
         worker_data = self._processor.process_worker_data(worker_id, worker_stats)
 
@@ -428,18 +430,7 @@ class WorkerDashboard(Container):
         for worker_id, worker_stats in sorted(self.worker_stats.items()):
             worker_data = self._processor.process_worker_data(worker_id, worker_stats)
             workers_data.append(worker_data)
-
-            # Update summary counts
-            if worker_data.status == WorkerStatus.HEALTHY:
-                summary.healthy_count += 1
-            elif worker_data.status == WorkerStatus.HIGH_LOAD:
-                summary.warning_count += 1
-            elif worker_data.status == WorkerStatus.ERROR:
-                summary.error_count += 1
-            elif worker_data.status == WorkerStatus.IDLE:
-                summary.idle_count += 1
-            elif worker_data.status == WorkerStatus.STALE:
-                summary.stale_count += 1
+            summary.status_counts[worker_data.status] += 1
 
         return workers_data, summary
 
@@ -450,17 +441,11 @@ class WorkerDashboard(Container):
         else:
             _, summary = self._process_all_workers()
 
-        updates = [
-            ("healthy-count", f"{summary.healthy_count} healthy"),
-            ("warning-count", f"{summary.warning_count} high load"),
-            ("error-count", f"{summary.error_count} errors"),
-            ("idle-count", f"{summary.idle_count} idle"),
-            ("stale-count", f"{summary.stale_count} stale"),
-        ]
-
-        for label_id, text in updates:
+        for status in WorkerStatus:
             with contextlib.suppress(Exception):
-                self.query_one(f"#{label_id}", Label).update(text)
+                self.query_one(
+                    f"#{status.replace('_', '-').lower()}-count", Label
+                ).update(f"{summary.status_counts[status]} {status.replace('_', ' ')}")
 
     def _refresh_display(self) -> None:
         """Full refresh display."""

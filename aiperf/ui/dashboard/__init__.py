@@ -28,10 +28,10 @@ from aiperf.ui.dashboard.rich_log_viewer import (
     RichLogViewer,
 )
 from aiperf.ui.dashboard.worker_dashboard import (
+    WORKER_STATUS_STYLES,
     WorkerDashboard,
     WorkerData,
     WorkerDataProcessor,
-    WorkerStatus,
     WorkerStatusSummary,
     WorkerStatusTable,
 )
@@ -44,10 +44,10 @@ __all__ = [
     "LogConsumer",
     "ProgressDashboard",
     "RichLogViewer",
+    "WORKER_STATUS_STYLES",
     "WorkerDashboard",
     "WorkerData",
     "WorkerDataProcessor",
-    "WorkerStatus",
     "WorkerStatusSummary",
     "WorkerStatusTable",
 ]
