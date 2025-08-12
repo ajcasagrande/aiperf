@@ -22,8 +22,6 @@ from aiperf.ui.dashboard import (
     ProgressDashboard,
     RichLogViewer,
     WorkerDashboard,
-    WorkerData,
-    WorkerStatusSummary,
     WorkerStatusTable,
 )
 from aiperf.ui.no_ui import (
@@ -52,8 +50,6 @@ __all__ = [
     "TQDMProgressUI",
     "WORKER_STATUS_STYLES",
     "WorkerDashboard",
-    "WorkerData",
-    "WorkerStatusSummary",
     "WorkerStatusTable",
     "format_bytes",
     "format_duration",

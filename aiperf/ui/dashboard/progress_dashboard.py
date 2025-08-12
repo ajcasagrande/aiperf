@@ -69,7 +69,7 @@ class ProgressDashboard(Container):
             MofNCompleteColumn(),
             TimeElapsedColumn(),
             TimeRemainingColumn(),
-            expand=True,
+            expand=False,
         )
 
         self.task_ids: dict[str, TaskID] = {}
@@ -199,11 +199,15 @@ class ProgressDashboard(Container):
             f"({error_percent:.1f}%)[/{error_color}]",
         )
 
+        stats_table.add_row(
+            "Request Rate:", f"{self.profiling_stats.per_second or 0:.1f} requests/s"
+        )
+        stats_table.add_row(
+            "Processing Rate:", f"{self.records_stats.per_second or 0:.1f} records/s"
+        )
+
         if not self.profiling_stats.is_complete:
             # Display request stats while profiling
-            stats_table.add_row(
-                "Request Rate:", f"{self.profiling_stats.per_second or 0:.1f} req/s"
-            )
             if self.profiling_stats.start_ns:
                 stats_table.add_row(
                     "Elapsed:", format_duration(self.profiling_stats.elapsed_time)
@@ -214,9 +218,6 @@ class ProgressDashboard(Container):
                 )
         else:
             # Display record processing stats after profiling
-            stats_table.add_row(
-                "Processing Rate:", f"{self.records_stats.per_second or 0:.1f} records/sec"
-            )  # fmt: skip
             if self.records_stats.start_ns:
                 stats_table.add_row(
                     "Elapsed:", format_duration(self.records_stats.elapsed_time)
