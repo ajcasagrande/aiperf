@@ -11,6 +11,7 @@ from aiperf.common.enums import (
     CommClientType,
     CommunicationBackend,
     ComposerType,
+    ConsoleExporterType,
     CustomDatasetType,
     DataExporterType,
     EndpointType,
@@ -20,7 +21,6 @@ from aiperf.common.enums import (
     ServiceType,
     ZMQProxyType,
 )
-from aiperf.common.enums.data_exporter_enums import ConsoleExporterType
 from aiperf.common.exceptions import (
     FactoryCreationError,
     InvalidOperationError,
