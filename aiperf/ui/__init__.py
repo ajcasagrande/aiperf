@@ -38,6 +38,10 @@ from aiperf.ui.tqdm_ui import (
     ProgressBar,
     TQDMProgressUI,
 )
+from aiperf.ui.utils import (
+    format_bytes,
+    format_duration,
+)
 
 __all__ = [
     "AIPERF_THEME",
@@ -59,4 +63,6 @@ __all__ = [
     "WorkerStatus",
     "WorkerStatusSummary",
     "WorkerStatusTable",
+    "format_bytes",
+    "format_duration",
 ]

@@ -31,9 +31,14 @@ class AIPerfDashboardUI(BaseAIPerfUI):
     """
     AIPerf Dashboard UI.
 
-    This is the main UI class for the Dashboard UI. It is responsible for
-    managing the Dashboard application, its lifecycle, and passing the
-    progress updates to the application.
+    This is the main Dashboard UI class that implements the AIPerfUIProtocol. It is
+    responsible for managing the Textual App, its lifecycle, and passing the progress
+    updates to the Textual App. It also manages the lifecycle of the log consumer,
+    which is responsible for consuming log records from the shared log queue and
+    displaying them in the log viewer.
+
+    The reason for this wrapper is that the internal lifecycle of the Textual App is
+    handled by Textual, and it is not fully compatible with our AIPerf lifecycle.
     """
 
     def __init__(
@@ -45,46 +50,36 @@ class AIPerfDashboardUI(BaseAIPerfUI):
         super().__init__(user_config=user_config, **kwargs)
         self.user_config = user_config
         self.app: AIPerfTextualApp = AIPerfTextualApp()
+        # Setup the log consumer to consume log records from the shared log queue
         self.log_consumer: LogConsumer = LogConsumer(log_queue=log_queue, app=self.app)
-        self.attach_child_lifecycle(self.log_consumer)
+        self.attach_child_lifecycle(self.log_consumer)  # type: ignore
 
     @on_start
     async def _run_app(self) -> None:
         """Run the enhanced Dashboard application."""
         self.debug("Starting AIPerf Dashboard UI...")
+        # Start the Textual App in the background
         self.execute_async(self.app.run_async())
 
     @on_stop
     async def _on_stop(self) -> None:
         """Stop the Dashboard application gracefully."""
-        if self.app:
-            self.debug("Shutting down Dashboard UI")
-            self.app.exit(return_code=0)
+        self.debug("Shutting down Dashboard UI")
+        self.app.exit(return_code=0)
 
     @on_records_progress
-    async def _on_records_progress(self, records_stats: RecordsStats):
-        """Callback for records progress updates."""
-        if self.app.overview_progress:
-            self.app.overview_progress.on_records_progress(records_stats)
-        if self.app.progress_dashboard:
-            self.app.progress_dashboard.on_records_progress(records_stats)
+    async def _on_records_progress(self, records_stats: RecordsStats) -> None:
+        """Forward records progress updates to the Textual App."""
+        await self.app.on_records_progress(records_stats)
 
     @on_requests_phase_progress
     async def _on_requests_phase_progress(
         self, phase: CreditPhase, requests_stats: RequestsStats
-    ):
-        """Callback for requests phase progress updates."""
-        if self.app.overview_progress:
-            self.app.overview_progress.on_requests_phase_progress(phase, requests_stats)
-        if self.app.progress_dashboard:
-            self.app.progress_dashboard.on_requests_phase_progress(
-                phase, requests_stats
-            )
+    ) -> None:
+        """Forward requests phase progress updates to the Textual App."""
+        await self.app.on_requests_phase_progress(phase, requests_stats)
 
     @on_worker_update
     async def _on_worker_update(self, worker_id: str, worker_stats: WorkerStats):
-        """Callback for worker updates."""
-        if self.app.overview_workers:
-            self.app.overview_workers.on_worker_stats_update(worker_id, worker_stats)
-        if self.app.worker_dashboard:
-            self.app.worker_dashboard.on_worker_stats_update(worker_id, worker_stats)
+        """Forward worker updates to the Textual App."""
+        await self.app.on_worker_update(worker_id, worker_stats)

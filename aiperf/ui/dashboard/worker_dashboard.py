@@ -16,7 +16,7 @@ from aiperf.common.aiperf_logger import AIPerfLogger
 from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import CaseInsensitiveStrEnum
 from aiperf.common.models import AIPerfBaseModel, IOCounters, ProcessHealth, WorkerStats
-from aiperf.common.utils import format_bytes
+from aiperf.ui.utils import format_bytes
 
 _logger = AIPerfLogger(__name__)
 

@@ -23,7 +23,7 @@ from textual.widgets import Static
 
 from aiperf.common.enums import CreditPhase
 from aiperf.common.models import RecordsStats, RequestsStats
-from aiperf.common.utils import format_duration
+from aiperf.ui.utils import format_duration
 
 
 class ProgressDashboard(Container):

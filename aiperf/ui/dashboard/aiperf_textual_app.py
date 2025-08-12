@@ -10,6 +10,8 @@ from textual.containers import Container, Horizontal, Vertical
 from textual.widgets import Footer, TabbedContent, TabPane
 
 from aiperf.common.aiperf_logger import AIPerfLogger
+from aiperf.common.enums import CreditPhase
+from aiperf.common.models import RecordsStats, RequestsStats, WorkerStats
 from aiperf.ui.dashboard.aiperf_theme import AIPERF_THEME
 from aiperf.ui.dashboard.custom_header import CustomHeader
 from aiperf.ui.dashboard.progress_dashboard import ProgressDashboard
@@ -104,6 +106,29 @@ class AIPerfTextualApp(App):
                 yield self.log_viewer
 
         yield Footer()
+
+    async def on_requests_phase_progress(
+        self, phase: CreditPhase, requests_stats: RequestsStats
+    ) -> None:
+        """Update the overview and progress dashboard with the requests phase progress."""
+        if self.overview_progress:
+            self.overview_progress.on_requests_phase_progress(phase, requests_stats)
+        if self.progress_dashboard:
+            self.progress_dashboard.on_requests_phase_progress(phase, requests_stats)
+
+    async def on_records_progress(self, records_stats: RecordsStats) -> None:
+        """Update the overview and progress dashboard with the records progress."""
+        if self.overview_progress:
+            self.overview_progress.on_records_progress(records_stats)
+        if self.progress_dashboard:
+            self.progress_dashboard.on_records_progress(records_stats)
+
+    async def on_worker_update(self, worker_id: str, worker_stats: WorkerStats) -> None:
+        """Update the overview and worker dashboard with the worker update."""
+        if self.overview_workers:
+            self.overview_workers.on_worker_stats_update(worker_id, worker_stats)
+        if self.worker_dashboard:
+            self.worker_dashboard.on_worker_stats_update(worker_id, worker_stats)
 
     async def action_switch_tab(self, tab_id: str) -> None:
         """Switch to a specific tab."""
