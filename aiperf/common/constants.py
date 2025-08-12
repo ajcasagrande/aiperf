@@ -24,6 +24,12 @@ TASK_CANCEL_TIMEOUT_LONG = 5.0
 DEFAULT_COMMS_REQUEST_TIMEOUT = 90.0
 """Default timeout for requests from req_clients to rep_clients in seconds."""
 
+DEFAULT_MAX_REQUEST_QUEUE_SIZE = 1_000_000
+"""Maximum size of the request queue for a ZMQ Dealer/Router socket."""
+
+DEFAULT_MAX_RESPONSE_QUEUE_SIZE = 1_000_000
+"""Maximum size of the response queue for a ZMQ Router/Dealer socket."""
+
 DEFAULT_PULL_CLIENT_MAX_CONCURRENCY = 100_000
 """Default maximum concurrency for pull clients."""
 

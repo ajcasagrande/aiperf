@@ -2,17 +2,18 @@
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
 import uuid
-from collections.abc import Callable, Coroutine
-from typing import Any
 
 import zmq.asyncio
 
-from aiperf.common.constants import DEFAULT_COMMS_REQUEST_TIMEOUT
+from aiperf.common.constants import (
+    DEFAULT_COMMS_REQUEST_TIMEOUT,
+    DEFAULT_MAX_REQUEST_QUEUE_SIZE,
+    DEFAULT_MAX_RESPONSE_QUEUE_SIZE,
+)
 from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import CommClientType
-from aiperf.common.exceptions import CommunicationError
 from aiperf.common.factories import CommunicationClientFactory
-from aiperf.common.hooks import background_task, on_stop
+from aiperf.common.hooks import background_task
 from aiperf.common.messages import Message
 from aiperf.common.mixins import TaskManagerMixin
 from aiperf.common.protocols import RequestClientProtocol
@@ -42,6 +43,16 @@ class ZMQDealerRequestClient(BaseZMQClient, TaskManagerMixin):
 
     DEALER/ROUTER is a Many-to-One communication pattern. If you need Many-to-Many,
     use a ZMQ Proxy as well. see :class:`ZMQDealerRouterProxy` for more details.
+
+
+    Message Flow:
+        `request` -> call `request_async` -> put request in queue, and return future to `request`
+        `request` -> wait for response from future (with timeout) -> return response
+
+        Async Tasks:
+        `_request_queue_processor` -> get request from queue, and send request to socket
+        `_socket_receiver_task` -> receive responses from socket, and put in response queue
+        `_response_queue_processor` -> get response from queue, and set result on future
     """
 
     def __init__(
@@ -61,68 +72,133 @@ class ZMQDealerRequestClient(BaseZMQClient, TaskManagerMixin):
         """
         super().__init__(zmq.SocketType.DEALER, address, bind, socket_ops, **kwargs)
 
-        self.request_callbacks: dict[
-            str, Callable[[Message], Coroutine[Any, Any, None]]
-        ] = {}
+        self._request_futures: dict[str, asyncio.Future[Message]] = {}
+
+        self._request_queue: asyncio.Queue[
+            tuple[str, Message, asyncio.Future[Message]]
+        ] = asyncio.Queue(maxsize=DEFAULT_MAX_REQUEST_QUEUE_SIZE)
+        self._response_queue: asyncio.Queue[tuple[str, Message]] = asyncio.Queue(
+            maxsize=DEFAULT_MAX_RESPONSE_QUEUE_SIZE
+        )
 
     @background_task(immediate=True, interval=None)
-    async def _request_async_task(self) -> None:
-        """Task to handle incoming requests."""
+    async def _request_queue_processor(self) -> None:
+        """Task to process requests from the request queue."""
+        _id_debug_enabled = self.is_debug_enabled
+        while not self.stop_requested:
+            got_request = False
+            try:
+                request_id, request, future = await self._request_queue.get()
+                got_request = True
+
+                if request_id in self._request_futures:
+                    self.warning(
+                        f"Dealer request client request queue processor task got duplicate request {request_id}. Dropping request."
+                    )
+                    continue
+
+                self._request_futures[request_id] = future
+                await self.socket.send_string(request.model_dump_json())
+                if _id_debug_enabled:
+                    self.debug(
+                        f"Dealer request client request queue processor task sent request {request_id} to socket."
+                    )
+            except asyncio.CancelledError:
+                self.debug(
+                    "Dealer request client request queue processor task cancelled"
+                )
+                break
+            except Exception as e:
+                self.error(f"Exception processing request from queue: {e!r}")
+                await yield_to_event_loop()
+            finally:
+                if got_request:
+                    self._request_queue.task_done()
+
+    @background_task(immediate=True, interval=None)
+    async def _response_queue_processor(self) -> None:
+        """Task to process responses from the response queue."""
+        while not self.stop_requested:
+            got_response = False
+            try:
+                request_id, response = await self._response_queue.get()
+                got_response = True
+
+                if request_id in self._request_futures:
+                    future = self._request_futures.pop(request_id)
+                    future.set_result(response)
+                else:
+                    self.warning(
+                        f"Dealer request client response queue processor task got response for unknown request {request_id}. Dropping response."
+                    )
+            except asyncio.CancelledError:
+                self.debug(
+                    "Dealer request client response queue processor task cancelled"
+                )
+                break
+            except Exception as e:
+                self.error(f"Exception processing response from queue: {e!r}")
+                await yield_to_event_loop()
+            finally:
+                if got_response:
+                    self._response_queue.task_done()
+
+    @background_task(immediate=True, interval=None)
+    async def _socket_receiver_task(self) -> None:
+        """Task to handle receiving responses from the socket."""
+        # cache the trace enabled state to avoid re-checking it on every iteration
+        _is_trace_enabled = self.is_trace_enabled
         while not self.stop_requested:
             try:
                 message = await self.socket.recv_string()
-                self.trace(lambda msg=message: f"Received response: {msg}")
-                response_message = Message.from_json(message)
+                if _is_trace_enabled:
+                    self.trace(f"Received response: {message}")
 
-                # Call the callback if it exists
-                if response_message.request_id in self.request_callbacks:
-                    callback = self.request_callbacks.pop(response_message.request_id)
-                    self.execute_async(callback(response_message))
+                response_message = Message.from_json(message)
+                try:
+                    self._response_queue.put_nowait(
+                        (response_message.request_id, response_message)
+                    )
+                except asyncio.QueueFull:
+                    self.warning(
+                        f"Dealer request client response queue is full for request {response_message.request_id}. "
+                        "Waiting for an open slot. This will cause back pressure."
+                    )
+                    await self._response_queue.put(
+                        (response_message.request_id, response_message)
+                    )
+                    self.info(
+                        "Dealer request client _socket_receiver_task put response in queue."
+                    )
 
             except zmq.Again:
                 self.debug("No data on dealer socket received, yielding to event loop")
                 await yield_to_event_loop()
             except Exception as e:
-                self.exception(f"Exception receiving responses: {e}")
+                self.error(f"Exception receiving responses: {e!r}")
                 await yield_to_event_loop()
             except asyncio.CancelledError:
                 self.debug("Dealer request client receiver task cancelled")
-                raise  # re-raise the cancelled error
+                break
 
-    @on_stop
-    async def _stop_remaining_tasks(self) -> None:
-        """Wait for all tasks to complete."""
-        await self.cancel_all_tasks()
-
-    async def request_async(
-        self,
-        message: Message,
-        callback: Callable[[Message], Coroutine[Any, Any, None]],
-    ) -> None:
-        """Send a request and be notified when the response is received."""
-        await self._check_initialized()
-
-        if not isinstance(message, Message):
-            raise TypeError(
-                f"message must be an instance of Message, got {type(message).__name__}"
-            )
+    async def request_async(self, message: Message) -> asyncio.Future[Message]:
+        """Send a request and get a future for the response."""
 
         # Generate request ID if not provided so that responses can be matched
         if not message.request_id:
             message.request_id = str(uuid.uuid4())
 
-        self.request_callbacks[message.request_id] = callback
-
-        request_json = message.model_dump_json()
-        self.trace(lambda msg=request_json: f"Sending request: {msg}")
-
+        future = asyncio.Future[Message]()
         try:
-            await self.socket.send_string(request_json)
-
-        except Exception as e:
-            raise CommunicationError(
-                f"Exception sending request: {e.__class__.__qualname__} {e}",
-            ) from e
+            self._request_queue.put_nowait((message.request_id, message, future))
+        except asyncio.QueueFull:
+            self.error(
+                f"Dealer request client request queue is full for request {message.request_id}. "
+                "Waiting for an open slot. This will cause back pressure."
+            )
+            await self._request_queue.put((message.request_id, message, future))
+            self.info("Dealer request client put request in queue.")
+        return future
 
     async def request(
         self,
@@ -142,10 +218,5 @@ class ZMQDealerRequestClient(BaseZMQClient, TaskManagerMixin):
             CommunicationError: if the request fails, or
             asyncio.TimeoutError: if the response is not received in time.
         """
-        future = asyncio.Future[Message]()
-
-        async def callback(response_message: Message) -> None:
-            future.set_result(response_message)
-
-        await self.request_async(message, callback)
+        future = await self.request_async(message)
         return await asyncio.wait_for(future, timeout=timeout)
