@@ -66,6 +66,12 @@ class EndpointType(BasePydanticBackedStrEnum):
         endpoint_path="/v1/responses",
         metrics_title="LLM Metrics",
     )
+    NONE = EndpointTypeInfo(
+        tag="none",
+        supports_streaming=False,
+        produces_tokens=False,
+        endpoint_path="/",
+    )
 
     @cached_property
     def info(self) -> EndpointTypeInfo:

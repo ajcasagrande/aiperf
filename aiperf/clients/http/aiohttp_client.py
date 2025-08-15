@@ -52,6 +52,33 @@ class AioHttpClientMixin(AIPerfLoggerMixin):
             await self.tcp_connector.close()
             self.tcp_connector = None
 
+    def get_headers(self, model_endpoint: ModelEndpointInfo) -> dict[str, str]:
+        """Get the headers for the given endpoint."""
+
+        accept = (
+            "text/event-stream"
+            if model_endpoint.endpoint.streaming
+            else "application/json"
+        )
+
+        headers = {
+            "User-Agent": "aiperf/1.0",
+            "Content-Type": "application/json",
+            "Accept": accept,
+        }
+        if model_endpoint.endpoint.api_key:
+            headers["Authorization"] = f"Bearer {model_endpoint.endpoint.api_key}"
+        if model_endpoint.endpoint.headers:
+            headers.update(model_endpoint.endpoint.headers)
+        return headers
+
+    def get_url(self, model_endpoint: ModelEndpointInfo) -> str:
+        """Get the URL for the given endpoint."""
+        url = model_endpoint.url
+        if not url.startswith("http"):
+            url = f"http://{url}"
+        return url
+
     async def post_request(
         self,
         url: str,

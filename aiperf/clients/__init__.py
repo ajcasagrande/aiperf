@@ -12,6 +12,8 @@ from aiperf.clients.http import (
     AioHttpClientMixin,
     AioHttpDefaults,
     AioHttpSSEStreamReader,
+    NoneClient,
+    NoneRequestConverter,
     SocketDefaults,
 )
 from aiperf.clients.model_endpoint_info import (
@@ -38,6 +40,8 @@ __all__ = [
     "ModelEndpointInfo",
     "ModelInfo",
     "ModelListInfo",
+    "NoneClient",
+    "NoneRequestConverter",
     "OpenAIChatCompletionRequestConverter",
     "OpenAIClientAioHttp",
     "OpenAICompletionRequestConverter",

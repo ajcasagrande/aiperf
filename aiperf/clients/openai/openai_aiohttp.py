@@ -1,10 +1,11 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-import json
 import time
 from abc import ABC
 from typing import Any
+
+import orjson
 
 from aiperf.clients.http.aiohttp_client import AioHttpClientMixin
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
@@ -27,33 +28,6 @@ class OpenAIClientAioHttp(AioHttpClientMixin, AIPerfLoggerMixin, ABC):
         super().__init__(model_endpoint, **kwargs)
         self.model_endpoint = model_endpoint
 
-    def get_headers(self, model_endpoint: ModelEndpointInfo) -> dict[str, str]:
-        """Get the headers for the given endpoint."""
-
-        accept = (
-            "text/event-stream"
-            if model_endpoint.endpoint.streaming
-            else "application/json"
-        )
-
-        headers = {
-            "User-Agent": "aiperf/1.0",
-            "Content-Type": "application/json",
-            "Accept": accept,
-        }
-        if model_endpoint.endpoint.api_key:
-            headers["Authorization"] = f"Bearer {model_endpoint.endpoint.api_key}"
-        if model_endpoint.endpoint.headers:
-            headers.update(model_endpoint.endpoint.headers)
-        return headers
-
-    def get_url(self, model_endpoint: ModelEndpointInfo) -> str:
-        """Get the URL for the given endpoint."""
-        url = model_endpoint.url
-        if not url.startswith("http"):
-            url = f"http://{url}"
-        return url
-
     async def send_request(
         self,
         model_endpoint: ModelEndpointInfo,
@@ -70,7 +44,7 @@ class OpenAIClientAioHttp(AioHttpClientMixin, AIPerfLoggerMixin, ABC):
 
             record = await self.post_request(
                 self.get_url(model_endpoint),
-                json.dumps(payload),
+                orjson.dumps(payload).decode("utf-8"),
                 self.get_headers(model_endpoint),
             )
             record.request = payload
