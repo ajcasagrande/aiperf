@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+import asyncio
+import random
 
 from aiperf.common.base_component_service import BaseComponentService
 from aiperf.common.config import ServiceConfig, UserConfig
@@ -16,6 +18,7 @@ from aiperf.common.exceptions import InvalidStateError
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import (
     on_command,
+    on_message,
     on_pull_message,
     on_stop,
 )
@@ -24,12 +27,14 @@ from aiperf.common.messages import (
     CommandMessage,
     CreditDropMessage,
     CreditReturnMessage,
+    DatasetBroadcastMessage,
     DatasetTimingRequest,
     DatasetTimingResponse,
     ProfileCancelCommand,
     ProfileConfigureCommand,
 )
 from aiperf.common.mixins import PullClientMixin
+from aiperf.common.models.dataset_models import Conversation
 from aiperf.common.protocols import (
     PushClientProtocol,
     RequestClientProtocol,
@@ -83,6 +88,12 @@ class TimingManager(PullClientMixin, BaseComponentService, CreditPhaseMessagesMi
         )
 
         self._credit_issuing_strategy: CreditIssuingStrategy | None = None
+        self.dataset_configured_event = asyncio.Event()
+        self.dataset: dict[str, Conversation] | None = None
+        self.dataset_keys: list[str] | None = None
+        self.dataset_rng: random.Random = random.Random(
+            self.user_config.input.random_seed
+        )
 
     @on_command(CommandType.PROFILE_CONFIGURE)
     async def _profile_configure_command(
@@ -90,6 +101,9 @@ class TimingManager(PullClientMixin, BaseComponentService, CreditPhaseMessagesMi
     ) -> None:
         """Configure the timing manager."""
         self.debug(f"Configuring credit issuing strategy for {self.service_id}")
+
+        # Wait for the dataset to be configured before letting the timing manager know that it is ready
+        await self.dataset_configured_event.wait()
 
         if self.config.timing_mode == TimingMode.FIXED_SCHEDULE:
             # This will block until the dataset is ready and the timing response is received
@@ -155,6 +169,14 @@ class TimingManager(PullClientMixin, BaseComponentService, CreditPhaseMessagesMi
         )
         if self._credit_issuing_strategy:
             await self._credit_issuing_strategy.stop()
+
+    @on_message(MessageType.DATASET_BROADCAST)
+    async def _handle_dataset_broadcast(self, message: DatasetBroadcastMessage) -> None:
+        """Handle a dataset broadcast message."""
+        self.debug("Received dataset broadcast message")
+        self.dataset = message.dataset
+        self.dataset_keys = list(self.dataset.keys())
+        self.dataset_configured_event.set()
 
     @on_stop
     async def _timing_manager_stop(self) -> None:

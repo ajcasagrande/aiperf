@@ -54,10 +54,22 @@ class RequestRateStrategy(CreditIssuingStrategy):
                 if not phase_stats.should_send():
                     # Check one last time to see if we should still send a credit in case the
                     # time-based phase has expired while waiting for the semaphore.
+                    self._semaphore.release()
+                    if self.is_trace_enabled:
+                        self.trace(
+                            f"Released credit drop semaphore: {self._semaphore!r}"
+                        )
                     break
 
+            # Drop the credit
+            conversation_id = self.credit_manager.dataset_rng.choice(
+                self.credit_manager.dataset_keys
+            )  # type: ignore
             self.execute_async(
-                self.credit_manager.drop_credit(credit_phase=phase_stats.type)
+                self.credit_manager.drop_credit(
+                    credit_phase=phase_stats.type,
+                    conversation_id=conversation_id,
+                )
             )
             phase_stats.sent += 1
 

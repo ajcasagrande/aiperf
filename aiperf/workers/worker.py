@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import asyncio
-import random
 
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.base_component_service import BaseComponentService
@@ -105,10 +104,6 @@ class Worker(
             model_endpoint=self.model_endpoint,
         )
         self.dataset: dict[str, Conversation] | None = None
-        self.dataset_keys: list[str] | None = None
-        self.dataset_rng: random.Random = random.Random(
-            self.user_config.input.random_seed
-        )
         self.dataset_configured_event = asyncio.Event()
 
     @on_pull_message(MessageType.CREDIT_DROP)
@@ -122,9 +117,6 @@ class Worker(
         )
 
         try:
-            if message.conversation_id is None:
-                message.conversation_id = self.dataset_rng.choice(self.dataset_keys)
-
             # NOTE: This must be awaited to ensure that the max concurrency is respected
             credit_return_message = await self._process_credit_drop_internal(message)
         except Exception as e:
@@ -181,7 +173,6 @@ class Worker(
         """Handle a dataset broadcast message."""
         self.debug("Received dataset broadcast message")
         self.dataset = message.dataset
-        self.dataset_keys = list(self.dataset.keys())
         self.dataset_configured_event.set()
 
 

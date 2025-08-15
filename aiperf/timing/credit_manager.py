@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+import random
 from typing import Protocol, runtime_checkable
 
 from aiperf.common.enums import CreditPhase
@@ -12,6 +13,7 @@ from aiperf.common.messages import (
     CreditsCompleteMessage,
 )
 from aiperf.common.mixins import MessageBusClientMixin
+from aiperf.common.models.dataset_models import Conversation
 from aiperf.common.protocols import AIPerfLoggerProtocol, PubClientProtocol
 
 
@@ -22,6 +24,10 @@ class CreditManagerProtocol(PubClientProtocol, Protocol):
     This is used to allow the credit issuing strategy to interact with the TimingManager
     in a decoupled way.
     """
+
+    dataset_rng: random.Random
+    dataset: dict[str, Conversation]
+    dataset_keys: list[str]
 
     async def drop_credit(
         self,
