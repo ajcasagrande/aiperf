@@ -10,6 +10,7 @@ import aiohttp
 from aiperf.clients.http.defaults import AioHttpDefaults, SocketDefaults
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.enums import SSEFieldType
+from aiperf.common.exceptions import NotInitializedError
 from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.common.models import (
     ErrorDetails,
@@ -46,11 +47,26 @@ class AioHttpClientMixin(AIPerfLoggerMixin):
             ceil_threshold=self.model_endpoint.endpoint.timeout,
         )
 
+        self.session: aiohttp.ClientSession | None = None
+
     async def close(self) -> None:
         """Close the client."""
         if self.tcp_connector:
             await self.tcp_connector.close()
             self.tcp_connector = None
+
+    def initialize_session(self, headers: dict[str, str]) -> None:
+        self.session = aiohttp.ClientSession(
+            connector=self.tcp_connector,
+            timeout=self.timeout,
+            headers=headers,
+            skip_auto_headers=[
+                *list(headers.keys()),
+                "User-Agent",
+                "Accept-Encoding",
+            ],
+            connector_owner=False,
+        )
 
     async def post_request(
         self,
@@ -72,52 +88,44 @@ class AioHttpClientMixin(AIPerfLoggerMixin):
         )
 
         try:
+            if not self.session:
+                raise NotInitializedError("Session not initialized")
+
             # Make raw HTTP request with precise timing using aiohttp
-            async with aiohttp.ClientSession(
-                connector=self.tcp_connector,
-                timeout=self.timeout,
-                headers=headers,
-                skip_auto_headers=[
-                    *list(headers.keys()),
-                    "User-Agent",
-                    "Accept-Encoding",
-                ],
-                connector_owner=False,
-            ) as session:
-                record.start_perf_ns = time.perf_counter_ns()
-                async with session.post(
-                    url, data=payload, headers=headers, **kwargs
-                ) as response:
-                    record.status = response.status
-                    # Check for HTTP errors
-                    if response.status != 200:
-                        error_text = await response.text()
-                        record.error = ErrorDetails(
-                            code=response.status,
-                            type=response.reason,
-                            message=error_text,
-                        )
-                        return record
+            record.start_perf_ns = time.perf_counter_ns()
+            async with self.session.post(
+                url, data=payload, headers=headers, **kwargs
+            ) as response:
+                record.status = response.status
+                # Check for HTTP errors
+                if response.status != 200:
+                    error_text = await response.text()
+                    record.error = ErrorDetails(
+                        code=response.status,
+                        type=response.reason,
+                        message=error_text,
+                    )
+                    return record
 
-                    record.recv_start_perf_ns = time.perf_counter_ns()
+                record.recv_start_perf_ns = time.perf_counter_ns()
 
-                    if response.content_type == "text/event-stream":
-                        # Parse SSE stream with optimal performance
-                        messages = await AioHttpSSEStreamReader(
-                            response
-                        ).read_complete_stream()
-                        record.responses.extend(messages)
-                    else:
-                        raw_response = await response.text()
-                        record.end_perf_ns = time.perf_counter_ns()
-                        record.responses.append(
-                            TextResponse(
-                                perf_ns=record.end_perf_ns,
-                                content_type=response.content_type,
-                                text=raw_response,
-                            )
-                        )
+                if response.content_type == "text/event-stream":
+                    # Parse SSE stream with optimal performance
+                    messages = await AioHttpSSEStreamReader(
+                        response
+                    ).read_complete_stream()
+                    record.responses.extend(messages)
+                else:
+                    raw_response = await response.text()
                     record.end_perf_ns = time.perf_counter_ns()
+                    record.responses.append(
+                        TextResponse(
+                            perf_ns=record.end_perf_ns,
+                            content_type=response.content_type,
+                            text=raw_response,
+                        )
+                    )
+                record.end_perf_ns = time.perf_counter_ns()
 
         except Exception as e:
             record.end_perf_ns = time.perf_counter_ns()

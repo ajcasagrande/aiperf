@@ -26,6 +26,7 @@ class OpenAIClientAioHttp(AioHttpClientMixin, AIPerfLoggerMixin, ABC):
     def __init__(self, model_endpoint: ModelEndpointInfo, **kwargs) -> None:
         super().__init__(model_endpoint, **kwargs)
         self.model_endpoint = model_endpoint
+        self.initialize_session(self.get_headers(model_endpoint))
 
     def get_headers(self, model_endpoint: ModelEndpointInfo) -> dict[str, str]:
         """Get the headers for the given endpoint."""
