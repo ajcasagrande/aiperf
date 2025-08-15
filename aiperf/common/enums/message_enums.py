@@ -27,6 +27,7 @@ class MessageType(CaseInsensitiveStrEnum):
     CREDIT_PHASE_SENDING_COMPLETE = "credit_phase_sending_complete"
     CREDIT_PHASE_START = "credit_phase_start"
     CREDIT_RETURN = "credit_return"
+    DATASET_BROADCAST = "dataset_broadcast"
     DATASET_CONFIGURED_NOTIFICATION = "dataset_configured_notification"
     DATASET_TIMING_REQUEST = "dataset_timing_request"
     DATASET_TIMING_RESPONSE = "dataset_timing_response"

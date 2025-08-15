@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+import asyncio
+import random
 
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.base_component_service import BaseComponentService
@@ -17,16 +19,25 @@ from aiperf.common.factories import (
     RequestConverterFactory,
     ServiceFactory,
 )
-from aiperf.common.hooks import background_task, on_command, on_pull_message, on_stop
+from aiperf.common.hooks import (
+    background_task,
+    on_command,
+    on_message,
+    on_pull_message,
+    on_stop,
+)
 from aiperf.common.messages import (
     CommandAcknowledgedResponse,
     CreditDropMessage,
     CreditReturnMessage,
+    DatasetBroadcastMessage,
     ProfileCancelCommand,
+    ProfileConfigureCommand,
     WorkerHealthMessage,
 )
 from aiperf.common.mixins import ProcessHealthMixin, PullClientMixin
 from aiperf.common.models import WorkerTaskStats
+from aiperf.common.models.dataset_models import Conversation
 from aiperf.common.protocols import (
     PushClientProtocol,
     RequestClientProtocol,
@@ -93,6 +104,12 @@ class Worker(
             self.model_endpoint.endpoint.type,
             model_endpoint=self.model_endpoint,
         )
+        self.dataset: dict[str, Conversation] | None = None
+        self.dataset_keys: list[str] | None = None
+        self.dataset_rng: random.Random = random.Random(
+            self.user_config.input.random_seed
+        )
+        self.dataset_configured_event = asyncio.Event()
 
     @on_pull_message(MessageType.CREDIT_DROP)
     async def _credit_drop_callback(self, message: CreditDropMessage) -> None:
@@ -105,6 +122,9 @@ class Worker(
         )
 
         try:
+            if message.conversation_id is None:
+                message.conversation_id = self.dataset_rng.choice(self.dataset_keys)
+
             # NOTE: This must be awaited to ensure that the max concurrency is respected
             credit_return_message = await self._process_credit_drop_internal(message)
         except Exception as e:
@@ -137,6 +157,15 @@ class Worker(
             task_stats=self.task_stats,
         )
 
+    @on_command(CommandType.PROFILE_CONFIGURE)
+    async def _handle_profile_configure_command(
+        self, message: ProfileConfigureCommand
+    ) -> None:
+        """Handle a profile configure command."""
+        self.debug(lambda: f"Received profile configure command: {message}")
+        # Wait for the dataset to be configured before letting the controller know that the worker is ready
+        await self.dataset_configured_event.wait()
+
     @on_command(CommandType.PROFILE_CANCEL)
     async def _handle_profile_cancel_command(
         self, message: ProfileCancelCommand
@@ -146,6 +175,14 @@ class Worker(
             CommandAcknowledgedResponse.from_command_message(message, self.service_id)
         )
         await self.stop()
+
+    @on_message(MessageType.DATASET_BROADCAST)
+    async def _handle_dataset_broadcast(self, message: DatasetBroadcastMessage) -> None:
+        """Handle a dataset broadcast message."""
+        self.debug("Received dataset broadcast message")
+        self.dataset = message.dataset
+        self.dataset_keys = list(self.dataset.keys())
+        self.dataset_configured_event.set()
 
 
 def main() -> None:

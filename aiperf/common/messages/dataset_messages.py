@@ -75,3 +75,11 @@ class DatasetConfiguredNotification(BaseServiceMessage):
     """Notification sent to notify other services that the dataset has been configured."""
 
     message_type: MessageTypeT = MessageType.DATASET_CONFIGURED_NOTIFICATION
+
+
+class DatasetBroadcastMessage(BaseServiceMessage):
+    """Message to broadcast the full dataset to all services."""
+
+    message_type: MessageTypeT = MessageType.DATASET_BROADCAST
+
+    dataset: dict[str, Conversation] = Field(..., description="The entire dataset")

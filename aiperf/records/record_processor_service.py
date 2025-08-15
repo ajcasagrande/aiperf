@@ -7,6 +7,7 @@ from aiperf.common.base_component_service import BaseComponentService
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.constants import DEFAULT_PULL_CLIENT_MAX_CONCURRENCY
 from aiperf.common.enums import CommAddress, CommandType, MessageType, ServiceType
+from aiperf.common.exceptions import NotInitializedError
 from aiperf.common.factories import (
     RecordProcessorFactory,
     ResponseExtractorFactory,
@@ -15,15 +16,17 @@ from aiperf.common.factories import (
 from aiperf.common.hooks import (
     on_command,
     on_init,
+    on_message,
     on_pull_message,
 )
 from aiperf.common.messages import (
+    DatasetBroadcastMessage,
     InferenceResultsMessage,
     MetricRecordsMessage,
     ProfileConfigureCommand,
 )
 from aiperf.common.mixins import PullClientMixin
-from aiperf.common.models import ParsedResponseRecord
+from aiperf.common.models import Conversation, ParsedResponseRecord
 from aiperf.common.protocols import (
     PushClientProtocol,
     RecordProcessorProtocol,
@@ -74,6 +77,8 @@ class RecordProcessor(PullClientMixin, BaseComponentService):
             user_config=user_config,
         )
         self.records_processors: list[RecordProcessorProtocol] = []
+        self.dataset_configured_event = asyncio.Event()
+        self.dataset: dict[str, Conversation] | None = None
 
     @on_init
     async def _initialize(self) -> None:
@@ -101,6 +106,14 @@ class RecordProcessor(PullClientMixin, BaseComponentService):
     ) -> None:
         """Configure the tokenizers."""
         await self.inference_result_parser.configure()
+        await self.dataset_configured_event.wait()
+
+    @on_message(MessageType.DATASET_BROADCAST)
+    async def _handle_dataset_broadcast(self, message: DatasetBroadcastMessage) -> None:
+        """Handle a dataset broadcast message."""
+        self.debug("Received dataset broadcast message")
+        self.dataset = message.dataset
+        self.dataset_configured_event.set()
 
     async def get_tokenizer(self, model: str) -> Tokenizer:
         """Get the tokenizer for a given model."""
@@ -116,6 +129,20 @@ class RecordProcessor(PullClientMixin, BaseComponentService):
     @on_pull_message(MessageType.INFERENCE_RESULTS)
     async def _on_inference_results(self, message: InferenceResultsMessage) -> None:
         """Handle an inference results message."""
+        if not self.dataset:
+            raise NotInitializedError("Dataset is not initialized.")
+
+        if (
+            message.record.conversation_id not in self.dataset
+            or message.record.turn_index is None
+        ):
+            raise NotInitializedError(
+                f"Conversation {message.record.conversation_id} not found in dataset."
+            )
+
+        conversation = self.dataset[message.record.conversation_id]
+        message.record.turn = conversation.turns[message.record.turn_index]
+
         parsed_record = await self.inference_result_parser.parse_request_record(
             message.record
         )

@@ -26,6 +26,7 @@ from aiperf.common.messages import (
     DatasetTimingResponse,
     ProfileConfigureCommand,
 )
+from aiperf.common.messages.dataset_messages import DatasetBroadcastMessage
 from aiperf.common.mixins import ReplyClientMixin
 from aiperf.common.models import Conversation
 from aiperf.common.protocols import ServiceProtocol
@@ -114,6 +115,12 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
         self._session_ids_cache = list(self.dataset.keys())
 
         self.dataset_configured.set()
+        await self.publish(
+            DatasetBroadcastMessage(
+                service_id=self.service_id,
+                dataset=self.dataset,
+            ),
+        )
         await self.publish(
             DatasetConfiguredNotification(
                 service_id=self.service_id,

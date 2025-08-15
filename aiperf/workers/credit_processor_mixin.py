@@ -9,14 +9,17 @@ from aiperf.clients.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.exceptions import NotInitializedError
 from aiperf.common.messages import (
-    ConversationRequestMessage,
-    ConversationResponseMessage,
     CreditDropMessage,
     CreditReturnMessage,
-    ErrorMessage,
     InferenceResultsMessage,
 )
-from aiperf.common.models import ErrorDetails, RequestRecord, Turn, WorkerTaskStats
+from aiperf.common.models import (
+    Conversation,
+    ErrorDetails,
+    RequestRecord,
+    Turn,
+    WorkerTaskStats,
+)
 from aiperf.common.protocols import (
     AIPerfLoggerProtocol,
     InferenceClientProtocol,
@@ -48,6 +51,7 @@ class CreditProcessorMixinRequirements(AIPerfLoggerProtocol, Protocol):
     request_converter: RequestConverterProtocol
     model_endpoint: ModelEndpointInfo
     task_stats: WorkerTaskStats
+    dataset: dict[str, Conversation] | None
 
     async def _process_credit_drop_internal(
         self, message: CreditDropMessage
@@ -146,36 +150,19 @@ class CreditProcessorMixin(CreditProcessorMixinRequirements):
         if not self.inference_client:
             raise NotInitializedError("Inference server client not initialized.")
 
-        # retrieve the prompt from the dataset
-        conversation_response: ConversationResponseMessage = (
-            await self.conversation_request_client.request(
-                ConversationRequestMessage(
-                    service_id=self.service_id,
-                    conversation_id=message.conversation_id,
-                    credit_phase=message.phase,
-                )
-            )
-        )
-        self.trace(lambda: f"Received response message: {conversation_response}")
+        if not self.dataset:
+            raise NotInitializedError("Dataset is not initialized.")
 
-        if isinstance(conversation_response, ErrorMessage):
-            return RequestRecord(
-                model_name=self.model_endpoint.primary_model_name,
-                conversation_id=message.conversation_id,
-                turn_index=0,
-                timestamp_ns=time.time_ns(),
-                start_perf_ns=time.perf_counter_ns(),
-                end_perf_ns=time.perf_counter_ns(),
-                error=conversation_response.error,
+        if message.conversation_id not in self.dataset:
+            raise NotInitializedError(
+                f"Conversation {message.conversation_id} not found in dataset."
             )
 
-        record = await self._call_inference_api_internal(
-            message, conversation_response.conversation.turns[0]
-        )
+        conversation = self.dataset[message.conversation_id]
+        record = await self._call_inference_api_internal(message, conversation.turns[0])
         record.model_name = self.model_endpoint.primary_model_name
-        record.conversation_id = conversation_response.conversation.session_id
+        record.conversation_id = conversation.session_id
         record.turn_index = 0
-        record.turn = conversation_response.conversation.turns[record.turn_index]
         return record
 
     async def _call_inference_api_internal(
