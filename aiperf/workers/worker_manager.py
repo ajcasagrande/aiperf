@@ -79,7 +79,7 @@ class WorkerManager(BaseComponentService):
             self.max_workers = self.cpu_count - 1
 
         # Cap the worker count to the max concurrency + 1, but only if the user is in concurrency mode.
-        if self.max_concurrency > 1:
+        if self.max_concurrency and self.max_concurrency > 1:
             self.max_workers = min(
                 self.max_concurrency + 1,
                 self.max_workers,

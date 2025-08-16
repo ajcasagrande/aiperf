@@ -40,6 +40,7 @@ class TokenizerService:
 
     def tokenize(self, text: str, model_name: str) -> list[str]:
         """Tokenize text using the specified model's tokenizer."""
+        return [char for char in text]
         tokenizer = self.get_tokenizer(model_name)
 
         # Encode and decode to get actual tokens as they would appear
