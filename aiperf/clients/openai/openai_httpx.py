@@ -6,7 +6,7 @@ import time
 from abc import ABC
 from typing import Any
 
-from aiperf.clients.http.aiohttp_client import AioHttpClientMixin
+from aiperf.clients.http.httpx_client import HttpxClientMixin
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.enums import EndpointType
 from aiperf.common.factories import InferenceClientFactory
@@ -19,10 +19,14 @@ from aiperf.common.models import ErrorDetails, RequestRecord
     EndpointType.OPENAI_COMPLETIONS,
     EndpointType.OPENAI_EMBEDDINGS,
     EndpointType.OPENAI_RESPONSES,
-    override_priority=2,  # Higher priority than the httpx client
+    override_priority=1,  # Higher priority than the aiohttp client
 )
-class OpenAIClientAioHttp(AioHttpClientMixin, AIPerfLoggerMixin, ABC):
-    """Inference client for OpenAI based requests using aiohttp."""
+class OpenAIClientHttpx(HttpxClientMixin, AIPerfLoggerMixin, ABC):
+    """OpenAI client using HTTP/2 with httpx for maximum performance.
+
+    This client leverages HTTP/2 multiplexing, connection sharing, and optimized streaming
+    for benchmarking AI model endpoints that support the OpenAI API format.
+    """
 
     def __init__(self, model_endpoint: ModelEndpointInfo, **kwargs) -> None:
         super().__init__(model_endpoint, **kwargs)
@@ -61,7 +65,7 @@ class OpenAIClientAioHttp(AioHttpClientMixin, AIPerfLoggerMixin, ABC):
         model_endpoint: ModelEndpointInfo,
         payload: dict[str, Any],
     ) -> RequestRecord:
-        """Send OpenAI request using aiohttp."""
+        """Send OpenAI request using httpx."""
 
         # capture start time before request is sent in the case of an error
         start_perf_ns = time.perf_counter_ns()

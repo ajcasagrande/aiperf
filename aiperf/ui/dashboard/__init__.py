@@ -33,6 +33,7 @@ from aiperf.ui.dashboard.realtime_metrics_dashboard import (
 )
 from aiperf.ui.dashboard.rich_log_viewer import (
     LogConsumer,
+    LogViewer,
     RichLogViewer,
 )
 from aiperf.ui.dashboard.worker_dashboard import (
@@ -48,6 +49,7 @@ __all__ = [
     "AIPerfDashboardUI",
     "AIPerfTextualApp",
     "LogConsumer",
+    "LogViewer",
     "MaximizableWidget",
     "NonFocusableDataTable",
     "ProgressDashboard",

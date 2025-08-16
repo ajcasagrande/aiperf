@@ -75,3 +75,22 @@ class AioHttpDefaults:
     KEEPALIVE_TIMEOUT = 300  # Keepalive timeout
     HAPPY_EYEBALLS_DELAY = None  # Happy eyeballs delay (None = disabled)
     SOCKET_FAMILY = socket.AF_INET  # Family of the socket (IPv4)
+
+
+@dataclass(frozen=True)
+class HttpxDefaults:
+    """Default values for httpx.AsyncClient with HTTP/2 support."""
+
+    TIMEOUT = 30.0  # Total timeout in seconds
+    MAX_CONNECTIONS = int(
+        os.getenv("AIPERF_HTTP2_CONNECTION_LIMIT", 100)
+    )  # Maximum number of connections in the pool
+    MAX_KEEPALIVE_CONNECTIONS = int(
+        os.getenv("AIPERF_HTTP2_KEEPALIVE_LIMIT", 20)
+    )  # Maximum number of keepalive connections
+    KEEPALIVE_EXPIRY = 30.0  # Keepalive expiry in seconds
+    HTTP2 = True  # Enable HTTP/2 by default
+    VERIFY_SSL = True  # Verify SSL certificates
+    TRUST_ENV = True  # Trust environment variables for proxy configuration
+    FOLLOW_REDIRECTS = False  # Don't follow redirects for benchmarking accuracy
+    MAX_REDIRECTS = 0  # Maximum number of redirects to follow

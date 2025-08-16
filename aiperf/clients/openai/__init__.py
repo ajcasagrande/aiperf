@@ -21,6 +21,9 @@ from aiperf.clients.openai.openai_completions import (
 from aiperf.clients.openai.openai_embeddings import (
     OpenAIEmbeddingsRequestConverter,
 )
+from aiperf.clients.openai.openai_httpx import (
+    OpenAIClientHttpx,
+)
 from aiperf.clients.openai.openai_responses import (
     OpenAIResponsesRequestConverter,
 )
@@ -29,6 +32,7 @@ __all__ = [
     "DEFAULT_ROLE",
     "OpenAIChatCompletionRequestConverter",
     "OpenAIClientAioHttp",
+    "OpenAIClientHttpx",
     "OpenAICompletionRequestConverter",
     "OpenAIEmbeddingsRequestConverter",
     "OpenAIResponsesRequestConverter",

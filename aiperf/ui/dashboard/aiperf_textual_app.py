@@ -20,7 +20,7 @@ from aiperf.ui.dashboard.aiperf_theme import AIPERF_THEME
 from aiperf.ui.dashboard.progress_dashboard import ProgressDashboard
 from aiperf.ui.dashboard.progress_header import ProgressHeader
 from aiperf.ui.dashboard.realtime_metrics_dashboard import RealtimeMetricsDashboard
-from aiperf.ui.dashboard.rich_log_viewer import RichLogViewer
+from aiperf.ui.dashboard.rich_log_viewer import LogViewer, RichLogViewer
 from aiperf.ui.dashboard.worker_dashboard import WorkerDashboard
 
 
@@ -88,7 +88,7 @@ class AIPerfTextualApp(App):
         if AIPERF_DEV_MODE:
             self.title = "NVIDIA AIPerf (Developer Mode)"
 
-        self.log_viewer: RichLogViewer | None = None
+        self.log_viewer: RichLogViewer | LogViewer | None = None
         self.progress_dashboard: ProgressDashboard | None = None
         self.progress_header: ProgressHeader | None = None
         self.worker_dashboard: WorkerDashboard | None = None
@@ -128,7 +128,7 @@ class AIPerfTextualApp(App):
                 yield self.worker_dashboard
 
             with Container(id="logs-section"):
-                self.log_viewer = RichLogViewer(id="logs")
+                self.log_viewer = LogViewer(id="logs")
                 yield self.log_viewer
 
         yield Footer()

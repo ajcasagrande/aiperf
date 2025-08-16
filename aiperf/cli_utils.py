@@ -99,6 +99,10 @@ class exit_on_error(AbstractContextManager):
                 if isinstance(self.message, str)
                 else self.message
             )
+            from aiperf.common.aiperf_logger import AIPerfLogger
+
+            logger = AIPerfLogger(__name__)
+            logger.exception(self.title)
             raise_startup_error_and_exit(
                 message,
                 text_color=self.text_color,
