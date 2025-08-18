@@ -24,7 +24,7 @@ _logger = AIPerfLogger(__name__)
 @lru_cache(maxsize=1)
 def get_global_log_queue() -> multiprocessing.Queue:
     """Get the global log queue. Will create a new queue if it doesn't exist."""
-    return multiprocessing.Queue(maxsize=LOG_QUEUE_MAXSIZE)
+    return multiprocessing.get_context().Queue(maxsize=LOG_QUEUE_MAXSIZE)
 
 
 def _is_service_in_types(service_id: str, service_types: set[ServiceType]) -> bool:

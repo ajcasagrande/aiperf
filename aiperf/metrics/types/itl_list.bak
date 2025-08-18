@@ -1,0 +1,50 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+from aiperf.common.constants import NANOS_PER_MILLIS
+from aiperf.common.enums import MetricFlags, MetricTimeUnit
+from aiperf.common.models import ParsedResponseRecord
+from aiperf.metrics import BaseRecordMetric
+from aiperf.metrics.metric_dicts import MetricRecordDict
+
+
+class ITLListMetric(BaseRecordMetric[list[int]]):
+    """
+    Post-processor for calculating ITL List metrics from records.
+
+    Formula:
+        ITL List = SSE Data[N] - SSE Data[N-1] for N > 1
+    """
+
+    tag = "itl_list"
+    header = "ITL List"
+    short_header = "ITL List"
+    unit = MetricTimeUnit.NANOSECONDS
+    display_unit = MetricTimeUnit.MILLISECONDS
+    flags = MetricFlags.HIDDEN
+    required_metrics = None
+
+    def _parse_record(
+        self,
+        record: ParsedResponseRecord,
+        record_metrics: MetricRecordDict,
+    ) -> list[int]:
+        """
+        This method extracts the timestamps from the request start and responses in the given
+        RequestRecord object, computes the difference (ITL List), and returns the result.
+
+        Raises:
+            ValueError: If the record does not have at least two responses.
+        """
+
+        if len(record.responses) < 2:
+            raise ValueError(
+                "Record must have at least two responses to calculate ITL List."
+            )
+
+        itl_list = []
+        for i in range(1, len(record.responses)):
+            itl_list.append(
+                (record.responses[i].perf_ns - record.responses[i - 1].perf_ns) / NANOS_PER_MILLIS
+            )
+
+        return itl_list

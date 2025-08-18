@@ -34,6 +34,7 @@ from aiperf.common.messages import (
     ProfileConfigureCommand,
     WorkerHealthMessage,
 )
+from aiperf.common.messages.credit_messages import CreditsCompleteMessage
 from aiperf.common.mixins import ProcessHealthMixin, PullClientMixin
 from aiperf.common.models import WorkerTaskStats
 from aiperf.common.models.dataset_models import Conversation
@@ -41,6 +42,7 @@ from aiperf.common.protocols import (
     PushClientProtocol,
     RequestClientProtocol,
 )
+from aiperf.records.record_processor_mixin import RecordProcessorMixin
 from aiperf.workers.credit_processor_mixin import CreditProcessorMixin
 
 
@@ -106,6 +108,14 @@ class Worker(
         self.dataset: dict[str, Conversation] | None = None
         self.dataset_configured_event = asyncio.Event()
 
+        # Initialize the record processor
+        self.record_processor = RecordProcessorMixin(
+            service_config=self.service_config,
+            user_config=self.user_config,
+            service_id=self.service_id,
+        )
+        self.attach_child_lifecycle(self.record_processor)
+
     @on_pull_message(MessageType.CREDIT_DROP)
     async def _credit_drop_callback(self, message: CreditDropMessage) -> None:
         """Handle an incoming credit drop message from the timing manager. Every credit must be returned after processing."""
@@ -124,9 +134,7 @@ class Worker(
         finally:
             # It is fine to execute the push asynchronously here because the worker is technically
             # ready to process the next credit drop.
-            self.execute_async(
-                self.credit_return_push_client.push(credit_return_message)
-            )
+            await self.credit_return_push_client.push(credit_return_message)
 
     @on_stop
     async def _shutdown_worker(self) -> None:
@@ -174,6 +182,21 @@ class Worker(
         self.debug("Received dataset broadcast message")
         self.dataset = message.dataset
         self.dataset_configured_event.set()
+
+    @on_message(MessageType.CREDITS_COMPLETE)
+    async def _handle_credits_complete(self, message: CreditsCompleteMessage) -> None:
+        self.debug(lambda: f"Received credits complete message: {message}")
+        self.execute_async(self._start_record_processor())
+
+    async def _start_record_processor(self) -> None:
+        self.debug("Configuring record processor")
+        await self.record_processor.configure()
+        self.info("Worker is now processing records...")
+
+        while self.records:
+            record = self.records.popleft()
+            await self.record_processor.process_request_record(self.service_id, record)
+        self.info("Worker finished processing records")
 
 
 def main() -> None:

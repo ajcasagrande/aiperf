@@ -5,16 +5,27 @@ from typing import Any
 
 from aiperf.common.config import UserConfig
 from aiperf.common.decorators import implements_protocol
-from aiperf.common.enums import MetricType, ResultsProcessorType
+from aiperf.common.enums import (
+    MetricType,
+    ResultsProcessorType,
+)
 from aiperf.common.enums.metric_enums import MetricDictValueTypeT, MetricValueTypeT
 from aiperf.common.factories import ResultsProcessorFactory
-from aiperf.common.models import MetricResult
+from aiperf.common.models import (
+    ListMetricResult,
+    NumericMetricResult,
+    SingleMetricResult,
+)
 from aiperf.common.protocols import ResultsProcessorProtocol
 from aiperf.common.types import MetricTagT
-from aiperf.metrics import BaseAggregateMetric
-from aiperf.metrics.base_metric import BaseMetric
-from aiperf.metrics.metric_dicts import MetricArray, MetricRecordDict, MetricResultsDict
-from aiperf.metrics.metric_registry import MetricRegistry
+from aiperf.metrics import (
+    BaseAggregateMetric,
+    BaseMetric,
+    MetricArray,
+    MetricRecordDict,
+    MetricRegistry,
+    MetricResultsDict,
+)
 from aiperf.post_processors.base_metrics_processor import BaseMetricsProcessor
 
 
@@ -73,7 +84,10 @@ class MetricResultsProcessor(BaseMetricsProcessor):
                 metric_type = self._tags_to_types[tag]
                 if metric_type == MetricType.RECORD:
                     if tag not in self._results:
-                        self._results[tag] = MetricArray()
+                        if self._instances_map[tag].value_type.is_numeric:
+                            self._results[tag] = MetricArray()
+                        else:
+                            self._results[tag] = []
                     self._results[tag].append(value)  # type: ignore
 
                 elif metric_type == MetricType.AGGREGATE:
@@ -84,12 +98,14 @@ class MetricResultsProcessor(BaseMetricsProcessor):
                 else:
                     raise ValueError(f"Metric '{tag}' is not a valid metric type")
             except Exception as e:
-                self.warning(f"Error processing metric '{tag}': {e}")
+                self.warning(f"Error processing metric '{tag}': {e!r}")
 
         if self.is_trace_enabled:
             self.trace(f"Results after processing incoming metrics: {self._results}")
 
-    async def summarize(self) -> list[MetricResult]:
+    async def summarize(
+        self,
+    ) -> list[SingleMetricResult | ListMetricResult | NumericMetricResult]:
         """Summarize the results.
 
         This will compute the values for the derived metrics, and then create the MetricResult objects for each metric.
@@ -106,7 +122,7 @@ class MetricResultsProcessor(BaseMetricsProcessor):
 
     def _create_metric_result(
         self, tag: MetricTagT, values: MetricDictValueTypeT
-    ) -> MetricResult:
+    ) -> SingleMetricResult | ListMetricResult | NumericMetricResult:
         """Create a MetricResult from a the current values of a metric."""
 
         metric_class = self._instances_map[tag]
@@ -115,12 +131,20 @@ class MetricResultsProcessor(BaseMetricsProcessor):
             return values.to_result(tag, metric_class.header, str(metric_class.unit))
 
         if isinstance(values, int | float):
-            return MetricResult(
+            return NumericMetricResult(
                 tag=metric_class.tag,
                 header=metric_class.header,
                 unit=str(metric_class.unit),
                 avg=values,
                 count=1,
+            )
+
+        if isinstance(values, list):
+            return ListMetricResult(
+                tag=metric_class.tag,
+                header=metric_class.header,
+                unit=str(metric_class.unit),
+                values=values,
             )
 
         raise ValueError(f"Unexpected values type: {type(values)}")

@@ -10,7 +10,7 @@ from aiperf.common.enums.metric_enums import (
     MetricUnitT,
     MetricValueTypeT,
 )
-from aiperf.common.models.record_models import MetricResult
+from aiperf.common.models.record_models import NumericMetricResult
 from aiperf.common.types import MetricTagT
 
 if TYPE_CHECKING:
@@ -83,14 +83,14 @@ class MetricArray:
         """Return view of actual data"""
         return self._data[: self._size]
 
-    def to_result(self, tag: MetricTagT, header: str, unit: str) -> MetricResult:
+    def to_result(self, tag: MetricTagT, header: str, unit: str) -> NumericMetricResult:
         """Compute metric stats with zero-copy"""
 
         arr = self.data
         p1, p5, p25, p50, p75, p90, p95, p99 = np.percentile(
             arr, [1, 5, 25, 50, 75, 90, 95, 99]
         )
-        return MetricResult(
+        return NumericMetricResult(
             tag=tag,
             header=header,
             unit=unit,

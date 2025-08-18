@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
 
-from aiperf.clients.model_endpoint_info import ModelEndpointInfo
+from aiperf.clients import ModelEndpointInfo
 from aiperf.common.base_component_service import BaseComponentService
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.constants import DEFAULT_PULL_CLIENT_MAX_CONCURRENCY
@@ -16,11 +16,9 @@ from aiperf.common.factories import (
 from aiperf.common.hooks import (
     on_command,
     on_init,
-    on_message,
     on_pull_message,
 )
 from aiperf.common.messages import (
-    DatasetBroadcastMessage,
     InferenceResultsMessage,
     MetricRecordsMessage,
     ProfileConfigureCommand,
@@ -35,10 +33,11 @@ from aiperf.common.protocols import (
 from aiperf.common.tokenizer import Tokenizer
 from aiperf.metrics.metric_dicts import MetricRecordDict
 from aiperf.parsers.inference_result_parser import InferenceResultParser
+from aiperf.records.record_processor_mixin import RecordProcessorMixin
 
 
 @ServiceFactory.register(ServiceType.RECORD_PROCESSOR)
-class RecordProcessor(PullClientMixin, BaseComponentService):
+class RecordProcessor(PullClientMixin, RecordProcessorMixin, BaseComponentService):
     """RecordProcessor is responsible for processing the records and pushing them to the RecordsManager.
     This service is meant to be run in a distributed fashion, where the amount of record processors can be scaled
     based on the load of the system.
@@ -49,6 +48,7 @@ class RecordProcessor(PullClientMixin, BaseComponentService):
         service_config: ServiceConfig,
         user_config: UserConfig,
         service_id: str | None = None,
+        **kwargs,
     ) -> None:
         super().__init__(
             service_config=service_config,
@@ -57,6 +57,7 @@ class RecordProcessor(PullClientMixin, BaseComponentService):
             pull_client_address=CommAddress.RAW_INFERENCE_PROXY_BACKEND,
             pull_client_bind=False,
             pull_client_max_concurrency=DEFAULT_PULL_CLIENT_MAX_CONCURRENCY,
+            **kwargs,
         )
         self.records_push_client: PushClientProtocol = self.comms.create_push_client(
             CommAddress.RECORDS,
@@ -104,31 +105,13 @@ class RecordProcessor(PullClientMixin, BaseComponentService):
     async def _profile_configure_command(
         self, message: ProfileConfigureCommand
     ) -> None:
-        """Configure the tokenizers."""
-        await self.inference_result_parser.configure()
-        await self.dataset_configured_event.wait()
-
-    @on_message(MessageType.DATASET_BROADCAST)
-    async def _handle_dataset_broadcast(self, message: DatasetBroadcastMessage) -> None:
-        """Handle a dataset broadcast message."""
-        self.debug("Received dataset broadcast message")
-        self.dataset = message.dataset
-        self.dataset_configured_event.set()
-
-    async def get_tokenizer(self, model: str) -> Tokenizer:
-        """Get the tokenizer for a given model."""
-        async with self.tokenizer_lock:
-            if model not in self.tokenizers:
-                self.tokenizers[model] = Tokenizer.from_pretrained(
-                    self.user_config.tokenizer.name or model,
-                    trust_remote_code=self.user_config.tokenizer.trust_remote_code,
-                    revision=self.user_config.tokenizer.revision,
-                )
-            return self.tokenizers[model]
+        """Configure the record processor."""
+        await self.configure()
 
     @on_pull_message(MessageType.INFERENCE_RESULTS)
     async def _on_inference_results(self, message: InferenceResultsMessage) -> None:
         """Handle an inference results message."""
+        await self.process_request_record(message.service_id, message.record)
         if not self.dataset:
             raise NotInitializedError("Dataset is not initialized.")
 

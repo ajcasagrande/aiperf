@@ -42,7 +42,11 @@ if TYPE_CHECKING:
 
     from aiperf.common.config import ServiceConfig, UserConfig
     from aiperf.common.enums.metric_enums import MetricValueTypeT
-    from aiperf.common.models.record_models import MetricResult
+    from aiperf.common.models.record_models import (
+        InferenceServerResponse,
+        MetricResult,
+        ResponseData,
+    )
     from aiperf.exporters.exporter_config import ExporterConfig
     from aiperf.metrics.metric_dicts import MetricRecordDict
     from aiperf.timing.config import TimingManagerConfig
@@ -394,9 +398,15 @@ class ResponseExtractorProtocol(Protocol):
     """Protocol for a response extractor that extracts the response data from a raw inference server
     response and converts it to a list of ResponseData objects."""
 
+    def extract_data(self, data: str) -> str | None: ...
+
+    def parse_response(
+        self, response: "InferenceServerResponse"
+    ) -> "ResponseData | None": ...
+
     async def extract_response_data(
-        self, record: RequestRecord, tokenizer: Tokenizer | None
-    ) -> list[ResponseData]:
+        self, record: "RequestRecord", tokenizer: "Tokenizer | None"
+    ) -> list["ResponseData"]:
         """Extract the response data from a raw inference server response and convert it to a list of ResponseData objects."""
         ...
 

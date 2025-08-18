@@ -114,24 +114,35 @@ class OpenAIResponseExtractor:
 
         return ResponseData(
             perf_ns=response.perf_ns,
-            raw_text=[raw],
             parsed_text=[parsed],
             metadata={},
         )
 
     def _parse_sse_response(self, response: SSEMessage) -> ResponseData | None:
         """Parse a SSEMessage into a ResponseData object."""
-        raw = response.extract_data_content()
-        parsed = self._parse_sse(raw)
-        if parsed is None or len(parsed) == 0:
-            return None
+        # raw = response.extract_data_content()
+        # parsed = self._parse_sse(raw)
+        # if parsed is None or len(parsed) == 0:
+        #     return None
 
+        parsed = response.extract_data_content()
         return ResponseData(
             perf_ns=response.perf_ns,
-            raw_text=raw,
             parsed_text=parsed,
             metadata={},
         )
+
+    def extract_data(self, data: str) -> str | None:
+        """Extract the data from the response."""
+        return self._parse_text(data)
+
+    def parse_response(self, response: InferenceServerResponse) -> ResponseData | None:
+        """Parse a response into a ResponseData object."""
+        if isinstance(response, TextResponse):
+            return self._parse_text_response(response)
+        elif isinstance(response, SSEMessage):
+            return self._parse_sse_response(response)
+        return None
 
     def _parse_response(self, response: InferenceServerResponse) -> ResponseData | None:
         """Parse a response into a ResponseData object."""
