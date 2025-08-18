@@ -9,11 +9,22 @@
             "args": [
                 "profile",
                 "-m",
-                "gpt2",
+                "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
                 "--log-level",
                 "DEBUG",
+                "-u",
+                "http://localhost:8000",
                 "--max-workers",
-                "1"
+                "1",
+                "--record-processors",
+                "0",
+                "--streaming",
+                "--concurrency",
+                "5000",
+                "--num-requests",
+                "150000",
+                "--random-seed",
+                "100"
             ]
         },
         {

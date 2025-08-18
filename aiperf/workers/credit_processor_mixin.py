@@ -3,6 +3,7 @@
 
 import asyncio
 import time
+from collections import deque
 from typing import Protocol, runtime_checkable
 
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
@@ -14,7 +15,6 @@ from aiperf.common.messages import (
     CreditDropMessage,
     CreditReturnMessage,
     ErrorMessage,
-    InferenceResultsMessage,
 )
 from aiperf.common.models import ErrorDetails, RequestRecord, Turn, WorkerTaskStats
 from aiperf.common.protocols import (
@@ -78,6 +78,7 @@ class CreditProcessorMixin(CreditProcessorMixinRequirements):
             raise ValueError(
                 "CreditProcessorMixin must be used with CreditProcessorMixinRequirements"
             )
+        self.records = deque()
 
     async def _process_credit_drop_internal(
         self, message: CreditDropMessage
@@ -112,19 +113,18 @@ class CreditProcessorMixin(CreditProcessorMixinRequirements):
             # Calculate the latency of the credit drop (from when the credit drop was first received to when the request was sent)
             record.credit_drop_latency = record.start_perf_ns - drop_perf_ns
 
-            msg = InferenceResultsMessage(
-                service_id=self.service_id,
-                record=record,
-            )
-
-            # Note that we already ensured that the phase exists in the task_stats dict in the above code.
             if not record.valid:
                 self.task_stats.failed += 1
             else:
                 self.task_stats.completed += 1
 
             try:
-                await self.inference_results_push_client.push(msg)
+                self.records.append(record)
+                # msg = InferenceResultsMessage(
+                #     service_id=self.service_id,
+                #     record=record,
+                # )
+                # await self.inference_results_push_client.push(msg)
             except Exception as e:
                 # If we fail to push the record, log the error and continue
                 self.exception(f"Error pushing request record: {e}")

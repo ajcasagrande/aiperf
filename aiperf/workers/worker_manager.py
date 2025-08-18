@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+import asyncio
 import multiprocessing
 import time
 
@@ -26,8 +27,10 @@ from aiperf.common.messages import (
     SpawnWorkersCommand,
     WorkerHealthMessage,
 )
+from aiperf.common.messages.credit_messages import CreditsCompleteMessage
 from aiperf.common.messages.worker_messages import WorkerStatusSummaryMessage
 from aiperf.common.models.progress_models import WorkerStats
+from aiperf.ui.utils import format_bytes
 
 
 class WorkerStatusInfo(WorkerStats):
@@ -68,7 +71,7 @@ class WorkerManager(BaseComponentService):
 
         self.trace("WorkerManager.__init__")
         self.worker_infos: dict[str, WorkerStatusInfo] = {}
-
+        self._credits_complete_event = asyncio.Event()
         self.cpu_count = multiprocessing.cpu_count()
         self.debug(lambda: f"Detected {self.cpu_count} CPU cores/threads")
 
@@ -79,7 +82,7 @@ class WorkerManager(BaseComponentService):
             self.max_workers = self.cpu_count - 1
 
         # Cap the worker count to the max concurrency + 1, but only if the user is in concurrency mode.
-        if self.max_concurrency > 1:
+        if self.max_concurrency and self.max_concurrency > 1:
             self.max_workers = min(
                 self.max_concurrency + 1,
                 self.max_workers,
@@ -151,6 +154,10 @@ class WorkerManager(BaseComponentService):
         elif message.health.cpu_usage > DEFAULT_WORKER_HIGH_LOAD_CPU_USAGE:
             info.last_high_load_ns = time.time_ns()
             info.status = WorkerStatus.HIGH_LOAD
+            if not self._credits_complete_event.is_set():
+                self.warning(
+                    f"High load detected for {info.worker_id}: CPU: {message.health.cpu_usage}%, Memory: {format_bytes(message.health.memory_usage)}"
+                )
         elif (time.time_ns() - (info.last_high_load_ns or 0)) / NANOS_PER_SECOND < DEFAULT_WORKER_HIGH_LOAD_RECOVERY_TIME:  # fmt: skip
             info.status = WorkerStatus.HIGH_LOAD
 
@@ -185,6 +192,10 @@ class WorkerManager(BaseComponentService):
         )
         self.debug(lambda: f"Publishing worker status summary: {summary}")
         await self.publish(summary)
+
+    @on_message(MessageType.CREDITS_COMPLETE)
+    async def _handle_credits_complete(self, message: CreditsCompleteMessage) -> None:
+        self._credits_complete_event.set()
 
 
 def main() -> None:

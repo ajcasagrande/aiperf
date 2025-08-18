@@ -58,6 +58,7 @@ class MultiProcessServiceManager(BaseServiceManager):
         super().__init__(required_services, service_config, user_config, **kwargs)
         self.multi_process_info: list[MultiProcessRunInfo] = []
         self.log_queue = log_queue
+        self.mp_context = multiprocessing.get_context()
 
     async def run_service(
         self, service_type: ServiceTypeT, num_replicas: int = 1
@@ -66,34 +67,37 @@ class MultiProcessServiceManager(BaseServiceManager):
         service_class = ServiceFactory.get_class_from_type(service_type)
 
         for _ in range(num_replicas):
-            service_id = f"{service_type}_{uuid.uuid4().hex[:8]}"
-            process = Process(
-                target=bootstrap_and_run_service,
-                name=f"{service_type}_process",
-                kwargs={
-                    "service_class": service_class,
-                    "service_id": service_id,
-                    "service_config": self.service_config,
-                    "user_config": self.user_config,
-                    "log_queue": self.log_queue,
-                },
-                daemon=True,
-            )
-
-            process.start()
-
-            self.debug(
-                lambda pid=process.pid,
-                type=service_type: f"Service {type} started as process (pid: {pid})"
-            )
-
-            self.multi_process_info.append(
-                MultiProcessRunInfo(
-                    process=process,
-                    service_type=service_type,
-                    service_id=service_id,
+            try:
+                service_id = f"{service_type}_{uuid.uuid4().hex[:8]}"
+                process = self.mp_context.Process(
+                    target=bootstrap_and_run_service,
+                    name=f"{service_type}_process",
+                    kwargs={
+                        "service_class": service_class,
+                        "service_id": service_id,
+                        "service_config": self.service_config,
+                        "user_config": self.user_config,
+                        "log_queue": self.log_queue,
+                    },
+                    daemon=True,
                 )
-            )
+
+                process.start()
+
+                self.debug(
+                    lambda pid=process.pid,
+                    type=service_type: f"Service {type} started as process (pid: {pid})"
+                )
+
+                self.multi_process_info.append(
+                    MultiProcessRunInfo(
+                        process=process,
+                        service_type=service_type,
+                        service_id=service_id,
+                    )
+                )
+            except Exception as e:
+                self.exception(f"Error starting service {service_type}: {e}")
 
     async def stop_service(
         self, service_type: ServiceTypeT, service_id: str | None = None

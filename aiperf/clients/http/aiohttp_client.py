@@ -10,6 +10,7 @@ import aiohttp
 from aiperf.clients.http.defaults import AioHttpDefaults, SocketDefaults
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.enums import SSEFieldType
+from aiperf.common.factories import ResponseExtractorFactory
 from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.common.models import (
     ErrorDetails,
@@ -18,6 +19,7 @@ from aiperf.common.models import (
     SSEMessage,
     TextResponse,
 )
+from aiperf.common.protocols import ResponseExtractorProtocol
 
 ################################################################################
 # AioHTTP Client
@@ -44,6 +46,12 @@ class AioHttpClientMixin(AIPerfLoggerMixin):
             sock_connect=self.model_endpoint.endpoint.timeout,
             sock_read=self.model_endpoint.endpoint.timeout,
             ceil_threshold=self.model_endpoint.endpoint.timeout,
+        )
+        self.extractor: ResponseExtractorProtocol = (
+            ResponseExtractorFactory.create_instance(
+                self.model_endpoint.endpoint.type,
+                model_endpoint=self.model_endpoint,
+            )
         )
 
     async def close(self) -> None:
@@ -104,9 +112,11 @@ class AioHttpClientMixin(AIPerfLoggerMixin):
                     if response.content_type == "text/event-stream":
                         # Parse SSE stream with optimal performance
                         messages = await AioHttpSSEStreamReader(
-                            response
+                            response,
+                            self.extractor,
                         ).read_complete_stream()
                         record.responses.extend(messages)
+                        response.close()
                     else:
                         raw_response = await response.text()
                         record.end_perf_ns = time.perf_counter_ns()
@@ -134,8 +144,11 @@ class AioHttpSSEStreamReader:
     making it ideal for benchmarking scenarios.
     """
 
-    def __init__(self, response: aiohttp.ClientResponse):
+    def __init__(
+        self, response: aiohttp.ClientResponse, extractor: ResponseExtractorProtocol
+    ):
         self.response = response
+        self.extractor = extractor
 
     async def read_complete_stream(self) -> list[SSEMessage]:
         """Read the complete SSE stream in a performant manner and return a list of
@@ -148,7 +161,7 @@ class AioHttpSSEStreamReader:
 
         async for raw_message, first_byte_ns in self.__aiter__():
             # Parse the raw SSE message into a SSEMessage object
-            message = parse_sse_message(raw_message, first_byte_ns)
+            message = self.parse_sse_message(raw_message, first_byte_ns)
             messages.append(message)
 
         return messages
@@ -190,34 +203,40 @@ class AioHttpSSEStreamReader:
                     chunk_ns_first_byte,
                 )
 
+    def parse_sse_message(self, raw_message: str, perf_ns: int) -> SSEMessage:
+        """Parse a raw SSE message into an SSEMessage object.
 
-def parse_sse_message(raw_message: str, perf_ns: int) -> SSEMessage:
-    """Parse a raw SSE message into an SSEMessage object.
+        Parsing logic based on official HTML SSE Living Standard:
+        https://html.spec.whatwg.org/multipage/server-sent-events.html#parsing-an-event-stream
+        """
 
-    Parsing logic based on official HTML SSE Living Standard:
-    https://html.spec.whatwg.org/multipage/server-sent-events.html#parsing-an-event-stream
-    """
+        message = SSEMessage(perf_ns=perf_ns)
+        for line in raw_message.split("\n"):
+            if not (line := line.strip()):
+                continue
 
-    message = SSEMessage(perf_ns=perf_ns)
-    for line in raw_message.split("\n"):
-        if not (line := line.strip()):
-            continue
+            parts = line.split(":", 1)
+            if len(parts) < 2:
+                # Fields without a colon have no value, so the whole line is the field name
+                message.packets.append(SSEField(name=parts[0].strip(), value=None))
+                continue
 
-        parts = line.split(":", 1)
-        if len(parts) < 2:
-            # Fields without a colon have no value, so the whole line is the field name
-            message.packets.append(SSEField(name=parts[0].strip(), value=None))
-            continue
+            field_name, value = parts
 
-        field_name, value = parts
+            if field_name == "":
+                # Field name is empty, so this is a comment
+                field_name = SSEFieldType.COMMENT
 
-        if field_name == "":
-            # Field name is empty, so this is a comment
-            field_name = SSEFieldType.COMMENT
+            # if field_name == "data":
+            #     # Data field is special, it contains the actual data
+            #     value = self.extractor.extract_data(value.strip()) or ""
+            #     # continue
 
-        message.packets.append(SSEField(name=field_name.strip(), value=value.strip()))
+            message.packets.append(
+                SSEField(name=field_name.strip(), value=value.strip())
+            )
 
-    return message
+        return message
 
 
 def create_tcp_connector(**kwargs) -> aiohttp.TCPConnector:
@@ -241,6 +260,7 @@ def create_tcp_connector(**kwargs) -> aiohttp.TCPConnector:
         "happy_eyeballs_delay": AioHttpDefaults.HAPPY_EYEBALLS_DELAY,
         "family": AioHttpDefaults.SOCKET_FAMILY,
         "socket_factory": socket_factory,
+        "local_addr": ("127.0.0.1", 0),
     }
 
     default_kwargs.update(kwargs)

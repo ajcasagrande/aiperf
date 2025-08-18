@@ -88,6 +88,7 @@ def bootstrap_and_run_service(
         if service_config.developer.enable_yappi:
             _stop_yappi_profiling(service.service_id, user_config)
 
+    print("Running service")
     with contextlib.suppress(asyncio.CancelledError):
         if not service_config.developer.disable_uvloop:
             import uvloop

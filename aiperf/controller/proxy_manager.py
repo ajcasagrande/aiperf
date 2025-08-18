@@ -22,10 +22,10 @@ class ProxyManager(AIPerfLifecycleMixin):
                 ZMQProxyType.XPUB_XSUB,
                 zmq_proxy_config=comm_config.event_bus_proxy_config,
             ),
-            ZMQProxyFactory.create_instance(
-                ZMQProxyType.DEALER_ROUTER,
-                zmq_proxy_config=comm_config.dataset_manager_proxy_config,
-            ),
+            # ZMQProxyFactory.create_instance(
+            #     ZMQProxyType.DEALER_ROUTER,
+            #     zmq_proxy_config=comm_config.dataset_manager_proxy_config,
+            # ),
             ZMQProxyFactory.create_instance(
                 ZMQProxyType.PUSH_PULL,
                 zmq_proxy_config=comm_config.raw_inference_proxy_config,

@@ -20,7 +20,7 @@ from aiperf.common.exceptions import MetricUnitError
 if TYPE_CHECKING:
     from aiperf.metrics.metric_dicts import MetricArray
 
-MetricValueTypeT: TypeAlias = int | float | list[float] | list[int]
+MetricValueTypeT: TypeAlias = int | float | list[float] | list[int] | str
 MetricValueTypeVarT = TypeVar("MetricValueTypeVarT", bound=MetricValueTypeT)
 MetricDictValueTypeT: TypeAlias = (
     "MetricValueTypeT | list[MetricValueTypeT] | MetricArray"
@@ -328,6 +328,30 @@ class MetricValueType(BasePydanticBackedStrEnum):
         converter=int,
         dtype=int,
     )
+    STRING = MetricValueTypeInfo(
+        tag="str",
+        default_factory=str,
+        converter=str,
+        dtype=str,
+    )
+    LIST_FLOAT = MetricValueTypeInfo(
+        tag="list[float]",
+        default_factory=list,
+        converter=list,
+        dtype=list[float],
+    )
+    LIST_INT = MetricValueTypeInfo(
+        tag="list[int]",
+        default_factory=list,
+        converter=list,
+        dtype=list[int],
+    )
+    LIST_STRING = MetricValueTypeInfo(
+        tag="list[str]",
+        default_factory=list,
+        converter=list,
+        dtype=list[str],
+    )
 
     @cached_property
     def info(self) -> MetricValueTypeInfo:
@@ -348,6 +372,20 @@ class MetricValueType(BasePydanticBackedStrEnum):
     def dtype(self) -> Any:
         """Get the dtype for the metric value type (for pandas/numpy)."""
         return self.info.dtype
+
+    @cached_property
+    def is_list(self) -> bool:
+        """Check if the metric value type is a list."""
+        return self in (
+            MetricValueType.LIST_FLOAT,
+            MetricValueType.LIST_INT,
+            MetricValueType.LIST_STRING,
+        )
+
+    @cached_property
+    def is_numeric(self) -> bool:
+        """Check if the metric value type is a numeric type."""
+        return self in (MetricValueType.FLOAT, MetricValueType.INT)
 
     @classmethod
     def from_python_type(cls, type: type[MetricValueTypeT]) -> "MetricValueType":

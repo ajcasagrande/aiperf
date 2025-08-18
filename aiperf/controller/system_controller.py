@@ -88,9 +88,10 @@ class SystemController(SignalHandlerMixin, BaseService):
             ServiceType.RECORDS_MANAGER: 1,
         }
         if self.service_config.record_processor_service_count is not None:
-            self.required_services[ServiceType.RECORD_PROCESSOR] = (
-                self.service_config.record_processor_service_count
-            )
+            if self.service_config.record_processor_service_count > 0:
+                self.required_services[ServiceType.RECORD_PROCESSOR] = (
+                    self.service_config.record_processor_service_count
+                )
             self.scale_record_processors_with_workers = False
         else:
             self.scale_record_processors_with_workers = True
@@ -302,6 +303,37 @@ class SystemController(SignalHandlerMixin, BaseService):
         self.info(f"Received credits complete from {service_id}")
         self.system_state = SystemState.PROCESSING_RESULTS
 
+        # record_processor_count = self.service_config.record_processor_service_count
+        # workers_max = self.service_config.workers.max
+        # if record_processor_count is not None and workers_max is not None and workers_max > record_processor_count:
+        #     scale_to = min(multiprocessing.cpu_count(), workers_max - record_processor_count + 1)
+        #     self.info(f"Scaling record processor service count from {record_processor_count} to {workers_max - record_processor_count + 1}")
+        #     # If we are scaling the record processor service count with the number of workers, we need to spawn the record processors
+        #     await self.service_manager.run_service(
+        #         ServiceType.RECORD_PROCESSOR, scale_to
+        #     )
+        #     await self.service_manager.wait_for_all_services_registration(
+        #         stop_event=self._stop_requested_event,
+        #     )
+        #     self.info(f"Scaled record processor service count to {scale_to}")
+        #     await self.send_command_and_wait_for_all_responses(
+        #         ProfileConfigureCommand(
+        #             service_id=self.service_id,
+        #             config=self.user_config,
+        #             target_service_type=ServiceType.RECORD_PROCESSOR,
+        #         ),
+        #         list([service_info.service_id for service_info in self.service_manager.service_map[ServiceType.RECORD_PROCESSOR]] if ServiceType.RECORD_PROCESSOR in self.service_manager.service_map else []),
+        #     )
+        #     self.info("Configured all record processors")
+        #     await self.send_command_and_wait_for_all_responses(
+        #         ProfileStartCommand(
+        #             service_id=self.service_id,
+        #             target_service_type=ServiceType.RECORD_PROCESSOR,
+        #         ),
+        #         list([service_info.service_id for service_info in self.service_manager.service_map[ServiceType.RECORD_PROCESSOR]] if ServiceType.RECORD_PROCESSOR in self.service_manager.service_map else []),
+        #     )
+        #     self.info("Started all record processors")
+
     @on_message(MessageType.STATUS)
     async def _process_status_message(self, message: StatusMessage) -> None:
         """Process a status message from a service. It will
@@ -360,7 +392,8 @@ class SystemController(SignalHandlerMixin, BaseService):
         # If we are scaling the record processor service count with the number of workers, spawn the record processors
         if self.scale_record_processors_with_workers:
             await self.service_manager.run_service(
-                ServiceType.RECORD_PROCESSOR, message.num_workers
+                ServiceType.RECORD_PROCESSOR,
+                max(1, message.num_workers // 2),
             )
 
     @on_command(CommandType.SHUTDOWN_WORKERS)

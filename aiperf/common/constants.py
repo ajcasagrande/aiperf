@@ -61,32 +61,32 @@ AIPERF_DEV_MODE = os.getenv("AIPERF_DEV_MODE", "false").lower() in ("true", "1")
 DEFAULT_UI_MIN_UPDATE_PERCENT = 1.0
 """Default minimum percentage difference from the last update to trigger a UI update (for non-dashboard UIs)."""
 
+DEFAULT_WORKER_HIGH_LOAD_CPU_USAGE = 80.0
+"""Default CPU usage threshold for a worker to be considered high load."""
+
+DEFAULT_WORKER_HIGH_LOAD_RECOVERY_TIME = 10.0
+"""Default time in seconds from the last time a worker was in high load before it is considered healthy again."""
+
+DEFAULT_WORKER_ERROR_RECOVERY_TIME = 10.0
+"""Default time in seconds from the last time a worker had an error before it is considered healthy again."""
+
+DEFAULT_WORKER_STALE_TIME = 30.0
+"""Default time in seconds from the last time a worker reported any status before it is considered stale."""
+
 DEFAULT_WORKER_CHECK_INTERVAL = 1.0
 """Default interval between worker checks in seconds for the WorkerManager."""
 
-DEFAULT_WORKER_HIGH_LOAD_CPU_USAGE = 75.0
-"""Default CPU usage threshold for a worker to be considered high load."""
-
-DEFAULT_WORKER_HIGH_LOAD_RECOVERY_TIME = 5.0
-"""Default time in seconds from the last time a worker was in high load before it is considered healthy again."""
-
-DEFAULT_WORKER_ERROR_RECOVERY_TIME = 3.0
-"""Default time in seconds from the last time a worker had an error before it is considered healthy again."""
-
-DEFAULT_WORKER_STALE_TIME = 10.0
-"""Default time in seconds from the last time a worker reported any status before it is considered stale."""
-
-DEFAULT_WORKER_STATUS_SUMMARY_INTERVAL = 0.5
+DEFAULT_WORKER_STATUS_SUMMARY_INTERVAL = 1.0
 """Default interval in seconds between worker status summary messages."""
 
-DEFAULT_CREDIT_PROGRESS_REPORT_INTERVAL = 1.0
+DEFAULT_CREDIT_PROGRESS_REPORT_INTERVAL = 2.0
 """Default interval in seconds between credit progress report messages."""
 
-DEFAULT_RECORDS_PROGRESS_REPORT_INTERVAL = 1.0
+DEFAULT_RECORDS_PROGRESS_REPORT_INTERVAL = 2.0
 """Default interval in seconds between records progress report messages."""
 
-DEFAULT_WORKER_HEALTH_CHECK_INTERVAL = 1.0
+DEFAULT_WORKER_HEALTH_CHECK_INTERVAL = 3.0
 """Default interval in seconds between worker health check messages."""
 
-DEFAULT_REALTIME_METRICS_INTERVAL = 1.0
+DEFAULT_REALTIME_METRICS_INTERVAL = 5.0
 """Default interval in seconds between real-time metrics messages."""

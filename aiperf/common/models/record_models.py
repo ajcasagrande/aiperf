@@ -19,16 +19,21 @@ from aiperf.common.models.error_models import ErrorDetails, ErrorDetailsCount
 from aiperf.common.types import MetricTagT
 
 
-class MetricResult(AIPerfBaseModel):
-    """The result values of a single metric."""
+class BaseMetricResult(AIPerfBaseModel):
+    """Base class for all metric results."""
 
     tag: MetricTagT = Field(description="The unique identifier of the metric")
-    # NOTE: We do not use a MetricUnitT here, as that is harder to de-serialize from JSON strings with pydantic.
-    #       If we need an instance of a MetricUnitT, lookup the unit based on the tag in the MetricRegistry.
-    unit: str = Field(description="The unit of the metric, e.g. 'ms'")
     header: str = Field(
         description="The user friendly name of the metric (e.g. 'Inter Token Latency')"
     )
+    # NOTE: We do not use a MetricUnitT here, as that is harder to de-serialize from JSON strings with pydantic.
+    #       If we need an instance of a MetricUnitT, lookup the unit based on the tag in the MetricRegistry.
+    unit: str = Field(description="The unit of the metric, e.g. 'ms'")
+
+
+class NumericMetricResult(BaseMetricResult):
+    """The result values of a single metric."""
+
     avg: float | None = None
     min: int | float | None = None
     max: int | float | None = None
@@ -47,8 +52,26 @@ class MetricResult(AIPerfBaseModel):
     )
 
 
+class SingleMetricResult(BaseMetricResult):
+    """The result value of a metric that produces a single value."""
+
+    value: float | int | str = Field(description="The value of the metric")
+
+
+class ListMetricResult(BaseMetricResult):
+    """The result values of a list metric. This is used for metrics that produce a list of values for each record."""
+
+    values: list[list[float]] | list[list[int]] | list[list[str]] = Field(
+        description="The values of the metric"
+    )
+
+
+# NOTE: The order of the types is important, as that is the order they are type checked.
+MetricResult = SingleMetricResult | ListMetricResult | NumericMetricResult
+
+
 class ProfileResults(AIPerfBaseModel):
-    records: list[MetricResult] | None = Field(
+    records: SerializeAsAny[list[MetricResult]] | None = Field(
         ..., description="The records of the profile results"
     )
     total_expected: int | None = Field(
@@ -323,9 +346,8 @@ class ResponseData(AIPerfBaseModel):
     """Base class for all response data."""
 
     perf_ns: int = Field(description="The performance timestamp of the response.")
-    raw_text: list[str] = Field(description="The raw text of the response.")
     parsed_text: list[str | None] = Field(
-        description="The parsed text of the response."
+        description="The parsed text of the response. If None, the response was not parsed.",
     )
     token_count: int | None = Field(
         default=None,
@@ -339,7 +361,9 @@ class ResponseData(AIPerfBaseModel):
 class ParsedResponseRecord(AIPerfBaseModel):
     """Record of a request and its associated responses, already parsed and ready for metrics."""
 
-    request: RequestRecord = Field(description="The original request record")
+    request: RequestRecord = Field(
+        description="The original request record (stripped of responses)"
+    )
     responses: list[ResponseData] = Field(description="The parsed response data.")
     input_token_count: int | None = Field(
         default=None,
@@ -348,6 +372,10 @@ class ParsedResponseRecord(AIPerfBaseModel):
     output_token_count: int | None = Field(
         default=None,
         description="The number of tokens across all responses. If None, the number of tokens could not be calculated.",
+    )
+    parse_duration_ns: int | None = Field(
+        default=None,
+        description="The duration of the parsing in nanoseconds.",
     )
 
     @cached_property

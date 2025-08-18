@@ -64,10 +64,10 @@ class AioHttpDefaults:
     """Default values for aiohttp.ClientSession."""
 
     LIMIT = 2500  # Maximum number of concurrent connections
-    LIMIT_PER_HOST = 2500  # Maximum number of concurrent connections per host
+    LIMIT_PER_HOST = 0  # Maximum number of concurrent connections per host
     TTL_DNS_CACHE = 300  # Time to live for DNS cache
     USE_DNS_CACHE = True  # Enable DNS cache
-    ENABLE_CLEANUP_CLOSED = False  # Disable cleanup of closed connections
+    ENABLE_CLEANUP_CLOSED = True  # Disable cleanup of closed connections
     FORCE_CLOSE = False  # Disable force close connections
     KEEPALIVE_TIMEOUT = 300  # Keepalive timeout
     HAPPY_EYEBALLS_DELAY = None  # Happy eyeballs delay (None = disabled)
