@@ -34,7 +34,6 @@ from aiperf.common.messages import (
     ProfileConfigureCommand,
     WorkerHealthMessage,
 )
-from aiperf.common.messages.credit_messages import CreditsCompleteMessage
 from aiperf.common.mixins import ProcessHealthMixin, PullClientMixin
 from aiperf.common.models import WorkerTaskStats
 from aiperf.common.models.dataset_models import Conversation
@@ -185,20 +184,20 @@ class Worker(
         self.dataset = message.dataset
         self.dataset_configured_event.set()
 
-    @on_message(MessageType.CREDITS_COMPLETE)
-    async def _handle_credits_complete(self, message: CreditsCompleteMessage) -> None:
-        self.debug(lambda: f"Received credits complete message: {message}")
-        self.execute_async(self._start_record_processor())
+    # @on_message(MessageType.CREDITS_COMPLETE)
+    # async def _handle_credits_complete(self, message: CreditsCompleteMessage) -> None:
+    #     self.debug(lambda: f"Received credits complete message: {message}")
+    #     self.execute_async(self._start_record_processor())
 
-    async def _start_record_processor(self) -> None:
-        self.debug("Configuring record processor")
-        await self.record_processor.configure()
-        self.info("Worker is now processing records...")
+    # async def _start_record_processor(self) -> None:
+    #     self.debug("Configuring record processor")
+    #     await self.record_processor.configure()
+    #     self.info("Worker is now processing records...")
 
-        while self.records:
-            record = self.records.popleft()
-            await self.record_processor.process_request_record(self.service_id, record)
-        self.info("Worker finished processing records")
+    #     while self.records:
+    #         record = self.records.popleft()
+    #         await self.record_processor.process_request_record(self.service_id, record)
+    #     self.info("Worker finished processing records")
 
 
 def main() -> None:

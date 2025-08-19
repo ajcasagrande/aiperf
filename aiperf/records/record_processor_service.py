@@ -16,9 +16,11 @@ from aiperf.common.factories import (
 from aiperf.common.hooks import (
     on_command,
     on_init,
+    on_message,
     on_pull_message,
 )
 from aiperf.common.messages import (
+    DatasetBroadcastMessage,
     InferenceResultsMessage,
     MetricRecordsMessage,
     ProfileConfigureCommand,
@@ -100,6 +102,12 @@ class RecordProcessor(PullClientMixin, RecordProcessorMixin, BaseComponentServic
                     user_config=self.user_config,
                 )
             )
+
+    @on_message(MessageType.DATASET_BROADCAST)
+    async def _on_dataset_broadcast(self, message: DatasetBroadcastMessage) -> None:
+        """Handle a dataset broadcast message."""
+        self.dataset = message.dataset
+        self.dataset_configured_event.set()
 
     @on_command(CommandType.PROFILE_CONFIGURE)
     async def _profile_configure_command(

@@ -13,6 +13,7 @@ from aiperf.common.messages import (
     CreditDropMessage,
     CreditReturnMessage,
 )
+from aiperf.common.messages.inference_messages import InferenceResultsMessage
 from aiperf.common.models import (
     Conversation,
     ErrorDetails,
@@ -123,12 +124,12 @@ class CreditProcessorMixin(CreditProcessorMixinRequirements):
                 self.task_stats.completed += 1
 
             try:
-                self.records.append(record)
-                # msg = InferenceResultsMessage(
-                #     service_id=self.service_id,
-                #     record=record,
-                # )
-                # await self.inference_results_push_client.push(msg)
+                # self.records.append(record)
+                msg = InferenceResultsMessage(
+                    service_id=self.service_id,
+                    record=record,
+                )
+                await self.inference_results_push_client.push(msg)
             except Exception as e:
                 # If we fail to push the record, log the error and continue
                 self.exception(f"Error pushing request record: {e}")
