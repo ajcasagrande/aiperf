@@ -65,9 +65,7 @@ def bootstrap_and_run_service(
 
         from aiperf.common.logging import setup_child_process_logging
 
-        setup_child_process_logging(
-            log_queue, service.service_id, service_config, user_config
-        )
+        setup_child_process_logging(log_queue, service.service_id, service_config)
 
         if user_config.input.random_seed is not None:
             random.seed(user_config.input.random_seed)

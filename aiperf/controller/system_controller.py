@@ -173,6 +173,10 @@ class SystemController(SignalHandlerMixin, BaseService):
         self.system_state = SystemState.STARTING_SERVICES
         # Start all required services
         await self.service_manager.start()
+
+        # TODO: HACK: Wait for 5 seconds to ensure the services are started
+        await asyncio.sleep(5)
+
         # Wait for all services to be registered
         await self.service_manager.wait_for_all_services_registration(
             stop_event=self._stop_requested_event,

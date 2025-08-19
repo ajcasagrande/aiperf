@@ -163,6 +163,8 @@ class Worker(
     ) -> None:
         """Handle a profile configure command."""
         self.debug(lambda: f"Received profile configure command: {message}")
+        self.user_config = UserConfig(**message.config)
+        self.model_endpoint = ModelEndpointInfo.from_user_config(self.user_config)
         # Wait for the dataset to be configured before letting the controller know that the worker is ready
         await self.dataset_configured_event.wait()
 

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from aiperf.cli_utils import raise_startup_error_and_exit
-from aiperf.common.config import ServiceConfig, UserConfig
+from aiperf.common.config import EndpointConfig, ServiceConfig, UserConfig
 from aiperf.common.enums.ui_enums import AIPerfUIType
 
 
@@ -26,7 +26,7 @@ def run_system_controller(
     else:
         from aiperf.common.logging import setup_rich_logging
 
-        setup_rich_logging(user_config, service_config)
+        setup_rich_logging(service_config)
 
     # Create and start the system controller
     logger.info("Starting AIPerf System")
@@ -52,3 +52,47 @@ def run_system_controller(
         raise
     finally:
         logger.debug("AIPerf System exited")
+
+
+def run_node_controller(
+    service_config: ServiceConfig,
+    node_id: str,
+) -> None:
+    """Run the node controller with the given configuration."""
+
+    from aiperf.common.aiperf_logger import AIPerfLogger
+    from aiperf.common.bootstrap import bootstrap_and_run_service
+    from aiperf.controller import NodeController
+    from aiperf.module_loader import ensure_modules_loaded
+
+    logger = AIPerfLogger(__name__)
+
+    log_queue = None
+    from aiperf.common.logging import setup_rich_logging
+
+    setup_rich_logging(service_config)
+
+    # Create and start the node controller
+    logger.info(f"Starting AIPerf Node {node_id}")
+
+    try:
+        ensure_modules_loaded()
+    except Exception as e:
+        raise_startup_error_and_exit(
+            f"Error loading modules: {e}",
+            title="Error Loading Modules",
+        )
+
+    try:
+        bootstrap_and_run_service(
+            NodeController,
+            service_id=f"node_controller_{node_id}",
+            user_config=UserConfig(endpoint=EndpointConfig(model_names=["gpt-oss"])),
+            service_config=service_config,
+            log_queue=log_queue,
+        )
+    except Exception:
+        logger.exception("Error running AIPerf Node")
+        raise
+    finally:
+        logger.debug("AIPerf Node exited")

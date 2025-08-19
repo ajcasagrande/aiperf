@@ -38,6 +38,7 @@ class ServiceType(CaseInsensitiveStrEnum):
     """
 
     SYSTEM_CONTROLLER = "system_controller"
+    NODE_CONTROLLER = "node_controller"
     DATASET_MANAGER = "dataset_manager"
     TIMING_MANAGER = "timing_manager"
     RECORD_PROCESSOR = "record_processor"

@@ -10,7 +10,7 @@ from rich.console import Console
 from rich.logging import RichHandler
 
 from aiperf.common.aiperf_logger import _DEBUG, _TRACE, AIPerfLogger
-from aiperf.common.config import ServiceConfig, ServiceDefaults, UserConfig
+from aiperf.common.config import ServiceConfig, ServiceDefaults
 from aiperf.common.enums import ServiceType
 from aiperf.common.enums.ui_enums import AIPerfUIType
 from aiperf.common.factories import ServiceFactory
@@ -50,7 +50,6 @@ def setup_child_process_logging(
     log_queue: "multiprocessing.Queue | None" = None,
     service_id: str | None = None,
     service_config: ServiceConfig | None = None,
-    user_config: UserConfig | None = None,
 ) -> None:
     """Set up logging for a child process to send logs to the main process.
 
@@ -60,7 +59,6 @@ def setup_child_process_logging(
         log_queue: The multiprocessing queue to send logs to. If None, tries to get the global queue.
         service_id: The ID of the service to log under. If None, logs will be under the process name.
         service_config: The service configuration used to determine the log level.
-        user_config: The user configuration used to determine the log folder.
     """
     root_logger = logging.getLogger()
     level = ServiceDefaults.LOG_LEVEL.upper()
@@ -110,15 +108,12 @@ def setup_child_process_logging(
         rich_handler.setLevel(level)
         root_logger.addHandler(rich_handler)
 
-    if user_config and user_config.output.artifact_directory:
-        file_handler = create_file_handler(
-            user_config.output.artifact_directory / "logs", level
-        )
-        root_logger.addHandler(file_handler)
+    file_handler = create_file_handler(Path("logs"), level)
+    root_logger.addHandler(file_handler)
 
 
 # TODO: Integrate with the subprocess logging instead of being separate
-def setup_rich_logging(user_config: UserConfig, service_config: ServiceConfig) -> None:
+def setup_rich_logging(service_config: ServiceConfig) -> None:
     """Set up rich logging with appropriate configuration."""
     # Set logging level for the root logger (affects all loggers)
     level = service_config.log_level.upper()
@@ -138,7 +133,7 @@ def setup_rich_logging(user_config: UserConfig, service_config: ServiceConfig) -
 
     # Enable file logging for services
     # TODO: Use config to determine if file logging is enabled and the folder path.
-    log_folder = user_config.output.artifact_directory / "logs"
+    log_folder = Path("logs")
     log_folder.mkdir(parents=True, exist_ok=True)
     file_handler = logging.FileHandler(log_folder / "aiperf.log")
     file_handler.setLevel(level)
