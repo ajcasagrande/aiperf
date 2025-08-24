@@ -80,6 +80,7 @@ def setup_child_process_logging(
 
     # Set the root logger level to ensure logs are passed to handlers
     root_logger.setLevel(level)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
 
     # Remove all existing handlers to avoid duplicate logs
     for existing_handler in root_logger.handlers[:]:

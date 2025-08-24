@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+import os
 import socket
 from dataclasses import dataclass
 
@@ -63,8 +64,10 @@ class SocketDefaults:
 class AioHttpDefaults:
     """Default values for aiohttp.ClientSession."""
 
-    LIMIT = 2500  # Maximum number of concurrent connections
-    LIMIT_PER_HOST = 2500  # Maximum number of concurrent connections per host
+    LIMIT = int(
+        os.getenv("AIPERF_HTTP_CONNECTION_LIMIT", 2500)
+    )  # Maximum number of concurrent connections
+    LIMIT_PER_HOST = 0  # Maximum number of concurrent connections per host (unlimited - will be bounded by the overall limit)
     TTL_DNS_CACHE = 300  # Time to live for DNS cache
     USE_DNS_CACHE = True  # Enable DNS cache
     ENABLE_CLEANUP_CLOSED = False  # Disable cleanup of closed connections
@@ -72,3 +75,22 @@ class AioHttpDefaults:
     KEEPALIVE_TIMEOUT = 300  # Keepalive timeout
     HAPPY_EYEBALLS_DELAY = None  # Happy eyeballs delay (None = disabled)
     SOCKET_FAMILY = socket.AF_INET  # Family of the socket (IPv4)
+
+
+@dataclass(frozen=True)
+class HttpxDefaults:
+    """Default values for httpx.AsyncClient with HTTP/2 support."""
+
+    TIMEOUT = 30.0  # Total timeout in seconds
+    MAX_CONNECTIONS = int(
+        os.getenv("AIPERF_HTTP2_CONNECTION_LIMIT", int(28000 / 30))
+    )  # Maximum number of connections in the pool
+    MAX_KEEPALIVE_CONNECTIONS = int(
+        os.getenv("AIPERF_HTTP2_KEEPALIVE_LIMIT", MAX_CONNECTIONS)
+    )  # Maximum number of keepalive connections
+    KEEPALIVE_EXPIRY = 30.0  # Keepalive expiry in seconds
+    HTTP2 = True  # Enable HTTP/2 by default
+    VERIFY_SSL = True  # Verify SSL certificates
+    TRUST_ENV = True  # Trust environment variables for proxy configuration
+    FOLLOW_REDIRECTS = False  # Don't follow redirects for benchmarking accuracy
+    MAX_REDIRECTS = 0  # Maximum number of redirects to follow
