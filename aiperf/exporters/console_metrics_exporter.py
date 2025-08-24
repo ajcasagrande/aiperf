@@ -7,6 +7,7 @@ from datetime import datetime
 from rich.console import Console, RenderableType
 from rich.table import Table
 
+from aiperf.common.constants import AIPERF_DEV_MODE
 from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import MetricFlags
 from aiperf.common.enums.data_exporter_enums import ConsoleExporterType
@@ -30,6 +31,9 @@ class ConsoleMetricsExporter(AIPerfLoggerMixin):
         super().__init__(**kwargs)
         self._results = exporter_config.results
         self._endpoint_type = exporter_config.user_config.endpoint.type
+        self._show_hidden_metrics = AIPERF_DEV_MODE and (
+            exporter_config.service_config.developer.show_internal_metrics
+        )
 
     async def export(self, console: Console) -> None:
         if not self._results.records:
@@ -66,15 +70,19 @@ class ConsoleMetricsExporter(AIPerfLoggerMixin):
             table.add_row(*self._format_row(record))
 
     def _should_show(self, record: MetricResult) -> bool:
-        # Only show metrics that are not error-only or hidden
+        # Only show metrics that are not error-only
         metric_class = MetricRegistry.get_class(record.tag)
-        return metric_class.missing_flags(MetricFlags.ERROR_ONLY | MetricFlags.HIDDEN)
+        return metric_class.missing_flags(
+            MetricFlags.EXPERIMENTAL | MetricFlags.INTERNAL
+        ) and (
+            self._show_hidden_metrics or not metric_class.has_flags(MetricFlags.HIDDEN)
+        )
 
     def _format_row(self, record: MetricResult) -> list[str]:
         metric_class = MetricRegistry.get_class(record.tag)
         display_unit = metric_class.display_unit or metric_class.unit
         delimiter = "\n" if len(record.header) > 30 else " "
-        row = [f"{record.header}{delimiter}({display_unit})"]
+        row = [f"{record.header}{delimiter}[dim]({display_unit})[/dim]"]
         for stat in self.STAT_COLUMN_KEYS:
             value = getattr(record, stat, None)
             if value is None:

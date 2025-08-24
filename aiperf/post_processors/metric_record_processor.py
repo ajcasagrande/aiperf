@@ -58,7 +58,8 @@ class MetricRecordProcessor(BaseMetricsProcessor):
         """Process a response record from the inference results parser."""
         record_metrics: MetricRecordDict = MetricRecordDict()
         parse_funcs = self.valid_parse_funcs if record.valid else self.error_parse_funcs
-        # NOTE: Need to parse the record in a loop, as the parse_record function may depend on the results of previous metrics.
+        # NOTE: Need to parse the record in a synchronous for loop, instead of using list comprehension, as the parse_record function
+        # may depend on the results of previous metrics.
         for tag, parse_func in parse_funcs:
             try:
                 record_metrics[tag] = parse_func(record, record_metrics)

@@ -177,7 +177,7 @@ class MetricTimeUnit(BaseMetricUnit):
         if isinstance(other_unit, MetricDateTimeUnit):
             return datetime.fromtimestamp(
                 self.convert_to(MetricTimeUnit.SECONDS, value)
-            )
+            )  # type: ignore
 
         return value * (other_unit.per_second / self.per_second)
 
@@ -195,6 +195,7 @@ class GenericMetricUnit(BaseMetricUnit):
     TOKENS = _unit("tokens")
     RATIO = _unit("ratio")
     USER = _unit("user")
+    PERCENT = _unit("%")
 
 
 class MetricDateTimeUnit(BaseMetricUnit):
@@ -291,10 +292,6 @@ class MetricType(CaseInsensitiveStrEnum):
     """Metrics that provide a distinct value for each request. Every request that comes in will produce a new value that is not affected by any other requests.
     These metrics can be tracked over time and compared to each other.
     Examples: request latency, ISL, ITL, OSL, etc."""
-
-    SUM_AGGREGATE = "sum_aggregate"
-    """Metrics that are assigned as the sum aggregator for a specific metric.
-    Examples: total request count, benchmark duration, etc."""
 
     AGGREGATE = "aggregate"
     """Metrics that keep track of one or more values over time, that are updated for each request, such as total counts, min/max values, etc.
@@ -407,15 +404,15 @@ class MetricFlags(Flag):
     """Metrics that are only applicable when profiling an endpoint that produces tokens."""
 
     HIDDEN = 1 << 3
-    """Metrics that should not be displayed in the UI."""
+    """Metrics that should not be displayed in the UI, but still exported."""
 
     LARGER_IS_BETTER = 1 << 4
     """Metrics that are better when the value is larger. By default, it is assumed that metrics are
     better when the value is smaller."""
 
-    INTERNAL = (1 << 5) | HIDDEN
-    """Metrics that are internal to the system and not applicable to the user. This inherently means that the metric
-    is HIDDEN as well."""
+    INTERNAL = 1 << 5
+    """Metrics that are internal to the system and not applicable to the user. They should not be displayed in the UI,
+    and are not exported by default."""
 
     SUPPORTS_AUDIO_ONLY = 1 << 6
     """Metrics that are only applicable to audio-based endpoints."""
@@ -426,9 +423,9 @@ class MetricFlags(Flag):
     SUPPORTS_REASONING = 1 << 8
     """Metrics that are only applicable to reasoning-based models and endpoints."""
 
-    EXPERIMENTAL = (1 << 9) | HIDDEN
+    EXPERIMENTAL = 1 << 9
     """Metrics that are experimental and are not yet ready for production use, and may be subject to change.
-    This inherently means that the metric is HIDDEN as well."""
+    They should not be displayed in the UI, and are not exported by default."""
 
     STREAMING_TOKENS_ONLY = STREAMING_ONLY | PRODUCES_TOKENS_ONLY
     """Metrics that are only applicable to streamed responses and token-based endpoints.
