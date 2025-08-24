@@ -117,6 +117,42 @@ class PoissonRateGenerator:
 
 
 @implements_protocol(RequestRateGeneratorProtocol)
+@RequestRateGeneratorFactory.register(RequestRateMode.POISSON_RAMP_UP)
+class PoissonRampUpRateGenerator(PoissonRateGenerator):
+    """
+    Generator for Poisson process (exponential inter-arrival times) with a ramp-up period.
+
+    This generator starts with a Poisson process with a low rate, and gradually increases the rate
+    until it reaches the specified request rate. This is useful for models that need to warm up
+    before reaching full concurrency.
+    """
+
+    def __init__(self, config: TimingManagerConfig) -> None:
+        super().__init__(config)
+        if config.concurrency is None or config.concurrency < 1:
+            raise ValueError(
+                f"Concurrency {config.concurrency} must be set and greater than 0 for {config.request_rate_mode!r}"
+            )
+        self._concurrency: int = config.concurrency
+        self._finished_requests: int = 0
+
+    def next_interval(self) -> float:
+        """
+        Override the superclass method to add the ramp-up period.
+
+        If we have not reached the concurrency limit, continue to ramp up the request rate.
+        Once we have reached the concurrency limit, send requests as soon as possible.
+        """
+        self._finished_requests += 1
+        if self._finished_requests < self._concurrency:
+            # Ramp up period
+            return super().next_interval()
+        else:
+            # Full concurrency period
+            return 0
+
+
+@implements_protocol(RequestRateGeneratorProtocol)
 @RequestRateGeneratorFactory.register(RequestRateMode.CONSTANT)
 class ConstantRateGenerator:
     """

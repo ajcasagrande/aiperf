@@ -23,6 +23,7 @@ from aiperf.common.protocols import (
     PushClientProtocol,
     RequestClientProtocol,
     RequestConverterProtocol,
+    TaskManagerProtocol,
 )
 
 
@@ -38,13 +39,16 @@ class CreditProcessorProtocol(Protocol):
 
 
 @runtime_checkable
-class CreditProcessorMixinRequirements(AIPerfLoggerProtocol, Protocol):
+class CreditProcessorMixinRequirements(
+    TaskManagerProtocol, AIPerfLoggerProtocol, Protocol
+):
     """CreditProcessorMixinRequirements is a protocol that provides the requirements needed for the CreditProcessorMixin."""
 
     service_id: str
     inference_client: InferenceClientProtocol
     conversation_request_client: RequestClientProtocol
     inference_results_push_client: PushClientProtocol
+    credit_return_push_client: PushClientProtocol
     request_converter: RequestConverterProtocol
     model_endpoint: ModelEndpointInfo
     task_stats: WorkerTaskStats
@@ -112,10 +116,15 @@ class CreditProcessorMixin(CreditProcessorMixinRequirements):
             # Calculate the latency of the credit drop (from when the credit drop was first received to when the request was sent)
             record.credit_drop_latency = record.start_perf_ns - drop_perf_ns
 
-            msg = InferenceResultsMessage(
+            # Always return the credits
+            return_message = CreditReturnMessage(
                 service_id=self.service_id,
-                record=record,
+                delayed_ns=record.delayed_ns,
+                phase=message.phase,
             )
+            if self.is_trace_enabled:
+                self.trace(lambda: f"Returning credit {return_message}")
+            await self.credit_return_push_client.push(return_message)
 
             # Note that we already ensured that the phase exists in the task_stats dict in the above code.
             if not record.valid:
@@ -123,20 +132,13 @@ class CreditProcessorMixin(CreditProcessorMixinRequirements):
             else:
                 self.task_stats.completed += 1
 
-            try:
-                await self.inference_results_push_client.push(msg)
-            except Exception as e:
-                # If we fail to push the record, log the error and continue
-                self.exception(f"Error pushing request record: {e}")
-            finally:
-                # Always return the credits
-                return_message = CreditReturnMessage(
-                    service_id=self.service_id,
-                    delayed_ns=record.delayed_ns,
-                    phase=message.phase,
-                )
-                self.trace(lambda: f"Returning credit {return_message}")
-                return return_message  # noqa: B012
+            msg = InferenceResultsMessage(
+                service_id=self.service_id,
+                record=record,
+            )
+
+            self.execute_async(self.inference_results_push_client.push(msg))
+            return return_message  # noqa: B012
 
     async def _execute_single_credit_internal(
         self, message: CreditDropMessage

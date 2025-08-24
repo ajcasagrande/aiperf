@@ -5,6 +5,7 @@ import asyncio
 import time
 from abc import ABC, abstractmethod
 
+from aiperf.common.constants import NANOS_PER_MILLIS
 from aiperf.common.enums import CreditPhase, TimingMode
 from aiperf.common.exceptions import ConfigurationError
 from aiperf.common.factories import AIPerfFactory
@@ -170,6 +171,9 @@ class CreditIssuingStrategy(TaskManagerMixin, ABC):
             self.phase_complete_event.set()
 
             if phase_stats.type == CreditPhase.PROFILING:
+                self.info(
+                    f"Benchmark duration: {(phase_stats.end_ns - phase_stats.start_ns) / NANOS_PER_MILLIS:,.2f} milliseconds"
+                )
                 self.execute_async(self.credit_manager.publish_credits_complete())
                 self.all_phases_complete_event.set()
 

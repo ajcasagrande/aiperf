@@ -28,6 +28,10 @@ class RequestRateMode(CaseInsensitiveStrEnum):
     CONCURRENCY_BURST = "concurrency_burst"
     """Generate requests as soon as possible, up to a max concurrency limit. Only allowed when a request rate is not specified."""
 
+    POISSON_RAMP_UP = "poisson_ramp_up"
+    """Generate requests using a poisson process until a max concurrency limit is reached,
+    then send requests as soon as possible in order to sustain the concurrency."""
+
 
 class CreditPhase(CaseInsensitiveStrEnum):
     """The type of credit phase. This is used to identify which phase of the

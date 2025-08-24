@@ -108,12 +108,12 @@ class Worker(
             credit_return_message = await self._process_credit_drop_internal(message)
         except Exception as e:
             self.exception(f"Error processing credit drop: {e}")
-        finally:
-            # It is fine to execute the push asynchronously here because the worker is technically
-            # ready to process the next credit drop.
-            self.execute_async(
-                self.credit_return_push_client.push(credit_return_message)
-            )
+        # finally:
+        #     # It is fine to execute the push asynchronously here because the worker is technically
+        #     # ready to process the next credit drop.
+        #     self.execute_async(
+        #         self.credit_return_push_client.push(credit_return_message)
+        #     )
 
     @on_stop
     async def _shutdown_worker(self) -> None:

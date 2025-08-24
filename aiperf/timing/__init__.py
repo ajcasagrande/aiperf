@@ -26,6 +26,7 @@ from aiperf.timing.fixed_schedule_strategy import (
 from aiperf.timing.request_rate_strategy import (
     ConcurrencyBurstRateGenerator,
     ConstantRateGenerator,
+    PoissonRampUpRateGenerator,
     PoissonRateGenerator,
     RequestRateStrategy,
 )
@@ -42,6 +43,7 @@ __all__ = [
     "CreditPhaseMessagesMixin",
     "CreditPhaseMessagesRequirements",
     "FixedScheduleStrategy",
+    "PoissonRampUpRateGenerator",
     "PoissonRateGenerator",
     "RequestRateStrategy",
     "TimingManager",
