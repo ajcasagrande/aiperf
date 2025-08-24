@@ -4,22 +4,19 @@
 import csv
 import io
 from collections.abc import Mapping, Sequence
+from datetime import datetime
 
 import aiofiles
 
 from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import DataExporterType
-from aiperf.common.enums.metric_enums import MetricFlags
 from aiperf.common.factories import DataExporterFactory
-from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.common.models import MetricResult
 from aiperf.common.protocols import DataExporterProtocol
-from aiperf.exporters.display_units_utils import (
-    STAT_KEYS,
-    convert_all_metrics_to_display_units,
-)
+from aiperf.common.types import MetricTagT
+from aiperf.exporters.base_file_exporter import BaseFileExporter
+from aiperf.exporters.display_units_utils import STAT_KEYS
 from aiperf.exporters.exporter_config import ExporterConfig, FileExportInfo
-from aiperf.metrics.metric_registry import MetricRegistry
 
 
 def _percentile_keys_from(stat_keys: Sequence[str]) -> list[str]:
@@ -29,15 +26,12 @@ def _percentile_keys_from(stat_keys: Sequence[str]) -> list[str]:
 
 @DataExporterFactory.register(DataExporterType.CSV)
 @implements_protocol(DataExporterProtocol)
-class CsvExporter(AIPerfLoggerMixin):
+class CsvExporter(BaseFileExporter):
     """Exports records to a CSV file in a legacy, two-section format."""
 
     def __init__(self, exporter_config: ExporterConfig, **kwargs) -> None:
-        super().__init__(**kwargs)
+        super().__init__(exporter_config=exporter_config, **kwargs)
         self.debug(lambda: f"Initializing CsvExporter with config: {exporter_config}")
-        self._results = exporter_config.results
-        self._output_directory = exporter_config.user_config.output.artifact_directory
-        self._metric_registry = MetricRegistry
         self._file_path = self._output_directory / "profile_export_aiperf.csv"
         self._percentile_keys = _percentile_keys_from(STAT_KEYS)
 
@@ -47,19 +41,17 @@ class CsvExporter(AIPerfLoggerMixin):
             file_path=self._file_path,
         )
 
-    async def export(self) -> None:
-        self._output_directory.mkdir(parents=True, exist_ok=True)
-
+    async def _export_converted_records(
+        self,
+        converted_records: dict[MetricTagT, MetricResult],
+        start_time: datetime | None,
+        end_time: datetime | None,
+    ) -> None:
+        """Export the converted records to the CSV file."""
         self.debug(lambda: f"Exporting data to CSV file: {self._file_path}")
 
         try:
-            records: Mapping[str, MetricResult] = {}
-            if self._results.records:
-                records = convert_all_metrics_to_display_units(
-                    self._results.records, self._metric_registry
-                )
-
-            csv_content = self._generate_csv_content(records)
+            csv_content = self._generate_csv_content(converted_records)
 
             async with aiofiles.open(
                 self._file_path, "w", newline="", encoding="utf-8"
@@ -121,15 +113,6 @@ class CsvExporter(AIPerfLoggerMixin):
                 value = getattr(metric, stat_name, None)
                 row.append(self._format_number(value))
             writer.writerow(row)
-
-    def _should_export(self, metric: MetricResult) -> bool:
-        """Check if a metric should be exported."""
-        metric_class = MetricRegistry.get_class(metric.tag)
-        res = metric_class.missing_flags(
-            MetricFlags.EXPERIMENTAL | MetricFlags.INTERNAL
-        )
-        self.debug(lambda: f"Metric '{metric.tag}' should be exported: {res}")
-        return res
 
     def _write_system_metrics(
         self,
