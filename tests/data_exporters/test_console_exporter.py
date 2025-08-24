@@ -161,7 +161,7 @@ class TestConsoleExporter:
         record = to_display_unit(record, MetricRegistry)
         row = exporter._format_row(record)
         # This asserts that the display is unit converted correctly
-        assert row[0] == "Request Latency (ms)"
+        assert row[0] == "Request Latency [dim](ms)[/dim]"
         assert row[1] == "10.12"
         assert row[2] == "[dim]N/A[/dim]"
         assert row[3] == "20.00"

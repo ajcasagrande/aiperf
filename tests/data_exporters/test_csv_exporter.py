@@ -128,10 +128,10 @@ async def test_csv_exporter_writes_two_sections_and_values(
     results = _MockResults(list(converted.values()))
 
     # Monkeypatch converter to return our dict above
-    import aiperf.exporters.csv_exporter as ce
+    import aiperf.exporters.base_file_exporter as bfe
 
     monkeypatch.setattr(
-        ce, "convert_all_metrics_to_display_units", lambda records, reg: converted
+        bfe, "convert_all_metrics_to_display_units", lambda records, reg: converted
     )
 
     with tempfile.TemporaryDirectory() as tmp:
@@ -177,10 +177,10 @@ async def test_csv_exporter_empty_records_creates_empty_file(
     results = _MockResults([])
 
     # Converter returns empty dict to the generator
-    import aiperf.exporters.csv_exporter as ce
+    import aiperf.exporters.base_file_exporter as bfe
 
     monkeypatch.setattr(
-        ce, "convert_all_metrics_to_display_units", lambda records, reg: {}
+        bfe, "convert_all_metrics_to_display_units", lambda records, reg: {}
     )
 
     with tempfile.TemporaryDirectory() as tmp:
@@ -215,10 +215,10 @@ async def test_csv_exporter_deterministic_sort_order(
     }
     results = _MockResults(list(converted.values()))
 
-    import aiperf.exporters.csv_exporter as ce
+    import aiperf.exporters.base_file_exporter as bfe
 
     monkeypatch.setattr(
-        ce, "convert_all_metrics_to_display_units", lambda records, reg: converted
+        bfe, "convert_all_metrics_to_display_units", lambda records, reg: converted
     )
 
     with tempfile.TemporaryDirectory() as tmp:
@@ -270,10 +270,10 @@ async def test_csv_exporter_unit_aware_number_formatting(
     }
     results = _MockResults(list(converted.values()))
 
-    import aiperf.exporters.csv_exporter as ce
+    import aiperf.exporters.base_file_exporter as bfe
 
     monkeypatch.setattr(
-        ce, "convert_all_metrics_to_display_units", lambda records, reg: converted
+        bfe, "convert_all_metrics_to_display_units", lambda records, reg: converted
     )
 
     with tempfile.TemporaryDirectory() as tmp:
@@ -311,10 +311,10 @@ async def test_csv_exporter_logs_and_raises_on_write_failure(
     }
     results = _MockResults(list(converted.values()))
 
-    import aiperf.exporters.csv_exporter as ce
+    import aiperf.exporters.base_file_exporter as bfe
 
     monkeypatch.setattr(
-        ce, "convert_all_metrics_to_display_units", lambda records, reg: converted
+        bfe, "convert_all_metrics_to_display_units", lambda records, reg: converted
     )
 
     # Force aiofiles.open to throw
