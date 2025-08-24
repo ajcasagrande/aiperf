@@ -15,6 +15,10 @@ class ServiceRunType(CaseInsensitiveStrEnum):
     """Run each service as a separate Kubernetes pod.
     This is the default way for multi-node deployments."""
 
+    SLURM = "slurm"
+    """Run each service as a separate SLURM job.
+    This is the way for HPC cluster deployments."""
+
 
 class LifecycleState(CaseInsensitiveStrEnum):
     """This is the various states a lifecycle can be in."""
