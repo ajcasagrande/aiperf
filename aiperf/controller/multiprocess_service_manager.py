@@ -12,14 +12,13 @@ from aiperf.common.bootstrap import bootstrap_and_run_service
 from aiperf.common.config import ServiceConfig, SystemControllerConfig, UserConfig
 from aiperf.common.constants import (
     DEFAULT_SERVICE_REGISTRATION_TIMEOUT,
-    DEFAULT_SERVICE_START_TIMEOUT,
     TASK_CANCEL_TIMEOUT_SHORT,
 )
 from aiperf.common.decorators import implements_protocol
-from aiperf.common.enums import ServiceRegistrationStatus, ServiceRunType
-from aiperf.common.exceptions import AIPerfError
+from aiperf.common.enums import ServiceRunType
 from aiperf.common.factories import ServiceFactory, ServiceManagerFactory
 from aiperf.common.protocols import ServiceManagerProtocol
+from aiperf.common.service_registry import ServiceRegistry
 from aiperf.common.types import ServiceTypeT
 from aiperf.controller.base_service_manager import BaseServiceManager
 
@@ -72,6 +71,7 @@ class MultiProcessServiceManager(BaseServiceManager):
 
         for _ in range(num_replicas):
             service_id = f"{service_type}_{uuid.uuid4().hex[:8]}"
+            await ServiceRegistry.expect_service(service_id, service_class.service_type)
             process = Process(
                 target=bootstrap_and_run_service,
                 name=f"{service_type}_process",
@@ -143,60 +143,18 @@ class MultiProcessServiceManager(BaseServiceManager):
 
     async def wait_for_all_services_registration(
         self,
-        stop_event: asyncio.Event,
         timeout_seconds: float = DEFAULT_SERVICE_REGISTRATION_TIMEOUT,
     ) -> None:
         """Wait for all required services to be registered.
 
         Args:
-            stop_event: Event to check if operation should be cancelled
             timeout_seconds: Maximum time to wait in seconds
 
         Raises:
             Exception if any service failed to register, None otherwise
         """
-        self.debug("Waiting for all required services to register...")
-
-        # Get the set of required service types for checking completion
-        required_types = set(self.required_services.keys())
-
-        # TODO: Can this be done better by using asyncio.Event()?
-
-        async def _wait_for_registration():
-            while not stop_event.is_set():
-                # Get all registered service types from the id map
-                registered_types = {
-                    service_info.service_type
-                    for service_info in self.service_id_map.values()
-                    if service_info.registration_status
-                    == ServiceRegistrationStatus.REGISTERED
-                }
-
-                # Check if all required types are registered
-                if required_types.issubset(registered_types):
-                    return
-
-                # Wait a bit before checking again
-                await asyncio.sleep(0.5)
-
-        try:
-            await asyncio.wait_for(_wait_for_registration(), timeout=timeout_seconds)
-        except asyncio.TimeoutError as e:
-            # Log which services didn't register in time
-            registered_types_set = set(
-                service_info.service_type
-                for service_info in self.service_id_map.values()
-                if service_info.registration_status
-                == ServiceRegistrationStatus.REGISTERED
-            )
-
-            for service_type in required_types:
-                if service_type not in registered_types_set:
-                    self.error(
-                        f"Service {service_type} failed to register within timeout"
-                    )
-
-            raise AIPerfError("Some services failed to register within timeout") from e
+        self.info("Waiting for all required services to register...")
+        return await ServiceRegistry.wait_for_all(timeout_seconds)
 
     async def _wait_for_process(self, info: MultiProcessRunInfo) -> None:
         """Wait for a process to terminate with timeout handling."""
@@ -216,14 +174,3 @@ class MultiProcessServiceManager(BaseServiceManager):
                 f"Service {info.service_type} process (pid: {info.process.pid}) did not terminate gracefully, killing"
             )
             info.process.kill()
-
-    async def wait_for_all_services_start(
-        self,
-        stop_event: asyncio.Event,
-        timeout_seconds: float = DEFAULT_SERVICE_START_TIMEOUT,
-    ) -> None:
-        """Wait for all required services to be started."""
-        self.debug("Waiting for all required services to start...")
-        self.warning(
-            "Waiting for all required services to start is not implemented for multiprocessing"
-        )

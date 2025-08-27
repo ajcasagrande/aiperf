@@ -1,13 +1,10 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-import asyncio
-
 from pydantic import BaseModel
 
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.constants import (
     DEFAULT_SERVICE_REGISTRATION_TIMEOUT,
-    DEFAULT_SERVICE_START_TIMEOUT,
 )
 from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import ServiceRunType
@@ -69,7 +66,6 @@ class KubernetesServiceManager(BaseServiceManager):
 
     async def wait_for_all_services_registration(
         self,
-        stop_event: asyncio.Event,
         timeout_seconds: float = DEFAULT_SERVICE_REGISTRATION_TIMEOUT,
     ) -> None:
         """Wait for all required services to be registered in Kubernetes."""
@@ -79,18 +75,4 @@ class KubernetesServiceManager(BaseServiceManager):
         # TODO: Implement Kubernetes
         raise NotImplementedError(
             "KubernetesServiceManager.wait_for_all_services_registration not implemented"
-        )
-
-    async def wait_for_all_services_start(
-        self,
-        stop_event: asyncio.Event,
-        timeout_seconds: float = DEFAULT_SERVICE_START_TIMEOUT,
-    ) -> None:
-        """Wait for all required services to be started in Kubernetes."""
-        self.logger.debug(
-            "Waiting for all required services to be started in Kubernetes"
-        )
-        # TODO: Implement Kubernetes
-        raise NotImplementedError(
-            "KubernetesServiceManager.wait_for_all_services_start not implemented"
         )

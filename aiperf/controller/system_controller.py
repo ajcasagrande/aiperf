@@ -21,7 +21,6 @@ from aiperf.common.enums import (
     CommandResponseStatus,
     CommandType,
     MessageType,
-    ServiceRegistrationStatus,
     ServiceType,
 )
 from aiperf.common.factories import (
@@ -34,21 +33,19 @@ from aiperf.common.logging import get_global_log_queue
 from aiperf.common.messages import (
     CommandErrorResponse,
     CommandResponse,
-    CreditsCompleteMessage,
-    HeartbeatMessage,
     ProcessRecordsResultMessage,
     ProfileCancelCommand,
     ProfileConfigureCommand,
     ProfileStartCommand,
     RealtimeMetricsCommand,
-    RegisterServiceCommand,
     ShutdownCommand,
     ShutdownWorkersCommand,
     SpawnWorkersCommand,
-    StatusMessage,
 )
+from aiperf.common.mixins import ServiceRegistryMixin
 from aiperf.common.models import ProcessRecordsResult, ServiceRunInfo
 from aiperf.common.protocols import AIPerfUIProtocol, ServiceManagerProtocol
+from aiperf.common.service_registry import ServiceRegistry
 from aiperf.common.types import ServiceTypeT
 from aiperf.controller.proxy_manager import ProxyManager
 from aiperf.controller.system_mixins import SignalHandlerMixin
@@ -56,7 +53,7 @@ from aiperf.exporters.exporter_manager import ExporterManager
 
 
 @ServiceFactory.register(ServiceType.SYSTEM_CONTROLLER)
-class SystemController(SignalHandlerMixin, BaseService):
+class SystemController(SignalHandlerMixin, BaseService, ServiceRegistryMixin):
     """System Controller service.
 
     This service is responsible for managing the lifecycle of all other services.
@@ -91,7 +88,6 @@ class SystemController(SignalHandlerMixin, BaseService):
 
         self.expected_node_controllers = system_config.node_controllers
         self.node_controllers: list[ServiceRunInfo] = []
-        self._node_controllers_registered = asyncio.Event()
 
         if self.service_config.record_processor_service_count is not None:
             self.required_services[ServiceType.RECORD_PROCESSOR] = (
@@ -164,30 +160,24 @@ class SystemController(SignalHandlerMixin, BaseService):
         self.debug("System Controller is bootstrapping services")
         # Start all required services
         await self.service_manager.start()
+
+        # If we are expecting node controllers, tell the service registry to expect them
         if self.expected_node_controllers > 0:
-            try:
-                self.info(
-                    f"Waiting for {self.expected_node_controllers} node controllers to register... (timeout: {DEFAULT_NODE_CONTROLLER_REGISTRATION_TIMEOUT} seconds)"
-                )
-                await asyncio.wait_for(
-                    self._node_controllers_registered.wait(),
-                    timeout=DEFAULT_NODE_CONTROLLER_REGISTRATION_TIMEOUT,
-                )
-            except asyncio.TimeoutError as e:
-                raise self._service_error(
-                    f"Node controllers did not register in time. Expected {self.expected_node_controllers} node controllers, but only {len(self.node_controllers)} registered."
-                ) from e
+            self.info(
+                f"Waiting for {self.expected_node_controllers} node controllers to register... (timeout: {DEFAULT_NODE_CONTROLLER_REGISTRATION_TIMEOUT} seconds)"
+            )
+            await ServiceRegistry.expect_services(
+                {ServiceType.NODE_CONTROLLER: self.expected_node_controllers}
+            )
 
-            self.info("All node controllers registered")
-
-        await self.service_manager.wait_for_all_services_registration(
-            stop_event=self._stop_requested_event,
-        )
+        await self.service_manager.wait_for_all_services_registration()
 
         await asyncio.sleep(1)
         self.info("AIPerf System is CONFIGURING")
         await self._profile_configure_all_services()
         self.info("AIPerf System is CONFIGURED")
+        # Wait for any additional services that were run as part of the configure step (workers, etc.)
+        await self.service_manager.wait_for_all_services_registration()
         await self._start_profiling_all_services()
         self.info("AIPerf System is PROFILING")
 
@@ -222,116 +212,103 @@ class SystemController(SignalHandlerMixin, BaseService):
         )
         self.info("All services started profiling successfully")
 
-    @on_command(CommandType.REGISTER_SERVICE)
-    async def _handle_register_service_command(
-        self, message: RegisterServiceCommand
-    ) -> None:
-        """Process a registration message from a service. It will
-        add the service to the service manager and send a configure command
-        to the service.
+    # @on_command(CommandType.REGISTER_SERVICE)
+    # async def _handle_register_service_command(
+    #     self, message: RegisterServiceCommand
+    # ) -> None:
+    #     """Process a registration message from a service. It will
+    #     add the service to the service manager and send a configure command
+    #     to the service.
 
-        Args:
-            message: The registration message to process
-        """
+    #     Args:
+    #         message: The registration message to process
+    #     """
 
-        self.debug(
-            lambda: f"Processing registration from {message.service_type} with ID: {message.service_id}"
-        )
+    #     self.debug(
+    #         lambda: f"Processing registration from {message.service_type} with ID: {message.service_id}"
+    #     )
 
-        service_info = ServiceRunInfo(
-            registration_status=ServiceRegistrationStatus.REGISTERED,
-            service_type=message.service_type,
-            service_id=message.service_id,
-            first_seen=time.time_ns(),
-            state=message.state,
-            last_seen=time.time_ns(),
-        )
+    #     service_info = ServiceRunInfo(
+    #         registration_status=ServiceRegistrationStatus.REGISTERED,
+    #         service_type=message.service_type,
+    #         service_id=message.service_id,
+    #         first_seen_ns=time.time_ns(),
+    #         state=message.state,
+    #         last_seen_ns=time.time_ns(),
+    #     )
 
-        if message.service_type == ServiceType.NODE_CONTROLLER:
-            self.node_controllers.append(service_info)
-            if len(self.node_controllers) == self.expected_node_controllers:
-                self.info("All node controllers registered")
-                self._node_controllers_registered.set()
+    #     if message.service_type == ServiceType.NODE_CONTROLLER:
+    #         self.node_controllers.append(service_info)
+    #         if len(self.node_controllers) == self.expected_node_controllers:
+    #             self.info("All node controllers registered")
+    #             self._node_controllers_registered.set()
 
-        self.service_manager.service_id_map[message.service_id] = service_info
-        if message.service_type not in self.service_manager.service_map:
-            self.service_manager.service_map[message.service_type] = []
-        self.service_manager.service_map[message.service_type].append(service_info)
+    #     self.service_manager.service_id_map[message.service_id] = service_info
+    #     if message.service_type not in self.service_manager.service_map:
+    #         self.service_manager.service_map[message.service_type] = []
+    #     self.service_manager.service_map[message.service_type].append(service_info)
 
-        try:
-            type_name = ServiceType(message.service_type).name.title().replace("_", " ")
-        except (TypeError, ValueError):
-            type_name = message.service_type
-        self.info(lambda: f"Registered {type_name} (id: '{message.service_id}')")
+    #     try:
+    #         type_name = ServiceType(message.service_type).name.title().replace("_", " ")
+    #     except (TypeError, ValueError):
+    #         type_name = message.service_type
+    #     self.info(lambda: f"Registered {type_name} (id: '{message.service_id}')")
 
-    @on_message(MessageType.HEARTBEAT)
-    async def _process_heartbeat_message(self, message: HeartbeatMessage) -> None:
-        """Process a heartbeat message from a service. It will
-        update the last seen timestamp and state of the service.
+    # @on_message(MessageType.HEARTBEAT)
+    # async def _process_heartbeat_message(self, message: HeartbeatMessage) -> None:
+    #     """Process a heartbeat message from a service. It will
+    #     update the last seen timestamp and state of the service.
 
-        Args:
-            message: The heartbeat message to process
-        """
-        service_id = message.service_id
-        service_type = message.service_type
-        timestamp = message.request_ns
+    #     Args:
+    #         message: The heartbeat message to process
+    #     """
+    #     service_id = message.service_id
+    #     service_type = message.service_type
+    #     timestamp = message.request_ns
 
-        self.debug(lambda: f"Received heartbeat from {service_type} (ID: {service_id})")
+    #     self.debug(lambda: f"Received heartbeat from {service_type} (ID: {service_id})")
 
-        # Update the last heartbeat timestamp if the component exists
-        try:
-            service_info = self.service_manager.service_id_map[service_id]
-            service_info.last_seen = timestamp
-            service_info.state = message.state
-            self.debug(f"Updated heartbeat for {service_id} to {timestamp}")
-        except Exception:
-            self.warning(
-                f"Received heartbeat from unknown service: {service_id} ({service_type})"
-            )
+    #     # Update the last heartbeat timestamp if the component exists
+    #     try:
+    #         service_info = self.service_manager.service_id_map[service_id]
+    #         service_info.last_seen_ns = timestamp
+    #         service_info.state = message.state
+    #         self.debug(f"Updated heartbeat for {service_id} to {timestamp}")
+    #     except Exception:
+    #         self.warning(
+    #             f"Received heartbeat from unknown service: {service_id} ({service_type})"
+    #         )
 
-    @on_message(MessageType.CREDITS_COMPLETE)
-    async def _process_credits_complete_message(
-        self, message: CreditsCompleteMessage
-    ) -> None:
-        """Process a credits complete message from a service. It will
-        update the state of the service with the service manager.
+    # @on_message(MessageType.STATUS)
+    # async def _process_status_message(self, message: StatusMessage) -> None:
+    #     """Process a status message from a service. It will
+    #     update the state of the service with the service manager.
 
-        Args:
-            message: The credits complete message to process
-        """
-        service_id = message.service_id
-        self.info(f"Received credits complete from {service_id}")
+    #     Args:
+    #         message: The status message to process
+    #     """
+    #     service_id = message.service_id
+    #     service_type = message.service_type
+    #     state = message.state
 
-    @on_message(MessageType.STATUS)
-    async def _process_status_message(self, message: StatusMessage) -> None:
-        """Process a status message from a service. It will
-        update the state of the service with the service manager.
+    #     self.debug(
+    #         lambda: f"Received status update from {service_type} (ID: {service_id}): {state}"
+    #     )
 
-        Args:
-            message: The status message to process
-        """
-        service_id = message.service_id
-        service_type = message.service_type
-        state = message.state
+    #     # Update the component state if the component exists
+    #     if service_id not in self.service_manager.service_id_map:
+    #         self.debug(
+    #             lambda: f"Received status update from un-registered service: {service_id} ({service_type})"
+    #         )
+    #         return
 
-        self.debug(
-            lambda: f"Received status update from {service_type} (ID: {service_id}): {state}"
-        )
+    #     service_info = self.service_manager.service_id_map.get(service_id)
+    #     if service_info is None:
+    #         return
 
-        # Update the component state if the component exists
-        if service_id not in self.service_manager.service_id_map:
-            self.debug(
-                lambda: f"Received status update from un-registered service: {service_id} ({service_type})"
-            )
-            return
+    #     service_info.state = message.state
 
-        service_info = self.service_manager.service_id_map.get(service_id)
-        if service_info is None:
-            return
-
-        service_info.state = message.state
-
-        self.debug(f"Updated state for {service_id} to {message.state}")
+    #     self.debug(f"Updated state for {service_id} to {message.state}")
 
     @on_message(MessageType.COMMAND_RESPONSE)
     async def _process_command_response_message(self, message: CommandResponse) -> None:

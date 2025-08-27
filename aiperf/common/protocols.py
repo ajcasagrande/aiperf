@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 from aiperf.common.constants import (
     DEFAULT_COMMS_REQUEST_TIMEOUT,
     DEFAULT_SERVICE_REGISTRATION_TIMEOUT,
-    DEFAULT_SERVICE_START_TIMEOUT,
 )
 from aiperf.common.enums import (
     CommClientType,
@@ -459,14 +458,7 @@ class ServiceManagerProtocol(AIPerfLifecycleProtocol, Protocol):
     ) -> list[BaseException | None]: ...
     async def wait_for_all_services_registration(
         self,
-        stop_event: asyncio.Event,
         timeout_seconds: float = DEFAULT_SERVICE_REGISTRATION_TIMEOUT,
-    ) -> None: ...
-
-    async def wait_for_all_services_start(
-        self,
-        stop_event: asyncio.Event,
-        timeout_seconds: float = DEFAULT_SERVICE_START_TIMEOUT,
     ) -> None: ...
 
 

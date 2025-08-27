@@ -44,6 +44,9 @@ from aiperf.common.mixins.realtime_metrics_mixin import (
 from aiperf.common.mixins.reply_client_mixin import (
     ReplyClientMixin,
 )
+from aiperf.common.mixins.service_registry_mixin import (
+    ServiceRegistryMixin,
+)
 from aiperf.common.mixins.task_manager_mixin import (
     TaskManagerMixin,
 )
@@ -64,6 +67,7 @@ __all__ = [
     "PullClientMixin",
     "RealtimeMetricsMixin",
     "ReplyClientMixin",
+    "ServiceRegistryMixin",
     "TaskManagerMixin",
     "WorkerTrackerMixin",
 ]

@@ -6,12 +6,10 @@ from abc import ABC, abstractmethod
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.constants import (
     DEFAULT_SERVICE_REGISTRATION_TIMEOUT,
-    DEFAULT_SERVICE_START_TIMEOUT,
 )
 from aiperf.common.decorators import implements_protocol
 from aiperf.common.hooks import on_start, on_stop
 from aiperf.common.mixins import AIPerfLifecycleMixin
-from aiperf.common.models import ServiceRunInfo
 from aiperf.common.protocols import ServiceManagerProtocol
 from aiperf.common.types import ServiceTypeT
 
@@ -37,12 +35,6 @@ class BaseServiceManager(AIPerfLifecycleMixin, ABC):
         self.required_services = required_services
         self.service_config = service_config
         self.user_config = user_config
-        self.kwargs = kwargs
-        # Maps to track service information
-        self.service_map: dict[ServiceTypeT, list[ServiceRunInfo]] = {}
-
-        # Create service ID map for component lookups
-        self.service_id_map: dict[str, ServiceRunInfo] = {}
 
     @on_start
     async def _start_service_manager(self) -> None:
@@ -106,15 +98,6 @@ class BaseServiceManager(AIPerfLifecycleMixin, ABC):
     @abstractmethod
     async def wait_for_all_services_registration(
         self,
-        stop_event: asyncio.Event,
         timeout_seconds: float = DEFAULT_SERVICE_REGISTRATION_TIMEOUT,
-    ) -> None:
-        pass
-
-    @abstractmethod
-    async def wait_for_all_services_start(
-        self,
-        stop_event: asyncio.Event,
-        timeout_seconds: float = DEFAULT_SERVICE_START_TIMEOUT,
     ) -> None:
         pass
