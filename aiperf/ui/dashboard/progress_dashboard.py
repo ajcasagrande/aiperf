@@ -1,30 +1,21 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from rich.progress import (
-    BarColumn,
-    Progress,
-    SpinnerColumn,
-    TaskID,
-    TaskProgressColumn,
-    TextColumn,
-)
 from rich.table import Table
 from rich.text import Text
 from textual.app import ComposeResult
-from textual.containers import Container
-from textual.timer import Timer
+from textual.containers import Container, Vertical
 from textual.visual import VisualType
-from textual.widgets import Static
+from textual.widgets import ProgressBar, Static
 
 from aiperf.common.enums import CreditPhase
-from aiperf.common.models import RecordsStats, RequestsStats, StatsProtocol
+from aiperf.common.models import RecordsStats, RequestsStats
 from aiperf.ui.dashboard.custom_widgets import MaximizableWidget
 from aiperf.ui.utils import format_elapsed_time, format_eta
 
 
 class ProgressDashboard(Container, MaximizableWidget):
-    """Textual widget that displays Rich progress bars for profile execution."""
+    """Textual widget that displays Textual progress bars for profile execution."""
 
     DEFAULT_CSS = """
     ProgressDashboard {
@@ -35,13 +26,43 @@ class ProgressDashboard(Container, MaximizableWidget):
         border-title-align: center;
         padding: 0 1 0 1;
     }
-    #status-display {
+    #progress-container {
         height: auto;
-        margin: 0 1 0 1;
+        margin: 0 1 1 1;
     }
-    #progress-display {
-        height: auto;
-        margin: 0 1 0 1;
+    .phase-label {
+        height: 1;
+        color: $primary;
+        text-style: bold;
+        margin: 0 0 0 0;
+    }
+    .phase-label.warmup {
+        color: $warning;
+    }
+    .phase-label.profiling {
+        color: $primary;
+    }
+    .phase-label.records {
+        color: $success;
+    }
+    .phase-label.complete {
+        color: $success;
+    }
+    .phase-progress {
+        height: 1;
+        margin: 0 0 1 0;
+    }
+    .phase-progress.warmup {
+        color: $warning;
+    }
+    .phase-progress.profiling {
+        color: $primary;
+    }
+    .phase-progress.records {
+        color: $success;
+    }
+    .hidden {
+        display: none;
     }
     #stats-display {
         height: auto;
@@ -54,47 +75,56 @@ class ProgressDashboard(Container, MaximizableWidget):
     }
     """
 
-    SPINNER_REFRESH_RATE = 0.1  # 10 FPS
-
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
         self.border_title = "Profile Progress"
 
-        self.progress = Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            TaskProgressColumn(),
-            expand=False,
-        )
-
-        self.task_ids: dict[str, TaskID] = {}
-        self.progress_widget: Static | None = None
+        self.warmup_progress: ProgressBar | None = None
+        self.profiling_progress: ProgressBar | None = None
+        self.records_progress: ProgressBar | None = None
         self.stats_widget: Static | None = None
         self.records_stats: RecordsStats | None = None
         self.profiling_stats: RequestsStats | None = None
         self.warmup_stats: RequestsStats | None = None
-        self.refresh_timer: Timer | None = None
-
-    def on_mount(self) -> None:
-        """Set up the refresh timer when the widget is mounted."""
-        self.refresh_timer = self.set_interval(
-            self.SPINNER_REFRESH_RATE, self.refresh_timer_callback
-        )
-
-    def on_unmount(self) -> None:
-        """Clean up the timer when the widget is unmounted."""
-        if self.refresh_timer:
-            self.refresh_timer.stop()
-
-    def refresh_timer_callback(self) -> None:
-        """Callback for the refresh timer to update the progress widget."""
-        if self.progress_widget:
-            self.progress_widget.update(self.progress)
 
     def compose(self) -> ComposeResult:
-        self.progress_widget = Static(self.progress, id="progress-display")
-        yield self.progress_widget
+        with Vertical(id="progress-container"):
+            # Warmup progress
+            yield Static("Warmup", id="warmup-label", classes="hidden phase-label")
+            self.warmup_progress = ProgressBar(
+                total=100,
+                show_eta=True,
+                show_percentage=True,
+                id="warmup-progress",
+                classes="hidden phase-progress warmup",
+            )
+            yield self.warmup_progress
+
+            # Profiling progress
+            yield Static(
+                "Profiling", id="profiling-label", classes="hidden phase-label"
+            )
+            self.profiling_progress = ProgressBar(
+                total=100,
+                show_eta=True,
+                show_percentage=True,
+                id="profiling-progress",
+                classes="hidden phase-progress profiling",
+            )
+            yield self.profiling_progress
+
+            # Records progress
+            yield Static(
+                "Records Processing", id="records-label", classes="hidden phase-label"
+            )
+            self.records_progress = ProgressBar(
+                total=100,
+                show_eta=True,
+                show_percentage=True,
+                id="records-progress",
+                classes="hidden phase-progress records",
+            )
+            yield self.records_progress
 
         self.stats_widget = Static(
             "Waiting for profile data...",
@@ -103,27 +133,39 @@ class ProgressDashboard(Container, MaximizableWidget):
         )
         yield self.stats_widget
 
-    def create_or_update_progress(self, name: str, stats: StatsProtocol) -> None:
-        """Create or update the progress for a given task."""
-        task_id = self.task_ids.get(name)
-        if task_id is None and stats.total_expected_requests:
-            self.task_ids[name] = self.progress.add_task(
-                name, total=stats.total_expected_requests
-            )
-        elif task_id is not None:
-            self.progress.update(task_id, completed=stats.finished)
-            if stats.is_complete:
-                self.progress.update(
-                    task_id,
-                    description=f"[green]{name}[/green]",
-                )
+    def update_progress_bar(
+        self,
+        progress_bar: ProgressBar,
+        label_id: str,
+        stats: RequestsStats | RecordsStats,
+    ) -> None:
+        """Update a progress bar and its label."""
+        if not stats.total_expected_requests:
+            return
+
+        # Show the progress bar and label if they're hidden
+        if progress_bar.has_class("hidden"):
+            progress_bar.remove_class("hidden")
+            label = self.query_one(f"#{label_id}")
+            label.remove_class("hidden")
+
+        # Update progress
+        progress_bar.update(
+            progress=stats.finished or 0, total=stats.total_expected_requests
+        )
+
+        # Update label color when complete
+        if stats.is_complete:
+            label = self.query_one(f"#{label_id}")
+            label.add_class("complete")
 
     def on_warmup_progress(self, warmup_stats: RequestsStats) -> None:
         """Callback for warmup progress updates."""
         if not self.warmup_stats:
             self.query_one("#stats-display").remove_class("no-stats")
         self.warmup_stats = warmup_stats
-        self.create_or_update_progress("Warmup", warmup_stats)
+        if self.warmup_progress:
+            self.update_progress_bar(self.warmup_progress, "warmup-label", warmup_stats)
         self.update_display(CreditPhase.WARMUP, self.warmup_stats)
 
     def on_profiling_progress(self, profiling_stats: RequestsStats) -> None:
@@ -131,7 +173,10 @@ class ProgressDashboard(Container, MaximizableWidget):
         if not self.profiling_stats:
             self.query_one("#stats-display").remove_class("no-stats")
         self.profiling_stats = profiling_stats
-        self.create_or_update_progress("Profiling", profiling_stats)
+        if self.profiling_progress:
+            self.update_progress_bar(
+                self.profiling_progress, "profiling-label", profiling_stats
+            )
         self.update_display(CreditPhase.PROFILING, self.profiling_stats)
 
     def on_records_progress(self, records_stats: RecordsStats) -> None:
@@ -139,16 +184,17 @@ class ProgressDashboard(Container, MaximizableWidget):
         if not self.records_stats:
             self.query_one("#stats-display").remove_class("no-stats")
         self.records_stats = records_stats
-        self.create_or_update_progress("Records", records_stats)
+        if self.records_progress:
+            self.update_progress_bar(
+                self.records_progress, "records-label", records_stats
+            )
         # NOTE: Send the profiling stats to the display, not the records stats
         self.update_display(CreditPhase.PROFILING, self.profiling_stats)
 
     def update_display(
-        self, phase: CreditPhase, stats: StatsProtocol | None = None
+        self, phase: CreditPhase, stats: RequestsStats | RecordsStats | None = None
     ) -> None:
-        """Update the progress display."""
-        if self.progress_widget:
-            self.progress_widget.update(self.progress)
+        """Update the stats display."""
         if self.stats_widget:
             self.stats_widget.update(self.create_stats_table(phase, stats))
 
@@ -166,7 +212,7 @@ class ProgressDashboard(Container, MaximizableWidget):
             return Text("Waiting for profile data...", style="dim")
 
     def create_stats_table(
-        self, phase: CreditPhase, stats: StatsProtocol | None = None
+        self, phase: CreditPhase, stats: RequestsStats | RecordsStats | None = None
     ) -> VisualType:
         """Create a table with the profile status and progress."""
         stats_table = Table.grid(padding=(0, 1, 0, 0))
