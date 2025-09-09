@@ -36,7 +36,7 @@ class TestCreateTcpConnector:
 
             # Verify default parameters
             assert call_kwargs["limit"] == 2500
-            assert call_kwargs["limit_per_host"] == 2500
+            assert call_kwargs["limit_per_host"] == 0
             assert call_kwargs["ttl_dns_cache"] == 300
             assert call_kwargs["use_dns_cache"] is True
             assert call_kwargs["enable_cleanup_closed"] is False

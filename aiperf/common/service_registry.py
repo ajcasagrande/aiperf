@@ -4,6 +4,7 @@ import asyncio
 from collections import defaultdict
 from collections.abc import Iterable
 
+from aiperf.common.constants import DEFAULT_SERVICE_REGISTRATION_TIMEOUT
 from aiperf.common.enums import LifecycleState, ServiceRegistrationStatus
 from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.common.models import ServiceRunInfo
@@ -89,7 +90,7 @@ class _ServiceRegistry(AIPerfLoggerMixin):
             self.by_type[service_type].add(service_id)
 
             self.info(f"Registered: {service_type.title()} ('{service_id}')")
-            self._check_events()
+            await self._check_events()
 
     async def update_service(
         self,
@@ -149,17 +150,21 @@ class _ServiceRegistry(AIPerfLoggerMixin):
             del self.services[service_id]
             self.debug(lambda: f"Forgot service: '{service_id}'")
 
-    async def wait_for_all(self, timeout: float | None = None) -> None:
+    async def wait_for_all(
+        self, timeout: float | None = DEFAULT_SERVICE_REGISTRATION_TIMEOUT
+    ) -> None:
         """Wait until all expected services are registered."""
         async with self._lock:
-            if self._all_registered():
+            if await self._all_registered():
                 return
 
             if self._all_event is None:
                 self._all_event = asyncio.Event()
             event = self._all_event
 
-        self.info("Waiting for all services to be registered...")
+        self.info(
+            f"Waiting for all services to be registered (timeout: {timeout} seconds)..."
+        )
         await asyncio.wait_for(event.wait(), timeout)
 
     async def wait_for_type(
@@ -167,7 +172,7 @@ class _ServiceRegistry(AIPerfLoggerMixin):
     ) -> None:
         """Wait until all services of a specific type are registered."""
         async with self._lock:
-            if self._all_types_registered(service_type):
+            if await self._all_types_registered(service_type):
                 return
 
             if service_type not in self._type_events:
@@ -186,7 +191,7 @@ class _ServiceRegistry(AIPerfLoggerMixin):
         ids = frozenset(service_ids)
 
         async with self._lock:
-            if self._all_ids_registered(service_ids):
+            if await self._all_ids_registered(service_ids):
                 return
 
             if ids not in self._id_events:
@@ -216,10 +221,10 @@ class _ServiceRegistry(AIPerfLoggerMixin):
         async with self._lock:
             return self.services.get(service_id)
 
-    async def get_all_registered_ids(self) -> set[str]:
+    async def get_all_registered_ids(self) -> list[str]:
         """Get all registered service IDs."""
         async with self._lock:
-            return set(
+            return list(
                 service_id
                 for service_id, service_info in self.services.items()
                 if service_info.registration_status
@@ -238,33 +243,34 @@ class _ServiceRegistry(AIPerfLoggerMixin):
     async def all_types_registered(self, service_type: ServiceTypeT) -> bool:
         """Check if all services of a type are registered."""
         async with self._lock:
-            return self._all_types_registered(service_type)
+            return await self._all_types_registered(service_type)
 
-    async def all_ids_registered(self, service_ids: set[str]) -> bool:
+    async def all_ids_registered(self, service_ids: Iterable[str]) -> bool:
         """Check if all specified service IDs are registered."""
         async with self._lock:
-            return self._all_ids_registered(service_ids)
+            return await self._all_ids_registered(service_ids)
 
     async def all_registered(self) -> bool:
         """Check if all expected services are registered."""
         async with self._lock:
-            return self._all_registered()
+            return await self._all_registered()
 
-    def _all_registered(self) -> bool:
+    async def _all_registered(self) -> bool:
         """Check if all expected services are registered."""
         for service_type in self.expected_by_type:
-            if not self._all_types_registered(service_type):
+            if not await self._all_types_registered(service_type):
                 return False
-        return self._all_ids_registered(self.expected_ids)
+        return await self._all_ids_registered(self.expected_ids)
 
-    def _all_types_registered(self, service_type: ServiceTypeT) -> bool:
+    async def _all_types_registered(self, service_type: ServiceTypeT) -> bool:
         """Check if all services of a type are registered."""
         expected = self.expected_by_type.get(service_type, 0)
         return expected == 0 or self._num_registered_of_type(service_type) >= expected
 
-    def _all_ids_registered(self, service_ids: Iterable[str]) -> bool:
+    async def _all_ids_registered(self, service_ids: Iterable[str]) -> bool:
         """Check if all specified service IDs are registered."""
-        return all(self.is_registered(service_id) for service_id in service_ids)
+        registered_ids = await self.get_all_registered_ids()
+        return all(service_id in registered_ids for service_id in service_ids)
 
     def _num_registered_of_type(self, service_type: ServiceTypeT) -> int:
         """Count the number of registered services of a specific type."""
@@ -276,16 +282,16 @@ class _ServiceRegistry(AIPerfLoggerMixin):
             == ServiceRegistrationStatus.REGISTERED
         )
 
-    def _check_events(self) -> None:
+    async def _check_events(self) -> None:
         """Check and trigger any events that are satisfied."""
-        if self._all_event and self._all_registered():
+        if self._all_event and await self._all_registered():
             self._all_event.set()
             self._all_event = None
 
         # Check type events
         types_to_remove = []
         for service_type, event in self._type_events.items():
-            if self._all_types_registered(service_type):
+            if await self._all_types_registered(service_type):
                 event.set()
                 types_to_remove.append(service_type)
 
@@ -295,7 +301,7 @@ class _ServiceRegistry(AIPerfLoggerMixin):
         # Check id events
         ids_to_remove = []
         for ids, event in self._id_events.items():
-            if self._all_ids_registered(ids):
+            if await self._all_ids_registered(ids):
                 event.set()
                 ids_to_remove.append(ids)
 

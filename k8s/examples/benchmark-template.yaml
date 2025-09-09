@@ -1,0 +1,178 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+# Example: Template for LLaMA-2 benchmarks
+apiVersion: aiperf.nvidia.com/v1
+kind: BenchmarkTemplate
+metadata:
+  name: llama-2-standard
+  namespace: aiperf-templates
+  labels:
+    model-family: llama-2
+    category: language-model
+spec:
+  description: "Standard benchmark template for LLaMA-2 models with common configurations"
+  defaults:
+    endpoint:
+      type: "chat"
+      authentication:
+        type: "api-key"
+        secretRef:
+          name: default-model-credentials
+          key: api-key
+    workload:
+      concurrency: 10
+      requestCount: 1000
+      streaming: true
+    input:
+      type: "synthetic"
+      synthetic:
+        promptLength:
+          min: 50
+          max: 200
+        outputLength:
+          min: 100
+          max: 400
+    resources:
+      workers:
+        min: 5
+        max: 50
+        cpu: "500m"
+        memory: "1Gi"
+    output:
+      format: "json"
+      storage:
+        type: "local"
+      metrics:
+        enabled: true
+        interval: "5s"
+
+  constraints:
+    allowedModels:
+    - "llama-2-.*"
+    - "code-llama-.*"
+    maxConcurrency: 100
+    maxDuration: "30m"
+    maxWorkers: 100
+    resourceLimits:
+      cpu: "2"
+      memory: "4Gi"
+
+  variants:
+    light:
+      description: "Light load testing variant"
+      overrides:
+        workload:
+          concurrency: 5
+          requestCount: 100
+        resources:
+          workers:
+            min: 2
+            max: 10
+
+    heavy:
+      description: "Heavy load testing variant"
+      overrides:
+        workload:
+          concurrency: 50
+          requestCount: 5000
+        resources:
+          workers:
+            min: 20
+            max: 100
+            cpu: "1"
+            memory: "2Gi"
+
+    streaming:
+      description: "Streaming response testing variant"
+      overrides:
+        workload:
+          streaming: true
+          concurrency: 20
+        input:
+          synthetic:
+            outputLength:
+              min: 500
+              max: 1000
+
+---
+# Example: Enterprise template with strict constraints
+apiVersion: aiperf.nvidia.com/v1
+kind: BenchmarkTemplate
+metadata:
+  name: enterprise-secure
+  namespace: aiperf-templates
+  labels:
+    category: enterprise
+    security-level: high
+spec:
+  description: "Enterprise template with security constraints and monitoring"
+  defaults:
+    endpoint:
+      authentication:
+        type: "oauth"
+    workload:
+      concurrency: 10
+      duration: "5m"
+      streaming: false
+    input:
+      type: "dataset"
+      dataset:
+        source: "local"
+        split: "test"
+    resources:
+      workers:
+        min: 3
+        max: 20
+        cpu: "1"
+        memory: "2Gi"
+        nodeSelector:
+          security-zone: "restricted"
+        tolerations:
+        - key: "security"
+          operator: "Equal"
+          value: "high"
+          effect: "NoSchedule"
+    output:
+      format: "csv"
+      storage:
+        type: "s3"
+      metrics:
+        enabled: true
+        interval: "10s"
+        custom:
+        - "security_scan_results"
+        - "compliance_metrics"
+
+  constraints:
+    maxConcurrency: 25
+    maxDuration: "15m"
+    maxWorkers: 30
+    requiredLabels:
+      security-approved: "true"
+      compliance-checked: "true"
+    resourceLimits:
+      cpu: "2"
+      memory: "4Gi"
+
+  variants:
+    compliance-test:
+      description: "Compliance testing with minimal resource usage"
+      overrides:
+        workload:
+          concurrency: 5
+          requestCount: 50
+        resources:
+          workers:
+            min: 1
+            max: 5
+
+    performance-baseline:
+      description: "Performance baseline measurement"
+      overrides:
+        workload:
+          concurrency: 15
+          duration: "10m"
+        resources:
+          workers:
+            min: 5
+            max: 15

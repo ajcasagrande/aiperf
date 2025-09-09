@@ -1,0 +1,137 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+{{- if .Values.security.rbac.create }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "aiperf.serviceAccountName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "aiperf.labels" . | nindent 4 }}
+  {{- with .Values.security.serviceAccount.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+automountServiceAccountToken: true
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "aiperf.workerServiceAccountName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "aiperf.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+automountServiceAccountToken: false
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "aiperf.fullname" . }}-system-controller
+  labels:
+    {{- include "aiperf.labels" . | nindent 4 }}
+rules:
+# Core resources needed for service management
+- apiGroups: [""]
+  resources: ["pods", "services", "configmaps", "secrets", "events"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: [""]
+  resources: ["pods/status", "pods/log"]
+  verbs: ["get", "list", "watch"]
+
+# App resources for service deployment
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets", "statefulsets"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["apps"]
+  resources: ["deployments/status", "replicasets/status", "statefulsets/status"]
+  verbs: ["get", "list", "watch"]
+
+# Autoscaling
+- apiGroups: ["autoscaling"]
+  resources: ["horizontalpodautoscalers"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["autoscaling"]
+  resources: ["horizontalpodautoscalers/status"]
+  verbs: ["get", "list", "watch"]
+
+# Custom resources
+- apiGroups: ["aiperf.nvidia.com"]
+  resources: ["benchmarkruns", "benchmarktemplates"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["aiperf.nvidia.com"]
+  resources: ["benchmarkruns/status", "benchmarktemplates/status"]
+  verbs: ["get", "update", "patch"]
+
+# Metrics and monitoring
+- apiGroups: ["metrics.k8s.io"]
+  resources: ["pods", "nodes"]
+  verbs: ["get", "list"]
+- apiGroups: ["custom.metrics.k8s.io"]
+  resources: ["*"]
+  verbs: ["get", "list"]
+
+# Networking
+- apiGroups: ["networking.k8s.io"]
+  resources: ["networkpolicies"]
+  verbs: ["get", "list", "watch", "create", "update", "patch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "aiperf.fullname" . }}-worker
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "aiperf.labels" . | nindent 4 }}
+rules:
+# Basic resources workers need to read
+- apiGroups: [""]
+  resources: ["configmaps", "secrets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create", "patch"]
+
+# Self-management capabilities
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch"]
+  resourceNames: [{{ include "aiperf.fullname" . }}-worker-*]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "aiperf.fullname" . }}-system-controller
+  labels:
+    {{- include "aiperf.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "aiperf.fullname" . }}-system-controller
+subjects:
+- kind: ServiceAccount
+  name: {{ include "aiperf.serviceAccountName" . }}
+  namespace: {{ .Release.Namespace }}
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "aiperf.fullname" . }}-worker
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "aiperf.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "aiperf.fullname" . }}-worker
+subjects:
+- kind: ServiceAccount
+  name: {{ include "aiperf.workerServiceAccountName" . }}
+  namespace: {{ .Release.Namespace }}
+
+{{- end }}

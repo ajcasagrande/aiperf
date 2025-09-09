@@ -1,0 +1,156 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+# Example: Simple benchmark run using the BenchmarkRun CRD
+apiVersion: aiperf.nvidia.com/v1
+kind: BenchmarkRun
+metadata:
+  name: llama-2-simple-test
+  namespace: aiperf-benchmarks
+  labels:
+    model: llama-2-7b
+    environment: testing
+spec:
+  model: "llama-2-7b-chat"
+  endpoint:
+    url: "https://api.openai.com/v1"
+    type: "chat"
+    authentication:
+      type: "api-key"
+      secretRef:
+        name: openai-credentials
+        key: api-key
+  workload:
+    concurrency: 5
+    requestCount: 100
+    streaming: true
+  input:
+    type: "synthetic"
+    synthetic:
+      promptLength:
+        min: 50
+        max: 150
+      outputLength:
+        min: 100
+        max: 300
+  resources:
+    workers:
+      min: 2
+      max: 10
+      cpu: "500m"
+      memory: "1Gi"
+  output:
+    format: "json"
+    storage:
+      type: "local"
+    metrics:
+      enabled: true
+      interval: "5s"
+
+---
+# Example: High-load benchmark with specific node placement
+apiVersion: aiperf.nvidia.com/v1
+kind: BenchmarkRun
+metadata:
+  name: llama-2-high-load
+  namespace: aiperf-benchmarks
+  labels:
+    model: llama-2-7b
+    environment: production
+    load-test: high-concurrency
+spec:
+  model: "llama-2-7b-chat"
+  endpoint:
+    url: "https://internal-model-service.ai.svc.cluster.local:8080"
+    type: "chat"
+  workload:
+    concurrency: 50
+    duration: "10m"
+    requestRate: 100
+    streaming: false
+  input:
+    type: "dataset"
+    dataset:
+      source: "huggingface"
+      name: "alpaca-gpt4"
+      split: "test"
+      sampleSize: 1000
+  resources:
+    workers:
+      min: 10
+      max: 50
+      cpu: "1"
+      memory: "2Gi"
+      nodeSelector:
+        node-type: "high-memory"
+        zone: "us-west-2a"
+      tolerations:
+      - key: "dedicated"
+        operator: "Equal"
+        value: "ai-workloads"
+        effect: "NoSchedule"
+  output:
+    format: "csv"
+    storage:
+      type: "s3"
+      path: "s3://benchmark-results/llama-2-high-load"
+      secretRef:
+        name: s3-credentials
+        key: access-credentials
+    metrics:
+      enabled: true
+      interval: "1s"
+      custom:
+      - "gpu_utilization"
+      - "memory_bandwidth"
+
+---
+# Example: Scheduled recurring benchmark
+apiVersion: aiperf.nvidia.com/v1
+kind: BenchmarkRun
+metadata:
+  name: daily-performance-check
+  namespace: aiperf-benchmarks
+  labels:
+    model: llama-2-7b
+    environment: monitoring
+    schedule: daily
+spec:
+  model: "llama-2-7b-chat"
+  endpoint:
+    url: "https://production-endpoint.ai.company.com"
+    type: "chat"
+    authentication:
+      type: "bearer-token"
+      secretRef:
+        name: prod-api-token
+  workload:
+    concurrency: 10
+    requestCount: 500
+    streaming: true
+  input:
+    type: "synthetic"
+    synthetic:
+      promptLength:
+        min: 25
+        max: 100
+      outputLength:
+        min: 50
+        max: 200
+  resources:
+    workers:
+      min: 3
+      max: 15
+      cpu: "750m"
+      memory: "1.5Gi"
+  output:
+    format: "prometheus"
+    storage:
+      type: "local"
+    metrics:
+      enabled: true
+      interval: "10s"
+  schedule:
+    enabled: true
+    cron: "0 2 * * *"  # Daily at 2 AM
+    timezone: "UTC"
+    suspend: false

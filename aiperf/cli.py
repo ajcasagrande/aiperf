@@ -15,6 +15,7 @@ from cyclopts import App
 from aiperf.cli_utils import exit_on_error
 from aiperf.common.config import NodeConfig, ServiceConfig, UserConfig
 from aiperf.common.config.system_controller_config import SystemControllerConfig
+from aiperf.common.enums import ServiceType
 
 app = App(name="aiperf", help="NVIDIA AIPerf")
 
@@ -54,6 +55,38 @@ def node(
         node_config = node_config or NodeConfig()
 
         run_node_controller(service_config, node_config)
+
+
+@app.command(name="service")
+def service(
+    service_type: ServiceType,
+    service_id: str | None = None,
+    service_config: ServiceConfig | None = None,
+    user_config: UserConfig | None = None,
+) -> None:
+    """Run a single AIPerf service.
+
+    This command is primarily used for Kubernetes deployments where each
+    service runs in its own pod.
+
+    Args:
+        service_type: Type of service to run (worker, dataset_manager, etc.)
+        service_id: Unique ID for this service instance
+        service_config: Service configuration options
+        user_config: User configuration (for some services)
+    """
+    with exit_on_error(title=f"Error Running {service_type} Service"):
+        from aiperf.cli_runner import run_individual_service
+        from aiperf.common.config import load_service_config
+
+        service_config = service_config or load_service_config()
+
+        run_individual_service(
+            service_type=service_type,
+            service_id=service_id,
+            service_config=service_config,
+            user_config=user_config,
+        )
 
 
 if __name__ == "__main__":

@@ -1,0 +1,121 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+{{- if .Values.systemController.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "aiperf.fullname" . }}-system-controller
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "aiperf.labels" . | nindent 4 }}
+    app.kubernetes.io/component: system-controller
+spec:
+  replicas: {{ .Values.systemController.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "aiperf.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: system-controller
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.systemController.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "aiperf.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: system-controller
+        monitoring: enabled
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "aiperf.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.security.podSecurityContext | nindent 8 }}
+      containers:
+        - name: system-controller
+          securityContext:
+            {{- toYaml .Values.security.securityContext | nindent 12 }}
+          image: "{{ .Values.aiperf.image.registry }}/{{ .Values.aiperf.image.repository }}:{{ .Values.aiperf.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.aiperf.image.pullPolicy }}
+          command:
+            - "aiperf"
+            - "profile"
+          args:
+            - "--service-run-type"
+            - "kubernetes"
+          env:
+            - name: AIPERF_SERVICE_RUN_TYPE
+              value: "kubernetes"
+            - name: AIPERF_ZMQ_TCP_HOST
+              value: "{{ include "aiperf.fullname" . }}-zmq-proxy"
+            - name: AIPERF_LOG_LEVEL
+              value: {{ .Values.logging.logLevels.systemController | quote }}
+            - name: KUBERNETES_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+          ports:
+            - name: http
+              containerPort: {{ .Values.systemController.service.targetPort }}
+              protocol: TCP
+            - name: metrics
+              containerPort: 9090
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.systemController.resources | nindent 12 }}
+          volumeMounts:
+            - name: config-volume
+              mountPath: /app/config
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+            - name: cache
+              mountPath: /app/cache
+      volumes:
+        - name: config-volume
+          configMap:
+            name: {{ include "aiperf.fullname" . }}-config
+        - name: tmp
+          emptyDir: {}
+        - name: cache
+          emptyDir: {}
+      {{- with .Values.systemController.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.systemController.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.systemController.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

@@ -8,6 +8,7 @@ from typing import cast
 
 from rich.console import Console
 
+from aiperf.cli_utils import exit_on_error
 from aiperf.common.base_service import BaseService
 from aiperf.common.config import ServiceConfig, SystemControllerConfig, UserConfig
 from aiperf.common.config.dev_config import print_developer_mode_warning
@@ -170,16 +171,17 @@ class SystemController(SignalHandlerMixin, BaseService, ServiceRegistryMixin):
                 {ServiceType.NODE_CONTROLLER: self.expected_node_controllers}
             )
 
-        await self.service_manager.wait_for_all_services_registration()
+        with exit_on_error(message="Services did not register in time"):
+            await ServiceRegistry.wait_for_all()
 
-        await asyncio.sleep(1)
-        self.info("AIPerf System is CONFIGURING")
-        await self._profile_configure_all_services()
-        self.info("AIPerf System is CONFIGURED")
-        # Wait for any additional services that were run as part of the configure step (workers, etc.)
-        await self.service_manager.wait_for_all_services_registration()
-        await self._start_profiling_all_services()
-        self.info("AIPerf System is PROFILING")
+            await asyncio.sleep(1)
+            self.info("AIPerf System is CONFIGURING")
+            await self._profile_configure_all_services()
+            self.info("AIPerf System is CONFIGURED")
+            # Wait for any additional services that were run as part of the configure step (workers, etc.)
+            await ServiceRegistry.wait_for_all()
+            await self._start_profiling_all_services()
+            self.info("AIPerf System is PROFILING")
 
     async def _profile_configure_all_services(self) -> None:
         """Configure all services to start profiling.
@@ -194,7 +196,7 @@ class SystemController(SignalHandlerMixin, BaseService, ServiceRegistryMixin):
                 service_id=self.service_id,
                 config=self.user_config,
             ),
-            list(self.service_manager.service_id_map.keys()),
+            await ServiceRegistry.get_all_registered_ids(),
             timeout=DEFAULT_PROFILE_CONFIGURE_TIMEOUT,
         )
         duration = time.perf_counter() - begin
@@ -207,7 +209,7 @@ class SystemController(SignalHandlerMixin, BaseService, ServiceRegistryMixin):
             ProfileStartCommand(
                 service_id=self.service_id,
             ),
-            list(self.service_manager.service_id_map.keys()),
+            await ServiceRegistry.get_all_registered_ids(),
             timeout=DEFAULT_PROFILE_START_TIMEOUT,
         )
         self.info("All services started profiling successfully")

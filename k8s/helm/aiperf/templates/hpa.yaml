@@ -1,0 +1,60 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+{{- if and .Values.workers.enabled .Values.workers.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "aiperf.fullname" . }}-workers-hpa
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "aiperf.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker-autoscaler
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "aiperf.fullname" . }}-workers
+  minReplicas: {{ .Values.workers.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.workers.autoscaling.maxReplicas }}
+  metrics:
+    {{- if .Values.workers.autoscaling.targetCPUUtilization }}
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.workers.autoscaling.targetCPUUtilization }}
+    {{- end }}
+    {{- if .Values.workers.autoscaling.targetMemoryUtilization }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.workers.autoscaling.targetMemoryUtilization }}
+    {{- end }}
+    {{- with .Values.workers.autoscaling.customMetrics }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60
+      - type: Pods
+        value: 2
+        periodSeconds: 60
+      selectPolicy: Min
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 60
+      - type: Pods
+        value: 10
+        periodSeconds: 60
+      selectPolicy: Max
+{{- end }}

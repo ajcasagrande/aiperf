@@ -1,0 +1,31 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+apiVersion: v2
+name: aiperf
+description: A Helm chart for AIPerf - AI model benchmarking platform on Kubernetes
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - ai
+  - benchmarking
+  - performance
+  - kubernetes
+home: https://github.com/ai-dynamo/aiperf
+sources:
+  - https://github.com/ai-dynamo/aiperf
+maintainers:
+  - name: AIPerf Team
+    email: aiperf@nvidia.com
+dependencies:
+  - name: prometheus-operator
+    version: "~45.0.0"
+    repository: https://prometheus-community.github.io/helm-charts
+    condition: monitoring.prometheus.enabled
+  - name: grafana
+    version: "~6.50.0"
+    repository: https://grafana.github.io/helm-charts
+    condition: monitoring.grafana.enabled
+annotations:
+  category: Analytics
+  licenses: Apache-2.0

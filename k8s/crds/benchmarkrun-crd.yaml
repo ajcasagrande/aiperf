@@ -1,0 +1,438 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: benchmarkruns.aiperf.nvidia.com
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.13.0
+spec:
+  group: aiperf.nvidia.com
+  names:
+    kind: BenchmarkRun
+    listKind: BenchmarkRunList
+    plural: benchmarkruns
+    singular: benchmarkrun
+    shortNames:
+    - br
+    - benchmark
+    categories:
+    - aiperf
+  scope: Namespaced
+  versions:
+  - name: v1
+    served: true
+    storage: true
+    additionalPrinterColumns:
+    - name: Phase
+      type: string
+      description: Current phase of the benchmark run
+      jsonPath: .status.phase
+    - name: Model
+      type: string
+      description: Target model being benchmarked
+      jsonPath: .spec.model
+    - name: Workers
+      type: integer
+      description: Number of active workers
+      jsonPath: .status.workersRunning
+    - name: Duration
+      type: string
+      description: Benchmark duration
+      jsonPath: .spec.duration
+    - name: Age
+      type: date
+      jsonPath: .metadata.creationTimestamp
+    schema:
+      openAPIV3Schema:
+        description: BenchmarkRun defines a single AI model benchmark execution
+        type: object
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object.'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents.'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: BenchmarkRunSpec defines the desired state of a benchmark run
+            type: object
+            required:
+            - model
+            - endpoint
+            properties:
+              model:
+                description: Target AI model to benchmark
+                type: string
+                minLength: 1
+                maxLength: 255
+                example: "llama-2-7b-chat"
+              endpoint:
+                description: Model endpoint configuration
+                type: object
+                required:
+                - url
+                - type
+                properties:
+                  url:
+                    description: Model endpoint URL
+                    type: string
+                    format: uri
+                    example: "https://api.openai.com/v1"
+                  type:
+                    description: Endpoint type (chat, completions, embeddings)
+                    type: string
+                    enum: ["chat", "completions", "embeddings"]
+                    default: "chat"
+                  authentication:
+                    description: Authentication configuration
+                    type: object
+                    properties:
+                      type:
+                        description: Authentication type
+                        type: string
+                        enum: ["none", "api-key", "bearer-token", "oauth"]
+                        default: "none"
+                      secretRef:
+                        description: Reference to secret containing credentials
+                        type: object
+                        required:
+                        - name
+                        properties:
+                          name:
+                            description: Name of the secret
+                            type: string
+                          key:
+                            description: Key within the secret
+                            type: string
+                            default: "token"
+              workload:
+                description: Benchmark workload configuration
+                type: object
+                properties:
+                  concurrency:
+                    description: Number of concurrent requests
+                    type: integer
+                    minimum: 1
+                    maximum: 10000
+                    default: 10
+                  requestCount:
+                    description: Total number of requests to send
+                    type: integer
+                    minimum: 1
+                    maximum: 1000000
+                    default: 1000
+                  duration:
+                    description: Maximum benchmark duration (overrides requestCount)
+                    type: string
+                    pattern: '^([0-9]+(\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$'
+                    example: "5m30s"
+                  requestRate:
+                    description: Target request rate (requests per second)
+                    type: number
+                    minimum: 0.1
+                    maximum: 100000
+                  streaming:
+                    description: Enable streaming responses
+                    type: boolean
+                    default: false
+              input:
+                description: Input data configuration
+                type: object
+                properties:
+                  type:
+                    description: Input data type
+                    type: string
+                    enum: ["synthetic", "dataset", "custom"]
+                    default: "synthetic"
+                  synthetic:
+                    description: Synthetic data generation options
+                    type: object
+                    properties:
+                      promptLength:
+                        description: Generated prompt length range
+                        type: object
+                        properties:
+                          min:
+                            type: integer
+                            minimum: 1
+                            default: 10
+                          max:
+                            type: integer
+                            minimum: 1
+                            default: 100
+                      outputLength:
+                        description: Expected output length range
+                        type: object
+                        properties:
+                          min:
+                            type: integer
+                            minimum: 1
+                            default: 50
+                          max:
+                            type: integer
+                            minimum: 1
+                            default: 200
+                  dataset:
+                    description: Dataset configuration
+                    type: object
+                    properties:
+                      source:
+                        description: Dataset source
+                        type: string
+                        enum: ["huggingface", "s3", "gcs", "local"]
+                      name:
+                        description: Dataset name or path
+                        type: string
+                      split:
+                        description: Dataset split to use
+                        type: string
+                        default: "test"
+                      sampleSize:
+                        description: Number of samples to use from dataset
+                        type: integer
+                        minimum: 1
+              resources:
+                description: Resource requirements for workers
+                type: object
+                properties:
+                  workers:
+                    description: Worker configuration
+                    type: object
+                    properties:
+                      min:
+                        description: Minimum number of workers
+                        type: integer
+                        minimum: 1
+                        maximum: 1000
+                        default: 1
+                      max:
+                        description: Maximum number of workers
+                        type: integer
+                        minimum: 1
+                        maximum: 1000
+                        default: 100
+                      cpu:
+                        description: CPU request per worker
+                        type: string
+                        pattern: '^([0-9]+(\.[0-9]+)?)(m|[KMGTPE]i?)?$'
+                        default: "500m"
+                      memory:
+                        description: Memory request per worker
+                        type: string
+                        pattern: '^([0-9]+(\.[0-9]+)?)(Ki|Mi|Gi|Ti|Pi|Ei|K|M|G|T|P|E)?$'
+                        default: "1Gi"
+                      nodeSelector:
+                        description: Node selector for worker placement
+                        type: object
+                        additionalProperties:
+                          type: string
+                      tolerations:
+                        description: Tolerations for worker scheduling
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            key:
+                              type: string
+                            operator:
+                              type: string
+                              enum: ["Exists", "Equal"]
+                            value:
+                              type: string
+                            effect:
+                              type: string
+                              enum: ["NoSchedule", "PreferNoSchedule", "NoExecute"]
+                            tolerationSeconds:
+                              type: integer
+              output:
+                description: Output and results configuration
+                type: object
+                properties:
+                  format:
+                    description: Output format
+                    type: string
+                    enum: ["json", "csv", "prometheus"]
+                    default: "json"
+                  storage:
+                    description: Results storage configuration
+                    type: object
+                    properties:
+                      type:
+                        description: Storage type
+                        type: string
+                        enum: ["local", "s3", "gcs", "azure"]
+                        default: "local"
+                      path:
+                        description: Storage path or bucket
+                        type: string
+                      secretRef:
+                        description: Reference to storage credentials
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                          key:
+                            type: string
+                  metrics:
+                    description: Metrics collection configuration
+                    type: object
+                    properties:
+                      enabled:
+                        type: boolean
+                        default: true
+                      interval:
+                        description: Metrics collection interval
+                        type: string
+                        pattern: '^([0-9]+(\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$'
+                        default: "1s"
+                      custom:
+                        description: Custom metrics to collect
+                        type: array
+                        items:
+                          type: string
+              schedule:
+                description: Schedule configuration for recurring benchmarks
+                type: object
+                properties:
+                  enabled:
+                    type: boolean
+                    default: false
+                  cron:
+                    description: Cron schedule expression
+                    type: string
+                    pattern: '^(@(annually|yearly|monthly|weekly|daily|hourly))|(@every (\d+(ns|us|µs|ms|s|m|h))+)|((((\d+,)+\d+|(\d+(\/|-)\d+)|\d+|\*) ?){5,7})$'
+                  timezone:
+                    description: Timezone for schedule
+                    type: string
+                    default: "UTC"
+                  suspend:
+                    description: Suspend scheduled runs
+                    type: boolean
+                    default: false
+          status:
+            description: BenchmarkRunStatus defines the observed state of BenchmarkRun
+            type: object
+            properties:
+              phase:
+                description: Current phase of the benchmark run
+                type: string
+                enum:
+                - "Pending"
+                - "Initializing"
+                - "Running"
+                - "Scaling"
+                - "Completing"
+                - "Completed"
+                - "Failed"
+                - "Cancelled"
+                default: "Pending"
+              conditions:
+                description: Current conditions of the benchmark run
+                type: array
+                items:
+                  description: BenchmarkRunCondition describes the state of a benchmark run
+                  type: object
+                  required:
+                  - type
+                  - status
+                  properties:
+                    type:
+                      description: Type of condition
+                      type: string
+                      enum:
+                      - "Ready"
+                      - "Progressing"
+                      - "Available"
+                      - "Degraded"
+                      - "Failed"
+                    status:
+                      description: Status of the condition
+                      type: string
+                      enum: ["True", "False", "Unknown"]
+                    reason:
+                      description: Reason for the condition's last transition
+                      type: string
+                      maxLength: 1024
+                      minLength: 1
+                    message:
+                      description: Human readable message indicating details
+                      type: string
+                      maxLength: 32768
+                    lastTransitionTime:
+                      description: Last time the condition transitioned
+                      type: string
+                      format: date-time
+                    observedGeneration:
+                      description: Represents the .metadata.generation observed by the controller
+                      type: integer
+                      format: int64
+                      minimum: 0
+              workersRunning:
+                description: Number of currently running workers
+                type: integer
+                minimum: 0
+              workersReady:
+                description: Number of ready workers
+                type: integer
+                minimum: 0
+              startTime:
+                description: Time when the benchmark started
+                type: string
+                format: date-time
+              completionTime:
+                description: Time when the benchmark completed
+                type: string
+                format: date-time
+              requestsSent:
+                description: Total number of requests sent
+                type: integer
+                minimum: 0
+              requestsCompleted:
+                description: Number of completed requests
+                type: integer
+                minimum: 0
+              requestsFailed:
+                description: Number of failed requests
+                type: integer
+                minimum: 0
+              averageLatency:
+                description: Average response latency in milliseconds
+                type: number
+                minimum: 0
+              throughput:
+                description: Current throughput (requests per second)
+                type: number
+                minimum: 0
+              errors:
+                description: Recent error messages
+                type: array
+                items:
+                  type: object
+                  properties:
+                    timestamp:
+                      type: string
+                      format: date-time
+                    message:
+                      type: string
+                    count:
+                      type: integer
+                      minimum: 1
+              resultsLocation:
+                description: Location where results are stored
+                type: string
+              metrics:
+                description: Current metrics snapshot
+                type: object
+                additionalProperties:
+                  type: string
+    subresources:
+      status: {}
+      scale:
+        specReplicasPath: .spec.resources.workers.max
+        statusReplicasPath: .status.workersRunning
+        labelSelectorPath: .status.selector

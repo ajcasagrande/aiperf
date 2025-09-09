@@ -1,0 +1,14 @@
+# Additional dependencies for Kubernetes integration
+# Add these to the main pyproject.toml dependencies section
+
+kubernetes = { version = ">=29.0.0", optional = true }
+
+# Optional extras for Kubernetes support
+[project.optional-dependencies]
+kubernetes = [
+    "kubernetes>=29.0.0",
+]
+
+all = [
+    "aiperf[kubernetes]",
+]

@@ -1,0 +1,386 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+# Default values for aiperf Helm chart
+global:
+  # Global image settings
+  imageRegistry: ""
+  imagePullSecrets: []
+  storageClass: ""
+
+# AIPerf application configuration
+aiperf:
+  image:
+    registry: docker.io
+    repository: nvidia/aiperf
+    tag: "latest"
+    pullPolicy: IfNotPresent
+
+  # Benchmark configuration
+  benchmark:
+    model: "llama-2-7b"
+    endpoint_type: "chat"
+    concurrency: 10
+    request_count: 1000
+    streaming: true
+
+  # Service run configuration
+  service:
+    run_type: "kubernetes"
+    log_level: "INFO"
+    ui_type: "dashboard"
+
+# System Controller configuration
+systemController:
+  enabled: true
+  replicaCount: 1
+
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "200m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
+  service:
+    type: ClusterIP
+    port: 8080
+    targetPort: 8080
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# Dataset Manager configuration
+datasetManager:
+  enabled: true
+  replicaCount: 1
+
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "300m"
+    limits:
+      memory: "2Gi"
+      cpu: "1"
+
+  persistence:
+    enabled: true
+    storageClass: ""
+    size: 10Gi
+    accessModes:
+      - ReadWriteOnce
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# Worker Manager configuration
+workerManager:
+  enabled: true
+  replicaCount: 2
+
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "200m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# Workers configuration
+workers:
+  enabled: true
+  replicaCount: 10
+
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
+      memory: "2Gi"
+      cpu: "1"
+
+  # Autoscaling configuration
+  autoscaling:
+    enabled: true
+    minReplicas: 5
+    maxReplicas: 100
+    targetCPUUtilization: 70
+    targetMemoryUtilization: 80
+    customMetrics:
+      - type: Pods
+        pods:
+          metric:
+            name: zmq_queue_depth
+          target:
+            type: AverageValue
+            averageValue: "30"
+
+  # Pod Disruption Budget
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 50%
+
+  nodeSelector: {}
+  tolerations: []
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+            - key: app
+              operator: In
+              values:
+              - aiperf-worker
+          topologyKey: kubernetes.io/hostname
+
+# Records Manager configuration
+recordsManager:
+  enabled: true
+  replicaCount: 1
+
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
+      memory: "4Gi"
+      cpu: "2"
+
+  persistence:
+    enabled: true
+    storageClass: ""
+    size: 20Gi
+    accessModes:
+      - ReadWriteOnce
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# Post Processor configuration
+postProcessor:
+  enabled: true
+  replicaCount: 1
+
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "300m"
+    limits:
+      memory: "2Gi"
+      cpu: "1"
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# ZMQ Proxy configuration
+zmqProxy:
+  enabled: true
+  replicaCount: 2
+
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "200m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
+  service:
+    type: ClusterIP
+    ports:
+      frontend: 5555
+      backend: 5556
+      control: 5557
+
+  # High availability configuration
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+            - key: app
+              operator: In
+              values:
+              - aiperf-zmq-proxy
+          topologyKey: kubernetes.io/hostname
+
+# Networking configuration
+networking:
+  # Network policies
+  networkPolicies:
+    enabled: true
+    ingress:
+      enabled: true
+    egress:
+      enabled: true
+
+  # Service mesh integration
+  serviceMesh:
+    enabled: false
+    type: "istio"  # istio, linkerd, consul-connect
+
+# Security configuration
+security:
+  # RBAC
+  rbac:
+    create: true
+
+  # Service accounts
+  serviceAccount:
+    create: true
+    annotations: {}
+    name: ""
+
+  # Pod security context
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+
+  # Container security context
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+      - ALL
+
+# Storage configuration
+storage:
+  # Persistent volumes
+  persistentVolumes:
+    dataset:
+      size: 50Gi
+      accessModes:
+        - ReadWriteMany
+      storageClass: ""
+    records:
+      size: 100Gi
+      accessModes:
+        - ReadWriteOnce
+      storageClass: ""
+
+# Configuration management
+config:
+  # ConfigMaps
+  configMaps:
+    systemConfig:
+      service_run_type: "kubernetes"
+      log_level: "INFO"
+      ui_type: "dashboard"
+
+    networkConfig:
+      zmq_tcp:
+        host: "aiperf-zmq-proxy"
+        port_range_start: 5555
+        port_range_end: 5570
+      connection_timeout: 30
+      retry_attempts: 3
+
+  # Secrets (use external secret management)
+  secrets:
+    modelCredentials:
+      enabled: false
+      externalSecret:
+        enabled: false
+        secretStore: ""
+        secretName: ""
+
+# Monitoring configuration
+monitoring:
+  # Prometheus
+  prometheus:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+      interval: 30s
+      scrapeTimeout: 10s
+
+  # Grafana dashboards
+  grafana:
+    enabled: true
+    dashboards:
+      enabled: true
+
+  # Custom metrics
+  customMetrics:
+    enabled: true
+    adapter: "prometheus"
+
+# Logging configuration
+logging:
+  # Centralized logging
+  centralized:
+    enabled: false
+    type: "elasticsearch"  # elasticsearch, loki, splunk
+
+  # Log level override per service
+  logLevels:
+    systemController: "INFO"
+    datasetManager: "INFO"
+    workerManager: "INFO"
+    workers: "INFO"
+    recordsManager: "INFO"
+    postProcessor: "INFO"
+
+# Custom Resource Definitions
+crd:
+  enabled: true
+  install: true
+
+# Backup configuration
+backup:
+  enabled: false
+  schedule: "0 2 * * *"
+  retention: "30d"
+  storage:
+    type: "s3"
+    s3:
+      bucket: ""
+      region: ""
+      accessKeyId: ""
+      secretAccessKey: ""
+
+# Multi-cluster configuration
+multiCluster:
+  enabled: false
+  clusters: []
+
+# Development and testing
+development:
+  enabled: false
+  debugServices: []
+  traceServices: []
+  mockServices: false
+
+# Resource quotas and limits
+resourceQuota:
+  enabled: false
+  requests:
+    cpu: "10"
+    memory: "20Gi"
+  limits:
+    cpu: "20"
+    memory: "40Gi"
+
+# Priority classes
+priorityClass:
+  enabled: true
+  system: "aiperf-system"
+  workers: "aiperf-workers"
+  default: "aiperf-default"

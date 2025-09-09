@@ -13,6 +13,7 @@ from aiperf.controller.base_service_manager import (
     BaseServiceManager,
 )
 from aiperf.controller.kubernetes_service_manager import (
+    KUBERNETES_AVAILABLE,
     KubernetesServiceManager,
     ServiceKubernetesRunInfo,
 )
@@ -35,6 +36,7 @@ from aiperf.controller.system_mixins import (
 
 __all__ = [
     "BaseServiceManager",
+    "KUBERNETES_AVAILABLE",
     "KubernetesServiceManager",
     "MultiProcessRunInfo",
     "MultiProcessServiceManager",

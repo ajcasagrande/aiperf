@@ -77,6 +77,11 @@ from aiperf.common.config.input_config import (
     InputConfig,
     logger,
 )
+from aiperf.common.config.kubernetes_config import (
+    KubernetesClusterConfig,
+    KubernetesConfig,
+    KubernetesServiceConfig,
+)
 from aiperf.common.config.loader import (
     load_node_config,
     load_service_config,
@@ -148,6 +153,9 @@ __all__ = [
     "InputDefaults",
     "InputTokensConfig",
     "InputTokensDefaults",
+    "KubernetesClusterConfig",
+    "KubernetesConfig",
+    "KubernetesServiceConfig",
     "LoadGeneratorConfig",
     "LoadGeneratorDefaults",
     "NodeConfig",

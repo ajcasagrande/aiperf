@@ -1,0 +1,102 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "aiperf.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "aiperf.labels" . | nindent 4 }}
+data:
+  # Service Configuration
+  service-config.yaml: |
+    service_run_type: {{ .Values.aiperf.service.run_type }}
+    log_level: {{ .Values.aiperf.service.log_level }}
+    ui_type: {{ .Values.aiperf.service.ui_type }}
+    workers:
+      {{- toYaml .Values.workers | nindent 6 }}
+    {{- if .Values.config.configMaps.systemConfig }}
+    {{- toYaml .Values.config.configMaps.systemConfig | nindent 4 }}
+    {{- end }}
+
+  # Benchmark Configuration
+  benchmark-config.yaml: |
+    {{- toYaml .Values.aiperf.benchmark | nindent 4 }}
+
+  # ZMQ Communication Configuration
+  zmq-config.yaml: |
+    zmq_tcp:
+      host: {{ include "aiperf.zmqProxyServiceName" . }}
+      {{- with .Values.config.configMaps.networkConfig.zmq_tcp }}
+      port_range_start: {{ .port_range_start | default 5555 }}
+      port_range_end: {{ .port_range_end | default 5570 }}
+      {{- end }}
+    {{- with .Values.config.configMaps.networkConfig }}
+    connection_timeout: {{ .connection_timeout | default 30 }}
+    retry_attempts: {{ .retry_attempts | default 3 }}
+    {{- end }}
+    service_discovery:
+      method: "kubernetes"
+      namespace: {{ .Release.Namespace | quote }}
+
+  # Logging Configuration
+  logging-config.yaml: |
+    {{- toYaml .Values.logging | nindent 4 }}
+
+  # Monitoring Configuration
+  monitoring-config.yaml: |
+    prometheus:
+      enabled: {{ .Values.monitoring.prometheus.enabled }}
+      {{- if .Values.monitoring.prometheus.enabled }}
+      endpoint: "http://prometheus-server:9090"
+      {{- end }}
+    custom_metrics:
+      enabled: {{ .Values.monitoring.customMetrics.enabled }}
+      adapter: {{ .Values.monitoring.customMetrics.adapter | default "prometheus" }}
+    {{- if .Values.monitoring.grafana.enabled }}
+    grafana:
+      enabled: true
+      endpoint: "http://grafana:3000"
+    {{- end }}
+
+---
+{{- if .Values.monitoring.prometheus.serviceMonitor.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "aiperf.fullname" . }}-prometheus-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "aiperf.labels" . | nindent 4 }}
+data:
+  prometheus-rules.yaml: |
+    groups:
+    - name: aiperf.rules
+      rules:
+      - alert: AIPerfWorkerHighCPU
+        expr: rate(container_cpu_usage_seconds_total{pod=~"{{ include "aiperf.fullname" . }}-worker-.*"}[5m]) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "AIPerf worker {{ "{{ $labels.pod }}" }} has high CPU usage"
+          description: "Worker {{ "{{ $labels.pod }}" }} has been using more than 80% CPU for more than 5 minutes."
+
+      - alert: AIPerfSystemControllerDown
+        expr: up{job="{{ include "aiperf.fullname" . }}-system-controller"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "AIPerf System Controller is down"
+          description: "System Controller has been down for more than 2 minutes."
+
+      - alert: AIPerfHighErrorRate
+        expr: rate(aiperf_requests_failed_total[5m]) / rate(aiperf_requests_total[5m]) > 0.1
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "AIPerf high error rate detected"
+          description: "Error rate is above 10% for more than 3 minutes."
+{{- end }}

@@ -246,6 +246,13 @@ class CommandHandlerMixin(MessageBusClientMixin, ABC):
         # This will alert the the task that is waiting for the response to continue.
         if message.command_id in self._multi_response_futures:
             if message.service_id in self._multi_response_futures[message.command_id]:
+                if self._multi_response_futures[message.command_id][
+                    message.service_id
+                ].done():
+                    self.warning(
+                        f"Received duplicate command response for service: {message.service_id}. Ignoring."
+                    )
+                    return
                 self._multi_response_futures[message.command_id][
                     message.service_id
                 ].set_result(message)

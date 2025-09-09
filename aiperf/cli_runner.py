@@ -8,6 +8,7 @@ from aiperf.common.config import (
     SystemControllerConfig,
     UserConfig,
 )
+from aiperf.common.enums import ServiceType
 from aiperf.common.enums.ui_enums import AIPerfUIType
 
 
@@ -59,6 +60,78 @@ def run_system_controller(
         raise
     finally:
         logger.debug("AIPerf System exited")
+
+
+def run_individual_service(
+    service_type: ServiceType,
+    service_id: str | None,
+    service_config: ServiceConfig,
+    user_config: UserConfig | None,
+) -> None:
+    """Run an individual AIPerf service.
+
+    This function is used to run a single service, typically in Kubernetes
+    where each service runs in its own pod.
+
+    Args:
+        service_type: Type of service to run
+        service_id: Unique ID for this service instance
+        service_config: Service configuration
+        user_config: User configuration (if needed for the service)
+    """
+    import uuid
+
+    from aiperf.common.aiperf_logger import AIPerfLogger
+    from aiperf.common.bootstrap import bootstrap_and_run_service
+    from aiperf.common.factories import ServiceFactory
+    from aiperf.common.logging import setup_rich_logging
+
+    logger = AIPerfLogger(__name__)
+
+    # Generate service ID if not provided
+    if service_id is None:
+        service_id = f"{service_type}_{uuid.uuid4().hex[:8]}"
+
+    # Setup logging (individual services don't typically use dashboard UI)
+    setup_rich_logging(user_config, service_config)
+
+    logger.info(f"Starting individual {service_type} service with ID: {service_id}")
+
+    # Get the service class for the given type
+    try:
+        service_class = ServiceFactory.get_class_from_type(service_type)
+    except Exception as e:
+        logger.error(f"Unknown service type: {service_type}")
+        raise ValueError(f"Unknown service type: {service_type}") from e
+
+    # Additional arguments based on service type
+    additional_kwargs = {}
+
+    # Some services require specific configuration
+    if service_type == ServiceType.NODE_CONTROLLER:
+        from aiperf.common.config import NodeConfig
+
+        additional_kwargs["node_config"] = NodeConfig()
+    elif service_type == ServiceType.SYSTEM_CONTROLLER:
+        from aiperf.common.config.system_controller_config import SystemControllerConfig
+
+        additional_kwargs["system_config"] = SystemControllerConfig()
+
+    try:
+        # Bootstrap and run the service
+        bootstrap_and_run_service(
+            service_class,
+            service_id=service_id,
+            service_config=service_config,
+            user_config=user_config,
+            log_queue=None,
+            **additional_kwargs,
+        )
+    except Exception:
+        logger.exception(f"Error running {service_type} service")
+        raise
+    finally:
+        logger.debug(f"{service_type} service exited")
 
 
 def run_node_controller(

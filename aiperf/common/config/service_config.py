@@ -12,6 +12,7 @@ from aiperf.common.config.cli_parameter import CLIParameter, DisableCLI
 from aiperf.common.config.config_defaults import ServiceDefaults
 from aiperf.common.config.dev_config import DeveloperConfig
 from aiperf.common.config.groups import Groups
+from aiperf.common.config.kubernetes_config import KubernetesConfig
 from aiperf.common.config.worker_config import WorkersConfig
 from aiperf.common.config.zmq_config import (
     BaseZMQCommunicationConfig,
@@ -55,15 +56,36 @@ class ServiceConfig(BaseSettings):
         _logger.debug(
             f"Validating comm_config: tcp: {self.zmq_tcp}, ipc: {self.zmq_ipc}"
         )
-        if self.zmq_tcp is not None:
-            _logger.info("Using ZMQ TCP configuration")
-            self._comm_config = self.zmq_tcp
-        elif self.zmq_ipc is not None:
-            _logger.info("Using ZMQ IPC configuration")
-            self._comm_config = self.zmq_ipc
+
+        # For Kubernetes deployments, prefer TCP over IPC
+        if self.service_run_type == ServiceRunType.KUBERNETES:
+            if self.zmq_tcp is not None:
+                _logger.info("Using ZMQ TCP configuration for Kubernetes")
+                self._comm_config = self.zmq_tcp
+            else:
+                _logger.info("Using default ZMQ TCP configuration for Kubernetes")
+                self._comm_config = ZMQTCPConfig()
         else:
-            _logger.info("Using default ZMQ IPC configuration")
-            self._comm_config = ZMQIPCConfig()
+            # For non-Kubernetes deployments, use existing logic
+            if self.zmq_tcp is not None:
+                _logger.info("Using ZMQ TCP configuration")
+                self._comm_config = self.zmq_tcp
+            elif self.zmq_ipc is not None:
+                _logger.info("Using ZMQ IPC configuration")
+                self._comm_config = self.zmq_ipc
+            else:
+                _logger.info("Using default ZMQ IPC configuration")
+                self._comm_config = ZMQIPCConfig()
+        return self
+
+    @model_validator(mode="after")
+    def validate_kubernetes_config(self) -> Self:
+        """Initialize Kubernetes configuration if needed."""
+        if self.service_run_type == ServiceRunType.KUBERNETES:
+            if self.kubernetes is None:
+                _logger.info("Initializing default Kubernetes configuration")
+                self.kubernetes = KubernetesConfig()
+            self.kubernetes.enabled = True
         return self
 
     service_run_type: Annotated[
@@ -154,6 +176,13 @@ class ServiceConfig(BaseSettings):
             group=_CLI_GROUP,
         ),
     ] = ServiceDefaults.UI_TYPE
+
+    kubernetes: Annotated[
+        KubernetesConfig | None,
+        Field(
+            description="Kubernetes integration configuration",
+        ),
+    ] = None
 
     developer: DeveloperConfig = DeveloperConfig()
 
