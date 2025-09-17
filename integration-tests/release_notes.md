@@ -87,3 +87,4 @@ Please refer to the [Tutorials](docs/tutorial.md) documentation for information 
 - Very high concurrency settings (typically >15,000 concurrency) may lead to port exhaustion on some systems, causing connection failures during benchmarking. Consider adjusting system limits or reducing concurrency if encountered.
 - Startup errors caused by invalid configuration settings can cause AIPerf to hang indefinitely. If AIPerf appears to freeze during initialization, terminate the process and check configuration settings.
 - Mooncake trace format currently requires the `--fixed-schedule` option to be set.
+- Dashboard UI may cause corrupted ANSI sequences on macOS or certain terminal environments, making the terminal unusable. Run `reset` command to restore normal terminal functionality, or switch to `--ui simple` for a lightweight progress bar interface.
