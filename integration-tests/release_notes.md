@@ -19,12 +19,11 @@ AIPerf is written entirely in Python offering an easy installation with a modula
 
 ### Trace Replay
 - **Production Workload Simulation**: Reproduce real-world or synthetic workload traces for validation and stress testing
-- **Industry Standard Formats**: Supports MoonCake trace format and custom JSONL datasets
+- **Industry Standard Formats**: Supports Mooncake trace format and custom JSONL datasets when using the `--fixed-schedule` option.
 
 ### Flexible Model and Endpoint Support
 - **Universal Compatibility**: Works with OpenAI-compatible APIs including vLLM, Dynamo, and other compatible services
-- **Multiple Endpoint Support**: Supports chat completions, completions, embeddings and rankings endpoints
-- **Backend Extensibility**: Easily extensible for different model backends and custom endpoints
+- **OpenAI APIs**: Chat completions, completions, and embeddings supported.
 
 ### Advanced Input and Output Configuration
 - **Granular Token Control**: Fine-grained control over input/output token counts and streaming
@@ -33,10 +32,6 @@ AIPerf is written entirely in Python offering an easy installation with a modula
 ### Rich Reporting and Export
 - **Multiple Export Options**: Console, CSV, and JSON output formats for results
 - **Artifact Management**: Artifact directory support for saving logs and metrics
-
-### Extensible and Modular Design
-- **Developer-Friendly Extensibility**: Easy to modify and extend for custom benchmarking scenarios
-- **Robust Plugin System**: Plugin architecture for new components and metrics
 
 ### Automation and Integration
 - **CLI-First Design**: CLI-first workflow for scripting and automation
@@ -55,8 +50,8 @@ AIPerf is written entirely in Python offering an easy installation with a modula
 AIPerf introduces several enhancements over GenAI-Perf:
 
 ### Performance & Scaling
-- **Distributed Architecture**: Scalable service-oriented design built for horizontal scaling and distributed deployments
-- **Python Multiprocessing**: Native multiprocessing implementation with automatic worker provisioning and lifecycle management, enabling true parallel load generation
+- **Distributed Architecture**: Scalable service-oriented design built for horizontal scalability
+- **Python Multiprocessing**: Native multiprocessing implementation with automatic worker provisioning and lifecycle management, enabling true parallel load generation from a single node.
 - **Request-Rate with Max Concurrency**: Combine request-rate control with concurrency limits to throttle requests or provide controlled ramp-up to prevent burst traffic
 
 ### User Experience
@@ -67,9 +62,8 @@ AIPerf introduces several enhancements over GenAI-Perf:
 - **API Error Analytics**: Comprehensive tracking and categorization of request failures with detailed error summaries grouped by failure reason
 - **Early Termination Support**: Cancel benchmarks mid-run while preserving all completed results and metrics
 
-### Extensibility & Development
+### Extensibility & Integration
 - **Pure Python Architecture**: Eliminates complex mixed-language dependencies for simpler installation, deployment, and customization
-- **Plugin Framework**: Simple registration system for custom metrics, data exporters, dataset loaders, and API clients with extensive lifecycle hooks enabling advanced customization
 - **ShareGPT Integration**: Automatic download, caching, and conversation processing of public datasets
 
 ## Installation
@@ -79,9 +73,9 @@ pip install aiperf
 
 ## Migration from GenAI-Perf
 
-AIPerf is designed to be a drop-in replacement for GenAI-Perf for currently supported features. To migrate your existing GenAI-Perf commands, please refer to the [Migrating from GenAI-Perf](docs/migrating.md) documentation.
+AIPerf is designed to be a drop-in replacement of GenAI-Perf _for currently supported features_. To migrate your existing GenAI-Perf commands, please refer to the [Migrating from GenAI-Perf](docs/migrating.md) documentation.
 
-## Tutorials
+## Getting Started
 
 Please refer to the [Tutorials](docs/tutorial.md) documentation for information on how to use AIPerf.
 
@@ -89,5 +83,7 @@ Please refer to the [Tutorials](docs/tutorial.md) documentation for information 
 
 ### Known Issues
 - When setting the OSL via the `--output-tokens-mean` option, if `--extra-inputs ignore_eos:true` is not set, AIPerf cannot guarantee a given OSL constraint.
-- A couple of options in the documentation are inconsistent in their usage of an underscore instead of a hyphen.
+- A couple of options in the CLI help text are inconsistent in their usage of an underscore instead of a hyphen.
 - Very high concurrency settings (typically >15,000 concurrency) may lead to port exhaustion on some systems, causing connection failures during benchmarking. Consider adjusting system limits or reducing concurrency if encountered.
+- Startup errors caused by invalid configuration settings can cause AIPerf to hang indefinitely. If AIPerf appears to freeze during initialization, terminate the process and check configuration settings.
+- Mooncake trace format currently requires the `--fixed-schedule` option to be set.
