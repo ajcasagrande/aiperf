@@ -10,45 +10,45 @@ AIPerf is written entirely in Python offering an easy installation with a modula
 ## Major Features of AIPerf
 
 ### Comprehensive Benchmarking
-  - Measures throughput, latency, and comprehensive token-level metrics for generative AI models
-  - Supports both synthetic and dataset-driven input modes
+- **Detailed Performance Metrics**: Measures throughput, latency, and comprehensive token-level metrics for generative AI models
+- **Flexible Data Sources**: Supports both synthetic and dataset-driven input modes
 
 ### Scalable Load Generation
-  - Multiprocess support for local scaling
-  - High concurrency and request-rate modes with configurable patterns
+- **Parallel Processing**: Multiprocess support for local scaling
+- **Configurable Load Patterns**: High concurrency and request-rate modes with configurable patterns
 
 ### Trace Replay
-  - Reproduce real-world or synthetic workload traces for validation and stress testing
-  - Supports MoonCake trace format and custom JSONL datasets
+- **Production Workload Simulation**: Reproduce real-world or synthetic workload traces for validation and stress testing
+- **Industry Standard Formats**: Supports MoonCake trace format and custom JSONL datasets
 
 ### Flexible Model and Endpoint Support
-  - Works with OpenAI-compatible APIs including vLLM, AI Dynamo, and other compatible services
-  - Supports chat completions, completions, embeddings and rankings endpoints
-  - Easily configurable for different model backends and custom endpoints
+- **Universal Compatibility**: Works with OpenAI-compatible APIs including vLLM, Dynamo, and other compatible services
+- **Multiple Endpoint Support**: Supports chat completions, completions, embeddings and rankings endpoints
+- **Backend Extensibility**: Easily extensible for different model backends and custom endpoints
 
 ### Advanced Input and Output Configuration
-  - Fine-grained control over input/output token counts and streaming
-  - Pass extra inputs and custom payloads to endpoints
+- **Granular Token Control**: Fine-grained control over input/output token counts and streaming
+- **Extended Request Support**: Pass extra inputs and custom payloads to endpoints
 
 ### Rich Reporting and Export
-  - Console, CSV, and JSON output formats for results
-  - Artifact directory support for saving logs and metrics
+- **Multiple Export Options**: Console, CSV, and JSON output formats for results
+- **Artifact Management**: Artifact directory support for saving logs and metrics
 
 ### Extensible and Modular Design
-  - Easy to modify and extend for custom benchmarking scenarios
-  - Plugin architecture for new components and metrics
+- **Developer-Friendly Extensibility**: Easy to modify and extend for custom benchmarking scenarios
+- **Robust Plugin System**: Plugin architecture for new components and metrics
 
 ### Automation and Integration
-  - CLI-first workflow for scripting and automation
-  - Compatible with containerized and cloud environments
+- **CLI-First Design**: CLI-first workflow for scripting and automation
+- **Deployment Flexibility**: Compatible with containerized and cloud environments
 
 ### Security and Customization
-  - Support for custom headers, authentication, and advanced API options
-  - Random seed and reproducibility controls
+- **Security and Authentication**: Support for custom headers, authentication, and advanced API options
+- **Deterministic Testing**: Random seed and reproducibility controls
 
 ### Console UI Options
-  - Real-time metrics dashboard with live progress tracking and worker status monitoring
-  - Simple UI mode for streamlined monitoring and headless mode for automated environments
+- **Real-Time Monitoring**: Real-time metrics dashboard with live progress tracking and worker status monitoring
+- **Multiple UI Modes**: Simple UI mode for streamlined monitoring and headless mode for automated environments
 
 ## Key Improvements Over GenAI-Perf
 
@@ -81,7 +81,6 @@ pip install aiperf
 
 AIPerf is designed to be a drop-in replacement for GenAI-Perf for currently supported features. To migrate your existing GenAI-Perf commands, please refer to the [Migrating from GenAI-Perf](docs/migrating.md) documentation.
 
-
 ## Tutorials
 
 Please refer to the [Tutorials](docs/tutorial.md) documentation for information on how to use AIPerf.
@@ -91,3 +90,4 @@ Please refer to the [Tutorials](docs/tutorial.md) documentation for information 
 ### Known Issues
 - When setting the OSL via the `--output-tokens-mean` option, if `--extra-inputs ignore_eos:true` is not set, AIPerf cannot guarantee a given OSL constraint.
 - A couple of options in the documentation are inconsistent in their usage of an underscore instead of a hyphen.
+- Very high concurrency settings (typically >15,000 concurrency) may lead to port exhaustion on some systems, causing connection failures during benchmarking. Consider adjusting system limits or reducing concurrency if encountered.
