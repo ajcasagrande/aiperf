@@ -3,10 +3,9 @@
 import asyncio
 import multiprocessing
 import uuid
-from multiprocessing import Process
+from dataclasses import dataclass
+from multiprocessing import Process, Queue
 from multiprocessing.context import ForkProcess, SpawnProcess
-
-from pydantic import BaseModel, ConfigDict, Field
 
 from aiperf.common.bootstrap import bootstrap_and_run_service
 from aiperf.common.config import ServiceConfig, UserConfig
@@ -24,20 +23,14 @@ from aiperf.common.types import ServiceTypeT
 from aiperf.controller.base_service_manager import BaseServiceManager
 
 
-class MultiProcessRunInfo(BaseModel):
+@dataclass
+class MultiProcessRunInfo:
     """Information about a service running as a multiprocessing process."""
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-    process: Process | SpawnProcess | ForkProcess | None = Field(default=None)
-    service_type: ServiceTypeT = Field(
-        ...,
-        description="Type of service running in the process",
-    )
-    service_id: str = Field(
-        ...,
-        description="ID of the service running in the process",
-    )
+    service_type: ServiceTypeT
+    service_id: str
+    process: Process | SpawnProcess | ForkProcess | None = None
+    error_queue: Queue | None = None
 
 
 @implements_protocol(ServiceManagerProtocol)
@@ -58,6 +51,7 @@ class MultiProcessServiceManager(BaseServiceManager):
         super().__init__(required_services, service_config, user_config, **kwargs)
         self.multi_process_info: list[MultiProcessRunInfo] = []
         self.log_queue = log_queue
+        self.startup_errors: list[dict] = []
 
     async def run_service(
         self, service_type: ServiceTypeT, num_replicas: int = 1
@@ -67,6 +61,8 @@ class MultiProcessServiceManager(BaseServiceManager):
 
         for _ in range(num_replicas):
             service_id = f"{service_type}_{uuid.uuid4().hex[:8]}"
+            error_queue = Queue()
+
             process = Process(
                 target=bootstrap_and_run_service,
                 name=f"{service_type}_process",
@@ -76,6 +72,7 @@ class MultiProcessServiceManager(BaseServiceManager):
                     "service_config": self.service_config,
                     "user_config": self.user_config,
                     "log_queue": self.log_queue,
+                    "error_queue": error_queue,
                 },
                 daemon=True,
             )
@@ -92,6 +89,7 @@ class MultiProcessServiceManager(BaseServiceManager):
                     process=process,
                     service_type=service_type,
                     service_id=service_id,
+                    error_queue=error_queue,
                 )
             )
 
@@ -158,7 +156,38 @@ class MultiProcessServiceManager(BaseServiceManager):
         # TODO: Can this be done better by using asyncio.Event()?
 
         async def _wait_for_registration():
+            # Give processes an initial moment to start up before checking
+            await asyncio.sleep(0.5)
+
             while not stop_event.is_set():
+                # Check for startup errors first
+                startup_errors = await self.check_for_startup_errors()
+                if startup_errors:
+                    # If we have startup errors, raise an exception to fail fast
+                    error_messages = []
+                    for error in startup_errors:
+                        service_type = error.get("service_type", "unknown")
+                        error_info = error.get("error", {})
+                        message = error_info.get("message", "Unknown error")
+                        error_messages.append(f"{service_type}: {message}")
+
+                    raise AIPerfError(
+                        f"Services failed to start: {'; '.join(error_messages)}"
+                    )
+
+                # Also check if any processes have died unexpectedly
+                dead_processes = []
+                for info in self.multi_process_info:
+                    if info.process and not info.process.is_alive():
+                        dead_processes.append(
+                            f"{info.service_type} ({info.service_id})"
+                        )
+
+                if dead_processes:
+                    raise AIPerfError(
+                        f"Service processes died unexpectedly: {', '.join(dead_processes)}"
+                    )
+
                 # Get all registered service types from the id map
                 registered_types = {
                     service_info.service_type
@@ -171,8 +200,8 @@ class MultiProcessServiceManager(BaseServiceManager):
                 if required_types.issubset(registered_types):
                     return
 
-                # Wait a bit before checking again
-                await asyncio.sleep(0.5)
+                # Check more frequently for faster error detection
+                await asyncio.sleep(0.2)
 
         try:
             await asyncio.wait_for(_wait_for_registration(), timeout=timeout_seconds)
@@ -192,6 +221,73 @@ class MultiProcessServiceManager(BaseServiceManager):
                     )
 
             raise AIPerfError("Some services failed to register within timeout") from e
+
+    async def check_for_startup_errors(self) -> list[dict]:
+        """Check for startup errors from child processes.
+
+        Returns:
+            List of error dictionaries containing service_type, service_id, and error details
+        """
+        errors = []
+        failed_processes = []
+
+        for info in self.multi_process_info:
+            # Check for errors in error queue
+            if info.error_queue and not info.error_queue.empty():
+                try:
+                    while not info.error_queue.empty():
+                        error_info = info.error_queue.get_nowait()
+                        errors.append(
+                            {
+                                "service_type": info.service_type,
+                                "service_id": info.service_id,
+                                "error": error_info,
+                                "process_alive": info.process.is_alive()
+                                if info.process
+                                else False,
+                            }
+                        )
+                        failed_processes.append(info)
+                except Exception as e:
+                    self.warning(
+                        f"Failed to read error from queue for {info.service_id}: {e}"
+                    )
+
+            # Also check if process died without reporting an error
+            elif info.process and not info.process.is_alive():
+                errors.append(
+                    {
+                        "service_type": info.service_type,
+                        "service_id": info.service_id,
+                        "error": {
+                            "stage": "startup",
+                            "exception_type": "ProcessDied",
+                            "message": f"Process died unexpectedly with exit code {info.process.exitcode}",
+                            "traceback": "N/A - Process died without reporting error",
+                        },
+                        "process_alive": False,
+                    }
+                )
+                failed_processes.append(info)
+
+        # Clean up failed processes immediately
+        for info in failed_processes:
+            if info.process:
+                try:
+                    if info.process.is_alive():
+                        info.process.terminate()
+                        # Don't wait long for cleanup during error handling
+                        info.process.join(timeout=1)
+                        if info.process.is_alive():
+                            info.process.kill()
+                except Exception as e:
+                    self.warning(
+                        f"Failed to cleanup failed process {info.service_id}: {e}"
+                    )
+
+        # Store errors for later display
+        self.startup_errors.extend(errors)
+        return errors
 
     async def _wait_for_process(self, info: MultiProcessRunInfo) -> None:
         """Wait for a process to terminate with timeout handling."""

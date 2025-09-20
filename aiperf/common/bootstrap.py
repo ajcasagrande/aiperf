@@ -5,6 +5,7 @@ import asyncio
 import contextlib
 import multiprocessing
 import random
+import traceback
 
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.protocols import ServiceProtocol
@@ -16,6 +17,7 @@ def bootstrap_and_run_service(
     user_config: UserConfig | None = None,
     service_id: str | None = None,
     log_queue: "multiprocessing.Queue | None" = None,
+    error_queue: "multiprocessing.Queue | None" = None,
     **kwargs,
 ):
     """Bootstrap the service and run it.
@@ -32,6 +34,8 @@ def bootstrap_and_run_service(
             will be loaded from the environment variables.
         log_queue: Optional multiprocessing queue for child process logging. If provided,
             the child process logging will be set up.
+        error_queue: Optional multiprocessing queue for reporting startup errors back to
+            the parent process.
         kwargs: Additional keyword arguments to pass to the service constructor.
     """
 
@@ -49,44 +53,80 @@ def bootstrap_and_run_service(
         user_config = load_user_config()
 
     async def _run_service():
-        if service_config.developer.enable_yappi:
-            _start_yappi_profiling()
-
-        from aiperf.module_loader import ensure_modules_loaded
-
-        ensure_modules_loaded()
-
-        service = service_class(
-            service_config=service_config,
-            user_config=user_config,
-            service_id=service_id,
-            **kwargs,
-        )
-
-        from aiperf.common.logging import setup_child_process_logging
-
-        setup_child_process_logging(
-            log_queue, service.service_id, service_config, user_config
-        )
-
-        if user_config.input.random_seed is not None:
-            random.seed(user_config.input.random_seed)
-            # Try and set the numpy random seed
-            # https://numpy.org/doc/stable/reference/random/index.html#random-quick-start
-            with contextlib.suppress(ImportError):
-                import numpy as np
-
-                np.random.seed(user_config.input.random_seed)
-
+        service = None
         try:
-            await service.initialize()
-            await service.start()
-            await service.stopped_event.wait()
-        except Exception as e:
-            service.exception(f"Unhandled exception in service: {e}")
+            if service_config.developer.enable_yappi:
+                _start_yappi_profiling()
 
-        if service_config.developer.enable_yappi:
-            _stop_yappi_profiling(service.service_id, user_config)
+            from aiperf.module_loader import ensure_modules_loaded
+
+            ensure_modules_loaded()
+
+            service = service_class(
+                service_config=service_config,
+                user_config=user_config,
+                service_id=service_id,
+                **kwargs,
+            )
+
+            from aiperf.common.logging import setup_child_process_logging
+
+            setup_child_process_logging(
+                log_queue, service.service_id, service_config, user_config
+            )
+
+            if user_config.input.random_seed is not None:
+                random.seed(user_config.input.random_seed)
+                # Try and set the numpy random seed
+                # https://numpy.org/doc/stable/reference/random/index.html#random-quick-start
+                with contextlib.suppress(ImportError):
+                    import numpy as np
+
+                    np.random.seed(user_config.input.random_seed)
+
+            try:
+                await service.initialize()
+                await service.start()
+                await service.stopped_event.wait()
+            except Exception as e:
+                error_info = {
+                    "stage": "runtime",
+                    "exception_type": type(e).__name__,
+                    "message": str(e),
+                    "traceback": traceback.format_exc(),
+                }
+                if error_queue:
+                    try:
+                        error_queue.put_nowait(error_info)
+                        # Give a small delay to ensure the error is queued
+                        await asyncio.sleep(0.1)
+                    except Exception:
+                        pass  # Queue might be full or closed
+
+                if service:
+                    service.exception(f"Unhandled exception in service: {e}")
+                raise
+
+        except Exception as e:
+            # Handle startup/initialization errors
+            error_info = {
+                "stage": "startup" if not service else "initialization",
+                "exception_type": type(e).__name__,
+                "message": str(e),
+                "traceback": traceback.format_exc(),
+            }
+            if error_queue:
+                try:
+                    error_queue.put_nowait(error_info)
+                    # Give a small delay to ensure the error is queued
+                    await asyncio.sleep(0.1)
+                except Exception:
+                    pass  # Queue might be full or closed
+            raise
+        finally:
+            if service_config and service_config.developer.enable_yappi:
+                service_id_for_yappi = service.service_id if service else "unknown"
+                _stop_yappi_profiling(service_id_for_yappi, user_config)
 
     with contextlib.suppress(asyncio.CancelledError):
         if not service_config.developer.disable_uvloop:

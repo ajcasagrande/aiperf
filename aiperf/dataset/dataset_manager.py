@@ -94,6 +94,8 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
         duration = time.perf_counter() - begin
         self.info(lambda: f"Dataset configured in {duration:.2f} seconds")
 
+        raise Exception("test")
+
     async def _configure_dataset(self) -> None:
         if self.user_config is None:
             raise self._service_error("User config is required for dataset manager")

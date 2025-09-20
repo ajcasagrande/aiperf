@@ -23,6 +23,8 @@ from aiperf.controller.system_mixins import (
 )
 from aiperf.controller.system_utils import (
     display_command_errors,
+    display_configuration_errors,
+    display_startup_errors,
     extract_errors,
 )
 
@@ -36,6 +38,8 @@ __all__ = [
     "SignalHandlerMixin",
     "SystemController",
     "display_command_errors",
+    "display_configuration_errors",
+    "display_startup_errors",
     "extract_errors",
     "main",
 ]
