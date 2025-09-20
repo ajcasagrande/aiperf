@@ -6,9 +6,38 @@ import contextlib
 import multiprocessing
 import random
 import traceback
+from typing import Any, Optional
 
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.protocols import ServiceProtocol
+
+# Error queue delay to ensure proper queuing
+ERROR_QUEUE_DELAY = 0.1
+
+
+async def _report_error_to_queue(
+    error_queue: Optional["multiprocessing.Queue"],
+    stage: str,
+    exception: Exception,
+    service: Any = None,
+) -> None:
+    """Report an error to the error queue if available."""
+    if not error_queue:
+        return
+
+    error_info = {
+        "stage": stage,
+        "exception_type": type(exception).__name__,
+        "message": str(exception),
+        "traceback": traceback.format_exc(),
+    }
+
+    try:
+        error_queue.put_nowait(error_info)
+        # Give a small delay to ensure the error is queued
+        await asyncio.sleep(ERROR_QUEUE_DELAY)
+    except Exception:
+        pass  # Queue might be full or closed
 
 
 def bootstrap_and_run_service(
@@ -16,10 +45,10 @@ def bootstrap_and_run_service(
     service_config: ServiceConfig | None = None,
     user_config: UserConfig | None = None,
     service_id: str | None = None,
-    log_queue: "multiprocessing.Queue | None" = None,
-    error_queue: "multiprocessing.Queue | None" = None,
+    log_queue: Optional["multiprocessing.Queue"] = None,
+    error_queue: Optional["multiprocessing.Queue"] = None,
     **kwargs,
-):
+) -> None:
     """Bootstrap the service and run it.
 
     This function will load the service configuration,
@@ -89,39 +118,15 @@ def bootstrap_and_run_service(
                 await service.start()
                 await service.stopped_event.wait()
             except Exception as e:
-                error_info = {
-                    "stage": "runtime",
-                    "exception_type": type(e).__name__,
-                    "message": str(e),
-                    "traceback": traceback.format_exc(),
-                }
-                if error_queue:
-                    try:
-                        error_queue.put_nowait(error_info)
-                        # Give a small delay to ensure the error is queued
-                        await asyncio.sleep(0.1)
-                    except Exception:
-                        pass  # Queue might be full or closed
-
+                await _report_error_to_queue(error_queue, "runtime", e, service)
                 if service:
                     service.exception(f"Unhandled exception in service: {e}")
                 raise
 
         except Exception as e:
             # Handle startup/initialization errors
-            error_info = {
-                "stage": "startup" if not service else "initialization",
-                "exception_type": type(e).__name__,
-                "message": str(e),
-                "traceback": traceback.format_exc(),
-            }
-            if error_queue:
-                try:
-                    error_queue.put_nowait(error_info)
-                    # Give a small delay to ensure the error is queued
-                    await asyncio.sleep(0.1)
-                except Exception:
-                    pass  # Queue might be full or closed
+            stage = "startup" if not service else "initialization"
+            await _report_error_to_queue(error_queue, stage, e, service)
             raise
         finally:
             if service_config and service_config.developer.enable_yappi:

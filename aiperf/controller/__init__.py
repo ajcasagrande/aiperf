@@ -8,11 +8,16 @@ from aiperf.controller.kubernetes_service_manager import (
     ServiceKubernetesRunInfo,
 )
 from aiperf.controller.multiprocess_service_manager import (
+    PROCESS_CLEANUP_TIMEOUT,
     MultiProcessRunInfo,
     MultiProcessServiceManager,
 )
 from aiperf.controller.proxy_manager import (
     ProxyManager,
+)
+from aiperf.controller.shutdown_manager import (
+    ShutdownManager,
+    ShutdownReason,
 )
 from aiperf.controller.system_controller import (
     SystemController,
@@ -33,8 +38,11 @@ __all__ = [
     "KubernetesServiceManager",
     "MultiProcessRunInfo",
     "MultiProcessServiceManager",
+    "PROCESS_CLEANUP_TIMEOUT",
     "ProxyManager",
     "ServiceKubernetesRunInfo",
+    "ShutdownManager",
+    "ShutdownReason",
     "SignalHandlerMixin",
     "SystemController",
     "display_command_errors",

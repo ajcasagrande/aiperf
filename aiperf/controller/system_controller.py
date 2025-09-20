@@ -1,19 +1,13 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
-import os
-import signal
 import sys
 import time
 from typing import cast
 
-from rich.console import Console
-
 from aiperf.common.base_service import BaseService
 from aiperf.common.config import ServiceConfig, UserConfig
-from aiperf.common.config.dev_config import print_developer_mode_warning
 from aiperf.common.constants import (
-    AIPERF_DEV_MODE,
     DEFAULT_PROFILE_CONFIGURE_TIMEOUT,
     DEFAULT_PROFILE_START_TIMEOUT,
 )
@@ -52,11 +46,10 @@ from aiperf.common.models import ProcessRecordsResult, ServiceRunInfo
 from aiperf.common.protocols import AIPerfUIProtocol, ServiceManagerProtocol
 from aiperf.common.types import ServiceTypeT
 from aiperf.controller.proxy_manager import ProxyManager
+from aiperf.controller.shutdown_manager import ShutdownManager, ShutdownReason
 from aiperf.controller.system_mixins import SignalHandlerMixin
 from aiperf.controller.system_utils import (
     display_command_errors,
-    display_configuration_errors,
-    display_startup_errors,
     extract_errors,
 )
 from aiperf.exporters.exporter_manager import ExporterManager
@@ -82,7 +75,6 @@ class SystemController(SignalHandlerMixin, BaseService):
             service_id=service_id,
         )
         self.debug("Creating System Controller")
-        self._was_cancelled = False
         self._system_state = SystemState.CREATED
         # List of required service types, in no particular order
         # These are services that must be running before the system controller can start profiling
@@ -122,8 +114,16 @@ class SystemController(SignalHandlerMixin, BaseService):
         self.attach_child_lifecycle(self.ui)
         self._stop_tasks: set[asyncio.Task] = set()
         self._profile_results: ProcessRecordsResult | None = None
-        self._startup_errors: list[dict] = []
-        self._configuration_errors: list = []
+        self._was_cancelled = False
+
+        # Initialize shutdown manager (comms will be set after initialization)
+        self.shutdown_manager = ShutdownManager(
+            service_manager=self.service_manager,
+            proxy_manager=self.proxy_manager,
+            ui=self.ui,
+            user_config=self.user_config,
+            service_config=self.service_config,
+        )
         self.debug("System Controller created")
 
     async def request_realtime_metrics(self) -> None:
@@ -157,6 +157,8 @@ class SystemController(SignalHandlerMixin, BaseService):
         await self.proxy_manager.initialize_and_start()
         # Once the proxies are running, call the original initialize method
         await super().initialize()
+        # Set comms reference for shutdown manager
+        self.shutdown_manager.comms = self.comms
 
     @on_init
     async def _initialize_system_controller(self) -> None:
@@ -187,8 +189,10 @@ class SystemController(SignalHandlerMixin, BaseService):
         if hasattr(self.service_manager, "check_for_startup_errors"):
             startup_errors = await self.service_manager.check_for_startup_errors()
             if startup_errors:
-                self._startup_errors.extend(startup_errors)
-                await self._handle_startup_errors(startup_errors)
+                await self.shutdown_manager.shutdown(
+                    reason=ShutdownReason.STARTUP_ERROR,
+                    startup_errors=startup_errors,
+                )
                 return
 
         # Give a bit more time for slower startup errors to manifest
@@ -198,8 +202,10 @@ class SystemController(SignalHandlerMixin, BaseService):
         if hasattr(self.service_manager, "check_for_startup_errors"):
             startup_errors = await self.service_manager.check_for_startup_errors()
             if startup_errors:
-                self._startup_errors.extend(startup_errors)
-                await self._handle_startup_errors(startup_errors)
+                await self.shutdown_manager.shutdown(
+                    reason=ShutdownReason.STARTUP_ERROR,
+                    startup_errors=startup_errors,
+                )
                 return
 
         # Wait for all services to be registered
@@ -212,8 +218,10 @@ class SystemController(SignalHandlerMixin, BaseService):
             if hasattr(self.service_manager, "check_for_startup_errors"):
                 startup_errors = await self.service_manager.check_for_startup_errors()
                 if startup_errors:
-                    self._startup_errors.extend(startup_errors)
-                    await self._handle_startup_errors(startup_errors)
+                    await self.shutdown_manager.shutdown(
+                        reason=ShutdownReason.STARTUP_ERROR,
+                        startup_errors=startup_errors,
+                    )
                     return
             raise
 
@@ -244,10 +252,11 @@ class SystemController(SignalHandlerMixin, BaseService):
         self.info(f"All services configured in {duration:.2f} seconds")
         errors = extract_errors(responses)
         if errors:
-            # Store configuration errors for display after UI shutdown
-            self._configuration_errors.extend(errors)
             display_command_errors("Failed to configure all services", errors)
-            await asyncio.shield(self.stop())
+            await self.shutdown_manager.shutdown(
+                reason=ShutdownReason.CONFIGURATION_ERROR,
+                configuration_errors=errors,
+            )
             return False
         return True
 
@@ -264,111 +273,27 @@ class SystemController(SignalHandlerMixin, BaseService):
         self.info("All services started profiling successfully")
         errors = extract_errors(responses)
         if errors:
-            # Store profiling start errors for display after UI shutdown
-            self._configuration_errors.extend(errors)
             display_command_errors("Failed to start profiling all services", errors)
-            await asyncio.shield(self.stop())
+            await self.shutdown_manager.shutdown(
+                reason=ShutdownReason.CONFIGURATION_ERROR,
+                configuration_errors=errors,
+            )
             return False
         return True
 
-    async def _handle_startup_errors(self, startup_errors: list[dict]) -> None:
-        """Handle startup errors by logging them and initiating shutdown."""
-        self.error("Services failed to start properly. Startup errors detected:")
+    def _log_startup_error(self, error: dict) -> None:
+        """Log a single startup error."""
+        service_type = error.get("service_type", "unknown")
+        service_id = error.get("service_id", "unknown")
+        error_info = error.get("error", {})
+        stage = error_info.get("stage", "unknown")
+        exception_type = error_info.get("exception_type", "Exception")
+        message = error_info.get("message", "No message provided")
 
-        for error in startup_errors:
-            service_type = error.get("service_type", "unknown")
-            service_id = error.get("service_id", "unknown")
-            error_info = error.get("error", {})
-            stage = error_info.get("stage", "unknown")
-            exception_type = error_info.get("exception_type", "Exception")
-            message = error_info.get("message", "No message provided")
-
-            self.error(
-                f"Service {service_type} ({service_id}) failed during {stage}: "
-                f"{exception_type}: {message}"
-            )
-
-        self.system_state = SystemState.STOPPING
-        # Don't use shield for startup error shutdown to prevent hanging
-        await self._emergency_shutdown()
-
-    async def _emergency_shutdown(self) -> None:
-        """Emergency shutdown for startup errors - more aggressive cleanup."""
-        self.debug("Performing emergency shutdown due to startup errors")
-
-        # Set up a backup exit mechanism in case we get stuck
-        def force_exit_handler(signum, frame):
-            print("\nForce exit due to emergency shutdown timeout")
-            os._exit(1)
-
-        # Set up alarm to force exit after 20 seconds
-        signal.signal(signal.SIGALRM, force_exit_handler)
-        signal.alarm(20)
-
-        # Set a timeout for the entire emergency shutdown process
-        try:
-            await asyncio.wait_for(self._perform_emergency_cleanup(), timeout=15.0)
-        except asyncio.TimeoutError:
-            self.warning("Emergency shutdown timed out, forcing exit")
-        except Exception as e:
-            self.warning(f"Emergency shutdown failed: {e}")
-        finally:
-            # Cancel the alarm if we got here
-            signal.alarm(0)
-
-        # Force exit regardless of what happened above
-        os._exit(1)
-
-    async def _perform_emergency_cleanup(self) -> None:
-        """Perform the actual emergency cleanup steps."""
-        try:
-            # Kill all services immediately without waiting for graceful shutdown
-            await asyncio.wait_for(
-                self.service_manager.kill_all_services(), timeout=3.0
-            )
-        except Exception as e:
-            self.warning(f"Failed to kill services during emergency shutdown: {e}")
-
-        try:
-            # Stop communications
-            if hasattr(self, "comms") and self.comms:
-                await asyncio.wait_for(self.comms.stop(), timeout=2.0)
-        except Exception as e:
-            self.warning(
-                f"Failed to stop communications during emergency shutdown: {e}"
-            )
-
-        try:
-            # Stop proxy manager
-            if hasattr(self, "proxy_manager") and self.proxy_manager:
-                await asyncio.wait_for(self.proxy_manager.stop(), timeout=2.0)
-        except Exception as e:
-            self.warning(f"Failed to stop proxy manager during emergency shutdown: {e}")
-
-        try:
-            # Stop UI
-            if hasattr(self, "ui") and self.ui:
-                await asyncio.wait_for(self.ui.stop(), timeout=2.0)
-                # Don't wait for UI tasks in emergency shutdown
-        except Exception as e:
-            self.warning(f"Failed to stop UI during emergency shutdown: {e}")
-
-        # Display errors after UI cleanup
-        if self._startup_errors:
-            try:
-                # Give the terminal time to settle after UI cleanup
-                await asyncio.sleep(0.1)
-                display_startup_errors(self._startup_errors)
-            except Exception as e:
-                self.warning(f"Failed to display startup errors: {e}")
-
-        if self._configuration_errors:
-            try:
-                # Give the terminal time to settle after UI cleanup
-                await asyncio.sleep(0.1)
-                display_configuration_errors(self._configuration_errors)
-            except Exception as e:
-                self.warning(f"Failed to display configuration errors: {e}")
+        self.error(
+            f"Service {service_type} ({service_id}) failed during {stage}: "
+            f"{exception_type}: {message}"
+        )
 
     @on_command(CommandType.REGISTER_SERVICE)
     async def _handle_register_service_command(
@@ -545,9 +470,12 @@ class SystemController(SignalHandlerMixin, BaseService):
                 f"Received process records result message with no records: {message.results.results}"
             )
 
-        # TODO: HACK: Stop the system controller after exporting the records
+        # Stop the system controller after exporting the records
         self.debug("Stopping system controller after exporting records")
-        await asyncio.shield(self.stop())
+        await self.shutdown_manager.shutdown(
+            reason=ShutdownReason.NORMAL,
+            profile_results=self._profile_results,
+        )
 
     async def _handle_signal(self, sig: int) -> None:
         """Handle received signals by triggering graceful shutdown.
@@ -566,14 +494,16 @@ class SystemController(SignalHandlerMixin, BaseService):
 
     async def _cancel_profiling(self) -> None:
         self.debug("Cancelling profiling of all services")
-        self._was_cancelled = True
         await self.publish(ProfileCancelCommand(service_id=self.service_id))
 
-        # TODO: HACK: Wait for 2 seconds to ensure the profiling is cancelled
         # Wait for the profiling to be cancelled
         await asyncio.sleep(2)
         self.debug("Stopping system controller after profiling cancelled")
-        await asyncio.shield(self.stop())
+        await self.shutdown_manager.shutdown(
+            reason=ShutdownReason.CANCELLED,
+            profile_results=self._profile_results,
+            was_cancelled=True,
+        )
 
     @on_stop
     async def _stop_system_controller(self) -> None:
@@ -581,107 +511,14 @@ class SystemController(SignalHandlerMixin, BaseService):
         self.system_state = SystemState.STOPPING
         # Broadcast a shutdown command to all services
         await self.publish(ShutdownCommand(service_id=self.service_id))
-
-        # TODO: HACK: Wait for 0.5 seconds to ensure the shutdown command is received
+        # Wait for the shutdown command to be received
         await asyncio.sleep(0.5)
 
-        await self.service_manager.shutdown_all_services()
-        await self.comms.stop()
-        await self.proxy_manager.stop()
-
-        # Wait for the UI to stop before exporting any results to the console
-        await self.ui.stop()
-        await self.ui.wait_for_tasks()
-
-        await self._print_post_benchmark_info_and_metrics()
-
-        # Display startup errors after UI is stopped (if any occurred)
-        if self._startup_errors:
-            # Give the terminal time to settle after UI cleanup
-            await asyncio.sleep(1)
-            display_startup_errors(self._startup_errors)
-
-        # Display configuration errors after UI is stopped (if any occurred)
-        if self._configuration_errors:
-            # Give the terminal time to settle after UI cleanup
-            await asyncio.sleep(1)
-            display_configuration_errors(self._configuration_errors)
-
-        if AIPERF_DEV_MODE:
-            # Print a warning message to the console if developer mode is enabled, on exit after results
-            print_developer_mode_warning()
-
-        # Exit with appropriate code based on whether errors occurred or process was cancelled
-        exit_code = 0
-        if self._startup_errors or self._configuration_errors or self._was_cancelled:
-            exit_code = 1
-
-        # Exit the process in a more explicit way, to ensure that it stops
-        os._exit(exit_code)
-
-    async def _print_post_benchmark_info_and_metrics(self) -> None:
-        """Print post benchmark info and metrics to the console."""
-        # If we have startup or configuration errors, don't try to print benchmark info
-        if self._startup_errors or self._configuration_errors:
-            return
-
-        if not self._profile_results or not self._profile_results.results.records:
-            self.warning("No profile results to export")
-            return
-
-        console = Console()
-        if console.width < 100:
-            console.width = 100
-
-        exporter_manager = ExporterManager(
-            results=self._profile_results.results,
-            input_config=self.user_config,
-            service_config=self.service_config,
+        # Use the shutdown manager for clean shutdown
+        await self.shutdown_manager.shutdown(
+            reason=ShutdownReason.NORMAL,
+            profile_results=self._profile_results,
         )
-        await exporter_manager.export_console(console=console)
-
-        console.print()
-        self._print_cli_command(console)
-        self._print_benchmark_duration(console)
-        self._print_exported_file_infos(exporter_manager, console)
-        if self._was_cancelled:
-            console.print(
-                "[italic yellow]The profile run was cancelled early. Results shown may be incomplete or inaccurate.[/italic yellow]"
-            )
-
-        console.print()
-        console.file.flush()
-
-    def _print_exported_file_infos(
-        self, exporter_manager: ExporterManager, console: Console
-    ) -> None:
-        """Print the exported file infos."""
-        file_infos = exporter_manager.get_exported_file_infos()
-
-        for file_info in file_infos:
-            console.print(
-                f"[bold green]{file_info.export_type}[/bold green]: [cyan]{file_info.file_path.resolve()}[/cyan]"
-            )
-
-    def _print_cli_command(self, console: Console) -> None:
-        """Print the CLI command that was used to run the benchmark."""
-        console.print(
-            f"[bold green]CLI Command:[/bold green] [italic]{self.user_config.cli_command}[/italic]"
-        )
-
-    def _print_benchmark_duration(self, console: Console) -> None:
-        """Print the duration of the benchmark."""
-        from aiperf.metrics.types.benchmark_duration_metric import (
-            BenchmarkDurationMetric,
-        )
-
-        duration = self._profile_results.get(BenchmarkDurationMetric.tag)
-        if duration:
-            duration = duration.to_display_unit()
-            duration_str = f"[bold green]{BenchmarkDurationMetric.header}[/bold green]: {duration.avg:.2f} {duration.unit}"
-            if self._was_cancelled:
-                duration_str += " [italic yellow](cancelled early)[/italic yellow]"
-            console.print(duration_str)
 
     async def _kill(self):
         """Kill the system controller."""

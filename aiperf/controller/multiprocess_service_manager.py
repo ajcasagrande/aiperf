@@ -6,6 +6,7 @@ import uuid
 from dataclasses import dataclass
 from multiprocessing import Process, Queue
 from multiprocessing.context import ForkProcess, SpawnProcess
+from typing import Optional
 
 from aiperf.common.bootstrap import bootstrap_and_run_service
 from aiperf.common.config import ServiceConfig, UserConfig
@@ -22,6 +23,9 @@ from aiperf.common.protocols import ServiceManagerProtocol
 from aiperf.common.types import ServiceTypeT
 from aiperf.controller.base_service_manager import BaseServiceManager
 
+# Process cleanup timeout
+PROCESS_CLEANUP_TIMEOUT = 1.0
+
 
 @dataclass
 class MultiProcessRunInfo:
@@ -30,7 +34,7 @@ class MultiProcessRunInfo:
     service_type: ServiceTypeT
     service_id: str
     process: Process | SpawnProcess | ForkProcess | None = None
-    error_queue: Queue | None = None
+    error_queue: "Queue | None" = None
 
 
 @implements_protocol(ServiceManagerProtocol)
@@ -45,7 +49,7 @@ class MultiProcessServiceManager(BaseServiceManager):
         required_services: dict[ServiceTypeT, int],
         service_config: ServiceConfig,
         user_config: UserConfig,
-        log_queue: "multiprocessing.Queue | None" = None,
+        log_queue: Optional["multiprocessing.Queue"] = None,
         **kwargs,
     ):
         super().__init__(required_services, service_config, user_config, **kwargs)
@@ -228,66 +232,94 @@ class MultiProcessServiceManager(BaseServiceManager):
         Returns:
             List of error dictionaries containing service_type, service_id, and error details
         """
-        errors = []
-        failed_processes = []
+        errors: list[dict] = []
+        failed_processes: list[MultiProcessRunInfo] = []
 
         for info in self.multi_process_info:
-            # Check for errors in error queue
-            if info.error_queue and not info.error_queue.empty():
-                try:
-                    while not info.error_queue.empty():
-                        error_info = info.error_queue.get_nowait()
-                        errors.append(
-                            {
-                                "service_type": info.service_type,
-                                "service_id": info.service_id,
-                                "error": error_info,
-                                "process_alive": info.process.is_alive()
-                                if info.process
-                                else False,
-                            }
-                        )
-                        failed_processes.append(info)
-                except Exception as e:
-                    self.warning(
-                        f"Failed to read error from queue for {info.service_id}: {e}"
-                    )
-
-            # Also check if process died without reporting an error
-            elif info.process and not info.process.is_alive():
-                errors.append(
-                    {
-                        "service_type": info.service_type,
-                        "service_id": info.service_id,
-                        "error": {
-                            "stage": "startup",
-                            "exception_type": "ProcessDied",
-                            "message": f"Process died unexpectedly with exit code {info.process.exitcode}",
-                            "traceback": "N/A - Process died without reporting error",
-                        },
-                        "process_alive": False,
-                    }
-                )
+            error_dict = self._check_process_for_errors(info)
+            if error_dict:
+                errors.append(error_dict)
                 failed_processes.append(info)
 
         # Clean up failed processes immediately
+        await self._cleanup_failed_processes(failed_processes)
+
+        # Store errors for later display
+        self.startup_errors.extend(errors)
+        return errors
+
+    def _check_process_for_errors(self, info: MultiProcessRunInfo) -> dict | None:
+        """Check a single process for errors.
+
+        Args:
+            info: Process information to check
+
+        Returns:
+            Error dictionary if error found, None otherwise
+        """
+        # Check for errors in error queue
+        if info.error_queue and not info.error_queue.empty():
+            return self._extract_queue_error(info)
+
+        # Check if process died without reporting an error
+        if info.process and not info.process.is_alive():
+            return self._create_dead_process_error(info)
+
+        return None
+
+    def _extract_queue_error(self, info: MultiProcessRunInfo) -> dict | None:
+        """Extract error from process error queue."""
+        try:
+            # Get the first error from queue (there might be multiple)
+            error_info = info.error_queue.get_nowait()
+            return {
+                "service_type": info.service_type,
+                "service_id": info.service_id,
+                "error": error_info,
+                "process_alive": info.process.is_alive() if info.process else False,
+            }
+        except Exception as e:
+            self.warning(f"Failed to read error from queue for {info.service_id}: {e}")
+            return None
+
+    def _create_dead_process_error(self, info: MultiProcessRunInfo) -> dict:
+        """Create error dictionary for dead process."""
+        return {
+            "service_type": info.service_type,
+            "service_id": info.service_id,
+            "error": {
+                "stage": "startup",
+                "exception_type": "ProcessDied",
+                "message": f"Process died unexpectedly with exit code {info.process.exitcode}",
+                "traceback": "N/A - Process died without reporting error",
+            },
+            "process_alive": False,
+        }
+
+    async def _cleanup_failed_processes(
+        self, failed_processes: list[MultiProcessRunInfo]
+    ) -> None:
+        """Clean up failed processes immediately."""
         for info in failed_processes:
             if info.process:
                 try:
-                    if info.process.is_alive():
-                        info.process.terminate()
-                        # Don't wait long for cleanup during error handling
-                        info.process.join(timeout=1)
-                        if info.process.is_alive():
-                            info.process.kill()
+                    await self._terminate_process(info)
                 except Exception as e:
                     self.warning(
                         f"Failed to cleanup failed process {info.service_id}: {e}"
                     )
 
-        # Store errors for later display
-        self.startup_errors.extend(errors)
-        return errors
+    async def _terminate_process(self, info: MultiProcessRunInfo) -> None:
+        """Terminate a process gracefully, then forcefully if needed."""
+        if not info.process or not info.process.is_alive():
+            return
+
+        info.process.terminate()
+        # Don't wait long for cleanup during error handling
+        await asyncio.to_thread(info.process.join, timeout=PROCESS_CLEANUP_TIMEOUT)
+
+        if info.process.is_alive():
+            info.process.kill()
 
     async def _wait_for_process(self, info: MultiProcessRunInfo) -> None:
         """Wait for a process to terminate with timeout handling."""

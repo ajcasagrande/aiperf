@@ -20,12 +20,37 @@ def extract_errors(
     ]
 
 
+def _create_error_panel(title: str, summary_items: list[Text]) -> None:
+    """Create and display an error panel with consistent formatting."""
+    if not summary_items:
+        return
+
+    # Remove trailing newline from last item
+    if summary_items and summary_items[-1]._text:
+        summary_items[-1]._text[-1] = summary_items[-1]._text[-1].rstrip("\n")
+
+    console = Console()
+    if console.width < 100:
+        console.width = 100
+
+    console.print(
+        Panel(
+            Text.assemble(*summary_items),
+            border_style="bold red",
+            title=title,
+            title_align="left",
+        )
+    )
+    console.file.flush()
+
+
 def display_command_errors(
     title: str, errors: list[CommandErrorResponse | ErrorDetails]
 ) -> None:
     """Display command errors to the user."""
     if not errors:
         return
+
     summary = []
     for error in errors:
         if isinstance(error, CommandErrorResponse):
@@ -47,18 +72,8 @@ def display_command_errors(
                     Text(f"• {error.type}:", style="bold red"), f" {error.message}\n"
                 )
             )
-    # Remove the trailing newline from the last summary item
-    summary[-1]._text[-1] = summary[-1]._text[-1].rstrip("\n")
-    console = Console()
-    console.print(
-        Panel(
-            Text.assemble(*summary),
-            border_style="bold red",
-            title=f"Error: {title}",
-            title_align="left",
-        )
-    )
-    console.file.flush()
+
+    _create_error_panel(f"Error: {title}", summary)
 
 
 def display_startup_errors(startup_errors: list[dict]) -> None:
@@ -66,11 +81,10 @@ def display_startup_errors(startup_errors: list[dict]) -> None:
     if not startup_errors:
         return
 
+    # Print header
     console = Console()
     if console.width < 100:
         console.width = 100
-
-    # Print a notice to help users understand they should read the errors
     console.print("\n" + "=" * 80, style="bold red")
     console.print(
         "STARTUP ERRORS DETECTED - Please read the errors below:", style="bold red"
@@ -87,47 +101,35 @@ def display_startup_errors(startup_errors: list[dict]) -> None:
         message = error_info.get("message", "No message provided")
         process_alive = error.get("process_alive", False)
 
-        summary.append(
-            Text.assemble(
-                Text("•", style="bold red"),
-                f" Service: {service_type} ({service_id})\n",
-            )
+        summary.extend(
+            [
+                Text.assemble(
+                    Text("•", style="bold red"),
+                    f" Service: {service_type} ({service_id})\n",
+                ),
+                Text.assemble(
+                    Text("\tStage:", style="bold cyan"),
+                    f" {stage}\n",
+                ),
+                Text.assemble(
+                    Text("\tError:", style="bold red"),
+                    f" {exception_type}: {message}\n",
+                ),
+                Text.assemble(
+                    Text("\tProcess Status:", style="bold yellow"),
+                    f" {'Running' if process_alive else 'Stopped'}\n",
+                ),
+                Text("\n"),  # Add spacing between errors
+            ]
         )
-        summary.append(
-            Text.assemble(
-                Text("\tStage:", style="bold cyan"),
-                f" {stage}\n",
-            )
-        )
-        summary.append(
-            Text.assemble(
-                Text("\tError:", style="bold red"),
-                f" {exception_type}: {message}\n",
-            )
-        )
-        summary.append(
-            Text.assemble(
-                Text("\tProcess Status:", style="bold yellow"),
-                f" {'Running' if process_alive else 'Stopped'}\n",
-            )
-        )
-        summary.append(Text("\n"))  # Add spacing between errors
 
-    # Remove the trailing newlines from the last summary item
+    # Clean up trailing newlines
     if summary:
         summary[-1] = Text("")
         if len(summary) > 1:
             summary[-2]._text[-1] = summary[-2]._text[-1].rstrip("\n")
 
-    console.print(
-        Panel(
-            Text.assemble(*summary),
-            border_style="bold red",
-            title="Startup Errors",
-            title_align="left",
-        )
-    )
-    console.file.flush()
+    _create_error_panel("Startup Errors", summary)
 
 
 def display_configuration_errors(configuration_errors: list) -> None:
@@ -135,11 +137,10 @@ def display_configuration_errors(configuration_errors: list) -> None:
     if not configuration_errors:
         return
 
+    # Print header
     console = Console()
     if console.width < 100:
         console.width = 100
-
-    # Print a notice to help users understand they should read the errors
     console.print("\n" + "=" * 80, style="bold red")
     console.print(
         "CONFIGURATION ERRORS DETECTED - Please read the errors below:",
@@ -149,39 +150,24 @@ def display_configuration_errors(configuration_errors: list) -> None:
 
     summary = []
     for error in configuration_errors:
-        if hasattr(error, "service_id"):
-            # CommandErrorResponse
-            summary.append(
-                Text.assemble(
-                    Text("•", style="bold red"),
-                    f" Service: {error.service_id}: Command: {error.command}\n",
-                )
-            )
-            summary.append(
-                Text.assemble(
-                    Text(f"\t{error.error.type}:", style="bold red"),
-                    f" {error.error.message}\n",
-                )
+        if isinstance(error, CommandErrorResponse):
+            summary.extend(
+                [
+                    Text.assemble(
+                        Text("•", style="bold red"),
+                        f" Service: {error.service_id}: Command: {error.command}\n",
+                    ),
+                    Text.assemble(
+                        Text(f"\t{error.error.type}:", style="bold red"),
+                        f" {error.error.message}\n",
+                    ),
+                ]
             )
         else:
-            # ErrorDetails
             summary.append(
                 Text.assemble(
                     Text(f"• {error.type}:", style="bold red"), f" {error.message}\n"
                 )
             )
 
-    # Remove the trailing newline from the last summary item
-    if summary:
-        summary[-1]._text[-1] = summary[-1]._text[-1].rstrip("\n")
-
-    console.print(
-        Panel(
-            Text.assemble(*summary),
-            border_style="bold red",
-            title="Configuration Errors",
-            title_align="left",
-        )
-    )
-
-    console.file.flush()
+    _create_error_panel("Configuration Errors", summary)
