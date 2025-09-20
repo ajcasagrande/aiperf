@@ -68,8 +68,8 @@ class CreditIssuingStrategy(TaskManagerMixin, ABC):
     def _setup_profiling_phase_config(self) -> None:
         """Setup the profiling phase. This can be overridden in subclasses to modify the profiling phase."""
         if self.config.benchmark_duration is not None:
-            print(
-                f"DEBUG: Setting up DURATION-based profiling phase: expected_duration_sec={self.config.benchmark_duration}"
+            self.debug(
+                f"Setting up DURATION-based profiling phase: expected_duration_sec={self.config.benchmark_duration}"
             )
             self.ordered_phase_configs.append(
                 CreditPhaseConfig(
@@ -78,8 +78,8 @@ class CreditIssuingStrategy(TaskManagerMixin, ABC):
                 )
             )
         else:
-            print(
-                f"DEBUG: Setting up REQUEST-COUNT-based profiling phase: total_expected_requests={self.config.request_count}"
+            self.debug(
+                f"Setting up REQUEST-COUNT-based profiling phase: total_expected_requests={self.config.request_count}"
             )
             self.ordered_phase_configs.append(
                 CreditPhaseConfig(

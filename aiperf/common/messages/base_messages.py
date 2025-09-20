@@ -4,7 +4,8 @@ import json
 import time
 from typing import ClassVar
 
-from pydantic import Field
+from pydantic import Field, model_validator
+from typing_extensions import Self
 
 from aiperf.common.aiperf_logger import AIPerfLogger
 from aiperf.common.enums.message_enums import MessageType
@@ -62,6 +63,13 @@ class Message(AIPerfBaseModel):
         description="ID of the request",
     )
 
+    @model_validator(mode="after")
+    def _apply_message_type(self) -> Self:
+        """Apply the message type to the message. This is used to ensure that the message_type
+        is set to avoid losing it when using exclude_unset."""
+        self.message_type = self.message_type
+        return self
+
     # TODO: Does this allow you to use model_validate_json and have it forward it to from_json? Need to test.
     @classmethod
     def __get_validators__(cls):
@@ -97,7 +105,7 @@ class Message(AIPerfBaseModel):
         return message_class.model_validate_json(json_str)
 
     def __str__(self) -> str:
-        return self.model_dump_json()
+        return self.model_dump_json(exclude_unset=True)
 
 
 class RequiresRequestNSMixin(Message):

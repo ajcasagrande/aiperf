@@ -3,7 +3,8 @@
 
 from typing import Annotated
 
-from pydantic import Field
+from pydantic import Field, model_validator
+from typing_extensions import Self
 
 from aiperf.common.config.base_config import BaseConfig
 from aiperf.common.config.cli_parameter import CLIParameter
@@ -18,6 +19,19 @@ class LoadGeneratorConfig(BaseConfig):
     """
 
     _CLI_GROUP = Groups.LOAD_GENERATOR
+
+    @model_validator(mode="after")
+    def validate_benchmark_mode(self) -> Self:
+        """Validate benchmarking is count-based or timing-based."""
+        if (
+            "benchmark_duration" in self.model_fields_set
+            and "request_count" in self.model_fields_set
+        ):
+            raise ValueError(
+                "Count-based and duration-based benchmarking cannot be used together. "
+                "Use either --request-count or --benchmark-duration."
+            )
+        return self
 
     # NEW AIPerf Option
     benchmark_duration: Annotated[
@@ -77,7 +91,7 @@ class LoadGeneratorConfig(BaseConfig):
     ] = LoadGeneratorDefaults.REQUEST_RATE_MODE
 
     request_count: Annotated[
-        int,
+        int | None,
         Field(
             ge=1,
             description="The number of requests to use for measurement.",
@@ -89,7 +103,7 @@ class LoadGeneratorConfig(BaseConfig):
             ),
             group=_CLI_GROUP,
         ),
-    ] = LoadGeneratorDefaults.REQUEST_COUNT
+    ] = None
 
     warmup_request_count: Annotated[
         int,

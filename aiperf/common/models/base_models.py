@@ -1,8 +1,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-from typing import Any, ClassVar
+from typing import ClassVar
 
-from pydantic import BaseModel, ConfigDict, model_serializer
+from pydantic import BaseModel, ConfigDict
 
 from aiperf.common.types import AIPerfBaseModelT
 
@@ -39,15 +39,15 @@ class AIPerfBaseModel(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    @model_serializer
-    def _serialize_model(self) -> dict[str, Any]:
-        """Serialize the model to a dictionary.
+    # @model_serializer
+    # def _serialize_model(self) -> dict[str, Any]:
+    #     """Serialize the model to a dictionary.
 
-        This method overrides the default serializer to exclude fields that with a
-        value of None and were marked with the @exclude_if_none decorator.
-        """
-        return {
-            k: v
-            for k, v in self
-            if not (k in self._exclude_if_none_fields and v is None)
-        }
+    #     This method overrides the default serializer to exclude fields that with a
+    #     value of None and were marked with the @exclude_if_none decorator.
+    #     """
+    #     return {
+    #         k: v
+    #         for k, v in self
+    #         if not (k in self._exclude_if_none_fields and v is None)
+    #     }

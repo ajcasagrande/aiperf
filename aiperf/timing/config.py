@@ -2,8 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from aiperf.common.config import (
-    InputDefaults,
-    LoadGeneratorDefaults,
     UserConfig,
 )
 from aiperf.common.enums import RequestRateMode, TimingMode
@@ -13,17 +11,17 @@ from aiperf.common.models import AIPerfBaseModel
 class TimingManagerConfig(AIPerfBaseModel):
     """Configuration for the timing manager."""
 
-    timing_mode: TimingMode = LoadGeneratorDefaults.TIMING_MODE
-    concurrency: int | None = LoadGeneratorDefaults.CONCURRENCY
-    request_rate: float | None = LoadGeneratorDefaults.REQUEST_RATE
-    request_rate_mode: RequestRateMode = LoadGeneratorDefaults.REQUEST_RATE_MODE
-    request_count: int = LoadGeneratorDefaults.REQUEST_COUNT
-    warmup_request_count: int = LoadGeneratorDefaults.WARMUP_REQUEST_COUNT
-    benchmark_duration: float | None = LoadGeneratorDefaults.BENCHMARK_DURATION
-    random_seed: int | None = None
-    auto_offset_timestamps: bool = InputDefaults.FIXED_SCHEDULE_AUTO_OFFSET
-    fixed_schedule_start_offset: int | None = InputDefaults.FIXED_SCHEDULE_START_OFFSET
-    fixed_schedule_end_offset: int | None = InputDefaults.FIXED_SCHEDULE_END_OFFSET
+    timing_mode: TimingMode
+    concurrency: int | None
+    request_rate: float | None
+    request_rate_mode: RequestRateMode
+    request_count: int | None
+    warmup_request_count: int
+    benchmark_duration: float | None
+    random_seed: int | None
+    auto_offset_timestamps: bool
+    fixed_schedule_start_offset: int | None
+    fixed_schedule_end_offset: int | None
 
     @classmethod
     def from_user_config(cls, user_config: UserConfig) -> "TimingManagerConfig":
