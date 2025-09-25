@@ -35,6 +35,7 @@ from aiperf.common.messages import (
     ProcessRecordsCommand,
     ProcessRecordsResultMessage,
     ProfileCancelCommand,
+    ProfileConfigureCommand,
     RealtimeMetricsMessage,
     RecordsProcessingStatsMessage,
 )
@@ -94,6 +95,7 @@ class RecordsManager(PullClientMixin, BaseComponentService):
         self.expected_duration_sec: float | None = None
         #########################################################
 
+        self.user_config: UserConfig | None = None
         self._completion_checker = PhaseCompletionChecker()
 
         self.error_summary: dict[ErrorDetails, int] = {}
@@ -105,6 +107,14 @@ class RecordsManager(PullClientMixin, BaseComponentService):
         self._previous_realtime_records: int | None = None
 
         self._results_processors: list[ResultsProcessorProtocol] = []
+
+    @on_command(CommandType.PROFILE_CONFIGURE)
+    async def _profile_configure_command(
+        self, message: ProfileConfigureCommand
+    ) -> None:
+        """Configure the records manager."""
+        self.user_config = UserConfig(**message.config)
+        self.debug(lambda: f"Configuring records manager: {message}")
         for results_processor_type in ResultsProcessorFactory.get_all_class_types():
             results_processor = ResultsProcessorFactory.create_instance(
                 class_type=results_processor_type,

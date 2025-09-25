@@ -28,11 +28,14 @@ from aiperf.common.messages import (
     ProfileCancelCommand,
     WorkerHealthMessage,
 )
+from aiperf.common.messages.command_messages import ProfileConfigureCommand
 from aiperf.common.mixins import ProcessHealthMixin, PullClientMixin
 from aiperf.common.models import WorkerTaskStats
 from aiperf.common.protocols import (
+    InferenceClientProtocol,
     PushClientProtocol,
     RequestClientProtocol,
+    RequestConverterProtocol,
 )
 from aiperf.workers.credit_processor_mixin import CreditProcessorMixin
 
@@ -66,8 +69,6 @@ class Worker(
 
         self.debug(lambda: f"Worker process __init__ (pid: {self._process.pid})")
 
-        self.health_check_interval = DEFAULT_WORKER_HEALTH_CHECK_INTERVAL
-
         self.task_stats: WorkerTaskStats = WorkerTaskStats()
 
         self.credit_return_push_client: PushClientProtocol = (
@@ -86,9 +87,19 @@ class Worker(
             )
         )
 
-        self.model_endpoint = ModelEndpointInfo.from_user_config(self.user_config)
+        self.model_endpoint: ModelEndpointInfo | None = None
 
-        self.debug(
+        self.request_converter: RequestConverterProtocol | None = None
+        self.inference_client: InferenceClientProtocol | None = None
+
+    @on_command(CommandType.PROFILE_CONFIGURE)
+    async def _handle_profile_configure_command(
+        self, message: ProfileConfigureCommand
+    ) -> None:
+        self.debug(lambda: f"Received profile configure command: {message}")
+        self.user_config = UserConfig(**message.config)
+        self.model_endpoint = ModelEndpointInfo.from_user_config(self.user_config)
+        self.info(
             lambda: f"Creating inference client for {self.model_endpoint.endpoint.type}, "
             f"class: {InferenceClientFactory.get_class_from_type(self.model_endpoint.endpoint.type).__name__}",
         )
@@ -99,6 +110,7 @@ class Worker(
             self.model_endpoint.endpoint.type,
             model_endpoint=self.model_endpoint,
         )
+        self.task_stats = WorkerTaskStats()
 
     @on_pull_message(MessageType.CREDIT_DROP)
     async def _credit_drop_callback(self, message: CreditDropMessage) -> None:
@@ -124,7 +136,7 @@ class Worker(
 
     @background_task(
         immediate=False,
-        interval=lambda self: self.health_check_interval,
+        interval=DEFAULT_WORKER_HEALTH_CHECK_INTERVAL,
     )
     async def _health_check_task(self) -> None:
         """Task to report the health of the worker to the worker manager."""

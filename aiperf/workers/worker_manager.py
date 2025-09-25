@@ -6,7 +6,6 @@ import time
 from pydantic import Field
 
 from aiperf.common.base_component_service import BaseComponentService
-from aiperf.common.bootstrap import bootstrap_and_run_service
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.constants import (
     DEFAULT_MAX_WORKERS_CAP,
@@ -19,14 +18,21 @@ from aiperf.common.constants import (
     NANOS_PER_SECOND,
 )
 from aiperf.common.enums import MessageType, ServiceType
+from aiperf.common.enums.command_enums import CommandType
 from aiperf.common.enums.worker_enums import WorkerStatus
 from aiperf.common.factories import ServiceFactory
-from aiperf.common.hooks import background_task, on_message, on_start, on_stop
+from aiperf.common.hooks import (
+    background_task,
+    on_command,
+    on_message,
+    on_stop,
+)
 from aiperf.common.messages import (
     ShutdownWorkersCommand,
     SpawnWorkersCommand,
     WorkerHealthMessage,
 )
+from aiperf.common.messages.command_messages import ProfileConfigureCommand
 from aiperf.common.messages.worker_messages import WorkerStatusSummaryMessage
 from aiperf.common.models.progress_models import WorkerStats
 
@@ -73,6 +79,19 @@ class WorkerManager(BaseComponentService):
         self.cpu_count = multiprocessing.cpu_count()
         self.debug(lambda: f"Detected {self.cpu_count} CPU cores/threads")
 
+        self.user_config: UserConfig | None = None
+        self.max_concurrency: int | None = None
+        self.max_workers: int | None = None
+        self.initial_workers: int | None = None
+
+    @on_command(CommandType.PROFILE_CONFIGURE)
+    async def _profile_configure_command(
+        self, message: ProfileConfigureCommand
+    ) -> None:
+        """Configure the worker manager."""
+        self.debug(lambda: f"Received profile configure command: {message}")
+        self.user_config = UserConfig(**message.config)
+
         self.max_concurrency = self.user_config.loadgen.concurrency
         self.max_workers = self.service_config.workers.max
         if self.max_workers is None:
@@ -98,11 +117,6 @@ class WorkerManager(BaseComponentService):
         )
         self.initial_workers = self.max_workers
 
-    @on_start
-    async def _start(self) -> None:
-        """Start worker manager-specific components."""
-        self.debug("WorkerManager starting")
-
         await self.send_command_and_wait_for_response(
             SpawnWorkersCommand(
                 service_id=self.service_id,
@@ -111,7 +125,6 @@ class WorkerManager(BaseComponentService):
                 target_service_type=ServiceType.SYSTEM_CONTROLLER,
             )
         )
-        self.debug("WorkerManager started")
 
     @on_stop
     async def _stop(self) -> None:
@@ -194,6 +207,8 @@ class WorkerManager(BaseComponentService):
 
 
 def main() -> None:
+    from aiperf.common.bootstrap import bootstrap_and_run_service
+
     bootstrap_and_run_service(WorkerManager)
 
 
