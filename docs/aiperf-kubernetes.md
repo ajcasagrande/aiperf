@@ -41,7 +41,7 @@ Dynamo inference services are deployed on Kubernetes clusters and need to be val
 * Enable distributed load generation across multiple Kubernetes pods to achieve high concurrency levels
 * Overcome single-node ephemeral port limitations by distributing connections across multiple worker pods
 * Maintain compatibility with existing AIPerf CLI interfaces and configuration options
-* Provide seamless deployment experience through CLI parameters and Kubernetes YAML manifests
+* Provide seamless deployment experience through CLI parameters
 * Preserve existing ZMQ-based communication patterns between AIPerf services while adapting for distributed deployment
 * Enable scaling of worker and record processor pods based on concurrency requirements
 
@@ -60,7 +60,7 @@ AIPerf **MUST** support deployment of its services across multiple Kubernetes po
 
 ### REQ 2 Kubernetes API Integration and Compatibility
 
-The implementation **MUST** use the Kubernetes API directly for pod orchestration rather than relying on external tools. The `KubernetesServiceManager` **MUST** implement the existing `ServiceManagerProtocol` interface to ensure compatibility with AIPerf's service management architecture. The implementation **MUST** follow the same patterns as `MultiProcessServiceManager` for service lifecycle management. The system **SHOULD** use the existing `bootstrap_and_run_service` function for service startup. The system **SHOULD** support both programmatic deployment through CLI parameters and declarative deployment through Kubernetes YAML manifests.
+The implementation **MUST** use the Kubernetes API directly for pod orchestration rather than relying on external tools. The `KubernetesServiceManager` **MUST** implement the existing `ServiceManagerProtocol` interface to ensure compatibility with AIPerf's service management architecture. The implementation **MUST** follow the same patterns as `MultiProcessServiceManager` for service lifecycle management. The system **SHOULD** use the existing `bootstrap_and_run_service` function for service startup. The system **SHOULD** support programmatic deployment through CLI parameters.
 
 ### REQ 3 Concurrency Scaling
 
@@ -146,98 +146,27 @@ The existing ZMQ communication uses multiple proxy patterns managed by the Proxy
 - System controller pod exposes ZMQ proxy ports via Kubernetes services
 - All service pods connect to system controller services using Kubernetes DNS
 - Each singleton service pod exposes its own service endpoint for direct communication
-- All ZMQ communication uses TCP transport with connection pooling and keep-alive optimization
-- Network policies enforce service isolation and security boundaries
-- Support for high-performance networking (SR-IOV, DPDK) in HPC environments
+- All ZMQ communication uses TCP transport
 
 ## Deployment Modes
 
 ### CLI-Driven Deployment
 
-**Kubernetes Deployment** (Simple):
-```bash
-# Easy deployment for 1M+ concurrency
-aiperf profile \
-       --service-run-type k8s \
-       --concurrency 1000000 \
-       --target-url http://inference-service:8080
-
-# Advanced deployment with custom scaling
-aiperf profile \
-       --service-run-type k8s \
-       --concurrency 1000000 \
-       --worker-replicas 20 \
-       --target-url http://inference-service:8080 \
-       --namespace my-load-test
-```
-
-**Multiprocess Deployment** (current default):
-```bash
-aiperf profile \
-       --workers-max 50 \
-       --record-processor-service-count 10 \
-       --target-url http://inference-service:8080 \
-       --log-level debug
-```
-
-### Auto-Scaling for Massive Concurrency
-AIPerf automatically calculates optimal pod distribution for target concurrency:
-
-```bash
-# AIPerf automatically scales to achieve 1M+ concurrent connections
-aiperf profile \
-       --service-run-type k8s \
-       --concurrency 1500000 \
-       --url http://my-llm-service:8080 \
-       --duration 300s
-
-# AIPerf calculates:
-# - Worker pods needed based on connection limits
-# - Record processor scaling based on throughput
-# - Resource allocation for optimal performance
-```
-
-**Example Auto-Scaling Logic**:
-- Target: 1,500,000 concurrent connections
-- Connection limit per worker pod: 50,000 (validated from `AIPERF_HTTP_CONNECTION_LIMIT`)
-- Required worker pods: 30 (with 20% buffer)
-- Record processors: 8 (auto-scaled based on worker count)
-- Total deployment: 39 pods across 7 service types
+**Basic Kubernetes Deployment**:
+Users will be able to deploy AIPerf to Kubernetes using the existing CLI with the addition of the `--service-run-type k8s` parameter. The system will automatically deploy the required service pods and scale worker pods based on the specified concurrency target.
 
 ## Resource Management
 
-### Simple Resource Allocation
-AIPerf uses sensible defaults optimized for performance:
-
-**Default Resource Allocation** (Auto-tuned for scale):
-- **Control Services** (system-controller, dataset-manager, etc.): 1 CPU, 2Gi memory each
-- **Worker Pods**: 2 CPU, 4Gi memory (optimized for high concurrency)
-- **Record Processors**: 1 CPU, 2Gi memory (auto-scaled with workload)
-
-**Custom Resource Tuning** (Optional):
-```bash
-# Customize resources for specific environments
-aiperf profile \
-       --service-run-type k8s \
-       --concurrency 1000000 \
-       --worker-cpu 4 \
-       --worker-memory 8Gi \
-       --target-url http://inference-service:8080
-```
-
-**Performance-First Defaults**:
-- Minimal resource overhead for control services
-- Auto-scaling based on actual workload demand
+### Basic Resource Allocation
+AIPerf will use sensible defaults for pod resource allocation:
+- **Control Services** (system-controller, dataset-manager, etc.): Basic CPU and memory allocation
+- **Worker Pods**: Resource allocation optimized for handling concurrent connections
+- **Record Processors**: Resource allocation for metrics processing workload
 
 ### Scaling Strategy
-- Singleton service pods (system controller, dataset manager, timing manager, records manager, worker manager) remain single instances
-- Worker pods scale linearly with target concurrency requirements (1 to N replicas)
-- Each worker pod can sustain concurrent connections up to the configured `AIPERF_HTTP_CONNECTION_LIMIT` before connection exhaustion
-- For 100,000+ concurrent connections, deploy multiple worker pods to distribute the connection load based on validated `AIPERF_HTTP_CONNECTION_LIMIT`
-- Record processor pods scale based on response processing throughput using HPA with custom metrics (processing queue depth, CPU utilization)
-- Each service can be independently configured with specific resource limits and requests
-- Integration with Cluster Autoscaler for node-level scaling in cloud environments
-- Support for GPU resource allocation for ML-based tokenization and processing workloads
+- Singleton service pods remain single instances
+- Worker pods scale based on target concurrency requirements
+- Record processor pods scale based on worker count
 
 # Implementation Details
 
@@ -255,15 +184,14 @@ The `KubernetesServiceManager` extends `BaseServiceManager` and implements all r
 
 **Critical Integration Note**: The existing `WorkerManager` service handles worker lifecycle management with CPU-based scaling logic. The Kubernetes implementation must decide whether to:
 1. Preserve `WorkerManager` and have it coordinate with Kubernetes scaling
-2. Replace `WorkerManager` functionality with native Kubernetes scaling (HPA/VPA)
+2. Replace `WorkerManager` functionality with native Kubernetes scaling
 3. Hybrid approach where `WorkerManager` acts as a Kubernetes controller
 
 ### Core Components
-- **Pod Template Generation**: Creates Kubernetes pod specifications for each individual service type
-- **Service Discovery**: Manages Kubernetes services for ZMQ communication endpoints between service pods
-- **Resource Lifecycle**: Handles deployment, scaling, and cleanup of individual service pod resources
-- **Health Monitoring**: Monitors individual service pod health and handles failures/restarts
-- **RBAC Management**: Programmatically creates and manages RBAC permissions for AIPerf operations
+- **Pod Template Generation**: Creates Kubernetes pod specifications for each service type
+- **Service Discovery**: Manages Kubernetes services for ZMQ communication endpoints
+- **Resource Lifecycle**: Handles deployment, scaling, and cleanup of pod resources
+- **RBAC Management**: Creates and manages RBAC permissions for AIPerf operations
 
 ### API Integration
 ```python
@@ -392,11 +320,6 @@ cluster_role = {
             "resources": ["deployments", "replicasets"],
             "verbs": ["create", "get", "list", "watch", "update", "patch", "delete"]
         },
-        {
-            "apiGroups": ["autoscaling"],
-            "resources": ["horizontalpodautoscalers"],
-            "verbs": ["create", "get", "list", "watch", "update", "patch", "delete"]
-        }
     ]
 }
 
@@ -421,10 +344,6 @@ await self.rbac_v1.create_cluster_role(cluster_role)
 await self.rbac_v1.create_cluster_role_binding(cluster_role_binding)
 ```
 
-**Alternative Approach (YAML files - only for user reference):**
-- YAML manifests **MAY** be generated for user inspection or manual deployment scenarios
-- Generated YAML files **SHOULD** be stored in temporary directories and cleaned up after use
-- Direct API usage provides better error handling and programmatic resource lifecycle management
 
 #### Resource Lifecycle Management
 ```python
@@ -457,8 +376,6 @@ class KubernetesResourceManager:
 **Existing Parameters (Work with Both Deployment Modes)**:
 - `--record-processor-service-count`: Controls record processor scaling
 - `--workers-max` / `--max-workers`: Controls worker scaling
-- `--log-level`, `--verbose`, `--extra-verbose`: Service logging configuration
-- `--ui-type` / `--ui`: UI configuration
 
 ### Environment Variable Injection
 Configuration is passed to pods via environment variables and ConfigMaps:
@@ -515,143 +432,24 @@ spec:
 - No complex network policies by default
 - Focus on performance over paranoid security
 
-## Performance for 1M+ Concurrency
-
-### Connection Scaling (The Key Challenge)
-Getting to 1M+ concurrent connections requires smart pod distribution:
-
-```python
-# Simple scaling calculation built into AIPerf
-def calculate_worker_pods(target_concurrency: int) -> int:
-    """Auto-calculate worker pods needed for target concurrency."""
-    connections_per_pod = get_connection_limit()  # From AIPERF_HTTP_CONNECTION_LIMIT
-    safety_buffer = 0.8  # 20% buffer for stability
-    effective_limit = int(connections_per_pod * safety_buffer)
-    return math.ceil(target_concurrency / effective_limit)
-
-# Example: 1M target with 50K limit = 25 worker pods
-```
-
-### ZMQ Performance Optimization
-Simple optimizations for maximum throughput:
-
-```yaml
-# Built-in performance tuning
-apiVersion: v1
-kind: Pod
-spec:
-  containers:
-  - name: aiperf-worker
-    env:
-    - name: ZMQ_MAX_SOCKETS
-      value: "65536"
-    - name: ZMQ_IO_THREADS
-      value: "4"
-    resources:
-      requests:
-        cpu: 2
-        memory: 4Gi
-```
-
-### Network Performance
-- **DNS Caching**: Built-in service discovery optimization
-- **Connection Pooling**: ZMQ connection reuse and keep-alive
-- **Buffer Optimization**: Auto-tuned for high concurrency workloads
-
-**Performance Targets**:
-- 1M+ concurrent connections across distributed worker pods
-- <5ms additional latency vs single-node deployment
-- Linear scaling with pod count (no bottlenecks)
 
 ## Container Images
 
 ### Container Image
-A single container image supports all AIPerf service modes with performance optimizations:
-```dockerfile
-FROM python:3.11-slim
+A single container image will support all AIPerf service modes. Service mode will be determined by environment variables passed to the pod, leveraging the existing `ServiceFactory` to instantiate the appropriate service class.
 
-# Install performance monitoring tools
-RUN apt-get update && apt-get install -y \
-    htop iotop tcpdump strace \
-    && rm -rf /var/lib/apt/lists/*
 
-# Optimize Python for container environments
-ENV PYTHONUNBUFFERED=1
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONHASHSEED=random
+## Artifact and Export File Retrieval
 
-# ZMQ performance tuning
-ENV ZMQ_MAX_SOCKETS=65536
-ENV ZMQ_IO_THREADS=4
+AIPerf generates output files including metrics exports (JSON, CSV) and logs that users need to access after benchmark completion. In the Kubernetes deployment, these files are generated by the Records Manager pod and must be retrieved to the user's local filesystem.
 
-COPY aiperf/ /app/aiperf/
-WORKDIR /app
-ENTRYPOINT ["python", "-m", "aiperf.kubernetes_runner"]
-```
+### Basic Approach
 
-### Service Mode Selection
-Service mode is determined by environment variables, leveraging the existing `ServiceFactory`:
-```python
-# kubernetes_runner.py
-import os
-from aiperf.common.bootstrap import bootstrap_and_run_service
-from aiperf.common.factories import ServiceFactory
-from aiperf.common.enums import ServiceType
+The Records Manager pod acts as the central collection point for all benchmark artifacts. It receives processed metrics from distributed pods and generates the final export files in its local artifact directory using the existing AIPerf exporters.
 
-service_type_str = os.getenv("AIPERF_SERVICE_TYPE")
-service_type = ServiceType(service_type_str)
-service_class = ServiceFactory.get_class_from_type(service_type)
+After benchmark completion, AIPerf will automatically copy all artifact files from the Records Manager pod to the user's local filesystem using the Kubernetes API in Python. This preserves the standard AIPerf directory structure and provides users with the same export files they would receive from a single-node deployment.
 
-bootstrap_and_run_service(
-    service_class=service_class,
-    service_config=load_service_config(),
-    user_config=load_user_config(),
-    service_id=os.getenv("AIPERF_SERVICE_ID"),
-)
-```
-
-## Simple Monitoring
-
-AIPerf provides built-in monitoring that works out of the box:
-
-### Real-time Performance Metrics
-```bash
-# Built-in monitoring during test execution
-aiperf profile \
-       --service-run-type k8s \
-       --concurrency 1000000 \
-       --target-url http://inference-service:8080 \
-       --monitor
-
-# Live output shows:
-# ✓ Worker pods: 20/20 ready
-# ✓ Concurrent connections: 987,234 / 1,000,000
-# ✓ Request rate: 45,678 req/s
-# ✓ P95 latency: 123ms
-# ✓ Error rate: 0.02%
-```
-
-### Basic Health Checks
-```yaml
-# Simple health monitoring
-apiVersion: v1
-kind: Pod
-spec:
-  containers:
-  - name: aiperf-worker
-    livenessProbe:
-      httpGet:
-        path: /health
-        port: 8080
-      initialDelaySeconds: 10
-      periodSeconds: 30
-    readinessProbe:
-      httpGet:
-        path: /ready
-        port: 8080
-      initialDelaySeconds: 5
-      periodSeconds: 10
-```
+Once files are successfully retrieved, all Kubernetes pods are automatically cleaned up to minimize cluster resource usage.
 
 ### **Deferred to Implementation**
 - **Optimal ZMQ port allocation strategy**: Determine whether to use fixed ports or dynamic port allocation with service discovery
@@ -674,12 +472,11 @@ spec:
 
 **Core Features:**
 
-* ✅ CLI deployment: `aiperf profile --service-run-type k8s --concurrency 1000000`
-* ✅ Auto-scaling worker pods based on concurrency target
+* ✅ CLI deployment with `--service-run-type k8s` parameter
+* ✅ Worker pod scaling based on concurrency target
 * ✅ ZMQ communication across pod boundaries
-* ✅ Built-in monitoring and health checks
 * ✅ Automatic cleanup after test completion
-* ✅ Basic security (non-root, simple RBAC)
+* ✅ Basic RBAC security
 
 # Related Proposals
 
