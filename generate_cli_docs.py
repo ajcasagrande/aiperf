@@ -160,28 +160,12 @@ def extract_help_data(subcommand: str) -> dict[str, list[ParameterInfo]]:
 
 def _format_parameter_options(param: ParameterInfo) -> list[str]:
     """Format parameter options for display."""
-    options = []
-
+    options = param.long_options.split(" --")
     if param.short:
-        options.append(f"{param.short}{param.type_suffix}")
-
-    for option in param.long_options.split(" --"):
-        option = option.strip()
-        if option:
-            if not option.startswith("--"):
-                option = "--" + option.lower().replace(" ", "-")
-            formatted = f"{option}{param.type_suffix}"
-            if formatted not in options:
-                options.append(formatted)
-
-    if not options:
-        return []
-
-    combined = " | ".join(f"`{opt}`" for opt in options)
-    # if param.display_name:
-    #     return [f"#### {param.display_name}", "", f"{combined}", ""]
-    # else:
-    return [f"#### {combined}", ""]
+        options.append(param.short)
+    combined = " | ".join(f"`{opt.strip()}`" for opt in options)
+    suffix = f" {param.type_suffix}" if param.type_suffix else ""
+    return [f"##### {combined.rstrip('`')}{suffix}`", ""]
 
 
 def _add_parameter_details(lines: list[str], param: ParameterInfo) -> None:
