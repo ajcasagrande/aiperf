@@ -153,7 +153,7 @@ The existing ZMQ communication uses multiple proxy patterns managed by the Proxy
 ### CLI-Driven Deployment
 
 **Basic Kubernetes Deployment**:
-Users will be able to deploy AIPerf to Kubernetes using the existing CLI with the addition of the `--service-run-type k8s` parameter. The system will automatically deploy the required service pods and scale worker pods based on the specified concurrency target.
+Users will deploy AIPerf to Kubernetes using the `--kubernetes` flag. The AIPerf CLI will bootstrap a System Controller pod into the cluster, which then orchestrates the deployment of all other service pods (workers, record processors, etc.) and manages the benchmark lifecycle.
 
 ## Resource Management
 
@@ -170,62 +170,86 @@ AIPerf will use sensible defaults for pod resource allocation:
 
 # Implementation Details
 
-## Kubernetes Service Manager
+## Decoupled Architecture Design
 
-The `KubernetesServiceManager` class implements the existing `ServiceManagerProtocol` interface to handle Kubernetes-specific deployment logic, following the same patterns as `MultiProcessServiceManager`:
+### Current Architecture Analysis
+The existing architecture has a key architectural issue that becomes clear when considering Kubernetes deployment:
 
-### ServiceManagerProtocol Implementation
-The `KubernetesServiceManager` extends `BaseServiceManager` and implements all required protocol methods:
-- `run_service(service_type, num_replicas)`: Deploy individual service pods using Kubernetes API, similar to how `MultiProcessServiceManager.run_service()` spawns processes
-- `shutdown_all_services()`: Clean up all deployed Kubernetes resources, similar to multiprocess termination
-- `kill_all_services()`: Force kill all pods, similar to `process.kill()` in multiprocess manager
-- `wait_for_all_services_registration()`: Monitor pod readiness and service registration using the same service registry pattern
-- `wait_for_all_services_start()`: Wait for pod startup (currently not implemented in multiprocess manager)
+**Current Architecture Problem:**
+- UI is instantiated and managed inside SystemController process
+- This creates tight coupling between business logic and presentation layer
+- In Kubernetes mode, UI should run locally while SystemController runs in pod
 
-**Critical Integration Note**: The existing `WorkerManager` service handles worker lifecycle management with CPU-based scaling logic. The Kubernetes implementation must decide whether to:
-1. Preserve `WorkerManager` and have it coordinate with Kubernetes scaling
-2. Replace `WorkerManager` functionality with native Kubernetes scaling
-3. Hybrid approach where `WorkerManager` acts as a Kubernetes controller
+**UI is Already Decoupled via ZMQ (Good!):**
+- UI receives all data via ZMQ message bus (`MessageBusClientMixin`)
+- Progress updates via `@on_message(MessageType.WORKER_HEALTH)`
+- Metrics via `@on_message(MessageType.REALTIME_METRICS)`
+- Worker status via `@on_message(MessageType.WORKER_STATUS_SUMMARY)`
+- Uses standard ZMQ addresses: `EVENT_BUS_PROXY_BACKEND` for subscriptions
 
-### Core Components
-- **Pod Template Generation**: Creates Kubernetes pod specifications for each service type
+**Proposed Fix: CLI-Managed UI Lifecycle**
+Move UI lifecycle management from SystemController to CLI orchestrator for clean separation of concerns.
+
+### Proposed Decoupled Architecture
+
+**Clean Component Separation:**
+1. **CLI Orchestrator**: Deployment mode detection, UI lifecycle, user interaction
+2. **Deployment Managers**: Mode-specific deployment logic (Multiprocess vs Kubernetes)
+3. **SystemController**: Pure service orchestration and business logic (enhanced ServiceManager)
+4. **ServiceManager**: Individual service process/pod lifecycle management
+
+## Bootstrap Flow and Service Management
+
+### Multiprocessing Mode Flow (Improved)
+1. **CLI Orchestrator**: Detects multiprocessing mode (default)
+2. **MultiprocessDeploymentManager**: Deploys SystemController as local process (no UI)
+3. **CLI Orchestrator**: Starts UI client locally, connects to SystemController via ZMQ IPC
+4. **SystemController**: Service orchestration using MultiProcessServiceManager
+
+### Kubernetes Mode Flow
+1. **CLI Orchestrator**: Detects Kubernetes mode (`--kubernetes` flag present)
+2. **KubernetesDeploymentManager**: Creates namespace, deploys SystemController pod (no UI)
+3. **CLI Orchestrator**: Starts UI client locally, connects via port-forward to SystemController ZMQ
+4. **SystemController**: Service orchestration using KubernetesServiceManager (same code as multiprocess)
+
+### Key Architectural Improvement
+**Before**: SystemController = monolithic (service management + UI + console output + process lifecycle)
+**After**: Clean layered architecture with focused responsibilities per component
+
+### Communication Architecture
+
+**Both modes use the same communication pattern**: CLI ↔ UI ↔ SystemController via ZMQ
+
+**Multiprocessing Mode:**
+- UI connects to SystemController via ZMQ IPC sockets (local)
+- Same machine, different processes
+
+**Kubernetes Mode:**
+- UI connects to SystemController via ZMQ TCP over port-forward (remote)
+- Different machines, same ZMQ protocol
+
+**Key Insight**: Minimal implementation changes needed since UI already uses ZMQ for all data
+
+### Kubernetes Service Manager
+
+The `KubernetesServiceManager` implements the same `ServiceManagerProtocol` interface as `MultiProcessServiceManager`, but deploys services as Kubernetes pods instead of processes:
+
+**ServiceManagerProtocol Implementation:**
+- `run_service(service_type, num_replicas)`: Deploy service pods using Kubernetes API (instead of spawning processes)
+- `shutdown_all_services()`: Delete all pods (instead of terminating processes)
+- `wait_for_all_services_registration()`: Monitor pod readiness and service registration (same pattern)
+
+**Core Responsibilities:**
+- **Pod Deployment**: Creates Kubernetes pod specifications for each service type
 - **Service Discovery**: Manages Kubernetes services for ZMQ communication endpoints
-- **Resource Lifecycle**: Handles deployment, scaling, and cleanup of pod resources
-- **RBAC Management**: Creates and manages RBAC permissions for AIPerf operations
+- **Resource Lifecycle**: Handles pod deployment, scaling, and cleanup
+- **Same Interface**: SystemController uses identical calls regardless of deployment mode
 
-### API Integration
-```python
-@implements_protocol(ServiceManagerProtocol)
-@ServiceManagerFactory.register(ServiceRunType.KUBERNETES)
-class KubernetesServiceManager(BaseServiceManager):
-    def __init__(self,
-                 required_services: dict[ServiceTypeT, int],
-                 service_config: ServiceConfig,
-                 user_config: UserConfig,
-                 log_queue: "multiprocessing.Queue | None" = None,  # Maintains compatibility
-                 **kwargs):
-        super().__init__(required_services, service_config, user_config, **kwargs)
-        self.k8s_client = kubernetes.client.ApiClient()
-        self.apps_v1 = kubernetes.client.AppsV1Api(self.k8s_client)
-        self.core_v1 = kubernetes.client.CoreV1Api(self.k8s_client)
-        self.rbac_v1 = kubernetes.client.RbacAuthorizationV1Api(self.k8s_client)
-        self.kubernetes_run_info: list[ServiceKubernetesRunInfo] = []  # Parallel to MultiProcessRunInfo
-
-    async def run_service(self, service_type: ServiceTypeT, num_replicas: int = 1) -> None:
-        """Deploy service pods, similar to MultiProcessServiceManager.run_service()"""
-        service_class = ServiceFactory.get_class_from_type(service_type)
-
-        for _ in range(num_replicas):
-            service_id = f"{service_type}_{uuid.uuid4().hex[:8]}"
-            # Deploy pod using Kubernetes API instead of Process()
-            # Store pod info in kubernetes_run_info similar to multi_process_info
-
-    async def _setup_rbac_resources(self) -> None:
-        # Create ServiceAccount, ClusterRole, and ClusterRoleBinding
-
-    async def _cleanup_rbac_resources(self) -> None:
-        # Remove RBAC resources when benchmark completes
-```
+**Implementation Summary:**
+The `KubernetesServiceManager` follows the same patterns as `MultiProcessServiceManager`:
+- Uses Kubernetes Python client instead of `multiprocessing.Process`
+- Maintains service tracking with pod information instead of process information
+- Same interface allows SystemController to work with either implementation seamlessly
 
 ## ZMQ Network Configuration
 
@@ -289,8 +313,282 @@ DATASET_MANAGER_PROXY_FRONTEND = f"tcp://{SYSTEM_CONTROLLER_SERVICE}:5661"
 
 ## CLI App Responsibilities
 
+The AIPerf CLI app running on the user's local machine has specific responsibilities in the Kubernetes deployment flow:
+
+### Bootstrap Responsibilities
+1. **Initial Setup**: Create namespace, RBAC resources, and ConfigMaps with benchmark configuration
+2. **System Controller Deployment**: Deploy the System Controller pod with complete benchmark parameters
+3. **Monitoring**: Track benchmark progress via Kubernetes API (pod status, logs, annotations)
+4. **Artifact Retrieval**: Copy results from Records Manager pod back to local filesystem after completion
+5. **Cleanup Coordination**: Ensure all cluster resources are removed when benchmark ends
+
+### Unified Communication Architecture
+
+**SystemController Interface**: Both deployment modes expose the same interface
+- **Control Plane**: Start/stop/configure benchmark operations
+- **Data Plane**: Real-time metrics, progress updates, log streaming
+- **Status Plane**: Health checks, service discovery, error reporting
+
+**Connection Protocols**:
+- **Multiprocessing**: Local ZMQ IPC sockets (current implementation)
+- **Kubernetes**: ZMQ TCP over port-forward to EVENT_BUS_PROXY_BACKEND
+- **Fallback**: Polling mode via Kubernetes API for basic monitoring
+
+**Key Insight: Minimal Changes Required**
+The UI is already decoupled via ZMQ message subscriptions. For Kubernetes mode:
+1. SystemController pod exposes ZMQ EVENT_BUS_PROXY_BACKEND on a TCP port
+2. CLI establishes port-forward to that ZMQ port
+3. UI connects to localhost ZMQ port (same as current IPC, but TCP)
+4. All existing `@on_message` handlers work unchanged
+
+
+**Improved Architecture Components**:
+
+```python
+# CLI Orchestrator - manages both deployment and UI
+class AIPerfCLI:
+    def run_benchmark(self, config):
+        # 1. Deploy SystemController (no UI)
+        deployment_manager = self._get_deployment_manager()
+        controller_endpoint = deployment_manager.deploy_system_controller(config)
+
+        # 2. Start UI locally if requested
+        if config.ui_type == UIType.DASHBOARD:
+            ui_client = self._create_ui_client(controller_endpoint)
+            ui_task = asyncio.create_task(ui_client.run_dashboard())
+
+        # 3. Wait for completion
+        try:
+            return await deployment_manager.wait_for_completion()
+        finally:
+            if ui_task:
+                ui_task.cancel()
+
+# SystemController - pure business logic, no UI
+class SystemController:
+    def __init__(self, service_manager: ServiceManagerProtocol):
+        self.service_manager = service_manager  # Multiprocess or Kubernetes
+        # NO UI COMPONENTS - just ZMQ event bus for data publishing
+
+    def start_benchmark(self, config):
+        # Pure benchmark execution logic
+        # Publishes progress via ZMQ EVENT_BUS
+        pass
+
+# UI Client - always runs locally, connects to remote SystemController
+class UIClient:
+    def __init__(self, zmq_endpoint: str):
+        self.zmq_endpoint = zmq_endpoint  # IPC or TCP via port-forward
+
+    async def run_dashboard(self):
+        # Connect to SystemController's ZMQ EVENT_BUS
+        # Run Textual dashboard locally
+        # Handle user interactions (quit sends ZMQ command)
+        pass
+```
+
+### Benefits of Decoupled Architecture
+
+**1. Clean Separation of Concerns**
+- **SystemController**: Pure benchmark execution, no UI coupling
+- **CLI**: Manages deployment orchestration AND user interface
+- **UI**: Always runs locally where user is, regardless of SystemController location
+
+**2. Consistent User Experience**
+- UI always runs on user's machine (responsive, local interactions)
+- Same dashboard experience for both multiprocessing and Kubernetes
+- No network latency for UI interactions (scrolling, panel switching)
+
+**3. Simplified SystemController**
+- No UI lifecycle management complexity
+- Same code for both deployment modes
+- Easier to containerize (no UI dependencies)
+- Better resource usage (no UI overhead in pods)
+
+**4. Flexible Architecture**
+- UI can connect to local or remote SystemController transparently
+- Multiple UI clients can connect simultaneously
+- Easy to add new deployment modes without affecting UI
+- SystemController can run headless for automation/CI
+
+**5. Robust Connection Handling**
+- UI can reconnect if connection drops
+- SystemController continues running even if UI disconnects
+- CLI manages both deployment lifecycle AND UI lifecycle
+
+### Implementation Strategy
+
+## SystemController Analysis: What Stays vs What Goes
+
+### Current SystemController Responsibilities Analysis
+
+**1. Service Orchestration & Lifecycle (STAYS - Core Business Logic)**
+- ✅ **ProxyManager**: ZMQ proxy management for inter-service communication
+- ✅ **ServiceManager**: Manages other service lifecycles (dataset, timing, workers, etc.)
+- ✅ **Service Registration**: Handles `RegisterServiceCommand` from services
+- ✅ **Service Coordination**: `ProfileConfigureCommand`, `ProfileStartCommand` orchestration
+- ✅ **Worker Scaling**: `SpawnWorkersCommand`, `ShutdownWorkersCommand` handling
+- ✅ **Message Processing**: Heartbeats, status updates, command responses
+- ✅ **Signal Handling**: Graceful shutdown on SIGINT/SIGTERM
+
+**2. Results Processing & Export (STAYS - Business Logic)**
+- ✅ **Results Collection**: `ProcessRecordsResultMessage` handling
+- ✅ **Data Export**: `ExporterManager` for CSV/JSON file generation
+- ✅ **Metrics Processing**: Real-time metrics coordination
+
+**3. UI Management (MOVES TO CLI - Presentation Layer)**
+- ❌ **UI Instantiation**: `AIPerfUIFactory.create_instance()` → CLI responsibility
+- ❌ **UI Lifecycle**: `self.attach_child_lifecycle(self.ui)` → CLI manages
+- ❌ **Console Output**: `_print_post_benchmark_info_and_metrics()` → CLI shows results
+
+**4. Process Management (CONTEXT-DEPENDENT)**
+- ❌ **Process Exit**: `os._exit(0)` → CLI handles process lifecycle
+- ❌ **Signal Setup**: `self.setup_signal_handlers()` → CLI handles in Kubernetes mode
+
+### Proposed Refactored Architecture
+
+**SystemController Becomes Pure Service Orchestrator:**
+```python
+class SystemController(BaseService):
+    def __init__(self, service_manager: ServiceManagerProtocol, ...):
+        # NO UI COMPONENTS
+        self.service_manager = service_manager  # Injected by CLI
+        self.proxy_manager = ProxyManager(...)
+        # NO signal handlers (handled by deployment manager)
+
+    # KEEPS: All service coordination logic
+    # KEEPS: All business logic and message handling
+    # KEEPS: Results processing and export
+    # REMOVES: UI management, console output, process exit
+```
+
+**CLI Orchestrator Manages Everything Else:**
+```python
+class AIPerfCLI:
+    def run_benchmark(self, config):
+        # 1. Choose deployment strategy
+        deployment_manager = self._get_deployment_manager(config)
+
+        # 2. Deploy SystemController (pure business logic)
+        controller_endpoint = deployment_manager.deploy_system_controller(config)
+
+        # 3. Start UI locally if requested
+        if config.ui_type == UIType.DASHBOARD:
+            ui_task = self._start_ui_client(controller_endpoint)
+
+        # 4. Wait for completion and handle results
+        results = await deployment_manager.wait_for_completion()
+        await self._display_final_results(results)  # Console output moves here
+
+        # 5. Cleanup
+        await deployment_manager.cleanup()
+```
+
+### Key Insight: SystemController ≈ Enhanced Service Manager
+
+You're absolutely right! The SystemController is evolving to become more like the ServiceManager classes, but with additional responsibilities:
+
+**ServiceManager (Base)**: Manages service processes/pods
+**SystemController (Enhanced)**: ServiceManager + business logic coordination
+
+**Comparison:**
+```python
+# MultiProcessServiceManager
+- run_service() -> starts processes
+- stop_service() -> stops processes
+- wait_for_registration() -> waits for startup
+
+# SystemController (New Role)
+- run_service() -> delegates to ServiceManager
+- coordinate_services() -> sends ProfileConfigure/Start commands
+- handle_service_messages() -> processes heartbeats, status, results
+- manage_proxies() -> handles ZMQ communication infrastructure
+```
+
+### Implementation Strategy
+
+**Phase 1: Extract UI and Console Output**
+- Move UI instantiation from SystemController to CLI orchestrator
+- Move `_print_post_benchmark_info_and_metrics()` to CLI
+- SystemController focuses purely on service coordination
+
+**Phase 2: Extract Process Management**
+- Remove `os._exit(0)` from SystemController
+- CLI handles process lifecycle in multiprocessing mode
+- Deployment managers handle container lifecycle in Kubernetes mode
+
+**Phase 3: Inject Dependencies**
+- SystemController receives ServiceManager via dependency injection
+- Same SystemController code works with MultiProcessServiceManager or KubernetesServiceManager
+- Clean separation of orchestration logic from deployment strategy
+
+## Summary: SystemController Evolution
+
+**Current State**: Monolithic orchestrator handling everything
+- Service management + UI + console output + process lifecycle + business logic
+
+**Future State**: Pure service orchestration layer
+- **SystemController**: Service coordination + business logic (enhanced ServiceManager)
+- **CLI**: Deployment orchestration + UI + user interaction
+- **Deployment Managers**: Process/pod lifecycle management
+
+**Key Benefits:**
+1. **Same SystemController Code**: Works identically in multiprocess and Kubernetes modes
+2. **Clean Layering**: Business logic separate from deployment and presentation concerns
+3. **Easier Testing**: SystemController can be tested independently of deployment mode
+4. **Better Containerization**: No UI dependencies in SystemController container
+5. **Flexible UI**: UI always runs locally, can connect to SystemController anywhere
+
+**Architecture Layers:**
+```
+┌─────────────────────────────────────────────────────┐
+│ CLI Orchestrator                                    │
+│ - Deployment mode detection                         │
+│ - UI lifecycle management                           │
+│ - Results display                                   │
+│ - User interaction handling                         │
+└─────────────────────────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────┐
+│ Deployment Manager (Multiprocess/Kubernetes)       │
+│ - SystemController deployment                       │
+│ - Process/pod lifecycle                            │
+│ - Resource management                               │
+└─────────────────────────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────┐
+│ SystemController (Pure Business Logic)             │
+│ - Service coordination                              │
+│ - ZMQ proxy management                              │
+│ - Message processing                                │
+│ - Results collection & export                       │
+└─────────────────────────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────┐
+│ ServiceManager (Process/Pod Management)            │
+│ - Individual service lifecycle                      │
+│ - Service registration tracking                     │
+│ - Resource allocation                               │
+└─────────────────────────────────────────────────────┘
+```
+
+This evolution makes the SystemController much more focused and reusable across different deployment contexts.
+
+**Phase 2: Add TCP Transport Support**
+- Add TCP transport option for EVENT_BUS_PROXY_BACKEND (currently only IPC)
+- CLI detects deployment mode and configures UI connection accordingly
+- Zero changes to existing `@on_message` handlers or UI components
+
+**Phase 3: Create Deployment Managers**
+- Extract multiprocessing deployment logic to `MultiprocessDeploymentManager`
+- Implement `KubernetesDeploymentManager` for pod orchestration
+- CLI orchestrator manages both SystemController deployment AND UI lifecycle
+
 ### RBAC and Resource Management
-The AIPerf CLI app is responsible for creating and managing all necessary Kubernetes resources programmatically through the Kubernetes API:
+The CLI app creates the initial Kubernetes resources programmatically through the Kubernetes API:
 
 #### RBAC Resource Creation
 ```python
@@ -336,42 +634,42 @@ cluster_role_binding = {
 #### Direct API vs YAML File Usage
 The CLI app **MUST** use the Kubernetes Python client to create resources programmatically rather than generating YAML files:
 
-**Preferred Approach (Direct API):**
-```python
-# Create resources directly through API
-await self.core_v1.create_namespaced_service_account(namespace, service_account)
-await self.rbac_v1.create_cluster_role(cluster_role)
-await self.rbac_v1.create_cluster_role_binding(cluster_role_binding)
-```
+**Direct API Approach:**
+The CLI app will use the Kubernetes Python client to create resources programmatically. The client will automatically use the standard kubeconfig file (`~/.kube/config`) or in-cluster configuration if running inside a Kubernetes pod.
 
 
 #### Resource Lifecycle Management
-```python
-class KubernetesResourceManager:
-    async def setup_benchmark_resources(self) -> None:
-        """Create all necessary RBAC and service resources for benchmark execution"""
-        await self._create_namespace_if_not_exists()
-        await self._setup_rbac_resources()
-        await self._create_config_maps()
+The CLI manages the initial bootstrap resources, while the System Controller pod manages all service-specific resources:
 
-    async def cleanup_benchmark_resources(self) -> None:
-        """Remove all created resources after benchmark completion"""
-        await self._cleanup_services()
-        await self._cleanup_deployments()
-        await self._cleanup_rbac_resources()
-        await self._cleanup_config_maps()
-```
+**CLI Responsibilities:**
+- Create/delete namespace
+- Setup/cleanup RBAC resources
+- Deploy/remove System Controller pod
+- Create initial ConfigMaps with benchmark configuration
+
+**System Controller Pod Responsibilities:**
+- Deploy all service pods (workers, record processors, etc.)
+- Manage pod scaling and lifecycle
+- Handle service-to-service communication setup
+- Coordinate benchmark execution and results collection
 
 ## Configuration Management
 
 ### CLI Parameters
 
-**Current Implementation**: The `service_run_type` parameter is currently disabled in CLI via `DisableCLI(reason="Only single support for now")` and defaults to `ServiceRunType.MULTIPROCESSING`. Kubernetes support requires removing the `DisableCLI` decorator and enabling this parameter with proper CLI integration.
+**Current Implementation**: The `service_run_type` parameter is currently disabled in CLI via `DisableCLI(reason="Only single support for now")` and defaults to `ServiceRunType.MULTIPROCESSING`.
+
+**Simplified Deployment Mode Detection**: The system will automatically detect Kubernetes deployment mode when the `--kubernetes` flag is provided.
 
 **Kubernetes Deployment Parameters**:
-- `--service-run-type k8s`: Enable Kubernetes deployment mode
-- `--kubernetes-namespace`: Target Kubernetes namespace
-- `--kubeconfig`: Path to Kubernetes configuration file
+- `--kubernetes`: Enable Kubernetes deployment mode
+- `--kubernetes-namespace`: Target Kubernetes namespace (optional, defaults to auto-generated namespace)
+- `--kubeconfig`: Path to Kubernetes configuration file (optional, defaults to `~/.kube/config`)
+
+**Namespace Behavior**:
+- If `--kubernetes-namespace` is specified, AIPerf will use that namespace
+- If not specified, AIPerf will auto-generate a unique namespace (e.g., `aiperf-<timestamp>` or `aiperf-<job-id>`)
+- Auto-generated namespaces are automatically cleaned up after benchmark completion
 
 **Existing Parameters (Work with Both Deployment Modes)**:
 - `--record-processor-service-count`: Controls record processor scaling
@@ -438,6 +736,49 @@ spec:
 ### Container Image
 A single container image will support all AIPerf service modes. Service mode will be determined by environment variables passed to the pod, leveraging the existing `ServiceFactory` to instantiate the appropriate service class.
 
+## UI Dashboard Architecture
+
+### UI Architecture Solution
+
+**Current Challenge**: UI is instantiated inside SystemController, creating tight coupling between business logic and presentation layer.
+
+**Solution**: Move UI to CLI orchestrator, connect via existing ZMQ infrastructure.
+
+**Implementation**:
+- UI already receives all data via ZMQ (`@on_message` decorators on `MessageBusClientMixin`)
+- Only change needed: UI connects to ZMQ TCP instead of IPC when in Kubernetes mode
+- Same Textual dashboard, same user experience, same keyboard shortcuts
+
+### Technical Implementation
+
+**ZMQ Connection Pattern:**
+- **Multiprocessing**: UI connects to `EVENT_BUS_PROXY_BACKEND` via IPC socket
+- **Kubernetes**: UI connects to `EVENT_BUS_PROXY_BACKEND` via TCP socket over port-forward
+- **Same Protocol**: All `@on_message` handlers work identically
+
+**User Experience:**
+- Same command: `aiperf profile --kubernetes --concurrency 1M`
+- Same dashboard: Identical Textual UI with all features
+- Same interactions: All keyboard shortcuts and navigation work normally
+
+**Connection Details:**
+- CLI automatically establishes port-forward to SystemController pod's ZMQ port
+- UI connects to localhost ZMQ TCP port (transparent to user)
+- Terminal size, mouse events, and keyboard input handled locally (no network latency)
+
+
+### User Interaction Handling
+
+**Local UI Interactions (No Changes):**
+- All view controls, navigation, and screenshots work locally
+- No network communication required for UI state changes
+- Identical user experience to multiprocessing mode
+
+**Process Control via ZMQ Commands:**
+- Quit action (Ctrl+C) sends `ShutdownCommand` via ZMQ instead of SIGINT
+- CLI monitors for shutdown commands and handles cleanup
+- Graceful termination of SystemController pod
+
 
 ## Artifact and Export File Retrieval
 
@@ -472,9 +813,10 @@ Once files are successfully retrieved, all Kubernetes pods are automatically cle
 
 **Core Features:**
 
-* ✅ CLI deployment with `--service-run-type k8s` parameter
+* ✅ CLI deployment with automatic Kubernetes mode detection
 * ✅ Worker pod scaling based on concurrency target
 * ✅ ZMQ communication across pod boundaries
+* ✅ **Same dashboard UI experience** (runs locally, connects via ZMQ)
 * ✅ Automatic cleanup after test completion
 * ✅ Basic RBAC security
 
