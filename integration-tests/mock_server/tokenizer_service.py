@@ -19,6 +19,7 @@ class TokenizerService:
         self._prompt_generators: dict[str, PromptGenerator] = {}
         self._datasets: dict[str, list[str]] = {}
         self._fallback_model_name: str | None = None
+        self._fallback_tokenizer: str | None = None
 
     def load_tokenizers(self, model_names: list[str]) -> None:
         """Pre-load tokenizers for one or more models.
@@ -53,7 +54,11 @@ class TokenizerService:
     def get_tokenizer(self, model_name: str) -> Tokenizer:
         """Get or create a tokenizer for the specified model."""
         if model_name not in self._tokenizers:
-            raise ValueError(f"No tokenizer loaded for {model_name}")
+            if self._fallback_tokenizer not in self._tokenizers:
+                raise ValueError(
+                    f"No tokenizer loaded for {model_name} or {self._fallback_tokenizer}"
+                )
+            model_name = self._fallback_tokenizer
 
         return self._tokenizers[model_name]
 
@@ -104,6 +109,10 @@ class TokenizerService:
         This is a rough estimate based on the average token length of 4 characters.
         """
         return len(text) // 4
+
+    def set_fallback_tokenizer(self, fallback_tokenizer: str) -> None:
+        """Set the fallback tokenizer to use if the requested tokenizer is not found."""
+        self._fallback_tokenizer = fallback_tokenizer
 
 
 # Global tokenizer service instance
