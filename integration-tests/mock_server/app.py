@@ -160,6 +160,7 @@ async def chat_completions(request: ChatCompletionRequest):
         # Tokenize the user prompt using the requested model's tokenizer
         tokens = tokenizer_service.generate_response(user_prompt, request.model)
     except Exception as e:
+        logger.exception(f"Error generating response for {request.model}: {e}")
         # If the tokenizer fails, return a 404 error to simulate model not found
         raise HTTPException(
             status_code=404,
@@ -201,7 +202,7 @@ async def chat_completions(request: ChatCompletionRequest):
         response_text = "".join(tokens)
 
         # Count tokens for usage statistics
-        prompt_tokens = tokenizer_service.count_tokens(user_prompt, request.model)
+        prompt_tokens = tokenizer_service.estimate_token_count(user_prompt)
         completion_tokens = len(tokens)
 
         response = ChatCompletionResponse(

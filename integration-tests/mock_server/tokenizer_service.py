@@ -18,7 +18,6 @@ class TokenizerService:
         self._tokenizers: dict[str, Tokenizer] = {}
         self._prompt_generators: dict[str, PromptGenerator] = {}
         self._datasets: dict[str, list[str]] = {}
-        self._fallback_model_name: str | None = None
         self._fallback_tokenizer: str | None = None
 
     def load_tokenizers(self, model_names: list[str]) -> None:
@@ -39,10 +38,7 @@ class TokenizerService:
                     PromptConfig(),
                     tokenizer,
                 )
-                tokens = self._prompt_generators[model_name].generate(
-                    mean=1000,
-                    stddev=0.0,
-                )
+                tokens = self._prompt_generators[model_name]._sample_tokens(1000)
                 logger.info(f"Generated {len(tokens)} tokens for model: {model_name}")
                 self._datasets[model_name] = [
                     tokenizer.decode([token_id]) for token_id in tokens
@@ -72,11 +68,11 @@ class TokenizerService:
     def generate_response(self, prompt: str, model_name: str) -> list[str]:
         """Generate a response for the specified model."""
         if model_name not in self._datasets:
-            if self._fallback_model_name not in self._datasets:
+            if self._fallback_tokenizer not in self._datasets:
                 raise ValueError(
-                    f"No dataset loaded for {model_name} or {self._fallback_model_name}"
+                    f"No dataset loaded for {model_name} or {self._fallback_tokenizer}"
                 )
-            model_name = self._fallback_model_name
+            model_name = self._fallback_tokenizer
 
         token_count = self.estimate_token_count(prompt)
         response = self._datasets[model_name][:token_count]
