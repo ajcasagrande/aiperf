@@ -410,6 +410,20 @@ class RankingsResponseData(BaseResponseData):
         return ""
 
 
+class SolidoResponseData(BaseResponseData):
+    """Parsed Solido RAG response data."""
+
+    content: str = Field(description="The generated content from Solido RAG.")
+    query: str | None = Field(default=None, description="The original query.")
+    inference_model: str | None = Field(
+        default=None, description="The inference model used."
+    )
+
+    def get_text(self) -> str:
+        """Get the text content of the response."""
+        return self.content
+
+
 class ParsedResponse(AIPerfBaseModel):
     """Parsed response from a inference client."""
 
@@ -419,6 +433,7 @@ class ParsedResponse(AIPerfBaseModel):
         | TextResponseData
         | EmbeddingResponseData
         | RankingsResponseData
+        | SolidoResponseData
         | BaseResponseData
     ] = Field(..., description="The parsed response data.")
 

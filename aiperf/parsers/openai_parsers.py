@@ -21,6 +21,7 @@ from aiperf.common.models import (
     RankingsResponseData,
     ReasoningResponseData,
     RequestRecord,
+    SolidoResponseData,
     SSEMessage,
     TextResponse,
     TextResponseData,
@@ -35,6 +36,7 @@ from aiperf.common.utils import load_json_str
     EndpointType.EMBEDDINGS,
     EndpointType.RANKINGS,
     EndpointType.RESPONSES,
+    EndpointType.SOLIDO,
 )
 class OpenAIResponseExtractor(AIPerfLoggerMixin):
     """Extractor for OpenAI responses."""
@@ -116,6 +118,11 @@ class OpenAIResponseExtractor(AIPerfLoggerMixin):
         """Infer the object type from the JSON structure for responses without explicit 'object' field."""
         if "rankings" in json_obj:
             return OpenAIObjectType.RANKINGS
+        elif ("content" in json_obj or "delta" in json_obj) and (
+            "query" in json_obj or "inference_model" in json_obj
+        ):
+            # Solido RAG response pattern (both regular and streaming)
+            return OpenAIObjectType.SOLIDO_RAG
 
         self.warning(f"Could not infer object type from response: {json_obj}")
         return None
@@ -197,6 +204,24 @@ class ResponseParser(OpenAIObjectParserProtocol):
     def parse(self, obj: dict[str, Any]) -> BaseResponseData | None:
         """Parse a Responses object."""
         return _make_text_response_data(obj.get("output_text"))
+
+
+@OpenAIObjectParserFactory.register(OpenAIObjectType.SOLIDO_RAG)
+class SolidoRAGParser(OpenAIObjectParserProtocol):
+    """Parser for Solido RAG objects."""
+
+    def parse(self, obj: dict[str, Any]) -> BaseResponseData | None:
+        """Parse a Solido RAG object."""
+        content = obj.get("content", "")
+        # Handle streaming responses with delta content
+        if not content and "delta" in obj:
+            content = obj["delta"].get("content", "")
+
+        return SolidoResponseData(
+            content=content,
+            query=obj.get("query"),
+            inference_model=obj.get("inference_model"),
+        )
 
 
 @OpenAIObjectParserFactory.register(OpenAIObjectType.TEXT_COMPLETION)

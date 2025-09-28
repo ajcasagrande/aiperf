@@ -86,6 +86,16 @@ class EndpointType(BasePydanticBackedStrEnum):
         endpoint_path="/v1/responses",
         metrics_title="LLM Metrics",
     )
+    SOLIDO = EndpointTypeInfo(
+        tag="solido",
+        service_kind=EndpointServiceKind.OPENAI,  # Use OpenAI service kind to reuse infrastructure
+        supports_streaming=True,
+        produces_tokens=True,
+        supports_audio=False,
+        supports_images=False,
+        endpoint_path="/rag/api/prompt",
+        metrics_title="Solido RAG Metrics",
+    )
 
     @cached_property
     def info(self) -> EndpointTypeInfo:

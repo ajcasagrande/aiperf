@@ -16,4 +16,5 @@ class OpenAIObjectType(CaseInsensitiveStrEnum):
     LIST = "list"
     RANKINGS = "rankings"
     RESPONSE = "response"
+    SOLIDO_RAG = "solido_rag"
     TEXT_COMPLETION = "text_completion"

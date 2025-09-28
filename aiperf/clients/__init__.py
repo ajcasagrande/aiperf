@@ -29,6 +29,9 @@ from aiperf.clients.openai import (
     OpenAIResponsesRequestConverter,
     RankingsRequestConverter,
 )
+from aiperf.clients.solido import (
+    SolidoRequestConverter,
+)
 
 __all__ = [
     "AioHttpClientMixin",
@@ -46,4 +49,5 @@ __all__ = [
     "OpenAIResponsesRequestConverter",
     "RankingsRequestConverter",
     "SocketDefaults",
+    "SolidoRequestConverter",
 ]
