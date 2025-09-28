@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Blazing fast module loader for AIPerf.
+"""Fast and lazy module loader for AIPerf.
 
 Thread-safe singleton that automatically scans for @Factory.register decorators on first
 instantiation, then loads modules on demand. The scan happens only once during singleton
@@ -28,9 +28,8 @@ class ModuleRegistry:
 
     _instance = None
     _instance_lock = threading.Lock()
-    _registrations: dict[
-        str, dict[str, str]
-    ] = {}  # factory -> {class_type -> module_path}
+    # factory -> {class_type -> module_path}
+    _registrations: dict[str, dict[str, str]] = {}
     _loaded = False
 
     def __new__(cls):
@@ -43,32 +42,14 @@ class ModuleRegistry:
                     cls._instance._scan_all()
         return cls._instance
 
-    def load_plugin(self, factory_name: str, class_type: str) -> None:
+    def load_plugin(self, factory_name: str, class_type: str | Enum) -> None:
         """Load a plugin module for the given factory and class type."""
-        # Try different representations in order of preference
-        type_keys_to_try = []
+        # Convert to string representation - all enums are string enums
+        type_key = str(class_type)
 
-        # If it's an enum, prioritize the string representation
-        if hasattr(class_type, "name") and isinstance(class_type, Enum):
-            type_keys_to_try.extend(
-                [
-                    str(class_type),  # String representation (e.g., "none")
-                    f"{class_type.__class__.__name__}.{class_type.name}",  # Full format (e.g., "AIPerfUIType.NONE")
-                ]
-            )
-        else:
-            # For string inputs, try as-is first, then check if it might be an enum format
-            type_keys_to_try.append(str(class_type))
-
-            # If the input looks like an enum format, also try it as-is
-            if "." in str(class_type):
-                type_keys_to_try.append(str(class_type))
-
-        for type_key in type_keys_to_try:
-            module_path = self._registrations.get(factory_name, {}).get(type_key)
-            if module_path:
-                importlib.import_module(module_path)
-                return
+        module_path = self._registrations.get(factory_name, {}).get(type_key)
+        if module_path:
+            importlib.import_module(module_path)
 
     def get_available_types(self, factory_name: str) -> list[str]:
         """Get all available types for a factory without loading them.
@@ -159,20 +140,15 @@ class ModuleRegistry:
                             enum_class = getattr(enums_module, enum_class_name)
                             if hasattr(enum_class, enum_value_name):
                                 enum_value = getattr(enum_class, enum_value_name)
-                                # TODO: This doesn't handle override_priority yet
-                                # Store the string representation as the primary key
+                                # Store the string representation as the key
                                 self._registrations[factory_name][str(enum_value)] = (
                                     module_path
                                 )
                                 _logger.debug(
-                                    f"Resolved enum {enum_class_name}.{enum_value_name} for {factory_name} in {module_path}"
+                                    f"Registered {enum_class_name}.{enum_value_name} -> '{enum_value}' for {factory_name} in {module_path}"
                                 )
                     except Exception:
-                        # If we can't resolve the enum, just continue with the full format
-                        full_enum_format = f"{arg.value.id}.{arg.attr}"
-                        self._registrations[factory_name][full_enum_format] = (
-                            module_path
-                        )
+                        # If we can't resolve the enum, skip it with a warning
                         _logger.warning(
                             f"Could not resolve enum {enum_class_name}.{enum_value_name} for {factory_name} in {module_path}"
                         )

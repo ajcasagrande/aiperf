@@ -238,7 +238,44 @@ class TestClass:
         registry = ModuleRegistry()
         # Clear any existing registrations from the real scan
         registry._registrations.clear()
-        parse_decorators_from_content(registry, content, module_path)
+
+        # Mock the enum resolution to return expected string values
+        with patch("importlib.import_module") as mock_import:
+            # Create mock enums module with test enums that return the expected string values
+            mock_enums_module = MagicMock()
+
+            # Mock SomeEnum
+            mock_some_enum = MagicMock()
+            mock_some_enum.TYPE_A = (
+                "SomeEnum.TYPE_A"  # Return the full format as string
+            )
+            mock_enums_module.SomeEnum = mock_some_enum
+
+            # Mock MyEnum
+            mock_my_enum = MagicMock()
+            mock_my_enum.TYPE_A = "MyEnum.TYPE_A"
+            mock_my_enum.TYPE_B = "MyEnum.TYPE_B"
+            mock_enums_module.MyEnum = mock_my_enum
+
+            # Mock ConfigEnum
+            mock_config_enum = MagicMock()
+            mock_config_enum.SETTING_A = "ConfigEnum.SETTING_A"
+            mock_enums_module.ConfigEnum = mock_config_enum
+
+            # Mock TestEnum
+            mock_test_enum = MagicMock()
+            mock_test_enum.TYPE_A = "TestEnum.TYPE_A"
+            mock_enums_module.TestEnum = mock_test_enum
+
+            def mock_import_side_effect(module_name):
+                if module_name == "aiperf.common.enums":
+                    return mock_enums_module
+                return MagicMock()
+
+            mock_import.side_effect = mock_import_side_effect
+
+            parse_decorators_from_content(registry, content, module_path)
+
         assert registry._registrations == expected_registrations
 
     @pytest.mark.parametrize(
@@ -570,7 +607,32 @@ class MultiArgClass:
         # Clear any existing registrations from the real scan
         registry._registrations.clear()
         module_path = "test.variations"
-        parse_decorators_from_content(registry, content, module_path)
+
+        # Mock the enum resolution to return expected string values
+        with patch("importlib.import_module") as mock_import:
+            # Create mock enums module with test enums
+            mock_enums_module = MagicMock()
+
+            # Mock ServiceType
+            mock_service_type = MagicMock()
+            mock_service_type.HTTP_CLIENT = "ServiceType.HTTP_CLIENT"
+            mock_service_type.CACHE = "ServiceType.CACHE"
+            mock_enums_module.ServiceType = mock_service_type
+
+            # Mock ComponentType
+            mock_component_type = MagicMock()
+            mock_component_type.PARSER = "ComponentType.PARSER"
+            mock_component_type.LOGGER = "ComponentType.LOGGER"
+            mock_enums_module.ComponentType = mock_component_type
+
+            def mock_import_side_effect(module_name):
+                if module_name == "aiperf.common.enums":
+                    return mock_enums_module
+                return MagicMock()
+
+            mock_import.side_effect = mock_import_side_effect
+
+            parse_decorators_from_content(registry, content, module_path)
 
         # Verify all registrations
         expected_registrations = {
