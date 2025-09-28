@@ -6,7 +6,8 @@ from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
 from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import AIPerfUIType
-from aiperf.common.factories import AIPerfUIFactory
+from aiperf.di import create_service, create_client, create_exporter
+# Services registered via entry points in pyproject.toml
 from aiperf.common.hooks import (
     AIPerfHook,
     on_start,
@@ -19,7 +20,7 @@ from aiperf.ui.dashboard.aiperf_textual_app import AIPerfTextualApp
 
 
 @implements_protocol(AIPerfUIProtocol)
-@AIPerfUIFactory.register(AIPerfUIType.DASHBOARD)
+# Registered via entry points in pyproject.toml
 class AIPerfDashboardUI(BaseAIPerfUI):
     """
     AIPerf Dashboard UI.

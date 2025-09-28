@@ -8,7 +8,8 @@ import zmq.asyncio
 
 from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import CommClientType
-from aiperf.common.factories import CommunicationClientFactory
+from aiperf.di import create_service, create_client, create_exporter
+# Services registered via entry points in pyproject.toml
 from aiperf.common.hooks import background_task, on_stop
 from aiperf.common.messages import ErrorMessage, Message
 from aiperf.common.models import ErrorDetails
@@ -19,7 +20,7 @@ from aiperf.zmq.zmq_base_client import BaseZMQClient
 
 
 @implements_protocol(ReplyClientProtocol)
-@CommunicationClientFactory.register(CommClientType.REPLY)
+# Registered via entry points in pyproject.toml
 class ZMQRouterReplyClient(BaseZMQClient):
     """
     ZMQ ROUTER socket client for handling requests from DEALER clients.

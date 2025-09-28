@@ -4,7 +4,8 @@
 from aiperf.common.config import UserConfig
 from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import ComposerType, CustomDatasetType
-from aiperf.common.factories import ComposerFactory, CustomDatasetFactory
+from aiperf.di import create_service, create_client, create_exporter
+# Services registered via entry points in pyproject.toml
 from aiperf.common.models import Conversation
 from aiperf.common.protocols import ServiceProtocol
 from aiperf.common.tokenizer import Tokenizer
@@ -13,7 +14,7 @@ from aiperf.dataset.composer.base import BaseDatasetComposer
 
 
 @implements_protocol(ServiceProtocol)
-@ComposerFactory.register(ComposerType.CUSTOM)
+# Registered via entry points in pyproject.toml
 class CustomDatasetComposer(BaseDatasetComposer):
     def __init__(self, config: UserConfig, tokenizer: Tokenizer):
         super().__init__(config, tokenizer)
@@ -46,7 +47,7 @@ class CustomDatasetComposer(BaseDatasetComposer):
         elif dataset_type == CustomDatasetType.RANDOM_POOL:
             kwargs["num_conversations"] = self.config.input.conversation.num
 
-        self.loader = CustomDatasetFactory.create_instance(dataset_type, **kwargs)
+        self.loader = create_service(dataset_type, **kwargs)
 
     def _finalize_conversations(self, conversations: list[Conversation]) -> None:
         """Finalize all turns in conversations by adding metadata."""

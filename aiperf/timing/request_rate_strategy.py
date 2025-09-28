@@ -7,7 +7,8 @@ import random
 from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import TimingMode
 from aiperf.common.enums.timing_enums import RequestRateMode
-from aiperf.common.factories import RequestRateGeneratorFactory
+from aiperf.di import create_service, create_client, create_exporter
+# Services registered via entry points in pyproject.toml
 from aiperf.common.messages import CreditReturnMessage
 from aiperf.common.models import CreditPhaseStats
 from aiperf.common.protocols import RequestRateGeneratorProtocol
@@ -19,7 +20,7 @@ from aiperf.timing.credit_issuing_strategy import (
 )
 
 
-@CreditIssuingStrategyFactory.register(TimingMode.REQUEST_RATE)
+# Registered via entry points in pyproject.toml
 class RequestRateStrategy(CreditIssuingStrategy):
     """
     Strategy for issuing credits based on a specified request rate. Optionally, a max concurrency limit can be specified.
@@ -34,7 +35,7 @@ class RequestRateStrategy(CreditIssuingStrategy):
         self, config: TimingManagerConfig, credit_manager: CreditManagerProtocol
     ):
         super().__init__(config=config, credit_manager=credit_manager)
-        self._request_rate_generator = RequestRateGeneratorFactory.create_instance(
+        self._request_rate_generator = create_service(
             config
         )
         # If the user has provided a concurrency, use a semaphore to limit the maximum number of concurrent requests
@@ -95,7 +96,7 @@ class RequestRateStrategy(CreditIssuingStrategy):
 
 
 @implements_protocol(RequestRateGeneratorProtocol)
-@RequestRateGeneratorFactory.register(RequestRateMode.POISSON)
+# Registered via entry points in pyproject.toml
 class PoissonRateGenerator:
     """
     Generator for Poisson process (exponential inter-arrival times).
@@ -129,7 +130,7 @@ class PoissonRateGenerator:
 
 
 @implements_protocol(RequestRateGeneratorProtocol)
-@RequestRateGeneratorFactory.register(RequestRateMode.CONSTANT)
+# Registered via entry points in pyproject.toml
 class ConstantRateGenerator:
     """
     Generator for constant rate (fixed inter-arrival times).
@@ -152,7 +153,7 @@ class ConstantRateGenerator:
 
 
 @implements_protocol(RequestRateGeneratorProtocol)
-@RequestRateGeneratorFactory.register(RequestRateMode.CONCURRENCY_BURST)
+# Registered via entry points in pyproject.toml
 class ConcurrencyBurstRateGenerator:
     """
     Generator for concurrency-burst rate (no delay between requests).

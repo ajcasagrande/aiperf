@@ -8,7 +8,8 @@ from pathlib import Path
 from typing import TypeAlias
 
 from aiperf.common.enums import CustomDatasetType, MediaType
-from aiperf.common.factories import CustomDatasetFactory
+from aiperf.di import create_service, create_client, create_exporter
+# Services registered via entry points in pyproject.toml
 from aiperf.common.models import Conversation, Turn
 from aiperf.dataset.loader.mixins import MediaConversionMixin
 from aiperf.dataset.loader.models import RandomPool
@@ -17,7 +18,7 @@ from aiperf.dataset.loader.models import RandomPool
 Filename: TypeAlias = str
 
 
-@CustomDatasetFactory.register(CustomDatasetType.RANDOM_POOL)
+# Registered via entry points in pyproject.toml
 class RandomPoolDatasetLoader(MediaConversionMixin):
     """A dataset loader that loads data from a single file or a directory.
 

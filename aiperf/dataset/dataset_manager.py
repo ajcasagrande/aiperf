@@ -20,11 +20,8 @@ from aiperf.common.enums import (
     ServiceType,
 )
 from aiperf.common.enums.dataset_enums import CustomDatasetType
-from aiperf.common.factories import (
-    ComposerFactory,
-    RequestConverterFactory,
-    ServiceFactory,
-)
+from aiperf.di import create_service, create_client
+# Service registered via entry points in pyproject.toml
 from aiperf.common.hooks import on_command, on_request
 from aiperf.common.messages import (
     ConversationRequestMessage,
@@ -48,7 +45,7 @@ _logger = AIPerfLogger(__name__)
 
 
 @implements_protocol(ServiceProtocol)
-@ServiceFactory.register(ServiceType.DATASET_MANAGER)
+# Registered via entry points in pyproject.toml
 class DatasetManager(ReplyClientMixin, BaseComponentService):
     """
     The DatasetManager primary responsibility is to manage the data generation or acquisition.
@@ -145,8 +142,8 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
             file_path.parent.mkdir(parents=True, exist_ok=True)
 
             model_endpoint = ModelEndpointInfo.from_user_config(self.user_config)
-            request_converter = RequestConverterFactory.create_instance(
-                model_endpoint.endpoint.type,
+            request_converter = create_client(
+                f"request_converter_{model_endpoint.endpoint.type.value}",
             )
 
             inputs = await self._generate_input_payloads(
@@ -177,8 +174,8 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
             dataset = await loader.load_dataset()
             conversations = await loader.convert_to_conversations(dataset)
         elif self.user_config.input.custom_dataset_type is not None:
-            composer = ComposerFactory.create_instance(
-                ComposerType.CUSTOM,
+            composer = create_service(
+                ComposerType.CUSTOM.value,
                 config=self.user_config,
                 tokenizer=self.tokenizer,
             )
@@ -189,8 +186,8 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
             ):
                 self._use_sequential_iteration = True
         else:
-            composer = ComposerFactory.create_instance(
-                ComposerType.SYNTHETIC,
+            composer = create_service(
+                ComposerType.SYNTHETIC.value,
                 config=self.user_config,
                 tokenizer=self.tokenizer,
             )

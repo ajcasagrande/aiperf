@@ -13,7 +13,8 @@ from aiperf.common.config.config_defaults import OutputDefaults
 from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import DataExporterType
 from aiperf.common.enums.metric_enums import MetricFlags
-from aiperf.common.factories import DataExporterFactory
+from aiperf.di import create_service, create_client, create_exporter
+# Services registered via entry points in pyproject.toml
 from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.common.models import MetricResult
 from aiperf.common.protocols import DataExporterProtocol
@@ -30,7 +31,7 @@ def _percentile_keys_from(stat_keys: Sequence[str]) -> list[str]:
     return [k for k in stat_keys if len(k) >= 2 and k[0] == "p" and k[1:].isdigit()]
 
 
-@DataExporterFactory.register(DataExporterType.CSV)
+# Registered via entry points in pyproject.toml
 @implements_protocol(DataExporterProtocol)
 class CsvExporter(AIPerfLoggerMixin):
     """Exports records to a CSV file in a legacy, two-section format."""

@@ -11,7 +11,8 @@ from aiperf.common.constants import (
 )
 from aiperf.common.enums import CreditPhase, TimingMode
 from aiperf.common.exceptions import ConfigurationError
-from aiperf.common.factories import AIPerfFactory
+from aiperf.di import create_service, create_client, create_exporter
+# Services registered via entry points in pyproject.toml
 from aiperf.common.messages import CreditReturnMessage
 from aiperf.common.mixins import TaskManagerMixin
 from aiperf.common.models import CreditPhaseConfig, CreditPhaseStats

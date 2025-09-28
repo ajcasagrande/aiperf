@@ -1,0 +1,81 @@
+# AIPerf Dependency Injection Configuration Example
+# This file shows how to configure the DI system
+
+# Core DI settings
+auto_discovery: true
+plugin_paths: []
+strict_validation: false
+lazy_loading: true
+cache_providers: true
+enable_wiring: true
+log_level: "INFO"
+debug_mode: false
+
+# Service-specific configurations
+services:
+  system_controller:
+    max_workers: 8
+    timeout: 300
+
+  worker_manager:
+    worker_count: 4
+    max_queue_size: 1000
+    heartbeat_interval: 30
+
+  dataset_manager:
+    cache_size: 1000
+    batch_size: 100
+
+  timing_manager:
+    precision: "microseconds"
+    buffer_size: 10000
+
+  records_manager:
+    max_records: 1000000
+    compression: true
+
+# Client configurations
+clients:
+  aiohttp_client:
+    timeout: 30
+    max_retries: 3
+    backoff_factor: 2
+
+  openai_client:
+    api_version: "2024-02-01"
+    max_tokens: 4096
+    temperature: 0.7
+
+# Exporter configurations
+exporters:
+  json_exporter:
+    pretty_print: true
+    compression: false
+
+  csv_exporter:
+    delimiter: ","
+    include_headers: true
+
+  console_metrics_exporter:
+    update_interval: 1.0
+    show_percentiles: [50, 95, 99]
+
+# Processor configurations
+processors:
+  metric_record_processor:
+    batch_size: 1000
+    flush_interval: 5.0
+
+  metric_results_processor:
+    aggregation_window: 60.0
+    percentiles: [50, 90, 95, 99]
+
+# UI configurations
+ui:
+  dashboard_ui:
+    refresh_rate: 1.0
+    max_history: 1000
+
+  tqdm_ui:
+    update_interval: 0.1
+    bar_format: "{l_bar}{bar}| {n_fmt}/{total_fmt}"

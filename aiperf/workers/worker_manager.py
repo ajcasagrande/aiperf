@@ -19,7 +19,7 @@ from aiperf.common.constants import (
 )
 from aiperf.common.enums import MessageType, ServiceType
 from aiperf.common.enums.worker_enums import WorkerStatus
-from aiperf.common.factories import ServiceFactory
+# Service registered via entry points in pyproject.toml
 from aiperf.common.hooks import background_task, on_message, on_start, on_stop
 from aiperf.common.messages import (
     ShutdownWorkersCommand,
@@ -44,7 +44,7 @@ class WorkerStatusInfo(WorkerStats):
     )
 
 
-@ServiceFactory.register(ServiceType.WORKER_MANAGER)
+# Registered via entry points in pyproject.toml
 class WorkerManager(BaseComponentService):
     """
     The WorkerManager service is primary responsibility to manage the worker processes.

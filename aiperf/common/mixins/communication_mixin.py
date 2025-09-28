@@ -4,7 +4,8 @@
 from abc import ABC
 
 from aiperf.common.config import ServiceConfig
-from aiperf.common.factories import CommunicationFactory
+from aiperf.di import create_service, create_client, create_exporter
+# Services registered via entry points in pyproject.toml
 from aiperf.common.mixins.aiperf_lifecycle_mixin import AIPerfLifecycleMixin
 from aiperf.common.protocols import CommunicationProtocol
 
@@ -17,8 +18,9 @@ class CommunicationMixin(AIPerfLifecycleMixin, ABC):
     def __init__(self, service_config: ServiceConfig, **kwargs) -> None:
         super().__init__(service_config=service_config, **kwargs)
         self.service_config = service_config
-        self.comms: CommunicationProtocol = CommunicationFactory.get_or_create_instance(
-            self.service_config.comm_config.comm_backend,
+        from aiperf.di import create_service
+        self.comms: CommunicationProtocol = create_service(
+            self.service_config.comm_config.comm_backend.value,
             config=self.service_config.comm_config,
         )
         self.attach_child_lifecycle(self.comms)

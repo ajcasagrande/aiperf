@@ -7,11 +7,9 @@ from aiperf.common.aiperf_logger import AIPerfLogger
 from aiperf.common.bootstrap import bootstrap_and_run_service
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.enums.service_enums import ServiceType
-from aiperf.common.factories import ServiceFactory
+from aiperf.di.services import get_service_class
 from aiperf.common.logging import setup_logging
 from aiperf.common.types import ServiceTypeT
-
-# Plugin discovery is now done lazily in factories, no need to preload all modules
 
 
 def run_service(
@@ -32,11 +30,8 @@ def run_service(
     )
 
     _logger = AIPerfLogger(service_id)
-
-    # Modules are now loaded on-demand via factory plugin discovery
-
     try:
-        service_class = ServiceFactory.get_class_from_type(service_type)
+        service_class = get_service_class(service_type)
         bootstrap_and_run_service(
             service_class,
             service_id=service_id,

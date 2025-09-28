@@ -11,7 +11,8 @@ from aiperf.common.constants import DEFAULT_COMMS_REQUEST_TIMEOUT
 from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import CommClientType
 from aiperf.common.exceptions import CommunicationError
-from aiperf.common.factories import CommunicationClientFactory
+from aiperf.di import create_service, create_client, create_exporter
+# Services registered via entry points in pyproject.toml
 from aiperf.common.hooks import background_task, on_stop
 from aiperf.common.messages import Message
 from aiperf.common.mixins import TaskManagerMixin
@@ -21,7 +22,7 @@ from aiperf.zmq.zmq_base_client import BaseZMQClient
 
 
 @implements_protocol(RequestClientProtocol)
-@CommunicationClientFactory.register(CommClientType.REQUEST)
+# Registered via entry points in pyproject.toml
 class ZMQDealerRequestClient(BaseZMQClient, TaskManagerMixin):
     """
     ZMQ DEALER socket client for asynchronous request-response communication.

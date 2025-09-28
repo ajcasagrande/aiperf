@@ -8,7 +8,8 @@ from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import MetricType, ResultsProcessorType
 from aiperf.common.enums.metric_enums import MetricDictValueTypeT, MetricValueTypeT
 from aiperf.common.exceptions import NoMetricValue
-from aiperf.common.factories import ResultsProcessorFactory
+from aiperf.di import create_service, create_client, create_exporter
+# Services registered via entry points in pyproject.toml
 from aiperf.common.models import MetricResult
 from aiperf.common.protocols import ResultsProcessorProtocol
 from aiperf.common.types import MetricTagT
@@ -20,7 +21,7 @@ from aiperf.post_processors.base_metrics_processor import BaseMetricsProcessor
 
 
 @implements_protocol(ResultsProcessorProtocol)
-@ResultsProcessorFactory.register(ResultsProcessorType.METRIC_RESULTS)
+# Registered via entry points in pyproject.toml
 class MetricResultsProcessor(BaseMetricsProcessor):
     """Processor for metric results.
 

@@ -6,14 +6,15 @@ from rich.table import Table
 
 from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import ConsoleExporterType
-from aiperf.common.factories import ConsoleExporterFactory
+from aiperf.di import create_service, create_client, create_exporter
+# Services registered via entry points in pyproject.toml
 from aiperf.common.models import ErrorDetailsCount
 from aiperf.common.protocols import ConsoleExporterProtocol
 from aiperf.exporters.exporter_config import ExporterConfig
 
 
 @implements_protocol(ConsoleExporterProtocol)
-@ConsoleExporterFactory.register(ConsoleExporterType.ERRORS)
+# Registered via entry points in pyproject.toml
 class ConsoleErrorExporter:
     """A class that exports error data to the console"""
 

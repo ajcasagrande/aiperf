@@ -5,13 +5,14 @@ import uuid
 from collections import defaultdict
 
 from aiperf.common.enums import CustomDatasetType, MediaType
-from aiperf.common.factories import CustomDatasetFactory
+from aiperf.di import create_service, create_client, create_exporter
+# Services registered via entry points in pyproject.toml
 from aiperf.common.models import Conversation, Turn
 from aiperf.dataset.loader.mixins import MediaConversionMixin
 from aiperf.dataset.loader.models import SingleTurn
 
 
-@CustomDatasetFactory.register(CustomDatasetType.SINGLE_TURN)
+# Registered via entry points in pyproject.toml
 class SingleTurnDatasetLoader(MediaConversionMixin):
     """A dataset loader that loads single turn data from a file.
 

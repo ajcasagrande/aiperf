@@ -10,7 +10,8 @@ from rich.table import Table
 from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import MetricFlags
 from aiperf.common.enums.data_exporter_enums import ConsoleExporterType
-from aiperf.common.factories import ConsoleExporterFactory
+from aiperf.di import create_service, create_client, create_exporter
+# Services registered via entry points in pyproject.toml
 from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.common.models import MetricResult
 from aiperf.common.protocols import ConsoleExporterProtocol
@@ -20,7 +21,7 @@ from aiperf.metrics.metric_registry import MetricRegistry
 
 
 @implements_protocol(ConsoleExporterProtocol)
-@ConsoleExporterFactory.register(ConsoleExporterType.METRICS)
+# Registered via entry points in pyproject.toml
 class ConsoleMetricsExporter(AIPerfLoggerMixin):
     """A class that exports data to the console"""
 

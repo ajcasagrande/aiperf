@@ -20,7 +20,7 @@ class BaseAIPerfUI(ProgressTrackerMixin, WorkerTrackerMixin, RealtimeMetricsMixi
 
     Example:
     ```python
-    @AIPerfUIFactory.register("custom")
+    # Registered via entry points in pyproject.toml
     class MyUI(BaseAIPerfUI):
         def __init__(self, **kwargs):
             super().__init__(**kwargs)

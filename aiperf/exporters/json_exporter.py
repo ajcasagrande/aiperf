@@ -11,7 +11,8 @@ from aiperf.common.config.config_defaults import OutputDefaults
 from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import DataExporterType, MetricFlags
-from aiperf.common.factories import DataExporterFactory
+from aiperf.di import create_service, create_client, create_exporter
+# Services registered via entry points in pyproject.toml
 from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.common.models import ErrorDetailsCount, MetricResult
 from aiperf.common.protocols import DataExporterProtocol
@@ -32,7 +33,7 @@ class JsonExportData(BaseModel):
     end_time: datetime | None = None
 
 
-@DataExporterFactory.register(DataExporterType.JSON)
+# Registered via entry points in pyproject.toml
 @implements_protocol(DataExporterProtocol)
 class JsonExporter(AIPerfLoggerMixin):
     """

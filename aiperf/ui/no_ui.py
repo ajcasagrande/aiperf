@@ -3,13 +3,14 @@
 
 from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import AIPerfUIType
-from aiperf.common.factories import AIPerfUIFactory
+from aiperf.di import create_service, create_client, create_exporter
+# Services registered via entry points in pyproject.toml
 from aiperf.common.mixins.aiperf_lifecycle_mixin import AIPerfLifecycleMixin
 from aiperf.common.protocols import AIPerfUIProtocol
 
 
 @implements_protocol(AIPerfUIProtocol)
-@AIPerfUIFactory.register(AIPerfUIType.NONE)
+# Registered via entry points in pyproject.toml
 class NoUI(AIPerfLifecycleMixin):
     """
     A UI that does nothing.

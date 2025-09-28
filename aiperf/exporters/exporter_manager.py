@@ -6,7 +6,8 @@ import asyncio
 from rich.console import Console
 
 from aiperf.common.config import ServiceConfig, UserConfig
-from aiperf.common.factories import ConsoleExporterFactory, DataExporterFactory
+from aiperf.di import create_service, create_client, create_exporter
+# Services registered via entry points in pyproject.toml
 from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.common.models import ProfileResults
 from aiperf.exporters.exporter_config import ExporterConfig, FileExportInfo
@@ -47,11 +48,14 @@ class ExporterManager(AIPerfLoggerMixin):
     async def export_data(self) -> None:
         self.info("Exporting all records")
 
-        for exporter_type in DataExporterFactory.get_all_class_types():
-            exporter = DataExporterFactory.create_instance(
-                exporter_type, exporter_config=self._exporter_config
+        # Get available exporters from DI system
+        from aiperf.di import app_container
+        available_exporters = app_container.list_available_services().get('exporters', [])
+        for exporter_name in available_exporters:
+            exporter = create_exporter(
+                exporter_name, exporter_config=self._exporter_config
             )
-            self.debug(f"Creating task for exporter: {exporter_type}")
+            self.debug(f"Creating task for exporter: {exporter_name}")
             task = asyncio.create_task(exporter.export())
             self._tasks.add(task)
             task.add_done_callback(self._task_done_callback)
@@ -63,9 +67,12 @@ class ExporterManager(AIPerfLoggerMixin):
     def get_exported_file_infos(self) -> list[FileExportInfo]:
         """Get the file infos for all exported files."""
         file_infos = []
-        for exporter_type in DataExporterFactory.get_all_class_types():
-            exporter = DataExporterFactory.create_instance(
-                exporter_type, exporter_config=self._exporter_config
+        # Get available exporters from DI system
+        from aiperf.di import app_container
+        available_exporters = app_container.list_available_services().get('exporters', [])
+        for exporter_name in available_exporters:
+            exporter = create_exporter(
+                exporter_name, exporter_config=self._exporter_config
             )
             file_infos.append(exporter.get_export_info())
         return file_infos
@@ -73,11 +80,13 @@ class ExporterManager(AIPerfLoggerMixin):
     async def export_console(self, console: Console) -> None:
         self.info("Exporting console data")
 
-        for exporter_type in ConsoleExporterFactory.get_all_class_types():
-            exporter = ConsoleExporterFactory.create_instance(
-                exporter_type, exporter_config=self._exporter_config
+        # Get available console exporters from DI system
+        console_exporters = app_container.list_available_services().get('console_exporters', [])
+        for exporter_name in console_exporters:
+            exporter = create_exporter(
+                exporter_name, exporter_config=self._exporter_config
             )
-            self.debug(f"Creating task for exporter: {exporter_type}")
+            self.debug(f"Creating task for exporter: {exporter_name}")
             task = asyncio.create_task(exporter.export(console=console))
             self._tasks.add(task)
             task.add_done_callback(self._task_done_callback)

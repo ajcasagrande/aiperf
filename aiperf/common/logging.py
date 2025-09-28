@@ -13,7 +13,8 @@ from aiperf.common.aiperf_logger import _DEBUG, _TRACE, AIPerfLogger
 from aiperf.common.config import ServiceConfig, ServiceDefaults, UserConfig
 from aiperf.common.config.config_defaults import OutputDefaults
 from aiperf.common.enums import ServiceType
-from aiperf.common.factories import ServiceFactory
+from aiperf.di import create_service
+# Service registered via entry points in pyproject.toml
 
 # Regex pattern for parsing structured log format from subprocess output
 # Format: created|levelno|levelname|name|process_name|process_id|service_id|pathname|lineno|msg
@@ -38,7 +39,7 @@ def _is_service_in_types(service_id: str, service_types: set[ServiceType]) -> bo
             return True
 
         # Check if the provided logger name is the same as the service's class name
-        if ServiceFactory.get_class_from_type(service_type).__name__ == service_id:
+        if get_service_class(service_type).__name__ == service_id:
             return True
     return False
 

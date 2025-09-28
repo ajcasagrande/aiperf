@@ -7,7 +7,8 @@ import zmq.asyncio
 from aiperf.common.config import ServiceConfig
 from aiperf.common.constants import DEFAULT_ZMQ_CONTEXT_TERM_TIMEOUT
 from aiperf.common.enums import ZMQProxyType
-from aiperf.common.factories import ZMQProxyFactory
+from aiperf.di import create_service, create_client, create_exporter
+# Services registered via entry points in pyproject.toml
 from aiperf.common.hooks import on_init, on_start, on_stop
 from aiperf.common.mixins import AIPerfLifecycleMixin
 
@@ -21,15 +22,15 @@ class ProxyManager(AIPerfLifecycleMixin):
     async def _initialize_proxies(self) -> None:
         comm_config = self.service_config.comm_config
         self.proxies = [
-            ZMQProxyFactory.create_instance(
+            create_service(
                 ZMQProxyType.XPUB_XSUB,
                 zmq_proxy_config=comm_config.event_bus_proxy_config,
             ),
-            ZMQProxyFactory.create_instance(
+            create_service(
                 ZMQProxyType.DEALER_ROUTER,
                 zmq_proxy_config=comm_config.dataset_manager_proxy_config,
             ),
-            ZMQProxyFactory.create_instance(
+            create_service(
                 ZMQProxyType.PUSH_PULL,
                 zmq_proxy_config=comm_config.raw_inference_proxy_config,
             ),

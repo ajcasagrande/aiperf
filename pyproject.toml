@@ -30,6 +30,7 @@ dependencies = [
   "aiofiles~=24.1.0",
   "aiohttp~=3.12.14",
   "cyclopts>=3,<4",
+  "dependency-injector>=4.41.0",
   "numpy~=2.2.6",
   "openai[aiohttp]~=1.92.2",
   "orjson~=3.10.18",
@@ -59,6 +60,53 @@ aiperf-dataset-manager = "aiperf.dataset.dataset_manager:main"
 aiperf-timing-manager = "aiperf.timing.timing_manager:main"
 aiperf-records-manager = "aiperf.records.records_manager:main"
 aiperf-record-processor = "aiperf.records.record_processor_service:main"
+
+# Plugin Entry Points for Dependency Injection
+[project.entry-points."aiperf.services"]
+system_controller = "aiperf.controller.system_controller:SystemController"
+worker_manager = "aiperf.workers.worker_manager:WorkerManager"
+dataset_manager = "aiperf.dataset.dataset_manager:DatasetManager"
+timing_manager = "aiperf.timing.timing_manager:TimingManager"
+records_manager = "aiperf.records.records_manager:RecordsManager"
+record_processor = "aiperf.records.record_processor_service:RecordProcessorService"
+
+[project.entry-points."aiperf.exporters"]
+json_exporter = "aiperf.exporters.json_exporter:JsonExporter"
+csv_exporter = "aiperf.exporters.csv_exporter:CsvExporter"
+console_metrics_exporter = "aiperf.exporters.console_metrics_exporter:ConsoleMetricsExporter"
+console_error_exporter = "aiperf.exporters.console_error_exporter:ConsoleErrorExporter"
+
+[project.entry-points."aiperf.clients"]
+aiohttp_client = "aiperf.clients.http.aiohttp_client:AIOHTTPClient"
+openai_client = "aiperf.clients.openai.openai_aiohttp:OpenAIAIOHTTPClient"
+
+[project.entry-points."aiperf.composers"]
+synthetic_composer = "aiperf.dataset.composer.synthetic:SyntheticComposer"
+custom_composer = "aiperf.dataset.composer.custom:CustomComposer"
+
+[project.entry-points."aiperf.processors"]
+metric_record_processor = "aiperf.post_processors.metric_record_processor:MetricRecordProcessor"
+metric_results_processor = "aiperf.post_processors.metric_results_processor:MetricResultsProcessor"
+
+[project.entry-points."aiperf.ui"]
+no_ui = "aiperf.ui.no_ui:NoUI"
+tqdm_ui = "aiperf.ui.tqdm_ui:TqdmUI"
+dashboard_ui = "aiperf.ui.dashboard.aiperf_dashboard_ui:AIPerfDashboardUI"
+
+[project.entry-points."aiperf.communication"]
+zmq_communication = "aiperf.zmq.zmq_comms:ZMQCommunication"
+
+[project.entry-points."aiperf.service_managers"]
+multiprocess_manager = "aiperf.controller.multiprocess_service_manager:MultiprocessServiceManager"
+kubernetes_manager = "aiperf.controller.kubernetes_service_manager:KubernetesServiceManager"
+
+[project.entry-points."aiperf.zmq_proxies"]
+router_dealer_proxy = "aiperf.zmq.zmq_proxy_sockets:RouterDealerProxy"
+pub_sub_proxy = "aiperf.zmq.zmq_proxy_sockets:PubSubProxy"
+
+[project.entry-points."aiperf.rate_generators"]
+fixed_rate = "aiperf.timing.fixed_schedule_strategy:FixedScheduleStrategy"
+request_rate = "aiperf.timing.request_rate_strategy:RequestRateStrategy"
 
 [project.optional-dependencies]
 dev = [

@@ -7,11 +7,8 @@ from aiperf.common.base_component_service import BaseComponentService
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.constants import DEFAULT_PULL_CLIENT_MAX_CONCURRENCY
 from aiperf.common.enums import CommAddress, CommandType, MessageType, ServiceType
-from aiperf.common.factories import (
-    RecordProcessorFactory,
-    ResponseExtractorFactory,
-    ServiceFactory,
-)
+from aiperf.di import create_service, create_client
+# Service registered via entry points in pyproject.toml
 from aiperf.common.hooks import (
     on_command,
     on_init,
@@ -34,7 +31,7 @@ from aiperf.metrics.metric_dicts import MetricRecordDict
 from aiperf.parsers.inference_result_parser import InferenceResultParser
 
 
-@ServiceFactory.register(ServiceType.RECORD_PROCESSOR)
+# Registered via entry points in pyproject.toml
 class RecordProcessor(PullClientMixin, BaseComponentService):
     """RecordProcessor is responsible for processing the records and pushing them to the RecordsManager.
     This service is meant to be run in a distributed fashion, where the amount of record processors can be scaled
@@ -80,20 +77,24 @@ class RecordProcessor(PullClientMixin, BaseComponentService):
         """Initialize record processor-specific components."""
         self.debug("Initializing record processor")
 
-        self.extractor = ResponseExtractorFactory.create_instance(
-            self.model_endpoint.endpoint.type,
+        self.extractor = create_client(
+            f"response_extractor_{self.model_endpoint.endpoint.type.value}",
             model_endpoint=self.model_endpoint,
         )
 
-        # Initialize all the records streamers
-        for processor_type in RecordProcessorFactory.get_all_class_types():
-            self.records_processors.append(
-                RecordProcessorFactory.create_instance(
-                    processor_type,
+        # Initialize all the records processors from DI system
+        from aiperf.di import app_container
+        available_processors = app_container.list_available_services().get('processors', [])
+        for processor_name in available_processors:
+            try:
+                processor = create_service(
+                    processor_name,
                     service_config=self.service_config,
                     user_config=self.user_config,
                 )
-            )
+                self.records_processors.append(processor)
+            except Exception as e:
+                self.warning(f"Failed to create record processor {processor_name}: {e}")
 
     @on_command(CommandType.PROFILE_CONFIGURE)
     async def _profile_configure_command(

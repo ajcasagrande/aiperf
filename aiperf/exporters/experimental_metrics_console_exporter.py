@@ -8,7 +8,8 @@ from aiperf.common.constants import AIPERF_DEV_MODE
 from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import MetricFlags
 from aiperf.common.enums.data_exporter_enums import ConsoleExporterType
-from aiperf.common.factories import ConsoleExporterFactory
+from aiperf.di import create_service, create_client, create_exporter
+# Services registered via entry points in pyproject.toml
 from aiperf.common.models import MetricResult
 from aiperf.common.protocols import ConsoleExporterProtocol
 from aiperf.exporters.console_metrics_exporter import ConsoleMetricsExporter
@@ -17,7 +18,7 @@ from aiperf.metrics.metric_registry import MetricRegistry
 
 
 @implements_protocol(ConsoleExporterProtocol)
-@ConsoleExporterFactory.register(ConsoleExporterType.EXPERIMENTAL_METRICS)
+# Registered via entry points in pyproject.toml
 class ConsoleExperimentalMetricsExporter(ConsoleMetricsExporter):
     """A class that exports experimental metrics to the console.
 

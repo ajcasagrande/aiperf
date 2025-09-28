@@ -6,7 +6,8 @@ from zmq import SocketType
 
 from aiperf.common.config import BaseZMQProxyConfig
 from aiperf.common.enums import ZMQProxyType
-from aiperf.common.factories import ZMQProxyFactory
+from aiperf.di import create_service, create_client, create_exporter
+# Services registered via entry points in pyproject.toml
 from aiperf.common.hooks import on_init
 from aiperf.zmq.zmq_base_client import BaseZMQClient
 from aiperf.zmq.zmq_proxy_base import (
@@ -71,7 +72,7 @@ def define_proxy_class(
     backend_socket_class: type[BaseZMQClient],
 ) -> type[BaseZMQProxy]:
     """This function reduces the boilerplate code required to create a ZMQ Proxy class.
-    It will generate a ZMQ Proxy class and register it with the ZMQProxyFactory.
+    It will generate a ZMQ Proxy class registered via entry points.
 
     Args:
         proxy_type: The type of proxy to generate.
@@ -116,7 +117,7 @@ def define_proxy_class(
     ZMQProxy.__name__ = f"ZMQ_{proxy_type.name}_Proxy"
     ZMQProxy.__qualname__ = ZMQProxy.__name__
     ZMQProxy.__doc__ = f"A ZMQ Proxy for {proxy_type.name} communication."
-    ZMQProxyFactory.register(proxy_type)(ZMQProxy)
+    # ZMQ Proxy registered via entry points in pyproject.toml
     return ZMQProxy
 
 

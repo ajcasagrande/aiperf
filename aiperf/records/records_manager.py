@@ -22,10 +22,8 @@ from aiperf.common.enums import (
 )
 from aiperf.common.enums.metric_enums import MetricValueTypeT
 from aiperf.common.enums.ui_enums import AIPerfUIType
-from aiperf.common.factories import (
-    ResultsProcessorFactory,
-    ServiceFactory,
-)
+from aiperf.di import create_service
+# Service registered via entry points in pyproject.toml
 from aiperf.common.hooks import background_task, on_command, on_message, on_pull_message
 from aiperf.common.messages import (
     AllRecordsReceivedMessage,
@@ -59,7 +57,7 @@ from aiperf.records.phase_completion import (
 
 
 @implements_protocol(ServiceProtocol)
-@ServiceFactory.register(ServiceType.RECORDS_MANAGER)
+# Registered via entry points in pyproject.toml
 class RecordsManager(PullClientMixin, BaseComponentService):
     """
     The RecordsManager service is primarily responsible for holding the
@@ -105,17 +103,23 @@ class RecordsManager(PullClientMixin, BaseComponentService):
         self._previous_realtime_records: int | None = None
 
         self._results_processors: list[ResultsProcessorProtocol] = []
-        for results_processor_type in ResultsProcessorFactory.get_all_class_types():
-            results_processor = ResultsProcessorFactory.create_instance(
-                class_type=results_processor_type,
-                service_id=self.service_id,
-                service_config=self.service_config,
-                user_config=self.user_config,
-            )
-            self.debug(
-                f"Created results processor: {results_processor_type}: {results_processor.__class__.__name__}"
-            )
-            self._results_processors.append(results_processor)
+        # Get available processors from DI system
+        from aiperf.di import app_container
+        available_processors = app_container.list_available_services().get('processors', [])
+        for processor_name in available_processors:
+            try:
+                results_processor = create_service(
+                    processor_name,
+                    service_id=self.service_id,
+                    service_config=self.service_config,
+                    user_config=self.user_config,
+                )
+                self.debug(
+                    f"Created results processor: {processor_name}: {results_processor.__class__.__name__}"
+                )
+                self._results_processors.append(results_processor)
+            except Exception as e:
+                self.warning(f"Failed to create processor {processor_name}: {e}")
 
     @on_pull_message(MessageType.METRIC_RECORDS)
     async def _on_metric_records(self, message: MetricRecordsMessage) -> None:

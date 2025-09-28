@@ -16,7 +16,7 @@ from aiperf.timing.credit_issuing_strategy import (
 from aiperf.timing.credit_manager import CreditManagerProtocol
 
 
-@CreditIssuingStrategyFactory.register(TimingMode.FIXED_SCHEDULE)
+# Registered via entry points in pyproject.toml
 class FixedScheduleStrategy(CreditIssuingStrategy):
     """
     Class for fixed schedule credit issuing strategy.

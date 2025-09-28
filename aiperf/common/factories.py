@@ -90,7 +90,7 @@ class AIPerfFactory(Generic[ClassEnumT, ClassProtocolT]):
             pass
 
         # Register a new class type mapping to its corresponding class. It should implement the class protocol.
-        @DatasetFactory.register(DatasetLoaderType.FILE)
+        # Registered via entry points in pyproject.toml
         class FileDatasetLoader:
             def __init__(self, filename: str):
                 self.filename = filename
@@ -105,7 +105,7 @@ class AIPerfFactory(Generic[ClassEnumT, ClassProtocolT]):
 
         # Create a new instance of the class.
         if DatasetConfig["type"] == DatasetLoaderType.FILE:
-            dataset_instance = DatasetFactory.create_instance(DatasetLoaderType.FILE, filename=DatasetConfig["filename"])
+            dataset_instance = create_service(DatasetLoaderType.FILE, filename=DatasetConfig["filename"])
         else:
             raise ValueError(f"Unsupported dataset loader type: {DatasetConfig['type']}")
 
@@ -198,14 +198,9 @@ class AIPerfFactory(Generic[ClassEnumT, ClassProtocolT]):
             FactoryCreationError: If the class type is not registered or there is an error creating the instance
         """
         if class_type not in cls._registry:
-            # Try to discover and load the plugin for this class type
-            cls._discover_plugin(class_type)
-
-            # Check again after discovery attempt
-            if class_type not in cls._registry:
-                raise FactoryCreationError(
-                    f"No implementation registered for {class_type!r} in {cls.__name__}."
-                )
+            raise FactoryCreationError(
+                f"No implementation registered for {class_type!r} in {cls.__name__}."
+            )
         try:
             return cls._registry[class_type](**kwargs)
         except Exception as e:
@@ -227,14 +222,9 @@ class AIPerfFactory(Generic[ClassEnumT, ClassProtocolT]):
             TypeError: If the class type is not registered
         """
         if class_type not in cls._registry:
-            # Try to discover and load the plugin for this class type
-            cls._discover_plugin(class_type)
-
-            # Check again after discovery attempt
-            if class_type not in cls._registry:
-                raise TypeError(
-                    f"No class found for {class_type!r}. Please register the class first."
-                )
+            raise TypeError(
+                f"No class found for {class_type!r}. Please register the class first."
+            )
         return cls._registry[class_type]
 
     @classmethod
@@ -258,25 +248,6 @@ class AIPerfFactory(Generic[ClassEnumT, ClassProtocolT]):
         """Get all registered classes and their corresponding class types."""
         return [(cls, class_type) for class_type, cls in cls._registry.items()]
 
-    @classmethod
-    def _discover_plugin(cls, class_type: ClassEnumT | str) -> None:
-        """Attempt to discover and load a plugin for the given class type.
-
-        Args:
-            class_type: The class type to discover a plugin for
-        """
-        from aiperf.module_loader import discover_and_load_plugin
-
-        cls._logger.debug(
-            lambda: f"Attempting to discover plugin for {class_type!r} in {cls.__name__}"
-        )
-
-        try:
-            discover_and_load_plugin(cls.__name__, class_type)
-        except Exception as e:
-            cls._logger.debug(
-                lambda e=e: f"Failed to discover plugin for {class_type!r} in {cls.__name__}: {e}"
-            )
 
 
 class AIPerfSingletonFactory(AIPerfFactory[ClassEnumT, ClassProtocolT]):
@@ -331,7 +302,6 @@ class AIPerfSingletonFactory(AIPerfFactory[ClassEnumT, ClassProtocolT]):
                     class_type not in cls._instances
                     or os.getpid() != cls._instances_pid[class_type]
                 ):
-                    # Use the parent create_instance which now includes plugin discovery
                     cls._instances[class_type] = super().create_instance(
                         class_type, **kwargs
                     )
@@ -350,12 +320,12 @@ class AIPerfSingletonFactory(AIPerfFactory[ClassEnumT, ClassProtocolT]):
         if class_type not in cls._instances:
             raise InvalidStateError(
                 f"No instance found for {class_type!r} in {cls.__name__}. "
-                f"Ensure you call AIPerfSingletonFactory.create_instance({class_type!r}) first."
+                f"Ensure you call create_service({class_type!r}) first."
             )
         if os.getpid() != cls._instances_pid[class_type]:
             raise InvalidStateError(
                 f"Instance for {class_type!r} in {cls.__name__} is not valid for the current process. "
-                f"Ensure you call AIPerfSingletonFactory.create_instance({class_type!r}) first after forking."
+                f"Ensure you call create_service({class_type!r}) first after forking."
             )
         return cls._instances[class_type]
 

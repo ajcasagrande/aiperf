@@ -9,18 +9,13 @@ from typing import Any
 from aiperf.clients.http.aiohttp_client import AioHttpClientMixin
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.enums import EndpointType
-from aiperf.common.factories import InferenceClientFactory
+from aiperf.di import create_service, create_client, create_exporter
+# Services registered via entry points in pyproject.toml
 from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.common.models import ErrorDetails, RequestRecord
 
 
-@InferenceClientFactory.register_all(
-    EndpointType.CHAT,
-    EndpointType.COMPLETIONS,
-    EndpointType.EMBEDDINGS,
-    EndpointType.RANKINGS,
-    EndpointType.RESPONSES,
-)
+# Registered via entry points in pyproject.toml
 class OpenAIClientAioHttp(AioHttpClientMixin, AIPerfLoggerMixin, ABC):
     """Inference client for OpenAI based requests using aiohttp."""
 

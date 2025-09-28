@@ -13,7 +13,7 @@ from aiperf.common.enums import (
     ServiceType,
 )
 from aiperf.common.exceptions import InvalidStateError
-from aiperf.common.factories import ServiceFactory
+# Service registered via entry points in pyproject.toml
 from aiperf.common.hooks import (
     on_command,
     on_pull_message,
@@ -47,7 +47,7 @@ from aiperf.timing.credit_manager import CreditPhaseMessagesMixin
 
 
 @implements_protocol(ServiceProtocol)
-@ServiceFactory.register(ServiceType.TIMING_MANAGER)
+# Registered via entry points in pyproject.toml
 class TimingManager(PullClientMixin, BaseComponentService, CreditPhaseMessagesMixin):
     """
     The TimingManager service is responsible to generate the schedule and issuing
@@ -104,22 +104,19 @@ class TimingManager(PullClientMixin, BaseComponentService, CreditPhaseMessagesMi
                 lambda: f"Received dataset timing response: {dataset_timing_response}"
             )
             self.info("Using fixed schedule strategy")
-            self._credit_issuing_strategy = (
-                CreditIssuingStrategyFactory.create_instance(
-                    TimingMode.FIXED_SCHEDULE,
-                    config=self.config,
-                    credit_manager=self,
-                    schedule=dataset_timing_response.timing_data,
-                )
+            from aiperf.di import create_service
+            self._credit_issuing_strategy = create_service(
+                TimingMode.FIXED_SCHEDULE.value,
+                config=self.config,
+                credit_manager=self,
+                schedule=dataset_timing_response.timing_data,
             )
         else:
             self.info(f"Using {self.config.timing_mode.title()} strategy")
-            self._credit_issuing_strategy = (
-                CreditIssuingStrategyFactory.create_instance(
-                    self.config.timing_mode,
-                    config=self.config,
-                    credit_manager=self,
-                )
+            self._credit_issuing_strategy = create_service(
+                self.config.timing_mode.value,
+                config=self.config,
+                credit_manager=self,
             )
 
         if not self._credit_issuing_strategy:

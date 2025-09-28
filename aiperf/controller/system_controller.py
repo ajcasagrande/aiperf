@@ -26,11 +26,7 @@ from aiperf.common.enums import (
     ServiceType,
 )
 from aiperf.common.exceptions import LifecycleOperationError
-from aiperf.common.factories import (
-    AIPerfUIFactory,
-    ServiceFactory,
-    ServiceManagerFactory,
-)
+from aiperf.di import create_service
 from aiperf.common.hooks import on_command, on_init, on_message, on_start, on_stop
 from aiperf.common.messages import (
     CommandErrorResponse,
@@ -62,7 +58,7 @@ from aiperf.controller.system_mixins import SignalHandlerMixin
 from aiperf.exporters.exporter_manager import ExporterManager
 
 
-@ServiceFactory.register(ServiceType.SYSTEM_CONTROLLER)
+# Registered via entry points in pyproject.toml
 class SystemController(SignalHandlerMixin, BaseService):
     """System Controller service.
 
@@ -102,16 +98,14 @@ class SystemController(SignalHandlerMixin, BaseService):
         self.proxy_manager: ProxyManager = ProxyManager(
             service_config=self.service_config
         )
-        self.service_manager: ServiceManagerProtocol = (
-            ServiceManagerFactory.create_instance(
-                self.service_config.service_run_type.value,
-                required_services=self.required_services,
-                user_config=self.user_config,
-                service_config=self.service_config,
-            )
+        self.service_manager: ServiceManagerProtocol = create_service(
+            self.service_config.service_run_type.value,
+            required_services=self.required_services,
+            user_config=self.user_config,
+            service_config=self.service_config,
         )
-        self.ui: AIPerfUIProtocol = AIPerfUIFactory.create_instance(
-            self.service_config.ui_type,
+        self.ui: AIPerfUIProtocol = create_service(
+            self.service_config.ui_type.value,
             service_config=self.service_config,
             user_config=self.user_config,
             controller=self,
@@ -562,6 +556,7 @@ class SystemController(SignalHandlerMixin, BaseService):
 
 def main() -> None:
     """Main entry point for SystemController service."""
+    import sys
 
     from aiperf.common.subprocess_service_runner import create_service_app
 

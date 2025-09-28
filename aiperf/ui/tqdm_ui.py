@@ -5,7 +5,8 @@ from tqdm import tqdm
 from aiperf.common.constants import DEFAULT_UI_MIN_UPDATE_PERCENT
 from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import AIPerfUIType
-from aiperf.common.factories import AIPerfUIFactory
+from aiperf.di import create_service, create_client, create_exporter
+# Services registered via entry points in pyproject.toml
 from aiperf.common.hooks import (
     on_profiling_progress,
     on_records_progress,
@@ -57,7 +58,7 @@ class ProgressBar:
 
 
 @implements_protocol(AIPerfUIProtocol)
-@AIPerfUIFactory.register(AIPerfUIType.SIMPLE)
+# Registered via entry points in pyproject.toml
 class TQDMProgressUI(BaseAIPerfUI):
     """A UI that shows progress bars for the records and requests phases."""
 

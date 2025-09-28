@@ -7,7 +7,8 @@ import orjson
 
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.enums import EndpointType, OpenAIObjectType
-from aiperf.common.factories import (
+from aiperf.di import create_service, create_client, create_exporter
+# Services registered via entry points in pyproject.toml
     FactoryCreationError,
     OpenAIObjectParserFactory,
     ResponseExtractorFactory,
@@ -29,13 +30,7 @@ from aiperf.common.protocols import OpenAIObjectParserProtocol
 from aiperf.common.utils import load_json_str
 
 
-@ResponseExtractorFactory.register_all(
-    EndpointType.CHAT,
-    EndpointType.COMPLETIONS,
-    EndpointType.EMBEDDINGS,
-    EndpointType.RANKINGS,
-    EndpointType.RESPONSES,
-)
+# Registered via entry points in pyproject.toml
 class OpenAIResponseExtractor(AIPerfLoggerMixin):
     """Extractor for OpenAI responses."""
 
@@ -78,7 +73,7 @@ class OpenAIResponseExtractor(AIPerfLoggerMixin):
         )
 
     def _parse_raw_text(self, raw_text: str) -> BaseResponseData | None:
-        """Parse the raw text of the response using the appropriate parser from OpenAIObjectParserFactory.
+        """Parse the raw text of the response using the appropriate parser from DI system.
 
         Returns:
             ParsedResponse | None: The parsed response, or None if the response is not a valid or supported OpenAI object.
@@ -106,10 +101,11 @@ class OpenAIResponseExtractor(AIPerfLoggerMixin):
                 return None
 
         try:
-            parser = OpenAIObjectParserFactory.get_or_create_instance(object_type)
+            from aiperf.di import create_service
+            parser = create_service(f"openai_parser_{object_type.value}")
             return parser.parse(json_str)
-        except FactoryCreationError:
-            self.warning(f"No parser found for object type: {object_type!r}")
+        except Exception as e:
+            self.warning(f"No parser found for object type: {object_type!r}: {e}")
             return None
 
     def _infer_object_type(self, json_obj: dict[str, Any]) -> OpenAIObjectType | None:
@@ -135,7 +131,7 @@ def _parse_chat_common(sub_obj: dict[str, Any]) -> BaseResponseData | None:
     )
 
 
-@OpenAIObjectParserFactory.register(OpenAIObjectType.CHAT_COMPLETION)
+# Registered via entry points in pyproject.toml
 class ChatCompletionParser(OpenAIObjectParserProtocol):
     """Parser for ChatCompletion objects."""
 
@@ -144,7 +140,7 @@ class ChatCompletionParser(OpenAIObjectParserProtocol):
         return _parse_chat_common(obj.get("choices", [{}])[0].get("message", {}))
 
 
-@OpenAIObjectParserFactory.register(OpenAIObjectType.CHAT_COMPLETION_CHUNK)
+# Registered via entry points in pyproject.toml
 class ChatCompletionChunkParser(OpenAIObjectParserProtocol):
     """Parser for ChatCompletionChunk objects."""
 
@@ -153,7 +149,7 @@ class ChatCompletionChunkParser(OpenAIObjectParserProtocol):
         return _parse_chat_common(obj.get("choices", [{}])[0].get("delta", {}))
 
 
-@OpenAIObjectParserFactory.register(OpenAIObjectType.COMPLETION)
+# Registered via entry points in pyproject.toml
 class CompletionParser(OpenAIObjectParserProtocol):
     """Parser for Completion objects."""
 
@@ -162,7 +158,7 @@ class CompletionParser(OpenAIObjectParserProtocol):
         return _make_text_response_data(obj.get("choices", [{}])[0].get("text"))
 
 
-@OpenAIObjectParserFactory.register(OpenAIObjectType.LIST)
+# Registered via entry points in pyproject.toml
 class ListParser(OpenAIObjectParserProtocol):
     """Parser for List objects."""
 
@@ -178,7 +174,7 @@ class ListParser(OpenAIObjectParserProtocol):
             raise ValueError(f"Received invalid list in response: {obj}")
 
 
-@OpenAIObjectParserFactory.register(OpenAIObjectType.RANKINGS)
+# Registered via entry points in pyproject.toml
 class RankingsParser(OpenAIObjectParserProtocol):
     """Parser for Rankings objects."""
 
@@ -190,7 +186,7 @@ class RankingsParser(OpenAIObjectParserProtocol):
         return RankingsResponseData(rankings=rankings)
 
 
-@OpenAIObjectParserFactory.register(OpenAIObjectType.RESPONSE)
+# Registered via entry points in pyproject.toml
 class ResponseParser(OpenAIObjectParserProtocol):
     """Parser for OpenAI Responses objects."""
 
@@ -199,7 +195,7 @@ class ResponseParser(OpenAIObjectParserProtocol):
         return _make_text_response_data(obj.get("output_text"))
 
 
-@OpenAIObjectParserFactory.register(OpenAIObjectType.TEXT_COMPLETION)
+# Registered via entry points in pyproject.toml
 class TextCompletionParser(OpenAIObjectParserProtocol):
     """Parser for TextCompletion objects."""
 

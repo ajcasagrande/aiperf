@@ -1,0 +1,18 @@
+# Example user plugin for AIPerf
+[project]
+name = "aiperf-custom-plugin"
+version = "0.1.0"
+description = "Custom AIPerf plugin example"
+dependencies = ["aiperf"]
+
+# Register custom services with AIPerf
+[project.entry-points."aiperf.services"]
+custom_worker = "aiperf_custom_plugin.services:CustomWorkerService"
+advanced_processor = "aiperf_custom_plugin.services:AdvancedProcessorService"
+
+[project.entry-points."aiperf.exporters"]
+elasticsearch_exporter = "aiperf_custom_plugin.exporters:ElasticsearchExporter"
+prometheus_exporter = "aiperf_custom_plugin.exporters:PrometheusExporter"
+
+[project.entry-points."aiperf.clients"]
+grpc_client = "aiperf_custom_plugin.clients:GRPCClient"

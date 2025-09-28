@@ -7,7 +7,8 @@ from collections import defaultdict
 from aiperf.common.config.user_config import UserConfig
 from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import CustomDatasetType
-from aiperf.common.factories import CustomDatasetFactory
+from aiperf.di import create_service, create_client, create_exporter
+# Services registered via entry points in pyproject.toml
 from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.common.models import Conversation, Text, Turn
 from aiperf.dataset.generator import PromptGenerator
@@ -16,7 +17,7 @@ from aiperf.dataset.loader.protocol import CustomDatasetLoaderProtocol
 
 
 @implements_protocol(CustomDatasetLoaderProtocol)
-@CustomDatasetFactory.register(CustomDatasetType.MOONCAKE_TRACE)
+# Registered via entry points in pyproject.toml
 class MooncakeTraceDatasetLoader(AIPerfLoggerMixin):
     """A dataset loader that loads Mooncake trace data from a file.
 

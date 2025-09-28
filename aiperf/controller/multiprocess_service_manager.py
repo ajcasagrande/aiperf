@@ -17,7 +17,7 @@ from aiperf.common.constants import (
 from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import ServiceRegistrationStatus, ServiceRunType
 from aiperf.common.exceptions import AIPerfError
-from aiperf.common.factories import ServiceManagerFactory
+# Service registered via entry points in pyproject.toml
 from aiperf.common.logging import handle_subprocess_log_line
 from aiperf.common.protocols import ServiceManagerProtocol
 from aiperf.common.types import ServiceTypeT
@@ -41,7 +41,7 @@ class AsyncSubprocessRunInfo(BaseModel):
 
 
 @implements_protocol(ServiceManagerProtocol)
-@ServiceManagerFactory.register(ServiceRunType.MULTIPROCESSING)
+# Registered via entry points in pyproject.toml
 class MultiProcessServiceManager(BaseServiceManager):
     """
     Service Manager for starting and stopping services as asyncio subprocesses.
@@ -60,10 +60,10 @@ class MultiProcessServiceManager(BaseServiceManager):
     def _get_service_module_path(self, service_type: ServiceTypeT) -> str:
         """Get the module path for a service type from the registered factory."""
         try:
-            # Get the service class from the factory
-            from aiperf.common.factories import ServiceFactory
+            # Get the service class from the DI system
+            from aiperf.di.services import get_service_class
 
-            service_class = ServiceFactory.get_class_from_type(service_type)
+            service_class = get_service_class(service_type)
             # Return the full module path where the service class is defined
             return service_class.__module__
         except Exception as e:

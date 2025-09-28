@@ -15,11 +15,8 @@ from aiperf.common.enums import (
     MessageType,
     ServiceType,
 )
-from aiperf.common.factories import (
-    InferenceClientFactory,
-    RequestConverterFactory,
-    ServiceFactory,
-)
+from aiperf.di import create_client
+# Service registered via entry points in pyproject.toml
 from aiperf.common.hooks import background_task, on_command, on_pull_message, on_stop
 from aiperf.common.messages import (
     CommandAcknowledgedResponse,
@@ -37,7 +34,7 @@ from aiperf.common.protocols import (
 from aiperf.workers.credit_processor_mixin import CreditProcessorMixin
 
 
-@ServiceFactory.register(ServiceType.WORKER)
+# Registered via entry points in pyproject.toml
 class Worker(
     PullClientMixin, BaseComponentService, ProcessHealthMixin, CreditProcessorMixin
 ):
@@ -90,13 +87,13 @@ class Worker(
 
         self.debug(
             lambda: f"Creating inference client for {self.model_endpoint.endpoint.type}, "
-            f"class: {InferenceClientFactory.get_class_from_type(self.model_endpoint.endpoint.type).__name__}",
+            f"endpoint_type: {self.model_endpoint.endpoint.type.value}",
         )
-        self.request_converter = RequestConverterFactory.create_instance(
-            self.model_endpoint.endpoint.type,
+        self.request_converter = create_client(
+            f"request_converter_{self.model_endpoint.endpoint.type.value}",
         )
-        self.inference_client = InferenceClientFactory.create_instance(
-            self.model_endpoint.endpoint.type,
+        self.inference_client = create_client(
+            f"inference_client_{self.model_endpoint.endpoint.type.value}",
             model_endpoint=self.model_endpoint,
         )
 

@@ -6,7 +6,8 @@ import time
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.enums import CommAddress
-from aiperf.common.factories import ResponseExtractorFactory
+from aiperf.di import create_service, create_client, create_exporter
+# Services registered via entry points in pyproject.toml
 from aiperf.common.hooks import on_init
 from aiperf.common.messages import (
     ConversationTurnRequestMessage,
@@ -50,7 +51,7 @@ class InferenceResultParser(CommunicationMixin):
             user_config
         )
         self.extractor: ResponseExtractorProtocol = (
-            ResponseExtractorFactory.create_instance(
+            create_service(
                 self.model_endpoint.endpoint.type,
                 model_endpoint=self.model_endpoint,
             )
@@ -61,7 +62,7 @@ class InferenceResultParser(CommunicationMixin):
         """Initialize inference result parser-specific components."""
         self.debug("Initializing inference result parser")
 
-        self.extractor = ResponseExtractorFactory.create_instance(
+        self.extractor = create_service(
             self.model_endpoint.endpoint.type,
             model_endpoint=self.model_endpoint,
         )
