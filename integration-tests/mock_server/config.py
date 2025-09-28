@@ -114,3 +114,24 @@ class MockServerConfig(BaseSettings):
             name=("--access-logs", "-a"),
         ),
     ] = False
+
+    # Fake dataset settings
+    use_fake_dataset: Annotated[
+        bool,
+        Field(
+            description="Enable fake dataset generation instead of real tokenization for better performance",
+        ),
+        cyclopts.Parameter(
+            name=("--use-fake-dataset", "-f"),
+        ),
+    ] = False
+
+    fake_dataset_mode: Annotated[
+        Literal["random", "predefined"],
+        Field(
+            description="Mode for fake dataset generation: 'random' for random words, 'predefined' for fixed tokens",
+        ),
+        cyclopts.Parameter(
+            name=("--fake-dataset-mode", "-fm"),
+        ),
+    ] = "random"

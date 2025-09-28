@@ -20,6 +20,20 @@ class ConfigureMessage(BaseModel):
     tokenizer_models: list[str] | None = Field(
         default=None, description="List of tokenizer models to load"
     )
+    fallback_tokenizer: str | None = Field(
+        default=None,
+        description="Fallback tokenizer to use if the requested tokenizer is not found",
+    )
+    use_fake_dataset: bool | None = Field(
+        default=None,
+        description="Enable fake dataset generation instead of real tokenization",
+    )
+    fake_dataset_mode: str | None = Field(
+        default=None, description="Mode for fake dataset: 'random' or 'predefined'"
+    )
+    custom_tokens: list[str] | None = Field(
+        default=None, description="Custom tokens to use for fake dataset generation"
+    )
 
 
 class Role(str, Enum):

@@ -43,6 +43,23 @@ async def lifespan(_: FastAPI):
     if server_config.tokenizer_models:
         logger.info(f"Pre-loading tokenizer models: {server_config.tokenizer_models}")
         tokenizer_service.load_tokenizers(server_config.tokenizer_models)
+    # Configure fake dataset if enabled
+    if server_config.use_fake_dataset:
+        tokenizer_service.enable_fake_dataset(
+            mode=server_config.fake_dataset_mode,
+        )
+        logger.info(
+            f"Fake dataset enabled with mode: {server_config.fake_dataset_mode}"
+        )
+    else:
+        tokenizer_models = [
+            *server_config.tokenizer_models,
+            server_config.fallback_tokenizer,
+        ]
+
+        logger.info(f"Pre-loading tokenizer models: {tokenizer_models}")
+        tokenizer_service.set_fallback_tokenizer(server_config.fallback_tokenizer)
+        tokenizer_service.load_tokenizers(tokenizer_models)
         logger.info("Tokenizer models loaded successfully")
 
     yield
@@ -71,6 +88,9 @@ def set_server_config(config: MockServerConfig) -> None:
     os.environ["MOCK_SERVER_PORT"] = str(config.port)
     os.environ["MOCK_SERVER_WORKERS"] = str(config.workers)
     os.environ["MOCK_SERVER_ACCESS_LOGS"] = str(config.access_logs)
+    os.environ["MOCK_SERVER_FALLBACK_TOKENIZER"] = str(config.fallback_tokenizer)
+    os.environ["MOCK_SERVER_USE_FAKE_DATASET"] = str(config.use_fake_dataset)
+    os.environ["MOCK_SERVER_FAKE_DATASET_MODE"] = str(config.fake_dataset_mode)
 
 
 def extract_user_prompt(messages: list[ChatMessage]) -> str:
@@ -135,6 +155,28 @@ async def configure(request: ConfigureMessage):
         logger.info(f"Loading tokenizer models: {request.tokenizer_models}")
         tokenizer_service.load_tokenizers(request.tokenizer_models)
         logger.info("Tokenizer models loaded successfully")
+    if request.fallback_tokenizer is not None:
+        tokenizer_service.load_tokenizers([request.fallback_tokenizer])
+        tokenizer_service.set_fallback_tokenizer(request.fallback_tokenizer)
+        logger.info(f"Fallback tokenizer set to {request.fallback_tokenizer}")
+
+    # Handle fake dataset configuration
+    if request.use_fake_dataset is not None:
+        if request.use_fake_dataset:
+            mode = request.fake_dataset_mode or "random"
+            if mode not in ["random", "predefined"]:
+                raise HTTPException(
+                    status_code=400,
+                    detail="fake_dataset_mode must be 'random' or 'predefined'",
+                )
+            tokenizer_service.enable_fake_dataset(
+                mode=mode,  # type: ignore
+                custom_tokens=request.custom_tokens,
+            )
+            logger.info(f"Fake dataset enabled with mode: {mode}")
+        else:
+            tokenizer_service.disable_fake_dataset()
+            logger.info("Fake dataset disabled")
 
     return {"status": "configured", "config": server_config.model_dump()}
 
