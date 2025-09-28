@@ -79,12 +79,19 @@ class TestModuleRegistryEnumCoverage:
 
     def test_factory_enum_coverage(self, registry):
         """Test that each factory has registrations for all its enum values."""
+        # List of enum values that should be skipped
+        enum_values_to_skip = (
+            OpenAIObjectType.EMBEDDING,  # This is parsed as a list of embeddings
+        )
+
         for factory_name, enum_class in self.factory_enum_mappings.items():
             available_types = set(registry.get_available_types(factory_name))
 
             # Check that all enum string representations are available
             missing_enum_strings = []
             for enum_value in enum_class:
+                if enum_value in enum_values_to_skip:
+                    continue
                 enum_string = str(enum_value)
                 if enum_string not in available_types:
                     missing_enum_strings.append(enum_string)

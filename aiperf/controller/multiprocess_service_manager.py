@@ -19,6 +19,9 @@ from aiperf.common.enums import ServiceRegistrationStatus, ServiceRunType
 from aiperf.common.exceptions import AIPerfError
 from aiperf.common.factories import ServiceManagerFactory
 from aiperf.common.logging import handle_subprocess_log_line
+from aiperf.common.messages.service_messages import ServiceFailedMessage
+from aiperf.common.mixins import MessageBusClientMixin
+from aiperf.common.models.error_models import ErrorDetails
 from aiperf.common.protocols import ServiceManagerProtocol
 from aiperf.common.types import ServiceTypeT
 from aiperf.common.utils import yield_to_event_loop
@@ -43,7 +46,7 @@ class AsyncSubprocessRunInfo(BaseModel):
 
 @implements_protocol(ServiceManagerProtocol)
 @ServiceManagerFactory.register(ServiceRunType.MULTIPROCESSING)
-class MultiProcessServiceManager(BaseServiceManager):
+class MultiProcessServiceManager(BaseServiceManager, MessageBusClientMixin):
     """
     Service Manager for starting and stopping services as asyncio subprocesses.
     """
@@ -122,9 +125,10 @@ class MultiProcessServiceManager(BaseServiceManager):
         )
         self.subprocess_info.append(info)
 
-        # self.execute_async(self._watch_subprocess(info))
-
+        self.execute_async(self._watch_subprocess(info))
         self.execute_async(self._handle_subprocess_output(process, service_id))
+        # Yield to the event loop to ensure the scheduled tasks are ran, and allow a slight
+        # delay between subsequent service starts
         await yield_to_event_loop()
 
     async def run_service(
@@ -352,11 +356,28 @@ class MultiProcessServiceManager(BaseServiceManager):
             return
         try:
             await info.process.wait()
-            self.debug(
-                lambda: f"Service {info.service_type} subprocess stopped gracefully (pid: {info.process.pid})"
+            self.warning(
+                f"Service {info.service_id} subprocess stopped gracefully (pid: {info.process.pid}) (return code: {info.process.returncode})"
             )
         except Exception as e:
             self.warning(f"Error watching subprocess {info.service_id}: {e}")
+        finally:
+            if not self.stop_requested:
+                await self.publish(
+                    ServiceFailedMessage(
+                        service_id=info.service_id,
+                        error=ErrorDetails(
+                            message=f"Service {info.service_id} subprocess exited with code: {info.process.returncode}"
+                        ),
+                    )
+                )
+            self.warning(
+                f"Service {info.service_id} subprocess stopped (pid: {info.process.pid}) (return code: {info.process.returncode})"
+            )
+            if info.process.returncode:
+                self.warning(
+                    f"Service {info.service_id} subprocess exited with code: {info.process.returncode}"
+                )
 
     async def _wait_for_subprocess(self, info: AsyncSubprocessRunInfo) -> None:
         """Wait for a subprocess to terminate with timeout handling."""
@@ -371,18 +392,18 @@ class MultiProcessServiceManager(BaseServiceManager):
                     info.process.wait(), timeout=TASK_CANCEL_TIMEOUT_SHORT
                 )
                 self.debug(
-                    lambda: f"Service {info.service_type} subprocess stopped gracefully (pid: {info.process.pid})"
+                    f"Service {info.service_id} subprocess (pid: {info.process.pid}) (return code: {info.process.returncode}) stopped"
                 )
             except asyncio.TimeoutError:
                 self.warning(
-                    f"Service {info.service_type} subprocess (pid: {info.process.pid}) did not terminate gracefully, killing"
+                    f"Service {info.service_id} subprocess (pid: {info.process.pid}) (return code: {info.process.returncode}) did not terminate gracefully, killing"
                 )
                 info.process.kill()
                 await info.process.wait()
 
         except ProcessLookupError:
             self.debug(
-                f"Service {info.service_type} subprocess (pid: {info.process.pid}) already terminated"
+                f"Service {info.service_id} subprocess (pid: {info.process.pid}) (return code: {info.process.returncode}) already terminated"
             )
 
     async def wait_for_all_services_start(

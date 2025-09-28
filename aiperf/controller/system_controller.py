@@ -48,6 +48,7 @@ from aiperf.common.messages import (
     SpawnWorkersCommand,
     StatusMessage,
 )
+from aiperf.common.messages.service_messages import ServiceFailedMessage
 from aiperf.common.models import (
     ErrorDetails,
     ProcessRecordsResult,
@@ -383,6 +384,21 @@ class SystemController(SignalHandlerMixin, BaseService):
         await self.service_manager.stop_service(ServiceType.WORKER)
         if self.scale_record_processors_with_workers:
             await self.service_manager.stop_service(ServiceType.RECORD_PROCESSOR)
+
+    @on_message(MessageType.SERVICE_FAILED)
+    async def _on_service_failed_message(self, message: ServiceFailedMessage) -> None:
+        """Handle a service failed message."""
+        self.error(f"Service {message.service_id} failed: {message.error}")
+        self._exit_errors.append(
+            ExitErrorInfo(
+                error_details=message.error,
+                operation=f"Service {message.service_id} failed",
+                service_id=message.service_id,
+            )
+        )
+        while not self.is_running:
+            await asyncio.sleep(0.1)
+        await self.stop()
 
     @on_message(MessageType.PROCESS_RECORDS_RESULT)
     async def _on_process_records_result_message(
