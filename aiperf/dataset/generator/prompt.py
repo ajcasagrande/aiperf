@@ -95,8 +95,8 @@ class PromptGenerator(BaseGenerator):
 
     def generate(
         self,
-        mean: int | None = None,
-        stddev: int | None = None,
+        mean: int,
+        stddev: float,
         hash_ids: list[int] | None = None,
     ) -> str:
         """Generate a synthetic prompt with the configuration parameters.

@@ -149,7 +149,7 @@ async def chat_completions(request: ChatCompletionRequest):
     user_prompt = extract_user_prompt(request.messages)
     try:
         # Tokenize the user prompt using the requested model's tokenizer
-        tokens = tokenizer_service.tokenize(user_prompt, request.model)
+        tokens = tokenizer_service.generate_response(user_prompt, request.model)
     except Exception as e:
         # If the tokenizer fails, return a 404 error to simulate model not found
         raise HTTPException(
