@@ -36,9 +36,7 @@ from aiperf.common.types import (
     ServiceProtocolT,
     ServiceTypeT,
 )
-from aiperf.module_loader import (
-    ModuleRegistry as ModuleRegistry,  # trigger it to be imported
-)
+from aiperf.module_loader import ModuleRegistry
 
 if TYPE_CHECKING:
     # NOTE: These imports are for the factory class type hints.
@@ -122,11 +120,13 @@ class AIPerfFactory(Generic[ClassEnumT, ClassProtocolT]):
     _logger: AIPerfLogger
     _registry: dict[ClassEnumT | str, type[ClassProtocolT]]
     _override_priorities: dict[ClassEnumT | str, int]
+    _module_registry: ModuleRegistry
 
     def __init_subclass__(cls) -> None:
         cls._registry = {}
         cls._override_priorities = {}
         cls._logger = AIPerfLogger(cls.__name__)
+        cls._module_registry = ModuleRegistry()
         super().__init_subclass__()
 
     @classmethod
@@ -203,17 +203,9 @@ class AIPerfFactory(Generic[ClassEnumT, ClassProtocolT]):
         Raises:
             FactoryCreationError: If the class type is not registered or there is an error creating the instance
         """
-        if class_type not in cls._registry:
-            # Try to discover and load the plugin for this class type
-            cls._discover_plugin(class_type)
-
-            # Check again after discovery attempt
-            if class_type not in cls._registry:
-                raise FactoryCreationError(
-                    f"No implementation registered for {class_type!r} in {cls.__name__}."
-                )
+        class_impl = cls._get_class_with_discovery(class_type)
         try:
-            return cls._registry[class_type](**kwargs)
+            return class_impl(**kwargs)
         except Exception as e:
             raise FactoryCreationError(
                 f"Error creating {class_type!r} instance for {cls.__name__}: {e}"
@@ -232,16 +224,7 @@ class AIPerfFactory(Generic[ClassEnumT, ClassProtocolT]):
         Raises:
             TypeError: If the class type is not registered
         """
-        if class_type not in cls._registry:
-            # Try to discover and load the plugin for this class type
-            cls._discover_plugin(class_type)
-
-            # Check again after discovery attempt
-            if class_type not in cls._registry:
-                raise TypeError(
-                    f"No class found for {class_type!r}. Please register the class first."
-                )
-        return cls._registry[class_type]
+        return cls._get_class_with_discovery(class_type)
 
     @classmethod
     def get_all_classes(cls) -> list[type[ClassProtocolT]]:
@@ -250,6 +233,7 @@ class AIPerfFactory(Generic[ClassEnumT, ClassProtocolT]):
         Returns:
             A list of all registered class types implementing the expected protocol
         """
+        cls.load_all_implementations()
         return list(cls._registry.values())
 
     @classmethod
@@ -263,6 +247,7 @@ class AIPerfFactory(Generic[ClassEnumT, ClassProtocolT]):
         cls,
     ) -> list[tuple[type[ClassProtocolT], ClassEnumT | str]]:
         """Get all registered classes and their corresponding class types."""
+        cls.load_all_implementations()
         return [(cls, class_type) for class_type, cls in cls._registry.items()]
 
     @classmethod
@@ -280,7 +265,7 @@ class AIPerfFactory(Generic[ClassEnumT, ClassProtocolT]):
         registered_types = set(cls._registry.keys())
 
         # Get discoverable types from module registry
-        discoverable_types = set(ModuleRegistry().get_available_types(cls.__name__))
+        discoverable_types = set(cls._module_registry.get_available_types(cls.__name__))
 
         # Return union of both sets
         all_types = registered_types.union(discoverable_types)
@@ -294,18 +279,53 @@ class AIPerfFactory(Generic[ClassEnumT, ClassProtocolT]):
         in the module registry, making them available in the factory's registry.
         """
 
-        ModuleRegistry().load_all_plugins(cls.__name__)
+        cls._module_registry.load_all_plugins(cls.__name__)
 
     @classmethod
-    def _discover_plugin(cls, class_type: ClassEnumT | str) -> None:
+    def _get_class_with_discovery(
+        cls, class_type: ClassEnumT | str
+    ) -> type[ClassProtocolT]:
+        """Get a class with automatic plugin discovery if not already registered.
+
+        Args:
+            class_type: The class type to get
+
+        Returns:
+            The class for the given class type
+
+        Raises:
+            TypeError: If the class type cannot be found or loaded
+        """
+        # Return immediately if already registered
+        if class_type in cls._registry:
+            return cls._registry[class_type]
+
+        # Try to discover and load the plugin
+        cls._discover_and_load_plugin(class_type)
+
+        # Check if plugin was successfully loaded
+        if class_type in cls._registry:
+            return cls._registry[class_type]
+
+        # Plugin discovery failed
+        available_registered = list(cls._registry.keys())
+        available_discoverable = cls._module_registry.get_available_types(cls.__name__)
+
+        raise TypeError(
+            f"No class found for {class_type!r} in {cls.__name__}. "
+            f"Registered types: {available_registered}. "
+            f"Discoverable types: {available_discoverable}"
+        )
+
+    @classmethod
+    def _discover_and_load_plugin(cls, class_type: ClassEnumT | str) -> None:
         """Attempt to discover and load a plugin for the given class type.
 
         Args:
             class_type: The class type to discover a plugin for
         """
-
         with contextlib.suppress(Exception):
-            ModuleRegistry().load_plugin(cls.__name__, class_type)
+            cls._module_registry.load_plugin(cls.__name__, class_type)
 
 
 class AIPerfSingletonFactory(AIPerfFactory[ClassEnumT, ClassProtocolT]):
@@ -360,10 +380,9 @@ class AIPerfSingletonFactory(AIPerfFactory[ClassEnumT, ClassProtocolT]):
                     class_type not in cls._instances
                     or os.getpid() != cls._instances_pid[class_type]
                 ):
-                    # Use the parent create_instance which now includes plugin discovery
-                    cls._instances[class_type] = super().create_instance(
-                        class_type, **kwargs
-                    )
+                    # Use the parent _get_class_with_discovery method for consistency
+                    class_impl = cls._get_class_with_discovery(class_type)
+                    cls._instances[class_type] = class_impl(**kwargs)
                     cls._instances_pid[class_type] = os.getpid()
                     cls._logger.debug(
                         lambda: f"New instance for {class_type!r} in {cls.__name__} created."

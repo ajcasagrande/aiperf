@@ -13,6 +13,10 @@ import threading
 from enum import Enum
 from pathlib import Path
 
+from aiperf.common.aiperf_logger import AIPerfLogger
+
+_logger = AIPerfLogger(__name__)
+
 
 class ModuleRegistry:
     """Thread-safe singleton for lazy module loading.
@@ -137,20 +141,14 @@ class ModuleRegistry:
 
             for arg in decorator.args:
                 if isinstance(arg, ast.Attribute) and isinstance(arg.value, ast.Name):
-                    # Store the full enum format for backward compatibility
-                    full_enum_format = f"{arg.value.id}.{arg.attr}"
-
                     if factory_name not in self._registrations:
                         self._registrations[factory_name] = {}
 
-                    # Store the full enum format
-                    self._registrations[factory_name][full_enum_format] = module_path
-
+                    enum_class_name = arg.value.id
+                    enum_value_name = arg.attr
                     # Try to get the actual enum value and store its string representation
                     try:
                         # Dynamically import and get the enum value
-                        enum_class_name = arg.value.id
-                        enum_value_name = arg.attr
 
                         # Import the enum class from common.enums
                         import importlib
@@ -161,11 +159,20 @@ class ModuleRegistry:
                             enum_class = getattr(enums_module, enum_class_name)
                             if hasattr(enum_class, enum_value_name):
                                 enum_value = getattr(enum_class, enum_value_name)
+                                # TODO: This doesn't handle override_priority yet
                                 # Store the string representation as the primary key
-                                string_representation = str(enum_value)
-                                self._registrations[factory_name][
-                                    string_representation
-                                ] = module_path
+                                self._registrations[factory_name][str(enum_value)] = (
+                                    module_path
+                                )
+                                _logger.debug(
+                                    f"Resolved enum {enum_class_name}.{enum_value_name} for {factory_name} in {module_path}"
+                                )
                     except Exception:
                         # If we can't resolve the enum, just continue with the full format
-                        pass
+                        full_enum_format = f"{arg.value.id}.{arg.attr}"
+                        self._registrations[factory_name][full_enum_format] = (
+                            module_path
+                        )
+                        _logger.warning(
+                            f"Could not resolve enum {enum_class_name}.{enum_value_name} for {factory_name} in {module_path}"
+                        )

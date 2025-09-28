@@ -43,12 +43,12 @@ from aiperf.common.messages import (
     ProfileStartCommand,
     RealtimeMetricsCommand,
     RegisterServiceCommand,
+    ServiceFailedMessage,
     ShutdownCommand,
     ShutdownWorkersCommand,
     SpawnWorkersCommand,
     StatusMessage,
 )
-from aiperf.common.messages.service_messages import ServiceFailedMessage
 from aiperf.common.models import (
     ErrorDetails,
     ProcessRecordsResult,

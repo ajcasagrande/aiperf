@@ -19,7 +19,7 @@ from aiperf.common.enums import ServiceRegistrationStatus, ServiceRunType, Servi
 from aiperf.common.exceptions import AIPerfError
 from aiperf.common.factories import ServiceManagerFactory
 from aiperf.common.logging import handle_subprocess_log_line
-from aiperf.common.messages.command_messages import ServiceFailedMessage
+from aiperf.common.messages import ServiceFailedMessage
 from aiperf.common.mixins import MessageBusClientMixin
 from aiperf.common.models.error_models import ErrorDetails
 from aiperf.common.protocols import ServiceManagerProtocol
