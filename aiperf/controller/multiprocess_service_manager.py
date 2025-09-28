@@ -15,11 +15,11 @@ from aiperf.common.constants import (
     TASK_CANCEL_TIMEOUT_SHORT,
 )
 from aiperf.common.decorators import implements_protocol
-from aiperf.common.enums import ServiceRegistrationStatus, ServiceRunType
+from aiperf.common.enums import ServiceRegistrationStatus, ServiceRunType, ServiceType
 from aiperf.common.exceptions import AIPerfError
 from aiperf.common.factories import ServiceManagerFactory
 from aiperf.common.logging import handle_subprocess_log_line
-from aiperf.common.messages.service_messages import ServiceFailedMessage
+from aiperf.common.messages.command_messages import ServiceFailedMessage
 from aiperf.common.mixins import MessageBusClientMixin
 from aiperf.common.models.error_models import ErrorDetails
 from aiperf.common.protocols import ServiceManagerProtocol
@@ -369,6 +369,7 @@ class MultiProcessServiceManager(BaseServiceManager, MessageBusClientMixin):
                         error=ErrorDetails(
                             message=f"Service {info.service_id} subprocess exited with code: {info.process.returncode}"
                         ),
+                        target_service_type=ServiceType.SYSTEM_CONTROLLER,
                     )
                 )
             self.warning(

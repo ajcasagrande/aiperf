@@ -76,10 +76,3 @@ class BaseServiceErrorMessage(BaseServiceMessage):
     message_type: MessageTypeT = MessageType.SERVICE_ERROR
 
     error: ErrorDetails = Field(..., description="Error information")
-
-
-class ServiceFailedMessage(BaseServiceErrorMessage):
-    """Message containing information about a service that has failed.
-    This is sent by the service manager to the system controller whenever a required service stops."""
-
-    message_type: MessageTypeT = MessageType.SERVICE_FAILED

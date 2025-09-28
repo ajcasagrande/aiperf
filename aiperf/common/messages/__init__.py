@@ -28,6 +28,7 @@ from aiperf.common.messages.command_messages import (
     ProfileStartCommand,
     RealtimeMetricsCommand,
     RegisterServiceCommand,
+    ServiceFailedMessage,
     ShutdownCommand,
     ShutdownWorkersCommand,
     SpawnWorkersCommand,
@@ -71,7 +72,6 @@ from aiperf.common.messages.service_messages import (
     BaseStatusMessage,
     HeartbeatMessage,
     RegistrationMessage,
-    ServiceFailedMessage,
     StatusMessage,
 )
 from aiperf.common.messages.worker_messages import (
