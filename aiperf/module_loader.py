@@ -9,16 +9,17 @@ creation, ensuring all subsequent operations are fast and don't need to check sc
 
 import ast
 import importlib
-import threading
 from enum import Enum
 from pathlib import Path
 
+from aiperf.common import enums as aiperf_enums_module
 from aiperf.common.aiperf_logger import AIPerfLogger
+from aiperf.common.meta import SingletonMeta
 
 _logger = AIPerfLogger(__name__)
 
 
-class ModuleRegistry:
+class ModuleRegistry(metaclass=SingletonMeta):
     """Thread-safe singleton for lazy module loading.
 
     Automatically scans all Python files for @Factory.register decorators on first
@@ -26,21 +27,13 @@ class ModuleRegistry:
     data available without additional scan checks or locks.
     """
 
-    _instance = None
-    _instance_lock = threading.Lock()
     # factory -> {class_type -> module_path}
     _registrations: dict[str, dict[str, str]] = {}
-    _loaded = False
+    _initialized = False
 
-    def __new__(cls):
-        if cls._instance is None:
-            with cls._instance_lock:
-                # Double-check locking pattern
-                if cls._instance is None:
-                    cls._instance = super().__new__(cls)
-                    # Automatically scan on first instantiation
-                    cls._instance._scan_all()
-        return cls._instance
+    def _init_singleton(self) -> None:
+        """Initialize the singleton by scanning all Python files for @Factory.register decorators."""
+        self._scan_all()
 
     def load_plugin(self, factory_name: str, class_type: str | Enum) -> None:
         """Load a plugin module for the given factory and class type."""
@@ -60,6 +53,9 @@ class ModuleRegistry:
         Returns:
             List of available type strings for the factory
         """
+        if not self._initialized:
+            raise RuntimeError("Module registry not initialized")
+
         return list(self._registrations.get(factory_name, {}).keys())
 
     def get_all_factories(self) -> list[str]:
@@ -68,6 +64,9 @@ class ModuleRegistry:
         Returns:
             List of all factory names that have registered implementations
         """
+        if not self._initialized:
+            raise RuntimeError("Module registry not initialized")
+
         return list(self._registrations.keys())
 
     def load_all_plugins(self, factory_name: str) -> None:
@@ -76,6 +75,9 @@ class ModuleRegistry:
         Args:
             factory_name: Name of the factory to load all plugins for
         """
+        if not self._initialized:
+            raise RuntimeError("Module registry not initialized")
+
         factory_registrations = self._registrations.get(factory_name, {})
 
         # Load all modules for this factory
@@ -88,7 +90,7 @@ class ModuleRegistry:
         This method is only called during singleton instantiation, so no additional
         locking is needed as the instance lock already protects this operation.
         """
-        if self._loaded:
+        if self._initialized:
             return
 
         aiperf_root = Path(__file__).parent
@@ -107,7 +109,7 @@ class ModuleRegistry:
             except Exception:
                 continue
 
-        self._loaded = True
+        self._initialized = True
 
     def _parse_decorator(self, decorator: ast.expr, module_path: str) -> None:
         """Parse @Factory.register() decorator and store registration."""
@@ -125,30 +127,27 @@ class ModuleRegistry:
                     if factory_name not in self._registrations:
                         self._registrations[factory_name] = {}
 
-                    enum_class_name = arg.value.id
-                    enum_value_name = arg.attr
-                    # Try to get the actual enum value and store its string representation
+                    enum_class_name, enum_value_name = arg.value.id, arg.attr
                     try:
-                        # Dynamically import and get the enum value
-
-                        # Import the enum class from common.enums
-                        import importlib
-
-                        enums_module = importlib.import_module("aiperf.common.enums")
-
-                        if hasattr(enums_module, enum_class_name):
-                            enum_class = getattr(enums_module, enum_class_name)
-                            if hasattr(enum_class, enum_value_name):
-                                enum_value = getattr(enum_class, enum_value_name)
-                                # Store the string representation as the key
-                                self._registrations[factory_name][str(enum_value)] = (
-                                    module_path
-                                )
-                                _logger.debug(
-                                    f"Registered {enum_class_name}.{enum_value_name} -> '{enum_value}' for {factory_name} in {module_path}"
-                                )
+                        # Try to get the actual enum value and store its string representation
+                        enum_value = self._get_enum_value(
+                            enum_class_name, enum_value_name
+                        )
+                        self._registrations[factory_name][enum_value] = module_path
+                        _logger.debug(
+                            f"Registered {enum_class_name}.{enum_value_name} -> '{enum_value}' for {factory_name} in {module_path}"
+                        )
                     except Exception:
                         # If we can't resolve the enum, skip it with a warning
                         _logger.warning(
                             f"Could not resolve enum {enum_class_name}.{enum_value_name} for {factory_name} in {module_path}"
                         )
+
+    def _get_enum_value(self, enum_class_name: str, enum_value_name: str) -> str:
+        """Returns the string representation of an enum value from the aiperf.common.enums module."""
+        if hasattr(aiperf_enums_module, enum_class_name):
+            enum_class = getattr(aiperf_enums_module, enum_class_name)
+            if hasattr(enum_class, enum_value_name):
+                return str(getattr(enum_class, enum_value_name))
+
+        raise ValueError(f"Enum {enum_class_name}.{enum_value_name} not found")

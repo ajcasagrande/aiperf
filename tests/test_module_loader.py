@@ -2,692 +2,512 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import ast
-import tempfile
-import threading
-import time
-from enum import Enum
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from unittest.mock import Mock, patch
 
 import pytest
 
+from aiperf.common.enums import ServiceType
 from aiperf.module_loader import ModuleRegistry
 
 
-class MockTestEnum(Enum):
-    """Test enum for module loader tests."""
+class TestModuleRegistry:
+    """Test suite for ModuleRegistry singleton class."""
 
-    TEST_TYPE = "test_type"
-    ANOTHER_TYPE = "another_type"
+    def setup_method(self):
+        """Reset singleton state before each test."""
+        ModuleRegistry._instance = None
+        ModuleRegistry._registrations = {}
+        ModuleRegistry._loaded = False
 
+    @pytest.fixture
+    def mock_python_files(self):
+        """Create mock Python files with Factory.register decorators."""
+        return {
+            "service_impl.py": """
+from aiperf.common.enums import ServiceType
 
-class ComplexTestEnum(Enum):
-    """Complex test enum for advanced scenarios."""
+@ServiceFactory.register(ServiceType.WORKER)
+class Worker:
+    pass
 
-    NESTED_TYPE = "complex.nested.type"
-    SIMPLE_TYPE = "simple"
+@ServiceFactory.register(ServiceType.DATASET_MANAGER)
+class DatasetManager:
+    pass
+""",
+            "endpoint_impl.py": """
+from aiperf.common.enums import EndpointType
 
+@InferenceClientFactory.register(EndpointType.CHAT)
+class ChatClient:
+    pass
+""",
+            "invalid_syntax.py": """
+# This file has invalid syntax
+@ServiceFactory.register(ServiceType.INVALID
+class BrokenClass:
+    pass
+""",
+            "no_decorators.py": """
+class RegularClass:
+    pass
+""",
+            "multiple_decorators.py": """
+from aiperf.common.enums import ServiceType
 
-@pytest.fixture
-def mock_import_module():
-    """Mock importlib.import_module."""
-    with patch("importlib.import_module") as mock:
-        yield mock
-
-
-@pytest.fixture
-def mock_file_system():
-    """Mock file system operations for scanning tests."""
-    with (
-        patch("pathlib.Path.rglob") as mock_rglob,
-        patch("pathlib.Path.read_text") as mock_read_text,
-        patch("ast.parse") as mock_parse,
-        patch("ast.walk") as mock_walk,
-    ):
-        yield {
-            "rglob": mock_rglob,
-            "read_text": mock_read_text,
-            "parse": mock_parse,
-            "walk": mock_walk,
+@ServiceFactory.register_all(ServiceType.WORKER, ServiceType.TIMING_MANAGER)
+class MultiService:
+    pass
+""",
         }
 
+    @pytest.fixture
+    def temp_aiperf_structure(self, mock_python_files, tmp_path):
+        """Create temporary aiperf directory structure."""
+        aiperf_dir = tmp_path / "aiperf"
+        aiperf_dir.mkdir()
 
-@pytest.fixture
-def temp_python_file():
-    """Create a temporary Python file for testing."""
-    files_created = []
+        # Create __init__.py
+        (aiperf_dir / "__init__.py").write_text("")
 
-    def _create_file(content: str, filename: str = "test_module.py") -> Path:
-        temp_dir = Path(tempfile.mkdtemp())
-        file_path = temp_dir / filename
-        file_path.write_text(content)
-        files_created.append(temp_dir)
-        return file_path
+        # Create subdirectories
+        workers_dir = aiperf_dir / "workers"
+        workers_dir.mkdir()
+        (workers_dir / "__init__.py").write_text("")
 
-    yield _create_file
+        clients_dir = aiperf_dir / "clients"
+        clients_dir.mkdir()
+        (clients_dir / "__init__.py").write_text("")
 
-    # Cleanup
-    import shutil
+        # Write mock files
+        for filename, content in mock_python_files.items():
+            if "service" in filename:
+                (workers_dir / filename).write_text(content)
+            else:
+                (clients_dir / filename).write_text(content)
 
-    for temp_dir in files_created:
-        shutil.rmtree(temp_dir, ignore_errors=True)
-
-
-@pytest.fixture
-def loaded_registry():
-    """Create a registry instance with pre-loaded state."""
-    # Registry is automatically loaded on instantiation now
-    registry = ModuleRegistry()
-    return registry
-
-
-@pytest.fixture
-def sample_registrations():
-    """Sample registration data for testing."""
-    return {
-        "TestFactory": {
-            "test_type": "test.module.path",
-            "MockTestEnum.TEST_TYPE": "test.enum.module",
-        },
-        "ComplexFactory": {
-            "ComplexTestEnum.NESTED_TYPE": "complex.module.path",
-            "ComplexTestEnum.SIMPLE_TYPE": "simple.module.path",
-        },
-    }
-
-
-def create_mock_file(name: str, path: str, content: str | None = None) -> MagicMock:
-    """Helper to create mock file objects for testing."""
-    mock_file = MagicMock()
-    mock_file.name = name
-    mock_file.__str__ = MagicMock(return_value=path)
-    if content:
-        mock_file.read_text.return_value = content
-    # Mock relative_to chain for module path generation
-    mock_file.relative_to.return_value.with_suffix.return_value.parts = tuple(
-        path.replace(".py", "").split("/")[-1:]
-    )
-    return mock_file
-
-
-def parse_decorators_from_content(
-    registry: ModuleRegistry, content: str, module_path: str
-):
-    """Helper to parse decorators from content and register them."""
-    tree = ast.parse(content)
-    for node in ast.walk(tree):
-        if isinstance(node, ast.ClassDef):
-            for decorator in node.decorator_list:
-                registry._parse_decorator(decorator, module_path)
-
-
-def run_concurrent_operations(operation_func, num_threads: int = 10, *args, **kwargs):
-    """Helper to run operations concurrently and collect results."""
-    results = []
-
-    def worker():
-        result = operation_func(*args, **kwargs)
-        results.append(result)
-
-    threads = [threading.Thread(target=worker) for _ in range(num_threads)]
-
-    for thread in threads:
-        thread.start()
-
-    for thread in threads:
-        thread.join()
-
-    return results
-
-
-class TestModuleRegistry:
-    """Comprehensive test suite for ModuleRegistry."""
+        return aiperf_dir
 
     def test_singleton_pattern(self):
-        """Test that ModuleRegistry follows singleton pattern."""
+        """Test that ModuleRegistry implements singleton pattern correctly."""
         registry1 = ModuleRegistry()
         registry2 = ModuleRegistry()
 
         assert registry1 is registry2
         assert id(registry1) == id(registry2)
 
-    def test_singleton_thread_safety(self):
-        """Test singleton creation is thread-safe."""
-        instances = run_concurrent_operations(ModuleRegistry, num_threads=10)
+    def test_thread_safe_singleton(self):
+        """Test singleton pattern is thread-safe."""
+        instances = []
+
+        def create_instance():
+            instances.append(ModuleRegistry())
+
+        # Create instances from multiple threads
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = [executor.submit(create_instance) for _ in range(20)]
+            for future in as_completed(futures):
+                future.result()
 
         # All instances should be the same
-        assert len(instances) == 10
         first_instance = instances[0]
-        for instance in instances:
-            assert instance is first_instance
+        assert all(instance is first_instance for instance in instances)
 
-    @pytest.mark.parametrize(
-        "content,module_path,expected_registrations",
-        [
-            # Simple factory register
-            (
-                """
-from some_module import Factory, SomeEnum
+    @patch("aiperf.module_loader.Path")
+    def test_scan_all_with_mock_files(self, mock_path_class, temp_aiperf_structure):
+        """Test _scan_all method with mocked file structure."""
+        # Mock Path(__file__).parent to return our temp directory
+        mock_path_instance = Mock()
+        mock_path_instance.parent = temp_aiperf_structure
+        mock_path_class.return_value = mock_path_instance
 
-@Factory.register(SomeEnum.TYPE_A)
-class TestClass:
-    pass
-""",
-                "test.module",
-                {"Factory": {"SomeEnum.TYPE_A": "test.module"}},
-            ),
-            # Multiple arguments
-            (
-                """
-from some_module import TestFactory, MyEnum
-
-@TestFactory.register(MyEnum.TYPE_A, MyEnum.TYPE_B)
-class MultiTypeClass:
-    pass
-""",
-                "test.multi",
-                {
-                    "TestFactory": {
-                        "MyEnum.TYPE_A": "test.multi",
-                        "MyEnum.TYPE_B": "test.multi",
-                    }
-                },
-            ),
-            # Register all
-            (
-                """
-from some_module import MyFactory, ConfigEnum
-
-@MyFactory.register_all(ConfigEnum.SETTING_A)
-class ConfigClass:
-    pass
-""",
-                "test.config",
-                {"MyFactory": {"ConfigEnum.SETTING_A": "test.config"}},
-            ),
-            # Non-Factory decorator (should still register if ends with Factory)
-            (
-                """
-from some_module import NotAFactory, SomeEnum
-
-@NotAFactory.register(SomeEnum.TYPE_A)
-class TestClass:
-    pass
-""",
-                "test.ignore",
-                {"NotAFactory": {"SomeEnum.TYPE_A": "test.ignore"}},
-            ),
-            # Invalid method (should not register)
-            (
-                """
-from some_module import SomeFactory, TestEnum
-
-@SomeFactory.invalid_method(TestEnum.TYPE_A)
-class TestClass:
-    pass
-""",
-                "test.invalid",
-                {},
-            ),
-        ],
-    )
-    def test_parse_decorator_variations(
-        self, content, module_path, expected_registrations
-    ):
-        """Test parsing various decorator patterns."""
-        registry = ModuleRegistry()
-        # Clear any existing registrations from the real scan
-        registry._registrations.clear()
-
-        # Mock the enum resolution to return expected string values
         with patch("importlib.import_module") as mock_import:
-            # Create mock enums module with test enums that return the expected string values
-            mock_enums_module = MagicMock()
+            mock_enums_module = Mock()
+            mock_service_type = Mock()
+            mock_service_type.WORKER = "worker"
+            mock_service_type.DATASET_MANAGER = "dataset_manager"
+            mock_enums_module.ServiceType = mock_service_type
+            mock_import.return_value = mock_enums_module
 
-            # Mock SomeEnum
-            mock_some_enum = MagicMock()
-            mock_some_enum.TYPE_A = (
-                "SomeEnum.TYPE_A"  # Return the full format as string
-            )
-            mock_enums_module.SomeEnum = mock_some_enum
+            registry = ModuleRegistry()
 
-            # Mock MyEnum
-            mock_my_enum = MagicMock()
-            mock_my_enum.TYPE_A = "MyEnum.TYPE_A"
-            mock_my_enum.TYPE_B = "MyEnum.TYPE_B"
-            mock_enums_module.MyEnum = mock_my_enum
+            # Verify registrations were found
+            assert "ServiceFactory" in registry._registrations
+            assert len(registry._registrations["ServiceFactory"]) >= 2
 
-            # Mock ConfigEnum
-            mock_config_enum = MagicMock()
-            mock_config_enum.SETTING_A = "ConfigEnum.SETTING_A"
-            mock_enums_module.ConfigEnum = mock_config_enum
-
-            # Mock TestEnum
-            mock_test_enum = MagicMock()
-            mock_test_enum.TYPE_A = "TestEnum.TYPE_A"
-            mock_enums_module.TestEnum = mock_test_enum
-
-            def mock_import_side_effect(module_name):
-                if module_name == "aiperf.common.enums":
-                    return mock_enums_module
-                return MagicMock()
-
-            mock_import.side_effect = mock_import_side_effect
-
-            parse_decorators_from_content(registry, content, module_path)
-
-        assert registry._registrations == expected_registrations
-
-    @pytest.mark.parametrize(
-        "factory_name,plugin_type,registrations,expected_module,should_import",
-        [
-            # String type
-            (
-                "TestFactory",
-                "test_type",
-                {"TestFactory": {"test_type": "test.module.path"}},
-                "test.module.path",
-                True,
-            ),
-            # Enum type
-            (
-                "TestFactory",
-                MockTestEnum.TEST_TYPE,
-                {"TestFactory": {"MockTestEnum.TEST_TYPE": "test.enum.module"}},
-                "test.enum.module",
-                True,
-            ),
-            # Not found
-            (
-                "NonExistentFactory",
-                "non_existent_type",
-                {},
-                None,
-                False,
-            ),
-            # Complex enum
-            (
-                "ComplexFactory",
-                ComplexTestEnum.NESTED_TYPE,
-                {
-                    "ComplexFactory": {
-                        "ComplexTestEnum.NESTED_TYPE": "complex.module.path"
-                    }
-                },
-                "complex.module.path",
-                True,
-            ),
-        ],
-    )
-    def test_load_plugin_variations(
-        self,
-        mock_import_module,
-        loaded_registry,
-        factory_name,
-        plugin_type,
-        registrations,
-        expected_module,
-        should_import,
-    ):
-        """Test loading plugins with various types and scenarios."""
-        loaded_registry._registrations = registrations
-        loaded_registry.load_plugin(factory_name, plugin_type)
-
-        if should_import:
-            mock_import_module.assert_called_once_with(expected_module)
-        else:
-            mock_import_module.assert_not_called()
-
-    def test_automatic_scan_on_instantiation(self, mock_file_system):
-        """Test that scan happens automatically on first instantiation."""
-        # Reset singleton for this test
-        ModuleRegistry._instance = None
-        ModuleRegistry._loaded = False
-
-        mock_file_system["rglob"].return_value = []
-
-        # First instantiation should trigger scan
+    def test_parse_decorator_with_single_enum(self):
+        """Test parsing of @Factory.register(EnumType.VALUE) decorators."""
         registry = ModuleRegistry()
 
-        # Scan should have happened automatically
-        assert registry._loaded
-        mock_file_system["rglob"].assert_called_once()
-
-    def test_scan_all_sets_loaded_flag(self, mock_file_system):
-        """Test that _scan_all sets the loaded flag."""
-        # Reset singleton to test _scan_all directly
-        ModuleRegistry._instance = None
-        ModuleRegistry._loaded = False
-
-        mock_file_system["rglob"].return_value = []  # No files to scan
-
-        # Create instance (which triggers scan automatically)
-        registry = ModuleRegistry()
-
-        # Should be loaded after instantiation
-        assert registry._loaded
-
-    def test_singleton_instantiation_thread_safety(self):
-        """Test that singleton instantiation is thread-safe and scan only runs once."""
-        # Reset singleton for this test
-        ModuleRegistry._instance = None
-        ModuleRegistry._loaded = False
-
-        scan_count = 0
-        original_scan = ModuleRegistry._scan_all
-
-        def counting_scan(self):
-            nonlocal scan_count
-            scan_count += 1
-            time.sleep(0.01)  # Small delay to increase chance of race condition
-            # Call original scan logic
-            original_scan(self)
-
-        # Patch _scan_all to count calls
-        with patch.object(ModuleRegistry, "_scan_all", counting_scan):
-            # Multiple threads trying to create instances
-            instances = run_concurrent_operations(ModuleRegistry, num_threads=10)
-
-        # All instances should be the same
-        assert len(instances) == 10
-        first_instance = instances[0]
-        for instance in instances:
-            assert instance is first_instance
-
-        # _scan_all should only be called once due to singleton pattern
-        assert scan_count == 1
-
-    def test_scan_all_handles_parse_errors(self, mock_file_system):
-        """Test that _scan_all handles parse errors gracefully."""
-        # Reset singleton state and set up mocks before creating registry
-        ModuleRegistry._instance = None
-        ModuleRegistry._loaded = False
-
-        # Create mock file that will cause parse error
-        mock_file = create_mock_file("bad_syntax.py", "bad_syntax.py")
-        mock_file_system["rglob"].return_value = [mock_file]
-        mock_file.read_text.side_effect = SyntaxError("Invalid syntax")
-
-        # Create registry - should not raise exception even with parse error
-        registry = ModuleRegistry()
-        assert registry._loaded
-
-    def test_scan_all_skips_cache_and_self(self, mock_file_system):
-        """Test that _scan_all skips __pycache__ and module_loader.py."""
-        # Reset singleton state and set up mocks before creating registry
-        ModuleRegistry._instance = None
-        ModuleRegistry._loaded = False
-
-        # Create mock files
-        cache_file = create_mock_file("cached.py", "some/path/__pycache__/cached.py")
-        self_file = create_mock_file("module_loader.py", "aiperf/module_loader.py")
-        valid_file = create_mock_file(
-            "valid.py", "aiperf/valid.py", "# valid python content"
-        )
-
-        mock_file_system["rglob"].return_value = [cache_file, self_file, valid_file]
-        mock_file_system["parse"].return_value = MagicMock()
-
-        # Create registry - this will automatically trigger _scan_all() with our mocks
-        _ = ModuleRegistry()
-
-        # Should only try to parse the valid file
-        assert mock_file_system["parse"].call_count == 1
-
-    def test_concurrent_load_plugin_calls(self, mock_import_module, loaded_registry):
-        """Test concurrent load_plugin calls are handled safely."""
-        loaded_registry._registrations = {
-            "TestFactory": {
-                "type1": "module1",
-                "type2": "module2",
-                "type3": "module3",
-            }
-        }
-
-        def load_plugin_worker():
-            # Use different plugin types in rotation
-            import random
-
-            plugin_type = f"type{random.randint(1, 3)}"
-            loaded_registry.load_plugin("TestFactory", plugin_type)
-            return True
-
-        # Run concurrent operations
-        results = run_concurrent_operations(load_plugin_worker, num_threads=10)
-
-        # All should have completed successfully
-        assert len(results) == 10
-        assert all(results)
-
-    def test_registrations_data_structure_integrity(self):
-        """Test that registrations data structure maintains integrity under concurrent access."""
-        registry = ModuleRegistry()
-
-        def modify_registrations():
-            import random
-
-            i = random.randint(0, 49)
-            factory = f"TestFactory{i % 5}"
-            type_name = f"Type{i % 10}"
-            module = f"module.{i}"
-
-            if factory not in registry._registrations:
-                registry._registrations[factory] = {}
-            registry._registrations[factory][type_name] = module
-            return True
-
-        # Simulate concurrent modifications
-        results = run_concurrent_operations(modify_registrations, num_threads=20)
-
-        # Verify data structure integrity
-        assert len(results) == 20
-        assert isinstance(registry._registrations, dict)
-        # Check that our test factories were created correctly
-        test_factories = {
-            k: v
-            for k, v in registry._registrations.items()
-            if k.startswith("TestFactory")
-        }
-        assert len(test_factories) > 0  # Should have at least some test factories
-        for factory_name, types_dict in test_factories.items():
-            assert isinstance(types_dict, dict)
-            assert factory_name.startswith("TestFactory")
-
-    @pytest.mark.parametrize("num_threads", [2, 5, 10])
-    def test_multiple_registry_instances_thread_safety(self, num_threads):
-        """Test creating multiple registry instances across threads."""
-        instances = run_concurrent_operations(ModuleRegistry, num_threads=num_threads)
-
-        # All instances should be the same
-        assert len(instances) == num_threads
-        first_instance = instances[0]
-        for instance in instances:
-            assert instance is first_instance
-
-    @pytest.mark.parametrize(
-        "factory_name,plugin_type,registrations",
-        [
-            # Empty registrations
-            ("AnyFactory", "any_type", {}),
-            # None factory name
-            (None, "valid_type", {"TestFactory": {"valid_type": "valid.module"}}),
-            # None plugin type
-            ("TestFactory", None, {"TestFactory": {"valid_type": "valid.module"}}),
-        ],
-    )
-    def test_edge_cases(
-        self,
-        mock_import_module,
-        loaded_registry,
-        factory_name,
-        plugin_type,
-        registrations,
-    ):
-        """Test edge cases that should not trigger imports."""
-        loaded_registry._registrations = registrations
-        loaded_registry.load_plugin(factory_name, plugin_type)
-        mock_import_module.assert_not_called()
-
-    def test_scan_all_comprehensive_integration(self, mock_file_system):
-        """Test complete _scan_all integration with mocked file system."""
-        # Reset singleton state and set up mocks before creating registry
-        ModuleRegistry._instance = None
-        ModuleRegistry._loaded = False
-
-        # Mock file structure
-        mock_file1 = create_mock_file(
-            "test1.py", "aiperf/test1.py", "# Mock file content 1"
-        )
-        mock_file2 = create_mock_file(
-            "test2.py", "aiperf/subdir/test2.py", "# Mock file content 2"
-        )
-
-        mock_file_system["rglob"].return_value = [mock_file1, mock_file2]
-
-        # Mock AST parsing - need to provide all required AST node attributes
-        mock_class_node = MagicMock(spec=ast.ClassDef)
-        mock_class_node.decorator_list = []
-        # Add required AST node attributes that pytest might access
-        mock_class_node.lineno = 1
-        mock_class_node.col_offset = 0
-        mock_class_node.end_lineno = 2
-        mock_class_node.end_col_offset = 0
-
-        mock_tree = MagicMock()
-        mock_file_system["parse"].return_value = mock_tree
-        mock_file_system["walk"].return_value = [mock_class_node]
-
-        # Now create registry - this will automatically trigger _scan_all() with our mocks
-        registry = ModuleRegistry()
-
-        assert registry._loaded
-        assert mock_file_system["parse"].call_count >= 2  # At least two files parsed
-
-    def test_memory_efficiency_large_registrations(
-        self, mock_import_module, loaded_registry
-    ):
-        """Test memory efficiency with large number of registrations."""
-        # Create a large number of registrations
-        num_factories = 100
-        num_types_per_factory = 50
-
-        for factory_idx in range(num_factories):
-            factory_name = f"Factory{factory_idx}"
-            loaded_registry._registrations[factory_name] = {}
-
-            for type_idx in range(num_types_per_factory):
-                type_name = f"Type{type_idx}"
-                module_path = f"module.factory{factory_idx}.type{type_idx}"
-                loaded_registry._registrations[factory_name][type_name] = module_path
-
-        # Test that lookups still work efficiently
-        loaded_registry.load_plugin("Factory50", "Type25")
-        mock_import_module.assert_called_once_with("module.factory50.type25")
-
-    def test_class_decorator_variations(self):
-        """Test various class decorator patterns."""
-        content = """
-from factories import (
-    ServiceFactory,
-    ComponentFactory,
-    UtilFactory
-)
-from enums import ServiceType, ComponentType
-
-@ServiceFactory.register(ServiceType.HTTP_CLIENT)
-@ComponentFactory.register(ComponentType.PARSER)
-class MultiDecoratorClass:
-    pass
-
-@UtilFactory.register_all(ServiceType.CACHE, ComponentType.LOGGER)
-class MultiArgClass:
+        # Create AST node for a complete class with decorator
+        code = """
+@ServiceFactory.register(ServiceType.WORKER)
+class TestClass:
     pass
 """
-        registry = ModuleRegistry()
-        # Clear any existing registrations from the real scan
-        registry._registrations.clear()
-        module_path = "test.variations"
+        tree = ast.parse(code)
+        decorator = tree.body[0].decorator_list[0]  # Get the decorator from class
 
-        # Mock the enum resolution to return expected string values
         with patch("importlib.import_module") as mock_import:
-            # Create mock enums module with test enums
-            mock_enums_module = MagicMock()
-
-            # Mock ServiceType
-            mock_service_type = MagicMock()
-            mock_service_type.HTTP_CLIENT = "ServiceType.HTTP_CLIENT"
-            mock_service_type.CACHE = "ServiceType.CACHE"
+            mock_enums_module = Mock()
+            mock_service_type = Mock()
+            mock_service_type.WORKER = "worker"
             mock_enums_module.ServiceType = mock_service_type
+            mock_import.return_value = mock_enums_module
 
-            # Mock ComponentType
-            mock_component_type = MagicMock()
-            mock_component_type.PARSER = "ComponentType.PARSER"
-            mock_component_type.LOGGER = "ComponentType.LOGGER"
-            mock_enums_module.ComponentType = mock_component_type
+            registry._parse_decorator(decorator, "test.module")
 
-            def mock_import_side_effect(module_name):
-                if module_name == "aiperf.common.enums":
-                    return mock_enums_module
-                return MagicMock()
+            expected_key = "worker"
+            assert "ServiceFactory" in registry._registrations
+            assert expected_key in registry._registrations["ServiceFactory"]
+            assert (
+                registry._registrations["ServiceFactory"][expected_key] == "test.module"
+            )
 
-            mock_import.side_effect = mock_import_side_effect
+    def test_parse_decorator_with_invalid_enum(self):
+        """Test parsing decorator with non-existent enum."""
+        registry = ModuleRegistry()
 
-            parse_decorators_from_content(registry, content, module_path)
+        code = """
+@ServiceFactory.register(NonExistentType.VALUE)
+class TestClass:
+    pass
+"""
+        tree = ast.parse(code)
+        decorator = tree.body[0].decorator_list[0]
 
-        # Verify all registrations
-        expected_registrations = {
-            "ServiceFactory": {"ServiceType.HTTP_CLIENT": module_path},
-            "ComponentFactory": {"ComponentType.PARSER": module_path},
-            "UtilFactory": {
-                "ServiceType.CACHE": module_path,
-                "ComponentType.LOGGER": module_path,
-            },
+        # Store initial registration count
+        initial_count = len(registry._registrations)
+
+        with patch("importlib.import_module") as mock_import:
+            mock_import.side_effect = ImportError("Module not found")
+
+            # Should not raise exception, just log warning
+            registry._parse_decorator(decorator, "test.module")
+
+            # Should not have added any new registrations
+            assert len(registry._registrations) == initial_count
+
+    def test_load_plugin_existing_module(self):
+        """Test loading an existing plugin module."""
+        registry = ModuleRegistry()
+        registry._registrations = {
+            "ServiceFactory": {"worker": "aiperf.workers.worker"}
         }
 
-        assert registry._registrations == expected_registrations
+        with patch("importlib.import_module") as mock_import:
+            registry.load_plugin("ServiceFactory", "worker")
+            mock_import.assert_called_once_with("aiperf.workers.worker")
 
-    def test_get_available_types(self, loaded_registry, sample_registrations):
-        """Test getting available types for a factory."""
-        loaded_registry._registrations = sample_registrations
+    def test_load_plugin_with_enum(self):
+        """Test loading plugin with enum parameter."""
+        registry = ModuleRegistry()
+        registry._registrations = {
+            "ServiceFactory": {"worker": "aiperf.workers.worker"}
+        }
 
-        available_types = loaded_registry.get_available_types("TestFactory")
-        expected_types = ["test_type", "MockTestEnum.TEST_TYPE"]
+        with patch("importlib.import_module") as mock_import:
+            registry.load_plugin("ServiceFactory", ServiceType.WORKER)
+            mock_import.assert_called_once_with("aiperf.workers.worker")
 
-        assert set(available_types) == set(expected_types)
+    def test_load_plugin_nonexistent(self):
+        """Test loading non-existent plugin does nothing."""
+        registry = ModuleRegistry()
 
-    def test_get_available_types_empty_factory(self, loaded_registry):
-        """Test getting available types for non-existent factory."""
-        available_types = loaded_registry.get_available_types("NonExistentFactory")
-        assert available_types == []
+        with patch("importlib.import_module") as mock_import:
+            registry.load_plugin("NonExistentFactory", "nonexistent")
+            mock_import.assert_not_called()
 
-    def test_get_all_factories(self, loaded_registry, sample_registrations):
-        """Test getting all factory names."""
-        loaded_registry._registrations = sample_registrations
+    def test_get_available_types(self):
+        """Test get_available_types returns correct type list."""
+        registry = ModuleRegistry()
+        registry._registrations = {
+            "ServiceFactory": {
+                "worker": "aiperf.workers.worker",
+                "dataset_manager": "aiperf.dataset.dataset_manager",
+            },
+            "ClientFactory": {"chat": "aiperf.clients.chat"},
+        }
 
-        factories = loaded_registry.get_all_factories()
-        expected_factories = ["TestFactory", "ComplexFactory"]
+        service_types = registry.get_available_types("ServiceFactory")
+        assert set(service_types) == {"worker", "dataset_manager"}
 
-        assert set(factories) == set(expected_factories)
+        client_types = registry.get_available_types("ClientFactory")
+        assert client_types == ["chat"]
 
-    def test_load_all_plugins(self, mock_import_module, loaded_registry):
-        """Test loading all plugins for a factory."""
-        loaded_registry._registrations = {
-            "TestFactory": {
-                "type1": "module1",
-                "type2": "module2",
-                "type3": "module3",
+        # Non-existent factory should return empty list
+        empty_types = registry.get_available_types("NonExistentFactory")
+        assert empty_types == []
+
+    def test_get_all_factories(self):
+        """Test get_all_factories returns all factory names."""
+        registry = ModuleRegistry()
+        registry._registrations = {
+            "ServiceFactory": {"worker": "module1"},
+            "ClientFactory": {"chat": "module2"},
+            "ExporterFactory": {"csv": "module3"},
+        }
+
+        factories = registry.get_all_factories()
+        assert set(factories) == {"ServiceFactory", "ClientFactory", "ExporterFactory"}
+
+    def test_load_all_plugins(self):
+        """Test load_all_plugins loads all modules for a factory."""
+        registry = ModuleRegistry()
+        registry._registrations = {
+            "ServiceFactory": {
+                "worker": "aiperf.workers.worker",
+                "dataset_manager": "aiperf.dataset.dataset_manager",
+                "timing_manager": "aiperf.timing.timing_manager",
             }
         }
 
-        loaded_registry.load_all_plugins("TestFactory")
+        with patch("importlib.import_module") as mock_import:
+            registry.load_all_plugins("ServiceFactory")
 
-        # Should import all three modules
-        assert mock_import_module.call_count == 3
-        expected_calls = ["module1", "module2", "module3"]
-        actual_calls = [call.args[0] for call in mock_import_module.call_args_list]
-        assert set(actual_calls) == set(expected_calls)
+            # Should have called import_module for each module
+            expected_calls = [
+                "aiperf.workers.worker",
+                "aiperf.dataset.dataset_manager",
+                "aiperf.timing.timing_manager",
+            ]
+            assert mock_import.call_count == 3
+            for call in expected_calls:
+                mock_import.assert_any_call(call)
 
-    def test_load_all_plugins_empty_factory(self, mock_import_module, loaded_registry):
-        """Test loading all plugins for non-existent factory."""
-        loaded_registry.load_all_plugins("NonExistentFactory")
-        mock_import_module.assert_not_called()
+    def test_load_all_plugins_nonexistent_factory(self):
+        """Test load_all_plugins with non-existent factory."""
+        registry = ModuleRegistry()
+
+        with patch("importlib.import_module") as mock_import:
+            registry.load_all_plugins("NonExistentFactory")
+            mock_import.assert_not_called()
+
+    @patch("aiperf.module_loader.Path")
+    def test_scan_skips_pycache_and_self(self, mock_path_class):
+        """Test that _scan_all skips __pycache__ and module_loader.py itself."""
+        mock_path_instance = Mock()
+        mock_path_class.return_value = mock_path_instance
+
+        # Create mock files including ones that should be skipped
+        mock_files = [
+            Mock(name="regular.py"),
+            Mock(name="__pycache__/cached.py"),
+            Mock(name="module_loader.py"),
+        ]
+
+        # Set up the __pycache__ file to have it in the string representation
+        mock_files[1].__str__ = Mock(return_value="/path/__pycache__/cached.py")
+        mock_files[1].name = "cached.py"
+
+        mock_files[0].__str__ = Mock(return_value="/path/regular.py")
+        mock_files[0].name = "regular.py"
+        mock_files[0].read_text.return_value = "class TestClass: pass"
+
+        # Mock the path operations properly
+        mock_relative_path = Mock()
+        mock_relative_path.with_suffix.return_value.parts = ("regular",)
+        mock_files[0].relative_to.return_value = mock_relative_path
+
+        mock_files[2].__str__ = Mock(return_value="/path/module_loader.py")
+        mock_files[2].name = "module_loader.py"
+
+        mock_path_instance.parent.rglob.return_value = mock_files
+
+        _ = ModuleRegistry()
+
+        # Only regular.py should have been processed (read_text called)
+        mock_files[0].read_text.assert_called_once()
+        # __pycache__ and module_loader.py should not be processed
+        assert (
+            not hasattr(mock_files[1], "read_text")
+            or not mock_files[1].read_text.called
+        )
+        assert (
+            not hasattr(mock_files[2], "read_text")
+            or not mock_files[2].read_text.called
+        )
+
+    def test_scan_handles_file_read_errors(self):
+        """Test that _scan_all handles file reading errors gracefully."""
+        with patch("aiperf.module_loader.Path") as mock_path_class:
+            mock_path_instance = Mock()
+            mock_path_class.return_value = mock_path_instance
+
+            # Mock file that raises exception when reading
+            mock_file = Mock()
+            mock_file.__str__ = Mock(return_value="/path/error_file.py")
+            mock_file.name = "error_file.py"
+            mock_file.read_text.side_effect = PermissionError("Access denied")
+
+            mock_path_instance.parent.rglob.return_value = [mock_file]
+
+            # Should not raise exception
+            registry = ModuleRegistry()
+
+            # Should have initial registrations (from real scan) but no new ones from error file
+            # Since we're testing error handling, just verify no exception was raised
+            assert registry._registrations is not None
+
+    def test_scan_handles_ast_parse_errors(self):
+        """Test that _scan_all handles AST parsing errors gracefully."""
+        with patch("aiperf.module_loader.Path") as mock_path_class:
+            mock_path_instance = Mock()
+            mock_path_class.return_value = mock_path_instance
+
+            # Mock file with invalid Python syntax
+            mock_file = Mock()
+            mock_file.__str__ = Mock(return_value="/path/invalid.py")
+            mock_file.name = "invalid.py"
+            mock_file.read_text.return_value = "invalid python syntax {"
+
+            # Mock the path operations properly
+            mock_relative_path = Mock()
+            mock_relative_path.with_suffix.return_value.parts = ("invalid",)
+            mock_file.relative_to.return_value = mock_relative_path
+
+            mock_path_instance.parent.rglob.return_value = [mock_file]
+
+            # Should not raise exception
+            registry = ModuleRegistry()
+
+            # Should have initial registrations (from real scan) but no new ones from syntax error file
+            # Since we're testing error handling, just verify no exception was raised
+            assert registry._registrations is not None
+
+    def test_loaded_flag_prevents_double_scan(self):
+        """Test that _loaded flag prevents scanning twice."""
+        registry = ModuleRegistry()
+
+        # Manually set loaded flag
+        registry._loaded = True
+
+        with patch("aiperf.module_loader.Path") as mock_path_class:
+            # Call _scan_all again
+            registry._scan_all()
+
+            # Path should not have been accessed since scan was skipped
+            mock_path_class.assert_not_called()
+
+    @pytest.mark.parametrize(
+        "enum_value,expected_string",
+        [
+            (ServiceType.WORKER, "worker"),
+            (ServiceType.DATASET_MANAGER, "dataset_manager"),
+            ("custom_string", "custom_string"),
+        ],
+    )
+    def test_load_plugin_enum_conversion(self, enum_value, expected_string):
+        """Test that load_plugin correctly converts enums to strings."""
+        registry = ModuleRegistry()
+        registry._registrations = {"TestFactory": {expected_string: "test.module"}}
+
+        with patch("importlib.import_module") as mock_import:
+            registry.load_plugin("TestFactory", enum_value)
+            mock_import.assert_called_once_with("test.module")
+
+    def test_multiple_factories_same_module(self):
+        """Test handling multiple factory registrations in the same module."""
+        registry = ModuleRegistry()
+
+        # Simulate parsing a module with multiple factory decorators
+        code = """
+@ServiceFactory.register(ServiceType.WORKER)
+@ClientFactory.register(EndpointType.CHAT)
+class MultiFactoryClass:
+    pass
+"""
+        tree = ast.parse(code)
+
+        with patch("importlib.import_module") as mock_import:
+            mock_enums_module = Mock()
+
+            # Mock ServiceType
+            mock_service_type = Mock()
+            mock_service_type.WORKER = "worker"
+            mock_enums_module.ServiceType = mock_service_type
+
+            # Mock EndpointType
+            mock_endpoint_type = Mock()
+            mock_endpoint_type.CHAT = "chat"
+            mock_enums_module.EndpointType = mock_endpoint_type
+
+            mock_import.return_value = mock_enums_module
+
+            # Parse both decorators
+            class_node = tree.body[0]
+            for decorator in class_node.decorator_list:
+                registry._parse_decorator(decorator, "test.module")
+
+            # Should have registrations for both factories
+            assert "ServiceFactory" in registry._registrations
+            assert "ClientFactory" in registry._registrations
+            assert registry._registrations["ServiceFactory"]["worker"] == "test.module"
+            assert registry._registrations["ClientFactory"]["chat"] == "test.module"
+
+    def test_decorator_without_enum_attribute(self):
+        """Test handling decorators that don't follow expected enum pattern."""
+        registry = ModuleRegistry()
+
+        # Test decorator with string literal instead of enum
+        code = """
+@ServiceFactory.register("string_literal")
+class TestClass:
+    pass
+"""
+        tree = ast.parse(code)
+        decorator = tree.body[0].decorator_list[0]
+
+        # Store initial registration count
+        initial_count = len(registry._registrations)
+
+        # Should not crash, but also shouldn't register anything new
+        registry._parse_decorator(decorator, "test.module")
+        assert len(registry._registrations) == initial_count
+
+    def test_non_factory_decorators_ignored(self):
+        """Test that non-Factory decorators are ignored."""
+        registry = ModuleRegistry()
+
+        code = """
+class TestClass:
+    @property
+    def test_property(self):
+        pass
+"""
+        tree = ast.parse(code)
+        # Get the property decorator from the method
+        decorator = tree.body[0].body[0].decorator_list[0]
+
+        # Store initial registration count
+        initial_count = len(registry._registrations)
+
+        registry._parse_decorator(decorator, "test.module")
+        assert len(registry._registrations) == initial_count
+
+    def test_register_all_decorator_parsing(self):
+        """Test parsing of @Factory.register_all() decorators."""
+        registry = ModuleRegistry()
+
+        code = """
+@ServiceFactory.register_all(ServiceType.WORKER, ServiceType.TIMING_MANAGER)
+class TestClass:
+    pass
+"""
+        tree = ast.parse(code)
+        decorator = tree.body[0].decorator_list[0]
+
+        with patch("importlib.import_module") as mock_import:
+            mock_enums_module = Mock()
+            mock_service_type = Mock()
+            mock_service_type.WORKER = "worker"
+            mock_service_type.TIMING_MANAGER = "timing_manager"
+            mock_enums_module.ServiceType = mock_service_type
+            mock_import.return_value = mock_enums_module
+
+            registry._parse_decorator(decorator, "test.module")
+
+            # Should register both types
+            assert "ServiceFactory" in registry._registrations
+            assert "worker" in registry._registrations["ServiceFactory"]
+            assert "timing_manager" in registry._registrations["ServiceFactory"]

@@ -22,11 +22,12 @@ from aiperf.common.factories import CommunicationClientFactory, CommunicationFac
 from aiperf.common.hooks import on_stop
 from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.common.protocols import CommunicationClientProtocol, CommunicationProtocol
+from aiperf.common.singleton import BaseSingleton
 from aiperf.common.types import CommAddressType
 
 
 @implements_protocol(CommunicationProtocol)
-class BaseZMQCommunication(BaseCommunication, AIPerfLoggerMixin, ABC):
+class BaseZMQCommunication(BaseCommunication, AIPerfLoggerMixin, ABC, BaseSingleton):
     """ZeroMQ-based implementation of the CommunicationProtocol.
 
     Uses ZeroMQ for publish/subscribe, request/reply, and pull/push patterns to

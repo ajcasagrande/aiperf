@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Braindead simple service runner using cyclopts for clean CLI argument handling."""
+"""Simple service runner using cyclopts for clean CLI argument handling."""
 
 from cyclopts import App
 

@@ -28,6 +28,7 @@ from aiperf.common.messages import (
     ProfileCancelCommand,
     WorkerHealthMessage,
 )
+from aiperf.common.meta import SingletonMeta
 from aiperf.common.mixins import ProcessHealthMixin, PullClientMixin
 from aiperf.common.models import WorkerTaskStats
 from aiperf.common.protocols import (
@@ -39,7 +40,11 @@ from aiperf.workers.credit_processor_mixin import CreditProcessorMixin
 
 @ServiceFactory.register(ServiceType.WORKER)
 class Worker(
-    PullClientMixin, BaseComponentService, ProcessHealthMixin, CreditProcessorMixin
+    PullClientMixin,
+    BaseComponentService,
+    ProcessHealthMixin,
+    CreditProcessorMixin,
+    metaclass=SingletonMeta,
 ):
     """Worker is primarily responsible for making API calls to the inference server.
     It also manages the conversation between turns and returns the results to the Inference Results Parsers.

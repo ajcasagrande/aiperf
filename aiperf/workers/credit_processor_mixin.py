@@ -70,7 +70,7 @@ class CreditProcessorMixinRequirements(TaskManagerProtocol, Protocol):
         ...
 
 
-class CreditProcessorMixin(CreditProcessorMixinRequirements):
+class CreditProcessorMixin:
     """CreditProcessorMixin is a mixin that provides a method to process credit drops."""
 
     def __init__(self, **kwargs):
