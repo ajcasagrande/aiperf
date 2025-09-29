@@ -1,5 +1,9 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+from aiperf.controller.async_subprocess_controller import (
+    AsyncSubprocessRunInfo,
+    AsyncSubprocessServiceManager,
+)
 from aiperf.controller.base_service_manager import (
     BaseServiceManager,
 )
@@ -26,6 +30,8 @@ from aiperf.controller.system_mixins import (
 )
 
 __all__ = [
+    "AsyncSubprocessRunInfo",
+    "AsyncSubprocessServiceManager",
     "BaseServiceManager",
     "KubernetesServiceManager",
     "MultiProcessRunInfo",

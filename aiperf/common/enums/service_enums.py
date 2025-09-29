@@ -7,11 +7,15 @@ from aiperf.common.enums.base_enums import CaseInsensitiveStrEnum
 class ServiceRunType(CaseInsensitiveStrEnum):
     """The different ways the SystemController should run the component services."""
 
-    MULTIPROCESSING = "process"
+    ASYNC_SUBPROCESS = "async_subprocess"
+    """Run each service as an asyncio subprocess.
+    This is the default way for single-node deployments."""
+
+    MULTIPROCESSING = "multiprocessing"
     """Run each service as a separate process.
     This is the default way for single-node deployments."""
 
-    KUBERNETES = "k8s"
+    KUBERNETES = "kubernetes"
     """Run each service as a separate Kubernetes pod.
     This is the default way for multi-node deployments."""
 
