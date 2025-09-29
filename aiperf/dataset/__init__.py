@@ -11,6 +11,10 @@ from aiperf.dataset.dataset_manager import (
     DatasetManager,
     main,
 )
+from aiperf.dataset.distributed_dataset_manager import (
+    DistributedDatasetManager,
+    DistributedStorageType,
+)
 from aiperf.dataset.generator import (
     DEFAULT_CORPUS_FILE,
     MP3_SUPPORTED_SAMPLE_RATES,
@@ -50,6 +54,23 @@ from aiperf.dataset.mmap_dataset_manager import (
     MMapSerializationError,
     SerializationFormat,
 )
+from aiperf.dataset.multi_node_dataset_manager import (
+    DeploymentMode,
+    MultiNodeConfig,
+    MultiNodeDatasetManager,
+)
+from aiperf.dataset.multi_node_messages import (
+    DatasetSyncRequestMessage,
+    DatasetSyncResponseMessage,
+    MultiNodeDatasetInfoMessage,
+    NodeDatasetStatusMessage,
+)
+from aiperf.dataset.redis_dataset_cache import (
+    REDIS_AVAILABLE,
+    DistributedRedisDatasetManager,
+    RedisDatasetCache,
+    RedisDatasetConfig,
+)
 from aiperf.dataset.utils import (
     check_file_exists,
     encode_image,
@@ -71,6 +92,12 @@ __all__ = [
     "DATASET_CONFIGURATION_TIMEOUT",
     "DEFAULT_CORPUS_FILE",
     "DatasetManager",
+    "DatasetSyncRequestMessage",
+    "DatasetSyncResponseMessage",
+    "DeploymentMode",
+    "DistributedDatasetManager",
+    "DistributedRedisDatasetManager",
+    "DistributedStorageType",
     "ImageGenerator",
     "MMAP_CONSTANTS",
     "MMapConstants",
@@ -87,11 +114,18 @@ __all__ = [
     "MediaConversionMixin",
     "MooncakeTrace",
     "MooncakeTraceDatasetLoader",
+    "MultiNodeConfig",
+    "MultiNodeDatasetInfoMessage",
+    "MultiNodeDatasetManager",
     "MultiTurn",
     "MultiTurnDatasetLoader",
+    "NodeDatasetStatusMessage",
     "PromptGenerator",
+    "REDIS_AVAILABLE",
     "RandomPool",
     "RandomPoolDatasetLoader",
+    "RedisDatasetCache",
+    "RedisDatasetConfig",
     "SUPPORTED_BIT_DEPTHS",
     "SerializationFormat",
     "ShareGPTLoader",
