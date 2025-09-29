@@ -20,6 +20,7 @@ from aiperf.common.models import (
     ProcessRecordsResult,
     exclude_if_none,
 )
+from aiperf.common.models.base_models import explicitly_set_fields
 from aiperf.common.types import CommandTypeT, MessageTypeT, ServiceTypeT
 
 _logger = AIPerfLogger(__name__)
@@ -54,6 +55,7 @@ class TargetedServiceMessage(BaseServiceMessage):
     )
 
 
+@explicitly_set_fields("command", "command_id")
 class CommandMessage(TargetedServiceMessage):
     """Message containing command data.
     This message is sent by the system controller to a service to command it to do something.
@@ -97,6 +99,7 @@ class CommandMessage(TargetedServiceMessage):
         return command_class.model_validate(data)
 
 
+@explicitly_set_fields("command", "command_id", "status")
 class CommandResponse(TargetedServiceMessage):
     """Message containing a command response."""
 

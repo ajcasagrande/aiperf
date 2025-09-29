@@ -80,7 +80,7 @@ class ZMQPubClient(BaseZMQClient):
 
         try:
             topic = self._determine_topic(message)
-            message_json = message.model_dump_json()
+            message_json = message.model_dump_json(exclude_unset=True)
             # Publish message
             self.trace(lambda: f"Publishing message {topic=} {message_json=}")
             await self.socket.send_multipart([topic.encode(), message_json.encode()])

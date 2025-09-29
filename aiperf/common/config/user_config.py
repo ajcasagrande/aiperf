@@ -9,7 +9,6 @@ from pydantic import Field, model_validator
 from typing_extensions import Self
 
 from aiperf.common.config.base_config import BaseConfig
-from aiperf.common.config.cli_parameter import DisableCLI
 from aiperf.common.config.config_validators import coerce_value
 from aiperf.common.config.endpoint_config import EndpointConfig
 from aiperf.common.config.input_config import InputConfig
@@ -31,14 +30,15 @@ class UserConfig(BaseConfig):
     """
 
     _timing_mode: TimingMode = TimingMode.REQUEST_RATE
+    _cli_command: str | None = None
 
     @model_validator(mode="after")
-    def validate_cli_args(self) -> Self:
+    def _update_cli_command(self) -> Self:
         """Set the CLI command based on the command line arguments, if it has not already been set."""
-        if not self.cli_command:
+        if not self._cli_command:
             args = [coerce_value(x) for x in sys.argv[1:]]
             args = [f'"{x}"' if _should_quote_arg(x) else str(x) for x in args]
-            self.cli_command = " ".join(["aiperf", *args])
+            self._cli_command = " ".join(["aiperf", *args])
         return self
 
     @model_validator(mode="after")
@@ -69,9 +69,6 @@ class UserConfig(BaseConfig):
         if (
             "benchmark_duration" in self.loadgen.model_fields_set
             and "request_count" in self.loadgen.model_fields_set
-        ) and (
-            self.loadgen.benchmark_duration is not None
-            and self.loadgen.request_count is not None
         ):
             raise ValueError(
                 "Count-based and duration-based benchmarking cannot be used together. "
@@ -113,15 +110,6 @@ class UserConfig(BaseConfig):
             description="Load Generator configuration",
         ),
     ] = LoadGeneratorConfig()
-
-    cli_command: Annotated[
-        str | None,
-        Field(
-            default=None,
-            description="The CLI command for the user config.",
-        ),
-        DisableCLI(reason="This is automatically set by the CLI"),
-    ] = None
 
     @model_validator(mode="after")
     def _compute_config(self) -> Self:
@@ -191,3 +179,8 @@ class UserConfig(BaseConfig):
     def timing_mode(self) -> TimingMode:
         """Get the timing mode based on the user config."""
         return self._timing_mode
+
+    @property
+    def cli_command(self) -> str:
+        """Get the CLI command for the user config."""
+        return self._cli_command or ""

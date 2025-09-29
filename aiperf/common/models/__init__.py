@@ -11,6 +11,7 @@ __ignore__ = []
 from aiperf.common.models.base_models import (
     AIPerfBaseModel,
     exclude_if_none,
+    explicitly_set_fields,
 )
 from aiperf.common.models.credit_models import (
     CreditPhaseConfig,
@@ -108,4 +109,5 @@ __all__ = [
     "WorkerStats",
     "WorkerTaskStats",
     "exclude_if_none",
+    "explicitly_set_fields",
 ]

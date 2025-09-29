@@ -3,7 +3,8 @@
 
 from typing import Annotated
 
-from pydantic import Field
+from pydantic import Field, model_validator
+from typing_extensions import Self
 
 from aiperf.common.config.base_config import BaseConfig
 from aiperf.common.config.cli_parameter import CLIParameter
@@ -18,6 +19,20 @@ class LoadGeneratorConfig(BaseConfig):
     """
 
     _CLI_GROUP = Groups.LOAD_GENERATOR
+
+    @model_validator(mode="after")
+    def validate_benchmark_mode(self) -> Self:
+        """Validate benchmarking is count-based or timing-based."""
+        if self.benchmark_duration is not None and self.request_count is not None:
+            raise ValueError(
+                "Benchmark duration and request count cannot be used together"
+            )
+        if self.benchmark_duration is None and self.request_count is None:
+            _logger.debug(
+                "No benchmark duration or request count provided, setting default request count"
+            )
+            self.request_count = LoadGeneratorDefaults.REQUEST_COUNT
+        return self
 
     # NEW AIPerf Option
     benchmark_duration: Annotated[

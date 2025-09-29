@@ -8,14 +8,14 @@ from pydantic import Field
 
 from aiperf.common.aiperf_logger import AIPerfLogger
 from aiperf.common.enums.message_enums import MessageType
-from aiperf.common.models.base_models import AIPerfBaseModel, exclude_if_none
+from aiperf.common.models.base_models import AIPerfBaseModel, explicitly_set_fields
 from aiperf.common.models.error_models import ErrorDetails
 from aiperf.common.types import MessageTypeT
 
 _logger = AIPerfLogger(__name__)
 
 
-@exclude_if_none("request_ns", "request_id")
+@explicitly_set_fields("message_type")
 class Message(AIPerfBaseModel):
     """Base message class for optimized message handling. Based on the AIPerfBaseModel class,
     so it supports @exclude_if_none decorator. see :class:`AIPerfBaseModel` for more details.
@@ -97,9 +97,10 @@ class Message(AIPerfBaseModel):
         return message_class.model_validate_json(json_str)
 
     def __str__(self) -> str:
-        return self.model_dump_json()
+        return self.model_dump_json(exclude_unset=True)
 
 
+@explicitly_set_fields("request_ns")
 class RequiresRequestNSMixin(Message):
     """Mixin for messages that require a request_ns field."""
 

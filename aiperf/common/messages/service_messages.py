@@ -11,6 +11,7 @@ from aiperf.common.enums import (
     MessageType,
 )
 from aiperf.common.messages.base_messages import Message
+from aiperf.common.models.base_models import explicitly_set_fields
 from aiperf.common.models.error_models import ErrorDetails
 from aiperf.common.types import MessageTypeT, ServiceTypeT
 
@@ -25,6 +26,7 @@ class BaseServiceMessage(Message):
     )
 
 
+@explicitly_set_fields("request_ns")
 class BaseStatusMessage(BaseServiceMessage):
     """Base message containing status data.
     This message is sent by a service to the system controller to report its status.

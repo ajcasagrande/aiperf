@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 from typing import Annotated
 
-from pydantic import Field, model_validator
+from pydantic import Field, computed_field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing_extensions import Self
 
@@ -38,15 +38,16 @@ class ServiceConfig(BaseSettings):
     )
 
     _CLI_GROUP = Groups.SERVICE
-    _comm_config: BaseZMQCommunicationConfig | None = None
 
     @model_validator(mode="after")
     def validate_log_level_from_verbose_flags(self) -> Self:
         """Set log level based on verbose flags."""
-        if self.extra_verbose:
-            self.log_level = AIPerfLogLevel.TRACE
-        elif self.verbose:
-            self.log_level = AIPerfLogLevel.DEBUG
+        if "log_level" not in self.model_fields_set:
+            if self.extra_verbose:
+                self.log_level = AIPerfLogLevel.TRACE
+            elif self.verbose:
+                self.log_level = AIPerfLogLevel.DEBUG
+            self.model_fields_set.discard("log_level")
         return self
 
     @model_validator(mode="after")
@@ -55,15 +56,10 @@ class ServiceConfig(BaseSettings):
         _logger.debug(
             f"Validating comm_config: tcp: {self.zmq_tcp}, ipc: {self.zmq_ipc}"
         )
-        if self.zmq_tcp is not None:
-            _logger.info("Using ZMQ TCP configuration")
-            self._comm_config = self.zmq_tcp
-        elif self.zmq_ipc is not None:
-            _logger.info("Using ZMQ IPC configuration")
-            self._comm_config = self.zmq_ipc
-        else:
-            _logger.info("Using default ZMQ IPC configuration")
-            self._comm_config = ZMQIPCConfig()
+        if self.zmq_tcp is not None and self.zmq_ipc is not None:
+            raise ValueError(
+                "Cannot use both ZMQ TCP and ZMQ IPC configuration at the same time"
+            )
         return self
 
     service_run_type: Annotated[
@@ -157,11 +153,15 @@ class ServiceConfig(BaseSettings):
 
     developer: DeveloperConfig = DeveloperConfig()
 
-    @property
+    @computed_field
     def comm_config(self) -> BaseZMQCommunicationConfig:
         """Get the communication configuration."""
-        if not self._comm_config:
-            raise ValueError(
-                "Communication configuration is not set. Please provide a valid configuration."
-            )
-        return self._comm_config
+        if self.zmq_tcp is not None:
+            _logger.debug("Using ZMQ TCP configuration")
+            return self.zmq_tcp
+        elif self.zmq_ipc is not None:
+            _logger.debug("Using ZMQ IPC configuration")
+            return self.zmq_ipc
+        else:
+            _logger.debug("Using default ZMQ IPC configuration")
+            return ZMQIPCConfig()
