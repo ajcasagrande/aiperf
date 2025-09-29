@@ -43,6 +43,7 @@ if TYPE_CHECKING:
     from aiperf.common.config import ServiceConfig, UserConfig
     from aiperf.common.enums.metric_enums import MetricValueTypeT
     from aiperf.common.models.record_models import MetricResult
+    from aiperf.common.plugin_metadata import AIPerfPluginMetadata
     from aiperf.exporters.exporter_config import ExporterConfig, FileExportInfo
     from aiperf.metrics.metric_dicts import MetricRecordDict
     from aiperf.timing.config import TimingManagerConfig
@@ -307,6 +308,17 @@ class AIPerfUIProtocol(AIPerfLifecycleProtocol, Protocol):
     progress tracking and worker tracking, the simplest way would be to inherit from the :class:`aiperf.ui.base_ui.BaseAIPerfUI`.
     """
 
+    @staticmethod
+    def plugin_metadata() -> "AIPerfPluginMetadata":
+        """Plugin metadata for the UI.
+
+        This is used to identify the UI plugin in the UI factory.
+
+        Returns:
+            An AIPerfUIPluginMetadata object containing the plugin metadata.
+        """
+        ...
+
 
 @runtime_checkable
 class ConsoleExporterProtocol(Protocol):
@@ -314,6 +326,11 @@ class ConsoleExporterProtocol(Protocol):
     Any class implementing this protocol will be provided an ExporterConfig and must provide an
     `export` method that takes a rich Console and handles exporting them appropriately.
     """
+
+    @staticmethod
+    def plugin_metadata() -> "AIPerfPluginMetadata":
+        """Plugin metadata for the data exporter."""
+        ...
 
     def __init__(self, exporter_config: "ExporterConfig") -> None: ...
 
@@ -327,6 +344,11 @@ class DataExporterProtocol(Protocol):
     Any class implementing this protocol will be provided an ExporterConfig and must provide an
     `export` method that handles exporting the data appropriately.
     """
+
+    @staticmethod
+    def plugin_metadata() -> "AIPerfPluginMetadata":
+        """Plugin metadata for the data exporter."""
+        ...
 
     def __init__(self, exporter_config: "ExporterConfig") -> None: ...
 
