@@ -24,6 +24,14 @@ from aiperf.clients.openai.openai_embeddings import (
 from aiperf.clients.openai.openai_responses import (
     OpenAIResponsesRequestConverter,
 )
+from aiperf.clients.openai.plugins import (
+    DEFAULT_ROLE,
+    OpenAIChatPlugin,
+    OpenAICompletionsPlugin,
+    OpenAIEmbeddingsPlugin,
+    OpenAIRankingsPlugin,
+    OpenAIResponsesPlugin,
+)
 from aiperf.clients.openai.rankings import (
     RankingsRequestConverter,
 )
@@ -31,9 +39,14 @@ from aiperf.clients.openai.rankings import (
 __all__ = [
     "DEFAULT_ROLE",
     "OpenAIChatCompletionRequestConverter",
+    "OpenAIChatPlugin",
     "OpenAIClientAioHttp",
     "OpenAICompletionRequestConverter",
+    "OpenAICompletionsPlugin",
+    "OpenAIEmbeddingsPlugin",
     "OpenAIEmbeddingsRequestConverter",
+    "OpenAIRankingsPlugin",
+    "OpenAIResponsesPlugin",
     "OpenAIResponsesRequestConverter",
     "RankingsRequestConverter",
 ]
