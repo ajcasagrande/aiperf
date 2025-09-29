@@ -67,6 +67,12 @@ dev = [
 ]
 
 
+[project.entry-points."aiperf.ui"]
+simple = "aiperf.ui.tqdm_ui:ui"
+dashboard = "aiperf.ui.dashboard.aiperf_dashboard_ui:ui"
+none = "aiperf.ui.no_ui:ui"
+
+
 [tool.ruff]
 # Base settings for ruff
 line-length = 88

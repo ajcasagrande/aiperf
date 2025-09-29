@@ -1,7 +1,9 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+from pluggy import HookimplMarker
 from tqdm import tqdm
 
+from aiperf import AIPERF_PROJECT_NAME
 from aiperf.common.constants import DEFAULT_UI_MIN_UPDATE_PERCENT
 from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import AIPerfUIType
@@ -112,3 +114,12 @@ class TQDMProgressUI(BaseAIPerfUI):
             )
         if self._records_bar:
             self._records_bar.update(records_stats.finished)
+
+
+hookimpl = HookimplMarker(AIPERF_PROJECT_NAME)
+
+
+@hookimpl
+def ui() -> type[TQDMProgressUI]:
+    """Provide the TQDMProgressUI class to the plugin factory."""
+    return TQDMProgressUI

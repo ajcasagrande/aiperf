@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+from pluggy import HookimplMarker
 
+from aiperf import AIPERF_PROJECT_NAME
 from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import AIPerfUIType
 from aiperf.common.factories import AIPerfUIFactory
@@ -18,3 +20,12 @@ class NoUI(AIPerfLifecycleMixin):
 
     NOTE: Not inheriting from :class:`BaseAIPerfUI` because it does not need to track progress or workers.
     """
+
+
+hookimpl = HookimplMarker(AIPERF_PROJECT_NAME)
+
+
+@hookimpl
+def ui() -> type[NoUI]:
+    """Provide the NoUI class to the plugin factory."""
+    return NoUI

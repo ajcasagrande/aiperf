@@ -9,12 +9,13 @@ from aiperf.common.protocols import AIPerfUIProtocol
 hookspec = pluggy.HookspecMarker("aiperf")
 
 
-class AIPerfSpecs:
+class AIPerfHookSpecs:
     @hookspec
     def create_ui(
+        self,
         service_config: ServiceConfig,
         user_config: UserConfig,
         **kwargs,
-    ) -> AIPerfUIProtocol:
-        """Return a UI class implementing BaseUI."""
+    ) -> type[AIPerfUIProtocol]:
+        """Return a UI class type implementing AIPerfUIProtocol."""
         ...
