@@ -27,7 +27,6 @@ from aiperf.common.enums import (
 )
 from aiperf.common.exceptions import LifecycleOperationError
 from aiperf.common.factories import (
-    AIPerfUIFactory,
     ServiceFactory,
     ServiceManagerFactory,
 )
@@ -55,6 +54,7 @@ from aiperf.common.models import (
     ServiceRunInfo,
 )
 from aiperf.common.models.error_models import ExitErrorInfo
+from aiperf.common.plugin_factory import AIPerfPluginFactory
 from aiperf.common.protocols import AIPerfUIProtocol, ServiceManagerProtocol
 from aiperf.common.types import ServiceTypeT
 from aiperf.controller.controller_utils import print_exit_errors
@@ -112,12 +112,12 @@ class SystemController(SignalHandlerMixin, BaseService):
                 log_queue=get_global_log_queue(),
             )
         )
-        self.ui: AIPerfUIProtocol = AIPerfUIFactory.create_instance(
+        self.plugin_factory = AIPerfPluginFactory()
+        self.ui: AIPerfUIProtocol = self.plugin_factory.create_ui(
             self.service_config.ui_type,
             service_config=self.service_config,
             user_config=self.user_config,
             log_queue=get_global_log_queue(),
-            controller=self,
         )
         self.attach_child_lifecycle(self.ui)
         self._stop_tasks: set[asyncio.Task] = set()

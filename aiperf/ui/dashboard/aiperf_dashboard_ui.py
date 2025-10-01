@@ -3,6 +3,9 @@
 
 import multiprocessing
 
+from pluggy import HookimplMarker
+
+from aiperf import AIPERF_PROJECT_NAME
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
 from aiperf.common.decorators import implements_protocol
@@ -13,8 +16,8 @@ from aiperf.common.hooks import (
     on_start,
     on_stop,
 )
+from aiperf.common.plugin_metadata import AIPerfPluginMetadata
 from aiperf.common.protocols import AIPerfUIProtocol
-from aiperf.controller.system_controller import SystemController
 from aiperf.ui.base_ui import BaseAIPerfUI
 from aiperf.ui.dashboard.aiperf_textual_app import AIPerfTextualApp
 from aiperf.ui.dashboard.rich_log_viewer import LogConsumer
@@ -36,25 +39,29 @@ class AIPerfDashboardUI(BaseAIPerfUI):
     handled by Textual, and it is not fully compatible with our AIPerf lifecycle.
     """
 
+    @staticmethod
+    def plugin_metadata() -> AIPerfPluginMetadata:
+        """Plugin metadata for the AIPerfDashboardUI."""
+        return AIPerfPluginMetadata(
+            name="dashboard",
+            description="AIPerf Dashboard UI",
+            version="1.0.0",
+        )
+
     def __init__(
         self,
         log_queue: multiprocessing.Queue,
         service_config: ServiceConfig,
         user_config: UserConfig,
-        controller: SystemController,
         **kwargs,
     ) -> None:
         super().__init__(
             service_config=service_config,
             user_config=user_config,
-            controller=controller,
             **kwargs,
         )
-        self.controller = controller
         self.service_config = service_config
-        self.app: AIPerfTextualApp = AIPerfTextualApp(
-            service_config=service_config, controller=controller
-        )
+        self.app: AIPerfTextualApp = AIPerfTextualApp(service_config=service_config)
         # Setup the log consumer to consume log records from the shared log queue
         self.log_consumer: LogConsumer = LogConsumer(log_queue=log_queue, app=self.app)
         self.attach_child_lifecycle(self.log_consumer)  # type: ignore
@@ -83,3 +90,12 @@ class AIPerfDashboardUI(BaseAIPerfUI):
         """Stop the Dashboard application gracefully."""
         self.debug("Shutting down Dashboard UI")
         self.app.exit(return_code=0)
+
+
+hookimpl = HookimplMarker(AIPERF_PROJECT_NAME)
+
+
+@hookimpl
+def ui() -> type[AIPerfDashboardUI]:
+    """Provide the AIPerfDashboardUI class to the plugin factory."""
+    return AIPerfDashboardUI

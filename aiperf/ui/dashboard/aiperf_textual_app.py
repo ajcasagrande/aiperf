@@ -15,7 +15,6 @@ from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.constants import AIPERF_DEV_MODE
 from aiperf.common.enums import WorkerStatus
 from aiperf.common.models import MetricResult, RecordsStats, RequestsStats, WorkerStats
-from aiperf.controller.system_controller import SystemController
 from aiperf.ui.dashboard.aiperf_theme import AIPERF_THEME
 from aiperf.ui.dashboard.progress_dashboard import ProgressDashboard
 from aiperf.ui.dashboard.progress_header import ProgressHeader
@@ -79,9 +78,7 @@ class AIPerfTextualApp(App):
         Binding("l", "toggle_hide_log_viewer", "Toggle Logs", show=False),
     ]
 
-    def __init__(
-        self, service_config: ServiceConfig, controller: SystemController
-    ) -> None:
+    def __init__(self, service_config: ServiceConfig) -> None:
         super().__init__()
 
         self.title = "NVIDIA AIPerf"
@@ -95,7 +92,6 @@ class AIPerfTextualApp(App):
         self.realtime_metrics_dashboard: RealtimeMetricsDashboard | None = None
         self.profile_results: list[RenderableType] = []
         self.service_config = service_config
-        self.controller: SystemController = controller
         self._warmup_stats: RequestsStats | None = None
         self._profiling_stats: RequestsStats | None = None
         self._records_stats: RecordsStats | None = None

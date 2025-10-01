@@ -15,6 +15,7 @@ from aiperf.common.hooks import (
     on_warmup_progress,
 )
 from aiperf.common.models import RecordsStats, RequestsStats
+from aiperf.common.plugin_metadata import AIPerfPluginMetadata
 from aiperf.common.protocols import AIPerfUIProtocol
 from aiperf.ui.base_ui import BaseAIPerfUI
 
@@ -62,6 +63,15 @@ class ProgressBar:
 @AIPerfUIFactory.register(AIPerfUIType.SIMPLE)
 class TQDMProgressUI(BaseAIPerfUI):
     """A UI that shows progress bars for the records and requests phases."""
+
+    @staticmethod
+    def plugin_metadata() -> AIPerfPluginMetadata:
+        """Plugin metadata for the TQDMProgressUI."""
+        return AIPerfPluginMetadata(
+            name="tqdm",
+            description="A UI that shows progress bars for the records and requests phases",
+            version="1.0.0",
+        )
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
