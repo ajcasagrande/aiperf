@@ -6,7 +6,7 @@
 
 **Status**: Draft
 
-**Authors**: @ajcasagrande
+**Authors**: Anthony Casagrande
 
 **Category**: Architecture
 
@@ -14,9 +14,9 @@
 
 **Replaced By**: None
 
-**Sponsor**: @ganeshku1
+**Sponsor**: Ganesh Kudleppanavar
 
-**Required Reviewers**: @ajcasagrande @ganeshku1 @nicolasnoble
+**Required Reviewers**: Ganesh Kudleppanavar, Nicolas Noble, Biswa Ranjan Panda, Neelay Shah, Hannah Zhang, Itay Neeman, Maksim Khadkevich
 
 **Review Date**: [Date for review]
 
@@ -32,25 +32,27 @@ AIPerf currently supports only single-node multiprocess deployment. This enhance
 
 # Motivation
 
-The current AIPerf implementation is limited to single-node execution, which constrains the maximum concurrent load that can be generated for benchmarking AI inference services. A critical limitation of single-node deployments is the exhaustion of ephemeral ports, which limits concurrent connections to approximately 65,535 per node (with practical limits around 63,500 due to reserved ports). As AI inference workloads scale to serve production traffic, there is a critical need to validate performance under extremely high concurrency conditions. Single-node AIPerf deployments cannot achieve these concurrency levels due to operating system networking constraints, hardware limitations, and the inherent scalability limits of running all services on a single machine.
+The current AIPerf implementation is limited to single-node execution, which constrains the maximum concurrent load that can be generated for benchmarking AI inference services. A critical limitation of single-node deployments is the exhaustion of ephemeral ports, which limits concurrent connections to approximately 65k per node (HTTP2 can increase this, but at some point other limits become relevant). As AI inference workloads scale to serve production traffic, there is a critical need to validate performance under extremely high concurrency conditions. Single-node AIPerf deployments cannot achieve these concurrency levels due to operating system networking constraints, hardware limitations, and the inherent scalability limits of running all services on a single machine.
 
 Dynamo inference services are deployed on Kubernetes clusters and need to be validated against realistic, high-concurrency load patterns that exceed single-node capabilities. The lack of distributed load generation capability prevents teams from conducting comprehensive performance validation before deploying to production, potentially leading to service degradation or failures under actual concurrent user load.
 
 ## Goals
 
-* Enable distributed load generation across multiple Kubernetes pods to achieve high concurrency levels
-* Overcome single-node ephemeral port limitations by distributing connections across multiple worker pods
+* Enable distributed load generation across multiple Kubernetes pods to achieve high concurrency levels (1M+ connections)
+* Overcome single-node ephemeral port limitations (~65K) by distributing connections across multiple worker pods
 * Maintain compatibility with existing AIPerf CLI interfaces and configuration options
-* Provide seamless deployment experience through CLI parameters
-* Preserve existing ZMQ-based communication patterns between AIPerf services while adapting for distributed deployment
-* Enable scaling of worker and record processor pods based on concurrency requirements
+* Provide simple deployment experience through single CLI flag (`--kubernetes`)
+* Leverage existing ZMQ TCP support for distributed communication (minimal code changes)
+* Enable automatic scaling of worker pods based on target concurrency
 
-### Non Goals
+### Non Goals (MVP)
 
-* Supporting non-Kubernetes container orchestration platforms in this implementation
+* Automatic pod failure recovery and restart
+* Supporting non-Kubernetes container orchestration platforms
 * Providing a web-based UI for job management and visualization
 * Implementing cross-cluster or multi-cloud distributed deployments
 * Replacing the existing single-node deployment mode (both modes coexist)
+* Advanced security features (mTLS, network policies, secret management)
 
 ## Requirements
 
@@ -60,7 +62,7 @@ AIPerf **MUST** support deployment of its services across multiple Kubernetes po
 
 ### REQ 2 Kubernetes API Integration and Compatibility
 
-The implementation **MUST** use the Kubernetes API directly for pod orchestration rather than relying on external tools. The `KubernetesServiceManager` **MUST** implement the existing `ServiceManagerProtocol` interface to ensure compatibility with AIPerf's service management architecture. The implementation **MUST** follow the same patterns as `MultiProcessServiceManager` for service lifecycle management. The system **SHOULD** use the existing `bootstrap_and_run_service` function for service startup. The system **SHOULD** support programmatic deployment through CLI parameters.
+The implementation **MUST** use the Kubernetes API directly for pod orchestration rather than relying on external tools. The `KubernetesServiceManager` **MUST** implement the existing interfaces to ensure compatibility with AIPerf's service management architecture.
 
 ### REQ 3 Concurrency Scaling
 
@@ -90,40 +92,28 @@ The proposed Kubernetes deployment architecture adopts a true per-service pod ap
 
 ### Service Pod Architecture
 
-#### System Controller Pod
-- **Single pod** running the system controller service
+#### System Controller (Single Pod)
 - Orchestrates the entire benchmark lifecycle and coordinates other services
 - Manages the ProxyManager with embedded ZMQ proxies for message routing
-- Singleton deployment - only one instance per benchmark
 
-#### Dataset Manager Pod
-- **Single pod** running the dataset manager service
-- Manages dataset loading and distribution across the cluster
-- Singleton deployment - only one instance per benchmark
-
-#### Timing Manager Pod
-- **Single pod** running the timing manager service
+#### Timing Manager (Single Pod)
 - Issues credits (request tokens) and controls benchmark timing
-- Singleton deployment - only one instance per benchmark
 
-#### Records Manager Pod
-- **Single pod** running the records manager service
+#### Records Manager (Single Pod)
 - Collects and aggregates metrics from distributed record processors
-- Singleton deployment - only one instance per benchmark
 
-#### Worker Manager Pod
-- **Single pod** running the worker manager service
+#### Worker Manager (Single Pod)
 - Coordinates worker scaling and management operations
-- Singleton deployment - only one instance per benchmark
 
-#### Worker Pods (Scalable)
-- **Multiple pods** each running a single worker service instance
+#### Dataset Manager (Single Pod)
+- Manages dataset loading and distribution across the cluster
+
+#### Worker (Scalable Pods)
 - Execute inference requests against target endpoints
 - Scale horizontally based on target concurrency requirements (1 to N replicas)
 - Each pod can handle concurrent connections up to the configured `AIPERF_HTTP_CONNECTION_LIMIT`
 
-#### Record Processor Pods (Scalable)
-- **Multiple pods** each running a single record processor service instance
+#### Record Processor (Scalable Pods)
 - Perform request and response tokenization and initial metrics processing
 - Scale horizontally based on response processing throughput and concurrent request volume (1 to N replicas)
 - Send processed metrics back to the records manager via ZMQ
@@ -135,12 +125,12 @@ The existing ZMQ-based communication patterns are preserved with the following a
 ### ZMQ Communication Flow
 The existing ZMQ communication uses multiple proxy patterns managed by the ProxyManager:
 
-1. **Credit Distribution**: Timing manager pushes credits through CREDIT_DROP address, workers pull via PUSH/PULL pattern
-2. **Credit Return**: Workers return completed credits through CREDIT_RETURN address
-3. **Raw Inference Results**: Workers send raw responses through RAW_INFERENCE_PROXY_FRONTEND to record processors via PUSH/PULL proxy
+1. **Credit Distribution**: Timing manager pushes credits through CREDIT_DROP address, workers pull via PUSH/PULL
+2. **Credit Return**: Workers return completed credits through CREDIT_RETURN address via PUSH/PULL
+3. **Raw Inference Results**: Workers send raw responses through RAW_INFERENCE_PROXY to record processors via PUSH/PULL proxy
 4. **Processed Records**: Record processors send processed metrics to records manager via RECORDS address using PUSH/PULL
-5. **Event Bus**: System controller and services communicate via EVENT_BUS_PROXY using PUB/SUB pattern for coordination messages
-6. **Dataset Requests**: Workers request conversation data from dataset manager via DATASET_MANAGER_PROXY using DEALER/ROUTER pattern
+5. **Event Bus**: System controller and services communicate via EVENT_BUS_PROXY using XPUB/XSUB proxy for coordination messages
+6. **Dataset Requests**: Workers request conversation data from dataset manager via DATASET_MANAGER_PROXY using DEALER/ROUTER proxy
 
 ### Network Configuration
 - System controller pod exposes ZMQ proxy ports via Kubernetes services
@@ -150,447 +140,142 @@ The existing ZMQ communication uses multiple proxy patterns managed by the Proxy
 
 ## Deployment Modes
 
-### CLI-Driven Deployment
+### CLI-Driven Deployment (MVP)
 
-**Basic Kubernetes Deployment**:
-Users will deploy AIPerf to Kubernetes using the `--kubernetes` flag. The AIPerf CLI will bootstrap a System Controller pod into the cluster, which then orchestrates the deployment of all other service pods (workers, record processors, etc.) and manages the benchmark lifecycle.
+**Quick Start Example:**
+
+```bash
+# Run 100K concurrent connections against inference service
+aiperf profile \
+  --kubernetes \
+  --endpoint-type chat \
+  --streaming \
+  -u http://my-llm-service.default.svc.cluster.local:8080 \
+  -m my-llm-model \
+  --concurrency 100000 \
+  --duration 300 \
+  --public-dataset sharegpt
+
+# AIPerf automatically:
+# 1. Creates namespace: aiperf-<timestamp>
+# 2. Deploys System Controller pod to cluster
+# 3. System Controller deploys:
+#    - 4 singleton service pods (dataset, timing, records, worker manager)
+#    - 200 worker pods (100K / 500 connections per worker)
+#    - 50 record processor pods
+# 4. Runs benchmark for 5 minutes
+# 5. Retrieves results to local ./artifacts/ directory
+# 6. Cleans up all Kubernetes resources
+# 7. Displays metrics summary in terminal
+```
+
+**Advanced Options:**
+
+```bash
+# Use custom namespace (won't auto-delete)
+aiperf profile --kubernetes --kubernetes-namespace my-benchmark ...
+
+# Use custom kubeconfig (defaults to ~/.kube/config)
+aiperf profile --kubernetes --kubeconfig ~/.kube/prod-cluster ...
+```
 
 ## Resource Management
 
-### Basic Resource Allocation
-AIPerf will use sensible defaults for pod resource allocation:
-- **Control Services** (system-controller, dataset-manager, etc.): Basic CPU and memory allocation
-- **Worker Pods**: Resource allocation optimized for handling concurrent connections
-- **Record Processors**: Resource allocation for metrics processing workload
+### Pod Resource Allocation
 
-### Scaling Strategy
-- Singleton service pods remain single instances
-- Worker pods scale based on target concurrency requirements
-- Record processor pods scale based on worker count
+To be determined based on performance testing. Example resource allocation:
+
+**Singleton Services** (1 replica each):
+- **System Controller**: 2 CPU, 2Gi memory (hosts ZMQ proxies, minimal overhead)
+- **Dataset Manager**: 2 CPU, 2Gi memory (distributes conversations via ZMQ)
+- **Timing Manager**: 1 CPU, 1Gi memory (credit distribution)
+- **Records Manager**: 1 CPU, 2Gi memory (metrics aggregation)
+- **Worker Manager**: 1 CPU, 1Gi memory (health monitoring)
+
+**Scalable Services**:
+- **Worker Pods**: 2 CPU, 2Gi memory per pod
+  - Recommended: 500 concurrent connections per worker
+  - Maximum: 2,500 connections per worker (set via `AIPERF_HTTP_CONNECTION_LIMIT`)
+- **Record Processor Pods**: 2 CPU, 2Gi memory per pod
+  - Ratio: 1 record processor per 4 worker pods
 
 # Implementation Details
 
-## Decoupled Architecture Design
+## Kubernetes Service Manager
 
-### Current Architecture Analysis
-The existing architecture has a key architectural issue that becomes clear when considering Kubernetes deployment:
-
-**Current Architecture Problem:**
-- UI is instantiated and managed inside SystemController process
-- This creates tight coupling between business logic and presentation layer
-- In Kubernetes mode, UI should run locally while SystemController runs in pod
-
-**UI is Already Decoupled via ZMQ (Good!):**
-- UI receives all data via ZMQ message bus (`MessageBusClientMixin`)
-- Progress updates via `@on_message(MessageType.WORKER_HEALTH)`
-- Metrics via `@on_message(MessageType.REALTIME_METRICS)`
-- Worker status via `@on_message(MessageType.WORKER_STATUS_SUMMARY)`
-- Uses standard ZMQ addresses: `EVENT_BUS_PROXY_BACKEND` for subscriptions
-
-**Proposed Fix: CLI-Managed UI Lifecycle**
-Move UI lifecycle management from SystemController to CLI orchestrator for clean separation of concerns.
-
-### Proposed Decoupled Architecture
-
-**Clean Component Separation:**
-1. **CLI Orchestrator**: Deployment mode detection, UI lifecycle, user interaction
-2. **Deployment Managers**: Mode-specific deployment logic (Multiprocess vs Kubernetes)
-3. **SystemController**: Pure service orchestration and business logic (enhanced ServiceManager)
-4. **ServiceManager**: Individual service process/pod lifecycle management
-
-## Bootstrap Flow and Service Management
-
-### Multiprocessing Mode Flow (Improved)
-1. **CLI Orchestrator**: Detects multiprocessing mode (default)
-2. **MultiprocessDeploymentManager**: Deploys SystemController as local process (no UI)
-3. **CLI Orchestrator**: Starts UI client locally, connects to SystemController via ZMQ IPC
-4. **SystemController**: Service orchestration using MultiProcessServiceManager
-
-### Kubernetes Mode Flow
-1. **CLI Orchestrator**: Detects Kubernetes mode (`--kubernetes` flag present)
-2. **KubernetesDeploymentManager**: Creates namespace, deploys SystemController pod (no UI)
-3. **CLI Orchestrator**: Starts UI client locally, connects via port-forward to SystemController ZMQ
-4. **SystemController**: Service orchestration using KubernetesServiceManager (same code as multiprocess)
-
-### Key Architectural Improvement
-**Before**: SystemController = monolithic (service management + UI + console output + process lifecycle)
-**After**: Clean layered architecture with focused responsibilities per component
-
-### Communication Architecture
-
-**Both modes use the same communication pattern**: CLI ↔ UI ↔ SystemController via ZMQ
-
-**Multiprocessing Mode:**
-- UI connects to SystemController via ZMQ IPC sockets (local)
-- Same machine, different processes
-
-**Kubernetes Mode:**
-- UI connects to SystemController via ZMQ TCP over port-forward (remote)
-- Different machines, same ZMQ protocol
-
-**Key Insight**: Minimal implementation changes needed since UI already uses ZMQ for all data
-
-### Kubernetes Service Manager
-
-The `KubernetesServiceManager` implements the same `ServiceManagerProtocol` interface as `MultiProcessServiceManager`, but deploys services as Kubernetes pods instead of processes:
-
-**ServiceManagerProtocol Implementation:**
-- `run_service(service_type, num_replicas)`: Deploy service pods using Kubernetes API (instead of spawning processes)
-- `shutdown_all_services()`: Delete all pods (instead of terminating processes)
-- `wait_for_all_services_registration()`: Monitor pod readiness and service registration (same pattern)
+The `KubernetesServiceManager` implements the same `ServiceManagerProtocol` interface as `MultiProcessServiceManager`, but deploys services as Kubernetes pods instead of processes.
 
 **Core Responsibilities:**
-- **Pod Deployment**: Creates Kubernetes pod specifications for each service type
-- **Service Discovery**: Manages Kubernetes services for ZMQ communication endpoints
-- **Resource Lifecycle**: Handles pod deployment, scaling, and cleanup
-- **Same Interface**: SystemController uses identical calls regardless of deployment mode
-
-**Implementation Summary:**
-The `KubernetesServiceManager` follows the same patterns as `MultiProcessServiceManager`:
-- Uses Kubernetes Python client instead of `multiprocessing.Process`
-- Maintains service tracking with pod information instead of process information
-- Same interface allows SystemController to work with either implementation seamlessly
+- Deploy service pods using Kubernetes API
+- Manage Kubernetes services for ZMQ communication endpoints
+- Track pod lifecycle and handle cleanup
+- Same interface as multiprocess mode
 
 ## ZMQ Network Configuration
 
+AIPerf already has ZMQ TCP support. For Kubernetes, the ZMQ host is configured to use the System Controller's Kubernetes service DNS name instead of localhost.
+
 ### Service Exposure
-The system controller pod exposes ZMQ proxy endpoints via Kubernetes services, while other services connect as clients:
+The system controller pod exposes ZMQ proxy endpoints via Kubernetes ClusterIP service:
+
 ```yaml
 # System Controller Service (ZMQ Proxies)
 apiVersion: v1
 kind: Service
 metadata:
   name: aiperf-system-controller
+  namespace: aiperf
 spec:
   selector:
     app: aiperf-system-controller
+  type: ClusterIP
   ports:
-    # Credit distribution (timing manager pushes, workers pull)
+    # Using existing port numbers from ZMQTCPConfig
     - name: credit-drop
       port: 5562
       targetPort: 5562
-    # Credit return (workers push back completed credits)
     - name: credit-return
       port: 5563
       targetPort: 5563
-    # Raw inference proxy frontend (workers push responses)
-    - name: raw-inference-proxy-frontend
-      port: 5665
-      targetPort: 5665
-    # Records collection (record processors push processed data)
     - name: records
       port: 5557
       targetPort: 5557
-    # Event bus proxy frontend (PUB/SUB for coordination)
-    - name: event-bus-proxy-frontend
-      port: 5663
-      targetPort: 5663
-    # Dataset manager proxy frontend (workers request data)
+    # Dataset Manager Proxy
     - name: dataset-manager-proxy-frontend
       port: 5661
       targetPort: 5661
+    - name: dataset-manager-proxy-backend
+      port: 5662
+      targetPort: 5662
+    # Event Bus Proxy
+    - name: event-bus-proxy-frontend
+      port: 5663
+      targetPort: 5663
+    - name: event-bus-proxy-backend
+      port: 5664
+      targetPort: 5664
+    # Raw Inference Proxy
+    - name: raw-inference-proxy-frontend
+      port: 5665
+      targetPort: 5665
+    - name: raw-inference-proxy-backend
+      port: 5666
+      targetPort: 5666
 ```
 
 ### Connection Configuration
-Service pods use Kubernetes DNS for service discovery to connect to system controller proxies:
-```python
-# Service discovery configuration for accessing ZMQ proxies
-SYSTEM_CONTROLLER_SERVICE = "aiperf-system-controller.aiperf-benchmarks.svc.cluster.local"
+Service pods use Kubernetes DNS to connect to the System Controller service (e.g., `aiperf-system-controller.aiperf.svc.cluster.local`) for all ZMQ communication.
 
-# ZMQ endpoint configuration using actual CommAddress mappings
-CREDIT_DROP_ENDPOINT = f"tcp://{SYSTEM_CONTROLLER_SERVICE}:5562"
-CREDIT_RETURN_ENDPOINT = f"tcp://{SYSTEM_CONTROLLER_SERVICE}:5563"
-RAW_INFERENCE_PROXY_FRONTEND = f"tcp://{SYSTEM_CONTROLLER_SERVICE}:5665"
-RECORDS_ENDPOINT = f"tcp://{SYSTEM_CONTROLLER_SERVICE}:5557"
-EVENT_BUS_PROXY_FRONTEND = f"tcp://{SYSTEM_CONTROLLER_SERVICE}:5663"
-DATASET_MANAGER_PROXY_FRONTEND = f"tcp://{SYSTEM_CONTROLLER_SERVICE}:5661"
+## CLI Orchestration and RBAC
 
-# Services connect as clients to these proxy endpoints
-# Workers: connect to CREDIT_DROP (pull), CREDIT_RETURN (push), RAW_INFERENCE_PROXY_FRONTEND (push)
-# Record Processors: connect to RAW_INFERENCE_PROXY_BACKEND (pull), RECORDS (push)
-# All Services: connect to EVENT_BUS_PROXY (pub/sub for coordination)
-```
+The AIPerf CLI uses the Kubernetes Python API for all cluster operations:
+1. Creating namespace and RBAC resources via API
+2. Deploying System Controller pod with benchmark configuration via API
+3. Monitoring benchmark progress and streaming logs via API and ZMQ TCP
+4. Retrieving results from Records Manager pod via API
+5. Cleaning up all resources on completion via API
 
-## CLI App Responsibilities
-
-The AIPerf CLI app running on the user's local machine has specific responsibilities in the Kubernetes deployment flow:
-
-### Bootstrap Responsibilities
-1. **Initial Setup**: Create namespace, RBAC resources, and ConfigMaps with benchmark configuration
-2. **System Controller Deployment**: Deploy the System Controller pod with complete benchmark parameters
-3. **Monitoring**: Track benchmark progress via Kubernetes API (pod status, logs, annotations)
-4. **Artifact Retrieval**: Copy results from Records Manager pod back to local filesystem after completion
-5. **Cleanup Coordination**: Ensure all cluster resources are removed when benchmark ends
-
-### Unified Communication Architecture
-
-**SystemController Interface**: Both deployment modes expose the same interface
-- **Control Plane**: Start/stop/configure benchmark operations
-- **Data Plane**: Real-time metrics, progress updates, log streaming
-- **Status Plane**: Health checks, service discovery, error reporting
-
-**Connection Protocols**:
-- **Multiprocessing**: Local ZMQ IPC sockets (current implementation)
-- **Kubernetes**: ZMQ TCP over port-forward to EVENT_BUS_PROXY_BACKEND
-- **Fallback**: Polling mode via Kubernetes API for basic monitoring
-
-**Key Insight: Minimal Changes Required**
-The UI is already decoupled via ZMQ message subscriptions. For Kubernetes mode:
-1. SystemController pod exposes ZMQ EVENT_BUS_PROXY_BACKEND on a TCP port
-2. CLI establishes port-forward to that ZMQ port
-3. UI connects to localhost ZMQ port (same as current IPC, but TCP)
-4. All existing `@on_message` handlers work unchanged
-
-
-**Improved Architecture Components**:
-
-```python
-# CLI Orchestrator - manages both deployment and UI
-class AIPerfCLI:
-    def run_benchmark(self, config):
-        # 1. Deploy SystemController (no UI)
-        deployment_manager = self._get_deployment_manager()
-        controller_endpoint = deployment_manager.deploy_system_controller(config)
-
-        # 2. Start UI locally if requested
-        if config.ui_type == UIType.DASHBOARD:
-            ui_client = self._create_ui_client(controller_endpoint)
-            ui_task = asyncio.create_task(ui_client.run_dashboard())
-
-        # 3. Wait for completion
-        try:
-            return await deployment_manager.wait_for_completion()
-        finally:
-            if ui_task:
-                ui_task.cancel()
-
-# SystemController - pure business logic, no UI
-class SystemController:
-    def __init__(self, service_manager: ServiceManagerProtocol):
-        self.service_manager = service_manager  # Multiprocess or Kubernetes
-        # NO UI COMPONENTS - just ZMQ event bus for data publishing
-
-    def start_benchmark(self, config):
-        # Pure benchmark execution logic
-        # Publishes progress via ZMQ EVENT_BUS
-        pass
-
-# UI Client - always runs locally, connects to remote SystemController
-class UIClient:
-    def __init__(self, zmq_endpoint: str):
-        self.zmq_endpoint = zmq_endpoint  # IPC or TCP via port-forward
-
-    async def run_dashboard(self):
-        # Connect to SystemController's ZMQ EVENT_BUS
-        # Run Textual dashboard locally
-        # Handle user interactions (quit sends ZMQ command)
-        pass
-```
-
-### Benefits of Decoupled Architecture
-
-**1. Clean Separation of Concerns**
-- **SystemController**: Pure benchmark execution, no UI coupling
-- **CLI**: Manages deployment orchestration AND user interface
-- **UI**: Always runs locally where user is, regardless of SystemController location
-
-**2. Consistent User Experience**
-- UI always runs on user's machine (responsive, local interactions)
-- Same dashboard experience for both multiprocessing and Kubernetes
-- No network latency for UI interactions (scrolling, panel switching)
-
-**3. Simplified SystemController**
-- No UI lifecycle management complexity
-- Same code for both deployment modes
-- Easier to containerize (no UI dependencies)
-- Better resource usage (no UI overhead in pods)
-
-**4. Flexible Architecture**
-- UI can connect to local or remote SystemController transparently
-- Multiple UI clients can connect simultaneously
-- Easy to add new deployment modes without affecting UI
-- SystemController can run headless for automation/CI
-
-**5. Robust Connection Handling**
-- UI can reconnect if connection drops
-- SystemController continues running even if UI disconnects
-- CLI manages both deployment lifecycle AND UI lifecycle
-
-### Implementation Strategy
-
-## SystemController Analysis: What Stays vs What Goes
-
-### Current SystemController Responsibilities Analysis
-
-**1. Service Orchestration & Lifecycle (STAYS - Core Business Logic)**
-- ✅ **ProxyManager**: ZMQ proxy management for inter-service communication
-- ✅ **ServiceManager**: Manages other service lifecycles (dataset, timing, workers, etc.)
-- ✅ **Service Registration**: Handles `RegisterServiceCommand` from services
-- ✅ **Service Coordination**: `ProfileConfigureCommand`, `ProfileStartCommand` orchestration
-- ✅ **Worker Scaling**: `SpawnWorkersCommand`, `ShutdownWorkersCommand` handling
-- ✅ **Message Processing**: Heartbeats, status updates, command responses
-- ✅ **Signal Handling**: Graceful shutdown on SIGINT/SIGTERM
-
-**2. Results Processing & Export (STAYS - Business Logic)**
-- ✅ **Results Collection**: `ProcessRecordsResultMessage` handling
-- ✅ **Data Export**: `ExporterManager` for CSV/JSON file generation
-- ✅ **Metrics Processing**: Real-time metrics coordination
-
-**3. UI Management (MOVES TO CLI - Presentation Layer)**
-- ❌ **UI Instantiation**: `AIPerfUIFactory.create_instance()` → CLI responsibility
-- ❌ **UI Lifecycle**: `self.attach_child_lifecycle(self.ui)` → CLI manages
-- ❌ **Console Output**: `_print_post_benchmark_info_and_metrics()` → CLI shows results
-
-**4. Process Management (CONTEXT-DEPENDENT)**
-- ❌ **Process Exit**: `os._exit(0)` → CLI handles process lifecycle
-- ❌ **Signal Setup**: `self.setup_signal_handlers()` → CLI handles in Kubernetes mode
-
-### Proposed Refactored Architecture
-
-**SystemController Becomes Pure Service Orchestrator:**
-```python
-class SystemController(BaseService):
-    def __init__(self, service_manager: ServiceManagerProtocol, ...):
-        # NO UI COMPONENTS
-        self.service_manager = service_manager  # Injected by CLI
-        self.proxy_manager = ProxyManager(...)
-        # NO signal handlers (handled by deployment manager)
-
-    # KEEPS: All service coordination logic
-    # KEEPS: All business logic and message handling
-    # KEEPS: Results processing and export
-    # REMOVES: UI management, console output, process exit
-```
-
-**CLI Orchestrator Manages Everything Else:**
-```python
-class AIPerfCLI:
-    def run_benchmark(self, config):
-        # 1. Choose deployment strategy
-        deployment_manager = self._get_deployment_manager(config)
-
-        # 2. Deploy SystemController (pure business logic)
-        controller_endpoint = deployment_manager.deploy_system_controller(config)
-
-        # 3. Start UI locally if requested
-        if config.ui_type == UIType.DASHBOARD:
-            ui_task = self._start_ui_client(controller_endpoint)
-
-        # 4. Wait for completion and handle results
-        results = await deployment_manager.wait_for_completion()
-        await self._display_final_results(results)  # Console output moves here
-
-        # 5. Cleanup
-        await deployment_manager.cleanup()
-```
-
-### Key Insight: SystemController ≈ Enhanced Service Manager
-
-You're absolutely right! The SystemController is evolving to become more like the ServiceManager classes, but with additional responsibilities:
-
-**ServiceManager (Base)**: Manages service processes/pods
-**SystemController (Enhanced)**: ServiceManager + business logic coordination
-
-**Comparison:**
-```python
-# MultiProcessServiceManager
-- run_service() -> starts processes
-- stop_service() -> stops processes
-- wait_for_registration() -> waits for startup
-
-# SystemController (New Role)
-- run_service() -> delegates to ServiceManager
-- coordinate_services() -> sends ProfileConfigure/Start commands
-- handle_service_messages() -> processes heartbeats, status, results
-- manage_proxies() -> handles ZMQ communication infrastructure
-```
-
-### Implementation Strategy
-
-**Phase 1: Extract UI and Console Output**
-- Move UI instantiation from SystemController to CLI orchestrator
-- Move `_print_post_benchmark_info_and_metrics()` to CLI
-- SystemController focuses purely on service coordination
-
-**Phase 2: Extract Process Management**
-- Remove `os._exit(0)` from SystemController
-- CLI handles process lifecycle in multiprocessing mode
-- Deployment managers handle container lifecycle in Kubernetes mode
-
-**Phase 3: Inject Dependencies**
-- SystemController receives ServiceManager via dependency injection
-- Same SystemController code works with MultiProcessServiceManager or KubernetesServiceManager
-- Clean separation of orchestration logic from deployment strategy
-
-## Summary: SystemController Evolution
-
-**Current State**: Monolithic orchestrator handling everything
-- Service management + UI + console output + process lifecycle + business logic
-
-**Future State**: Pure service orchestration layer
-- **SystemController**: Service coordination + business logic (enhanced ServiceManager)
-- **CLI**: Deployment orchestration + UI + user interaction
-- **Deployment Managers**: Process/pod lifecycle management
-
-**Key Benefits:**
-1. **Same SystemController Code**: Works identically in multiprocess and Kubernetes modes
-2. **Clean Layering**: Business logic separate from deployment and presentation concerns
-3. **Easier Testing**: SystemController can be tested independently of deployment mode
-4. **Better Containerization**: No UI dependencies in SystemController container
-5. **Flexible UI**: UI always runs locally, can connect to SystemController anywhere
-
-**Architecture Layers:**
-```
-┌─────────────────────────────────────────────────────┐
-│ CLI Orchestrator                                    │
-│ - Deployment mode detection                         │
-│ - UI lifecycle management                           │
-│ - Results display                                   │
-│ - User interaction handling                         │
-└─────────────────────────────────────────────────────┘
-                          │
-                          ▼
-┌─────────────────────────────────────────────────────┐
-│ Deployment Manager (Multiprocess/Kubernetes)       │
-│ - SystemController deployment                       │
-│ - Process/pod lifecycle                            │
-│ - Resource management                               │
-└─────────────────────────────────────────────────────┘
-                          │
-                          ▼
-┌─────────────────────────────────────────────────────┐
-│ SystemController (Pure Business Logic)             │
-│ - Service coordination                              │
-│ - ZMQ proxy management                              │
-│ - Message processing                                │
-│ - Results collection & export                       │
-└─────────────────────────────────────────────────────┘
-                          │
-                          ▼
-┌─────────────────────────────────────────────────────┐
-│ ServiceManager (Process/Pod Management)            │
-│ - Individual service lifecycle                      │
-│ - Service registration tracking                     │
-│ - Resource allocation                               │
-└─────────────────────────────────────────────────────┘
-```
-
-This evolution makes the SystemController much more focused and reusable across different deployment contexts.
-
-**Phase 2: Add TCP Transport Support**
-- Add TCP transport option for EVENT_BUS_PROXY_BACKEND (currently only IPC)
-- CLI detects deployment mode and configures UI connection accordingly
-- Zero changes to existing `@on_message` handlers or UI components
-
-**Phase 3: Create Deployment Managers**
-- Extract multiprocessing deployment logic to `MultiprocessDeploymentManager`
-- Implement `KubernetesDeploymentManager` for pod orchestration
-- CLI orchestrator manages both SystemController deployment AND UI lifecycle
-
-### RBAC and Resource Management
-The CLI app creates the initial Kubernetes resources programmatically through the Kubernetes API:
-
-#### RBAC Resource Creation
+### RBAC Resource Creation
 ```python
 # ServiceAccount for AIPerf operations
 service_account = {
@@ -631,36 +316,44 @@ cluster_role_binding = {
 }
 ```
 
-#### Direct API vs YAML File Usage
-The CLI app **MUST** use the Kubernetes Python client to create resources programmatically rather than generating YAML files:
+#### Implementation Approach
+The CLI uses the Kubernetes Python client to create all resources programmatically via the API. The client automatically uses the kubeconfig file (`~/.kube/config` by default) for authentication and cluster access.
 
-**Direct API Approach:**
-The CLI app will use the Kubernetes Python client to create resources programmatically. The client will automatically use the standard kubeconfig file (`~/.kube/config`) or in-cluster configuration if running inside a Kubernetes pod.
+## Dataset Distribution Strategy
 
+### Dataset Upload to Cluster
 
-#### Resource Lifecycle Management
-The CLI manages the initial bootstrap resources, while the System Controller pod manages all service-specific resources:
+The CLI transfers dataset files to the cluster using one of these approaches:
 
-**CLI Responsibilities:**
-- Create/delete namespace
-- Setup/cleanup RBAC resources
-- Deploy/remove System Controller pod
-- Create initial ConfigMaps with benchmark configuration
+1. **File-based Datasets**: Streamed to DatasetManager or System Controller pod via Kubernetes API (file upload)
+2. **Public Datasets**: DatasetManager downloads directly from URL (no upload needed)
+3. **Synthetic Datasets**: DatasetManager generates synthetic conversations
 
-**System Controller Pod Responsibilities:**
-- Deploy all service pods (workers, record processors, etc.)
-- Manage pod scaling and lifecycle
-- Handle service-to-service communication setup
-- Coordinate benchmark execution and results collection
+The implementation will determine the optimal transfer method based on dataset size and type.
+
+### Dataset Distribution to Workers
+
+**Current Challenge:**
+- DatasetManager distributes conversations to worker pods via ZMQ DEALER/ROUTER
+- High request volume could create bottleneck at DatasetManager
+- ZMQ request/reply latency scales with worker count
+
+**Optimization Strategies (To Be Evaluated):**
+
+1. **Worker-Side Caching/Pre-Fetching**: Workers pre-fetch and cache conversations, request new ones less frequently
+2. **Batch Distribution**: DatasetManager sends batches of conversations per request instead of one-at-a-time
+3. **Multiple DatasetManager Replicas**: Scale DatasetManager horizontally with dataset sharding
+4. **Redis Cache**: DatasetManager caches conversations in Redis for workers to fetch
+5. **Shared Volumes**: DatasetManager mounts shared volumes to worker pods for dataset distribution
+
+**MVP Approach:**
+- Single DatasetManager pod with in-memory dataset
+- Workers request conversations via ZMQ DEALER/ROUTER as needed
+- Performance testing will determine if optimization is needed for high worker counts
 
 ## Configuration Management
 
 ### CLI Parameters
-
-**Current Implementation**: The `service_run_type` parameter is currently disabled in CLI via `DisableCLI(reason="Only single support for now")` and defaults to `ServiceRunType.MULTIPROCESSING`.
-
-**Simplified Deployment Mode Detection**: The system will automatically detect Kubernetes deployment mode when the `--kubernetes` flag is provided.
-
 **Kubernetes Deployment Parameters**:
 - `--kubernetes`: Enable Kubernetes deployment mode
 - `--kubernetes-namespace`: Target Kubernetes namespace (optional, defaults to auto-generated namespace)
@@ -672,188 +365,115 @@ The CLI manages the initial bootstrap resources, while the System Controller pod
 - Auto-generated namespaces are automatically cleaned up after benchmark completion
 
 **Existing Parameters (Work with Both Deployment Modes)**:
-- `--record-processor-service-count`: Controls record processor scaling
+- `--record-processors`: Controls record processor scaling
 - `--workers-max` / `--max-workers`: Controls worker scaling
-
-### Environment Variable Injection
-Configuration is passed to pods via environment variables and ConfigMaps:
-```yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: aiperf-config
-data:
-  target_url: "http://inference-service:8080"
-  benchmark_duration: "300"
-  # ... other AIPerf configuration
-```
-
-## Basic Security
-
-AIPerf follows basic Kubernetes security practices without unnecessary complexity:
-
-### Simple RBAC
-```yaml
-# Basic permissions for AIPerf operations
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: aiperf-operator
-rules:
-- apiGroups: [""]
-  resources: ["pods", "services", "configmaps"]
-  verbs: ["create", "get", "list", "watch", "delete"]
-- apiGroups: ["apps"]
-  resources: ["deployments"]
-  verbs: ["create", "get", "list", "watch", "delete"]
-```
-
-### Pod Security (Basic)
-```yaml
-# Simple non-root execution
-apiVersion: v1
-kind: Pod
-spec:
-  securityContext:
-    runAsNonRoot: true
-    runAsUser: 1000
-  containers:
-  - name: aiperf-worker
-    securityContext:
-      allowPrivilegeEscalation: false
-```
-
-**Security Philosophy**:
-- Keep it simple and functional
-- Basic non-root execution
-- Standard Kubernetes RBAC
-- No complex network policies by default
-- Focus on performance over paranoid security
-
 
 ## Container Images
 
-### Container Image
-A single container image will support all AIPerf service modes. Service mode will be determined by environment variables passed to the pod, leveraging the existing `ServiceFactory` to instantiate the appropriate service class.
-
-## UI Dashboard Architecture
-
-### UI Architecture Solution
-
-**Current Challenge**: UI is instantiated inside SystemController, creating tight coupling between business logic and presentation layer.
-
-**Solution**: Move UI to CLI orchestrator, connect via existing ZMQ infrastructure.
-
-**Implementation**:
-- UI already receives all data via ZMQ (`@on_message` decorators on `MessageBusClientMixin`)
-- Only change needed: UI connects to ZMQ TCP instead of IPC when in Kubernetes mode
-- Same Textual dashboard, same user experience, same keyboard shortcuts
-
-### Technical Implementation
-
-**ZMQ Connection Pattern:**
-- **Multiprocessing**: UI connects to `EVENT_BUS_PROXY_BACKEND` via IPC socket
-- **Kubernetes**: UI connects to `EVENT_BUS_PROXY_BACKEND` via TCP socket over port-forward
-- **Same Protocol**: All `@on_message` handlers work identically
-
-**User Experience:**
-- Same command: `aiperf profile --kubernetes --concurrency 1M`
-- Same dashboard: Identical Textual UI with all features
-- Same interactions: All keyboard shortcuts and navigation work normally
-
-**Connection Details:**
-- CLI automatically establishes port-forward to SystemController pod's ZMQ port
-- UI connects to localhost ZMQ TCP port (transparent to user)
-- Terminal size, mouse events, and keyboard input handled locally (no network latency)
-
-
-### User Interaction Handling
-
-**Local UI Interactions (No Changes):**
-- All view controls, navigation, and screenshots work locally
-- No network communication required for UI state changes
-- Identical user experience to multiprocessing mode
-
-**Process Control via ZMQ Commands:**
-- Quit action (Ctrl+C) sends `ShutdownCommand` via ZMQ instead of SIGINT
-- CLI monitors for shutdown commands and handles cleanup
-- Graceful termination of SystemController pod
-
+A single container image supports all AIPerf service modes. Service type is determined by environment variables passed to the pod, using the existing code to instantiate the appropriate service class.
 
 ## Artifact and Export File Retrieval
 
-AIPerf generates output files including metrics exports (JSON, CSV) and logs that users need to access after benchmark completion. In the Kubernetes deployment, these files are generated by the Records Manager pod and must be retrieved to the user's local filesystem.
+AIPerf generates output files including metrics exports (JSON, CSV) and logs that users need to access after benchmark completion. In the Kubernetes deployment, these files are generated by the Records Manager pod and must be retrieved to the user's local filesystem via the Kubernetes Python API.
 
 ### Basic Approach
 
 The Records Manager pod acts as the central collection point for all benchmark artifacts. It receives processed metrics from distributed pods and generates the final export files in its local artifact directory using the existing AIPerf exporters.
 
-After benchmark completion, AIPerf will automatically copy all artifact files from the Records Manager pod to the user's local filesystem using the Kubernetes API in Python. This preserves the standard AIPerf directory structure and provides users with the same export files they would receive from a single-node deployment.
+After benchmark completion, AIPerf automatically retrieves all artifact files from the Records Manager pod to the user's local filesystem using the Kubernetes Python API. This preserves the standard AIPerf directory structure and provides users with the same export files they would receive from a single-node deployment.
 
 Once files are successfully retrieved, all Kubernetes pods are automatically cleaned up to minimize cluster resource usage.
 
-### **Deferred to Implementation**
-- **Optimal ZMQ port allocation strategy**: Determine whether to use fixed ports or dynamic port allocation with service discovery
-- **Pod anti-affinity rules**: Decide on pod placement strategies to optimize network performance and resource distribution
-- **Persistent volume integration**: Define strategy for sharing dataset files and result artifacts across pods
-- **Custom Resource Definition (CRD)**: Evaluate whether to implement a native Kubernetes CRD for BenchmarkJob resources
-- **Graceful shutdown handling**: Implementation details for clean termination of distributed benchmark runs
-- **Metric aggregation optimization**: Determine optimal batching and streaming strategies for high-volume metrics collection
-- **ConfigMap vs Secret usage**: Define strategy for sensitive configuration data (API keys, certificates) vs regular config
+# Implementation Plan
 
-# Implementation Phases
+## MVP Scope
 
-## Phase 0 Kubernetes Integration (MVP)
+**Success Criteria:**
+- Sustain 100K concurrent connections for 5+ minutes
+- Results match single-node quality (±5% variance)
+- Complete artifact retrieval in <60 seconds
+- Successful cleanup of all resources
+- Zero manual intervention required for happy path
 
-**Release Target**: Q1 2026
+**Main Components:**
+1. Implement `KubernetesServiceManager` (create pods via Kubernetes API instead of processes)
+2. CLI Kubernetes mode (namespace creation, pod deployment, monitoring via API)
+3. Configuration serialization (pass config to pods via ConfigMap/env vars)
+4. Artifact retrieval (stream results from pods to local via Kubernetes API)
 
-**Effort Estimate**: 6-8 weeks, 2 engineers
+# Architecture Diagram (MVP)
 
-**Focus**: Get 1M+ concurrency working with simple, reliable deployment
-
-**Core Features:**
-
-* ✅ CLI deployment with automatic Kubernetes mode detection
-* ✅ Worker pod scaling based on concurrency target
-* ✅ ZMQ communication across pod boundaries
-* ✅ **Same dashboard UI experience** (runs locally, connects via ZMQ)
-* ✅ Automatic cleanup after test completion
-* ✅ Basic RBAC security
-
-# Related Proposals
-
-N/A - This is the initial proposal for Kubernetes deployment support in AIPerf.
+```
+┌──────────────────────────────────────────────────────────────────┐
+│ User's Local Machine                                             │
+│                                                                  │
+│  ┌────────────────────────────────────────────────────────────┐  │
+│  │ AIPerf CLI (Python)                                        │  │
+│  │  - Reads ~/.kube/config                                    │  │
+│  │  - Creates namespace, RBAC, ConfigMap via K8s API          │  │
+│  │  - Deploys System Controller pod via K8s API               │  │
+│  │  - Monitors via Kubernetes API and ZMQ TCP                 │  │
+│  │  - Retrieves results via Kubernetes API                    │  │
+│  └────────────────────────────────────────────────────────────┘  │
+│                              │                                   │
+│                              │ Kubernetes Python API             │
+└──────────────────────────────┼───────────────────────────────────┘
+                               │
+                               ▼
+┌──────────────────────────────────────────────────────────────────┐
+│ Kubernetes Cluster (aiperf-<timestamp> namespace)                │
+│                                                                  │
+│  ┌────────────────────────────────────────────────────────────┐  │
+│  │ System Controller Pod                                      │  │
+│  │  - Runs ProxyManager (ZMQ proxies)                         │  │
+│  │  - Runs KubernetesServiceManager                           │  │
+│  │  - Exposes ZMQ ports via Service (5557, 5562, 5563...)     │  │
+│  └────────────────────────────────────────────────────────────┘  │
+│                              │                                   │
+│              ┌───────────────┼───────────────┐                   │
+│              │               │               │                   │
+│              ▼               ▼               ▼                   │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐              │
+│  │ Dataset Mgr  │ │ Timing Mgr   │ │ Records Mgr  │              │
+│  │ Pod          │ │ Pod          │ │ Pod          │              │
+│  │ - DEALER/    │ │ - Issues     │ │ - Aggregates │              │
+│  │   ROUTER     │ │   credits    │ │   metrics    │              │
+│  │   via ZMQ    │ │ - PUSH/PULL  │ │ - PUSH/PULL  │              │
+│  └──────────────┘ └──────────────┘ └──────────────┘              │
+│                              │                                   │
+│              ┌───────────────┼───────────────┐                   │
+│              ▼               ▼               ▼                   │
+│  ┌──────────────────────────────────────────────────────────┐    │
+│  │ Worker Pods (200 replicas for 100K concurrency)          │    │
+│  │  - Pull credits from TimingManager                       │    │
+│  │  - Request conversations from DatasetManager             │    │
+│  │  - Make HTTP requests to target inference service        │    │
+│  │  - Push raw results to RecordProcessors                  │    │
+│  │  - Each handles 500 concurrent connections               │    │
+│  └──────────────────────────────────────────────────────────┘    │
+│                              │                                   │
+│                              ▼                                   │
+│  ┌──────────────────────────────────────────────────────────┐    │
+│  │ Target Inference Service (user's LLM endpoint)           │    │
+│  │  - Receives HTTP requests from 200 worker pods           │    │
+│  │  - Returns streaming or non-streaming responses          │    │
+│  └──────────────────────────────────────────────────────────┘    │
+│                              │                                   │
+│                              ▼                                   │
+│  ┌──────────────────────────────────────────────────────────┐    │
+│  │ Record Processor Pods (50 replicas)                      │    │
+│  │  - Pull raw results from workers                         │    │
+│  │  - Tokenize requests/responses                           │    │
+│  │  - Calculate metrics                                     │    │
+│  │  - Push to RecordsManager                                │    │
+│  └──────────────────────────────────────────────────────────┘    │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+```
 
 # Alternate Solutions
 
-## Alt 1 Single Monolithic Pod Deployment
-
-**Pros:**
-
-* Simpler deployment model with fewer moving parts
-* Easier debugging and troubleshooting with all services in one place
-* Reduced network complexity as all communication remains local
-* Lower resource overhead from avoiding inter-pod communication
-
-**Cons:**
-
-* Limited scalability as all services share the same resource constraints
-* Difficult to scale individual services (workers, record processors) independently
-* Higher memory usage per pod due to co-location of all services
-* Reduced fault tolerance as single pod failure affects entire benchmark
-
-**Reason Rejected:**
-
-* Does not address the core requirement of generating high concurrency loads beyond single-node limits
-* Cannot overcome connection limitations imposed by `AIPERF_HTTP_CONNECTION_LIMIT` configuration
-* Prevents independent scaling of worker services which is essential for distributed load generation
-* Conflicts with the architectural decision to adopt true per-service pod architecture for maximum flexibility
-
-**Notes:**
-
-This approach is similar to the current single-node deployment but containerized for Kubernetes. While simpler, it fails to leverage the primary benefits of distributed deployment.
-
-## Alt 2 Hybrid Co-location Approach
+## Hybrid Co-location Approach
 
 **Pros:**
 
@@ -875,7 +495,7 @@ This approach is similar to the current single-node deployment but containerized
 * Resource requirements for singleton services are sufficiently small that co-location benefits are minimal
 * Consistency of having all services in individual pods simplifies architecture
 
-## Alt 3 Kubernetes Job-Based Deployment Only
+## Kubernetes Job-Based Deployment Only
 
 **Pros:**
 
@@ -897,11 +517,8 @@ This approach is similar to the current single-node deployment but containerized
 * Constraints of Kubernetes job model may limit AIPerf's coordination capabilities
 * Decision made to support CLI-driven deployment as primary interface
 
-**Notes:**
 
-Job-based deployment provides excellent CI/CD integration but limits real-time interaction capabilities.
-
-## Alt 4 External Orchestrator with Helm Charts
+## External Orchestrator with Helm Charts
 
 **Pros:**
 
@@ -923,15 +540,9 @@ Job-based deployment provides excellent CI/CD integration but limits real-time i
 * Adds complexity without addressing core scaling requirements
 * Direct API approach provides more control over resource lifecycle management
 
-**Notes:**
-
-Helm charts could be provided as an optional deployment method in future releases.
-
 # Background
 
 AIPerf is NVIDIA's AI inference performance benchmarking tool designed to validate and stress-test AI inference services. The current implementation uses a multi-service architecture where services communicate via ZeroMQ (ZMQ) message passing. Services include the system controller (orchestration), dataset manager (data loading), timing manager (request rate control), workers (request execution), and record processors (response processing and metrics).
-
-The single-node limitation has become a significant constraint as AI inference workloads scale to production-level concurrency volumes. A fundamental bottleneck is the exhaustion of ephemeral ports on a single system, which limits concurrent TCP connections to approximately 65,535 ports per node (practical limit ~63,500). Modern AI inference services require validation against concurrent loads exceeding 100,000 simultaneous connections, particularly for large language models and computer vision services deployed in production environments.
 
 ## References
 
@@ -943,20 +554,12 @@ The single-node limitation has become a significant constraint as AI inference w
 
 | Term | Definition |
 | :---- | :---- |
-| **Credit** | Token representing a single inference request to be executed by a worker |
-| **Ephemeral Port** | Temporary port assigned by the OS for outbound connections, limited to ~65,535 per node |
-| **Per-Service Pod** | Architecture where each AIPerf service runs in its own dedicated Kubernetes pod |
-| **Record Processor** | AIPerf service responsible for response tokenization and initial metrics processing |
-| **Service Pod** | Kubernetes pod containing a single AIPerf service instance |
+| **Credit** | Token representing a single-turn or multi-turn conversation to be executed by a worker |
+| **Ephemeral Port** | Temporary port assigned by the OS for outbound connections, limited to ~65k per node |
 | **ZMQ Proxy** | Service that routes messages between distributed ZeroMQ clients using various patterns |
 
 ## Acronyms & Abbreviations
 
-**CRD:** Custom Resource Definition
-**HPA:** Horizontal Pod Autoscaler
-**mTLS:** Mutual Transport Layer Security
-**NUMA:** Non-Uniform Memory Access
-**RBAC:** Role-Based Access Control
-**SR-IOV:** Single Root I/O Virtualization
-**VPA:** Vertical Pod Autoscaler
-**ZMQ:** ZeroMQ
+- **CRD:** Custom Resource Definition
+- **RBAC:** Role-Based Access Control
+- **ZMQ:** ZeroMQ Messaging Protocol
