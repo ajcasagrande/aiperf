@@ -31,7 +31,7 @@ class ServiceConfig(BaseSettings):
     """Base configuration for all services. It will be provided to all services during their __init__ function."""
 
     model_config = SettingsConfigDict(
-        env_prefix="AIPERF_",
+        env_prefix="AIPERF_SERVICE_",
         env_file=".env",
         env_file_encoding="utf-8",
         extra="allow",

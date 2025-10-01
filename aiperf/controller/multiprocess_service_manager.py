@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
 import os
-import sys
+import tempfile
 import uuid
 from pathlib import Path
 
@@ -12,6 +12,7 @@ from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.constants import (
     DEFAULT_SERVICE_REGISTRATION_TIMEOUT,
     DEFAULT_SERVICE_START_TIMEOUT,
+    MILLIS_PER_SECOND,
     TASK_CANCEL_TIMEOUT_SHORT,
 )
 from aiperf.common.decorators import implements_protocol
@@ -42,6 +43,14 @@ class AsyncSubprocessRunInfo(BaseModel):
         ...,
         description="ID of the service running in the subprocess",
     )
+    user_config_file: Path | None = Field(
+        default=None,
+        description="Path to the temporary user config file",
+    )
+    service_config_file: Path | None = Field(
+        default=None,
+        description="Path to the temporary service config file",
+    )
 
 
 @implements_protocol(ServiceManagerProtocol)
@@ -65,21 +74,8 @@ class MultiProcessServiceManager(BaseServiceManager, MessageBusClientMixin):
             id="multiprocess_service_manager",
             **kwargs,
         )
-        self.subprocess_info: list[AsyncSubprocessRunInfo] = []
-
-    def _get_service_module_path(self, service_type: ServiceTypeT) -> str:
-        """Get the module path for a service type from the registered factory."""
-        try:
-            # Get the service class from the factory
-            from aiperf.common.factories import ServiceFactory
-
-            service_class = ServiceFactory.get_class_from_type(service_type)
-            # Return the full module path where the service class is defined
-            return service_class.__module__
-        except Exception as e:
-            raise ValueError(
-                f"Failed to get module path for service type {service_type}: {e}"
-            ) from e
+        self.subprocess_info_map: dict[str, AsyncSubprocessRunInfo] = {}
+        self.subprocess_map_lock = asyncio.Lock()
 
     async def _run_service_replica(
         self,
@@ -91,45 +87,70 @@ class MultiProcessServiceManager(BaseServiceManager, MessageBusClientMixin):
         current_dir: Path,
     ) -> None:
         """Run a service replica with the given service id."""
-        # Create subprocess arguments using cli runner
-        service_module = self._get_service_module_path(service_type)
-        args = [
-            sys.executable,
-            "-m",
-            service_module,
-            service_config_json,
-            user_config_json,
-            "--service-id",
-            service_id,
-            "--use-structured-logging",
-        ]
-
-        self.debug(
-            lambda args=args: f"Starting subprocess for {service_type} with command: {' '.join(args[:3])} ..."
-        )
-
-        process = await asyncio.create_subprocess_exec(
-            *args,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            env=env,
-            cwd=current_dir,
-        )
-
-        self.info(f"Service {service_id} started as subprocess (PID: {process.pid})")
-
         info = AsyncSubprocessRunInfo(
-            process=process,
             service_type=service_type,
             service_id=service_id,
         )
-        self.subprocess_info.append(info)
+        async with self.subprocess_map_lock:
+            self.subprocess_info_map[service_id] = info
 
-        self.execute_async(self._watch_subprocess(info))
-        self.execute_async(self._handle_subprocess_output(process, service_id))
-        # Yield to the event loop to ensure the scheduled tasks are ran, and allow a slight
-        # delay between subsequent service starts
-        await yield_to_event_loop()
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                suffix=".json",
+                prefix=f"aiperf_user_config_{service_id}_",
+                delete=False,
+            ) as user_config_file:
+                user_config_file.write(user_config_json)
+                info.user_config_file = Path(user_config_file.name)
+
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                suffix=".json",
+                prefix=f"aiperf_service_config_{service_id}_",
+                delete=False,
+            ) as service_config_file:
+                service_config_file.write(service_config_json)
+                info.service_config_file = Path(service_config_file.name)
+
+            args = [
+                "aiperf",
+                "service",
+                service_type,
+                "--user-config-file",
+                str(info.user_config_file),
+                "--service-config-file",
+                str(info.service_config_file),
+                "--service-id",
+                service_id,
+            ]
+
+            self.debug(
+                lambda args=args: f"Starting subprocess for {service_type} with command: {' '.join(args[:3])} ..."
+            )
+
+            info.process = await asyncio.create_subprocess_exec(
+                *args,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                env=env,
+                cwd=current_dir,
+            )
+
+            self.info(
+                f"Service {service_id} started as subprocess (PID: {info.process.pid})"
+            )
+
+            self.execute_async(self._watch_subprocess(info))
+            self.execute_async(self._handle_subprocess_output(info.process, service_id))
+            await yield_to_event_loop()
+
+        except Exception:
+            if info.user_config_file and info.user_config_file.exists():
+                info.user_config_file.unlink(missing_ok=True)
+            if info.service_config_file and info.service_config_file.exists():
+                info.service_config_file.unlink(missing_ok=True)
+            raise
 
     async def run_service(
         self, service_type: ServiceTypeT, num_replicas: int = 1
@@ -150,6 +171,9 @@ class MultiProcessServiceManager(BaseServiceManager, MessageBusClientMixin):
             env["PYTHONPATH"] = f"{current_dir}:{python_path}"
         else:
             env["PYTHONPATH"] = str(current_dir)
+
+        # Ensure structured logging is enabled for subprocesses
+        env["AIPERF_STRUCTURED_LOGGING"] = "true"
 
         for _ in range(num_replicas):
             service_id = f"{service_type}_{uuid.uuid4().hex[:8]}"
@@ -176,16 +200,22 @@ class MultiProcessServiceManager(BaseServiceManager, MessageBusClientMixin):
             lambda: f"Stopping {service_type} subprocess(es) with id: {service_id}"
         )
         tasks = []
-        for info in list(self.subprocess_info):
+        for info in self.subprocess_info_map.values():
             if info.service_type == service_type and (
                 service_id is None or info.service_id == service_id
             ):
                 task = asyncio.create_task(self._wait_for_subprocess(info))
                 task.add_done_callback(
-                    lambda _, info=info: self.subprocess_info.remove(info)
+                    lambda _, info=info: self.execute_async(
+                        self._remove_subprocess_info(info)
+                    )
                 )
                 tasks.append(task)
         return await asyncio.gather(*tasks, return_exceptions=True)
+
+    async def _remove_subprocess_info(self, info: AsyncSubprocessRunInfo) -> None:
+        async with self.subprocess_map_lock:
+            self.subprocess_info_map.pop(info.service_id)
 
     async def shutdown_all_services(self) -> list[BaseException | None]:
         """Stop all required services as asyncio subprocesses."""
@@ -193,7 +223,10 @@ class MultiProcessServiceManager(BaseServiceManager, MessageBusClientMixin):
 
         # Wait for all to finish in parallel
         return await asyncio.gather(
-            *[self._wait_for_subprocess(info) for info in self.subprocess_info],
+            *[
+                self._wait_for_subprocess(info)
+                for info in self.subprocess_info_map.values()
+            ],
             return_exceptions=True,
         )
 
@@ -202,13 +235,17 @@ class MultiProcessServiceManager(BaseServiceManager, MessageBusClientMixin):
         self.debug("Killing all service subprocesses")
 
         # Kill all subprocesses
-        for info in self.subprocess_info:
-            if info.process and info.process.returncode is None:
-                info.process.kill()
+        async with self.subprocess_map_lock:
+            for info in self.subprocess_info_map.values():
+                if info.process and info.process.returncode is None:
+                    info.process.kill()
 
         # Wait for all to finish in parallel
         return await asyncio.gather(
-            *[self._wait_for_subprocess(info) for info in self.subprocess_info],
+            *[
+                self._wait_for_subprocess(info)
+                for info in self.subprocess_info_map.values()
+            ],
             return_exceptions=True,
         )
 
@@ -235,14 +272,6 @@ class MultiProcessServiceManager(BaseServiceManager, MessageBusClientMixin):
 
         async def _wait_for_registration():
             while not stop_event.is_set():
-                # Check for dead processes first
-                for info in self.subprocess_info:
-                    # Check if process is None (failed to start) or has terminated
-                    if info.process is None or info.process.returncode is not None:
-                        raise AIPerfError(
-                            f"Service process {info.service_id} died before registering"
-                        )
-
                 # Get all registered service types from the id map
                 registered_types = {
                     service_info.service_type
@@ -292,7 +321,7 @@ class MultiProcessServiceManager(BaseServiceManager, MessageBusClientMixin):
                 buffer_chunks = []
 
                 while True:
-                    chunk = await stream.read(8192)  # Read up to 8KB at a time
+                    chunk = await stream.read(1024)  # Read up to 1KB at a time
                     if not chunk:
                         # Process any remaining data in buffer
                         if buffer_chunks:
@@ -318,11 +347,12 @@ class MultiProcessServiceManager(BaseServiceManager, MessageBusClientMixin):
 
                         # Keep the last part (incomplete line) in buffer
                         buffer_chunks = [lines[-1]] if lines[-1] else []
-                        await asyncio.sleep(0.01)
-
-                    # Yield to the event loop to prevent starvation of other tasks because
-                    # of reading too frequently from the subprocess
-                    await yield_to_event_loop()
+                        # Wait for 1 millisecond to avoid reading too frequently from the subprocess
+                        await asyncio.sleep(1 / MILLIS_PER_SECOND)
+                    else:
+                        # Yield to the event loop to prevent starvation of other tasks because
+                        # of reading too frequently from the subprocess
+                        await yield_to_event_loop()
 
             except Exception as e:
                 self.warning(f"Error reading {stream_name} for {service_id}: {e}")
@@ -406,6 +436,17 @@ class MultiProcessServiceManager(BaseServiceManager, MessageBusClientMixin):
             self.debug(
                 f"Service {info.service_id} subprocess (pid: {info.process.pid}) (return code: {info.process.returncode}) already terminated"
             )
+        finally:
+            if info.user_config_file and info.user_config_file.exists():
+                try:
+                    info.user_config_file.unlink()
+                except Exception as e:
+                    self.warning(f"Failed to delete user config file: {e}")
+            if info.service_config_file and info.service_config_file.exists():
+                try:
+                    info.service_config_file.unlink()
+                except Exception as e:
+                    self.warning(f"Failed to delete service config file: {e}")
 
     async def wait_for_all_services_start(
         self,

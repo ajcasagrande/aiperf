@@ -6,7 +6,7 @@ import uuid
 from aiperf.common.aiperf_logger import AIPerfLogger
 from aiperf.common.bootstrap import bootstrap_and_run_service
 from aiperf.common.config import ServiceConfig, UserConfig
-from aiperf.common.enums.service_enums import ServiceType
+from aiperf.common.enums import ServiceType
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.logging import setup_logging
 from aiperf.common.types import ServiceTypeT
@@ -15,18 +15,17 @@ from aiperf.common.types import ServiceTypeT
 def run_service(
     service_type: ServiceTypeT,
     service_config: ServiceConfig,
-    user_config: UserConfig,
+    user_config: UserConfig | None = None,
     service_id: str | None = None,
-    use_structured_subprocess_format: bool = True,
 ) -> None:
     """Run the specified service with the given configuration."""
     service_id = service_id or f"{service_type}_{uuid.uuid4().hex[:8]}"
 
     setup_logging(
+        service_type=service_type,
         service_id=service_id,
         service_config=service_config,
         user_config=user_config,
-        use_structured_subprocess_format=use_structured_subprocess_format,
     )
 
     _logger = AIPerfLogger(service_id)
@@ -59,5 +58,4 @@ def run_system_controller(
         service_config,
         user_config,
         service_id=service_id,
-        use_structured_subprocess_format=False,
     )

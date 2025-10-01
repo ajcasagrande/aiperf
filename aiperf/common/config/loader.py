@@ -6,7 +6,7 @@ from aiperf.common.config.user_config import UserConfig
 
 def load_service_config() -> ServiceConfig:
     """Load the service configuration."""
-    # TODO: implement
+    # TODO: Ensure this works by loading env variables
     return ServiceConfig()
 
 

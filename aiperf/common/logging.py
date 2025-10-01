@@ -2,21 +2,18 @@
 # SPDX-License-Identifier: Apache-2.0
 import logging
 import multiprocessing
-import re
 import time
-from datetime import datetime
 from pathlib import Path
 
-from rich.console import Console, ConsoleRenderable
+import orjson
+from rich.console import Console
 from rich.logging import RichHandler
-from rich.text import Text
-from rich.traceback import Traceback
 
 from aiperf.common.aiperf_logger import _DEBUG, _TRACE, AIPerfLogger
 from aiperf.common.config import ServiceConfig, ServiceDefaults, UserConfig
 from aiperf.common.config.config_defaults import OutputDefaults
+from aiperf.common.constants import AIPERF_STRUCTURED_LOGGING
 from aiperf.common.enums import ServiceType
-from aiperf.common.factories import ServiceFactory
 
 _LOG_LEVEL_STYLES = {
     "TRACE": "dim",
@@ -29,49 +26,24 @@ _LOG_LEVEL_STYLES = {
     "CRITICAL": "red",
 }
 
-# Regex pattern for parsing structured log format from subprocess output
-# Format: created|levelno|levelname|name|process_name|process_id|service_id|pathname|lineno|msg
-SUBPROCESS_LOG_PATTERN = re.compile(
-    r"(?P<created>\d+\.\d+)\|(?P<levelno>\d+)\|(?P<levelname>\w+)\|(?P<name>[^|]+)\|(?P<process_name>[^|]+)\|(?P<process_id>\d+)\|(?P<service_id>[^|]*)\|(?P<pathname>[^|]*)\|(?P<lineno>\d+)\|(?P<msg>.*)"
-)
-
 _logger = AIPerfLogger(__name__)
 
 
-def _is_service_in_types(service_id: str, service_types: set[ServiceType]) -> bool:
-    """Check if a service is in a set of services."""
-    for service_type in service_types:
-        # for cases of service_id being "worker_xxxxxx" and service_type being "worker",
-        # we want to set the log level to debug
-        if (
-            service_id == service_type
-            or service_id.startswith(f"{service_type}_")
-            and service_id
-            != f"{service_type}_manager"  # for worker vs worker_manager, etc.
-        ):
-            return True
-
-        # Check if the provided logger name is the same as the service's class name
-        if ServiceFactory.get_class_from_type(service_type).__name__ == service_id:
-            return True
-    return False
-
-
 def setup_logging(
+    service_type: ServiceType,
     service_id: str | None = None,
     service_config: ServiceConfig | None = None,
     user_config: UserConfig | None = None,
-    use_structured_subprocess_format: bool = True,
 ) -> None:
     """Set up logging for a service.
 
     This should be called early in service initialization.
 
     Args:
+        service_type: The type of the service to log under.
         service_id: The ID of the service to log under. If None, logs will be under the process name.
         service_config: The service configuration used to determine the log level.
         user_config: The user configuration used to determine the log folder.
-        use_structured_subprocess_format: If True, use structured pipe-delimited format for subprocess parsing.
     """
     root_logger = logging.getLogger()
     level = ServiceDefaults.LOG_LEVEL.upper()
@@ -80,12 +52,14 @@ def setup_logging(
 
         if service_id:
             # If the service is in the trace or debug services, set the level to trace or debug
-            if service_config.developer.trace_services and _is_service_in_types(
-                service_id, service_config.developer.trace_services
+            if (
+                service_config.developer.trace_services
+                and service_type in service_config.developer.trace_services
             ):
                 level = _TRACE
-            elif service_config.developer.debug_services and _is_service_in_types(
-                service_id, service_config.developer.debug_services
+            elif (
+                service_config.developer.debug_services
+                and service_type in service_config.developer.debug_services
             ):
                 level = _DEBUG
 
@@ -96,14 +70,14 @@ def setup_logging(
     for existing_handler in root_logger.handlers[:]:
         root_logger.removeHandler(existing_handler)
 
-    if use_structured_subprocess_format:
+    if AIPERF_STRUCTURED_LOGGING:
         # Use structured format for subprocess output that will be parsed by parent process
         structured_handler = StructuredSubprocessLogHandler(service_id)
         structured_handler.setLevel(level)
         root_logger.addHandler(structured_handler)
     else:
         # For all other cases, set up rich logging to the console
-        rich_handler = CustomRichHandler(
+        rich_handler = RichHandler(
             rich_tracebacks=True,
             show_path=True,
             console=Console(),
@@ -144,7 +118,7 @@ def create_file_handler(
 
 
 class StructuredSubprocessLogHandler(logging.Handler):
-    """Custom logging handler that outputs structured log format for subprocess parsing."""
+    """Custom logging handler that outputs structured JSON log format for subprocess parsing."""
 
     def __init__(self, service_id: str | None = None) -> None:
         super().__init__()
@@ -153,80 +127,47 @@ class StructuredSubprocessLogHandler(logging.Handler):
         self.process_name = multiprocessing.current_process().name
 
     def emit(self, record: logging.LogRecord) -> None:
-        """Emit a log record in structured pipe-delimited format."""
+        """Emit a log record in structured JSON format using orjson."""
         try:
-            # Format: created|levelno|levelname|name|process_name|process_id|service_id|pathname|lineno|msg
-            pathname = getattr(record, "pathname", "")
-            lineno = getattr(record, "lineno", 0)
-
-            structured_log = f"{record.created}|{record.levelno}|{record.levelname}|{record.name}|{self.process_name}|{self.process_id}|{self.service_id or ''}|{pathname}|{lineno}|{record.getMessage()}"
-            print(structured_log, flush=True)
+            log_data = {
+                "created": record.created,
+                "levelno": record.levelno,
+                "levelname": record.levelname,
+                "name": record.name,
+                "process_name": self.process_name,
+                "process_id": self.process_id,
+                "service_id": self.service_id or "",
+                "pathname": getattr(record, "pathname", ""),
+                "lineno": getattr(record, "lineno", 0),
+                "msg": record.getMessage(),
+            }
+            print(orjson.dumps(log_data).decode(), flush=True)
         except Exception:
             # Do not log to prevent recursion
             pass
 
 
-class CustomRichHandler(RichHandler):
-    """Custom RichHandler that formats log records in our own format."""
-
-    def render(
-        self,
-        *,
-        record: logging.LogRecord,
-        traceback: Traceback | None,
-        message_renderable: ConsoleRenderable,
-    ) -> ConsoleRenderable:
-        """Render log for display.
-
-        Args:
-            record (LogRecord): logging Record.
-            traceback (Optional[Traceback]): Traceback instance or None for no Traceback.
-            message_renderable (ConsoleRenderable): Renderable (typically Text) containing log message contents.
-
-        Returns:
-            ConsoleRenderable: Renderable to display log.
-        """
-        timestamp = datetime.fromtimestamp(record.created).strftime("%H:%M:%S.%f")[:-3]  # fmt: skip
-        level_style = _LOG_LEVEL_STYLES.get(record.levelname, "white")
-
-        # wrapped_text = textwrap.fill(
-        #     record.getMessage(),
-        #     width=self.console.size.width - 22,
-        #     subsequent_indent=" " * 22,
-        # )
-
-        formatted_log = Text.assemble(
-            Text.from_markup(f"[dim]{timestamp}[/dim] "),
-            Text.from_markup(
-                f"[bold][{level_style}]{record.levelname:>7}[/{level_style}][/bold] "
-            ),
-            Text.from_markup(f"[bold]{record.processName}[/bold] "),
-            Text.from_markup(f"[bold]{record.name}[/bold] "),
-            self.highlighter(Text(record.getMessage())),
-        )
-
-        return formatted_log
-
-
 def parse_subprocess_log_line(line: str) -> logging.LogRecord | None:
-    """Parse a structured log line from subprocess output.
+    """Parse a structured JSON log line from subprocess output.
 
     Args:
-        line: The log line to parse
+        line: The JSON log line to parse
 
     Returns:
         LogRecord with parsed log data or None if parsing fails
     """
-    match = SUBPROCESS_LOG_PATTERN.match(line)
-    if not match:
+    try:
+        data = orjson.loads(line)
+    except (orjson.JSONDecodeError, TypeError):
         return None
-    # Create a LogRecord directly from parsed data
+
+    # Create a LogRecord directly from parsed JSON data
     record = logging.LogRecord(
-        name=match.group("name"),
-        level=int(match.group("levelno")),
-        pathname=match.group("pathname"),
-        lineno=int(match.group("lineno")),
-        msg=match.group("msg"),
+        name=data.get("name", ""),
+        level=data.get("levelno", logging.INFO),
+        pathname=data.get("pathname", ""),
+        lineno=data.get("lineno", 0),
+        msg=data.get("msg", ""),
         args=(),
         exc_info=None,
         func=None,
@@ -234,14 +175,14 @@ def parse_subprocess_log_line(line: str) -> logging.LogRecord | None:
     )
 
     # Set additional attributes from subprocess
-    record.created = float(match.group("created"))
+    record.created = data.get("created", time.time())
     record.msecs = (record.created % 1) * 1000
-    record.processName = match.group("process_name")
-    record.process = int(match.group("process_id"))
-    record.levelname = match.group("levelname")
+    record.processName = data.get("process_name", "")
+    record.process = data.get("process_id", 0)
+    record.levelname = data.get("levelname", "INFO")
 
     # Store service_id as custom attribute
-    record.service_id = match.group("service_id")
+    record.service_id = data.get("service_id", "")
 
     return record
 
@@ -250,8 +191,7 @@ def handle_subprocess_log_line(line: str, fallback_service_id: str) -> None:
     """Handle a subprocess log line by parsing and forwarding to appropriate logger.
 
     This function handles both structured and unstructured log lines from subprocesses,
-    parsing them and forwarding directly to the appropriate logger without creating
-    temporary objects.
+    parsing them and forwarding directly to the appropriate logger.
 
     Args:
         line: The log line from subprocess output
