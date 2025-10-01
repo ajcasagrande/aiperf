@@ -14,9 +14,9 @@
 
 **Replaced By**: None
 
-**Sponsor**: @ganeshku
+**Sponsor**: @ganeshku1
 
-**Required Reviewers**: @ajcasagrande @ganeshku @nicolasnoble
+**Required Reviewers**: @ajcasagrande @ganeshku1 @nicolasnoble
 
 **Review Date**: [Date for review]
 
