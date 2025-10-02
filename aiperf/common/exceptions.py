@@ -143,6 +143,10 @@ class NoMetricValue(AIPerfError):
     """Raised when a metric value is not available."""
 
 
+class PluginNotFoundError(NotFoundError):
+    """Exception raised when a plugin is not found."""
+
+
 class ProxyError(AIPerfError):
     """Exception raised when a proxy encounters an error."""
 

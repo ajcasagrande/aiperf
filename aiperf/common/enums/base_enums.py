@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+from collections.abc import Iterator
 from enum import Enum
 from functools import cached_property
 
@@ -30,13 +31,18 @@ class CaseInsensitiveStrEnum(str, Enum):
         return hash(self.value.lower())
 
     @classmethod
+    def itervalues(cls) -> Iterator[Self]:
+        return iter(member for member in cls.__members__.values())
+
+    @classmethod
     def _missing_(cls, value):
         """
         Handles cases where a value is not directly found in the enumeration.
 
         This method is called when an attempt is made to access an enumeration
         member using a value that does not directly match any of the defined
-        members. It provides custom logic to handle such cases.
+        members. It provides custom logic to handle such cases. It is also insensitive
+        to underscores versus dashes in the value.
 
         Returns:
             The matching enumeration member if a case-insensitive match is found
@@ -44,7 +50,9 @@ class CaseInsensitiveStrEnum(str, Enum):
         """
         if isinstance(value, str):
             for member in cls:
-                if member.value.lower() == value.lower():
+                if member.value.lower().replace("_", "-") == value.lower().replace(
+                    "_", "-"
+                ):
                     return member
         return None
 

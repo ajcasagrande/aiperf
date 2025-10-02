@@ -1,39 +1,26 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+
+import logging
 import threading
-from importlib.metadata import entry_points
+from importlib.metadata import PackageNotFoundError, entry_points, metadata
 from typing import Any
 
-import pluggy
 from typing_extensions import Self
 
-from aiperf import AIPERF_PROJECT_NAME
-from aiperf.common.aiperf_logger import AIPerfLogger
-from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.config.user_config import UserConfig
-from aiperf.common.enums.base_enums import CaseInsensitiveStrEnum
-from aiperf.common.exceptions import NotFoundError
-from aiperf.common.hookspecs import AIPerfHookSpecs
-from aiperf.common.plugin_metadata import AIPerfPluginMetadata
-from aiperf.common.protocols import AIPerfUIProtocol
+from aiperf.common.enums import AIPerfPluginType
+from aiperf.common.exceptions import PluginNotFoundError
+from aiperf.common.models import AIPerfPluginMapping, AIPerfPluginMetadata
 
 
-class AIPerfPluginType(CaseInsensitiveStrEnum):
-    UI = "aiperf.ui"
-
-
-class AIPerfPluginNotFoundError(NotFoundError):
-    """Exception raised when a plugin is not found."""
-
-
-class AIPerfPluginFactory:
-    """Factory for registering and creating plugins."""
+class AIPerfPluginManager:
+    """Factory for managing plugin mappings and lazy loading plugin classes."""
 
     _instance_lock: threading.Lock = threading.Lock()
-    _logger: AIPerfLogger = AIPerfLogger(__name__)
+    _logger: logging.Logger = logging.getLogger(__name__)
 
     def __new__(cls, *args, **kwargs) -> Self:
-        """Create a new plugin factory."""
+        """Create a new plugin manager."""
         if not hasattr(cls, "_instance"):
             with cls._instance_lock:
                 if not hasattr(cls, "_instance"):
@@ -42,83 +29,135 @@ class AIPerfPluginFactory:
         return cls._instance
 
     def __init__(self, *args, **kwargs) -> None:
-        """Initialize the plugin factory."""
+        """Initialize the plugin manager."""
         super().__init__(*args, **kwargs)
 
     def _init_singleton(self) -> None:
-        """Initialize the plugin factory singleton."""
-        self._logger.warning("Initializing plugin factory singleton.")
-        self.pm = pluggy.PluginManager(AIPERF_PROJECT_NAME)
-        self.pm.add_hookspecs(AIPerfHookSpecs)
-        self._plugin_classes: dict[AIPerfPluginType, dict[str, type[Any]]] = {
-            plugin_type: {} for plugin_type in AIPerfPluginType
-        }
+        """Initialize the plugin manager singleton."""
+        self._logger.info("Initializing plugin factory singleton.")
+        self._plugin_mappings: dict[
+            AIPerfPluginType, dict[str, AIPerfPluginMapping]
+        ] = {}
         self._register_all()
 
+    def _extract_package_metadata(self, ep) -> AIPerfPluginMetadata:
+        """Extract metadata from the package that provides the entry point."""
+        package_name = ep.dist.name if ep.dist else None
+
+        if not package_name:
+            self._logger.warning(
+                f"Could not determine package for entry point {ep.name}"
+            )
+            return AIPerfPluginMetadata(name=ep.name, version="unknown")
+
+        try:
+            pkg_meta = metadata(package_name)
+            author_field = pkg_meta.get("Author-Email", "")
+            author = None
+            author_email = None
+
+            if author_field and "<" in author_field and ">" in author_field:
+                author = author_field.split("<")[0].strip()
+                author_email = author_field.split("<")[1].split(">")[0].strip()
+
+            return AIPerfPluginMetadata(
+                name=ep.name,
+                version=pkg_meta["Version"],
+                description=pkg_meta.get("Summary"),
+                author=author,
+                author_email=author_email,
+                url=pkg_meta.get("Home-Page"),
+            )
+        except PackageNotFoundError:
+            self._logger.warning(f"Package metadata not found for {package_name}")
+            return AIPerfPluginMetadata(name=ep.name, version="unknown")
+
     def _register_all(self) -> None:
-        """Register all plugins."""
-        self._logger.warning("Registering all plugins.")
+        """Register all plugins without loading them (lazy loading)."""
+        self._logger.info("Registering all plugins.")
         for plugin_type in AIPerfPluginType.__members__.values():
-            self._logger.warning(f"Registering plugins for {plugin_type}.")
-            for ep in entry_points(group=str(plugin_type)):
-                factory_func: Any = ep.load()
-                plugin_cls: type[Any] = factory_func()
-                self._logger.warning(
-                    f"Registered plugin {plugin_cls} for {plugin_type}."
+            registered = 0
+            self._logger.info(f"Registering plugins for {plugin_type}.")
+
+            all_eps = list(entry_points(group=plugin_type.value))
+
+            # Sort so built-in 'aiperf' package comes first (lowest precedence)
+            # Third-party plugins come last and can override built-ins
+            sorted_eps = sorted(
+                all_eps, key=lambda ep: (ep.dist.name != "aiperf" if ep.dist else True)
+            )
+
+            for ep in sorted_eps:
+                pkg_name = ep.dist.name if ep.dist else "unknown"
+
+                if ep.name in self._plugin_mappings[plugin_type]:
+                    existing_pkg = self._plugin_mappings[plugin_type][
+                        ep.name
+                    ].entry_point.dist.name
+                    self._logger.warning(
+                        f"Plugin '{ep.name}' from '{pkg_name}' is overriding "
+                        f"existing plugin from '{existing_pkg}'. "
+                        f"Using '{pkg_name}' (plugins can override built-ins)."
+                    )
+
+                self._logger.info(
+                    f"Discovering plugin {ep.name} for {plugin_type} "
+                    f"from package '{pkg_name}' (lazy load - not importing yet)."
                 )
-                name: str = plugin_cls.plugin_metadata().name
-                self._plugin_classes[plugin_type][name] = plugin_cls
-                self.pm.register(plugin_cls, name=f"{plugin_type}:{name}")
+
+                pkg_metadata = self._extract_package_metadata(ep)
+                self._logger.info(f"Plugin metadata: {pkg_metadata}.")
+
+                self._plugin_mappings[plugin_type][ep.name] = AIPerfPluginMapping(
+                    plugin_type=plugin_type,
+                    name=ep.name,
+                    class_type=None,
+                    entry_point=ep,
+                    metadata=pkg_metadata,
+                )
+                registered += 1
+            self._logger.info(f"Registered {registered} plugins for {plugin_type}.")
 
     def list_plugins(self, plugin_type: AIPerfPluginType) -> list[str]:
         """List all plugins of the given plugin type."""
-        return list(self._plugin_classes[plugin_type].keys())
+        return list(self._plugin_mappings[plugin_type].keys())
 
     def get_metadata(
         self, plugin_type: AIPerfPluginType, name: str
     ) -> AIPerfPluginMetadata:
         """Get the metadata for the given plugin type and name."""
-        cls = self._get_plugin_class_internal(plugin_type=plugin_type, name=name)
-        return cls.plugin_metadata()
-
-    def _create_instance_internal(
-        self, plugin_type: AIPerfPluginType, name: str, **kwargs: Any
-    ) -> Any:
-        """Internal method to create a new instance of the given plugin type and name."""
-        cls = self._get_plugin_class_internal(plugin_type=plugin_type, name=name)
-        return cls(**kwargs)
-
-    def _get_plugin_class_internal(
-        self, plugin_type: AIPerfPluginType, name: str
-    ) -> type[Any]:
-        """Internal method to get the plugin class for the given plugin type and name."""
-        cls = self._plugin_classes[plugin_type].get(name)
-        if self._logger.is_trace_enabled:
-            self._logger.trace(
-                f"Getting plugin class '{name}' for plugin type '{plugin_type}'."
+        plugin = self._plugin_mappings[plugin_type].get(name)
+        if not plugin:
+            raise PluginNotFoundError(
+                f"Plugin metadata for '{name}' not found for plugin type '{plugin_type}'"
             )
-        if not cls:
-            err_msg = f"Plugin class '{name}' not found for plugin type '{plugin_type}'. Available plugins: {self._plugin_classes[plugin_type].keys()}"
-            self._logger.error(err_msg)
-            raise AIPerfPluginNotFoundError(err_msg)
-        if self._logger.is_trace_enabled:
-            self._logger.trace(
-                f"Plugin class '{name}' found for plugin type '{plugin_type}': {cls!r}."
-            )
-        return cls
+        return plugin.metadata
 
-    def create_ui(
-        self,
-        name: str,
-        service_config: ServiceConfig,
-        user_config: UserConfig,
-        log_queue: "multiprocessing.Queue | None" = None,
-    ) -> AIPerfUIProtocol:
-        """Create a new UI instance based on the given name."""
-        return self._create_instance_internal(
-            plugin_type=AIPerfPluginType.UI,
-            name=name,
-            service_config=service_config,
-            user_config=user_config,
-            log_queue=log_queue,
+    def get_plugin_class(self, plugin_type: AIPerfPluginType, name: str) -> type[Any]:
+        """Get the plugin class for the given plugin type and name (lazy loads if needed)."""
+        plugin = self._plugin_mappings[plugin_type].get(name)
+        if not plugin:
+            raise PluginNotFoundError(
+                f"Plugin class for '{name}' not found for plugin type '{plugin_type}'"
+            )
+
+        if plugin.class_type:
+            self._logger.info(
+                f"Plugin class '{name}' already loaded for plugin type '{plugin_type}'."
+            )
+            return plugin.class_type
+
+        self._logger.info(
+            f"Lazy loading plugin class '{name}' for plugin type '{plugin_type}'."
         )
+        plugin.class_type = plugin.entry_point.load()
+
+        if not isinstance(plugin.class_type, type):
+            raise TypeError(
+                f"Plugin entry point '{name}' must be a class, got {type(plugin.class_type)}"
+            )
+
+        self._logger.info(
+            f"Plugin class '{name}' loaded for plugin type '{plugin_type}': {plugin.class_type!r}."
+        )
+        return plugin.class_type
