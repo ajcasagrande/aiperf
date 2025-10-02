@@ -47,6 +47,15 @@ class AIPerfPluginMapping(BaseModel):
         description="The name of the plugin. This is the name of the plugin as defined in the pyproject.toml file.",
         min_length=1,
     )
+    package_name: str = Field(
+        ...,
+        description="The name of the package that provides the plugin. This is the name of the package as defined in the pyproject.toml file.",
+        min_length=1,
+    )
+    built_in: bool = Field(
+        default=False,
+        description="Whether the plugin is a built-in plugin. This is used to indicate that the plugin is a built-in plugin that is included in the AIPerf package.",
+    )
     class_type: type[Any] | None = Field(
         default=None,
         description="The class type of the plugin. This is lazy loaded when needed.",

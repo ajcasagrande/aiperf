@@ -74,10 +74,10 @@ class AIPerfPluginManager:
 
     def _register_all(self) -> None:
         """Register all plugins without loading them (lazy loading)."""
-        self._logger.info("Registering all plugins.")
+        self._logger.debug("Registering all plugins.")
         for plugin_type in AIPerfPluginType.__members__.values():
             registered = 0
-            self._logger.info(f"Registering plugins for {plugin_type}.")
+            self._logger.debug(f"Registering plugins for {plugin_type}.")
 
             all_eps = list(entry_points(group=plugin_type.value))
 
@@ -100,23 +100,25 @@ class AIPerfPluginManager:
                         f"Using '{pkg_name}' (plugins can override built-ins)."
                     )
 
-                self._logger.info(
+                self._logger.debug(
                     f"Discovering plugin {ep.name} for {plugin_type} "
                     f"from package '{pkg_name}' (lazy load - not importing yet)."
                 )
 
                 pkg_metadata = self._extract_package_metadata(ep)
-                self._logger.info(f"Plugin metadata: {pkg_metadata}.")
+                self._logger.debug(f"Plugin metadata: {pkg_metadata}.")
 
                 self._plugin_mappings[plugin_type][ep.name] = AIPerfPluginMapping(
                     plugin_type=plugin_type,
                     name=ep.name,
+                    package_name=pkg_name,
+                    built_in=pkg_name == "aiperf",
                     class_type=None,
                     entry_point=ep,
                     metadata=pkg_metadata,
                 )
                 registered += 1
-            self._logger.info(f"Registered {registered} plugins for {plugin_type}.")
+            self._logger.debug(f"Registered {registered} plugins for {plugin_type}.")
 
     def list_plugins(self, plugin_type: AIPerfPluginType) -> list[str]:
         """List all plugins of the given plugin type."""
@@ -125,7 +127,11 @@ class AIPerfPluginManager:
     def get_metadata(
         self, plugin_type: AIPerfPluginType, name: str
     ) -> AIPerfPluginMetadata:
-        """Get the metadata for the given plugin type and name."""
+        """Get the metadata for the given plugin type and name.
+
+        Raises:
+            PluginNotFoundError: If the plugin metadata is not found.
+        """
         plugin = self._plugin_mappings[plugin_type].get(name)
         if not plugin:
             raise PluginNotFoundError(
@@ -134,7 +140,12 @@ class AIPerfPluginManager:
         return plugin.metadata
 
     def get_plugin_class(self, plugin_type: AIPerfPluginType, name: str) -> type[Any]:
-        """Get the plugin class for the given plugin type and name (lazy loads if needed)."""
+        """Get the plugin class for the given plugin type and name (lazy loads if needed).
+
+        Raises:
+            PluginNotFoundError: If the plugin class is not found.
+            TypeError: If the plugin class is not a class.
+        """
         plugin = self._plugin_mappings[plugin_type].get(name)
         if not plugin:
             raise PluginNotFoundError(
@@ -142,12 +153,12 @@ class AIPerfPluginManager:
             )
 
         if plugin.class_type:
-            self._logger.info(
+            self._logger.debug(
                 f"Plugin class '{name}' already loaded for plugin type '{plugin_type}'."
             )
             return plugin.class_type
 
-        self._logger.info(
+        self._logger.debug(
             f"Lazy loading plugin class '{name}' for plugin type '{plugin_type}'."
         )
         plugin.class_type = plugin.entry_point.load()
@@ -157,7 +168,7 @@ class AIPerfPluginManager:
                 f"Plugin entry point '{name}' must be a class, got {type(plugin.class_type)}"
             )
 
-        self._logger.info(
+        self._logger.debug(
             f"Plugin class '{name}' loaded for plugin type '{plugin_type}': {plugin.class_type!r}."
         )
         return plugin.class_type

@@ -74,6 +74,9 @@ from aiperf.common.enums.openai_enums import (
 )
 from aiperf.common.enums.plugin_enums import (
     AIPerfPluginType,
+    AIPerfUIType,
+    create_plugin_enum,
+    get_available_plugins,
 )
 from aiperf.common.enums.post_processor_enums import (
     RecordProcessorType,
@@ -95,9 +98,6 @@ from aiperf.common.enums.timing_enums import (
     CreditPhase,
     RequestRateMode,
     TimingMode,
-)
-from aiperf.common.enums.ui_enums import (
-    AIPerfUIType,
 )
 from aiperf.common.enums.worker_enums import (
     WorkerStatus,
@@ -158,4 +158,6 @@ __all__ = [
     "TimingMode",
     "WorkerStatus",
     "ZMQProxyType",
+    "create_plugin_enum",
+    "get_available_plugins",
 ]
