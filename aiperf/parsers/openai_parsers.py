@@ -117,6 +117,11 @@ class OpenAIResponseExtractor(AIPerfLoggerMixin):
         if "rankings" in json_obj:
             return OpenAIObjectType.RANKINGS
 
+        # Handle Responses API event types
+        event_type = json_obj.get("type")
+        if event_type and event_type.startswith("response."):
+            return OpenAIObjectType.RESPONSE
+
         self.warning(f"Could not infer object type from response: {json_obj}")
         return None
 
@@ -192,10 +197,75 @@ class RankingsParser(OpenAIObjectParserProtocol):
 
 @OpenAIObjectParserFactory.register(OpenAIObjectType.RESPONSE)
 class ResponseParser(OpenAIObjectParserProtocol):
-    """Parser for OpenAI Responses objects."""
+    """Parser for OpenAI Responses objects.
+
+    The Responses API has different formats for streaming vs non-streaming:
+
+    Streaming delta events:
+    {
+        "type": "response.output_text.delta",
+        "delta": "text chunk"
+    }
+
+    Streaming completed events:
+    {
+        "type": "response.completed",
+        "response": {
+            "output": [{"content": [{"type": "output_text", "text": "..."}]}]
+        }
+    }
+
+    Non-streaming responses:
+    {
+        "object": "response",
+        "output": [{"content": [{"type": "output_text", "text": "..."}]}]
+    }
+    """
 
     def parse(self, obj: dict[str, Any]) -> BaseResponseData | None:
-        """Parse a Responses object."""
+        """Parse a Responses object and extract text from various formats."""
+        # Handle streaming delta events
+        event_type = obj.get("type")
+        if event_type == "response.output_text.delta":
+            delta = obj.get("delta")
+            return _make_text_response_data(delta)
+
+        # Handle streaming completed events (response is nested)
+        if event_type == "response.completed":
+            response_obj = obj.get("response", {})
+            if response_obj:
+                return self._extract_from_output(response_obj)
+
+        # Handle non-streaming responses (output is at top level)
+        return self._extract_from_output(obj)
+
+    def _extract_from_output(self, obj: dict[str, Any]) -> BaseResponseData | None:
+        """Extract text from the output array structure."""
+        # Try new format first (output array)
+        output_items = obj.get("output", [])
+        if output_items:
+            # Extract text from all output items
+            texts = []
+            for item in output_items:
+                if isinstance(item, dict):
+                    content_list = item.get("content", [])
+                    for content in content_list:
+                        if isinstance(content, dict):
+                            # Handle output_text type
+                            if (
+                                content.get("type") == "output_text"
+                                and "text" in content
+                                or "text" in content
+                                and not content.get("type")
+                            ):
+                                texts.append(content["text"])
+
+            if texts:
+                # Combine all text outputs
+                combined_text = "".join(texts)
+                return _make_text_response_data(combined_text)
+
+        # Fallback to old format (output_text field) for backwards compatibility
         return _make_text_response_data(obj.get("output_text"))
 
 

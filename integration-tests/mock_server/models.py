@@ -94,3 +94,54 @@ class ChatCompletionStreamResponse(BaseModel):
     created: int
     model: str
     choices: list[ChatCompletionStreamChoice]
+
+
+# Responses API models
+class ResponsesRequest(BaseModel):
+    """Request model for Responses API."""
+
+    model: str
+    input: str | list[str]
+    max_output_tokens: int | None = Field(default=None, ge=1)
+    temperature: float | None = Field(default=1.0, ge=0, le=2)
+    top_p: float | None = Field(default=1.0, ge=0, le=1)
+    stream: bool | None = Field(default=False)
+    instructions: str | None = None
+    tools: list[dict[str, Any]] | None = None
+
+
+class ResponseOutputText(BaseModel):
+    """Output text content in Responses API."""
+
+    type: str = "output_text"
+    text: str
+    annotations: list[Any] = Field(default_factory=list)
+
+
+class ResponseOutputMessage(BaseModel):
+    """Output message in Responses API."""
+
+    id: str
+    type: str = "message"
+    status: str = "completed"
+    role: str = "assistant"
+    content: list[ResponseOutputText]
+
+
+class ResponsesResponse(BaseModel):
+    """Non-streaming response model for Responses API."""
+
+    id: str
+    object: str = "response"
+    created_at: int
+    model: str
+    status: str = "completed"
+    output: list[ResponseOutputMessage]
+    usage: Usage | None = None
+
+
+class ResponsesStreamEvent(BaseModel):
+    """Base model for streaming events in Responses API."""
+
+    type: str
+    model_config = {"extra": "allow"}  # Allow additional fields

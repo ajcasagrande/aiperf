@@ -10,7 +10,6 @@ from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.common.models import Turn
 
 
-# TODO: Not fully implemented yet.
 @RequestConverterFactory.register(EndpointType.RESPONSES)
 class OpenAIResponsesRequestConverter(AIPerfLoggerMixin):
     """Request converter for OpenAI Responses requests."""
@@ -20,25 +19,51 @@ class OpenAIResponsesRequestConverter(AIPerfLoggerMixin):
         model_endpoint: ModelEndpointInfo,
         turn: Turn,
     ) -> dict[str, Any]:
-        """Format payload for a responses request."""
+        """Format payload for a responses request.
+
+        The Responses API uses a different format than Chat Completions:
+        - 'input' can be a string or array (not 'messages')
+        - Supports 'instructions', 'tools', 'previous_response_id'
+        - Uses 'max_output_tokens' instead of 'max_tokens'
+        """
 
         # TODO: Add support for image and audio inputs.
         prompts = [
             content for text in turn.texts for content in text.contents if content
         ]
 
-        extra = model_endpoint.endpoint.extra or []
+        # For single prompt, pass as string; for multiple, pass as array
+        input_data = prompts[0] if len(prompts) == 1 else prompts
+
+        extra = model_endpoint.endpoint.extra or {}
 
         payload = {
-            "input": prompts,
+            "input": input_data,
             "model": turn.model or model_endpoint.primary_model_name,
             "stream": model_endpoint.endpoint.streaming,
         }
+
+        # Add optional parameters
         if turn.max_tokens:
             payload["max_output_tokens"] = turn.max_tokens
 
-        if extra:
-            payload.update(extra)
+        # Support common optional parameters from extra config
+        optional_params = [
+            "temperature",
+            "top_p",
+            "tools",
+            "instructions",
+            "previous_response_id",
+            "modalities",
+        ]
+        for param in optional_params:
+            if param in extra:
+                payload[param] = extra[param]
+
+        # Include any remaining extra parameters
+        for key, value in extra.items():
+            if key not in payload:
+                payload[key] = value
 
         self.debug(lambda: f"Formatted payload: {payload}")
         return payload

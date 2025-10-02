@@ -367,3 +367,108 @@ class TestListParserWithEmbeddings(TestOpenAIResponseExtractor):
 
         with pytest.raises(ValueError, match="Received invalid list in response"):
             await extractor.extract_response_data(request)
+
+
+class TestResponseParser(TestOpenAIResponseExtractor):
+    """Test cases for ResponseParser (Responses API)."""
+
+    @pytest.fixture
+    def extractor(self):
+        """Create an OpenAIResponseExtractor instance."""
+        mock_endpoint = MagicMock(spec=ModelEndpointInfo)
+        return OpenAIResponseExtractor(mock_endpoint)
+
+    def response_non_streaming_json(self, text) -> str:
+        """Generate non-streaming response JSON."""
+        response = {
+            "id": "resp_123",
+            "object": "response",
+            "created_at": 1741290958,
+            "model": "gpt-4.1",
+            "output": [
+                {
+                    "id": "msg_123",
+                    "type": "message",
+                    "content": [{"type": "output_text", "text": text}],
+                }
+            ],
+        }
+        return json.dumps(response)
+
+    def response_delta_json(self, delta) -> str:
+        """Generate streaming delta event JSON."""
+        event = {"type": "response.output_text.delta", "delta": delta}
+        return json.dumps(event)
+
+    def response_completed_json(self, text) -> str:
+        """Generate streaming completed event JSON."""
+        event = {
+            "type": "response.completed",
+            "response": {
+                "id": "resp_123",
+                "object": "response",
+                "output": [
+                    {
+                        "id": "msg_123",
+                        "type": "message",
+                        "content": [{"type": "output_text", "text": text}],
+                    }
+                ],
+            },
+        }
+        return json.dumps(event)
+
+    @pytest.mark.asyncio
+    async def test_response_non_streaming_parsing(self, extractor):
+        """Test parsing of non-streaming Responses API response."""
+        test_text = "This is a non-streaming response"
+        text_response = self.create_raw_text_response(
+            self.response_non_streaming_json(test_text)
+        )
+        request = self.create_request_record(text_response)
+
+        results = await extractor.extract_response_data(request)
+
+        assert len(results) == 1
+        assert results[0].data.get_text() == test_text
+
+    @pytest.mark.asyncio
+    async def test_response_streaming_delta_parsing(self, extractor):
+        """Test parsing of streaming delta events."""
+        text_response = self.create_raw_text_response(self.response_delta_json("Hi"))
+        request = self.create_request_record(text_response)
+
+        results = await extractor.extract_response_data(request)
+
+        assert len(results) == 1
+        assert results[0].data.get_text() == "Hi"
+
+    @pytest.mark.asyncio
+    async def test_response_streaming_completed_parsing(self, extractor):
+        """Test parsing of streaming completed event."""
+        full_text = "Hi there! How can I assist you today?"
+        text_response = self.create_raw_text_response(
+            self.response_completed_json(full_text)
+        )
+        request = self.create_request_record(text_response)
+
+        results = await extractor.extract_response_data(request)
+
+        assert len(results) == 1
+        assert results[0].data.get_text() == full_text
+
+    @pytest.mark.asyncio
+    async def test_response_multiple_streaming_deltas(self, extractor):
+        """Test parsing of multiple streaming delta events."""
+        request = self.create_request_record(
+            self.create_raw_text_response(self.response_delta_json("Hi")),
+            self.create_raw_text_response(self.response_delta_json(" there")),
+            self.create_raw_text_response(self.response_delta_json("!")),
+        )
+
+        results = await extractor.extract_response_data(request)
+
+        assert len(results) == 3
+        assert results[0].data.get_text() == "Hi"
+        assert results[1].data.get_text() == " there"
+        assert results[2].data.get_text() == "!"
