@@ -14,17 +14,14 @@ from aiperf.common.constants import (
 )
 from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import (
-    AIPerfUIType,
     CommAddress,
     CommandType,
     CreditPhase,
     MessageType,
-    ServiceType,
 )
 from aiperf.common.enums.metric_enums import MetricValueTypeT
 from aiperf.common.factories import (
     ResultsProcessorFactory,
-    ServiceFactory,
 )
 from aiperf.common.hooks import background_task, on_command, on_message, on_pull_message
 from aiperf.common.messages import (
@@ -49,6 +46,7 @@ from aiperf.common.models import (
     ProfileResults,
 )
 from aiperf.common.models.record_models import MetricResult
+from aiperf.common.plugins import AIPerfUIType
 from aiperf.common.protocols import ResultsProcessorProtocol, ServiceProtocol
 from aiperf.common.types import MetricTagT
 from aiperf.metrics.types.min_request_metric import MinRequestTimestampMetric
@@ -59,7 +57,6 @@ from aiperf.records.phase_completion import (
 
 
 @implements_protocol(ServiceProtocol)
-@ServiceFactory.register(ServiceType.RECORDS_MANAGER)
 class RecordsManager(PullClientMixin, BaseComponentService):
     """
     The RecordsManager service is primarily responsible for holding the

@@ -11,7 +11,7 @@ from aiperf.common.config.cli_parameter import DeveloperOnlyCLI
 from aiperf.common.config.config_defaults import DevDefaults
 from aiperf.common.config.config_validators import parse_service_types
 from aiperf.common.constants import AIPERF_DEV_MODE
-from aiperf.common.enums.service_enums import ServiceType
+from aiperf.common.plugins import ServiceType
 
 
 def print_developer_mode_warning() -> None:

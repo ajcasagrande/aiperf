@@ -18,9 +18,8 @@ from aiperf.common.constants import (
     DEFAULT_WORKER_STATUS_SUMMARY_INTERVAL,
     NANOS_PER_SECOND,
 )
-from aiperf.common.enums import MessageType, ServiceType
+from aiperf.common.enums import MessageType
 from aiperf.common.enums.worker_enums import WorkerStatus
-from aiperf.common.factories import ServiceFactory
 from aiperf.common.hooks import background_task, on_message, on_start, on_stop
 from aiperf.common.messages import (
     ShutdownWorkersCommand,
@@ -29,6 +28,7 @@ from aiperf.common.messages import (
 )
 from aiperf.common.messages.worker_messages import WorkerStatusSummaryMessage
 from aiperf.common.models.progress_models import WorkerStats
+from aiperf.common.plugins import ServiceType
 
 
 class WorkerStatusInfo(WorkerStats):
@@ -45,7 +45,6 @@ class WorkerStatusInfo(WorkerStats):
     )
 
 
-@ServiceFactory.register(ServiceType.WORKER_MANAGER)
 class WorkerManager(BaseComponentService):
     """
     The WorkerManager service is primary responsibility to manage the worker processes.

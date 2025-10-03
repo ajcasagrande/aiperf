@@ -3,7 +3,7 @@
 
 from aiperf.cli_utils import raise_startup_error_and_exit
 from aiperf.common.config import ServiceConfig, UserConfig
-from aiperf.common.enums import AIPerfUIType
+from aiperf.common.plugins import AIPerfUIType
 
 
 def run_system_controller(

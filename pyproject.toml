@@ -73,6 +73,15 @@ simple = "aiperf.ui.tqdm_ui:TQDMProgressUI"
 dashboard = "aiperf.ui.dashboard.aiperf_dashboard_ui:AIPerfDashboardUI"
 none = "aiperf.ui.no_ui:NoUI"
 
+[project.entry-points."aiperf.service"]
+system-controller = "aiperf.controller.system_controller:SystemController"
+dataset-manager = "aiperf.dataset.dataset_manager:DatasetManager"
+timing-manager = "aiperf.timing.timing_manager:TimingManager"
+record-processor = "aiperf.records.record_processor_service:RecordProcessor"
+records-manager = "aiperf.records.records_manager:RecordsManager"
+worker-manager = "aiperf.workers.worker_manager:WorkerManager"
+worker = "aiperf.workers.worker:Worker"
+
 
 [tool.ruff]
 # Base settings for ruff

@@ -12,9 +12,7 @@ from rich.logging import RichHandler
 from aiperf.common.aiperf_logger import _DEBUG, _TRACE, AIPerfLogger
 from aiperf.common.config import ServiceConfig, ServiceDefaults, UserConfig
 from aiperf.common.config.config_defaults import OutputDefaults
-from aiperf.common.enums import ServiceType
-from aiperf.common.factories import ServiceFactory
-from aiperf.common.plugins import AIPerfUIType
+from aiperf.common.plugins import AIPerfPluginType, AIPerfUIType, ServiceType
 
 LOG_QUEUE_MAXSIZE = 1000
 
@@ -28,7 +26,7 @@ def get_global_log_queue() -> multiprocessing.Queue:
     return multiprocessing.Queue(maxsize=LOG_QUEUE_MAXSIZE)
 
 
-def _is_service_in_types(service_id: str, service_types: set[ServiceType]) -> bool:
+def _is_service_in_types(service_id: str, service_types: set["ServiceType"]) -> bool:
     """Check if a service is in a set of services."""
     for service_type in service_types:
         # for cases of service_id being "worker_xxxxxx" and service_type being "worker",
@@ -42,7 +40,12 @@ def _is_service_in_types(service_id: str, service_types: set[ServiceType]) -> bo
             return True
 
         # Check if the provided logger name is the same as the service's class name
-        if ServiceFactory.get_class_from_type(service_type).__name__ == service_id:
+        if (
+            ServiceType.get_plugin_class(
+                AIPerfPluginType.SERVICE, service_type
+            ).__name__
+            == service_id
+        ):
             return True
     return False
 

@@ -249,6 +249,8 @@ class AIPerfPluginManager:
             f"Lazy loading plugin class '{name}' for plugin type '{plugin_type}'."
         )
         plugin.class_type = plugin.entry_point.load()
+        plugin.class_type.tag = plugin.name
+        plugin.class_type.service_type = plugin.name
 
         if not isinstance(plugin.class_type, type):
             raise TypeError(
@@ -281,6 +283,10 @@ def _create_plugin_enum(
     )  # type: ignore
 
 
-# Create the dy
-AIPerfUIType = _create_plugin_enum(AIPerfPluginType.UI, "AIPerfUIType")
-AIPerfServiceType = _create_plugin_enum(AIPerfPluginType.SERVICE, "AIPerfServiceType")
+# Create the dynamic enums
+AIPerfUIType: type[BasePydanticBackedStrEnum] = _create_plugin_enum(
+    AIPerfPluginType.UI, "AIPerfUIType"
+)
+ServiceType: type[BasePydanticBackedStrEnum] = _create_plugin_enum(
+    AIPerfPluginType.SERVICE, "ServiceType"
+)

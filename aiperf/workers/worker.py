@@ -13,12 +13,10 @@ from aiperf.common.enums import (
     CommAddress,
     CommandType,
     MessageType,
-    ServiceType,
 )
 from aiperf.common.factories import (
     InferenceClientFactory,
     RequestConverterFactory,
-    ServiceFactory,
 )
 from aiperf.common.hooks import background_task, on_command, on_pull_message, on_stop
 from aiperf.common.messages import (
@@ -37,7 +35,6 @@ from aiperf.common.protocols import (
 from aiperf.workers.credit_processor_mixin import CreditProcessorMixin
 
 
-@ServiceFactory.register(ServiceType.WORKER)
 class Worker(
     PullClientMixin, BaseComponentService, ProcessHealthMixin, CreditProcessorMixin
 ):

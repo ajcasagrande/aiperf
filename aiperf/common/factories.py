@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, Any, Generic
 
 from aiperf.common.aiperf_logger import AIPerfLogger
 from aiperf.common.enums import (
-    AIPerfUIType,
     CommClientType,
     CommunicationBackend,
     ComposerType,
@@ -20,18 +19,16 @@ from aiperf.common.enums import (
     RequestRateMode,
     ResultsProcessorType,
     ServiceRunType,
-    ServiceType,
     ZMQProxyType,
 )
 from aiperf.common.exceptions import (
     FactoryCreationError,
-    InvalidOperationError,
     InvalidStateError,
 )
+from aiperf.common.plugins import AIPerfUIType
 from aiperf.common.types import (
     ClassEnumT,
     ClassProtocolT,
-    ServiceProtocolT,
     ServiceTypeT,
 )
 
@@ -497,34 +494,6 @@ class ResponseExtractorFactory(
         return super().create_instance(
             class_type, model_endpoint=model_endpoint, **kwargs
         )
-
-
-class ServiceFactory(AIPerfFactory[ServiceType, "ServiceProtocol"]):
-    """Factory for registering and creating ServiceProtocol instances based on the specified service type.
-    see: :class:`aiperf.common.factories.AIPerfFactory` for more details.
-    """
-
-    @classmethod
-    def register_all(
-        cls, *class_types: ServiceTypeT, override_priority: int = 0
-    ) -> Callable[..., Any]:
-        raise InvalidOperationError(
-            "ServiceFactory.register_all is not supported. A single service can only be registered with a single type."
-        )
-
-    @classmethod
-    def register(
-        cls, class_type: ServiceTypeT, override_priority: int = 0
-    ) -> Callable[..., Any]:
-        # Override the register method to set the service_type on the class
-        original_decorator = super().register(class_type, override_priority)
-
-        def decorator(class_cls: type[ServiceProtocolT]) -> type[ServiceProtocolT]:
-            class_cls.service_type = class_type
-            original_decorator(class_cls)
-            return class_cls
-
-        return decorator
 
 
 class ServiceManagerFactory(AIPerfFactory[ServiceRunType, "ServiceManagerProtocol"]):

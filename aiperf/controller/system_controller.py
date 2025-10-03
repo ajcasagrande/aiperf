@@ -4,7 +4,7 @@ import asyncio
 import os
 import sys
 import time
-from typing import cast
+from typing import ClassVar, cast
 
 from rich.console import Console
 
@@ -23,12 +23,9 @@ from aiperf.common.enums import (
     CommandType,
     MessageType,
     ServiceRegistrationStatus,
-    ServiceType,
 )
-from aiperf.common.enums.plugin_enums import AIPerfPluginType
 from aiperf.common.exceptions import LifecycleOperationError
 from aiperf.common.factories import (
-    ServiceFactory,
     ServiceManagerFactory,
 )
 from aiperf.common.hooks import on_command, on_init, on_message, on_start, on_stop
@@ -55,7 +52,7 @@ from aiperf.common.models import (
     ServiceRunInfo,
 )
 from aiperf.common.models.error_models import ExitErrorInfo
-from aiperf.common.plugin_manager import AIPerfPluginManager
+from aiperf.common.plugins import AIPerfPluginManager, AIPerfPluginType, ServiceType
 from aiperf.common.protocols import AIPerfUIProtocol, ServiceManagerProtocol
 from aiperf.common.types import ServiceTypeT
 from aiperf.controller.controller_utils import print_exit_errors
@@ -64,13 +61,14 @@ from aiperf.controller.system_mixins import SignalHandlerMixin
 from aiperf.exporters.exporter_manager import ExporterManager
 
 
-@ServiceFactory.register(ServiceType.SYSTEM_CONTROLLER)
 class SystemController(SignalHandlerMixin, BaseService):
     """System Controller service.
 
     This service is responsible for managing the lifecycle of all other services.
     It will start, stop, and configure all other services.
     """
+
+    service_type: ClassVar[ServiceTypeT] = ServiceType.SYSTEM_CONTROLLER
 
     def __init__(
         self,

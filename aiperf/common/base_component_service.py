@@ -12,7 +12,7 @@ from aiperf.common.constants import (
     DEFAULT_REGISTRATION_INTERVAL,
 )
 from aiperf.common.decorators import implements_protocol
-from aiperf.common.enums import CommandType, LifecycleState, ServiceType
+from aiperf.common.enums import CommandType, LifecycleState
 from aiperf.common.hooks import (
     background_task,
     on_command,
@@ -29,6 +29,7 @@ from aiperf.common.messages.command_messages import (
     RegisterServiceCommand,
 )
 from aiperf.common.models.error_models import ErrorDetails
+from aiperf.common.plugins import ServiceType
 from aiperf.common.protocols import ServiceProtocol
 
 

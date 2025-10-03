@@ -16,8 +16,8 @@ from aiperf.common.enums import (
     MediaType,
     MessageType,
     MetricType,
-    ServiceType,
 )
+from aiperf.common.plugins import ServiceType
 
 if TYPE_CHECKING:
     from pydantic import BaseModel

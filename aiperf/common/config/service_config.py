@@ -149,7 +149,7 @@ class ServiceConfig(BaseSettings):
     ] = ServiceDefaults.RECORD_PROCESSOR_SERVICE_COUNT
 
     ui_type: Annotated[
-        AIPerfUIType,
+        "AIPerfUIType",
         Field(
             description="Type of UI to use",
         ),

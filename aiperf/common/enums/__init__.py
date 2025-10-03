@@ -80,7 +80,6 @@ from aiperf.common.enums.service_enums import (
     LifecycleState,
     ServiceRegistrationStatus,
     ServiceRunType,
-    ServiceType,
 )
 from aiperf.common.enums.sse_enums import (
     SSEFieldType,
@@ -145,7 +144,6 @@ __all__ = [
     "SSEFieldType",
     "ServiceRegistrationStatus",
     "ServiceRunType",
-    "ServiceType",
     "SystemState",
     "TimingMode",
     "WorkerStatus",
