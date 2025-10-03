@@ -45,6 +45,16 @@ class OutputConfig(BaseConfig):
         ),
     ] = OutputDefaults.PROFILE_EXPORT_FILE
 
-    @property
-    def export_level(self) -> ExportLevel:
-        return ExportLevel.RECORDS
+    export_level: Annotated[
+        ExportLevel,
+        Field(
+            description="The level of detail for benchmark data export. "
+            "'summary' exports only aggregated metrics (most compact), "
+            "'records' exports per-record metrics with display units (default), "
+            "'raw' exports raw records with full request/response data (most detailed, for post-processing).",
+        ),
+        CLIParameter(
+            name=("--export-level",),
+            group=_CLI_GROUP,
+        ),
+    ] = OutputDefaults.EXPORT_LEVEL

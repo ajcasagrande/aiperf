@@ -34,6 +34,44 @@ python examples/parse_profile_export.py artifacts/my-run/profile_export.jsonl --
 
 ---
 
+### `process_raw_records.py`
+
+**Purpose:** Process raw AIPerf record exports for custom analysis and metrics computation.
+
+**What it does:**
+- Loads raw `RequestRecord` objects from JSONL files (created with `--export-level raw`)
+- Filters records by phase (warmup/profiling) and validity
+- Computes custom latency, throughput, and error metrics
+- Consolidates per-processor files into a single file
+
+**Usage:**
+```bash
+# Analyze raw records with default filters (profiling phase, valid only)
+python examples/process_raw_records.py --artifact-dir ./artifacts
+
+# Include error records in analysis
+python examples/process_raw_records.py --artifact-dir ./artifacts --include-errors
+
+# Filter by phase
+python examples/process_raw_records.py --artifact-dir ./artifacts --phase profiling
+
+# Consolidate per-processor files
+python examples/process_raw_records.py --artifact-dir ./artifacts --consolidate
+
+# Export metrics to JSON
+python examples/process_raw_records.py --artifact-dir ./artifacts --output metrics.json
+```
+
+**When to use:**
+- Post-processing raw records exported with `--export-level raw`
+- Computing custom metrics not available in standard AIPerf output
+- Consolidating distributed processor outputs for easier analysis
+- Debugging failed requests with full request/response data
+
+**See also:** [Raw Record Export Documentation](../docs/raw_record_export.md)
+
+---
+
 ## Example Artifacts
 
 The `artifacts/run1/` directory contains sample output files from an actual AIPerf run.

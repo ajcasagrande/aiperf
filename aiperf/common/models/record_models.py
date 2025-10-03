@@ -53,7 +53,7 @@ class MetricResult(AIPerfBaseModel):
         from aiperf.exporters.display_units_utils import to_display_unit
         from aiperf.metrics.metric_registry import MetricRegistry
 
-        return to_display_unit(self, MetricRegistry)
+        return to_display_unit(self, MetricRegistry)  # type: ignore[arg-type]
 
 
 class MetricValue(AIPerfBaseModel):
@@ -471,6 +471,111 @@ class RankingsResponseData(BaseResponseData):
     def get_text(self) -> str:
         """Get the text of the response (empty for rankings)."""
         return ""
+
+
+class RawRequestExport(AIPerfBaseModel):
+    """Exported raw request data for post-processing and analysis.
+
+    This model contains the HTTP request/response details without Turn objects,
+    focusing on the actual API interaction for reproducibility and debugging.
+    """
+
+    # Request identification
+    conversation_id: str | None = Field(
+        default=None,
+        description="The ID of the conversation (if applicable).",
+    )
+    turn_index: int | None = Field(
+        default=None,
+        ge=0,
+        description="The index of the turn in the conversation (if applicable).",
+    )
+    x_request_id: str | None = Field(
+        default=None,
+        description="The X-Request-ID header of the request.",
+    )
+    x_correlation_id: str | None = Field(
+        default=None,
+        description="The X-Correlation-ID header (credit drop ID).",
+    )
+
+    # Request details
+    model_name: str | None = Field(
+        default=None,
+        description="The name of the model targeted by the request.",
+    )
+    payload: dict[str, Any] = Field(
+        default_factory=dict,
+        description="The formatted request payload sent to the API (from RequestConverter).",
+    )
+    headers: dict[str, str] = Field(
+        default_factory=dict,
+        description="HTTP headers sent with the request.",
+    )
+
+    # Response details
+    status: int | None = Field(
+        default=None,
+        description="The HTTP status code of the response.",
+    )
+    responses: SerializeAsAny[
+        list[SSEMessage | TextResponse | InferenceServerResponse | Any]
+    ] = Field(
+        default_factory=list,
+        description="The raw responses received from the request.",
+    )
+    error: ErrorDetails | None = Field(
+        default=None,
+        description="The error details if the request failed.",
+    )
+
+    # Timing information (all in nanoseconds)
+    timestamp_ns: int = Field(
+        ...,
+        description="Wall clock timestamp of request start (time.time_ns).",
+    )
+    start_perf_ns: int = Field(
+        ...,
+        description="Start reference time for latency calculations (perf_counter_ns).",
+    )
+    end_perf_ns: int | None = Field(
+        default=None,
+        description="End time of the request (perf_counter_ns).",
+    )
+    recv_start_perf_ns: int | None = Field(
+        default=None,
+        description="Start time of streaming response (perf_counter_ns).",
+    )
+    delayed_ns: int | None = Field(
+        default=None,
+        ge=0,
+        description="Nanoseconds the request was delayed from expected send time.",
+    )
+    credit_drop_latency: int | None = Field(
+        default=None,
+        ge=0,
+        description="Internal latency from credit drop to actual send (for diagnostics).",
+    )
+
+    # Request lifecycle
+    credit_phase: CreditPhase = Field(
+        default=CreditPhase.PROFILING,
+        description="The credit phase (warmup or profiling).",
+    )
+    was_cancelled: bool = Field(
+        default=False,
+        description="Whether the request was cancelled during execution.",
+    )
+    cancel_after_ns: int = Field(
+        default=0,
+        ge=0,
+        description="Delay in nanoseconds after which request should be cancelled.",
+    )
+    cancellation_perf_ns: int | None = Field(
+        default=None,
+        ge=0,
+        description="Time when request was cancelled (perf_counter_ns), if applicable.",
+    )
 
 
 class ParsedResponse(AIPerfBaseModel):

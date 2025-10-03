@@ -17,7 +17,7 @@ from aiperf.common.factories import (
     RecordProcessorFactory,
     ServiceFactory,
 )
-from aiperf.common.hooks import on_command, on_init, on_pull_message
+from aiperf.common.hooks import on_command, on_init, on_pull_message, on_stop
 from aiperf.common.messages import (
     InferenceResultsMessage,
     MetricRecordsMessage,
@@ -81,16 +81,17 @@ class RecordProcessor(PullClientMixin, BaseComponentService):
         """Initialize record processor-specific components."""
         self.debug("Initializing record processor")
 
-        # Initialize all the records streamers that are enabled
+        # Initialize all the records processors that are enabled (including raw record writer)
         for processor_type in RecordProcessorFactory.get_all_class_types():
             try:
-                self.records_processors.append(
-                    RecordProcessorFactory.create_instance(
-                        processor_type,
-                        service_config=self.service_config,
-                        user_config=self.user_config,
-                    )
+                processor = RecordProcessorFactory.create_instance(
+                    processor_type,
+                    service_config=self.service_config,
+                    user_config=self.user_config,
+                    service_id=self.service_id,
                 )
+                self.records_processors.append(processor)
+                self.debug(f"Initialized record processor: {processor_type}")
             except PostProcessorDisabled:
                 self.debug(
                     f"Record processor {processor_type} is disabled and will not be used"
@@ -157,6 +158,19 @@ class RecordProcessor(PullClientMixin, BaseComponentService):
             *tasks, return_exceptions=True
         )
         return results
+
+    @on_stop
+    async def _cleanup(self) -> None:
+        """Cleanup resources when the service stops."""
+        # Close all processors that have a close method (like RawRecordWriter)
+        for processor in self.records_processors:
+            if hasattr(processor, "close"):
+                try:
+                    await processor.close()  # type: ignore[attr-defined]
+                except Exception as e:
+                    self.error(
+                        f"Error closing processor {type(processor).__name__}: {e}"
+                    )
 
 
 def main() -> None:

@@ -15,6 +15,10 @@ class RecordProcessorType(CaseInsensitiveStrEnum):
     """Streamer that streams records and computes metrics from MetricType.RECORD and MetricType.AGGREGATE.
     This is the first stage of the metrics processing pipeline, and is done is a distributed manner across multiple service instances."""
 
+    RAW_RECORD = "raw_record"
+    """Writes raw RequestRecord objects to JSONL files for post-processing and delayed metrics analysis.
+    Only enabled when export_level is set to RAW."""
+
 
 class ResultsProcessorType(CaseInsensitiveStrEnum):
     """Type of streaming results processor.

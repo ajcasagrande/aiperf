@@ -1,5 +1,15 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+
+from aiperf.records.raw_record_writer import RawRecordWriter
+from aiperf.records.record_processor_service import RecordProcessor
+from aiperf.records.records_manager import RecordsManager
+
+__all__ = [
+    "RawRecordWriter",
+    "RecordProcessor",
+    "RecordsManager",
+]
 ########################################################################
 ## 🚩                     mkinit flags                             🚩 ##
 ########################################################################
@@ -16,12 +26,6 @@ from aiperf.records.phase_completion import (
     PhaseCompletionCondition,
     PhaseCompletionContext,
 )
-from aiperf.records.record_processor_service import (
-    RecordProcessor,
-)
-from aiperf.records.records_manager import (
-    RecordsManager,
-)
 
 __all__ = [
     "AllRequestsProcessedCondition",
@@ -30,6 +34,7 @@ __all__ = [
     "PhaseCompletionChecker",
     "PhaseCompletionCondition",
     "PhaseCompletionContext",
+    "RawRecordWriter",
     "RecordProcessor",
     "RecordsManager",
 ]
