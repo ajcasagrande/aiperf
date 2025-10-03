@@ -22,6 +22,7 @@ from aiperf.common.enums import (
     AIPerfLogLevel,
     ServiceRunType,
 )
+from aiperf.common.plugins import AIPerfUIType
 
 _logger = AIPerfLogger(__name__)
 
@@ -148,7 +149,7 @@ class ServiceConfig(BaseSettings):
     ] = ServiceDefaults.RECORD_PROCESSOR_SERVICE_COUNT
 
     ui_type: Annotated[
-        str,
+        AIPerfUIType,
         Field(
             description="Type of UI to use",
         ),

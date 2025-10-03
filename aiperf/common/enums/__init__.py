@@ -72,12 +72,6 @@ from aiperf.common.enums.model_enums import (
 from aiperf.common.enums.openai_enums import (
     OpenAIObjectType,
 )
-from aiperf.common.enums.plugin_enums import (
-    AIPerfPluginType,
-    AIPerfUIType,
-    create_plugin_enum,
-    get_available_plugins,
-)
 from aiperf.common.enums.post_processor_enums import (
     RecordProcessorType,
     ResultsProcessorType,
@@ -105,8 +99,6 @@ from aiperf.common.enums.worker_enums import (
 
 __all__ = [
     "AIPerfLogLevel",
-    "AIPerfPluginType",
-    "AIPerfUIType",
     "AudioFormat",
     "BaseMetricUnit",
     "BaseMetricUnitInfo",
@@ -158,6 +150,4 @@ __all__ = [
     "TimingMode",
     "WorkerStatus",
     "ZMQProxyType",
-    "create_plugin_enum",
-    "get_available_plugins",
 ]

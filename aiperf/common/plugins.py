@@ -6,11 +6,87 @@ import threading
 from importlib.metadata import PackageNotFoundError, entry_points, metadata
 from typing import Any
 
+from pydantic import BaseModel, ConfigDict, Field
 from typing_extensions import Self
 
-from aiperf.common.enums import AIPerfPluginType
+from aiperf.common.enums.base_enums import (
+    BasePydanticBackedStrEnum,
+    BasePydanticEnumInfo,
+    CaseInsensitiveStrEnum,
+)
 from aiperf.common.exceptions import PluginNotFoundError
-from aiperf.common.models import AIPerfPluginMapping, AIPerfPluginMetadata
+
+
+class AIPerfPluginType(CaseInsensitiveStrEnum):
+    """The type of a plugin. This is equivalent to the entry-point type in the pyproject.toml file.
+
+    This is used to identify the plugin type when registering with the PluginFactory.
+    """
+
+    SERVICE = "aiperf.service"
+    UI = "aiperf.ui"
+
+
+class AIPerfPluginMetadata(BaseModel):
+    """Metadata for a plugin.
+
+    This is used to identify the plugin in the plugin factory.
+    """
+
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="allow")
+
+    name: str = Field(..., description="The name of the plugin.", min_length=1)
+    version: str = Field(..., description="The version of the plugin.", min_length=1)
+    description: str | None = Field(
+        default=None, description="The description of the plugin.", min_length=1
+    )
+    author: str | None = Field(
+        default=None, description="The author of the plugin.", min_length=1
+    )
+    author_email: str | None = Field(
+        default=None, description="The email of the author of the plugin.", min_length=1
+    )
+    url: str | None = Field(
+        default=None, description="The URL of the plugin.", min_length=1
+    )
+
+
+class AIPerfPluginMapping(BaseModel):
+    """Mapping information for a plugin.
+
+    Used to store the plugin type, name, class type, entry point, and metadata for the PluginManager.
+    """
+
+    plugin_type: AIPerfPluginType = Field(
+        ...,
+        description="The type of the plugin. This is the plugin type as defined in the pyproject.toml file.",
+    )
+    name: str = Field(
+        ...,
+        description="The name of the plugin. This is the name of the plugin as defined in the pyproject.toml file.",
+        min_length=1,
+    )
+    package_name: str = Field(
+        ...,
+        description="The name of the package that provides the plugin. This is the name of the package as defined in the pyproject.toml file.",
+        min_length=1,
+    )
+    built_in: bool = Field(
+        default=False,
+        description="Whether the plugin is a built-in plugin. This is used to indicate that the plugin is a built-in plugin that is included in the AIPerf package.",
+    )
+    class_type: type[Any] | None = Field(
+        default=None,
+        description="The class type of the plugin. This is lazy loaded when needed.",
+    )
+    entry_point: Any = Field(
+        ...,
+        description="The entry point of the plugin. This is the importlib.metadata.EntryPoint object.",
+    )
+    metadata: AIPerfPluginMetadata = Field(
+        ...,
+        description="The metadata of the plugin. This is the metadata of the plugin as defined in the pyproject.toml file.",
+    )
 
 
 class AIPerfPluginManager:
@@ -75,7 +151,12 @@ class AIPerfPluginManager:
     def _register_all(self) -> None:
         """Register all plugins without loading them (lazy loading)."""
         self._logger.debug("Registering all plugins.")
+
         for plugin_type in AIPerfPluginType.__members__.values():
+            # Initialize the plugin_type key if it doesn't exist
+            if plugin_type not in self._plugin_mappings:
+                self._plugin_mappings[plugin_type] = {}
+
             registered = 0
             self._logger.debug(f"Registering plugins for {plugin_type}.")
 
@@ -123,6 +204,12 @@ class AIPerfPluginManager:
     def list_plugins(self, plugin_type: AIPerfPluginType) -> list[str]:
         """List all plugins of the given plugin type."""
         return list(self._plugin_mappings[plugin_type].keys())
+
+    def list_plugin_mappings(
+        self, plugin_type: AIPerfPluginType
+    ) -> dict[str, AIPerfPluginMapping]:
+        """List all plugin mappings of the given plugin type."""
+        return self._plugin_mappings[plugin_type]
 
     def get_metadata(
         self, plugin_type: AIPerfPluginType, name: str
@@ -172,3 +259,28 @@ class AIPerfPluginManager:
             f"Plugin class '{name}' loaded for plugin type '{plugin_type}': {plugin.class_type!r}."
         )
         return plugin.class_type
+
+
+def _get_available_plugins(plugin_type: AIPerfPluginType) -> list[str]:
+    """Get list of available plugins for a given plugin type."""
+    pm = AIPerfPluginManager()
+    return pm.list_plugins(plugin_type)
+
+
+def _create_plugin_enum(
+    plugin_type: AIPerfPluginType, enum_name: str
+) -> type[BasePydanticBackedStrEnum]:
+    """Create a dynamic BasePydanticBackedStrEnum of available plugins for a given plugin type."""
+    plugins = _get_available_plugins(plugin_type)
+    return BasePydanticBackedStrEnum(
+        enum_name,
+        {
+            name.replace("-", "_").upper(): BasePydanticEnumInfo(tag=name)
+            for name in plugins
+        },
+    )  # type: ignore
+
+
+# Create the dy
+AIPerfUIType = _create_plugin_enum(AIPerfPluginType.UI, "AIPerfUIType")
+AIPerfServiceType = _create_plugin_enum(AIPerfPluginType.SERVICE, "AIPerfServiceType")

@@ -3,28 +3,18 @@
 
 import multiprocessing
 
-from pluggy import HookimplMarker
-
-from aiperf import AIPERF_PROJECT_NAME
 from aiperf.common.config import ServiceConfig
 from aiperf.common.config.user_config import UserConfig
-from aiperf.common.decorators import implements_protocol
-from aiperf.common.enums import AIPerfUIType
-from aiperf.common.factories import AIPerfUIFactory
 from aiperf.common.hooks import (
     AIPerfHook,
     on_start,
     on_stop,
 )
-from aiperf.common.plugin_metadata import AIPerfPluginMetadata
-from aiperf.common.protocols import AIPerfUIProtocol
 from aiperf.ui.base_ui import BaseAIPerfUI
 from aiperf.ui.dashboard.aiperf_textual_app import AIPerfTextualApp
 from aiperf.ui.dashboard.rich_log_viewer import LogConsumer
 
 
-@implements_protocol(AIPerfUIProtocol)
-@AIPerfUIFactory.register(AIPerfUIType.DASHBOARD)
 class AIPerfDashboardUI(BaseAIPerfUI):
     """
     AIPerf Dashboard UI.
@@ -38,15 +28,6 @@ class AIPerfDashboardUI(BaseAIPerfUI):
     The reason for this wrapper is that the internal lifecycle of the Textual App is
     handled by Textual, and it is not fully compatible with our AIPerf lifecycle.
     """
-
-    @staticmethod
-    def plugin_metadata() -> AIPerfPluginMetadata:
-        """Plugin metadata for the AIPerfDashboardUI."""
-        return AIPerfPluginMetadata(
-            name="dashboard",
-            description="AIPerf Dashboard UI",
-            version="1.0.0",
-        )
 
     def __init__(
         self,
@@ -90,12 +71,3 @@ class AIPerfDashboardUI(BaseAIPerfUI):
         """Stop the Dashboard application gracefully."""
         self.debug("Shutting down Dashboard UI")
         self.app.exit(return_code=0)
-
-
-hookimpl = HookimplMarker(AIPERF_PROJECT_NAME)
-
-
-@hookimpl
-def ui() -> type[AIPerfDashboardUI]:
-    """Provide the AIPerfDashboardUI class to the plugin factory."""
-    return AIPerfDashboardUI

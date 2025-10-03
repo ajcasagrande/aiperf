@@ -1,13 +1,9 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-from pluggy import HookimplMarker
 from tqdm import tqdm
 
-from aiperf import AIPERF_PROJECT_NAME
 from aiperf.common.constants import DEFAULT_UI_MIN_UPDATE_PERCENT
 from aiperf.common.decorators import implements_protocol
-from aiperf.common.enums import AIPerfUIType
-from aiperf.common.factories import AIPerfUIFactory
 from aiperf.common.hooks import (
     on_profiling_progress,
     on_records_progress,
@@ -15,7 +11,6 @@ from aiperf.common.hooks import (
     on_warmup_progress,
 )
 from aiperf.common.models import RecordsStats, RequestsStats
-from aiperf.common.plugin_metadata import AIPerfPluginMetadata
 from aiperf.common.protocols import AIPerfUIProtocol
 from aiperf.ui.base_ui import BaseAIPerfUI
 
@@ -60,18 +55,8 @@ class ProgressBar:
 
 
 @implements_protocol(AIPerfUIProtocol)
-@AIPerfUIFactory.register(AIPerfUIType.SIMPLE)
 class TQDMProgressUI(BaseAIPerfUI):
     """A UI that shows progress bars for the records and requests phases."""
-
-    @staticmethod
-    def plugin_metadata() -> AIPerfPluginMetadata:
-        """Plugin metadata for the TQDMProgressUI."""
-        return AIPerfPluginMetadata(
-            name="tqdm",
-            description="A UI that shows progress bars for the records and requests phases",
-            version="1.0.0",
-        )
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -124,12 +109,3 @@ class TQDMProgressUI(BaseAIPerfUI):
             )
         if self._records_bar:
             self._records_bar.update(records_stats.finished)
-
-
-hookimpl = HookimplMarker(AIPERF_PROJECT_NAME)
-
-
-@hookimpl
-def ui() -> type[TQDMProgressUI]:
-    """Provide the TQDMProgressUI class to the plugin factory."""
-    return TQDMProgressUI

@@ -14,6 +14,7 @@ from aiperf.common.constants import (
 )
 from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import (
+    AIPerfUIType,
     CommAddress,
     CommandType,
     CreditPhase,
@@ -21,7 +22,6 @@ from aiperf.common.enums import (
     ServiceType,
 )
 from aiperf.common.enums.metric_enums import MetricValueTypeT
-from aiperf.common.enums.ui_enums import AIPerfUIType
 from aiperf.common.factories import (
     ResultsProcessorFactory,
     ServiceFactory,

@@ -7,7 +7,6 @@ from pathlib import Path
 from aiperf.common.constants import AIPERF_DEV_MODE
 from aiperf.common.enums import (
     AIPerfLogLevel,
-    AIPerfUIType,
     AudioFormat,
     CommunicationBackend,
     EndpointType,
@@ -17,6 +16,7 @@ from aiperf.common.enums import (
     ServiceRunType,
     TimingMode,
 )
+from aiperf.common.plugins import AIPerfUIType
 
 
 #

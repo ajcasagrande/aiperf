@@ -38,10 +38,6 @@ from aiperf.common.models.health_models import (
     IOCounters,
     ProcessHealth,
 )
-from aiperf.common.models.plugin_models import (
-    AIPerfPluginMapping,
-    AIPerfPluginMetadata,
-)
 from aiperf.common.models.progress_models import (
     ComputedStats,
     FullPhaseProgress,
@@ -76,8 +72,6 @@ from aiperf.common.models.worker_models import (
 
 __all__ = [
     "AIPerfBaseModel",
-    "AIPerfPluginMapping",
-    "AIPerfPluginMetadata",
     "Audio",
     "BaseResponseData",
     "CPUTimes",
