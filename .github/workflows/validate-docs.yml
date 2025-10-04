@@ -1,0 +1,78 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+name: Validate Documentation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'guidebook/**'
+      - 'mkdocs.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'guidebook/**'
+      - 'mkdocs.yml'
+
+jobs:
+  markdown-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Markdown Lint
+        uses: nosborne/github-action-markdown-cli@v3.3.0
+        with:
+          files: docs/ guidebook/
+          config_file: .markdownlint.json
+          ignore_files: node_modules/
+          ignore_path: .markdownlintignore
+        continue-on-error: true
+
+  check-links:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check internal markdown links
+        run: |
+          # Check for broken chapter cross-references
+          cd guidebook
+          for file in chapter-*.md; do
+            echo "Checking $file..."
+            # Extract chapter references
+            grep -o 'chapter-[0-9][0-9]-[a-z-]*\.md' "$file" | while read ref; do
+              if [ ! -f "$ref" ]; then
+                echo "ERROR: $file references missing chapter: $ref"
+                exit 1
+              fi
+            done
+          done
+          echo "All chapter cross-references valid"
+
+  build-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install MkDocs
+        run: |
+          pip install mkdocs mkdocs-material mkdocstrings[python] pymdown-extensions
+
+      - name: Build documentation
+        run: |
+          mkdocs build --strict
+
+      - name: Upload docs artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: documentation
+          path: site/

@@ -16,9 +16,10 @@
 
 
 .PHONY: ruff lint ruff-fix lint-fix format fmt check-format check-fmt \
-		test coverage clean install docker docker-run first-time-setup \
-		test-verbose init-files setup-venv setup-mkinit \
-		internal-help help
+		test test-verbose test-fast test-critical test-integration test-docs \
+		test-examples test-all coverage clean install docker docker-run \
+		first-time-setup init-files setup-venv setup-mkinit docs docs-serve \
+		validate-all internal-help help
 
 
 # Include user-defined environment variables
@@ -105,14 +106,44 @@ format fmt: #? format the project using ruff.
 check-format check-fmt: #? check the formatting of the project using ruff.
 	$(activate_venv) && ruff format . --check $(args)
 
-test: #? run the tests using pytest-xdist.
-	$(activate_venv) && pytest -n auto $(args)
+test: #? run the unit tests (excludes integration tests).
+	$(activate_venv) && pytest -n auto -m "not integration" $(args)
 
 test-verbose: #? run the tests using pytest-xdist with DEBUG logging.
-	$(activate_venv) && pytest -n auto -v -s --log-cli-level DEBUG
+	$(activate_venv) && pytest -n auto -v -s --log-cli-level DEBUG -m "not integration"
+
+test-fast: #? run the fastest tests (unit tests, no parallel, fail fast).
+	$(activate_venv) && pytest tests/ -x -m "not integration" $(args)
+
+test-critical: #? run the critical behavioral tests.
+	@printf "$(bold)$(blue)Running critical behavioral tests...$(reset)\n"
+	$(activate_venv) && pytest tests/critical/ -v $(args)
+	@printf "$(bold)$(green)Critical tests passed!$(reset)\n"
+
+test-integration: #? run the integration tests with mock server (slow, ~4 minutes).
+	@printf "$(bold)$(blue)Running integration tests with mock server...$(reset)\n"
+	@printf "$(yellow)Note: Integration tests take ~4 minutes due to subprocess execution$(reset)\n"
+	@printf "$(yellow)AIPerf subprocess output (progress bars and logs) will be shown in real-time$(reset)\n"
+	$(activate_venv) && pytest tests/integration/ --integration -v -s --log-cli-level=INFO $(args)
+	@printf "$(bold)$(green)Integration tests passed!$(reset)\n"
+
+test-docs: #? run the documentation validation tests.
+	@printf "$(bold)$(blue)Validating documentation structure...$(reset)\n"
+	$(activate_venv) && pytest tests/test_documentation.py -v $(args)
+	@printf "$(bold)$(green)Documentation tests passed!$(reset)\n"
+
+test-examples: #? run the example code validation tests.
+	@printf "$(bold)$(blue)Validating example code...$(reset)\n"
+	$(activate_venv) && pytest tests/test_examples.py -v $(args)
+	@printf "$(bold)$(green)Example tests passed!$(reset)\n"
+
+test-all: #? run all tests including integration tests (slow, ~4 minutes).
+	@printf "$(bold)$(blue)Running complete test suite (unit + critical + integration)...$(reset)\n"
+	$(activate_venv) && pytest tests/ --integration -v $(args)
+	@printf "$(bold)$(green)All tests passed!$(reset)\n"
 
 coverage: #? run the tests and generate an html coverage report.
-	$(activate_venv) && pytest -n auto --cov=aiperf --cov-branch --cov-report=html --cov-report=xml --cov-report=term $(args)
+	$(activate_venv) && pytest -n auto --cov=aiperf --cov-branch --cov-report=html --cov-report=xml --cov-report=term -m "not integration" $(args)
 
 install: #? install the project in editable mode.
 	$(activate_venv) && uv pip install -e ".[dev]" $(args)
@@ -126,6 +157,32 @@ docker-run: #? run the docker container.
 version: #? print the version of the project.
 	@PATH=$(UV_PATH):$(PATH) uv version
 
+docs: #? build the documentation using mkdocs.
+	@printf "$(bold)$(blue)Building documentation...$(reset)\n"
+	$(activate_venv) && mkdocs build --strict
+	@printf "$(bold)$(green)Documentation built successfully in site/$(reset)\n"
+
+docs-serve: #? serve the documentation locally at http://127.0.0.1:8000
+	@printf "$(bold)$(blue)Serving documentation at http://127.0.0.1:8000$(reset)\n"
+	$(activate_venv) && mkdocs serve
+
+validate-all: #? run all validation checks (lint, format, tests, docs, examples).
+	@printf "$(bold)$(blue)Running complete validation suite...$(reset)\n"
+	@printf "$(bold)1/5: Checking code format...$(reset)\n"
+	@$(MAKE) check-format --no-print-directory
+	@printf "$(bold)2/5: Running linters...$(reset)\n"
+	@$(MAKE) lint --no-print-directory
+	@printf "$(bold)3/5: Running unit and critical tests...$(reset)\n"
+	@$(MAKE) test-critical --no-print-directory
+	@$(MAKE) test --no-print-directory
+	@printf "$(bold)4/5: Validating documentation...$(reset)\n"
+	@$(MAKE) test-docs --no-print-directory
+	@printf "$(bold)5/5: Validating examples...$(reset)\n"
+	@$(MAKE) test-examples --no-print-directory
+	@printf "$(bold)$(green)═══════════════════════════════════════════════════$(reset)\n"
+	@printf "$(bold)$(green)  All validation checks passed successfully!$(reset)\n"
+	@printf "$(bold)$(green)═══════════════════════════════════════════════════$(reset)\n"
+
 clean: #? clean up the pytest and ruff caches, coverage reports, and *.pyc files.
 	rm -rf .pytest_cache/
 	rm -rf .ruff_cache/
@@ -133,6 +190,7 @@ clean: #? clean up the pytest and ruff caches, coverage reports, and *.pyc files
 	find . -type d -name "__pycache__" -delete
 	find . -type f -name ".coverage" -delete
 	rm -rf htmlcov/
+	rm -rf site/
 
 setup-venv: #? create the virtual environment.
 	@# Install uv if it is not installed

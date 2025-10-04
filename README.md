@@ -12,7 +12,7 @@ SPDX-License-Identifier: Apache-2.0
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/ai-dynamo/aiperf)
 
 
-**[Architecture](docs/architecture.md)**| **[Design Proposals](https://github.com/ai-dynamo/enhancements)** | **[Migrating from Genai-Perf](docs/migrating.md)** | **[CLI Options](docs/cli_options.md)**
+**[Architecture](docs/architecture.md)** | **[Design Proposals](https://github.com/ai-dynamo/enhancements)** | **[Migrating from Genai-Perf](docs/migrating.md)** | **[CLI Options](docs/cli_options.md)** | **[Developer's Guidebook](guidebook/INDEX.md)** | **[Examples](examples/README.md)**
 
 
 AIPerf is a comprehensive benchmarking tool that measures the performance of generative AI models served by your preferred inference solution.
@@ -153,6 +153,31 @@ NVIDIA AIPerf | LLM Metrics
 ```
 </div>
 
+</br>
+
+## Documentation
+
+### For Users
+- **[Quick Start Guide](guidebook/chapter-03-quick-start.md)** - Get started in minutes
+- **[Tutorials](docs/tutorial.md)** - Step-by-step tutorials with examples
+- **[CLI Options](docs/cli_options.md)** - Complete command-line reference
+
+### For Developers
+- **[Developer's Guidebook](guidebook/INDEX.md)** - 50-chapter comprehensive guide covering:
+  - Architecture and design patterns
+  - All subsystems in depth (workers, dataset, timing, metrics, communication)
+  - Development guidelines and best practices
+  - Testing strategies and debugging techniques
+  - Extension guides (custom metrics, datasets, endpoints)
+- **[Runnable Examples](examples/README.md)** - 10 complete code examples:
+  - Basic benchmarking scenarios
+  - Advanced features (trace replay, goodput, cancellation)
+  - Custom metrics and datasets
+- **[AI Assistant Guide](CLAUDE.md)** - Development principles and patterns
+- **[Architecture Overview](docs/architecture.md)** - High-level system design
+- **[Contributing Guide](CONTRIBUTING.md)** - How to contribute
+
+</br>
 
 ## Known Issues
 

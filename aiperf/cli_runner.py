@@ -1,5 +1,17 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+"""CLI Runner Module
+
+This module provides the entry point for running the AIPerf system controller
+from the command-line interface. It handles:
+- System controller initialization
+- Module loading and validation
+- Logging setup based on UI mode
+- Error handling and reporting
+
+The main function run_system_controller() is called by the CLI after
+parsing user configuration.
+"""
 
 from aiperf.cli_utils import raise_startup_error_and_exit
 from aiperf.common.config import ServiceConfig, UserConfig

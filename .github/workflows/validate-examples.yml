@@ -1,0 +1,67 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+name: Validate Examples
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'examples/**'
+      - 'aiperf/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'examples/**'
+      - 'aiperf/**'
+
+jobs:
+  validate-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Validate Python syntax in examples
+        run: |
+          python -m py_compile examples/basic/*.py
+          python -m py_compile examples/advanced/*.py
+          python -m py_compile examples/custom-metrics/*.py
+          python -m py_compile examples/custom-datasets/*.py
+          python -m py_compile examples/integration/*.py
+
+      - name: Check examples follow style guide
+        run: |
+          ruff check examples/
+          black --check examples/
+
+  validate-imports:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install AIPerf
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Test example imports
+        run: |
+          for example in examples/*/*.py; do
+            echo "Testing imports: $example"
+            python -c "import sys; sys.path.insert(0, 'examples'); import $(basename $example .py)" || exit 1
+          done
