@@ -85,7 +85,7 @@ class RecordProcessor(PullClientMixin, BaseComponentService):
         for processor_type in RecordProcessorFactory.get_all_class_types():
             try:
                 processor = RecordProcessorFactory.create_instance(
-                    processor_type,
+                    class_type=processor_type,
                     service_config=self.service_config,
                     user_config=self.user_config,
                     service_id=self.service_id,
@@ -96,6 +96,8 @@ class RecordProcessor(PullClientMixin, BaseComponentService):
                 self.debug(
                     f"Record processor {processor_type} is disabled and will not be used"
                 )
+            except Exception as e:
+                self.error(f"Error initializing record processor {processor_type}: {e}")
 
     @on_command(CommandType.PROFILE_CONFIGURE)
     async def _profile_configure_command(

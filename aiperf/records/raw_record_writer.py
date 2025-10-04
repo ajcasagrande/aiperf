@@ -3,14 +3,13 @@
 
 from pathlib import Path
 
-import aiofiles
-
 from aiperf.clients.model_endpoint_info import ModelEndpointInfo
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import ExportLevel, RecordProcessorType
 from aiperf.common.exceptions import PostProcessorDisabled
 from aiperf.common.factories import RecordProcessorFactory, RequestConverterFactory
+from aiperf.common.jsonl_writer import JsonlWriter
 from aiperf.common.models import ParsedResponseRecord, RawRequestExport
 from aiperf.common.protocols import (
     RecordProcessorProtocol,
@@ -48,9 +47,6 @@ class RawRecordWriter(BaseMetricsProcessor):
         self.service_id = kwargs.get("service_id", "unknown")
         self.output_file = self._get_output_file(self.service_id, user_config)
         self.output_file.parent.mkdir(parents=True, exist_ok=True)
-        self.record_count = 0
-        self.batch_size = 10
-        self._buffer: list[str] = []
 
         # Initialize request converter for payload formatting
         self.model_endpoint = ModelEndpointInfo.from_user_config(user_config)
@@ -62,6 +58,7 @@ class RawRecordWriter(BaseMetricsProcessor):
 
         self.info(f"Raw record export enabled: {self.output_file}")
         self.output_file.unlink(missing_ok=True)
+        self.writer = JsonlWriter(self.output_file)
 
     def _get_output_file(self, service_id: str, user_config: UserConfig) -> Path:
         """Get the output file path for this record processor instance."""
@@ -127,42 +124,10 @@ class RawRecordWriter(BaseMetricsProcessor):
                 cancel_after_ns=raw_record.cancel_after_ns,
                 cancellation_perf_ns=raw_record.cancellation_perf_ns,
             )
-
-            # Serialize the export model
-            record_json = export_record.model_dump_json()
-            self._buffer.append(record_json)
-
-            # Batch writes to reduce I/O overhead
-            if len(self._buffer) >= self.batch_size:
-                await self._flush_buffer()
-
-            self.record_count += 1
-            if self.record_count % 100 == 0:
-                self.debug(f"Wrote {self.record_count} raw records")
-
+            await self.writer.write(export_record)
         except Exception as e:
             self.error(f"Failed to write raw record: {e}")
-
-        # Return empty dict since we don't compute metrics
         return MetricRecordDict()
 
-    async def _flush_buffer(self) -> None:
-        """Flush buffered records to disk."""
-        if not self._buffer:
-            return
-
-        try:
-            async with aiofiles.open(self.output_file, mode="a", encoding="utf-8") as f:
-                for record_json in self._buffer:
-                    await f.write(record_json)
-                    await f.write("\n")
-            self._buffer.clear()
-        except Exception as e:
-            self.error(f"Failed to flush buffer: {e}")
-
     async def close(self) -> None:
-        """Flush any remaining buffered records and close the writer."""
-        await self._flush_buffer()
-        self.info(
-            f"RawRecordWriter: {self.record_count} records written to {self.output_file}"
-        )
+        await self.writer.close()

@@ -27,6 +27,7 @@ from aiperf.common.exceptions import (
     FactoryCreationError,
     InvalidOperationError,
     InvalidStateError,
+    PostProcessorDisabled,
 )
 from aiperf.common.types import (
     ClassEnumT,
@@ -203,6 +204,9 @@ class AIPerfFactory(Generic[ClassEnumT, ClassProtocolT]):
             )
         try:
             return cls._registry[class_type](**kwargs)
+        except PostProcessorDisabled:
+            # For post processors, we don't want to wrap the exception in a FactoryCreationError.
+            raise
         except Exception as e:
             raise FactoryCreationError(
                 f"Error creating {class_type!r} instance for {cls.__name__}: {e}"
