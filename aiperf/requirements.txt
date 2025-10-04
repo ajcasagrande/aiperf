@@ -1,0 +1,15 @@
+# Contents of /aiperf/aiperf/requirements.txt
+
+# AIPerf Benchmarking Tool Requirements
+
+# Core dependencies for the AIPerf benchmarking tool
+numpy
+pandas
+requests
+grpcio
+grpcio-tools
+pytest
+pytest-cov
+loguru
+
+# Additional dependencies can be added as needed for specific features or components.

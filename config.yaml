@@ -1,0 +1,27 @@
+# config.yaml
+
+# Dataset configuration
+# size: Number of synthetic data points to generate
+# synthetic: Whether to generate synthetic data or load real data
+dataset:
+  size: 10
+  synthetic: true
+
+# Timing configuration
+# distribution: Type of timing distribution (poisson, uniform, normal)
+# rate: Events per second
+timing:
+  distribution: poisson
+  rate: 1.0
+
+# Worker configuration
+# endpoint: URL of the inference API to benchmark
+# concurrency: Number of concurrent workers
+worker:
+  endpoint: "http://localhost:8000/process"
+  concurrency: 5
+
+# Records configuration
+# output_file: File to write benchmarking records (JSON lines)
+records:
+  output_file: "records.json" 
