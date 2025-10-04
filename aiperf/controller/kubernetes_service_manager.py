@@ -94,3 +94,11 @@ class KubernetesServiceManager(BaseServiceManager):
         raise NotImplementedError(
             "KubernetesServiceManager.wait_for_all_services_start not implemented"
         )
+
+    async def stop_service(
+        self, service_type: ServiceTypeT, service_id: str | None = None
+    ) -> list[BaseException | None]:
+        # TODO: Implement Kubernetes
+        raise NotImplementedError(
+            "KubernetesServiceManager.stop_service not implemented"
+        )

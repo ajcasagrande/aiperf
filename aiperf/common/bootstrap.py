@@ -30,6 +30,8 @@ def bootstrap_and_run_service(
             configuration will be loaded from the environment variables.
         user_config: The user configuration to use. If not provided, the user configuration
             will be loaded from the environment variables.
+        service_id: The service ID to use. If not provided, the service id will be
+            automatically generated.
         log_queue: Optional multiprocessing queue for child process logging. If provided,
             the child process logging will be set up.
         kwargs: Additional keyword arguments to pass to the service constructor.

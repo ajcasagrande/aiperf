@@ -22,8 +22,8 @@ async def call_all_functions_self(
     """Call all functions in the list with the given name.
 
     Args:
-        obj: The object to call the functions on.
-        func_names: The names of the functions to call.
+        self_: The object to call the functions on.
+        funcs: The functions to call.
         *args: The arguments to pass to the functions.
         **kwargs: The keyword arguments to pass to the functions.
 
@@ -51,8 +51,7 @@ async def call_all_functions(funcs: list[Callable], *args, **kwargs) -> None:
     """Call all functions in the list with the given name.
 
     Args:
-        obj: The object to call the functions on.
-        func_names: The names of the functions to call.
+        funcs: The functions to call
         *args: The arguments to pass to the functions.
         **kwargs: The keyword arguments to pass to the functions.
 

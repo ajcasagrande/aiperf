@@ -158,7 +158,7 @@ class ZMQRouterReplyClient(BaseZMQClient):
                     ),
                 )
 
-            self._response_futures.pop(request_id, None)
+            _ = self._response_futures.pop(request_id, None)
 
             # Send the response back to the client.
             await self.socket.send_multipart(
@@ -184,7 +184,8 @@ class ZMQRouterReplyClient(BaseZMQClient):
                 # Receive request
                 try:
                     data = await self.socket.recv_multipart()
-                    self.trace(lambda msg=data: f"Received request: {msg}")
+                    if self.is_trace_enabled:
+                        self.trace(f"Received request: {data}")
 
                     request = Message.from_json(data[-1])
                     if not request.request_id:
