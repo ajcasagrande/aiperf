@@ -30,12 +30,12 @@ def profile(
         service_config: Service configuration options
     """
     with exit_on_error(title="Error Running AIPerf System"):
-        from aiperf.cli_runner import run_system_controller
         from aiperf.common.config import load_service_config
+        from aiperf.orchestrator.runner import run_aiperf_system
 
         service_config = service_config or load_service_config()
 
-        run_system_controller(user_config, service_config)
+        run_aiperf_system(user_config, service_config)
 
 
 if __name__ == "__main__":

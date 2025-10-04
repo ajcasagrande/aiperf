@@ -1,19 +1,13 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
-import os
 import sys
 import time
 from typing import cast
 
-from rich.console import Console
-
 from aiperf.common.base_service import BaseService
 from aiperf.common.config import ServiceConfig, UserConfig
-from aiperf.common.config.config_defaults import OutputDefaults
-from aiperf.common.config.dev_config import print_developer_mode_warning
 from aiperf.common.constants import (
-    AIPERF_DEV_MODE,
     DEFAULT_PROFILE_CONFIGURE_TIMEOUT,
     DEFAULT_PROFILE_START_TIMEOUT,
     DEFAULT_RECORD_PROCESSOR_SCALE_FACTOR,
@@ -26,11 +20,7 @@ from aiperf.common.enums import (
     ServiceType,
 )
 from aiperf.common.exceptions import LifecycleOperationError
-from aiperf.common.factories import (
-    AIPerfUIFactory,
-    ServiceFactory,
-    ServiceManagerFactory,
-)
+from aiperf.common.factories import ServiceFactory, ServiceManagerFactory
 from aiperf.common.hooks import on_command, on_init, on_message, on_start, on_stop
 from aiperf.common.logging import get_global_log_queue
 from aiperf.common.messages import (
@@ -58,20 +48,23 @@ from aiperf.common.models import (
     TelemetryResults,
 )
 from aiperf.common.models.error_models import ExitErrorInfo
-from aiperf.common.protocols import AIPerfUIProtocol, ServiceManagerProtocol
+from aiperf.common.protocols import ServiceManagerProtocol
 from aiperf.common.types import ServiceTypeT
-from aiperf.controller.controller_utils import print_exit_errors
 from aiperf.controller.proxy_manager import ProxyManager
 from aiperf.controller.system_mixins import SignalHandlerMixin
-from aiperf.exporters.exporter_manager import ExporterManager
 
 
 @ServiceFactory.register(ServiceType.SYSTEM_CONTROLLER)
 class SystemController(SignalHandlerMixin, BaseService):
     """System Controller service.
 
-    This service is responsible for managing the lifecycle of all other services.
-    It will start, stop, and configure all other services.
+    This service is responsible for managing the lifecycle of services and benchmarks.
+    It focuses on:
+    - Service management and coordination
+    - Benchmark lifecycle (configure, start, stop)
+    - Service registration and health monitoring
+
+    Note: UI management and results export are handled by the CLIOrchestrator.
     """
 
     def __init__(
@@ -87,8 +80,8 @@ class SystemController(SignalHandlerMixin, BaseService):
         )
         self.debug("Creating System Controller")
         self._was_cancelled = False
-        # List of required service types, in no particular order
-        # These are services that must be running before the system controller can start profiling
+
+        # List of required service types
         self.required_services: dict[ServiceTypeT, int] = {
             ServiceType.DATASET_MANAGER: 1,
             ServiceType.TIMING_MANAGER: 1,
@@ -96,6 +89,7 @@ class SystemController(SignalHandlerMixin, BaseService):
             ServiceType.RECORDS_MANAGER: 1,
             ServiceType.TELEMETRY_MANAGER: 1,
         }
+
         if self.service_config.record_processor_service_count is not None:
             self.required_services[ServiceType.RECORD_PROCESSOR] = (
                 self.service_config.record_processor_service_count
@@ -116,14 +110,8 @@ class SystemController(SignalHandlerMixin, BaseService):
                 log_queue=get_global_log_queue(),
             )
         )
-        self.ui: AIPerfUIProtocol = AIPerfUIFactory.create_instance(
-            self.service_config.ui_type,
-            service_config=self.service_config,
-            user_config=self.user_config,
-            log_queue=get_global_log_queue(),
-            controller=self,
-        )
-        self.attach_child_lifecycle(self.ui)
+
+        # Results tracking (for message passing to orchestrator)
         self._stop_tasks: set[asyncio.Task] = set()
         self._profile_results: ProcessRecordsResult | None = None
         self._exit_errors: list[ExitErrorInfo] = []
@@ -131,10 +119,12 @@ class SystemController(SignalHandlerMixin, BaseService):
         self._profile_results_received = False
         self._should_wait_for_telemetry = False
 
+        # Shutdown coordination
         self._shutdown_triggered = False
         self._shutdown_lock = asyncio.Lock()
         self._endpoints_tested: list[str] = []
         self._endpoints_reachable: list[str] = []
+
         self.debug("System Controller created")
 
     async def request_realtime_metrics(self) -> None:
@@ -551,107 +541,15 @@ class SystemController(SignalHandlerMixin, BaseService):
         await self.comms.stop()
         await self.proxy_manager.stop()
 
-        # Wait for the UI to stop before exporting any results to the console
-        await self.ui.stop()
-        await self.ui.wait_for_tasks()
-        await asyncio.sleep(0.1)  # Give time for screen clear to finish
+        self.debug("System Controller stopped")
 
-        if not self._exit_errors:
-            await self._print_post_benchmark_info_and_metrics()
-        else:
-            self._print_exit_errors_and_log_file()
+    def get_exit_errors(self) -> list[ExitErrorInfo]:
+        """Get the list of exit errors."""
+        return self._exit_errors
 
-        if AIPERF_DEV_MODE:
-            # Print a warning message to the console if developer mode is enabled, on exit after results
-            print_developer_mode_warning()
-
-        # Exit the process in a more explicit way, to ensure that it stops
-        os._exit(1 if self._exit_errors else 0)
-
-    def _print_exit_errors_and_log_file(self) -> None:
-        """Print post exit errors and log file info to the console."""
-        console = Console()
-        print_exit_errors(self._exit_errors, console=console)
-        self._print_log_file_info(console)
-        console.print()
-        console.file.flush()
-
-    async def _print_post_benchmark_info_and_metrics(self) -> None:
-        """Print post benchmark info and metrics to the console."""
-        if not self._profile_results or not self._profile_results.results.records:
-            self.warning("No profile results to export")
-            return
-
-        console = Console()
-        if console.width < 100:
-            console.width = 100
-
-        exporter_manager = ExporterManager(
-            results=self._profile_results.results,
-            input_config=self.user_config,
-            service_config=self.service_config,
-            telemetry_results=self._telemetry_results,
-        )
-
-        # Export data files (CSV, JSON) with complete dataset including telemetry
-        await exporter_manager.export_data()
-
-        # Export console output with complete dataset including telemetry
-        await exporter_manager.export_console(console=console)
-
-        console.print()
-        self._print_cli_command(console)
-        self._print_benchmark_duration(console)
-        self._print_exported_file_infos(exporter_manager, console)
-        self._print_log_file_info(console)
-        if self._was_cancelled:
-            console.print(
-                "[italic yellow]The profile run was cancelled early. Results shown may be incomplete or inaccurate.[/italic yellow]"
-            )
-
-        console.print()
-        console.file.flush()
-
-    def _print_log_file_info(self, console: Console) -> None:
-        """Print the log file info."""
-        log_file = (
-            self.user_config.output.artifact_directory
-            / OutputDefaults.LOG_FOLDER
-            / OutputDefaults.LOG_FILE
-        )
-        console.print(
-            f"[bold green]Log File:[/bold green] [cyan]{log_file.resolve()}[/cyan]"
-        )
-
-    def _print_exported_file_infos(
-        self, exporter_manager: ExporterManager, console: Console
-    ) -> None:
-        """Print the exported file infos."""
-        file_infos = exporter_manager.get_exported_file_infos()
-        for file_info in file_infos:
-            console.print(
-                f"[bold green]{file_info.export_type}[/bold green]: [cyan]{file_info.file_path.resolve()}[/cyan]"
-            )
-
-    def _print_cli_command(self, console: Console) -> None:
-        """Print the CLI command that was used to run the benchmark."""
-        console.print(
-            f"[bold green]CLI Command:[/bold green] [italic]{self.user_config.cli_command}[/italic]"
-        )
-
-    def _print_benchmark_duration(self, console: Console) -> None:
-        """Print the duration of the benchmark."""
-        from aiperf.metrics.types.benchmark_duration_metric import (
-            BenchmarkDurationMetric,
-        )
-
-        duration = self._profile_results.get(BenchmarkDurationMetric.tag)
-        if duration:
-            duration = duration.to_display_unit()
-            duration_str = f"[bold green]{BenchmarkDurationMetric.header}[/bold green]: {duration.avg:.2f} {duration.unit}"
-            if self._was_cancelled:
-                duration_str += " [italic yellow](cancelled early)[/italic yellow]"
-            console.print(duration_str)
+    def was_cancelled(self) -> bool:
+        """Check if the benchmark was cancelled."""
+        return self._was_cancelled
 
     async def _kill(self):
         """Kill the system controller."""
