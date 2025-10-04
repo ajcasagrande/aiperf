@@ -11,32 +11,6 @@ from aiperf.common.models.record_models import ProcessRecordsResult, ProfileResu
 from aiperf.common.types import MessageTypeT
 
 
-class ProfileProgressMessage(BaseServiceMessage):
-    """Message for profile progress. Sent by the timing manager to the system controller to report the progress of the profile run."""
-
-    message_type: MessageTypeT = MessageType.PROFILE_PROGRESS
-
-    profile_id: str | None = Field(
-        default=None, description="The ID of the current profile"
-    )
-    start_ns: int = Field(
-        ..., description="The start time of the profile run in nanoseconds"
-    )
-    end_ns: int | None = Field(
-        default=None, description="The end time of the profile run in nanoseconds"
-    )
-    total: int = Field(
-        ..., description="The total number of inference requests to be made (if known)"
-    )
-    completed: int = Field(
-        ..., description="The number of inference requests completed"
-    )
-    warmup: bool = Field(
-        default=False,
-        description="Whether this is the warmup phase of the profile run",
-    )
-
-
 class ProcessingStatsMessage(BaseServiceMessage):
     """Message for processing stats. Sent by the records manager to the system controller to report the stats of the profile run."""
 

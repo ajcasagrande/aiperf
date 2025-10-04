@@ -60,7 +60,6 @@ from aiperf.common.messages.progress_messages import (
     AllRecordsReceivedMessage,
     ProcessingStatsMessage,
     ProcessRecordsResultMessage,
-    ProfileProgressMessage,
     ProfileResultsMessage,
     RecordsProcessingStatsMessage,
 )
@@ -114,7 +113,6 @@ __all__ = [
     "ProcessingStatsMessage",
     "ProfileCancelCommand",
     "ProfileConfigureCommand",
-    "ProfileProgressMessage",
     "ProfileResultsMessage",
     "ProfileStartCommand",
     "RealtimeMetricsCommand",

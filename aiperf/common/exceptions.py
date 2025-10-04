@@ -87,16 +87,8 @@ class ConfigurationError(AIPerfError):
     """Exception raised when something fails to configure, or there is a configuration error."""
 
 
-class DatasetError(AIPerfError):
-    """Generic dataset error."""
-
-
 class DatasetLoaderError(AIPerfError):
     """Generic dataset loader error."""
-
-
-class DatasetGeneratorError(AIPerfError):
-    """Generic dataset generator error."""
 
 
 class FactoryCreationError(AIPerfError):
@@ -107,16 +99,8 @@ class InitializationError(AIPerfError):
     """Exception raised when something fails to initialize."""
 
 
-class InferenceClientError(AIPerfError):
-    """Exception raised when a inference client encounters an error."""
-
-
 class InvalidOperationError(AIPerfError):
     """Exception raised when an operation is invalid."""
-
-
-class InvalidPayloadError(InferenceClientError):
-    """Exception raised when a inference client receives an invalid payload."""
 
 
 class InvalidStateError(AIPerfError):
@@ -131,10 +115,6 @@ class MetricUnitError(AIPerfError):
     """Exception raised when trying to convert a metric to or from a unit that is does not support it."""
 
 
-class NotFoundError(AIPerfError):
-    """Exception raised when something is not found or not available."""
-
-
 class NotInitializedError(AIPerfError):
     """Exception raised when something that should be initialized is not."""
 
@@ -143,21 +123,5 @@ class NoMetricValue(AIPerfError):
     """Raised when a metric value is not available."""
 
 
-class ProxyError(AIPerfError):
-    """Exception raised when a proxy encounters an error."""
-
-
-class ShutdownError(AIPerfError):
-    """Exception raised when a service encounters an error while shutting down."""
-
-
 class UnsupportedHookError(AIPerfError):
     """Exception raised when a hook is defined on a class that does not have any base classes that provide that hook type."""
-
-
-class ValidationError(AIPerfError):
-    """Exception raised when something fails validation."""
-
-
-class TokenizerError(AIPerfError):
-    """Exception raised when a tokenizer encounters an error."""
