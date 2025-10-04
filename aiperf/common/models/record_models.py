@@ -263,13 +263,6 @@ class RequestRecord(AIPerfBaseModel):
     )
 
     @property
-    def delayed(self) -> bool:
-        """Check if the request was delayed."""
-        return self.delayed_ns is not None and self.delayed_ns > 0
-
-    # TODO: Most of these properties will be removed once we have proper record handling and metrics.
-
-    @property
     def has_error(self) -> bool:
         """Check if the request record has an error."""
         return self.error is not None
