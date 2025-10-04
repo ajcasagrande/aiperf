@@ -1,0 +1,64 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.next/
+out/
+.vercel
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Data
+data/*
+!data/.gitkeep
+*.jsonl
+*.json
+!package*.json
+!tsconfig.json
+
+# Logs
+*.log
+backend.log
+frontend.log
+
+# Testing
+coverage/
+.pytest_cache/
+.coverage
+
+# Docker
+.docker/
+docker-compose.override.yml
+
+# Misc
+.cache/
+.temp/
+tmp/

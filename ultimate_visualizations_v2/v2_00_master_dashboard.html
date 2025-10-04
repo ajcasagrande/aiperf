@@ -1,0 +1,114 @@
+<!--
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+-->
+
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Ultimate Master Dashboard</title>
+            <style>
+                body {
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                    background: #1a1a2e;
+                    color: white;
+                    margin: 0;
+                    padding: 20px;
+                }
+                .dashboard {
+                    max-width: 1600px;
+                    margin: 0 auto;
+                }
+                .header {
+                    text-align: center;
+                    padding: 40px;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    border-radius: 20px;
+                    margin-bottom: 30px;
+                }
+                .header h1 {
+                    font-size: 3em;
+                    margin: 0;
+                }
+                .stats-grid {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+                    gap: 20px;
+                    margin-bottom: 30px;
+                }
+                .stat-card {
+                    background: #16213e;
+                    padding: 25px;
+                    border-radius: 15px;
+                    border-left: 5px solid #667eea;
+                }
+                .stat-value {
+                    font-size: 2.5em;
+                    font-weight: bold;
+                    color: #667eea;
+                }
+                .stat-label {
+                    color: #999;
+                    margin-top: 10px;
+                }
+                .links {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                    gap: 15px;
+                }
+                .link-card {
+                    background: #16213e;
+                    padding: 20px;
+                    border-radius: 10px;
+                    text-align: center;
+                    transition: transform 0.3s ease;
+                }
+                .link-card:hover {
+                    transform: translateY(-5px);
+                    background: #1f2d54;
+                }
+                .link-card a {
+                    color: white;
+                    text-decoration: none;
+                    font-size: 1.1em;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="dashboard">
+                <div class="header">
+                    <h1>🎯 Ultimate Master Dashboard v2.0</h1>
+                    <p>Next-Generation LLM Benchmarking Command Center</p>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value">1202</div>
+                        <div class="stat-label">Total Requests</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">3.65</div>
+                        <div class="stat-label">Throughput (req/s)</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">16354ms</div>
+                        <div class="stat-label">P50 Latency</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">860,806</div>
+                        <div class="stat-label">Total Tokens</div>
+                    </div>
+                </div>
+
+                <h2>📊 All Visualizations</h2>
+                <div class="links">
+                    <div class="link-card"><a href="v2_01_supreme_executive_dashboard.html">🎯 Supreme Executive Dashboard</a></div>
+                    <div class="link-card"><a href="v2_02_benchmark_overview.html">📋 Benchmark Overview</a></div>
+                    <div class="link-card"><a href="v2_03_goodput_analysis.html">✅ Goodput Analysis</a></div>
+                    <div class="link-card"><a href="v2_04_efficiency_scorecard.html">🚀 Efficiency Scorecard</a></div>
+                    <div class="link-card"><a href="v2_05_cost_analysis.html">💰 Cost Analysis</a></div>
+                    <div class="link-card"><a href="v2_06_performance_matrix.html">📊 Performance Matrix</a></div>
+                </div>
+            </div>
+        </body>
+        </html>

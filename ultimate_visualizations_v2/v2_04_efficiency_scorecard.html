@@ -1,0 +1,175 @@
+<!--
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+-->
+
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Efficiency Scorecard</title>
+            <style>
+                body {
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+                    padding: 40px;
+                    min-height: 100vh;
+                }
+                .scorecard {
+                    max-width: 1400px;
+                    margin: 0 auto;
+                    background: white;
+                    border-radius: 20px;
+                    padding: 40px;
+                    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                }
+                h1 {
+                    text-align: center;
+                    color: #2c3e50;
+                    margin-bottom: 40px;
+                    font-size: 2.5em;
+                }
+                .metrics-grid {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                    gap: 30px;
+                    margin-bottom: 40px;
+                }
+                .metric-card {
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    padding: 30px;
+                    border-radius: 15px;
+                    box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+                    transition: transform 0.3s ease;
+                }
+                .metric-card:hover {
+                    transform: translateY(-10px);
+                }
+                .metric-title {
+                    font-size: 0.9em;
+                    opacity: 0.9;
+                    margin-bottom: 15px;
+                    text-transform: uppercase;
+                    letter-spacing: 2px;
+                }
+                .metric-value {
+                    font-size: 3em;
+                    font-weight: bold;
+                    margin-bottom: 10px;
+                }
+                .metric-subtitle {
+                    font-size: 0.9em;
+                    opacity: 0.8;
+                }
+                .score-section {
+                    background: #f8f9fa;
+                    padding: 30px;
+                    border-radius: 15px;
+                    margin-top: 30px;
+                }
+                .score-bar {
+                    height: 40px;
+                    background: #e0e0e0;
+                    border-radius: 20px;
+                    overflow: hidden;
+                    margin: 20px 0;
+                    position: relative;
+                }
+                .score-fill {
+                    height: 100%;
+                    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+                    transition: width 0.5s ease;
+                    display: flex;
+                    align-items: center;
+                    justify-content: flex-end;
+                    padding-right: 15px;
+                    color: white;
+                    font-weight: bold;
+                }
+                .rating {
+                    text-align: center;
+                    font-size: 4em;
+                    color: #667eea;
+                    margin: 30px 0;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="scorecard">
+                <h1>🚀 Efficiency Scorecard</h1>
+
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-title">Tokens Per Request</div>
+                        <div class="metric-value">716</div>
+                        <div class="metric-subtitle">Average token workload</div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-title">Time Per Token</div>
+                        <div class="metric-value">0.38 ms</div>
+                        <div class="metric-subtitle">Generation efficiency</div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-title">Reasoning Overhead</div>
+                        <div class="metric-value">1.04x</div>
+                        <div class="metric-subtitle">Thinking vs output ratio</div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-title">Goodput Efficiency</div>
+                        <div class="metric-value">15.6%</div>
+                        <div class="metric-subtitle">Quality throughput ratio</div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-title">Token Throughput</div>
+                        <div class="metric-value">2612</div>
+                        <div class="metric-subtitle">Tokens per second</div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-title">Request Throughput</div>
+                        <div class="metric-value">3.65</div>
+                        <div class="metric-subtitle">Requests per second</div>
+                    </div>
+                </div>
+
+                <div class="score-section">
+                    <h2 style="color: #2c3e50; margin-bottom: 20px;">Efficiency Breakdown</h2>
+
+                    <div style="margin: 20px 0;">
+                        <strong>Token Utilization</strong>
+                        <div class="score-bar">
+                            <div class="score-fill" style="width: 72%">
+                                72%
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="margin: 20px 0;">
+                        <strong>Goodput Quality</strong>
+                        <div class="score-bar">
+                            <div class="score-fill" style="width: 16%">
+                                16%
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="margin: 20px 0;">
+                        <strong>Throughput Performance</strong>
+                        <div class="score-bar">
+                            <div class="score-fill" style="width: 73%">
+                                73%
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="rating">
+                    ⭐ Overall Efficiency: 53/100
+                </div>
+            </div>
+        </body>
+        </html>

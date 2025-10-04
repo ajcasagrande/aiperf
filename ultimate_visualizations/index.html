@@ -1,0 +1,446 @@
+<!--
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultimate AIPerf Visualization Suite</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 60px 40px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .intro {
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 40px;
+            border-left: 5px solid #667eea;
+        }
+
+        .intro h2 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+
+        .intro p {
+            color: #555;
+            line-height: 1.6;
+            font-size: 1.1em;
+        }
+
+        .viz-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .viz-card {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 15px;
+            padding: 25px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .viz-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 5px;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            transform: scaleY(0);
+            transition: transform 0.3s ease;
+        }
+
+        .viz-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+            border-color: #667eea;
+        }
+
+        .viz-card:hover::before {
+            transform: scaleY(1);
+        }
+
+        .viz-number {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-size: 1.2em;
+            font-weight: bold;
+            width: 45px;
+            height: 45px;
+            line-height: 45px;
+            text-align: center;
+            border-radius: 50%;
+            margin-bottom: 15px;
+        }
+
+        .viz-card h3 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 1.4em;
+        }
+
+        .viz-card p {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+
+        .viz-card .tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .tag {
+            background: #e8eaf6;
+            color: #5e35b1;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 500;
+        }
+
+        .viz-link {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 30px;
+            border-radius: 25px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .viz-link:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .quick-links {
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 40px;
+            text-align: center;
+        }
+
+        .quick-links h2 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+
+        .quick-links .buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .quick-btn {
+            background: white;
+            color: #667eea;
+            padding: 12px 25px;
+            border-radius: 25px;
+            text-decoration: none;
+            font-weight: 600;
+            border: 2px solid #667eea;
+            transition: all 0.3s ease;
+        }
+
+        .quick-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 30px;
+            background: #f8f9fa;
+            color: #666;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .category-header {
+            color: #667eea;
+            font-size: 1.8em;
+            margin: 40px 0 20px 0;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2em;
+            }
+
+            .viz-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Ultimate AIPerf Visualization Suite</h1>
+            <p>Comprehensive LLM Benchmarking Insights</p>
+        </div>
+
+        <div class="content">
+            <div class="intro">
+                <h2>Welcome to Ultimate AIPerf Visualizations</h2>
+                <p>
+                    This suite provides 12 cutting-edge, interactive visualizations covering every aspect
+                    of LLM inference performance. Each visualization is designed to give you deep insights
+                    into your model's behavior under load, from high-level executive dashboards to detailed
+                    statistical analysis.
+                </p>
+            </div>
+
+            <div class="quick-links">
+                <h2>🎯 Quick Access</h2>
+                <div class="buttons">
+                    <a href="01_executive_dashboard.html" class="quick-btn">📊 Executive Dashboard</a>
+                    <a href="10_sla_compliance.html" class="quick-btn">✅ SLA Compliance</a>
+                    <a href="05_time_series_analysis.html" class="quick-btn">📈 Time Series</a>
+                    <a href="12_statistical_summary.html" class="quick-btn">📝 Statistics</a>
+                    <a href="README.md" class="quick-btn">📚 Documentation</a>
+                </div>
+            </div>
+
+            <h2 class="category-header">🎨 All Visualizations</h2>
+
+            <div class="viz-grid">
+                <!-- Executive Dashboard -->
+                <div class="viz-card">
+                    <div class="viz-number">01</div>
+                    <h3>Executive Dashboard</h3>
+                    <p>High-level performance overview with key metrics, distributions, and trends at a glance.</p>
+                    <div class="tags">
+                        <span class="tag">Overview</span>
+                        <span class="tag">KPIs</span>
+                        <span class="tag">Executive</span>
+                    </div>
+                    <a href="01_executive_dashboard.html" class="viz-link">View Dashboard →</a>
+                </div>
+
+                <!-- Latency Deep Dive -->
+                <div class="viz-card">
+                    <div class="viz-number">02</div>
+                    <h3>Latency Deep Dive</h3>
+                    <p>Comprehensive latency component analysis including TTFT, TTST, ITL, and request latency breakdown.</p>
+                    <div class="tags">
+                        <span class="tag">Latency</span>
+                        <span class="tag">TTFT</span>
+                        <span class="tag">CDF</span>
+                    </div>
+                    <a href="02_latency_deep_dive.html" class="viz-link">Explore Latency →</a>
+                </div>
+
+                <!-- Token Analysis -->
+                <div class="viz-card">
+                    <div class="viz-number">03</div>
+                    <h3>Token Analysis</h3>
+                    <p>Token distribution, throughput vs length, efficiency metrics, and cumulative generation patterns.</p>
+                    <div class="tags">
+                        <span class="tag">Tokens</span>
+                        <span class="tag">Throughput</span>
+                        <span class="tag">Efficiency</span>
+                    </div>
+                    <a href="03_token_analysis.html" class="viz-link">View Tokens →</a>
+                </div>
+
+                <!-- Streaming Analysis -->
+                <div class="viz-card">
+                    <div class="viz-number">04</div>
+                    <h3>Streaming Analysis</h3>
+                    <p>Inter-chunk latency patterns, TTFT vs TTST correlation, and streaming consistency metrics.</p>
+                    <div class="tags">
+                        <span class="tag">Streaming</span>
+                        <span class="tag">Chunks</span>
+                        <span class="tag">Stability</span>
+                    </div>
+                    <a href="04_streaming_analysis.html" class="viz-link">View Streaming →</a>
+                </div>
+
+                <!-- Time Series -->
+                <div class="viz-card">
+                    <div class="viz-number">05</div>
+                    <h3>Time Series Analysis</h3>
+                    <p>Performance evolution over time with rolling statistics, throughput trends, and load indicators.</p>
+                    <div class="tags">
+                        <span class="tag">Time Series</span>
+                        <span class="tag">Trends</span>
+                        <span class="tag">Load</span>
+                    </div>
+                    <a href="05_time_series_analysis.html" class="viz-link">View Timeline →</a>
+                </div>
+
+                <!-- Percentile Ladder -->
+                <div class="viz-card">
+                    <div class="viz-number">06</div>
+                    <h3>Percentile Ladder</h3>
+                    <p>Complete percentile distributions (P0-P100) with color-coded performance indicators for all metrics.</p>
+                    <div class="tags">
+                        <span class="tag">Percentiles</span>
+                        <span class="tag">Distribution</span>
+                        <span class="tag">SLA</span>
+                    </div>
+                    <a href="06_percentile_ladder.html" class="viz-link">View Percentiles →</a>
+                </div>
+
+                <!-- Correlation Matrix -->
+                <div class="viz-card">
+                    <div class="viz-number">07</div>
+                    <h3>Correlation Matrix</h3>
+                    <p>Inter-metric relationships and correlations to understand which metrics move together.</p>
+                    <div class="tags">
+                        <span class="tag">Correlation</span>
+                        <span class="tag">Relationships</span>
+                        <span class="tag">Analysis</span>
+                    </div>
+                    <a href="07_correlation_matrix.html" class="viz-link">View Correlations →</a>
+                </div>
+
+                <!-- Reasoning Overhead -->
+                <div class="viz-card">
+                    <div class="viz-number">08</div>
+                    <h3>Reasoning Overhead</h3>
+                    <p>Reasoning token analysis including overhead ratios, latency impact, and efficiency metrics.</p>
+                    <div class="tags">
+                        <span class="tag">Reasoning</span>
+                        <span class="tag">Overhead</span>
+                        <span class="tag">CoT</span>
+                    </div>
+                    <a href="08_reasoning_overhead.html" class="viz-link">Analyze Reasoning →</a>
+                </div>
+
+                <!-- Workload Characterization -->
+                <div class="viz-card">
+                    <div class="viz-number">09</div>
+                    <h3>Workload Characterization</h3>
+                    <p>Request patterns, size distributions, arrival patterns, and workload phase detection.</p>
+                    <div class="tags">
+                        <span class="tag">Workload</span>
+                        <span class="tag">Patterns</span>
+                        <span class="tag">Capacity</span>
+                    </div>
+                    <a href="09_workload_characterization.html" class="viz-link">View Workload →</a>
+                </div>
+
+                <!-- SLA Compliance -->
+                <div class="viz-card">
+                    <div class="viz-number">10</div>
+                    <h3>SLA Compliance</h3>
+                    <p>Quality of service metrics, compliance rates, violation timelines, and degradation detection.</p>
+                    <div class="tags">
+                        <span class="tag">SLA</span>
+                        <span class="tag">QoS</span>
+                        <span class="tag">Compliance</span>
+                    </div>
+                    <a href="10_sla_compliance.html" class="viz-link">Check SLAs →</a>
+                </div>
+
+                <!-- Performance Heatmaps -->
+                <div class="viz-card">
+                    <div class="viz-number">11</div>
+                    <h3>Performance Heatmaps</h3>
+                    <p>Multi-dimensional heatmaps showing latency, throughput, and variance across time and workers.</p>
+                    <div class="tags">
+                        <span class="tag">Heatmaps</span>
+                        <span class="tag">Workers</span>
+                        <span class="tag">Variance</span>
+                    </div>
+                    <a href="11_performance_heatmaps.html" class="viz-link">View Heatmaps →</a>
+                </div>
+
+                <!-- Statistical Summary -->
+                <div class="viz-card">
+                    <div class="viz-number">12</div>
+                    <h3>Statistical Summary</h3>
+                    <p>Comprehensive statistical report with detailed metrics, percentiles, and benchmark overview.</p>
+                    <div class="tags">
+                        <span class="tag">Statistics</span>
+                        <span class="tag">Summary</span>
+                        <span class="tag">Report</span>
+                    </div>
+                    <a href="12_statistical_summary.html" class="viz-link">View Stats →</a>
+                </div>
+            </div>
+
+            <div class="intro" style="margin-top: 40px;">
+                <h2>📚 Documentation & Resources</h2>
+                <p>
+                    For detailed explanations of all metrics, interpretation guidelines, and best practices,
+                    see the <a href="README.md" style="color: #667eea; font-weight: 600;">README</a>.
+                    Learn about metric definitions, formulas, and requirements in the
+                    <a href="../docs/metrics_reference.md" style="color: #667eea; font-weight: 600;">Metrics Reference</a>.
+                </p>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p><strong>Ultimate AIPerf Visualization Suite v1.0</strong></p>
+            <p>The ultimate tool for LLM benchmarking insights</p>
+            <p style="margin-top: 10px; font-size: 0.9em;">
+                Generated from 1200 benchmark records | 12 interactive visualizations
+            </p>
+        </div>
+    </div>
+</body>
+</html>
+
