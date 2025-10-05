@@ -11,6 +11,8 @@ from pydantic import TypeAdapter, ValidationError
 from aiperf.common.config import UserConfig
 from aiperf.common.models import ErrorDetailsCount, InputsFile, MetricResult
 
+from .test_models import ChatCompletionPayload, MessageContentItem
+
 
 class BenchmarkResult:
     """Fluent API for validating AIPerf results using Pydantic models."""
@@ -154,21 +156,57 @@ class BenchmarkResult:
         return self
 
     def assert_inputs_json_has_images(self) -> "BenchmarkResult":
-        assert any(
-            item.get("type") == "image_url"
-            for s in self.inputs_file.data for p in s.payloads
-            for msg in p.get("messages", []) for item in msg.get("content", [])
-            if isinstance(item, dict)
-        ), "No images in inputs.json"
+        """Assert that inputs.json contains image content using type-safe Pydantic models."""
+        has_images = False
+        for session in self.inputs_file.data:
+            for payload_dict in session.payloads:
+                try:
+                    # Parse payload into Pydantic model
+                    payload = ChatCompletionPayload(**payload_dict)
+                    for message in payload.messages:
+                        # Handle list content (multimodal)
+                        if isinstance(message.content, list):
+                            for item in message.content:
+                                if item.type == "image_url":
+                                    has_images = True
+                                    break
+                        if has_images:
+                            break
+                except ValidationError:
+                    # Skip non-chat payloads (e.g., completions, embeddings)
+                    continue
+                if has_images:
+                    break
+            if has_images:
+                break
+        assert has_images, "No images found in inputs.json"
         return self
 
     def assert_inputs_json_has_audio(self) -> "BenchmarkResult":
-        assert any(
-            item.get("type") == "input_audio"
-            for s in self.inputs_file.data for p in s.payloads
-            for msg in p.get("messages", []) for item in msg.get("content", [])
-            if isinstance(item, dict)
-        ), "No audio in inputs.json"
+        """Assert that inputs.json contains audio content using type-safe Pydantic models."""
+        has_audio = False
+        for session in self.inputs_file.data:
+            for payload_dict in session.payloads:
+                try:
+                    # Parse payload into Pydantic model
+                    payload = ChatCompletionPayload(**payload_dict)
+                    for message in payload.messages:
+                        # Handle list content (multimodal)
+                        if isinstance(message.content, list):
+                            for item in message.content:
+                                if item.type == "input_audio":
+                                    has_audio = True
+                                    break
+                        if has_audio:
+                            break
+                except ValidationError:
+                    # Skip non-chat payloads
+                    continue
+                if has_audio:
+                    break
+            if has_audio:
+                break
+        assert has_audio, "No audio found in inputs.json"
         return self
 
     def assert_all_artifacts_exist(self) -> "BenchmarkResult":

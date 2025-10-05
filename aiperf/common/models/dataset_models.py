@@ -91,7 +91,7 @@ class SessionPayloads(AIPerfBaseModel):
     )
     payloads: list[dict[str, Any]] = Field(
         default=[],
-        description="List of formatted payloads in the session (one per turn). These have been formatted for the model and endpoint.",
+        description="List of formatted payloads in the session (one per turn). These have been formatted for the model and endpoint. Stored as raw dicts to support multiple endpoint formats.",
     )
 
 
