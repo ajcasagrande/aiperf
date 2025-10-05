@@ -55,12 +55,19 @@ async def wait_for_server(host: str, port: int, timeout: float = 30.0) -> bool:
 
 @pytest.fixture
 async def mock_server_port() -> int:
-    """Get an available port for mock server."""
-    # Try a few common ports
-    for port in range(39000, 40000):
-        if not is_port_in_use(port):
+    """Get an available port for mock server.
+
+    Uses a wider port range to avoid conflicts in parallel test execution.
+    """
+    import random
+
+    # Randomize starting port to reduce collision probability
+    start_port = random.randint(30000, 50000)
+    for offset in range(1000):
+        port = start_port + offset
+        if 1024 < port < 65535 and not is_port_in_use(port):
             return port
-    raise RuntimeError("No available ports found")
+    raise RuntimeError("No available ports found in range")
 
 
 @pytest.fixture
@@ -96,10 +103,25 @@ async def mock_server(mock_server_port: int) -> AsyncGenerator[dict, None]:
         # Wait for server to be ready
         ready = await wait_for_server(host, mock_server_port, timeout=30.0)
         if not ready:
-            raise RuntimeError(f"FakeAI server failed to start on {url}")
+            # Capture any error output from the server
+            stdout = stderr = ""
+            if process.returncode is None:
+                process.terminate()
+                try:
+                    stdout_bytes, stderr_bytes = await asyncio.wait_for(
+                        process.communicate(), timeout=2.0
+                    )
+                    stdout = stdout_bytes.decode("utf-8", errors="replace")
+                    stderr = stderr_bytes.decode("utf-8", errors="replace")
+                except asyncio.TimeoutError:
+                    pass
+            raise RuntimeError(
+                f"FakeAI server failed to start on {url}\n"
+                f"STDOUT: {stdout}\nSTDERR: {stderr}"
+            )
 
         # Give it a moment to fully initialize
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(1.0)
 
         yield {
             "host": host,
@@ -163,12 +185,14 @@ async def run_aiperf_subprocess(
             stderr = stderr_bytes.decode("utf-8", errors="replace")
             return process.returncode, stdout, stderr
 
-        except asyncio.TimeoutError:
+        except asyncio.TimeoutError as timeout_error:
             # Kill the process on timeout
-            with suppress(Exception) as e:
+            with suppress(Exception):
                 process.kill()
                 await process.wait()
-            raise RuntimeError(f"AIPerf subprocess timed out after {timeout}s") from e
+            raise RuntimeError(
+                f"AIPerf subprocess timed out after {timeout}s"
+            ) from timeout_error
     else:
         # Stream output to terminal in real-time
         process = await asyncio.create_subprocess_exec(
@@ -182,11 +206,13 @@ async def run_aiperf_subprocess(
             await asyncio.wait_for(process.wait(), timeout=timeout)
             return process.returncode, "", ""
 
-        except asyncio.TimeoutError:
-            with suppress(Exception) as e:
+        except asyncio.TimeoutError as timeout_error:
+            with suppress(Exception):
                 process.kill()
                 await process.wait()
-            raise RuntimeError(f"AIPerf subprocess timed out after {timeout}s") from e
+            raise RuntimeError(
+                f"AIPerf subprocess timed out after {timeout}s"
+            ) from timeout_error
 
 
 @pytest.fixture
