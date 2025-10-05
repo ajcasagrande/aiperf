@@ -23,6 +23,7 @@ from tests.integration.conftest import (
     DEFAULT_REQUEST_COUNT,
     assert_basic_metrics,
 )
+from tests.integration.result_validators import BenchmarkResult, ConsoleOutputValidator
 
 
 def assert_csv_contains_metrics(csv_content: str, *metric_names: str) -> None:
@@ -826,26 +827,23 @@ class TestMultiModalStressTests:
         avg_osl = records.get("output_sequence_length", {}).get("avg", 0)
         assert avg_osl > 0, f"OSL should be positive, got {avg_osl}"
 
-        # Verify CSV output contains all expected metrics
-        assert_csv_contains_metrics(
-            output["csv_content"],
+        # Use new fluent validation API for comprehensive checks
+        result_validator = BenchmarkResult.from_directory(output["actual_dir"])
+        result_validator.assert_all_artifacts_exist()
+        result_validator.assert_log_not_empty()
+        result_validator.assert_metric_exists(
+            "ttft", "inter_token_latency", "request_latency", "output_sequence_length"
+        )
+        result_validator.assert_metric_in_range("ttft", min_value=0)
+        result_validator.assert_metric_in_range("inter_token_latency", min_value=0)
+        result_validator.assert_request_count(min_count=950)
+        result_validator.assert_csv_contains(
             "Time to First Token",
             "Inter Token Latency",
             "Request Latency",
-            "Output Sequence Length",
             "Request Throughput",
         )
-
-        # Verify JSON file exists and has proper structure
-        assert output["json_file"].exists(), "JSON file should exist"
-        assert output["csv_file"].exists(), "CSV file should exist"
-
-        # Verify inputs.json was created for this test
-        if "inputs_json" in output:
-            # With 1000 requests, should have 100 sessions (num_dataset_entries default)
-            assert len(output["inputs_json"]["data"]) >= 10, (
-                "Expected multiple sessions for large test"
-            )
+        result_validator.assert_inputs_json_has_sessions(min_sessions=10)
 
     async def test_high_throughput_streaming_with_audio(
         self,
@@ -1015,3 +1013,145 @@ class TestCancellationFeatures:
         log_file = output["log_file"]
         assert log_file.exists(), "Log file should exist"
         assert log_file.stat().st_size > 0, "Log file should not be empty"
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+class TestDeterministicBehavior:
+    """Integration tests for deterministic behavior with random seeds."""
+
+    async def test_same_seed_produces_identical_inputs(
+        self,
+        base_profile_args,
+        aiperf_runner,
+        validate_aiperf_output,
+        tmp_path,
+    ):
+        """Test that same random seed produces identical input payloads across runs.
+
+        WHY TEST THIS:
+        - Validates reproducibility with --random-seed flag
+        - Ensures synthetic data generation is deterministic
+        - Verifies same seed produces same prompts, images, audio
+        - Tests that only session_ids differ (due to UUIDs)
+        """
+        # Run 1: Generate with specific seed
+        output_dir_1 = tmp_path / "run1"
+        output_dir_1.mkdir()
+
+        args_1 = [
+            *base_profile_args,
+            "--endpoint-type",
+            "chat",
+            "--request-count",
+            "10",
+            "--concurrency",
+            "2",
+            "--random-seed",
+            "42",
+            "--image-width-mean",
+            "64",
+            "--image-height-mean",
+            "64",
+            "--audio-length-mean",
+            "0.1",
+            "--artifact-dir",
+            str(output_dir_1),
+        ]
+
+        result_1 = await aiperf_runner(args_1, add_artifact_dir=False)
+        assert result_1["returncode"] == 0, "Run 1 failed"
+
+        output_1 = validate_aiperf_output(output_dir_1)
+
+        # Run 2: Same seed, should produce identical data
+        output_dir_2 = tmp_path / "run2"
+        output_dir_2.mkdir()
+
+        args_2 = [
+            *base_profile_args,
+            "--endpoint-type",
+            "chat",
+            "--request-count",
+            "10",
+            "--concurrency",
+            "2",
+            "--random-seed",
+            "42",
+            "--image-width-mean",
+            "64",
+            "--image-height-mean",
+            "64",
+            "--audio-length-mean",
+            "0.1",
+            "--artifact-dir",
+            str(output_dir_2),
+        ]
+
+        result_2 = await aiperf_runner(args_2, add_artifact_dir=False)
+        assert result_2["returncode"] == 0, "Run 2 failed"
+
+        output_2 = validate_aiperf_output(output_dir_2)
+
+        # Use fluent API to validate both outputs
+        validator_1 = BenchmarkResult.from_directory(output_1["actual_dir"])
+        validator_2 = BenchmarkResult.from_directory(output_2["actual_dir"])
+
+        validator_1.assert_inputs_json_exists()
+        validator_2.assert_inputs_json_exists()
+
+        inputs_1 = validator_1.inputs_json
+        inputs_2 = validator_2.inputs_json
+
+        # Verify same number of sessions
+        assert len(inputs_1["data"]) == len(inputs_2["data"]), (
+            "Different number of sessions between runs"
+        )
+
+        # Verify payloads are identical (except session_id which is UUID)
+        for session_1, session_2 in zip(inputs_1["data"], inputs_2["data"]):
+            # Session IDs will be different (UUIDs)
+            assert session_1["session_id"] != session_2["session_id"], (
+                "Session IDs should differ (UUIDs are random)"
+            )
+
+            # Payloads should be identical
+            assert len(session_1["payloads"]) == len(session_2["payloads"]), (
+                "Different number of payloads"
+            )
+
+            for payload_1, payload_2 in zip(session_1["payloads"], session_2["payloads"]):
+                # Compare messages (should be identical with same seed)
+                messages_1 = payload_1.get("messages", [])
+                messages_2 = payload_2.get("messages", [])
+
+                assert len(messages_1) == len(messages_2), "Different message counts"
+
+                for msg_1, msg_2 in zip(messages_1, messages_2):
+                    content_1 = msg_1.get("content", [])
+                    content_2 = msg_2.get("content", [])
+
+                    # Content arrays should have same structure
+                    assert len(content_1) == len(content_2), "Different content lengths"
+
+                    # Verify each content item matches
+                    for item_1, item_2 in zip(content_1, content_2):
+                        assert item_1.get("type") == item_2.get("type"), (
+                            f"Content types differ: {item_1.get('type')} vs {item_2.get('type')}"
+                        )
+
+                        # For images and audio, verify base64 data is identical
+                        if item_1.get("type") == "image_url":
+                            url_1 = item_1.get("image_url", {}).get("url", "")
+                            url_2 = item_2.get("image_url", {}).get("url", "")
+                            assert url_1 == url_2, "Image URLs should be identical with same seed"
+
+                        elif item_1.get("type") == "input_audio":
+                            audio_1 = item_1.get("input_audio", {}).get("data", "")
+                            audio_2 = item_2.get("input_audio", {}).get("data", "")
+                            assert audio_1 == audio_2, "Audio data should be identical with same seed"
+
+                        elif item_1.get("type") == "text":
+                            text_1 = item_1.get("text", "")
+                            text_2 = item_2.get("text", "")
+                            assert text_1 == text_2, "Text should be identical with same seed"
