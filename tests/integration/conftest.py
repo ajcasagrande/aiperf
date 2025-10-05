@@ -58,7 +58,7 @@ async def mock_server_port() -> int:
 
 @pytest.fixture
 async def mock_server(mock_server_port: int) -> AsyncGenerator[dict, None]:
-    """Start mock server and return connection info.
+    """Start fakeai mock server and return connection info.
 
     Yields:
         dict with 'host', 'port', 'url', 'process'
@@ -66,36 +66,30 @@ async def mock_server(mock_server_port: int) -> AsyncGenerator[dict, None]:
     host = "127.0.0.1"
     url = f"http://{host}:{mock_server_port}"
 
-    # Start mock server
-    cmd = [
-        sys.executable,
-        "-m",
-        "uvicorn",
-        "mock_server.app:app",
-        "--host",
-        host,
-        "--port",
-        str(mock_server_port),
-        "--log-level",
-        "warning",
-    ]
+    # Start fakeai server
+    cmd = ["fakeai-server"]
 
-    # Set working directory to integration-tests
-    cwd = Path(__file__).parent.parent.parent / "integration-tests"
+    # Configure fakeai via environment variables
+    env = {
+        **dict(os.environ),
+        "FAKEAI_HOST": host,
+        "FAKEAI_PORT": str(mock_server_port),
+        "FAKEAI_DEBUG": "false",
+        "FAKEAI_RESPONSE_DELAY": "0.01",  # Small delay for realistic behavior
+    }
 
     process = await asyncio.create_subprocess_exec(
         *cmd,
-        cwd=str(cwd),
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
-        env={**dict(os.environ), "MOCK_SERVER_TOKENIZER_MODELS": '["gpt2"]'},
+        env=env,
     )
 
     try:
         # Wait for server to be ready
         ready = await wait_for_server(host, mock_server_port, timeout=30.0)
         if not ready:
-            raise RuntimeError(f"Mock server failed to start on {url}")
+            raise RuntimeError(f"FakeAI server failed to start on {url}")
 
         # Give it a moment to fully initialize
         await asyncio.sleep(0.5)
