@@ -16,10 +16,16 @@ import os
 import socket
 import sys
 import time
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Callable
 from pathlib import Path
 
 import pytest
+
+# Test constants
+DEFAULT_MODEL = "openai/gpt-oss-20b"
+DEFAULT_CONCURRENCY = 2
+DEFAULT_REQUEST_COUNT = 5
+DEFAULT_UI = "simple"
 
 
 def is_port_in_use(port: int, host: str = "127.0.0.1") -> bool:
@@ -274,3 +280,88 @@ def validate_aiperf_output():
         }
 
     return validator
+
+
+@pytest.fixture
+def base_profile_args(mock_server) -> list[str]:
+    """Provide base arguments for profile command."""
+    return [
+        "profile",
+        "--model",
+        DEFAULT_MODEL,
+        "--url",
+        mock_server["url"],
+        "--ui",
+        DEFAULT_UI,
+    ]
+
+
+@pytest.fixture
+def create_rankings_dataset(tmp_path) -> Callable[[int], Path]:
+    """Factory fixture to create rankings dataset files."""
+
+    def _create_dataset(num_entries: int = 5) -> Path:
+        """Create a rankings dataset with query and passages.
+
+        Args:
+            num_entries: Number of ranking entries to create
+
+        Returns:
+            Path to the created dataset file
+        """
+        dataset_path = tmp_path / "rankings.jsonl"
+        with open(dataset_path, "w") as f:
+            for i in range(num_entries):
+                entry = {
+                    "texts": [
+                        {
+                            "name": "query",
+                            "contents": [f"What is artificial intelligence topic {i}?"],
+                        },
+                        {
+                            "name": "passages",
+                            "contents": [
+                                f"AI is a branch of computer science {i}",
+                                f"Machine learning is a subset of AI {i}",
+                                f"Deep learning uses neural networks {i}",
+                            ],
+                        },
+                    ]
+                }
+                f.write(json.dumps(entry) + "\n")
+        return dataset_path
+
+    return _create_dataset
+
+
+def assert_basic_metrics(records: dict, *metric_names: str) -> None:
+    """Assert that basic metrics exist in records.
+
+    Args:
+        records: The metrics records dictionary
+        *metric_names: Variable number of metric names to check
+    """
+    assert isinstance(records, dict), "records should be a dict"
+    for metric_name in metric_names:
+        assert metric_name in records, f"Missing {metric_name} metric"
+
+
+def assert_streaming_metrics(records: dict) -> None:
+    """Assert that streaming-specific metrics exist and are valid.
+
+    Args:
+        records: The metrics records dictionary
+    """
+    assert_basic_metrics(records, "ttft", "inter_token_latency")
+    assert records["ttft"]["avg"] > 0, "TTFT should be positive"
+
+
+def assert_no_token_metrics(records: dict) -> None:
+    """Assert that token-producing metrics are NOT present.
+
+    Args:
+        records: The metrics records dictionary
+    """
+    assert "ttft" not in records, "Should not have TTFT"
+    assert "inter_token_latency" not in records, "Should not have ITL"
+    assert "output_sequence_length" not in records, "Should not have output_sequence_length"

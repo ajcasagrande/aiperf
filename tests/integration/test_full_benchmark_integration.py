@@ -17,82 +17,89 @@ and verify real behavior.
 
 import pytest
 
+from tests.integration.conftest import (
+    DEFAULT_CONCURRENCY,
+    DEFAULT_MODEL,
+    DEFAULT_REQUEST_COUNT,
+    DEFAULT_UI,
+    assert_basic_metrics,
+    assert_no_token_metrics,
+    assert_streaming_metrics,
+)
+
 
 @pytest.mark.integration
 @pytest.mark.asyncio
 class TestFullBenchmarkIntegration:
     """Full end-to-end integration tests."""
 
+    async def _run_and_validate_benchmark(
+        self,
+        aiperf_runner,
+        validate_aiperf_output,
+        args: list[str],
+        min_requests: int | None = None,
+    ) -> dict:
+        """Helper to run benchmark and validate basic success.
+
+        Args:
+            aiperf_runner: Fixture to run aiperf
+            validate_aiperf_output: Fixture to validate output
+            args: Command line arguments
+            min_requests: Minimum expected completed requests (optional)
+
+        Returns:
+            Validated output dictionary
+        """
+        result = await aiperf_runner(args)
+
+        if result["returncode"] != 0:
+            print(f"\n=== STDOUT ===\n{result['stdout']}")
+            print(f"\n=== STDERR ===\n{result['stderr']}")
+
+        assert result["returncode"] == 0, f"Benchmark failed with returncode {result['returncode']}"
+
+        output = validate_aiperf_output(result["output_dir"])
+        records = output["json_results"]["records"]
+
+        assert_basic_metrics(records, "request_count", "request_latency")
+
+        if min_requests is not None:
+            completed = records["request_count"].get("avg", 0)
+            assert completed >= min_requests, f"Too few requests: {completed} < {min_requests}"
+
+        return output
+
     async def test_simple_benchmark_completes_successfully(
-        self, mock_server, aiperf_runner, validate_aiperf_output
+        self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
         """Test that a simple benchmark completes and produces valid output.
-
-        This is the most basic integration test - verifies that AIPerf can:
-        1. Connect to an endpoint
-        2. Send requests
-        3. Receive responses
-        4. Compute metrics
-        5. Export results
 
         WHY TEST THIS:
         - Validates complete pipeline works
         - Catches integration issues between components
         - Verifies subprocess execution works
         """
-        result = await aiperf_runner(
-            [
-                "profile",
-                "--model",
-                "openai/gpt-oss-20b",
-                "--url",
-                mock_server["url"],
-                "--endpoint-type",
-                "chat",
-                "--request-count",
-                "10",
-                "--concurrency",
-                "2",
-                "--ui",
-                "simple",
-            ]
+        args = [
+            *base_profile_args,
+            "--endpoint-type",
+            "chat",
+            "--request-count",
+            "10",
+            "--concurrency",
+            str(DEFAULT_CONCURRENCY),
+        ]
+
+        output = await self._run_and_validate_benchmark(
+            aiperf_runner, validate_aiperf_output, args, min_requests=8
         )
-
-        # Verify successful completion
-        if result["returncode"] != 0:
-            print(f"\n=== STDOUT ===\n{result['stdout']}")
-            print(f"\n=== STDERR ===\n{result['stderr']}")
-
-        assert result["returncode"] == 0, (
-            f"AIPerf failed with returncode {result['returncode']}"
-        )
-
-        # Verify output contains expected content
-
-        # Validate output files
-        output = validate_aiperf_output(result["output_dir"])
-
-        # Verify JSON has expected structure
         records = output["json_results"]["records"]
-        assert isinstance(records, dict), "records should be a dict"
-        assert len(records) > 0, "No metrics in JSON output"
 
-        # Verify key metrics were computed
-        assert "request_count" in records, "Missing request_count metric"
-        assert "request_latency" in records, "Missing request_latency metric"
-
-        # Verify request count matches configuration
-        request_count_metric = records.get("request_count")
-        assert request_count_metric is not None, "request_count metric is None"
-
-        # For aggregate metrics like request_count, use the scalar value directly
-        completed_requests = request_count_metric.get("avg", 0)
-        assert completed_requests >= 8, (
-            f"Too few requests completed: {completed_requests}"
-        )
+        # Verify token-based metrics exist for chat
+        assert_basic_metrics(records, "output_sequence_length")
 
     async def test_streaming_benchmark_produces_streaming_metrics(
-        self, mock_server, aiperf_runner, validate_aiperf_output
+        self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
         """Test that streaming benchmarks produce TTFT and ITL metrics.
 
@@ -101,44 +108,28 @@ class TestFullBenchmarkIntegration:
         - Ensures SSE parsing works
         - Verifies streaming-specific metrics computed
         """
-        result = await aiperf_runner(
-            [
-                "profile",
-                "--model",
-                "openai/gpt-oss-20b",
-                "--url",
-                mock_server["url"],
-                "--endpoint-type",
-                "chat",
-                "--streaming",
-                "--request-count",
-                "10",
-                "--concurrency",
-                "2",
-                "--ui",
-                "simple",
-            ]
-        )
+        args = [
+            *base_profile_args,
+            "--endpoint-type",
+            "chat",
+            "--streaming",
+            "--request-count",
+            "10",
+            "--concurrency",
+            str(DEFAULT_CONCURRENCY),
+        ]
 
-        assert result["returncode"] == 0, (
-            f"Streaming benchmark failed: {result['stderr']}"
+        output = await self._run_and_validate_benchmark(
+            aiperf_runner, validate_aiperf_output, args
         )
-
-        # Validate output
-        output = validate_aiperf_output(result["output_dir"])
         records = output["json_results"]["records"]
-        assert isinstance(records, dict), "records should be a dict"
-        metric_tags = list(records.keys())
 
-        # Streaming-specific metrics
-        assert "ttft" in metric_tags, "Missing TTFT metric"
-        assert "inter_token_latency" in metric_tags, "Missing ITL metric"
+        # Verify streaming metrics
+        assert_streaming_metrics(records)
 
-        # Verify TTFT has reasonable values
-        ttft_record = records.get("ttft")
-        assert ttft_record is not None, "TTFT metric is None"
-        assert ttft_record.get("avg", 0) > 0, "TTFT should be positive"
-        assert ttft_record.get("avg", 0) < 10000, "TTFT unreasonably high"
+        # Verify TTFT is in reasonable range
+        ttft_avg = records["ttft"]["avg"]
+        assert ttft_avg < 10000, f"TTFT unreasonably high: {ttft_avg}ms"
 
     @pytest.mark.skip(
         reason="Request rate timing test - sensitivity to timing variance"
@@ -159,7 +150,7 @@ class TestFullBenchmarkIntegration:
         pass
 
     async def test_concurrency_benchmark_limits_concurrent_requests(
-        self, mock_server, aiperf_runner, validate_aiperf_output
+        self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
         """Test that concurrency limit is respected.
 
@@ -168,40 +159,18 @@ class TestFullBenchmarkIntegration:
         - Ensures system doesn't overload
         - Verifies worker coordination
         """
-        result = await aiperf_runner(
-            [
-                "profile",
-                "--model",
-                "openai/gpt-oss-20b",
-                "--url",
-                mock_server["url"],
-                "--endpoint-type",
-                "chat",
-                "--concurrency",
-                "3",
-                "--request-count",
-                "20",
-                "--ui",
-                "simple",
-            ]
-        )
+        args = [
+            *base_profile_args,
+            "--endpoint-type",
+            "chat",
+            "--concurrency",
+            "3",
+            "--request-count",
+            "20",
+        ]
 
-        assert result["returncode"] == 0, (
-            f"Concurrency benchmark failed: {result['stderr']}"
-        )
-
-        # Validate completed successfully
-        output = validate_aiperf_output(result["output_dir"])
-        records = output["json_results"]["records"]
-        assert isinstance(records, dict), "records should be a dict"
-
-        # At least some requests should complete
-        request_count = records.get("request_count")
-        assert request_count is not None, "Missing request_count metric"
-
-        completed_requests = request_count.get("avg", 0)
-        assert completed_requests >= 15, (
-            f"Too few requests completed: {completed_requests}"
+        await self._run_and_validate_benchmark(
+            aiperf_runner, validate_aiperf_output, args, min_requests=15
         )
 
     @pytest.mark.skip(reason="Custom dataset test - CLI flag validation needed")
@@ -231,7 +200,7 @@ class TestFullBenchmarkIntegration:
         pass
 
     async def test_warmup_and_profiling_phases(
-        self, mock_server, aiperf_runner, validate_aiperf_output
+        self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
         """Test that warmup and profiling phases execute correctly.
 
@@ -240,44 +209,29 @@ class TestFullBenchmarkIntegration:
         - Ensures warmup completes before profiling
         - Verifies phase statistics tracking
         """
-        result = await aiperf_runner(
-            [
-                "profile",
-                "--model",
-                "openai/gpt-oss-20b",
-                "--url",
-                mock_server["url"],
-                "--endpoint-type",
-                "chat",
-                "--warmup-request-count",
-                "5",
-                "--request-count",
-                "15",
-                "--concurrency",
-                "2",
-                "--ui",
-                "simple",
-            ]
+        args = [
+            *base_profile_args,
+            "--endpoint-type",
+            "chat",
+            "--warmup-request-count",
+            "5",
+            "--request-count",
+            "15",
+            "--concurrency",
+            str(DEFAULT_CONCURRENCY),
+        ]
+
+        output = await self._run_and_validate_benchmark(
+            aiperf_runner, validate_aiperf_output, args
         )
-
-        assert result["returncode"] == 0, f"Warmup benchmark failed: {result['stderr']}"
-
-        output = validate_aiperf_output(result["output_dir"])
         records = output["json_results"]["records"]
-        assert isinstance(records, dict), "records should be a dict"
 
-        # Profiling requests should be counted (warmup excluded)
-        request_count = records.get("request_count")
-        assert request_count is not None, "Missing request_count metric"
-
-        # Should be close to 15 (profiling phase only)
-        completed_requests = request_count.get("avg", 0)
-        assert 12 <= completed_requests <= 15, (
-            f"Expected ~15 requests, got {completed_requests}"
-        )
+        # Profiling requests should be ~15 (warmup excluded)
+        completed = records["request_count"]["avg"]
+        assert 12 <= completed <= 15, f"Expected ~15 requests, got {completed}"
 
     async def test_json_and_csv_export_consistency(
-        self, mock_server, aiperf_runner, validate_aiperf_output
+        self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
         """Test that JSON and CSV exports contain consistent data.
 
@@ -286,41 +240,29 @@ class TestFullBenchmarkIntegration:
         - Ensures data consistency across formats
         - Verifies export pipeline integrity
         """
-        result = await aiperf_runner(
-            [
-                "profile",
-                "--model",
-                "openai/gpt-oss-20b",
-                "--url",
-                mock_server["url"],
-                "--endpoint-type",
-                "chat",
-                "--streaming",
-                "--request-count",
-                "10",
-                "--concurrency",
-                "2",
-                "--ui",
-                "simple",
-            ]
+        args = [
+            *base_profile_args,
+            "--endpoint-type",
+            "chat",
+            "--streaming",
+            "--request-count",
+            "10",
+            "--concurrency",
+            str(DEFAULT_CONCURRENCY),
+        ]
+
+        output = await self._run_and_validate_benchmark(
+            aiperf_runner, validate_aiperf_output, args
         )
 
-        assert result["returncode"] == 0, "Benchmark failed"
-
-        output = validate_aiperf_output(result["output_dir"])
-
-        # Both files should exist and have content
+        # Verify both export formats have content
         assert len(output["json_results"]["records"]) > 0, "JSON has no records"
         assert len(output["csv_content"]) > 100, "CSV file suspiciously small"
-
-        # CSV should contain header row
         assert "Metric" in output["csv_content"], "CSV missing header"
-
-        # CSV should contain metrics
         assert "Request Latency" in output["csv_content"], "CSV missing metrics"
 
     async def test_multiple_workers_coordinate_correctly(
-        self, mock_server, aiperf_runner, validate_aiperf_output
+        self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
         """Test that multiple workers coordinate via ZMQ.
 
@@ -329,41 +271,20 @@ class TestFullBenchmarkIntegration:
         - Ensures credit distribution works
         - Verifies result aggregation from multiple workers
         """
-        result = await aiperf_runner(
-            [
-                "profile",
-                "--model",
-                "openai/gpt-oss-20b",
-                "--url",
-                mock_server["url"],
-                "--endpoint-type",
-                "chat",
-                "--request-count",
-                "50",
-                "--concurrency",
-                "10",  # Should spawn multiple workers
-                "--workers-max",
-                "4",  # Force multiple workers
-                "--ui",
-                "simple",
-            ]
-        )
+        args = [
+            *base_profile_args,
+            "--endpoint-type",
+            "chat",
+            "--request-count",
+            "50",
+            "--concurrency",
+            "10",
+            "--workers-max",
+            "4",
+        ]
 
-        assert result["returncode"] == 0, (
-            f"Multi-worker benchmark failed: {result['stderr']}"
-        )
-
-        output = validate_aiperf_output(result["output_dir"])
-        records = output["json_results"]["records"]
-        assert isinstance(records, dict), "records should be a dict"
-
-        # Should complete most requests
-        request_count = records.get("request_count")
-        assert request_count is not None, "Missing request_count metric"
-
-        completed_requests = request_count.get("avg", 0)
-        assert completed_requests >= 45, (
-            f"Too few requests with multiple workers: {completed_requests}"
+        await self._run_and_validate_benchmark(
+            aiperf_runner, validate_aiperf_output, args, min_requests=45
         )
 
 
@@ -373,7 +294,7 @@ class TestMetricComputationIntegration:
     """Integration tests for metric computation accuracy."""
 
     async def test_ttft_computation_accuracy(
-        self, mock_server, aiperf_runner, validate_aiperf_output
+        self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
         """Test that TTFT is computed accurately.
 
@@ -382,46 +303,33 @@ class TestMetricComputationIntegration:
         - Ensures mock server TTFT setting is reflected in metrics
         - Verifies no timing bugs in pipeline
         """
-        # Mock server default TTFT is configurable
-        # We'll verify it's in reasonable range
+        args = [
+            *base_profile_args,
+            "--endpoint-type",
+            "chat",
+            "--streaming",
+            "--request-count",
+            "10",
+            "--concurrency",
+            "1",
+        ]
 
-        result = await aiperf_runner(
-            [
-                "profile",
-                "--model",
-                "openai/gpt-oss-20b",
-                "--url",
-                mock_server["url"],
-                "--endpoint-type",
-                "chat",
-                "--streaming",
-                "--request-count",
-                "10",
-                "--concurrency",
-                "1",
-                "--ui",
-                "simple",
-            ]
-        )
+        output = await aiperf_runner(args)
+        assert output["returncode"] == 0, "Benchmark failed"
 
-        assert result["returncode"] == 0, "Benchmark failed"
+        validated = validate_aiperf_output(output["output_dir"])
+        records = validated["json_results"]["records"]
 
-        output = validate_aiperf_output(result["output_dir"])
-        records = output["json_results"]["records"]
-        assert isinstance(records, dict), "records should be a dict"
+        assert_basic_metrics(records, "ttft")
 
-        ttft_record = records.get("ttft")
-        assert ttft_record is not None, "TTFT metric not found"
-
-        # TTFT should be reasonable (mock server uses small delays)
-        avg_ttft = ttft_record.get("avg", 0)
+        # TTFT should be in reasonable range
+        ttft_record = records["ttft"]
+        avg_ttft = ttft_record["avg"]
         assert 1 <= avg_ttft <= 1000, f"TTFT {avg_ttft}ms outside reasonable range"
-
-        # Standard deviation should exist
         assert ttft_record.get("std") is not None, "TTFT missing std"
 
     async def test_output_token_count_matches_input(
-        self, mock_server, aiperf_runner, validate_aiperf_output
+        self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
         """Test that output token counting is accurate.
 
@@ -430,37 +338,27 @@ class TestMetricComputationIntegration:
         - Ensures token counts used for throughput are correct
         - Verifies parser extracts tokens correctly
         """
-        result = await aiperf_runner(
-            [
-                "profile",
-                "--model",
-                "openai/gpt-oss-20b",
-                "--url",
-                mock_server["url"],
-                "--endpoint-type",
-                "chat",
-                "--streaming",
-                "--request-count",
-                "10",
-                "--concurrency",
-                "1",
-                "--ui",
-                "simple",
-            ]
-        )
+        args = [
+            *base_profile_args,
+            "--endpoint-type",
+            "chat",
+            "--streaming",
+            "--request-count",
+            "10",
+            "--concurrency",
+            "1",
+        ]
 
-        assert result["returncode"] == 0, "Benchmark failed"
+        output = await aiperf_runner(args)
+        assert output["returncode"] == 0, "Benchmark failed"
 
-        output = validate_aiperf_output(result["output_dir"])
-        records = output["json_results"]["records"]
-        assert isinstance(records, dict), "records should be a dict"
+        validated = validate_aiperf_output(output["output_dir"])
+        records = validated["json_results"]["records"]
 
-        # Check output sequence length metric exists
-        osl_record = records.get("output_sequence_length")
-        assert osl_record is not None, "Output sequence length not found"
+        assert_basic_metrics(records, "output_sequence_length")
 
         # Should have processed some tokens
-        avg_osl = osl_record.get("avg", 0)
+        avg_osl = records["output_sequence_length"]["avg"]
         assert avg_osl > 0, "No output tokens counted"
 
 
@@ -470,7 +368,7 @@ class TestErrorHandlingIntegration:
     """Integration tests for error handling."""
 
     async def test_benchmark_handles_http_errors(
-        self, mock_server, aiperf_runner, validate_aiperf_output
+        self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
         """Test that HTTP errors are tracked correctly.
 
@@ -479,37 +377,24 @@ class TestErrorHandlingIntegration:
         - Ensures errors don't crash the benchmark
         - Verifies error metrics are computed
         """
-        # Even if server returns some errors, AIPerf should handle gracefully
-        result = await aiperf_runner(
-            [
-                "profile",
-                "--model",
-                "openai/gpt-oss-20b",
-                "--url",
-                mock_server["url"],
-                "--endpoint-type",
-                "chat",
-                "--request-count",
-                "10",
-                "--concurrency",
-                "5",
-                "--timeout-seconds",
-                "2",  # Short timeout may cause some timeouts
-                "--ui",
-                "simple",
-            ]
-        )
+        args = [
+            *base_profile_args,
+            "--endpoint-type",
+            "chat",
+            "--request-count",
+            "10",
+            "--concurrency",
+            "5",
+            "--timeout-seconds",
+            "2",  # Short timeout may cause some timeouts
+        ]
 
-        # May succeed or fail depending on errors, but shouldn't crash
-        # The important thing is it completes
+        result = await aiperf_runner(args)
 
-        # If it succeeded, check output
+        # May succeed or fail, but shouldn't crash - that's the test
         if result["returncode"] == 0:
             output = validate_aiperf_output(result["output_dir"])
-
-            # Should have error summary if any errors occurred
             error_summary = output["json_results"].get("error_summary", [])
-            # Error summary is a list (may be empty if no errors)
             assert isinstance(error_summary, list), "error_summary should be a list"
 
 
@@ -519,7 +404,7 @@ class TestConfigurationIntegration:
     """Integration tests for configuration handling."""
 
     async def test_artifact_directory_created(
-        self, mock_server, aiperf_runner, temp_output_dir
+        self, base_profile_args, aiperf_runner, temp_output_dir
     ):
         """Test that artifact directory is created correctly.
 
@@ -528,26 +413,18 @@ class TestConfigurationIntegration:
         - Ensures file export works
         - Verifies configuration is respected
         """
-        result = await aiperf_runner(
-            [
-                "profile",
-                "--model",
-                "openai/gpt-oss-20b",
-                "--url",
-                mock_server["url"],
-                "--endpoint-type",
-                "chat",
-                "--request-count",
-                "5",
-                "--ui",
-                "simple",
-            ]
-        )
+        args = [
+            *base_profile_args,
+            "--endpoint-type",
+            "chat",
+            "--request-count",
+            str(DEFAULT_REQUEST_COUNT),
+        ]
 
+        result = await aiperf_runner(args)
         assert result["returncode"] == 0, "Benchmark failed"
 
-        # Check that files were created (AIPerf may or may not create subdirs)
-        # The important thing is output files exist
+        # Verify output files were created
         json_files = list(temp_output_dir.glob("**/*aiperf.json"))
         assert len(json_files) > 0, "No JSON output created"
 
@@ -573,8 +450,66 @@ class TestConfigurationIntegration:
 class TestEndpointTypesIntegration:
     """Integration tests for all supported endpoint types."""
 
+    async def _test_endpoint(
+        self,
+        base_profile_args,
+        aiperf_runner,
+        validate_aiperf_output,
+        endpoint_type: str,
+        streaming: bool = False,
+        extra_args: list[str] | None = None,
+        verify_streaming: bool = False,
+        verify_no_tokens: bool = False,
+    ) -> dict:
+        """Helper to test an endpoint type with common validation.
+
+        Args:
+            base_profile_args: Base profile arguments fixture
+            aiperf_runner: Runner fixture
+            validate_aiperf_output: Validation fixture
+            endpoint_type: Endpoint type to test
+            streaming: Whether to enable streaming
+            extra_args: Additional arguments to pass
+            verify_streaming: Whether to verify streaming metrics
+            verify_no_tokens: Whether to verify no token metrics
+
+        Returns:
+            Validated output dictionary
+        """
+        args = [
+            *base_profile_args,
+            "--endpoint-type",
+            endpoint_type,
+            "--request-count",
+            str(DEFAULT_REQUEST_COUNT),
+            "--concurrency",
+            str(DEFAULT_CONCURRENCY),
+        ]
+
+        if streaming:
+            args.append("--streaming")
+
+        if extra_args:
+            args.extend(extra_args)
+
+        result = await aiperf_runner(args)
+        assert result["returncode"] == 0, f"{endpoint_type} test failed: {result['stderr']}"
+
+        output = validate_aiperf_output(result["output_dir"])
+        records = output["json_results"]["records"]
+
+        assert_basic_metrics(records, "request_count", "request_latency")
+
+        if verify_streaming:
+            assert_streaming_metrics(records)
+
+        if verify_no_tokens:
+            assert_no_token_metrics(records)
+
+        return output
+
     async def test_chat_endpoint_non_streaming(
-        self, mock_server, aiperf_runner, validate_aiperf_output
+        self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
         """Test chat endpoint in non-streaming mode.
 
@@ -583,38 +518,14 @@ class TestEndpointTypesIntegration:
         - Ensures non-streaming chat requests work
         - Verifies response parsing
         """
-        result = await aiperf_runner(
-            [
-                "profile",
-                "--model",
-                "openai/gpt-oss-20b",
-                "--url",
-                mock_server["url"],
-                "--endpoint-type",
-                "chat",
-                "--request-count",
-                "5",
-                "--concurrency",
-                "2",
-                "--ui",
-                "simple",
-            ]
+        output = await self._test_endpoint(
+            base_profile_args, aiperf_runner, validate_aiperf_output, "chat"
         )
-
-        assert result["returncode"] == 0, (
-            f"Chat endpoint test failed: {result['stderr']}"
-        )
-
-        output = validate_aiperf_output(result["output_dir"])
         records = output["json_results"]["records"]
-
-        # Verify basic metrics for chat endpoint
-        assert "request_count" in records, "Missing request_count"
-        assert "request_latency" in records, "Missing request_latency"
-        assert "output_sequence_length" in records, "Missing output_sequence_length"
+        assert_basic_metrics(records, "output_sequence_length")
 
     async def test_chat_endpoint_streaming(
-        self, mock_server, aiperf_runner, validate_aiperf_output
+        self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
         """Test chat endpoint in streaming mode.
 
@@ -623,39 +534,17 @@ class TestEndpointTypesIntegration:
         - Ensures SSE parsing works
         - Verifies TTFT and ITL metrics
         """
-        result = await aiperf_runner(
-            [
-                "profile",
-                "--model",
-                "openai/gpt-oss-20b",
-                "--url",
-                mock_server["url"],
-                "--endpoint-type",
-                "chat",
-                "--streaming",
-                "--request-count",
-                "5",
-                "--concurrency",
-                "2",
-                "--ui",
-                "simple",
-            ]
+        await self._test_endpoint(
+            base_profile_args,
+            aiperf_runner,
+            validate_aiperf_output,
+            "chat",
+            streaming=True,
+            verify_streaming=True,
         )
-
-        assert result["returncode"] == 0, (
-            f"Chat streaming test failed: {result['stderr']}"
-        )
-
-        output = validate_aiperf_output(result["output_dir"])
-        records = output["json_results"]["records"]
-
-        # Verify streaming-specific metrics
-        assert "ttft" in records, "Missing TTFT metric"
-        assert "inter_token_latency" in records, "Missing ITL metric"
-        assert records["ttft"]["avg"] > 0, "TTFT should be positive"
 
     async def test_completions_endpoint_non_streaming(
-        self, mock_server, aiperf_runner, validate_aiperf_output
+        self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
         """Test completions endpoint in non-streaming mode.
 
@@ -664,39 +553,15 @@ class TestEndpointTypesIntegration:
         - Ensures legacy completions API works
         - Verifies token-based metrics
         """
-        result = await aiperf_runner(
-            [
-                "profile",
-                "--model",
-                "openai/gpt-oss-20b",
-                "--url",
-                mock_server["url"],
-                "--endpoint-type",
-                "completions",
-                "--request-count",
-                "5",
-                "--concurrency",
-                "2",
-                "--ui",
-                "simple",
-            ]
+        output = await self._test_endpoint(
+            base_profile_args, aiperf_runner, validate_aiperf_output, "completions"
         )
-
-        assert result["returncode"] == 0, f"Completions test failed: {result['stderr']}"
-
-        output = validate_aiperf_output(result["output_dir"])
         records = output["json_results"]["records"]
-
-        # Verify basic metrics for completions endpoint
-        assert "request_count" in records, "Missing request_count"
-        assert "request_latency" in records, "Missing request_latency"
-        assert "output_sequence_length" in records, "Missing output_sequence_length"
-
-        # Verify completed at least some requests
+        assert_basic_metrics(records, "output_sequence_length")
         assert records["request_count"]["avg"] >= 4, "Too few requests completed"
 
     async def test_completions_endpoint_streaming(
-        self, mock_server, aiperf_runner, validate_aiperf_output
+        self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
         """Test completions endpoint in streaming mode.
 
@@ -705,38 +570,17 @@ class TestEndpointTypesIntegration:
         - Ensures streaming works for legacy API
         - Verifies streaming metrics computed
         """
-        result = await aiperf_runner(
-            [
-                "profile",
-                "--model",
-                "openai/gpt-oss-20b",
-                "--url",
-                mock_server["url"],
-                "--endpoint-type",
-                "completions",
-                "--streaming",
-                "--request-count",
-                "5",
-                "--concurrency",
-                "2",
-                "--ui",
-                "simple",
-            ]
+        await self._test_endpoint(
+            base_profile_args,
+            aiperf_runner,
+            validate_aiperf_output,
+            "completions",
+            streaming=True,
+            verify_streaming=True,
         )
-
-        assert result["returncode"] == 0, (
-            f"Completions streaming test failed: {result['stderr']}"
-        )
-
-        output = validate_aiperf_output(result["output_dir"])
-        records = output["json_results"]["records"]
-
-        # Verify streaming metrics
-        assert "ttft" in records, "Missing TTFT metric"
-        assert "inter_token_latency" in records, "Missing ITL metric"
 
     async def test_embeddings_endpoint(
-        self, mock_server, aiperf_runner, validate_aiperf_output
+        self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
         """Test embeddings endpoint.
 
@@ -745,39 +589,20 @@ class TestEndpointTypesIntegration:
         - Ensures embeddings requests work
         - Verifies non-token-producing endpoint handling
         """
-        result = await aiperf_runner(
-            [
-                "profile",
-                "--model",
-                "openai/gpt-oss-20b",
-                "--url",
-                mock_server["url"],
-                "--endpoint-type",
-                "embeddings",
-                "--request-count",
-                "5",
-                "--concurrency",
-                "2",
-                "--ui",
-                "simple",
-            ]
+        await self._test_endpoint(
+            base_profile_args,
+            aiperf_runner,
+            validate_aiperf_output,
+            "embeddings",
+            verify_no_tokens=True,
         )
 
-        assert result["returncode"] == 0, f"Embeddings test failed: {result['stderr']}"
-
-        output = validate_aiperf_output(result["output_dir"])
-        records = output["json_results"]["records"]
-
-        # Verify basic metrics (embeddings don't produce tokens)
-        assert "request_count" in records, "Missing request_count"
-        assert "request_latency" in records, "Missing request_latency"
-
-        # Embeddings should NOT have token-based metrics
-        assert "ttft" not in records, "Embeddings should not have TTFT"
-        assert "inter_token_latency" not in records, "Embeddings should not have ITL"
-
     async def test_rankings_endpoint(
-        self, mock_server, aiperf_runner, validate_aiperf_output, tmp_path
+        self,
+        base_profile_args,
+        aiperf_runner,
+        validate_aiperf_output,
+        create_rankings_dataset,
     ):
         """Test rankings endpoint with custom dataset.
 
@@ -787,69 +612,27 @@ class TestEndpointTypesIntegration:
         - Verifies reranking endpoint handling
         - Tests custom dataset with named Text objects
         """
-        # Create custom rankings dataset
-        import json
+        dataset_path = create_rankings_dataset(DEFAULT_REQUEST_COUNT)
 
-        rankings_dataset = tmp_path / "rankings.jsonl"
-        with open(rankings_dataset, "w") as f:
-            # Write rankings entries with query and passages
-            for i in range(5):
-                entry = {
-                    "texts": [
-                        {
-                            "name": "query",
-                            "contents": [f"What is artificial intelligence topic {i}?"],
-                        },
-                        {
-                            "name": "passages",
-                            "contents": [
-                                f"AI is a branch of computer science {i}",
-                                f"Machine learning is a subset of AI {i}",
-                                f"Deep learning uses neural networks {i}",
-                            ],
-                        },
-                    ]
-                }
-                f.write(json.dumps(entry) + "\n")
+        extra_args = [
+            "--input-file",
+            str(dataset_path),
+            "--custom-dataset-type",
+            "single_turn",
+        ]
 
-        result = await aiperf_runner(
-            [
-                "profile",
-                "--model",
-                "openai/gpt-oss-20b",
-                "--url",
-                mock_server["url"],
-                "--endpoint-type",
-                "rankings",
-                "--input-file",
-                str(rankings_dataset),
-                "--custom-dataset-type",
-                "single_turn",
-                "--concurrency",
-                "2",
-                "--ui",
-                "simple",
-            ]
-        )
-
-        assert result["returncode"] == 0, f"Rankings test failed: {result['stderr']}"
-
-        output = validate_aiperf_output(result["output_dir"])
-        records = output["json_results"]["records"]
-
-        # Verify basic metrics (rankings don't produce tokens)
-        assert "request_count" in records, "Missing request_count"
-        assert "request_latency" in records, "Missing request_latency"
-
-        # Rankings should NOT have streaming or token metrics
-        assert "ttft" not in records, "Rankings should not have TTFT"
-        assert "output_sequence_length" not in records, (
-            "Rankings should not have output_sequence_length"
+        await self._test_endpoint(
+            base_profile_args,
+            aiperf_runner,
+            validate_aiperf_output,
+            "rankings",
+            extra_args=extra_args,
+            verify_no_tokens=True,
         )
 
     @pytest.mark.skip(reason="Bug in aiperf responses API - needs to be fixed")
     async def test_responses_endpoint_non_streaming(
-        self, mock_server, aiperf_runner, validate_aiperf_output
+        self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
         """Test responses endpoint in non-streaming mode.
 
@@ -858,37 +641,15 @@ class TestEndpointTypesIntegration:
         - Ensures new responses API works
         - Verifies token-based metrics
         """
-        result = await aiperf_runner(
-            [
-                "profile",
-                "--model",
-                "openai/gpt-oss-20b",
-                "--url",
-                mock_server["url"],
-                "--endpoint-type",
-                "responses",
-                "--request-count",
-                "5",
-                "--concurrency",
-                "2",
-                "--ui",
-                "simple",
-            ]
+        output = await self._test_endpoint(
+            base_profile_args, aiperf_runner, validate_aiperf_output, "responses"
         )
-
-        assert result["returncode"] == 0, f"Responses test failed: {result['stderr']}"
-
-        output = validate_aiperf_output(result["output_dir"])
         records = output["json_results"]["records"]
-
-        # Verify basic metrics for responses endpoint
-        assert "request_count" in records, "Missing request_count"
-        assert "request_latency" in records, "Missing request_latency"
-        assert "output_sequence_length" in records, "Missing output_sequence_length"
+        assert_basic_metrics(records, "output_sequence_length")
 
     @pytest.mark.skip(reason="Bug in aiperf responses API - needs to be fixed")
     async def test_responses_endpoint_streaming(
-        self, mock_server, aiperf_runner, validate_aiperf_output
+        self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
         """Test responses endpoint in streaming mode.
 
@@ -897,33 +658,11 @@ class TestEndpointTypesIntegration:
         - Ensures streaming works for new API
         - Verifies streaming metrics computed
         """
-        result = await aiperf_runner(
-            [
-                "profile",
-                "--model",
-                "openai/gpt-oss-20b",
-                "--url",
-                mock_server["url"],
-                "--endpoint-type",
-                "responses",
-                "--streaming",
-                "--request-count",
-                "5",
-                "--concurrency",
-                "2",
-                "--ui",
-                "simple",
-            ]
+        await self._test_endpoint(
+            base_profile_args,
+            aiperf_runner,
+            validate_aiperf_output,
+            "responses",
+            streaming=True,
+            verify_streaming=True,
         )
-
-        assert result["returncode"] == 0, (
-            f"Responses streaming test failed: {result['stderr']}"
-        )
-
-        output = validate_aiperf_output(result["output_dir"])
-        records = output["json_results"]["records"]
-
-        # Verify streaming metrics
-        assert "ttft" in records, "Missing TTFT metric"
-        assert "inter_token_latency" in records, "Missing ITL metric"
-        assert records["ttft"]["avg"] > 0, "TTFT should be positive"
