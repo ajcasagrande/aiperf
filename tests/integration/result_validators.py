@@ -10,6 +10,7 @@ from pydantic import TypeAdapter, ValidationError
 
 from aiperf.common.config import UserConfig
 from aiperf.common.models import ErrorDetailsCount, InputsFile, MetricResult
+from aiperf.exporters.json_exporter import JsonExportData
 
 from .test_models import ChatCompletionPayload, MessageContentItem
 
@@ -40,23 +41,33 @@ class BenchmarkResult:
         if json_file:
             self._json_file = json_file
             with open(json_file) as f:
-                data = json.load(f)
+                json_data = json.load(f)
 
-            # Parse records into MetricResult models (skip invalid ones)
-            if data.get("records"):
-                self._records = {}
-                for tag, metric_dict in data["records"].items():
-                    try:
-                        self._records[tag] = MetricResult(**metric_dict)
-                    except ValidationError:
-                        pass  # Skip timestamp metrics with datetime strings
+            # Parse entire JSON export structure using Pydantic model
+            try:
+                export_data = JsonExportData(**json_data)
+                self._records = export_data.records or {}
+                self._input_config = export_data.input_config
+                self._error_summary = export_data.error_summary
+                self._was_cancelled = export_data.was_cancelled
+            except ValidationError:
+                # Fallback to manual parsing if structure doesn't match
+                # Parse records manually (skip invalid ones)
+                if json_data.get("records"):
+                    self._records = {}
+                    for tag, metric_dict in json_data["records"].items():
+                        try:
+                            self._records[tag] = MetricResult(**metric_dict)
+                        except ValidationError:
+                            pass  # Skip timestamp metrics with datetime strings
 
-            # Parse Pydantic models
-            if data.get("input_config"):
-                self._input_config = UserConfig(**data["input_config"])
-            if data.get("error_summary"):
-                self._error_summary = TypeAdapter(list[ErrorDetailsCount]).validate_python(data["error_summary"])
-            self._was_cancelled = data.get("was_cancelled")
+                if json_data.get("input_config"):
+                    self._input_config = UserConfig(**json_data["input_config"])
+                if json_data.get("error_summary"):
+                    self._error_summary = TypeAdapter(list[ErrorDetailsCount]).validate_python(
+                        json_data["error_summary"]
+                    )
+                self._was_cancelled = json_data.get("was_cancelled")
 
         # Load CSV
         csv_file = next(self.artifacts_dir.glob("**/*aiperf.csv"), None)
@@ -155,57 +166,36 @@ class BenchmarkResult:
             f"Expected >={min_sessions} sessions, got {len(self.inputs_file.data)}"
         return self
 
-    def assert_inputs_json_has_images(self) -> "BenchmarkResult":
-        """Assert that inputs.json contains image content using type-safe Pydantic models."""
-        has_images = False
+    def _get_all_content_items(self) -> list[MessageContentItem]:
+        """Extract all message content items from inputs.json using Pydantic parsing.
+
+        Returns:
+            List of all content items (text, image, audio) from all payloads.
+        """
+        content_items: list[MessageContentItem] = []
         for session in self.inputs_file.data:
             for payload_dict in session.payloads:
                 try:
-                    # Parse payload into Pydantic model
                     payload = ChatCompletionPayload(**payload_dict)
                     for message in payload.messages:
-                        # Handle list content (multimodal)
                         if isinstance(message.content, list):
-                            for item in message.content:
-                                if item.type == "image_url":
-                                    has_images = True
-                                    break
-                        if has_images:
-                            break
+                            content_items.extend(message.content)
                 except ValidationError:
                     # Skip non-chat payloads (e.g., completions, embeddings)
                     continue
-                if has_images:
-                    break
-            if has_images:
-                break
+        return content_items
+
+    def assert_inputs_json_has_images(self) -> "BenchmarkResult":
+        """Assert that inputs.json contains image content using type-safe Pydantic models."""
+        content_items = self._get_all_content_items()
+        has_images = any(item.type == "image_url" for item in content_items)
         assert has_images, "No images found in inputs.json"
         return self
 
     def assert_inputs_json_has_audio(self) -> "BenchmarkResult":
         """Assert that inputs.json contains audio content using type-safe Pydantic models."""
-        has_audio = False
-        for session in self.inputs_file.data:
-            for payload_dict in session.payloads:
-                try:
-                    # Parse payload into Pydantic model
-                    payload = ChatCompletionPayload(**payload_dict)
-                    for message in payload.messages:
-                        # Handle list content (multimodal)
-                        if isinstance(message.content, list):
-                            for item in message.content:
-                                if item.type == "input_audio":
-                                    has_audio = True
-                                    break
-                        if has_audio:
-                            break
-                except ValidationError:
-                    # Skip non-chat payloads
-                    continue
-                if has_audio:
-                    break
-            if has_audio:
-                break
+        content_items = self._get_all_content_items()
+        has_audio = any(item.type == "input_audio" for item in content_items)
         assert has_audio, "No audio found in inputs.json"
         return self
 

@@ -260,33 +260,43 @@ class TestCancellationFeatures:
 class TestDeterministicBehavior:
     """Integration tests for deterministic behavior with random seeds."""
 
+    async def _run_aiperf_with_seed(
+        self, run_number: int, base_args: list[str], tmp_path, aiperf_runner, validate_aiperf_output
+    ) -> BenchmarkResult:
+        """Helper to run AIPerf and return BenchmarkResult."""
+        output_dir = tmp_path / f"run{run_number}"
+        output_dir.mkdir()
+        args = [*base_args, "--artifact-dir", str(output_dir)]
+
+        result: AIPerfRunResult = await aiperf_runner(args, add_artifact_dir=False)
+        assert result.returncode == 0, f"Run {run_number} failed with code {result.returncode}"
+
+        validated = validate_aiperf_output(output_dir)
+        return BenchmarkResult.from_directory(validated.actual_dir)
+
     async def test_same_seed_produces_identical_inputs(
         self, base_profile_args, aiperf_runner, validate_aiperf_output, tmp_path
     ):
         """Validates --random-seed produces identical payloads (except session UUIDs)."""
-        base_args = [*base_profile_args, "--endpoint-type", "chat",
-                     "--request-count", "10", "--concurrency", "2",
-                     "--random-seed", "42", *IMAGE_64, *AUDIO_SHORT]
+        base_args = [
+            *base_profile_args,
+            "--endpoint-type", "chat",
+            "--request-count", "10",
+            "--concurrency", "2",
+            "--random-seed", "42",
+            *IMAGE_64,
+            *AUDIO_SHORT,
+        ]
 
         # Run twice with same seed
-        results = []
-        for i in [1, 2]:
-            output_dir = tmp_path / f"run{i}"
-            output_dir.mkdir()
-            args = [*base_args, "--artifact-dir", str(output_dir)]
+        run1 = await self._run_aiperf_with_seed(1, base_args, tmp_path, aiperf_runner, validate_aiperf_output)
+        run2 = await self._run_aiperf_with_seed(2, base_args, tmp_path, aiperf_runner, validate_aiperf_output)
 
-            result: AIPerfRunResult = await aiperf_runner(args, add_artifact_dir=False)
-            assert result.returncode == 0
-            results.append(validate_aiperf_output(output_dir))
-
-        # Compare using Pydantic models
-        v1 = BenchmarkResult.from_directory(results[0].actual_dir)
-        v2 = BenchmarkResult.from_directory(results[1].actual_dir)
-
-        inputs_1, inputs_2 = v1.inputs_file, v2.inputs_file
-        assert len(inputs_1.data) == len(inputs_2.data)
+        # Compare inputs files
+        inputs_1, inputs_2 = run1.inputs_file, run2.inputs_file
+        assert len(inputs_1.data) == len(inputs_2.data), "Session counts differ"
 
         # Payloads identical, session_ids differ (UUIDs)
-        for s1, s2 in zip(inputs_1.data, inputs_2.data):
-            assert s1.session_id != s2.session_id
-            assert s1.payloads == s2.payloads
+        for s1, s2 in zip(inputs_1.data, inputs_2.data, strict=True):
+            assert s1.session_id != s2.session_id, "Session IDs should be different (UUIDs)"
+            assert s1.payloads == s2.payloads, "Payloads should be identical"
