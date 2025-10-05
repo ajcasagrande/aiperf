@@ -1,36 +1,666 @@
 /*
 SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 SPDX-License-Identifier: Apache-2.0
+
+AIPerf VS Code Debugging and Profiling Configuration (2025)
+
+This comprehensive launch.json provides configurations for:
+- Main AIPerf CLI debugging
+- Worker process debugging (multiprocess)
+- Async Python code debugging
+- Unit and integration test debugging
+- Performance profiling with cProfile
+- Memory profiling
+- Remote debugging (Docker/containers)
+- ZMQ communication debugging
+- Coverage debugging
 */
 {
+    "version": "0.2.0",
     "configurations": [
+        // ========================================
+        // Main AIPerf Debugging Configurations
+        // ========================================
         {
-            "name": "aiperf",
+            "name": "AIPerf: Debug Main Process",
             "type": "debugpy",
             "request": "launch",
             "cwd": "${workspaceFolder}",
             "module": "aiperf.cli",
             "args": [
                 "profile",
-                "-m",
-                "gpt2",
-                "--log-level",
-                "DEBUG",
-                "--max-workers",
-                "1"
-            ]
+                "-m", "gpt2",
+                "--log-level", "DEBUG",
+                "--max-workers", "1",
+                "--num-requests", "10"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONUNBUFFERED": "1",
+                "AIPERF_DEV_MODE": "1"
+            },
+            "subProcess": false,
+            "presentation": {
+                "group": "aiperf",
+                "order": 1
+            }
         },
         {
-            "name": "pytest",
+            "name": "AIPerf: Debug with Multiprocess (Workers)",
+            "type": "debugpy",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "module": "aiperf.cli",
+            "args": [
+                "profile",
+                "-m", "gpt2",
+                "--log-level", "DEBUG",
+                "--max-workers", "2",
+                "--num-requests", "20"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "subProcess": true,
+            "env": {
+                "PYTHONUNBUFFERED": "1",
+                "AIPERF_DEV_MODE": "1"
+            },
+            "presentation": {
+                "group": "aiperf",
+                "order": 2
+            }
+        },
+        {
+            "name": "AIPerf: Debug Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            },
+            "presentation": {
+                "group": "aiperf",
+                "order": 3
+            }
+        },
+        {
+            "name": "AIPerf: Debug System Controller",
+            "type": "debugpy",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "module": "aiperf.controller.system_controller",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONUNBUFFERED": "1",
+                "AIPERF_DEV_MODE": "1"
+            },
+            "presentation": {
+                "group": "aiperf",
+                "order": 4
+            }
+        },
+        {
+            "name": "AIPerf: Debug Worker Process",
+            "type": "debugpy",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "module": "aiperf.workers.worker",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONUNBUFFERED": "1",
+                "AIPERF_DEV_MODE": "1"
+            },
+            "presentation": {
+                "group": "aiperf",
+                "order": 5
+            }
+        },
+        {
+            "name": "AIPerf: Debug with Config File",
+            "type": "debugpy",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "module": "aiperf.cli",
+            "args": [
+                "profile",
+                "--config", "${workspaceFolder}/configs/benchmark.yaml",
+                "--log-level", "DEBUG"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            },
+            "presentation": {
+                "group": "aiperf",
+                "order": 6
+            }
+        },
+
+        // ========================================
+        // Example Scripts Debugging
+        // ========================================
+        {
+            "name": "Example: Simple Benchmark",
+            "type": "debugpy",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "program": "${workspaceFolder}/examples/basic/simple_benchmark.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            },
+            "presentation": {
+                "group": "examples",
+                "order": 1
+            }
+        },
+        {
+            "name": "Example: Streaming Benchmark",
+            "type": "debugpy",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "program": "${workspaceFolder}/examples/basic/streaming_benchmark.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            },
+            "presentation": {
+                "group": "examples",
+                "order": 2
+            }
+        },
+        {
+            "name": "Example: Trace Replay",
+            "type": "debugpy",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "program": "${workspaceFolder}/examples/advanced/trace_replay.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            },
+            "presentation": {
+                "group": "examples",
+                "order": 3
+            }
+        },
+
+        // ========================================
+        // Testing Configurations
+        // ========================================
+        {
+            "name": "Pytest: Debug All Tests",
             "type": "debugpy",
             "request": "launch",
             "cwd": "${workspaceFolder}",
             "module": "pytest",
             "args": [
-                "-n",
-                "auto"
-            ]
+                "-v",
+                "-s",
+                "--log-cli-level=DEBUG"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONUNBUFFERED": "1",
+                "PYTEST_ADDOPTS": "--no-cov"
+            },
+            "presentation": {
+                "group": "testing",
+                "order": 1
+            }
+        },
+        {
+            "name": "Pytest: Debug Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "module": "pytest",
+            "args": [
+                "${file}",
+                "-v",
+                "-s",
+                "--log-cli-level=DEBUG"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONUNBUFFERED": "1",
+                "PYTEST_ADDOPTS": "--no-cov"
+            },
+            "presentation": {
+                "group": "testing",
+                "order": 2
+            }
+        },
+        {
+            "name": "Pytest: Debug Integration Tests",
+            "type": "debugpy",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "module": "pytest",
+            "args": [
+                "tests/integration/",
+                "-v",
+                "-s",
+                "-m", "integration",
+                "--log-cli-level=DEBUG"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONUNBUFFERED": "1",
+                "PYTEST_ADDOPTS": "--no-cov"
+            },
+            "presentation": {
+                "group": "testing",
+                "order": 3
+            }
+        },
+        {
+            "name": "Pytest: Debug Async Tests",
+            "type": "debugpy",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "module": "pytest",
+            "args": [
+                "${file}",
+                "-v",
+                "-s",
+                "-m", "asyncio",
+                "--log-cli-level=DEBUG"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONUNBUFFERED": "1",
+                "PYTEST_ADDOPTS": "--no-cov"
+            },
+            "presentation": {
+                "group": "testing",
+                "order": 4
+            }
+        },
+        {
+            "name": "Pytest: Debug with Coverage",
+            "type": "debugpy",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "module": "pytest",
+            "args": [
+                "${file}",
+                "-v",
+                "-s",
+                "--cov=aiperf",
+                "--cov-report=html",
+                "--cov-report=term"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            },
+            "presentation": {
+                "group": "testing",
+                "order": 5
+            }
+        },
+        {
+            "name": "Pytest: Debug Single Test Function",
+            "type": "debugpy",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "module": "pytest",
+            "args": [
+                "${file}::${input:testFunction}",
+                "-v",
+                "-s",
+                "--log-cli-level=DEBUG"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONUNBUFFERED": "1",
+                "PYTEST_ADDOPTS": "--no-cov"
+            },
+            "presentation": {
+                "group": "testing",
+                "order": 6
+            }
+        },
+        {
+            "name": "Pytest: Debug Parallel Tests",
+            "type": "debugpy",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "module": "pytest",
+            "args": [
+                "-n", "auto",
+                "-v",
+                "--dist=loadgroup"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "subProcess": true,
+            "env": {
+                "PYTHONUNBUFFERED": "1",
+                "PYTEST_ADDOPTS": "--no-cov"
+            },
+            "presentation": {
+                "group": "testing",
+                "order": 7
+            }
+        },
+
+        // ========================================
+        // Performance Profiling Configurations
+        // ========================================
+        {
+            "name": "Profile: cProfile Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "module": "cProfile",
+            "args": [
+                "-o", "/tmp/aiperf_profile.prof",
+                "${file}"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            },
+            "presentation": {
+                "group": "profiling",
+                "order": 1
+            },
+            "postDebugTask": "View cProfile Results"
+        },
+        {
+            "name": "Profile: cProfile AIPerf Main",
+            "type": "debugpy",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "module": "cProfile",
+            "args": [
+                "-o", "/tmp/aiperf_main_profile.prof",
+                "-m", "aiperf.cli",
+                "profile",
+                "-m", "gpt2",
+                "--max-workers", "1",
+                "--num-requests", "10"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            },
+            "presentation": {
+                "group": "profiling",
+                "order": 2
+            }
+        },
+        {
+            "name": "Profile: Memory with tracemalloc",
+            "type": "debugpy",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONUNBUFFERED": "1",
+                "PYTHONTRACEMALLOC": "1"
+            },
+            "presentation": {
+                "group": "profiling",
+                "order": 3
+            }
+        },
+        {
+            "name": "Profile: Line Profiler",
+            "type": "debugpy",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "module": "kernprof",
+            "args": [
+                "-l",
+                "-v",
+                "${file}"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            },
+            "presentation": {
+                "group": "profiling",
+                "order": 4
+            }
+        },
+
+        // ========================================
+        // Remote Debugging Configurations
+        // ========================================
+        {
+            "name": "Remote: Attach to Process",
+            "type": "debugpy",
+            "request": "attach",
+            "connect": {
+                "host": "localhost",
+                "port": 5678
+            },
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}",
+                    "remoteRoot": "."
+                }
+            ],
+            "justMyCode": false,
+            "presentation": {
+                "group": "remote",
+                "order": 1
+            }
+        },
+        {
+            "name": "Remote: Attach to Docker Container",
+            "type": "debugpy",
+            "request": "attach",
+            "connect": {
+                "host": "localhost",
+                "port": 5678
+            },
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}",
+                    "remoteRoot": "/app"
+                }
+            ],
+            "justMyCode": false,
+            "presentation": {
+                "group": "remote",
+                "order": 2
+            }
+        },
+        {
+            "name": "Remote: Attach to Worker Process",
+            "type": "debugpy",
+            "request": "attach",
+            "connect": {
+                "host": "localhost",
+                "port": "${input:debugPort}"
+            },
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}",
+                    "remoteRoot": "."
+                }
+            ],
+            "justMyCode": false,
+            "presentation": {
+                "group": "remote",
+                "order": 3
+            }
+        },
+
+        // ========================================
+        // ZMQ Communication Debugging
+        // ========================================
+        {
+            "name": "ZMQ: Debug Communication Flow",
+            "type": "debugpy",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "module": "aiperf.cli",
+            "args": [
+                "profile",
+                "-m", "gpt2",
+                "--log-level", "DEBUG",
+                "--max-workers", "2",
+                "--num-requests", "5"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "subProcess": true,
+            "env": {
+                "PYTHONUNBUFFERED": "1",
+                "AIPERF_DEV_MODE": "1",
+                "AIPERF_ZMQ_DEBUG": "1"
+            },
+            "logToFile": true,
+            "presentation": {
+                "group": "zmq",
+                "order": 1
+            }
+        },
+        {
+            "name": "ZMQ: Debug Message Bus",
+            "type": "debugpy",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONUNBUFFERED": "1",
+                "AIPERF_ZMQ_DEBUG": "1"
+            },
+            "presentation": {
+                "group": "zmq",
+                "order": 2
+            }
+        },
+
+        // ========================================
+        // Specialized Debugging Scenarios
+        // ========================================
+        {
+            "name": "Debug: Async Workflow",
+            "type": "debugpy",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONUNBUFFERED": "1",
+                "PYTHONASYNCIODEBUG": "1"
+            },
+            "presentation": {
+                "group": "specialized",
+                "order": 1
+            }
+        },
+        {
+            "name": "Debug: With Conditional Breakpoint Helper",
+            "type": "debugpy",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            },
+            "presentation": {
+                "group": "specialized",
+                "order": 2
+            }
+        },
+        {
+            "name": "Debug: Performance Bottleneck Investigation",
+            "type": "debugpy",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "module": "aiperf.cli",
+            "args": [
+                "profile",
+                "-m", "gpt2",
+                "--log-level", "INFO",
+                "--max-workers", "4",
+                "--num-requests", "100"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONUNBUFFERED": "1",
+                "PYTHONTRACEMALLOC": "10"
+            },
+            "presentation": {
+                "group": "specialized",
+                "order": 3
+            }
+        },
+        {
+            "name": "Debug: Critical Test Suite",
+            "type": "debugpy",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "module": "pytest",
+            "args": [
+                "tests/critical/",
+                "-v",
+                "-s",
+                "--log-cli-level=DEBUG"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONUNBUFFERED": "1",
+                "PYTEST_ADDOPTS": "--no-cov"
+            },
+            "presentation": {
+                "group": "specialized",
+                "order": 4
+            }
         }
     ],
-    "version": "0.2.0"
+
+    // ========================================
+    // Input Variables
+    // ========================================
+    "inputs": [
+        {
+            "id": "testFunction",
+            "type": "promptString",
+            "description": "Test function name (e.g., test_my_function)",
+            "default": "test_"
+        },
+        {
+            "id": "debugPort",
+            "type": "promptString",
+            "description": "Debug port to attach to",
+            "default": "5678"
+        }
+    ]
 }

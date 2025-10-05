@@ -1,0 +1,810 @@
+/*
+SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+SPDX-License-Identifier: Apache-2.0
+*/
+{
+    "version": "2.0.0",
+    "tasks": [
+        // ============================================================
+        // TEST TASKS
+        // ============================================================
+        {
+            "label": "Test: Unit Tests",
+            "type": "shell",
+            "command": ". .venv/bin/activate && pytest",
+            "args": [
+                "-n",
+                "auto",
+                "-m",
+                "not integration"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": {
+                "owner": "python",
+                "fileLocation": ["relative", "${workspaceFolder}"],
+                "pattern": [
+                    {
+                        "regexp": "^(.+):(\\d+):\\s+(.*?)\\s*$",
+                        "file": 1,
+                        "line": 2,
+                        "message": 3
+                    }
+                ],
+                "background": {
+                    "activeOnStart": false,
+                    "beginsPattern": "^={3,}\\s+test session starts",
+                    "endsPattern": "^={3,}.*(?:passed|failed|error)"
+                }
+            }
+        },
+        {
+            "label": "Test: Unit Tests (Verbose)",
+            "type": "shell",
+            "command": ". .venv/bin/activate && pytest",
+            "args": [
+                "-n",
+                "auto",
+                "-v",
+                "-s",
+                "--log-cli-level",
+                "DEBUG",
+                "-m",
+                "not integration"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "dedicated",
+                "showReuseMessage": false,
+                "clear": true
+            },
+            "problemMatcher": "$python"
+        },
+        {
+            "label": "Test: Fast (Fail Fast)",
+            "type": "shell",
+            "command": ". .venv/bin/activate && pytest",
+            "args": [
+                "tests/",
+                "-x",
+                "-m",
+                "not integration"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": "$python"
+        },
+        {
+            "label": "Test: Critical Behavioral",
+            "type": "shell",
+            "command": ". .venv/bin/activate && pytest",
+            "args": [
+                "tests/critical/",
+                "-v"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": "$python"
+        },
+        {
+            "label": "Test: Integration Tests",
+            "type": "shell",
+            "command": ". .venv/bin/activate && pytest",
+            "args": [
+                "tests/integration/",
+                "--integration",
+                "-v",
+                "-s",
+                "--log-cli-level=INFO"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "dedicated",
+                "showReuseMessage": false,
+                "clear": true
+            },
+            "problemMatcher": "$python"
+        },
+        {
+            "label": "Test: Documentation Validation",
+            "type": "shell",
+            "command": ". .venv/bin/activate && pytest",
+            "args": [
+                "tests/test_documentation.py",
+                "-v"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": "$python"
+        },
+        {
+            "label": "Test: Examples Validation",
+            "type": "shell",
+            "command": ". .venv/bin/activate && pytest",
+            "args": [
+                "tests/test_examples.py",
+                "-v"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": "$python"
+        },
+        {
+            "label": "Test: All (Complete Suite)",
+            "type": "shell",
+            "command": ". .venv/bin/activate && pytest",
+            "args": [
+                "tests/",
+                "--integration",
+                "-v"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "dedicated",
+                "showReuseMessage": false,
+                "clear": true
+            },
+            "problemMatcher": "$python"
+        },
+        {
+            "label": "Test: Current File",
+            "type": "shell",
+            "command": ". .venv/bin/activate && pytest",
+            "args": [
+                "${file}",
+                "-v"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": "$python"
+        },
+        // ============================================================
+        // CODE QUALITY TASKS
+        // ============================================================
+        {
+            "label": "Lint: Check with Ruff",
+            "type": "shell",
+            "command": ". .venv/bin/activate && ruff",
+            "args": [
+                "check",
+                "."
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": {
+                "owner": "ruff",
+                "source": "ruff",
+                "fileLocation": ["relative", "${workspaceFolder}"],
+                "pattern": {
+                    "regexp": "^(.+?):(\\d+):(\\d+):\\s+(\\w+)\\[([\\w\\-]+)\\]:\\s+(.+)$",
+                    "file": 1,
+                    "line": 2,
+                    "column": 3,
+                    "severity": 4,
+                    "code": 5,
+                    "message": 6
+                },
+                "severity": "warning"
+            }
+        },
+        {
+            "label": "Lint: Fix with Ruff",
+            "type": "shell",
+            "command": ". .venv/bin/activate && ruff",
+            "args": [
+                "check",
+                ".",
+                "--fix"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": {
+                "owner": "ruff",
+                "source": "ruff",
+                "fileLocation": ["relative", "${workspaceFolder}"],
+                "pattern": {
+                    "regexp": "^(.+?):(\\d+):(\\d+):\\s+(\\w+)\\[([\\w\\-]+)\\]:\\s+(.+)$",
+                    "file": 1,
+                    "line": 2,
+                    "column": 3,
+                    "severity": 4,
+                    "code": 5,
+                    "message": 6
+                }
+            }
+        },
+        {
+            "label": "Format: Check with Ruff",
+            "type": "shell",
+            "command": ". .venv/bin/activate && ruff",
+            "args": [
+                "format",
+                ".",
+                "--check"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Format: Apply with Ruff",
+            "type": "shell",
+            "command": ". .venv/bin/activate && ruff",
+            "args": [
+                "format",
+                "."
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+        // ============================================================
+        // COVERAGE TASKS
+        // ============================================================
+        {
+            "label": "Coverage: Generate Report",
+            "type": "shell",
+            "command": ". .venv/bin/activate && pytest",
+            "args": [
+                "-n",
+                "auto",
+                "--cov=aiperf",
+                "--cov-branch",
+                "--cov-report=html",
+                "--cov-report=xml",
+                "--cov-report=term",
+                "-m",
+                "not integration"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "dedicated",
+                "showReuseMessage": false,
+                "clear": true
+            },
+            "problemMatcher": "$python"
+        },
+        {
+            "label": "Coverage: Open HTML Report",
+            "type": "shell",
+            "command": "xdg-open",
+            "args": [
+                "htmlcov/index.html"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "silent",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": false,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+        // ============================================================
+        // DOCUMENTATION TASKS
+        // ============================================================
+        {
+            "label": "Docs: Build",
+            "type": "shell",
+            "command": ". .venv/bin/activate && mkdocs",
+            "args": [
+                "build",
+                "--strict"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Docs: Serve",
+            "type": "shell",
+            "command": ". .venv/bin/activate && mkdocs",
+            "args": [
+                "serve"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "isBackground": true,
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "dedicated",
+                "showReuseMessage": false,
+                "clear": true
+            },
+            "problemMatcher": {
+                "pattern": {
+                    "regexp": "^$",
+                    "file": 1,
+                    "location": 2,
+                    "message": 3
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": "^INFO\\s+-\\s+Building documentation",
+                    "endsPattern": "^INFO\\s+-\\s+Documentation built"
+                }
+            }
+        },
+        {
+            "label": "Docs: Stop Server",
+            "type": "shell",
+            "command": "pkill",
+            "args": [
+                "-f",
+                "mkdocs serve"
+            ],
+            "presentation": {
+                "echo": true,
+                "reveal": "silent",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": false,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+        // ============================================================
+        // MOCK SERVER TASKS
+        // ============================================================
+        {
+            "label": "Mock Server: Start",
+            "type": "shell",
+            "command": ". .venv/bin/activate && cd integration-tests && python -m mock_server.main",
+            "args": [
+                "--port",
+                "8000"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "isBackground": true,
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "dedicated",
+                "showReuseMessage": false,
+                "clear": true
+            },
+            "problemMatcher": {
+                "pattern": {
+                    "regexp": "^$",
+                    "file": 1,
+                    "location": 2,
+                    "message": 3
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": "^INFO:\\s+Started server process",
+                    "endsPattern": "^INFO:\\s+Application startup complete"
+                }
+            }
+        },
+        {
+            "label": "Mock Server: Stop",
+            "type": "shell",
+            "command": "pkill",
+            "args": [
+                "-f",
+                "mock_server.main"
+            ],
+            "presentation": {
+                "echo": true,
+                "reveal": "silent",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": false,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Mock Server: Install",
+            "type": "shell",
+            "command": ". .venv/bin/activate && cd integration-tests && uv pip install -e '.[dev]'",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+        // ============================================================
+        // COMPOUND WORKFLOW TASKS
+        // ============================================================
+        {
+            "label": "Workflow: Quick Validation",
+            "dependsOn": [
+                "Format: Check with Ruff",
+                "Lint: Check with Ruff",
+                "Test: Fast (Fail Fast)"
+            ],
+            "dependsOrder": "sequence",
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Workflow: Full Validation",
+            "dependsOn": [
+                "Format: Check with Ruff",
+                "Lint: Check with Ruff",
+                "Test: Critical Behavioral",
+                "Test: Unit Tests",
+                "Test: Documentation Validation",
+                "Test: Examples Validation"
+            ],
+            "dependsOrder": "sequence",
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Workflow: Pre-commit Check",
+            "dependsOn": [
+                "Format: Apply with Ruff",
+                "Lint: Fix with Ruff",
+                "Test: Unit Tests"
+            ],
+            "dependsOrder": "sequence",
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Workflow: Test with Coverage",
+            "dependsOn": [
+                "Coverage: Generate Report",
+                "Coverage: Open HTML Report"
+            ],
+            "dependsOrder": "sequence",
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Workflow: Integration Test Setup",
+            "dependsOn": [
+                "Mock Server: Install",
+                "Mock Server: Start"
+            ],
+            "dependsOrder": "sequence",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "dedicated",
+                "showReuseMessage": false,
+                "clear": true
+            },
+            "problemMatcher": []
+        },
+        // ============================================================
+        // PROFILING AND DEBUGGING TASKS
+        // ============================================================
+        {
+            "label": "Profile: View cProfile Results",
+            "type": "shell",
+            "command": "python -c \"import pstats; p = pstats.Stats('/tmp/aiperf_profile.prof'); p.sort_stats('cumtime'); p.print_stats(30)\"",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "new",
+                "showReuseMessage": false,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Profile: py-spy Record",
+            "type": "shell",
+            "command": ". .venv/bin/activate && py-spy record -o /tmp/pyspy_profile.svg -- python -m aiperf.cli profile -m gpt2 --max-workers 1 --num-requests 10",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "dedicated",
+                "showReuseMessage": false,
+                "clear": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Profile: Scalene Current File",
+            "type": "shell",
+            "command": ". .venv/bin/activate && scalene --html --outfile /tmp/scalene_profile.html ${file}",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "dedicated",
+                "showReuseMessage": false,
+                "clear": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Profile: Memory with tracemalloc",
+            "type": "shell",
+            "command": ". .venv/bin/activate && python -X tracemalloc ${file}",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "PYTHONTRACEMALLOC": "10"
+                }
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "dedicated",
+                "showReuseMessage": false,
+                "clear": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Debug: Start Remote Debug Server",
+            "type": "shell",
+            "command": ". .venv/bin/activate && python -m debugpy --listen 0.0.0.0:5678 --wait-for-client ${file}",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "isBackground": true,
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "dedicated",
+                "showReuseMessage": false,
+                "clear": true
+            },
+            "problemMatcher": []
+        },
+        // ============================================================
+        // UTILITY TASKS
+        // ============================================================
+        {
+            "label": "Clean: Remove Caches",
+            "type": "shell",
+            "command": "rm -rf .pytest_cache/ .ruff_cache/ htmlcov/ site/ && find . -type f -name '*.pyc' -delete && find . -type d -name '__pycache__' -delete && find . -type f -name '.coverage' -delete",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Install: Project Dependencies",
+            "type": "shell",
+            "command": ". .venv/bin/activate && uv pip install -e '.[dev]'",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Init: Generate __init__.py Files",
+            "type": "shell",
+            "command": ". .venv/bin/activate && tools/generate_init_files.sh",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        }
+    ]
+}
