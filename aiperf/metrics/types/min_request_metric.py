@@ -21,7 +21,7 @@ class MinRequestTimestampMetric(BaseAggregateMetric[int]):
     short_header = "Min Req"
     short_header_hide_unit = True
     unit = MetricTimeUnit.NANOSECONDS
-    display_unit = MetricDateTimeUnit.DATE_TIME
+    display_unit = None  # Keep as nanoseconds for Pydantic compatibility
     flags = MetricFlags.NO_CONSOLE
     required_metrics = None
 

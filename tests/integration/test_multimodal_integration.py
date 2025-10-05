@@ -21,7 +21,6 @@ import pytest
 from tests.integration.conftest import (
     DEFAULT_CONCURRENCY,
     DEFAULT_REQUEST_COUNT,
-    assert_basic_metrics,
     run_and_validate_benchmark,
 )
 from tests.integration.result_validators import BenchmarkResult, ConsoleOutputValidator
@@ -68,13 +67,10 @@ class TestMultiModalIntegration:
             args,
             min_requests=DEFAULT_REQUEST_COUNT - 2,
         )
-        records = output["json_results"]["records"]
 
-        # Verify basic metrics exist
-        assert_basic_metrics(records, "request_count", "request_latency")
-
-        # Verify token-based metrics exist (chat endpoint produces tokens)
-        assert_basic_metrics(records, "output_sequence_length")
+        # Use full Pydantic API for all validation
+        BenchmarkResult.from_directory(output["actual_dir"]) \
+            .assert_metric_exists("request_count", "request_latency", "output_sequence_length")
 
     async def test_chat_endpoint_with_audio_content(
         self,
@@ -112,16 +108,10 @@ class TestMultiModalIntegration:
             args,
             min_requests=DEFAULT_REQUEST_COUNT - 2,
         )
-        records = output["json_results"]["records"]
 
-        # Verify basic metrics exist
-        assert_basic_metrics(records, "request_count", "request_latency")
-
-        # Verify token-based metrics exist (chat endpoint produces tokens)
-        assert_basic_metrics(records, "output_sequence_length")
-
-        # Use fluent API for validation
+        # Use full Pydantic API for all validation
         BenchmarkResult.from_directory(output["actual_dir"]) \
+            .assert_metric_exists("request_count", "request_latency", "output_sequence_length") \
             .assert_csv_contains("Request Latency", "Output Sequence Length") \
             .assert_inputs_json_has_audio()
 
@@ -165,16 +155,10 @@ class TestMultiModalIntegration:
             args,
             min_requests=DEFAULT_REQUEST_COUNT - 2,
         )
-        records = output["json_results"]["records"]
 
-        # Verify basic metrics exist
-        assert_basic_metrics(records, "request_count", "request_latency")
-
-        # Verify token-based metrics exist
-        assert_basic_metrics(records, "output_sequence_length")
-
-        # Use fluent API for comprehensive validation
+        # Use full Pydantic API for all validation
         BenchmarkResult.from_directory(output["actual_dir"]) \
+            .assert_metric_exists("request_count", "request_latency", "output_sequence_length") \
             .assert_csv_contains("Request Latency", "Output Sequence Length") \
             .assert_inputs_json_has_images() \
             .assert_inputs_json_has_audio()
@@ -216,14 +200,11 @@ class TestMultiModalIntegration:
             args,
             min_requests=DEFAULT_REQUEST_COUNT - 2,
         )
-        records = output["json_results"]["records"]
 
-        # Verify streaming metrics exist
-        assert_basic_metrics(records, "ttft", "inter_token_latency")
-        assert records["ttft"]["avg"] > 0, "TTFT should be positive"
-
-        # Use fluent API for CSV validation
+        # Use fluent Pydantic API for all validation
         BenchmarkResult.from_directory(output["actual_dir"]) \
+            .assert_metric_exists("ttft", "inter_token_latency") \
+            .assert_metric_in_range("ttft", min_value=0) \
             .assert_csv_contains("Time to First Token", "Inter Token Latency")
 
     async def test_streaming_with_audio_content(
@@ -255,31 +236,17 @@ class TestMultiModalIntegration:
             "wav",
         ]
 
-        result = await aiperf_runner(args)
-
-        if result["returncode"] != 0:
-            print(f"\n=== STDOUT ===\n{result['stdout']}")
-            print(f"\n=== STDERR ===\n{result['stderr']}")
-
-        assert result["returncode"] == 0, (
-            f"Streaming audio benchmark failed with returncode {result['returncode']}"
+        output = await run_and_validate_benchmark(
+            aiperf_runner,
+            validate_aiperf_output,
+            args,
+            min_requests=DEFAULT_REQUEST_COUNT - 2,
         )
 
-        output = validate_aiperf_output(result["output_dir"])
-        records = output["json_results"]["records"]
-
-        # Verify basic metrics exist
-        assert_basic_metrics(records, "request_count", "request_latency")
-
-        # Verify streaming metrics exist
-        assert_basic_metrics(records, "ttft", "inter_token_latency")
-        assert records["ttft"]["avg"] > 0, "TTFT should be positive"
-
-        # Verify requests completed successfully
-        completed = records["request_count"].get("avg", 0)
-        assert completed >= DEFAULT_REQUEST_COUNT - 2, (
-            f"Too few streaming audio requests completed: {completed}"
-        )
+        # Use fluent Pydantic API for all validation
+        BenchmarkResult.from_directory(output["actual_dir"]) \
+            .assert_metric_exists("ttft", "inter_token_latency") \
+            .assert_metric_in_range("ttft", min_value=0)
 
     async def test_large_image_dataset(
         self,
@@ -320,9 +287,10 @@ class TestMultiModalIntegration:
             timeout=120.0,
             min_requests=large_count - 4,
         )
-        records = output["json_results"]["records"]
 
-        assert_basic_metrics(records, "request_count", "request_latency")
+        # Use Pydantic API
+        BenchmarkResult.from_directory(output["actual_dir"]) \
+            .assert_metric_exists("request_count", "request_latency")
 
     async def test_concurrency_with_multimodal_content(
         self,
@@ -357,9 +325,10 @@ class TestMultiModalIntegration:
         output = await run_and_validate_benchmark(
             aiperf_runner, validate_aiperf_output, args, timeout=120.0, min_requests=12
         )
-        records = output["json_results"]["records"]
 
-        assert_basic_metrics(records, "request_count", "request_latency")
+        # Use Pydantic API
+        BenchmarkResult.from_directory(output["actual_dir"]) \
+            .assert_metric_exists("request_count", "request_latency")
 
 
 @pytest.mark.integration
@@ -399,8 +368,10 @@ class TestMultiModalSyntheticGeneration:
         output = await run_and_validate_benchmark(
             aiperf_runner, validate_aiperf_output, args
         )
-        records = output["json_results"]["records"]
-        assert_basic_metrics(records, "request_count")
+
+        # Use Pydantic API
+        BenchmarkResult.from_directory(output["actual_dir"]) \
+            .assert_metric_exists("request_count")
 
     async def test_audio_format_variations(
         self,
@@ -434,8 +405,10 @@ class TestMultiModalSyntheticGeneration:
         output = await run_and_validate_benchmark(
             aiperf_runner, validate_aiperf_output, args
         )
-        records = output["json_results"]["records"]
-        assert_basic_metrics(records, "request_count")
+
+        # Use Pydantic API
+        BenchmarkResult.from_directory(output["actual_dir"]) \
+            .assert_metric_exists("request_count")
 
 
 @pytest.mark.integration
@@ -492,13 +465,11 @@ class TestMultiModalWithDashboard:
         output = await run_and_validate_benchmark(
             aiperf_runner, validate_aiperf_output, dashboard_args, min_requests=8
         )
-        records = output["json_results"]["records"]
 
-        assert_basic_metrics(records, "output_sequence_length")
-
-        # Use fluent API for comprehensive validation
+        # Use full Pydantic API for all validation
         BenchmarkResult.from_directory(output["actual_dir"]) \
             .assert_all_artifacts_exist() \
+            .assert_metric_exists("output_sequence_length") \
             .assert_csv_contains("Request Latency", "Output Sequence Length")
 
     async def test_dashboard_ui_with_benchmark_duration(
@@ -537,13 +508,11 @@ class TestMultiModalWithDashboard:
         output = await run_and_validate_benchmark(
             aiperf_runner, validate_aiperf_output, dashboard_args, timeout=30.0, min_requests=3
         )
-        records = output["json_results"]["records"]
 
-        assert_basic_metrics(records, "ttft", "inter_token_latency")
-
-        # Use fluent API for validation
+        # Use full Pydantic API for all validation
         BenchmarkResult.from_directory(output["actual_dir"]) \
             .assert_all_artifacts_exist() \
+            .assert_metric_exists("ttft", "inter_token_latency") \
             .assert_csv_contains("Time to First Token", "Benchmark Duration")
 
 
@@ -585,27 +554,16 @@ class TestMultiModalStressTests:
         output = await run_and_validate_benchmark(
             aiperf_runner, validate_aiperf_output, args, timeout=180.0, min_requests=950
         )
-        records = output["json_results"]["records"]
 
-        assert_basic_metrics(records, "ttft", "inter_token_latency", "output_sequence_length")
-
-        # Use new fluent validation API for comprehensive checks
-        result_validator = BenchmarkResult.from_directory(output["actual_dir"])
-        result_validator.assert_all_artifacts_exist()
-        result_validator.assert_log_not_empty()
-        result_validator.assert_metric_exists(
-            "ttft", "inter_token_latency", "request_latency", "output_sequence_length"
-        )
-        result_validator.assert_metric_in_range("ttft", min_value=0)
-        result_validator.assert_metric_in_range("inter_token_latency", min_value=0)
-        result_validator.assert_request_count(min_count=950)
-        result_validator.assert_csv_contains(
-            "Time to First Token",
-            "Inter Token Latency",
-            "Request Latency",
-            "Request Throughput",
-        )
-        result_validator.assert_inputs_json_has_sessions(min_sessions=10)
+        # Use full Pydantic API for comprehensive validation
+        BenchmarkResult.from_directory(output["actual_dir"]) \
+            .assert_all_artifacts_exist() \
+            .assert_log_not_empty() \
+            .assert_metric_exists("ttft", "inter_token_latency", "request_latency", "output_sequence_length") \
+            .assert_metric_in_range("ttft", min_value=0) \
+            .assert_metric_in_range("inter_token_latency", min_value=0) \
+            .assert_csv_contains("Time to First Token", "Request Throughput") \
+            .assert_inputs_json_has_sessions(min_sessions=10)
 
     async def test_high_throughput_streaming_with_audio(
         self,
@@ -644,11 +602,12 @@ class TestMultiModalStressTests:
         output = await run_and_validate_benchmark(
             aiperf_runner, validate_aiperf_output, args, timeout=180.0, min_requests=950
         )
-        records = output["json_results"]["records"]
 
-        assert_basic_metrics(records, "ttft", "inter_token_latency", "output_sequence_length")
-        assert records["inter_token_latency"]["avg"] > 0
-        assert records["output_sequence_length"]["avg"] > 0
+        # Use fluent Pydantic API for all validation
+        validator = BenchmarkResult.from_directory(output["actual_dir"])
+        validator.assert_metric_exists("ttft", "inter_token_latency", "output_sequence_length")
+        validator.assert_metric_in_range("inter_token_latency", min_value=0)
+        validator.assert_metric_in_range("output_sequence_length", min_value=0)
 
 
 @pytest.mark.integration
@@ -711,17 +670,15 @@ class TestCancellationFeatures:
         output = await run_and_validate_benchmark(
             aiperf_runner, validate_aiperf_output, args, timeout=120.0
         )
-        records = output["json_results"]["records"]
-
-        assert_basic_metrics(records, "request_count", "request_latency")
 
         # NOTE: Cancellation rate may not reduce completed requests depending on timing
         # The test verifies the feature doesn't break the benchmark
 
-        # Use fluent API for comprehensive validation
+        # Use full Pydantic API for all validation
         BenchmarkResult.from_directory(output["actual_dir"]) \
             .assert_all_artifacts_exist() \
             .assert_log_not_empty() \
+            .assert_metric_exists("request_count", "request_latency") \
             .assert_csv_contains("Request Latency")
 
 

@@ -47,7 +47,7 @@ class BenchmarkResult:
             artifacts_dir: Path to AIPerf artifacts directory
         """
         self.artifacts_dir = Path(artifacts_dir)
-        self._records: dict[str, dict[str, Any]] | None = None  # Raw dict for flexibility
+        self._records: dict[str, MetricResult] | None = None  # Pydantic MetricResult models
         self._input_config: UserConfig | None = None  # Pydantic model
         self._error_summary: list[ErrorDetailsCount] | None = None  # Pydantic models
         self._was_cancelled: bool | None = None
@@ -80,9 +80,16 @@ class BenchmarkResult:
             with open(self._json_file) as f:
                 json_dict = json.load(f)
 
-            # Store records as raw dict (some metrics have non-standard types like datetime strings)
+            # Parse records into MetricResult Pydantic models
             if "records" in json_dict and json_dict["records"]:
-                self._records = json_dict["records"]
+                self._records = {}
+                for tag, metric_dict in json_dict["records"].items():
+                    try:
+                        self._records[tag] = MetricResult(**metric_dict)
+                    except ValidationError:
+                        # Skip metrics with non-numeric values (e.g., timestamp metrics with datetime strings)
+                        # This is expected for certain internal metrics
+                        pass
 
             # Parse input_config
             if "input_config" in json_dict and json_dict["input_config"]:
@@ -122,11 +129,14 @@ class BenchmarkResult:
                 warnings.warn(f"inputs.json validation failed: {e}")
 
     @property
-    def records(self) -> dict[str, dict[str, Any]]:
-        """Get metrics records dict.
+    def records(self) -> dict[str, MetricResult]:
+        """Get metrics records as Pydantic MetricResult models.
 
-        Returns raw dicts instead of Pydantic models because metric values
-        can have varying types (floats, ints, datetime strings, etc.).
+        Returns:
+            Dict mapping metric tag to MetricResult Pydantic model
+
+        Raises:
+            AssertionError: If no records found
         """
         if self._records is None:
             raise AssertionError("No records found in JSON export")
@@ -197,10 +207,8 @@ class BenchmarkResult:
         Returns:
             self for chaining
         """
-        metric = self.records.get(metric_tag)
-        assert metric is not None, f"Metric '{metric_tag}' not found"
-
-        value = metric.get(stat)
+        metric = self.get_metric(metric_tag)
+        value = getattr(metric, stat, None)
         assert value is not None, f"Metric '{metric_tag}' missing '{stat}' statistic"
 
         diff = abs(value - expected)
@@ -224,10 +232,8 @@ class BenchmarkResult:
         Returns:
             self for chaining
         """
-        metric = self.records.get(metric_tag)
-        assert metric is not None, f"Metric '{metric_tag}' not found"
-
-        value = metric.get(stat)
+        metric = self.get_metric(metric_tag)
+        value = getattr(metric, stat, None)
         assert value is not None, f"Metric '{metric_tag}' missing '{stat}' statistic"
 
         if min_value is not None:
@@ -255,22 +261,19 @@ class BenchmarkResult:
         Returns:
             self for chaining
         """
-        count = self.records.get("request_count")
-        assert count is not None, "request_count metric not found"
-
-        avg_count = count.get("avg")
-        assert avg_count is not None, "request_count.avg is None"
+        count = self.get_metric("request_count")
+        assert count.avg is not None, "request_count.avg is None"
 
         if exact is not None:
-            assert avg_count == exact, f"Expected exactly {exact} requests, got {avg_count}"
+            assert count.avg == exact, f"Expected exactly {exact} requests, got {count.avg}"
         else:
             if min_count is not None:
-                assert avg_count >= min_count, (
-                    f"Request count {avg_count} below minimum {min_count}"
+                assert count.avg >= min_count, (
+                    f"Request count {count.avg} below minimum {min_count}"
                 )
             if max_count is not None:
-                assert avg_count <= max_count, (
-                    f"Request count {avg_count} above maximum {max_count}"
+                assert count.avg <= max_count, (
+                    f"Request count {count.avg} above maximum {max_count}"
                 )
 
         return self
@@ -504,14 +507,14 @@ class BenchmarkResult:
         )
         return self
 
-    def get_metric(self, metric_tag: str) -> dict[str, Any]:
-        """Get metric by tag (returns dict).
+    def get_metric(self, metric_tag: str) -> MetricResult:
+        """Get metric by tag (returns Pydantic MetricResult model).
 
         Args:
             metric_tag: Metric tag
 
         Returns:
-            Metric dict with stats (avg, min, max, etc.)
+            MetricResult Pydantic model with type-safe access
 
         Raises:
             AssertionError: If metric not found
