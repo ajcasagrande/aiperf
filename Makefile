@@ -143,7 +143,7 @@ test-all: #? run all tests including integration tests (slow, ~4 minutes).
 	@printf "$(bold)$(green)All tests passed!$(reset)\n"
 
 coverage: #? run the tests and generate an html coverage report.
-	$(activate_venv) && pytest -n auto --cov=aiperf --cov-branch --cov-report=html --cov-report=xml --cov-report=term -m "not integration" $(args)
+	$(activate_venv) && pytest -n auto --cov=aiperf --cov-branch --cov-report=html --cov-report=xml --cov-report=term --integration $(args)
 
 install: #? install the project in editable mode.
 	$(activate_venv) && uv pip install -e ".[dev]" $(args)

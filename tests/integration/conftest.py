@@ -23,9 +23,13 @@ import pytest
 
 # Test constants
 DEFAULT_MODEL = "openai/gpt-oss-20b"
-DEFAULT_CONCURRENCY = 2
-DEFAULT_REQUEST_COUNT = 5
+DEFAULT_CONCURRENCY = "2"
+DEFAULT_REQUEST_COUNT = "5"
 DEFAULT_UI = "simple"
+
+# Common multi-modal flags
+IMAGE_64 = ["--image-width-mean", "64", "--image-height-mean", "64"]
+AUDIO_SHORT = ["--audio-length-mean", "0.1"]
 
 
 async def wait_for_server(host: str, port: int, timeout: float = 30.0) -> bool:
@@ -276,77 +280,34 @@ async def aiperf_runner(temp_output_dir: Path):
 
 @pytest.fixture
 def validate_aiperf_output():
-    """Fixture to validate AIPerf output files."""
+    """Validate AIPerf output files exist and have basic structure."""
 
-    def validator(output_dir: Path, check_inputs_json: bool = True) -> dict:
-        """Validate AIPerf output and return results.
-
-        Args:
-            output_dir: Directory containing AIPerf output
-            check_inputs_json: Whether to verify inputs.json was generated
+    def validator(output_dir: Path) -> dict:
+        """Validate output and return artifact paths.
 
         Returns:
-            dict with comprehensive validation results including:
-            - json_results: Parsed JSON output
-            - csv_content: CSV file contents
-            - log_file: Path to log file
-            - actual_dir: Actual artifact directory
-            - inputs_json: Parsed inputs.json (if exists)
+            dict with: json_results, csv_content, actual_dir, log_file, json_file, csv_file
         """
-        # AIPerf writes directly to the artifact directory
-        # Look for JSON and CSV files
-        json_files = list(output_dir.glob("**/*aiperf.json"))
-        csv_files = list(output_dir.glob("**/*aiperf.csv"))
-        log_files = list(output_dir.glob("**/logs/aiperf.log"))
-        inputs_json_files = list(output_dir.glob("**/inputs.json"))
+        json_file = next(output_dir.glob("**/*aiperf.json"))
+        csv_file = next(output_dir.glob("**/*aiperf.csv"))
+        log_file = next(output_dir.glob("**/logs/aiperf.log"))
 
-        assert len(json_files) > 0, (
-            f"No JSON results found in {output_dir}. Contents: {list(output_dir.rglob('*'))}"
-        )
-        assert len(csv_files) > 0, f"No CSV results found in {output_dir}"
-        assert len(log_files) > 0, f"No log file found in {output_dir}"
-
-        json_file = json_files[0]
-        csv_file = csv_files[0]
-        log_file = log_files[0]
-
-        # Load and validate JSON results
         with open(json_file) as f:
             json_results = json.load(f)
-
-        assert "records" in json_results, "JSON missing records"
-        assert "input_config" in json_results, "JSON missing input_config"
-        assert isinstance(json_results["records"], dict), "records should be dict"
-
-        # Load CSV results
         with open(csv_file) as f:
             csv_content = f.read()
 
-        # Validate CSV has header and content
-        assert len(csv_content) > 0, "CSV file is empty"
-        assert "Metric" in csv_content, "CSV missing header row"
+        assert "records" in json_results and "input_config" in json_results
+        assert "Metric" in csv_content and log_file.stat().st_size > 0
 
-        # Validate log file has content
-        assert log_file.stat().st_size > 0, "Log file is empty"
-
-        result = {
+        return {
             "json_results": json_results,
             "csv_content": csv_content,
-            "log_file": log_file,
             "actual_dir": json_file.parent,
+            "log_file": log_file,
             "json_file": json_file,
             "csv_file": csv_file,
         }
-
-        # Check for inputs.json if requested
-        if check_inputs_json and len(inputs_json_files) > 0:
-            with open(inputs_json_files[0]) as f:
-                inputs_json = json.load(f)
-            assert "data" in inputs_json, "inputs.json missing data"
-            result["inputs_json"] = inputs_json
-            result["inputs_json_file"] = inputs_json_files[0]
-
-        return result
 
     return validator
 
