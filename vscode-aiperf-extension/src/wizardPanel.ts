@@ -393,25 +393,4 @@ export class PluginWizardPanel {
             }
         }
     }
-
-    private _getHtmlForWebview(webview: vscode.Webview): string {
-        const scriptUri = webview.asWebviewUri(
-            vscode.Uri.joinPath(this._extensionUri, 'media', 'wizard.js')
-        );
-        const styleUri = webview.asWebviewUri(
-            vscode.Uri.joinPath(this._extensionUri, 'media', 'wizard.css')
-        );
-
-        // HTML will be generated dynamically
-        return `<!DOCTYPE html>
-        <html>
-        <head>
-            <link href="${styleUri}" rel="stylesheet">
-        </head>
-        <body>
-            <div id="wizard-root"></div>
-            <script src="${scriptUri}"></script>
-        </body>
-        </html>`;
-    }
 }
