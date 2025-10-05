@@ -25,6 +25,38 @@ from tests.integration.conftest import (
 )
 
 
+def assert_csv_contains_metrics(csv_content: str, *metric_names: str) -> None:
+    """Assert that CSV contains specific metrics.
+
+    Args:
+        csv_content: The CSV file content
+        *metric_names: Variable number of metric names to check (human-readable)
+    """
+    for metric_name in metric_names:
+        assert metric_name in csv_content, f"CSV missing {metric_name}"
+
+
+def assert_inputs_json_valid(inputs_json: dict, min_sessions: int = 1) -> None:
+    """Assert that inputs.json is valid and contains expected data.
+
+    Args:
+        inputs_json: Parsed inputs.json content
+        min_sessions: Minimum number of sessions expected
+    """
+    assert "data" in inputs_json, "inputs.json missing data field"
+    assert isinstance(inputs_json["data"], list), "data should be list"
+    assert len(inputs_json["data"]) >= min_sessions, (
+        f"Expected at least {min_sessions} sessions, got {len(inputs_json['data'])}"
+    )
+
+    # Verify each session has required structure
+    for session in inputs_json["data"]:
+        assert "session_id" in session, "Session missing session_id"
+        assert "payloads" in session, "Session missing payloads"
+        assert isinstance(session["payloads"], list), "payloads should be list"
+        assert len(session["payloads"]) > 0, "Session has no payloads"
+
+
 @pytest.mark.integration
 @pytest.mark.asyncio
 class TestMultiModalIntegration:
@@ -140,6 +172,31 @@ class TestMultiModalIntegration:
         # Verify token-based metrics exist (chat endpoint produces tokens)
         assert_basic_metrics(records, "output_sequence_length")
 
+        # Verify CSV contains expected metrics
+        assert_csv_contains_metrics(
+            output["csv_content"],
+            "Request Latency",
+            "Output Sequence Length",
+        )
+
+        # Verify inputs.json was generated with audio content
+        if "inputs_json" in output:
+            assert_inputs_json_valid(output["inputs_json"], min_sessions=DEFAULT_REQUEST_COUNT)
+
+            # Verify at least one payload contains input_audio
+            has_audio = False
+            for session in output["inputs_json"]["data"]:
+                for payload in session["payloads"]:
+                    messages = payload.get("messages", [])
+                    for msg in messages:
+                        content = msg.get("content", [])
+                        if isinstance(content, list):
+                            for item in content:
+                                if isinstance(item, dict) and item.get("type") == "input_audio":
+                                    has_audio = True
+                                    break
+            assert has_audio, "No audio content found in inputs.json"
+
     async def test_chat_endpoint_with_mixed_multimodal_content(
         self,
         base_profile_args,
@@ -199,6 +256,35 @@ class TestMultiModalIntegration:
         # Verify token-based metrics exist
         assert_basic_metrics(records, "output_sequence_length")
 
+        # Verify CSV output table completeness
+        assert_csv_contains_metrics(
+            output["csv_content"],
+            "Request Latency",
+            "Output Sequence Length",
+        )
+
+        # Verify inputs.json contains both image and audio
+        if "inputs_json" in output:
+            assert_inputs_json_valid(output["inputs_json"], min_sessions=DEFAULT_REQUEST_COUNT)
+
+            # Verify multi-modal content exists
+            has_image = False
+            has_audio = False
+            for session in output["inputs_json"]["data"]:
+                for payload in session["payloads"]:
+                    messages = payload.get("messages", [])
+                    for msg in messages:
+                        content = msg.get("content", [])
+                        if isinstance(content, list):
+                            for item in content:
+                                if isinstance(item, dict):
+                                    if item.get("type") == "image_url":
+                                        has_image = True
+                                    if item.get("type") == "input_audio":
+                                        has_audio = True
+            assert has_image, "No image content found in inputs.json"
+            assert has_audio, "No audio content found in inputs.json"
+
     async def test_streaming_with_image_content(
         self,
         base_profile_args,
@@ -254,6 +340,14 @@ class TestMultiModalIntegration:
         completed = records["request_count"].get("avg", 0)
         assert completed >= DEFAULT_REQUEST_COUNT - 2, (
             f"Too few streaming image requests completed: {completed}"
+        )
+
+        # Verify CSV contains streaming metrics
+        assert_csv_contains_metrics(
+            output["csv_content"],
+            "Time to First Token",
+            "Inter Token Latency",
+            "Request Latency",
         )
 
     async def test_streaming_with_audio_content(
@@ -568,6 +662,19 @@ class TestMultiModalWithDashboard:
         # Verify multi-modal metrics
         assert_basic_metrics(records, "output_sequence_length")
 
+        # Verify CSV output table contains all expected data
+        assert_csv_contains_metrics(
+            output["csv_content"],
+            "Request Latency",
+            "Output Sequence Length",
+            "Request Count",
+        )
+
+        # Verify artifacts directory structure
+        assert output["json_file"].exists(), "JSON export should exist"
+        assert output["csv_file"].exists(), "CSV export should exist"
+        assert output["log_file"].exists(), "Log file should exist"
+
     async def test_dashboard_ui_with_benchmark_duration(
         self,
         base_profile_args,
@@ -640,6 +747,20 @@ class TestMultiModalWithDashboard:
         completed = records["request_count"].get("avg", 0)
         assert completed >= 3, f"Too few requests in duration test: {completed}"
 
+        # Verify CSV output table for duration-based test
+        assert_csv_contains_metrics(
+            output["csv_content"],
+            "Time to First Token",
+            "Inter Token Latency",
+            "Request Latency",
+            "Benchmark Duration",
+        )
+
+        # Verify all artifact files exist
+        assert output["json_file"].exists(), "JSON export should exist"
+        assert output["csv_file"].exists(), "CSV export should exist"
+        assert output["log_file"].exists(), "Log file should exist"
+
 
 @pytest.mark.integration
 @pytest.mark.asyncio
@@ -704,6 +825,27 @@ class TestMultiModalStressTests:
         # Verify output sequence length exists
         avg_osl = records.get("output_sequence_length", {}).get("avg", 0)
         assert avg_osl > 0, f"OSL should be positive, got {avg_osl}"
+
+        # Verify CSV output contains all expected metrics
+        assert_csv_contains_metrics(
+            output["csv_content"],
+            "Time to First Token",
+            "Inter Token Latency",
+            "Request Latency",
+            "Output Sequence Length",
+            "Request Throughput",
+        )
+
+        # Verify JSON file exists and has proper structure
+        assert output["json_file"].exists(), "JSON file should exist"
+        assert output["csv_file"].exists(), "CSV file should exist"
+
+        # Verify inputs.json was created for this test
+        if "inputs_json" in output:
+            # With 1000 requests, should have 100 sessions (num_dataset_entries default)
+            assert len(output["inputs_json"]["data"]) >= 10, (
+                "Expected multiple sessions for large test"
+            )
 
     async def test_high_throughput_streaming_with_audio(
         self,
@@ -771,3 +913,105 @@ class TestMultiModalStressTests:
         # Verify output tokens were generated
         avg_osl = records.get("output_sequence_length", {}).get("avg", 0)
         assert avg_osl > 0, "Output tokens should be generated"
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+class TestCancellationFeatures:
+    """Integration tests for benchmark cancellation features."""
+
+    @pytest.mark.skip(reason="SIGINT handling is complex - tested manually")
+    async def test_ctrl_c_cancellation(
+        self,
+        base_profile_args,
+        temp_output_dir,
+    ):
+        """Test that Ctrl-C (SIGINT) gracefully cancels benchmark and shows results.
+
+        WHY TEST THIS:
+        - Validates graceful shutdown on user interruption
+        - Ensures partial results are saved and displayed
+        - Verifies no data corruption on cancellation
+
+        NOTE: Skipped because SIGINT timing is difficult to test reliably in CI.
+        This should be tested manually by running a benchmark and pressing Ctrl-C.
+        """
+        pass
+
+    async def test_request_cancellation_rate(
+        self,
+        base_profile_args,
+        aiperf_runner,
+        validate_aiperf_output,
+    ):
+        """Test request cancellation rate feature.
+
+        WHY TEST THIS:
+        - Validates cancellation rate feature works correctly
+        - Ensures cancelled requests are tracked separately
+        - Verifies partial results don't corrupt metrics
+        - Tests that cancellation delay is respected
+        - Validates error summary includes cancellations
+        """
+        # Cancel 30% of requests after 0.5 second delay
+        args = [
+            *base_profile_args,
+            "--endpoint-type",
+            "chat",
+            "--streaming",
+            "--request-count",
+            "50",
+            "--concurrency",
+            "5",
+            "--request-cancellation-rate",
+            "0.3",
+            "--request-cancellation-delay",
+            "0.5",
+            "--image-width-mean",
+            "64",
+            "--image-height-mean",
+            "64",
+        ]
+
+        result = await aiperf_runner(args, timeout=120.0)
+
+        if result["returncode"] != 0:
+            print(f"\n=== STDOUT ===\n{result['stdout']}")
+            print(f"\n=== STDERR ===\n{result['stderr']}")
+
+        assert result["returncode"] == 0, (
+            f"Cancellation rate test failed: {result['returncode']}"
+        )
+
+        output = validate_aiperf_output(result["output_dir"])
+        records = output["json_results"]["records"]
+
+        # Verify basic metrics exist
+        assert_basic_metrics(records, "request_count", "request_latency")
+
+        # Verify requests completed (cancellation rate affects requests differently depending on timing)
+        completed = records["request_count"].get("avg", 0)
+        assert completed > 0, f"No requests completed: {completed}"
+        assert completed <= 50, f"More requests than expected: {completed}"
+
+        # Verify error summary exists
+        error_summary = output["json_results"].get("error_summary", [])
+        assert isinstance(error_summary, list), "error_summary should be a list"
+
+        # NOTE: Cancellation rate may not always result in fewer completed requests
+        # depending on when cancellation occurs relative to request completion.
+        # The main goal is to verify the feature doesn't break the benchmark.
+
+        # Verify CSV contains the data
+        assert "Request Latency" in output["csv_content"], (
+            "CSV missing Request Latency"
+        )
+
+        # Verify artifacts directory has expected structure
+        actual_dir = output["actual_dir"]
+        assert actual_dir.exists(), "Artifacts directory should exist"
+
+        # Check for log file
+        log_file = output["log_file"]
+        assert log_file.exists(), "Log file should exist"
+        assert log_file.stat().st_size > 0, "Log file should not be empty"

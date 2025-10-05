@@ -278,17 +278,27 @@ async def aiperf_runner(temp_output_dir: Path):
 def validate_aiperf_output():
     """Fixture to validate AIPerf output files."""
 
-    def validator(output_dir: Path) -> dict:
+    def validator(output_dir: Path, check_inputs_json: bool = True) -> dict:
         """Validate AIPerf output and return results.
 
+        Args:
+            output_dir: Directory containing AIPerf output
+            check_inputs_json: Whether to verify inputs.json was generated
+
         Returns:
-            dict with 'json_results', 'csv_results', 'log_file'
+            dict with comprehensive validation results including:
+            - json_results: Parsed JSON output
+            - csv_content: CSV file contents
+            - log_file: Path to log file
+            - actual_dir: Actual artifact directory
+            - inputs_json: Parsed inputs.json (if exists)
         """
         # AIPerf writes directly to the artifact directory
         # Look for JSON and CSV files
         json_files = list(output_dir.glob("**/*aiperf.json"))
         csv_files = list(output_dir.glob("**/*aiperf.csv"))
         log_files = list(output_dir.glob("**/logs/aiperf.log"))
+        inputs_json_files = list(output_dir.glob("**/inputs.json"))
 
         assert len(json_files) > 0, (
             f"No JSON results found in {output_dir}. Contents: {list(output_dir.rglob('*'))}"
@@ -306,17 +316,37 @@ def validate_aiperf_output():
 
         assert "records" in json_results, "JSON missing records"
         assert "input_config" in json_results, "JSON missing input_config"
+        assert isinstance(json_results["records"], dict), "records should be dict"
 
         # Load CSV results
         with open(csv_file) as f:
             csv_content = f.read()
 
-        return {
+        # Validate CSV has header and content
+        assert len(csv_content) > 0, "CSV file is empty"
+        assert "Metric" in csv_content, "CSV missing header row"
+
+        # Validate log file has content
+        assert log_file.stat().st_size > 0, "Log file is empty"
+
+        result = {
             "json_results": json_results,
             "csv_content": csv_content,
             "log_file": log_file,
             "actual_dir": json_file.parent,
+            "json_file": json_file,
+            "csv_file": csv_file,
         }
+
+        # Check for inputs.json if requested
+        if check_inputs_json and len(inputs_json_files) > 0:
+            with open(inputs_json_files[0]) as f:
+                inputs_json = json.load(f)
+            assert "data" in inputs_json, "inputs.json missing data"
+            result["inputs_json"] = inputs_json
+            result["inputs_json_file"] = inputs_json_files[0]
+
+        return result
 
     return validator
 
