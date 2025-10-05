@@ -13,7 +13,9 @@ import {
   Activity,
   Database,
   GitCompare,
-  Play
+  Play,
+  GitBranch,
+  Upload
 } from 'lucide-react'
 
 export default function HomePage() {
@@ -76,6 +78,17 @@ export default function HomePage() {
                 Compare Benchmarks
               </motion.button>
             </Link>
+
+            <Link href="/traces">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="px-8 py-4 bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-bold rounded-lg flex items-center gap-2 hover:opacity-90 transition-opacity"
+              >
+                <GitBranch className="w-5 h-5" />
+                Request Traces
+              </motion.button>
+            </Link>
           </div>
         </motion.div>
 
@@ -128,6 +141,13 @@ export default function HomePage() {
             title="Lightning Fast"
             description="Built with Next.js 14 and FastAPI for maximum performance"
             delay={0.7}
+          />
+
+          <FeatureCard
+            icon={<GitBranch className="w-8 h-8" />}
+            title="Request Tracing"
+            description="Deep dive into individual requests with timeline, waterfall, and error tracing"
+            delay={0.8}
           />
 
           <FeatureCard

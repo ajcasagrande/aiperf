@@ -447,3 +447,151 @@ class DataProcessor:
         trends.sort(key=lambda x: x["timestamp"])
 
         return trends[-window:]
+
+    async def get_traces(
+        self,
+        benchmark_id: str,
+        limit: int = 100,
+        offset: int = 0,
+        search: str | None = None,
+        min_latency: float | None = None,
+        max_latency: float | None = None,
+        has_error: bool | None = None,
+    ) -> list[dict]:
+        """Get request-level traces with filtering"""
+        data = await self.get_benchmark_data(benchmark_id)
+        records = data.get("records", [])
+
+        # Apply filters
+        filtered = []
+        for record in records:
+            # Search filter (request ID or worker ID)
+            if search:
+                request_id = record.get("metadata", {}).get("x_request_id", "")
+                worker_id = record.get("metadata", {}).get("worker_id", "")
+                if search.lower() not in request_id.lower() and search.lower() not in worker_id.lower():
+                    continue
+
+            # Latency filter
+            latency = record.get("metrics", {}).get("request_latency", {}).get("value", 0)
+            if min_latency and latency < min_latency:
+                continue
+            if max_latency and latency > max_latency:
+                continue
+
+            # Error filter
+            if has_error is not None:
+                record_has_error = record.get("metadata", {}).get("error") is not None
+                if has_error != record_has_error:
+                    continue
+
+            filtered.append(record)
+
+        # Paginate
+        total = len(filtered)
+        paginated = filtered[offset:offset + limit]
+
+        return {
+            "items": paginated,
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+        }
+
+    async def get_trace_detail(self, benchmark_id: str, request_id: str) -> dict | None:
+        """Get detailed trace for a specific request"""
+        data = await self.get_benchmark_data(benchmark_id)
+        records = data.get("records", [])
+
+        for record in records:
+            if record.get("metadata", {}).get("x_request_id") == request_id:
+                # Enrich trace with timeline data
+                return self._enrich_trace(record)
+
+        return None
+
+    def _enrich_trace(self, record: dict) -> dict:
+        """Enrich trace record with timeline and breakdown"""
+        metadata = record.get("metadata", {})
+        metrics = record.get("metrics", {})
+
+        # Build timeline
+        timeline = []
+        timestamp_ns = metadata.get("timestamp_ns", 0)
+
+        if "ttft" in metrics:
+            ttft_ms = metrics["ttft"].get("value", 0)
+            timeline.append({
+                "event": "first_token",
+                "timestamp_ms": ttft_ms,
+                "relative_ms": ttft_ms
+            })
+
+        if "request_latency" in metrics:
+            latency_ms = metrics["request_latency"].get("value", 0)
+            timeline.append({
+                "event": "request_complete",
+                "timestamp_ms": latency_ms,
+                "relative_ms": latency_ms
+            })
+
+        # Token breakdown
+        token_breakdown = {
+            "input": metrics.get("input_sequence_length", {}).get("value", 0),
+            "output": metrics.get("output_sequence_length", {}).get("value", 0),
+            "total": metrics.get("input_sequence_length", {}).get("value", 0) +
+                    metrics.get("output_sequence_length", {}).get("value", 0)
+        }
+
+        return {
+            "request_id": metadata.get("x_request_id"),
+            "worker_id": metadata.get("worker_id"),
+            "timestamp_ns": timestamp_ns,
+            "metrics": metrics,
+            "metadata": metadata,
+            "timeline": timeline,
+            "token_breakdown": token_breakdown,
+            "error": metadata.get("error"),
+        }
+
+    async def get_error_traces(self, benchmark_id: str) -> list[dict]:
+        """Get all error/failed traces"""
+        data = await self.get_benchmark_data(benchmark_id)
+        records = data.get("records", [])
+
+        errors = []
+        for record in records:
+            error = record.get("metadata", {}).get("error")
+            if error:
+                errors.append(self._enrich_trace(record))
+
+        return errors
+
+    async def export_traces(self, benchmark_id: str, format: str = "json") -> dict:
+        """Export all traces"""
+        data = await self.get_benchmark_data(benchmark_id)
+        records = data.get("records", [])
+
+        if format == "json":
+            return {
+                "benchmark_id": benchmark_id,
+                "total_traces": len(records),
+                "traces": [self._enrich_trace(r) for r in records]
+            }
+        elif format == "csv":
+            # Flatten for CSV
+            rows = []
+            for record in records:
+                trace = self._enrich_trace(record)
+                rows.append({
+                    "request_id": trace["request_id"],
+                    "worker_id": trace["worker_id"],
+                    "latency_ms": trace["metrics"].get("request_latency", {}).get("value", 0),
+                    "ttft_ms": trace["metrics"].get("ttft", {}).get("value", 0),
+                    "input_tokens": trace["token_breakdown"]["input"],
+                    "output_tokens": trace["token_breakdown"]["output"],
+                    "error": trace.get("error", ""),
+                })
+            return {"data": rows}
+
+        return {}

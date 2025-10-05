@@ -372,6 +372,73 @@ async def delete_config(config_name: str):
     }
 
 
+# Traceability APIs
+@app.get("/api/v3/benchmarks/{benchmark_id}/traces")
+async def get_traces(
+    benchmark_id: str,
+    limit: int = 100,
+    offset: int = 0,
+    search: str | None = None,
+    min_latency: float | None = None,
+    max_latency: float | None = None,
+    has_error: bool | None = None,
+):
+    """Get request-level traces with filtering"""
+    try:
+        traces = await processor.get_traces(
+            benchmark_id=benchmark_id,
+            limit=limit,
+            offset=offset,
+            search=search,
+            min_latency=min_latency,
+            max_latency=max_latency,
+            has_error=has_error,
+        )
+        return {"traces": traces}
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Benchmark not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/v3/benchmarks/{benchmark_id}/traces/{request_id}")
+async def get_trace_detail(benchmark_id: str, request_id: str):
+    """Get detailed trace for a specific request"""
+    try:
+        trace = await processor.get_trace_detail(benchmark_id, request_id)
+        if not trace:
+            raise HTTPException(status_code=404, detail="Trace not found")
+        return trace
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Benchmark not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/v3/benchmarks/{benchmark_id}/traces/errors")
+async def get_error_traces(benchmark_id: str):
+    """Get all failed/error traces"""
+    try:
+        errors = await processor.get_error_traces(benchmark_id)
+        return {"errors": errors}
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Benchmark not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/v3/benchmarks/{benchmark_id}/traces/export")
+async def export_traces(benchmark_id: str, format: str = "json"):
+    """Export all traces for a benchmark"""
+    try:
+        data = await processor.export_traces(benchmark_id, format)
+        return JSONResponse(content=data)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Benchmark not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # WebSocket for real-time updates
 @app.websocket("/ws/realtime")
 async def websocket_endpoint(websocket: WebSocket):
