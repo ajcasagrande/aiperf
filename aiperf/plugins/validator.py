@@ -7,7 +7,8 @@ Validates plugins conform to their respective protocols.
 Ensures type safety and contract compliance.
 """
 
-from typing import Any, TYPE_CHECKING
+import inspect
+from typing import Any, TYPE_CHECKING, get_origin, get_args, Union
 
 from aiperf.common.aiperf_logger import AIPerfLogger
 
@@ -49,6 +50,20 @@ def _get_protocol_map():
             "aiperf.collector": CollectorPluginProtocol,
         }
     return _PROTOCOL_MAP
+
+
+# Public API for accessing protocol map
+def get_protocol_map():
+    """Get the protocol map (public API for tests)."""
+    return _get_protocol_map()
+
+
+# Module-level __getattr__ to support lazy loading of PROTOCOL_MAP
+def __getattr__(name):
+    """Support lazy loading of PROTOCOL_MAP."""
+    if name == 'PROTOCOL_MAP':
+        return _get_protocol_map()
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
 
 
 class PluginValidator:
@@ -116,13 +131,65 @@ class PluginValidator:
             logger.warning(f"No protocol defined for group '{group}'")
             return True  # Allow if no protocol defined
 
-        if not isinstance(plugin, protocol):
+        # Perform structural checking for protocol conformance
+        # runtime_checkable protocols don't work well with isinstance on classes
+        if not self._check_protocol_structure(plugin, protocol):
             logger.error(
                 f"Plugin does not conform to {protocol.__name__} for group '{group}'"
             )
             return False
 
         return True
+
+    def _check_protocol_structure(self, plugin: Any, protocol: type) -> bool:
+        """
+        Check if plugin structurally conforms to protocol.
+
+        Works with both classes and instances by checking for required
+        attributes and methods defined in the protocol.
+        """
+        # Get protocol annotations to check required attributes
+        protocol_attrs = getattr(protocol, '__annotations__', {})
+
+        # Check all required attributes exist on the plugin
+        # Skip Optional attributes (type is Union[X, None])
+        for attr_name, attr_type in protocol_attrs.items():
+            # Check if this is an Optional type (Union with None)
+            if self._is_optional_type(attr_type):
+                continue  # Optional attributes are not required
+
+            if not hasattr(plugin, attr_name):
+                return False
+
+        # Check all required methods exist and are callable
+        # Only check methods defined directly in the protocol, not inherited
+        for attr_name, attr_value in inspect.getmembers(protocol):
+            # Skip private/special methods
+            if attr_name.startswith('_'):
+                continue
+
+            # Skip class variables (already checked via annotations)
+            if attr_name in protocol_attrs:
+                continue
+
+            # Check if this is a method defined in the protocol
+            if inspect.isfunction(attr_value) or inspect.ismethod(attr_value):
+                if not hasattr(plugin, attr_name):
+                    return False
+                plugin_attr = getattr(plugin, attr_name)
+                if not callable(plugin_attr):
+                    return False
+
+        return True
+
+    def _is_optional_type(self, type_hint: Any) -> bool:
+        """Check if a type hint is Optional (Union[X, None])."""
+        origin = get_origin(type_hint)
+        if origin is Union:
+            args = get_args(type_hint)
+            # Optional[X] is Union[X, None]
+            return type(None) in args
+        return False
 
     def _validate_aip_version(self, plugin: Any) -> bool:
         """Check AIP version is supported."""

@@ -1,8 +1,9 @@
+# Chapter 21: Record Metrics
+
 <!--
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 -->
-# Chapter 21: Record Metrics
 
 ## Navigation
 - Previous: [Chapter 20: Metrics Foundation](chapter-20-metrics-foundation.md)

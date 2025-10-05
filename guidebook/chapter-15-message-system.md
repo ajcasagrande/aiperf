@@ -1,8 +1,9 @@
+# Chapter 15: Message System
+
 <!--
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 -->
-# Chapter 15: Message System
 
 ## Overview
 

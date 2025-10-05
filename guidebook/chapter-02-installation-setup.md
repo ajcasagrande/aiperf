@@ -1,8 +1,9 @@
+# Chapter 2: Installation and Setup
+
 <!--
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 -->
-# Chapter 2: Installation and Setup
 
 ## Table of Contents
 - [System Requirements](#system-requirements)

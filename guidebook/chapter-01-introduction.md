@@ -1,8 +1,9 @@
-<!--
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
--->
 # Chapter 1: Introduction and Overview
+
+<!--
+SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+SPDX-License-Identifier: Apache-2.0
+-->
 
 ## Table of Contents
 - [What is AIPerf?](#what-is-aiperf)

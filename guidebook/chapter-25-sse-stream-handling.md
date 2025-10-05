@@ -1,8 +1,9 @@
+# Chapter 25: SSE Stream Handling
+
 <!--
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 -->
-# Chapter 25: SSE Stream Handling
 
 ## Navigation
 - Previous: [Chapter 24: OpenAI Client](chapter-24-openai-client.md)

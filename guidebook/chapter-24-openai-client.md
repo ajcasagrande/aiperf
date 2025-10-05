@@ -1,8 +1,9 @@
+# Chapter 24: OpenAI Client
+
 <!--
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 -->
-# Chapter 24: OpenAI Client
 
 ## Navigation
 - Previous: [Chapter 23: HTTP Client Architecture](chapter-23-http-client-architecture.md)

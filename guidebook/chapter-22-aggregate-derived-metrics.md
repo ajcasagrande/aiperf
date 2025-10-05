@@ -1,8 +1,9 @@
+# Chapter 22: Aggregate and Derived Metrics
+
 <!--
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 -->
-# Chapter 22: Aggregate and Derived Metrics
 
 ## Navigation
 - Previous: [Chapter 21: Record Metrics](chapter-21-record-metrics.md)

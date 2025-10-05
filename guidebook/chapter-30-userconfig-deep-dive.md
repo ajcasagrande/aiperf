@@ -1,8 +1,9 @@
+# Chapter 30: UserConfig Deep Dive
+
 <!--
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 -->
-# Chapter 30: UserConfig Deep Dive
 
 ## Navigation
 - Previous: [Chapter 29: Configuration Architecture](chapter-29-configuration-architecture.md)

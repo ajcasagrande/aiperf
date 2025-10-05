@@ -1,8 +1,9 @@
+# Chapter 48: Plugin Architecture
+
 <!--
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 -->
-# Chapter 48: Plugin Architecture
 
 ## Overview
 

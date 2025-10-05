@@ -1,8 +1,9 @@
+# Chapter 6: System Controller
+
 <!--
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 -->
-# Chapter 6: System Controller
 
 ## Table of Contents
 - [Role and Responsibilities](#role-and-responsibilities)

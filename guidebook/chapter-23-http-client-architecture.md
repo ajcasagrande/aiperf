@@ -1,8 +1,9 @@
+# Chapter 23: HTTP Client Architecture
+
 <!--
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 -->
-# Chapter 23: HTTP Client Architecture
 
 ## Navigation
 - Previous: [Chapter 22: Aggregate and Derived Metrics](chapter-22-aggregate-derived-metrics.md)

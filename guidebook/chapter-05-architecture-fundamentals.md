@@ -1,8 +1,9 @@
+# Chapter 5: Architecture Fundamentals
+
 <!--
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 -->
-# Chapter 5: Architecture Fundamentals
 
 ## Table of Contents
 - [High-Level Architecture Overview](#high-level-architecture-overview)

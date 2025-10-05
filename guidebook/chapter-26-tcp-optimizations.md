@@ -1,8 +1,9 @@
+# Chapter 26: TCP Optimizations
+
 <!--
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 -->
-# Chapter 26: TCP Optimizations
 
 ## Navigation
 - Previous: [Chapter 25: SSE Stream Handling](chapter-25-sse-stream-handling.md)

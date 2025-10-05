@@ -1,8 +1,9 @@
+# Chapter 28: Response Parsers
+
 <!--
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 -->
-# Chapter 28: Response Parsers
 
 ## Navigation
 - Previous: [Chapter 27: Request Converters](chapter-27-request-converters.md)

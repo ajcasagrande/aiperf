@@ -254,9 +254,47 @@ class OldAIPVersionPlugin:
 # ============================================================================
 
 
+class MockEntryPoint:
+    """
+    Mock EntryPoint for testing.
+
+    WHY THIS EXISTS: Real EntryPoint objects are immutable, making them
+    difficult to mock for testing. This class provides the same interface
+    but allows customization of the load() method.
+    """
+
+    def __init__(self, name: str, value: str, group: str, load_result: Any = None):
+        """
+        Initialize mock entry point.
+
+        Args:
+            name: Plugin name
+            value: Entry point value (module:attribute)
+            group: Entry point group (e.g., 'aiperf.metric')
+            load_result: What to return when .load() is called
+        """
+        self.name = name
+        self.value = value
+        self.group = group
+        self._load_result = load_result
+
+        # Create a MagicMock for load so tests can assert on it
+        self.load = MagicMock(return_value=load_result, side_effect=self._load_impl)
+
+    def _load_impl(self):
+        """Internal load implementation."""
+        if self._load_result is not None:
+            return self._load_result
+        raise ImportError(f"Cannot load {self.name}")
+
+    def __repr__(self):
+        """String representation."""
+        return f"MockEntryPoint(name={self.name!r}, value={self.value!r}, group={self.group!r})"
+
+
 def create_mock_entry_point(
     name: str, value: str, group: str, load_result: Any = None
-) -> EntryPoint:
+) -> MockEntryPoint:
     """
     Create a mock EntryPoint for testing.
 
@@ -273,18 +311,7 @@ def create_mock_entry_point(
     Returns:
         Mock EntryPoint that behaves like a real one
     """
-    if sys.version_info >= (3, 10):
-        # Python 3.10+ uses different EntryPoint constructor
-        ep = EntryPoint(name=name, value=value, group=group)
-    else:
-        # Python 3.9 compatibility
-        ep = EntryPoint(name=name, value=value, group=group)
-
-    # Mock the load() method
-    if load_result is not None:
-        ep.load = MagicMock(return_value=load_result)
-
-    return ep
+    return MockEntryPoint(name=name, value=value, group=group, load_result=load_result)
 
 
 @pytest.fixture
@@ -402,11 +429,14 @@ def failing_entry_point():
     WHY TEST THIS: Plugins can fail to load due to import errors,
     missing dependencies, etc. The system must handle this gracefully.
     """
-    ep = create_mock_entry_point(
+    # Create a custom mock entry point that raises on load
+    ep = MockEntryPoint(
         name="failing_plugin",
         value="nonexistent.module:NonexistentClass",
         group="aiperf.metric",
+        load_result=None,  # Will raise ImportError in load()
     )
+    # Override load to raise specific error
     ep.load = MagicMock(side_effect=ImportError("Module not found"))
     return ep
 

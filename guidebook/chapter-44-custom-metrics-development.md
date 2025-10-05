@@ -1,8 +1,9 @@
+# Chapter 44: Custom Metrics Development
+
 <!--
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 -->
-# Chapter 44: Custom Metrics Development
 
 ## Overview
 

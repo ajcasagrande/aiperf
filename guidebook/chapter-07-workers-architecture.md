@@ -1,8 +1,9 @@
+# Chapter 7: Workers Architecture
+
 <!--
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 -->
-# Chapter 7: Workers Architecture
 
 ## Table of Contents
 - [Worker Process Design](#worker-process-design)
