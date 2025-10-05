@@ -1093,34 +1093,35 @@ class TestDeterministicBehavior:
 
         output_2 = validate_aiperf_output(output_dir_2)
 
-        # Use fluent API to validate both outputs
+        # Use fluent API with Pydantic models for validation
         validator_1 = BenchmarkResult.from_directory(output_1["actual_dir"])
         validator_2 = BenchmarkResult.from_directory(output_2["actual_dir"])
 
         validator_1.assert_inputs_json_exists()
         validator_2.assert_inputs_json_exists()
 
-        inputs_1 = validator_1.inputs_json
-        inputs_2 = validator_2.inputs_json
+        # Access parsed Pydantic InputsFile models
+        inputs_1 = validator_1.inputs_file
+        inputs_2 = validator_2.inputs_file
 
         # Verify same number of sessions
-        assert len(inputs_1["data"]) == len(inputs_2["data"]), (
+        assert len(inputs_1.data) == len(inputs_2.data), (
             "Different number of sessions between runs"
         )
 
         # Verify payloads are identical (except session_id which is UUID)
-        for session_1, session_2 in zip(inputs_1["data"], inputs_2["data"]):
+        for session_1, session_2 in zip(inputs_1.data, inputs_2.data):
             # Session IDs will be different (UUIDs)
-            assert session_1["session_id"] != session_2["session_id"], (
+            assert session_1.session_id != session_2.session_id, (
                 "Session IDs should differ (UUIDs are random)"
             )
 
             # Payloads should be identical
-            assert len(session_1["payloads"]) == len(session_2["payloads"]), (
+            assert len(session_1.payloads) == len(session_2.payloads), (
                 "Different number of payloads"
             )
 
-            for payload_1, payload_2 in zip(session_1["payloads"], session_2["payloads"]):
+            for payload_1, payload_2 in zip(session_1.payloads, session_2.payloads):
                 # Compare messages (should be identical with same seed)
                 messages_1 = payload_1.get("messages", [])
                 messages_2 = payload_2.get("messages", [])

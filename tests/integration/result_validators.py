@@ -10,6 +10,8 @@ Provides easy-to-use helpers for test writers to validate:
 - Metrics accuracy
 - Artifact directory structure
 
+All data is parsed using Pydantic models for type safety and validation.
+
 Example usage:
     result = BenchmarkResult.from_directory(output_dir)
     result.assert_metric_exists("ttft", "inter_token_latency")
@@ -23,17 +25,19 @@ import re
 from pathlib import Path
 from typing import Any
 
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 
-from aiperf.common.models import MetricResult
-from aiperf.exporters.json_exporter import JsonExportData
+from aiperf.common.config import UserConfig
+from aiperf.common.models import ErrorDetailsCount, InputsFile, MetricResult
+from aiperf.common.types import MetricTagT
 
 
 class BenchmarkResult:
     """Fluent API for validating benchmark results.
 
     Provides easy-to-use methods for validating AIPerf output files,
-    metrics, and console output.
+    metrics, and console output. All data is parsed using Pydantic models
+    for type safety and validation.
     """
 
     def __init__(self, artifacts_dir: Path):
@@ -43,12 +47,15 @@ class BenchmarkResult:
             artifacts_dir: Path to AIPerf artifacts directory
         """
         self.artifacts_dir = Path(artifacts_dir)
-        self._json_dict: dict[str, Any] | None = None
+        self._records: dict[str, dict[str, Any]] | None = None  # Raw dict for flexibility
+        self._input_config: UserConfig | None = None  # Pydantic model
+        self._error_summary: list[ErrorDetailsCount] | None = None  # Pydantic models
+        self._was_cancelled: bool | None = None
         self._json_file: Path | None = None
         self._csv_file: Path | None = None
         self._csv_content: str | None = None
         self._log_file: Path | None = None
-        self._inputs_json: dict[str, Any] | None = None
+        self._inputs_file: InputsFile | None = None
         self._inputs_json_file: Path | None = None
         self._load_artifacts()
 
@@ -65,13 +72,29 @@ class BenchmarkResult:
         return cls(artifacts_dir)
 
     def _load_artifacts(self) -> None:
-        """Load all artifact files from directory."""
-        # Find JSON file
+        """Load all artifact files from directory using Pydantic models."""
+        # Find and parse JSON file
         json_files = list(self.artifacts_dir.glob("**/*aiperf.json"))
         if json_files:
             self._json_file = json_files[0]
             with open(self._json_file) as f:
-                self._json_dict = json.load(f)
+                json_dict = json.load(f)
+
+            # Store records as raw dict (some metrics have non-standard types like datetime strings)
+            if "records" in json_dict and json_dict["records"]:
+                self._records = json_dict["records"]
+
+            # Parse input_config
+            if "input_config" in json_dict and json_dict["input_config"]:
+                self._input_config = UserConfig(**json_dict["input_config"])
+
+            # Parse error_summary
+            if "error_summary" in json_dict and json_dict["error_summary"]:
+                error_adapter = TypeAdapter(list[ErrorDetailsCount])
+                self._error_summary = error_adapter.validate_python(json_dict["error_summary"])
+
+            # Parse was_cancelled
+            self._was_cancelled = json_dict.get("was_cancelled")
 
         # Find CSV file
         csv_files = list(self.artifacts_dir.glob("**/*aiperf.csv"))
@@ -85,26 +108,48 @@ class BenchmarkResult:
         if log_files:
             self._log_file = log_files[0]
 
-        # Find inputs.json
+        # Find and parse inputs.json
         inputs_files = list(self.artifacts_dir.glob("**/inputs.json"))
         if inputs_files:
             self._inputs_json_file = inputs_files[0]
             with open(self._inputs_json_file) as f:
-                self._inputs_json = json.load(f)
+                inputs_dict = json.load(f)
+            try:
+                self._inputs_file = InputsFile(**inputs_dict)
+            except ValidationError as e:
+                # Log warning but don't fail - some tests may not need strict validation
+                import warnings
+                warnings.warn(f"inputs.json validation failed: {e}")
 
     @property
-    def json_data(self) -> dict[str, Any]:
-        """Get parsed JSON export data."""
-        if self._json_dict is None:
-            raise AssertionError("No JSON export file found")
-        return self._json_dict
+    def records(self) -> dict[str, dict[str, Any]]:
+        """Get metrics records dict.
+
+        Returns raw dicts instead of Pydantic models because metric values
+        can have varying types (floats, ints, datetime strings, etc.).
+        """
+        if self._records is None:
+            raise AssertionError("No records found in JSON export")
+        return self._records
 
     @property
-    def records(self) -> dict[str, Any]:
-        """Get metrics records from JSON export."""
-        if "records" not in self.json_data:
-            raise AssertionError("JSON export has no records")
-        return self.json_data["records"]
+    def input_config(self) -> UserConfig:
+        """Get parsed input configuration (Pydantic model)."""
+        if self._input_config is None:
+            raise AssertionError("No input_config found in JSON export")
+        return self._input_config
+
+    @property
+    def error_summary(self) -> list[ErrorDetailsCount]:
+        """Get parsed error summary (Pydantic models)."""
+        if self._error_summary is None:
+            return []
+        return self._error_summary
+
+    @property
+    def was_cancelled(self) -> bool:
+        """Get cancellation status."""
+        return self._was_cancelled or False
 
     @property
     def csv_content(self) -> str:
@@ -114,11 +159,11 @@ class BenchmarkResult:
         return self._csv_content
 
     @property
-    def inputs_json(self) -> dict[str, Any]:
-        """Get inputs.json content."""
-        if self._inputs_json is None:
-            raise AssertionError("No inputs.json file found")
-        return self._inputs_json
+    def inputs_file(self) -> InputsFile:
+        """Get parsed inputs.json (Pydantic model)."""
+        if self._inputs_file is None:
+            raise AssertionError("No inputs.json file found or failed to parse")
+        return self._inputs_file
 
     # Metric assertion methods
 
@@ -155,7 +200,7 @@ class BenchmarkResult:
         metric = self.records.get(metric_tag)
         assert metric is not None, f"Metric '{metric_tag}' not found"
 
-        value = metric.get(stat) if isinstance(metric, dict) else getattr(metric, stat, None)
+        value = metric.get(stat)
         assert value is not None, f"Metric '{metric_tag}' missing '{stat}' statistic"
 
         diff = abs(value - expected)
@@ -182,7 +227,7 @@ class BenchmarkResult:
         metric = self.records.get(metric_tag)
         assert metric is not None, f"Metric '{metric_tag}' not found"
 
-        value = metric.get(stat) if isinstance(metric, dict) else getattr(metric, stat, None)
+        value = metric.get(stat)
         assert value is not None, f"Metric '{metric_tag}' missing '{stat}' statistic"
 
         if min_value is not None:
@@ -213,7 +258,7 @@ class BenchmarkResult:
         count = self.records.get("request_count")
         assert count is not None, "request_count metric not found"
 
-        avg_count = count.get("avg") if isinstance(count, dict) else getattr(count, "avg", None)
+        avg_count = count.get("avg")
         assert avg_count is not None, "request_count.avg is None"
 
         if exact is not None:
@@ -283,15 +328,15 @@ class BenchmarkResult:
             f"Metric '{metric_name}' not displayed in console output"
         )
 
-    # Inputs.json assertion methods
+    # Inputs.json assertion methods (using Pydantic InputsFile model)
 
     def assert_inputs_json_exists(self) -> "BenchmarkResult":
-        """Assert inputs.json file exists.
+        """Assert inputs.json file exists and is parsed.
 
         Returns:
             self for chaining
         """
-        assert self._inputs_json is not None, "inputs.json not found"
+        assert self._inputs_file is not None, "inputs.json not found or failed to parse"
         return self
 
     def assert_inputs_json_has_sessions(self, min_sessions: int = 1) -> "BenchmarkResult":
@@ -303,10 +348,7 @@ class BenchmarkResult:
         Returns:
             self for chaining
         """
-        self.assert_inputs_json_exists()
-        assert "data" in self.inputs_json, "inputs.json missing 'data' field"
-        assert isinstance(self.inputs_json["data"], list), "data should be list"
-        num_sessions = len(self.inputs_json["data"])
+        num_sessions = len(self.inputs_file.data)
         assert num_sessions >= min_sessions, (
             f"Expected at least {min_sessions} sessions, got {num_sessions}"
         )
@@ -321,8 +363,8 @@ class BenchmarkResult:
         self.assert_inputs_json_exists()
 
         has_image = False
-        for session in self.inputs_json["data"]:
-            for payload in session.get("payloads", []):
+        for session in self.inputs_file.data:
+            for payload in session.payloads:
                 for msg in payload.get("messages", []):
                     content = msg.get("content", [])
                     if isinstance(content, list):
@@ -343,8 +385,8 @@ class BenchmarkResult:
         self.assert_inputs_json_exists()
 
         has_audio = False
-        for session in self.inputs_json["data"]:
-            for payload in session.get("payloads", []):
+        for session in self.inputs_file.data:
+            for payload in session.payloads:
                 for msg in payload.get("messages", []):
                     content = msg.get("content", [])
                     if isinstance(content, list):
@@ -397,21 +439,13 @@ class BenchmarkResult:
         Returns:
             self for chaining
         """
-        if "input_config" not in self.json_data:
-            raise AssertionError("No input_config in JSON export")
-
-        # Navigate through config using dot notation
-        current = self.json_data["input_config"]
+        # Navigate through Pydantic config model using dot notation
+        current = self.input_config
         for key in config_path.split("."):
-            if isinstance(current, dict):
-                if key in current:
-                    current = current[key]
-                else:
-                    raise AssertionError(f"Config key '{key}' not found in path '{config_path}'")
-            elif hasattr(current, key):
+            if hasattr(current, key):
                 current = getattr(current, key)
             else:
-                raise AssertionError(f"Config path '{config_path}' not found")
+                raise AssertionError(f"Config path '{config_path}' not found (key: {key})")
 
         assert current == expected_value, (
             f"Config '{config_path}' is {current}, expected {expected_value}"
@@ -421,21 +455,20 @@ class BenchmarkResult:
     # Error summary assertion methods
 
     def assert_no_errors(self) -> "BenchmarkResult":
-        """Assert no errors in error summary.
+        """Assert no errors in error summary (using Pydantic models).
 
         Returns:
             self for chaining
         """
-        error_summary = self.json_data.get("error_summary", [])
-        if error_summary:
-            total_errors = sum(err.get("count", 0) if isinstance(err, dict) else err.count for err in error_summary)
+        if self.error_summary:
+            total_errors = sum(err.count for err in self.error_summary)
             assert total_errors == 0, (
-                f"Expected no errors, but found {total_errors}: {error_summary}"
+                f"Expected no errors, but found {total_errors}: {self.error_summary}"
             )
         return self
 
     def assert_error_count(self, min_errors: int = 0, max_errors: int | None = None) -> "BenchmarkResult":
-        """Assert error count is within range.
+        """Assert error count is within range (using Pydantic models).
 
         Args:
             min_errors: Minimum expected errors
@@ -444,10 +477,7 @@ class BenchmarkResult:
         Returns:
             self for chaining
         """
-        total_errors = 0
-        error_summary = self.json_data.get("error_summary", [])
-        if error_summary:
-            total_errors = sum(err.get("count", 0) if isinstance(err, dict) else err.count for err in error_summary)
+        total_errors = sum(err.count for err in self.error_summary)
 
         assert total_errors >= min_errors, (
             f"Expected at least {min_errors} errors, got {total_errors}"
@@ -459,6 +489,36 @@ class BenchmarkResult:
             )
 
         return self
+
+    def assert_was_cancelled(self, expected: bool = True) -> "BenchmarkResult":
+        """Assert benchmark was or was not cancelled.
+
+        Args:
+            expected: Whether benchmark should have been cancelled
+
+        Returns:
+            self for chaining
+        """
+        assert self.was_cancelled == expected, (
+            f"Expected was_cancelled={expected}, got {self.was_cancelled}"
+        )
+        return self
+
+    def get_metric(self, metric_tag: str) -> dict[str, Any]:
+        """Get metric by tag (returns dict).
+
+        Args:
+            metric_tag: Metric tag
+
+        Returns:
+            Metric dict with stats (avg, min, max, etc.)
+
+        Raises:
+            AssertionError: If metric not found
+        """
+        metric = self.records.get(metric_tag)
+        assert metric is not None, f"Metric '{metric_tag}' not found"
+        return metric
 
 
 class ConsoleOutputValidator:
