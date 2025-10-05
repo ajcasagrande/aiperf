@@ -16,6 +16,10 @@ from aiperf.common.enums import (
 from aiperf.common.exceptions import MetricTypeError
 from aiperf.common.types import MetricTagT
 
+# Plugin system imports (AIP-001)
+from aiperf.plugins.discovery import PluginDiscovery, PluginLoader
+from aiperf.plugins.validator import PluginValidator
+
 if TYPE_CHECKING:
     # This is used to avoid circular imports
     from aiperf.metrics.base_metric import BaseMetric
@@ -43,6 +47,11 @@ class MetricRegistry:
     _instances_map: dict[MetricTagT, "BaseMetric"] = {}
     _instance_lock = Lock()
 
+    # Plugin system state (AIP-001)
+    _plugin_loader: PluginLoader | None = None
+    _plugin_validator: PluginValidator | None = None
+    _plugin_load_errors: dict[str, Exception] = {}
+
     def __init__(self) -> None:
         raise TypeError(
             "MetricRegistry is a singleton and cannot be instantiated directly"
@@ -54,6 +63,8 @@ class MetricRegistry:
         This method dynamically imports all metric type modules from the 'types' directory to ensure
         all metric classes are registered via __init_subclass__. This will be called once when the
         module is imported.
+
+        This method also discovers and loads metric plugins via the AIP-001 plugin system.
         """
         # Get the types directory path
         types_dir = Path(__file__).parent / "types"
@@ -74,6 +85,9 @@ class MetricRegistry:
         # Import all metric type modules to trigger registration
         cls._import_metric_type_modules(types_dir, module_prefix)
 
+        # Discover and load metric plugins (AIP-001)
+        cls._discover_metric_plugins()
+
     @classmethod
     def _import_metric_type_modules(cls, types_dir: Path, module_prefix: str) -> None:
         """Import all metric type modules from the given directory. This will raise an error if the module cannot be imported."""
@@ -92,11 +106,142 @@ class MetricRegistry:
                     ) from err
 
     @classmethod
+    def _discover_metric_plugins(cls) -> None:
+        """
+        Discover and load metric plugins via the AIP-001 plugin system.
+
+        This method:
+        1. Discovers metric plugins via entry points
+        2. Loads and validates each plugin
+        3. Registers valid plugins with the MetricRegistry
+        4. Logs plugin discovery and any errors
+        5. Handles errors gracefully without failing the entire discovery process
+
+        Plugin loading is performed lazily and errors are logged but do not prevent
+        built-in metrics from working. This ensures backward compatibility.
+        """
+        # Initialize plugin system components (lazy initialization)
+        if cls._plugin_loader is None:
+            cls._plugin_loader = PluginLoader()
+        if cls._plugin_validator is None:
+            cls._plugin_validator = PluginValidator()
+
+        # Discover metric plugins via entry points
+        _logger.info("Discovering metric plugins (AIP-001)...")
+        plugin_group = "aiperf.metric"
+
+        try:
+            plugin_metadata_list = PluginDiscovery.discover_plugins_by_group(plugin_group)
+
+            if not plugin_metadata_list:
+                _logger.debug("No metric plugins discovered via entry points")
+                return
+
+            _logger.info(f"Discovered {len(plugin_metadata_list)} metric plugin(s)")
+
+            # Track statistics for summary logging
+            loaded_count = 0
+            failed_count = 0
+            registered_count = 0
+
+            # Load and register each plugin
+            for plugin_metadata in plugin_metadata_list:
+                try:
+                    _logger.debug(
+                        f"Loading metric plugin '{plugin_metadata.name}' from {plugin_metadata.entry_point.value}"
+                    )
+
+                    # Load the plugin (lazy loading)
+                    plugin_class = cls._plugin_loader.load_plugin(plugin_metadata)
+
+                    if plugin_class is None:
+                        _logger.warning(f"Failed to load metric plugin '{plugin_metadata.name}'")
+                        failed_count += 1
+                        continue
+
+                    loaded_count += 1
+
+                    # Validate the plugin conforms to MetricPluginProtocol
+                    if not cls._plugin_validator.validate_plugin(plugin_class, plugin_group):
+                        _logger.error(
+                            f"Metric plugin '{plugin_metadata.name}' failed validation and will not be registered"
+                        )
+                        failed_count += 1
+                        continue
+
+                    # Register the plugin with the MetricRegistry
+                    # The plugin class should automatically register via __init_subclass__ if it inherits from BaseMetric
+                    # However, we need to ensure it's actually registered
+                    if hasattr(plugin_class, 'tag'):
+                        tag = plugin_class.tag
+
+                        # Check if already registered (could happen if plugin inherits from BaseMetric)
+                        if tag in cls._metrics_map:
+                            # Check if it's the same class or a different one
+                            if cls._metrics_map[tag] is plugin_class:
+                                _logger.debug(
+                                    f"Metric plugin '{plugin_metadata.name}' with tag '{tag}' already registered via __init_subclass__"
+                                )
+                                registered_count += 1
+                            else:
+                                _logger.warning(
+                                    f"Metric plugin '{plugin_metadata.name}' with tag '{tag}' conflicts with existing metric '{cls._metrics_map[tag].__name__}'"
+                                )
+                                failed_count += 1
+                        else:
+                            # Manually register if not already registered
+                            try:
+                                cls.register_metric(plugin_class)
+                                registered_count += 1
+                                _logger.info(
+                                    f"Registered metric plugin '{plugin_metadata.name}' with tag '{tag}'"
+                                )
+                            except MetricTypeError as e:
+                                _logger.error(
+                                    f"Failed to register metric plugin '{plugin_metadata.name}': {e}"
+                                )
+                                failed_count += 1
+                    else:
+                        _logger.error(
+                            f"Metric plugin '{plugin_metadata.name}' does not have a 'tag' attribute"
+                        )
+                        failed_count += 1
+
+                except Exception as e:
+                    # Catch all exceptions to prevent plugin loading from breaking the entire discovery process
+                    _logger.error(
+                        f"Error loading metric plugin '{plugin_metadata.name}': {e}",
+                        exc_info=True
+                    )
+                    cls._plugin_load_errors[plugin_metadata.name] = e
+                    failed_count += 1
+
+            # Log summary
+            _logger.info(
+                f"Metric plugin discovery complete: {registered_count} registered, "
+                f"{loaded_count} loaded, {failed_count} failed"
+            )
+
+            # Store load errors for diagnostics
+            if cls._plugin_loader:
+                cls._plugin_load_errors.update(cls._plugin_loader.get_load_errors())
+
+        except Exception as e:
+            # Catch all exceptions during discovery to ensure built-in metrics still work
+            _logger.error(
+                f"Error during metric plugin discovery: {e}",
+                exc_info=True
+            )
+            _logger.warning(
+                "Metric plugin discovery failed, but built-in metrics will continue to work normally"
+            )
+
+    @classmethod
     def register_metric(cls, metric: type["BaseMetric"]):
         """Register a metric class with the registry. This will raise a MetricTypeError if the class is already registered.
 
         This method is called automatically via the __init_subclass__ method of the BaseMetric class, so there is no need
-        to call it manually.
+        to call it manually. It is also called when registering metric plugins discovered via the AIP-001 plugin system.
         """
         if metric.tag in cls._metrics_map:
             # TODO: Should we consider adding an override_priority parameter to the metric class similar to AIPerfFactory?
@@ -184,6 +329,15 @@ class MetricRegistry:
             MetricTypeError: If a tag is not found.
         """
         return [cls.get_class(tag) for tag in tags]
+
+    @classmethod
+    def get_plugin_load_errors(cls) -> dict[str, Exception]:
+        """Get all plugin loading errors for diagnostics.
+
+        Returns:
+            Dictionary mapping plugin names to their loading exceptions.
+        """
+        return cls._plugin_load_errors.copy()
 
     @classmethod
     def _validate_dependencies(cls) -> None:
