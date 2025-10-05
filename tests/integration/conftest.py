@@ -17,6 +17,7 @@ import socket
 import sys
 import time
 from collections.abc import AsyncGenerator, Callable
+from contextlib import suppress
 from pathlib import Path
 
 import pytest
@@ -164,12 +165,10 @@ async def run_aiperf_subprocess(
 
         except asyncio.TimeoutError:
             # Kill the process on timeout
-            try:
+            with suppress(Exception) as e:
                 process.kill()
                 await process.wait()
-            except:
-                pass
-            raise RuntimeError(f"AIPerf subprocess timed out after {timeout}s")
+            raise RuntimeError(f"AIPerf subprocess timed out after {timeout}s") from e
     else:
         # Stream output to terminal in real-time
         process = await asyncio.create_subprocess_exec(
@@ -184,12 +183,10 @@ async def run_aiperf_subprocess(
             return process.returncode, "", ""
 
         except asyncio.TimeoutError:
-            try:
+            with suppress(Exception) as e:
                 process.kill()
                 await process.wait()
-            except:
-                pass
-            raise RuntimeError(f"AIPerf subprocess timed out after {timeout}s")
+            raise RuntimeError(f"AIPerf subprocess timed out after {timeout}s") from e
 
 
 @pytest.fixture
@@ -364,4 +361,6 @@ def assert_no_token_metrics(records: dict) -> None:
     """
     assert "ttft" not in records, "Should not have TTFT"
     assert "inter_token_latency" not in records, "Should not have ITL"
-    assert "output_sequence_length" not in records, "Should not have output_sequence_length"
+    assert "output_sequence_length" not in records, (
+        "Should not have output_sequence_length"
+    )

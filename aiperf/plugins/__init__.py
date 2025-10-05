@@ -38,12 +38,12 @@ from aiperf.plugins.discovery import (
     load_plugin,
 )
 from aiperf.plugins.protocols import (
-    MetricPluginProtocol,
-    EndpointPluginProtocol,
-    DataExporterPluginProtocol,
-    TransportPluginProtocol,
-    ProcessorPluginProtocol,
     CollectorPluginProtocol,
+    DataExporterPluginProtocol,
+    EndpointPluginProtocol,
+    MetricPluginProtocol,
+    ProcessorPluginProtocol,
+    TransportPluginProtocol,
 )
 from aiperf.plugins.registry import PluginRegistry
 
