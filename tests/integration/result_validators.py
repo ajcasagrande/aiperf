@@ -1,10 +1,9 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Pydantic-powered fluent API for validating AIPerf benchmark results."""
+"""Pythonic validation for AIPerf results using natural Python syntax and Pydantic models."""
 
 import json
 from pathlib import Path
-from typing import Any
 
 from pydantic import TypeAdapter, ValidationError
 
@@ -15,8 +14,35 @@ from aiperf.exporters.json_exporter import JsonExportData
 from .test_models import ChatCompletionPayload, MessageContentItem
 
 
+class MetricsView:
+    """View for metrics with natural Python protocol support."""
+
+    def __init__(self, records: dict[str, MetricResult]):
+        self._records = records
+
+    def __contains__(self, metric_tag: str) -> bool:
+        """Enable: 'ttft' in result.metrics"""
+        return metric_tag in self._records
+
+    def __getitem__(self, metric_tag: str) -> MetricResult:
+        """Enable: result.metrics['ttft']"""
+        if metric_tag not in self._records:
+            raise KeyError(f"Metric '{metric_tag}' not found")
+        return self._records[metric_tag]
+
+    def __iter__(self):
+        """Enable: for tag in result.metrics"""
+        return iter(self._records)
+
+    def __len__(self) -> int:
+        return len(self._records)
+
+    def get(self, metric_tag: str, default=None) -> MetricResult | None:
+        return self._records.get(metric_tag, default)
+
+
 class BenchmarkResult:
-    """Fluent API for validating AIPerf results using Pydantic models."""
+    """Pythonic API for validating AIPerf results using properties and natural syntax."""
 
     def __init__(self, artifacts_dir: Path):
         self.artifacts_dir = Path(artifacts_dir)
@@ -30,10 +56,6 @@ class BenchmarkResult:
         self._log_file: Path | None = None
         self._inputs_file: InputsFile | None = None
         self._load_artifacts()
-
-    @classmethod
-    def from_directory(cls, artifacts_dir: Path) -> "BenchmarkResult":
-        return cls(artifacts_dir)
 
     def _load_artifacts(self) -> None:
         """Load and parse all artifacts using Pydantic."""
