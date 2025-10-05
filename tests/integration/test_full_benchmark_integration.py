@@ -44,7 +44,7 @@ class TestFullBenchmarkIntegration:
             [
                 "profile",
                 "--model",
-                "gpt2",
+                "openai/gpt-oss-20b",
                 "--url",
                 mock_server["url"],
                 "--endpoint-type",
@@ -105,7 +105,7 @@ class TestFullBenchmarkIntegration:
             [
                 "profile",
                 "--model",
-                "gpt2",
+                "openai/gpt-oss-20b",
                 "--url",
                 mock_server["url"],
                 "--endpoint-type",
@@ -172,7 +172,7 @@ class TestFullBenchmarkIntegration:
             [
                 "profile",
                 "--model",
-                "gpt2",
+                "openai/gpt-oss-20b",
                 "--url",
                 mock_server["url"],
                 "--endpoint-type",
@@ -244,7 +244,7 @@ class TestFullBenchmarkIntegration:
             [
                 "profile",
                 "--model",
-                "gpt2",
+                "openai/gpt-oss-20b",
                 "--url",
                 mock_server["url"],
                 "--endpoint-type",
@@ -290,7 +290,7 @@ class TestFullBenchmarkIntegration:
             [
                 "profile",
                 "--model",
-                "gpt2",
+                "openai/gpt-oss-20b",
                 "--url",
                 mock_server["url"],
                 "--endpoint-type",
@@ -333,7 +333,7 @@ class TestFullBenchmarkIntegration:
             [
                 "profile",
                 "--model",
-                "gpt2",
+                "openai/gpt-oss-20b",
                 "--url",
                 mock_server["url"],
                 "--endpoint-type",
@@ -389,7 +389,7 @@ class TestMetricComputationIntegration:
             [
                 "profile",
                 "--model",
-                "gpt2",
+                "openai/gpt-oss-20b",
                 "--url",
                 mock_server["url"],
                 "--endpoint-type",
@@ -434,7 +434,7 @@ class TestMetricComputationIntegration:
             [
                 "profile",
                 "--model",
-                "gpt2",
+                "openai/gpt-oss-20b",
                 "--url",
                 mock_server["url"],
                 "--endpoint-type",
@@ -484,7 +484,7 @@ class TestErrorHandlingIntegration:
             [
                 "profile",
                 "--model",
-                "gpt2",
+                "openai/gpt-oss-20b",
                 "--url",
                 mock_server["url"],
                 "--endpoint-type",
@@ -532,7 +532,7 @@ class TestConfigurationIntegration:
             [
                 "profile",
                 "--model",
-                "gpt2",
+                "openai/gpt-oss-20b",
                 "--url",
                 mock_server["url"],
                 "--endpoint-type",
@@ -587,7 +587,7 @@ class TestEndpointTypesIntegration:
             [
                 "profile",
                 "--model",
-                "gpt2",
+                "openai/gpt-oss-20b",
                 "--url",
                 mock_server["url"],
                 "--endpoint-type",
@@ -601,7 +601,9 @@ class TestEndpointTypesIntegration:
             ]
         )
 
-        assert result["returncode"] == 0, f"Chat endpoint test failed: {result['stderr']}"
+        assert result["returncode"] == 0, (
+            f"Chat endpoint test failed: {result['stderr']}"
+        )
 
         output = validate_aiperf_output(result["output_dir"])
         records = output["json_results"]["records"]
@@ -625,7 +627,7 @@ class TestEndpointTypesIntegration:
             [
                 "profile",
                 "--model",
-                "gpt2",
+                "openai/gpt-oss-20b",
                 "--url",
                 mock_server["url"],
                 "--endpoint-type",
@@ -640,7 +642,9 @@ class TestEndpointTypesIntegration:
             ]
         )
 
-        assert result["returncode"] == 0, f"Chat streaming test failed: {result['stderr']}"
+        assert result["returncode"] == 0, (
+            f"Chat streaming test failed: {result['stderr']}"
+        )
 
         output = validate_aiperf_output(result["output_dir"])
         records = output["json_results"]["records"]
@@ -664,7 +668,7 @@ class TestEndpointTypesIntegration:
             [
                 "profile",
                 "--model",
-                "gpt2",
+                "openai/gpt-oss-20b",
                 "--url",
                 mock_server["url"],
                 "--endpoint-type",
@@ -705,7 +709,7 @@ class TestEndpointTypesIntegration:
             [
                 "profile",
                 "--model",
-                "gpt2",
+                "openai/gpt-oss-20b",
                 "--url",
                 mock_server["url"],
                 "--endpoint-type",
@@ -720,7 +724,9 @@ class TestEndpointTypesIntegration:
             ]
         )
 
-        assert result["returncode"] == 0, f"Completions streaming test failed: {result['stderr']}"
+        assert result["returncode"] == 0, (
+            f"Completions streaming test failed: {result['stderr']}"
+        )
 
         output = validate_aiperf_output(result["output_dir"])
         records = output["json_results"]["records"]
@@ -743,7 +749,7 @@ class TestEndpointTypesIntegration:
             [
                 "profile",
                 "--model",
-                "gpt2",
+                "openai/gpt-oss-20b",
                 "--url",
                 mock_server["url"],
                 "--endpoint-type",
@@ -810,7 +816,7 @@ class TestEndpointTypesIntegration:
             [
                 "profile",
                 "--model",
-                "gpt2",
+                "openai/gpt-oss-20b",
                 "--url",
                 mock_server["url"],
                 "--endpoint-type",
@@ -837,7 +843,9 @@ class TestEndpointTypesIntegration:
 
         # Rankings should NOT have streaming or token metrics
         assert "ttft" not in records, "Rankings should not have TTFT"
-        assert "output_sequence_length" not in records, "Rankings should not have output_sequence_length"
+        assert "output_sequence_length" not in records, (
+            "Rankings should not have output_sequence_length"
+        )
 
     @pytest.mark.skip(reason="Bug in aiperf responses API - needs to be fixed")
     async def test_responses_endpoint_non_streaming(
@@ -854,7 +862,7 @@ class TestEndpointTypesIntegration:
             [
                 "profile",
                 "--model",
-                "gpt2",
+                "openai/gpt-oss-20b",
                 "--url",
                 mock_server["url"],
                 "--endpoint-type",
@@ -893,7 +901,7 @@ class TestEndpointTypesIntegration:
             [
                 "profile",
                 "--model",
-                "gpt2",
+                "openai/gpt-oss-20b",
                 "--url",
                 mock_server["url"],
                 "--endpoint-type",
@@ -908,7 +916,9 @@ class TestEndpointTypesIntegration:
             ]
         )
 
-        assert result["returncode"] == 0, f"Responses streaming test failed: {result['stderr']}"
+        assert result["returncode"] == 0, (
+            f"Responses streaming test failed: {result['stderr']}"
+        )
 
         output = validate_aiperf_output(result["output_dir"])
         records = output["json_results"]["records"]

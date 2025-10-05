@@ -50,7 +50,7 @@ async def wait_for_server(host: str, port: int, timeout: float = 30.0) -> bool:
 async def mock_server_port() -> int:
     """Get an available port for mock server."""
     # Try a few common ports
-    for port in range(8765, 8800):
+    for port in range(39000, 40000):
         if not is_port_in_use(port):
             return port
     raise RuntimeError("No available ports found")
