@@ -180,13 +180,7 @@ class TestErrorHandlingIntegration:
     async def test_benchmark_handles_http_errors(
         self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
-        """Test that HTTP errors are tracked correctly.
-
-        WHY TEST THIS:
-        - Validates error tracking pipeline
-        - Ensures errors don't crash the benchmark
-        - Verifies error metrics are computed
-        """
+        """Validates HTTP error tracking."""
         args = [*base_profile_args, "--endpoint-type", "chat",
                 "--request-count", "10", "--concurrency", "5", "--timeout-seconds", "2"]
 
@@ -207,13 +201,7 @@ class TestConfigurationIntegration:
     async def test_artifact_directory_created(
         self, base_profile_args, aiperf_runner, temp_output_dir
     ):
-        """Test that artifact directory is created correctly.
-
-        WHY TEST THIS:
-        - Validates output directory creation
-        - Ensures file export works
-        - Verifies configuration is respected
-        """
+        """Validates artifact directory creation."""
         args = [*base_profile_args, "--endpoint-type", "chat",
                 "--request-count", DEFAULT_REQUEST_COUNT]
 
@@ -222,20 +210,11 @@ class TestConfigurationIntegration:
 
         assert list(temp_output_dir.glob("**/*aiperf.json"))
 
-    @pytest.mark.skip(
-        reason="Deterministic test - timing makes exact comparison difficult"
-    )
+    @pytest.mark.skip(reason="Deterministic test - timing makes exact comparison difficult")
     async def test_random_seed_produces_deterministic_results(
         self, mock_server, aiperf_runner, validate_aiperf_output, tmp_path
     ):
-        """Test that random seed produces deterministic behavior.
-
-        WHY TEST THIS:
-        - Validates reproducibility
-        - Ensures random seed is respected
-        - Verifies deterministic dataset generation
-        """
-        # Skipped - determinism tested at unit level, integration timing varies
+        """Validates random seed determinism."""
         pass
 
 
@@ -282,13 +261,7 @@ class TestEndpointTypesIntegration:
     async def test_chat_endpoint_non_streaming(
         self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
-        """Test chat endpoint in non-streaming mode.
-
-        WHY TEST THIS:
-        - Validates /v1/chat/completions endpoint
-        - Ensures non-streaming chat requests work
-        - Verifies response parsing
-        """
+        """Validates /v1/chat/completions non-streaming."""
         output = await self._test_endpoint(
             base_profile_args, aiperf_runner, validate_aiperf_output, "chat"
         )
@@ -297,13 +270,7 @@ class TestEndpointTypesIntegration:
     async def test_chat_endpoint_streaming(
         self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
-        """Test chat endpoint in streaming mode.
-
-        WHY TEST THIS:
-        - Validates /v1/chat/completions with streaming
-        - Ensures SSE parsing works
-        - Verifies TTFT and ITL metrics
-        """
+        """Validates /v1/chat/completions streaming."""
         await self._test_endpoint(
             base_profile_args,
             aiperf_runner,
@@ -316,13 +283,7 @@ class TestEndpointTypesIntegration:
     async def test_completions_endpoint_non_streaming(
         self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
-        """Test completions endpoint in non-streaming mode.
-
-        WHY TEST THIS:
-        - Validates /v1/completions endpoint
-        - Ensures legacy completions API works
-        - Verifies token-based metrics
-        """
+        """Validates /v1/completions non-streaming."""
         output = await self._test_endpoint(
             base_profile_args, aiperf_runner, validate_aiperf_output, "completions"
         )
@@ -333,13 +294,7 @@ class TestEndpointTypesIntegration:
     async def test_completions_endpoint_streaming(
         self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
-        """Test completions endpoint in streaming mode.
-
-        WHY TEST THIS:
-        - Validates /v1/completions with streaming
-        - Ensures streaming works for legacy API
-        - Verifies streaming metrics computed
-        """
+        """Validates /v1/completions streaming."""
         await self._test_endpoint(
             base_profile_args,
             aiperf_runner,
@@ -352,13 +307,7 @@ class TestEndpointTypesIntegration:
     async def test_embeddings_endpoint(
         self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
-        """Test embeddings endpoint.
-
-        WHY TEST THIS:
-        - Validates /v1/embeddings endpoint
-        - Ensures embeddings requests work
-        - Verifies non-token-producing endpoint handling
-        """
+        """Validates /v1/embeddings endpoint."""
         await self._test_endpoint(
             base_profile_args,
             aiperf_runner,
@@ -368,20 +317,9 @@ class TestEndpointTypesIntegration:
         )
 
     async def test_rankings_endpoint(
-        self,
-        base_profile_args,
-        aiperf_runner,
-        validate_aiperf_output,
-        create_rankings_dataset,
+        self, base_profile_args, aiperf_runner, validate_aiperf_output, create_rankings_dataset
     ):
-        """Test rankings endpoint with custom dataset.
-
-        WHY TEST THIS:
-        - Validates /v1/ranking endpoint
-        - Ensures ranking requests work
-        - Verifies reranking endpoint handling
-        - Tests custom dataset with named Text objects
-        """
+        """Validates /v1/ranking endpoint with custom dataset."""
         dataset_path = create_rankings_dataset(int(DEFAULT_REQUEST_COUNT))
 
         extra_args = ["--input-file", str(dataset_path), "--custom-dataset-type", "single_turn"]
