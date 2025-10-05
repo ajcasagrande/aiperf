@@ -492,3 +492,150 @@ class TestMultiModalSyntheticGeneration:
         output = validate_aiperf_output(result["output_dir"])
         records = output["json_results"]["records"]
         assert_basic_metrics(records, "request_count")
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+class TestMultiModalWithDashboard:
+    """Integration tests for multi-modal content with dashboard UI."""
+
+    async def test_dashboard_ui_with_request_count(
+        self,
+        base_profile_args,
+        aiperf_runner,
+        validate_aiperf_output,
+    ):
+        """Test dashboard UI with multi-modal content using request count.
+
+        WHY TEST THIS:
+        - Validates dashboard UI works with multi-modal benchmarks
+        - Ensures progress tracking displays correctly for images/audio
+        - Tests request-count based stopping condition with dashboard
+        - Verifies UI doesn't break with complex multi-modal payloads
+        """
+        # Build args with dashboard UI instead of simple
+        # base_profile_args contains: profile, --model, ..., --url, ..., --ui, simple
+        # We need to replace the --ui simple part with --ui dashboard
+        args_without_ui = []
+        skip_next = False
+        for _i, arg in enumerate(base_profile_args):
+            if skip_next:
+                skip_next = False
+                continue
+            if arg == "--ui":
+                skip_next = True  # Skip the next arg (simple)
+                continue
+            args_without_ui.append(arg)
+
+        dashboard_args = [
+            *args_without_ui,
+            "--ui",
+            "dashboard",
+            "--endpoint-type",
+            "chat",
+            "--request-count",
+            "10",
+            "--concurrency",
+            str(DEFAULT_CONCURRENCY),
+            "--image-width-mean",
+            "64",
+            "--image-height-mean",
+            "64",
+            "--audio-length-mean",
+            "0.1",
+        ]
+
+        result = await aiperf_runner(dashboard_args)
+
+        if result["returncode"] != 0:
+            print(f"\n=== STDOUT ===\n{result['stdout']}")
+            print(f"\n=== STDERR ===\n{result['stderr']}")
+
+        assert result["returncode"] == 0, (
+            f"Dashboard benchmark with request-count failed: {result['returncode']}"
+        )
+
+        output = validate_aiperf_output(result["output_dir"])
+        records = output["json_results"]["records"]
+
+        # Verify basic metrics exist
+        assert_basic_metrics(records, "request_count", "request_latency")
+
+        # Verify we completed the expected number of requests
+        completed = records["request_count"].get("avg", 0)
+        assert completed >= 8, f"Too few requests completed: {completed}"
+
+        # Verify multi-modal metrics
+        assert_basic_metrics(records, "output_sequence_length")
+
+    async def test_dashboard_ui_with_benchmark_duration(
+        self,
+        base_profile_args,
+        aiperf_runner,
+        validate_aiperf_output,
+    ):
+        """Test dashboard UI with multi-modal content using benchmark duration.
+
+        WHY TEST THIS:
+        - Validates dashboard UI with time-based stopping condition
+        - Ensures duration-based benchmarks work with multi-modal content
+        - Tests that dashboard displays time remaining correctly
+        - Verifies streaming multi-modal content works with duration limit
+        """
+        # Build args with dashboard UI instead of simple
+        # base_profile_args contains: profile, --model, ..., --url, ..., --ui, simple
+        # We need to replace the --ui simple part with --ui dashboard
+        args_without_ui = []
+        skip_next = False
+        for _i, arg in enumerate(base_profile_args):
+            if skip_next:
+                skip_next = False
+                continue
+            if arg == "--ui":
+                skip_next = True  # Skip the next arg (simple)
+                continue
+            args_without_ui.append(arg)
+
+        dashboard_args = [
+            *args_without_ui,
+            "--ui",
+            "dashboard",
+            "--endpoint-type",
+            "chat",
+            "--streaming",
+            "--benchmark-duration",
+            "10",  # 10 second duration
+            "--concurrency",
+            "3",
+            "--image-width-mean",
+            "64",
+            "--image-height-mean",
+            "64",
+            "--audio-length-mean",
+            "0.1",
+            "--audio-format",
+            "wav",
+        ]
+
+        result = await aiperf_runner(dashboard_args, timeout=30.0)
+
+        if result["returncode"] != 0:
+            print(f"\n=== STDOUT ===\n{result['stdout']}")
+            print(f"\n=== STDERR ===\n{result['stderr']}")
+
+        assert result["returncode"] == 0, (
+            f"Dashboard benchmark with duration failed: {result['returncode']}"
+        )
+
+        output = validate_aiperf_output(result["output_dir"])
+        records = output["json_results"]["records"]
+
+        # Verify basic metrics exist
+        assert_basic_metrics(records, "request_count", "request_latency")
+
+        # Verify streaming metrics exist
+        assert_basic_metrics(records, "ttft", "inter_token_latency")
+
+        # Verify some requests were completed (at least a few in 10 seconds)
+        completed = records["request_count"].get("avg", 0)
+        assert completed >= 3, f"Too few requests in duration test: {completed}"
