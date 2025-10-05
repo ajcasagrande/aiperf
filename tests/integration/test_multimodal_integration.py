@@ -26,6 +26,7 @@ from tests.integration.conftest import (
     run_and_validate_benchmark,
 )
 from tests.integration.result_validators import BenchmarkResult
+from tests.integration.test_models import AIPerfRunResult
 
 
 @pytest.mark.integration
@@ -274,13 +275,13 @@ class TestDeterministicBehavior:
             output_dir.mkdir()
             args = [*base_args, "--artifact-dir", str(output_dir)]
 
-            result = await aiperf_runner(args, add_artifact_dir=False)
-            assert result["returncode"] == 0
+            result: AIPerfRunResult = await aiperf_runner(args, add_artifact_dir=False)
+            assert result.returncode == 0
             results.append(validate_aiperf_output(output_dir))
 
         # Compare using Pydantic models
-        v1 = BenchmarkResult.from_directory(results[0]["actual_dir"])
-        v2 = BenchmarkResult.from_directory(results[1]["actual_dir"])
+        v1 = BenchmarkResult.from_directory(results[0].actual_dir)
+        v2 = BenchmarkResult.from_directory(results[1].actual_dir)
 
         inputs_1, inputs_2 = v1.inputs_file, v2.inputs_file
         assert len(inputs_1.data) == len(inputs_2.data)
